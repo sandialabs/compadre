@@ -1,0 +1,32 @@
+<ParameterList name="Compadre">
+  <Parameter name="simulation type" type="string" value="eulerian"/>
+  <Parameter name="my coloring" type="int" value="25"/>
+  <Parameter name="peer coloring" type="int" value="33"/>
+  <Parameter name="field" type="int" value="4"/>
+  <Parameter name="two way passes" type="int" value="0"/>
+  <Parameter name="metric" type="int" value="2"/>
+  <ParameterList name="io">
+    <Parameter name="input file prefix" type="string" value="../data_sets/canga/Grids/"/>
+    <Parameter name="input file" type="string" value=""/>
+    <Parameter name="output file prefix" type="string" value=""/>
+    <Parameter name="output file" type="string" value="canga_output_lower.pvtp"/>
+    <Parameter name="nc type" type="string" value="HOMME"/>
+  </ParameterList>
+  <ParameterList name="remap">
+    <Parameter name="porder" type="int" value="1"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="2.8"/>
+    <Parameter name="dense linear solver" type="string" value="MANIFOLD"/>
+    <Parameter name="obfet" type="bool" value="true"/>
+    <Parameter name="source weighting field name" type="string" value="grid_area"/>
+    <Parameter name="target weighting field name" type="string" value="grid_area"/>
+  </ParameterList>
+  <ParameterList name="neighborhood">
+    <Parameter name="method" type="string" value="nanoflann"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.4"/>
+    <Parameter name="size" type="double" value=".0125"/>
+  </ParameterList>
+  <ParameterList name="halo">
+    <Parameter name="multiplier" type="double" value="5.0"/>
+    <Parameter name="size" type="double" value="0.3"/>
+  </ParameterList>
+</ParameterList>

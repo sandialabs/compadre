@@ -1,0 +1,34 @@
+<ParameterList name="Compadre">
+  <ParameterList name="io">
+    <Parameter name="input file prefix" type="string" value="../test_data/grids/"/>
+    <Parameter name="input file" type="string" value="output.vtk"/>
+    <Parameter name="output file prefix" type="string" value="../test_data/"/>
+    <Parameter name="output file" type="string" value="trilinos_test_output_blockdiag5x5.pvtp"/>
+  </ParameterList>
+  <ParameterList name="solver">
+    <Parameter name="type" type="string" value="iterative"/>
+    <Parameter name="blocked" type="bool" value="true"/>
+    <Parameter name="file" type="string" value="../test_data/parameter_lists/trilinos_test/solver_amg_blockdiag5x5.xml"/>
+  </ParameterList>
+  <ParameterList name="gmls">
+    <Parameter name="porder" type="int" value="2"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
+  </ParameterList>
+  <ParameterList name="remap">
+    <Parameter name="porder" type="int" value="2"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.1"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
+  </ParameterList>
+  <ParameterList name="neighborhood">
+    <Parameter name="method" type="string" value="nanoflann"/>
+    <Parameter name="dynamic radius" type="bool" value="false"/>
+    <Parameter name="spatially varying radius" type="bool" value="false"/>
+    <Parameter name="size" type="double" value="0.38"/>
+    <Parameter name="multiplier" type="double" value="0.0"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.1"/>
+  </ParameterList>
+  <ParameterList name="halo">
+    <Parameter name="dynamic" type="bool" value="false"/>
+    <Parameter name="size" type="double" value="0.38"/>
+  </ParameterList>
+</ParameterList>

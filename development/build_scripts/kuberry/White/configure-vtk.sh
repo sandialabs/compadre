@@ -1,0 +1,36 @@
+rm -rf CMakeCache* CMakeFiles*
+
+VTK_ROOT=$HOME/releases/VTK
+
+cmake \
+-D BUILD_SHARED_LIBS:BOOL=ON \
+-D CMAKE_BUILD_TYPE="Release" \
+-D CMAKE_C_COMPILER=mpicc \
+-D CMAKE_CXX_COMPILER=mpic++ \
+-D CMAKE_CXX_FLAGS="--std=c++11 -lGLEW -lGL -lxcb -lX11" \
+-D VTK_BUILD_ALL_MODULES=FALSE \
+-D BUILD_EXAMPLES:BOOL=OFF \
+-D BUILD_TESTING:BOOL=OFF \
+-D VTK_BUILD_ALL_MODULES_FOR_TESTS:BOOL=OFF \
+-D VTK_Group_Rendering:BOOL=OFF \
+-D VTK_Group_MPI:BOOL=ON \
+-D Module_vtkCommonCore:BOOL=ON \
+-D Module_vtkCommonDataModel:BOOL=ON \
+-D VTK_RENDERING_BACKEND=OpenGL \
+-D VTK_SMP_IMPLEMENTATION_TYPE=OPENMP \
+-D VTK_USE_X:BOOL=OFF \
+-D VTK_USE_PARALLEL:BOOL=ON \
+-D VTK_USE_MPI:BOOL=ON \
+-D Module_vtkFiltersParallelMPI:BOOL=ON \
+-D Module_vtkIOMPIParallel:BOOL=ON \
+-D Module_vtkIOParallelExodus:BOOL=ON \
+-D Module_vtkIOParallelNetCDF:BOOL=ON \
+-D Module_vtkParallelMPI:BOOL=ON \
+-D Module_vtkRenderingParallel:BOOL=ON \
+-D MPIEXEC_MAX_NUMPROCS:STRING=8 \
+-D Module_vtkIOMPIImage:BOOL=ON \
+-D VTK_Group_MPI:BOOL=ON \
+-D VTK_MPI_MAX_NUMPROCS:STRING=8 \
+-D CMAKE_INSTALL_PREFIX:FILEPATH=$VTK_ROOT/build/install \
+ ..
+

@@ -1,0 +1,15 @@
+<ParameterList name="Compadre">
+  <Parameter name="simulation type" type="string" value="eulerian"/>
+  <ParameterList name="remap">
+    <Parameter name="porder" type="int" value="2"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="1.4"/>
+  </ParameterList>
+  <ParameterList name="neighborhood">
+    <Parameter name="method" type="string" value="nanoflann"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.4"/>
+    <Parameter name="size" type="double" value=".125"/>
+  </ParameterList>
+  <ParameterList name="halo">
+    <Parameter name="multiplier" type="double" value="1.5"/>
+  </ParameterList>
+</ParameterList>

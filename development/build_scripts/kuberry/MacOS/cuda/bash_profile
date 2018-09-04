@@ -1,0 +1,58 @@
+export PS1="[\u@\h \w] \D{%F %T}\n\$ "
+
+export HTTP_PROXY=https://wwwproxy.sandia.gov:80
+export HTTPS_PROXY=https://wwwproxy.sandia.gov:80
+export http_proxy=https://wwwproxy.sandia.gov:80
+export https_proxy=https://wwwproxy.sandia.gov:80
+
+git config --global http.proxy $HTTP_PROXY
+git config --global https.proxy $HTTPS_PROXY
+
+alias cp='cp -i'
+alias rm='rm -i'
+alias ls='ls -G'
+alias gitk='/usr/local/git/bin/gitk'
+alias curl="curl -x wwwproxy.sandia.gov:80"
+alias brew="ALL_PROXY=https://wwwproxy.sandia.gov:80 brew"
+
+
+export PATH="/Users/pakuber/anaconda/bin:$PATH"
+
+export PATH=/Developer/NVIDIA/CUDA-8.0/bin:$PATH
+export DYLD_LIBRARY_PATH=/Developer/NVIDIA/CUDA-8.0/lib:$DYLD_LIBRARY_PATH
+
+export CXX=g++-4.9
+export CC=gcc-4.9
+export FC=gfortran-4.9
+
+export DYLD_LIBRARY_PATH=/usr/local/lib:$DYLD_LIBRARY_PATH
+
+export PATH=$PATH:/Applications/MATLAB_R2015b.app/bin
+export NANOFLANN_ROOT=$HOME/releases/Nanoflann
+export KOKKOS_ROOT=$HOME/releases/KokkosBuild/build
+export GSL_ROOT=/usr/local/Cellar/gsl/2.3
+export PATH=/usr/local/bin:$PATH
+export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH:$HOME/releases/Trilinos_Rol/build
+
+export MPICXX=mpicxx
+export MPICC=mpicc
+export MPIFC=mpifort
+
+export MPI_ROOT=/Users/pakuber/Compadre/openmpi-2.0.2/build/install
+export PATH=$MPI_ROOT/bin:$PATH
+export DYLD_LIBRARY_PATH=$MPI_ROOT/lib:$DYLD_LIBRARY_PATH
+
+export VTK_ROOT=/usr/local/opt/vtk
+export DYLD_LIBRARY_PATH=$VTK_ROOT/lib:$DYLD_LIBRARY_PATH
+
+export PYTRILINOS_ROOT=/Users/pakuber/Compadre/trilinos/build/install
+export DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:$PYTRILINOS_ROOT/lib
+
+export TRILINOS_ROOT=/Users/pakuber/Compadre/trilinos/build/install
+export DYLD_LIBRARY_PATH=$TRILINOS_ROOT/lib:$DYLD_LIBRARY_PATH
+
+export OMPI_CXX=/Users/pakuber/Compadre/trilinos/packages/kokkos/config/nvcc_wrapper
+export NVCC_WRAPPER_DEFAULT_COMPILER=g++-4.9
+export CUDA_LAUNCH_BLOCKING=1
+
+export DYLD_LIBRARY_PATH=/System/Library/Frameworks/ImageIO.framework/Versions/Current/Resources:$DYLD_LIBRARY_PATH

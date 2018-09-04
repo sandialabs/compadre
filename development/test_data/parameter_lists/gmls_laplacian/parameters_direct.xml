@@ -1,0 +1,30 @@
+<ParameterList name="Compadre">
+  <Parameter name="loop size" type="int" value="3"/>
+  <ParameterList name="io">
+    <Parameter name="input file prefix" type="string" value="../test_data/grids/output_"/>
+    <Parameter name="input file" type="string" value=""/>
+    <Parameter name="output file prefix" type="string" value="../test_data/direct_"/>
+    <Parameter name="output file" type="string" value=".pvtp"/>
+    <Parameter name="vtk produce mesh" type="bool" value="false"/>
+  </ParameterList>
+  <ParameterList name="solver">
+    <Parameter name="type" type="string" value="direct"/>
+  </ParameterList>
+  <ParameterList name="gmls">
+    <Parameter name="porder" type="int" value="2"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
+  </ParameterList>
+  <ParameterList name="remap">
+    <Parameter name="weighting power" type="int" value="6"/>
+  </ParameterList>
+  <ParameterList name="neighborhood">
+    <Parameter name="method" type="string" value="nanoflann"/>
+    <Parameter name="dynamic radius" type="bool" value="true"/>
+    <Parameter name="spatially varying radius" type="bool" value="true"/>
+    <Parameter name="multiplier" type="double" value="1.125"/>
+  </ParameterList>
+  <ParameterList name="halo">
+    <Parameter name="dynamic" type="bool" value="true"/>
+    <Parameter name="multiplier" type="double" value="3.0"/>
+  </ParameterList>
+</ParameterList>

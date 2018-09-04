@@ -1,0 +1,41 @@
+<ParameterList name="Compadre">
+  <Parameter name="simulation type" type="string" value="lagrangian2"/>
+  <Parameter name="shallow water test case" type="int" value="2"/>
+  <ParameterList name="solver">
+    <Parameter name="blocked" type="bool" value="false"/>
+  </ParameterList>
+  <ParameterList name="remap">
+    <Parameter name="porder" type="int" value="2"/>
+    <Parameter name="manifold porder" type="int" value="2"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="1.8"/>
+    <Parameter name="dense linear solver" type="string" value="MANIFOLD"/>
+  </ParameterList>
+  <ParameterList name="neighborhood">
+    <Parameter name="method" type="string" value="nanoflann"/>
+    <Parameter name="dynamic radius" type="bool" value="true"/>
+    <Parameter name="spatially varying radius" type="bool" value="true"/>
+    <Parameter name="multiplier" type="double" value="2.10"/>
+    <Parameter name="size" type="double" value="0.25"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.1"/>
+  </ParameterList>
+  <ParameterList name="halo">
+    <Parameter name="dynamic" type="bool" value="true"/>
+    <Parameter name="multiplier" type="double" value="32.0"/>
+  </ParameterList>
+  <ParameterList name="time">
+    <Parameter name="rk order" type="int" value="4"/>
+    <Parameter name="t0" type="double" value="0"/>
+    <Parameter name="t_end" type="double" value="20000.0"/>
+    <Parameter name="dt" type="double" value="500"/>
+    <Parameter name="dt multiplier" type="double" value="0.7"/>
+  </ParameterList>
+  <ParameterList name="io">
+    <Parameter name="input file prefix" type="string" value="../data_sets/"/>
+    <Parameter name="input file" type="string" value="shallow_2.nc"/>
+    <Parameter name="nc type" type="string" value="HOMME"/>
+    <Parameter name="output file prefix" type="string" value=""/>
+    <Parameter name="output file" type="string" value="shallow_water.pvtp"/>
+    <Parameter name="write every" type="int" value="-1"/>
+    <Parameter name="keep original lat lon" type="bool" value="true"/>
+  </ParameterList>
+</ParameterList>

@@ -1,0 +1,12 @@
+import sys
+
+# if your machine has conflicts between the compiler used to build the module
+# and the compiler used to build python, add the conflicting libraries here
+# from your compiler so that the conflicting python versions are not found
+
+from ctypes import *
+lib1 = cdll.LoadLibrary('@GOMP_LIB@')
+lib2 = cdll.LoadLibrary('@STDC_LIB@')
+
+# import the gmls model
+import gmls

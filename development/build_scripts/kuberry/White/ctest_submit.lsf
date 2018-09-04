@@ -1,0 +1,9 @@
+#!/bin/sh
+#BSUB -n 16
+#BSUB -e openmpi_%J.err
+#BSUB -o openmpi_%J.out
+#BSUB -R "span[ptile=8]"
+export PATH="/home/projects/pwr8-rhel73-lsf/openmpi/1.10.4/gcc/5.4.0/cuda/8.0.44/bin:$PATH"
+export LD_LIBRARY_PATH="/home/projects/pwr8-rhel73-lsf/openmpi/1.10.4/gcc/5.4.0/cuda/8.0.44/lib:$LD_LIBRARY_PATH"
+ctest
+#mpirun deviceQuery

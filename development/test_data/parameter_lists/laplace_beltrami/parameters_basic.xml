@@ -1,0 +1,46 @@
+<ParameterList name="Compadre">
+  <!--Parameter name="solution type" type="string" value="five_strip"/-->
+  <!--Parameter name="solution type" type="string" value="div_grad"/-->
+  <!--Parameter name="solution type" type="string" value="laplace"/-->
+  <!--Parameter name="solution type" type="string" value="point"/-->
+  <!--Parameter name="solution type" type="string" value="vector"/-->
+  <!--Parameter name="solution type" type="string" value="grad"/-->
+  <Parameter name="solution type" type="string" value="lb solve"/>
+  <!--Parameter name="solution type" type="string" value="staggered"/-->
+  <Parameter name="physics number" type="int" value="1"/>
+  <ParameterList name="io">
+    <Parameter name="input file prefix" type="string" value="../data_sets/"/>
+    <Parameter name="input file" type="string" value="shallow_0.nc"/>
+    <Parameter name="nc type" type="string" value="HOMME"/>
+    <Parameter name="output file prefix" type="string" value=""/>
+    <Parameter name="output file" type="string" value="lb.pvtp"/>
+    <Parameter name="vtk produce mesh" type="bool" value="true"/>
+  </ParameterList>
+  <ParameterList name="solver">
+    <Parameter name="type" type="string" value="iterative"/>
+    <Parameter name="file" type="string" value="laplace_beltrami/solver_amg.xml"/>
+    <!--Parameter name="type" type="string" value="direct"/-->
+    <Parameter name="blocked" type="bool" value="false"/>
+  </ParameterList>
+  <ParameterList name="remap">
+    <Parameter name="porder" type="int" value="4"/>
+    <Parameter name="manifold porder" type="int" value="3"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="2.8"/>
+    <Parameter name="dense linear solver" type="string" value="MANIFOLD"/>
+    <Parameter name="weighting power" type="int" value="12"/>
+    <Parameter name="manifold weighting power" type="int" value="12"/>
+    <Parameter name="quadrature points" type="int" value="2"/>
+  </ParameterList>
+  <ParameterList name="neighborhood">
+    <Parameter name="method" type="string" value="nanoflann"/>
+    <Parameter name="dynamic radius" type="bool" value="true"/>
+    <Parameter name="spatially varying radius" type="bool" value="true"/>
+    <Parameter name="multiplier" type="double" value="2.10"/>
+    <Parameter name="size" type="double" value="0.25"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.1"/>
+  </ParameterList>
+  <ParameterList name="halo">
+    <Parameter name="dynamic" type="bool" value="true"/>
+    <Parameter name="multiplier" type="double" value="4.0"/>
+  </ParameterList>
+</ParameterList>

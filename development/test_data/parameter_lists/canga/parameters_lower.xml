@@ -1,0 +1,45 @@
+<ParameterList name="Compadre">
+  <Parameter name="simulation type" type="string" value="eulerian"/>
+  <Parameter name="my coloring" type="int" value="25"/>
+  <Parameter name="peer coloring" type="int" value="33"/>
+  <ParameterList name="io">
+    <Parameter name="input file prefix" type="string" value="../data_sets/canga/Grids/"/>
+    <!--Parameter name="input file" type="string" value="ne120np4_pentagons.100310.nc"/-->
+    <!--Parameter name="input file" type="string" value="ne30np4_pentagons.091226.nc"/-->
+    <!--Parameter name="input file" type="string" value="ne30np4_latlon.091226.nc"/-->
+    <!--Parameter name="input file" type="string" value="mpas_40962.nc"/-->
+    <Parameter name="input file" type="string" value="mpas_10242.nc"/>
+    <Parameter name="output file prefix" type="string" value=""/>
+    <Parameter name="output file" type="string" value="canga_output_lower.pvtp"/>
+    <Parameter name="nc type" type="string" value="HOMME"/>
+  </ParameterList>
+  <ParameterList name="remap">
+    <Parameter name="porder" type="int" value="3"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="1.4"/>
+    <Parameter name="dense linear solver" type="string" value="MANIFOLD"/>
+  </ParameterList>
+  <ParameterList name="neighborhood">
+    <Parameter name="method" type="string" value="nanoflann"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.1"/>
+    <Parameter name="size" type="double" value=".0125"/>
+  </ParameterList>
+  <ParameterList name="halo">
+    <Parameter name="multiplier" type="double" value="2.5"/>
+    <Parameter name="size" type="double" value="0.3"/>
+  </ParameterList>
+  <!--ParameterList name="remap">
+    <Parameter name="porder" type="int" value="3"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="1.4"/>
+  </ParameterList>
+  <ParameterList name="neighborhood">
+    <Parameter name="method" type="string" value="nanoflann"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.4"/>
+    <Parameter name="size" type="double" value="3.125"/>
+    <Parameter name="dynamic radius" type="bool" value="false"/>
+    <Parameter name="spatially varying radius" type="bool" value="false"/>
+  </ParameterList>
+  <ParameterList name="halo">
+    <Parameter name="multiplier" type="double" value="150"/>
+    <Parameter name="dynamic" type="bool" value="false"/>
+  </ParameterList-->
+</ParameterList>
