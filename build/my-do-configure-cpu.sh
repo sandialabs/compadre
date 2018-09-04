@@ -21,5 +21,7 @@ cmake \
     -D VTK_PREFIX:FILEPATH="/ascldap/users/pakuber/releases/VTK" \
     -D Compadre_EXAMPLES:BOOL=ON \
     -D Compadre_TESTS:BOOL=ON \
+    -D GMLS_EXAMPLES:BOOL=ON \
+    -D GMLS_TESTS:BOOL=ON \
     \
     ../development/

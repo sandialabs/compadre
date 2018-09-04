@@ -4,7 +4,8 @@ cmake_minimum_required(VERSION 3.0.0)
 #
 #   Compadre Details
 #
-########## PROJECT(Compadre VERSION 1.0.0 LANGUAGES CXX)
+########## 
+PROJECT(Compadre VERSION 0.0.1 LANGUAGES CXX)
 
 # cmake helper functions
 include(TPLs/cmake_bob/bob.cmake)
