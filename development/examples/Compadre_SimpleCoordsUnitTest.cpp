@@ -107,7 +107,7 @@ int main(int argc, char* argv[]) {
     
     {
         out << "\toutputting coordinates to .m file.\n";
-        std::ofstream mFile("simpleSphere.m");
+        std::ofstream mFile("../test_data/simpleSphere.m");
         sc.writeToMatlab(mFile, "cubeSph", 0);
         mFile.close();
     }

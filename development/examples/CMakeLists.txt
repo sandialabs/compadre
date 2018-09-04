@@ -2,6 +2,15 @@
 SET(SOLVER_SUPPORT_ISSUE "Missing Trilinos linear solver support.")
 SET(CANGA_ENABLED_ISSUE "Canga not enabled. Use CANGA_ENABLED:BOOL=ON to enable.")
 
+
+###############
+#
+#
+# Template Functions
+#
+#
+###############
+
 function(add_exe_w_gmls EXE_NAME CPP_NAME)
   add_executable(${EXE_NAME} ${CPP_NAME})
   target_link_libraries(${EXE_NAME} PRIVATE gmls)
@@ -15,6 +24,13 @@ function(add_exe_w_trilinos EXE_NAME CPP_NAME)
 endfunction(add_exe_w_trilinos)
 
 
+###############
+#
+#
+# GMLS Examples / Tests
+#
+#
+###############
 if (GMLS_EXAMPLES)
     add_exe_w_gmls(GMLS_PointValuesTest GMLS_PointValuesTest_boost.cpp)
     add_exe_w_gmls(GMLS_PointValuesTest_Kokkos GMLS_PointValuesTest_Kokkos.cpp)
@@ -32,6 +48,13 @@ if (GMLS_EXAMPLES)
 endif (GMLS_EXAMPLES)
 
 
+###############
+#
+#
+# Compadre Examples / Tests
+#
+#
+###############
 
 
 if (Compadre_TESTS)
@@ -39,11 +62,27 @@ if (Compadre_TESTS)
 endif()
 
 if (Compadre_EXAMPLES)
-  
   add_exe_w_trilinos(CompadreGMLSTest CompadreGMLSTest.cpp)
-
-
+  add_exe_w_trilinos(tpetraCoordsTest.exe CompadreTrilinosTest.cpp)
+  add_exe_w_trilinos(spherePoisson.exe Compadre_SpherePoissonTest.cpp)
+  add_exe_w_trilinos(kdtreeTest.exe Compadre_KdTreeTest.cpp)
+  add_exe_w_trilinos(readerTest.exe Compadre_SphReaderTest.cpp)
+  add_exe_w_trilinos(parallelReader.exe Compadre_ParallelReaderTest.cpp)
+  add_exe_w_trilinos(simpleCoordsTest.exe Compadre_SimpleCoordsUnitTest.cpp)
+  add_exe_w_trilinos(simpleMPITest.exe Compadre_SimpleMPIUnitTest.cpp)
+  add_exe_w_trilinos(remapTest.exe Compadre_RemapTest.cpp)
+  add_exe_w_trilinos(lagrangianTest.exe Compadre_LagrangianTest.cpp)
+  add_exe_w_trilinos(remoteRemapTest.exe Compadre_RemoteRemapTest.cpp)
+  add_exe_w_trilinos(laplaceBeltrami.exe Compadre_LaplaceBeltrami.cpp)
+  IF(Compadre_CANGA_ENABLED)
+    add_exe_w_trilinos(cangaRemoteRemap.exe Canga_RemoteRemap.cpp)
+    add_exe_w_trilinos(cangaIntercomparison.exe Canga_Intercomparison.cpp)
+  ENDIF()
+  add_exe_w_trilinos(lagrangianShallowWater.exe Compadre_LagrangianShallowWater.cpp)
+  
   if (Compadre_TESTS)
+
+    # GMLS LAPLACIAN
 
     ADD_TEST(NAME GMLSTest2x2PatchTest COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_patch.xml" "--kokkos-threads=3")
     SET_TESTS_PROPERTIES(GMLSTest2x2PatchTest PROPERTIES LABELS "Regression;regression;GMLS;gmls;Exact;exact;Patch;patch" TIMEOUT 180)
@@ -75,13 +114,8 @@ if (Compadre_EXAMPLES)
     ADD_TEST(NAME MeshWritePVTP COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_mesh_pvtp.xml" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(MeshWritePVTP PROPERTIES LABELS "UnitTest;unit;mesh;pvtp")
 
-  endif()
 
-
-  add_exe_w_trilinos(tpetraCoordsTest.exe CompadreTrilinosTest.cpp)
-
-
-  if (Compadre_TESTS)
+    # GRAPH LAPLACIAN
 
     ADD_TEST(NAME TrilinosTest COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/tpetraCoordsTest.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/trilinos_test/parameters_amg.xml" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(TrilinosTest PROPERTIES LABELS "RegressionTest;regression;Trilinos;trilinos" TIMEOUT 180)
@@ -89,56 +123,156 @@ if (Compadre_EXAMPLES)
     ADD_TEST(NAME TrilinosTestBlockDiag5x5 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/tpetraCoordsTest.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/trilinos_test/parameters_amg_blockdiag5x5.xml" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(TrilinosTestBlockDiag5x5 PROPERTIES LABELS "RegressionTest;regression;Trilinos;trilinos;block;blocktl" TIMEOUT 180)
 
+
+    # KDTREE TEST
+
+    ADD_TEST(NAME KdTreeTest COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${CMAKE_CURRENT_BINARY_DIR}/kdtreeTest.exe "--kokkos-threads=1")
+    SET_TESTS_PROPERTIES(KdTreeTest PROPERTIES LABELS "UnitTest;unit;nanoflann;KdTree" TIMEOUT 60)
+    
+
+    # READER TEST
+
+    ADD_TEST(NAME SphReaderTest COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 3 ${CMAKE_CURRENT_BINARY_DIR}/readerTest.exe "${CMAKE_CURRENT_BINARY_DIR}/../test_data/grids/icos_tri_sphere/icosTri_1.vtk" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(SphReaderTest PROPERTIES LABELS "UnitTest;unit;Reader" TIMEOUT 60)
+
+
+    # PARALLEL READER TEST
+
+    # named 2 because the files it will read in were written by two processors
+    ADD_TEST(NAME ParallelReadVTKWriteVTKTest2 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/parallelReader.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/reader_test/parameters_2_vtk.xml" "--kokkos-threads=1")
+    SET_TESTS_PROPERTIES(ParallelReadVTKWriteVTKTest2 PROPERTIES LABELS "UnitTest;unit;parallel;read;vtk;VTK")
+    
+    # named 4 because the files it will read in were written by four processors
+    ADD_TEST(NAME ParallelReadVTKWriteVTKTest4 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/parallelReader.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/reader_test/parameters_4_vtk.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(ParallelReadVTKWriteVTKTest4 PROPERTIES LABELS "UnitTest;unit;parallel;read;vtk;VTK")
+    
+    # named 2 because the files it will read in were written by two processors
+    ADD_TEST(NAME ParallelReadVTKWriteNETCDFTest2 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/parallelReader.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/reader_test/parameters_2_netcdf.xml" "--kokkos-threads=1")
+    SET_TESTS_PROPERTIES(ParallelReadVTKWriteNETCDFTest2 PROPERTIES LABELS "UnitTest;unit;parallel;read;vtk;VTK;netcdf;Netcdf")
+    
+    # named 4 because the files it will read in were written by four processors
+    ADD_TEST(NAME ParallelReadVTKWriteNETCDFTest4 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/parallelReader.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/reader_test/parameters_4_netcdf.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(ParallelReadVTKWriteNETCDFTest4 PROPERTIES LABELS "UnitTest;unit;parallel;read;vtk;VTK;netcdf;Netcdf")
+
+
+    # COORDS TEST
+
+    ADD_TEST(NAME SimpleCoords COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/simpleCoordsTest.exe "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(SimpleCoords PROPERTIES LABELS "UnitTest;unit;Coords" TIMEOUT 20)
+    
+
+    # MPI TEST
+
+    ADD_TEST(NAME SimpleMPI COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/simpleMPITest.exe "--kokkos-threads=4")
+    SET_TESTS_PROPERTIES(SimpleMPI PROPERTIES LABELS "UnitTest;unit;MPI" TIMEOUT 10)
+
+    
+    # REMAP TEST
+    
+    ADD_TEST(NAME RemapTestEulerianNanoflann COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/remapTest.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_remap_eulerian_nano.xml" "--kokkos-threads=3")
+    SET_TESTS_PROPERTIES(RemapTestEulerianNanoflann PROPERTIES LABELS "Regression;regression;Remap;remap;eulerian;Eulerian" TIMEOUT 180)
+    
+    ADD_TEST(NAME RemapTestLagrangianNanoflann COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/remapTest.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_remap_lagrangian_nano.xml" "--kokkos-threads=3")
+    SET_TESTS_PROPERTIES(RemapTestLagrangianNanoflann PROPERTIES LABELS "Regression;regression;Remap;remap;lagrangian;Lagrangian" TIMEOUT 180)
+   
+    
+    # LAGRANGIAN POINT INSERTION REMAP TEST
+    
+    ADD_TEST(NAME TestLagrangianNanoflann COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/lagrangianTest.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_remap_lagrangian_nano.xml" "--kokkos-threads=3")
+    SET_TESTS_PROPERTIES(TestLagrangianNanoflann PROPERTIES LABELS "Regression;regression;lagrangian;Lagrangian;tln" TIMEOUT 180)
+    
+
+    # REMOTE REMAP TEST
+
+    ADD_TEST(NAME RemoteRemapTest COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/remoteRemapTest.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_remote_remap_lower.xml" "--kokkos-threads=1" ":" "-np" 3 ${CMAKE_CURRENT_BINARY_DIR}/remoteRemapTest.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_remote_remap_upper.xml" "--kokkos-threads=1")
+    SET_TESTS_PROPERTIES(RemoteRemapTest PROPERTIES LABELS "Regression;regression;Remap;remap;Remote;remote" TIMEOUT 180)
+    
+
+    # MANIFOLD OPERATOR CONVERGENCE TESTS
+
+    ADD_TEST(NAME ManifoldTest COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${CMAKE_CURRENT_BINARY_DIR}/laplaceBeltrami.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/laplace_beltrami/parameters_basic.xml" "--kokkos-threads=1") # tests whatever is specified in parameters_basic
+    SET_TESTS_PROPERTIES(ManifoldTest PROPERTIES LABELS "lapbel")
+    
+    ADD_TEST(NAME ManifoldScalarTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "0") # 4 polynomial order, 2 successive meshes, 0-scalar interpolation
+    SET_TESTS_PROPERTIES(ManifoldScalarTest PROPERTIES LABELS "manifold;interpolation;scalar")
+    
+    ADD_TEST(NAME ManifoldVectorTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "1") # 4 polynomial order, 2 successive meshes, 1-scalar interpolation
+    SET_TESTS_PROPERTIES(ManifoldVectorTest PROPERTIES LABELS "manifold;interpolation;vector")
+    
+    ADD_TEST(NAME ManifoldGradientTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "2") # 4 polynomial order, 2 successive meshes, 2-gradient interpolation
+    SET_TESTS_PROPERTIES(ManifoldGradientTest PROPERTIES LABELS "manifold;interpolation;gradient")
+    
+    ADD_TEST(NAME ManifoldDivergenceOfGradientTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "3") # 4 polynomial order, 2 successive meshes, 3-divergence of gradient interpolation
+    SET_TESTS_PROPERTIES(ManifoldDivergenceOfGradientTest PROPERTIES LABELS "manifold;interpolation;divergence;gradient")
+    
+    ADD_TEST(NAME ManifoldStaggeredDivergenceOfGradientTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "4") # 4 polynomial order, 2 successive meshes, 4-divergence of gradient interpolation
+    SET_TESTS_PROPERTIES(ManifoldStaggeredDivergenceOfGradientTest PROPERTIES LABELS "manifold;interpolation;staggered;divergence;gradient")
+    
+    ADD_TEST(NAME ManifoldLaplaceTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "5") # 4 polynomial order, 2 successive meshes, 5-laplacian
+    SET_TESTS_PROPERTIES(ManifoldLaplaceTest PROPERTIES LABELS "manifold;interpolation;laplace")
+    
+    ADD_TEST(NAME LaplaceBeltramiTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "6") # 4 polynomial order, 2 successive meshes, 6-laplace solve
+    SET_TESTS_PROPERTIES(LaplaceBeltramiTest PROPERTIES LABELS "manifold;beltrami;Beltrami")
+    
+    ADD_TEST(NAME ManifoldStaggeredGradientTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "7") # 4 polynomial order, 2 successive meshes, 7-staggered gradient interpolation
+    SET_TESTS_PROPERTIES(ManifoldStaggeredGradientTest PROPERTIES LABELS "manifold;interpolation;gradient;staggered")
+    
+    ADD_TEST(NAME ManifoldDivergenceTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "8") # 4 polynomial order, 2 successive meshes, 8-divergence interpolation
+    SET_TESTS_PROPERTIES(ManifoldDivergenceTest PROPERTIES LABELS "manifold;interpolation;divergence;div;only")
+    
+    ADD_TEST(NAME ManifoldStaggeredDivergenceTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "9") # 4 polynomial order, 2 successive meshes, 9-staggered divergence interpolation
+    SET_TESTS_PROPERTIES(ManifoldStaggeredDivergenceTest PROPERTIES LABELS "manifold;interpolation;divergence;div;only;staggered")
+    
+    ADD_TEST(NAME ManifoldStaggeredLaplaceTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "10") # 4 polynomial order, 2 successive meshes, 10-staggered laplacian
+    SET_TESTS_PROPERTIES(ManifoldStaggeredLaplaceTest PROPERTIES LABELS "manifold;interpolation;laplacian;staggered")
+    
+    
+    # CANGA TESTS
+    
+    ADD_TEST(NAME CangaRemoteRemap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/cangaRemoteRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_lower.xml" "--kokkos-threads=1" ":" "-np" 5 ${CMAKE_CURRENT_BINARY_DIR}/cangaRemoteRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_upper.xml" "--kokkos-threads=1")
+    SET_TESTS_PROPERTIES(CangaRemoteRemap PROPERTIES LABELS "Canga;canga;remote")
+    
+    ADD_TEST(NAME CangaConvergenceTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/sphere_convergence.py" "2" "2") # 2nd polynomial order, 2 successive meshes
+    SET_TESTS_PROPERTIES(CangaConvergenceTest PROPERTIES LABELS "manifold;interpolation;canga")
+    
+    ADD_TEST(NAME CangaIntercomparison COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/cangaIntercomparison.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_lower_compare.xml" "--kokkos-threads=1" ":" "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/cangaIntercomparison.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_upper_compare.xml" "--kokkos-threads=1")
+    SET_TESTS_PROPERTIES(CangaIntercomparison PROPERTIES LABELS "Canga;canga;comparison;compare")
+    
+    
+    # SHALLOW WATER TESTS
+    
+    ADD_TEST(NAME LagrangianShallowWater2 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/lagrangianShallowWater.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/shallow_water/parameters_case2.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(LagrangianShallowWater2 PROPERTIES LABELS "shallow;case2")
+    
+    ADD_TEST(NAME LagrangianShallowWater5 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/lagrangianShallowWater.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/shallow_water/parameters_case5.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(LagrangianShallowWater5 PROPERTIES LABELS "shallow;case5")
+
+
+
+    # SET FLAGS FOR TESTS NOT RUN
+
+    IF (NOT (Compadre_CANGA_ENABLED))
+      SET_TESTS_PROPERTIES(CangaRemoteRemap PROPERTIES REQUIRED_FILES ${CANGA_ENABLED_ISSUE})
+      SET_TESTS_PROPERTIES(CangaConvergenceTest PROPERTIES REQUIRED_FILES ${CANGA_ENABLED_ISSUE})
+    ENDIF()
+    
+    IF (NOT (TRILINOS_LINEAR_SOLVES))
+      SET_TESTS_PROPERTIES(TrilinosTest PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(TrilinosTestBlockDiag5x5 PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(GMLSTest2x2PatchTest PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(GMLSTest2x2LagrangianPatchTest PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(GMLSTest2x2amg PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(GMLSTest2x2direct PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(GMLSTest2x2ifpackRelaxation PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(GMLSTest2x2ifpackRelaxationBlock1x1 PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(GMLSTest2x2ifpackILUT PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(GMLSTest4x1amg PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(MeshWritePVTU PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(MeshWritePVTP PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(LaplaceBeltramiTest PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+    ENDIF()
+
   endif()
-
-#ADD_EXECUTABLE(kdtreeTest.exe Compadre_KdTreeTest.cpp)
-#TARGET_LINK_LIBRARIES(kdtreeTest.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-#ADD_EXECUTABLE(readerTest.exe Compadre_SphReaderTest.cpp)
-#TARGET_LINK_LIBRARIES(readerTest.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-#ADD_EXECUTABLE(parallelReader.exe Compadre_ParallelReaderTest.cpp)
-#TARGET_LINK_LIBRARIES(parallelReader.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-#ADD_EXECUTABLE(spherePoisson.exe Compadre_SpherePoissonTest.cpp)
-#TARGET_LINK_LIBRARIES(spherePoisson.exe COMPADRE_LIBRARIES GMLS_LIBRARIES)
-#
-#ADD_EXECUTABLE(simpleCoordsTest.exe Compadre_SimpleCoordsUnitTest.cpp)
-#TARGET_LINK_LIBRARIES(simpleCoordsTest.exe COMPADRE_LIBRARIES)
-#
-#ADD_EXECUTABLE(simpleMPITest.exe Compadre_SimpleMPIUnitTest.cpp)
-#TARGET_LINK_LIBRARIES(simpleMPITest.exe COMPADRE_LIBRARIES)
-#
-#ADD_EXECUTABLE(remapTest.exe Compadre_RemapTest.cpp)
-#TARGET_LINK_LIBRARIES(remapTest.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-#ADD_EXECUTABLE(lagrangianTest.exe Compadre_LagrangianTest.cpp)
-#TARGET_LINK_LIBRARIES(lagrangianTest.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-#ADD_EXECUTABLE(remoteRemapTest.exe Compadre_RemoteRemapTest.cpp)
-#TARGET_LINK_LIBRARIES(remoteRemapTest.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-#IF(Compadre_CANGA_ENABLED)
-#  ADD_EXECUTABLE(cangaRemoteRemap.exe Canga_RemoteRemap.cpp)
-#  TARGET_LINK_LIBRARIES(cangaRemoteRemap.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-#  ADD_EXECUTABLE(cangaIntercomparison.exe Canga_Intercomparison.cpp)
-#  TARGET_LINK_LIBRARIES(cangaIntercomparison.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#ENDIF()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 ENDIF (Compadre_EXAMPLES)
 

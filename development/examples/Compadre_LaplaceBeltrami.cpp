@@ -660,7 +660,7 @@ int main (int argc, char* args[]) {
 
 			WriteTime->start();
 			{
-				std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
+				std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
 				Compadre::FileManager fm;
 
 				if (!post_process_grad && (parameters->get<std::string>("solution type")=="lb solve" || parameters->get<std::string>("solution type") == "five_strip")) {

@@ -91,7 +91,7 @@ int main (int argc, char* args[]) {
 		eucCoords->initRandom(2.0, procRank);
 
 		std::stringstream ss;
-		ss << "eucMvec" << procRank << ".m";
+		ss << parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") << "eucMvec" << procRank << ".m";
 		std::ofstream file(ss.str());
 		eucCoords->writeToMatlab(file, "eucBefore", procRank);
 
@@ -104,7 +104,7 @@ int main (int argc, char* args[]) {
 			// generate and update halo
 			eucCoords->buildHalo(0.1);
 			std::stringstream halo_ss;
-			halo_ss << "eucMvecHalo" << procRank << ".m";
+			halo_ss << parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") << "eucMvecHalo" << procRank << ".m";
 			std::ofstream halo_file(halo_ss.str());
 			eucCoords->writeHaloToMatlab(halo_file, "eucHaloMJ", procRank);
 			halo_file.close();
@@ -130,7 +130,7 @@ int main (int argc, char* args[]) {
 		eucCoords->insertCoords(verts_to_insert);
 
 		ss.str("");
-		ss << "eucData" << procRank << ".csv";
+		ss << parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") << "eucData" << procRank << ".csv";
 		std::ofstream csvFile(ss.str());
 		writeToCSV(*eucCoords, gaussField, csvFile);
 		csvFile.close();
@@ -152,7 +152,7 @@ int main (int argc, char* args[]) {
 		sphCoords->initRandom(1.0, procRank);
 
 		std::stringstream ss;
-		ss << "sphMvec" << procRank << ".m";
+		ss << parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") << "sphMvec" << procRank << ".m";
 		std::ofstream file(ss.str());
 		sphCoords->writeToMatlab(file, "sphBefore", procRank);
 
@@ -180,7 +180,7 @@ int main (int argc, char* args[]) {
  			}
  			particles->buildHalo(halo_size);
 			std::stringstream halo_ss;
-			halo_ss << "sphMvecHalo" << procRank << ".m";
+			halo_ss << parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") << "sphMvecHalo" << procRank << ".m";
 			std::ofstream halo_file(halo_ss.str());
 			sphCoords->writeHaloToMatlab(halo_file, "sphHaloMJ", procRank);
 			halo_file.close();
@@ -310,7 +310,7 @@ int main (int argc, char* args[]) {
 
 			WriteTime->start();
 			{
-				std::string output_filename = "temp_" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
+				std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "temp_" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
 				Compadre::FileManager fm;
 				fm.setWriter(output_filename, particles);
 				fm.write();
@@ -323,7 +323,7 @@ int main (int argc, char* args[]) {
 
 			WriteTime->start();
 			{
-				std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
+				std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
 				Compadre::FileManager fm;
 				fm.setWriter(output_filename, particles);
 				fm.write();
@@ -346,7 +346,7 @@ int main (int argc, char* args[]) {
 		 	const CT * sphCoords = (CT*)(particles->getCoordsConst());
 
 			Compadre::FileManager fm;
-			fm.setReader(parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file"), particles);
+			fm.setReader(parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file"), particles);
 			fm.read();
 		 	SecondReadTime->stop();
 
@@ -394,7 +394,7 @@ int main (int argc, char* args[]) {
 
 	 		// TODO: currently a problem with inserting .1,.1,.1 for sin(x)
 		 	// Temporary, writer out additional particle data fields to view
-			fm.setWriter("test_for_addition" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file"), particles);
+			fm.setWriter(parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "test_for_addition" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file"), particles);
 			fm.write();
 
 		 }

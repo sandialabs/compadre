@@ -6,7 +6,7 @@
   <Parameter name="two way passes" type="int" value="0"/>
   <Parameter name="field" type="int" value="0"/>
   <ParameterList name="io">
-    <Parameter name="input file prefix" type="string" value="../data_sets/canga/Grids/"/>
+    <Parameter name="input file prefix" type="string" value="../test_data/grids/canga/"/>
     <!--Parameter name="input file" type="string" value="ne120np4_pentagons.100310.nc"/-->
     <!--Parameter name="input file" type="string" value="ne30np4_pentagons.091226.nc"/-->
     <!--Parameter name="input file" type="string" value="ne30np4_latlon.091226.nc"/-->
@@ -14,7 +14,7 @@
     <!--Parameter name="input file" type="string" value="mpas_40962.nc"/-->
     <!--Parameter name="input file" type="string" value="mpas_10242.nc"/-->
     <Parameter name="input file" type="string" value="mpas_2562.nc"/>
-    <Parameter name="output file prefix" type="string" value=""/>
+    <Parameter name="output file prefix" type="string" value="../test_data/"/>
     <Parameter name="output file" type="string" value="canga_output_lower.pvtp"/>
     <Parameter name="nc type" type="string" value="HOMME"/>
   </ParameterList>

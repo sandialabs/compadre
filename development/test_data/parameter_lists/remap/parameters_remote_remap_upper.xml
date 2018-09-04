@@ -2,6 +2,9 @@
   <Parameter name="simulation type" type="string" value="eulerian"/>
   <Parameter name="my coloring" type="int" value="33"/>
   <Parameter name="peer coloring" type="int" value="25"/>
+  <ParameterList name="io">
+    <Parameter name="output file prefix" type="string" value="../test_data/"/>
+  </ParameterList>
   <ParameterList name="remap">
     <Parameter name="porder" type="int" value="2"/>
     <Parameter name="neighbors needed multiplier" type="double" value="1.4"/>

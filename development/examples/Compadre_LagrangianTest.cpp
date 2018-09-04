@@ -143,14 +143,14 @@ int main (int argc, char* args[]) {
 //			particles->getCoords()->resetPhysicalCoords(); // can be performed to see if reconstruction of physical is reconstruction of lagrangian
 
 			// writes out a 1x1x2 shaped rectangle
-			std::string output_filename = "lagrange_coords_post_transformation.pvtp";
+			std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "lagrange_coords_post_transformation.pvtp";
 			Compadre::FileManager fm;
 			parameters->get<Teuchos::ParameterList>("io").set<std::string>("coordinate type","lagrangian");
 			fm.setWriter(output_filename, particles);
 			fm.write();
 
 			// writes out a 2x2x2 shaped rectangle by expanding in the x and y directions by x and y
-			output_filename = "physical_coords_post_transformation.pvtp";
+			output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "physical_coords_post_transformation.pvtp";
 			parameters->get<Teuchos::ParameterList>("io").set<std::string>("coordinate type","physical");
 			fm.setWriter(output_filename, particles);
 			fm.write();
@@ -304,24 +304,24 @@ int main (int argc, char* args[]) {
 				}
 
 				parameters->get<Teuchos::ParameterList>("io").set<std::string>("coordinate type","lagrangian");
-				output_filename = "lagrangian_coords_generated_from_lagrangian_coeffs.pvtp";
+				output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "lagrangian_coords_generated_from_lagrangian_coeffs.pvtp";
 				fm.setWriter(output_filename, new_particles);
 				fm.write();
 
 				parameters->get<Teuchos::ParameterList>("io").set<std::string>("coordinate type","physical");
-				output_filename = "physical_coords_generated_from_lagrangian_coeffs.pvtp";
+				output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "physical_coords_generated_from_lagrangian_coeffs.pvtp";
 				fm.setWriter(output_filename, new_particles);
 				fm.write();
 			}
 
 			// writes out a 1x1x2 shaped rectangle w/extra inserted pts
-			output_filename = "lagrange_coords_post_transformation_and_insertion.pvtp";
+			output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "lagrange_coords_post_transformation_and_insertion.pvtp";
 			parameters->get<Teuchos::ParameterList>("io").set<std::string>("coordinate type","lagrangian");
 			fm.setWriter(output_filename, particles);
 			fm.write();
 
 			// writes out a 2x2x2 shaped rectangle by expanding in the x and y directions by x and y w/extra inserted pts
-			output_filename = "physical_coords_post_transformation_and_insertion.pvtp";
+			output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "physical_coords_post_transformation_and_insertion.pvtp";
 			parameters->get<Teuchos::ParameterList>("io").set<std::string>("coordinate type","physical");
 			fm.setWriter(output_filename, particles);
 			fm.write();
@@ -491,13 +491,13 @@ int main (int argc, char* args[]) {
 
 				// should look like an ellipse centered at (.5,.5,1)
 				parameters->get<Teuchos::ParameterList>("io").set<std::string>("coordinate type","lagrangian");
-				output_filename = "lagrangian_coords_generated_from_physical_coeffs.pvtp";
+				output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "lagrangian_coords_generated_from_physical_coeffs.pvtp";
 				fm.setWriter(output_filename, new_particles);
 				fm.write();
 
 				// should look like a sphere centered at (1,1,1)
 				parameters->get<Teuchos::ParameterList>("io").set<std::string>("coordinate type","physical");
-				output_filename = "physical_coords_generated_from_physical_coeffs.pvtp";
+				output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "physical_coords_generated_from_physical_coeffs.pvtp";
 				fm.setWriter(output_filename, new_particles);
 				fm.write();
 			}
@@ -568,7 +568,7 @@ int main (int argc, char* args[]) {
 			if (comm->getRank()==0) std::cout << "Global Norm Pressure: " << global_norm_pressure << "\n";
 			if (comm->getRank()==0) std::cout << "Global Norm Physical Coordinates: " << global_norm_physical_coord << "\n\n\n\n\n";
 
-			output_filename = "lagrangian_particle_output.pvtp";
+			output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "lagrangian_particle_output.pvtp";
 			fm.setWriter(output_filename, particles);
 			fm.write();
 

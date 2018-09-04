@@ -43,7 +43,7 @@ x2_errors = []
 
 for key1, porder in enumerate(porders):
     for key2, fname in enumerate(file_names):
-        e = ET.parse('./canga/parameters_template.xml').getroot()
+        e = ET.parse('../test_data/parameter_lists/canga/parameters_template.xml').getroot()
         tree = ET.ElementTree(e)
         
         for item in e.getchildren():
@@ -70,10 +70,10 @@ for key1, porder in enumerate(porders):
                 if (porder=="1"):
                     item.attrib['value']="20.0";
         
-        tree.write(open('./canga/parameters_lower_1.xml', 'wb'))
+        tree.write(open('../test_data/parameter_lists/canga/parameters_lower_1.xml', 'wb'))
         
         # overwrite
-        e = ET.parse('./canga/parameters_lower_1.xml').getroot()
+        e = ET.parse('../test_data/parameter_lists/canga/parameters_lower_1.xml').getroot()
         for item in e.getchildren():
             if (item.attrib['name']=="my coloring"):
                 item.attrib['value']="33";
@@ -81,10 +81,9 @@ for key1, porder in enumerate(porders):
                 item.attrib['value']="25";
         
         tree = ET.ElementTree(e)
-        tree.write(open('./canga/parameters_upper_1.xml', 'wb'))
+        tree.write(open('../test_data/parameter_lists/canga/parameters_upper_1.xml', 'wb'))
         
-        #subprocess.call(['C:\\Temp\\a b c\\Notepad.exe', 'C:\\test.txt'])
-        output = subprocess.check_output(["mpirun", "-np", "1", "../bin/cangaRemoteRemap.exe","--i=canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","1","../bin/cangaRemoteRemap.exe","--i=canga/parameters_upper_1.xml","--kokkos-threads=1"])
+        output = subprocess.check_output(["mpirun", "-np", "1", "./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","1","./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_upper_1.xml","--kokkos-threads=1"])
         #output = subprocess.check_output(["mpirun", "-np", "2", "../bin/cangaRemoteRemap.exe","--i=canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","3","../bin/cangaRemoteRemap.exe","--i=canga/parameters_upper_1.xml","--kokkos-threads=1"])
         #print output
         m = re.search('(?<=Global Norm of sin\(x\): )[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?', output)

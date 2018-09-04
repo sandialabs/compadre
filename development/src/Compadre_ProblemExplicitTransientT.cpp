@@ -642,7 +642,7 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 				write_count++;
 
 				// add in the write_count
-				filename = base + "_" + std::to_string(write_count) + "." + extension;
+				filename = _parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + base + "_" + std::to_string(write_count) + "." + extension;
 
 				fm.setWriter(filename, _particles);
 				if (_comm->getRank()==0)
@@ -918,7 +918,7 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 	if (_parameters->get<Teuchos::ParameterList>("io").get<int>("write every") == 0) {
 		// only write last timestep data
 
-		filename = base + "." + extension;
+		filename = _parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + base + "." + extension;
 		if (_particles->getCoordsConst()->getComm()->getRank()==0)
 			printf("filename: %s\n", filename.c_str());
 

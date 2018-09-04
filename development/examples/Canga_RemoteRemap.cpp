@@ -146,7 +146,7 @@ int main (int argc, char* args[]) {
 			particles->buildHalo(halo_size);
 			particles->getFieldManager()->updateFieldsHaloData();
 
-			std::string output_filename1 = "no_swap" + std::to_string(my_coloring) + ".pvtp";
+			std::string output_filename1 = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "no_swap" + std::to_string(my_coloring) + ".pvtp";
 			fm.setWriter(output_filename1, particles);
 			fm.write();
 
@@ -183,11 +183,11 @@ int main (int argc, char* args[]) {
 			}
 		 	remoteDataManager->remapData(remap_vec, parameters, particles.getRawPtr(), peer_processors_particles.getRawPtr(), halo_size);
 
-			std::string output_filename2 = "before_swap" + std::to_string(my_coloring) + ".pvtp";
+			std::string output_filename2 = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "before_swap" + std::to_string(my_coloring) + ".pvtp";
 			fm.setWriter(output_filename2, peer_processors_particles);
 			fm.write();
 
-			std::string output_filename = "after_swap" + std::to_string(my_coloring) + ".pvtp";
+			std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "after_swap" + std::to_string(my_coloring) + ".pvtp";
 			fm.setWriter(output_filename, particles);
 			fm.write();
 

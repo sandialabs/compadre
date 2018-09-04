@@ -73,7 +73,7 @@ int main (int argc, char* args[]) {
 		// just to verify what was actually read in
 		std::cout << parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file") << " file" << std::endl;
 		WriteTime->start();
-		fm.setWriter(parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file"), particles);
+		fm.setWriter(parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file"), particles);
 		fm.write();
 		WriteTime->stop();
 	}

@@ -2,7 +2,7 @@
   <ParameterList name="io">
     <Parameter name="input file prefix" type="string" value="../test_data/grids/"/>
     <Parameter name="input file" type="string" value="output.vtk"/>
-    <Parameter name="output file prefix" type="string" value="../test_data"/>
+    <Parameter name="output file prefix" type="string" value="../test_data/"/>
     <Parameter name="output file" type="string" value="trilinos_test_output.pvtp"/>
   </ParameterList>
   <ParameterList name="solver">

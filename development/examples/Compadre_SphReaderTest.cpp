@@ -24,6 +24,8 @@ int main (int argc, char* args[]) {
 	Teuchos::GlobalMPISession mpi(&argc, &args);
 	Teuchos::oblackholestream bstream;
 	Teuchos::RCP<const Teuchos::Comm<int> > comm = Teuchos::DefaultComm<int>::getComm();
+
+	std::string output_file_prefix("../test_data/");
 	
 	Kokkos::initialize(argc, args);
 //	{
@@ -88,7 +90,7 @@ int main (int argc, char* args[]) {
 
 		{
 			std::stringstream ss;
-			ss << "sphCoordsBefore" << procRank << ".m";
+			ss << output_file_prefix << "sphCoordsBefore" << procRank << ".m";
 			std::ofstream file(ss.str());
 			sphCoords->writeToMatlab(file, "sphImport", procRank);
 			file.close();
@@ -98,7 +100,7 @@ int main (int argc, char* args[]) {
 
 		{
 			std::stringstream ss;
-			ss << "sphCoordsAfter" << procRank << ".m";
+			ss << output_file_prefix << "sphCoordsAfter" << procRank << ".m";
 			std::ofstream file(ss.str());
 			sphCoords->writeToMatlab(file, "sphImport", procRank);
 			file.close();
@@ -106,7 +108,7 @@ int main (int argc, char* args[]) {
 
 		particles->getFieldManagerConst()->printAllFields(std::cout);
 
-		std::string output_testfilename("out.nc");
+		std::string output_testfilename(output_file_prefix + "out.nc");
 		fm.setWriter(output_testfilename, particles);
 		fm.write();
 	}
@@ -130,7 +132,7 @@ int main (int argc, char* args[]) {
 				Teuchos::rcp( new Compadre::ParticlesT(parameters, Teuchos::rcp_dynamic_cast<Compadre::CoordsT>(sphCoords)));
 
 		Compadre::FileManager fm;
-		fm.setReader(testfilename, particles);
+		fm.setReader(output_file_prefix + testfilename, particles);
 		fm.read();
 
 		std::cout << *sphCoords << std::endl;

@@ -33,10 +33,10 @@
     <Parameter name="dt multiplier" type="double" value="1.0"/>
   </ParameterList>
   <ParameterList name="io">
-    <Parameter name="input file prefix" type="string" value="../data_sets/"/>
+    <Parameter name="input file prefix" type="string" value="../test_data/grids/"/>
     <Parameter name="input file" type="string" value="shallow_1.nc"/>
     <Parameter name="nc type" type="string" value="HOMME"/>
-    <Parameter name="output file prefix" type="string" value=""/>
+    <Parameter name="output file prefix" type="string" value="../test_data/"/>
     <Parameter name="output file" type="string" value="shallow_water.pvtp"/>
     <Parameter name="write every" type="int" value="1"/>
     <!-- every hour -->

@@ -47,7 +47,7 @@ problem_num=['0','10','3']
 
 for key1, porder in enumerate(porders):
     for key2, fname in enumerate(file_names):
-        e = ET.parse('./laplace_beltrami/parameters_template.xml').getroot()
+        e = ET.parse('../test_data/parameter_lists/laplace_beltrami/parameters_template.xml').getroot()
         tree = ET.ElementTree(e)
         
         for item in e.getchildren():
@@ -78,12 +78,12 @@ for key1, porder in enumerate(porders):
         # have physics number now
         i.attrib['value']=problem_num[problem_setup]
         
-        tree.write(open('./laplace_beltrami/parameters_'+solution_type_names[solution_type_num]+'.xml', 'wb'))
+        tree.write(open('../test_data/parameter_lists/laplace_beltrami/parameters_'+solution_type_names[solution_type_num]+'.xml', 'wb'))
         
         #subprocess.call(['C:\\Temp\\a b c\\Notepad.exe', 'C:\\test.txt'])
         num_procs = '2' if problem_setup == 0 else ('2' if int(porder)<4 else '1')
         with open(os.devnull, 'w') as devnull:
-            output = subprocess.check_output(["mpirun", "-np", "2", "../bin/laplaceBeltrami.exe","--i=laplace_beltrami/parameters_"+solution_type_names[solution_type_num]+".xml","--kokkos-threads=4"], stderr=devnull)
+            output = subprocess.check_output(["mpirun", "-np", "2", "./laplaceBeltrami.exe","--i=../test_data/parameter_lists/laplace_beltrami/parameters_"+solution_type_names[solution_type_num]+".xml","--kokkos-threads=4"], stderr=devnull)
             #print output
             m = re.search('(?<=Global Norm: )[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?', output)
             errors.append(float(m.group(0)))
