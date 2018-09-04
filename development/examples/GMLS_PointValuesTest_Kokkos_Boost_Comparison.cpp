@@ -8,7 +8,7 @@
 
 #include "../src/GMLS_Config.h"
 
-#if defined(USE_BOOST) && defined(USE_KOKKOS)
+#if defined(COMPADRE_USE_BOOST) && defined(COMPADRE_USE_KOKKOS)
 #include <Kokkos_Timer.hpp>
 #include <Kokkos_Core.hpp>
 
@@ -71,7 +71,7 @@ double trueLaplacian(double x, double y, double z, int order) {
 
 int main (int argc, char* args[])
 {
-#if defined(USE_BOOST) && defined(USE_KOKKOS)
+#if defined(COMPADRE_USE_BOOST) && defined(COMPADRE_USE_KOKKOS)
 
 //	const double failure_tolerance = 1e-9;
 

@@ -43,7 +43,7 @@
 	#include <netcdf.h>
 #endif
 
-#ifdef COMPADRE_COMPADRE_USE_NETCDF_MPI
+#ifdef COMPADRE_USE_NETCDF_MPI
 	#include <netcdf_par.h>
 #endif
 
@@ -102,7 +102,7 @@ void FileManager::setReader(const std::string& _fn, Teuchos::RCP<ParticlesT>& pa
 #endif
 	} else if (extension == "nc") {
 #ifdef COMPADRE_USE_NETCDF
-	#ifdef COMPADRE_COMPADRE_USE_NETCDF_MPI
+	#ifdef COMPADRE_USE_NETCDF_MPI
 		// TODO: be careful that Parallel reader can actually handle the .nc file. Unless written by a parallel writer, it can not.
 		if (type_to_lower.length() == 0) {
 			_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::ParallelHDF5NetCDFFileIO(particles.getRawPtr())));
@@ -155,7 +155,7 @@ void FileManager::setWriter(const std::string& _fn, Teuchos::RCP<ParticlesT>& pa
 #endif
 	} else if (extension == "nc") {
 #ifdef COMPADRE_USE_NETCDF
-	#ifdef COMPADRE_COMPADRE_USE_NETCDF_MPI
+	#ifdef COMPADRE_USE_NETCDF_MPI
 			_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::ParallelHDF5NetCDFFileIO(particles.getRawPtr())));
 	#else
 			_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::SerialNetCDFFileIO(particles.getRawPtr())));
@@ -994,7 +994,7 @@ int SerialHOMMEFileIO::read(const std::string& fn) {
 	return 1;
 }
 
-#ifdef COMPADRE_COMPADRE_USE_NETCDF_MPI
+#ifdef COMPADRE_USE_NETCDF_MPI
 
 int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 	#define NC_INDEPENDENT 0
@@ -1515,7 +1515,7 @@ int ParallelHOMMEFileIO::read(const std::string& fn) {
 
 
 
-#endif // COMPADRE_COMPADRE_USE_NETCDF_MPI
+#endif // COMPADRE_USE_NETCDF_MPI
 #endif // COMPADRE_USE_NETCDF
 
 #ifdef COMPADRE_USE_VTK
@@ -1855,7 +1855,7 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "File not closed successfully.");
 }
 
-#ifdef COMPADRE_COMPADRE_USE_NETCDF_MPI
+#ifdef COMPADRE_USE_NETCDF_MPI
 
 void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	#define NC_INDEPENDENT 0
@@ -2023,7 +2023,7 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 }
 
 #endif // COMPADRE_USE_NETCDF
-#endif // COMPADRE_COMPADRE_USE_NETCDF_MPI
+#endif // COMPADRE_USE_NETCDF_MPI
 
 #ifdef COMPADRE_USE_VTK
 

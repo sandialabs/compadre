@@ -2,6 +2,36 @@
 SET(SOLVER_SUPPORT_ISSUE "Missing Trilinos linear solver support.")
 SET(CANGA_ENABLED_ISSUE "Canga not enabled. Use CANGA_ENABLED:BOOL=ON to enable.")
 
+function(add_exe_w_gmls EXE_NAME CPP_NAME)
+  add_executable(${EXE_NAME} ${CPP_NAME})
+  target_link_libraries(${EXE_NAME} PRIVATE gmls)
+  bob_export_target(${EXE_NAME})
+endfunction(add_exe_w_gmls)
+
+function(add_exe_w_trilinos EXE_NAME CPP_NAME)
+  add_executable(${EXE_NAME} ${CPP_NAME})
+  target_link_libraries(${EXE_NAME} PRIVATE physics compadre ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES})
+  bob_export_target(${EXE_NAME})
+endfunction(add_exe_w_trilinos)
+
+
+if (GMLS_EXAMPLES)
+    add_exe_w_gmls(GMLS_PointValuesTest GMLS_PointValuesTest_boost.cpp)
+    add_exe_w_gmls(GMLS_PointValuesTest_Kokkos GMLS_PointValuesTest_Kokkos.cpp)
+    add_exe_w_gmls(GMLS_PointValuesTest_Kokkos_Boost_Comparison GMLS_PointValuesTest_Kokkos_Boost_Comparison.cpp)
+  if (GMLS_TESTS)
+    ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim3 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos "4" "200" "3" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim3 PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    
+    ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim2 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos "4" "200" "2" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim2 PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    
+    ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim1 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos "4" "200" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim1 PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+  endif (GMLS_TESTS)
+endif (GMLS_EXAMPLES)
+
+
 
 
 if (Compadre_TESTS)
@@ -9,17 +39,6 @@ if (Compadre_TESTS)
 endif()
 
 if (Compadre_EXAMPLES)
-
-  function(add_exe_w_trilinos EXE_NAME CPP_NAME)
-    add_executable(${EXE_NAME} ${CPP_NAME})
-    target_link_libraries(${EXE_NAME} PRIVATE physics compadre ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES})
-    bob_export_target(${EXE_NAME})
-  endfunction(add_exe_w_trilinos)
-  
-  
-  #
-  #	Executables
-  #
   
   add_exe_w_trilinos(CompadreGMLSTest CompadreGMLSTest.cpp)
 

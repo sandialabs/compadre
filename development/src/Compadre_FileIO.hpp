@@ -119,7 +119,7 @@ class SerialHOMMEFileIO : public SerialNetCDFFileIO {
 
 };
 
-#ifdef COMPADRE_COMPADRE_USE_NETCDF_MPI
+#ifdef COMPADRE_USE_NETCDF_MPI
 
 class ParallelHDF5NetCDFFileIO : public NetCDFFileIO {
 	/*
@@ -188,7 +188,7 @@ class ParallelMPASFileIO : public NetCDFFileIO {
 
 };
 
-#endif // COMPADRE_COMPADRE_USE_NETCDF_MPI
+#endif // COMPADRE_USE_NETCDF_MPI
 #endif // COMPADRE_USE_NETCDF
 
 #ifdef COMPADRE_USE_VTK

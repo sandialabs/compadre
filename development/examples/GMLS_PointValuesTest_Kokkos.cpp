@@ -8,7 +8,7 @@
 
 #include "../src/GMLS_Config.h"
 
-#ifdef USE_KOKKOS
+#ifdef COMPADRE_USE_KOKKOS
 #include "../src/GMLS_Kokkos.hpp"
 #include <Kokkos_Timer.hpp>
 #include <Kokkos_Core.hpp>
@@ -207,7 +207,7 @@ double curlTestSolution(double x, double y, double z, int component, int dimensi
 
 int main (int argc, char* args[])
 {
-#if defined(USE_KOKKOS)
+#if defined(COMPADRE_USE_KOKKOS)
 
 {
 	int dimension = 3;

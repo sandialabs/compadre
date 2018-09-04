@@ -4,8 +4,7 @@ cmake_minimum_required(VERSION 3.0.0)
 #
 #   Compadre Details
 #
-##########
-PROJECT(Compadre VERSION 1.0.0 LANGUAGES CXX)
+########## PROJECT(Compadre VERSION 1.0.0 LANGUAGES CXX)
 
 # cmake helper functions
 include(TPLs/cmake_bob/bob.cmake)
@@ -164,33 +163,21 @@ if (Compadre_USE_Netcdf)
     MESSAGE(FATAL_ERROR "Compadre_USE_Netcdf is ON, but Netcdf_PREFIX was set incorrectly.")
   ENDIF()
   find_path(Netcdf_MPI_INCLUDE_DIR NAMES "netcdf_par.h" HINT ${Netcdf_PREFIX})
-  if (EXISTS ${NETCDF_MPI_INCLUDE_DIR})
-    MESSAGE(STATUS "Netcdf with MPI_IO support found.")
-    set(Compadre_USE_Netcdf_MPI ON)
-  else()
+  if (NOT(Netcdf_MPI_INCLUDE_DIR))
     MESSAGE(STATUS "Netcdf with MPI_IO support NOT found.")
     set(Compadre_USE_Netcdf_MPI OFF)
+  else()
+    MESSAGE(STATUS "Netcdf with MPI_IO support found.")
+    set(Compadre_USE_Netcdf_MPI ON)
   endif()
+  MESSAGE(STATUS "Netcdf_MPI_INCLUDE_DIRS: ${Netcdf_MPI_INCLUDE_DIR}")
 else()
     set(Compadre_USE_Netcdf_MPI OFF)
 endif()
-#bob_add_dependency(PUBLIC NAME Netcdf
-#    TARGETS netcdf
-#    INCLUDE_DIR_VARS
-#      Netcdf_INCLUDE_DIR
-#LIBRARY_VARS Netcdf_LIBRARIES)
-MESSAGE("${Netcdf_INCLUDE_DIR}")
-MESSAGE("${Netcdf_LIBRARIES}")
    
 #VTK
 bob_option(Compadre_USE_VTK "Use VTK" ON)
 bob_input(VTK_PREFIX "" PATH "Path to VTK install")
-#bob_add_dependency(PUBLIC NAME VTK
-#    TARGETS vtkFiltersParallelDIY2 vtkFiltersParallelMPI vtkIOMPIImage vtkIOMPIParallel vtkIOParallel vtkParallelMPI vtkIOParallelXML vtkParallelCore vtkIOLegacy vtkIOXML vtkIOCore vtkFiltersGeneral vtkFiltersCore vtkCommonExecutionModel vtkCommonDataModel vtkCommonCore
-#    INCLUDE_DIR_VARS
-#      VTK_INCLUDE_DIRS
-#LIBRARY_VARS VTK_LIBRARY_DIRS VTK_LIBRARIES)
-#vtksys vtkCommonCore vtkCommonMath vtkCommonMisc vtkCommonSystem vtkCommonTransforms vtkCommonDataModel vtkCommonColor vtkCommonExecutionModel vtkCommonComputationalGeometry vtkFiltersCore vtkFiltersGeneral vtkImagingCore vtkImagingFourier vtkFiltersStatistics vtkFiltersExtraction vtkInfovisCore vtkFiltersGeometry vtkFiltersSources vtkRenderingCore vtkzlib vtkfreetype vtkRenderingFreeType vtkRenderingContext2D vtkChartsCore vtkDICOMParser vtklz4 vtklzma vtkIOCore vtkIOLegacy vtkexpat vtkIOXMLParser vtkDomainsChemistry vtkglew vtkRenderingOpenGL2 vtkDomainsChemistryOpenGL2 vtkIOXML vtkParallelCore vtkFiltersAMR vtkFiltersFlowPaths vtkFiltersGeneric vtkImagingSources vtkFiltersHybrid vtkFiltersHyperTree vtkImagingGeneral vtkFiltersImaging vtkFiltersModeling vtkFiltersParallel vtkParallelMPI vtkFiltersParallelDIY2 vtkFiltersParallelGeometry vtkFiltersParallelImaging vtkFiltersParallelMPI verdict vtkFiltersVerdict vtkFiltersParallelVerdict vtkFiltersPoints vtkFiltersProgrammable vtkFiltersSMP vtkFiltersSelection vtkFiltersTexture vtkFiltersTopology vtkmetaio vtkjpeg vtkpng vtktiff vtkIOImage vtkImagingHybrid vtkInfovisLayout vtkInteractionStyle vtkImagingColor vtkRenderingAnnotation vtkRenderingVolume vtkInteractionWidgets vtkViewsCore vtkproj4 vtkGeovisCore vtkhdf5_src vtkhdf5_hl_src vtkIOAMR vtkIOEnSight vtknetcdf vtkexodusII vtkIOExodus vtkgl2ps vtkRenderingGL2PSOpenGL2 vtklibharu vtkIOExport vtkIOExportOpenGL2 vtkIOGeometry vtkIOImport vtklibxml2 vtkIOInfovis vtkIOLSDyna vtkIOMINC vtkIOMPIImage vtknetcdfcpp vtkIONetCDF vtkjsoncpp vtkIOParallel vtkIOMPIParallel vtkogg vtktheora vtkIOMovie vtkIOPLY vtkIOParallelNetCDF vtkIOParallelXML vtksqlite vtkIOSQL vtkIOTecplotTable vtkIOVideo vtkImagingMath vtkImagingMorphological vtkImagingStatistics vtkImagingStencil vtkInteractionImage vtkRenderingContextOpenGL2 vtkRenderingImage vtkRenderingLOD vtkRenderingLabel vtkRenderingVolumeOpenGL2 vtkViewsContext2D vtkViewsInfovis
 IF (Compadre_USE_VTK)
   SET(CMAKE_PREFIX_PATH ${VTK_PREFIX} ${CMAKE_PREFIX_PATH})
   FIND_PACKAGE(VTK)

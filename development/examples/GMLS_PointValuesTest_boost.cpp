@@ -7,7 +7,7 @@
 
 #include "../src/GMLS_Config.h"
 
-#ifdef USE_BOOST
+#ifdef COMPADRE_USE_BOOST
 
 #include "../src/GMLS_particle_boost.hpp"
 #include "../src/GMLS_boost.hpp"
@@ -18,7 +18,7 @@ typedef boost::numeric::ublas::vector<double> boost_vector_type;
 
 int main (int argc, const char * argv[])
 {
-#ifdef USE_BOOST
+#ifdef COMPADRE_USE_BOOST
     int i;
     double randx;
     double randy;

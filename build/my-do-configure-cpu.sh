@@ -4,9 +4,9 @@
 # Script for invoking CMake using the CMakeLists.txt file in this directory. 
 
 # following 3 lines for build directory cleanup
-cp my-do-configure-cpu.sh ../my-do-configure-cpu.sh.gold 
-rm -rf *
-cp ../my-do-configure-cpu.sh.gold ./my-do-configure-cpu.sh
+cp my-do-configure-cpu.sh my-do-configure-cpu.sh.gold 
+find . ! -name 'my-do-configure-cpu.sh.gold' -type f -exec rm -f {} +
+cp my-do-configure-cpu.sh.gold my-do-configure-cpu.sh
 
 cmake \
     -D CMAKE_CXX_COMPILER=mpic++ \
