@@ -9,10 +9,6 @@
 #include <Compadre_RemapManager.hpp>
 #include <Compadre_EuclideanCoordsT.hpp>
 #include <Compadre_SphericalCoordsT.hpp>
-#ifdef COMPADRE_USE_NANOFLANN
-#include <Compadre_nanoflannInformation.hpp>
-#endif
-#include <Compadre_VTKInformation.hpp>
 #include <Compadre_FieldT.hpp>
 #include <Compadre_XyzVector.hpp>
 #include <Compadre_AnalyticFunctions.hpp>

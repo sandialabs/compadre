@@ -10,7 +10,6 @@ class XyzVector;
 class CoordsT;
 class FieldT;
 class NanoFlannInformation;
-class VTKInformation;
 class NeighborhoodT;
 class FieldManager;
 class DOFManager;
@@ -33,7 +32,6 @@ class ParticlesT {
 		typedef Compadre::CoordsT coords_type;
 		typedef Compadre::FieldT field_type;
 		typedef Compadre::NanoFlannInformation nanoflann_neighbors_type;
-		typedef Compadre::VTKInformation vtk_neighbors_type;
 		typedef Compadre::NeighborhoodT neighbors_type;
 		typedef Compadre::FieldManager fieldmanager_type;
 		typedef Compadre::DOFManager dofmanager_type;

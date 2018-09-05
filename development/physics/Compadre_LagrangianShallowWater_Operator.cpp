@@ -7,12 +7,6 @@
 #include <Compadre_FieldT.hpp>
 #include <Compadre_AnalyticFunctions.hpp>
 #include <Compadre_NeighborhoodT.hpp>
-#ifdef COMPADRE_USE_NANOFLANN
-#include <Compadre_nanoflannInformation.hpp>
-#endif
-#ifdef COMPADRE_USE_VTK
-#include <Compadre_VTKInformation.hpp>
-#endif
 #include <Compadre_XyzVector.hpp>
 
 #include <GMLS_Kokkos.hpp>

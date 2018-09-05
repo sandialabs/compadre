@@ -27,7 +27,6 @@ set(Compadre_SOURCES
   Compadre_SolverT.cpp
   Compadre_SourcesT.cpp
   Compadre_SphericalCoordsT.cpp
-  Compadre_VTKInformation.cpp
   Compadre_XyzVector.cpp
   )
 
@@ -91,7 +90,6 @@ set(Compadre_HEADERS
   Compadre_SourcesT.hpp
   Compadre_SphericalCoordsT.hpp
   Compadre_Typedefs.hpp
-  Compadre_VTKInformation.hpp
   Compadre_XyzVector.hpp
   )
 
