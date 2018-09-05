@@ -410,7 +410,7 @@ if(GMLS_EXAMPLES OR Compadre_EXAMPLES)
 endif()
 
 
-bob_end_package()
+bob_end_package_no_recurse("${Trilinos_LIBRARIES}")
 
 
 

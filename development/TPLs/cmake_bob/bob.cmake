@@ -504,18 +504,10 @@ function(bob_install_provenance)
         ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_${lang}_compile_line.txt
         DESTINATION lib/cmake/${PROJECT_NAME})
   endforeach()
-
-  # should get this from package from Trilinos
-  set(trilinos_components_list "muelu-adapters;muelu-interface;muelu;teko;stratimikos;stratimikosbelos;stratimikosaztecoo;stratimikosamesos;stratimikosml;stratimikosifpack;ifpack2-adapters;ifpack2;anasazitpetra;ModeLaplace;anasaziepetra;anasazi;amesos2;belostpetra;belosepetra;belos;ml;ifpack;zoltan2;amesos;galeri-xpetra;galeri-epetra;aztecoo;xpetra-sup;xpetra;thyratpetra;thyraepetraext;thyraepetra;thyracore;epetraext;trilinosss;tpetraext;tpetrainout;tpetra;kokkostsqr;tpetraclassiclinalg;tpetraclassicnodeapi;tpetraclassic;triutils;zoltan;epetra;rtop;tpetrakernels;teuchoskokkoscomm;teuchoskokkoscompat;teuchosremainder;teuchosnumerics;teuchoscomm;teuchosparameterlist;teuchoscore;kokkosalgorithms;kokkoscontainers;kokkoscore")
-
   foreach(tgt IN LISTS ${PROJECT_NAME}_EXPORTED_TARGETS)
-    MESSAGE(STATUS "${tgt}")
     get_target_property(tgt_type "${tgt}" TYPE)
-    MESSAGE(STATUS "${tgt_type}")
     if (tgt_type MATCHES "STATIC_LIBRARY|SHARED_LIBRARY")
-      bob_get_link_libs(${tgt} link_libs "${trilinos_components_list}")
-      #bob_get_link_libs(${tgt} link_libs)
-      MESSAGE(STATUS "link_libs: ${link_libs}")
+      bob_get_link_libs(${tgt} link_libs "")
       file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_${tgt}_libs.txt
            "${link_libs}")
       install(FILES
@@ -525,6 +517,35 @@ function(bob_install_provenance)
   endforeach()
 
 endfunction(bob_install_provenance)
+
+function(bob_install_provenance_no_recurse no_recurse_components_list)
+  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_cmake_args.txt
+       "${${PROJECT_NAME}_CMAKE_ARGS}")
+  install(FILES
+      ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_cmake_args.txt
+      DESTINATION lib/cmake/${PROJECT_NAME})
+  get_property(languages GLOBAL PROPERTY ENABLED_LANGUAGES)
+  string(TOUPPER "${CMAKE_BUILD_TYPE}" build_type_upper)
+  foreach(lang IN LISTS languages)
+    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_${lang}_compile_line.txt
+         "${CMAKE_${lang}_COMPILER} ${CMAKE_${lang}_FLAGS} ${CMAKE_${lang}_FLAGS_${build_type_upper}}")
+    install(FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_${lang}_compile_line.txt
+        DESTINATION lib/cmake/${PROJECT_NAME})
+  endforeach()
+  foreach(tgt IN LISTS ${PROJECT_NAME}_EXPORTED_TARGETS)
+    get_target_property(tgt_type "${tgt}" TYPE)
+    if (tgt_type MATCHES "STATIC_LIBRARY|SHARED_LIBRARY")
+      bob_get_link_libs(${tgt} link_libs "${no_recurse_components_list}")
+      file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_${tgt}_libs.txt
+           "${link_libs}")
+      install(FILES
+          ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_${tgt}_libs.txt
+          DESTINATION lib/cmake/${PROJECT_NAME})
+    endif()
+  endforeach()
+
+endfunction(bob_install_provenance_no_recurse)
 
 function(bob_end_package)
   include(CMakePackageConfigHelpers)
@@ -577,8 +598,6 @@ endmacro(latest_find_dependency)"
 latest_find_dependency(${dep} ${FIND_DEP_ARGS})"
        )
   endforeach()
-
-
   set(CONFIG_CONTENT
 "set(${PROJECT_NAME}_VERSION ${${PROJECT_NAME}_VERSION})
 ${LATEST_FIND_DEPENDENCY}
@@ -605,8 +624,6 @@ set(${KEY_${TYPE}} \"${val}\")")
   set(CONFIG_CONTENT
 "${CONFIG_CONTENT}
 ")
-
-
   install(FILES
     "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
     DESTINATION lib/cmake/${PROJECT_NAME})
@@ -622,7 +639,100 @@ set(${KEY_${TYPE}} \"${val}\")")
       "${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
       DESTINATION lib/cmake/${PROJECT_NAME})
   endif()
-
-
   bob_install_provenance()
 endfunction(bob_end_package)
+
+function(bob_end_package_no_recurse no_recurse_components_list)
+  include(CMakePackageConfigHelpers)
+  set(INCLUDE_INSTALL_DIR include)
+  set(LIB_INSTALL_DIR lib)
+  set(LATEST_FIND_DEPENDENCY
+"#The definition of this macro is really inconvenient prior to CMake
+#commit ab358d6a859d8b7e257ed1e06ca000e097a32ef6
+#we'll just copy the latest code into our Config.cmake file
+macro(latest_find_dependency dep)
+  if (NOT \${dep}_FOUND)
+    set(cmake_fd_quiet_arg)
+    if(\${CMAKE_FIND_PACKAGE_NAME}_FIND_QUIETLY)
+      set(cmake_fd_quiet_arg QUIET)
+    endif()
+    set(cmake_fd_required_arg)
+    if(\${CMAKE_FIND_PACKAGE_NAME}_FIND_REQUIRED)
+      set(cmake_fd_required_arg REQUIRED)
+    endif()
+
+    get_property(cmake_fd_alreadyTransitive GLOBAL PROPERTY
+      _CMAKE_\${dep}_TRANSITIVE_DEPENDENCY
+    )
+
+    find_package(\${dep} \${ARGN}
+      \${cmake_fd_quiet_arg}
+      \${cmake_fd_required_arg}
+    )
+
+    if(NOT DEFINED cmake_fd_alreadyTransitive OR cmake_fd_alreadyTransitive)
+      set_property(GLOBAL PROPERTY _CMAKE_\${dep}_TRANSITIVE_DEPENDENCY TRUE)
+    endif()
+
+    if (NOT \${dep}_FOUND)
+      set(\${CMAKE_FIND_PACKAGE_NAME}_NOT_FOUND_MESSAGE \"\${CMAKE_FIND_PACKAGE_NAME} could not be found because dependency \${dep} could not be found.\")
+      set(\${CMAKE_FIND_PACKAGE_NAME}_FOUND False)
+      return()
+    endif()
+    set(cmake_fd_required_arg)
+    set(cmake_fd_quiet_arg)
+    set(cmake_fd_exact_arg)
+  endif()
+endmacro(latest_find_dependency)"
+       )
+  set(FIND_DEPS_CONTENT)
+  foreach(dep IN LISTS ${PROJECT_NAME}_DEPS)
+    string(REPLACE ";" " " FIND_DEP_ARGS "${${dep}_find_package_args}")
+    set(FIND_DEPS_CONTENT
+"${FIND_DEPS_CONTENT}
+latest_find_dependency(${dep} ${FIND_DEP_ARGS})"
+       )
+  endforeach()
+  set(CONFIG_CONTENT
+"set(${PROJECT_NAME}_VERSION ${${PROJECT_NAME}_VERSION})
+${LATEST_FIND_DEPENDENCY}
+${FIND_DEPS_CONTENT}
+set(${PROJECT_NAME}_EXPORTED_TARGETS \"${${PROJECT_NAME}_EXPORTED_TARGETS}\")
+foreach(tgt IN LISTS ${PROJECT_NAME}_EXPORTED_TARGETS)
+  include(\${CMAKE_CURRENT_LIST_DIR}/\${tgt}-target.cmake)
+endforeach()"
+  )
+  foreach(TYPE IN ITEMS "BOOL" "INT" "STRING")
+    if (${PROJECT_NAME}_KEY_${TYPE}S)
+      foreach(KEY_${TYPE} IN LISTS ${PROJECT_NAME}_KEY_${TYPE}S)
+        set(val "${${KEY_${TYPE}}}")
+        #escape escapes
+        string(REPLACE "\\" "\\\\" val "${val}")
+        #escape quotes
+        string(REPLACE "\"" "\\\"" val "${val}")
+        set(CONFIG_CONTENT
+"${CONFIG_CONTENT}
+set(${KEY_${TYPE}} \"${val}\")")
+      endforeach()
+    endif()
+  endforeach()
+  set(CONFIG_CONTENT
+"${CONFIG_CONTENT}
+")
+  install(FILES
+    "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+    DESTINATION lib/cmake/${PROJECT_NAME})
+  if(PROJECT_VERSION)
+    file(WRITE
+        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+        "${CONFIG_CONTENT}")
+    write_basic_package_version_file(
+        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion)
+    install(FILES
+      "${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+      DESTINATION lib/cmake/${PROJECT_NAME})
+  endif()
+  bob_install_provenance_no_recurse("${no_recurse_components_list}")
+endfunction(bob_end_package_no_recurse)
