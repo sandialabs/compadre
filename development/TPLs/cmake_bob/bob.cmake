@@ -172,7 +172,7 @@ function(bob_begin_cxx_flags)
     endif()
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
       if (${PROJECT_NAME}_CXX_WARNINGS)
-        set(FLAGS "${FLAGS} -Werror -Weverything")
+        #set(FLAGS "${FLAGS} -Werror -Weverything")
         set(FLAGS "${FLAGS} -Wno-padded")
         set(FLAGS "${FLAGS} -Wno-float-equal")
         set(FLAGS "${FLAGS} -Wno-weak-template-vtables")
@@ -433,7 +433,7 @@ function(bob_config_header HEADER_PATH)
   file(WRITE "${HEADER_PATH}" "${HEADER_CONTENT}")
 endfunction()
 
-function(bob_get_link_libs tgt var)
+function(bob_get_link_libs tgt var trilinos_components_list)
   get_target_property(tgt_type "${tgt}" TYPE)
   set(sublibs)
   if (NOT tgt_type STREQUAL "INTERFACE_LIBRARY")
@@ -447,29 +447,40 @@ function(bob_get_link_libs tgt var)
     set(sublibs ${sublibs} ${tgt_iface_libs})
   endif()
   set(link_libs)
+
+  # search to see if it is a Trilinos package
+  list (FIND trilinos_components_list "${tgt}" _index)
+  if (${_index} GREATER -1)
+    SET(found_trilinos_component ON)
+  else()
+    SET(found_trilinos_component OFF)
+  endif()
+  
   foreach(lib IN LISTS sublibs)
-    if (TARGET ${lib})
+    # do not dig deeper if a trilinos package
+    if ((TARGET ${lib}) AND NOT(found_trilinos_component))
       get_target_property(subtgt_type "${lib}" TYPE)
-      if (subtgt_type MATCHES "STATIC_LIBRARY|SHARED_LIBRARY")
-        #get_target_property(sublibtgt_loc "${lib}" LOCATION)
-        #if (sublibtgt_loc)
-        #  set(link_libs ${link_libs} ${sublibtgt_loc})
-        #endif()
-      endif()
-      if (subtgt_type MATCHES "UNKNOWN_LIBRARY")
-        foreach(prop in ITEMS IMPORTED_LOCATION IMPORTED_LOCATION_RELEASE IMPORTED_LOCATION_DEBUG)
-          get_target_property(sublibtgt_import_loc "${lib}" ${prop})
-          if (sublibtgt_import_loc)
-            set(link_libs ${link_libs} ${sublibtgt_import_loc})
-          endif()
-        endforeach()
-      endif()
-      bob_get_link_libs(${lib} subtgt_link_libs)
+      #if (subtgt_type MATCHES "STATIC_LIBRARY|SHARED_LIBRARY")
+      #  get_target_property(sublibtgt_loc "${lib}" LOCATION)
+      #  if (sublibtgt_loc)
+      #    set(link_libs ${link_libs} ${sublibtgt_loc})
+      #  endif()
+      #endif()
+      #if (subtgt_type MATCHES "UNKNOWN_LIBRARY")
+      #  foreach(prop in ITEMS IMPORTED_LOCATION IMPORTED_LOCATION_RELEASE IMPORTED_LOCATION_DEBUG)
+      #    get_target_property(sublibtgt_import_loc "${lib}" ${prop})
+      #    if (sublibtgt_import_loc)
+      #      set(link_libs ${link_libs} ${sublibtgt_import_loc})
+      #    endif()
+      #  endforeach()
+      #endif()
+      bob_get_link_libs(${lib} subtgt_link_libs "${trilinos_components_list}")
       set(link_libs ${link_libs} ${subtgt_link_libs})
     else()
       set(link_libs ${link_libs} ${lib})
     endif()
   endforeach()
+
   if (link_libs)
     list(REVERSE link_libs)
     list(REMOVE_DUPLICATES link_libs)
@@ -493,10 +504,18 @@ function(bob_install_provenance)
         ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_${lang}_compile_line.txt
         DESTINATION lib/cmake/${PROJECT_NAME})
   endforeach()
+
+  # should get this from package from Trilinos
+  set(trilinos_components_list "muelu-adapters;muelu-interface;muelu;teko;stratimikos;stratimikosbelos;stratimikosaztecoo;stratimikosamesos;stratimikosml;stratimikosifpack;ifpack2-adapters;ifpack2;anasazitpetra;ModeLaplace;anasaziepetra;anasazi;amesos2;belostpetra;belosepetra;belos;ml;ifpack;zoltan2;amesos;galeri-xpetra;galeri-epetra;aztecoo;xpetra-sup;xpetra;thyratpetra;thyraepetraext;thyraepetra;thyracore;epetraext;trilinosss;tpetraext;tpetrainout;tpetra;kokkostsqr;tpetraclassiclinalg;tpetraclassicnodeapi;tpetraclassic;triutils;zoltan;epetra;rtop;tpetrakernels;teuchoskokkoscomm;teuchoskokkoscompat;teuchosremainder;teuchosnumerics;teuchoscomm;teuchosparameterlist;teuchoscore;kokkosalgorithms;kokkoscontainers;kokkoscore")
+
   foreach(tgt IN LISTS ${PROJECT_NAME}_EXPORTED_TARGETS)
+    MESSAGE(STATUS "${tgt}")
     get_target_property(tgt_type "${tgt}" TYPE)
+    MESSAGE(STATUS "${tgt_type}")
     if (tgt_type MATCHES "STATIC_LIBRARY|SHARED_LIBRARY")
-      bob_get_link_libs(${tgt} link_libs)
+      bob_get_link_libs(${tgt} link_libs "${trilinos_components_list}")
+      #bob_get_link_libs(${tgt} link_libs)
+      MESSAGE(STATUS "link_libs: ${link_libs}")
       file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_${tgt}_libs.txt
            "${link_libs}")
       install(FILES
@@ -504,6 +523,7 @@ function(bob_install_provenance)
           DESTINATION lib/cmake/${PROJECT_NAME})
     endif()
   endforeach()
+
 endfunction(bob_install_provenance)
 
 function(bob_end_package)
@@ -557,6 +577,8 @@ endmacro(latest_find_dependency)"
 latest_find_dependency(${dep} ${FIND_DEP_ARGS})"
        )
   endforeach()
+
+
   set(CONFIG_CONTENT
 "set(${PROJECT_NAME}_VERSION ${${PROJECT_NAME}_VERSION})
 ${LATEST_FIND_DEPENDENCY}
@@ -583,6 +605,8 @@ set(${KEY_${TYPE}} \"${val}\")")
   set(CONFIG_CONTENT
 "${CONFIG_CONTENT}
 ")
+
+
   install(FILES
     "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
     DESTINATION lib/cmake/${PROJECT_NAME})
@@ -598,5 +622,7 @@ set(${KEY_${TYPE}} \"${val}\")")
       "${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
       DESTINATION lib/cmake/${PROJECT_NAME})
   endif()
+
+
   bob_install_provenance()
 endfunction(bob_end_package)

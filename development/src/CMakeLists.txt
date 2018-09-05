@@ -1,4 +1,7 @@
 
+# everything requires Tpetra, Zoltan2, TeuchosComm, and TeuchosParameterList
+# ProblemT requires linear solvers, i.e. SolverT.cpp
+# SolveT requires 
 set(Compadre_SOURCES
   Compadre_AnalyticFunctions.cpp     
   Compadre_BoundaryConditionsT.cpp   
@@ -18,7 +21,7 @@ set(Compadre_SOURCES
   Compadre_ParticlesT.cpp
   Compadre_PhysicsT.cpp
   Compadre_ProblemExplicitTransientT.cpp
-  Compadre_ProblemT.cpp
+  Compadre_ProblemT.cpp # requires linear solvers
   Compadre_RemapManager.cpp
   Compadre_RemoteDataManager.cpp
   Compadre_SolverT.cpp
@@ -26,38 +29,18 @@ set(Compadre_SOURCES
   Compadre_SphericalCoordsT.cpp
   Compadre_VTKInformation.cpp
   Compadre_XyzVector.cpp
-  Compadre_AnalyticFunctions.cpp
-  Compadre_CoordsT.cpp
   )
 
 add_library(compadre ${Compadre_SOURCES})
 bob_library_includes(compadre)
 
 
-
-
-
-#bob_link_dependency(compadre PUBLIC KokkoScore)
-if (Compadre_USE_KokkosCore)
-  target_include_directories(compadre PUBLIC "${KokkosCore_INCLUDE_DIRS}")
+if (Compadre_USE_Trilinos)
+   target_link_libraries(compadre PUBLIC ${Trilinos_LIBRARIES})
 endif()
 
-bob_link_dependency(compadre PRIVATE Trilinos::TeuchosComm)
-#bob_link_dependency(compadre PRIVATE Trilinos::TeuchosComm)
-#if (Compadre_USE_Trilinos)
-#  target_include_directories(compadre PRIVATE "${Trilinos_INCLUDE_DIRS} ${Trilinos_TPL_INCLUDE_DIRS}")
-#  target_link_libraries(compadre PRIVATE "${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES}")
-#endif()
-
 if (Compadre_USE_VTK)
-  #bob_link_dependency(compadre PUBLIC *)
-  #bob_link_dependency(compadre PUBLIC vtkFiltersParallelDIY2 vtkFiltersParallelMPI vtkIOMPIImage vtkIOMPIParallel vtkIOParallel vtkParallelMPI vtkIOParallelXML vtkParallelCore vtkIOLegacy vtkIOXML vtkIOCore vtkFiltersGeneral vtkFiltersCore vtkCommonExecutionModel vtkCommonDataModel vtkCommonCore)
-
-  #target_link_libraries(compadre PUBLIC vtkFiltersParallelDIY2 vtkFiltersParallelMPI vtkIOMPIImage vtkIOMPIParallel vtkIOParallel vtkParallelMPI vtkIOParallelXML vtkParallelCore vtkIOLegacy vtkIOXML vtkIOCore vtkFiltersGeneral vtkFiltersCore vtkCommonExecutionModel vtkCommonDataModel vtkCommonCore)
-  #bob_link_dependency(compadre PUBLIC VTK)
-  #target_include_directories(compadre PUBLIC "${VTK_INCLUDE_DIRS}")
   target_link_libraries(compadre PUBLIC "${VTK_LIBRARIES}")
-  #target_link_libraries(compadre PUBLIC "${VTK_LIBRARY_DIRS}")
 endif()
 
 if(Compadre_USE_Netcdf)
@@ -70,19 +53,9 @@ endif()
 
 
 
-
 target_link_libraries(compadre PUBLIC gmls)
 
-
-
-#target_link_libraries(compadre PRIVATE gmls)
-
-#bob_link_dependency(compadre PUBLIC Compdare::gmls)
-#$target_include_directories(compadre PUBLIC "../GMLS/src")
-
-#include_directories(${GMLS_HEADERS})
-#message(STATUS "GMLS_HEADERS: ${GMLS_HEADERS}")
-#target_include_directories(compadre PUBLIC "${GMLS_HEADERS}")
+bob_export_target(compadre)
 
 
 bob_config_header("${CMAKE_CURRENT_BINARY_DIR}/Compadre_Config.h")
@@ -122,7 +95,6 @@ set(Compadre_HEADERS
   Compadre_XyzVector.hpp
   )
 
-bob_export_target(compadre)
 
 install(FILES ${Compadre_HEADERS} DESTINATION include)
 

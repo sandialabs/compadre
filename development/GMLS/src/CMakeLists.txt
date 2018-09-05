@@ -42,7 +42,7 @@ bob_link_dependency(gmls PUBLIC KokkosCore)
 #  target_include_directories(gmls PUBLIC "${KokkosCore_INCLUDE_DIRS}")
 #endif()
 if (Compadre_USE_Boost)
-  target_include_directories(gmls PRIVATE "${Boost_INCLUDE_DIR}")
+  target_include_directories(gmls PUBLIC "${Boost_INCLUDE_DIR}")
 endif()
 
 
