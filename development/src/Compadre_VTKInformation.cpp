@@ -11,7 +11,9 @@
 #include <vtkKdTreePointLocator.h>
 #endif
 
+#ifdef COMPADRE_USE_BOOST
 #include <boost/bind.hpp>
+#endif
 
 #ifdef COMPADRE_USE_OPENMP
 #include <omp.h>
@@ -59,8 +61,12 @@ void VTKInformation::constructSingleNeighborList(const scalar_type* coordinate,
 	}
 //	std::cout << std::endl;
 
+#ifdef USE_BOOST
 	std::sort(new_neighbors.begin(), new_neighbors.end(),
 	          boost::bind(&std::pair<size_t, scalar_type>::second, _1) < boost::bind(&std::pair<size_t, scalar_type>::second, _2));
+#else
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Sort called in VTKInformation.hpp which relies on Boost, but build without Boost."); 
+#endif
 
 //	for (vtkIdType i=0, n=result->GetNumberOfIds(); i<n; i++) {
 //		const xyz_type current_coord(coordinate);

@@ -70,10 +70,10 @@ class ParticlesT {
 		 */
 		///@{
 		//! creates new maps, vectors, and COPIES existing data
-		void insertParticles(const std::vector<xyz_type>& new_pts_vector, const scalar_type rebuilt_halo_size = 0.0, bool repartition = false, bool use_physical_coords = true, bool verify_coords_on_processor = true);
+		void insertParticles(const std::vector<xyz_type>& new_pts_vector, const scalar_type rebuilt_halo_size = 0.0, bool repartition = false, bool inserting_physical_coords = true, bool repartition_with_physical_coords = true, bool verify_coords_on_processor = true);
 
 		//! creates new maps, vectors, and COPIES existing data
-		void removeParticles(const std::vector<local_index_type>& coord_ids, const scalar_type rebuilt_halo_size = 0.0, bool repartition = false);
+		void removeParticles(const std::vector<local_index_type>& coord_ids, const scalar_type rebuilt_halo_size = 0.0, bool repartition = false, bool repartition_using_physical_coords = true);
 
 		//! creates new maps, vectors, and COPIES existing data from other particle set
 		void mergeWith(const particles_type* other_particles);
@@ -116,9 +116,9 @@ class ParticlesT {
 
 		/** @name Halo functionality */
 		///@{
-		void buildHalo(scalar_type h);
+		void buildHalo(scalar_type h, bool use_physical_coords = true);
 
-		void buildHalo();
+		void buildHalo(bool use_physical_coords = true);
 		///@}
 
 

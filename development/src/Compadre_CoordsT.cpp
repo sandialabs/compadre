@@ -13,6 +13,10 @@ CoordsT::CoordsT( const global_index_type nn, const Teuchos::RCP<const Teuchos::
 	pts = Teuchos::rcp(new mvec_type(map, nDim, setToZero));
 	setLocalNFromMap();
 	_units = "";
+
+	// no effect on Eulerian simulations, but defaults to physical neighbors
+	// for Lagrangian simulations
+	_partitioned_using_physical = true;
 }
 
 local_index_type CoordsT::nDim() const {return _nDim;}
@@ -100,6 +104,9 @@ void CoordsT::insertCoords(const std::vector<xyz_type>& new_pts_vector, const st
 	/*
 	 * If a Lagrangian simulation, then the user must insert coordinates for both the Lagrangian and physical coordinates
 	 * If one is known, the other can be calculated using some interpolation algorithm such as GMLS
+	 *
+	 * A similar function is in ParticlesT for dealing inserting field data
+	 * into field when new coordinates are added.
 	 */
 
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(_is_lagrangian && new_pts_physical_vector.size()==0, "Both sets of coordinates (Lagrangian and physical) must be made available for a Lagrangian simulation.");
@@ -502,8 +509,8 @@ void CoordsT::applyZoltan2Partition(Teuchos::RCP<mvec_type>& vec) const {
 void CoordsT::verifyCoordsOnProcessor(const std::vector<xyz_type>& new_pts_vector, bool use_physical_coords) const {
 	// check if use_physical_coords matches how the partitioning of the coordinates was performed
 	// if it doesn't, then it isn't logical to compare the coordinates to the processor partitions
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(use_physical_coords && (_partitioned_using_physical != use_physical_coords), "Coordinates being verified are in the physical frame, but processor partitioning was performed in Lagrangian frame.");
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(!use_physical_coords && (_partitioned_using_physical != use_physical_coords), "Coordinates being verified are in the Lagrangian frame, but processor partitioning was performed in physical frame.");
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(_is_lagrangian && use_physical_coords && (_partitioned_using_physical != use_physical_coords), "Coordinates being verified are in the physical frame, but processor partitioning was performed in Lagrangian frame.");
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(_is_lagrangian && (!use_physical_coords) && (_partitioned_using_physical != use_physical_coords), "Coordinates being verified are in the Lagrangian frame, but processor partitioning was performed in physical frame.");
 
 	const local_index_type new_pts_vector_size = new_pts_vector.size();
 	const z2_box_type box = z2problem->getSolution().getPartBoxesView()[comm->getRank()];
@@ -518,6 +525,8 @@ void CoordsT::verifyCoordsOnProcessor(const std::vector<xyz_type>& new_pts_vecto
 	});
 }
 
+// boxes are related to either physical or material coordinates
+// user should verify that this makes sense with the coordinates they are comparing against these boxes
 const std::vector<scalar_type> CoordsT::boundingBoxMinOnProcessor(const local_index_type processor_num) const {
 	const local_index_type proc_num_to_query = (processor_num > -1) ? processor_num : comm->getRank();
 	const z2_box_type box = z2problem->getSolution().getPartBoxesView()[proc_num_to_query];
@@ -572,7 +581,10 @@ void CoordsT::print(std::ostream& os, bool use_physical_coords) const {
 	}
 }
 
-void CoordsT::buildHalo(scalar_type h, bool use_physical_coords) {
+void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
+
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(_is_lagrangian && use_physical_coords && (_partitioned_using_physical != use_physical_coords), "Halo is being built in the physical frame, but processor partitioning was performed in material frame.");
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(_is_lagrangian && (!use_physical_coords) && (_partitioned_using_physical != use_physical_coords), "Halo is being built in the material frame, but processor partitioning was performed in physical frame.");
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(z2problem.is_null(), "Zoltan2 object does not exist. Needs to be called.");
 
 	typedef Kokkos::View<const global_index_type*> const_gid_view_type;
@@ -623,8 +635,8 @@ void CoordsT::buildHalo(scalar_type h, bool use_physical_coords) {
 		scalar_type* mins = boxes[peer_processor_num].getlmins();
 		scalar_type* maxs = boxes[peer_processor_num].getlmaxs();
 		for (local_index_type j=0; j<_nDim; j++) {
-			enlarged_box.updateMinMax(mins[j]-h,0,j);
-			enlarged_box.updateMinMax(maxs[j]+h,1,j);
+			enlarged_box.updateMinMax(mins[j]-h_size,0,j);
+			enlarged_box.updateMinMax(maxs[j]+h_size,1,j);
 		}
 		local_index_type ptsLocalLength = (_is_lagrangian && use_physical_coords)
 				? pts_physical->getLocalLength() : pts->getLocalLength();
@@ -773,7 +785,7 @@ void CoordsT::buildHalo(scalar_type h, bool use_physical_coords) {
 
 	this->setLocalN(this->nLocalMax(true /*for halo*/), true /*for halo*/);
 	this->updateHaloPts();
-	_halo_size = h;
+	_halo_size = h_size;
 }
 
 const scalar_type CoordsT::getHaloSize() const {
@@ -781,6 +793,8 @@ const scalar_type CoordsT::getHaloSize() const {
 	return _halo_size;
 }
 
+// updates halo data for material and physical coordinates for Lagrangian frame
+// only updates material coordinates (only set of coordinates) in Eulerian
 void CoordsT::updateHaloPts() {
 	Teuchos::RCP<Teuchos::Time> haloUpdateTime = Teuchos::TimeMonitor::getNewCounter ("Halo - Update");
 	haloUpdateTime->start();
@@ -817,9 +831,9 @@ void CoordsT::setLagrangian(bool val) {
 	}
 }
 
-void CoordsT::deltaUpdatePhysicalCoordsFromVector(const mvec_type* update_vector, const mvec_type* update_halo_vector, bool update_physical_coords) {
+void CoordsT::deltaUpdatePhysicalCoordsFromVector(const mvec_type* update_vector) {
 	// to_vec should generally be physical coords (pts_physical)
-	mvec_type* pts_evaluate_to_vec = (_is_lagrangian && update_physical_coords) ? pts_physical.getRawPtr() : pts.getRawPtr();
+	mvec_type* pts_evaluate_to_vec = (_is_lagrangian) ? pts_physical.getRawPtr() : pts.getRawPtr();
 	host_view_type updateVals = update_vector->getLocalView<host_view_type>();
 	host_view_type ptsViewTo = pts_evaluate_to_vec->getLocalView<host_view_type>();
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.dimension_0()),  KOKKOS_LAMBDA(const int i) {
@@ -852,24 +866,6 @@ void CoordsT::deltaUpdatePhysicalCoordsFromVectorFunction(function_type* fn, boo
 		incrementByEvaluateVector(ptsViewTo, ptsViewFrom, fn));
 
 	this->updateHaloPts();
-}
-
-void CoordsT::updatePhysicalCoordinatesFromFieldData(const mvec_type* data, const double multiplier) {
-	if (_is_lagrangian) {
-		// from_vec should generally be physical coords (pts_physical)
-		mvec_type* pts_evaluate_from_vec = pts_physical.getRawPtr(); // uses physical coords and adds an update
-		// to_vec should generally be physical coords (pts_physical)
-		mvec_type* pts_evaluate_to_vec = pts_physical.getRawPtr();
-		host_view_type ptsViewFrom = pts_evaluate_from_vec->getLocalView<host_view_type>();
-		host_view_type ptsViewTo = pts_evaluate_to_vec->getLocalView<host_view_type>();
-		host_view_type fieldData = data->getLocalView<host_view_type>();
-		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.dimension_0()), KOKKOS_LAMBDA(const int i) {
-			ptsViewTo(i,0) = ptsViewFrom(i,0) + multiplier*fieldData(i,0);
-			ptsViewTo(i,1) = ptsViewFrom(i,1) + multiplier*fieldData(i,1);
-			ptsViewTo(i,2) = ptsViewFrom(i,2) + multiplier*fieldData(i,2);
-		});
-		this->updateHaloPts();
-	}
 }
 
 void CoordsT::overwriteCoordinates(const mvec_type* data, bool use_physical_coords) {

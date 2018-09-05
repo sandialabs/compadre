@@ -1,5 +1,4 @@
 #include "Compadre_AnalyticFunctions.hpp"
-#include <boost/math/special_functions/spherical_harmonic.hpp>
 #include <cmath>
 //#include "Compadre_XyzVector.hpp"
 //#include "Compadre_CoordsT.hpp"
@@ -47,7 +46,6 @@ scalar_type legendre54(const scalar_type& z) {
 }
 
 scalar_type SphereHarmonic::evalScalar(const xyz_type& xyzIn) const {
-    //return boost::math::spherical_harmonic_r(_n, _m, xyzIn.longitude(), xyzIn.colatitude());
     const scalar_type lon = xyzIn.longitude();
     return 30.0 * std::cos(4.0 * lon) * legendre54(xyzIn.z);
 }

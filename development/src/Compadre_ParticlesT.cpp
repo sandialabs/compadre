@@ -55,7 +55,7 @@ ParticlesT::ParticlesT (Teuchos::RCP<Teuchos::ParameterList> parameters,
 // Coordination calls that resize all fields and flags to a coordinate changes
 
 void ParticlesT::insertParticles(const std::vector<xyz_type>& new_pts_vector, const scalar_type rebuilt_halo_size,
-		bool repartition, bool use_physical_coords, bool verify_coords_on_processor) {
+		bool repartition, bool inserting_physical_coords, bool repartition_using_physical_coords, bool verify_coords_on_processor) {
 
 	const local_index_type num_added_coords = (local_index_type)new_pts_vector.size();
 
@@ -73,10 +73,12 @@ void ParticlesT::insertParticles(const std::vector<xyz_type>& new_pts_vector, co
 	 */
 
 	// 	1.
+	// verification will fail if the processor boundary boxes from a previous
+	// partition were done in a difference coordinate frame
 	if (verify_coords_on_processor)
-		_coords->verifyCoordsOnProcessor(new_pts_vector, use_physical_coords);
-	// bounding boxes are determined by partition which is either taken with respect to Lagrangian or physical coordinates
-	// in the future, this will limit the types of coords that can be inserted, lagrangian won't be able to be inserted into physical, etc..
+		_coords->verifyCoordsOnProcessor(new_pts_vector, inserting_physical_coords);
+	// bounding boxes are determined by partition which is either taken with respect to material or physical coordinates
+	// in the future, this will limit the types of coords that can be inserted, material won't be able to be inserted into physical, etc..
 
 	// create coordinates temporarily (how to get the derived type?)
 	std::string coords_type_name =_parameters->get<Teuchos::ParameterList>("coordinates").get<std::string>("type");
@@ -100,7 +102,7 @@ void ParticlesT::insertParticles(const std::vector<xyz_type>& new_pts_vector, co
 
 	if (_coords->isLagrangian()) {
 		// insertion requires interpolating either Lagrangian or physical coordinates
-		if (use_physical_coords) { // expected choice, insert into physical, need to get Lagrangian coords
+		if (inserting_physical_coords) { // expected choice, insert into physical, need to get Lagrangian coords
 			Compadre::RemapObject remapObject(-20);// -20 is special flag for remap to indicate Lagrangian interpolated using physical values
 			remapManager->add(remapObject);
 		} else {
@@ -118,7 +120,7 @@ void ParticlesT::insertParticles(const std::vector<xyz_type>& new_pts_vector, co
 	}
 
 
-	remapManager->execute(false /*keep neighborhoods*/, use_physical_coords);
+	remapManager->execute(false /*keep neighborhoods*/, inserting_physical_coords);
 
 	// call this->mergeWith(temp particles) to combine data into one particle set
 	this->mergeWith(temp_particles.getRawPtr());
@@ -128,15 +130,21 @@ void ParticlesT::insertParticles(const std::vector<xyz_type>& new_pts_vector, co
 	 *  bounding boxes, then a repartition is needed, which should precede the halo rebuild.
 	 */
 
-	if (repartition) this->zoltan2Initialize();
+	// Either physical or material coordinates were provided for insertion,
+	// and their respective complement was determined through remap
+	// A repartition and computation of the halo must now be performed,
+	// but it does not have to be done w.r.t. the same coordinates as
+	// were inserted
 
-	if (rebuilt_halo_size==0) this->buildHalo(_coords->getHaloSize());
-	else this->buildHalo(rebuilt_halo_size);
+	if (repartition) this->zoltan2Initialize(repartition_using_physical_coords);
+
+	if (rebuilt_halo_size==0) this->buildHalo(_coords->getHaloSize(), repartition_using_physical_coords);
+	else this->buildHalo(rebuilt_halo_size, repartition_using_physical_coords);
 	_fieldManager->updateFieldsHaloData();
 
 }
 
-void ParticlesT::removeParticles(const std::vector<local_index_type>& coord_ids, const scalar_type rebuilt_halo_size, bool repartition) {
+void ParticlesT::removeParticles(const std::vector<local_index_type>& coord_ids, const scalar_type rebuilt_halo_size, bool repartition, bool repartition_using_physical_coords) {
 	std::vector<local_index_type> coord_ids_ordered = coord_ids;
 	std::sort (coord_ids_ordered.begin(), coord_ids_ordered.end());
 
@@ -177,11 +185,11 @@ void ParticlesT::removeParticles(const std::vector<local_index_type>& coord_ids,
 	 *  processor boundaries will not change and there will not be a load imbalance (so no repartition)
 	 */
 
-	if (repartition) this->zoltan2Initialize();
+	if (repartition) this->zoltan2Initialize(repartition_using_physical_coords);
 
 	// extra machinery that must be called to support halos, etc...
-	if (rebuilt_halo_size==0) this->buildHalo(_coords->getHaloSize());
-	else this->buildHalo(rebuilt_halo_size);
+	if (rebuilt_halo_size==0) this->buildHalo(_coords->getHaloSize(), repartition_using_physical_coords);
+	else this->buildHalo(rebuilt_halo_size, repartition_using_physical_coords);
 	_fieldManager->updateFieldsHaloData();
 }
 
@@ -273,7 +281,7 @@ void ParticlesT::snapPhysicalCoordsToLagrangianCoords() {
 void ParticlesT::updatePhysicalCoordinatesFromField(std::string field_name, const double multiplier) {
 	const mvec_type* field_mvec = this->getFieldManagerConst()->getFieldByName(field_name)->getMultiVectorPtrConst();
 	// wrapper for calling resetLagrangianCoords on the coordinates object
-	_coords->updatePhysicalCoordinatesFromFieldData(field_mvec, multiplier);
+	_coords->deltaUpdatePhysicalCoordsFromVectorByTimestep(multiplier, field_mvec);
 }
 
 void ParticlesT::resize(const global_index_type nn, bool local_resize) {
@@ -316,9 +324,9 @@ Teuchos::RCP<const map_type> ParticlesT::getCoordMap() const {
 
 // Halo functionality
 
-void ParticlesT::buildHalo(scalar_type h) {
+void ParticlesT::buildHalo(scalar_type h, bool use_physical_coords) {
 	// calls buildHalo on coordinates, but make uses this halo connectivity information for fields also
-	_coords->buildHalo(h);
+	_coords->buildHalo(h, use_physical_coords);
 	// fields all rely on the halo building for offprocessor information
 	for (size_t i=0; i<_fields.size(); i++) {
 		_fields[i]->updateHalo();
@@ -326,11 +334,11 @@ void ParticlesT::buildHalo(scalar_type h) {
 	_fieldManager->updateFieldsHaloData();
 }
 
-void ParticlesT::buildHalo() {
+void ParticlesT::buildHalo(bool use_physical_coords) {
 	scalar_type halo_size = _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("halo: size");
 	std::cout << "Warning: ParticlesT::buildHalo() called without halo size. Default halo size of "
 			<< halo_size << " used." << std::endl;
-	this->buildHalo(halo_size);
+	this->buildHalo(halo_size, use_physical_coords);
 }
 
 

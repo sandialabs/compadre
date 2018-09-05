@@ -13,11 +13,23 @@ class LagrangianParticlesT;
 class AnalyticFunction;
 class XyzVector;
 
-/** Manages coordinate data structures, repartitioning, and halo building
+/** Manages coordinate data structures, and halo building
  *
  * This class is designed to store coordinate data, build halo information, and call for repartitioning.
  * However, if fields are defined on each particle, then ParticlesT should be used to call the halo building
  * and repartitioning to keep fields, flags, and coordinates in sync.
+*
+* This class currently handles repartition management, which
+* any function using a processor bounding box requires and
+* but which really should be managed at the ParticlesT level.
+*
+* If partitioning is called through ParticlesT member function,
+* then the repartition management logic is already taken care of
+* by that class. If it is called directly on the CoordsT class,
+* then this is not the case and one should take care that they
+* call neighborhood searches in a consistent way with how they
+* partitioned the data (physical coordinates or material coordinates
+* in a Lagrangian simulation, for instance)
 */
 
 class CoordsT {
@@ -37,6 +49,13 @@ class CoordsT {
 // 		global_index_type _nMaxGlobal;
 		std::string _units;
 		bool _is_lagrangian = false;
+
+		// partitioning can be done with respect to physical or
+		// material coordinates, but not both
+		// in Eulerian simulations, the physical coordinates
+		// coincide and this is irrelevant, but in Lagrangian
+		// simulations, as the points move with a velocity,
+		// for instance, this option is meaningful
 		bool _partitioned_using_physical = true;
 
 		Teuchos::RCP<const Teuchos::Comm<local_index_type> > comm;
@@ -110,15 +129,12 @@ class CoordsT {
 //		void setCoords(const mvec_type* update_vector = NULL, bool use_physical_coords = true);
 
 		// physical coordinates when in the Lagrangian frame by default
-		void deltaUpdatePhysicalCoordsFromVector(const mvec_type* update_vector, const mvec_type* update_halo_vector = NULL, bool update_physical_coords = true);
+		void deltaUpdatePhysicalCoordsFromVector(const mvec_type* update_vector);
 
 		void deltaUpdatePhysicalCoordsFromVectorByTimestep(const double dt, const mvec_type* update_vector);
 
 		// physical coordinates when in the Lagrangian frame by default
 		void deltaUpdatePhysicalCoordsFromVectorFunction(function_type* fn, bool evaluate_using_lagrangian_coordinates = true);
-
-		// updates physical coordinates by adding the displacement to the physical coordinates to get new positions for Lagrangian simulations
-		void updatePhysicalCoordinatesFromFieldData(const mvec_type* data, const double multiplier = 1);
 
 		// provide a vector of data that overwrites either the lagrangian or physical coordinates
 		void overwriteCoordinates(const mvec_type* data, bool use_physical_coords = true);
@@ -137,6 +153,8 @@ class CoordsT {
 		void setLagrangian(bool val = true);
 
 		void setUnits(std::string name) { _units = name; }
+
+		void setPhysicalCoordinatesForPartitioning (bool value) { _partitioned_using_physical = value; }
 
 		// Individual modifiers
 		void replaceLocalCoords(const local_index_type idx, const scalar_type x, const scalar_type y,
@@ -182,7 +200,14 @@ class CoordsT {
 		const bool isLagrangian() const { return _is_lagrangian; }
 
 		const std::string getUnits() const { return _units; }
-		
+
+		// returns whether partitioning was done w.r.t. material or physical coordinates
+		// (true = physical)
+		bool getUsingPhysicalCoordinatesForPartitioning () const {
+			return _partitioned_using_physical;
+		}
+
+
 // Coordinate Metrics
 
 	// Virtual (depends on coordinate type)

@@ -66,6 +66,8 @@ int main (int argc, char* args[]) {
 	// requires more of an increment than "cutoff multiplier" to achieve the required threshold (the other staying the same)
 	//*********
 
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(comm->getSize()!=2, "Example only built to be run on two processors.");
+
 	{
 		MiscTime->start();
 		{
@@ -113,8 +115,8 @@ int main (int argc, char* args[]) {
 			ST halo_size = h_size *
 					( parameters->get<Teuchos::ParameterList>("halo").get<double>("multiplier")
 							+ (ST)(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")));
-			particles->zoltan2Initialize(false /*partition using Lagrangian coords*/);
-			particles->buildHalo(halo_size);
+			particles->zoltan2Initialize(false /*partition using material coords*/);
+			particles->buildHalo(halo_size, false /*build halo using material coords*/);
 
 
 
@@ -216,7 +218,7 @@ int main (int argc, char* args[]) {
 					rm->add(ro);
 					rm->add(ra);
 
-					rm->execute(false /* don't keep neighborhoods */, false /* use lagrangian coords to form neighborhoods */);
+					rm->execute(false /* don't keep neighborhoods */, false /* use material coords to form neighborhoods */);
 
 					std::vector<Compadre::XyzVector> verts_screwed_up;
 					{
@@ -296,7 +298,7 @@ int main (int argc, char* args[]) {
 					MiscTime->stop();
 					ParticleInsertionTime->start();
 
-					particles->insertParticles(verts_to_insert, 0.0 /*rebuilt halo size*/, false /*repartition*/, false /*insert_physical_coords*/);
+					particles->insertParticles(verts_to_insert, 0.0 /*rebuilt halo size*/, false /*repartition*/, false /*insert_physical_coords*/, false /*repartition_with_physical_coords*/);
 					ParticleInsertionTime->stop();
 
 					NormTime->start();
