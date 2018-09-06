@@ -734,5 +734,5 @@ set(${KEY_${TYPE}} \"${val}\")")
       "${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
       DESTINATION lib/cmake/${PROJECT_NAME})
   endif()
-  bob_install_provenance_no_recurse("${no_recurse_components_list}")
+  #bob_install_provenance_no_recurse("${no_recurse_components_list}")
 endfunction(bob_end_package_no_recurse)

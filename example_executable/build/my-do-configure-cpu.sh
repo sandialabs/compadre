@@ -8,6 +8,7 @@ cp my-do-configure-cpu.sh my-do-configure-cpu.sh.gold
 find . ! \( -name 'my-do-configure-cpu.sh.gold' -o -name 'run_program.sh' \) -type f -exec rm -f {} +
 find . -mindepth 1 ! -name 'parameters' -type d -exec rm -rf {} +
 cp my-do-configure-cpu.sh.gold my-do-configure-cpu.sh
+mkdir test_output
 
 cmake \
     -D CMAKE_CXX_COMPILER=mpic++ \

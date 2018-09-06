@@ -7,6 +7,8 @@
 #include "Compadre_AnalyticFunctions.hpp"
 #include "Compadre_XyzVector.hpp"
 
+#include <sys/stat.h>
+
 #ifdef COMPADRE_USE_VTK
 
 	// VTK Fundamentals
@@ -1679,6 +1681,7 @@ int XMLVTPFileIO::read(const std::string& fn) {
 
 	vtkSmartPointer<vtkXMLPPolyDataReader> parallel_reader =
 		vtkSmartPointer<vtkXMLPPolyDataReader>::New();
+
 	parallel_reader->SetFileName(fn.c_str());
 	parallel_reader->UpdateInformation();
 
@@ -2046,7 +2049,24 @@ void LegacyVTKFileIO::write(const std::string& fn, bool use_binary) {
 	vtkSmartPointer<vtkPDataSetWriter> parallel_writer =
 			vtkSmartPointer<vtkPDataSetWriter>::New();
 
-	parallel_writer->SetFileName(fn.c_str());
+	// get pathname and make sure it exists
+ 	{
+		size_t pos = fn.rfind('/', fn.length());
+		std::string pathname = fn.substr(0, pos);
+
+		struct stat info;
+		std::ostringstream msg;
+		if( stat( pathname.c_str(), &info ) != 0 ) {
+			msg << "Cannot  access output directory: " << pathname << ", be sure it exists." << std::endl;
+			TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.str());
+		} else if( info.st_mode & S_IFDIR ) {
+			// directory exists, proceed to write
+			parallel_writer->SetFileName(fn.c_str());
+		} else {
+			msg << "Cannot  access output directory: " << pathname << ", be sure it exists." << std::endl;
+			TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.str());
+ 		}
+	}
 	parallel_writer->SetInputData(_dataSet);
 
 	parallel_writer->SetNumberOfPieces(comm_size); // hard coded to same as comm_size for now
@@ -2091,9 +2111,24 @@ void XMLVTUFileIO::write(const std::string& fn, bool use_binary) {
 			vtkSmartPointer<vtkXMLPUnstructuredGridWriter>::New();
 
 
-	parallel_writer->SetFileName(fn.c_str());
+	// get pathname and make sure it exists
+ 	{
+		size_t pos = fn.rfind('/', fn.length());
+		std::string pathname = fn.substr(0, pos);
 
-
+		struct stat info;
+		std::ostringstream msg;
+		if( stat( pathname.c_str(), &info ) != 0 ) {
+			msg << "Cannot  access output directory: " << pathname << ", be sure it exists." << std::endl;
+			TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.str());
+		} else if( info.st_mode & S_IFDIR ) {
+			// directory exists, proceed to write
+			parallel_writer->SetFileName(fn.c_str());
+		} else {
+			msg << "Cannot  access output directory: " << pathname << ", be sure it exists." << std::endl;
+			TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.str());
+ 		}
+	}
 	parallel_writer->SetInputData(_unstructuredGrid);
 	if (use_binary)
 		parallel_writer->SetDataModeToAppended();
@@ -2131,7 +2166,25 @@ void XMLVTPFileIO::write(const std::string& fn, bool use_binary) {
 	vtkSmartPointer<vtkXMLPPolyDataWriter> parallel_writer =
 			vtkSmartPointer<vtkXMLPPolyDataWriter>::New();
 
-	parallel_writer->SetFileName(fn.c_str());
+
+	// get pathname and make sure it exists
+ 	{
+		size_t pos = fn.rfind('/', fn.length());
+		std::string pathname = fn.substr(0, pos);
+
+		struct stat info;
+		std::ostringstream msg;
+		if( stat( pathname.c_str(), &info ) != 0 ) {
+			msg << "Cannot  access output directory: " << pathname << ", be sure it exists." << std::endl;
+			TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.str());
+		} else if( info.st_mode & S_IFDIR ) {
+			// directory exists, proceed to write
+			parallel_writer->SetFileName(fn.c_str());
+		} else {
+			msg << "Cannot  access output directory: " << pathname << ", be sure it exists." << std::endl;
+			TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.str());
+ 		}
+	}
 	parallel_writer->SetInputData(_polyData);
 
 	if (use_binary)
@@ -2278,7 +2331,25 @@ void VTKFileIO::writeMesh(const std::string& fn) {
 	vtkSmartPointer<vtkXMLPUnstructuredGridWriter> ugWriter =
 		  vtkSmartPointer<vtkXMLPUnstructuredGridWriter>::New();
 	ugWriter->SetInputData(_mesh);
-	ugWriter->SetFileName(fn.c_str());
+
+	// get pathname and make sure it exists
+ 	{
+		size_t pos = fn.rfind('/', fn.length());
+		std::string pathname = fn.substr(0, pos);
+
+		struct stat info;
+		std::ostringstream msg;
+		if( stat( pathname.c_str(), &info ) != 0 ) {
+			msg << "Cannot  access output directory: " << pathname << ", be sure it exists." << std::endl;
+			TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.str());
+		} else if( info.st_mode & S_IFDIR ) {
+			// directory exists, proceed to write
+			ugWriter->SetFileName(fn.c_str());
+		} else {
+			msg << "Cannot  access output directory: " << pathname << ", be sure it exists." << std::endl;
+			TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.str());
+ 		}
+	}
 
 	ugWriter->SetNumberOfPieces(comm_size); // hard coded to same as comm_size for now
 	ugWriter->SetStartPiece(my_rank);
