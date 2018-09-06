@@ -59,9 +59,9 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 		transform(solver_type_to_lower.begin(), solver_type_to_lower.end(), solver_type_to_lower.begin(), ::tolower);
 
 		if (solver_type_to_lower == "manifold") {
-			neighbors_needed = GMLS_T_KOKKOS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
+			neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
 		} else {
-			neighbors_needed = GMLS_T_KOKKOS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 3);
+			neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 3);
 		}
 
 		local_index_type extra_neighbors = _parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
@@ -172,7 +172,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 			operator_coefficients_field_changed = _queue[i]._operator_coefficients_fieldname != _queue[i-1]._operator_coefficients_fieldname;
 		}
 		if (first_in_queue || reconstruction_space_changed || polynomial_sampling_changed || data_sampling_changed || operator_coefficients_field_changed) {
-			_GMLS = Teuchos::rcp(new GMLS_T_KOKKOS(_queue[i]._reconstruction_space,
+			_GMLS = Teuchos::rcp(new GMLS(_queue[i]._reconstruction_space,
 					_queue[i]._polynomial_sampling_functional,
 					_queue[i]._data_sampling_functional,
 					kokkos_neighbor_lists_host,

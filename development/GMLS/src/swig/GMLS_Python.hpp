@@ -1,7 +1,7 @@
 #ifndef _GMLS_PYTHON_HPP_
 #define _GMLS_PYTHON_HPP_
 
-#include <GMLS_Kokkos.hpp>
+#include <GMLS.hpp>
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Random.hpp>
 #include <Python.h>
@@ -13,12 +13,12 @@ class GMLS_Python {
 
 private:
 
-	GMLS_T_KOKKOS* gmls_object;
+	GMLS* gmls_object;
 
 public:
 	GMLS_Python(const int poly_order, std::string dense_solver_type, const int manifold_poly_order, const int dimensions) {
 		Kokkos::initialize();
-		gmls_object = new GMLS_T_KOKKOS(poly_order, dense_solver_type, manifold_poly_order, dimensions);
+		gmls_object = new GMLS(poly_order, dense_solver_type, manifold_poly_order, dimensions);
 		// initialized, but values not set
 	}
 
@@ -212,7 +212,7 @@ public:
 
 	int getNP(const int poly_order, const int dimensions) {
 		// number of points needed for unisolvency
-		return GMLS_T_KOKKOS::getNP(poly_order, dimensions);
+		return GMLS::getNP(poly_order, dimensions);
         }
 };
 

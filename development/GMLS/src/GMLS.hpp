@@ -1,5 +1,5 @@
-#ifndef _GMLS_KOKKOS_HPP_
-#define _GMLS_KOKKOS_HPP_
+#ifndef _GMLS_HPP_
+#define _GMLS_HPP_
 
 
 #include "GMLS_Config.h"
@@ -182,7 +182,7 @@ namespace ReconstructionOperator {
 
 
 
-class GMLS_T_KOKKOS {
+class GMLS {
 protected:
 
 	//	std::cout << "_NP*_host_operations.size()" << _NP*_host_operations.size() << std::endl;
@@ -381,7 +381,7 @@ protected:
 
 
 public:
-    GMLS_T_KOKKOS(const int poly_order,
+    GMLS(const int poly_order,
 			const std::string dense_solver_type = std::string("QR"),
 			const int manifold_poly_order = 2,
 			const int dimensions = 3) : _poly_order(poly_order), _manifold_poly_order(manifold_poly_order), _dimensions(dimensions) {
@@ -427,7 +427,7 @@ public:
 	    _nontrivial_nullspace = false;
     }
 
-    GMLS_T_KOKKOS(Kokkos::View<int**, Kokkos::HostSpace> neighbor_lists,
+    GMLS(Kokkos::View<int**, Kokkos::HostSpace> neighbor_lists,
     		Kokkos::View<double**, Kokkos::HostSpace> source_coordinates,
     		Kokkos::View<double**, Kokkos::HostSpace> target_coordinates,
     		Kokkos::View<double*, Kokkos::HostSpace> epsilons,
@@ -435,7 +435,7 @@ public:
 			const std::string dense_solver_type = std::string("QR"),
 			const int manifold_poly_order = 2,
 			const int dimensions = 3)
-				: GMLS_T_KOKKOS(poly_order, dense_solver_type, manifold_poly_order, dimensions) {
+				: GMLS(poly_order, dense_solver_type, manifold_poly_order, dimensions) {
 
 //    		// switch to this in 3-6 months (12/17/17)
 //    		// allocate memory on device and copy if necessary
@@ -450,7 +450,7 @@ public:
         this->setWindowSizes(epsilons);
     };
 
-    GMLS_T_KOKKOS(ReconstructionOperator::ReconstructionSpace reconstruction_space,
+    GMLS(ReconstructionOperator::ReconstructionSpace reconstruction_space,
     		ReconstructionOperator::SamplingFunctional polynomial_sampling_strategy,
 			ReconstructionOperator::SamplingFunctional data_sampling_strategy,
     		Kokkos::View<int**, Kokkos::HostSpace> neighbor_lists,
@@ -461,14 +461,14 @@ public:
 			const std::string dense_solver_type = std::string("QR"),
 			const int manifold_poly_order = 2,
 			const int dimensions = 3)
-				: GMLS_T_KOKKOS(neighbor_lists, source_coordinates, target_coordinates, epsilons, poly_order, dense_solver_type, manifold_poly_order, dimensions) {
+				: GMLS(neighbor_lists, source_coordinates, target_coordinates, epsilons, poly_order, dense_solver_type, manifold_poly_order, dimensions) {
 
         _reconstruction_space = reconstruction_space;
         _polynomial_sampling_functional = polynomial_sampling_strategy;
         _data_sampling_functional = data_sampling_strategy;
     };
 
-    GMLS_T_KOKKOS(ReconstructionOperator::ReconstructionSpace reconstruction_space,
+    GMLS(ReconstructionOperator::ReconstructionSpace reconstruction_space,
     		ReconstructionOperator::SamplingFunctional dual_sampling_strategy,
     		Kokkos::View<int**, Kokkos::HostSpace> neighbor_lists,
     		Kokkos::View<double**, Kokkos::HostSpace> source_coordinates,
@@ -478,9 +478,9 @@ public:
 			const std::string dense_solver_type = std::string("QR"),
 			const int manifold_poly_order = 2,
 			const int dimensions = 3)
-				: GMLS_T_KOKKOS(reconstruction_space, dual_sampling_strategy, dual_sampling_strategy, neighbor_lists, source_coordinates, target_coordinates, epsilons, poly_order, dense_solver_type, manifold_poly_order, dimensions) {}
+				: GMLS(reconstruction_space, dual_sampling_strategy, dual_sampling_strategy, neighbor_lists, source_coordinates, target_coordinates, epsilons, poly_order, dense_solver_type, manifold_poly_order, dimensions) {}
 
-    ~GMLS_T_KOKKOS(){
+    ~GMLS(){
     };
 
     void setNeighborLists(Kokkos::View<int**, layout_type> neighbor_lists) {

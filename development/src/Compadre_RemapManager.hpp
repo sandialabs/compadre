@@ -104,7 +104,7 @@ class RemapManager {
 
 		Teuchos::RCP<neighbors_type> _neighborhoodInfo;
 		std::vector<local_index_type> _local_operations_num;
-		Teuchos::RCP<GMLS_T_KOKKOS> _GMLS;
+		Teuchos::RCP<GMLS> _GMLS;
 
 	public:
 

@@ -94,7 +94,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 	}
 
 
-	const local_index_type neighbors_needed = GMLS_T_KOKKOS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
+	const local_index_type neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
 
 	bool include_halo = true;
 	bool no_halo = false;
@@ -176,7 +176,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 	// GMLS operator
 
-	GMLS_T_KOKKOS my_scalar_GMLS (kokkos_neighbor_lists_host,
+	GMLS my_scalar_GMLS (kokkos_neighbor_lists_host,
 			kokkos_augmented_source_coordinates_host,
 			kokkos_target_coordinates,
 			kokkos_epsilons_host,
@@ -188,7 +188,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 	my_scalar_GMLS.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
 	my_scalar_GMLS.setManifoldWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold weighting power"));
 
-	GMLS_T_KOKKOS my_vector_GMLS (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
+	GMLS my_vector_GMLS (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
 			ReconstructionOperator::SamplingFunctional::ManifoldVectorSample,
 			kokkos_neighbor_lists_host,
 			kokkos_augmented_source_coordinates_host,
@@ -202,7 +202,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 	my_vector_GMLS.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
 	my_vector_GMLS.setManifoldWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold weighting power"));
 
-	GMLS_T_KOKKOS my_vector_gradient_GMLS (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
+	GMLS my_vector_gradient_GMLS (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
 			ReconstructionOperator::SamplingFunctional::ManifoldGradientVectorSample,
 			kokkos_neighbor_lists_host,
 			kokkos_augmented_source_coordinates_host,
@@ -223,7 +223,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 	if (_particles->getFieldManager()->getIDOfFieldFromName("velocity") == field_one) {
 
-		GMLS_T_KOKKOS my_GMLS_staggered_grad (ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial,
+		GMLS my_GMLS_staggered_grad (ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial,
 				ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
 				kokkos_neighbor_lists_host,
 				kokkos_augmented_source_coordinates_host,
@@ -556,7 +556,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 	} else if (_particles->getFieldManager()->getIDOfFieldFromName("height") == field_one) {
 
-		GMLS_T_KOKKOS my_GMLS_staggered_div (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
+		GMLS my_GMLS_staggered_div (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
 				ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample,
 				kokkos_neighbor_lists_host,
 				kokkos_augmented_source_coordinates_host,

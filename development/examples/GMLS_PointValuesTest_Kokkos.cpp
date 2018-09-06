@@ -226,8 +226,8 @@ int main (int argc, char* args[])
 
     const int offset = 15;
 	std::mt19937 rng(50);
-	const int min_neighbors = 1*GMLS_T_KOKKOS::getNP(order);
-	const int max_neighbors = 1*GMLS_T_KOKKOS::getNP(order)*1.15;
+	const int min_neighbors = 1*GMLS::getNP(order);
+	const int max_neighbors = 1*GMLS::getNP(order)*1.15;
 	std::cout << min_neighbors << " " << max_neighbors << std::endl;
 	std::uniform_int_distribution<int> gen_num_neighbors(min_neighbors, max_neighbors); // uniform, unbiased
 
@@ -308,7 +308,7 @@ int main (int argc, char* args[])
     }
 
     timer.reset();
-    GMLS_T_KOKKOS my_GMLS(neighbor_lists, source_coords, target_coords, epsilon, order, "SVD", 2 /*manifield order*/, dimension);
+    GMLS my_GMLS(neighbor_lists, source_coords, target_coords, epsilon, order, "SVD", 2 /*manifield order*/, dimension);
     std::vector<ReconstructionOperator::TargetOperation> lro(5);
     lro[0] = ReconstructionOperator::ScalarPointEvaluation;
     lro[1] = ReconstructionOperator::LaplacianOfScalarPointEvaluation;

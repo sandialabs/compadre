@@ -9,7 +9,7 @@ assert ((condition)); } while(false)
 #ifdef COMPADRE_USE_KOKKOSCORE
 
 KOKKOS_INLINE_FUNCTION
-double GMLS_T_KOKKOS::Wab(const double r, const double h, const ReconstructionOperator::WeightingFunctionType& weighting_type, const int power) const {
+double GMLS::Wab(const double r, const double h, const ReconstructionOperator::WeightingFunctionType& weighting_type, const int power) const {
 
     if (weighting_type == ReconstructionOperator::WeightingFunctionType::Power) {
     	return std::pow(1.0-std::abs(r/(3*h)), power) * double(1.0-std::abs(r/(3*h))>0.0);
@@ -22,7 +22,7 @@ double GMLS_T_KOKKOS::Wab(const double r, const double h, const ReconstructionOp
 }
 
 KOKKOS_INLINE_FUNCTION
-double GMLS_T_KOKKOS::factorial(const int n) const {
+double GMLS::factorial(const int n) const {
 
     double f = 1.0;
     for(int i = 1; i <= n; i++){
@@ -33,7 +33,7 @@ double GMLS_T_KOKKOS::factorial(const int n) const {
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS_T_KOKKOS::calcWij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, scratch_matrix_type* T, const ReconstructionOperator::SamplingFunctional polynomial_sampling_functional, scratch_vector_type* target_manifold_gradient, scratch_matrix_type* quadrature_manifold_gradients) const {
+void GMLS::calcWij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, scratch_matrix_type* T, const ReconstructionOperator::SamplingFunctional polynomial_sampling_functional, scratch_vector_type* target_manifold_gradient, scratch_matrix_type* quadrature_manifold_gradients) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
@@ -295,7 +295,7 @@ void GMLS_T_KOKKOS::calcWij(double* delta, const int target_index, int neighbor_
 
 
 KOKKOS_INLINE_FUNCTION
-void GMLS_T_KOKKOS::calcGradientWij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionOperator::SamplingFunctional polynomial_sampling_functional) const {
+void GMLS::calcGradientWij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionOperator::SamplingFunctional polynomial_sampling_functional) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
@@ -425,7 +425,7 @@ void GMLS_T_KOKKOS::calcGradientWij(double* delta, const int target_index, const
 
 
 KOKKOS_INLINE_FUNCTION
-void GMLS_T_KOKKOS::createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p, scratch_matrix_type* V, scratch_matrix_type* T, const ReconstructionOperator::SamplingFunctional polynomial_sampling_functional, scratch_vector_type* target_manifold_gradient, scratch_matrix_type* quadrature_manifold_gradients) const {
+void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p, scratch_matrix_type* V, scratch_matrix_type* T, const ReconstructionOperator::SamplingFunctional polynomial_sampling_functional, scratch_vector_type* target_manifold_gradient, scratch_matrix_type* quadrature_manifold_gradients) const {
     /*
      * Creates sqrt(W)*P
      */
@@ -493,7 +493,7 @@ void GMLS_T_KOKKOS::createWeightsAndP(const member_type& teamMember, scratch_vec
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS_T_KOKKOS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, bool only_specific_order, scratch_matrix_type* V) const {
+void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, bool only_specific_order, scratch_matrix_type* V) const {
     /*
      * This function has two purposes
      * 1.) Used to calculate specifically for 1st order polynomials, from which we can reconstruct a tangent plane
@@ -538,7 +538,7 @@ void GMLS_T_KOKKOS::createWeightsAndPForCurvature(const member_type& teamMember,
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS_T_KOKKOS::computeTargetFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, const int basis_multiplier_component) const {
+void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, const int basis_multiplier_component) const {
 
 	const int target_index = teamMember.league_rank();
 
@@ -796,7 +796,7 @@ void GMLS_T_KOKKOS::computeTargetFunctionals(const member_type& teamMember, scra
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS_T_KOKKOS::computeManifoldFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, scratch_matrix_type* V, const int neighbor_index, const double alpha, const int basis_multiplier_component) const {
+void GMLS::computeManifoldFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, scratch_matrix_type* V, const int neighbor_index, const double alpha, const int basis_multiplier_component) const {
 
 	const int target_index = teamMember.league_rank();
 
@@ -834,7 +834,7 @@ void GMLS_T_KOKKOS::computeManifoldFunctionals(const member_type& teamMember, sc
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS_T_KOKKOS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, Kokkos::View<ReconstructionOperator::TargetOperation*> operations, scratch_matrix_type V, scratch_matrix_type T, scratch_matrix_type G_inv, scratch_vector_type manifold_coefficients, scratch_vector_type manifold_gradients, const int basis_multiplier_component) const {
+void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, Kokkos::View<ReconstructionOperator::TargetOperation*> operations, scratch_matrix_type V, scratch_matrix_type T, scratch_matrix_type G_inv, scratch_vector_type manifold_coefficients, scratch_vector_type manifold_gradients, const int basis_multiplier_component) const {
 
 	// only designed for 2D manifold embedded in 3D space
 	const int target_index = teamMember.league_rank();
@@ -1485,7 +1485,7 @@ void GMLS_T_KOKKOS::computeTargetFunctionalsOnManifold(const member_type& teamMe
 	}
 }
 
-void GMLS_T_KOKKOS::printNeighbors(const int target_index) const {
+void GMLS::printNeighbors(const int target_index) const {
     int i;
     fprintf(stdout, "%i neighbors: ", target_index);
     
@@ -1495,7 +1495,7 @@ void GMLS_T_KOKKOS::printNeighbors(const int target_index) const {
     fprintf(stdout, "\n");
 }
 
-void GMLS_T_KOKKOS::printNeighborData(const int target_index, const int dimensions) const {
+void GMLS::printNeighborData(const int target_index, const int dimensions) const {
     
     fprintf(stdout, "my location: ");
     for(int i = 0; i < dimensions; i++){
@@ -1513,7 +1513,7 @@ void GMLS_T_KOKKOS::printNeighborData(const int target_index, const int dimensio
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS_T_KOKKOS::operator()(const member_type& teamMember) const {
+void GMLS::operator()(const member_type& teamMember) const {
 
 	const int target_index = teamMember.league_rank();
 	if (_data_sampling_functional == ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
@@ -2221,7 +2221,7 @@ void GMLS_T_KOKKOS::operator()(const member_type& teamMember) const {
 	teamMember.team_barrier();
 }
 
-void GMLS_T_KOKKOS::generateAlphas() {
+void GMLS::generateAlphas() {
 	// copy over operations
     _operations = Kokkos::View<ReconstructionOperator::TargetOperation*> ("operations", _lro.size());
     _host_operations = Kokkos::create_mirror_view(_operations);
@@ -2356,7 +2356,7 @@ void GMLS_T_KOKKOS::generateAlphas() {
 	Kokkos::fence();
 }
 
-void GMLS_T_KOKKOS::generate1DQuadrature() {
+void GMLS::generate1DQuadrature() {
 
 	_quadrature_weights = Kokkos::View<double*, layout_type>("1d quadrature weights", _number_of_quadrature_points);
 	_parameterized_quadrature_sites = Kokkos::View<double*, layout_type>("1d quadrature sites", _number_of_quadrature_points);

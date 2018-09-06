@@ -887,7 +887,7 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 				if (_particles->getCoordsConst()->getComm()->getRank()==0)
 					printf("hmin: %f\n", h_min);
 				// determine number of neighbors needed and construct list
-				local_index_type neighbors_needed = GMLS_T_KOKKOS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
+				local_index_type neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
 				local_index_type extra_neighbors = _parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
 				_particles->getNeighborhood()->constructAllNeighborList(_particles->getCoordsConst()->getHaloSize(), extra_neighbors);
 			}
@@ -970,7 +970,7 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 //		_particles->getNeighborhood()->setAllHSupportSizes(h_min);
 //
 //		// determine number of neighbors needed and construct list
-//		local_index_type neighbors_needed = GMLS_T_KOKKOS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
+//		local_index_type neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
 //		local_index_type extra_neighbors = _parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
 //		_particles->getNeighborhood()->constructAllNeighborList(_particles->getCoordsConst()->getHaloSize(), extra_neighbors);
 //	}

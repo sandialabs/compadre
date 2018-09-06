@@ -242,7 +242,7 @@ int main (int argc, char* args[]) {
 			particles->createNeighborhood();
 			particles->getNeighborhood()->setAllHSupportSizes(h_support);
 
-			LO neighbors_needed = GMLS_T_KOKKOS::getNP(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
+			LO neighbors_needed = GMLS::getNP(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
 			LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
 			particles->getNeighborhood()->constructAllNeighborList(particles->getCoordsConst()->getHaloSize(), extra_neighbors);
 

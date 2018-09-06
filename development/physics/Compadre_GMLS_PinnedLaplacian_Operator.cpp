@@ -72,7 +72,7 @@ void GMLS_LaplacianPhysics::computeMatrix(local_index_type field_one, local_inde
 	ComputeMatrixTime->start();
 
 #ifdef COMPADRE_USE_BOOST
-	const local_index_type neighbors_needed = GMLS_T_KOKKOS::getNP(Porder);
+	const local_index_type neighbors_needed = GMLS::getNP(Porder);
 
 	bool include_halo = true;
 	bool no_halo = false;
@@ -161,7 +161,7 @@ void GMLS_LaplacianPhysics::computeMatrix(local_index_type field_one, local_inde
 
 	// GMLS operator
 
-	GMLS_T_KOKKOS my_GMLS (kokkos_neighbor_lists_host,
+	GMLS my_GMLS (kokkos_neighbor_lists_host,
 			kokkos_augmented_source_coordinates_host,
 			kokkos_target_coordinates,
 			kokkos_epsilons_host,

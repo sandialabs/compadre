@@ -198,7 +198,7 @@ int main (int argc, char* args[]) {
 				}
 
 				LO neighbors_needed;
-				neighbors_needed = GMLS_T_KOKKOS::getNP(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),2);
+				neighbors_needed = GMLS::getNP(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),2);
 		
 				LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
 		
@@ -281,7 +281,7 @@ int main (int argc, char* args[]) {
 				//
 				//****************
 
-				Teuchos::RCP<GMLS_T_KOKKOS> _GMLS = Teuchos::rcp(new GMLS_T_KOKKOS(kokkos_neighbor_lists_host,
+				Teuchos::RCP<GMLS> _GMLS = Teuchos::rcp(new GMLS(kokkos_neighbor_lists_host,
 							kokkos_augmented_source_coordinates_host,
 							kokkos_target_coordinates,
 							kokkos_epsilons_host,

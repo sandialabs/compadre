@@ -115,7 +115,7 @@ void LaplaceBeltramiPhysics::computeMatrix(local_index_type field_one, local_ind
 if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solution") && field_two == _particles->getFieldManagerConst()->getIDOfFieldFromName("solution")) {
 
 #ifdef COMPADRE_USE_BOOST
-	const local_index_type neighbors_needed = GMLS_T_KOKKOS::getNP(Porder, 2);
+	const local_index_type neighbors_needed = GMLS::getNP(Porder, 2);
 
 	bool include_halo = true;
 	bool no_halo = false;
@@ -212,7 +212,7 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 //
 //		// GMLS operator
 //
-//		GMLS_T_KOKKOS my_GMLS (kokkos_neighbor_lists_host,
+//		GMLS my_GMLS (kokkos_neighbor_lists_host,
 //				kokkos_augmented_source_coordinates_host,
 //				kokkos_target_coordinates,
 //				kokkos_epsilons_host,
@@ -288,11 +288,11 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 	if (_parameters->get<std::string>("solution type")=="lb solve") { // Staggered Laplace-Beltrami
 		// GMLS operator
 
-//		GMLS_T_KOKKOS my_GMLS (ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial,
+//		GMLS my_GMLS (ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial,
 //				ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
 //				ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
 
-		GMLS_T_KOKKOS my_GMLS (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
+		GMLS my_GMLS (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
 				ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample,
 				ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
 				kokkos_neighbor_lists_host,
@@ -395,7 +395,7 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 
 		// GMLS operators
 
-		GMLS_T_KOKKOS my_GMLS_staggered_grad (ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial,
+		GMLS my_GMLS_staggered_grad (ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial,
 				ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
 				kokkos_neighbor_lists_host,
 				kokkos_augmented_source_coordinates_host,
@@ -413,7 +413,7 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 		my_GMLS_staggered_grad.addTargets(ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation);
 		my_GMLS_staggered_grad.generateAlphas();
 
-		GMLS_T_KOKKOS my_GMLS_staggered_div (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
+		GMLS my_GMLS_staggered_div (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
 				ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample,
 				kokkos_neighbor_lists_host,
 				kokkos_augmented_source_coordinates_host,
@@ -588,7 +588,7 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 
 		// GMLS operators
 
-		GMLS_T_KOKKOS my_GMLS_staggered_grad (ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial,
+		GMLS my_GMLS_staggered_grad (ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial,
 				ReconstructionOperator::SamplingFunctional::PointSample,
 				kokkos_neighbor_lists_host,
 				kokkos_augmented_source_coordinates_host,
@@ -606,7 +606,7 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 		my_GMLS_staggered_grad.addTargets(ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation);
 		my_GMLS_staggered_grad.generateAlphas();
 
-		GMLS_T_KOKKOS my_GMLS_staggered_div (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
+		GMLS my_GMLS_staggered_div (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
 				ReconstructionOperator::SamplingFunctional::ManifoldGradientVectorSample,
 				kokkos_neighbor_lists_host,
 				kokkos_augmented_source_coordinates_host,
