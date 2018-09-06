@@ -54,9 +54,10 @@ bob_option(Compadre_USE_Trilinos_Solvers "Use Trilinos Linear Algebra capabiliti
 
 SET(TRILINOS_LINEAR_SOLVES OFF)
 IF (Compadre_USE_Trilinos)
+  FIND_PACKAGE(Trilinos)
   if (Compadre_USE_Trilinos_Solvers)
     bob_add_dependency(PUBLIC NAME Trilinos
-      TARGETS muelu-adapters;muelu-interface;muelu;teko;stratimikos;stratimikosbelos;stratimikosaztecoo;stratimikosamesos;stratimikosml;stratimikosifpack;ifpack2-adapters;ifpack2;anasazitpetra;ModeLaplace;anasaziepetra;anasazi;amesos2;belostpetra;belosepetra;belos;ml;ifpack;zoltan2;amesos;galeri-xpetra;galeri-epetra;aztecoo;xpetra-sup;xpetra;thyratpetra;thyraepetraext;thyraepetra;thyracore;epetraext;trilinosss;tpetraext;tpetrainout;tpetra;kokkostsqr;tpetraclassiclinalg;tpetraclassicnodeapi;tpetraclassic;triutils;zoltan;epetra;rtop;tpetrakernels;teuchoskokkoscomm;teuchoskokkoscompat;teuchosremainder;teuchosnumerics;teuchoscomm;teuchosparameterlist;teuchoscore;kokkosalgorithms;kokkoscontainers;kokkoscore
+      TARGETS "${Trilinos_LIBRARIES}"
       INCLUDE_DIR_VARS 
         Trilinos_INCLUDE_DIRS 
         Trilinos_TPL_INCLUDE_DIRS 
@@ -219,8 +220,9 @@ if (VTK_PREFIX)
   set(CMAKE_PREFIX_PATH ${VTK_PREFIX} ${CMAKE_PREFIX_PATH})
 endif()
 IF (Compadre_USE_VTK)
+  FIND_PACKAGE(VTK)
   bob_add_dependency(PUBLIC NAME VTK
-    TARGETS vtkChartsCore;vtkCommonColor;vtkCommonCore;vtksys;vtkCommonDataModel;vtkCommonMath;vtkCommonMisc;vtkCommonSystem;vtkCommonTransforms;vtkCommonExecutionModel;vtkFiltersGeneral;vtkCommonComputationalGeometry;vtkFiltersCore;vtkInfovisCore;vtkFiltersExtraction;vtkFiltersStatistics;vtkImagingFourier;vtkImagingCore;vtkalglib;vtkRenderingContext2D;vtkRenderingCore;vtkFiltersGeometry;vtkFiltersSources;vtkRenderingFreeType;vtkfreetype;vtkzlib;vtkDICOMParser;vtkDomainsChemistry;vtkIOLegacy;vtkIOCore;vtklz4;vtkIOXMLParser;vtkexpat;vtkDomainsChemistryOpenGL2;vtkRenderingOpenGL2;vtkglew;vtkFiltersAMR;vtkIOXML;vtkParallelCore;vtkFiltersFlowPaths;vtkFiltersGeneric;vtkFiltersHybrid;vtkImagingSources;vtkFiltersHyperTree;vtkFiltersImaging;vtkImagingGeneral;vtkFiltersModeling;vtkFiltersParallel;vtkFiltersParallelDIY2;vtkParallelMPI;vtkFiltersParallelGeometry;vtkFiltersParallelImaging;vtkFiltersParallelMPI;vtkFiltersPoints;vtkFiltersProgrammable;vtkFiltersSMP;vtkFiltersSelection;vtkFiltersTexture;vtkFiltersTopology;vtkFiltersVerdict;verdict;vtkGeovisCore;vtkIOImage;vtkmetaio;vtkjpeg;vtkpng;vtktiff;vtkInfovisLayout;vtkImagingHybrid;vtkInteractionStyle;vtkInteractionWidgets;vtkImagingColor;vtkRenderingAnnotation;vtkRenderingVolume;vtkViewsCore;vtkproj4;vtkIOAMR;vtkhdf5_hl;vtkhdf5;vtkIOEnSight;vtkIOExodus;vtkexoIIc;vtkNetCDF;vtkIOExport;vtkRenderingGL2PSOpenGL2;vtkgl2ps;vtklibharu;vtkIOExportOpenGL2;vtkIOGeometry;vtkIOImport;vtkIOInfovis;vtklibxml2;vtkIOLSDyna;vtkIOMINC;vtkIOMPIImage;vtkIOMPIParallel;vtkIOParallel;vtkIONetCDF;vtknetcdfcpp;vtkjsoncpp;vtkIOMovie;vtkoggtheora;vtkIOPLY;vtkIOParallelExodus;vtkIOParallelNetCDF;vtkIOParallelXML;vtkIOSQL;vtksqlite;vtkIOTecplotTable;vtkIOVideo;vtkImagingMath;vtkImagingMorphological;vtkImagingStatistics;vtkImagingStencil;vtkInteractionImage;vtkRenderingContextOpenGL2;vtkRenderingImage;vtkRenderingLOD;vtkRenderingLabel;vtkRenderingParallel;vtkRenderingVolumeOpenGL2;vtkViewsContext2D;vtkViewsInfovis 
+    TARGETS "${VTK_LIBRARIES}"
     INCLUDE_DIR_VARS 
       VTK_INCLUDE_DIRS 
     LIBRARY_VARS
