@@ -11,7 +11,7 @@ import_array();
 %module gmls
 %{
 #include "GMLS_Python.hpp"
-#include "GMLS_Kokkos.hpp"
+#include "GMLS.hpp"
 #include "Kokkos_Core.hpp"
 #include "Python.h"
 #include "numpy/arrayobject.h"

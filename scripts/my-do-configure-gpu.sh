@@ -27,5 +27,5 @@ cmake \
     -D GMLS_TESTS:BOOL=ON \
     -D Compadre_CANGA_ENABLED:BOOL=OFF \
     \
-    ../development/
+    ..
 

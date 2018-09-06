@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.0.0)
 PROJECT(Compadre VERSION 0.0.1 LANGUAGES CXX)
 
 # cmake helper functions
-include(TPLs/cmake_bob/bob.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/bob.cmake)
 
 bob_begin_package()
 
@@ -302,7 +302,7 @@ bob_option(Compadre_CANGA_ENABLED "Compile optional CANGA tests and examples" OF
 
 ##  Detect KokkosCore functionality from Trilinos
 IF (KOKKOS_IN_TRILINOS)
-  include(${CMAKE_CURRENT_LIST_DIR}/TPLs/cmake_bob/detect_trilinos_opts.cmake)
+  include(${CMAKE_CURRENT_LIST_DIR}/cmake/detect_trilinos_opts.cmake)
   detect_trilinos_opts()
   if (KokkosCore_HAS_CUDA AND (NOT KokkosCore_HAS_CUDA_LAMBDA))
     message(FATAL_ERROR
@@ -461,7 +461,7 @@ if(Compadre_USE_Trilinos)
   add_subdirectory(src)
 endif()
 
-if(Compadre_PHYSICS)
+if(Compadre_USE_Trilinos AND Compadre_PHYSICS)
   add_subdirectory(physics)
 endif()
 
@@ -471,50 +471,3 @@ endif()
 
 set (augmented_list "${Trilinos_LIBRARIES}" "${VTK_LIBRARIES}")
 bob_end_package_no_recurse("${augmented_list}")
-
-
-
-##
-##	Custom build targets
-##
-#ADD_CUSTOM_TARGET(compadre)
-#ADD_DEPENDENCIES(compadre COMPADRE_LIBRARIES)
-#
-#ADD_CUSTOM_TARGET(unit)
-#ADD_DEPENDENCIES(unit simpleCoordsTest.exe simpleMPITest.exe)
-#
-#ADD_CUSTOM_TARGET(regression)
-#ADD_DEPENDENCIES(regression tpetraCoordsTest.exe kdtreeTest.exe readerTest.exe spherePoisson.exe)
-#
-#ADD_CUSTOM_TARGET(gmls)
-#ADD_DEPENDENCIES(gmls GMLS_Laplacian_Test.exe)
-#
-#ADD_CUSTOM_TARGET(parallel)
-#ADD_DEPENDENCIES(parallel parallelReader.exe)
-#
-#ADD_CUSTOM_TARGET(remap)
-#ADD_DEPENDENCIES(remap remapTest.exe)
-#
-#ADD_CUSTOM_TARGET(shallow)
-#ADD_DEPENDENCIES(shallow lagrangianShallowWater.exe)
-#
-#IF(CANGA_ENABLED)
-#  ADD_CUSTOM_TARGET(canga)
-#  ADD_DEPENDENCIES(canga cangaRemoteRemap.exe)
-#  ADD_DEPENDENCIES(canga cangaIntercomparison.exe)
-#ENDIF()
-#
-#endif()
-#
-#
-##
-##	Testing
-##
-### When executing these with OMP, it makes sense to add --bind-to-none or --bind-to none in order to not restrict threads to cores
-#ENABLE_TESTING()
-#ADD_SUBDIRECTORY(tests)
-#
-#CONFIGURE_FILE("${CMAKE_SOURCE_DIR}/src/Compadre_Config.h.in" "${PROJECT_BINARY_DIR}/src/Compadre_Config.h")
-#CONFIGURE_FILE("${CMAKE_SOURCE_DIR}/tests/parameters_amg.xml.in" "${CMAKE_SOURCE_DIR}/tests/trilinos_test/parameters_amg.xml" @ONLY)
-#CONFIGURE_FILE("${CMAKE_SOURCE_DIR}/tests/parameters_amg_blockdiag5x5.xml.in" "${CMAKE_SOURCE_DIR}/tests/trilinos_test/parameters_amg_blockdiag5x5.xml" @ONLY)
-
