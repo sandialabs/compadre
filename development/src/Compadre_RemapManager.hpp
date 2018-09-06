@@ -4,7 +4,7 @@
 #include "Compadre_Config.h"
 #include "Compadre_Typedefs.hpp"
 
-#include <GMLS_Kokkos.hpp>
+#include <GMLS.hpp>
 
 namespace Compadre {
 

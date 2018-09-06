@@ -9,7 +9,7 @@
 #include <Compadre_NeighborhoodT.hpp>
 #include <Compadre_XyzVector.hpp>
 
-#include <GMLS_Kokkos.hpp>
+#include <GMLS.hpp>
 
 #ifdef COMPADRE_USE_OPENMP
 #include <omp.h>

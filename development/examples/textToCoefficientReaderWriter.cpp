@@ -21,7 +21,7 @@
 
 #include <GMLS_Config.h>
 
-#include <GMLS_Kokkos.hpp>
+#include <GMLS.hpp>
 
 #include <iostream>
 

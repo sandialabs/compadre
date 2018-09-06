@@ -13,7 +13,7 @@
 #include "Compadre_nanoflannPointCloudT.hpp"
 #endif
 
-#include <GMLS_Kokkos.hpp>
+#include <GMLS.hpp>
 
 
 

@@ -27,7 +27,7 @@
 #include "Compadre_GlobalConstants.hpp"
 static const Compadre::GlobalConstants consts;
 
-#include <GMLS_Kokkos.hpp> // for getNP()
+#include <GMLS.hpp> // for getNP()
 
 #include <iostream>
 

@@ -21,7 +21,7 @@
 #include <Teuchos_SerialDenseSolver.hpp>
 #include <Compadre_AnalyticFunctions.hpp>
 #include <Compadre_XyzVector.hpp>
-#include <GMLS_Kokkos.hpp> // for getNP()
+#include <GMLS.hpp> // for getNP()
 
 namespace Compadre {
 

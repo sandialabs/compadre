@@ -17,7 +17,7 @@
 #include <Compadre_FileIO.hpp>
 #include <Compadre_ParameterManager.hpp>
 
-#include <GMLS_Kokkos.hpp> // for getNP()
+#include <GMLS.hpp> // for getNP()
 
 #include <Compadre_GMLS_PinnedLaplacian_Sources.hpp>
 #include <Compadre_GMLS_PinnedLaplacian_BoundaryConditions.hpp>

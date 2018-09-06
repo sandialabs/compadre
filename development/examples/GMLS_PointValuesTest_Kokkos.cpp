@@ -9,7 +9,7 @@
 #include "GMLS_Config.h"
 
 #ifdef COMPADRE_USE_KOKKOSCORE
-#include "GMLS_Kokkos.hpp"
+#include "GMLS.hpp"
 #include <Kokkos_Timer.hpp>
 #include <Kokkos_Core.hpp>
 

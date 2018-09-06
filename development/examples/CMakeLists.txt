@@ -32,9 +32,7 @@ endfunction(add_exe_w_compadre)
 #
 ###############
 if (GMLS_EXAMPLES)
-    add_exe_w_gmls(GMLS_PointValuesTest GMLS_PointValuesTest_boost.cpp)
     add_exe_w_gmls(GMLS_PointValuesTest_Kokkos GMLS_PointValuesTest_Kokkos.cpp)
-    add_exe_w_gmls(GMLS_PointValuesTest_Kokkos_Boost_Comparison GMLS_PointValuesTest_Kokkos_Boost_Comparison.cpp)
   if (GMLS_TESTS)
     ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim3 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos "4" "200" "3" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim3 PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)

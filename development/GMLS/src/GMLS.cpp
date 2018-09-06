@@ -1,4 +1,4 @@
-#include "GMLS_Kokkos.hpp"
+#include "GMLS.hpp"
 
 #include <float.h> // for DBL_MAX
 
