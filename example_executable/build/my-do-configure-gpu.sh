@@ -9,9 +9,9 @@ find . -mindepth 1 ! -name 'parameters' -type d -exec rm -rf {} +
 mkdir test_output
 
 cmake \
-    -D CMAKE_CXX_COMPILER=mpic++ \
+    -D CMAKE_CXX_COMPILER=/ascldap/users/pakuber/releases/kokkos/launch/install/bin/nvcc_wrapper \
     -D Compadre_PREFIX=../build/install \
-    -D EXAMPLE_TYPE="cpu" \
+    -D EXAMPLE_TYPE="gpu" \
     \
     ..
 

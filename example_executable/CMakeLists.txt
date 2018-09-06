@@ -25,10 +25,21 @@ ENDIF()
 set(CMAKE_CXX_FLAGS ${Compadre_CXX_FLAGS} ${CMAKE_CXX_FLAGS}) 
 
 
-# Copy example .cpp problem from source directory (not needed for your program)
-# destination path is relative to directory calling CMake (i.e. ./build)
-file(COPY ../development/examples/CompadreTrilinosTest.cpp
-        DESTINATION .. )
+if (("${EXAMPLE_TYPE}" STREQUAL "cpu") OR ("${EXAMPLE_TYPE}" STREQUAL "gpu"))
+  # Copy example .cpp problem from source directory (not needed for your program)
+  # destination path is relative to directory calling CMake (i.e. ./build)
+  file(COPY ../development/examples/GMLS_PointValuesTest_Kokkos.cpp
+          DESTINATION .. )
+  add_executable(GMLS_PointValuesTest_Kokkos GMLS_PointValuesTest_Kokkos.cpp)
+  target_link_libraries(GMLS_PointValuesTest_Kokkos Compadre::gmls)
+endif()
 
-add_executable(tpetraCoordsTest.exe CompadreTrilinosTest.cpp)
-target_link_libraries(tpetraCoordsTest.exe Compadre::compadre Compadre::physics)
+if ("${EXAMPLE_TYPE}" STREQUAL "cpu") 
+  # Copy example .cpp problem from source directory (not needed for your program)
+  # destination path is relative to directory calling CMake (i.e. ./build)
+  file(COPY ../development/examples/CompadreTrilinosTest.cpp
+          DESTINATION .. )
+  add_executable(tpetraCoordsTest.exe CompadreTrilinosTest.cpp)
+  target_link_libraries(tpetraCoordsTest.exe Compadre::compadre Compadre::physics)
+endif()
+

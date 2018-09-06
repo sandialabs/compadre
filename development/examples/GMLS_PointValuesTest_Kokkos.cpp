@@ -6,10 +6,10 @@
 #include <cstdio>
 #include <random>
 
-#include "../src/GMLS_Config.h"
+#include "GMLS_Config.h"
 
 #ifdef COMPADRE_USE_KOKKOSCORE
-#include "../src/GMLS_Kokkos.hpp"
+#include "GMLS_Kokkos.hpp"
 #include <Kokkos_Timer.hpp>
 #include <Kokkos_Core.hpp>
 

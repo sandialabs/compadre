@@ -5,12 +5,12 @@
 #include <stdlib.h> 
 #include <cstdio>
 
-#include "../src/GMLS_Config.h"
+#include "GMLS_Config.h"
 
 #ifdef COMPADRE_USE_BOOST
 
-#include "../src/GMLS_particle_boost.hpp"
-#include "../src/GMLS_boost.hpp"
+#include "GMLS_particle_boost.hpp"
+#include "GMLS_boost.hpp"
 
 typedef std::vector<double> stl_vector_type;
 typedef boost::numeric::ublas::vector<double> boost_vector_type;
