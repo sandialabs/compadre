@@ -2,6 +2,7 @@
 
 #include "Compadre_XyzVector.hpp"
 #include "Compadre_AnalyticFunctions.hpp"
+#include <limits>
 
 namespace Compadre {
 
@@ -582,7 +583,6 @@ void CoordsT::print(std::ostream& os, bool use_physical_coords) const {
 }
 
 void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
-
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(_is_lagrangian && use_physical_coords && (_partitioned_using_physical != use_physical_coords), "Halo is being built in the physical frame, but processor partitioning was performed in material frame.");
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(_is_lagrangian && (!use_physical_coords) && (_partitioned_using_physical != use_physical_coords), "Halo is being built in the material frame, but processor partitioning was performed in physical frame.");
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(z2problem.is_null(), "Zoltan2 object does not exist. Needs to be called.");
@@ -653,12 +653,15 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
 				host_view_type pts_view;
 				const_gid_view_type gids;
 				count_type count;
+				global_index_type max_gid;
 
 				SearchBoxFunctor(z2_box_type box_, gid_view_type gids_found_,
 						host_view_type pts_view_, const_gid_view_type gids_,
 						count_type count_)
 						: box(box_),gids_found(gids_found_),
-						  pts_view(pts_view_),gids(gids_),count(count_){}
+						  pts_view(pts_view_),gids(gids_),count(count_){
+					max_gid = std::numeric_limits<global_index_type>::max();
+				}
 
 				void operator()(const int i) const {
 					scalar_type coordinates[3] = {pts_view(i,0), pts_view(i,1), pts_view(i,2)};
@@ -667,7 +670,7 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
 						Kokkos::atomic_fetch_add(&count(), 1);
 						gids_found(i) = gids(i);
 					} else {
-						gids_found(i) = -1;
+						gids_found(i) = max_gid;
 					}
 				}
 			};
@@ -683,14 +686,17 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
 				gid_view_type gids_to_send;
 				gid_view_type gids_found;
 				count_type count;
+				global_index_type max_gid;
 
 				VectorMergeFunctor(gid_view_type gids_to_send_,
 						gid_view_type gids_found_)
 						: gids_to_send(gids_to_send_), gids_found(gids_found_),
-						  count(count_type("")){}
+						  count(count_type("")){
+					max_gid = std::numeric_limits<global_index_type>::max();
+				}
 
 				void operator()(const int i) const {
-					if (gids_found(i)>-1) {
+					if (gids_found(i) != max_gid) {
 						const int idx = Kokkos::atomic_fetch_add(&count(), 1);
 						gids_to_send(idx) = gids_found(i);
 					}
@@ -750,18 +756,29 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
 		}
 		indices_i_need.resize(sum);
 
+
 		// put out a receive for all processors of a N integers
 		// go through my neighbor list
 		Teuchos::ArrayRCP<global_index_type> indices_received(&indices_i_need[0], 0, sum, false);
 		for (local_index_type p = pb; p<pe; p++) {
-			Teuchos::ArrayRCP<global_index_type> single_indices_recv(&indices_received[sending_processor_offsets[p-pb]], 0, recv_counts[p-pb], false);
+			Teuchos::ArrayRCP<global_index_type> single_indices_recv;
+			if (recv_counts[p-pb] > 0) {
+				single_indices_recv = Teuchos::ArrayRCP<global_index_type>(&indices_received[sending_processor_offsets[p-pb]], 0, recv_counts[p-pb], false);
+			} else {
+				single_indices_recv = Teuchos::ArrayRCP<global_index_type>(NULL, 0, 0, false);
+			}
 			requests[p-pb] = Teuchos::ireceive<local_index_type,global_index_type>(*comm, single_indices_recv, commAdj[p]);
 		}
 
 		// put out a send for all processors of N integers
 		// go through my neighbor list
 		for (local_index_type p = pb; p<pe; p++) {
-			Teuchos::ArrayRCP<global_index_type> indices_to_send(&(*coords_to_send[p-pb])(0), 0, coords_to_send[p-pb]->dimension(0), false);
+			Teuchos::ArrayRCP<global_index_type> indices_to_send;
+			if (coords_to_send[p-pb]->dimension(0) > 0) {
+				indices_to_send = Teuchos::ArrayRCP<global_index_type>(&(*coords_to_send[p-pb])(0), 0, coords_to_send[p-pb]->dimension(0), false);
+			} else {
+				indices_to_send = Teuchos::ArrayRCP<global_index_type>(NULL, 0, 0, false);
+			}
 			requests[num_sending_processors+(p-pb)] = Teuchos::isend<local_index_type,global_index_type>(*comm, indices_to_send, commAdj[p]);
 		}
 		Teuchos::waitAll<local_index_type>(*comm, requests);

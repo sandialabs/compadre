@@ -391,6 +391,7 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 			Kokkos::deep_copy(*h_gids_to_send, gids_to_send);
 
 			coords_to_send[i] = h_gids_to_send;
+
 //			for (int j=0; j<coords_to_send[i]->size(); j++) {
 //				if (!_amLower && global_comm->getRank()==3 && peer_processors_i_overlap[i]==0)
 //					std::cout << global_comm->getRank() << " sends: " << (*coords_to_send[i])(j) << " to " <<  peer_processors_i_overlap[i] << std::endl;
@@ -438,18 +439,33 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 		}
 		indices_i_need.resize(sum);
 
+
+		// there is no implied connect between that processors that because on has nothing to receive, then they have nothing to send
+		// therefore, even 0 must be sent
+
 		// put out a receive for all processors of a N integers
 		// go through my neighbor list
 		Teuchos::ArrayRCP<global_index_type> indices_received(&indices_i_need[0], 0, sum, false);
 		for (local_index_type i = 0; i<peer_processors_i_overlap.size(); i++) {
-			Teuchos::ArrayRCP<global_index_type> single_indices_recv(&indices_received[sending_processor_offsets[i]], 0, recv_counts[i], false);
-			requests[i] = Teuchos::ireceive<local_index_type,global_index_type>(*global_comm, single_indices_recv, peer_processors_i_overlap[i] + peer_root);
+			Teuchos::ArrayRCP<global_index_type> single_indices_recv;
+			if (recv_counts[i] > 0) {
+				single_indices_recv = Teuchos::ArrayRCP<global_index_type>(&indices_received[sending_processor_offsets[i]], 0, recv_counts[i], false);
+				requests[i] = Teuchos::ireceive<local_index_type,global_index_type>(*global_comm, single_indices_recv, peer_processors_i_overlap[i] + peer_root);
+			} else {
+				single_indices_recv = Teuchos::ArrayRCP<global_index_type>(NULL, 0, 0, false);
+				requests[i] = Teuchos::ireceive<local_index_type,global_index_type>(*global_comm, single_indices_recv, peer_processors_i_overlap[i] + peer_root);
+			}
 		}
 
 		// put out a send for all processors of N integers
 		// go through my neighbor list
 		for (local_index_type i = 0; i<peer_processors_i_overlap.size(); i++) {
-			Teuchos::ArrayRCP<global_index_type> indices_to_send(&(*coords_to_send[i])(0), 0, coords_to_send[i]->dimension(0), false);
+			Teuchos::ArrayRCP<global_index_type> indices_to_send;
+                        if (coords_to_send[i]->size() > 0) {
+				indices_to_send = Teuchos::ArrayRCP<global_index_type>(&(*coords_to_send[i])(0), 0, coords_to_send[i]->dimension(0), false);
+			} else {
+				indices_to_send = Teuchos::ArrayRCP<global_index_type>(NULL, 0, 0, false);
+			}
 			requests[peer_processors_i_overlap.size()+i] = Teuchos::isend<local_index_type,global_index_type>(*global_comm, indices_to_send, peer_processors_i_overlap[i] + peer_root);
 		}
 		Teuchos::waitAll<local_index_type>(*global_comm, requests);
