@@ -3,15 +3,19 @@
 #
 # Script for invoking CMake using the CMakeLists.txt file in this directory. 
 
-# following 3 lines for build directory cleanup
+# following lines for build directory cleanup
 cp my-do-configure-cpu.sh my-do-configure-cpu.sh.gold 
-find . ! -name 'my-do-configure-cpu.sh.gold' -type f -exec rm -f {} +
+cp my-do-configure-gpu.sh my-do-configure-gpu.sh.gold 
+find . ! \( -name 'my-do-configure-cpu.sh.gold' -o -name 'my-do-configure-gpu.sh.gold' \) -type f -exec rm -f {} +
 cp my-do-configure-cpu.sh.gold my-do-configure-cpu.sh
+cp my-do-configure-gpu.sh.gold my-do-configure-gpu.sh
 
 cmake \
     -D CMAKE_CXX_COMPILER=mpic++ \
     -D CMAKE_INSTALL_PREFIX=./install \
     -D Compadre_USE_Trilinos:BOOL=ON \
+    -D Compadre_USE_Trilinos_CXX_Flags:BOOL=ON \
+    -D Compadre_USE_Trilinos_Solvers:BOOL=ON \
     -D Compadre_USE_Boost:BOOL=ON \
     -D Compadre_USE_Netcdf:BOOL=ON \
     -D Compadre_USE_VTK:BOOL=ON \

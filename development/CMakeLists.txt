@@ -51,6 +51,7 @@ if (Trilinos_PREFIX)
   set(CMAKE_PREFIX_PATH ${Trilinos_PREFIX} ${CMAKE_PREFIX_PATH})
 endif()
 bob_option(Compadre_USE_Trilinos_Solvers "Use Trilinos Linear Algebra capabilities" ON)
+bob_option(Compadre_USE_Trilinos_CXX_Flags "Use Trilinos CXX flags" ON)
 
 SET(TRILINOS_LINEAR_SOLVES OFF)
 IF (Compadre_USE_Trilinos)
@@ -180,9 +181,37 @@ ENDIF()
 
 
 #KOKKOS
-set(Compadre_USE_KokkosCore_DEFAULT ON)
-set(KokkosCore_PREFIX_DEFAULT "${Trilinos_PREFIX}")
-bob_add_dependency(PUBLIC NAME KokkosCore TARGETS kokkoscore INCLUDE_DIR_VARS KokkosCore_INCLUDE_DIRS)
+bob_option(Compadre_USE_KokkosCore "Use KokkosCore" ON)
+bob_input(KokkosCore_PREFIX "${Trilinos_PREFIX}" PATH "Path to KokkosCore install")
+set(KOKKOS_IN_TRILINOS OFF)
+if (KokkosCore_PREFIX)
+  set(CMAKE_PREFIX_PATH ${KokkosCore_PREFIX} ${CMAKE_PREFIX_PATH})
+endif()
+if (Compadre_USE_KokkosCore)
+  if ("${KokkosCore_PREFIX}" STREQUAL "${Trilinos_PREFIX}") 
+    SET(KOKKOS_IN_TRILINOS ON)
+    MESSAGE(STATUS "Using KokkosCore in Trilinos.")
+    bob_add_dependency(PUBLIC NAME KokkosCore TARGETS kokkoscore INCLUDE_DIR_VARS KokkosCore_INCLUDE_DIRS)
+  else()
+    FIND_FILE(Kokkos_PROJECT_FULL_FILENAME name kokkos_generated_settings.cmake HINTS "${KokkosCore_PREFIX}" NO_DEFAULT_PATH)
+    GET_FILENAME_COMPONENT(Kokkos_PROJECT_FILENAME ${Kokkos_PROJECT_FULL_FILENAME} NAME)
+    IF(Kokkos_PROJECT_FILENAME)
+      FIND_PACKAGE(KokkosCore CONFIGS "${Kokkos_PROJECT_FILENAME}") 
+      IF(KokkosCore_FOUND)
+        MESSAGE(STATUS "KokkosCore found at ${Kokkos_PROJECT_FULL_FILENAME}")
+        GET_FILENAME_COMPONENT(KokkosCore_INSTALL_DIR ${Kokkos_PROJECT_FULL_FILENAME} DIRECTORY)
+        SET(KokkosCore_INCLUDE_DIRS "${KokkosCore_INSTALL_DIR}/include")
+        SET(KokkosCore_STATIC_LIB "${KokkosCore_INSTALL_DIR}/lib/${KOKKOS_LINK_DEPENDS}")
+        MESSAGE(STATUS "KokkosCore_INCLUDE_DIRS: ${KokkosCore_INCLUDE_DIRS}")
+        MESSAGE(STATUS "KokkosCore_STATIC_LIB: ${KokkosCore_STATIC_LIB}")
+      ELSE()
+          MESSAGE(FATAL_ERROR "KokkosCore from outside of Trilinos requested, but kokkos_generated_settings.cmake was not found.")
+      ENDIF()
+    ELSE()
+        MESSAGE(FATAL_ERROR "KokkosCore from outside of Trilinos requested, but kokkos_generated_settings.cmake was not found.")
+    ENDIF()
+  endif()
+endif()
 
 #NETCDF
 bob_option(Compadre_USE_Netcdf "Use Netcdf" ON)
@@ -253,8 +282,8 @@ bob_option(Compadre_USE_MPI "Use MPI for parallelism" ${MPI_FOUND})
 bob_option(GMLS_TESTS "Compile GMLS tests" ON)
 bob_option(Compadre_TESTS "Compile Compadre tests" ON)
 
-set(GMLS_EXAMPLES_DEFAULT "${GMLS_TESTS}")
-set(Compadre_EXAMPLES_DEFAULT "${Compadre_TESTS}")
+bob_option(GMLS_EXAMPLES "Compile GMLS examples" "${GMLS_TESTS}")
+bob_option(Compadre_EXAMPLES "Compile Compadre examples" "${Compadre_TESTS}")
 
 # physics compiled by default if Compadre_EXAMPLES is ON and not if OFF
 bob_option(Compadre_PHYSICS "Compile Compadre Physics" "${Compadre_EXAMPLES}")
@@ -272,12 +301,14 @@ bob_option(Compadre_CANGA_ENABLED "Compile optional CANGA tests and examples" OF
 
 
 ##  Detect KokkosCore functionality from Trilinos
-include(${CMAKE_CURRENT_LIST_DIR}/TPLs/cmake_bob/detect_trilinos_opts.cmake)
-detect_trilinos_opts()
-if (KokkosCore_HAS_CUDA AND (NOT KokkosCore_HAS_CUDA_LAMBDA))
-  message(FATAL_ERROR
-          "Please reconfigure Kokkos with -DKokkos_ENABLE_Cuda_Lambda:BOOL=ON")
-endif()
+IF (KOKKOS_IN_TRILINOS)
+  include(${CMAKE_CURRENT_LIST_DIR}/TPLs/cmake_bob/detect_trilinos_opts.cmake)
+  detect_trilinos_opts()
+  if (KokkosCore_HAS_CUDA AND (NOT KokkosCore_HAS_CUDA_LAMBDA))
+    message(FATAL_ERROR
+            "Please reconfigure Kokkos with -DKokkos_ENABLE_Cuda_Lambda:BOOL=ON")
+  endif()
+ENDIF()
 
 
 ##
@@ -303,55 +334,65 @@ bob_option(Compadre_USE_OpenMP "Whether to use OpenMP" "${KokkosCore_HAS_OpenMP}
 
 
 
-bob_begin_cxx_flags()
-bob_cxx11_flags()
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  set(FLAGS "${FLAGS} -fno-omit-frame-pointer")
-  if(Compadre_USE_CUDA)
-    if (Compadre_CUDA_ARCH)
-      add_compile_options($<$<COMPILE_LANGUAGE:CXX>:--cuda-gpu-arch=${Compadre_CUDA_ARCH}>)
+if(NOT(KOKKOS_IN_TRILINOS))
+  IF (KOKKOS_CXX_FLAGS) 
+    FOREACH(arg ${KOKKOS_CXX_FLAGS} )
+      SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${arg}")
+    ENDFOREACH()
+  ENDIF()
+else()
+  bob_begin_cxx_flags()
+  bob_cxx11_flags()
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    set(FLAGS "${FLAGS} -fno-omit-frame-pointer")
+    if(Compadre_USE_CUDA)
+      if (Compadre_CUDA_ARCH)
+        add_compile_options($<$<COMPILE_LANGUAGE:CXX>:--cuda-gpu-arch=${Compadre_CUDA_ARCH}>)
+      endif()
+      add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-x>)
+      add_compile_options($<$<COMPILE_LANGUAGE:CXX>:cuda>)
+      # -Wweak-vtables gives false positives with -x cuda
+      set(FLAGS "${FLAGS} -Wno-weak-vtables")
     endif()
-    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-x>)
-    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:cuda>)
-    # -Wweak-vtables gives false positives with -x cuda
-    set(FLAGS "${FLAGS} -Wno-weak-vtables")
-  endif()
-elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
-  if(Compadre_USE_CUDA)
-    set(FLAGS "${FLAGS} -expt-extended-lambda -lineinfo")
-    if (Compadre_CUDA_ARCH)
-      set(FLAGS "${FLAGS} -arch=${Compadre_CUDA_ARCH}")
+  elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
+    if(Compadre_USE_CUDA)
+      set(FLAGS "${FLAGS} -expt-extended-lambda -lineinfo")
+      if (Compadre_CUDA_ARCH)
+        set(FLAGS "${FLAGS} -arch=${Compadre_CUDA_ARCH}")
+      endif()
+      if (CUDA_VERSION EQUAL 9)
+        set(FLAGS "${FLAGS} -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored")
+      endif()
+    else()
+      if(Compadre_USE_Boost)
+        set(FLAGS "${FLAGS} -fext-numeric-literals")
+      endif()
+      set(FLAGS "${FLAGS} -fno-omit-frame-pointer")
+      if(Compadre_USE_OpenMP)
+        set(FLAGS "${FLAGS} -fopenmp")
+      endif()
     endif()
-    if (CUDA_VERSION EQUAL 9)
-      set(FLAGS "${FLAGS} -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored")
-    endif()
-  else()
-    if(Compadre_USE_Boost)
-      set(FLAGS "${FLAGS} -fext-numeric-literals")
-    endif()
+  elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
     set(FLAGS "${FLAGS} -fno-omit-frame-pointer")
     if(Compadre_USE_OpenMP)
       set(FLAGS "${FLAGS} -fopenmp")
     endif()
+  else()
+    message(WARNING "Unexpected compiler type ${CMAKE_CXX_COMPILER_ID}")
   endif()
-elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
-  set(FLAGS "${FLAGS} -fno-omit-frame-pointer")
-  if(Compadre_USE_OpenMP)
-    set(FLAGS "${FLAGS} -fopenmp")
-  endif()
-else()
-  message(WARNING "Unexpected compiler type ${CMAKE_CXX_COMPILER_ID}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FLAGS}")
 endif()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FLAGS}")
 
 
+if (Compadre_USE_Trilinos_CXX_Flags)
+  # Get compiler flags from Trilinos
+  IF (Trilinos_CXX_COMPILER_FLAGS) 
+    FOREACH(arg ${Trilinos_CXX_COMPILER_FLAGS} )
+      SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${arg}")
+    ENDFOREACH()
+  ENDIF()
+endif()
 
-## Get compiler flags from Trilinos
-#IF (Trilinos_CXX_COMPILER_FLAGS) 
-#  FOREACH(arg ${Trilinos_CXX_COMPILER_FLAGS} )
-#    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${arg}")
-#  ENDFOREACH()
-#ENDIF()
 
 bob_end_cxx_flags()
 
@@ -415,7 +456,10 @@ bob_get_semver()
 
 
 add_subdirectory(GMLS)
-add_subdirectory(src)
+
+if(Compadre_USE_Trilinos)
+  add_subdirectory(src)
+endif()
 
 if(Compadre_PHYSICS)
   add_subdirectory(physics)
@@ -430,155 +474,6 @@ bob_end_package_no_recurse("${augmented_list}")
 
 
 
-
-
-
-
-
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#INCLUDE_DIRECTORIES(.)
-#SET( CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin )
-#SET( CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib )
-#SET( CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib )
-#INCLUDE_DIRECTORIES("${PROJECT_BINARY_DIR}/src")
-#IF (NOT APPLE)
-#  SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fext-numeric-literals" ) 
-#ENDIF()
-#IF (BUILD_SHARED_LIBRARIES)
-#  SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC" ) 
-#ENDIF()
-#
-##
-##       Manage TPLs
-##
-#INCLUDE("./TPLs/CMakeLists.txt")
-#
-##
-##       includes gsl libraries
-##       builds gmls library
-##
-#ADD_SUBDIRECTORY(GMLS)
-#SET(GMLS_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/GMLS/src")
-#
-#
-#IF (Trilinos_FOUND AND MPI_FOUND)
-##
-##       Build COMPADRE library
-##
-#FILE(GLOB COMPADRE_CPPFILES ./src/*.cpp ./src/problems/*.cpp)
-#
-#IF(BUILD_SHARED_COMPADRE_LIBRARY)
-#  ADD_LIBRARY(COMPADRE_LIBRARIES SHARED ${COMPADRE_CPPFILES})
-#ELSE()
-#  ADD_LIBRARY(COMPADRE_LIBRARIES STATIC ${COMPADRE_CPPFILES})
-#ENDIF(BUILD_SHARED_COMPADRE_LIBRARY)
-#
-#TARGET_INCLUDE_DIRECTORIES(COMPADRE_LIBRARIES PUBLIC ${Trilinos_INCLUDE_DIRS} ${GMLS_INCLUDE_DIRS})
-#TARGET_LINK_LIBRARIES(COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} ${GMLS_LIBRARIES})
-#
-#IF (USE_VTK)
-#  TARGET_LINK_LIBRARIES(COMPADRE_LIBRARIES ${VTK_LIBRARIES})
-#ENDIF()
-#
-#IF (USE_NETCDF)
-#  TARGET_LINK_LIBRARIES(COMPADRE_LIBRARIES ${HDF5_LIB} ${HDF5_HL_LIB} ${CURL_LIB} ${NETCDF_LIB})
-#ENDIF()
-#
-#IF(USE_BOOST)
-#  TARGET_INCLUDE_DIRECTORIES(COMPADRE_LIBRARIES PUBLIC ${BOOST_INC})
-#ENDIF()
-#
-#SET(COMPADRE_INCLUDE_DIRS src)
-#INCLUDE_DIRECTORIES(${COMPADRE_INCLUDE_DIRS})
-#INCLUDE_DIRECTORIES(${COMPADRE_INCLUDE_DIRS}/problems)
-#
-## Get compiler flags from Trilinos
-#IF (Trilinos_CXX_COMPILER_FLAGS) 
-#  FOREACH(arg ${Trilinos_CXX_COMPILER_FLAGS} )
-#    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${arg}")
-#  ENDFOREACH()
-#ENDIF()
-#
-#
-## Canga Enabled Flags
-#IF (NOT DEFINED CANGA_ENABLED)
-#  SET(CANGA_ENABLED OFF) # on by default
-#ENDIF()
-#
-#
-##
-##	Executables
-##
-#ADD_EXECUTABLE(GMLS_Laplacian_Test.exe CompadreGMLSTest.cpp)
-#TARGET_LINK_LIBRARIES(GMLS_Laplacian_Test.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-#ADD_EXECUTABLE(tpetraCoordsTest.exe CompadreTrilinosTest.cpp)
-#TARGET_LINK_LIBRARIES(tpetraCoordsTest.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-#ADD_EXECUTABLE(kdtreeTest.exe Compadre_KdTreeTest.cpp)
-#TARGET_LINK_LIBRARIES(kdtreeTest.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-#ADD_EXECUTABLE(readerTest.exe Compadre_SphReaderTest.cpp)
-#TARGET_LINK_LIBRARIES(readerTest.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-#ADD_EXECUTABLE(parallelReader.exe Compadre_ParallelReaderTest.cpp)
-#TARGET_LINK_LIBRARIES(parallelReader.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-#ADD_EXECUTABLE(spherePoisson.exe Compadre_SpherePoissonTest.cpp)
-#TARGET_LINK_LIBRARIES(spherePoisson.exe COMPADRE_LIBRARIES GMLS_LIBRARIES)
-#
-#ADD_EXECUTABLE(simpleCoordsTest.exe Compadre_SimpleCoordsUnitTest.cpp)
-#TARGET_LINK_LIBRARIES(simpleCoordsTest.exe COMPADRE_LIBRARIES)
-#
-#ADD_EXECUTABLE(simpleMPITest.exe Compadre_SimpleMPIUnitTest.cpp)
-#TARGET_LINK_LIBRARIES(simpleMPITest.exe COMPADRE_LIBRARIES)
-#
-#ADD_EXECUTABLE(remapTest.exe Compadre_RemapTest.cpp)
-#TARGET_LINK_LIBRARIES(remapTest.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-#ADD_EXECUTABLE(lagrangianTest.exe Compadre_LagrangianTest.cpp)
-#TARGET_LINK_LIBRARIES(lagrangianTest.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-#ADD_EXECUTABLE(remoteRemapTest.exe Compadre_RemoteRemapTest.cpp)
-#TARGET_LINK_LIBRARIES(remoteRemapTest.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-#IF(CANGA_ENABLED)
-#  ADD_EXECUTABLE(cangaRemoteRemap.exe Canga_RemoteRemap.cpp)
-#  TARGET_LINK_LIBRARIES(cangaRemoteRemap.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-#  ADD_EXECUTABLE(cangaIntercomparison.exe Canga_Intercomparison.cpp)
-#  TARGET_LINK_LIBRARIES(cangaIntercomparison.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#ENDIF()
-#
-#ADD_EXECUTABLE(lagrangianShallowWater.exe Compadre_LagrangianShallowWater.cpp)
-#TARGET_LINK_LIBRARIES(lagrangianShallowWater.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-#ADD_EXECUTABLE(laplaceBeltrami.exe Compadre_LaplaceBeltrami.cpp)
-#TARGET_LINK_LIBRARIES(laplaceBeltrami.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-#ADD_EXECUTABLE(textToCoefficientReaderWriter.exe textToCoefficientReaderWriter.cpp)
-#TARGET_LINK_LIBRARIES(textToCoefficientReaderWriter.exe COMPADRE_LIBRARIES ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} GMLS_LIBRARIES)
-#
-##
 ##
 ##	Custom build targets
 ##

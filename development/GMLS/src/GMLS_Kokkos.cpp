@@ -1574,7 +1574,7 @@ void GMLS_T_KOKKOS::operator()(const member_type& teamMember) const {
 					for (int m=0; m<_lro_input_tile_size[j]; ++m) {
 						double alpha_ij = 0;
 						Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-								_NP), KOKKOS_LAMBDA (const int l, double &talpha_ij) {
+								_NP), [=] (const int l, double &talpha_ij) {
 							talpha_ij += P_target_row(_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*Q(i,l);
 						}, alpha_ij);
 						Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
@@ -1615,7 +1615,7 @@ void GMLS_T_KOKKOS::operator()(const member_type& teamMember) const {
 		scratch_vector_type b_data(teamMember.team_scratch(_scratch_team_level), _NP);
 
 	//	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,
-	//			this->getNNeighbors(target_index)), KOKKOS_LAMBDA (const int i) {
+	//			this->getNNeighbors(target_index)), [=] (const int i) {
 		for (int i=0; i<this->getNNeighbors(target_index); ++i) {
 
 			// M_inv multiply optimized using only lower triangular entries
@@ -1875,7 +1875,7 @@ void GMLS_T_KOKKOS::operator()(const member_type& teamMember) const {
 			for (int k=0; k<_dimensions-1; ++k) {
 				double alpha_ij = 0;
 				Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-						manifold_NP), KOKKOS_LAMBDA (const int l, double &talpha_ij) {
+						manifold_NP), [=] (const int l, double &talpha_ij) {
 					talpha_ij += P_target_row(manifold_NP*k+l,0)*Q(i,l);
 //					talpha_ij += P_target_row(manifold_NP*k+l,0)*b_data(l,0);
 				}, alpha_ij);
@@ -2080,7 +2080,7 @@ void GMLS_T_KOKKOS::operator()(const member_type& teamMember) const {
 						for (int m=0; m<_lro_input_tile_size[j]; ++m) {
 							double alpha_ij = 0;
 							Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-									_basis_multiplier*target_NP), KOKKOS_LAMBDA (const int l, double &talpha_ij) {
+									_basis_multiplier*target_NP), [=] (const int l, double &talpha_ij) {
 								if (_sampling_multiplier>1 && m<_sampling_multiplier) {
 									talpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*b_data(l,m);
 								} else if (_sampling_multiplier == 1) {
@@ -2117,7 +2117,7 @@ void GMLS_T_KOKKOS::operator()(const member_type& teamMember) const {
 						for (int m=0; m<_lro_input_tile_size[j]; ++m) {
 							double alpha_ij = 0;
 							Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-									_basis_multiplier*target_NP), KOKKOS_LAMBDA (const int l, double &talpha_ij) {
+									_basis_multiplier*target_NP), [=] (const int l, double &talpha_ij) {
 								if (_sampling_multiplier>1 && m<_sampling_multiplier) {
 									talpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*Q(i + m*this->getNNeighbors(target_index),l);
 								} else if (_sampling_multiplier == 1) {

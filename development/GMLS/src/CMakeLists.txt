@@ -37,10 +37,13 @@ set(GMLS_SOURCES
 add_library(gmls ${GMLS_SOURCES})
 bob_library_includes(gmls)
 
-bob_link_dependency(gmls PUBLIC KokkosCore)
-#if (Compadre_USE_KokkosCore)
-#  target_include_directories(gmls PUBLIC "${KokkosCore_INCLUDE_DIRS}")
-#endif()
+if (KOKKOS_IN_TRILINOS)
+  bob_link_dependency(gmls PUBLIC KokkosCore)
+else ()
+  target_include_directories(gmls PUBLIC "${KokkosCore_INCLUDE_DIRS}")
+  target_link_libraries(gmls PUBLIC "${KokkosCore_STATIC_LIB}")
+endif()
+
 if (Compadre_USE_Boost)
   target_include_directories(gmls PUBLIC "${Boost_INCLUDE_DIR}")
 endif()
