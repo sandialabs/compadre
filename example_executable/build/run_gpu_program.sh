@@ -2,5 +2,3 @@
 ./GMLS_PointValuesTest_Kokkos 4 200 3
 ./GMLS_PointValuesTest_Kokkos 4 200 2
 ./GMLS_PointValuesTest_Kokkos 4 200 1
--
-

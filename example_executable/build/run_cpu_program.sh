@@ -3,5 +3,3 @@ mpirun -n 4 ./tpetraCoordsTest.exe --i=../parameters/parameters_amg.xml --kokkos
 ./GMLS_PointValuesTest_Kokkos 4 200 3
 ./GMLS_PointValuesTest_Kokkos 4 200 2
 ./GMLS_PointValuesTest_Kokkos 4 200 1
--
-
