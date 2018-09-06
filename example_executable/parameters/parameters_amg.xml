@@ -1,0 +1,31 @@
+<ParameterList name="Compadre">
+  <ParameterList name="io">
+    <Parameter name="input file prefix" type="string" value="../../development/test_data/grids/"/>
+    <Parameter name="input file" type="string" value="output.vtk"/>
+    <Parameter name="output file prefix" type="string" value="./test_output/"/>
+    <Parameter name="output file" type="string" value="trilinos_test_output.pvtp"/>
+  </ParameterList>
+  <ParameterList name="solver">
+    <Parameter name="type" type="string" value="iterative"/>
+    <Parameter name="file" type="string" value="../parameters/solver_amg.xml"/>
+  </ParameterList>
+  <ParameterList name="gmls">
+    <Parameter name="porder" type="int" value="2"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
+  </ParameterList>
+  <ParameterList name="remap">
+    <Parameter name="porder" type="int" value="2"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
+  </ParameterList>
+  <ParameterList name="neighborhood">
+    <Parameter name="method" type="string" value="nanoflann"/>
+    <Parameter name="dynamic radius" type="bool" value="true"/>
+    <Parameter name="spatially varying radius" type="bool" value="true"/>
+    <Parameter name="size" type="double" value="0.2"/>
+    <Parameter name="multiplier" type="double" value="2.2"/>
+  </ParameterList>
+  <ParameterList name="halo">
+    <Parameter name="dynamic" type="bool" value="false"/>
+    <Parameter name="size" type="double" value="0.4"/>
+  </ParameterList>
+</ParameterList>

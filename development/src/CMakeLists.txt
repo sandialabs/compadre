@@ -35,11 +35,11 @@ bob_library_includes(compadre)
 
 
 if (Compadre_USE_Trilinos)
-   target_link_libraries(compadre PUBLIC ${Trilinos_LIBRARIES})
+  bob_link_dependency(compadre PUBLIC Trilinos)
 endif()
 
 if (Compadre_USE_VTK)
-  target_link_libraries(compadre PUBLIC "${VTK_LIBRARIES}")
+  bob_link_dependency(compadre PUBLIC VTK)
 endif()
 
 if(Compadre_USE_Netcdf)
@@ -93,8 +93,18 @@ set(Compadre_HEADERS
   Compadre_XyzVector.hpp
   )
 
+set(Compadre_TPL_Cobra
+  TPL/Cobra_SLBQP.hpp
+  )
+  
+
+set(Compadre_TPL_Nanoflann
+  TPL/nanoflann/nanoflann.hpp
+  )
 
 install(FILES ${Compadre_HEADERS} DESTINATION include)
+install(FILES ${Compadre_TPL_Cobra} DESTINATION include/TPL)
+install(FILES ${Compadre_TPL_Nanoflann} DESTINATION include/TPL/nanoflann)
 
 bob_end_subdir()
 

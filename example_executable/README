@@ -1,0 +1,9 @@
+This folder contains an example demonstrating how to link against an installed Compadre Toolkit.
+
+It is important that:
+
+1.) You have installed the Compadre Toolkit
+  - go to {REPO_ROOT}/build and build the toolkit
+  - run ctest and verify tests pass
+
+2.) Return to this directory and run my-do-configure-cpu.sh in the {REPO_ROOT}/example_program/build folder

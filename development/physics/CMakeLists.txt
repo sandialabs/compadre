@@ -38,6 +38,6 @@ target_link_libraries(physics PRIVATE compadre)
 bob_export_target(physics)
 
 
-install(FILES ${Physics_HEADERS} DESTINATION include/physics)
+install(FILES ${Physics_HEADERS} DESTINATION include)
 
 bob_end_subdir()
