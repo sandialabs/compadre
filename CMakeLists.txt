@@ -276,57 +276,51 @@ if (PYTHON_PREFIX)
   set(CMAKE_PREFIX_PATH ${PYTHON_PREFIX} ${CMAKE_PREFIX_PATH})
 endif()
 if (Compadre_USE_PYTHON)
- 
-  #bob_input(SWIG_PREFIX "" PATH "Path to SWIG")
-  #if (SWIG_PREFIX)
-  #  set(CMAKE_PREFIX_PATH ${SWIG_PREFIX} ${CMAKE_PREFIX_PATH})
-  #endif()
-  ## check if swig is installed
-  #FIND_PACKAGE(SWIG)
-  #IF(NOT(SWIG_FOUND))
-  #  MESSAGE(FATAL_ERROR "Compadre_USE_PYTHON=ON, but 'swig' cannot be found and is needed. Please install swig and ensure it is in your PATH, then reconfigure. If you believe it is installed, then set SWIG_PREFIX to the appropriate location.")
-  #ENDIF()
 
   FIND_PACKAGE(PythonLibs)
-  
-  bob_input(PYTHON_EXECUTABLE "" PATH "Python executable location")
-  IF(NOT(PYTHON_EXECUTABLE))
-    MESSAGE(STATUS "Python executable location PYTHON_EXECUTABLE not given. Search made using 'which python'")
+  IF(PythonLibs_FOUND)
+    MESSAGE(STATUS "PYTHON_LIBRARIES: ${PYTHON_LIBRARIES}")
+    MESSAGE(STATUS "PYTHON_INCLUDE_DIRS: ${PYTHON_INCLUDE_DIRS}")
+    
+    bob_input(PYTHON_EXECUTABLE "" PATH "Python executable location")
+    IF(NOT(PYTHON_EXECUTABLE))
+      MESSAGE(STATUS "Python executable location PYTHON_EXECUTABLE not given. Search made using 'which python'")
+      EXECUTE_PROCESS(
+        COMMAND which "python"
+        OUTPUT_VARIABLE PYTHON_EXECUTABLE
+        OUTPUT_STRIP_TRAILING_WHITESPACE )
+    ENDIF()
+    MESSAGE(STATUS "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
+    
     EXECUTE_PROCESS(
-      COMMAND which "python"
-      OUTPUT_VARIABLE PYTHON_EXECUTABLE
-      OUTPUT_STRIP_TRAILING_WHITESPACE )
-  ENDIF()
-  MESSAGE(STATUS "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
-  
-  EXECUTE_PROCESS(
-    COMMAND "${PYTHON_EXECUTABLE}" -c "import site; print(site.USER_SITE)"
-    OUTPUT_VARIABLE PYTHON_SITEPACKAGES
-    OUTPUT_STRIP_TRAILING_WHITESPACE )
-  
-  IF(NOT EXISTS ${PYTHON_SITEPACKAGES})
-    EXECUTE_PROCESS(
-      COMMAND "${PYTHON_EXECUTABLE}" -c "import sysconfig; print(sysconfig.get_path('platlib'))"
+      COMMAND "${PYTHON_EXECUTABLE}" -c "import site; print(site.USER_SITE)"
       OUTPUT_VARIABLE PYTHON_SITEPACKAGES
       OUTPUT_STRIP_TRAILING_WHITESPACE )
-  ENDIF()
-  MESSAGE(STATUS "PYTHON_SITEPACKAGES: ${PYTHON_SITEPACKAGES}")
-  
-  bob_input(Numpy_PREFIX "${PYTHON_SITEPACKAGES}/numpy/core/include" PATH "Installation location of Numpy headers" )
-  
-  FIND_PATH(Numpy_INCLUDE_DIRS numpy/arrayobject.h HINTS ${Numpy_PREFIX})
-  IF (Numpy_INCLUDE_DIRS)
-    MESSAGE(STATUS "Numpy_INCLUDE_DIRS: ${Numpy_INCLUDE_DIRS}")
-  ELSE()
-    MESSAGE(FATAL_ERROR "Numpy headers not found, but needed when Compadre_USE_PYTHON:BOOL=ON. Try setting Numpy_PREFIX.")
-  ENDIF()
+    
+    IF(NOT EXISTS ${PYTHON_SITEPACKAGES})
+      EXECUTE_PROCESS(
+        COMMAND "${PYTHON_EXECUTABLE}" -c "import sysconfig; print(sysconfig.get_path('platlib'))"
+        OUTPUT_VARIABLE PYTHON_SITEPACKAGES
+        OUTPUT_STRIP_TRAILING_WHITESPACE )
+    ENDIF()
+    MESSAGE(STATUS "PYTHON_SITEPACKAGES: ${PYTHON_SITEPACKAGES}")
+    
+    bob_input(Numpy_PREFIX "${PYTHON_SITEPACKAGES}/numpy/core/include" PATH "Installation location of Numpy headers" )
+    
+    FIND_PATH(Numpy_INCLUDE_DIRS numpy/arrayobject.h HINTS ${Numpy_PREFIX})
+    IF (Numpy_INCLUDE_DIRS)
+      MESSAGE(STATUS "Numpy_INCLUDE_DIRS: ${Numpy_INCLUDE_DIRS}")
+    ELSE()
+      MESSAGE(FATAL_ERROR "Numpy headers not found, but needed when Compadre_USE_PYTHON:BOOL=ON. Try setting Numpy_PREFIX.")
+    ENDIF()
 
-  set(SWIG_PREFIX "../GMLS/src/swig") # relative to examples folder
-  if (PYTHON_VERSION_MAJOR EQUAL 3)
-    set(GMLS_Module_DEST "lib/python3/dist-packages")
-  else()
-    set(GMLS_Module_DEST "lib/python/dist-packages")
-  endif()
+    set(SWIG_PREFIX "../GMLS/src/swig") # relative to examples folder
+    if (PYTHON_VERSION_MAJOR EQUAL 3)
+      set(GMLS_Module_DEST "lib/python3/dist-packages")
+    else()
+      set(GMLS_Module_DEST "lib/python/dist-packages")
+    endif()
+  ENDIF()
 
 endif()
 
@@ -351,6 +345,16 @@ bob_option(Compadre_PHYSICS "Compile Compadre Physics" "${Compadre_EXAMPLES}")
 
 
 bob_option(Compadre_CANGA_ENABLED "Compile optional CANGA tests and examples" OFF)
+if ((Compadre_TESTS OR Compadre_EXAMPLES OR Compadre_PHYSICS) AND Compadre_USE_Trilinos)
+  set(Compadre_Compadre_REQUIRED  ON)
+else()
+  set(Compadre_Compadre_REQUIRED  OFF)
+endif()
+MESSAGE(STATUS "Compadre harness required to be built: ${Compadre_Compadre_REQUIRED}")
+bob_option(Compadre_USE_Compadre "Build Trilinos based harness for GMLS" ON)
+if (Compadre_USE_Compadre OR Compadre_Compadre_REQUIRED)
+  set(Compadre_USE_Compadre ON)
+endif()
 
 ##########
 #
@@ -522,7 +526,7 @@ bob_get_semver()
 
 add_subdirectory(GMLS)
 
-if(Compadre_USE_Trilinos)
+if(Compadre_USE_Compadre)
   add_subdirectory(src)
 endif()
 

@@ -23,10 +23,17 @@ SET_TARGET_PROPERTIES( gmls_module
   SUFFIX "" 
 )
 
+
+
+
+
 target_link_libraries(gmls_module PUBLIC gmls)
-bob_link_dependency(gmls_module PUBLIC ${PYTHON_LIBRARIES})
+target_link_libraries(gmls_module PUBLIC ${PYTHON_LIBRARIES})
 target_include_directories(gmls_module PUBLIC ${PYTHON_INCLUDE_DIRS})
 target_include_directories(gmls_module PUBLIC ${Numpy_INCLUDE_DIRS})
+
+
+
 
 bob_export_target(gmls_module)
 
