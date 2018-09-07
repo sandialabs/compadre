@@ -42,6 +42,14 @@ if (GMLS_EXAMPLES)
     
     ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim1 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos "4" "200" "1" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim1 PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+
+    # WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH} )
+    if (Compadre_USE_Python)
+      CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/gmls_3d_convergence.py.in" "${CMAKE_CURRENT_BINARY_DIR}/gmls_3d_convergence.py" @ONLY)
+      ADD_TEST(NAME GMLS_Python_Convergence_Test_3d_Point_Reconstruction COMMAND ${PYTHON_EXECUTABLE} "${CMAKE_CURRENT_BINARY_DIR}/gmls_3d_convergence.py")
+      SET_TESTS_PROPERTIES(GMLS_Python_Convergence_Test_3d_Point_Reconstruction PROPERTIES LABELS "UnitTest;unit;python;kokkos" TIMEOUT 10)
+    endif()
+
   endif (GMLS_TESTS)
 endif (GMLS_EXAMPLES)
 
@@ -59,7 +67,7 @@ if (Compadre_TESTS)
   file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/../test_data" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/..")
 endif()
 
-if (Compadre_EXAMPLES)
+if (Compadre_EXAMPLES AND Compadre_USE_Trilinos)
   add_exe_w_compadre(CompadreGMLSTest CompadreGMLSTest.cpp)
   add_exe_w_compadre(tpetraCoordsTest.exe CompadreTrilinosTest.cpp)
   add_exe_w_compadre(spherePoisson.exe Compadre_SpherePoissonTest.cpp)
@@ -272,7 +280,7 @@ if (Compadre_EXAMPLES)
 
   endif()
 
-ENDIF (Compadre_EXAMPLES)
+ENDIF ()
 
 
 bob_end_subdir()

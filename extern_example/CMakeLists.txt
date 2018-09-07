@@ -32,14 +32,21 @@ if (("${EXAMPLE_TYPE}" STREQUAL "cpu") OR ("${EXAMPLE_TYPE}" STREQUAL "gpu"))
           DESTINATION .. )
   add_executable(GMLS_PointValuesTest_Kokkos GMLS_PointValuesTest_Kokkos.cpp)
   target_link_libraries(GMLS_PointValuesTest_Kokkos Compadre::gmls)
+
+  if (Compadre_USE_Python)
+      SET(SWIG_PREFIX "${Compadre_INSTALL_PREFIX}/${GMLS_Module_DEST}") # USED IN FOLLOW CONFIGURE_FILE CALL
+      CONFIGURE_FILE("../examples/gmls_3d_convergence.py.in" "${CMAKE_CURRENT_SOURCE_DIR}/build/gmls_3d_convergence.py" @ONLY)
+  endif()
 endif()
 
 if ("${EXAMPLE_TYPE}" STREQUAL "cpu") 
-  # Copy example .cpp problem from source directory (not needed for your program)
-  # destination path is relative to directory calling CMake (i.e. ./build)
-  file(COPY ../examples/CompadreTrilinosTest.cpp
-          DESTINATION .. )
-  add_executable(tpetraCoordsTest.exe CompadreTrilinosTest.cpp)
-  target_link_libraries(tpetraCoordsTest.exe Compadre::compadre Compadre::physics)
+  if (Compadre_USE_Trilinos AND TRILINOS_LINEAR_SOLVES)
+    # Copy example .cpp problem from source directory (not needed for your program)
+    # destination path is relative to directory calling CMake (i.e. ./build)
+    file(COPY ../examples/CompadreTrilinosTest.cpp
+            DESTINATION .. )
+    add_executable(tpetraCoordsTest.exe CompadreTrilinosTest.cpp)
+    target_link_libraries(tpetraCoordsTest.exe Compadre::compadre Compadre::physics)
+  endif()
 endif()
 

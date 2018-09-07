@@ -1,62 +1,66 @@
-cmake_minimum_required(VERSION 2.8)
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Python.hpp" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/")
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Module.i" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/")
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/run_swig.sh" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/")
+EXECUTE_PROCESS(
+  COMMAND "./run_swig.sh" WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)	
+
+set(GMLS_Module_HEADERS
+  GMLS_Python.hpp
+  )
+
+set(GMLS_Module_SOURCES
+  ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Module_wrap.cxx
+  )
 
 
-IF(USE_PYTHON AND USE_KOKKOS)
-  IF (DEFINED NUMPY_INC AND DEFINED PYTHON_EXECUTABLE AND DEFINED PYTHON_LIBRARY AND DEFINED PYTHON_INCLUDE_DIR)
- 
-    EXECUTE_PROCESS(
-          COMMAND "./run_swig.sh" WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    )
 
-    ADD_LIBRARY(GMLS_PYTHON SHARED gmls_wrap.cxx)
-    SET_TARGET_PROPERTIES( GMLS_PYTHON
-      PROPERTIES
-      ARCHIVE_OUTPUT_DIRECTORY "."
-      LIBRARY_OUTPUT_DIRECTORY "."
-      OUTPUT_NAME "_gmls.so"
-      PREFIX "" 
-      SUFFIX "" 
-    )
+add_library(gmls_module ${GMLS_Module_SOURCES})
+bob_library_includes(gmls_module)
 
-    SET(GMLS_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/..")
-    TARGET_INCLUDE_DIRECTORIES(GMLS_PYTHON PUBLIC ${GMLS_INCLUDE_DIRS})
-    TARGET_INCLUDE_DIRECTORIES(GMLS_PYTHON PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-    TARGET_INCLUDE_DIRECTORIES(GMLS_PYTHON PUBLIC ${Trilinos_INCLUDE_DIRS})
-    TARGET_INCLUDE_DIRECTORIES(GMLS_PYTHON PUBLIC ${PYTHON_INCLUDE_DIR})
-    TARGET_INCLUDE_DIRECTORIES(GMLS_PYTHON PUBLIC ${NUMPY_INC})
+SET_TARGET_PROPERTIES( gmls_module
+  PROPERTIES
+  OUTPUT_NAME "_GMLS_Module.so"
+  PREFIX "" 
+  SUFFIX "" 
+)
+
+target_link_libraries(gmls_module PUBLIC gmls)
+bob_link_dependency(gmls_module PUBLIC ${PYTHON_LIBRARIES})
+target_include_directories(gmls_module PUBLIC ${PYTHON_INCLUDE_DIRS})
+target_include_directories(gmls_module PUBLIC ${Numpy_INCLUDE_DIRS})
+
+bob_export_target(gmls_module)
+
+CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/__init__.py.in" "${CMAKE_CURRENT_BINARY_DIR}/__init__.py")
+
+install(FILES ${GMLS_Module_HEADERS} DESTINATION include)
 
 
-    TARGET_LINK_LIBRARIES(GMLS_PYTHON PUBLIC GMLS_LIBRARIES)
-    TARGET_LINK_LIBRARIES(GMLS_PYTHON PUBLIC ${Kokkos_LIBRARIES} ${KOKKOS_TPL_LIBRARIES} ${HWLOC_LIBRARIES} ${GSL_LIB} ${LAPACK_LIB})
-    TARGET_LINK_LIBRARIES(GMLS_PYTHON PUBLIC ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} ${GMLS_LIBRARIES})
+install(TARGETS gmls_module
+  ARCHIVE DESTINATION "${GMLS_Module_DEST}"
+  LIBRARY DESTINATION "${GMLS_Module_DEST}"
+)
 
-    #IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    #  # these libraries need to be located for python 
-    #  # (otherwise the wrong version is loaded)
-    #  # worked it out for GNU (64-bit), but haven't seen this issue on mac
+set(GMLS_Module_Python_FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Module.py"
+  "${CMAKE_CURRENT_BINARY_DIR}/__init__.py"
+  )
 
-    #  EXECUTE_PROCESS(
-    #  COMMAND "ldconfig" "-p"
-    #  COMMAND "grep" "stdc++"
-    #  OUTPUT_VARIABLE STDC_LIB
-    #  OUTPUT_STRIP_TRAILING_WHITESPACE )
-    #  STRING(REGEX REPLACE "(^[^\n\r]*x86-64\\) => )([^\n\r]*)(.*$)" "\\2" STDC_LIB ${STDC_LIB})
+install(FILES ${GMLS_Module_Python_FILES} DESTINATION "${GMLS_Module_DEST}")
 
-    #  EXECUTE_PROCESS(
-    #  COMMAND "ldconfig" "-p"
-    #  COMMAND "grep" "gomp"
-    #  OUTPUT_VARIABLE GOMP_LIB
-    #  OUTPUT_STRIP_TRAILING_WHITESPACE )
-    #  STRING(REGEX REPLACE "(^[^\n\r]*x86-64\\) => )([^\n\r]*)(.*$)" "\\2" GOMP_LIB ${GOMP_LIB})
+bob_end_subdir()
 
-    #  TARGET_LINK_LIBRARIES(GMLS_PYTHON PUBLIC ${PYTHON_LIBRARY})
-    #ENDIF()
-    IF (APPLE)
-      TARGET_LINK_LIBRARIES(GMLS_PYTHON PUBLIC ${PYTHON_LIBRARY})
-    ENDIF()
+#  EXECUTE_PROCESS(
+#  COMMAND "ldconfig" "-p"
+#  COMMAND "grep" "stdc++"
+#  OUTPUT_VARIABLE STDC_LIB
+#  OUTPUT_STRIP_TRAILING_WHITESPACE )
+#  STRING(REGEX REPLACE "(^[^\n\r]*x86-64\\) => )([^\n\r]*)(.*$)" "\\2" STDC_LIB ${STDC_LIB})
 
-    CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/__init__.py.in" "${CMAKE_CURRENT_SOURCE_DIR}/__init__.py")
-    
-  ENDIF()
-ENDIF()
-
+#  EXECUTE_PROCESS(
+#  COMMAND "ldconfig" "-p"
+#  COMMAND "grep" "gomp"
+#  OUTPUT_VARIABLE GOMP_LIB
+#  OUTPUT_STRIP_TRAILING_WHITESPACE )
+#  STRING(REGEX REPLACE "(^[^\n\r]*x86-64\\) => )([^\n\r]*)(.*$)" "\\2" GOMP_LIB ${GOMP_LIB})

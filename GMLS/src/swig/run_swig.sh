@@ -1,2 +1,2 @@
-rm -rf gmls_wrap.cxx
-swig -python -c++ gmls.i
+rm -rf GMLS_Module_wrap.cxx
+swig -python -c++ GMLS_Module.i

@@ -269,6 +269,56 @@ FIND_PACKAGE(MPI)
 bob_option(Compadre_USE_MPI "Use MPI for parallelism" ${MPI_FOUND})
 
 
+#PYTHON
+bob_option(Compadre_USE_Python "Use Python" ON)
+bob_input(Python_PREFIX "" PATH "Path to Python install")
+if (Python_PREFIX)
+  set(CMAKE_PREFIX_PATH ${Python_PREFIX} ${CMAKE_PREFIX_PATH})
+endif()
+if (Compadre_USE_Python)
+  FIND_PACKAGE(PythonLibs)
+  
+  bob_input(PYTHON_EXECUTABLE "" PATH "Python executable location")
+  IF(NOT(PYTHON_EXECUTABLE))
+    MESSAGE(STATUS "Python executable location PYTHON_EXECUTABLE not given. Search made using 'which python'")
+    EXECUTE_PROCESS(
+      COMMAND which "python"
+      OUTPUT_VARIABLE PYTHON_EXECUTABLE
+      OUTPUT_STRIP_TRAILING_WHITESPACE )
+  ENDIF()
+  MESSAGE(STATUS "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
+  
+  EXECUTE_PROCESS(
+    COMMAND "${PYTHON_EXECUTABLE}" -c "import site; print(site.USER_SITE)"
+    OUTPUT_VARIABLE Python_SITEPACKAGES
+    OUTPUT_STRIP_TRAILING_WHITESPACE )
+  
+  IF(NOT EXISTS ${Python_SITEPACKAGES})
+    EXECUTE_PROCESS(
+      COMMAND "${PYTHON_EXECUTABLE}" -c "import sysconfig; print(sysconfig.get_path('platlib'))"
+      OUTPUT_VARIABLE Python_SITEPACKAGES
+      OUTPUT_STRIP_TRAILING_WHITESPACE )
+  ENDIF()
+  MESSAGE(STATUS "Python Sitepackages: ${Python_SITEPACKAGES}")
+  
+  bob_input(Numpy_PREFIX "${Python_SITEPACKAGES}/numpy/core/include" PATH "Installation location of Numpy headers" )
+  
+  FIND_PATH(Numpy_INCLUDE_DIRS numpy/arrayobject.h HINTS ${Numpy_PREFIX})
+  IF (Numpy_INCLUDE_DIRS)
+    MESSAGE(STATUS "Numpy_INCLUDE_DIRS: ${Numpy_INCLUDE_DIRS}")
+  ELSE()
+    MESSAGE(FATAL_ERROR "Numpy headers not found, but needed when Compadre_USE_Python:BOOL=ON. Try setting Numpy_PREFIX.")
+  ENDIF()
+
+  set(SWIG_PREFIX "../GMLS/src/swig") # relative to examples folder
+  if (PYTHON_VERSION_MAJOR EQUAL 3)
+    set(GMLS_Module_DEST "lib/python3/dist-packages")
+  else()
+    set(GMLS_Module_DEST "lib/python/dist-packages")
+  endif()
+
+endif()
+
 
 ##########
 #
@@ -408,6 +458,7 @@ bob_end_cxx_flags()
 ##########
 
 
+set(Compadre_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
 set(Compadre_KEY_BOOLS
     Compadre_USE_MPI
@@ -420,6 +471,7 @@ set(Compadre_KEY_BOOLS
     Compadre_USE_Netcdf
     Compadre_USE_Netcdf_MPI
     Compadre_USE_VTK
+    Compadre_USE_Python
     TRILINOS_LINEAR_SOLVES
     Compadre_CANGA_ENABLED
    )
@@ -436,6 +488,8 @@ set(Compadre_KEY_STRINGS
     Compadre_COMMIT
     Compadre_CXX_FLAGS
     Compadre_CMAKE_ARGS
+    GMLS_Module_DEST
+    Compadre_INSTALL_PREFIX
 )
 
 

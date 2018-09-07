@@ -6,4 +6,15 @@ It is important that:
   - go to {REPO_ROOT}/build and build the toolkit
   - run ctest and verify tests pass
 
-2.) Return to this directory and run my-do-configure-cpu.sh in the {REPO_ROOT}/example_program/build folder
+2.) Return to extern_example/build and run my-do-configure-cpu.sh in the {REPO_ROOT}/extern_example/build folder
+  - this will populate the .cpp files and .py file
+  - run 'make -j' to build the executables
+  - you can execute the C++ compiled programs by running either:
+
+     {REPO_ROOT}/extern_example/build/run_gpu_program.sh
+    or
+     {REPO_ROOT}/extern_example/build/run_cpu_program.sh
+ 
+    depending on what configuration you used to build Kokkos
+  
+  - the Python test can be executed by running "python {REPO_ROOT}/extern_example/build/gmls_3d_convergence.py"

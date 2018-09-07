@@ -8,7 +8,7 @@ import_array();
 %}
 
 
-%module gmls
+%module GMLS_Module
 %{
 #include "GMLS_Python.hpp"
 #include "GMLS.hpp"
