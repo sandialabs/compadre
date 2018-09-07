@@ -278,8 +278,8 @@ endif()
 if (Compadre_USE_PYTHON)
  
   # check if swig is installed
-  FIND_PROGRAM(swig_executable NAME swig)
-  IF(NOT(swig_executable))
+  FIND_PACKAGE(SWIG)
+  IF(NOT(SWIG_FOUND))
     MESSAGE(FATAL_ERROR "Compadre_USE_PYTHON=ON, but 'swig' cannot be found and is needed. Please install swig and ensure it is in your PATH, then reconfigure.")
   ENDIF()
 

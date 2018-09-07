@@ -16,7 +16,7 @@ cmake \
     -D Compadre_USE_Boost:BOOL=ON \
     -D Compadre_USE_Netcdf:BOOL=OFF \
     -D Compadre_USE_VTK:BOOL=OFF \
-    -D Compadre_USE_Python:BOOL=ON \
+    -D Compadre_USE_PYTHON:BOOL=ON \
     -D Trilinos_PREFIX:FILEPATH="/ascldap/users/pakuber/releases/Trilinos/build2/install" \
     -D Netcdf_PREFIX:FILEPATH="/ascldap/users/pakuber/releases/netcdf" \
     -D Boost_PREFIX:FILEPATH="/usr/include" \
