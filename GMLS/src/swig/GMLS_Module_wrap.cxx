@@ -3433,6 +3433,30 @@ SWIGINTERNINLINE PyObject*
 #ifdef __cplusplus
 extern "C" {
 #endif
+SWIGINTERN PyObject *_wrap_initializeKokkos(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  
+  if (!PyArg_ParseTuple(args,(char *)":initializeKokkos")) SWIG_fail;
+  initializeKokkos();
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_finalizeKokkos(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  
+  if (!PyArg_ParseTuple(args,(char *)":finalizeKokkos")) SWIG_fail;
+  finalizeKokkos();
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
 SWIGINTERN PyObject *_wrap_new_GMLS_Python(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   int arg1 ;
@@ -3921,6 +3945,8 @@ SWIGINTERN PyObject *GMLS_Python_swigregister(PyObject *SWIGUNUSEDPARM(self), Py
 
 static PyMethodDef SwigMethods[] = {
 	 { (char *)"SWIG_PyInstanceMethod_New", (PyCFunction)SWIG_PyInstanceMethod_New, METH_O, NULL},
+	 { (char *)"initializeKokkos", _wrap_initializeKokkos, METH_VARARGS, NULL},
+	 { (char *)"finalizeKokkos", _wrap_finalizeKokkos, METH_VARARGS, NULL},
 	 { (char *)"new_GMLS_Python", _wrap_new_GMLS_Python, METH_VARARGS, NULL},
 	 { (char *)"delete_GMLS_Python", _wrap_delete_GMLS_Python, METH_VARARGS, NULL},
 	 { (char *)"GMLS_Python_setWeightingOrder", _wrap_GMLS_Python_setWeightingOrder, METH_VARARGS, NULL},

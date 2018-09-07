@@ -26,19 +26,37 @@ SET_TARGET_PROPERTIES( gmls_module
 
 
 
+# find all target dependencies
 
 target_link_libraries(gmls_module PUBLIC gmls)
-target_link_libraries(gmls_module PUBLIC ${PYTHON_LIBRARIES})
+if (APPLE)
+  target_link_libraries(gmls_module PUBLIC ${PYTHON_LIBRARIES})
+endif()
 target_include_directories(gmls_module PUBLIC ${PYTHON_INCLUDE_DIRS})
 target_include_directories(gmls_module PUBLIC ${Numpy_INCLUDE_DIRS})
 
+# generate stdc++ and gomp variables and write them into python files 
+# to ensure that correct libraries are linked
 
+EXECUTE_PROCESS(
+COMMAND "ldconfig" "-p"
+COMMAND "grep" "stdc++"
+OUTPUT_VARIABLE STDC_LIB
+OUTPUT_STRIP_TRAILING_WHITESPACE )
+STRING(REGEX REPLACE "(^[^\n\r]*x86-64\\) => )([^\n\r]*)(.*$)" "\\2" STDC_LIB ${STDC_LIB})
+
+EXECUTE_PROCESS(
+COMMAND "ldconfig" "-p"
+COMMAND "grep" "gomp"
+OUTPUT_VARIABLE GOMP_LIB
+OUTPUT_STRIP_TRAILING_WHITESPACE )
+STRING(REGEX REPLACE "(^[^\n\r]*x86-64\\) => )([^\n\r]*)(.*$)" "\\2" GOMP_LIB ${GOMP_LIB})
 
 
 bob_export_target(gmls_module)
 
 CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/__init__.py.in" "${CMAKE_CURRENT_BINARY_DIR}/__init__.py")
-file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Module.py" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/")
+CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Module.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Module.py")
 
 install(FILES ${GMLS_Module_HEADERS} DESTINATION include)
 
@@ -49,7 +67,7 @@ install(TARGETS gmls_module
 )
 
 set(GMLS_Module_PYTHON_FILES
-  "${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Module.py"
+  "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Module.py"
   "${CMAKE_CURRENT_BINARY_DIR}/__init__.py"
   )
 
@@ -57,16 +75,4 @@ install(FILES ${GMLS_Module_PYTHON_FILES} DESTINATION "${GMLS_Module_DEST}")
 
 bob_end_subdir()
 
-#  EXECUTE_PROCESS(
-#  COMMAND "ldconfig" "-p"
-#  COMMAND "grep" "stdc++"
-#  OUTPUT_VARIABLE STDC_LIB
-#  OUTPUT_STRIP_TRAILING_WHITESPACE )
-#  STRING(REGEX REPLACE "(^[^\n\r]*x86-64\\) => )([^\n\r]*)(.*$)" "\\2" STDC_LIB ${STDC_LIB})
 
-#  EXECUTE_PROCESS(
-#  COMMAND "ldconfig" "-p"
-#  COMMAND "grep" "gomp"
-#  OUTPUT_VARIABLE GOMP_LIB
-#  OUTPUT_STRIP_TRAILING_WHITESPACE )
-#  STRING(REGEX REPLACE "(^[^\n\r]*x86-64\\) => )([^\n\r]*)(.*$)" "\\2" GOMP_LIB ${GOMP_LIB})

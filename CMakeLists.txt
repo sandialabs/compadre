@@ -451,13 +451,13 @@ endif()
 
 if (Compadre_USE_Trilinos_CXX_Flags)
   # Get compiler flags from Trilinos
+  SET(CMAKE_CXX_FLAGS "")
   IF (Trilinos_CXX_COMPILER_FLAGS) 
     FOREACH(arg ${Trilinos_CXX_COMPILER_FLAGS} )
       SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${arg}")
     ENDFOREACH()
   ENDIF()
 endif()
-
 
 bob_end_cxx_flags()
 

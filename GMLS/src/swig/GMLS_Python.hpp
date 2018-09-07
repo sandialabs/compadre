@@ -9,6 +9,15 @@
 #include <numpy/arrayobject.h>
 //#include <assert.h>
 
+void initializeKokkos() {
+	Kokkos::initialize();
+
+}
+
+void finalizeKokkos() {
+	Kokkos::finalize(); 
+}
+
 class GMLS_Python {
 
 private:
@@ -17,12 +26,11 @@ private:
 
 public:
 	GMLS_Python(const int poly_order, std::string dense_solver_type, const int manifold_poly_order, const int dimensions) {
-		Kokkos::initialize();
 		gmls_object = new GMLS(poly_order, dense_solver_type, manifold_poly_order, dimensions);
 		// initialized, but values not set
 	}
 
-	~GMLS_Python() { delete gmls_object; Kokkos::finalize(); }
+	~GMLS_Python() { delete gmls_object; }
 
 	void setWeightingOrder(int regular_weight, int manifold_weight = -1) {
 		if (manifold_weight < 0) manifold_weight = regular_weight;
@@ -155,12 +163,11 @@ public:
         	// copy data into Kokkos View
         	// read in size in each dimension
         	npy_intp* dims_in = PyArray_DIMS(np_arr_sourcedata);
-        	int npyLength1D = dims_in[0];
 
         	int* loop_size = (int*)PyArray_GETPTR2(np_arr_neighborlist, target_num, 0);
 
 		double target_evaluation;
-        	Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,*loop_size), KOKKOS_LAMBDA(int i, double &temp_target_evaluation) {
+        	Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,*loop_size), [=](int i, double &temp_target_evaluation) {
         		int* neighbor_id = (int*)PyArray_GETPTR2(np_arr_neighborlist, target_num, i+1); // first index is size in neighborlist
 		double *source_val = (double*)PyArray_GETPTR1(np_arr_sourcedata, *neighbor_id);
 		temp_target_evaluation += (*source_val)*gmls_object->getAlpha0TensorTo0Tensor(ReconstructionOperator::TargetOperation::ScalarPointEvaluation, target_num, i);
@@ -177,7 +184,6 @@ public:
         	// copy data into Kokkos View
         	// read in size in each dimension
         	npy_intp* dims_in = PyArray_DIMS(np_arr_sourcedata);
-        	int npyLength1D = dims_in[0];
 
         	npy_intp* dims_nl = PyArray_DIMS(np_arr_neighborlist);
                 // set dimensions
@@ -191,7 +197,7 @@ public:
 
                 // recast as a numpy array and write assuming a 1D layout
                 PyArrayObject *np_arr_out = reinterpret_cast<PyArrayObject*>(pyObjectArray_out);
-        	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dims_out[0]), KOKKOS_LAMBDA(int i) {
+        	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dims_out[0]), [=](int i) {
 			// compute each entry
         		int* loop_size = (int*)PyArray_GETPTR2(np_arr_neighborlist, i, 0);
 
