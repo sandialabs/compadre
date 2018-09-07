@@ -277,11 +277,15 @@ if (PYTHON_PREFIX)
 endif()
 if (Compadre_USE_PYTHON)
  
-  # check if swig is installed
-  FIND_PACKAGE(SWIG)
-  IF(NOT(SWIG_FOUND))
-    MESSAGE(FATAL_ERROR "Compadre_USE_PYTHON=ON, but 'swig' cannot be found and is needed. Please install swig and ensure it is in your PATH, then reconfigure.")
-  ENDIF()
+  #bob_input(SWIG_PREFIX "" PATH "Path to SWIG")
+  #if (SWIG_PREFIX)
+  #  set(CMAKE_PREFIX_PATH ${SWIG_PREFIX} ${CMAKE_PREFIX_PATH})
+  #endif()
+  ## check if swig is installed
+  #FIND_PACKAGE(SWIG)
+  #IF(NOT(SWIG_FOUND))
+  #  MESSAGE(FATAL_ERROR "Compadre_USE_PYTHON=ON, but 'swig' cannot be found and is needed. Please install swig and ensure it is in your PATH, then reconfigure. If you believe it is installed, then set SWIG_PREFIX to the appropriate location.")
+  #ENDIF()
 
   FIND_PACKAGE(PythonLibs)
   

@@ -1,16 +1,14 @@
-file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Python.hpp" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/")
-file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Module.i" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/")
-file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/run_swig.sh" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/")
-EXECUTE_PROCESS(
-  COMMAND "./run_swig.sh" WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-)	
+#EXECUTE_PROCESS(
+#  COMMAND "./run_swig.sh" WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+#)	
+# If GMLS_Python.hpp is changed, then swig needs re-run and the resulting GMLS_Module.py and GMLS_Module_wrap.cxx updated in the repo
 
 set(GMLS_Module_HEADERS
   GMLS_Python.hpp
   )
 
 set(GMLS_Module_SOURCES
-  ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Module_wrap.cxx
+  GMLS_Module_wrap.cxx
   )
 
 
@@ -33,6 +31,7 @@ target_include_directories(gmls_module PUBLIC ${Numpy_INCLUDE_DIRS})
 bob_export_target(gmls_module)
 
 CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/__init__.py.in" "${CMAKE_CURRENT_BINARY_DIR}/__init__.py")
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Module.py" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/")
 
 install(FILES ${GMLS_Module_HEADERS} DESTINATION include)
 
@@ -43,7 +42,7 @@ install(TARGETS gmls_module
 )
 
 set(GMLS_Module_PYTHON_FILES
-  "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Module.py"
+  "${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Module.py"
   "${CMAKE_CURRENT_BINARY_DIR}/__init__.py"
   )
 
