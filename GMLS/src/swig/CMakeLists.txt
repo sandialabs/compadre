@@ -42,12 +42,12 @@ install(TARGETS gmls_module
   LIBRARY DESTINATION "${GMLS_Module_DEST}"
 )
 
-set(GMLS_Module_Python_FILES
+set(GMLS_Module_PYTHON_FILES
   "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Module.py"
   "${CMAKE_CURRENT_BINARY_DIR}/__init__.py"
   )
 
-install(FILES ${GMLS_Module_Python_FILES} DESTINATION "${GMLS_Module_DEST}")
+install(FILES ${GMLS_Module_PYTHON_FILES} DESTINATION "${GMLS_Module_DEST}")
 
 bob_end_subdir()
 

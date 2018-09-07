@@ -37,7 +37,7 @@ bob_export_target(gmls)
 install(FILES ${GMLS_HEADERS} DESTINATION include)
 
 
-if(Compadre_USE_Python)
+if(Compadre_USE_PYTHON)
   add_subdirectory(swig)
 endif()
 

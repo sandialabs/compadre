@@ -33,7 +33,7 @@ if (("${EXAMPLE_TYPE}" STREQUAL "cpu") OR ("${EXAMPLE_TYPE}" STREQUAL "gpu"))
   add_executable(GMLS_PointValuesTest_Kokkos GMLS_PointValuesTest_Kokkos.cpp)
   target_link_libraries(GMLS_PointValuesTest_Kokkos Compadre::gmls)
 
-  if (Compadre_USE_Python)
+  if (Compadre_USE_PYTHON)
       SET(SWIG_PREFIX "${Compadre_INSTALL_PREFIX}/${GMLS_Module_DEST}") # USED IN FOLLOW CONFIGURE_FILE CALL
       CONFIGURE_FILE("../examples/gmls_3d_convergence.py.in" "${CMAKE_CURRENT_SOURCE_DIR}/build/gmls_3d_convergence.py" @ONLY)
   endif()

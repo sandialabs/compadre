@@ -4,12 +4,8 @@
 # Script for invoking CMake using the CMakeLists.txt file in this directory. 
 
 # following lines for build directory cleanup
-cp my-do-configure-cpu.sh my-do-configure-cpu.sh.gold 
-cp my-do-configure-gpu.sh my-do-configure-gpu.sh.gold 
-find . ! \( -name 'my-do-configure-cpu.sh.gold' -o -name 'my-do-configure-gpu.sh.gold' \) -type f -exec rm -f {} +
+find . ! -name '*.sh' -type f -exec rm -f {} +
 find . -mindepth 1 -type d -exec rm -rf {} +
-cp my-do-configure-cpu.sh.gold my-do-configure-cpu.sh
-cp my-do-configure-gpu.sh.gold my-do-configure-gpu.sh
 
 cmake \
     -D CMAKE_CXX_COMPILER=mpic++ \
@@ -20,6 +16,7 @@ cmake \
     -D Compadre_USE_Boost:BOOL=ON \
     -D Compadre_USE_Netcdf:BOOL=ON \
     -D Compadre_USE_VTK:BOOL=ON \
+    -D Compadre_USE_PYTHON:BOOL=OFF \
     -D Trilinos_PREFIX:FILEPATH="/ascldap/users/pakuber/releases/Trilinos/build2/install" \
     -D Netcdf_PREFIX:FILEPATH="/ascldap/users/pakuber/releases/netcdf" \
     -D Boost_PREFIX:FILEPATH="/usr/include" \

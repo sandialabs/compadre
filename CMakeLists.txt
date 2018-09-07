@@ -270,12 +270,19 @@ bob_option(Compadre_USE_MPI "Use MPI for parallelism" ${MPI_FOUND})
 
 
 #PYTHON
-bob_option(Compadre_USE_Python "Use Python" ON)
-bob_input(Python_PREFIX "" PATH "Path to Python install")
-if (Python_PREFIX)
-  set(CMAKE_PREFIX_PATH ${Python_PREFIX} ${CMAKE_PREFIX_PATH})
+bob_option(Compadre_USE_PYTHON "Use PYTHON" OFF)
+bob_input(PYTHON_PREFIX "" PATH "Path to PYTHON install")
+if (PYTHON_PREFIX)
+  set(CMAKE_PREFIX_PATH ${PYTHON_PREFIX} ${CMAKE_PREFIX_PATH})
 endif()
-if (Compadre_USE_Python)
+if (Compadre_USE_PYTHON)
+ 
+  # check if swig is installed
+  FIND_PROGRAM(swig_executable NAME swig)
+  IF(NOT(swig_executable))
+    MESSAGE(FATAL_ERROR "Compadre_USE_PYTHON=ON, but 'swig' cannot be found and is needed. Please install swig and ensure it is in your PATH, then reconfigure.")
+  ENDIF()
+
   FIND_PACKAGE(PythonLibs)
   
   bob_input(PYTHON_EXECUTABLE "" PATH "Python executable location")
@@ -290,24 +297,24 @@ if (Compadre_USE_Python)
   
   EXECUTE_PROCESS(
     COMMAND "${PYTHON_EXECUTABLE}" -c "import site; print(site.USER_SITE)"
-    OUTPUT_VARIABLE Python_SITEPACKAGES
+    OUTPUT_VARIABLE PYTHON_SITEPACKAGES
     OUTPUT_STRIP_TRAILING_WHITESPACE )
   
-  IF(NOT EXISTS ${Python_SITEPACKAGES})
+  IF(NOT EXISTS ${PYTHON_SITEPACKAGES})
     EXECUTE_PROCESS(
       COMMAND "${PYTHON_EXECUTABLE}" -c "import sysconfig; print(sysconfig.get_path('platlib'))"
-      OUTPUT_VARIABLE Python_SITEPACKAGES
+      OUTPUT_VARIABLE PYTHON_SITEPACKAGES
       OUTPUT_STRIP_TRAILING_WHITESPACE )
   ENDIF()
-  MESSAGE(STATUS "Python Sitepackages: ${Python_SITEPACKAGES}")
+  MESSAGE(STATUS "PYTHON_SITEPACKAGES: ${PYTHON_SITEPACKAGES}")
   
-  bob_input(Numpy_PREFIX "${Python_SITEPACKAGES}/numpy/core/include" PATH "Installation location of Numpy headers" )
+  bob_input(Numpy_PREFIX "${PYTHON_SITEPACKAGES}/numpy/core/include" PATH "Installation location of Numpy headers" )
   
   FIND_PATH(Numpy_INCLUDE_DIRS numpy/arrayobject.h HINTS ${Numpy_PREFIX})
   IF (Numpy_INCLUDE_DIRS)
     MESSAGE(STATUS "Numpy_INCLUDE_DIRS: ${Numpy_INCLUDE_DIRS}")
   ELSE()
-    MESSAGE(FATAL_ERROR "Numpy headers not found, but needed when Compadre_USE_Python:BOOL=ON. Try setting Numpy_PREFIX.")
+    MESSAGE(FATAL_ERROR "Numpy headers not found, but needed when Compadre_USE_PYTHON:BOOL=ON. Try setting Numpy_PREFIX.")
   ENDIF()
 
   set(SWIG_PREFIX "../GMLS/src/swig") # relative to examples folder
@@ -471,7 +478,7 @@ set(Compadre_KEY_BOOLS
     Compadre_USE_Netcdf
     Compadre_USE_Netcdf_MPI
     Compadre_USE_VTK
-    Compadre_USE_Python
+    Compadre_USE_PYTHON
     TRILINOS_LINEAR_SOLVES
     Compadre_CANGA_ENABLED
    )
