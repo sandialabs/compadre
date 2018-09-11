@@ -38,19 +38,30 @@ target_include_directories(gmls_module PUBLIC ${Numpy_INCLUDE_DIRS})
 # generate stdc++ and gomp variables and write them into python files 
 # to ensure that correct libraries are linked
 
-EXECUTE_PROCESS(
-COMMAND "ldconfig" "-p"
-COMMAND "grep" "stdc++"
-OUTPUT_VARIABLE STDC_LIB
-OUTPUT_STRIP_TRAILING_WHITESPACE )
-STRING(REGEX REPLACE "(^[^\n\r]*x86-64\\) => )([^\n\r]*)(.*$)" "\\2" STDC_LIB ${STDC_LIB})
-
-EXECUTE_PROCESS(
-COMMAND "ldconfig" "-p"
-COMMAND "grep" "gomp"
-OUTPUT_VARIABLE GOMP_LIB
-OUTPUT_STRIP_TRAILING_WHITESPACE )
-STRING(REGEX REPLACE "(^[^\n\r]*x86-64\\) => )([^\n\r]*)(.*$)" "\\2" GOMP_LIB ${GOMP_LIB})
+if (APPLE)
+  EXECUTE_PROCESS(
+    COMMAND "${PYTHON_EXECUTABLE}" -c "from ctypes import util, cdll;so_name = util.find_library('stdc++');print(so_name);"
+    OUTPUT_VARIABLE STDC_LIB
+    OUTPUT_STRIP_TRAILING_WHITESPACE )
+  EXECUTE_PROCESS(
+    COMMAND "${PYTHON_EXECUTABLE}" -c "from ctypes import util, cdll;so_name = util.find_library('gomp');print(so_name);"
+    OUTPUT_VARIABLE GOMP_LIB
+    OUTPUT_STRIP_TRAILING_WHITESPACE )
+else()
+  EXECUTE_PROCESS(
+  COMMAND "ldconfig" "-p"
+  COMMAND "grep" "stdc++"
+  OUTPUT_VARIABLE STDC_LIB
+  OUTPUT_STRIP_TRAILING_WHITESPACE )
+  STRING(REGEX REPLACE "(^[^\n\r]*x86-64\\) => )([^\n\r]*)(.*$)" "\\2" STDC_LIB ${STDC_LIB})
+  
+  EXECUTE_PROCESS(
+  COMMAND "ldconfig" "-p"
+  COMMAND "grep" "gomp"
+  OUTPUT_VARIABLE GOMP_LIB
+  OUTPUT_STRIP_TRAILING_WHITESPACE )
+  STRING(REGEX REPLACE "(^[^\n\r]*x86-64\\) => )([^\n\r]*)(.*$)" "\\2" GOMP_LIB ${GOMP_LIB})
+endif()
 
 
 bob_export_target(gmls_module)
