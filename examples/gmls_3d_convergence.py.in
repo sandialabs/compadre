@@ -77,7 +77,7 @@ def test1(ND):
     neighbor_lists = []
     epsilons = []
     for target_num in range(NT):
-        query_result = my_kdtree.query(target_sites[target_num], k=int(neighbor_number_multiplier*gmls_obj.getNP(polyOrder, dimensions)), eps=0)
+        query_result = my_kdtree.query(target_sites[target_num], k=int(neighbor_number_multiplier*GMLS_Module.getNP(polyOrder, dimensions)), eps=0)
         neighbor_lists.append([query_result[1].size,] + list(query_result[1]))
         epsilons.append(query_result[0][-1])
         #epsilons.append(query_result[0][-1]*epsilon_multiplier)

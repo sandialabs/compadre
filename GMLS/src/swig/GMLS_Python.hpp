@@ -39,114 +39,114 @@ public:
 	}
 
 	void setNeighbors(PyObject* pyObjectArray_in) {
-        // cast as a numpy array
-        PyArrayObject *np_arr_in = reinterpret_cast<PyArrayObject*>(pyObjectArray_in);
-
-        // copy data into Kokkos View
-        // read in size in each dimension
-        npy_intp* dims_in = PyArray_DIMS(np_arr_in);
-        int npyLength1D = dims_in[0];
-        int npyLength2D = dims_in[1];
-
-        // create Kokkos View on host to copy into
-    	Kokkos::View<int**, Kokkos::HostSpace>	neighbor_lists("neighbor lists", npyLength1D, npyLength2D); // first column is # of neighbors
-
-    	// overwrite existing data assuming a 2D layout
-        for (int i = 0; i < npyLength1D; ++i)
-        {
-                for (int j = 0; j < npyLength2D; ++j)
-                {
-                        int* val = (int*)PyArray_GETPTR2(np_arr_in, i, j);
-                        neighbor_lists(i,j) = *val;
-                }
-        }
-
-        // set values from Kokkos View
-        gmls_object->setNeighborLists(neighbor_lists);
+		// cast as a numpy array
+		PyArrayObject *np_arr_in = reinterpret_cast<PyArrayObject*>(pyObjectArray_in);
+	
+		// copy data into Kokkos View
+		// read in size in each dimension
+		npy_intp* dims_in = PyArray_DIMS(np_arr_in);
+		int npyLength1D = dims_in[0];
+		int npyLength2D = dims_in[1];
+	
+		// create Kokkos View on host to copy into
+		Kokkos::View<int**, Kokkos::HostSpace>	neighbor_lists("neighbor lists", npyLength1D, npyLength2D); // first column is # of neighbors
+	
+		// overwrite existing data assuming a 2D layout
+		for (int i = 0; i < npyLength1D; ++i)
+		{
+		        for (int j = 0; j < npyLength2D; ++j)
+		        {
+		                int* val = (int*)PyArray_GETPTR2(np_arr_in, i, j);
+		                neighbor_lists(i,j) = *val;
+		        }
+		}
+	
+		// set values from Kokkos View
+		gmls_object->setNeighborLists(neighbor_lists);
 	}
 
 	void setSourceSites(PyObject* pyObjectArray_in) {
-        // cast as a numpy array
-        PyArrayObject *np_arr_in = reinterpret_cast<PyArrayObject*>(pyObjectArray_in);
-
-        // copy data into Kokkos View
-        // read in size in each dimension
-        npy_intp* dims_in = PyArray_DIMS(np_arr_in);
-        int npyLength1D = dims_in[0];
-        int npyLength2D = dims_in[1];
-
-//        assert(npyLength2Dd == gmls_object->getDimensions());
-
-        // create Kokkos View on host to copy into
-    	Kokkos::View<double**, Kokkos::HostSpace> source_coords("neighbor coordinates", npyLength1D, npyLength2D);
-
-        // overwrite existing data assuming a 2D layout
-        for (int i = 0; i < npyLength1D; ++i)
-        {
-                for (int j = 0; j < npyLength2D; ++j)
-                {
-                        double* val = (double*)PyArray_GETPTR2(np_arr_in, i, j);
-                        source_coords(i,j) = *val;
-                }
-        }
-
-        // set values from Kokkos View
-        gmls_object->setSourceSites(source_coords);
+		// cast as a numpy array
+		PyArrayObject *np_arr_in = reinterpret_cast<PyArrayObject*>(pyObjectArray_in);
+		
+		// copy data into Kokkos View
+		// read in size in each dimension
+		npy_intp* dims_in = PyArray_DIMS(np_arr_in);
+		int npyLength1D = dims_in[0];
+		int npyLength2D = dims_in[1];
+		
+		//  assert(npyLength2Dd == gmls_object->getDimensions());
+		
+		// create Kokkos View on host to copy into
+		Kokkos::View<double**, Kokkos::HostSpace> source_coords("neighbor coordinates", npyLength1D, npyLength2D);
+		
+		// overwrite existing data assuming a 2D layout
+		for (int i = 0; i < npyLength1D; ++i)
+		{
+		        for (int j = 0; j < npyLength2D; ++j)
+		        {
+		                double* val = (double*)PyArray_GETPTR2(np_arr_in, i, j);
+		                source_coords(i,j) = *val;
+		        }
+		}
+		
+		// set values from Kokkos View
+		gmls_object->setSourceSites(source_coords);
 	}
 
 	void setTargetSites(PyObject* pyObjectArray_in) {
-        // cast as a numpy array
-        PyArrayObject *np_arr_in = reinterpret_cast<PyArrayObject*>(pyObjectArray_in);
-
-        // copy data into Kokkos View
-        // read in size in each dimension
-        npy_intp* dims_in = PyArray_DIMS(np_arr_in);
-        int npyLength1D = dims_in[0];
-        int npyLength2D = dims_in[1];
-
-        // create Kokkos View on host to copy into
-    	Kokkos::View<double**, Kokkos::HostSpace> target_coords("neighbor coordinates", npyLength1D, npyLength2D);
-
-//    	assert(npyLength2Dd == gmls_object->getDimensions());
-
-        // overwrite existing data assuming a 2D layout
-        for (int i = 0; i < npyLength1D; ++i)
-        {
-                for (int j = 0; j < npyLength2D; ++j)
-                {
-                        double* val = (double*)PyArray_GETPTR2(np_arr_in, i, j);
-                        target_coords(i,j) = *val;
-                }
-        }
-
-        // set values from Kokkos View
-        gmls_object->setTargetSites(target_coords);
+		// cast as a numpy array
+		PyArrayObject *np_arr_in = reinterpret_cast<PyArrayObject*>(pyObjectArray_in);
+		
+		// copy data into Kokkos View
+		// read in size in each dimension
+		npy_intp* dims_in = PyArray_DIMS(np_arr_in);
+		int npyLength1D = dims_in[0];
+		int npyLength2D = dims_in[1];
+		
+		// create Kokkos View on host to copy into
+		Kokkos::View<double**, Kokkos::HostSpace> target_coords("neighbor coordinates", npyLength1D, npyLength2D);
+		
+		// assert(npyLength2Dd == gmls_object->getDimensions());
+		
+		// overwrite existing data assuming a 2D layout
+		for (int i = 0; i < npyLength1D; ++i)
+		{
+		        for (int j = 0; j < npyLength2D; ++j)
+		        {
+		                double* val = (double*)PyArray_GETPTR2(np_arr_in, i, j);
+		                target_coords(i,j) = *val;
+		        }
+		}
+		
+		// set values from Kokkos View
+		gmls_object->setTargetSites(target_coords);
 	}
 
 	void setWindowSizes(PyObject* pyObjectArray_in) {
-        // cast as a numpy array
-        PyArrayObject *np_arr_in = reinterpret_cast<PyArrayObject*>(pyObjectArray_in);
-
-        // copy data into Kokkos View
-        // read in size in each dimension
-        npy_intp* dims_in = PyArray_DIMS(np_arr_in);
-        int npyLength1D = dims_in[0];
-
-        // create Kokkos View on host to copy into
-    	Kokkos::View<double*, Kokkos::HostSpace> epsilon("h supports", npyLength1D);
-
-        // overwrite existing data assuming a 2D layout
-        for (int i = 0; i < npyLength1D; ++i)
-        {
-//                for (int j = 0; j < npyLength2D; ++j)
-//                {
-                        double* val = (double*)PyArray_GETPTR1(np_arr_in, i);
-                        epsilon(i) = *val;
-//                }
-        }
-
-        // set values from Kokkos View
-        gmls_object->setWindowSizes(epsilon);
+		// cast as a numpy array
+		PyArrayObject *np_arr_in = reinterpret_cast<PyArrayObject*>(pyObjectArray_in);
+		
+		// copy data into Kokkos View
+		// read in size in each dimension
+		npy_intp* dims_in = PyArray_DIMS(np_arr_in);
+		int npyLength1D = dims_in[0];
+		
+		// create Kokkos View on host to copy into
+		Kokkos::View<double*, Kokkos::HostSpace> epsilon("h supports", npyLength1D);
+		
+		// overwrite existing data assuming a 2D layout
+		for (int i = 0; i < npyLength1D; ++i)
+		{
+		//	for (int j = 0; j < npyLength2D; ++j)
+		//	{
+			double* val = (double*)PyArray_GETPTR1(np_arr_in, i);
+			epsilon(i) = *val;
+		//	}
+		}
+		
+		// set values from Kokkos View
+		gmls_object->setWindowSizes(epsilon);
 	}
 
 	void generatePointEvaluationStencil() {
@@ -154,6 +154,34 @@ public:
 		gmls_object->generateAlphas();
 	}
 
+	PyObject* getAlphas0Tensor(int target_num, PyObject* pyObjectArray_neighborList) {
+        	// cast as a numpy array
+        	PyArrayObject *np_arr_neighborlist = reinterpret_cast<PyArrayObject*>(pyObjectArray_neighborList);
+
+        	int* loop_size = (int*)PyArray_GETPTR2(np_arr_neighborlist, target_num, 0);
+
+        	// copy data into Kokkos View
+                // set dimensions
+                npy_intp dims_out[1] = {*loop_size};
+
+                // allocate memory for array 
+                PyObject *pyObjectArray_out = PyArray_SimpleNew(1, dims_out, NPY_DOUBLE);
+                if (!pyObjectArray_out) {
+                        printf("Out of memory.\n");
+                }
+
+                // recast as a numpy array and write assuming a 1D layout
+                PyArrayObject *np_arr_out = reinterpret_cast<PyArrayObject*>(pyObjectArray_out);
+        	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,*loop_size), [=](int i) {
+        		int* neighbor_id = (int*)PyArray_GETPTR2(np_arr_neighborlist, target_num, i+1); // first index is size in neighborlist
+			double alpha_evaluation = gmls_object->getAlpha0TensorTo0Tensor(ReconstructionOperator::TargetOperation::ScalarPointEvaluation, target_num, i);
+			double* val = (double*)PyArray_GETPTR1(np_arr_out, i);
+			*val = alpha_evaluation;
+                });
+
+                // return the Python object
+                return pyObjectArray_out;
+	}
 
 	double applyStencilTo0Tensor(int target_num, PyObject* pyObjectArray_neighborList, PyObject* pyObjectArray_sourceData) {
         	// cast as a numpy array
@@ -216,11 +244,12 @@ public:
                 return pyObjectArray_out;
 	}
 
-	int getNP(const int poly_order, const int dimensions) {
-		// number of points needed for unisolvency
-		return GMLS::getNP(poly_order, dimensions);
-        }
 };
+
+int getNP(const int poly_order, const int dimensions) {
+	// number of points needed for unisolvency
+	return GMLS::getNP(poly_order, dimensions);
+}
 
 #endif
 
