@@ -13,14 +13,16 @@ variation = .02 # as a decimal for a percent
 
 for key, h in enumerate(h_all):
     content=[]
-    
-    content.append("# vtk DataFile Version 3.0")
-    content.append("vtk output")
+
+    content.append("# vtk DataFile Version 2.0")
+    content.append("Unstructured Grid Example")
     content.append("ASCII")
+    content.append("")
     content.append("DATASET UNSTRUCTURED_GRID")
     
-    x_layer = int(width / h)
-    y_layer = int(height / h)
+    
+    x_layer = int(width / h)+1
+    y_layer = int(height / h)+1
 
     flagged_layers_left_and_right = .02*x_layer
     flagged_layers_top_and_bottom = .02*y_layer
@@ -43,47 +45,54 @@ for key, h in enumerate(h_all):
                 points[x_layer*vertical + horizontal,:] = np.array([x+h*rand_pert_x,y+h*rand_pert_y])
     
     
-    content.append("POINTS %d float"%(points.shape[0]))
+    content.append("POINTS %d FLOAT"%(points.shape[0]))
     for i in range(points.shape[0]):
         content.append("%f %f %f"%(points[i,0],points[i,1],0))
 
     tri = Delaunay(points, qhull_options="QJ")
 
-    # visualization
-    #import matplotlib.pyplot as plt
-    #plt.triplot(points[:,0], points[:,1], tri.simplices.copy())
-    #plt.plot(points[:,0], points[:,1], 'o')
-    #plt.show()
-    
-    content.append("CELLS  %d 3"%(tri.simplices.shape[0]))
-    for i in range(tri.simplices.shape[0]):
-        content.append("%d %d %d"%tuple(simplex for simplex in tri.simplices[i,:]))
-    content.append("CELLS_TYPES 1")
-    content.append("5") # 2d triangles
+    #print tri.vertex_to_simplex
 
-#['%d'%simplex for simplex in tri.simplices[i,:]])
-#(['%d'%simplex for simplex in tri.simplices[i,:]]))
-    #content.append("POINT_DATA %d"%(z_layer*circumference_points))
-    #content.append("SCALARS FLAG float 1")
-    #content.append("LOOKUP_TABLE default")
+    # visualization
+    # import matplotlib.pyplot as plt
+    # plt.triplot(points[:,0], points[:,1], tri.simplices.copy())
+    # plt.plot(points[:,0], points[:,1], 'o')
+    # plt.show()
+
+    # calculate all lines
+    all_lines = set()
+    for i in range(tri.simplices.shape[0]): # all triangles
+        for j in range(3): # vertices
+            pair = [tri.simplices[i][j], tri.simplices[i][(j+1) % 3]]
+            pair.sort()
+            pair = tuple(pair)
+            all_lines.add(pair)
+    lines = np.ndarray([len(all_lines),2], dtype='int32')
+    for i, line in enumerate(all_lines):
+        lines[i,:] = np.array(line)
+
+
     
-    # between each two rows, fill in all cells
-    # given n pts in the row, there will be n-1 spaces between, with 2 triangles each
-    
-    
-    
-    #
-    #for point in points:
-    #    content.append("%f"%point[3])
-    #
-    ## fake grid_area
-    ##content.append("POINT_DATA %d"%(z_layer*circumference_points))
-    #content.append("SCALARS grid_area float 1")
-    #content.append("LOOKUP_TABLE default")
-    #
-    #for point in points:
-    #    content.append("%f"%(1./(z_layer*circumference_points)))
-    
+    content.append("\nCELLS %d %d"%(tri.simplices.shape[0] + lines.shape[0], 4*tri.simplices.shape[0]+3*lines.shape[0]))
+    for i in range(tri.simplices.shape[0]):
+        content.append("%d %d %d %d"%tuple([3,]+[simplex for simplex in tri.simplices[i,:]]))
+    for i in range(lines.shape[0]):
+        content.append("%d %d %d"%tuple([2,]+[line for line in lines[i,:]]))
+    content.append("CELL_TYPES %d" % (tri.simplices.shape[0] + lines.shape[0]))
+    for i in range(tri.simplices.shape[0]):
+        content.append("5") # 2d triangles
+    for i in range(lines.shape[0]):
+        content.append("3") # 1d lines
+
+    content.append("\nCELL_DATA %d"%(tri.simplices.shape[0]+lines.shape[0]))
+    content.append("SCALARS u float 1")
+    content.append("LOOKUP_TABLE default")
+    vals = np.zeros([tri.simplices.shape[0]+lines.shape[0],], dtype='d')
+    vals[tri.simplices.shape[0]::]=range(lines.shape[0])
+    for row in vals:
+        content.append(str(row))
+    content.append("")
+
     with open("rt0_%d.vtk"%key,'w') as file:
         for line in content:
             file.write(line+'\n')
