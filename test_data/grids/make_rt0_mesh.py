@@ -49,8 +49,11 @@ def integrand(x, line_coordinates, unit_normal_vector):
     #print np.dot(unit_normal_vector, unit_tangent_vector)
 
     velocity = get_velocity(quadrature_coordinate)
+ 
+    # line is stretch going from quadrature on [0,1] to the 2d line, but it is linear
+    domain_stretch = np.linalg.norm(line_coordinates[2:4]-line_coordinates[0:2], ord=2) # accounts for the fact that our x is undergoing a coordinate transformation
 
-    return np.dot(unit_normal_vector, velocity)
+    return np.dot(unit_normal_vector, velocity)*domain_stretch
 
 def integrate_along_line(line_coordinates):
     # (x0,y0,x1,y1) are given
@@ -60,13 +63,7 @@ def integrate_along_line(line_coordinates):
     # return the integral
     return quad(integrand, 0, 1, args=(line_coordinates, unit_normal_vector))[0]
 
-    
-   
-
-
-
-
-vis = False
+vis = True
 
 # geometry
 height = 1.0
@@ -74,13 +71,10 @@ width  = 1.0
 
 # random transformations of the original mesh
 random.seed(1234)
-blowup_ratio = 1
+blowup_ratio = 2 # 1 does nothing, identity
 random_rotation = True
-rotation_max = 90 # in degrees (either clockwise or counterclockwise, 180 should be highest needed)
-variation = .02 # as a decimal for a percent
-
-
-
+rotation_max = 180 # in degrees (either clockwise or counterclockwise, 180 should be highest needed)
+variation = .00 # as a decimal for a percent
 
 
 h_all=[0.2]#,0.1,0.05,0.025,0.0125,0.00625]
