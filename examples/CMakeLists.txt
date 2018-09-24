@@ -32,16 +32,33 @@ endfunction(add_exe_w_compadre)
 #
 ###############
 if (GMLS_EXAMPLES)
-    add_exe_w_gmls(GMLS_PointValuesTest_Kokkos GMLS_PointValuesTest_Kokkos.cpp)
+
+  add_exe_w_gmls(GMLS_PointValuesTest_Kokkos_HostViews GMLS_PointValuesTest_Kokkos.cpp)
+  add_exe_w_gmls(GMLS_PointValuesTest_Kokkos_DeviceViews GMLS_PointValuesTest_Kokkos_Device.cpp)
+
   if (GMLS_TESTS)
-    ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim3 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos "4" "200" "3" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim3 PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+
+    # Host views tests for GMLS
+
+    ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim3HostViews COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos_HostViews "4" "200" "3" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim3HostViews PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
     
-    ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim2 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos "4" "200" "2" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim2 PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim2HostViews COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos_HostViews "4" "200" "2" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim2HostViews PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
     
-    ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim1 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos "4" "200" "1" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim1 PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim1HostViews COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos_HostViews "4" "200" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim1HostViews PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+
+    # Device views tests for GMLS
+
+    ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim3DeviceViews COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos_DeviceViews "4" "200" "3" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim3DeviceViews PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    
+    ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim2DeviceViews COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos_DeviceViews "4" "200" "2" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim2DeviceViews PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    
+    ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim1DeviceViews COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos_DeviceViews "4" "200" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim1DeviceViews PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
 
     # WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH} )
     if (Compadre_USE_PYTHON)

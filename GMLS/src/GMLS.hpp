@@ -187,10 +187,14 @@ protected:
 
 	//	std::cout << "_NP*_host_operations.size()" << _NP*_host_operations.size() << std::endl;
 	Kokkos::View<int**, layout_type> _neighbor_lists; // contains local ids of neighbors to get coords from _source_coordinates
+	Kokkos::View<int**, layout_type>::HostMirror _host_neighbor_lists; // contains local ids of neighbors to get coords from _source_coordinates
 	Kokkos::View<int*, Kokkos::HostSpace> _number_of_neighbors_list; // contains the # of neighbors for each target
 	Kokkos::View<double**, layout_type> _source_coordinates; // all coordinates for the source for which _neighbor_lists refers
+	Kokkos::View<double**, layout_type>::HostMirror _host_source_coordinates; // all coordinates for the source for which _neighbor_lists refers
 	Kokkos::View<double**, layout_type> _target_coordinates; // same number of rows as _neighbor_lists
+	Kokkos::View<double**, layout_type>::HostMirror _host_target_coordinates; // same number of rows as _neighbor_lists
     Kokkos::View<double*> _epsilons; // h supports determined through neighbor search, same number of rows as _neighbor_lists
+    Kokkos::View<double*>::HostMirror _host_epsilons; // h supports determined through neighbor search, same number of rows as _neighbor_lists
 
     Kokkos::View<double**, layout_type> _alphas; // generated coefficients
     Kokkos::View<const double**, layout_type>::HostMirror _host_alphas;
@@ -256,6 +260,7 @@ protected:
 
 
     // PRIVATE MEMBER FUNCTIONS
+
 
     KOKKOS_INLINE_FUNCTION
     void calcWij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, scratch_matrix_type* V = NULL, scratch_matrix_type* T = NULL, const ReconstructionOperator::SamplingFunctional sampling_strategy = ReconstructionOperator::SamplingFunctional::PointSample, scratch_vector_type* target_manifold_gradient = NULL, scratch_matrix_type* quadrature_manifold_gradients = NULL) const;
@@ -437,68 +442,155 @@ public:
 			const int dimensions = 3)
 				: GMLS(poly_order, dense_solver_type, manifold_poly_order, dimensions) {
 
-//    		// switch to this in 3-6 months (12/17/17)
-//    		// allocate memory on device and copy if necessary
-//    		_neighbor_lists = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), neighbor_lists);
-//    		_source_coordinates = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), source_coordinates);
-//    		_target_coordinates = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), target_coordinates);
-//    		_epsilons = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), epsilons);
-
         this->setNeighborLists(neighbor_lists);
         this->setSourceSites(source_coordinates);
         this->setTargetSites(target_coordinates);
         this->setWindowSizes(epsilons);
     };
 
-    GMLS(ReconstructionOperator::ReconstructionSpace reconstruction_space,
-    		ReconstructionOperator::SamplingFunctional polynomial_sampling_strategy,
+	GMLS(ReconstructionOperator::ReconstructionSpace reconstruction_space,
+			ReconstructionOperator::SamplingFunctional polynomial_sampling_strategy,
 			ReconstructionOperator::SamplingFunctional data_sampling_strategy,
-    		Kokkos::View<int**, Kokkos::HostSpace> neighbor_lists,
-    		Kokkos::View<double**, Kokkos::HostSpace> source_coordinates,
-    		Kokkos::View<double**, Kokkos::HostSpace> target_coordinates,
-    		Kokkos::View<double*, Kokkos::HostSpace> epsilons,
-    		const int poly_order,
+			Kokkos::View<int**, Kokkos::HostSpace> neighbor_lists,
+			Kokkos::View<double**, Kokkos::HostSpace> source_coordinates,
+			Kokkos::View<double**, Kokkos::HostSpace> target_coordinates,
+			Kokkos::View<double*, Kokkos::HostSpace> epsilons,
+			const int poly_order,
 			const std::string dense_solver_type = std::string("QR"),
 			const int manifold_poly_order = 2,
 			const int dimensions = 3)
 				: GMLS(neighbor_lists, source_coordinates, target_coordinates, epsilons, poly_order, dense_solver_type, manifold_poly_order, dimensions) {
 
-        _reconstruction_space = reconstruction_space;
-        _polynomial_sampling_functional = polynomial_sampling_strategy;
-        _data_sampling_functional = data_sampling_strategy;
-    };
+		_reconstruction_space = reconstruction_space;
+		_polynomial_sampling_functional = polynomial_sampling_strategy;
+		_data_sampling_functional = data_sampling_strategy;
+	};
 
-    GMLS(ReconstructionOperator::ReconstructionSpace reconstruction_space,
-    		ReconstructionOperator::SamplingFunctional dual_sampling_strategy,
-    		Kokkos::View<int**, Kokkos::HostSpace> neighbor_lists,
-    		Kokkos::View<double**, Kokkos::HostSpace> source_coordinates,
-    		Kokkos::View<double**, Kokkos::HostSpace> target_coordinates,
-    		Kokkos::View<double*, Kokkos::HostSpace> epsilons,
-    		const int poly_order,
+	GMLS(ReconstructionOperator::ReconstructionSpace reconstruction_space,
+			ReconstructionOperator::SamplingFunctional dual_sampling_strategy,
+			Kokkos::View<int**, Kokkos::HostSpace> neighbor_lists,
+			Kokkos::View<double**, Kokkos::HostSpace> source_coordinates,
+			Kokkos::View<double**, Kokkos::HostSpace> target_coordinates,
+			Kokkos::View<double*, Kokkos::HostSpace> epsilons,
+			const int poly_order,
 			const std::string dense_solver_type = std::string("QR"),
 			const int manifold_poly_order = 2,
 			const int dimensions = 3)
 				: GMLS(reconstruction_space, dual_sampling_strategy, dual_sampling_strategy, neighbor_lists, source_coordinates, target_coordinates, epsilons, poly_order, dense_solver_type, manifold_poly_order, dimensions) {}
 
+#ifdef KOKKOS_HAVE_CUDA
+
+    GMLS(Kokkos::View<int**, Kokkos::CudaSpace> neighbor_lists,
+    		Kokkos::View<double**, Kokkos::CudaSpace> source_coordinates,
+    		Kokkos::View<double**, Kokkos::CudaSpace> target_coordinates,
+    		Kokkos::View<double*, Kokkos::CudaSpace> epsilons,
+    		const int poly_order,
+			const std::string dense_solver_type = std::string("QR"),
+			const int manifold_poly_order = 2,
+			const int dimensions = 3)
+				: GMLS(poly_order, dense_solver_type, manifold_poly_order, dimensions) {
+
+        this->setNeighborLists_Device(neighbor_lists);
+        this->setSourceSites_Device(source_coordinates);
+        this->setTargetSites_Device(target_coordinates);
+        this->setWindowSizes_Device(epsilons);
+    };
+
+	GMLS(ReconstructionOperator::ReconstructionSpace reconstruction_space,
+			ReconstructionOperator::SamplingFunctional polynomial_sampling_strategy,
+			ReconstructionOperator::SamplingFunctional data_sampling_strategy,
+			Kokkos::View<int**, Kokkos::CudaSpace> neighbor_lists,
+			Kokkos::View<double**, Kokkos::CudaSpace> source_coordinates,
+			Kokkos::View<double**, Kokkos::CudaSpace> target_coordinates,
+			Kokkos::View<double*, Kokkos::CudaSpace> epsilons,
+			const int poly_order,
+			const std::string dense_solver_type = std::string("QR"),
+			const int manifold_poly_order = 2,
+			const int dimensions = 3)
+				: GMLS(neighbor_lists, source_coordinates, target_coordinates, epsilons, poly_order, dense_solver_type, manifold_poly_order, dimensions) {
+
+		_reconstruction_space = reconstruction_space;
+		_polynomial_sampling_functional = polynomial_sampling_strategy;
+		_data_sampling_functional = data_sampling_strategy;
+	};
+
+	GMLS(ReconstructionOperator::ReconstructionSpace reconstruction_space,
+			ReconstructionOperator::SamplingFunctional dual_sampling_strategy,
+			Kokkos::View<int**, Kokkos::CudaSpace> neighbor_lists,
+			Kokkos::View<double**, Kokkos::CudaSpace> source_coordinates,
+			Kokkos::View<double**, Kokkos::CudaSpace> target_coordinates,
+			Kokkos::View<double*, Kokkos::CudaSpace> epsilons,
+			const int poly_order,
+			const std::string dense_solver_type = std::string("QR"),
+			const int manifold_poly_order = 2,
+			const int dimensions = 3)
+				: GMLS(reconstruction_space, dual_sampling_strategy, dual_sampling_strategy, neighbor_lists, source_coordinates, target_coordinates, epsilons, poly_order, dense_solver_type, manifold_poly_order, dimensions) {}
+
+#endif
+
     ~GMLS(){
     };
 
-    void setNeighborLists(Kokkos::View<int**, layout_type> neighbor_lists) {
-		// allocate memory on device
-		_neighbor_lists = neighbor_lists;
-
-        _number_of_neighbors_list = Kokkos::View<int*, Kokkos::HostSpace>("number of neighbors", neighbor_lists.dimension_0());
-        for (int i=0; i<_neighbor_lists.dimension_0(); ++i) {
-			_number_of_neighbors_list(i) = neighbor_lists(i,0);
-        }
-    }
-
     void setNeighborLists(Kokkos::View<int**, Kokkos::HostSpace> neighbor_lists) {
+
 		// allocate memory on device
 		_neighbor_lists = Kokkos::View<int**, layout_type>("device neighbor lists",
 			neighbor_lists.dimension_0(), neighbor_lists.dimension_1());
+
+		_host_neighbor_lists = Kokkos::create_mirror_view(_neighbor_lists);
+		Kokkos::deep_copy(_host_neighbor_lists, neighbor_lists);
 		// copy data from host to device
-		Kokkos::deep_copy(_neighbor_lists, neighbor_lists);
+		Kokkos::deep_copy(_neighbor_lists, _host_neighbor_lists);
+
+		_number_of_neighbors_list = Kokkos::View<int*, Kokkos::HostSpace>("number of neighbors", neighbor_lists.dimension_0());
+		for (int i=0; i<_neighbor_lists.dimension_0(); ++i) {
+			_number_of_neighbors_list(i) = neighbor_lists(i,0);
+		}
+    }
+
+    void setSourceSites(Kokkos::View<double**, Kokkos::HostSpace> source_coordinates) {
+
+		// allocate memory on device
+		_source_coordinates = Kokkos::View<double**, layout_type>("device neighbor coordinates",
+				source_coordinates.dimension_0(), source_coordinates.dimension_1());
+
+		_host_source_coordinates = Kokkos::create_mirror_view(_source_coordinates);
+		Kokkos::deep_copy(_host_source_coordinates, source_coordinates);
+		// copy data from host to device
+		Kokkos::deep_copy(_source_coordinates, _host_source_coordinates);
+
+    }
+
+    void setTargetSites(Kokkos::View<double**, Kokkos::HostSpace> target_coordinates) {
+		// allocate memory on device
+		_target_coordinates = Kokkos::View<double**, layout_type>("device target coordinates",
+				target_coordinates.dimension_0(), target_coordinates.dimension_1());
+
+		_host_target_coordinates = Kokkos::create_mirror_view(_target_coordinates);
+		Kokkos::deep_copy(_host_target_coordinates, target_coordinates);
+		// copy data from host to device
+		Kokkos::deep_copy(_target_coordinates, _host_target_coordinates);
+    }
+
+    void setWindowSizes(Kokkos::View<double*, Kokkos::HostSpace> epsilons) {
+
+    	// allocate memory on device
+		_epsilons = Kokkos::View<double*>("device epsilons",
+						epsilons.dimension_0(), epsilons.dimension_1());
+
+		_host_epsilons = Kokkos::create_mirror_view(_epsilons);
+		Kokkos::deep_copy(_host_epsilons, epsilons);
+		// copy data from host to device
+		Kokkos::deep_copy(_epsilons, _host_epsilons);
+    }
+
+#ifdef KOKKOS_HAVE_CUDA
+
+    void setNeighborLists_Device(Kokkos::View<int**, Kokkos::CudaSpace> neighbor_lists_device) {
+		// allocate memory on device
+		_neighbor_lists = neighbor_lists_device;
+		Kokkos::View<int**>::HostMirror neighbor_lists = Kokkos::create_mirror_view(_neighbor_lists);
+		Kokkos::deep_copy(neighbor_lists, _neighbor_lists);
 
         _number_of_neighbors_list = Kokkos::View<int*, Kokkos::HostSpace>("number of neighbors", neighbor_lists.dimension_0());
         for (int i=0; i<_neighbor_lists.dimension_0(); ++i) {
@@ -506,31 +598,22 @@ public:
         }
     }
 
-    void setSourceSites(Kokkos::View<double**, layout_type> source_coordinates) {
+    void setSourceSites_Device(Kokkos::View<double**, Kokkos::CudaSpace> source_coordinates) {
 		// allocate memory on device
 		_source_coordinates = source_coordinates;
     }
 
-    void setSourceSites(Kokkos::View<double**, Kokkos::HostSpace> source_coordinates) {
-		// allocate memory on device
-		_source_coordinates = Kokkos::View<double**, layout_type>("device neighbor coordinates",
-				source_coordinates.dimension_0(), source_coordinates.dimension_1());
-		// copy data from host to device
-		Kokkos::deep_copy(_source_coordinates, source_coordinates);
-    }
-
-    void setTargetSites(Kokkos::View<double**, layout_type> target_coordinates) {
+    void setTargetSites_Device(Kokkos::View<double**, Kokkos::CudaSpace> target_coordinates) {
     	// allocate memory on device
 		_target_coordinates = target_coordinates;
     }
 
-    void setTargetSites(Kokkos::View<double**, Kokkos::HostSpace> target_coordinates) {
+    void setWindowSizes_Device(Kokkos::View<double*, Kokkos::CudaSpace> epsilons) {
     	// allocate memory on device
-		_target_coordinates = Kokkos::View<double**, layout_type>("device target coordinates",
-				target_coordinates.dimension_0(), target_coordinates.dimension_1());
-		// copy data from host to device
-		Kokkos::deep_copy(_target_coordinates, target_coordinates);
+		_epsilons = epsilons;
     }
+
+#endif
 
     void setOperatorCoefficients(Kokkos::View<double**, Kokkos::HostSpace> operator_coefficients) {
     	// allocate memory on device
@@ -538,19 +621,6 @@ public:
 				operator_coefficients.dimension_0(), operator_coefficients.dimension_1());
 		// copy data from host to device
 		Kokkos::deep_copy(_operator_coefficients, operator_coefficients);
-    }
-
-    void setWindowSizes(Kokkos::View<double*> epsilons) {
-    	// allocate memory on device
-		_epsilons = epsilons;
-    }
-
-    void setWindowSizes(Kokkos::View<double*, Kokkos::HostSpace> epsilons) {
-    	// allocate memory on device
-		_epsilons = Kokkos::View<double*>("device epsilons",
-				epsilons.dimension_0(), epsilons.dimension_1());
-		// copy data from host to device
-		Kokkos::deep_copy(_epsilons, epsilons);
     }
 
     void setPolynomialOrder(const int poly_order) {

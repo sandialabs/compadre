@@ -37,11 +37,7 @@ extern "C" void dgesvd_( char* jobu, char* jobvt, int* m, int* n, double* a,
 typedef Kokkos::TeamPolicy<>               team_policy;
 typedef Kokkos::TeamPolicy<>::member_type  member_type;
 
-#ifdef KOKKOS_HAVE_CUDA
-typedef Kokkos::LayoutRight  layout_type;
-#else
-typedef Kokkos::LayoutLeft  layout_type;
-#endif
+typedef Kokkos::DefaultExecutionSpace::array_layout layout_type;
 
 typedef Kokkos::View<double**, layout_type, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_matrix_type;
 typedef Kokkos::View<double*, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_vector_type;
