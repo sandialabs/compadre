@@ -85,6 +85,7 @@ if (Compadre_EXAMPLES AND Compadre_USE_Trilinos)
     add_exe_w_compadre(cangaIntercomparison.exe Canga_Intercomparison.cpp)
   ENDIF()
   add_exe_w_compadre(lagrangianShallowWater.exe Compadre_LagrangianShallowWater.cpp)
+  add_exe_w_compadre(RT0Remap.exe Compadre_RT0_Remap.cpp)
   
   if (Compadre_TESTS)
 
@@ -254,6 +255,9 @@ if (Compadre_EXAMPLES AND Compadre_USE_Trilinos)
     SET_TESTS_PROPERTIES(LagrangianShallowWater5 PROPERTIES LABELS "shallow;case5")
 
 
+    # RT0 REMAP TO VECTOR TEST
+    ADD_TEST(NAME RT0Remap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/RT0Remap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_RT0.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(RT0Remap PROPERTIES LABELS "rt0")
 
     # SET FLAGS FOR TESTS NOT RUN
 
