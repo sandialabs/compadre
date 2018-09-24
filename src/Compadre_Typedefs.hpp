@@ -39,7 +39,7 @@
 namespace Compadre {
 
 	typedef int local_index_type;
-	typedef long global_index_type;
+	typedef long long global_index_type;
 	typedef double scalar_type;
 
 	typedef Tpetra::Map<local_index_type, global_index_type> map_type;

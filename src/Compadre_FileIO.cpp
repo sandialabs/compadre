@@ -27,6 +27,7 @@
 	#include <vtkXMLPPolyDataReader.h>
 	#include <vtkXMLPUnstructuredGridWriter.h>
 	#include <vtkXMLPUnstructuredGridReader.h>
+	#include <vtkUnstructuredGridReader.h>
 
 	// VTK Filters
 	#include <vtkAppendFilter.h>
@@ -590,7 +591,7 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 			flags_var_id = i;
 		}
 		else if (var_string_lower=="id") {
-			retval = nc_get_var_long(ncid, i, &ids[0]);
+			retval = nc_get_var(ncid, i, &ids[0]);
 			identified_fields[i] = true;
 			ids_var_id = i;
 		}
@@ -840,7 +841,7 @@ int SerialHOMMEFileIO::read(const std::string& fn) {
 			flags_var_id = i;
 		}
 		else if (var_string_lower=="id") {
-			retval = nc_get_var_long(ncid, i, &ids[0]);
+			retval = nc_get_var(ncid, i, &ids[0]);
 			identified_fields[i] = true;
 			ids_var_id = i;
 		}
@@ -1135,7 +1136,7 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 		else if (var_string_lower=="id") {
 			unsigned long start = minInd;
 			unsigned long countDiff = (unsigned long)(local_coords_size);
-			retval = nc_get_vara_long(ncid, i, &start, &countDiff, &ids[0]);
+			retval = nc_get_vara(ncid, i, &start, &countDiff, &ids[0]);
 			identified_fields[i] = true;
 			ids_var_id = i;
 		}
@@ -1388,7 +1389,7 @@ int ParallelHOMMEFileIO::read(const std::string& fn) {
 		else if (var_string_lower=="id") {
 			unsigned long start = minInd;
 			unsigned long countDiff = (unsigned long)(local_coords_size);
-			retval = nc_get_vara_long(ncid, i, &start, &countDiff, &ids[0]);
+			retval = nc_get_vara(ncid, i, &start, &countDiff, &ids[0]);
 			identified_fields[i] = true;
 			ids_var_id = i;
 		}
@@ -1523,14 +1524,32 @@ int ParallelHOMMEFileIO::read(const std::string& fn) {
 #ifdef COMPADRE_USE_VTK
 
 int LegacyVTKFileIO::read(const std::string& fn) {
-	vtkSmartPointer<vtkPolyDataReader> reader =
-		vtkSmartPointer<vtkPolyDataReader>::New();
-	reader->SetFileName(fn.c_str());
-	reader->ReadAllScalarsOn();
-	reader->ReadAllVectorsOn();
-	reader->Register(reader);
-	reader->Update();
-	_dataSet = vtkDataSet::SafeDownCast(reader->GetOutput());
+
+	vtkSmartPointer<vtkDataReader> general_reader =
+		vtkSmartPointer<vtkDataReader>::New();
+	general_reader->SetFileName(fn.c_str());
+
+	if (general_reader->IsFilePolyData()) {
+		vtkSmartPointer<vtkPolyDataReader> reader =
+			vtkSmartPointer<vtkPolyDataReader>::New();
+		reader->SetFileName(fn.c_str());
+		reader->ReadAllScalarsOn();
+		reader->ReadAllVectorsOn();
+		reader->Register(reader);
+		reader->Update();
+		_dataSet = vtkDataSet::SafeDownCast(reader->GetOutput());
+	} else if (general_reader->IsFileUnstructuredGrid()) {
+		vtkSmartPointer<vtkUnstructuredGridReader> reader =
+			vtkSmartPointer<vtkUnstructuredGridReader>::New();
+		reader->SetFileName(fn.c_str());
+		reader->ReadAllScalarsOn();
+		reader->ReadAllVectorsOn();
+		reader->Register(reader);
+		reader->Update();
+		_dataSet = vtkDataSet::SafeDownCast(reader->GetOutput());
+	} else {
+		TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Unsupported VTK data type.");
+	}
 
 	coords_type* coords = _particles->getCoords();
 
@@ -1554,8 +1573,8 @@ int LegacyVTKFileIO::read(const std::string& fn) {
 		minInd = coords->getMinGlobalIndex();
 		maxInd = coords->getMaxGlobalIndex();
 
-				std::cout << "min: " << minInd << " max: " << maxInd << std::endl;
-				std::cout << "compare len: " << coords->nLocal() << " to " << maxInd-minInd << std::endl;
+		std::cout << "min: " << minInd << " max: " << maxInd << std::endl;
+		std::cout << "compare len: " << coords->nLocal() << " to " << maxInd-minInd << std::endl;
 
 		// first fill the coordinates
 		host_view_type dev_coords = coords->getPts()->getLocalView<host_view_type>(); // assumes we are reading in physical coords in a lagrangian simulation
