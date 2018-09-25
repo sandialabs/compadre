@@ -1,0 +1,19 @@
+#!/bin/sh
+#BSUB -n 16
+#BSUB -e openmpi_%J.err
+#BSUB -o openmpi_%J.out
+#BSUB -R "span[ptile=8]"
+export PATH="/home/projects/ppc64le-pwr8-nvidia/cuda/9.2.88/bin:$PATH"
+export LD_LIBRARY_PATH="/home/projects/ppc64le-pwr8-nvidia/cuda/9.2.88/lib:$LD_LIBRARY_PATH"
+export PATH="~/releases/deviceQuery:$PATH"
+#~/releases/deviceQuery/deviceQuery
+#ctest -V
+export OMP_PROC_BIND=spread
+export OMP_PLACES=threads
+OMP_PROC_BIND=spread OMP_PLACES=threads time ./examples/GMLS_PointValuesTest_Kokkos_DeviceViews_QR 9 500 3 --kokkos-threads=128
+#OMP_PROC_BIND=spread OMP_PLACES=threads ./examples/GMLS_PointValuesTest_Kokkos_DeviceViews 9 200 2 --kokkos-threads=64
+#OMP_PROC_BIND=spread OMP_PLACES=threads ./examples/GMLS_PointValuesTest_Kokkos_DeviceViews 9 200 1 --kokkos-threads=64
+#mpirun deviceQuery
+#F Queue "Tesla K80" 3.5
+#G Queue "Tesla P100-SXM2-16GB" 6.0
+#T Queue "Tesla K40m" 3.5

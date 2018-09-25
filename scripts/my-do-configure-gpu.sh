@@ -19,6 +19,7 @@ cmake \
     -D Compadre_USE_Netcdf:BOOL=OFF \
     -D Compadre_USE_VTK:BOOL=OFF \
     -D Compadre_USE_PYTHON:BOOL=OFF \
+    -D Compadre_USE_Compadre:BOOL=OFF \
     -D Compadre_EXAMPLES:BOOL=OFF \
     -D Compadre_TESTS:BOOL=OFF \
     -D GMLS_EXAMPLES:BOOL=ON \
