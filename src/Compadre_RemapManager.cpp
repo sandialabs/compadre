@@ -175,13 +175,14 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 			_GMLS = Teuchos::rcp(new GMLS(_queue[i]._reconstruction_space,
 					_queue[i]._polynomial_sampling_functional,
 					_queue[i]._data_sampling_functional,
-					kokkos_neighbor_lists_host,
-					kokkos_augmented_source_coordinates_host,
-					kokkos_target_coordinates,
-					kokkos_epsilons_host,
 					_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 					_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
 					_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder")));
+
+			_GMLS->setProblemData(kokkos_neighbor_lists_host,
+					kokkos_augmented_source_coordinates_host,
+					kokkos_target_coordinates,
+					kokkos_epsilons_host);
 
 			_GMLS->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 			_GMLS->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));

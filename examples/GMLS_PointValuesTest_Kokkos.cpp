@@ -308,7 +308,10 @@ int main (int argc, char* args[])
     }
 
     timer.reset();
-    GMLS my_GMLS(neighbor_lists, source_coords, target_coords, epsilon, order, "SVD", 2 /*manifield order*/, dimension);
+
+    GMLS my_GMLS(order, "SVD", 2 /*manifield order*/, dimension);
+    my_GMLS.setProblemData(neighbor_lists, source_coords, target_coords, epsilon);
+
     std::vector<ReconstructionOperator::TargetOperation> lro(5);
     lro[0] = ReconstructionOperator::ScalarPointEvaluation;
     lro[1] = ReconstructionOperator::LaplacianOfScalarPointEvaluation;

@@ -176,13 +176,14 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 	// GMLS operator
 
-	GMLS my_scalar_GMLS (kokkos_neighbor_lists_host,
-			kokkos_augmented_source_coordinates_host,
-			kokkos_target_coordinates,
-			kokkos_epsilons_host,
-			_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+	GMLS my_scalar_GMLS ( _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 			_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
 			_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+	my_scalar_GMLS.setProblemData(
+			kokkos_neighbor_lists_host,
+			kokkos_augmented_source_coordinates_host,
+			kokkos_target_coordinates,
+			kokkos_epsilons_host);
 	my_scalar_GMLS.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 	my_scalar_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 	my_scalar_GMLS.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
@@ -190,13 +191,14 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 	GMLS my_vector_GMLS (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
 			ReconstructionOperator::SamplingFunctional::ManifoldVectorSample,
-			kokkos_neighbor_lists_host,
-			kokkos_augmented_source_coordinates_host,
-			kokkos_target_coordinates,
-			kokkos_epsilons_host,
 			_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 			_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
 			_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+	my_vector_GMLS.setProblemData(
+			kokkos_neighbor_lists_host,
+			kokkos_augmented_source_coordinates_host,
+			kokkos_target_coordinates,
+			kokkos_epsilons_host);
 	my_vector_GMLS.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 	my_vector_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 	my_vector_GMLS.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
@@ -204,13 +206,14 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 	GMLS my_vector_gradient_GMLS (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
 			ReconstructionOperator::SamplingFunctional::ManifoldGradientVectorSample,
-			kokkos_neighbor_lists_host,
-			kokkos_augmented_source_coordinates_host,
-			kokkos_target_coordinates,
-			kokkos_epsilons_host,
 			_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 			_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
 			_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+	my_vector_gradient_GMLS.setProblemData(
+			kokkos_neighbor_lists_host,
+			kokkos_augmented_source_coordinates_host,
+			kokkos_target_coordinates,
+			kokkos_epsilons_host);
 	my_vector_gradient_GMLS.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 	my_vector_gradient_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 	my_vector_gradient_GMLS.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
@@ -225,13 +228,14 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 		GMLS my_GMLS_staggered_grad (ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial,
 				ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
-				kokkos_neighbor_lists_host,
-				kokkos_augmented_source_coordinates_host,
-				kokkos_target_coordinates,
-				kokkos_epsilons_host,
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+		my_GMLS_staggered_grad.setProblemData(
+			kokkos_neighbor_lists_host,
+			kokkos_augmented_source_coordinates_host,
+			kokkos_target_coordinates,
+			kokkos_epsilons_host);
 		my_GMLS_staggered_grad.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 		my_GMLS_staggered_grad.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 		my_GMLS_staggered_grad.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
@@ -558,13 +562,14 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 		GMLS my_GMLS_staggered_div (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
 				ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample,
-				kokkos_neighbor_lists_host,
-				kokkos_augmented_source_coordinates_host,
-				kokkos_target_coordinates,
-				kokkos_epsilons_host,
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+		my_GMLS_staggered_div.setProblemData(
+			kokkos_neighbor_lists_host,
+			kokkos_augmented_source_coordinates_host,
+			kokkos_target_coordinates,
+			kokkos_epsilons_host);
 		my_GMLS_staggered_div.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 		my_GMLS_staggered_div.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 		my_GMLS_staggered_div.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));

@@ -295,14 +295,14 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 		GMLS my_GMLS (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
 				ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample,
 				ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
-				kokkos_neighbor_lists_host,
-				kokkos_augmented_source_coordinates_host,
-				kokkos_target_coordinates,
-				kokkos_epsilons_host,
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
-
+		my_GMLS.setProblemData(
+				kokkos_neighbor_lists_host,
+				kokkos_augmented_source_coordinates_host,
+				kokkos_target_coordinates,
+				kokkos_epsilons_host);
 		my_GMLS.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 		my_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 		my_GMLS.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
@@ -397,13 +397,14 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 
 		GMLS my_GMLS_staggered_grad (ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial,
 				ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
-				kokkos_neighbor_lists_host,
-				kokkos_augmented_source_coordinates_host,
-				kokkos_target_coordinates,
-				kokkos_epsilons_host,
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+		my_GMLS_staggered_grad.setProblemData(
+				kokkos_neighbor_lists_host,
+				kokkos_augmented_source_coordinates_host,
+				kokkos_target_coordinates,
+				kokkos_epsilons_host);
 		my_GMLS_staggered_grad.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 		my_GMLS_staggered_grad.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 		my_GMLS_staggered_grad.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
@@ -415,13 +416,14 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 
 		GMLS my_GMLS_staggered_div (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
 				ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample,
-				kokkos_neighbor_lists_host,
-				kokkos_augmented_source_coordinates_host,
-				kokkos_target_coordinates,
-				kokkos_epsilons_host,
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+		my_GMLS_staggered_div.setProblemData(
+				kokkos_neighbor_lists_host,
+				kokkos_augmented_source_coordinates_host,
+				kokkos_target_coordinates,
+				kokkos_epsilons_host);
 		my_GMLS_staggered_div.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 		my_GMLS_staggered_div.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 		my_GMLS_staggered_div.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
@@ -590,13 +592,14 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 
 		GMLS my_GMLS_staggered_grad (ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial,
 				ReconstructionOperator::SamplingFunctional::PointSample,
-				kokkos_neighbor_lists_host,
-				kokkos_augmented_source_coordinates_host,
-				kokkos_target_coordinates,
-				kokkos_epsilons_host,
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+		my_GMLS_staggered_grad.setProblemData(
+				kokkos_neighbor_lists_host,
+				kokkos_augmented_source_coordinates_host,
+				kokkos_target_coordinates,
+				kokkos_epsilons_host);
 		my_GMLS_staggered_grad.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 		my_GMLS_staggered_grad.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 		my_GMLS_staggered_grad.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
@@ -608,13 +611,14 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 
 		GMLS my_GMLS_staggered_div (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
 				ReconstructionOperator::SamplingFunctional::ManifoldGradientVectorSample,
-				kokkos_neighbor_lists_host,
-				kokkos_augmented_source_coordinates_host,
-				kokkos_target_coordinates,
-				kokkos_epsilons_host,
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+		my_GMLS_staggered_div.setProblemData(
+				kokkos_neighbor_lists_host,
+				kokkos_augmented_source_coordinates_host,
+				kokkos_target_coordinates,
+				kokkos_epsilons_host);
 		my_GMLS_staggered_div.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 		my_GMLS_staggered_div.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 		my_GMLS_staggered_div.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
