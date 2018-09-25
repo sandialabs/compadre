@@ -4,9 +4,6 @@
 #define BOOST_UBLAS_NDEBUG 1
 #define USE_CUSTOM_SVD
 //	#define TRANSPOSE_UV
-#ifdef KOKKOS_ENABLE_CUDA // <-- seems to not be recognized
-// we will just define TRANPOSE_UV until that is sorted out
-#endif
 #include "GMLS_Config.h"
 
 #ifdef COMPADRE_USE_BOOST
@@ -17,20 +14,15 @@ typedef boost::numeric::ublas::matrix<double> boost_matrix_type;
 typedef boost::numeric::ublas::matrix<double,boost::numeric::ublas::column_major> boost_matrix_fortran_type;
 #endif
 
-#ifdef USE_LAPACK
+#ifdef COMPADRE_USE_LAPACK
 extern "C" void dgesvd_( char* jobu, char* jobvt, int* m, int* n, double* a,
                 int* lda, double* s, double* u, int* ldu, double* vt, int* ldvt,
                 double* work, int* lwork, int* info );
 #endif
 
-//#define USE_QR // SVD
-
 #ifdef COMPADRE_USE_KOKKOSCORE
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Random.hpp>
-
-//// MISCELANEOUS TYPEDEFS
-//typedef std::vector<double> stl_vector_type;
 
 // KOKKOS TYPEDEFS
 

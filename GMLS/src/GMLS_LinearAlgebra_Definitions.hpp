@@ -67,7 +67,7 @@ void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_
 
 KOKKOS_INLINE_FUNCTION
 void computeSVD(const member_type& teamMember, scratch_matrix_type U, scratch_vector_type S, scratch_matrix_type Vt, scratch_matrix_type P, const int columns, const int rows) {
-#if not(defined(KOKKOS_ENABLE_CUDA)) && defined(USE_LAPACK) && defined(COMPADRE_USE_BOOST)
+#if not(defined(KOKKOS_ENABLE_CUDA)) && defined(COMPADRE_USE_LAPACK) && defined(COMPADRE_USE_BOOST)
 
 	Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
 
@@ -136,7 +136,7 @@ void invertM(const member_type& teamMember, scratch_vector_type y, scratch_matri
 
 	const int target_index = teamMember.league_rank();
 
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef KOKKOS_ENABLE_CUDA
 
 	// Construct L for A=L*L^T
 	for (int i=0; i<columns; ++i) {
@@ -308,7 +308,7 @@ void GivensQR(const member_type& teamMember, scratch_vector_type t1, scratch_vec
 			teamMember.team_barrier();
 
 #if defined(TRANSPOSE_UV)
-			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,m), [=] (const int l) {
+			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int l) {
 				double tmp_val = Q(k,l);
 				Q(k,l) = tmp_val*c + Q(k+1,l)*s;
 				Q(k+1,l) = tmp_val*-s + Q(k+1,l)*c;
@@ -332,7 +332,7 @@ void GivensQR(const member_type& teamMember, scratch_vector_type t1, scratch_vec
 	}
 
 #if defined(TRANSPOSE_UV)
-	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,m), [=] (const int i) {
+	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
 		for(int j = 0; j < i; ++j) {
 			double tmp = Q(i,j);
 			Q(i,j) = Q(j,i);
@@ -343,7 +343,7 @@ void GivensQR(const member_type& teamMember, scratch_vector_type t1, scratch_vec
 #endif
 
 //	Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
-//		// checks for any nonzeros off of diagonal and superdiaganal entries
+//		// checks for any nonzeros off of diagonal and superdiagonal entries
 //		for (int k=0; k<m; k++) {
 //			for (int l=0; l<n; l++) {
 //				if (R(k,l)!=0 && target_index==0)

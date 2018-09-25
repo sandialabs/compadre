@@ -1736,8 +1736,7 @@ int XMLVTPFileIO::read(const std::string& fn) {
 		vtkSmartPointer<vtkUnstructuredGrid>::New();
 
 	_dataSet->DeepCopy(dd->GetOutput());
-	std::cout<<"to populate" << std::endl;
-	this->populateParticles();std::cout<<"past populate" << std::endl;
+	this->populateParticles();
 
 	controller->Finalize(1);
 

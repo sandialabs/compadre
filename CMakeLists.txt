@@ -44,6 +44,20 @@ if (Compadre_USE_Boost)
   ENDIF()
 endif()
 
+#LAPACK
+bob_option(Compadre_USE_LAPACK "Use LAPACK" OFF)
+bob_input(LAPACK_PREFIX "" PATH "Path to LAPACK install")
+if (LAPACK_PREFIX)
+  set(CMAKE_PREFIX_PATH ${LAPACK_PREFIX} ${CMAKE_PREFIX_PATH})
+endif()
+if (Compadre_USE_LAPACK)
+  FIND_LIBRARY(LAPACK_LIB lapack)
+  MESSAGE(STATUS "LAPACK_LIB: ${LAPACK_LIB}")
+  IF (NOT(LAPACK_LIB))
+    MESSAGE(FATAL_ERROR "Compadre_USE_LAPACK is ON, but LAPACK_PREFIX was set incorrectly.")
+  ENDIF()
+endif()
+
 #TRILINOS
 bob_option(Compadre_USE_Trilinos "Use Trilinos" ON)
 bob_input(Trilinos_PREFIX "" PATH "Path to Trilinos install")
@@ -476,19 +490,20 @@ bob_end_cxx_flags()
 set(Compadre_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
 set(Compadre_KEY_BOOLS
-    Compadre_USE_MPI
+    Compadre_CANGA_ENABLED
     Compadre_USE_Boost
-    Compadre_USE_KokkosCore
-    Compadre_USE_OpenMP
     Compadre_USE_CUDA
-    Compadre_USE_Trilinos
+    Compadre_USE_KokkosCore
+    Compadre_USE_LAPACK
+    Compadre_USE_MPI
     Compadre_USE_Nanoflann
     Compadre_USE_Netcdf
     Compadre_USE_Netcdf_MPI
-    Compadre_USE_VTK
+    Compadre_USE_OpenMP
     Compadre_USE_PYTHON
+    Compadre_USE_Trilinos
+    Compadre_USE_VTK
     TRILINOS_LINEAR_SOLVES
-    Compadre_CANGA_ENABLED
    )
 
 set(Compadre_KEY_INTS
