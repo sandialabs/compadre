@@ -290,57 +290,106 @@ void GivensQR(const member_type& teamMember, scratch_vector_type t1, scratch_vec
 //		}
 //	});
 
-	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
-		for(int j = 0; j < rows; ++j) {
-			Q(i,j) = (i==j) ? 1 : 0;
-		}
-	});
-	teamMember.team_barrier();
+	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+			for(int j = 0; j < rows; ++j) {
+				Q(i,j) = (i==j) ? 1 : 0;
+			}
+		});
+		teamMember.team_barrier();
+	} else {
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+			for(int j = 0; j < rows; ++j) {
+				Q(j,i) = (i==j) ? 1 : 0;
+			}
+		});
+		teamMember.team_barrier();
+	}
+
+	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+		// transpose R because layout not optimal as LayoutLeft for row operations
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+			for(int j = 0; j < i; ++j) {
+				double tmp = R(i,j);
+				R(i,j) = R(j,i);
+				R(j,i) = tmp;
+			}
+		});
+		teamMember.team_barrier();
+	}
 
 	double c, s;
 	for (int j=0; j<columns; ++j) {
 		for (int k=rows-2; k>=j; --k) {
 
 			teamMember.team_barrier();
-			GMLS_LinearAlgebra::GivensRotation(c, s, R(k,j), R(k+1,j));
 
+			// needs access to R(k,j), R(k+1,j) from original R matrix
+			if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+				// R is transposed
+				GMLS_LinearAlgebra::GivensRotation(c, s, R(j,k), R(j,k+1));
+			} else {
+				GMLS_LinearAlgebra::GivensRotation(c, s, R(k,j), R(k+1,j));
+			}
 
 			teamMember.team_barrier();
 
-#if defined(TRANSPOSE_UV)
-			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int l) {
-				double tmp_val = Q(k,l);
-				Q(k,l) = tmp_val*c + Q(k+1,l)*s;
-				Q(k+1,l) = tmp_val*-s + Q(k+1,l)*c;
-			});
-#else
-			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int l) {
-				double tmp_val = Q(l,k);
-				Q(l,k) = tmp_val*c + Q(l,k+1)*s;
-				Q(l,k+1) = tmp_val*-s + Q(l,k+1)*c;
-			});
-#endif
+			if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int l) {
+					double tmp_val_1 = Q(l,k);
+					double tmp_val_2 = Q(l,k+1);
+					Q(l,k) = tmp_val_1*c + tmp_val_2*s;
+					Q(l,k+1) = tmp_val_1*-s + tmp_val_2*c;
+				});
+			} else {
+				// Q is transposed
+				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int l) {
+					double tmp_val_1 = Q(k,l);
+					double tmp_val_2 = Q(k+1,l);
+					Q(k,l) = tmp_val_1*c + tmp_val_2*s;
+					Q(k+1,l) = tmp_val_1*-s + tmp_val_2*c;
+				});
+			}
 
-			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns-j), [=] (const int l) {
-				int l_ind = j + l;
-				double tmp_val = R(k,l_ind);
-				R(k,l_ind) = c*tmp_val + s*R(k+1,l_ind);
-				R(k+1,l_ind) = -s*tmp_val + c*R(k+1,l_ind);
-			});
-
+			if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+				// R is transposed
+				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j,columns), [=] (const int l) {
+					double tmp_val_1 = R(l,k);
+					double tmp_val_2 = R(l,k+1);
+					R(l,k) = c*tmp_val_1 + s*tmp_val_2;
+					R(l,k+1) = -s*tmp_val_1 + c*tmp_val_2;
+				});
+			} else {
+				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j,columns), [=] (const int l) {
+					double tmp_val_1 = R(k,l);
+					double tmp_val_2 = R(k+1,l);
+					R(k,l) = c*tmp_val_1 + s*tmp_val_2;
+					R(k+1,l) = -s*tmp_val_1 + c*tmp_val_2;
+				});
+			}
 		}
 	}
 
-#if defined(TRANSPOSE_UV)
-	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
-		for(int j = 0; j < i; ++j) {
-			double tmp = Q(i,j);
-			Q(i,j) = Q(j,i);
+	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+		// re-transpose R
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+			for(int j = 0; j < i; ++j) {
+				double tmp = R(i,j);
+				R(i,j) = R(j,i);
+				R(j,i) = tmp;
+			}
+		});
+		teamMember.team_barrier();
+	} else {
+		// transpose Q
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+			for(int j = 0; j < i; ++j) {
+				double tmp = Q(i,j);
+				Q(i,j) = Q(j,i);
 				Q(j,i) = tmp;
-		}
-	});
-	teamMember.team_barrier();
-#endif
+			}
+		});
+	}
 
 //	Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
 //		// checks for any nonzeros off of diagonal and superdiagonal entries
@@ -359,6 +408,8 @@ void HouseholderQR(const member_type& teamMember, scratch_vector_type t1, scratc
 	/*
 	 * Performs a QR and overwrites the input matrix with the R matrix
 	 * Stores and computes a full Q matrix
+	 *
+	 * Only written with LayoutLeft in mind, and even then GivensQR is faster
 	 */
 
 	const int target_index = teamMember.league_rank();
@@ -368,13 +419,13 @@ void HouseholderQR(const member_type& teamMember, scratch_vector_type t1, scratc
 			Q(i,j) = (i==j) ? 1 : 0;
 		}
 	});
+	teamMember.team_barrier();
 
 	for (int j = 0; j<columns; j++) {
 
 		double normx = 0;
-		Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,rows-j), [&] (const int i, double &temp_normx) {
-			const int index = j+i;
-			temp_normx += R(index,j)*R(index,j);
+		Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,j,rows), [&] (const int i, double &temp_normx) {
+			temp_normx += R(i,j)*R(i,j);
 		}, normx);
 		teamMember.team_barrier();
 		normx = std::sqrt(normx);
@@ -382,10 +433,10 @@ void HouseholderQR(const member_type& teamMember, scratch_vector_type t1, scratc
 		double s = (R(j,j) >= 0) ? -1 : 1; // flips sign R(j,j)
 		double u1 = R(j,j) - s*normx;
 
-		for (int i=0; i<rows-j; ++i) {
-			t1(i) = R(i+j,j) / u1;
-		}
-		t1(0) = 1;
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j+1,rows), [&] (const int i) {
+			t1(i) = R(i,j) / u1;
+		});
+		t1(j) = 1;
 
 		double tau = -s*u1/normx;
 
@@ -395,35 +446,29 @@ void HouseholderQR(const member_type& teamMember, scratch_vector_type t1, scratc
 
 		for (int k=0; k<columns; k++) {
 			double t2k = 0;
-			Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,rows-j), [=] (const int l, double &temp_t2k) {
-				temp_t2k += t1(l)*R(j+l,k);
+			Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,j,rows), [=] (const int l, double &temp_t2k) {
+				temp_t2k += t1(l)*R(l,k);
 			}, t2k);
 			Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
 				t2(k) = t2k;
 			});
 		}
 
-		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows-j), [=] (const int k) {
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j,rows), [=] (const int k) {
 			for (int l=0; l<columns; l++) {
-				R(j+k,l) -= tau*t1(k)*t2(l);
+				R(k,l) -= tau*t1(k)*t2(l);
 			}
 		});
 
 		//// reuse t2 to be n by 1
 		// outer product of Q*w and tau*w
-		for (int k=0; k<rows; k++) {
-			double t2k = 0;
-			Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,rows-j), [=] (const int l, double &temp_t2k) {
-				temp_t2k += Q(k,j+l)*t1(l);
-			}, t2k);
-			Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
-				t2(k) = t2k;
-			});
-		}
-
 		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k) {
-			for (int l=0; l<rows-j; l++) {
-				Q(k,l+j) -= t2(k)*tau*t1(l);
+			double t2k = 0;
+			for (int l=j; l<rows; l++) {
+				t2k += Q(k,l)*t1(l);
+			}
+			for (int l=j; l<rows; l++) {
+				Q(k,l) -= t2k*tau*t1(l);
 			}
 		});
 	}
@@ -739,50 +784,142 @@ void GivensBidiagonalReduction(const member_type& teamMember, scratch_vector_typ
 	 * Stores and computes a full U and V matrix s.t. the original B = U*A*V' where A is the original B matrix passed in
 	 * On GPUs, we store U and V transposed because data access is significantly faster on
 	 * columns of a row rather than rows of a column.
+	 *
+	 * Regardless of device, the Layout of 2D data is not optimal for
+	 * one of the two operations on B.
 	 */
 	const int target_index = teamMember.league_rank();
 
-	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
-		for(int j = 0; j < rows; ++j) {
-			U(i,j) = (i==j) ? 1 : 0;
-		}
-	});
+	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+			for(int j = 0; j < rows; ++j) {
+				U(i,j) = (i==j) ? 1 : 0;
+			}
+		});
+	} else {
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+			for(int j = 0; j < rows; ++j) {
+				U(j,i) = (i==j) ? 1 : 0;
+			}
+		});
+	}
 
-	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int i) {
-		for(int j = 0; j < columns; ++j) {
-			V(i,j) = (i==j) ? 1 : 0;
-		}
-	});
+	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int i) {
+			for(int j = 0; j < columns; ++j) {
+				V(i,j) = (i==j) ? 1 : 0;
+			}
+		});
+	} else {
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int i) {
+			for(int j = 0; j < columns; ++j) {
+				V(j,i) = (i==j) ? 1 : 0;
+			}
+		});
+	}
+
+// Original, and works
+//	double c, s;
+//	for (int j=0; j<columns; ++j) {
+//		for (int k=rows-2; k>=j; --k) {
+//
+//			teamMember.team_barrier();
+//			GivensRotation(c, s, B(k,j), B(k+1,j));
+//
+//			teamMember.team_barrier();
+//
+//			if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+//				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int l) {
+//					double tmp_val = U(l,k);
+//					U(l,k) = tmp_val*c + U(l,k+1)*s;
+//					U(l,k+1) = tmp_val*-s + U(l,k+1)*c;
+//				});
+//			} else {
+//				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int l) {
+//					double tmp_val = U(k,l);
+//					U(k,l) = tmp_val*c + U(k+1,l)*s;
+//					U(k+1,l) = tmp_val*-s + U(k+1,l)*c;
+//				});
+//			}
+//
+//			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns-j), [=] (const int l) {
+//				int l_ind = l + j;
+//				double tmp_val = B(k,l_ind);
+//				B(k,l_ind) = c*tmp_val + s*B(k+1,l_ind);
+//				B(k+1,l_ind) = -s*tmp_val + c*B(k+1,l_ind);
+//			});
+//
+//		}
+//
+//		for (int k=columns-2; k>j; --k) {
+//
+//			teamMember.team_barrier();
+//			GivensRotation(c, s, B(j,k), B(j,k+1));
+//
+//			teamMember.team_barrier();
+//
+//			if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+//				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int l) {
+//					double tmp_val = V(l,k);
+//					V(l,k) = c*tmp_val + s*V(l,k+1);
+//					V(l,k+1) = -s*tmp_val + c*V(l,k+1);
+//				});
+//			} else {
+//				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int l) {
+//					double tmp_val = V(k,l);
+//					V(k,l) = c*tmp_val + s*V(k+1,l);
+//					V(k+1,l) = -s*tmp_val + c*V(k+1,l);
+//				});
+//			}
+//
+//			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows-j), [=] (const int l) {
+//				int l_ind = l + j;
+//				double tmp_val = B(l_ind,k);
+//				B(l_ind,k) = tmp_val*c + B(l_ind,k+1)*s;
+//				B(l_ind,k+1) = tmp_val*-s + B(l_ind,k+1)*c;
+//			});
+//
+//		}
+//	}
 
 	double c, s;
 	for (int j=0; j<columns; ++j) {
+
+		// for all of these (grabbing these two rows of be let's you calculate c, s
 		for (int k=rows-2; k>=j; --k) {
 
 			teamMember.team_barrier();
 			GivensRotation(c, s, B(k,j), B(k+1,j));
 
 			teamMember.team_barrier();
-#if defined(TRANSPOSE_UV)
+			if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
 				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int l) {
-					double tmp_val = U(k,l);
-					U(k,l) = tmp_val*c + U(k+1,l)*s;
-					U(k+1,l) = tmp_val*-s + U(k+1,l)*c;
+					double tmp_val_1 = U(l,k);
+					double tmp_val_2 = U(l,k+1);
+					U(l,k) = tmp_val_1*c + tmp_val_2*s;
+					U(l,k+1) = tmp_val_1*-s + tmp_val_2*c;
 				});
-#else
+				// not optimal for LayoutLeft
+				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, j, columns), [=] (const int l) {
+					double tmp_val_1 = B(k, l);
+					double tmp_val_2 = B(k+1, l);
+					B(k,l) = c*tmp_val_1 + s*tmp_val_2;
+					B(k+1,l) = -s*tmp_val_1 + c*tmp_val_2;
+				});
+			} else {
 				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int l) {
-					double tmp_val = U(l,k);
-					U(l,k) = tmp_val*c + U(l,k+1)*s;
-					U(l,k+1) = tmp_val*-s + U(l,k+1)*c;
+					double tmp_val_1 = U(k,l);
+					double tmp_val_2 = U(k+1,l);
+					U(k,l) = tmp_val_1*c + tmp_val_2*s;
+					U(k+1,l) = tmp_val_1*-s + tmp_val_2*c;
 				});
-#endif
-
-			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns-j), [=] (const int l) {
-				int l_ind = l + j;
-				double tmp_val = B(k,l_ind);
-				B(k,l_ind) = c*tmp_val + s*B(k+1,l_ind);
-				B(k+1,l_ind) = -s*tmp_val + c*B(k+1,l_ind);
-			});
-
+				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, j, columns), [=] (const int l) {
+					double tmp_val_1 = B(k,l);
+					double tmp_val_2 = B(k+1,l);
+					B(k,l) = c*tmp_val_1 + s*tmp_val_2;
+					B(k+1,l) = -s*tmp_val_1 + c*tmp_val_2;
+				});
+			}
 		}
 
 		for (int k=columns-2; k>j; --k) {
@@ -791,30 +928,36 @@ void GivensBidiagonalReduction(const member_type& teamMember, scratch_vector_typ
 			GivensRotation(c, s, B(j,k), B(j,k+1));
 
 			teamMember.team_barrier();
-#if defined(TRANSPOSE_UV)
+
+			if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int l) {
+					double tmp_val_1 = V(l,k);
+					double tmp_val_2 = V(l,k+1);
+					V(l,k) = c*tmp_val_1 + s*tmp_val_2;
+					V(l,k+1) = -s*tmp_val_1 + c*tmp_val_2;
+				});
+				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j,rows), [=] (const int l) {
+					double tmp_val_1 = B(l,k);
+					double tmp_val_2 = B(l,k+1);
+					B(l,k) = tmp_val_1*c + tmp_val_2*s;
+					B(l,k+1) = tmp_val_1*-s + tmp_val_2*c;
+				});
+			} else {
 				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int l) {
 					double tmp_val = V(k,l);
 					V(k,l) = c*tmp_val + s*V(k+1,l);
 					V(k+1,l) = -s*tmp_val + c*V(k+1,l);
 				});
-#else
-				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int l) {
-					double tmp_val = V(l,k);
-					V(l,k) = c*tmp_val + s*V(l,k+1);
-					V(l,k+1) = -s*tmp_val + c*V(l,k+1);
+				// not optimal for LayoutRight
+				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j,rows), [=] (const int l) {
+					double tmp_val_1 = B(l,k);
+					double tmp_val_2 = B(l,k+1);
+					B(l,k) = tmp_val_1*c + tmp_val_2*s;
+					B(l,k+1) = tmp_val_1*-s + tmp_val_2*c;
 				});
-#endif
-
-			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows-j), [=] (const int l) {
-				int l_ind = l + j;
-				double tmp_val = B(l_ind,k);
-				B(l_ind,k) = tmp_val*c + B(l_ind,k+1)*s;
-				B(l_ind,k+1) = tmp_val*-s + B(l_ind,k+1)*c;
-			});
-
+			}
 		}
 	}
-
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -827,24 +970,40 @@ void HouseholderBidiagonalReduction(const member_type& teamMember, scratch_vecto
 
 	const int target_index = teamMember.league_rank();
 
-	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
-		for(int j = 0; j < rows; ++j) {
-			U(i,j) = (i==j) ? 1 : 0;
-		}
-	});
+	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+			for(int j = 0; j < rows; ++j) {
+				U(i,j) = (i==j) ? 1 : 0;
+			}
+		});
+	} else {
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+			for(int j = 0; j < rows; ++j) {
+				U(j,i) = (i==j) ? 1 : 0;
+			}
+		});
+	}
 
-	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int i) {
-		for(int j = 0; j < columns; ++j) {
-			V(i,j) = (i==j) ? 1 : 0;
-		}
-	});
+	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int i) {
+			for(int j = 0; j < columns; ++j) {
+				V(i,j) = (i==j) ? 1 : 0;
+			}
+		});
+	} else {
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int i) {
+			for(int j = 0; j < columns; ++j) {
+				V(j,i) = (i==j) ? 1 : 0;
+			}
+		});
+	}
 
 	for (int j = 0; j<columns; j++) {
 
 		double normx = 0;
-		Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,rows-j), [&] (const int i, double &temp_normx) {
-			const int index = j+i;
-			temp_normx += B(index,j)*B(index,j);
+		// not optimized for LayoutRight
+		Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,j,rows), [&] (const int i, double &temp_normx) {
+			temp_normx += B(i,j)*B(i,j);
 		}, normx);
 		teamMember.team_barrier();
 		normx = std::sqrt(normx);
@@ -852,10 +1011,17 @@ void HouseholderBidiagonalReduction(const member_type& teamMember, scratch_vecto
 		double s = (B(j,j) >= 0) ? -1 : 1; // flips sign R(j,j)
 		double u1 = B(j,j) - s*normx;
 
-		for (int i=0; i<rows-j; ++i) {
-			t1(i) = B(i+j,j) / u1;
+		if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j+1,rows), [=] (const int i) {
+				t1(i) = B(i,j) / u1;
+			});
+		} else {
+			// not optimized for LayoutRight
+			for (int i=j+1; i<rows; ++i) {
+				t1(i) = B(i,j) / u1;
+			}
 		}
-		t1(0) = 1;
+		t1(j) = 1;
 
 		double tau = -s*u1/normx;
 
@@ -863,42 +1029,73 @@ void HouseholderBidiagonalReduction(const member_type& teamMember, scratch_vecto
 		// t1 is w, so use it to get w'*R(j:end,:)
 		// t2 is 1 by n
 
-		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int k) {
-			double t2k = 0;
-			for (int l=0; l<rows-j; l++) {
-				t2k += t1(l)*B(j+l,k);
-			}
-			t2(k) = t2k;
-		});
+		// potential candidate for parallel_scan
+		if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+			// Not optimal for LayoutLeft
+			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int k) {
+				double t2k = 0;
+				for (int l=j; l<rows; l++) {
+					t2k += t1(l)*B(l,k);
+				}
+				t2(k) = t2k;
+			});
+		} else {
+			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int k) {
+				double t2k = 0;
+				for (int l=j; l<rows; l++) {
+					t2k += t1(l)*B(l,k);
+				}
+				t2(k) = t2k;
+			});
+		}
 
-		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows-j), [=] (const int k) {
-			for (int l=j; l<columns; l++) {
-				// this ruins B being zero off the upper bidiagonal, but there is savings in not performing this elimination since we already knows what it does
-				B(j+k,l) -= tau*t1(k)*t2(l);
+		if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j,rows), [=] (const int k) {
+				for (int l=j; l<columns; l++) {
+					// this ruins B being zero off the upper bidiagonal, but there is savings in not performing this elimination since we already knows what it does
+					B(k,l) -= tau*t1(k)*t2(l);
+				}
+			});
+		} else {
+			// touches many columns of B
+			for (int k=j; k<rows; k++) {
+				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int l) {
+					// this ruins B being zero off the upper bidiagonal, but there is savings in not performing this elimination since we already knows what it does
+					B(k,l) -= tau*t1(k)*t2(l);
+				});
 			}
-		});
+		}
 
-		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k) {
-			double t2k = 0;
-			for (int l=0; l<rows-j; l++) {
-				t2k += U(k,j+l)*t1(l);
-			}
-			t2(k) = t2k;
-		});
-
-		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k) {
-			for (int l=0; l<rows-j; l++) {
-				U(k,l+j) -= t2(k)*tau*t1(l);
-			}
-		});
-
+		if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k) {
+				double t2k = 0;
+				for (int l=j; l<rows; l++) {
+					t2k += U(k,l)*t1(l);
+				}
+				for (int l=j; l<rows; l++) {
+					U(k,l) -= t2k*tau*t1(l);
+				}
+			});
+		} else {
+			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k) {
+				double t2k = 0;
+				for (int l=j; l<rows; l++) {
+					t2k += U(k,l)*t1(l);
+				}
+				t2(k) = t2k;
+			});
+			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k) {
+				for (int l=j; l<rows; l++) {
+					U(k,l) -= t2(k)*tau*t1(l);
+				}
+			});
+		}
 
 		if (j <= columns-2) {
 
 			normx = 0;
-			Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,columns-(j+1)), [&] (const int i, double &temp_normx) {
-				const int index = j+i+1;
-				temp_normx += B(j,index)*B(j,index);
+			Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,j+1,columns), [&] (const int i, double &temp_normx) {
+				temp_normx += B(j,i)*B(j,i);
 			}, normx);
 			teamMember.team_barrier();
 			normx = std::sqrt(normx);
@@ -906,10 +1103,10 @@ void HouseholderBidiagonalReduction(const member_type& teamMember, scratch_vecto
 			s = (B(j,j+1) >= 0) ? -1 : 1; // flips sign R(j,j)
 			u1 = B(j,j+1) - s*normx;
 
-			for (int i=0; i<columns-(j+1); ++i) {
-				t1(i) = B(j,i+1+j) / u1;
-			}
-			t1(0) = 1;
+			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j+1,columns), [=] (const int i) {
+				t1(i) = B(j,i) / u1;
+			});
+			t1(j+1) = 1;
 
 			tau = -s*u1/normx;
 
@@ -917,33 +1114,43 @@ void HouseholderBidiagonalReduction(const member_type& teamMember, scratch_vecto
 			// outer product of Q*w and tau*w
 			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k) {
 				double t2k = 0;
-				for (int l=0; l<columns-(j+1); l++) {
-					t2k += B(k,j+l+1)*t1(l);
+				for (int l=j+1; l<columns; l++) {
+					t2k += B(k,l)*t1(l);
 				}
 				t2(k) = t2k;
 			});
 
 			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k) {
-				for (int l=0; l<columns-(j+1); l++) {
-					B(k,l+j+1) -= t2(k)*tau*t1(l);
+				for (int l=j+1; l<columns; l++) {
+					B(k,l) -= t2(k)*tau*t1(l);
 				}
 			});
 
-			//// reuse t2 to be n by 1
-			// outer product of Q*w and tau*w
-			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int k) {
-				double t2k = 0;
-				for (int l=0; l<columns-(j+1); l++) {
-					t2k += V(k,j+l+1)*t1(l);
-				}
-				t2(k) = t2k;
-			});
-
-			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int k) {
-				for (int l=0; l<columns-(j+1); l++) {
-					V(k,l+j+1) -= t2(k)*tau*t1(l);
-				}
-			});
+			if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+				//// reuse t2 to be n by 1
+				// outer product of Q*w and tau*w
+				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int k) {
+					double t2k = 0;
+					for (int l=j+1; l<columns; l++) {
+						t2k += V(k,l)*t1(l);
+					}
+					for (int l=j+1; l<columns; l++) {
+						V(k,l) -= t2k*tau*t1(l);
+					}
+				});
+			} else {
+				//// reuse t2 to be n by 1
+				// outer product of Q*w and tau*w
+				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int k) {
+					double t2k = 0;
+					for (int l=j+1; l<columns; l++) {
+						t2k += V(k,l)*t1(l);
+					}
+					for (int l=j+1; l<columns; l++) {
+						V(k,l) -= t2k*tau*t1(l);
+					}
+				});
+			}
 		}
 	}
 
@@ -1020,19 +1227,19 @@ void GolubKahanSVD(const member_type& teamMember, scratch_vector_type t1, scratc
 			}
 		});
 
-#if defined(TRANSPOSE_UV)
-		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int j) {
-			double tmp_val = V(k,j);
-			V(k,j) = c*tmp_val + s*V(k+1,j);
-			V(k+1,j) = -s*tmp_val + c*V(k+1,j);
-		});
-#else
-		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int j) {
-			double tmp_val = V(j,k);
-			V(j,k) = c*tmp_val + s*V(j,k+1);
-			V(j,k+1) = -s*tmp_val + c*V(j,k+1);
-		});
-#endif
+		if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int j) {
+				double tmp_val = V(j,k);
+				V(j,k) = c*tmp_val + s*V(j,k+1);
+				V(j,k+1) = -s*tmp_val + c*V(j,k+1);
+			});
+		} else {
+			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int j) {
+				double tmp_val = V(k,j);
+				V(k,j) = c*tmp_val + s*V(k+1,j);
+				V(k+1,j) = -s*tmp_val + c*V(k+1,j);
+			});
+		}
 
 		teamMember.team_barrier();
 
@@ -1047,27 +1254,27 @@ void GolubKahanSVD(const member_type& teamMember, scratch_vector_type t1, scratc
 //		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,maxInd-minInd), [=] (const int j) {
 		Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
 			for (int j=0; j<maxInd-minInd; ++j) {
-			const int j_ind = j + minInd;
-			double tmp_val = B(k,j_ind);
-			double tmp_val2 = B(k+1,j_ind);
-			B(k,j_ind) = c*tmp_val + s*tmp_val2;
-			B(k+1,j_ind) = -s*tmp_val + c*tmp_val2;
+				const int j_ind = j + minInd;
+				double tmp_val = B(k,j_ind);
+				double tmp_val2 = B(k+1,j_ind);
+				B(k,j_ind) = c*tmp_val + s*tmp_val2;
+				B(k+1,j_ind) = -s*tmp_val + c*tmp_val2;
 			}
 		});
 
-#if defined(TRANSPOSE_UV)
-		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int j) {
-			double tmp_val = U(k,j);
-			U(k,j) = tmp_val*c + U(k+1,j)*s;
-			U(k+1,j) = tmp_val*-s + U(k+1,j)*c;
-		});
-#else
-		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int j) {
-			double tmp_val = U(j,k);
-			U(j,k) = tmp_val*c + U(j,k+1)*s;
-			U(j,k+1) = tmp_val*-s + U(j,k+1)*c;
-		});
-#endif
+		if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int j) {
+				double tmp_val = U(j,k);
+				U(j,k) = tmp_val*c + U(j,k+1)*s;
+				U(j,k+1) = tmp_val*-s + U(j,k+1)*c;
+			});
+		} else {
+			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int j) {
+				double tmp_val = U(k,j);
+				U(k,j) = tmp_val*c + U(k+1,j)*s;
+				U(k+1,j) = tmp_val*-s + U(k+1,j)*c;
+			});
+		}
 
 		teamMember.team_barrier();
 		if (k < B2e-2) {
@@ -1100,8 +1307,11 @@ void GolubReinschSVD(const member_type& teamMember, scratch_vector_type t1, scra
 
 //      // Without transposing U and V, Householder is faster on GPUs.
 //      // With transposing U and V, Givens is faster on GPUs.
-//	this->HouseholderBidiagonalReduction(teamMember, t1, t2, U, B, V, columns, rows); // perform bidiagonal reduction
+#ifdef KOKKOS_ENABLE_CUDA
+	GMLS_LinearAlgebra::HouseholderBidiagonalReduction(teamMember, t1, t2, U, B, V, columns, rows); // perform bidiagonal reduction
+#else
 	GMLS_LinearAlgebra::GivensBidiagonalReduction(teamMember, t1, t2, U, B, V, columns, rows); // perform bidiagonal reduction
+#endif
 
 //	 // diagnostic for U*B*V' to check against A
 //	Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
@@ -1213,19 +1423,21 @@ void GolubReinschSVD(const member_type& teamMember, scratch_vector_type t1, scra
 								B(j,i) = tmp_val*c + B(j,i+1)*s;
 								B(j,i+1) = tmp_val*-s + B(j,i+1)*c;
 							}
-#if defined(TRANSPOSE_UV)
-							for (int j=0; j<columns; ++j) {
-								tmp_val = V(i,j);
-								V(i,j) = c*tmp_val + s*V(i+1,j);
-								V(i+1,j) = -s*tmp_val + c*V(i+1,j);
+
+							if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+								for (int j=0; j<columns; ++j) {
+									tmp_val = V(j,i);
+									V(j,i) = c*tmp_val + s*V(j,i+1);
+									V(j,i+1) = -s*tmp_val + c*V(j,i+1);
+								}
+							} else {
+								// Working on transposed V
+								for (int j=0; j<columns; ++j) {
+									tmp_val = V(i,j);
+									V(i,j) = c*tmp_val + s*V(i+1,j);
+									V(i+1,j) = -s*tmp_val + c*V(i+1,j);
+								}
 							}
-#else
-							for (int j=0; j<columns; ++j) {
-								tmp_val = V(j,i);
-								V(j,i) = c*tmp_val + s*V(j,i+1);
-								V(j,i+1) = -s*tmp_val + c*V(j,i+1);
-							}
-#endif
 						});
 						work_on_zero_on_diagonal = true;
 					}
@@ -1242,19 +1454,20 @@ void GolubReinschSVD(const member_type& teamMember, scratch_vector_type t1, scra
 								B(i,j) = c*tmp_val + s*B(i+1,j);
 								B(i+1,j) = -s*tmp_val + c*B(i+1,j);
 							}
-#if defined(TRANSPOSE_UV)
-							for (int j=0; j<rows; ++j) {
-								tmp_val = U(i,j);
-								U(i,j) = tmp_val*c + U(i+1,j)*s;
-								U(i+1,j) = tmp_val*-s + U(i+1,j)*c;
+							if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+								for (int j=0; j<rows; ++j) {
+									tmp_val = U(j,i);
+									U(j,i) = tmp_val*c + U(j,i+1)*s;
+									U(j,i+1) = tmp_val*-s + U(j,i+1)*c;
+								}
+							} else {
+								// working on transposed U
+								for (int j=0; j<rows; ++j) {
+									tmp_val = U(i,j);
+									U(i,j) = tmp_val*c + U(i+1,j)*s;
+									U(i+1,j) = tmp_val*-s + U(i+1,j)*c;
+								}
 							}
-#else
-							for (int j=0; j<rows; ++j) {
-								tmp_val = U(j,i);
-								U(j,i) = tmp_val*c + U(j,i+1)*s;
-								U(j,i+1) = tmp_val*-s + U(j,i+1)*c;
-							}
-#endif
 						});
 						work_on_zero_on_diagonal = true;
 					}
@@ -1341,23 +1554,25 @@ void GolubReinschSVD(const member_type& teamMember, scratch_vector_type t1, scra
 //		printf("converged in %d iterations. \n", count);
 //	});
 	teamMember.team_barrier();
-#if defined(TRANSPOSE_UV)
-	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
-		for(int j = 0; j < i; ++j) {
-			double tmp = U(i,j);
-			U(i,j) = U(j,i);
-			U(j,i) = tmp;
-		}
-	});
-	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int i) {
-		for(int j = 0; j < i; ++j) {
-			double tmp = V(i,j);
-			V(i,j) = V(j,i);
-			V(j,i) = tmp;
-		}
-	});
-	teamMember.team_barrier();
-#endif
+
+	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutRight>::value) {
+		// retranspose V and U
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+			for(int j = 0; j < i; ++j) {
+				double tmp = U(i,j);
+				U(i,j) = U(j,i);
+				U(j,i) = tmp;
+			}
+		});
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int i) {
+			for(int j = 0; j < i; ++j) {
+				double tmp = V(i,j);
+				V(i,j) = V(j,i);
+				V(j,i) = tmp;
+			}
+		});
+		teamMember.team_barrier();
+	}
 
 //	Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
 //		// checks for any nonzeros off of diagonal and superdiaganal entries

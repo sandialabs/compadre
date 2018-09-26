@@ -1542,28 +1542,26 @@ void GMLS::operator()(const member_type& teamMember) const {
 		// the threads in a team work on these local copies that only the team sees
 		// thread_scratch has a copy per thread
 
-		scratch_matrix_type PsqrtW(teamMember.team_scratch(_scratch_team_level), _neighbor_lists.dimension_1()-1, _NP); // full
-		scratch_matrix_type Q(teamMember.team_scratch(_scratch_team_level), _neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1); // Q triangular
-		scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level), _neighbor_lists.dimension_1()-1);
-		scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level), _neighbor_lists.dimension_1()-1);
-		scratch_vector_type w(teamMember.team_scratch(_scratch_team_level), _neighbor_lists.dimension_1()-1);
+		scratch_matrix_type PsqrtW(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1); // full, only _neighbor_lists.dimension_1()-1x_NP needed, but must be transposed
+		scratch_matrix_type Q(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1); // Q triangular
+		scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1);
+		scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1);
+		scratch_vector_type w(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1);
 
 		// delta is a temporary variable that preallocates space on which solutions of size _NP will
 		// be computed. This allows the gpu to allocate the memory in advance
-		scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level), _NP);
+		scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), _basis_multiplier*_NP);
 
 		// creates the matrix sqrt(W)*P
 		this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions, _poly_order, true /*weight_p*/, NULL /*&V*/, NULL /*&T*/, _polynomial_sampling_functional);
 
-//#if defined(KOKKOS_ENABLE_CUDA) // Householder faster on GPU
-//		this->HouseholderQR(teamMember, t1, t2, Q, PsqrtW, _NP, this->getNNeighbors(target_index));
-//#else
+		// GivensQR is faster than Householder on GPU and CPU
 		GMLS_LinearAlgebra::GivensQR(teamMember, t1, t2, Q, PsqrtW, _NP, this->getNNeighbors(target_index));
-//#endif
+
 		teamMember.team_barrier();
 
 
-		scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level), _NP*_total_alpha_values, _sampling_multiplier);
+		scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), _NP*_total_alpha_values, _sampling_multiplier);
 		this->computeTargetFunctionals(teamMember, t1, t2, P_target_row);
 
 		GMLS_LinearAlgebra::upperTriangularBackSolve(teamMember, PsqrtW, Q, w, _NP, this->getNNeighbors(target_index)); // stores solution in R
@@ -1588,17 +1586,17 @@ void GMLS::operator()(const member_type& teamMember) const {
 
 		// M_data, M_inv, and weight_P all have a copy each per team
 		// the threads in a team work on these local copies that only the team sees
-		scratch_matrix_type P(teamMember.team_scratch(_scratch_team_level), _neighbor_lists.dimension_1()-1, _NP); // full
-		scratch_matrix_type M_data(teamMember.team_scratch(_scratch_team_level), _NP, _NP); // lower triangular
-		scratch_matrix_type M_inv(teamMember.team_scratch(_scratch_team_level), _NP, _NP); // lower triangular
-		scratch_matrix_type L(teamMember.team_scratch(_scratch_team_level), _NP, _NP); // L
-		scratch_vector_type w(teamMember.team_scratch(_scratch_team_level), _neighbor_lists.dimension_1()-1);
-		scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level), _neighbor_lists.dimension_1()-1);
-		scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level), _neighbor_lists.dimension_1()-1);
+		scratch_matrix_type P(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1, _NP); // full
+		scratch_matrix_type M_data(teamMember.team_scratch(_scratch_team_level_b), _NP, _NP); // lower triangular
+		scratch_matrix_type M_inv(teamMember.team_scratch(_scratch_team_level_b), _NP, _NP); // lower triangular
+		scratch_matrix_type L(teamMember.team_scratch(_scratch_team_level_b), _NP, _NP); // L
+		scratch_vector_type w(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1);
+		scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1);
+		scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1);
 
 		// delta is a temporary variable that preallocates space on which solutions of size _NP will
 		// be computed. This allows the gpu to allocate the memory in advance
-		scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level), _NP);
+		scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), _basis_multiplier*_NP);
 
 		// creates the matrix sqrt(W)*P
 		this->createWeightsAndP(teamMember, delta, P, w, _dimensions, _poly_order, true /*weight_p*/, NULL /*&V*/, NULL /*&T*/, _polynomial_sampling_functional);
@@ -1609,10 +1607,10 @@ void GMLS::operator()(const member_type& teamMember) const {
 		// inverts M against the identity
 		GMLS_LinearAlgebra::invertM(teamMember, delta, M_inv, L, M_data, _NP);
 
-		scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level), _NP*_total_alpha_values, _sampling_multiplier);
+		scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), _NP*_total_alpha_values, _sampling_multiplier);
 		this->computeTargetFunctionals(teamMember, t1, t2, P_target_row);
 
-		scratch_vector_type b_data(teamMember.team_scratch(_scratch_team_level), _NP);
+		scratch_vector_type b_data(teamMember.team_scratch(_scratch_team_level_b), _NP);
 
 	//	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,
 	//			this->getNNeighbors(target_index)), [=] (const int i) {
@@ -1660,36 +1658,39 @@ void GMLS::operator()(const member_type& teamMember) const {
 		const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
 		const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
 
-		scratch_matrix_type PsqrtW(teamMember.team_scratch(_scratch_team_level), (_neighbor_lists.dimension_1()-1)*_sampling_multiplier, max_NP*_basis_multiplier);
+		const int max_neighbors_or_basis = ((_neighbor_lists.dimension_1()-1)*_sampling_multiplier > max_NP*_basis_multiplier)
+				? (_neighbor_lists.dimension_1()-1)*_sampling_multiplier : max_NP*_basis_multiplier;
 
-		scratch_matrix_type Q(teamMember.team_scratch(_scratch_team_level), (_neighbor_lists.dimension_1()-1)*_sampling_multiplier, (_neighbor_lists.dimension_1()-1)*_sampling_multiplier);
-		scratch_matrix_type V(teamMember.team_scratch(_scratch_team_level), _dimensions, _dimensions);
-		scratch_matrix_type T(teamMember.team_scratch(_scratch_team_level), _dimensions, _dimensions-1);
+		scratch_matrix_type PsqrtW(teamMember.team_scratch(_scratch_team_level_b), max_neighbors_or_basis, max_neighbors_or_basis); // must be square so that transpose is possible
 
-		scratch_matrix_type G(teamMember.team_scratch(_scratch_team_level), _dimensions-1, _dimensions-1);
-		scratch_matrix_type G_inv(teamMember.team_scratch(_scratch_team_level), _dimensions-1, _dimensions-1);
-		scratch_matrix_type PTP(teamMember.team_scratch(_scratch_team_level), _dimensions, _dimensions);
+		scratch_matrix_type Q(teamMember.team_scratch(_scratch_team_level_b), (_neighbor_lists.dimension_1()-1)*_sampling_multiplier, (_neighbor_lists.dimension_1()-1)*_sampling_multiplier);
+		scratch_matrix_type V(teamMember.team_scratch(_scratch_team_level_b), _dimensions, _dimensions);
+		scratch_matrix_type T(teamMember.team_scratch(_scratch_team_level_b), _dimensions, _dimensions-1);
 
-		scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level), (_neighbor_lists.dimension_1()-1)*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
-		scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level), (_neighbor_lists.dimension_1()-1)*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
+		scratch_matrix_type G(teamMember.team_scratch(_scratch_team_level_b), _dimensions-1, _dimensions-1);
+		scratch_matrix_type G_inv(teamMember.team_scratch(_scratch_team_level_b), _dimensions-1, _dimensions-1);
+		scratch_matrix_type PTP(teamMember.team_scratch(_scratch_team_level_b), _dimensions, _dimensions);
 
-		scratch_vector_type manifold_gradient(teamMember.team_scratch(_scratch_team_level), (_dimensions-1)*(_neighbor_lists.dimension_1()-1));
-		scratch_vector_type manifold_coeffs(teamMember.team_scratch(_scratch_team_level), manifold_NP);
+		scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_b), (_neighbor_lists.dimension_1()-1)*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
+		scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_b), (_neighbor_lists.dimension_1()-1)*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
 
-		scratch_vector_type w(teamMember.team_scratch(_scratch_team_level), (_neighbor_lists.dimension_1()-1)*_sampling_multiplier);
-		scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level), max_P_row_size, _sampling_multiplier);
+		scratch_vector_type manifold_gradient(teamMember.team_scratch(_scratch_team_level_b), (_dimensions-1)*(_neighbor_lists.dimension_1()-1));
+		scratch_vector_type manifold_coeffs(teamMember.team_scratch(_scratch_team_level_b), manifold_NP);
 
-		scratch_vector_type manifold_gradient_coeffs(teamMember.team_scratch(_scratch_team_level), (_dimensions-1));
+		scratch_vector_type w(teamMember.team_scratch(_scratch_team_level_b), (_neighbor_lists.dimension_1()-1)*_sampling_multiplier);
+		scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), max_P_row_size, _sampling_multiplier);
+
+		scratch_vector_type manifold_gradient_coeffs(teamMember.team_scratch(_scratch_team_level_b), (_dimensions-1));
 
 		// delta is a temporary variable that preallocates space on which solutions of size _NP will
 		// be computed. This allows the gpu to allocate the memory in advance
-		scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level), max_NP*_basis_multiplier);
+		scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), max_NP*_basis_multiplier);
 
-		scratch_vector_type S(teamMember.team_scratch(_scratch_team_level), max_manifold_NP*_basis_multiplier);
-		scratch_matrix_type b_data(teamMember.team_scratch(_scratch_team_level), max_manifold_NP*_basis_multiplier, _sampling_multiplier);
-		scratch_matrix_type Vsvd(teamMember.team_scratch(_scratch_team_level), max_manifold_NP*_basis_multiplier, max_manifold_NP*_basis_multiplier);
+		scratch_vector_type S(teamMember.team_scratch(_scratch_team_level_b), max_manifold_NP*_basis_multiplier);
+		scratch_matrix_type b_data(teamMember.team_scratch(_scratch_team_level_b), max_manifold_NP*_basis_multiplier, _sampling_multiplier);
+		scratch_matrix_type Vsvd(teamMember.team_scratch(_scratch_team_level_b), max_manifold_NP*_basis_multiplier, max_manifold_NP*_basis_multiplier);
 
-		scratch_matrix_type quadrature_manifold_gradients(teamMember.team_scratch(_scratch_team_level), (_neighbor_lists.dimension_1()-1)*(_dimensions-1), _number_of_quadrature_points); // for integral sampling
+		scratch_matrix_type quadrature_manifold_gradients(teamMember.team_scratch(_scratch_team_level_b), (_neighbor_lists.dimension_1()-1)*(_dimensions-1), _number_of_quadrature_points); // for integral sampling
 
 //		double* u_raw = Q.data();
 //		const size_t N = Vsvd.extent_0();
@@ -2140,19 +2141,19 @@ void GMLS::operator()(const member_type& teamMember) const {
 		// the threads in a team work on these local copies that only the team sees
 		// thread_scratch has a copy per thread
 
-		scratch_matrix_type PsqrtW(teamMember.team_scratch(_scratch_team_level), _neighbor_lists.dimension_1()-1, _NP);
-		scratch_matrix_type U(teamMember.team_scratch(_scratch_team_level), _neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1);
-		scratch_matrix_type V(teamMember.team_scratch(_scratch_team_level), _NP, _NP);
-		scratch_vector_type S(teamMember.team_scratch(_scratch_team_level), _NP);
-		scratch_vector_type b_data(teamMember.team_scratch(_scratch_team_level), _NP);
-		scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level), _neighbor_lists.dimension_1()-1);
-		scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level), _neighbor_lists.dimension_1()-1);
-		scratch_vector_type w(teamMember.team_scratch(_scratch_team_level), _neighbor_lists.dimension_1()-1);
-		scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level), _NP*_total_alpha_values, _sampling_multiplier);
+		scratch_matrix_type PsqrtW(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1, _NP);
+		scratch_matrix_type U(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1);
+		scratch_matrix_type V(teamMember.team_scratch(_scratch_team_level_b), _NP, _NP);
+		scratch_vector_type S(teamMember.team_scratch(_scratch_team_level_b), _NP);
+		scratch_vector_type b_data(teamMember.team_scratch(_scratch_team_level_a), _NP);
+		scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_a), _neighbor_lists.dimension_1()-1);
+		scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_a), _neighbor_lists.dimension_1()-1);
+		scratch_vector_type w(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1);
+		scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), _NP*_total_alpha_values, _sampling_multiplier);
 
 		// delta is a temporary variable that preallocates space on which solutions of size _NP will
 		// be computed. This allows the gpu to allocate the memory in advance
-		scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level), _NP);
+		scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), _basis_multiplier*_NP);
 
 		// creates the matrix sqrt(W)*P
 		this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions, _poly_order, true /* weight with W */, NULL /*&V*/, NULL /*&T*/, _polynomial_sampling_functional);
@@ -2184,22 +2185,20 @@ void GMLS::operator()(const member_type& teamMember) const {
 		this->computeTargetFunctionals(teamMember, t1, t2, P_target_row);
 
 		for (int i=0; i<this->getNNeighbors(target_index); ++i) {
-			for (int j=0; j<_NP; ++j) {
+
+			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,_NP), [=] (const int j) {
 				double  bdataj = 0;
-				Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-						_NP), [&] (const int k, double &tbdataj) {
+				for (int k=0; k<_NP; ++k) {
 #if defined(USE_CUSTOM_SVD)
-					tbdataj += V(j,k)*S(k)*U(i,k);
+					bdataj += V(j,k)*S(k)*U(i,k);
 #else
-					tbdataj += V(k,j)*S(k)*U(i,k);
+					bdataj += V(k,j)*S(k)*U(i,k);
 #endif
-				}, bdataj);
-				Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-					b_data[j] = bdataj;
-					b_data[j] *= std::sqrt(w(i));
-				});
-				teamMember.team_barrier();
-			}
+				}
+				bdataj *= std::sqrt(w(i));
+				b_data[j] = bdataj;
+			});
+			//teamMember.team_barrier();
 
 			for (int j=0; j<_operations.size(); ++j) {
 				for (int k=0; k<_lro_output_tile_size[j]; ++k) {
@@ -2264,33 +2263,38 @@ void GMLS::generateAlphas() {
 		_poly_order += 1;
 	}
 
-	int team_scratch_size = scratch_vector_type::shmem_size((_neighbor_lists.dimension_1()-1)*_sampling_multiplier); // weights W;
-	int thread_scratch_size = 0;
+	int team_scratch_size_a = 0;
+	int team_scratch_size_b = scratch_vector_type::shmem_size((_neighbor_lists.dimension_1()-1)*_sampling_multiplier); // weights W;
+	int thread_scratch_size_a = 0;
+	int thread_scratch_size_b = 0;
+
+	const int max_neighbors_or_basis = ((_neighbor_lists.dimension_1()-1)*_sampling_multiplier > _NP*_basis_multiplier)
+		? (_neighbor_lists.dimension_1()-1)*_sampling_multiplier : _NP*_basis_multiplier;
 
 	if (_dense_solver_type == ReconstructionOperator::DenseSolverType::LU) {
-		team_scratch_size += scratch_matrix_type::shmem_size(_neighbor_lists.dimension_1()-1, _NP); // P matrix
-		team_scratch_size += scratch_matrix_type::shmem_size(_NP, _NP); // M_data
-		team_scratch_size += scratch_matrix_type::shmem_size(_NP, _NP); // M_inv
-		team_scratch_size += scratch_matrix_type::shmem_size(_NP, _NP); // L
-		team_scratch_size += scratch_vector_type::shmem_size(_NP); // b_data, used for eachM_data team
-		team_scratch_size += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t1
-		team_scratch_size += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t2
+		team_scratch_size_b += scratch_matrix_type::shmem_size(_neighbor_lists.dimension_1()-1, _NP); // P matrix will not be used by QR or SVD
+		team_scratch_size_b += scratch_matrix_type::shmem_size(_NP, _NP); // M_data
+		team_scratch_size_b += scratch_matrix_type::shmem_size(_NP, _NP); // M_inv
+		team_scratch_size_b += scratch_matrix_type::shmem_size(_NP, _NP); // L
+		team_scratch_size_b += scratch_vector_type::shmem_size(_NP); // b_data, used for eachM_data team
+		team_scratch_size_b += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t1
+		team_scratch_size_b += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t2
 
-		team_scratch_size += scratch_matrix_type::shmem_size(_NP*_total_alpha_values, _sampling_multiplier); // row of P matrix, one for each operator
+		team_scratch_size_b += scratch_matrix_type::shmem_size(_NP*_total_alpha_values, _sampling_multiplier); // row of P matrix, one for each operator
 
-		thread_scratch_size += scratch_vector_type::shmem_size(_NP); // delta, used for each thread
+		thread_scratch_size_b += scratch_vector_type::shmem_size(_basis_multiplier*_NP); // delta, used for each thread
 	} else if (_dense_solver_type == ReconstructionOperator::DenseSolverType::SVD){
-		team_scratch_size += scratch_matrix_type::shmem_size(_neighbor_lists.dimension_1()-1, _NP); // P matrix
-		team_scratch_size += scratch_matrix_type::shmem_size(_neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1); // U
-		team_scratch_size += scratch_matrix_type::shmem_size(_NP, _NP); // Vt
-		team_scratch_size += scratch_vector_type::shmem_size(_NP); // S
-		team_scratch_size += scratch_vector_type::shmem_size(_NP); // b_data, used for eachM_data team
-		team_scratch_size += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t1 work vector for qr
-		team_scratch_size += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t2 work vector for qr
+		team_scratch_size_b += scratch_matrix_type::shmem_size(max_neighbors_or_basis, max_neighbors_or_basis); // P matrix made square in case or transpose needed
+		team_scratch_size_b += scratch_matrix_type::shmem_size(_neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1); // U
+		team_scratch_size_b += scratch_matrix_type::shmem_size(_NP, _NP); // Vt
+		team_scratch_size_b += scratch_vector_type::shmem_size(_NP); // S
+		team_scratch_size_a += scratch_vector_type::shmem_size(_NP); // b_data, used for eachM_data team
+		team_scratch_size_a += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t1 work vector for qr
+		team_scratch_size_a += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t2 work vector for qr
 
-		team_scratch_size += scratch_matrix_type::shmem_size(_NP*_total_alpha_values, _sampling_multiplier); // row of P matrix, one for each operator
+		team_scratch_size_b += scratch_matrix_type::shmem_size(_NP*_total_alpha_values, _sampling_multiplier); // row of P matrix, one for each operator
 
-		thread_scratch_size += scratch_vector_type::shmem_size(_NP); // delta, used for each thread
+		thread_scratch_size_b += scratch_vector_type::shmem_size(_basis_multiplier*_NP); // delta, used for each thread
 	} else if (_dense_solver_type == ReconstructionOperator::DenseSolverType::MANIFOLD) {
 		// designed for ND-1 manifold embedded in ND problem
 		const int manifold_NP = this->getNP(_manifold_poly_order, _dimensions-1);
@@ -2300,52 +2304,77 @@ void GMLS::generateAlphas() {
 		const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
 		const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
 
-		team_scratch_size += scratch_matrix_type::shmem_size((_neighbor_lists.dimension_1()-1)*_sampling_multiplier, max_NP*_basis_multiplier); // P matrix
+		const int max_neighbors_or_basis_manifold = ((_neighbor_lists.dimension_1()-1)*_sampling_multiplier > max_NP*_basis_multiplier)
+						? (_neighbor_lists.dimension_1()-1)*_sampling_multiplier : max_NP*_basis_multiplier;
 
-		team_scratch_size += scratch_matrix_type::shmem_size((_neighbor_lists.dimension_1()-1)*_sampling_multiplier, (_neighbor_lists.dimension_1()-1)*_sampling_multiplier); // U
-		team_scratch_size += scratch_matrix_type::shmem_size(_dimensions, _dimensions); // Vt (low-order tangent approximations)
-		team_scratch_size += scratch_matrix_type::shmem_size(_dimensions, _dimensions-1); // T (high-order tangent approximations)
-		team_scratch_size += scratch_matrix_type::shmem_size(_dimensions-1, _dimensions-1); // G
-		team_scratch_size += scratch_matrix_type::shmem_size(_dimensions-1, _dimensions-1); // G inverse
-		team_scratch_size += scratch_matrix_type::shmem_size(_dimensions, _dimensions); // PTP matrix
-		team_scratch_size += scratch_vector_type::shmem_size( (_dimensions-1)*(_neighbor_lists.dimension_1()-1) ); // manifold_gradient
-		team_scratch_size += scratch_vector_type::shmem_size( (_dimensions-1)*manifold_NP ); // manifold_coeffs
-		team_scratch_size += scratch_vector_type::shmem_size((_neighbor_lists.dimension_1()-1)*std::max(_sampling_multiplier,_basis_multiplier)); // t1 work vector for qr
-		team_scratch_size += scratch_vector_type::shmem_size((_neighbor_lists.dimension_1()-1)*std::max(_sampling_multiplier,_basis_multiplier)); // t2 work vector for qr
-		team_scratch_size += scratch_vector_type::shmem_size( _dimensions-1 ); // manifold_gradient_coeffs
+		team_scratch_size_b += scratch_matrix_type::shmem_size(max_neighbors_or_basis_manifold, max_neighbors_or_basis_manifold); // P matrix must be square so that transpose is possible
 
-		team_scratch_size += scratch_matrix_type::shmem_size(max_P_row_size, _sampling_multiplier); // row of P matrix, one for each operator
-		team_scratch_size += scratch_matrix_type::shmem_size((_neighbor_lists.dimension_1()-1)*(_dimensions-1), _number_of_quadrature_points); // manifold info for integral point sampling
+		team_scratch_size_b += scratch_matrix_type::shmem_size((_neighbor_lists.dimension_1()-1)*_sampling_multiplier, (_neighbor_lists.dimension_1()-1)*_sampling_multiplier); // U
+		team_scratch_size_b += scratch_matrix_type::shmem_size(_dimensions, _dimensions); // Vt (low-order tangent approximations)
+		team_scratch_size_b += scratch_matrix_type::shmem_size(_dimensions, _dimensions-1); // T (high-order tangent approximations)
+		team_scratch_size_b += scratch_matrix_type::shmem_size(_dimensions-1, _dimensions-1); // G
+		team_scratch_size_b += scratch_matrix_type::shmem_size(_dimensions-1, _dimensions-1); // G inverse
+		team_scratch_size_b += scratch_matrix_type::shmem_size(_dimensions, _dimensions); // PTP matrix
+		team_scratch_size_b += scratch_vector_type::shmem_size( (_dimensions-1)*(_neighbor_lists.dimension_1()-1) ); // manifold_gradient
+		team_scratch_size_b += scratch_vector_type::shmem_size( (_dimensions-1)*manifold_NP ); // manifold_coeffs
+		team_scratch_size_b += scratch_vector_type::shmem_size((_neighbor_lists.dimension_1()-1)*std::max(_sampling_multiplier,_basis_multiplier)); // t1 work vector for qr
+		team_scratch_size_b += scratch_vector_type::shmem_size((_neighbor_lists.dimension_1()-1)*std::max(_sampling_multiplier,_basis_multiplier)); // t2 work vector for qr
+		team_scratch_size_b += scratch_vector_type::shmem_size( _dimensions-1 ); // manifold_gradient_coeffs
 
-		thread_scratch_size += scratch_vector_type::shmem_size(max_NP*_basis_multiplier); // delta, used for each thread
+		team_scratch_size_b += scratch_matrix_type::shmem_size(max_P_row_size, _sampling_multiplier); // row of P matrix, one for each operator
+		team_scratch_size_b += scratch_matrix_type::shmem_size((_neighbor_lists.dimension_1()-1)*(_dimensions-1), _number_of_quadrature_points); // manifold info for integral point sampling
 
-		team_scratch_size += scratch_vector_type::shmem_size(max_manifold_NP*_basis_multiplier); // S
-		team_scratch_size += scratch_matrix_type::shmem_size(max_manifold_NP*_basis_multiplier, _sampling_multiplier); // b_data, used for eachM_data team
-		team_scratch_size += scratch_matrix_type::shmem_size(max_manifold_NP*_basis_multiplier, max_manifold_NP*_basis_multiplier); // Vsvd
+		thread_scratch_size_b += scratch_vector_type::shmem_size(max_NP*_basis_multiplier); // delta, used for each thread
+
+		team_scratch_size_b += scratch_vector_type::shmem_size(max_manifold_NP*_basis_multiplier); // S
+		team_scratch_size_b += scratch_matrix_type::shmem_size(max_manifold_NP*_basis_multiplier, _sampling_multiplier); // b_data, used for eachM_data team
+		team_scratch_size_b += scratch_matrix_type::shmem_size(max_manifold_NP*_basis_multiplier, max_manifold_NP*_basis_multiplier); // Vsvd
 
 		// generate 1d quadrature points
 		this->generate1DQuadrature();
 
 	} else  { // QR
-		team_scratch_size += scratch_matrix_type::shmem_size(_neighbor_lists.dimension_1()-1, _NP); // P matrix
-		team_scratch_size += scratch_matrix_type::shmem_size(_neighbor_lists.dimension_1()-1, _NP); // R matrix
-		team_scratch_size += scratch_matrix_type::shmem_size(_neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1); // Q
-		team_scratch_size += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t1 work vector for qr
-		team_scratch_size += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t2 work vector for qr
+		team_scratch_size_b += scratch_matrix_type::shmem_size(max_neighbors_or_basis, max_neighbors_or_basis); // P matrix, only _neighbor_lists.dimension_1()-1 x _NP needed, but may need to be transposed
+		team_scratch_size_b += scratch_matrix_type::shmem_size(_neighbor_lists.dimension_1()-1, _NP); // R matrix
+		team_scratch_size_b += scratch_matrix_type::shmem_size(_neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1); // Q
+		team_scratch_size_b += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t1 work vector for qr
+		team_scratch_size_b += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t2 work vector for qr
 
-		team_scratch_size += scratch_matrix_type::shmem_size(_NP*_total_alpha_values, _sampling_multiplier); // row of P matrix, one for each operator
+		team_scratch_size_b += scratch_matrix_type::shmem_size(_NP*_total_alpha_values, _sampling_multiplier); // row of P matrix, one for each operator
 
-		thread_scratch_size += scratch_vector_type::shmem_size(_NP); // delta, used for each thread
+		thread_scratch_size_b += scratch_vector_type::shmem_size(_basis_multiplier*_NP); // delta, used for each thread
 	}
 
 	Kokkos::fence();
 
+#ifdef KOKKOS_ENABLE_CUDA
 	Kokkos::parallel_for(
-			team_policy(_target_coordinates.dimension_0(), Kokkos::AUTO)
-			.set_scratch_size(_scratch_team_level, Kokkos::PerTeam(team_scratch_size))
-			.set_scratch_size(_scratch_thread_level, Kokkos::PerThread(thread_scratch_size)),
+			team_policy(_target_coordinates.dimension_0(), 32)
+			.set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a))
+			.set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(team_scratch_size_b))
+			.set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a))
+			.set_scratch_size(_scratch_thread_level_b, Kokkos::PerThread(thread_scratch_size_b)),
 			*this
 	, "generateAlphas");
+#else
+	if (_scratch_team_level_b != _scratch_team_level_a) {
+		Kokkos::parallel_for(
+				team_policy(_target_coordinates.dimension_0(), Kokkos::AUTO)
+				.set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a))
+				.set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(team_scratch_size_b))
+				.set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a))
+				.set_scratch_size(_scratch_thread_level_b, Kokkos::PerThread(thread_scratch_size_b)),
+				*this
+		, "generateAlphas");
+	} else {
+		Kokkos::parallel_for(
+				team_policy(_target_coordinates.dimension_0(), Kokkos::AUTO)
+				.set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a+team_scratch_size_b))
+				.set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a+thread_scratch_size_b)),
+				*this
+		, "generateAlphas");
+	}
+#endif
 
 	Kokkos::fence();
 	// copy computed alphas back to the host

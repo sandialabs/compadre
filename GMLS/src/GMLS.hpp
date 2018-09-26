@@ -209,8 +209,10 @@ protected:
     int _manifold_poly_order; // order of manifold polynomial reconstruction
     int _NP;
 
-    int _scratch_team_level;
-    int _scratch_thread_level;
+    int _scratch_team_level_a;
+    int _scratch_thread_level_a;
+    int _scratch_team_level_b;
+    int _scratch_thread_level_b;
 
     int _dimensions;
 
@@ -394,12 +396,16 @@ public:
         _NP = this->getNP(_poly_order, dimensions);
         Kokkos::fence();
 
-#ifdef KOKKOS_HAVE_CUDA
-		_scratch_team_level = 1;
-		_scratch_thread_level = 1;
+#ifdef KOKKOS_ENABLE_CUDA
+		_scratch_team_level_a = 0;
+		_scratch_thread_level_a = 0;
+		_scratch_team_level_b = 1;
+		_scratch_thread_level_b = 1;
 #else
-		_scratch_team_level = 0;
-		_scratch_thread_level = 0;
+		_scratch_team_level_a = 0;
+		_scratch_thread_level_a = 0;
+		_scratch_team_level_b = 0;
+		_scratch_thread_level_b = 0;
 #endif
 
 		// temporary, just to avoid warning

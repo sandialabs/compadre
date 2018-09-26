@@ -5,6 +5,7 @@
 #define USE_CUSTOM_SVD
 
 #include "GMLS_Config.h"
+#include <type_traits>
 
 #ifdef COMPADRE_USE_BOOST
 #include <boost/numeric/ublas/lu.hpp>
@@ -23,10 +24,6 @@ extern "C" void dgesvd_( char* jobu, char* jobvt, int* m, int* n, double* a,
 #ifdef COMPADRE_USE_KOKKOSCORE
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Random.hpp>
-
-#ifndef KOKKOS_ENABLE_CUDA
-  #define TRANSPOSE_UV
-#endif
 
 // KOKKOS TYPEDEFS
 

@@ -329,7 +329,7 @@ int main (int argc, char* args[])
     Kokkos::deep_copy(target_coords_device, target_coords);
     Kokkos::deep_copy(epsilon_device, epsilon);
 
-    GMLS my_GMLS(order, "SVD", 2 /*manifold order*/, dimension);
+    GMLS my_GMLS(order, "QR", 2 /*manifold order*/, dimension);
     my_GMLS.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
 
     std::vector<ReconstructionOperator::TargetOperation> lro(5);
