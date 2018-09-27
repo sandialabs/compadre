@@ -817,6 +817,7 @@ void GivensBidiagonalReduction(const member_type& teamMember, scratch_vector_typ
 			}
 		});
 	}
+	teamMember.team_barrier();
 
 // Original, and works
 //	double c, s;
@@ -997,6 +998,7 @@ void HouseholderBidiagonalReduction(const member_type& teamMember, scratch_vecto
 			}
 		});
 	}
+	teamMember.team_barrier();
 
 	for (int j = 0; j<columns; j++) {
 
@@ -1025,6 +1027,8 @@ void HouseholderBidiagonalReduction(const member_type& teamMember, scratch_vecto
 
 		double tau = -s*u1/normx;
 
+		teamMember.team_barrier();
+
 		// outer product of tau*w and w'*R(j:end,:)
 		// t1 is w, so use it to get w'*R(j:end,:)
 		// t2 is 1 by n
@@ -1049,6 +1053,7 @@ void HouseholderBidiagonalReduction(const member_type& teamMember, scratch_vecto
 			});
 		}
 
+		teamMember.team_barrier();
 		if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
 			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j,rows), [=] (const int k) {
 				for (int l=j; l<columns; l++) {
@@ -1084,6 +1089,7 @@ void HouseholderBidiagonalReduction(const member_type& teamMember, scratch_vecto
 				}
 				t2(k) = t2k;
 			});
+			teamMember.team_barrier();
 			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k) {
 				for (int l=j; l<rows; l++) {
 					U(k,l) -= t2(k)*tau*t1(l);
