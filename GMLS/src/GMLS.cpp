@@ -473,11 +473,15 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 
 			if (weight_p) {
 				for (int j = 0; j < storage_size; ++j) {
-					P(i+my_num_neighbors*d,j) = delta[j] * std::sqrt(w(i+my_num_neighbors*d));
+					// stores as transposed P on gpu
+					P(ORDER_INDICES(i+my_num_neighbors*d,j)) = delta[j] * std::sqrt(w(i+my_num_neighbors*d));
 				}
+
 			} else {
+
 				for (int j = 0; j < storage_size; ++j) {
-					P(i+my_num_neighbors*d,j) = delta[j];
+					// stores as transposed P on gpu
+					P(ORDER_INDICES(i+my_num_neighbors*d,j)) = delta[j];
 				}
 			}
 		}
@@ -530,7 +534,8 @@ void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_
 		int storage_size = only_specific_order ? this->getNP(1, dimension)-this->getNP(0, dimension) : this->getNP(_manifold_poly_order, dimension);
 
 		for (int j = 0; j < storage_size; ++j) {
-			P(i,j) = delta[j] * std::sqrt(w(i));
+			// stores as transposed P on gpu
+			P(ORDER_INDICES(i,j)) = delta[j] * std::sqrt(w(i));
 		}
 
     });
@@ -1536,16 +1541,19 @@ void GMLS::operator()(const member_type& teamMember) const {
 		}
 	}
 
+	const int max_neighbors_or_basis = ((_neighbor_lists.dimension_1()-1)*_sampling_multiplier > _NP*_basis_multiplier)
+			? (_neighbor_lists.dimension_1()-1)*_sampling_multiplier : _NP*_basis_multiplier;
+
 	if (_dense_solver_type == ReconstructionOperator::DenseSolverType::QR) {
 
 		// team_scratch all have a copy each per team
 		// the threads in a team work on these local copies that only the team sees
 		// thread_scratch has a copy per thread
 
-		scratch_matrix_type PsqrtW(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1); // full, only _neighbor_lists.dimension_1()-1x_NP needed, but must be transposed
+		scratch_matrix_type PsqrtW(teamMember.team_scratch(_scratch_team_level_b), max_neighbors_or_basis, max_neighbors_or_basis); // full, only _neighbor_lists.dimension_1()-1x_NP needed, but must be transposed
 		scratch_matrix_type Q(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1); // Q triangular
-		scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1);
-		scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1);
+		scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_a), _neighbor_lists.dimension_1()-1);
+		scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_a), _neighbor_lists.dimension_1()-1);
 		scratch_vector_type w(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1);
 
 		// delta is a temporary variable that preallocates space on which solutions of size _NP will
@@ -1560,75 +1568,74 @@ void GMLS::operator()(const member_type& teamMember) const {
 
 		teamMember.team_barrier();
 
-
 		scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), _NP*_total_alpha_values, _sampling_multiplier);
 		this->computeTargetFunctionals(teamMember, t1, t2, P_target_row);
 
-		GMLS_LinearAlgebra::upperTriangularBackSolve(teamMember, PsqrtW, Q, w, _NP, this->getNNeighbors(target_index)); // stores solution in R
+		GMLS_LinearAlgebra::upperTriangularBackSolve(teamMember, t1, t2, PsqrtW, Q, w, _NP, this->getNNeighbors(target_index)); // stores solution in R
 
-		for (int i=0; i<this->getNNeighbors(target_index); ++i) {
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,
+		this->getNNeighbors(target_index)), [=] (const int i) {
+		//for (int i=0; i<this->getNNeighbors(target_index); ++i) {
 			for (int j=0; j<_operations.size(); ++j) {
 				for (int k=0; k<_lro_output_tile_size[j]; ++k) {
 					for (int m=0; m<_lro_input_tile_size[j]; ++m) {
 						double alpha_ij = 0;
-						Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-								_NP), [=] (const int l, double &talpha_ij) {
-							talpha_ij += P_target_row(_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*Q(i,l);
-						}, alpha_ij);
-						Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+						for (int l=0; l<_NP; ++l) {
+						//Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
+						//		_NP), [=] (const int l, double &talpha_ij) {
+					//		talpha_ij += P_target_row(_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*Q(i,l);
+						//}, alpha_ij);
+							alpha_ij += P_target_row(_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*Q(i,l);
+						}
+						//Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
 							_alphas(target_index, (_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k)*_neighbor_lists(target_index,0) + i) = alpha_ij;
-						});
+						//});
 					}
 				}
 			}
-		}
+		});
 	} else if (_dense_solver_type == ReconstructionOperator::DenseSolverType::LU) {
 
 		// M_data, M_inv, and weight_P all have a copy each per team
 		// the threads in a team work on these local copies that only the team sees
-		scratch_matrix_type P(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1, _NP); // full
+		scratch_matrix_type PsqrtW(teamMember.team_scratch(_scratch_team_level_b), max_neighbors_or_basis, max_neighbors_or_basis); // full
 		scratch_matrix_type M_data(teamMember.team_scratch(_scratch_team_level_b), _NP, _NP); // lower triangular
 		scratch_matrix_type M_inv(teamMember.team_scratch(_scratch_team_level_b), _NP, _NP); // lower triangular
 		scratch_matrix_type L(teamMember.team_scratch(_scratch_team_level_b), _NP, _NP); // L
 		scratch_vector_type w(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1);
-		scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1);
-		scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1);
+		scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_a), _neighbor_lists.dimension_1()-1);
+		scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_a), _neighbor_lists.dimension_1()-1);
 
 		// delta is a temporary variable that preallocates space on which solutions of size _NP will
 		// be computed. This allows the gpu to allocate the memory in advance
 		scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), _basis_multiplier*_NP);
 
+		scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), _NP*_total_alpha_values, _sampling_multiplier);
+		scratch_vector_type b_data(teamMember.team_scratch(_scratch_team_level_a), _NP);
+
 		// creates the matrix sqrt(W)*P
-		this->createWeightsAndP(teamMember, delta, P, w, _dimensions, _poly_order, true /*weight_p*/, NULL /*&V*/, NULL /*&T*/, _polynomial_sampling_functional);
+		this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions, _poly_order, true /*weight_p*/, NULL /*&V*/, NULL /*&T*/, _polynomial_sampling_functional);
 
 		// creates the matrix P^T*W*P
-		GMLS_LinearAlgebra::createM(teamMember, M_data, P, w, _NP, this->getNNeighbors(target_index));
+		GMLS_LinearAlgebra::createM(teamMember, M_data, PsqrtW, _NP, this->getNNeighbors(target_index));
 
 		// inverts M against the identity
 		GMLS_LinearAlgebra::invertM(teamMember, delta, M_inv, L, M_data, _NP);
 
-		scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), _NP*_total_alpha_values, _sampling_multiplier);
 		this->computeTargetFunctionals(teamMember, t1, t2, P_target_row);
 
-		scratch_vector_type b_data(teamMember.team_scratch(_scratch_team_level_b), _NP);
 
-	//	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,
-	//			this->getNNeighbors(target_index)), [=] (const int i) {
-		for (int i=0; i<this->getNNeighbors(target_index); ++i) {
-
-			// M_inv multiply optimized using only lower triangular entries
-			// based on symmetry
-			for (int j=0; j<_NP; ++j) {
-					double  bdataj = 0;
-					Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-							_NP), [&] (const int k, double &tbdataj) {
-						tbdataj += M_inv(j,k)*P(i,k);
-					}, bdataj);
-					Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-						b_data[j] = bdataj;
-						b_data[j] *= w(i);
-					});
-			}
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,
+		this->getNNeighbors(target_index)), [=] (const int i) {
+			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,_NP), [=] (const int j) {
+				double  bdataj = 0;
+				for (int k=0; k<_NP; ++k) {
+					bdataj += M_inv(j,k)*PsqrtW(i,k);
+				}
+				bdataj *= std::sqrt(w(i));
+				b_data[j] = bdataj;
+			});
+			teamMember.team_barrier();
 
 			for (int j=0; j<_operations.size(); ++j) {
 				for (int k=0; k<_lro_output_tile_size[j]; ++k) {
@@ -1645,7 +1652,84 @@ void GMLS::operator()(const member_type& teamMember) const {
 					}
 				}
 			}
-		}
+//			for (int j=0; j<_operations.size(); ++j) {
+//				for (int k=0; k<_lro_output_tile_size[j]; ++k) {
+//					for (int m=0; m<_lro_input_tile_size[j]; ++m) {
+//						double alpha_ij = 0;
+//						for (int l=0; l<_NP; ++l) {
+//						//Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
+//						//		_NP), [=] (const int l, double &talpha_ij) {
+//					//		talpha_ij += P_target_row(_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*Q(i,l);
+//						//}, alpha_ij);
+//							alpha_ij += P_target_row(_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*b_data[l];
+//						}
+//						//Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+//							_alphas(target_index, (_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k)*_neighbor_lists(target_index,0) + i) = alpha_ij;
+//						//});
+//					}
+//				}
+//			}
+		});
+
+//		if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+//			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,
+//					this->getNNeighbors(target_index)), [=] (const int i) {
+//				// M_inv multiply optimized using only lower triangular entries
+//				// based on symmetry
+//				for (int j=0; j<_NP; ++j) {
+//					double  bdataj = 0;
+//					for (int k=0; k<_NP; ++k) {
+//						bdataj += M_inv(j,k)*PsqrtW(k,i); // tranposed PsqrtW
+//					}
+//					b_data[j] = bdataj;
+//					b_data[j] *= w(i);
+//				}
+//				for (int j=0; j<_operations.size(); ++j) {
+//					for (int k=0; k<_lro_output_tile_size[j]; ++k) {
+//						for (int m=0; m<_lro_input_tile_size[j]; ++m) {
+//							double alpha_ij = 0;
+//							for (int l=0; l<_NP; ++l) {
+//								alpha_ij += P_target_row(_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*b_data[l];
+//							}
+//							_alphas(target_index, (_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k)*_neighbor_lists(target_index,0) + i) = alpha_ij;
+//						}
+//					}
+//				}
+//			});
+//		} else {
+//			for (int i=0; i<this->getNNeighbors(target_index); ++i) {
+//
+//				// M_inv multiply optimized using only lower triangular entries
+//				// based on symmetry
+//				for (int j=0; j<_NP; ++j) {
+//					double  bdataj = 0;
+//					Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
+//							_NP), [&] (const int k, double &tbdataj) {
+//						tbdataj += M_inv(j,k)*PsqrtW(i,k);
+//					}, bdataj);
+//					Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+//						b_data[j] = bdataj;
+//						b_data[j] *= w(i);
+//					});
+//				}
+//
+//				for (int j=0; j<_operations.size(); ++j) {
+//					for (int k=0; k<_lro_output_tile_size[j]; ++k) {
+//						for (int m=0; m<_lro_input_tile_size[j]; ++m) {
+//							double alpha_ij = 0;
+//							Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
+//									_NP), [&] (const int l, double &talpha_ij) {
+//								talpha_ij += P_target_row(_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*b_data[l];
+//
+//							}, alpha_ij);
+//							Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+//								_alphas(target_index, (_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k)*_neighbor_lists(target_index,0) + i) = alpha_ij;
+//							});
+//						}
+//					}
+//				}
+//			}
+//		}
 	} else if (_dense_solver_type == ReconstructionOperator::DenseSolverType::MANIFOLD) {
 
 		// team_scratch all have a copy each per team
@@ -1658,10 +1742,10 @@ void GMLS::operator()(const member_type& teamMember) const {
 		const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
 		const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
 
-		const int max_neighbors_or_basis = ((_neighbor_lists.dimension_1()-1)*_sampling_multiplier > max_NP*_basis_multiplier)
+		const int max_neighbors_or_basis_manifold = ((_neighbor_lists.dimension_1()-1)*_sampling_multiplier > max_NP*_basis_multiplier)
 				? (_neighbor_lists.dimension_1()-1)*_sampling_multiplier : max_NP*_basis_multiplier;
 
-		scratch_matrix_type PsqrtW(teamMember.team_scratch(_scratch_team_level_b), max_neighbors_or_basis, max_neighbors_or_basis); // must be square so that transpose is possible
+		scratch_matrix_type PsqrtW(teamMember.team_scratch(_scratch_team_level_b), max_neighbors_or_basis_manifold, max_neighbors_or_basis_manifold); // must be square so that transpose is possible
 
 		scratch_matrix_type Q(teamMember.team_scratch(_scratch_team_level_b), (_neighbor_lists.dimension_1()-1)*_sampling_multiplier, (_neighbor_lists.dimension_1()-1)*_sampling_multiplier);
 		scratch_matrix_type V(teamMember.team_scratch(_scratch_team_level_b), _dimensions, _dimensions);
@@ -1742,11 +1826,7 @@ void GMLS::operator()(const member_type& teamMember) const {
 
 		} else {
 
-			Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-				for (int i=0; i<_neighbor_lists.dimension_1()-1; ++i)
-					w(i) = 1;
-			});
-			GMLS_LinearAlgebra::createM(teamMember, PTP, PsqrtW, w, _dimensions /* # of columns */, this->getNNeighbors(target_index));
+			GMLS_LinearAlgebra::createM(teamMember, PTP, PsqrtW, _dimensions /* # of columns */, this->getNNeighbors(target_index));
 			GMLS_LinearAlgebra::largestTwoEigenvectorsThreeByThreeSymmetric(teamMember, V, PTP, _dimensions);
 
 		}
@@ -1842,7 +1922,7 @@ void GMLS::operator()(const member_type& teamMember) const {
 //		teamMember.team_barrier();
 
 		// gives GMLS coefficients for gradient using basis defined on reduced space
-		GMLS_LinearAlgebra::upperTriangularBackSolve(teamMember, PsqrtW, Q, w, manifold_NP, this->getNNeighbors(target_index)); // stores solution in Q
+		GMLS_LinearAlgebra::upperTriangularBackSolve(teamMember, t1, t2, PsqrtW, Q, w, manifold_NP, this->getNNeighbors(target_index)); // stores solution in Q
 		teamMember.team_barrier();
 
 		//
@@ -2109,7 +2189,7 @@ void GMLS::operator()(const member_type& teamMember) const {
 			teamMember.team_barrier();
 
 			// gives GMLS coefficients for gradient using basis defined on reduced space
-			GMLS_LinearAlgebra::upperTriangularBackSolve(teamMember, PsqrtW, Q, w, _basis_multiplier*target_NP, _sampling_multiplier*this->getNNeighbors(target_index)); // stores solution in R
+			GMLS_LinearAlgebra::upperTriangularBackSolve(teamMember, t1, t2, PsqrtW, Q, w, _basis_multiplier*target_NP, _sampling_multiplier*this->getNNeighbors(target_index)); // stores solution in R
 			teamMember.team_barrier();
 
 			for (int i=0; i<this->getNNeighbors(target_index); ++i) {
@@ -2141,7 +2221,7 @@ void GMLS::operator()(const member_type& teamMember) const {
 		// the threads in a team work on these local copies that only the team sees
 		// thread_scratch has a copy per thread
 
-		scratch_matrix_type PsqrtW(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1, _NP);
+		scratch_matrix_type PsqrtW(teamMember.team_scratch(_scratch_team_level_b), max_neighbors_or_basis, max_neighbors_or_basis); // larger than needed to allow for transpose
 		scratch_matrix_type U(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1);
 		scratch_matrix_type V(teamMember.team_scratch(_scratch_team_level_b), _NP, _NP);
 		scratch_vector_type S(teamMember.team_scratch(_scratch_team_level_b), _NP);
@@ -2272,13 +2352,13 @@ void GMLS::generateAlphas() {
 		? (_neighbor_lists.dimension_1()-1)*_sampling_multiplier : _NP*_basis_multiplier;
 
 	if (_dense_solver_type == ReconstructionOperator::DenseSolverType::LU) {
-		team_scratch_size_b += scratch_matrix_type::shmem_size(_neighbor_lists.dimension_1()-1, _NP); // P matrix will not be used by QR or SVD
+		team_scratch_size_b += scratch_matrix_type::shmem_size(max_neighbors_or_basis, max_neighbors_or_basis); // P matrix will not be used by QR or SVD
 		team_scratch_size_b += scratch_matrix_type::shmem_size(_NP, _NP); // M_data
 		team_scratch_size_b += scratch_matrix_type::shmem_size(_NP, _NP); // M_inv
 		team_scratch_size_b += scratch_matrix_type::shmem_size(_NP, _NP); // L
-		team_scratch_size_b += scratch_vector_type::shmem_size(_NP); // b_data, used for eachM_data team
-		team_scratch_size_b += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t1
-		team_scratch_size_b += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t2
+		team_scratch_size_a += scratch_vector_type::shmem_size(_NP); // b_data, used for eachM_data team
+		team_scratch_size_a += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t1
+		team_scratch_size_a += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t2
 
 		team_scratch_size_b += scratch_matrix_type::shmem_size(_NP*_total_alpha_values, _sampling_multiplier); // row of P matrix, one for each operator
 
@@ -2337,8 +2417,8 @@ void GMLS::generateAlphas() {
 		team_scratch_size_b += scratch_matrix_type::shmem_size(max_neighbors_or_basis, max_neighbors_or_basis); // P matrix, only _neighbor_lists.dimension_1()-1 x _NP needed, but may need to be transposed
 		team_scratch_size_b += scratch_matrix_type::shmem_size(_neighbor_lists.dimension_1()-1, _NP); // R matrix
 		team_scratch_size_b += scratch_matrix_type::shmem_size(_neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1); // Q
-		team_scratch_size_b += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t1 work vector for qr
-		team_scratch_size_b += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t2 work vector for qr
+		team_scratch_size_a += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t1 work vector for qr
+		team_scratch_size_a += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t2 work vector for qr
 
 		team_scratch_size_b += scratch_matrix_type::shmem_size(_NP*_total_alpha_values, _sampling_multiplier); // row of P matrix, one for each operator
 
@@ -2348,8 +2428,10 @@ void GMLS::generateAlphas() {
 	Kokkos::fence();
 
 #ifdef KOKKOS_ENABLE_CUDA
+	int threads_per_team = 32;
+	if (_basis_multiplier*_NP > 96) threads_per_team += 32;
 	Kokkos::parallel_for(
-			team_policy(_target_coordinates.dimension_0(), 32)
+			team_policy(_target_coordinates.dimension_0(), threads_per_team)
 			.set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a))
 			.set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(team_scratch_size_b))
 			.set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a))

@@ -398,7 +398,7 @@ public:
 
 #ifdef KOKKOS_ENABLE_CUDA
 		_scratch_team_level_a = 0;
-		_scratch_thread_level_a = 0;
+		_scratch_thread_level_a = 1;
 		_scratch_team_level_b = 1;
 		_scratch_thread_level_b = 1;
 #else

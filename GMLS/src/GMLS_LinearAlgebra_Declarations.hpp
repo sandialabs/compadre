@@ -32,6 +32,13 @@ typedef Kokkos::TeamPolicy<>::member_type  member_type;
 
 typedef Kokkos::DefaultExecutionSpace::array_layout layout_type;
 
+// reorders indices for layout of device
+#ifdef KOKKOS_ENABLE_CUDA
+#define ORDER_INDICES(i,j) j,i
+#else
+#define ORDER_INDICES(i,j) i,j
+#endif
+
 typedef Kokkos::View<double**, layout_type, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_matrix_type;
 typedef Kokkos::View<double*, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_vector_type;
 typedef Kokkos::View<int*, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_local_index_type;
@@ -42,7 +49,7 @@ namespace GMLS_LinearAlgebra {
 	void GivensRotation(double& c, double& s, double a, double b);
 
 	KOKKOS_INLINE_FUNCTION
-	void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_matrix_type weighted_P, scratch_vector_type w, const int columns, const int rows);
+	void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_matrix_type weighted_P, const int columns, const int rows);
 
 	KOKKOS_INLINE_FUNCTION
 	void computeSVD(const member_type& teamMember, scratch_matrix_type U, scratch_vector_type S, scratch_matrix_type Vt, scratch_matrix_type P, const int columns, const int rows);
@@ -51,7 +58,7 @@ namespace GMLS_LinearAlgebra {
     void invertM(const member_type& teamMember, scratch_vector_type y, scratch_matrix_type M_inv, scratch_matrix_type L, scratch_matrix_type M_data, const int columns);
 
 	KOKKOS_INLINE_FUNCTION
-	void upperTriangularBackSolve(const member_type& teamMember, scratch_matrix_type R, scratch_matrix_type Q, scratch_vector_type w, int columns, int rows);
+	void upperTriangularBackSolve(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type R, scratch_matrix_type Q, scratch_vector_type w, int columns, int rows);
 
 	KOKKOS_INLINE_FUNCTION
 	void GivensQR(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, int columns, int rows);

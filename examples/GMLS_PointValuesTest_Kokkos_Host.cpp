@@ -210,6 +210,14 @@ int main (int argc, char* args[])
 #if defined(COMPADRE_USE_KOKKOSCORE)
 
 {
+	int solver_type = 0;
+	if (argc >= 5) {
+		int arg5toi = atoi(args[4]);
+		if (arg5toi > 0) {
+			solver_type = arg5toi;
+		}
+	}
+
 	int dimension = 3;
 	if (argc >= 4) {
 		int arg4toi = atoi(args[3]);
@@ -309,8 +317,18 @@ int main (int argc, char* args[])
 
     timer.reset();
 
-    GMLS my_GMLS(order, "SVD", 2 /*manifield order*/, dimension);
+    std::string solver_name;
+    if (solver_type == 0) { // SVD
+        solver_name = "SVD";
+    } else if (solver_type == 1) { // QR
+        solver_name = "QR";
+    } else if (solver_type == 2) { // LU
+        solver_name = "LU";
+    }
+
+    GMLS my_GMLS(order, solver_name.c_str(), 2 /*manifield order*/, dimension);
     my_GMLS.setProblemData(neighbor_lists, source_coords, target_coords, epsilon);
+    my_GMLS.setWeightingPower(10);
 
     std::vector<ReconstructionOperator::TargetOperation> lro(5);
     lro[0] = ReconstructionOperator::ScalarPointEvaluation;
