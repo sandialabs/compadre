@@ -1571,29 +1571,8 @@ void GMLS::operator()(const member_type& teamMember) const {
 		scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), _NP*_total_alpha_values, _sampling_multiplier);
 		this->computeTargetFunctionals(teamMember, t1, t2, P_target_row);
 
-		GMLS_LinearAlgebra::upperTriangularBackSolve(teamMember, t1, t2, PsqrtW, Q, w, _NP, this->getNNeighbors(target_index)); // stores solution in R
+		this->applyQR(teamMember, t1, t2, Q, PsqrtW, w, P_target_row, _NP); 
 
-		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,
-		this->getNNeighbors(target_index)), [=] (const int i) {
-		//for (int i=0; i<this->getNNeighbors(target_index); ++i) {
-			for (int j=0; j<_operations.size(); ++j) {
-				for (int k=0; k<_lro_output_tile_size[j]; ++k) {
-					for (int m=0; m<_lro_input_tile_size[j]; ++m) {
-						double alpha_ij = 0;
-						for (int l=0; l<_NP; ++l) {
-						//Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-						//		_NP), [=] (const int l, double &talpha_ij) {
-					//		talpha_ij += P_target_row(_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*Q(i,l);
-						//}, alpha_ij);
-							alpha_ij += P_target_row(_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*Q(i,l);
-						}
-						//Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-							_alphas(target_index, (_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k)*_neighbor_lists(target_index,0) + i) = alpha_ij;
-						//});
-					}
-				}
-			}
-		});
 	} else if (_dense_solver_type == ReconstructionOperator::DenseSolverType::LU) {
 
 		// M_data, M_inv, and weight_P all have a copy each per team
@@ -1611,7 +1590,7 @@ void GMLS::operator()(const member_type& teamMember) const {
 		scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), _basis_multiplier*_NP);
 
 		scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), _NP*_total_alpha_values, _sampling_multiplier);
-		scratch_vector_type b_data(teamMember.team_scratch(_scratch_team_level_a), _NP);
+		scratch_matrix_type b_data(teamMember.team_scratch(_scratch_team_level_a), _NP, _sampling_multiplier);
 
 		// creates the matrix sqrt(W)*P
 		this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions, _poly_order, true /*weight_p*/, NULL /*&V*/, NULL /*&T*/, _polynomial_sampling_functional);
@@ -1633,7 +1612,7 @@ void GMLS::operator()(const member_type& teamMember) const {
 					bdataj += M_inv(j,k)*PsqrtW(i,k);
 				}
 				bdataj *= std::sqrt(w(i));
-				b_data[j] = bdataj;
+				b_data(j,0) = bdataj;
 			});
 			teamMember.team_barrier();
 
@@ -1643,7 +1622,7 @@ void GMLS::operator()(const member_type& teamMember) const {
 						double alpha_ij = 0;
 						Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
 								_NP), [&] (const int l, double &talpha_ij) {
-							talpha_ij += P_target_row(_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*b_data[l];
+							talpha_ij += P_target_row(_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*b_data(l,0);
 
 						}, alpha_ij);
 						Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
@@ -1795,7 +1774,7 @@ void GMLS::operator()(const member_type& teamMember) const {
 
 		if (use_SVD_for_manifold) {
 
-			GMLS_LinearAlgebra::GolubReinschSVD(teamMember, t1, t2, Q, PsqrtW, V, _dimensions /* custom # of columns*/, this->getNNeighbors(target_index));
+			GMLS_LinearAlgebra::GolubReinschSVD(teamMember, t1, t2, PsqrtW, Q, S, V, _dimensions /* custom # of columns*/, this->getNNeighbors(target_index));
 			// from these 3 SVD values, find the two largest and rearrange the V matrix to use
 			// these as the first two columns
 			// get max val
@@ -1806,7 +1785,7 @@ void GMLS::operator()(const member_type& teamMember) const {
 			int min_ind;
 			for (int i=0; i<_dimensions; ++i) {
 				if (PsqrtW(i,i) < min_val) {
-					min_val = PsqrtW(i,i);
+					min_val = S(i,i);
 					min_ind = i;
 				}
 			}
@@ -1900,29 +1879,10 @@ void GMLS::operator()(const member_type& teamMember) const {
 		this->createWeightsAndPForCurvature(teamMember, delta, PsqrtW, w, _dimensions-1, false /* only specific order */, &V);
 
 		GMLS_LinearAlgebra::GivensQR(teamMember, t1, t2, Q, PsqrtW, manifold_NP, this->getNNeighbors(target_index));
-//		GMLS_LinearAlgebra::GolubReinschSVD(teamMember, t1, t2, Q, PsqrtW, Vsvd, manifold_NP /* custom # of columns*/, this->getNNeighbors(target_index) /* custom # of rows*/);
 		teamMember.team_barrier();
 
-//		Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-//			for (int i=0; i<manifold_NP; i++) {
-//				S(i) = PsqrtW(i,i);
-//			}
-//		});
-//		teamMember.team_barrier();
-//
-//		// now use S as S inverse
-//		double S0 = S(0);
-//		double eps = 1e-14;
-//		Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-//			for (int i=0; i<manifold_NP; i++) {
-//				int maxVal = (manifold_NP > this->getNNeighbors(target_index)) ? manifold_NP : this->getNNeighbors(target_index);
-//				S(i) = ( std::abs(S(i)) > maxVal*eps*S0 ) ? 1./S(i) : 0;
-//			}
-//		});
-//		teamMember.team_barrier();
-
 		// gives GMLS coefficients for gradient using basis defined on reduced space
-		GMLS_LinearAlgebra::upperTriangularBackSolve(teamMember, t1, t2, PsqrtW, Q, w, manifold_NP, this->getNNeighbors(target_index)); // stores solution in Q
+		GMLS_LinearAlgebra::upperTriangularBackSolve(teamMember, t1, t2, Q, PsqrtW, w, manifold_NP, this->getNNeighbors(target_index)); // stores solution in Q
 		teamMember.team_barrier();
 
 		//
@@ -1939,26 +1899,11 @@ void GMLS::operator()(const member_type& teamMember) const {
 
 		double grad_xi1 = 0, grad_xi2 = 0;
 		for (int i=0; i<this->getNNeighbors(target_index); ++i) {
-			// get b_data for all manifold_NP
-//			for (int j=0; j<manifold_NP; ++j) {
-//				double  bdataj = 0;
-//				Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-//						manifold_NP), [&] (const int k, double &tbdataj) {
-//					tbdataj += Vsvd(j,k)*S(k)*Q(i,k);
-//				}, bdataj);
-//				Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-//					b_data(j,0) = bdataj*std::sqrt(w(i));
-//				});
-//				teamMember.team_barrier();
-//			}
-//			teamMember.team_barrier();
-
 			for (int k=0; k<_dimensions-1; ++k) {
 				double alpha_ij = 0;
 				Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
 						manifold_NP), [=] (const int l, double &talpha_ij) {
 					talpha_ij += P_target_row(manifold_NP*k+l,0)*Q(i,l);
-//					talpha_ij += P_target_row(manifold_NP*k+l,0)*b_data(l,0);
 				}, alpha_ij);
 				Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
 					manifold_gradient(i*(_dimensions-1) + k) = alpha_ij; // stored staggered, grad_xi1, grad_xi2, grad_xi1, grad_xi2, ....
@@ -2116,70 +2061,16 @@ void GMLS::operator()(const member_type& teamMember) const {
 			// However, if they differ, then they must be recomputed
 			this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions-1, _poly_order, true /* weight with W*/, &V, &T, _polynomial_sampling_functional, &manifold_gradient_coeffs, &quadrature_manifold_gradients);
 
-			GMLS_LinearAlgebra::GolubReinschSVD(teamMember, t1, t2, Q, PsqrtW, Vsvd, target_NP*_basis_multiplier /* custom # of columns*/, this->getNNeighbors(target_index)*_sampling_multiplier /* custom # of rows*/);
+			GMLS_LinearAlgebra::GolubReinschSVD(teamMember, t1, t2, PsqrtW, Q, S, Vsvd, target_NP*_basis_multiplier /* custom # of columns*/, this->getNNeighbors(target_index)*_sampling_multiplier /* custom # of rows*/);
 
-			Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-				for (int i=0; i<target_NP*_basis_multiplier; i++) {
-					S(i) = PsqrtW(i,i);
-				}
-			});
-			teamMember.team_barrier();
-
-			// now use S as S inverse
+			// threshold for dropping singular values
 			double S0 = S(0);
 			double eps = 1e-14;
-			Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-				for (int i=0; i<target_NP*_basis_multiplier; i++) {
-					int maxVal = (target_NP*_basis_multiplier > _sampling_multiplier*this->getNNeighbors(target_index)) ? target_NP*_basis_multiplier : this->getNNeighbors(target_index)*_sampling_multiplier;
-					S(i) = ( std::abs(S(i)) > maxVal*eps*S0 ) ? 1./S(i) : 0;
-				}
-			});
-			teamMember.team_barrier();
+			int maxVal = (target_NP*_basis_multiplier > _sampling_multiplier*this->getNNeighbors(target_index)) ? target_NP*_basis_multiplier : this->getNNeighbors(target_index)*_sampling_multiplier;
+			double abs_threshold = maxVal*eps*S0;
 
-			for (int i=0; i<this->getNNeighbors(target_index); ++i) {
-				for (int m=0; m<_sampling_multiplier; ++m) {
-					for (int j=0; j<target_NP*_basis_multiplier; ++j) {
-						double  bdataj = 0;
-						Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-								target_NP*_basis_multiplier), [&] (const int k, double &tbdataj) {
-		#if defined(USE_CUSTOM_SVD)
-							tbdataj += Vsvd(j,k)*S(k)*Q(i + m*this->getNNeighbors(target_index),k);
-		#else
-							tbdataj += Vsvd(k,j)*S(k)*Q(i + m*this->getNNeighbors(target_index),k);
-		#endif
-						}, bdataj);
-						Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-							b_data(j,m) = bdataj*std::sqrt(w(i + m*this->getNNeighbors(target_index)));
-						});
-						teamMember.team_barrier();
-					}
-				}
-				teamMember.team_barrier();
+			this->applySVD(teamMember, b_data, t1, Q, S, Vsvd, w, P_target_row, target_NP, abs_threshold);
 
-				for (int j=0; j<_operations.size(); ++j) {
-					for (int k=0; k<_lro_output_tile_size[j]; ++k) {
-						for (int m=0; m<_lro_input_tile_size[j]; ++m) {
-							double alpha_ij = 0;
-							Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-									_basis_multiplier*target_NP), [=] (const int l, double &talpha_ij) {
-								if (_sampling_multiplier>1 && m<_sampling_multiplier) {
-									talpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*b_data(l,m);
-								} else if (_sampling_multiplier == 1) {
-									talpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*b_data(l,0);
-								} else {
-									talpha_ij += 0;
-								}
-							}, alpha_ij);
-							Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-								_alphas(target_index, (_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k)*_neighbor_lists(target_index,0) + i) = alpha_ij;
-							});
-							teamMember.team_barrier();
-						}
-					}
-				}
-
-				teamMember.team_barrier();
-			}
 		} else {
 			// PsqrtW contains valid entries if _poly_order == _manifold_poly_order
 			// However, if they differ, then they must be recomputed
@@ -2188,32 +2079,8 @@ void GMLS::operator()(const member_type& teamMember) const {
 			GMLS_LinearAlgebra::GivensQR(teamMember, t1, t2, Q, PsqrtW, _basis_multiplier*target_NP, _sampling_multiplier*this->getNNeighbors(target_index) /* custom # of rows*/);
 			teamMember.team_barrier();
 
-			// gives GMLS coefficients for gradient using basis defined on reduced space
-			GMLS_LinearAlgebra::upperTriangularBackSolve(teamMember, t1, t2, PsqrtW, Q, w, _basis_multiplier*target_NP, _sampling_multiplier*this->getNNeighbors(target_index)); // stores solution in R
-			teamMember.team_barrier();
+			this->applyQR(teamMember, t1, t2, Q, PsqrtW, w, P_target_row, target_NP); 
 
-			for (int i=0; i<this->getNNeighbors(target_index); ++i) {
-				for (int j=0; j<_operations.size(); ++j) {
-					for (int k=0; k<_lro_output_tile_size[j]; ++k) {
-						for (int m=0; m<_lro_input_tile_size[j]; ++m) {
-							double alpha_ij = 0;
-							Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-									_basis_multiplier*target_NP), [=] (const int l, double &talpha_ij) {
-								if (_sampling_multiplier>1 && m<_sampling_multiplier) {
-									talpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*Q(i + m*this->getNNeighbors(target_index),l);
-								} else if (_sampling_multiplier == 1) {
-									talpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*Q(i,l);
-								} else {
-									talpha_ij += 0;
-								}
-							}, alpha_ij);
-							Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-								_alphas(target_index, (_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k)*_neighbor_lists(target_index,0) + i) = alpha_ij;
-							});
-						}
-					}
-				}
-			}
 		}
 	} else { // SVD
 
@@ -2225,7 +2092,7 @@ void GMLS::operator()(const member_type& teamMember) const {
 		scratch_matrix_type U(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1);
 		scratch_matrix_type V(teamMember.team_scratch(_scratch_team_level_b), _NP, _NP);
 		scratch_vector_type S(teamMember.team_scratch(_scratch_team_level_b), _NP);
-		scratch_vector_type b_data(teamMember.team_scratch(_scratch_team_level_a), _NP);
+		scratch_matrix_type b_data(teamMember.team_scratch(_scratch_team_level_a), _NP, _sampling_multiplier);
 		scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_a), _neighbor_lists.dimension_1()-1);
 		scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_a), _neighbor_lists.dimension_1()-1);
 		scratch_vector_type w(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1);
@@ -2239,63 +2106,22 @@ void GMLS::operator()(const member_type& teamMember) const {
 		this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions, _poly_order, true /* weight with W */, NULL /*&V*/, NULL /*&T*/, _polynomial_sampling_functional);
 
 #if defined(USE_CUSTOM_SVD)
-		GMLS_LinearAlgebra::GolubReinschSVD(teamMember, t1, t2, U, PsqrtW, V, _NP, this->getNNeighbors(target_index));
-		Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-			for (int i=0; i<S.size(); i++) {
-				S(i) = PsqrtW(i,i);
-			}
-		});
+		GMLS_LinearAlgebra::GolubReinschSVD(teamMember, t1, t2, PsqrtW, U, S, V, _NP, this->getNNeighbors(target_index));
 #else
 		this->computeSVD(teamMember, U, S, V, PsqrtW, _NP, this->getNNeighbors(target_index)); // V is V'
 #endif
 		teamMember.team_barrier();
 
-//		// now use S as S inverse
-		double S0 = S(0);
-		double eps = 1e-18;
-		Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-			for (int i=0; i<S.size(); i++) {
-				int maxVal = (_NP > this->getNNeighbors(target_index)) ? _NP : this->getNNeighbors(target_index);
-				S(i) = ( std::abs(S(i)) > maxVal*eps*S0 ) ? 1./S(i) : 0;
-			}
-		});
-
-		teamMember.team_barrier();
-
 		this->computeTargetFunctionals(teamMember, t1, t2, P_target_row);
 
-		for (int i=0; i<this->getNNeighbors(target_index); ++i) {
+		// absolute threshold for dropping singular values
+		double S0 = S(0);
+		double eps = 1e-18;
+		int maxVal = (_NP > this->getNNeighbors(target_index)) ? _NP : this->getNNeighbors(target_index);
+		double abs_threshold = maxVal*eps*S0;
 
-			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,_NP), [=] (const int j) {
-				double  bdataj = 0;
-				for (int k=0; k<_NP; ++k) {
-#if defined(USE_CUSTOM_SVD)
-					bdataj += V(j,k)*S(k)*U(i,k);
-#else
-					bdataj += V(k,j)*S(k)*U(i,k);
-#endif
-				}
-				bdataj *= std::sqrt(w(i));
-				b_data[j] = bdataj;
-			});
-			//teamMember.team_barrier();
+		this->applySVD(teamMember, b_data, t1, U, S, V, w, P_target_row, _NP, abs_threshold);
 
-			for (int j=0; j<_operations.size(); ++j) {
-				for (int k=0; k<_lro_output_tile_size[j]; ++k) {
-					for (int m=0; m<_lro_input_tile_size[j]; ++m) {
-						double alpha_ij = 0;
-						Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-								_NP), [&] (const int l, double &talpha_ij) {
-							talpha_ij += P_target_row(_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*b_data[l];
-						}, alpha_ij);
-						Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-							_alphas(target_index, (_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k)*_neighbor_lists(target_index,0) + i) = alpha_ij;
-						});
-						teamMember.team_barrier();
-					}
-				}
-			}
-		}
 	}
 	teamMember.team_barrier();
 }
@@ -2356,7 +2182,7 @@ void GMLS::generateAlphas() {
 		team_scratch_size_b += scratch_matrix_type::shmem_size(_NP, _NP); // M_data
 		team_scratch_size_b += scratch_matrix_type::shmem_size(_NP, _NP); // M_inv
 		team_scratch_size_b += scratch_matrix_type::shmem_size(_NP, _NP); // L
-		team_scratch_size_a += scratch_vector_type::shmem_size(_NP); // b_data, used for eachM_data team
+		team_scratch_size_a += scratch_matrix_type::shmem_size(_NP, _sampling_multiplier); // b_data, used for eachM_data team
 		team_scratch_size_a += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t1
 		team_scratch_size_a += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t2
 
@@ -2368,7 +2194,7 @@ void GMLS::generateAlphas() {
 		team_scratch_size_b += scratch_matrix_type::shmem_size(_neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1); // U
 		team_scratch_size_b += scratch_matrix_type::shmem_size(_NP, _NP); // Vt
 		team_scratch_size_b += scratch_vector_type::shmem_size(_NP); // S
-		team_scratch_size_a += scratch_vector_type::shmem_size(_NP); // b_data, used for eachM_data team
+		team_scratch_size_a += scratch_matrix_type::shmem_size(_NP, _sampling_multiplier); // b_data, used for eachM_data team
 		team_scratch_size_a += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t1 work vector for qr
 		team_scratch_size_a += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t2 work vector for qr
 
@@ -2530,6 +2356,173 @@ void GMLS::generate1DQuadrature() {
 
     Kokkos::deep_copy(_quadrature_weights, quadrature_weights);
     Kokkos::deep_copy(_parameterized_quadrature_sites, parameterized_quadrature_sites);
+}
+
+KOKKOS_INLINE_FUNCTION
+void GMLS::applySVD(const member_type& teamMember, scratch_matrix_type b_data, scratch_vector_type t1, scratch_matrix_type U, scratch_vector_type S, scratch_matrix_type V, scratch_vector_type w, scratch_matrix_type P_target_row, const int target_NP, const double abs_threshold) const {
+
+	const int target_index = teamMember.league_rank();
+
+	// t1 takes on the role of S inverse
+	for (int i=0; i<target_NP*_basis_multiplier; i++) {
+		t1(i) = ( std::abs(S(i)) > abs_threshold ) ? 1./S(i) : 0;
+	}
+
+	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutRight>::value) {
+		// CPU
+		for (int i=0; i<this->getNNeighbors(target_index); ++i) {
+
+			for (int m=0; m<_sampling_multiplier; ++m) {
+				for (int j=0; j<target_NP*_basis_multiplier; ++j) {
+					double  bdataj = 0;
+					Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
+							target_NP*_basis_multiplier), [&] (const int k, double &tbdataj) {
+		#if defined(USE_CUSTOM_SVD)
+						tbdataj += V(j,k)*t1(k)*U(i + m*this->getNNeighbors(target_index),k);
+		#else
+						tbdataj += V(k,j)*t1(k)*U(i + m*this->getNNeighbors(target_index),k);
+		#endif
+					}, bdataj);
+					Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+						b_data(j,m) = bdataj*std::sqrt(w(i + m*this->getNNeighbors(target_index)));
+					});
+					teamMember.team_barrier();
+				}
+			}
+			teamMember.team_barrier();
+
+
+			for (int j=0; j<_operations.size(); ++j) {
+				for (int k=0; k<_lro_output_tile_size[j]; ++k) {
+					for (int m=0; m<_lro_input_tile_size[j]; ++m) {
+
+						const int column = (_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k)*_neighbor_lists(target_index,0) + i;
+
+						double alpha_ij = 0;
+						Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
+								_basis_multiplier*target_NP), [=] (const int l, double &talpha_ij) {
+							if (_sampling_multiplier>1 && m<_sampling_multiplier) {
+								talpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*b_data(l,m);
+							} else if (_sampling_multiplier == 1) {
+								talpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*b_data(l,0);
+							} else {
+								talpha_ij += 0;
+							}
+						}, alpha_ij);
+						Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+							// not optimal for LayoutLeft
+							_alphas(target_index, column) = alpha_ij;
+						});
+						teamMember.team_barrier();
+					}
+				}
+			}
+
+			teamMember.team_barrier();
+		}
+	} else {
+		// GPU
+		for (int i=0; i<this->getNNeighbors(target_index); ++i) {
+			for (int m=0; m<_sampling_multiplier; ++m) {
+				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,target_NP*_basis_multiplier), [=] (const int j) {
+					double  bdataj = 0;
+					for (int k=0; k<target_NP*_basis_multiplier; ++k) {
+	#if defined(USE_CUSTOM_SVD)
+						bdataj += V(j,k)*t1(k)*U(i + m*this->getNNeighbors(target_index),k);
+	#else
+						bdataj += V(k,j)*t1(k)*U(i + m*this->getNNeighbors(target_index),k);
+	#endif
+					}
+					bdataj *= std::sqrt(w(i + m*this->getNNeighbors(target_index)));
+					b_data(j,m) = bdataj;
+				});
+			}
+
+			for (int j=0; j<_operations.size(); ++j) {
+				for (int k=0; k<_lro_output_tile_size[j]; ++k) {
+					for (int m=0; m<_lro_input_tile_size[j]; ++m) {
+
+						const int column = (_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k)*_neighbor_lists(target_index,0) + i;
+
+						double alpha_ij = 0;
+						Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
+								_basis_multiplier*target_NP), [=] (const int l, double &talpha_ij) {
+							if (_sampling_multiplier>1 && m<_sampling_multiplier) {
+								talpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*b_data(l,m);
+							} else if (_sampling_multiplier == 1) {
+								talpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*b_data(l,0);
+							} else {
+								talpha_ij += 0;
+							}
+						}, alpha_ij);
+						Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+							// not optimal for LayoutLeft
+							_alphas(target_index, column) = alpha_ij;
+						});
+						teamMember.team_barrier();
+					}
+				}
+			}
+
+			teamMember.team_barrier();
+		}
+	}
+}
+
+KOKKOS_INLINE_FUNCTION
+void GMLS::applyQR(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type w, scratch_matrix_type P_target_row, const int target_NP) const {
+
+	const int target_index = teamMember.league_rank();
+
+	GMLS_LinearAlgebra::upperTriangularBackSolve(teamMember, t1, t2, Q, R, w, _basis_multiplier*target_NP, _sampling_multiplier*this->getNNeighbors(target_index)); // stores solution in Q
+
+	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutRight>::value) {
+		// CPU
+		for (int i=0; i<this->getNNeighbors(target_index); ++i) {
+			for (int j=0; j<_operations.size(); ++j) {
+				for (int k=0; k<_lro_output_tile_size[j]; ++k) {
+					for (int m=0; m<_lro_input_tile_size[j]; ++m) {
+						double alpha_ij = 0;
+						Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
+							_basis_multiplier*target_NP), [=] (const int l, double &talpha_ij) {
+							if (_sampling_multiplier>1 && m<_sampling_multiplier) {
+								talpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*Q(i + m*this->getNNeighbors(target_index),l);
+							} else if (_sampling_multiplier == 1) {
+								talpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*Q(i,l);
+							} else {
+								talpha_ij += 0;
+							}
+						}, alpha_ij);
+						Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+							_alphas(target_index, (_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k)*_neighbor_lists(target_index,0) + i) = alpha_ij;
+						});
+					}
+				}
+			}
+		}
+	} else {
+		// GPU
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,
+			this->getNNeighbors(target_index)), [=] (const int i) {
+			for (int j=0; j<_operations.size(); ++j) {
+				for (int k=0; k<_lro_output_tile_size[j]; ++k) {
+					for (int m=0; m<_lro_input_tile_size[j]; ++m) {
+						double alpha_ij = 0;
+						if (_sampling_multiplier>1 && m<_sampling_multiplier) {
+							for (int l=0; l<_basis_multiplier*target_NP; ++l) {
+								alpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*Q(i + m*this->getNNeighbors(target_index),l);
+							}
+						} else if (_sampling_multiplier == 1) {
+							for (int l=0; l<_basis_multiplier*target_NP; ++l) {
+								alpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*Q(i,l);
+							}
+						} 
+						_alphas(target_index, (_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k)*_neighbor_lists(target_index,0) + i) = alpha_ij;
+					}
+				}
+			}
+		});
+	}
 }
 
 #endif

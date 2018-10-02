@@ -6,7 +6,7 @@
 namespace GMLS_LinearAlgebra {
 
 KOKKOS_INLINE_FUNCTION
-void upperTriangularBackSolve(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type R, scratch_matrix_type Q, scratch_vector_type w, int columns, int rows) {
+void upperTriangularBackSolve(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type w, int columns, int rows) {
 
 	/*
 	 * Backsolves R against rows of Q, scaling each row of Q by a factor of sqrt(W(that row))
@@ -1183,7 +1183,7 @@ void GolubKahanSVD(const member_type& teamMember, scratch_vector_type t1, scratc
 }
 
 KOKKOS_INLINE_FUNCTION
-void GolubReinschSVD(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type U, scratch_matrix_type B, scratch_matrix_type V, const int columns, const int rows) {
+void GolubReinschSVD(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type B, scratch_matrix_type U,  scratch_vector_type S, scratch_matrix_type V, const int columns, const int rows) {
 	const int target_index = teamMember.league_rank();
 
 //	Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
@@ -1482,6 +1482,13 @@ void GolubReinschSVD(const member_type& teamMember, scratch_vector_type t1, scra
 		});
 		teamMember.team_barrier();
 	}
+
+	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,columns), [=] (const int i) {
+		S(i) = B(i,i);
+	});
+	teamMember.team_barrier();
+
+
 
 //	Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
 //		// checks for any nonzeros off of diagonal and superdiaganal entries

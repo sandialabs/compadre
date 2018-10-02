@@ -58,7 +58,7 @@ namespace GMLS_LinearAlgebra {
     void invertM(const member_type& teamMember, scratch_vector_type y, scratch_matrix_type M_inv, scratch_matrix_type L, scratch_matrix_type M_data, const int columns);
 
 	KOKKOS_INLINE_FUNCTION
-	void upperTriangularBackSolve(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type R, scratch_matrix_type Q, scratch_vector_type w, int columns, int rows);
+	void upperTriangularBackSolve(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type w, int columns, int rows);
 
 	KOKKOS_INLINE_FUNCTION
 	void GivensQR(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, int columns, int rows);
@@ -85,7 +85,7 @@ namespace GMLS_LinearAlgebra {
     void GolubKahanSVD(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type U, scratch_matrix_type B, scratch_matrix_type V, const int B2b, const int B2e, const int columns, const int rows);
 
     KOKKOS_INLINE_FUNCTION
-    void GolubReinschSVD(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type U, scratch_matrix_type B, scratch_matrix_type V, const int columns, const int rows);
+    void GolubReinschSVD(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type B, scratch_matrix_type U, scratch_vector_type S, scratch_matrix_type V, const int columns, const int rows);
 
 }
 
