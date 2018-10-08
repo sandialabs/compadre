@@ -1,6 +1,7 @@
 # ERROR MESSAGES IF A TEST IS NOT RUN
 SET(SOLVER_SUPPORT_ISSUE "Missing Trilinos linear solver support.")
 SET(CANGA_ENABLED_ISSUE "Canga not enabled. Use CANGA_ENABLED:BOOL=ON to enable.")
+SET(GMLS_SUPPORT_ISSUE "LU solver for GPU not implemented.")
 
 
 ###############
@@ -57,6 +58,12 @@ if (GMLS_EXAMPLES)
     
     ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim1HostViewsLU COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos_HostViews "4" "200" "1" "2" "--kokkos-threads=1")
     SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim1HostViewsLU PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+
+    IF (KOKKOS_INTERNAL_USE_CUDA EQUAL "1")
+      SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim3HostViewsLU PROPERTIES REQUIRED_FILES ${GMLS_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim2HostViewsLU PROPERTIES REQUIRED_FILES ${GMLS_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim1HostViewsLU PROPERTIES REQUIRED_FILES ${GMLS_SUPPORT_ISSUE})
+    ENDIF()
 
     # Device views tests for GMLS
 

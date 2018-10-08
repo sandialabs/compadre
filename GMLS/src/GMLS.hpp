@@ -295,10 +295,10 @@ protected:
 	void applySVD(const member_type& teamMember, scratch_matrix_type b_data, scratch_vector_type t1, scratch_matrix_type U, scratch_vector_type S, scratch_matrix_type V, scratch_vector_type w, scratch_matrix_type P_target_row, const int target_NP, const double abs_threshold) const;
 
     KOKKOS_INLINE_FUNCTION
-	void applyMInv(const member_type& teamMember, scratch_vector_type b_data, scratch_matrix_type MInv, scratch_matrix_type P, scratch_vector_type w) const;
+	void applyQR(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type w, scratch_matrix_type P_target_row, const int target_NP) const;
 
     KOKKOS_INLINE_FUNCTION
-	void applyQR(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type w, scratch_matrix_type P_target_row, const int target_NP) const;
+	void applyMInverse(const member_type& teamMember, scratch_matrix_type b_data, scratch_matrix_type MInv, scratch_matrix_type PsqrtW, scratch_vector_type w, scratch_matrix_type P_target_row, const int target_NP) const;
 
     void generateLaplacianAlpha(const int target_index);
 
