@@ -8,6 +8,10 @@
 
 #include "GMLS_Config.h"
 
+#ifdef COMPADRE_USE_MPI
+#include <mpi.h>
+#endif
+
 #ifdef COMPADRE_USE_KOKKOSCORE
 #include "GMLS.hpp"
 #include <Kokkos_Timer.hpp>
@@ -212,6 +216,11 @@ double curlTestSolution(double x, double y, double z, int component, int dimensi
 
 int main (int argc, char* args[])
 {
+
+#ifdef COMPADRE_USE_MPI
+	MPI_Init(&argc, &args);
+#endif
+
 #if defined(COMPADRE_USE_KOKKOSCORE)
 
 {
@@ -542,6 +551,10 @@ int main (int argc, char* args[])
 }
 
     Kokkos::finalize();
+#ifdef COMPADRE_USE_MPI
+    MPI_Finalize();
+#endif
+
     return 0;
 #else // Kokkos
     return -1;

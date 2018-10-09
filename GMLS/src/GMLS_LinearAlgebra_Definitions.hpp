@@ -36,7 +36,7 @@ void upperTriangularBackSolve(const member_type& teamMember, scratch_vector_type
 
 			// this Q entry is known part of solution being subtracted from rhs
 			// Q(index, i) is rhs, and Q(index, j) for j>i is known solution stored in Q
-			for (int j=columns-1; j>i; --j) {
+			for (int j=i+1; j<columns; ++j) {
 				t1(index) -= Q(index,j) * t2(j);
 			}
 
@@ -410,12 +410,25 @@ void HouseholderQR(const member_type& teamMember, scratch_vector_type t1, scratc
 
 	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
 		for(int j = 0; j < rows; ++j) {
-			Q(i,j) = (i==j) ? 1 : 0;
+			Q(ORDER_INDICES(i,j)) = (i==j) ? 1 : 0;
 		}
 	});
 	teamMember.team_barrier();
 
+	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+		// transpose R
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+			for(int j = 0; j < i; ++j) {
+				double tmp = R(i,j);
+				R(i,j) = R(j,i);
+				R(j,i) = tmp;
+			}
+		});
+	}
+
 	for (int j = 0; j<columns; j++) {
+
+		teamMember.team_barrier();
 
 		double normx = 0;
 		Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,j,rows), [&] (const int i, double &temp_normx) {
@@ -434,11 +447,12 @@ void HouseholderQR(const member_type& teamMember, scratch_vector_type t1, scratc
 
 		double tau = -s*u1/normx;
 
+		teamMember.team_barrier();
+
 		// outer product of tau*w and w'*R(j:end,:)
 		// t1 is w, so use it to get w'*R(j:end,:)
 		// t2 is 1 by n
-
-		for (int k=0; k<columns; k++) {
+		for (int k=j; k<columns; k++) {
 			double t2k = 0;
 			Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,j,rows), [=] (const int l, double &temp_t2k) {
 				temp_t2k += t1(l)*R(l,k);
@@ -447,34 +461,63 @@ void HouseholderQR(const member_type& teamMember, scratch_vector_type t1, scratc
 				t2(k) = t2k;
 			});
 		}
+		teamMember.team_barrier();
 
+
+		// only the diagonal of column j is affected
+		// the remainder is left intact (even though it is effectively zeroed out)
+		Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
+			R(j,j) -= tau*t1(j)*t2(j);
+			t2(j) = tau; // t2 carries all tau's when completed
+			// t1(j) is never changed again so t1 carries the first entry of each projector vector
+		});
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j+1,rows), [=] (const int k) {
+			R(k,j) = t1(k); // columns of R below the diagonal carry the remainder of each projector vector
+		});
+		teamMember.team_barrier();
+		// at this point, we have access to all parts of the projectors in R below the diagonal,
+		// and in t1, with taus in t2
+
+
+		// apply projector to remainder of R
 		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j,rows), [=] (const int k) {
-			for (int l=0; l<columns; l++) {
+			for (int l=j+1; l<columns; l++) {
 				R(k,l) -= tau*t1(k)*t2(l);
 			}
 		});
+		teamMember.team_barrier();
+	}
 
-		//// reuse t2 to be n by 1
-		// outer product of Q*w and tau*w
+	// demonstrates that R below diagonal, t1, and t2 contain all projector data along with taus
+	// and it works
+	for (int j = 0; j<columns; j++) {
 		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k) {
-			double t2k = 0;
-			for (int l=j; l<rows; l++) {
-				t2k += Q(k,l)*t1(l);
+		// reuse t2 to be n by 1
+		// outer product of Q*w and tau*w
+
+			double t2k = Q(k,j)*t1(j);
+			for (int l=j+1; l<rows; l++) {
+				t2k += Q(k,l)*R(l,j);
 			}
-			for (int l=j; l<rows; l++) {
-				Q(k,l) -= t2k*tau*t1(l);
+
+			Q(k,j) -= t2k*t2(j)*t1(j);
+			for (int l=j+1; l<rows; l++) {
+				Q(k,l) -= t2k*t2(j)*R(l,j);
 			}
 		});
 	}
 
-	//Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
-	//	for (int k=0; k<m; k++) {
-	//		for (int l=0; l<n; l++) {
-		//                        if (std::abs(R(k,l))>1e-13)
-	//			printf("%i %i %0.16f\n", k, l, R(k,l) );// << " " << l << " " << R(k,l) << std::endl;
-	//		}
-	//	}
-	//});
+	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+		// transpose R
+		teamMember.team_barrier();
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+			for(int j = 0; j < i; ++j) {
+				double tmp = R(i,j);
+				R(i,j) = R(j,i);
+				R(j,i) = tmp;
+			}
+		});
+	}
 }
 
 KOKKOS_INLINE_FUNCTION
