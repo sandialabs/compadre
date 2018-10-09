@@ -602,6 +602,7 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
 		if (_is_lagrangian) halo_pts_physical = Teuchos::rcp(new mvec_type(halo_map, _nDim, setToZero));
 		halo_importer = Teuchos::rcp(new importer_type(map, halo_map));
 		setLocalN(this->nLocalMax(true /*for halo*/), true /*for halo*/);
+		haloGraphTime->stop();
 		return;
 	}
 

@@ -164,6 +164,7 @@ int main (int argc, char* args[]) {
 			fm.setWriter(output_filename, peer_processors_particles);
 			fm.write();
 		}
+		MiscTime->stop();
 	}
 
 

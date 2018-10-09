@@ -324,6 +324,7 @@ int main (int argc, char* args[]) {
 				}
 			}
 		 }
+		MiscTime->stop();
 	}
 	//if (comm->getRank()==0) parameters->print();
 	Teuchos::TimeMonitor::summarize();

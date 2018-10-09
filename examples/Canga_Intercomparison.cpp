@@ -99,7 +99,6 @@ int main (int argc, char* args[]) {
 	Teuchos::RCP<Teuchos::Time> NormTime = Teuchos::TimeMonitor::getNewCounter ("Norm calculation");
 	Teuchos::RCP<Teuchos::Time> CoordinateInsertionTime = Teuchos::TimeMonitor::getNewCounter ("Coordinate Insertion Time");
 	Teuchos::RCP<Teuchos::Time> ParticleInsertionTime = Teuchos::TimeMonitor::getNewCounter ("Particle Insertion Time");
-	Teuchos::RCP<Teuchos::Time> NeighborSearchTime = Teuchos::TimeMonitor::getNewCounter ("Neighbor Search Time");
 	Teuchos::RCP<Teuchos::Time> ReadTime = Teuchos::TimeMonitor::getNewCounter ("Read Time");
 
 	//********* BASIC PARAMETER SETUP FOR ANY PROBLEM
@@ -516,6 +515,7 @@ int main (int argc, char* args[]) {
 			}
 
 		}
+		MiscTime->stop();
 	}
 
 

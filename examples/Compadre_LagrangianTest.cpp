@@ -40,7 +40,7 @@ int main (int argc, char* args[]) {
 	Teuchos::RCP<Teuchos::Time> NormTime = Teuchos::TimeMonitor::getNewCounter ("Norm calculation");
 	Teuchos::RCP<Teuchos::Time> CoordinateInsertionTime = Teuchos::TimeMonitor::getNewCounter ("Coordinate Insertion Time");
 	Teuchos::RCP<Teuchos::Time> ParticleInsertionTime = Teuchos::TimeMonitor::getNewCounter ("Particle Insertion Time");
-	Teuchos::RCP<Teuchos::Time> NeighborSearchTime = Teuchos::TimeMonitor::getNewCounter ("Neighbor Search Time");
+	Teuchos::RCP<Teuchos::Time> NeighborSearchTime = Teuchos::TimeMonitor::getNewCounter ("Lagrangian - Neighbor Search Time");
 
 	//********* BASIC PARAMETER SETUP FOR ANY PROBLEM
 	ParameterTime->start();
@@ -216,6 +216,8 @@ int main (int argc, char* args[]) {
 
 					rm->execute(false /* don't keep neighborhoods */, false /* use material coords to form neighborhoods */);
 
+					MiscTime->stop();
+					NormTime->start();
 					std::vector<Compadre::XyzVector> verts_screwed_up;
 					{
 					 	// point by point check to see how far off from correct value
@@ -291,13 +293,12 @@ int main (int argc, char* args[]) {
 
 
 
-					MiscTime->stop();
 					ParticleInsertionTime->start();
 
 					particles->insertParticles(verts_to_insert, 0.0 /*rebuilt halo size*/, false /*repartition*/, false /*insert_physical_coords*/, false /*repartition_with_physical_coords*/);
 					ParticleInsertionTime->stop();
 
-					NormTime->start();
+					NormTime->stop();
 					particles->getFieldManager()->updateFieldsHaloData();
 				}
 
@@ -477,13 +478,13 @@ int main (int argc, char* args[]) {
 						TEUCHOS_TEST_FOR_EXCEPT_MSG(global_norm_physical_coord > 1e-15, "Physical coordinate error too large (should be exact).");
 					}
 
-					MiscTime->stop();
+					NormTime->stop();
+					MiscTime->start();
 					ParticleInsertionTime->start();
 
 					particles->insertParticles(verts_to_insert);
 //					Part->start();
 					ParticleInsertionTime->stop();
-					NormTime->start();
 					particles->getFieldManager()->updateFieldsHaloData();
 				}
 
@@ -576,6 +577,7 @@ int main (int argc, char* args[]) {
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(global_norm_physical_coord > 1e-15, "Physical coordinate error too large (should be exact).");
 			NormTime->stop();
 		 }
+		MiscTime->stop();
 //		Part->stop();
 	}
 	if (comm->getRank()==0) parameters->print();
