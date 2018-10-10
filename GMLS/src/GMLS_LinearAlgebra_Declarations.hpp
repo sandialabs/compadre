@@ -16,9 +16,20 @@ typedef boost::numeric::ublas::matrix<double,boost::numeric::ublas::column_major
 #endif
 
 #ifdef COMPADRE_USE_LAPACK
+
+// forms U,s,V from A
 extern "C" void dgesvd_( char* jobu, char* jobvt, int* m, int* n, double* a,
                 int* lda, double* s, double* u, int* ldu, double* vt, int* ldvt,
                 double* work, int* lwork, int* info );
+
+// forms QR from A
+extern "C" int dgeqrf_(int *m, int *n, double *a, int *lda,
+	        double *tau, double *work, int *lwork, int *info);
+
+// forms Q from QR reflectors
+extern "C" int dormqr_( char* side, char* trans, int *m, int *n, int *k, double *a, 
+                int *lda, double *tau, double *c, int *ldc, double *work, int *lwork, int *info);
+
 #endif
 
 #ifdef COMPADRE_USE_KOKKOSCORE
@@ -43,6 +54,9 @@ typedef Kokkos::View<double**, layout_type, Kokkos::DefaultExecutionSpace::scrat
 typedef Kokkos::View<double*, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_vector_type;
 typedef Kokkos::View<int*, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_local_index_type;
 
+typedef std::conditional<std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutRight>::value,
+                         Kokkos::LayoutLeft, Kokkos::LayoutRight>::type reverse_layout_type;
+
 namespace GMLS_LinearAlgebra {
 
 	KOKKOS_INLINE_FUNCTION
@@ -52,7 +66,7 @@ namespace GMLS_LinearAlgebra {
 	void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_matrix_type weighted_P, const int columns, const int rows);
 
 	KOKKOS_INLINE_FUNCTION
-	void computeSVD(const member_type& teamMember, scratch_matrix_type U, scratch_vector_type S, scratch_matrix_type Vt, scratch_matrix_type P, const int columns, const int rows);
+	void computeSVD(const member_type& teamMember, scratch_matrix_type U, scratch_vector_type S, scratch_matrix_type Vt, scratch_matrix_type P, int columns, int rows);
 
     KOKKOS_INLINE_FUNCTION
     void invertM(const member_type& teamMember, scratch_vector_type y, scratch_matrix_type M_inv, scratch_matrix_type L, scratch_matrix_type M_data, const int columns);
@@ -61,7 +75,7 @@ namespace GMLS_LinearAlgebra {
 	void upperTriangularBackSolve(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type w, int columns, int rows);
 
 	KOKKOS_INLINE_FUNCTION
-	void GivensQR(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, int columns, int rows);
+	void GivensQR(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_vector_type t3, scratch_matrix_type Q, scratch_matrix_type R, int columns, int rows);
 
 	KOKKOS_INLINE_FUNCTION
 	void HouseholderQR(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, const int columns, const int rows);
@@ -87,6 +101,8 @@ namespace GMLS_LinearAlgebra {
     KOKKOS_INLINE_FUNCTION
     void GolubReinschSVD(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type B, scratch_matrix_type U, scratch_vector_type S, scratch_matrix_type V, const int columns, const int rows);
 
+    KOKKOS_INLINE_FUNCTION
+    void matrixToLayoutLeft(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type A, const int columns, const int rows);
 }
 
 #endif

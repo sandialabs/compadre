@@ -1554,6 +1554,7 @@ void GMLS::operator()(const member_type& teamMember) const {
 		scratch_matrix_type Q(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1); // Q triangular
 		scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_a), _neighbor_lists.dimension_1()-1);
 		scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_a), _neighbor_lists.dimension_1()-1);
+		scratch_vector_type t3(teamMember.team_scratch(_scratch_team_level_b), 32*(_neighbor_lists.dimension_1()-1));
 		scratch_vector_type w(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1);
 
 		// delta is a temporary variable that preallocates space on which solutions of size _NP will
@@ -1564,7 +1565,7 @@ void GMLS::operator()(const member_type& teamMember) const {
 		this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions, _poly_order, true /*weight_p*/, NULL /*&V*/, NULL /*&T*/, _polynomial_sampling_functional);
 
 		// GivensQR is faster than Householder on GPU and CPU
-		GMLS_LinearAlgebra::GivensQR(teamMember, t1, t2, Q, PsqrtW, _NP, this->getNNeighbors(target_index));
+		GMLS_LinearAlgebra::GivensQR(teamMember, t1, t2, t3, Q, PsqrtW, _NP, this->getNNeighbors(target_index));
 
 		teamMember.team_barrier();
 
@@ -1774,7 +1775,7 @@ void GMLS::operator()(const member_type& teamMember) const {
 		// creates the matrix sqrt(W)*P
 		this->createWeightsAndPForCurvature(teamMember, delta, PsqrtW, w, _dimensions-1, false /* only specific order */, &V);
 
-		GMLS_LinearAlgebra::GivensQR(teamMember, t1, t2, Q, PsqrtW, manifold_NP, this->getNNeighbors(target_index));
+		GMLS_LinearAlgebra::GivensQR(teamMember, t1, t2, t2, Q, PsqrtW, manifold_NP, this->getNNeighbors(target_index));
 		teamMember.team_barrier();
 
 		// gives GMLS coefficients for gradient using basis defined on reduced space
@@ -1972,7 +1973,7 @@ void GMLS::operator()(const member_type& teamMember) const {
 			// However, if they differ, then they must be recomputed
 			this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions-1, _poly_order, true /* weight with W*/, &V, &T, _polynomial_sampling_functional);
 
-			GMLS_LinearAlgebra::GivensQR(teamMember, t1, t2, Q, PsqrtW, _basis_multiplier*target_NP, _sampling_multiplier*this->getNNeighbors(target_index) /* custom # of rows*/);
+			GMLS_LinearAlgebra::GivensQR(teamMember, t1, t2, t2, Q, PsqrtW, _basis_multiplier*target_NP, _sampling_multiplier*this->getNNeighbors(target_index) /* custom # of rows*/);
 			teamMember.team_barrier();
 
 			this->applyQR(teamMember, t1, t2, Q, PsqrtW, w, P_target_row, target_NP); 
@@ -2004,7 +2005,7 @@ void GMLS::operator()(const member_type& teamMember) const {
 #if defined(USE_CUSTOM_SVD)
 		GMLS_LinearAlgebra::GolubReinschSVD(teamMember, t1, t2, PsqrtW, U, S, V, _NP, this->getNNeighbors(target_index));
 #else
-		this->computeSVD(teamMember, U, S, V, PsqrtW, _NP, this->getNNeighbors(target_index)); // V is V'
+		GMLS_LinearAlgebra::computeSVD(teamMember, U, S, V, PsqrtW, _NP, this->getNNeighbors(target_index)); // V is V'
 #endif
 		teamMember.team_barrier();
 
@@ -2137,10 +2138,11 @@ void GMLS::generateAlphas() {
 
 	} else  { // QR
 		team_scratch_size_b += scratch_matrix_type::shmem_size(max_neighbors_or_basis, max_neighbors_or_basis); // P matrix, only _neighbor_lists.dimension_1()-1 x _NP needed, but may need to be transposed
-		team_scratch_size_b += scratch_matrix_type::shmem_size(_neighbor_lists.dimension_1()-1, _NP); // R matrix
+		//team_scratch_size_b += scratch_matrix_type::shmem_size(_neighbor_lists.dimension_1()-1, _NP); // R matrix
 		team_scratch_size_b += scratch_matrix_type::shmem_size(_neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1); // Q
 		team_scratch_size_a += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t1 work vector for qr
 		team_scratch_size_a += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t2 work vector for qr
+		team_scratch_size_b += scratch_vector_type::shmem_size(32*(_neighbor_lists.dimension_1()-1)); // t3 work vector for qr
 
 		team_scratch_size_b += scratch_matrix_type::shmem_size(_NP*_total_alpha_values, _sampling_multiplier); // row of P matrix, one for each operator
 

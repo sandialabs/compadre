@@ -118,7 +118,7 @@ void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_
 }
 
 KOKKOS_INLINE_FUNCTION
-void computeSVD(const member_type& teamMember, scratch_matrix_type U, scratch_vector_type S, scratch_matrix_type Vt, scratch_matrix_type P, const int columns, const int rows) {
+void computeSVD(const member_type& teamMember, scratch_matrix_type U, scratch_vector_type S, scratch_matrix_type Vt, scratch_matrix_type P, int columns, int rows) {
 #if not(defined(KOKKOS_ENABLE_CUDA)) && defined(COMPADRE_USE_LAPACK) && defined(COMPADRE_USE_BOOST)
 
 	Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
@@ -300,7 +300,110 @@ void invertM(const member_type& teamMember, scratch_vector_type y, scratch_matri
 }
 
 KOKKOS_INLINE_FUNCTION
-void GivensQR(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, int columns, int rows) {
+void GivensQR(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_vector_type t3, scratch_matrix_type Q, scratch_matrix_type R, int columns, int rows) {
+
+#if not(defined(KOKKOS_ENABLE_CUDA)) && defined(COMPADRE_USE_LAPACK) && defined(COMPADRE_USE_BOOST)
+
+	const int target_index = teamMember.league_rank();
+
+	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+		for(int j = 0; j < rows; ++j) {
+			Q(ORDER_INDICES(i,j)) = (i==j) ? 1 : 0;
+		}
+	});
+	teamMember.team_barrier();
+
+	Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+
+		/* Locals */
+		int lda = R.dimension_0();
+		int info, lwork;
+		double wkopt;
+
+		// LAPACK calls use Fortran data layout for matrices so we use boost to get smart pointer wrappers and avoid
+		// manual indexing
+
+		// temporary copy of data to put into Fortran layout
+		//printf("%d by %d, %d a %d\n", R.dimension_0(), R.dimension_1(), rows, columns);
+		//boost_matrix_fortran_type P_data_boost(R.dimension_0(), R.dimension_1());
+		//for(int k = 0; k < rows; k++){
+		//	for(int l = 0; l < columns; l++){
+		//		P_data_boost(k,l) = R(k,l);
+		//	}
+		//}
+
+		GMLS_LinearAlgebra::matrixToLayoutLeft(teamMember, t1, t2, R, columns, rows);
+
+		// indicates seeking optimal workspace size for performing QR decomp
+		lwork = -1;
+
+		// finds workspace size
+		//dgeqrf_(&rows, &columns, &P_data_boost(0,0), &lda,
+		//        (double *)t1.data(), &wkopt, &lwork, &info);
+		dgeqrf_(&rows, &columns, (double *)R.data(), &lda,
+		        (double *)t1.data(), &wkopt, &lwork, &info);
+
+
+		// allocates space needed to perform QR
+		lwork = (int)wkopt;
+		// check that the length of t3 is greater than needed scratch space
+
+		// computes QR
+		//dgeqrf_(&rows, &columns, &P_data_boost(0,0), &lda,
+		//        (double *)t1.data(), (double *)t3.data(), &lwork, &info);
+		dgeqrf_(&rows, &columns, (double *)R.data(), &lda,
+		        (double *)t1.data(), (double *)t3.data(), &lwork, &info);
+
+		// indicates seeking optimal workspace size for reconstructing Q
+		lwork = -1;
+
+		if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutRight>::value) { 
+			// transposes Q since the Q expected would be LayoutLeft
+			//dormqr_( (char *)"L", (char *)"T", &rows, &rows, 
+                	//         &columns, &P_data_boost(0,0), &rows, (double *)t1.data(), 
+                	//         (double *)Q.data(), &rows, &wkopt, &lwork, &info);
+			dormqr_( (char *)"L", (char *)"T", &rows, &rows, 
+                	         &columns, (double *)R.data(), &rows, (double *)t1.data(), 
+                	         (double *)Q.data(), &rows, &wkopt, &lwork, &info);
+		} else {
+			//dormqr_( (char *)"L", (char *)"N", &rows, &rows, 
+                	//         &columns, &P_data_boost(0,0), &rows, (double *)t1.data(), 
+                	//         (double *)Q.data(), &rows, &wkopt, &lwork, &info);
+		}
+
+		lwork = (int)wkopt;
+		// check that the length of t3 is greater than needed scratch space
+
+		if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutRight>::value) { 
+			// transposes Q since the Q expected would be LayoutLeft
+			//dormqr_( (char *)"L", (char *)"T", &rows, &rows, 
+                	//         &columns, &P_data_boost(0,0), &rows, (double *)t1.data(), 
+                	//         (double *)Q.data(), &rows, (double *)t3.data(), &lwork, &info);
+			dormqr_( (char *)"L", (char *)"T", &rows, &rows, 
+                	         &columns, (double *)R.data(), &rows, (double *)t1.data(), 
+                	         (double *)Q.data(), &rows, (double *)t3.data(), &lwork, &info);
+		} else {
+			//dormqr_( (char *)"L", (char *)"N", &rows, &rows, 
+                	//         &columns, &P_data_boost(0,0), &rows, (double *)t1.data(), 
+                	//         (double *)Q.data(), &rows, (double *)t3.data(), &lwork, &info);
+		}
+
+		// check convergence
+		if( info > 0 ) {
+				printf( "The algorithm computing QR failed to converge.\n" );
+				exit( 1 );
+		}
+
+		//for(int k = 0; k < rows; k++){
+		//	for(int l = 0; l < columns; l++){
+		//		R(k,l) = P_data_boost(k,l);
+		//	}
+		//}
+
+		GMLS_LinearAlgebra::matrixToLayoutLeft(teamMember, t1, t2, R, columns, rows);
+
+	});
+#else
 
 	/*
 	 * Performs a QR and overwrites the input matrix with the R matrix
@@ -384,16 +487,18 @@ void GivensQR(const member_type& teamMember, scratch_vector_type t1, scratch_vec
 			}
 		});
 	}
+	//Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
+	//	// checks for any nonzeros off of diagonal and superdiagonal entries
+	//	for (int k=0; k<rows; k++) {
+	//		for (int l=0; l<columns; l++) {
+	//			if (R(k,l)!=0 && target_index==0)
+	//			printf("%i %i %0.16f\n", k, l, R(k,l) );// << " " << l << " " << R(k,l) << std::endl;
+	//		}
+	//	}
+	//});
 
-//	Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
-//		// checks for any nonzeros off of diagonal and superdiagonal entries
-//		for (int k=0; k<m; k++) {
-//			for (int l=0; l<n; l++) {
-//				if (R(k,l)!=0 && target_index==0)
-//				printf("%i %i %0.16f\n", k, l, R(k,l) );// << " " << l << " " << R(k,l) << std::endl;
-//			}
-//		}
-//	});
+#endif
+
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -1542,6 +1647,71 @@ void GolubReinschSVD(const member_type& teamMember, scratch_vector_type t1, scra
 //			}
 //		}
 //	});
+}
+
+KOKKOS_INLINE_FUNCTION
+void matrixToLayoutLeft(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type A, const int columns, const int rows) {
+	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutRight>::value) {
+		int dim_0 = A.dimension_0();
+		int dim_1 = A.dimension_1();
+		int block_size = 3;//std::floor(std::sqrt(t1.dimension_0()));
+		int col_blocks = std::ceil((double)(columns) / block_size);
+		int row_blocks = std::ceil((double)(rows) / block_size);
+		int total_blocks = col_blocks * row_blocks;
+
+		// blocks go left to right, top to bottom
+		
+		// read in by blocks
+		for (int block_num = 0; block_num < total_blocks; ++block_num) {
+			int row_block = block_num / col_blocks;
+			int col_block = block_num % col_blocks;
+			if (row_block >= col_block) {
+				int i_offset  = row_block * block_size;
+				int j_offset  = col_block * block_size;
+
+				int local_block_width  = ((columns - j_offset) < block_size) ? columns - j_offset : block_size;
+				int local_block_height = ((rows - i_offset) < block_size) ? rows - i_offset : block_size;
+
+				// read in block from A
+				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,local_block_width), [=] (const int j) {
+					for(int i = 0; i < local_block_height; ++i) {
+						// read a contiguous column of A into a contiguous section of t1
+						t1(i*block_size + j) = *(A.data() +  (i_offset+i)*dim_1 + (j_offset+j)); // fast read into t1
+					}
+				});
+				teamMember.team_barrier();
+
+				// read in block to be written to, now stored in t1
+				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,local_block_height), [=] (const int i) {
+					for(int j = 0; j < local_block_width; ++j) {
+						// read a contiguous column of A into a contiguous section of t1
+						t2(i*block_size + j) = *(A.data() +  (j_offset+j)*dim_0 + (i_offset+i)); // fast read into t1
+					}
+				});
+				teamMember.team_barrier();
+
+				// write into A from t2
+				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,local_block_width), [=] (const int j) {
+					for(int i = 0; i < local_block_height; ++i) {
+						// read a contiguous column of A into a contiguous section of t1
+						*(A.data() +  (i_offset+i)*dim_1 + (j_offset+j)) = t2(i*block_size + j); // fast read from t2
+					}
+				});
+				teamMember.team_barrier();
+
+				// write into A from t1
+				Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,local_block_height), [=] (const int i) {
+					for(int j = 0; j < local_block_width; ++j) {
+						// read a contiguous column of A into a contiguous section of t1
+						*(A.data() +  (j_offset+j)*dim_0 + (i_offset+i)) = t1(i*block_size + j);
+					}
+				});
+				teamMember.team_barrier();
+
+			}
+		}
+		teamMember.team_barrier();
+	}
 }
 
 };
