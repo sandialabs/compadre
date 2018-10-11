@@ -302,108 +302,107 @@ void invertM(const member_type& teamMember, scratch_vector_type y, scratch_matri
 KOKKOS_INLINE_FUNCTION
 void GivensQR(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_vector_type t3, scratch_matrix_type Q, scratch_matrix_type R, int columns, int rows) {
 
-#if not(defined(KOKKOS_ENABLE_CUDA)) && defined(COMPADRE_USE_LAPACK) && defined(COMPADRE_USE_BOOST)
-
-	const int target_index = teamMember.league_rank();
-
-	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
-		for(int j = 0; j < rows; ++j) {
-			Q(ORDER_INDICES(i,j)) = (i==j) ? 1 : 0;
-		}
-	});
-	teamMember.team_barrier();
-
-	Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-
-		/* Locals */
-		int lda = R.dimension_0();
-		int info, lwork;
-		double wkopt;
-
-		// LAPACK calls use Fortran data layout for matrices so we use boost to get smart pointer wrappers and avoid
-		// manual indexing
-
-		// temporary copy of data to put into Fortran layout
-		//printf("%d by %d, %d a %d\n", R.dimension_0(), R.dimension_1(), rows, columns);
-		//boost_matrix_fortran_type P_data_boost(R.dimension_0(), R.dimension_1());
-		//for(int k = 0; k < rows; k++){
-		//	for(int l = 0; l < columns; l++){
-		//		P_data_boost(k,l) = R(k,l);
-		//	}
-		//}
-
-		GMLS_LinearAlgebra::matrixToLayoutLeft(teamMember, t1, t2, R, columns, rows);
-
-		// indicates seeking optimal workspace size for performing QR decomp
-		lwork = -1;
-
-		// finds workspace size
-		//dgeqrf_(&rows, &columns, &P_data_boost(0,0), &lda,
-		//        (double *)t1.data(), &wkopt, &lwork, &info);
-		dgeqrf_(&rows, &columns, (double *)R.data(), &lda,
-		        (double *)t1.data(), &wkopt, &lwork, &info);
-
-
-		// allocates space needed to perform QR
-		lwork = (int)wkopt;
-		// check that the length of t3 is greater than needed scratch space
-
-		// computes QR
-		//dgeqrf_(&rows, &columns, &P_data_boost(0,0), &lda,
-		//        (double *)t1.data(), (double *)t3.data(), &lwork, &info);
-		dgeqrf_(&rows, &columns, (double *)R.data(), &lda,
-		        (double *)t1.data(), (double *)t3.data(), &lwork, &info);
-
-		// indicates seeking optimal workspace size for reconstructing Q
-		lwork = -1;
-
-		if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutRight>::value) { 
-			// transposes Q since the Q expected would be LayoutLeft
-			//dormqr_( (char *)"L", (char *)"T", &rows, &rows, 
-                	//         &columns, &P_data_boost(0,0), &rows, (double *)t1.data(), 
-                	//         (double *)Q.data(), &rows, &wkopt, &lwork, &info);
-			dormqr_( (char *)"L", (char *)"T", &rows, &rows, 
-                	         &columns, (double *)R.data(), &rows, (double *)t1.data(), 
-                	         (double *)Q.data(), &rows, &wkopt, &lwork, &info);
-		} else {
-			//dormqr_( (char *)"L", (char *)"N", &rows, &rows, 
-                	//         &columns, &P_data_boost(0,0), &rows, (double *)t1.data(), 
-                	//         (double *)Q.data(), &rows, &wkopt, &lwork, &info);
-		}
-
-		lwork = (int)wkopt;
-		// check that the length of t3 is greater than needed scratch space
-
-		if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutRight>::value) { 
-			// transposes Q since the Q expected would be LayoutLeft
-			//dormqr_( (char *)"L", (char *)"T", &rows, &rows, 
-                	//         &columns, &P_data_boost(0,0), &rows, (double *)t1.data(), 
-                	//         (double *)Q.data(), &rows, (double *)t3.data(), &lwork, &info);
-			dormqr_( (char *)"L", (char *)"T", &rows, &rows, 
-                	         &columns, (double *)R.data(), &rows, (double *)t1.data(), 
-                	         (double *)Q.data(), &rows, (double *)t3.data(), &lwork, &info);
-		} else {
-			//dormqr_( (char *)"L", (char *)"N", &rows, &rows, 
-                	//         &columns, &P_data_boost(0,0), &rows, (double *)t1.data(), 
-                	//         (double *)Q.data(), &rows, (double *)t3.data(), &lwork, &info);
-		}
-
-		// check convergence
-		if( info > 0 ) {
-				printf( "The algorithm computing QR failed to converge.\n" );
-				exit( 1 );
-		}
-
-		//for(int k = 0; k < rows; k++){
-		//	for(int l = 0; l < columns; l++){
-		//		R(k,l) = P_data_boost(k,l);
-		//	}
-		//}
-
-		GMLS_LinearAlgebra::matrixToLayoutLeft(teamMember, t1, t2, R, columns, rows);
-
-	});
-#else
+//#if not(defined(KOKKOS_ENABLE_CUDA)) && defined(COMPADRE_USE_LAPACK)
+//	// Works, but not thread safe with MPI + threads calling LAPACK
+//
+//	const int target_index = teamMember.league_rank();
+//
+//	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+//		for(int j = 0; j < rows; ++j) {
+//			Q(ORDER_INDICES(i,j)) = (i==j) ? 1 : 0;
+//		}
+//	});
+//	teamMember.team_barrier();
+//
+//	Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+//
+//		/* Locals */
+//		int lda = rows;//R.dimension_0();
+//		int info, lwork;
+//		double wkopt;
+//
+//		// temporary copy of data to put into Fortran layout
+//		//boost_matrix_fortran_type P_data_boost(R.dimension_0(), R.dimension_1());
+//		boost_matrix_fortran_type P_data_boost(rows, columns);
+//		for(int k = 0; k < rows; k++){
+//		      for(int l = 0; l < columns; l++){
+//		              P_data_boost(k,l) = R(k,l);
+//		      }
+//		}
+//
+//		// LAPACK calls use Fortran data layout so we need LayoutLeft but have LayoutRight
+//		//GMLS_LinearAlgebra::matrixToLayoutLeft(teamMember, t1, t2, R, columns, rows);
+//
+//		// indicates seeking optimal workspace size for performing QR decomp
+//		// not necessary if we already know this, which we do in the size of t3
+//		//lwork = -1;
+//
+//		//// finds workspace size
+//		//dgeqrf_(&rows, &columns, (double *)R.data(), &lda,
+//		//        (double *)t1.data(), &wkopt, &lwork, &info);
+//
+//
+//		// allocates space needed to perform QR
+//		lwork = static_cast<int>(t3.dimension_0());//(int)wkopt;
+//		//lwork = (int)wkopt;
+//		//printf("%d vs %d\n", static_cast<int>(t3.dimension_0()), lwork);
+//
+//		// computes QR
+//		//dgeqrf_(&rows, &columns, (double *)R.data(), &lda,
+//		//        (double *)t1.data(), (double *)t3.data(), &lwork, &info);
+//		dgeqrf_(&rows, &columns, (double *)&P_data_boost(0,0), &lda,
+//		        (double *)t1.data(), (double *)t3.data(), &lwork, &info);
+//
+//		//// indicates seeking optimal workspace size for reconstructing Q
+//		//// not necessary if we already know this, which we do in the size of t3
+//		//lwork = -1;
+//
+//		//if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutRight>::value) { 
+//		//	// transposes Q since the Q expected would be LayoutLeft
+//		//	dormqr_( (char *)"L", (char *)"T", &rows, &rows, 
+//                //	         &columns, (double *)R.data(), &lda, (double *)t1.data(), 
+//                //	         (double *)Q.data(), &rows, &wkopt, &lwork, &info);
+//		//} else {
+//		//	dormqr_( (char *)"L", (char *)"N", &rows, &rows, 
+//                //	         &columns, (double *)R.data(), &lda, (double *)t1.data(), 
+//                //	         (double *)Q.data(), &rows, &wkopt, &lwork, &info);
+//		//}
+//
+//		lwork = static_cast<int>(t3.dimension_0());//(int)wkopt;
+//		//lwork = (int)wkopt;
+//		//printf("%d vs %d\n", static_cast<int>(t3.dimension_0()), lwork);
+//
+//		if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutRight>::value) { 
+//			// transposes Q since the Q expected would be LayoutLeft
+//			//dormqr_( (char *)"L", (char *)"T", &rows, &rows, 
+//                	//         &columns, (double *)R.data(), &lda, (double *)t1.data(), 
+//                	//         (double *)Q.data(), &rows, (double *)t3.data(), &lwork, &info);
+//			dormqr_( (char *)"L", (char *)"T", &rows, &rows, 
+//                	         &columns, (double *)&P_data_boost(0,0), &lda, (double *)t1.data(), 
+//                	         (double *)Q.data(), &rows, (double *)t3.data(), &lwork, &info);
+//		} else {
+//			dormqr_( (char *)"L", (char *)"N", &rows, &rows, 
+//                	         &columns, (double *)R.data(), &lda, (double *)t1.data(), 
+//                	         (double *)Q.data(), &rows, (double *)t3.data(), &lwork, &info);
+//		}
+//
+//		// check convergence
+//		if( info > 0 ) {
+//				printf( "The algorithm computing QR failed to converge.\n" );
+//				exit( 1 );
+//		}
+//		for(int k = 0; k < rows; k++){
+//		      for(int l = 0; l < columns; l++){
+//		              R(k,l) = P_data_boost(k,l);
+//		      }
+//		}
+//
+//		// Put R back into LayoutRight
+//		//GMLS_LinearAlgebra::matrixToLayoutLeft(teamMember, t1, t2, R, columns, rows);
+//
+//	});
+//	teamMember.team_barrier();
+//#else
 
 	/*
 	 * Performs a QR and overwrites the input matrix with the R matrix
@@ -497,7 +496,7 @@ void GivensQR(const member_type& teamMember, scratch_vector_type t1, scratch_vec
 	//	}
 	//});
 
-#endif
+//#endif
 
 }
 
@@ -1652,9 +1651,10 @@ void GolubReinschSVD(const member_type& teamMember, scratch_vector_type t1, scra
 KOKKOS_INLINE_FUNCTION
 void matrixToLayoutLeft(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type A, const int columns, const int rows) {
 	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutRight>::value) {
+
 		int dim_0 = A.dimension_0();
 		int dim_1 = A.dimension_1();
-		int block_size = 3;//std::floor(std::sqrt(t1.dimension_0()));
+		int block_size = std::floor(std::sqrt(t1.dimension_0()));
 		int col_blocks = std::ceil((double)(columns) / block_size);
 		int row_blocks = std::ceil((double)(rows) / block_size);
 		int total_blocks = col_blocks * row_blocks;
@@ -1663,9 +1663,12 @@ void matrixToLayoutLeft(const member_type& teamMember, scratch_vector_type t1, s
 		
 		// read in by blocks
 		for (int block_num = 0; block_num < total_blocks; ++block_num) {
+
 			int row_block = block_num / col_blocks;
 			int col_block = block_num % col_blocks;
+
 			if (row_block >= col_block) {
+
 				int i_offset  = row_block * block_size;
 				int j_offset  = col_block * block_size;
 
@@ -1707,8 +1710,8 @@ void matrixToLayoutLeft(const member_type& teamMember, scratch_vector_type t1, s
 					}
 				});
 				teamMember.team_barrier();
-
 			}
+			teamMember.team_barrier();
 		}
 		teamMember.team_barrier();
 	}

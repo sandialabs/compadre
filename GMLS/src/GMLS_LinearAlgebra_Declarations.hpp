@@ -30,6 +30,9 @@ extern "C" int dgeqrf_(int *m, int *n, double *a, int *lda,
 extern "C" int dormqr_( char* side, char* trans, int *m, int *n, int *k, double *a, 
                 int *lda, double *tau, double *c, int *ldc, double *work, int *lwork, int *info);
 
+// gets optimal block size from LAPACK
+extern "C" int ilaenv_( const int *ipsec, char *name, char *lt, const int *m, const int *n, const int *k, const int *notused);
+
 #endif
 
 #ifdef COMPADRE_USE_KOKKOSCORE

@@ -1554,7 +1554,18 @@ void GMLS::operator()(const member_type& teamMember) const {
 		scratch_matrix_type Q(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1); // Q triangular
 		scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_a), _neighbor_lists.dimension_1()-1);
 		scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_a), _neighbor_lists.dimension_1()-1);
-		scratch_vector_type t3(teamMember.team_scratch(_scratch_team_level_b), 32*(_neighbor_lists.dimension_1()-1));
+#ifdef COMPADRE_USE_LAPACK
+		// find optimal blocksize when using LAPACK in order to allocate workspace needed
+		int ipsec = 1, unused = -1, bnp = _basis_multiplier*_NP, lwork = -1, info = 0; double wkopt = 0;
+		int mnob = max_neighbors_or_basis;
+		dormqr_( (char *)"L", (char *)"T", &mnob, &mnob, 
+                	&bnp, (double *)NULL, &mnob, (double *)NULL, 
+                	(double *)NULL, &mnob, &wkopt, &lwork, &info);
+		int lapack_opt_blocksize = (int)wkopt;
+		scratch_vector_type t3(teamMember.team_scratch(_scratch_team_level_b), lapack_opt_blocksize);
+#else
+		scratch_vector_type t3(teamMember.team_scratch(_scratch_team_level_b), (_neighbor_lists.dimension_1()-1));
+#endif
 		scratch_vector_type w(teamMember.team_scratch(_scratch_team_level_b), _neighbor_lists.dimension_1()-1);
 
 		// delta is a temporary variable that preallocates space on which solutions of size _NP will
@@ -1633,6 +1644,19 @@ void GMLS::operator()(const member_type& teamMember) const {
 
 		scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_b), (_neighbor_lists.dimension_1()-1)*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
 		scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_b), (_neighbor_lists.dimension_1()-1)*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
+
+#ifdef COMPADRE_USE_LAPACK
+		// find optimal blocksize when using LAPACK in order to allocate workspace needed
+		int ipsec = 1, unused = -1, bnp = _basis_multiplier*max_NP, lwork = -1, info = 0; double wkopt = 0;
+		int mnob = max_neighbors_or_basis_manifold;
+		dormqr_( (char *)"L", (char *)"T", &mnob, &mnob, 
+                	&bnp, (double *)NULL, &mnob, (double *)NULL, 
+                	(double *)NULL, &mnob, &wkopt, &lwork, &info);
+		int lapack_opt_blocksize = (int)wkopt;
+		scratch_vector_type t3(teamMember.team_scratch(_scratch_team_level_b), lapack_opt_blocksize);
+#else
+		scratch_vector_type t3(teamMember.team_scratch(_scratch_team_level_b), (_neighbor_lists.dimension_1()-1));
+#endif
 
 		scratch_vector_type manifold_gradient(teamMember.team_scratch(_scratch_team_level_b), (_dimensions-1)*(_neighbor_lists.dimension_1()-1));
 		scratch_vector_type manifold_coeffs(teamMember.team_scratch(_scratch_team_level_b), manifold_NP);
@@ -1775,7 +1799,7 @@ void GMLS::operator()(const member_type& teamMember) const {
 		// creates the matrix sqrt(W)*P
 		this->createWeightsAndPForCurvature(teamMember, delta, PsqrtW, w, _dimensions-1, false /* only specific order */, &V);
 
-		GMLS_LinearAlgebra::GivensQR(teamMember, t1, t2, t2, Q, PsqrtW, manifold_NP, this->getNNeighbors(target_index));
+		GMLS_LinearAlgebra::GivensQR(teamMember, t1, t2, t3, Q, PsqrtW, manifold_NP, this->getNNeighbors(target_index));
 		teamMember.team_barrier();
 
 		// gives GMLS coefficients for gradient using basis defined on reduced space
@@ -1973,7 +1997,7 @@ void GMLS::operator()(const member_type& teamMember) const {
 			// However, if they differ, then they must be recomputed
 			this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions-1, _poly_order, true /* weight with W*/, &V, &T, _polynomial_sampling_functional);
 
-			GMLS_LinearAlgebra::GivensQR(teamMember, t1, t2, t2, Q, PsqrtW, _basis_multiplier*target_NP, _sampling_multiplier*this->getNNeighbors(target_index) /* custom # of rows*/);
+			GMLS_LinearAlgebra::GivensQR(teamMember, t1, t2, t3, Q, PsqrtW, _basis_multiplier*target_NP, _sampling_multiplier*this->getNNeighbors(target_index) /* custom # of rows*/);
 			teamMember.team_barrier();
 
 			this->applyQR(teamMember, t1, t2, Q, PsqrtW, w, P_target_row, target_NP); 
@@ -2122,6 +2146,20 @@ void GMLS::generateAlphas() {
 		team_scratch_size_b += scratch_vector_type::shmem_size( (_dimensions-1)*manifold_NP ); // manifold_coeffs
 		team_scratch_size_b += scratch_vector_type::shmem_size((_neighbor_lists.dimension_1()-1)*std::max(_sampling_multiplier,_basis_multiplier)); // t1 work vector for qr
 		team_scratch_size_b += scratch_vector_type::shmem_size((_neighbor_lists.dimension_1()-1)*std::max(_sampling_multiplier,_basis_multiplier)); // t2 work vector for qr
+
+#ifdef COMPADRE_USE_LAPACK
+		// find optimal blocksize when using LAPACK in order to allocate workspace needed
+		int ipsec = 1, unused = -1, bnp = _basis_multiplier*max_NP, lwork = -1, info = 0; double wkopt = 0;
+		int mnob = max_neighbors_or_basis_manifold;
+		dormqr_( (char *)"L", (char *)"T", &mnob, &mnob, 
+                	&bnp, (double *)NULL, &mnob, (double *)NULL, 
+                	(double *)NULL, &mnob, &wkopt, &lwork, &info);
+		int lapack_opt_blocksize = (int)wkopt;
+		team_scratch_size_b += scratch_vector_type::shmem_size(lapack_opt_blocksize); // t3 work vector for qr
+#else
+		team_scratch_size_b += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t3 work vector for qr
+#endif
+
 		team_scratch_size_b += scratch_vector_type::shmem_size( _dimensions-1 ); // manifold_gradient_coeffs
 
 		team_scratch_size_b += scratch_matrix_type::shmem_size(max_P_row_size, _sampling_multiplier); // row of P matrix, one for each operator
@@ -2142,7 +2180,18 @@ void GMLS::generateAlphas() {
 		team_scratch_size_b += scratch_matrix_type::shmem_size(_neighbor_lists.dimension_1()-1, _neighbor_lists.dimension_1()-1); // Q
 		team_scratch_size_a += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t1 work vector for qr
 		team_scratch_size_a += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t2 work vector for qr
-		team_scratch_size_b += scratch_vector_type::shmem_size(32*(_neighbor_lists.dimension_1()-1)); // t3 work vector for qr
+#ifdef COMPADRE_USE_LAPACK
+		// find optimal blocksize when using LAPACK in order to allocate workspace needed
+		int ipsec = 1, unused = -1, bnp = _basis_multiplier*_NP, lwork = -1, info = 0; double wkopt = 0;
+		int mnob = max_neighbors_or_basis;
+		dormqr_( (char *)"L", (char *)"T", &mnob, &mnob, 
+                	&bnp, (double *)NULL, &mnob, (double *)NULL, 
+                	(double *)NULL, &mnob, &wkopt, &lwork, &info);
+		int lapack_opt_blocksize = (int)wkopt;
+		team_scratch_size_b += scratch_vector_type::shmem_size(lapack_opt_blocksize); // t3 work vector for qr
+#else
+		team_scratch_size_b += scratch_vector_type::shmem_size(_neighbor_lists.dimension_1()-1); // t3 work vector for qr
+#endif
 
 		team_scratch_size_b += scratch_matrix_type::shmem_size(_NP*_total_alpha_values, _sampling_multiplier); // row of P matrix, one for each operator
 
