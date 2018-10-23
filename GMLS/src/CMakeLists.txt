@@ -9,6 +9,7 @@ set(GMLS_HEADERS
 
 set(GMLS_SOURCES
   GMLS.cpp
+  GMLS_LinearAlgebra.cpp
   )
 
 
@@ -33,6 +34,12 @@ if (Compadre_USE_LAPACK)
   target_link_libraries(gmls PUBLIC "${LAPACK_LIB}")
 endif()
 
+if (KokkosCore_HAS_CUDA OR (KOKKOS_INTERNAL_USE_CUDA EQUAL "1"))
+  target_include_directories(gmls PUBLIC "${CUDA_INCLUDE_DIRS}")
+  target_link_libraries(gmls PUBLIC "${CUDA_CUBLAS_LIBRARIES}")
+  target_link_libraries(gmls PUBLIC "${CUDA_CUSOLVER_LIBRARIES}")
+  MESSAGE(STATUS "${CUDA_INCLUDE_DIRS}")
+endif()
 
 bob_export_target(gmls)
 

@@ -185,6 +185,19 @@ namespace ReconstructionOperator {
 class GMLS {
 protected:
 
+	// matrices that may be needed for matrix factorization on the device
+	// supports batched matrix factorization dispatch
+	Kokkos::View<double*> _Q;
+	Kokkos::View<double*> _R;
+	Kokkos::View<double*> _w;
+	Kokkos::View<double*> _tau;
+	Kokkos::View<double*> _L;
+	Kokkos::View<double*> _U;
+	Kokkos::View<double*> _P;
+	Kokkos::View<double*> _RHS;
+	Kokkos::View<double*> _S;
+	Kokkos::View<double*> _V;
+
 	//	std::cout << "_NP*_host_operations.size()" << _NP*_host_operations.size() << std::endl;
 	Kokkos::View<int**, layout_type> _neighbor_lists; // contains local ids of neighbors to get coords from _source_coordinates
 	Kokkos::View<int**, layout_type>::HostMirror _host_neighbor_lists; // contains local ids of neighbors to get coords from _source_coordinates
@@ -405,7 +418,7 @@ public:
         _NP = this->getNP(_poly_order, dimensions);
         Kokkos::fence();
 
-#ifdef KOKKOS_ENABLE_CUDA
+#ifdef COMPADRE_USE_CUDA
 		_scratch_team_level_a = 0;
 		_scratch_thread_level_a = 1;
 		_scratch_team_level_b = 1;
@@ -607,8 +620,67 @@ public:
 		}
     }
 
+    struct AssembleStandardPsqrtW{};
+    
+    struct ApplyStandardTargets{};
+    struct ApplyManifoldTargets{};
+
+    // calls a parallel for using the tag given as the first argument
+    // parallel_for will break out over loops over teams with each vector lane executing code be default
+    template<class Tag>
+    void CallFunctorWithTeamThreadsAndVectors(const int threads_per_team, const int vector_lanes_per_thread, const int team_scratch_size_a, const int team_scratch_size_b, const int thread_scratch_size_a, const int thread_scratch_size_b) {
+	if ( (_scratch_team_level_a != _scratch_team_level_b) && (_scratch_thread_level_a != _scratch_thread_level_b) ) {
+            // all levels of each type need specified separately
+            Kokkos::parallel_for(
+                Kokkos::TeamPolicy<Tag>(_target_coordinates.dimension_0(), threads_per_team, vector_lanes_per_thread)
+                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a))
+                .set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(team_scratch_size_b))
+                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a))
+                .set_scratch_size(_scratch_thread_level_b, Kokkos::PerThread(thread_scratch_size_b)),
+                *this, typeid(Tag).name());
+        } else if (_scratch_team_level_a != _scratch_team_level_b) {
+            // scratch thread levels are the same
+            Kokkos::parallel_for(
+                Kokkos::TeamPolicy<Tag>(_target_coordinates.dimension_0(), threads_per_team, vector_lanes_per_thread)
+                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a))
+                .set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(team_scratch_size_b))
+                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a + thread_scratch_size_b)),
+                *this, typeid(Tag).name());
+        } else if (_scratch_thread_level_a != _scratch_thread_level_b) {
+            // scratch team levels are the same
+            Kokkos::parallel_for(
+                Kokkos::TeamPolicy<Tag>(_target_coordinates.dimension_0(), threads_per_team, vector_lanes_per_thread)
+                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a + team_scratch_size_b))
+                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a))
+                .set_scratch_size(_scratch_thread_level_b, Kokkos::PerThread(thread_scratch_size_b)),
+                *this, typeid(Tag).name());
+        } else {
+            // scratch team levels and thread levels are the same
+            Kokkos::parallel_for(
+                Kokkos::TeamPolicy<Tag>(_target_coordinates.dimension_0(), threads_per_team, vector_lanes_per_thread)
+                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a + team_scratch_size_b))
+                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a + thread_scratch_size_b)),
+                *this, typeid(Tag).name());
+        }
+    }
+
+    // calls a parallel for using the tag given as the first argument
+    // parallel_for will break out over loops over teams with each thread executing code be default
+    template<class Tag>
+    void CallFunctorWithTeamThreads(const int threads_per_team, const int team_scratch_size_a, const int team_scratch_size_b, const int thread_scratch_size_a, const int thread_scratch_size_b) {
+        // calls breakout over vector lanes with vector lane size of 1
+        CallFunctorWithTeamThreadsAndVectors<Tag>(threads_per_team, 1, team_scratch_size_a, team_scratch_size_b, thread_scratch_size_a, thread_scratch_size_b);
+    }
+
+
     KOKKOS_INLINE_FUNCTION
-    void operator()(const member_type& teamMember) const;
+    void operator() (const AssembleStandardPsqrtW&, const member_type& teamMember) const;
+
+//    KOKKOS_INLINE_FUNCTION
+//    void operator() (const FactorQR&, const member_type& teamMember) const;
+
+    KOKKOS_INLINE_FUNCTION
+    void operator() (const ApplyStandardTargets&, const member_type& teamMember) const;
 
     KOKKOS_INLINE_FUNCTION
     static int getNP(const int m, const int dimension = 3) {
@@ -796,9 +868,9 @@ public:
     	const int input_index = ReconstructionOperator::getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
     	const int output_index = ReconstructionOperator::getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
 
-    	return _host_alphas(target_index,
+    	return _host_alphas(ORDER_INDICES(target_index,
     			(_host_lro_total_offsets[lro_number] + input_index*_host_lro_output_tile_size[lro_number] + output_index)*_number_of_neighbors_list(target_index)
-						+ neighbor_index);
+						+ neighbor_index));
     }
 
     double getPreStencilWeight(ReconstructionOperator::SamplingFunctional sro, const int target_index, const int neighbor_index, bool for_target, const int output_component = 0, const int input_component = 0) const {

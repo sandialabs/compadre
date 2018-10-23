@@ -2,6 +2,7 @@
 SET(SOLVER_SUPPORT_ISSUE "Missing Trilinos linear solver support.")
 SET(CANGA_ENABLED_ISSUE "Canga not enabled. Use CANGA_ENABLED:BOOL=ON to enable.")
 SET(GMLS_SUPPORT_ISSUE "LU solver for GPU not implemented.")
+SET(OPENBLAS_NUM_THREADS "1")
 
 
 ###############

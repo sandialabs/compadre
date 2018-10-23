@@ -46,6 +46,7 @@ endif()
 
 #LAPACK
 bob_option(Compadre_USE_LAPACK "Use LAPACK" OFF)
+SET(Compadre_USE_OPENBLAS OFF) # need to know if openblas is used in order to limit its ability to spawn threads
 bob_input(LAPACK_PREFIX "" PATH "Path to LAPACK install")
 if (LAPACK_PREFIX)
   set(CMAKE_PREFIX_PATH ${LAPACK_PREFIX} ${CMAKE_PREFIX_PATH})
@@ -55,6 +56,16 @@ if (Compadre_USE_LAPACK)
   MESSAGE(STATUS "LAPACK_LIB: ${LAPACK_LIB}")
   IF (NOT(LAPACK_LIB))
     MESSAGE(FATAL_ERROR "Compadre_USE_LAPACK is ON, but LAPACK_PREFIX was set incorrectly.")
+  ELSE()
+    IF(APPLE)
+      execute_process("otool -L $LAPACK_LIB" OUTPUT_VARIABLE LAPACK_DEPENDENCIES) 
+    ELSE()
+      execute_process(COMMAND ldd "${LAPACK_LIB}" OUTPUT_VARIABLE LAPACK_DEPENDENCIES) 
+    ENDIF()
+    string(FIND "${LAPACK_DEPENDENCIES}" "openblas" BLAS_MATCH)
+    if ("${BLAS_MATCH}" GREATER "-1")
+      SET(Compadre_USE_OPENBLAS ON)
+    endif()
   ENDIF()
 endif()
 
@@ -383,9 +394,25 @@ endif()
 IF (KOKKOS_IN_TRILINOS)
   include(${CMAKE_CURRENT_LIST_DIR}/cmake/detect_trilinos_opts.cmake)
   detect_trilinos_opts()
-  if (KokkosCore_HAS_CUDA AND (NOT KokkosCore_HAS_CUDA_LAMBDA))
-    message(FATAL_ERROR
-            "Please reconfigure Kokkos with -DKokkos_ENABLE_Cuda_Lambda:BOOL=ON")
+  if (KokkosCore_HAS_CUDA)
+    if (NOT KokkosCore_HAS_CUDA_LAMBDA)
+      message(FATAL_ERROR
+        "Please reconfigure Kokkos with -DKokkos_ENABLE_Cuda_Lambda:BOOL=ON")
+    else()
+      bob_option(Compadre_USE_CUDA "Whether to use CUDA" ON)
+    endif()
+  endif()
+ELSE()
+  if (KOKKOS_INTERNAL_USE_CUDA EQUAL "1")
+    # Find Cuda using hints from kokkos generate makefile
+    set(CMAKE_PREFIX_PATH "${KOKKOS_GMAKE_TPL_LIBRARY_DIRS}/.." ${CMAKE_PREFIX_PATH})
+    find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINT "${KOKKOS_GMAKE_TPL_LIBRARY_DIRS}/..")
+    MESSAGE(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
+    set(CMAKE_PREFIX_PATH ${KOKKOS_GMAKE_TPL_LIBRARY_DIRS} ${CMAKE_PREFIX_PATH})
+    find_library(CUDA_CUBLAS_LIBRARIES cublas HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+    find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+    MESSAGE(STATUS "CUDA_LIBRARIES: ${CUDA_INCLUDE_DIRS}/../lib64")
+    bob_option(Compadre_USE_CUDA "Whether to use CUDA" ON)
   endif()
 ENDIF()
 
@@ -393,12 +420,12 @@ ENDIF()
 ##
 ##   OpenMP / Cuda
 ##
-if (Compadre_USE_CUDA)
+if (KokkosCore_HAS_CUDA)
   find_package(CUDA)
   bob_input(Compadre_CUDA_ARCH "" STRING "CUDA arch specifier")
+  bob_option(Compadre_USE_CUDA "Whether to use CUDA" ON)
 endif()
 bob_option(Compadre_USE_OpenMP "Whether to use OpenMP" "${KokkosCore_HAS_OpenMP}")
-#bob_option(Compadre_USE_CUDA "Whether to use CUDA" "${KokkosCore_HAS_CUDA}")
 
 
 
@@ -495,6 +522,7 @@ set(Compadre_KEY_BOOLS
     Compadre_USE_CUDA
     Compadre_USE_KokkosCore
     Compadre_USE_LAPACK
+    Compadre_USE_OPENBLAS
     Compadre_USE_MPI
     Compadre_USE_Nanoflann
     Compadre_USE_Netcdf

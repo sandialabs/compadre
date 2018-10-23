@@ -2,6 +2,7 @@
 #define _GMLS_LINEAR_ALGEBRA_DEFINITIONS_HPP_
 
 #include "GMLS_LinearAlgebra_Declarations.hpp"
+#define cudaStreamNonBlocking 0x01
 
 namespace GMLS_LinearAlgebra {
 
@@ -119,7 +120,7 @@ void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_
 
 KOKKOS_INLINE_FUNCTION
 void computeSVD(const member_type& teamMember, scratch_matrix_type U, scratch_vector_type S, scratch_matrix_type Vt, scratch_matrix_type P, int columns, int rows) {
-#if not(defined(KOKKOS_ENABLE_CUDA)) && defined(COMPADRE_USE_LAPACK) && defined(COMPADRE_USE_BOOST)
+#if not(defined(COMPADRE_USE_CUDA)) && defined(COMPADRE_USE_LAPACK) && defined(COMPADRE_USE_BOOST)
 
 	Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
 
@@ -188,7 +189,7 @@ void invertM(const member_type& teamMember, scratch_vector_type y, scratch_matri
 
 	const int target_index = teamMember.league_rank();
 
-#ifdef KOKKOS_ENABLE_CUDA
+#ifdef COMPADRE_USE_CUDA
 
 //	// Construct L for A=L*L^T
 //	for (int i=0; i<columns; ++i) {
@@ -300,9 +301,59 @@ void invertM(const member_type& teamMember, scratch_vector_type y, scratch_matri
 }
 
 KOKKOS_INLINE_FUNCTION
+void constructQ(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type tau, int columns, int rows) {
+
+	const int target_index = teamMember.league_rank();
+
+	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [&] (const int j) {
+		Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember,rows), [&] (const int i) {
+			Q(i,j) = (i==j) ? 1 : 0;
+		});
+	});
+
+	for (int j = 0; j<columns; j++) {
+		double tau_j = tau(j);
+		Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember,j,rows), [&] (const int k) {
+			t1(k) = (k==j) ? 1.0 : R(k,j);
+		});
+		teamMember.team_barrier();
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [&] (const int k) {
+		// outer product of Q*w and tau*w
+
+			double t2k = 0;
+			Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember,j, rows), [&] (const int l, double& t_t2k) {
+				t_t2k += Q(ORDER_INDICES(k,l))*t1(l);
+				//t_t2k += Q(k,l)*t1(l);
+			}, t2k);
+			Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember,j, rows), [&] (const int l) {
+				Q(ORDER_INDICES(k,l)) -= t2k*tau_j*t1(l);
+				//Q(k,l) -= t2k*tau_j*t1(l);
+			});
+		});
+		teamMember.team_barrier();
+	}
+	teamMember.team_barrier();
+
+
+
+	// transpose Q
+	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [&] (const int i) {
+		Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember,0,i), [&] (const int j) {
+		//Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+			//for(int j = 0; j < i; ++j) {
+				double tmp = Q(i,j);
+				Q(i,j) = Q(j,i);
+				Q(j,i) = tmp;
+			//}
+		});
+	});
+	teamMember.team_barrier();
+}
+
+KOKKOS_INLINE_FUNCTION
 void GivensQR(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_vector_type t3, scratch_matrix_type Q, scratch_matrix_type R, int columns, int rows) {
 
-//#if not(defined(KOKKOS_ENABLE_CUDA)) && defined(COMPADRE_USE_LAPACK)
+//#if not(defined(COMPADRE_USE_CUDA)) && defined(COMPADRE_USE_LAPACK)
 //	// Works, but not thread safe with MPI + threads calling LAPACK
 //
 //	const int target_index = teamMember.league_rank();
@@ -495,13 +546,131 @@ void GivensQR(const member_type& teamMember, scratch_vector_type t1, scratch_vec
 	//		}
 	//	}
 	//});
-
 //#endif
 
 }
 
 KOKKOS_INLINE_FUNCTION
-void HouseholderQR(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, const int columns, const int rows) {
+void HouseholderQR(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type tau, const int columns, const int rows) {
+//	/*
+//	 * Performs a QR and overwrites the input matrix with the R matrix
+//	 * Stores and computes a full Q matrix
+//	 *
+//	 * Only written with LayoutLeft in mind, and even then GivensQR is faster
+//	 */
+//
+//	const int target_index = teamMember.league_rank();
+//
+//	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+//		for(int j = 0; j < rows; ++j) {
+//			Q(ORDER_INDICES(i,j)) = (i==j) ? 1 : 0;
+//		}
+//	});
+//	teamMember.team_barrier();
+//
+//	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+//		// transpose R
+//		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+//			for(int j = 0; j < i; ++j) {
+//				double tmp = R(i,j);
+//				R(i,j) = R(j,i);
+//				R(j,i) = tmp;
+//			}
+//		});
+//	}
+//
+//	for (int j = 0; j<columns; j++) {
+//
+//		teamMember.team_barrier();
+//
+//		double normx = 0;
+//		Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,j,rows), [&] (const int i, double &temp_normx) {
+//			temp_normx += R(i,j)*R(i,j);
+//		}, normx);
+//		teamMember.team_barrier();
+//		normx = std::sqrt(normx);
+//
+//		double s = (R(j,j) >= 0) ? -1 : 1; // flips sign R(j,j)
+//		double u1 = R(j,j) - s*normx;
+//
+//		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j+1,rows), [&] (const int i) {
+//			t1(i) = R(i,j) / u1;
+//		});
+//		t1(j) = 1;
+//
+//		double tau = -s*u1/normx;
+//
+//		teamMember.team_barrier();
+//
+//		// outer product of tau*w and w'*R(j:end,:)
+//		// t1 is w, so use it to get w'*R(j:end,:)
+//		// t2 is 1 by n
+//		for (int k=j; k<columns; k++) {
+//			double t2k = 0;
+//			Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,j,rows), [=] (const int l, double &temp_t2k) {
+//				temp_t2k += t1(l)*R(l,k);
+//			}, t2k);
+//			Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
+//				t2(k) = t2k;
+//			});
+//		}
+//		teamMember.team_barrier();
+//
+//
+//		// only the diagonal of column j is affected
+//		// the remainder is left intact (even though it is effectively zeroed out)
+//		Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
+//			R(j,j) -= tau*t1(j)*t2(j);
+//			t2(j) = tau; // t2 carries all tau's when completed
+//			// t1(j) is never changed again so t1 carries the first entry of each projector vector
+//		});
+//		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j+1,rows), [=] (const int k) {
+//			R(k,j) = t1(k); // columns of R below the diagonal carry the remainder of each projector vector
+//		});
+//		teamMember.team_barrier();
+//		// at this point, we have access to all parts of the projectors in R below the diagonal,
+//		// and in t1, with taus in t2
+//
+//
+//		// apply projector to remainder of R
+//		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j,rows), [=] (const int k) {
+//			for (int l=j+1; l<columns; l++) {
+//				R(k,l) -= tau*t1(k)*t2(l);
+//			}
+//		});
+//		teamMember.team_barrier();
+//	}
+//
+//	// demonstrates that R below diagonal, t1, and t2 contain all projector data along with taus
+//	// and it works
+//	for (int j = 0; j<columns; j++) {
+//		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k) {
+//		// reuse t2 to be n by 1
+//		// outer product of Q*w and tau*w
+//
+//			double t2k = Q(k,j)*t1(j);
+//			for (int l=j+1; l<rows; l++) {
+//				t2k += Q(k,l)*R(l,j);
+//			}
+//
+//			Q(k,j) -= t2k*t2(j)*t1(j);
+//			for (int l=j+1; l<rows; l++) {
+//				Q(k,l) -= t2k*t2(j)*R(l,j);
+//			}
+//		});
+//	}
+//
+//	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+//		// transpose R
+//		teamMember.team_barrier();
+//		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+//			for(int j = 0; j < i; ++j) {
+//				double tmp = R(i,j);
+//				R(i,j) = R(j,i);
+//				R(j,i) = tmp;
+//			}
+//		});
+//	}
 
 	/*
 	 * Performs a QR and overwrites the input matrix with the R matrix
@@ -512,30 +681,30 @@ void HouseholderQR(const member_type& teamMember, scratch_vector_type t1, scratc
 
 	const int target_index = teamMember.league_rank();
 
-	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
-		for(int j = 0; j < rows; ++j) {
-			Q(ORDER_INDICES(i,j)) = (i==j) ? 1 : 0;
-		}
-	});
-	teamMember.team_barrier();
+//	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+//		for(int j = 0; j < rows; ++j) {
+//			Q(ORDER_INDICES(i,j)) = (i==j) ? 1 : 0;
+//		}
+//	});
+//	teamMember.team_barrier();
 
-	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
-		// transpose R
-		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
-			for(int j = 0; j < i; ++j) {
-				double tmp = R(i,j);
-				R(i,j) = R(j,i);
-				R(j,i) = tmp;
-			}
-		});
-	}
+//	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+//		// transpose R
+//		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+//			Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember,0,i), [=] (const int j) {
+//				double tmp = R(i,j);
+//				R(i,j) = R(j,i);
+//				R(j,i) = tmp;
+//			});
+//		});
+//	}
 
 	for (int j = 0; j<columns; j++) {
 
 		teamMember.team_barrier();
 
 		double normx = 0;
-		Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,j,rows), [&] (const int i, double &temp_normx) {
+		Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember,j,rows), [=] (const int i, double &temp_normx) {
 			temp_normx += R(i,j)*R(i,j);
 		}, normx);
 		teamMember.team_barrier();
@@ -544,10 +713,9 @@ void HouseholderQR(const member_type& teamMember, scratch_vector_type t1, scratc
 		double s = (R(j,j) >= 0) ? -1 : 1; // flips sign R(j,j)
 		double u1 = R(j,j) - s*normx;
 
-		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j+1,rows), [&] (const int i) {
-			t1(i) = R(i,j) / u1;
+		Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember,j,rows), [=] (const int i) {
+			t1(i) = (i==j) ? 1.0 : R(i,j) / u1;
 		});
-		t1(j) = 1;
 
 		double tau = -s*u1/normx;
 
@@ -556,26 +724,38 @@ void HouseholderQR(const member_type& teamMember, scratch_vector_type t1, scratc
 		// outer product of tau*w and w'*R(j:end,:)
 		// t1 is w, so use it to get w'*R(j:end,:)
 		// t2 is 1 by n
-		for (int k=j; k<columns; k++) {
+		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j,columns), [=] (const int k) {
+		//for (int k=j; k<columns; k++) {
+			//Kokkos::single(Kokkos::PerThread(teamMember), [=] () {
+		
+			//double t2k = 0;
+			//for (int l=j; l<rows; ++l) t2k += t1(l)*R(l,k);
+			//t2(k) = t2k;
 			double t2k = 0;
-			Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,j,rows), [=] (const int l, double &temp_t2k) {
+			Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember,j,rows), [=] (const int l, double &temp_t2k) {
 				temp_t2k += t1(l)*R(l,k);
 			}, t2k);
-			Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
-				t2(k) = t2k;
+			////t2(k) = t2k;
+
+			//// TEMPORARY, RIGHT HERE. Seems to be too much work in loops
+
+			Kokkos::single(Kokkos::PerThread(teamMember), [=] () {
+			      t2(k) = t2k;
 			});
-		}
+		});
 		teamMember.team_barrier();
 
 
 		// only the diagonal of column j is affected
 		// the remainder is left intact (even though it is effectively zeroed out)
 		Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
-			R(j,j) -= tau*t1(j)*t2(j);
-			t2(j) = tau; // t2 carries all tau's when completed
-			// t1(j) is never changed again so t1 carries the first entry of each projector vector
+			Kokkos::single(Kokkos::PerThread(teamMember), [=] () {
+				R(j,j) -= tau*t1(j)*t2(j);
+				t2(j) = tau; // t2 carries all tau's when completed
+				// t1(j) is never changed again so t1 carries the first entry of each projector vector
+			});
 		});
-		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j+1,rows), [=] (const int k) {
+		Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember,j+1,rows), [=] (const int k) {
 			R(k,j) = t1(k); // columns of R below the diagonal carry the remainder of each projector vector
 		});
 		teamMember.team_barrier();
@@ -584,44 +764,61 @@ void HouseholderQR(const member_type& teamMember, scratch_vector_type t1, scratc
 
 
 		// apply projector to remainder of R
-		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j,rows), [=] (const int k) {
-			for (int l=j+1; l<columns; l++) {
+		//Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j,rows), [=] (const int k) {
+		Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember,j,rows), [=] (const int k) {
+			//Kokkos::single(Kokkos::PerThread(teamMember), [=] () {
+			//Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember,j+1,columns), [=] (const int l) {
+			Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,j+1,columns), [=] (const int l) {
+			//for (int l=j+1; l<columns; l++) {
 				R(k,l) -= tau*t1(k)*t2(l);
-			}
+			//}
+			});
 		});
-		teamMember.team_barrier();
+		//teamMember.team_barrier();
+		//Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
+		//	Kokkos::single(Kokkos::PerThread(teamMember), [=] () {
+		//		printf("tau %d: %f\n", j, t2(j));
+		//	});
+		//});
 	}
+	// copy to tau from t2 which was storing it in shared memory
+	Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember,0,columns), [=] (const int j) {
+		tau(j) = t2(j);
+	});
 
-	// demonstrates that R below diagonal, t1, and t2 contain all projector data along with taus
-	// and it works
-	for (int j = 0; j<columns; j++) {
-		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k) {
-		// reuse t2 to be n by 1
-		// outer product of Q*w and tau*w
+//	// demonstrates that R below diagonal, t1, and t2 contain all projector data along with taus
+//	// and it works
+//	for (int j = 0; j<columns; j++) {
+//		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k) {
+////	Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+//		// reuse t2 to be n by 1
+//		// outer product of Q*w and tau*w
+//
+//			printf("%d %f\n",j, t1(j));
+//			double t2k = Q(k,j)*t1(j);
+//			for (int l=j+1; l<rows; l++) {
+//				t2k += Q(k,l)*R(l,j);
+//			}
+//
+//			Q(k,j) -= t2k*t2(j)*t1(j);
+//			for (int l=j+1; l<rows; l++) {
+//				Q(k,l) -= t2k*t2(j)*R(l,j);
+//			}
+//		});
+////	});
+//	}
 
-			double t2k = Q(k,j)*t1(j);
-			for (int l=j+1; l<rows; l++) {
-				t2k += Q(k,l)*R(l,j);
-			}
-
-			Q(k,j) -= t2k*t2(j)*t1(j);
-			for (int l=j+1; l<rows; l++) {
-				Q(k,l) -= t2k*t2(j)*R(l,j);
-			}
-		});
-	}
-
-	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
-		// transpose R
-		teamMember.team_barrier();
-		Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
-			for(int j = 0; j < i; ++j) {
-				double tmp = R(i,j);
-				R(i,j) = R(j,i);
-				R(j,i) = tmp;
-			}
-		});
-	}
+	//if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+	//	// transpose R
+	//	teamMember.team_barrier();
+	//	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int i) {
+	//		Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember,0,i), [&] (const int j) {
+	//			double tmp = R(i,j);
+	//			R(i,j) = R(j,i);
+	//			R(j,i) = tmp;
+	//		});
+	//	});
+	//}
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -1363,7 +1560,7 @@ void GolubReinschSVD(const member_type& teamMember, scratch_vector_type t1, scra
 		});
 		teamMember.team_barrier();
 	}
-#ifdef KOKKOS_ENABLE_CUDA
+#ifdef COMPADRE_USE_CUDA
 	GMLS_LinearAlgebra::HouseholderBidiagonalReduction(teamMember, t1, t2, U, B, V, columns, rows); // perform bidiagonal reduction
 #else
 	GMLS_LinearAlgebra::GivensBidiagonalReduction(teamMember, t1, t2, U, B, V, columns, rows); // perform bidiagonal reduction
@@ -1654,7 +1851,7 @@ void matrixToLayoutLeft(const member_type& teamMember, scratch_vector_type t1, s
 
 		int dim_0 = A.dimension_0();
 		int dim_1 = A.dimension_1();
-		int block_size = std::floor(std::sqrt(t1.dimension_0()));
+		int block_size = std::floor((double)(std::sqrt(t1.dimension_0())));
 		int col_blocks = std::ceil((double)(columns) / block_size);
 		int row_blocks = std::ceil((double)(rows) / block_size);
 		int total_blocks = col_blocks * row_blocks;
@@ -1716,6 +1913,129 @@ void matrixToLayoutLeft(const member_type& teamMember, scratch_vector_type t1, s
 		teamMember.team_barrier();
 	}
 }
+
+//void batchQRFactorize(double *P, double *RHS, const size_t dim_0, const size_t dim_1, const int num_matrices) {
+//#ifdef COMPADRE_USE_CUDA
+//
+//    Kokkos::Profiling::pushRegion("QR::Setup(Pointers)");
+//    Kokkos::View<size_t*> array_P_RHS("P and RHS matrix pointers on device", 2*num_matrices);
+//    // get pointers to device data
+//    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,num_matrices), KOKKOS_LAMBDA(const int i) {
+//        array_P_RHS(i               ) = reinterpret_cast<size_t>(P   + i*dim_0*dim_0);
+//        array_P_RHS(i + num_matrices) = reinterpret_cast<size_t>(RHS + i*dim_0*dim_0);
+//    });
+//    int *devInfo; cudaMalloc(&devInfo, num_matrices*sizeof(int));
+//    cudaDeviceSynchronize();
+//    Kokkos::Profiling::popRegion();
+//
+//    Kokkos::Profiling::pushRegion("QR::Setup(Handle)");
+//    // Create cublas instance
+//    cublasHandle_t cublas_handle;
+//    cublasStatus_t cublas_stat;
+//    cudaDeviceSynchronize();
+//    Kokkos::Profiling::popRegion();
+//
+//    Kokkos::Profiling::pushRegion("QR::Setup(Create)");
+//    cublasCreate(&cublas_handle);
+//    cudaDeviceSynchronize();
+//    Kokkos::Profiling::popRegion();
+//
+//    Kokkos::Profiling::pushRegion("QR::Execution");
+//    // call batched QR
+//    int info;
+//    //cublas_stat=cublasDgeqrfBatched(cublas_handle,
+//    //                         static_cast<int>(dim_0), static_cast<int>(dim_1), reinterpret_cast<double**>(array_P_Q_tau.ptr_on_device()),
+//    //                         static_cast<int>(dim_0),
+//    //                         reinterpret_cast<double**>(array_P_Q_tau.ptr_on_device()+num_matrices),
+//    //                         &info, num_matrices);
+//    cublas_stat=cublasDgelsBatched(cublas_handle,
+//                                   CUBLAS_OP_N, 
+//                                   static_cast<int>(dim_0),  // m
+//                                   static_cast<int>(dim_1),  // n
+//                                   static_cast<int>(dim_0),  // nrhs
+//                                   reinterpret_cast<double**>(array_P_RHS.ptr_on_device()),
+//                                   static_cast<int>(dim_0), // lda
+//                                   reinterpret_cast<double**>(array_P_RHS.ptr_on_device() + num_matrices),
+//                                   static_cast<int>(dim_0), // ldc
+//                                   &info, 
+//                                   devInfo,
+//                                   num_matrices );
+//
+//    if (cublas_stat != CUBLAS_STATUS_SUCCESS)
+//      printf("\n cublasDgeqrfBatched failed");
+//    cudaDeviceSynchronize();
+//    Kokkos::Profiling::popRegion();
+//
+//
+//#elif defined(COMPADRE_USE_LAPACK)
+//
+//    // requires column major input
+//
+//    Kokkos::Profiling::pushRegion("QR::Setup(Create)");
+//
+//    // find optimal blocksize when using LAPACK in order to allocate workspace needed
+//    int ipsec = 1, unused = -1, bnp = static_cast<int>(dim_1), lwork = -1, info = 0; double wkopt = 0;
+//    int mmd = static_cast<int>(dim_0);
+//    dgels_( (char *)"N", &mmd, &bnp, &mmd, 
+//            (double *)NULL, &mmd, 
+//            (double *)NULL, &mmd, 
+//            &wkopt, &lwork, &info );
+//
+//    // size needed to malloc for each problem
+//    lwork = (int)wkopt;
+//    printf("%d is opt: lapack_opt_blocksize\n", lwork);
+//
+//    double *work = (double *)malloc(num_matrices*lwork*sizeof(double));
+//    Kokkos::View<int*> infos("info", num_matrices);
+//    Kokkos::deep_copy(infos, 0);
+//    Kokkos::Profiling::popRegion();
+//
+//    // get OMP_NUM_THREADS to store as a reference, then set to 1
+////#if defined(_OPENMP)
+////	unsigned int thread_qty;
+////    try {
+////        std::string omp_string = std::getenv("OMP_NUM_THREADS");
+////    	thread_qty = std::max(atoi(omp_string.c_str()), 1);
+////	} catch (...) {
+////    	thread_qty = 1;
+////	}
+////    omp_set_num_threads(1);
+////    printf("%d threads called.\n", thread_qty);
+////#endif
+////
+////#ifdef Compadre_USE_OPENBLAS
+////   int openblas_num_threads = 1;
+////   set_openblas_num_threads(openblas_num_threads);
+////   set_openmp_num_threads(openblas_num_threads);
+////   printf("Reduce openblas threads to 1.\n");
+////#endif
+//
+//	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,num_matrices), KOKKOS_LAMBDA (const int i) {
+//                int t_dim_0 = dim_0;
+//                int t_dim_1 = dim_1;
+//                int t_info = infos[i];
+//                int t_lwork = lwork;
+//                double * p_offset = P + i*dim_0*dim_0;
+//                double * rhs_offset = RHS + i*dim_0*dim_0;
+//                double * work_offset = work + i*lwork;
+//                dgels_( (char *)"N", &t_dim_0, &t_dim_1, &t_dim_0, 
+//                        p_offset, &t_dim_0, 
+//                        rhs_offset, &t_dim_0, 
+//                        work_offset, &t_lwork, &t_info);
+//	});
+//
+//
+//    Kokkos::Profiling::pushRegion("QR::Setup(Cleanup)");
+//    free(work);
+//    Kokkos::Profiling::popRegion();
+//
+//#endif
+//
+//}
+
+
+//void batchLUFactorize(double *P, double *RHS, const size_t dim_0, const size_t dim_1, const int num_matrices) {
+//}
 
 };
 

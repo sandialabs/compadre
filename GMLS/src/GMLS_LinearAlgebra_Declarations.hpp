@@ -6,6 +6,14 @@
 
 #include "GMLS_Config.h"
 #include <type_traits>
+#include <thread>
+
+#ifdef COMPADRE_USE_CUDA
+  #include <cuda_runtime.h>
+  #include <cublas_v2.h>
+  #include <cublas_api.h>
+  #include <cusolverDn.h>
+#endif
 
 #ifdef COMPADRE_USE_BOOST
 #include <boost/numeric/ublas/lu.hpp>
@@ -30,9 +38,14 @@ extern "C" int dgeqrf_(int *m, int *n, double *a, int *lda,
 extern "C" int dormqr_( char* side, char* trans, int *m, int *n, int *k, double *a, 
                 int *lda, double *tau, double *c, int *ldc, double *work, int *lwork, int *info);
 
-// gets optimal block size from LAPACK
-extern "C" int ilaenv_( const int *ipsec, char *name, char *lt, const int *m, const int *n, const int *k, const int *notused);
+extern "C" int dgels_( char* trans, int *m, int *n, int *k, double *a, 
+                int *lda, double *c, int *ldc, double *work, int *lwork, int *info);
 
+#ifdef COMPADRE_USE_OPENBLAS
+//#include <cblas.h>
+//extern "C" void openblas_set_num_threads(int);
+void openblas_set_num_threads(int num_threads);
+#endif
 #endif
 
 #ifdef COMPADRE_USE_KOKKOSCORE
@@ -47,18 +60,28 @@ typedef Kokkos::TeamPolicy<>::member_type  member_type;
 typedef Kokkos::DefaultExecutionSpace::array_layout layout_type;
 
 // reorders indices for layout of device
-#ifdef KOKKOS_ENABLE_CUDA
+#ifdef COMPADRE_USE_CUDA
 #define ORDER_INDICES(i,j) j,i
 #else
 #define ORDER_INDICES(i,j) i,j
 #endif
 
-typedef Kokkos::View<double**, layout_type, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_matrix_type;
-typedef Kokkos::View<double*, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_vector_type;
-typedef Kokkos::View<int*, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_local_index_type;
+//typedef Kokkos::View<double**, layout_type, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_matrix_type;
+typedef Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_matrix_type;
+typedef Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > device_matrix_type;
+//typedef Kokkos::View<double*, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_vector_type;
+typedef Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_vector_type;
+typedef Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > device_vector_type;
+//typedef Kokkos::View<int*, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_local_index_type;
+typedef Kokkos::View<int*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_local_index_type;
+typedef Kokkos::View<int*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > device_local_index_type;
 
 typedef std::conditional<std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutRight>::value,
                          Kokkos::LayoutLeft, Kokkos::LayoutRight>::type reverse_layout_type;
+
+//typedef std::conditional<std::is_same<std::intptr_t, std::int32_t>::value,
+//                         float, double>::type device_ptr_type;
+typedef uintptr_t device_ptr_type;
 
 namespace GMLS_LinearAlgebra {
 
@@ -78,10 +101,13 @@ namespace GMLS_LinearAlgebra {
 	void upperTriangularBackSolve(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type w, int columns, int rows);
 
 	KOKKOS_INLINE_FUNCTION
+	void constructQ(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type tau, int columns, int rows);
+
+	KOKKOS_INLINE_FUNCTION
 	void GivensQR(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_vector_type t3, scratch_matrix_type Q, scratch_matrix_type R, int columns, int rows);
 
 	KOKKOS_INLINE_FUNCTION
-	void HouseholderQR(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, const int columns, const int rows);
+	void HouseholderQR(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type tau, const int columns, const int rows);
 
     KOKKOS_INLINE_FUNCTION
     double closestEigenvalueTwoByTwoEigSolver(const member_type& teamMember, double comparison_value, double a11, double a12, double a21, double a22);
@@ -106,6 +132,10 @@ namespace GMLS_LinearAlgebra {
 
     KOKKOS_INLINE_FUNCTION
     void matrixToLayoutLeft(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type A, const int columns, const int rows);
+
+    void batchQRFactorize(double *P, double *RHS, const size_t dim_0, const size_t dim_1, const int num_matrices);
+
+    //void batchLUFactorize(double *P, double *RHS, const size_t dim_0, const size_t dim_1, const int num_matrices);
 }
 
 #endif
