@@ -2,8 +2,14 @@ bob_config_header("${CMAKE_CURRENT_BINARY_DIR}/GMLS_Config.h")
 set(GMLS_HEADERS
   "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Config.h"
   GMLS.hpp
+  GMLS_ApplyTargetEvaluations.hpp
+  GMLS_Basis.hpp
   GMLS_LinearAlgebra_Declarations.hpp
   GMLS_LinearAlgebra_Definitions.hpp
+  GMLS_Misc.hpp
+  GMLS_Operators.hpp
+  GMLS_Quadrature.hpp
+  GMLS_Targets.hpp
   )
 
 

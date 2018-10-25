@@ -41,6 +41,12 @@ extern "C" int dormqr_( char* side, char* trans, int *m, int *n, int *k, double 
 extern "C" int dgels_( char* trans, int *m, int *n, int *k, double *a, 
                 int *lda, double *c, int *ldc, double *work, int *lwork, int *info);
 
+//extern "C" int dgelsd_( int *m, int *n, int *k, double *a, int *lda, double *c, int *ldc, 
+//                double *s, double *rcond, int *rank, double *work, int *lwork, int *iwork, int *info);
+extern "C" void dgelsd_( int* m, int* n, int* nrhs, double* a, int* lda,
+                double* b, int* ldb, double* s, double* rcond, int* rank,
+                double* work, int* lwork, int* iwork, int* info );
+
 #ifdef COMPADRE_USE_OPENBLAS
 //#include <cblas.h>
 //extern "C" void openblas_set_num_threads(int);
@@ -133,7 +139,9 @@ namespace GMLS_LinearAlgebra {
     KOKKOS_INLINE_FUNCTION
     void matrixToLayoutLeft(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type A, const int columns, const int rows);
 
-    void batchQRFactorize(double *P, double *RHS, const size_t dim_0, const size_t dim_1, const int num_matrices);
+    void batchQRFactorize(double *P, double *RHS, const size_t max_dim, const size_t num_rows, const size_t num_cols, const int num_matrices);
+
+    void batchSVDFactorize(double *P, double *RHS, const size_t max_dim, const size_t num_rows, const size_t num_cols, const int num_matrices);
 
     //void batchLUFactorize(double *P, double *RHS, const size_t dim_0, const size_t dim_1, const int num_matrices);
 }

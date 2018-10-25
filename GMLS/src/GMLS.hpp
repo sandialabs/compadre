@@ -1,202 +1,31 @@
 #ifndef _GMLS_HPP_
 #define _GMLS_HPP_
 
-
 #include "GMLS_Config.h"
 #include <assert.h>
 #include "GMLS_LinearAlgebra_Definitions.hpp"
+#include "GMLS_Operators.hpp"
+#include "GMLS_Misc.hpp"
+
+#define ASSERT_WITH_MESSAGE(condition, message) do { \
+if (!(condition)) { printf((message)); } \
+assert ((condition)); } while(false)
 
 #ifdef COMPADRE_USE_KOKKOSCORE
-
-struct XYZ {
-	KOKKOS_INLINE_FUNCTION
-	XYZ() : x(0), y(0), z(0) {}
-
-	KOKKOS_INLINE_FUNCTION
-	XYZ(double _x, double _y, double _z) : x(_x), y(_y), z(_z) {}
-
-	double x;
-	double y;
-	double z;
-
-	KOKKOS_INLINE_FUNCTION
-	double& operator [](const int i) {
-		switch (i) {
-			case 0:
-				return x;
-			case 1:
-				return y;
-			default:
-				return z;
-		}
-	}
-
-	KOKKOS_INLINE_FUNCTION
-	XYZ operator *(double scalar) {
-		XYZ result;
-		result.x = scalar*x;
-		result.y = scalar*y;
-		result.z = scalar*z;
-		return result;
-	}
-};
-
-namespace ReconstructionOperator {
-
-	enum TargetOperation {
-		ScalarPointEvaluation,
-		VectorPointEvaluation, // reconstructs entire vector at once
-		LaplacianOfScalarPointEvaluation,
-		LaplacianOfVectorPointEvaluation,
-		GradientOfScalarPointEvaluation,
-		GradientOfVectorPointEvaluation,
-		DivergenceOfVectorPointEvaluation,
-		CurlOfVectorPointEvaluation,
-		PartialXOfScalarPointEvaluation,
-		PartialYOfScalarPointEvaluation,
-		PartialZOfScalarPointEvaluation,
-		DivergenceOfScalarPointEvaluation,
-		ChainedStaggeredLaplacianOfScalarPointEvaluation,
-		COUNT=13,
-	};
-
-	enum ReconstructionSpace {
-		ScalarTaylorPolynomial,
-		VectorTaylorPolynomial,
-		DivergenceFreeVectorPolynomial,
-	};
-
-	enum SamplingFunctional {
-		PointSample,
-		ManifoldVectorSample,
-		ManifoldGradientVectorSample,
-		StaggeredEdgeAnalyticGradientIntegralSample,
-		StaggeredEdgeIntegralSample,
-	};
-
-	enum DenseSolverType {
-		QR,
-		LU,
-		SVD,
-		MANIFOLD,
-	};
-
-	const int TargetInputTensorRank[] = {
-		0, // ScalarPointEvaluation
-		1, // VectorPointEvaluation
-		0, // LaplacianOfScalarPointEvaluation
-		1, // LaplacianOfVectorPointEvaluation
-		0, // GradientOfScalarPointEvaluation
-		1, // GradientOfVectorPointEvaluation
-		1, // DivergenceOfVectorPointEvaluation
-		1, // CurlOfVectorPointEvaluation
-		0, // PartialXOfScalarPointEvaluation
-		0, // PartialYOfScalarPointEvaluation
-		0, // PartialZOfScalarPointEvaluation
-		0, // DivergenceOfScalarPointEvaluation
-		0, // ChainedStaggeredLaplacianOfScalarPointEvaluation
-	};
-
-	const int TargetOutputTensorRank[] {
-		0, // PointEvaluation
-		1, // VectorPointEvaluation
-		0, // LaplacianOfScalarPointEvaluation
-		1, // LaplacianOfVectorPointEvaluation
-		1, // GradientOfScalarPointEvaluation
-		1, // GradientOfVectorPointEvaluation
-		0, // DivergenceOfVectorPointEvaluation
-		1, // CurlOfVectorPointEvaluation
-		0, // PartialXOfScalarPointEvaluation
-		0, // PartialYOfScalarPointEvaluation
-		0, // PartialZOfScalarPointEvaluation
-		0, // DivergenceOfScalarPointEvaluation
-		0, // ChainedStaggeredLaplacianOfScalarPointEvaluation
-	};
-
-	const int ReconstructionSpaceRank[] = {
-		0, // ScalarTaylorPolynomial
-		1, // VectorTaylorPolynomial
-		1, // DivergenceFreeVectorPolynomial
-		0, // ScalarBernsteinPolynomial
-		1, // VectorBernsteinPolynomial
-	};
-
-	const int SamplingInputTensorRank[] = {
-		0, // PointSample
-		1, // ManifoldVectorSample
-		1, // ManifoldGradientVectorSample
-		0, // StaggeredEdgeAnalyticGradientIntegralSample,
-		1, // StaggeredEdgeIntegralSample
-	};
-
-	const int SamplingOutputTensorRank[] {
-		0, // PointSample
-		1, // ManifoldVectorSample
-		1, // ManifoldGradientVectorSample
-		0, // StaggeredEdgeAnalyticGradientIntegralSample,
-		0, // StaggeredEdgeIntegralSample
-	};
-
-	const int SamplingNontrivialNullspace[] {
-		// does the sample over polynomials result in an operator
-		// with a nontrivial nullspace requiring SVD
-		0, // PointSample
-		0, // ManifoldVectorSample
-		0, // ManifoldGradientVectorSample
-		1, // StaggeredEdgeAnalyticGradientIntegralSample,
-		1, // StaggeredEdgeIntegralSample
-	};
-
-	static int getTargetInputIndex(const int operation_num, const int input_component_axis_1, const int input_component_axis_2) {
-		const int axis_1_size = (TargetInputTensorRank[operation_num] > 1) ? TargetInputTensorRank[operation_num] : 1;
-		return axis_1_size*input_component_axis_1 + input_component_axis_2; // 0 for scalar, 0 for vector;
-	}
-
-	static int getTargetOutputIndex(const int operation_num, const int output_component_axis_1, const int output_component_axis_2) {
-		const int axis_1_size = (TargetOutputTensorRank[operation_num] > 1) ? TargetOutputTensorRank[operation_num] : 1;
-		return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
-	}
-
-	static int getSamplingInputIndex(const int operation_num, const int input_component_axis_1, const int input_component_axis_2) {
-		const int axis_1_size = (SamplingInputTensorRank[operation_num] > 1) ? SamplingInputTensorRank[operation_num] : 1;
-		return axis_1_size*input_component_axis_1 + input_component_axis_2; // 0 for scalar, 0 for vector;
-	}
-
-	static int getSamplingOutputIndex(const int operation_num, const int output_component_axis_1, const int output_component_axis_2) {
-		const int axis_1_size = (SamplingOutputTensorRank[operation_num] > 1) ? SamplingOutputTensorRank[operation_num] : 1;
-		return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
-	}
-
-	static bool validTargetSpaceSample(TargetOperation to, ReconstructionSpace rs, SamplingFunctional sf) {
-		// all valid combinations to be added here
-		return true;
-	}
-
-	enum WeightingFunctionType {
-		Power,
-		Gaussian
-	};
-
-} // namespace ReconstructionOperator
-
-
-
 
 class GMLS {
 protected:
 
 	// matrices that may be needed for matrix factorization on the device
 	// supports batched matrix factorization dispatch
-	Kokkos::View<double*> _Q;
-	Kokkos::View<double*> _R;
 	Kokkos::View<double*> _w;
-	Kokkos::View<double*> _tau;
-	Kokkos::View<double*> _L;
-	Kokkos::View<double*> _U;
 	Kokkos::View<double*> _P;
 	Kokkos::View<double*> _RHS;
-	Kokkos::View<double*> _S;
 	Kokkos::View<double*> _V;
+	Kokkos::View<double*> _T;
+	Kokkos::View<double*> _manifold_metric_tensor_inverse;
+	Kokkos::View<double*> _manifold_curvature_coefficients;
+	Kokkos::View<double*> _manifold_curvature_gradient;
 
 	//	std::cout << "_NP*_host_operations.size()" << _NP*_host_operations.size() << std::endl;
 	Kokkos::View<int**, layout_type> _neighbor_lists; // contains local ids of neighbors to get coords from _source_coordinates
@@ -278,7 +107,7 @@ protected:
 
 
     KOKKOS_INLINE_FUNCTION
-    void calcWij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, scratch_matrix_type* V = NULL, scratch_matrix_type* T = NULL, const ReconstructionOperator::SamplingFunctional sampling_strategy = ReconstructionOperator::SamplingFunctional::PointSample, scratch_vector_type* target_manifold_gradient = NULL, scratch_matrix_type* quadrature_manifold_gradients = NULL) const;
+    void calcWij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, scratch_matrix_type* V = NULL, scratch_matrix_type* T = NULL, const ReconstructionOperator::SamplingFunctional sampling_strategy = ReconstructionOperator::SamplingFunctional::PointSample) const;
 
     KOKKOS_INLINE_FUNCTION
     void calcGradientWij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionOperator::SamplingFunctional sampling_strategy) const;
@@ -290,7 +119,7 @@ protected:
     double factorial(const int n) const;
 
     KOKKOS_INLINE_FUNCTION
-    void createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p = false, scratch_matrix_type* V = NULL, scratch_matrix_type* T = NULL, const ReconstructionOperator::SamplingFunctional sampling_strategy = ReconstructionOperator::SamplingFunctional::PointSample, scratch_vector_type* target_manifold_gradient = NULL, scratch_matrix_type* quadrature_manifold_gradients = NULL) const;
+    void createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p = false, scratch_matrix_type* V = NULL, scratch_matrix_type* T = NULL, const ReconstructionOperator::SamplingFunctional sampling_strategy = ReconstructionOperator::SamplingFunctional::PointSample) const;
 
     KOKKOS_INLINE_FUNCTION
 	void createWeightsAndPForCurvature(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, bool only_specific_order, scratch_matrix_type* V = NULL) const;
@@ -618,12 +447,40 @@ public:
 		} else {
 			_dense_solver_type = ReconstructionOperator::DenseSolverType::QR;
 		}
+
+
+		// TEMPORARY
+		if (_dense_solver_type == ReconstructionOperator::DenseSolverType::LU || _dense_solver_type == ReconstructionOperator::DenseSolverType::SVD) {
+			_dense_solver_type = ReconstructionOperator::DenseSolverType::QR;
+		}
     }
 
     struct AssembleStandardPsqrtW{};
-    
     struct ApplyStandardTargets{};
+    
+    struct ComputeCoarseTangentPlane{};
+    struct AssembleManifoldPsqrtW{};
     struct ApplyManifoldTargets{};
+    struct ComputePrestencilWeights{};
+
+
+    KOKKOS_INLINE_FUNCTION
+    void operator() (const AssembleStandardPsqrtW&, const member_type& teamMember) const;
+
+    KOKKOS_INLINE_FUNCTION
+    void operator() (const ApplyStandardTargets&, const member_type& teamMember) const;
+
+    KOKKOS_INLINE_FUNCTION
+    void operator() (const ComputeCoarseTangentPlane&, const member_type& teamMember) const;
+
+    KOKKOS_INLINE_FUNCTION
+    void operator() (const AssembleManifoldPsqrtW&, const member_type& teamMember) const;
+
+    KOKKOS_INLINE_FUNCTION
+    void operator() (const ApplyManifoldTargets&, const member_type& teamMember) const;
+
+    KOKKOS_INLINE_FUNCTION
+    void operator() (const ComputePrestencilWeights&, const member_type& teamMember) const;
 
     // calls a parallel for using the tag given as the first argument
     // parallel_for will break out over loops over teams with each vector lane executing code be default
@@ -671,16 +528,6 @@ public:
         // calls breakout over vector lanes with vector lane size of 1
         CallFunctorWithTeamThreadsAndVectors<Tag>(threads_per_team, 1, team_scratch_size_a, team_scratch_size_b, thread_scratch_size_a, thread_scratch_size_b);
     }
-
-
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const AssembleStandardPsqrtW&, const member_type& teamMember) const;
-
-//    KOKKOS_INLINE_FUNCTION
-//    void operator() (const FactorQR&, const member_type& teamMember) const;
-
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const ApplyStandardTargets&, const member_type& teamMember) const;
 
     KOKKOS_INLINE_FUNCTION
     static int getNP(const int m, const int dimension = 3) {

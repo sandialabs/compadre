@@ -2,7 +2,11 @@
 
 namespace GMLS_LinearAlgebra {
 
-void batchQRFactorize(double *P, double *RHS, const size_t dim_0, const size_t dim_1, const int num_matrices) {
+void batchQRFactorize(double *P, double *RHS, const size_t max_dim, const size_t num_rows, const size_t num_cols, const int num_matrices) {
+
+    size_t dim_0 = max_dim;
+    size_t dim_1 = num_cols;
+
 #ifdef COMPADRE_USE_CUDA
 
     Kokkos::Profiling::pushRegion("QR::Setup(Pointers)");
@@ -64,6 +68,8 @@ void batchQRFactorize(double *P, double *RHS, const size_t dim_0, const size_t d
     // find optimal blocksize when using LAPACK in order to allocate workspace needed
     int ipsec = 1, unused = -1, bnp = static_cast<int>(dim_1), lwork = -1, info = 0; double wkopt = 0;
     int mmd = static_cast<int>(dim_0);
+
+
     dgels_( (char *)"N", &mmd, &bnp, &mmd, 
             (double *)NULL, &mmd, 
             (double *)NULL, &mmd, 
@@ -71,13 +77,15 @@ void batchQRFactorize(double *P, double *RHS, const size_t dim_0, const size_t d
 
     // size needed to malloc for each problem
     lwork = (int)wkopt;
-    printf("%d is opt: lapack_opt_blocksize\n", lwork);
 
-    double *work = (double *)malloc(num_matrices*lwork*sizeof(double));
+    printf("%d is opt: lapack_opt_blocksize\n", lwork);
+    Kokkos::View<double*> work("work space for lapack", num_matrices*lwork);
+
     Kokkos::View<int*> infos("info", num_matrices);
     Kokkos::deep_copy(infos, 0);
     Kokkos::Profiling::popRegion();
 
+    //double *work = (double *)malloc(num_matrices*lwork*sizeof(double));
     // get OMP_NUM_THREADS to store as a reference, then set to 1
 //#if defined(_OPENMP)
 //	unsigned int thread_qty;
@@ -98,29 +106,117 @@ void batchQRFactorize(double *P, double *RHS, const size_t dim_0, const size_t d
 //   printf("Reduce openblas threads to 1.\n");
 //#endif
 
-	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,num_matrices), KOKKOS_LAMBDA (const int i) {
-                int t_dim_0 = dim_0;
-                int t_dim_1 = dim_1;
-                int t_info = infos[i];
-                int t_lwork = lwork;
-                double * p_offset = P + i*dim_0*dim_0;
-                double * rhs_offset = RHS + i*dim_0*dim_0;
-                double * work_offset = work + i*lwork;
-                dgels_( (char *)"N", &t_dim_0, &t_dim_1, &t_dim_0, 
-                        p_offset, &t_dim_0, 
-                        rhs_offset, &t_dim_0, 
-                        work_offset, &t_lwork, &t_info);
-	});
 
-
-    Kokkos::Profiling::pushRegion("QR::Setup(Cleanup)");
-    free(work);
-    Kokkos::Profiling::popRegion();
+    std::string transpose_or_no = "N";
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,num_matrices), KOKKOS_LAMBDA (const int i) {
+            int t_dim_0 = dim_0;
+            int t_dim_1 = dim_1;
+            int t_info = infos[i];
+            int t_lwork = lwork;
+            double * p_offset = P + i*dim_0*dim_0;
+            double * rhs_offset = RHS + i*dim_0*dim_0; double * work_offset = work.data() + i*lwork;
+            dgels_( const_cast<char *>(transpose_or_no.c_str()), &t_dim_0, &t_dim_1, &t_dim_0, 
+                    p_offset, &t_dim_0, 
+                    rhs_offset, &t_dim_0, 
+                    work_offset, &t_lwork, &t_info);
+    });
 
 #endif
 
 }
 
+void batchSVDFactorize(double *P, double *RHS, const size_t max_dim, const size_t num_rows, const size_t num_cols, const int num_matrices) {
+#if defined(COMPADRE_USE_LAPACK)
+
+    // later improvement could be to send in an optional view with the neighbor list size for each target to reduce work
+
+    Kokkos::Profiling::pushRegion("SVD::Setup(Create)");
+    double rcond = 1e-14; // rcond*S(0) is cutoff for singular values in dgelsd
+
+    const int smlsiz = 25;
+    const int nlvl = std::max(0, int( std::log2( std::min(num_rows,num_cols) / (smlsiz+1) ) + 1));
+    const int liwork = 3*std::min(num_rows,num_cols)*nlvl + 11*std::min(num_rows,num_cols);
+
+    int iwork[liwork];
+    double s[max_dim];
+
+    int lwork = -1;
+    double wkopt = 0;
+    int rank = 0;
+    int info = 0;
+
+    int i_max_dim = static_cast<int>(max_dim);
+    int i_num_rows = static_cast<int>(num_rows);
+    int i_num_cols = static_cast<int>(num_cols);
+
+    dgelsd_( &i_num_rows, &i_num_cols, &i_num_rows, 
+             P, &i_max_dim, 
+             RHS, &i_num_rows, 
+             s, &rcond, &rank,
+             &wkopt, &lwork, iwork, &info);
+    lwork = (int)wkopt;
+
+    // works
+    int scratch_space_size = 0;
+    scratch_space_size += scratch_vector_type::shmem_size( lwork );  // work space
+    scratch_space_size += scratch_vector_type::shmem_size( max_dim );  // s
+    scratch_space_size += scratch_local_index_type::shmem_size( liwork ); // iwork space
+
+    Kokkos::Profiling::popRegion();
+    
+
+    //Kokkos::View<int*> all_iwork("iwork for all calls", num_matrices*liwork);
+    //Kokkos::View<double*> all_work("work for all calls", num_matrices*lwork);
+    //Kokkos::View<double*> all_s("s for all calls", num_matrices*max_dim);
+    //Kokkos::parallel_for(
+    //    Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_matrices),
+    //    KOKKOS_LAMBDA (const int i) {
+
+    //            int i_rank = 0;
+    //            int i_info = 0;
+    //
+    //            double * p_offset = P + i*max_dim*max_dim;
+    //            double * rhs_offset = RHS + i*num_rows*num_rows;
+
+    //            int * scratch_iwork = all_iwork.data() + i*liwork;
+    //            double * scratch_work = all_work.data() + i*lwork;
+    //            double * scratch_s = all_s.data() + i*max_dim;
+
+    //            dgelsd_( const_cast<int*>(&i_num_rows), const_cast<int*>(&i_num_cols), const_cast<int*>(&i_num_rows), 
+    //                     p_offset, const_cast<int*>(&i_max_dim), 
+    //                     rhs_offset, const_cast<int*>(&i_num_rows), 
+    //                     scratch_s, const_cast<double*>(&rcond), &i_rank,
+    //                     scratch_work, const_cast<int*>(&lwork), scratch_iwork, &i_info);
+    //}, "SVD Execution");
+
+    
+    Kokkos::parallel_for(
+        team_policy(num_matrices, Kokkos::AUTO)
+        .set_scratch_size(0, Kokkos::PerTeam(scratch_space_size)),
+        KOKKOS_LAMBDA (const member_type& teamMember) {
+
+            scratch_vector_type scratch_work(teamMember.team_scratch(0), lwork);
+            scratch_vector_type scratch_s(teamMember.team_scratch(0), max_dim);
+            scratch_local_index_type scratch_iwork(teamMember.team_scratch(0), liwork);
+
+            int i_rank = 0;
+            int i_info = 0;
+    
+            const int i = teamMember.league_rank();
+
+            double * p_offset = P + i*max_dim*max_dim;
+            double * rhs_offset = RHS + i*num_rows*num_rows;
+
+            dgelsd_( const_cast<int*>(&i_num_rows), const_cast<int*>(&i_num_cols), const_cast<int*>(&i_num_rows), 
+                     p_offset, const_cast<int*>(&i_max_dim), 
+                     rhs_offset, const_cast<int*>(&i_num_rows), 
+                     scratch_s.data(), const_cast<double*>(&rcond), &i_rank,
+                     scratch_work.data(), const_cast<int*>(&lwork), scratch_iwork.data(), &i_info);
+
+    }, "SVD Execution");
+
+#endif
+}
 
 //void batchLUFactorize(double *P, double *RHS, const size_t dim_0, const size_t dim_1, const int num_matrices) {
 //}
