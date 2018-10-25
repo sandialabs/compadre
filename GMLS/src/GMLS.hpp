@@ -134,13 +134,7 @@ protected:
 	void computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, Kokkos::View<ReconstructionOperator::TargetOperation*> operations, scratch_matrix_type V, scratch_matrix_type T, scratch_matrix_type G_inv, scratch_vector_type manifold_coefficients, scratch_vector_type manifold_gradients, const int basis_multiplier_component = 0) const;
 
     KOKKOS_INLINE_FUNCTION
-	void applySVD(const member_type& teamMember, scratch_matrix_type b_data, scratch_vector_type t1, scratch_matrix_type U, scratch_vector_type S, scratch_matrix_type V, scratch_vector_type w, scratch_matrix_type P_target_row, const int target_NP, const double abs_threshold) const;
-
-    KOKKOS_INLINE_FUNCTION
 	void applyTargetsToCoefficients(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type w, scratch_matrix_type P_target_row, const int target_NP) const;
-
-    KOKKOS_INLINE_FUNCTION
-	void applyMInverse(const member_type& teamMember, scratch_matrix_type b_data, scratch_matrix_type MInv, scratch_matrix_type PsqrtW, scratch_vector_type w, scratch_matrix_type P_target_row, const int target_NP) const;
 
     void generateLaplacianAlpha(const int target_index);
 
@@ -459,6 +453,8 @@ public:
     struct ApplyStandardTargets{};
     
     struct ComputeCoarseTangentPlane{};
+    struct AssembleCurvaturePsqrtW{};
+    struct ApplyCurvatureTargets{};
     struct AssembleManifoldPsqrtW{};
     struct ApplyManifoldTargets{};
     struct ComputePrestencilWeights{};
@@ -472,6 +468,12 @@ public:
 
     KOKKOS_INLINE_FUNCTION
     void operator() (const ComputeCoarseTangentPlane&, const member_type& teamMember) const;
+
+    KOKKOS_INLINE_FUNCTION
+    void operator() (const AssembleCurvaturePsqrtW&, const member_type& teamMember) const;
+
+    KOKKOS_INLINE_FUNCTION
+    void operator() (const ApplyCurvatureTargets&, const member_type& teamMember) const;
 
     KOKKOS_INLINE_FUNCTION
     void operator() (const AssembleManifoldPsqrtW&, const member_type& teamMember) const;
