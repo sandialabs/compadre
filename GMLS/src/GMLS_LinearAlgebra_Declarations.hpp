@@ -139,9 +139,9 @@ namespace GMLS_LinearAlgebra {
     KOKKOS_INLINE_FUNCTION
     void matrixToLayoutLeft(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type A, const int columns, const int rows);
 
-    void batchQRFactorize(double *P, double *RHS, const size_t max_dim, const size_t num_rows, const size_t num_cols, const int num_matrices);
+    void batchQRFactorize(double *P, double *RHS, const size_t max_dim, const size_t num_rows, const size_t num_cols, const int num_matrices, const size_t max_neighbors = 0, int * neighbor_list_sizes = NULL);
 
-    void batchSVDFactorize(double *P, double *RHS, const size_t max_dim, const size_t num_rows, const size_t num_cols, const int num_matrices);
+    void batchSVDFactorize(double *P, double *RHS, const size_t max_dim, const size_t num_rows, const size_t num_cols, const int num_matrices, const size_t max_neighbors = 0, int * neighbor_list_sizes = NULL);
 
     //void batchLUFactorize(double *P, double *RHS, const size_t dim_0, const size_t dim_1, const int num_matrices);
 }

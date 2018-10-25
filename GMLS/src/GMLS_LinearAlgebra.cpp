@@ -2,7 +2,17 @@
 
 namespace GMLS_LinearAlgebra {
 
-void batchQRFactorize(double *P, double *RHS, const size_t max_dim, const size_t num_rows, const size_t num_cols, const int num_matrices) {
+void batchQRFactorize(double *P, double *RHS, const size_t max_dim, const size_t num_rows, const size_t num_cols, const int num_matrices, const size_t max_neighbors, int * neighbor_list_sizes) {
+
+    // quick calculations to determine # of rows needed for each problem
+    int neighbor_num_multiplier;
+    if (neighbor_list_sizes) {
+        neighbor_num_multiplier = num_rows / max_neighbors;
+    }
+
+    int i_max_dim = static_cast<int>(max_dim);
+    int i_num_rows = static_cast<int>(num_rows);
+    int i_num_cols = static_cast<int>(num_cols);
 
     size_t dim_0 = max_dim;
     size_t dim_1 = num_cols;
@@ -66,23 +76,21 @@ void batchQRFactorize(double *P, double *RHS, const size_t max_dim, const size_t
     Kokkos::Profiling::pushRegion("QR::Setup(Create)");
 
     // find optimal blocksize when using LAPACK in order to allocate workspace needed
-    int ipsec = 1, unused = -1, bnp = static_cast<int>(dim_1), lwork = -1, info = 0; double wkopt = 0;
-    int mmd = static_cast<int>(dim_0);
+    int ipsec = 1, unused = -1, lwork = -1, info = 0; double wkopt = 0;
 
-
-    dgels_( (char *)"N", &mmd, &bnp, &mmd, 
-            (double *)NULL, &mmd, 
-            (double *)NULL, &mmd, 
+    dgels_( (char *)"N", &i_num_rows, &i_num_cols, &i_num_rows, 
+            (double *)NULL, &i_max_dim, 
+            (double *)NULL, &i_num_rows, 
             &wkopt, &lwork, &info );
 
     // size needed to malloc for each problem
     lwork = (int)wkopt;
 
     printf("%d is opt: lapack_opt_blocksize\n", lwork);
-    Kokkos::View<double*> work("work space for lapack", num_matrices*lwork);
+    //Kokkos::View<double*> work("work space for lapack", num_matrices*lwork);
 
-    Kokkos::View<int*> infos("info", num_matrices);
-    Kokkos::deep_copy(infos, 0);
+    //Kokkos::View<int*> infos("info", num_matrices);
+    //Kokkos::deep_copy(infos, 0);
     Kokkos::Profiling::popRegion();
 
     //double *work = (double *)malloc(num_matrices*lwork*sizeof(double));
@@ -106,27 +114,70 @@ void batchQRFactorize(double *P, double *RHS, const size_t max_dim, const size_t
 //   printf("Reduce openblas threads to 1.\n");
 //#endif
 
-
+    int scratch_space_size = scratch_vector_type::shmem_size( lwork );  // work space
     std::string transpose_or_no = "N";
-    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,num_matrices), KOKKOS_LAMBDA (const int i) {
-            int t_dim_0 = dim_0;
-            int t_dim_1 = dim_1;
-            int t_info = infos[i];
-            int t_lwork = lwork;
-            double * p_offset = P + i*dim_0*dim_0;
-            double * rhs_offset = RHS + i*dim_0*dim_0; double * work_offset = work.data() + i*lwork;
-            dgels_( const_cast<char *>(transpose_or_no.c_str()), &t_dim_0, &t_dim_1, &t_dim_0, 
-                    p_offset, &t_dim_0, 
-                    rhs_offset, &t_dim_0, 
-                    work_offset, &t_lwork, &t_info);
-    });
+
+    Kokkos::parallel_for(
+        team_policy(num_matrices, Kokkos::AUTO)
+        .set_scratch_size(0, Kokkos::PerTeam(scratch_space_size)),
+        KOKKOS_LAMBDA (const member_type& teamMember) {
+
+            scratch_vector_type scratch_work(teamMember.team_scratch(0), lwork);
+
+            int i_info = 0;
+    
+            const int i = teamMember.league_rank();
+
+            double * p_offset = P + i*max_dim*max_dim;
+            double * rhs_offset = RHS + i*num_rows*num_rows;
+
+            // use a custom # of neighbors for each problem, if possible
+            int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*neighbor_num_multiplier : i_num_rows;
+
+            dgels_( const_cast<char *>(transpose_or_no.c_str()), &my_num_rows, const_cast<int*>(&i_num_cols), &my_num_rows, 
+                    p_offset, const_cast<int*>(&i_max_dim), 
+                    rhs_offset, const_cast<int*>(&i_num_rows), 
+                    scratch_work.data(), const_cast<int*>(&lwork), &i_info);
+
+            //dgelsd_( &my_num_rows, const_cast<int*>(&i_num_cols), &my_num_rows, 
+            //         p_offset, const_cast<int*>(&i_max_dim), 
+            //         rhs_offset, const_cast<int*>(&i_num_rows), 
+            //         scratch_s.data(), const_cast<double*>(&rcond), &i_rank,
+            //         scratch_work.data(), const_cast<int*>(&lwork), scratch_iwork.data(), &i_info);
+            //dgelsd_( const_cast<int*>(&i_num_rows), const_cast<int*>(&i_num_cols), const_cast<int*>(&i_num_rows), 
+            //         p_offset, const_cast<int*>(&i_max_dim), 
+            //         rhs_offset, const_cast<int*>(&i_num_rows), 
+            //         scratch_s.data(), const_cast<double*>(&rcond), &i_rank,
+            //         scratch_work.data(), const_cast<int*>(&lwork), scratch_iwork.data(), &i_info);
+
+    }, "QR Execution");
+
+    //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,num_matrices), KOKKOS_LAMBDA (const int i) {
+    //        int t_dim_0 = dim_0;
+    //        int t_dim_1 = dim_1;
+    //        int t_info = infos[i];
+    //        int t_lwork = lwork;
+    //        double * p_offset = P + i*dim_0*dim_0;
+    //        double * rhs_offset = RHS + i*dim_0*dim_0; double * work_offset = work.data() + i*lwork;
+    //        dgels_( const_cast<char *>(transpose_or_no.c_str()), &t_dim_0, &t_dim_1, &t_dim_0, 
+    //                p_offset, &t_dim_0, 
+    //                rhs_offset, &t_dim_0, 
+    //                work_offset, &t_lwork, &t_info);
+    //});
 
 #endif
 
 }
 
-void batchSVDFactorize(double *P, double *RHS, const size_t max_dim, const size_t num_rows, const size_t num_cols, const int num_matrices) {
+void batchSVDFactorize(double *P, double *RHS, const size_t max_dim, const size_t num_rows, const size_t num_cols, const int num_matrices, const size_t max_neighbors, int * neighbor_list_sizes) {
 #if defined(COMPADRE_USE_LAPACK)
+
+
+    // quick calculations to determine # of rows needed for each problem
+    int neighbor_num_multiplier;
+    if (neighbor_list_sizes) {
+        neighbor_num_multiplier = num_rows / max_neighbors;
+    }
 
     // later improvement could be to send in an optional view with the neighbor list size for each target to reduce work
 
@@ -156,14 +207,6 @@ void batchSVDFactorize(double *P, double *RHS, const size_t max_dim, const size_
              &wkopt, &lwork, iwork, &info);
     lwork = (int)wkopt;
 
-    // works
-    int scratch_space_size = 0;
-    scratch_space_size += scratch_vector_type::shmem_size( lwork );  // work space
-    scratch_space_size += scratch_vector_type::shmem_size( max_dim );  // s
-    scratch_space_size += scratch_local_index_type::shmem_size( liwork ); // iwork space
-
-    Kokkos::Profiling::popRegion();
-    
 
     //Kokkos::View<int*> all_iwork("iwork for all calls", num_matrices*liwork);
     //Kokkos::View<double*> all_work("work for all calls", num_matrices*lwork);
@@ -189,6 +232,14 @@ void batchSVDFactorize(double *P, double *RHS, const size_t max_dim, const size_
     //                     scratch_work, const_cast<int*>(&lwork), scratch_iwork, &i_info);
     //}, "SVD Execution");
 
+    // works
+    int scratch_space_size = 0;
+    scratch_space_size += scratch_vector_type::shmem_size( lwork );  // work space
+    scratch_space_size += scratch_vector_type::shmem_size( max_dim );  // s
+    scratch_space_size += scratch_local_index_type::shmem_size( liwork ); // iwork space
+
+    Kokkos::Profiling::popRegion();
+    
     
     Kokkos::parallel_for(
         team_policy(num_matrices, Kokkos::AUTO)
@@ -207,11 +258,19 @@ void batchSVDFactorize(double *P, double *RHS, const size_t max_dim, const size_
             double * p_offset = P + i*max_dim*max_dim;
             double * rhs_offset = RHS + i*num_rows*num_rows;
 
-            dgelsd_( const_cast<int*>(&i_num_rows), const_cast<int*>(&i_num_cols), const_cast<int*>(&i_num_rows), 
+            // use a custom # of neighbors for each problem, if possible
+            int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*neighbor_num_multiplier : i_num_rows;
+
+            dgelsd_( &my_num_rows, const_cast<int*>(&i_num_cols), &my_num_rows, 
                      p_offset, const_cast<int*>(&i_max_dim), 
                      rhs_offset, const_cast<int*>(&i_num_rows), 
                      scratch_s.data(), const_cast<double*>(&rcond), &i_rank,
                      scratch_work.data(), const_cast<int*>(&lwork), scratch_iwork.data(), &i_info);
+            //dgelsd_( const_cast<int*>(&i_num_rows), const_cast<int*>(&i_num_cols), const_cast<int*>(&i_num_rows), 
+            //         p_offset, const_cast<int*>(&i_max_dim), 
+            //         rhs_offset, const_cast<int*>(&i_num_rows), 
+            //         scratch_s.data(), const_cast<double*>(&rcond), &i_rank,
+            //         scratch_work.data(), const_cast<int*>(&lwork), scratch_iwork.data(), &i_info);
 
     }, "SVD Execution");
 

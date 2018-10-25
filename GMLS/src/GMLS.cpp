@@ -206,7 +206,7 @@ void GMLS::generateAlphas() {
 
 		if (_nontrivial_nullspace) {
 			Kokkos::Profiling::pushRegion("Manifold SVD Factorization");
-			GMLS_LinearAlgebra::batchSVDFactorize(_P.ptr_on_device(), _RHS.ptr_on_device(), max_matrix_dimension, max_num_rows, this_num_columns, _target_coordinates.dimension_0());
+			GMLS_LinearAlgebra::batchSVDFactorize(_P.ptr_on_device(), _RHS.ptr_on_device(), max_matrix_dimension, max_num_rows, this_num_columns, _target_coordinates.dimension_0(), max_num_neighbors, _number_of_neighbors_list.data());
 			Kokkos::Profiling::popRegion();
 		} else {
 			Kokkos::Profiling::pushRegion("Manifold QR Factorization");
@@ -234,10 +234,10 @@ void GMLS::generateAlphas() {
 			Kokkos::Profiling::pushRegion("QR Factorization");
 			GMLS_LinearAlgebra::batchQRFactorize(_P.ptr_on_device(), _RHS.ptr_on_device(), max_matrix_dimension, max_num_rows, this_num_columns, _target_coordinates.dimension_0());
 			Kokkos::Profiling::popRegion();
-		} else if (_dense_solver_type == ReconstructionOperator::DenseSolverType::LU) {
-			//Kokkos::Profiling::pushRegion("LU Factorization");
-			//GMLS_LinearAlgebra::batchLUFactorize(_P.ptr_on_device(), _RHS.ptr_on_device(), max_matrix_dimension, this_num_columns, _target_coordinates.dimension_0());
-			//Kokkos::Profiling::popRegion();
+		} else if (_dense_solver_type == ReconstructionOperator::DenseSolverType::SVD) {
+			Kokkos::Profiling::pushRegion("SVD Factorization");
+			GMLS_LinearAlgebra::batchSVDFactorize(_P.ptr_on_device(), _RHS.ptr_on_device(), max_matrix_dimension, max_num_rows, this_num_columns, _target_coordinates.dimension_0(), max_num_neighbors, _number_of_neighbors_list.data());
+			Kokkos::Profiling::popRegion();
 		}
 		Kokkos::fence();
 
@@ -357,7 +357,7 @@ void GMLS::operator()(const ApplyStandardTargets&, const member_type& teamMember
 	});
 	teamMember.team_barrier();
 
-	this->applyQR(teamMember, t1, t2, Coeffs, PsqrtW, w, P_target_row, _NP); 
+	this->applyTargetsToCoefficients(teamMember, t1, t2, Coeffs, PsqrtW, w, P_target_row, _NP); 
 }
 
 
@@ -720,14 +720,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
 	//	this->applySVD(teamMember, b_data, t1, Q, S, Vsvd, w, P_target_row, target_NP, abs_threshold);
 
 	//} else {
-//if (_nontrivial_nullspace) {
-//#if not(defined(COMPADRE_USE_CUDA))
-//	// LAPACK calls use Fortran data layout so we need LayoutLeft but have LayoutRight
-//	GMLS_LinearAlgebra::matrixToLayoutLeft(teamMember, t1, t2, Q, this_num_rows, this_num_rows);
-//#endif
-//}
-
-		this->applyQR(teamMember, t1, t2, Q, PsqrtW, w, P_target_row, target_NP); 
+		this->applyTargetsToCoefficients(teamMember, t1, t2, Q, PsqrtW, w, P_target_row, target_NP); 
 	//}
 	teamMember.team_barrier();
 }
