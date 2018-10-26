@@ -61,6 +61,8 @@ typedef std::conditional<std::is_same<scratch_matrix_type::array_layout, Kokkos:
 
 typedef uintptr_t device_ptr_type;
 
+namespace Compadre {
+
 namespace GMLS_LinearAlgebra {
 
 	KOKKOS_INLINE_FUNCTION
@@ -76,7 +78,8 @@ namespace GMLS_LinearAlgebra {
 
 	void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors = 0, int * neighbor_list_sizes = NULL);
 
-}
+}; // GMLS_LinearAlgebra
+}; // Compadre
 
 #endif
 #endif

@@ -4,6 +4,7 @@
 #include "GMLS_LinearAlgebra_Declarations.hpp"
 #define cudaStreamNonBlocking 0x01
 
+namespace Compadre {
 namespace GMLS_LinearAlgebra {
 
 KOKKOS_INLINE_FUNCTION
@@ -238,11 +239,10 @@ void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, 
 		}
 
 	});
-
 }
 
-
-};
+}; // GMLS_LinearAlgebra
+}; // Compadre
 
 #endif
 

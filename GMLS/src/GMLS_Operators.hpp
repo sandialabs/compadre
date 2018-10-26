@@ -1,6 +1,7 @@
 #ifndef _GMLS_OPERATORS_HPP_
 #define _GMLS_OPERATORS_HPP_
 
+namespace Compadre {
 namespace ReconstructionOperator {
 
 	enum TargetOperation {
@@ -136,6 +137,7 @@ namespace ReconstructionOperator {
 		Gaussian
 	};
 
-} // namespace ReconstructionOperator
+}; // ReconstructionOperator
+}; // Compadre
 
 #endif

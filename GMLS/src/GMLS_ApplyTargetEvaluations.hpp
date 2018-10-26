@@ -5,6 +5,8 @@
 
 #ifdef COMPADRE_USE_KOKKOSCORE
 
+namespace Compadre {
+
 KOKKOS_INLINE_FUNCTION
 void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type w, scratch_matrix_type P_target_row, const int target_NP) const {
 
@@ -114,6 +116,8 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
 	});
 	}
 }
+
+}; // Compadre
 
 #endif
 #endif

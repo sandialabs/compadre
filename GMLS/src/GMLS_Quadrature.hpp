@@ -5,6 +5,8 @@
 
 #ifdef COMPADRE_USE_KOKKOSCORE
 
+namespace Compadre {
+
 void GMLS::generate1DQuadrature() {
 
 	_quadrature_weights = Kokkos::View<double*, layout_type>("1d quadrature weights", _number_of_quadrature_points);
@@ -69,6 +71,8 @@ void GMLS::generate1DQuadrature() {
     Kokkos::deep_copy(_quadrature_weights, quadrature_weights);
     Kokkos::deep_copy(_parameterized_quadrature_sites, parameterized_quadrature_sites);
 }
+
+}; // Compadre
 
 #endif
 #endif

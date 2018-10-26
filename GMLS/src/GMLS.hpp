@@ -12,6 +12,7 @@ if (!(condition)) { printf((message)); } \
 assert ((condition)); } while(false)
 
 #ifdef COMPADRE_USE_KOKKOSCORE
+namespace Compadre {
 
 class GMLS {
 protected:
@@ -753,7 +754,8 @@ public:
     int getNumberOfQuadraturePoints() const { return _number_of_quadrature_points; }
     void setNumberOfQuadraturePoints(int np) { _number_of_quadrature_points = np; }
 
-};
+}; // GMLS Class
+}; // Compadre
 
 #endif
 

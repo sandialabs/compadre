@@ -198,7 +198,7 @@ int main (int argc, char* args[]) {
 				}
 
 				LO neighbors_needed;
-				neighbors_needed = GMLS::getNP(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),2);
+				neighbors_needed = Compadre::GMLS::getNP(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),2);
 		
 				LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
 		

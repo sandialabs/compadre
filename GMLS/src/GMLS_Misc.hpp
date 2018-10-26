@@ -1,6 +1,8 @@
 #ifndef _GMLS_MISC_HPP_
 #define _GMLS_MISC_HPP_
 
+namespace Compadre {
+
 struct XYZ {
 	KOKKOS_INLINE_FUNCTION
 	XYZ() : x(0), y(0), z(0) {}
@@ -32,6 +34,8 @@ struct XYZ {
 		result.z = scalar*z;
 		return result;
 	}
-};
+}; // XYZ
+
+}; // Compadre
 
 #endif

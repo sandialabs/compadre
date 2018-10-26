@@ -20,6 +20,8 @@
 typedef std::vector<double> stl_vector_type;
 #endif
 
+using namespace Compadre;
+
 KOKKOS_INLINE_FUNCTION
 double device_max(double d1, double d2) {
 	return (d1 > d2) ? d1 : d2;
@@ -248,8 +250,8 @@ int main (int argc, char* args[])
 
     const int offset = 15;
 	std::mt19937 rng(50);
-	const int min_neighbors = 1*GMLS::getNP(order);
-	const int max_neighbors = 1*GMLS::getNP(order)*1.15;
+	const int min_neighbors = 1*Compadre::GMLS::getNP(order);
+	const int max_neighbors = 1*Compadre::GMLS::getNP(order)*1.15;
 	std::cout << min_neighbors << " " << max_neighbors << std::endl;
 	std::uniform_int_distribution<int> gen_num_neighbors(min_neighbors, max_neighbors); // uniform, unbiased
 

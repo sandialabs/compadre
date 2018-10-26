@@ -40,6 +40,8 @@ typedef Compadre::XyzVector xyz_type;
 
 static const ST PI = consts.Pi();
 
+using namespace Compadre;
+
 int main (int argc, char* args[]) {
 #ifdef TRILINOS_LINEAR_SOLVES
 
@@ -182,7 +184,7 @@ int main (int argc, char* args[]) {
 
 				particles->createNeighborhood();
 				particles->getNeighborhood()->setAllHSupportSizes(h_support);
-				LO neighbors_needed = GMLS::getNP(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
+				LO neighbors_needed = Compadre::GMLS::getNP(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
 				LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
 				particles->getNeighborhood()->constructAllNeighborList(particles->getCoordsConst()->getHaloSize(), extra_neighbors);
 				NeighborSearchTime->stop();

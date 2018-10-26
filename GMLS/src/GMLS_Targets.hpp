@@ -5,6 +5,8 @@
 
 #ifdef COMPADRE_USE_KOKKOSCORE
 
+namespace Compadre {
+
 KOKKOS_INLINE_FUNCTION
 void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, const int basis_multiplier_component) const {
 
@@ -925,6 +927,8 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
 		}
 	}
 }
+
+}; // Compadre
 
 #endif
 #endif

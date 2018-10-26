@@ -20,6 +20,8 @@
 typedef std::vector<double> stl_vector_type;
 #endif
 
+using namespace Compadre;
+
 double trueSolution(double x, double y, double z, int order, int dimension) {
 	double ans = 0;
 	for (int i=0; i<order+1; i++) {
@@ -245,8 +247,8 @@ bool all_passed = true;
 
     const int offset = 15;
 	std::mt19937 rng(50);
-	const int min_neighbors = 1*GMLS::getNP(order);
-	const int max_neighbors = 1*GMLS::getNP(order)*1.15;
+	const int min_neighbors = 1*Compadre::GMLS::getNP(order);
+	const int max_neighbors = 1*Compadre::GMLS::getNP(order)*1.15;
 	std::cout << min_neighbors << " " << max_neighbors << std::endl;
 	std::uniform_int_distribution<int> gen_num_neighbors(min_neighbors, max_neighbors); // uniform, unbiased
 

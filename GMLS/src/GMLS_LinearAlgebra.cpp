@@ -1,4 +1,6 @@
 #include "GMLS_LinearAlgebra_Definitions.hpp"
+
+namespace Compadre{
 namespace GMLS_LinearAlgebra {
 
 void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors, int * neighbor_list_sizes) {
@@ -410,4 +412,5 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
 #endif
 }
 
-};
+}; // GMLS_LinearAlgebra
+}; // Compadre

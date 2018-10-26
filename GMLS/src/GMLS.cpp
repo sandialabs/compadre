@@ -8,6 +8,8 @@
 
 #ifdef COMPADRE_USE_KOKKOSCORE
 
+namespace Compadre {
+
 void GMLS::generateAlphas() {
 	/*
 	 *	Operations to Device
@@ -784,4 +786,6 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
 		});
 	}
 }
+
+}; // Compadre
 #endif

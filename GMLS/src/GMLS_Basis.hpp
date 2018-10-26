@@ -5,6 +5,8 @@
 
 #ifdef COMPADRE_USE_KOKKOSCORE
 
+namespace Compadre {
+
 KOKKOS_INLINE_FUNCTION
 double GMLS::Wab(const double r, const double h, const ReconstructionOperator::WeightingFunctionType& weighting_type, const int power) const {
 
@@ -540,5 +542,6 @@ void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_
 	teamMember.team_barrier();
 }
 
+}; // Compadre
 #endif
 #endif

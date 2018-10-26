@@ -36,6 +36,8 @@ typedef Compadre::XyzVector xyz_type;
 
 static const ST PI = consts.Pi();
 
+using namespace Compadre;
+
 int main (int argc, char* args[]) {
 #ifdef TRILINOS_LINEAR_SOLVES
 

@@ -149,7 +149,7 @@ int main (int argc, char* args[]) {
 		 		particles->createNeighborhood();
 		 		particles->getNeighborhood()->setAllHSupportSizes(h_support);
 
-		 		LO neighbors_needed = GMLS::getNP(Porder);
+		 		LO neighbors_needed = Compadre::GMLS::getNP(Porder);
 
 				LO extra_neighbors = parameters->get<Teuchos::ParameterList>("gmls").get<double>("neighbors needed multiplier") * neighbors_needed;
 				particles->getNeighborhood()->constructAllNeighborList(particles->getCoordsConst()->getHaloSize(), extra_neighbors);
