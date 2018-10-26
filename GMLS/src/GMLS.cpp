@@ -90,15 +90,13 @@ void GMLS::generateAlphas() {
 	int team_scratch_size_a = 0;
 
 	// TEMPORARY, take to zero after conversion
-	int team_scratch_size_b = scratch_vector_type::shmem_size(max_num_neighbors*_sampling_multiplier); // weights W;
+	int team_scratch_size_b = 0;//scratch_vector_type::shmem_size(max_num_neighbors*_sampling_multiplier); // weights W;
 	int thread_scratch_size_a = 0;
 	int thread_scratch_size_b = 0;
 
 	// dimensions that are relevant for each subproblem
 	int max_num_rows = _sampling_multiplier*max_num_neighbors;
 	int this_num_columns = _basis_multiplier*_NP;
-	int max_matrix_dimension = max_num_rows > this_num_columns
-		? max_num_rows : this_num_columns;
 	int manifold_NP = 0;
 
 	if (_dense_solver_type == ReconstructionOperator::DenseSolverType::MANIFOLD) {
@@ -108,8 +106,6 @@ void GMLS::generateAlphas() {
 		const int max_manifold_NP = (manifold_NP > target_NP) ? manifold_NP : target_NP;
 		const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
 		this_num_columns = _basis_multiplier*max_manifold_NP;
-		max_matrix_dimension = (max_num_neighbors*_sampling_multiplier > max_NP*_basis_multiplier)
-			? max_num_neighbors*_sampling_multiplier : max_NP*_basis_multiplier;
 		const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
 
 		/*
@@ -125,6 +121,7 @@ void GMLS::generateAlphas() {
 
 		team_scratch_size_b += scratch_matrix_type::shmem_size(max_P_row_size, _sampling_multiplier); // row of P matrix, one for each operator
 		thread_scratch_size_b += scratch_vector_type::shmem_size(max_NP*_basis_multiplier); // delta, used for each thread
+
 
 		// allocate data on the device (initialized to zero)
 		_V = Kokkos::View<double*>("V",_target_coordinates.dimension_0()*_dimensions*_dimensions);
@@ -153,7 +150,7 @@ void GMLS::generateAlphas() {
 	 */
 
 	// allocate data on the device (initialized to zero)
-	_P = Kokkos::View<double*>("P",_target_coordinates.dimension_0()*max_matrix_dimension*max_matrix_dimension);
+	_P = Kokkos::View<double*>("P",_target_coordinates.dimension_0()*max_num_rows*this_num_columns);
 	_RHS = Kokkos::View<double*>("RHS",_target_coordinates.dimension_0()*max_num_rows*max_num_rows);
 	_w = Kokkos::View<double*>("w",_target_coordinates.dimension_0()*max_num_rows);
 	
@@ -187,7 +184,7 @@ void GMLS::generateAlphas() {
 
 		// solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
 		Kokkos::Profiling::pushRegion("Curvature QR Factorization");
-		GMLS_LinearAlgebra::batchQRFactorize(_P.ptr_on_device(), _RHS.ptr_on_device(), max_num_neighbors, manifold_NP, max_matrix_dimension, max_num_rows, _target_coordinates.dimension_0(), max_num_neighbors, _number_of_neighbors_list.data());
+		GMLS_LinearAlgebra::batchQRFactorize(_P.ptr_on_device(), max_num_rows, this_num_columns, _RHS.ptr_on_device(), max_num_rows, max_num_rows, max_num_neighbors, manifold_NP, _target_coordinates.dimension_0(), max_num_neighbors, _number_of_neighbors_list.data());
 		Kokkos::Profiling::popRegion();
 
 		// assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity
@@ -196,11 +193,11 @@ void GMLS::generateAlphas() {
 		// solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
 		if (_nontrivial_nullspace) {
 			Kokkos::Profiling::pushRegion("Manifold SVD Factorization");
-			GMLS_LinearAlgebra::batchSVDFactorize(_P.ptr_on_device(), _RHS.ptr_on_device(), max_num_rows, this_num_columns, max_matrix_dimension, max_num_rows, _target_coordinates.dimension_0(), max_num_neighbors, _number_of_neighbors_list.data());
+			GMLS_LinearAlgebra::batchSVDFactorize(_P.ptr_on_device(), max_num_rows, this_num_columns, _RHS.ptr_on_device(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.dimension_0(), max_num_neighbors, _number_of_neighbors_list.data());
 			Kokkos::Profiling::popRegion();
 		} else {
 			Kokkos::Profiling::pushRegion("Manifold QR Factorization");
-			GMLS_LinearAlgebra::batchQRFactorize(_P.ptr_on_device(), _RHS.ptr_on_device(), max_num_rows, this_num_columns, max_matrix_dimension, max_num_rows, _target_coordinates.dimension_0(), max_num_neighbors, _number_of_neighbors_list.data());
+			GMLS_LinearAlgebra::batchQRFactorize(_P.ptr_on_device(), max_num_rows, this_num_columns, _RHS.ptr_on_device(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.dimension_0(), max_num_neighbors, _number_of_neighbors_list.data());
 			Kokkos::Profiling::popRegion();
 		}
 
@@ -223,11 +220,11 @@ void GMLS::generateAlphas() {
 		// solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
 		if (_dense_solver_type == ReconstructionOperator::DenseSolverType::QR) {
 			Kokkos::Profiling::pushRegion("QR Factorization");
-			GMLS_LinearAlgebra::batchQRFactorize(_P.ptr_on_device(), _RHS.ptr_on_device(), max_num_rows, this_num_columns, max_matrix_dimension, max_num_rows, _target_coordinates.dimension_0(), max_num_neighbors, _number_of_neighbors_list.data());
+			GMLS_LinearAlgebra::batchQRFactorize(_P.ptr_on_device(), max_num_rows, this_num_columns, _RHS.ptr_on_device(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.dimension_0(), max_num_neighbors, _number_of_neighbors_list.data());
 			Kokkos::Profiling::popRegion();
 		} else if (_dense_solver_type == ReconstructionOperator::DenseSolverType::SVD) {
 			Kokkos::Profiling::pushRegion("SVD Factorization");
-			GMLS_LinearAlgebra::batchSVDFactorize(_P.ptr_on_device(), _RHS.ptr_on_device(), max_num_rows, this_num_columns, max_matrix_dimension, max_num_rows, _target_coordinates.dimension_0(), max_num_neighbors, _number_of_neighbors_list.data());
+			GMLS_LinearAlgebra::batchSVDFactorize(_P.ptr_on_device(), max_num_rows, this_num_columns, _RHS.ptr_on_device(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.dimension_0(), max_num_neighbors, _number_of_neighbors_list.data());
 			Kokkos::Profiling::popRegion();
 		}
 		Kokkos::fence();
@@ -264,8 +261,6 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
 	const int max_num_rows = _sampling_multiplier*max_num_neighbors;
 	const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
 	const int this_num_columns = _basis_multiplier*_NP;
-	const int max_matrix_dimension = max_num_rows > this_num_columns
-			? max_num_rows : this_num_columns;
 
 	/*
 	 *	Data
@@ -275,15 +270,14 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
 	// the threads in a team work on these local copies that only the team sees
 	// thread_scratch has a copy per thread
 
-	Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() + target_index*max_matrix_dimension*max_matrix_dimension, max_matrix_dimension, max_matrix_dimension);
+	Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() + target_index*max_num_rows*this_num_columns, max_num_rows, this_num_columns);
 	Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > RHS(_RHS.data() + target_index*max_num_rows*max_num_rows, max_num_rows, max_num_rows);
 	Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > w(_w.data() + target_index*max_num_rows);
 
 	scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_a), max_num_rows);
 	scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_a), max_num_rows);
 
-	// delta is a temporary variable that preallocates space on which solutions of size _basis_multiplier*_NP will
-	// be computed. This allows the gpu to allocate the memory in advance
+	// delta, used for each thread
 	scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), this_num_columns);
 
 	/*
@@ -292,11 +286,6 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
 
 	// creates the matrix sqrt(W)*P
 	this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions, _poly_order, true /*weight_p*/, NULL /*&V*/, NULL /*&T*/, _polynomial_sampling_functional);
-
-#ifdef COMPADRE_USE_LAPACK
-	// LAPACK calls use Fortran data layout so we need LayoutLeft but have LayoutRight
-	GMLS_LinearAlgebra::matrixToLayoutLeft(teamMember, t1, t2, PsqrtW, this_num_columns, this_num_rows);
-#endif
 
 	// fill in RHS with Identity * sqrt(weights)
 	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_rows), [=] (const int i) {
@@ -322,14 +311,12 @@ void GMLS::operator()(const ApplyStandardTargets&, const member_type& teamMember
 	const int max_num_rows = _sampling_multiplier*max_num_neighbors;
 	const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
 	const int this_num_columns = _basis_multiplier*_NP;
-	const int max_matrix_dimension = max_num_rows > this_num_columns
-			? max_num_rows : this_num_columns;
 
 	/*
 	 *	Data
 	 */
 
-	Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() + target_index*max_matrix_dimension*max_matrix_dimension, max_matrix_dimension, max_matrix_dimension);
+	Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() + target_index*max_num_rows*this_num_columns, max_num_rows, this_num_columns);
 	// Coefficients for polynomial basis have overwritten _RHS
 	Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > Coeffs(_RHS.data() + target_index*max_num_rows*max_num_rows, max_num_rows, max_num_rows);
 	Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > w(_w.data() + target_index*max_num_rows);
@@ -362,7 +349,6 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
 	const int target_index = teamMember.league_rank();
 	const int max_num_neighbors = _neighbor_lists.dimension_1()-1;
 
-	// these dimensions already calculated differ in the case of manifolds
 	const int max_num_rows = _sampling_multiplier*max_num_neighbors;
 	const int manifold_NP = this->getNP(_manifold_poly_order, _dimensions-1);
 	const int target_NP = this->getNP(_poly_order, _dimensions-1);
@@ -370,20 +356,19 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
 	const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
 	const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
 	const int this_num_columns = _basis_multiplier*max_manifold_NP;
-	const int max_matrix_dimension = (max_num_neighbors*_sampling_multiplier > max_NP*_basis_multiplier)
-		? max_num_neighbors*_sampling_multiplier : max_NP*_basis_multiplier;
-	// max_num_rows remains the same
 	const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
 
 	/*
 	 *	Data
 	 */
 
-	Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() + target_index*max_matrix_dimension*max_matrix_dimension, max_matrix_dimension, max_matrix_dimension);
+	Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() + target_index*max_num_rows*this_num_columns, max_num_rows, this_num_columns);
 	Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > w(_w.data() + target_index*max_num_rows);
 	Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > V(_V.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
 
 	scratch_matrix_type PTP(teamMember.team_scratch(_scratch_team_level_b), _dimensions, _dimensions);
+
+	// delta, used for each thread
 	scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), max_NP*_basis_multiplier);
 
 	/*
@@ -411,7 +396,6 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
 	const int target_index = teamMember.league_rank();
 	const int max_num_neighbors = _neighbor_lists.dimension_1()-1;
 
-	// these dimensions already calculated differ in the case of manifolds
 	const int max_num_rows = _sampling_multiplier*max_num_neighbors;
 	const int manifold_NP = this->getNP(_manifold_poly_order, _dimensions-1);
 	const int target_NP = this->getNP(_poly_order, _dimensions-1);
@@ -420,16 +404,13 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
 	const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
 	const int this_num_neighbors = this->getNNeighbors(target_index);
 	const int this_num_columns = _basis_multiplier*max_manifold_NP;
-	const int max_matrix_dimension = (max_num_neighbors*_sampling_multiplier > max_NP*_basis_multiplier)
-		? max_num_neighbors*_sampling_multiplier : max_NP*_basis_multiplier;
-	// max_num_rows remains the same
 	const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
 
 	/*
 	 *	Data
 	 */
 
-	Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > CurvaturePsqrtW(_P.data() + target_index*max_matrix_dimension*max_matrix_dimension, max_matrix_dimension, max_matrix_dimension);
+	Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > CurvaturePsqrtW(_P.data() + target_index*max_num_rows*this_num_columns, max_num_rows, this_num_columns);
 	Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > RHS(_RHS.data() + target_index*max_num_rows*max_num_rows, max_num_rows, max_num_rows);
 	Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > w(_w.data() + target_index*max_num_rows);
 
@@ -438,6 +419,8 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
 	scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_b), max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
 	scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_b), max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
 	scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), max_P_row_size, _sampling_multiplier);
+
+	// delta, used for each thread
 	scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), max_NP*_basis_multiplier);
 
 
@@ -449,13 +432,8 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
 	this->createWeightsAndPForCurvature(teamMember, delta, CurvaturePsqrtW, w, _dimensions-1, false /* only specific order */, &V);
 	teamMember.team_barrier();
 
-	// CurvaturePsqrtW is sized according to max_matrix_dimension x max_matrix_dimension of which in this case
+	// CurvaturePsqrtW is sized according to max_num_rows x this_num_columns of which in this case
 	// we are only using this_num_neighbors x manifold_NP
-
-#ifdef COMPADRE_USE_LAPACK
-	// LAPACK calls use Fortran data layout so we need LayoutLeft but have LayoutRight
-	GMLS_LinearAlgebra::matrixToLayoutLeft(teamMember, t1, t2, CurvaturePsqrtW, manifold_NP, this_num_neighbors);
-#endif
 	
 	// fill in RHS with Identity * sqrt(weights)
 	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_neighbors), [=] (const int i) {
@@ -481,7 +459,6 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
 	const int target_index = teamMember.league_rank();
 	const int max_num_neighbors = _neighbor_lists.dimension_1()-1;
 
-	// these dimensions already calculated differ in the case of manifolds
 	const int max_num_rows = _sampling_multiplier*max_num_neighbors;
 	const int manifold_NP = this->getNP(_manifold_poly_order, _dimensions-1);
 	const int target_NP = this->getNP(_poly_order, _dimensions-1);
@@ -490,16 +467,13 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
 	const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
 	const int this_num_columns = _basis_multiplier*max_manifold_NP;
 	const int this_num_neighbors = this->getNNeighbors(target_index);
-	const int max_matrix_dimension = (max_num_neighbors*_sampling_multiplier > max_NP*_basis_multiplier)
-		? max_num_neighbors*_sampling_multiplier : max_NP*_basis_multiplier;
-	// max_num_rows remains the same
 	const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
 
 	/*
 	 *	Data
 	 */
 
-	Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() + target_index*max_matrix_dimension*max_matrix_dimension, max_matrix_dimension, max_matrix_dimension);
+	Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() + target_index*max_num_rows*this_num_columns, max_num_rows, this_num_columns);
 	Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > Q(_RHS.data() + target_index*max_num_rows*max_num_rows, max_num_rows, max_num_rows);
 	Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > w(_w.data() + target_index*max_num_rows);
 
@@ -515,6 +489,8 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
 	scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_b), max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
 	scratch_vector_type manifold_gradient(teamMember.team_scratch(_scratch_team_level_b), (_dimensions-1)*max_num_neighbors);
 	scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), max_P_row_size, _sampling_multiplier);
+
+	// delta, used for each thread
 	scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), max_NP*_basis_multiplier);
 
 
@@ -643,15 +619,8 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
 	//
 
 
-	// PsqrtW contains valid entries if _poly_order == _manifold_poly_order
-	// However, if they differ, then they must be recomputed
 	this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions-1, _poly_order, true /* weight with W*/, &V, &T, _polynomial_sampling_functional);
 	teamMember.team_barrier();
-
-#ifdef COMPADRE_USE_LAPACK
-	// LAPACK calls use Fortran data layout so we need LayoutLeft but have LayoutRight
-	GMLS_LinearAlgebra::matrixToLayoutLeft(teamMember, t1, t2, PsqrtW, this_num_columns, this_num_rows);
-#endif
 	
 	// fill in RHS with Identity * sqrt(weights)
 	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_rows), [=] (const int i) {
@@ -673,7 +642,6 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
 	const int target_index = teamMember.league_rank();
 	const int max_num_neighbors = _neighbor_lists.dimension_1()-1;
 
-	// these dimensions already calculated differ in the case of manifolds
 	const int max_num_rows = _sampling_multiplier*max_num_neighbors;
 	const int manifold_NP = this->getNP(_manifold_poly_order, _dimensions-1);
 	const int target_NP = this->getNP(_poly_order, _dimensions-1);
@@ -681,16 +649,13 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
 	const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
 	const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
 	const int this_num_columns = _basis_multiplier*max_manifold_NP;
-	const int max_matrix_dimension = (max_num_neighbors*_sampling_multiplier > max_NP*_basis_multiplier)
-		? max_num_neighbors*_sampling_multiplier : max_NP*_basis_multiplier;
-	// max_num_rows remains the same
 	const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
 
 	/*
 	 *	Data
 	 */
 
-	Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() + target_index*max_matrix_dimension*max_matrix_dimension, max_matrix_dimension, max_matrix_dimension);
+	Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() + target_index*max_num_rows*this_num_columns, max_num_rows, this_num_columns);
 	Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > Coeffs(_RHS.data() + target_index*max_num_rows*max_num_rows, max_num_rows, max_num_rows);
 	Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > w(_w.data() + target_index*max_num_rows);
 
@@ -715,6 +680,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
 	teamMember.team_barrier();
 
 	this->applyTargetsToCoefficients(teamMember, t1, t2, Coeffs, PsqrtW, w, P_target_row, target_NP); 
+
 	teamMember.team_barrier();
 }
 
@@ -729,7 +695,6 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
 	const int target_index = teamMember.league_rank();
 	const int max_num_neighbors = _neighbor_lists.dimension_1()-1;
 
-	// these dimensions already calculated differ in the case of manifolds
 	const int max_num_rows = _sampling_multiplier*max_num_neighbors;
 	const int manifold_NP = this->getNP(_manifold_poly_order, _dimensions-1);
 	const int target_NP = this->getNP(_poly_order, _dimensions-1);
@@ -737,9 +702,6 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
 	const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
 	const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
 	const int this_num_columns = _basis_multiplier*max_manifold_NP;
-	const int max_matrix_dimension = (max_num_neighbors*_sampling_multiplier > max_NP*_basis_multiplier)
-		? max_num_neighbors*_sampling_multiplier : max_NP*_basis_multiplier;
-	// max_num_rows remains the same
 	const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
 
 	/*

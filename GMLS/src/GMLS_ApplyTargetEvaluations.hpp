@@ -10,6 +10,20 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
 
 	const int target_index = teamMember.league_rank();
 
+	//GMLS_LinearAlgebra::upperTriangularBackSolve(teamMember, t1, t2, Q, R, w, _basis_multiplier*target_NP, _sampling_multiplier*this->getNNeighbors(target_index)); // stores solution in Q
+
+	//if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutLeft>::value) {
+	//	// transpose Q
+	//	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,_sampling_multiplier*this->getNNeighbors(target_index)), [=] (const int i) {
+	//		Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember,0,i), [&] (const int j) {
+	//			double tmp = Q(i,j);
+	//			Q(i,j) = Q(j,i);
+	//			Q(j,i) = tmp;
+	//		});
+	//	});
+	//}
+	//teamMember.team_barrier();
+
 	if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutRight>::value) {
 		// CPU
 		for (int i=0; i<this->getNNeighbors(target_index); ++i) {

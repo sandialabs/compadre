@@ -36,7 +36,6 @@ namespace ReconstructionOperator {
 
 	enum DenseSolverType {
 		QR,
-		LU,
 		SVD,
 		MANIFOLD,
 	};

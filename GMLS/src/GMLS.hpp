@@ -430,9 +430,7 @@ public:
     void setSolverType(const std::string& dense_solver_type) {
 		std::string solver_type_to_lower = dense_solver_type;
 		transform(solver_type_to_lower.begin(), solver_type_to_lower.end(), solver_type_to_lower.begin(), ::tolower);
-		if (solver_type_to_lower == "lu") {
-			_dense_solver_type = ReconstructionOperator::DenseSolverType::LU;
-		} else if (solver_type_to_lower == "svd") {
+		if (solver_type_to_lower == "svd") {
 			_dense_solver_type = ReconstructionOperator::DenseSolverType::SVD;
 		} else if (solver_type_to_lower == "manifold") {
 			_dense_solver_type = ReconstructionOperator::DenseSolverType::MANIFOLD;
@@ -441,12 +439,6 @@ public:
 		} else {
 			_dense_solver_type = ReconstructionOperator::DenseSolverType::QR;
 		}
-
-
-		//// TEMPORARY
-		//if (_dense_solver_type == ReconstructionOperator::DenseSolverType::LU || _dense_solver_type == ReconstructionOperator::DenseSolverType::SVD) {
-		//	_dense_solver_type = ReconstructionOperator::DenseSolverType::QR;
-		//}
     }
 
     struct AssembleStandardPsqrtW{};

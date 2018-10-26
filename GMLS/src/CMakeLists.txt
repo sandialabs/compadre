@@ -32,10 +32,6 @@ else ()
   target_link_libraries(gmls PUBLIC "${KokkosCore_STATIC_LIB}")
 endif()
 
-if (Compadre_USE_Boost)
-  target_include_directories(gmls PUBLIC "${Boost_INCLUDE_DIR}")
-endif()
-
 if (Compadre_USE_LAPACK)
   target_link_libraries(gmls PUBLIC "${LAPACK_LIB}")
 endif()

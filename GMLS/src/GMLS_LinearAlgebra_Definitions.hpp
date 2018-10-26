@@ -79,6 +79,7 @@ void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_
 	 */
 
 	const int target_index = teamMember.league_rank();
+	double * p_data = weighted_P.data();
 
 	for (int i=0; i<columns; ++i) {
 		// offdiagonal entries
@@ -87,7 +88,11 @@ void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_
 			teamMember.team_barrier();
 
 			Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k, double &entry_val) {
-				entry_val += weighted_P(ORDER_INDICES(k,i)) * weighted_P(ORDER_INDICES(k,j));
+				//entry_val += weighted_P(ORDER_INDICES(k,i)) * weighted_P(ORDER_INDICES(k,j));
+				//entry_val += weighted_P(k,i) * weighted_P(k,j);
+				double val_i = *(p_data + i*weighted_P.dimension_0() + k);
+				double val_j = *(p_data + j*weighted_P.dimension_0() + k);
+				entry_val += val_i*val_j;
 			}, M_data_entry_i_j );
 
 			Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
@@ -101,7 +106,10 @@ void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_
 		teamMember.team_barrier();
 
 		Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k, double &entry_val) {
-			entry_val += weighted_P(ORDER_INDICES(k,i)) * weighted_P(ORDER_INDICES(k,i));
+			//entry_val += weighted_P(ORDER_INDICES(k,i)) * weighted_P(ORDER_INDICES(k,i));
+			//entry_val += weighted_P(k,i) * weighted_P(k,i);
+			double val = *(p_data + i*weighted_P.dimension_0() + k);
+			entry_val += val*val;
 		}, M_data_entry_i_j );
 
 		Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {

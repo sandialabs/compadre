@@ -218,6 +218,7 @@ int main (int argc, char* args[])
 	
 #if defined(COMPADRE_USE_KOKKOSCORE)
 
+bool all_passed = true;
 
 {
 	int solver_type = 0;
@@ -332,8 +333,6 @@ int main (int argc, char* args[])
         solver_name = "SVD";
     } else if (solver_type == 1) { // QR
         solver_name = "QR";
-    } else if (solver_type == 2) { // LU
-        solver_name = "LU";
     }
 
     GMLS my_GMLS(order, solver_name.c_str(), 2 /*manifield order*/, dimension);
@@ -352,7 +351,6 @@ int main (int argc, char* args[])
     double instantiation_time = timer.seconds();
     std::cout << "Took " << instantiation_time << "s to complete instantiation." << std::endl;
     
-    bool all_passed = true;
 
     for (int i=0; i<number_target_coords; i++) {
 
@@ -524,12 +522,6 @@ int main (int argc, char* args[])
 	    }
     }
 
-    if(all_passed)
-    	fprintf(stdout, "Passed test \n");
-    else {
-    	fprintf(stdout, "Failed test \n");
-    	return -1;
-    }
 }
 
     Kokkos::finalize();
@@ -537,7 +529,13 @@ int main (int argc, char* args[])
     MPI_Finalize();
 #endif
 
-    return 0;
+    if(all_passed) {
+    	fprintf(stdout, "Passed test \n");
+	return 0;
+    } else {
+    	fprintf(stdout, "Failed test \n");
+    	return -1;
+    }
 #else // Kokkos
     return -1;
 #endif

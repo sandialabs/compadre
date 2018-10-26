@@ -434,7 +434,7 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 //	}
 //	printf("weight_p: %d\n", weight_p);
         double * p_data = P.data();
-  const int my_num_neighbors = this->getNNeighbors(target_index);
+	const int my_num_neighbors = this->getNNeighbors(target_index);
 
 	teamMember.team_barrier();
 	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)),
@@ -470,17 +470,14 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 
 			if (weight_p) {
 				for (int j = 0; j < storage_size; ++j) {
-					// stores as transposed P on gpu
-					P(i+my_num_neighbors*d,j) = delta[j] * std::sqrt(w(i+my_num_neighbors*d));
-					//*(p_data + j*P.dimension_0() + i+my_num_neighbors*d) = delta[j] * std::sqrt(w(i+my_num_neighbors*d));
+                        		// stores layout left for CUDA or LAPACK calls later
+					*(p_data + j*P.dimension_0() + i+my_num_neighbors*d) = delta[j] * std::sqrt(w(i+my_num_neighbors*d));
 				}
 
 			} else {
-
 				for (int j = 0; j < storage_size; ++j) {
-					// stores as transposed P on gpu
-					P(i+my_num_neighbors*d,j) = delta[j];
-					//*(p_data + j*P.dimension_0() + i+my_num_neighbors*d) = delta[j];
+                        		// stores layout left for CUDA or LAPACK calls later
+					*(p_data + j*P.dimension_0() + i+my_num_neighbors*d) = delta[j];
 				}
 			}
 		}
@@ -498,13 +495,14 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 
 KOKKOS_INLINE_FUNCTION
 void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, bool only_specific_order, scratch_matrix_type* V) const {
-    /*
-     * This function has two purposes
-     * 1.) Used to calculate specifically for 1st order polynomials, from which we can reconstruct a tangent plane
-     * 2.) Used to calculate a polynomial of _manifold_poly_order, which we use to calculate curvature of the manifold
-     */
+/*
+ * This function has two purposes
+ * 1.) Used to calculate specifically for 1st order polynomials, from which we can reconstruct a tangent plane
+ * 2.) Used to calculate a polynomial of _manifold_poly_order, which we use to calculate curvature of the manifold
+ */
 
 	const int target_index = teamMember.league_rank();
+	double * p_data = P.data();
 
 	teamMember.team_barrier();
 	Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)),
@@ -534,11 +532,11 @@ void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_
 		int storage_size = only_specific_order ? this->getNP(1, dimension)-this->getNP(0, dimension) : this->getNP(_manifold_poly_order, dimension);
 
 		for (int j = 0; j < storage_size; ++j) {
-			// stores as transposed P on gpu
-			P(i,j) = delta[j] * std::sqrt(w(i));
+                        // stores layout left for CUDA or LAPACK calls later
+			*(p_data + j*P.dimension_0() + i) = delta[j] * std::sqrt(w(i));
 		}
 
-    });
+	});
 	teamMember.team_barrier();
 }
 

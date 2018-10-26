@@ -13,6 +13,7 @@
   #include <cublas_v2.h>
   #include <cublas_api.h>
   #include <cusolverDn.h>
+  #include <assert.h>
 #endif
 
 #ifdef COMPADRE_USE_BOOST
@@ -74,13 +75,14 @@ typedef Kokkos::DefaultExecutionSpace::array_layout layout_type;
 
 //typedef Kokkos::View<double**, layout_type, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_matrix_type;
 typedef Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_matrix_type;
-typedef Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > device_matrix_type;
+typedef Kokkos::View<double**, Kokkos::LayoutLeft, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_matrix_type_layout_left;
+//typedef Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > device_matrix_type;
 //typedef Kokkos::View<double*, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_vector_type;
 typedef Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_vector_type;
-typedef Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > device_vector_type;
+//typedef Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > device_vector_type;
 //typedef Kokkos::View<int*, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_local_index_type;
 typedef Kokkos::View<int*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_local_index_type;
-typedef Kokkos::View<int*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > device_local_index_type;
+//typedef Kokkos::View<int*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > device_local_index_type;
 
 typedef std::conditional<std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutRight>::value,
                          Kokkos::LayoutLeft, Kokkos::LayoutRight>::type reverse_layout_type;
@@ -139,9 +141,9 @@ namespace GMLS_LinearAlgebra {
     KOKKOS_INLINE_FUNCTION
     void matrixToLayoutLeft(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type A, const int columns, const int rows);
 
-    void batchQRFactorize(double *P, double *RHS, int M, int N, int lda, int ldb, const int num_matrices, const size_t max_neighbors = 0, int * neighbor_list_sizes = NULL);
+    void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors = 0, int * neighbor_list_sizes = NULL);
 
-    void batchSVDFactorize(double *P, double *RHS, int M, int N, int lda, int ldb, const int num_matrices, const size_t max_neighbors = 0, int * neighbor_list_sizes = NULL);
+    void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors = 0, int * neighbor_list_sizes = NULL);
 
     //void batchLUFactorize(double *P, double *RHS, const size_t dim_0, const size_t dim_1, const int num_matrices);
 }

@@ -351,8 +351,6 @@ int main (int argc, char* args[])
         solver_name = "SVD";
     } else if (solver_type == 1) { // QR
         solver_name = "QR";
-    } else if (solver_type == 2) { // LU
-        solver_name = "LU";
     }
 
     GMLS my_GMLS(order, solver_name.c_str(), 2 /*manifield order*/, dimension);
