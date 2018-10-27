@@ -45,7 +45,7 @@ if (Compadre_USE_Boost)
 endif()
 
 #LAPACK
-bob_option(Compadre_USE_LAPACK "Use LAPACK" OFF)
+bob_option(Compadre_USE_LAPACK "Use LAPACK" ON)
 SET(Compadre_USE_OPENBLAS OFF) # need to know if openblas is used in order to limit its ability to spawn threads
 bob_input(LAPACK_PREFIX "" PATH "Path to LAPACK install")
 if (LAPACK_PREFIX)
@@ -58,7 +58,7 @@ if (Compadre_USE_LAPACK)
     MESSAGE(FATAL_ERROR "Compadre_USE_LAPACK is ON, but LAPACK_PREFIX was set incorrectly.")
   ELSE()
     IF(APPLE)
-      execute_process("otool -L $LAPACK_LIB" OUTPUT_VARIABLE LAPACK_DEPENDENCIES) 
+      execute_process(COMMAND otool -L  "${LAPACK_LIB}" OUTPUT_VARIABLE LAPACK_DEPENDENCIES) 
     ELSE()
       execute_process(COMMAND ldd "${LAPACK_LIB}" OUTPUT_VARIABLE LAPACK_DEPENDENCIES) 
     ENDIF()
@@ -566,20 +566,25 @@ bob_get_semver()
 #
 ##########
 
+# check that either CUDA or LAPACK were turned on (needed for any computation to be performed)
 
-add_subdirectory(GMLS)
-
-if(Compadre_USE_Compadre)
-  add_subdirectory(src)
-endif()
-
-if(Compadre_USE_Trilinos AND Compadre_PHYSICS)
-  add_subdirectory(physics)
-endif()
-
-if(GMLS_EXAMPLES OR Compadre_EXAMPLES)
-  add_subdirectory(examples)
-endif()
+if (Compadre_USE_CUDA OR Compadre_USE_LAPACK)
+  add_subdirectory(GMLS)
+  
+  if(Compadre_USE_Compadre)
+    add_subdirectory(src)
+  endif()
+  
+  if(Compadre_USE_Trilinos AND Compadre_PHYSICS)
+    add_subdirectory(physics)
+  endif()
+  
+  if(GMLS_EXAMPLES OR Compadre_EXAMPLES)
+    add_subdirectory(examples)
+  endif()
+else ()
+  MESSAGE(FATAL_ERROR "Both Compadre_USE_CUDA and Compadre_USE_LAPACK are currently OFF.\n Since these are both OFF, either Compadre_USE_LAPACK is set to OFF explicitly in the build script, or CUDA was not found in the KokkosCore specified (Compadre_USE_CUDA is a calculated variable, not an option to be set).")
+endif () 
 
 set (augmented_list "${Trilinos_LIBRARIES}" "${VTK_LIBRARIES}")
 bob_end_package_no_recurse("${augmented_list}")
