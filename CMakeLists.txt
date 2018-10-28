@@ -29,21 +29,6 @@ bob_begin_package()
 #NANOFLANN
 bob_option(Compadre_USE_Nanoflann "Use Nanoflann" ON) # header included in TPLs
 
-#BOOST
-bob_option(Compadre_USE_Boost "Use Boost" ON)
-bob_input(Boost_PREFIX "" PATH "Path to Boost install")
-if (Boost_PREFIX)
-  set(CMAKE_PREFIX_PATH ${Boost_PREFIX} ${CMAKE_PREFIX_PATH})
-endif()
-if (Compadre_USE_Boost)
-  find_path(Boost_INCLUDE_DIR NAMES "boost/wave.hpp" HINT ${Boost_PREFIX})
-  set(Boost_INCLUDE_DIRS ${Boost_INCLUDE_DIR})
-  MESSAGE(STATUS "Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIR}")
-  IF (NOT(Boost_INCLUDE_DIRS))
-    MESSAGE(FATAL_ERROR "Compadre_USE_Boost is ON, but Boost_PREFIX was set incorrectly.")
-  ENDIF()
-endif()
-
 #LAPACK
 bob_option(Compadre_USE_LAPACK "Use LAPACK" ON)
 SET(Compadre_USE_OPENBLAS OFF) # need to know if openblas is used in order to limit its ability to spawn threads
@@ -236,6 +221,8 @@ if (Compadre_USE_KokkosCore)
         MESSAGE(FATAL_ERROR "KokkosCore from outside of Trilinos requested, but kokkos_generated_settings.cmake was not found.")
     ENDIF()
   endif()
+else()
+  MESSAGE(FATAL_ERROR "Compadre_USE_KokkosCore set to OFF, but entire toolkit relies on KokkosCore.")
 endif()
 
 #NETCDF
@@ -470,9 +457,6 @@ else()
         set(FLAGS "${FLAGS} -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored")
       endif()
     else()
-      if(Compadre_USE_Boost)
-        set(FLAGS "${FLAGS} -fext-numeric-literals")
-      endif()
       set(FLAGS "${FLAGS} -fno-omit-frame-pointer")
       if(Compadre_USE_OpenMP)
         set(FLAGS "${FLAGS} -fopenmp")
@@ -518,7 +502,6 @@ set(Compadre_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
 set(Compadre_KEY_BOOLS
     Compadre_CANGA_ENABLED
-    Compadre_USE_Boost
     Compadre_USE_CUDA
     Compadre_USE_KokkosCore
     Compadre_USE_LAPACK

@@ -3,8 +3,6 @@
 
 #include "GMLS.hpp"
 
-#ifdef COMPADRE_USE_KOKKOSCORE
-
 namespace Compadre {
 
 KOKKOS_INLINE_FUNCTION
@@ -543,5 +541,4 @@ void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_
 }
 
 }; // Compadre
-#endif
 #endif

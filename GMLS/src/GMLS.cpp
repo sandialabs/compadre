@@ -6,8 +6,6 @@
 
 #include <float.h> // for DBL_MAX
 
-#ifdef COMPADRE_USE_KOKKOSCORE
-
 namespace Compadre {
 
 void GMLS::generateAlphas() {
@@ -788,4 +786,3 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
 }
 
 }; // Compadre
-#endif

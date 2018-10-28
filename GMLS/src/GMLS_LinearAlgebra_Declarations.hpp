@@ -1,14 +1,9 @@
 #ifndef _GMLS_LINEAR_ALGEBRA_DECLARATIONS_HPP_
 #define _GMLS_LINEAR_ALGEBRA_DECLARATIONS_HPP_
 
-#define BOOST_UBLAS_NDEBUG 1
-#define USE_CUSTOM_SVD
-
 #include "GMLS_Config.h"
 #include <type_traits>
-#include <thread>
-
-
+//#include <thread>
 
 #ifdef COMPADRE_USE_CUDA
   #include <cuda_runtime.h>
@@ -17,8 +12,6 @@
   #include <cusolverDn.h>
   #include <assert.h>
 #endif
-
-
 
 #ifdef COMPADRE_USE_LAPACK
   extern "C" int dgels_( char* trans, int *m, int *n, int *k, double *a, 
@@ -32,9 +25,6 @@
 #endif
 #endif // COMPADRE_USE_LAPACK
 
-
-
-#ifdef COMPADRE_USE_KOKKOSCORE
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Random.hpp>
 
@@ -56,10 +46,6 @@ typedef Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanag
 typedef Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_vector_type;
 typedef Kokkos::View<int*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_local_index_type;
 
-typedef std::conditional<std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutRight>::value,
-                         Kokkos::LayoutLeft, Kokkos::LayoutRight>::type reverse_layout_type;
-
-typedef uintptr_t device_ptr_type;
 
 namespace Compadre {
 
@@ -82,6 +68,3 @@ namespace GMLS_LinearAlgebra {
 }; // Compadre
 
 #endif
-#endif
-
-

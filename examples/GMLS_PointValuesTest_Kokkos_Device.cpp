@@ -12,13 +12,11 @@
 #include <mpi.h>
 #endif
 
-#ifdef COMPADRE_USE_KOKKOSCORE
 #include "GMLS.hpp"
 #include <Kokkos_Timer.hpp>
 #include <Kokkos_Core.hpp>
 
 typedef std::vector<double> stl_vector_type;
-#endif
 
 using namespace Compadre;
 
@@ -223,7 +221,7 @@ int main (int argc, char* args[])
 	MPI_Init(&argc, &args);
 #endif
 
-#if defined(COMPADRE_USE_KOKKOSCORE)
+bool all_passed = true;
 
 {
 	int solver_type = 0;
@@ -369,8 +367,6 @@ int main (int argc, char* args[])
 
     double instantiation_time = timer.seconds();
     std::cout << "Took " << instantiation_time << "s to complete instantiation." << std::endl;
-
-    bool all_passed = true;
 
     for (int i=0; i<number_target_coords; i++) {
 
@@ -541,13 +537,6 @@ int main (int argc, char* args[])
 			std::cout << "Failed Curl by: " << std::abs(tmp_diff) << std::endl;
 	    }
     }
-
-    if(all_passed)
-    	fprintf(stdout, "Passed test \n");
-    else {
-    	fprintf(stdout, "Failed test \n");
-    	return -1;
-    }
 }
 
     Kokkos::finalize();
@@ -555,8 +544,11 @@ int main (int argc, char* args[])
     MPI_Finalize();
 #endif
 
-    return 0;
-#else // Kokkos
-    return -1;
-#endif
+if(all_passed) {
+	fprintf(stdout, "Passed test \n");
+	return 0;
+} else {
+	fprintf(stdout, "Failed test \n");
+	return -1;
+}
 };

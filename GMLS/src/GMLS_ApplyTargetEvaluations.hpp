@@ -3,8 +3,6 @@
 
 #include "GMLS.hpp"
 
-#ifdef COMPADRE_USE_KOKKOSCORE
-
 namespace Compadre {
 
 KOKKOS_INLINE_FUNCTION
@@ -118,6 +116,4 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
 }
 
 }; // Compadre
-
-#endif
 #endif

@@ -12,13 +12,11 @@
 #include <mpi.h>
 #endif
 
-#ifdef COMPADRE_USE_KOKKOSCORE
 #include "GMLS.hpp"
 #include <Kokkos_Timer.hpp>
 #include <Kokkos_Core.hpp>
 
 typedef std::vector<double> stl_vector_type;
-#endif
 
 using namespace Compadre;
 
@@ -218,8 +216,6 @@ int main (int argc, char* args[])
 	MPI_Init(&argc, &args);
 #endif
 	
-#if defined(COMPADRE_USE_KOKKOSCORE)
-
 bool all_passed = true;
 
 {
@@ -531,14 +527,11 @@ bool all_passed = true;
     MPI_Finalize();
 #endif
 
-    if(all_passed) {
-    	fprintf(stdout, "Passed test \n");
+if(all_passed) {
+	fprintf(stdout, "Passed test \n");
 	return 0;
-    } else {
-    	fprintf(stdout, "Failed test \n");
-    	return -1;
-    }
-#else // Kokkos
-    return -1;
-#endif
+} else {
+	fprintf(stdout, "Failed test \n");
+	return -1;
+}
 };

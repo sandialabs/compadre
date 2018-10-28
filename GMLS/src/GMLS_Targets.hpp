@@ -3,8 +3,6 @@
 
 #include "GMLS.hpp"
 
-#ifdef COMPADRE_USE_KOKKOSCORE
-
 namespace Compadre {
 
 KOKKOS_INLINE_FUNCTION
@@ -929,6 +927,4 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
 }
 
 }; // Compadre
-
-#endif
 #endif

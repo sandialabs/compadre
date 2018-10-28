@@ -114,7 +114,6 @@ void LaplaceBeltramiPhysics::computeMatrix(local_index_type field_one, local_ind
 
 if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solution") && field_two == _particles->getFieldManagerConst()->getIDOfFieldFromName("solution")) {
 
-#ifdef COMPADRE_USE_BOOST
 	const local_index_type neighbors_needed = GMLS::getNP(Porder, 2);
 
 	bool include_halo = true;
@@ -782,8 +781,6 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 
 
 
-
-#endif // COMPADRE_USE_BOOST
 
 	TEUCHOS_ASSERT(!this->_A.is_null());
 //	this->_A->print(std::cout);

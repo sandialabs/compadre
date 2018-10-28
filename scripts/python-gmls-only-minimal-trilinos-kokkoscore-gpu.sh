@@ -13,14 +13,12 @@ cmake \
     -D Compadre_USE_Trilinos:BOOL=ON \
     -D Compadre_USE_Trilinos_CXX_Flags:BOOL=ON \
     -D Compadre_USE_Trilinos_Solvers:BOOL=OFF \
-    -D Compadre_USE_Boost:BOOL=ON \
     -D Compadre_USE_Netcdf:BOOL=OFF \
     -D Compadre_USE_VTK:BOOL=OFF \
     -D Compadre_USE_PYTHON:BOOL=ON \
     -D Compadre_USE_Compadre:BOOL=OFF \
     -D Trilinos_PREFIX:FILEPATH="/ascldap/users/pakuber/releases/Trilinos/build3/install" \
     -D Netcdf_PREFIX:FILEPATH="/ascldap/users/pakuber/releases/netcdf" \
-    -D Boost_PREFIX:FILEPATH="/usr/include" \
     -D VTK_PREFIX:FILEPATH="/ascldap/users/pakuber/releases/VTK" \
     -D Compadre_EXAMPLES:BOOL=OFF \
     -D Compadre_TESTS:BOOL=OFF \
@@ -29,4 +27,3 @@ cmake \
     -D Compadre_CANGA_ENABLED:BOOL=OFF \
     \
     ..
-#    -D KokkosCore_PREFIX=/ascldap/users/pakuber/releases/kokkos/launch/install \

@@ -11,9 +11,15 @@
 if (!(condition)) { printf((message)); } \
 assert ((condition)); } while(false)
 
-#ifdef COMPADRE_USE_KOKKOSCORE
 namespace Compadre {
 
+//!  Generalized Moving Least Squares (GMLS)
+/*!
+*  This class sets up a batch of GMLS problems from a given set of neighbor lists, target sites, and source sites.
+*  GMLS requires a target functional, reconstruction space, and sampling functional to be specified. 
+*  For a given choice of reconstruction space and sampling functional, multiple targets can be generated with very little
+*  additional computation, which is why this class allows for multiple target functionals to be specified. 
+*/
 class GMLS {
 protected:
 
@@ -756,8 +762,6 @@ public:
 
 }; // GMLS Class
 }; // Compadre
-
-#endif
 
 #endif
 

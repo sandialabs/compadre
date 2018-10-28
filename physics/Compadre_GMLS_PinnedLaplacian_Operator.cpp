@@ -71,7 +71,6 @@ void GMLS_LaplacianPhysics::computeMatrix(local_index_type field_one, local_inde
 	Teuchos::RCP<Teuchos::Time> ComputeMatrixTime = Teuchos::TimeMonitor::getNewCounter ("Compute Matrix Time");
 	ComputeMatrixTime->start();
 
-#ifdef COMPADRE_USE_BOOST
 	const local_index_type neighbors_needed = GMLS::getNP(Porder);
 
 	bool include_halo = true;
@@ -232,7 +231,6 @@ void GMLS_LaplacianPhysics::computeMatrix(local_index_type field_one, local_inde
 		}
 //	}
 	});
-#endif // COMPADRE_USE_BOOST
 
 	TEUCHOS_ASSERT(!this->_A.is_null());
 //	this->_A->print(std::cout);

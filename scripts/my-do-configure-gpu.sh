@@ -14,8 +14,6 @@ cmake \
     -D Compadre_USE_Trilinos:BOOL=OFF \
     -D Compadre_USE_Trilinos_CXX_Flags:BOOL=OFF \
     -D Compadre_USE_Trilinos_Solvers:BOOL=OFF \
-    -D Compadre_USE_KokkosCore:BOOL=ON \
-    -D Compadre_USE_Boost:BOOL=OFF \
     -D Compadre_USE_Netcdf:BOOL=OFF \
     -D Compadre_USE_VTK:BOOL=OFF \
     -D Compadre_USE_PYTHON:BOOL=OFF \

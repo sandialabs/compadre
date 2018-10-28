@@ -14,7 +14,6 @@ cmake \
     -D Compadre_USE_Trilinos:BOOL=OFF \
     -D Compadre_USE_Trilinos_CXX_Flags:BOOL=OFF \
     -D Compadre_USE_Trilinos_Solvers:BOOL=OFF \
-    -D Compadre_USE_Boost:BOOL=ON \
     -D Compadre_USE_Netcdf:BOOL=OFF \
     -D Compadre_USE_VTK:BOOL=OFF \
     -D Compadre_USE_PYTHON:BOOL=ON \
@@ -26,4 +25,3 @@ cmake \
     -D Compadre_CANGA_ENABLED:BOOL=OFF \
     \
     ..
-#    -D KokkosCore_PREFIX=/ascldap/users/pakuber/releases/kokkos/launch/install \

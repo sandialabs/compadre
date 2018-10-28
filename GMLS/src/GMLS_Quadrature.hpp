@@ -3,8 +3,6 @@
 
 #include "GMLS.hpp"
 
-#ifdef COMPADRE_USE_KOKKOSCORE
-
 namespace Compadre {
 
 void GMLS::generate1DQuadrature() {
@@ -74,5 +72,4 @@ void GMLS::generate1DQuadrature() {
 
 }; // Compadre
 
-#endif
 #endif
