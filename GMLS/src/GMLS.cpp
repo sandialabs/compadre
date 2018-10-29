@@ -569,7 +569,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
             T(j,0) /= norm;
         }
 
-        // orthogonalize next vector
+        // orthonormalize next vector
         if (_dimensions-1 == 2) { // 2d manifold
             double dot_product = T(0,0)*T(0,1) + T(1,0)*T(1,1) + T(2,0)*T(2,1);
             for (int j=0; j<_dimensions; ++j) {

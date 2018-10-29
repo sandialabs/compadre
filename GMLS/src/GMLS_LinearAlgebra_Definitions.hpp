@@ -61,45 +61,6 @@ void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_
 
 
 KOKKOS_INLINE_FUNCTION
-void orthogonalizeVectorBasis(const member_type& teamMember, scratch_matrix_type V) {
-
-	// orthogonalize second vector against first
-	double dot_product = V(0,0)*V(0,1) + V(1,0)*V(1,1) + V(2,0)*V(2,1);
-	V(0,1) -= dot_product*V(0,0);
-	V(1,1) -= dot_product*V(1,0);
-	V(2,1) -= dot_product*V(2,0);
-
-	double norm = std::sqrt(V(0,1)*V(0,1) + V(1,1)*V(1,1) + V(2,1)*V(2,1));
-	V(0,1) /= norm;
-	V(1,1) /= norm;
-	V(2,1) /= norm;
-
-	// orthogonalize third vector against second and first
-	dot_product = V(0,0)*V(0,2) + V(1,0)*V(1,2) + V(2,0)*V(2,2);
-	V(0,2) -= dot_product*V(0,0);
-	V(1,2) -= dot_product*V(1,0);
-	V(2,2) -= dot_product*V(2,0);
-
-	norm = std::sqrt(V(0,2)*V(0,2) + V(1,2)*V(1,2) + V(2,2)*V(2,2));
-	V(0,2) /= norm;
-	V(1,2) /= norm;
-	V(2,2) /= norm;
-
-	dot_product = V(0,1)*V(0,2) + V(1,1)*V(1,2) + V(2,1)*V(2,2);
-	V(0,2) -= dot_product*V(0,1);
-	V(1,2) -= dot_product*V(1,1);
-	V(2,2) -= dot_product*V(2,1);
-
-	norm = std::sqrt(V(0,2)*V(0,2) + V(1,2)*V(1,2) + V(2,2)*V(2,2));
-	V(0,2) /= norm;
-	V(1,2) /= norm;
-	V(2,2) /= norm;
-
-}
-
-
-
-KOKKOS_INLINE_FUNCTION
 void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, scratch_matrix_type V, scratch_matrix_type PtP, const int dimensions) {
 
 	Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
@@ -146,14 +107,14 @@ void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, 
 		double dot_product;
 		double norm;
 
-		// if 2D, orthogonalize second vector
+		// if 2D, orthonormalize second vector
 		if (dimensions==2) {
 
 			for (int i=0; i<2; ++i) {
 				V(i,0) = v[i];
 			}
 
-			// orthogonalize second eigenvector against first
+			// orthonormalize second eigenvector against first
 			V(0,1) = 1.0; V(1,1) = 1.0;
 			dot_product = V(0,0)*V(0,1) + V(1,0)*V(1,1);
 			V(0,1) -= dot_product*V(0,0);
@@ -202,7 +163,7 @@ void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, 
 				V(i,1) = v[i];
 			}
 
-			// orthogonalize second eigenvector against first
+			// orthonormalize second eigenvector against first
 			dot_product = V(0,0)*V(0,1) + V(1,0)*V(1,1) + V(2,0)*V(2,1);
 
 			V(0,1) -= dot_product*V(0,0);
@@ -214,7 +175,7 @@ void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, 
 			V(1,1) /= norm;
 			V(2,1) /= norm;
 
-			// orthogonalize third eigenvector against first and second
+			// orthonormalize third eigenvector against first and second
 			V(0,2) = 1.0; V(1,2) = 1.0; V(2,2) = 1.0;
 			dot_product = V(0,0)*V(0,2) + V(1,0)*V(1,2) + V(2,0)*V(2,2);
 			V(0,2) -= dot_product*V(0,0);
