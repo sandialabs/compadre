@@ -305,7 +305,7 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
         int my_num_rows = d_neighbor_list_sizes(target_index)*multiplier;
         //int my_num_rows = d_neighbor_list_sizes(target_index)*multiplier : M;
 
-	scratch_vector_type s(teamMember.team_scratch(0), min_mn ); // shared memory
+    scratch_vector_type s(teamMember.team_scratch(0), min_mn ); // shared memory
         Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > RHS_(RHS + target_index*ldb*ndb, ldb, ldb);
         Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > U_(U.data() + target_index*ldu*M, ldu, M);
         Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > V_(V.data() + target_index*ldv*N, ldv, N);
@@ -318,23 +318,23 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
 
         // t1 takes on the role of S inverse
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, min_mn), [=] (const int i) {
-        	s(i) = ( std::abs(S_(i)) > abs_threshold ) ? 1./S_(i) : 0;
+            s(i) = ( std::abs(S_(i)) > abs_threshold ) ? 1./S_(i) : 0;
         });
         teamMember.team_barrier();
 
         for (int i=0; i<my_num_rows; ++i) {
-                double sqrt_w_i_m = RHS_(i,i);
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,N), 
-                      [=] (const int j) {
+            double sqrt_w_i_m = RHS_(i,i);
+            Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,N), 
+                  [=] (const int j) {
 
-                    double  bdataj = 0;
-                    for (int k=0; k<min_mn; ++k) {
-                        bdataj += V_(j,k)*s(k)*U_(i,k);
-                    }
-		    // RHS_ is where we can find std::sqrt(w)
-                    bdataj *= sqrt_w_i_m;
-                    RHS_(j,i) = bdataj;
-                });
+                double  bdataj = 0;
+                for (int k=0; k<min_mn; ++k) {
+                    bdataj += V_(j,k)*s(k)*U_(i,k);
+                }
+            // RHS_ is where we can find std::sqrt(w)
+                bdataj *= sqrt_w_i_m;
+                RHS_(j,i) = bdataj;
+            });
             teamMember.team_barrier();
         }
     }, "SVD: USV*RHS Multiply");

@@ -15,11 +15,11 @@
 
 #ifdef COMPADRE_USE_LAPACK
   extern "C" int dgels_( char* trans, int *m, int *n, int *k, double *a, 
-  			int *lda, double *c, int *ldc, double *work, int *lwork, int *info);
+              int *lda, double *c, int *ldc, double *work, int *lwork, int *info);
   
   extern "C" void dgelsd_( int* m, int* n, int* nrhs, double* a, int* lda,
-  			double* b, int* ldb, double* s, double* rcond, int* rank,
-  			double* work, int* lwork, int* iwork, int* info );
+              double* b, int* ldb, double* s, double* rcond, int* rank,
+              double* work, int* lwork, int* iwork, int* info );
 #ifdef COMPADRE_USE_OPENBLAS
   void openblas_set_num_threads(int num_threads);
 #endif
@@ -51,18 +51,18 @@ namespace Compadre {
 
 namespace GMLS_LinearAlgebra {
 
-	KOKKOS_INLINE_FUNCTION
-	void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_matrix_type weighted_P, const int columns, const int rows);
+    KOKKOS_INLINE_FUNCTION
+    void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_matrix_type weighted_P, const int columns, const int rows);
 
-	KOKKOS_INLINE_FUNCTION
-	void orthogonalizeVectorBasis(const member_type& teamMember, scratch_matrix_type V);
+    KOKKOS_INLINE_FUNCTION
+    void orthogonalizeVectorBasis(const member_type& teamMember, scratch_matrix_type V);
 
-	KOKKOS_INLINE_FUNCTION
-	void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, scratch_matrix_type V, scratch_matrix_type PtP, const int dimensions);
+    KOKKOS_INLINE_FUNCTION
+    void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, scratch_matrix_type V, scratch_matrix_type PtP, const int dimensions);
 
-	void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors = 0, int * neighbor_list_sizes = NULL);
+    void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors = 0, int * neighbor_list_sizes = NULL);
 
-	void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors = 0, int * neighbor_list_sizes = NULL);
+    void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors = 0, int * neighbor_list_sizes = NULL);
 
 }; // GMLS_LinearAlgebra
 }; // Compadre
