@@ -2,7 +2,6 @@
 #define _GMLS_LINEAR_ALGEBRA_DEFINITIONS_HPP_
 
 #include "GMLS_LinearAlgebra_Declarations.hpp"
-#define cudaStreamNonBlocking 0x01
 
 namespace Compadre {
 namespace GMLS_LinearAlgebra {

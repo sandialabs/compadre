@@ -3,6 +3,8 @@
 
 #include "GMLS_Config.h"
 #include <assert.h>
+#include <type_traits>
+
 #include "GMLS_LinearAlgebra_Definitions.hpp"
 #include "GMLS_Operators.hpp"
 #include "GMLS_Misc.hpp"
@@ -51,34 +53,7 @@ protected:
     //! _dimension-1 gradient values for curvature for all problems
     Kokkos::View<double*> _manifold_curvature_gradient;
 
-
-
-    //! Tag for functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity
-    struct AssembleStandardPsqrtW{};
-
-    //! Tag for functor to evaluate targets, apply target evaluation to polynomial coefficients to 
-    //! store in _alphas
-    struct ApplyStandardTargets{};
     
-    //! Tag for functor to create a coarse tangent approximation from a given neighborhood of points
-    struct ComputeCoarseTangentPlane{};
-
-    //! Tag for functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity for curvature
-    struct AssembleCurvaturePsqrtW{};
-
-    //! Tag for functor to evaluate curvature targets and apply to coefficients of curvature reconstruction
-    struct ApplyCurvatureTargets{};
-
-    //! Tag for functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity
-    struct AssembleManifoldPsqrtW{};
-
-    //! Tag for functor to evaluate targets, apply target evaluation to polynomial coefficients to store in _alphas
-    struct ApplyManifoldTargets{};
-
-    //! Tag for functor to calculate prestencil weights to apply to data to transform into a format expected by a GMLS stencil
-    struct ComputePrestencilWeights{};
-
-
 
     //! contains local IDs of neighbors to get coordinates from _source_coordinates (device)
     Kokkos::View<int**, layout_type> _neighbor_lists; 
@@ -553,6 +528,33 @@ public:
  *  Member functions that perform operations on the entire batch
  */
 ///@{
+
+    //! Tag for functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity
+    struct AssembleStandardPsqrtW{};
+
+    //! Tag for functor to evaluate targets, apply target evaluation to polynomial coefficients to
+    //! store in _alphas
+    struct ApplyStandardTargets{};
+
+    //! Tag for functor to create a coarse tangent approximation from a given neighborhood of points
+    struct ComputeCoarseTangentPlane{};
+
+    //! Tag for functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity for curvature
+    struct AssembleCurvaturePsqrtW{};
+
+    //! Tag for functor to evaluate curvature targets and apply to coefficients of curvature reconstruction
+    struct ApplyCurvatureTargets{};
+
+    //! Tag for functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity
+    struct AssembleManifoldPsqrtW{};
+
+    //! Tag for functor to evaluate targets, apply target evaluation to polynomial coefficients to store in _alphas
+    struct ApplyManifoldTargets{};
+
+    //! Tag for functor to calculate prestencil weights to apply to data to transform into a format expected by a GMLS stencil
+    struct ComputePrestencilWeights{};
+
+
 
     //! Functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity
     KOKKOS_INLINE_FUNCTION

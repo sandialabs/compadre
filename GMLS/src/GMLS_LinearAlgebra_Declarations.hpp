@@ -2,8 +2,6 @@
 #define _GMLS_LINEAR_ALGEBRA_DECLARATIONS_HPP_
 
 #include "GMLS_Config.h"
-#include <type_traits>
-//#include <thread>
 
 #ifdef COMPADRE_USE_CUDA
   #include <cuda_runtime.h>

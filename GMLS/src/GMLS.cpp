@@ -356,7 +356,6 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
     const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
-    const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
 
     /*
      *    Data
@@ -694,15 +693,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
 
     const int target_index = teamMember.league_rank();
     const int max_num_neighbors = _neighbor_lists.dimension_1()-1;
-
-    const int max_num_rows = _sampling_multiplier*max_num_neighbors;
-    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
-    const int target_NP = this->getNP(_poly_order, _dimensions-1);
-    const int max_manifold_NP = (manifold_NP > target_NP) ? manifold_NP : target_NP;
-    const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
-    const int this_num_columns = _basis_multiplier*max_manifold_NP;
-    const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
 
     /*
      *    Data
@@ -710,7 +701,6 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
 
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > V(_V.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*_dimensions*(_dimensions-1), _dimensions, _dimensions-1);
-
 
     /*
      *    Prestencil Weight Calculations
