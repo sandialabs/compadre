@@ -569,5 +569,27 @@ else ()
   MESSAGE(FATAL_ERROR "Both Compadre_USE_CUDA and Compadre_USE_LAPACK are currently OFF.\n Since these are both OFF, either Compadre_USE_LAPACK is set to OFF explicitly in the build script, or CUDA was not found in the KokkosCore specified (Compadre_USE_CUDA is a calculated variable, not an option to be set).")
 endif () 
 
+
+
+##########
+#
+#
+#  DOXYGEN
+#
+#
+##########
+bob_option(Compadre_BUILD_Doxygen "Compile Doxygen documentation" ON)
+if(Compadre_BUILD_Doxygen)
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in" "${CMAKE_CURRENT_BINARY_DIR}/doc/Doxyfile"
+                 @ONLY)
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/doc/DoxygenLayout.xml" "${CMAKE_CURRENT_BINARY_DIR}/doc/DoxygenLayout.xml"
+                 COPYONLY)
+  add_custom_target(Doxygen
+                    COMMAND doxygen
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/doc )
+  # still must be called manually with "make Doxygen"
+endif(Compadre_BUILD_Doxygen)
+
+
 set (augmented_list "${Trilinos_LIBRARIES}" "${VTK_LIBRARIES}")
 bob_end_package_no_recurse("${augmented_list}")
