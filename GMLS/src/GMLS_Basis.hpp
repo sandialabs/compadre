@@ -30,7 +30,7 @@ double GMLS::factorial(const int n) const {
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::calcWij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, scratch_matrix_type* T, const ReconstructionOperator::SamplingFunctional polynomial_sampling_functional) const {
+void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, scratch_matrix_type* T, const ReconstructionOperator::SamplingFunctional polynomial_sampling_functional) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
@@ -292,7 +292,7 @@ void GMLS::calcWij(double* delta, const int target_index, int neighbor_index, co
 
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::calcGradientWij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionOperator::SamplingFunctional polynomial_sampling_functional) const {
+void GMLS::calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionOperator::SamplingFunctional polynomial_sampling_functional) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
@@ -463,7 +463,7 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 			// generate weight vector from distances and window sizes
 			w(i+my_num_neighbors*d) = this->Wab(r, _epsilons(target_index), _weighting_type, _weighting_power);
 
-			this->calcWij(delta.data(), target_index, i + d*my_num_neighbors, 0 /*alpha*/, dimension, polynomial_order, false /*bool on only specific order*/, V, T, polynomial_sampling_functional);
+			this->calcPij(delta.data(), target_index, i + d*my_num_neighbors, 0 /*alpha*/, dimension, polynomial_order, false /*bool on only specific order*/, V, T, polynomial_sampling_functional);
 
 			int storage_size = this->getNP(polynomial_order, dimension);
 			storage_size *= _basis_multiplier;
@@ -498,7 +498,7 @@ void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_
 /*
  * This function has two purposes
  * 1.) Used to calculate specifically for 1st order polynomials, from which we can reconstruct a tangent plane
- * 2.) Used to calculate a polynomial of _manifold_poly_order, which we use to calculate curvature of the manifold
+ * 2.) Used to calculate a polynomial of _curvature_poly_order, which we use to calculate curvature of the manifold
  */
 
 	const int target_index = teamMember.league_rank();
@@ -522,14 +522,14 @@ void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_
 
 		// generate weight vector from distances and window sizes
 		if (only_specific_order) {
-			w(i) = this->Wab(r, _epsilons(target_index), _manifold_weighting_type, _manifold_weighting_power);
-			this->calcWij(delta.data(), target_index, i, 0 /*alpha*/, dimension, 1, true /*bool on only specific order*/);
+			w(i) = this->Wab(r, _epsilons(target_index), _curvature_weighting_type, _curvature_weighting_power);
+			this->calcPij(delta.data(), target_index, i, 0 /*alpha*/, dimension, 1, true /*bool on only specific order*/);
 		} else {
-			w(i) = this->Wab(r, _epsilons(target_index), _manifold_weighting_type, _manifold_weighting_power);
-			this->calcWij(delta.data(), target_index, i, 0 /*alpha*/, dimension, _manifold_poly_order, false /*bool on only specific order*/, V);
+			w(i) = this->Wab(r, _epsilons(target_index), _curvature_weighting_type, _curvature_weighting_power);
+			this->calcPij(delta.data(), target_index, i, 0 /*alpha*/, dimension, _curvature_poly_order, false /*bool on only specific order*/, V);
 		}
 
-		int storage_size = only_specific_order ? this->getNP(1, dimension)-this->getNP(0, dimension) : this->getNP(_manifold_poly_order, dimension);
+		int storage_size = only_specific_order ? this->getNP(1, dimension)-this->getNP(0, dimension) : this->getNP(_curvature_poly_order, dimension);
 
 		for (int j = 0; j < storage_size; ++j) {
                         // stores layout left for CUDA or LAPACK calls later

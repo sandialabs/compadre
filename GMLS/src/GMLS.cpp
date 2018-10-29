@@ -101,7 +101,7 @@ void GMLS::generateAlphas() {
 
 	if (_dense_solver_type == ReconstructionOperator::DenseSolverType::MANIFOLD) {
 		// these dimensions already calculated differ in the case of manifolds
-		manifold_NP = this->getNP(_manifold_poly_order, _dimensions-1);
+		manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
 		const int target_NP = this->getNP(_poly_order, _dimensions-1);
 		const int max_manifold_NP = (manifold_NP > target_NP) ? manifold_NP : target_NP;
 		const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
@@ -350,7 +350,7 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
 	const int max_num_neighbors = _neighbor_lists.dimension_1()-1;
 
 	const int max_num_rows = _sampling_multiplier*max_num_neighbors;
-	const int manifold_NP = this->getNP(_manifold_poly_order, _dimensions-1);
+	const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
 	const int target_NP = this->getNP(_poly_order, _dimensions-1);
 	const int max_manifold_NP = (manifold_NP > target_NP) ? manifold_NP : target_NP;
 	const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
@@ -397,7 +397,7 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
 	const int max_num_neighbors = _neighbor_lists.dimension_1()-1;
 
 	const int max_num_rows = _sampling_multiplier*max_num_neighbors;
-	const int manifold_NP = this->getNP(_manifold_poly_order, _dimensions-1);
+	const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
 	const int target_NP = this->getNP(_poly_order, _dimensions-1);
 	const int max_manifold_NP = (manifold_NP > target_NP) ? manifold_NP : target_NP;
 	const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
@@ -460,7 +460,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
 	const int max_num_neighbors = _neighbor_lists.dimension_1()-1;
 
 	const int max_num_rows = _sampling_multiplier*max_num_neighbors;
-	const int manifold_NP = this->getNP(_manifold_poly_order, _dimensions-1);
+	const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
 	const int target_NP = this->getNP(_poly_order, _dimensions-1);
 	const int max_manifold_NP = (manifold_NP > target_NP) ? manifold_NP : target_NP;
 	const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
@@ -503,7 +503,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
 	//  GET TARGET COEFFICIENTS RELATED TO GRADIENT TERMS
 	//
 	// reconstruct grad_xi1 and grad_xi2, not used for manifold_coeffs
-	this->computeManifoldFunctionals(teamMember, t1, t2, P_target_row, &V, -1 /*target as neighbor index*/, 1 /*alpha*/);
+	this->computeCurvatureFunctionals(teamMember, t1, t2, P_target_row, &V, -1 /*target as neighbor index*/, 1 /*alpha*/);
 	teamMember.team_barrier();
 
 	Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
@@ -643,7 +643,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
 	const int max_num_neighbors = _neighbor_lists.dimension_1()-1;
 
 	const int max_num_rows = _sampling_multiplier*max_num_neighbors;
-	const int manifold_NP = this->getNP(_manifold_poly_order, _dimensions-1);
+	const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
 	const int target_NP = this->getNP(_poly_order, _dimensions-1);
 	const int max_manifold_NP = (manifold_NP > target_NP) ? manifold_NP : target_NP;
 	const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
@@ -696,7 +696,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
 	const int max_num_neighbors = _neighbor_lists.dimension_1()-1;
 
 	const int max_num_rows = _sampling_multiplier*max_num_neighbors;
-	const int manifold_NP = this->getNP(_manifold_poly_order, _dimensions-1);
+	const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
 	const int target_NP = this->getNP(_poly_order, _dimensions-1);
 	const int max_manifold_NP = (manifold_NP > target_NP) ? manifold_NP : target_NP;
 	const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
