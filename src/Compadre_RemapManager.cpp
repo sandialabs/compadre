@@ -232,7 +232,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 		    		lro.push_back(_queue[j]._target_operation);
 		    }
 
-	    	_GMLS->addTargets(lro, 3 /* dimension */);
+	    	_GMLS->addTargets(lro);
 			_GMLS->generateAlphas(); // all operations requested
 
 			// check that src_coords == trg_coords

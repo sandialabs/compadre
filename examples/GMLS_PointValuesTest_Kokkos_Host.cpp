@@ -343,7 +343,7 @@ bool all_passed = true;
     lro[2] = ReconstructionOperator::GradientOfScalarPointEvaluation;
     lro[3] = ReconstructionOperator::DivergenceOfVectorPointEvaluation;
     lro[4] = ReconstructionOperator::CurlOfVectorPointEvaluation;
-    my_GMLS.addTargets(lro, dimension);
+    my_GMLS.addTargets(lro);
     my_GMLS.generateAlphas();
 
     double instantiation_time = timer.seconds();

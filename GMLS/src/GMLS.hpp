@@ -927,13 +927,13 @@ public:
     }
 
     //! Adds a target to the vector of target functional to be applied to the reconstruction
-    void addTargets(ReconstructionOperator::TargetOperation lro, const int dimension = 3) {
+    void addTargets(ReconstructionOperator::TargetOperation lro) {
         std::vector<ReconstructionOperator::TargetOperation> temporary_lro_vector(1, lro);
-        this->addTargets(temporary_lro_vector, dimension);
+        this->addTargets(temporary_lro_vector);
     }
 
     //! Adds a vector of target functionals to the vector of target functionals already to be applied to the reconstruction
-    void addTargets(std::vector<ReconstructionOperator::TargetOperation> lro, const int dimension = 3) {
+    void addTargets(std::vector<ReconstructionOperator::TargetOperation> lro) {
         // if called multiple times with different dimensions, only the last
         // dimension called with is used for all
 
@@ -982,8 +982,8 @@ public:
             _host_lro_total_offsets(i) = total_offset;
 
             // allows for a tile of the product of dimension^input_tensor_rank * dimension^output_tensor_rank * the number of neighbors
-            int output_tile_size = std::pow(dimension, ReconstructionOperator::TargetOutputTensorRank[(int)_lro[i]]);
-            int input_tile_size = std::pow(dimension, ReconstructionOperator::TargetInputTensorRank[(int)_lro[i]]);
+            int output_tile_size = std::pow(_dimensions, ReconstructionOperator::TargetOutputTensorRank[(int)_lro[i]]);
+            int input_tile_size = std::pow(_dimensions, ReconstructionOperator::TargetInputTensorRank[(int)_lro[i]]);
             _host_lro_output_tile_size(i) = output_tile_size;
             _host_lro_input_tile_size(i) = input_tile_size;
 
