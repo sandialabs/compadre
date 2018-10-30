@@ -400,7 +400,6 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_neighbors = this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
-    const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
 
     /*
      *    Data
