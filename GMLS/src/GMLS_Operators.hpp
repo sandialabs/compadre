@@ -7,45 +7,32 @@ namespace Compadre {
     enum TargetOperation {
         //! Point evaluation of a scalar
         ScalarPointEvaluation,
-
         //! Point evaluation of a vector (reconstructs entire vector at once, requiring a 
         //! ReconstructionSpace having a sufficient number of components in the basis)
         VectorPointEvaluation, 
-
         //! Point evaluation of the laplacian of a scalar (could be on a manifold or not)
         LaplacianOfScalarPointEvaluation,
-
         //! Point evaluation of the laplacian of each component of a vector
         LaplacianOfVectorPointEvaluation,
-
         //! Point evaluation of the gradient of a scalar
         GradientOfScalarPointEvaluation,
-
         //! Point evaluation of the gradient of a vector (results in a matrix)
         GradientOfVectorPointEvaluation,
-
         //! Point evaluation of the divergence of a vector (results in a scalar)
         DivergenceOfVectorPointEvaluation,
-
         //! Point evaluation of the curl of a vector (results in a vector)
         CurlOfVectorPointEvaluation,
-
         //! Point evaluation of the partial with respect to x of a scalar
         PartialXOfScalarPointEvaluation,
-
         //! Point evaluation of the partial with respect to y of a scalar
         PartialYOfScalarPointEvaluation,
-
         //! Point evaluation of the partial with respect to z of a scalar
         PartialZOfScalarPointEvaluation,
-
         //! Point evaluation of the divergence of vector, but whose partial with respect to z of a scalar
         DivergenceOfScalarPointEvaluation,
-
         //! Point evaluation of the chained staggered Laplacian acting on VectorTaylorPolynomial 
         //! basis + StaggeredEdgeIntegralSample sampling functional
         ChainedStaggeredLaplacianOfScalarPointEvaluation,
-
         //! Should be the total count of all available target functionals
         COUNT=13,
     };
@@ -87,8 +74,8 @@ namespace Compadre {
     //! Space in which to reconstruct polynomial
     enum ReconstructionSpace {
         //! Scalar polynomial basis centered at the target site and scaled by sum of basis powers 
-        //! e.g. (x-x_t)^2*(y-y_t)*(z-z_t)^3/factorial(2+1+3) would be a member of 3rd order in 3D, where 
-        //! (x_t,y_t,z_t) is the coordinate of the target site in 3D coordinates.
+        //! e.g. \f$(x-x_t)^2*(y-y_t)*(z-z_t)^3/factorial(2+1+3)\f$ would be a member of 3rd order in 3D, where 
+        //! \f$(x_t,y_t,z_t)\f$ is the coordinate of the target site in 3D coordinates.
         ScalarTaylorPolynomial,
         //! Vector polynomial basis having # of components _dimensions, or (_dimensions-1) in the case of manifolds)
         VectorTaylorPolynomial,
@@ -109,16 +96,12 @@ namespace Compadre {
     enum SamplingFunctional {
         //! Point evaluations of the scalar source function
         PointSample,
-
         //! Point evaluations of the entire vector source function
         ManifoldVectorSample,
-
         //! Point evaluations of the entire vector when the source function is known to be a gradient
         ManifoldGradientVectorSample,
-
         //! Analytical integral of a gradient source vector is just a difference of the scalar source at neighbor and target
         StaggeredEdgeAnalyticGradientIntegralSample,
-
         //! Samples consist of the result of integrals of a vector dotted with the tangent along edges between neighbor and target
         StaggeredEdgeIntegralSample,
     };
@@ -156,10 +139,8 @@ namespace Compadre {
     enum DenseSolverType {
         //! QR factorization performed on P*sqrt(w) matrix
         QR, 
-
         //! SVD factorization performed on P*sqrt(w) matrix
         SVD, 
-
         //! Solve GMLS problem on a manifold (will use QR or SVD to solve the resultant GMLS 
         //! problem dependent on SamplingNontrivialNullspace
         MANIFOLD, 
