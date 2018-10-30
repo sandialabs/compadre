@@ -103,14 +103,30 @@ except AttributeError:
     _newclass = 0
 
 
+class MPI_Kokkos(_object):
+    __swig_setmethods__ = {}
+    __setattr__ = lambda self, name, value: _swig_setattr(self, MPI_Kokkos, name, value)
+    __swig_getmethods__ = {}
+    __getattr__ = lambda self, name: _swig_getattr(self, MPI_Kokkos, name)
+    __repr__ = _swig_repr
 
-def initializeKokkos():
-    return _GMLS_Module.initializeKokkos()
-initializeKokkos = _GMLS_Module.initializeKokkos
+    def initialize(self):
+        return _GMLS_Module.MPI_Kokkos_initialize(self)
 
-def finalizeKokkos():
-    return _GMLS_Module.finalizeKokkos()
-finalizeKokkos = _GMLS_Module.finalizeKokkos
+    def finalize(self):
+        return _GMLS_Module.MPI_Kokkos_finalize(self)
+
+    def __init__(self):
+        this = _GMLS_Module.new_MPI_Kokkos()
+        try:
+            self.this.append(this)
+        except Exception:
+            self.this = this
+    __swig_destroy__ = _GMLS_Module.delete_MPI_Kokkos
+    __del__ = lambda self: None
+MPI_Kokkos_swigregister = _GMLS_Module.MPI_Kokkos_swigregister
+MPI_Kokkos_swigregister(MPI_Kokkos)
+
 class GMLS_Python(_object):
     __swig_setmethods__ = {}
     __setattr__ = lambda self, name, value: _swig_setattr(self, GMLS_Python, name, value)

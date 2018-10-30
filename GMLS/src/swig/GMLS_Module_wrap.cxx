@@ -3007,9 +3007,10 @@ SWIG_Python_NonDynamicSetAttr(PyObject *obj, PyObject *name, PyObject *value) {
 /* -------- TYPES TABLE (BEGIN) -------- */
 
 #define SWIGTYPE_p_GMLS_Python swig_types[0]
-#define SWIGTYPE_p_char swig_types[1]
-static swig_type_info *swig_types[3];
-static swig_module_info swig_module = {swig_types, 2, 0, 0, 0, 0};
+#define SWIGTYPE_p_MPI_Kokkos swig_types[1]
+#define SWIGTYPE_p_char swig_types[2]
+static swig_type_info *swig_types[4];
+static swig_module_info swig_module = {swig_types, 3, 0, 0, 0, 0};
 #define SWIG_TypeQuery(name) SWIG_TypeQueryModule(&swig_module, &swig_module, name)
 #define SWIG_MangledTypeQuery(name) SWIG_MangledTypeQueryModule(&swig_module, &swig_module, name)
 
@@ -3433,11 +3434,20 @@ SWIGINTERNINLINE PyObject*
 #ifdef __cplusplus
 extern "C" {
 #endif
-SWIGINTERN PyObject *_wrap_initializeKokkos(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_MPI_Kokkos_initialize(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
+  MPI_Kokkos *arg1 = (MPI_Kokkos *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject * obj0 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)":initializeKokkos")) SWIG_fail;
-  initializeKokkos();
+  if (!PyArg_ParseTuple(args,(char *)"O:MPI_Kokkos_initialize",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_MPI_Kokkos, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "MPI_Kokkos_initialize" "', argument " "1"" of type '" "MPI_Kokkos *""'"); 
+  }
+  arg1 = reinterpret_cast< MPI_Kokkos * >(argp1);
+  (arg1)->initialize();
   resultobj = SWIG_Py_Void();
   return resultobj;
 fail:
@@ -3445,17 +3455,67 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_finalizeKokkos(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_MPI_Kokkos_finalize(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
+  MPI_Kokkos *arg1 = (MPI_Kokkos *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject * obj0 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)":finalizeKokkos")) SWIG_fail;
-  finalizeKokkos();
+  if (!PyArg_ParseTuple(args,(char *)"O:MPI_Kokkos_finalize",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_MPI_Kokkos, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "MPI_Kokkos_finalize" "', argument " "1"" of type '" "MPI_Kokkos *""'"); 
+  }
+  arg1 = reinterpret_cast< MPI_Kokkos * >(argp1);
+  (arg1)->finalize();
   resultobj = SWIG_Py_Void();
   return resultobj;
 fail:
   return NULL;
 }
 
+
+SWIGINTERN PyObject *_wrap_new_MPI_Kokkos(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  MPI_Kokkos *result = 0 ;
+  
+  if (!PyArg_ParseTuple(args,(char *)":new_MPI_Kokkos")) SWIG_fail;
+  result = (MPI_Kokkos *)new MPI_Kokkos();
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_MPI_Kokkos, SWIG_POINTER_NEW |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_delete_MPI_Kokkos(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  MPI_Kokkos *arg1 = (MPI_Kokkos *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject * obj0 = 0 ;
+  
+  if (!PyArg_ParseTuple(args,(char *)"O:delete_MPI_Kokkos",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_MPI_Kokkos, SWIG_POINTER_DISOWN |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "delete_MPI_Kokkos" "', argument " "1"" of type '" "MPI_Kokkos *""'"); 
+  }
+  arg1 = reinterpret_cast< MPI_Kokkos * >(argp1);
+  delete arg1;
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *MPI_Kokkos_swigregister(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *obj;
+  if (!PyArg_ParseTuple(args,(char*)"O:swigregister", &obj)) return NULL;
+  SWIG_TypeNewClientData(SWIGTYPE_p_MPI_Kokkos, SWIG_NewClientData(obj));
+  return SWIG_Py_Void();
+}
 
 SWIGINTERN PyObject *_wrap_new_GMLS_Python(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
@@ -3970,8 +4030,11 @@ fail:
 
 static PyMethodDef SwigMethods[] = {
 	 { (char *)"SWIG_PyInstanceMethod_New", (PyCFunction)SWIG_PyInstanceMethod_New, METH_O, NULL},
-	 { (char *)"initializeKokkos", _wrap_initializeKokkos, METH_VARARGS, NULL},
-	 { (char *)"finalizeKokkos", _wrap_finalizeKokkos, METH_VARARGS, NULL},
+	 { (char *)"MPI_Kokkos_initialize", _wrap_MPI_Kokkos_initialize, METH_VARARGS, NULL},
+	 { (char *)"MPI_Kokkos_finalize", _wrap_MPI_Kokkos_finalize, METH_VARARGS, NULL},
+	 { (char *)"new_MPI_Kokkos", _wrap_new_MPI_Kokkos, METH_VARARGS, NULL},
+	 { (char *)"delete_MPI_Kokkos", _wrap_delete_MPI_Kokkos, METH_VARARGS, NULL},
+	 { (char *)"MPI_Kokkos_swigregister", MPI_Kokkos_swigregister, METH_VARARGS, NULL},
 	 { (char *)"new_GMLS_Python", _wrap_new_GMLS_Python, METH_VARARGS, NULL},
 	 { (char *)"delete_GMLS_Python", _wrap_delete_GMLS_Python, METH_VARARGS, NULL},
 	 { (char *)"GMLS_Python_setWeightingOrder", _wrap_GMLS_Python_setWeightingOrder, METH_VARARGS, NULL},
@@ -3991,18 +4054,22 @@ static PyMethodDef SwigMethods[] = {
 /* -------- TYPE CONVERSION AND EQUIVALENCE RULES (BEGIN) -------- */
 
 static swig_type_info _swigt__p_GMLS_Python = {"_p_GMLS_Python", "GMLS_Python *", 0, 0, (void*)0, 0};
+static swig_type_info _swigt__p_MPI_Kokkos = {"_p_MPI_Kokkos", "MPI_Kokkos *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_char = {"_p_char", "char *", 0, 0, (void*)0, 0};
 
 static swig_type_info *swig_type_initial[] = {
   &_swigt__p_GMLS_Python,
+  &_swigt__p_MPI_Kokkos,
   &_swigt__p_char,
 };
 
 static swig_cast_info _swigc__p_GMLS_Python[] = {  {&_swigt__p_GMLS_Python, 0, 0, 0},{0, 0, 0, 0}};
+static swig_cast_info _swigc__p_MPI_Kokkos[] = {  {&_swigt__p_MPI_Kokkos, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_char[] = {  {&_swigt__p_char, 0, 0, 0},{0, 0, 0, 0}};
 
 static swig_cast_info *swig_cast_initial[] = {
   _swigc__p_GMLS_Python,
+  _swigc__p_MPI_Kokkos,
   _swigc__p_char,
 };
 

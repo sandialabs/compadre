@@ -7,26 +7,68 @@
 #include <Python.h>
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <numpy/arrayobject.h>
-//#include <assert.h>
+#include <assert.h>
+#ifdef COMPADRE_USE_MPI
+    #include <mpi.h>
+#endif
 
-void initializeKokkos() {
-	Kokkos::initialize();
+class MPI_Kokkos {
+public:
 
-}
+//    bool we_initialized_mpi;
+//
+//    MPI_Kokkos(bool initialize_mpi_as_well = true) {
+//
+//        we_initialized_mpi = false;
+//
+//#ifdef COMPADRE_USE_MPI
+//        if (initialize_mpi_as_well) {
+//            initialize();
+//        }
+//#endif
+//
+//    }
 
-void finalizeKokkos() {
-	Kokkos::finalize(); 
-}
+    void initialize() {
+//        if (!we_initialized_mpi) { // if we initialized already, do not do it again
+//            // check if mpi initialized
+//#ifdef COMPADRE_USE_MPI
+//            int flag;
+//            int status = 0;
+//            status = MPI_Initialized(&flag);
+//            assert(status == MPI_SUCCESS && "Check if MPI initialized already.");
+//            if (!flag) { // not already initialized
+//                //int argc = 0;
+//                //char **argv = (char **)malloc(1);
+//                status = MPI_Init(NULL, NULL); // initialize dummy mpi
+//                assert(status == MPI_SUCCESS && "Check if MPI initialized successfully.");
+//                //free(argv);
+//            }
+//#endif
+    	Kokkos::initialize();
+//        }
+    }
+    
+    void finalize() {
+    	Kokkos::finalize(); 
+//#ifdef COMPADRE_USE_MPI
+//        if (we_initialized_mpi) {
+//            MPI_Finalize();
+//            we_initialized_mpi = false;
+//        }
+//#endif
+    }
+};
 
 class GMLS_Python {
 
 private:
 
-	GMLS* gmls_object;
+	Compadre::GMLS* gmls_object;
 
 public:
 	GMLS_Python(const int poly_order, std::string dense_solver_type, const int curvature_poly_order, const int dimensions) {
-		gmls_object = new GMLS(poly_order, dense_solver_type, curvature_poly_order, dimensions);
+		gmls_object = new Compadre::GMLS(poly_order, dense_solver_type, curvature_poly_order, dimensions);
 		// initialized, but values not set
 	}
 
@@ -150,7 +192,7 @@ public:
 	}
 
 	void generatePointEvaluationStencil() {
-		gmls_object->addTargets(ReconstructionOperator::TargetOperation::ScalarPointEvaluation, gmls_object->getDimensions());
+		gmls_object->addTargets(Compadre::ReconstructionOperator::TargetOperation::ScalarPointEvaluation);
 		gmls_object->generateAlphas();
 	}
 
@@ -174,7 +216,7 @@ public:
                 PyArrayObject *np_arr_out = reinterpret_cast<PyArrayObject*>(pyObjectArray_out);
         	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,*loop_size), [=](int i) {
         		int* neighbor_id = (int*)PyArray_GETPTR2(np_arr_neighborlist, target_num, i+1); // first index is size in neighborlist
-			double alpha_evaluation = gmls_object->getAlpha0TensorTo0Tensor(ReconstructionOperator::TargetOperation::ScalarPointEvaluation, target_num, i);
+			double alpha_evaluation = gmls_object->getAlpha0TensorTo0Tensor(Compadre::ReconstructionOperator::TargetOperation::ScalarPointEvaluation, target_num, i);
 			double* val = (double*)PyArray_GETPTR1(np_arr_out, i);
 			*val = alpha_evaluation;
                 });
@@ -198,7 +240,7 @@ public:
         	Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,*loop_size), [=](int i, double &temp_target_evaluation) {
         		int* neighbor_id = (int*)PyArray_GETPTR2(np_arr_neighborlist, target_num, i+1); // first index is size in neighborlist
 		double *source_val = (double*)PyArray_GETPTR1(np_arr_sourcedata, *neighbor_id);
-		temp_target_evaluation += (*source_val)*gmls_object->getAlpha0TensorTo0Tensor(ReconstructionOperator::TargetOperation::ScalarPointEvaluation, target_num, i);
+		temp_target_evaluation += (*source_val)*gmls_object->getAlpha0TensorTo0Tensor(Compadre::ReconstructionOperator::TargetOperation::ScalarPointEvaluation, target_num, i);
 		}, target_evaluation);
 
         	return target_evaluation;
@@ -233,7 +275,7 @@ public:
 			for (int j=0, N=*loop_size; j<N; ++j) {
         			int* neighbor_id = (int*)PyArray_GETPTR2(np_arr_neighborlist, i, j+1); // first index is size in neighborlist
 				double *source_val = (double*)PyArray_GETPTR1(np_arr_sourcedata, *neighbor_id);
-				target_evaluation += (*source_val)*gmls_object->getAlpha0TensorTo0Tensor(ReconstructionOperator::TargetOperation::ScalarPointEvaluation, i, j);
+				target_evaluation += (*source_val)*gmls_object->getAlpha0TensorTo0Tensor(Compadre::ReconstructionOperator::TargetOperation::ScalarPointEvaluation, i, j);
 			}
 
 			double* val = (double*)PyArray_GETPTR1(np_arr_out, i);
@@ -248,7 +290,7 @@ public:
 
 int getNP(const int poly_order, const int dimensions) {
 	// number of points needed for unisolvency
-	return GMLS::getNP(poly_order, dimensions);
+	return Compadre::GMLS::getNP(poly_order, dimensions);
 }
 
 #endif

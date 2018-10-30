@@ -119,7 +119,8 @@ def test1(ND):
     #print gmls_obj
     return l2_error
 
-GMLS_Module.initializeKokkos()
+mpi_kokkos = GMLS_Module.MPI_Kokkos() # initializes Kokkos
+mpi_kokkos.initialize()
 # # of points in each dimension to run the test over
 ND = [5, 10, 20, 40]
 print "\n" + colors.HEADER + "(l2) Errors:" + colors.ENDC
@@ -132,4 +133,4 @@ print "\n" + colors.HEADER + "(l2) Rates:" + colors.ENDC
 for i in range(len(ND)-1):
     print str(math.log(errors[i+1]/errors[i])/math.log(0.5))
 print "\n"
-GMLS_Module.finalizeKokkos()
+mpi_kokkos.finalize()

@@ -43,6 +43,10 @@ if (KokkosCore_HAS_CUDA OR (KOKKOS_INTERNAL_USE_CUDA EQUAL "1"))
   MESSAGE(STATUS "${CUDA_INCLUDE_DIRS}")
 endif()
 
+if (Compadre_USE_MPI)
+  target_link_libraries(gmls PUBLIC mpi)
+endif()
+
 bob_export_target(gmls)
 
 
