@@ -256,7 +256,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, scratch_matrix_type* V, const int neighbor_index, const double alpha, const int basis_multiplier_component) const {
+void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, scratch_matrix_type* V, const int basis_multiplier_component) const {
 
     const int target_index = teamMember.league_rank();
 
@@ -265,7 +265,7 @@ void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_ve
         if (_curvature_support_operations(i) == ReconstructionOperator::TargetOperation::ScalarPointEvaluation) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                 int offset = i*manifold_NP;
-                this->calcPij(t1.data(), target_index, neighbor_index, alpha, _dimensions-1, _curvature_poly_order, false /*bool on only specific order*/, V, NULL /*&T*/, ReconstructionOperator::SamplingFunctional::PointSample);
+                this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _curvature_poly_order, false /*bool on only specific order*/, V, NULL /*&T*/, ReconstructionOperator::SamplingFunctional::PointSample);
                 for (int j=0; j<manifold_NP; ++j) {
                     P_target_row(offset + j, basis_multiplier_component) = t1(j);
                 }
@@ -273,13 +273,13 @@ void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_ve
         } else if (_curvature_support_operations(i) == ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                 int offset = i*manifold_NP;
-                this->calcGradientPij(t1.data(), target_index, neighbor_index, alpha, 0 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, V, ReconstructionOperator::SamplingFunctional::PointSample);
+                this->calcGradientPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, V, ReconstructionOperator::SamplingFunctional::PointSample);
                 for (int j=0; j<manifold_NP; ++j) {
                     P_target_row(offset + j, basis_multiplier_component) = t1(j);
                 }
                 if (_dimensions>2) { // _dimensions-1 > 1
                     offset = (i+1)*manifold_NP;
-                    this->calcGradientPij(t1.data(), target_index, neighbor_index, alpha, 1 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, V, ReconstructionOperator::SamplingFunctional::PointSample);
+                    this->calcGradientPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, V, ReconstructionOperator::SamplingFunctional::PointSample);
                     for (int j=0; j<manifold_NP; ++j) {
                         P_target_row(offset + j, basis_multiplier_component) = t1(j);
                     }

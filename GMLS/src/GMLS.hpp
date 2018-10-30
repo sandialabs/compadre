@@ -377,10 +377,11 @@ protected:
         \param t1                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
         \param t2                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
         \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
+        \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are a coarse approximation of the tangent plane
         \param basis_multiplier_component   [in] - which column of P_target_row is being filled. Also, specifies which component of vector polynomial basis is being used, e.g. a linear vector basis could be [1,0], [0,1], [x,0], [0,x], [y,0], [0,y], [z,0], and [0,z], but this parameter specifies whether it is [0,y] or [y,0] being evaluated.
     */
     KOKKOS_INLINE_FUNCTION
-    void computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, scratch_matrix_type* V, const int neighbor_index, const double alpha, const int basis_multiplier_component = 0) const;
+    void computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, scratch_matrix_type* V, const int basis_multiplier_component = 0) const;
 
     /*! \brief Evaluates a polynomial basis with a target functional applied, using information from the manifold curvature
 
@@ -429,8 +430,7 @@ protected:
         return _neighbor_lists(target_index, neighbor_list_num+1);
     }
 
-    //! Returns euclidean norm of a vector
-    //! that neighbor
+    //! Returns Euclidean norm of a vector
     KOKKOS_INLINE_FUNCTION
     double EuclideanVectorLength(const XYZ& delta_vector, const int dimension) const {
 

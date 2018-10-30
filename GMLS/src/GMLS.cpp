@@ -495,7 +495,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
     //  GET TARGET COEFFICIENTS RELATED TO GRADIENT TERMS
     //
     // reconstruct grad_xi1 and grad_xi2, not used for manifold_coeffs
-    this->computeCurvatureFunctionals(teamMember, t1, t2, P_target_row, &V, -1 /*target as neighbor index*/, 1 /*alpha*/);
+    this->computeCurvatureFunctionals(teamMember, t1, t2, P_target_row, &V);
     teamMember.team_barrier();
 
     Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
