@@ -168,7 +168,7 @@ void GMLS_LaplacianPhysics::computeMatrix(local_index_type field_one, local_inde
 	my_GMLS.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 	my_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 
-	my_GMLS.addTargets(ReconstructionOperator::TargetOperation::LaplacianOfScalarPointEvaluation);
+	my_GMLS.addTargets(TargetOperation::LaplacianOfScalarPointEvaluation);
 	my_GMLS.generateAlphas(); // just point evaluations
 
 	Teuchos::RCP<Teuchos::Time> GMLSTime = Teuchos::TimeMonitor::getNewCounter ("GMLS");
@@ -213,9 +213,9 @@ void GMLS_LaplacianPhysics::computeMatrix(local_index_type field_one, local_inde
 							}
 						} else {
 							if (i==static_cast<local_index_type>(neighbors[l].first)) {
-								val_data(l*fields[field_two]->nDim() + n) = my_GMLS.getAlpha0TensorTo0Tensor(ReconstructionOperator::TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
+								val_data(l*fields[field_two]->nDim() + n) = my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
 							} else {
-								val_data(l*fields[field_two]->nDim() + n) = my_GMLS.getAlpha0TensorTo0Tensor(ReconstructionOperator::TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
+								val_data(l*fields[field_two]->nDim() + n) = my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
 							}
 						}
 					} else {

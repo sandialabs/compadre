@@ -6,9 +6,9 @@
 namespace Compadre {
 
 KOKKOS_INLINE_FUNCTION
-double GMLS::Wab(const double r, const double h, const ReconstructionOperator::WeightingFunctionType& weighting_type, const int power) const {
+double GMLS::Wab(const double r, const double h, const WeightingFunctionType& weighting_type, const int power) const {
 
-    if (weighting_type == ReconstructionOperator::WeightingFunctionType::Power) {
+    if (weighting_type == WeightingFunctionType::Power) {
         return std::pow(1.0-std::abs(r/(3*h)), power) * double(1.0-std::abs(r/(3*h))>0.0);
     } else { // Gaussian
         // 2.5066282746310002416124 = sqrt(2*pi)
@@ -30,7 +30,7 @@ double GMLS::factorial(const int n) const {
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, scratch_matrix_type* T, const ReconstructionOperator::SamplingFunctional polynomial_sampling_functional) const {
+void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, scratch_matrix_type* T, const SamplingFunctional polynomial_sampling_functional) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
@@ -54,7 +54,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
         for (int i=0; i<3; ++i) relative_coord[i] = 0;
     }
 
-    if (polynomial_sampling_functional == ReconstructionOperator::SamplingFunctional::PointSample) {
+    if (polynomial_sampling_functional == SamplingFunctional::PointSample) {
 
 //        double operator_coefficient = 1;
 //        // use neighbor scalar value
@@ -96,7 +96,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                     i++;
             }
         }
-    } else if (polynomial_sampling_functional == ReconstructionOperator::SamplingFunctional::ManifoldVectorSample || polynomial_sampling_functional == ReconstructionOperator::SamplingFunctional::ManifoldGradientVectorSample) {
+    } else if (polynomial_sampling_functional == SamplingFunctional::ManifoldVectorSample || polynomial_sampling_functional == SamplingFunctional::ManifoldGradientVectorSample) {
 
 //        double operator_coefficient = 1;
 //        // use neighbor scalar value
@@ -148,7 +148,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 }
             }
         }
-    } else if (polynomial_sampling_functional == ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
+    } else if (polynomial_sampling_functional == SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
 
         double operator_coefficient = 1;
 //        // use average scalar value
@@ -234,7 +234,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 }
             }
         }
-    } else if (polynomial_sampling_functional == ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample) {
+    } else if (polynomial_sampling_functional == SamplingFunctional::StaggeredEdgeIntegralSample) {
 
         double operator_coefficient = 1;
 //        // use average scalar value
@@ -292,7 +292,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
 
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionOperator::SamplingFunctional polynomial_sampling_functional) const {
+void GMLS::calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const SamplingFunctional polynomial_sampling_functional) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
@@ -422,7 +422,7 @@ void GMLS::calcGradientPij(double* delta, const int target_index, const int neig
 
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p, scratch_matrix_type* V, scratch_matrix_type* T, const ReconstructionOperator::SamplingFunctional polynomial_sampling_functional) const {
+void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p, scratch_matrix_type* V, scratch_matrix_type* T, const SamplingFunctional polynomial_sampling_functional) const {
     /*
      * Creates sqrt(W)*P
      */
@@ -448,8 +448,8 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 
             // coefficient muliplied by relative distance (allows for mid-edge weighting if applicable)
             double alpha_weight = 1;
-            if (_polynomial_sampling_functional==ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample
-                    || _polynomial_sampling_functional==ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
+            if (_polynomial_sampling_functional==SamplingFunctional::StaggeredEdgeIntegralSample
+                    || _polynomial_sampling_functional==SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
                 alpha_weight = 0.5;
             }
 

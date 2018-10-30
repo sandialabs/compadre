@@ -292,9 +292,9 @@ int main (int argc, char* args[]) {
 				_GMLS->setWeightingType(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 				_GMLS->setWeightingPower(parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 
-				std::vector<ReconstructionOperator::TargetOperation> lro(2);
-				lro[0]=ReconstructionOperator::TargetOperation::ScalarPointEvaluation;
-				lro[1]=ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation;
+				std::vector<TargetOperation> lro(2);
+				lro[0]=TargetOperation::ScalarPointEvaluation;
+				lro[1]=TargetOperation::GradientOfScalarPointEvaluation;
     				_GMLS->addTargets(lro, 3 /* dimension */);
 				_GMLS->generateAlphas(); // all operations requested
 
@@ -309,11 +309,11 @@ int main (int argc, char* args[]) {
                                 	for (int j=0; j<num_neighbors; j++) {
                                 	//for (int j=0; j<alphas.size(); j++) {
 						if (_type == 0) {
-							out_file << _GMLS->getAlpha0TensorTo0Tensor(ReconstructionOperator::TargetOperation::ScalarPointEvaluation, i, j) << " ";
+							out_file << _GMLS->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j) << " ";
 						} else if (_type == 1) {
-							out_file << _GMLS->getAlpha0TensorTo1Tensor(ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation, i, 0, j) << " ";
+							out_file << _GMLS->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j) << " ";
 						} else if (_type == 2) {
-							out_file << _GMLS->getAlpha0TensorTo1Tensor(ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation, i, 1, j) << " ";
+							out_file << _GMLS->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j) << " ";
 						}
 					}
 					out_file << std::endl;

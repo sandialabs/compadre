@@ -119,7 +119,7 @@ int main (int argc, char* args[]) {
 			new_particles->getFieldManager()->createField(1, "computedSphereHarmonic", "m/s");
 			new_particles->getFieldManager()->createField(1, "exact_solution", "m/s");
 
-			Compadre::RemapObject ro("u", "computedSphereHarmonic", ReconstructionOperator::TargetOperation::LaplacianOfScalarPointEvaluation);
+			Compadre::RemapObject ro("u", "computedSphereHarmonic", TargetOperation::LaplacianOfScalarPointEvaluation);
 			rm->add(ro);
 			rm->execute();
 

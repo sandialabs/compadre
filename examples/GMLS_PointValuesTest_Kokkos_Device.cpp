@@ -356,12 +356,12 @@ bool all_passed = true;
     GMLS my_GMLS(order, solver_name.c_str(), 2 /*manifield order*/, dimension);
     my_GMLS.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
 
-    std::vector<ReconstructionOperator::TargetOperation> lro(5);
-    lro[0] = ReconstructionOperator::ScalarPointEvaluation;
-    lro[1] = ReconstructionOperator::LaplacianOfScalarPointEvaluation;
-    lro[2] = ReconstructionOperator::GradientOfScalarPointEvaluation;
-    lro[3] = ReconstructionOperator::DivergenceOfVectorPointEvaluation;
-    lro[4] = ReconstructionOperator::CurlOfVectorPointEvaluation;
+    std::vector<TargetOperation> lro(5);
+    lro[0] = ScalarPointEvaluation;
+    lro[1] = LaplacianOfScalarPointEvaluation;
+    lro[2] = GradientOfScalarPointEvaluation;
+    lro[3] = DivergenceOfVectorPointEvaluation;
+    lro[4] = CurlOfVectorPointEvaluation;
     my_GMLS.addTargets(lro);
     my_GMLS.generateAlphas();
 
@@ -375,7 +375,7 @@ bool all_passed = true;
 			double xval = source_coords(neighbor_lists(i,j+1),0);
 			double yval = (dimension>1) ? source_coords(neighbor_lists(i,j+1),1) : 0;
 			double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
-			GMLS_value += my_GMLS.getAlpha0TensorTo0Tensor(ReconstructionOperator::ScalarPointEvaluation, i, j)*trueSolution(xval, yval, zval, order, dimension);
+			GMLS_value += my_GMLS.getAlpha0TensorTo0Tensor(ScalarPointEvaluation, i, j)*trueSolution(xval, yval, zval, order, dimension);
 		}
 
 		double GMLS_Laplacian = 0.0;
@@ -383,7 +383,7 @@ bool all_passed = true;
 			double xval = source_coords(neighbor_lists(i,j+1),0);
 			double yval = (dimension>1) ? source_coords(neighbor_lists(i,j+1),1) : 0;
 			double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
-			GMLS_Laplacian += my_GMLS.getAlpha0TensorTo0Tensor(ReconstructionOperator::LaplacianOfScalarPointEvaluation, i, j)*trueSolution(xval, yval, zval, order, dimension);
+			GMLS_Laplacian += my_GMLS.getAlpha0TensorTo0Tensor(LaplacianOfScalarPointEvaluation, i, j)*trueSolution(xval, yval, zval, order, dimension);
 		}
 
 		double GMLS_GradX = 0.0;
@@ -391,7 +391,7 @@ bool all_passed = true;
 			double xval = source_coords(neighbor_lists(i,j+1),0);
 			double yval = (dimension>1) ? source_coords(neighbor_lists(i,j+1),1) : 0;
 			double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
-			GMLS_GradX += my_GMLS.getAlpha0TensorTo1Tensor(ReconstructionOperator::GradientOfScalarPointEvaluation, i, 0, j)*trueSolution(xval, yval, zval, order, dimension);
+			GMLS_GradX += my_GMLS.getAlpha0TensorTo1Tensor(GradientOfScalarPointEvaluation, i, 0, j)*trueSolution(xval, yval, zval, order, dimension);
 		}
 
 		double GMLS_GradY = 0.0;
@@ -400,7 +400,7 @@ bool all_passed = true;
 				double xval = source_coords(neighbor_lists(i,j+1),0);
 				double yval = source_coords(neighbor_lists(i,j+1),1);
 				double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
-				GMLS_GradY += my_GMLS.getAlpha0TensorTo1Tensor(ReconstructionOperator::GradientOfScalarPointEvaluation, i, 1, j)*trueSolution(xval, yval, zval, order, dimension);
+				GMLS_GradY += my_GMLS.getAlpha0TensorTo1Tensor(GradientOfScalarPointEvaluation, i, 1, j)*trueSolution(xval, yval, zval, order, dimension);
 			}
 		}
 
@@ -410,7 +410,7 @@ bool all_passed = true;
 				double xval = source_coords(neighbor_lists(i,j+1),0);
 				double yval = source_coords(neighbor_lists(i,j+1),1);
 				double zval = source_coords(neighbor_lists(i,j+1),2);
-				GMLS_GradZ += my_GMLS.getAlpha0TensorTo1Tensor(ReconstructionOperator::GradientOfScalarPointEvaluation, i, 2, j)*trueSolution(xval, yval, zval, order, dimension);
+				GMLS_GradZ += my_GMLS.getAlpha0TensorTo1Tensor(GradientOfScalarPointEvaluation, i, 2, j)*trueSolution(xval, yval, zval, order, dimension);
 			}
 		}
 
@@ -421,12 +421,12 @@ bool all_passed = true;
 			double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
 			// TODO: use different functions for the vector components
 			if (use_arbitrary_order_divergence) {
-				GMLS_Divergence += my_GMLS.getAlpha1TensorTo0Tensor(ReconstructionOperator::DivergenceOfVectorPointEvaluation, i, j, 0)*trueSolution(xval, yval, zval, order, dimension);
-				if (dimension>1) GMLS_Divergence += my_GMLS.getAlpha1TensorTo0Tensor(ReconstructionOperator::DivergenceOfVectorPointEvaluation, i, j, 1)*trueSolution(xval, yval, zval, order, dimension);
-				if (dimension>2) GMLS_Divergence += my_GMLS.getAlpha1TensorTo0Tensor(ReconstructionOperator::DivergenceOfVectorPointEvaluation, i, j, 2)*trueSolution(xval, yval, zval, order, dimension);
+				GMLS_Divergence += my_GMLS.getAlpha1TensorTo0Tensor(DivergenceOfVectorPointEvaluation, i, j, 0)*trueSolution(xval, yval, zval, order, dimension);
+				if (dimension>1) GMLS_Divergence += my_GMLS.getAlpha1TensorTo0Tensor(DivergenceOfVectorPointEvaluation, i, j, 1)*trueSolution(xval, yval, zval, order, dimension);
+				if (dimension>2) GMLS_Divergence += my_GMLS.getAlpha1TensorTo0Tensor(DivergenceOfVectorPointEvaluation, i, j, 2)*trueSolution(xval, yval, zval, order, dimension);
 			} else {
 				for (int k=0; k<dimension; ++k) {
-					GMLS_Divergence += my_GMLS.getAlpha1TensorTo0Tensor(ReconstructionOperator::DivergenceOfVectorPointEvaluation, i, j, k)*divergenceTestSamples(xval, yval, zval, k, dimension);
+					GMLS_Divergence += my_GMLS.getAlpha1TensorTo0Tensor(DivergenceOfVectorPointEvaluation, i, j, k)*divergenceTestSamples(xval, yval, zval, k, dimension);
 				}
 			}
 		}
@@ -441,7 +441,7 @@ bool all_passed = true;
 				double yval = source_coords(neighbor_lists(i,j+1),1);
 				double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
 				for (int k=0; k<dimension; ++k) {
-					GMLS_CurlX += my_GMLS.getAlpha1TensorTo1Tensor(ReconstructionOperator::CurlOfVectorPointEvaluation, i, 0, j, k)*divergenceTestSamples(xval, yval, zval, k, dimension);
+					GMLS_CurlX += my_GMLS.getAlpha1TensorTo1Tensor(CurlOfVectorPointEvaluation, i, 0, j, k)*divergenceTestSamples(xval, yval, zval, k, dimension);
 				}
 			}
 
@@ -450,7 +450,7 @@ bool all_passed = true;
 				double yval = source_coords(neighbor_lists(i,j+1),1);
 				double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
 				for (int k=0; k<dimension; ++k) {
-					GMLS_CurlY += my_GMLS.getAlpha1TensorTo1Tensor(ReconstructionOperator::CurlOfVectorPointEvaluation, i, 1, j, k)*divergenceTestSamples(xval, yval, zval, k, dimension);
+					GMLS_CurlY += my_GMLS.getAlpha1TensorTo1Tensor(CurlOfVectorPointEvaluation, i, 1, j, k)*divergenceTestSamples(xval, yval, zval, k, dimension);
 				}
 			}
 		}
@@ -461,7 +461,7 @@ bool all_passed = true;
 				double yval = source_coords(neighbor_lists(i,j+1),1);
 				double zval = source_coords(neighbor_lists(i,j+1),2);
 				for (int k=0; k<dimension; ++k) {
-					GMLS_CurlZ += my_GMLS.getAlpha1TensorTo1Tensor(ReconstructionOperator::CurlOfVectorPointEvaluation, i, 2, j, k)*divergenceTestSamples(xval, yval, zval, k, dimension);
+					GMLS_CurlZ += my_GMLS.getAlpha1TensorTo1Tensor(CurlOfVectorPointEvaluation, i, 2, j, k)*divergenceTestSamples(xval, yval, zval, k, dimension);
 				}
 			}
 		}

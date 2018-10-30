@@ -192,7 +192,7 @@ public:
 	}
 
 	void generatePointEvaluationStencil() {
-		gmls_object->addTargets(Compadre::ReconstructionOperator::TargetOperation::ScalarPointEvaluation);
+		gmls_object->addTargets(Compadre::TargetOperation::ScalarPointEvaluation);
 		gmls_object->generateAlphas();
 	}
 
@@ -216,7 +216,7 @@ public:
                 PyArrayObject *np_arr_out = reinterpret_cast<PyArrayObject*>(pyObjectArray_out);
         	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,*loop_size), [=](int i) {
         		int* neighbor_id = (int*)PyArray_GETPTR2(np_arr_neighborlist, target_num, i+1); // first index is size in neighborlist
-			double alpha_evaluation = gmls_object->getAlpha0TensorTo0Tensor(Compadre::ReconstructionOperator::TargetOperation::ScalarPointEvaluation, target_num, i);
+			double alpha_evaluation = gmls_object->getAlpha0TensorTo0Tensor(Compadre::TargetOperation::ScalarPointEvaluation, target_num, i);
 			double* val = (double*)PyArray_GETPTR1(np_arr_out, i);
 			*val = alpha_evaluation;
                 });
@@ -240,7 +240,7 @@ public:
         	Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,*loop_size), [=](int i, double &temp_target_evaluation) {
         		int* neighbor_id = (int*)PyArray_GETPTR2(np_arr_neighborlist, target_num, i+1); // first index is size in neighborlist
 		double *source_val = (double*)PyArray_GETPTR1(np_arr_sourcedata, *neighbor_id);
-		temp_target_evaluation += (*source_val)*gmls_object->getAlpha0TensorTo0Tensor(Compadre::ReconstructionOperator::TargetOperation::ScalarPointEvaluation, target_num, i);
+		temp_target_evaluation += (*source_val)*gmls_object->getAlpha0TensorTo0Tensor(Compadre::TargetOperation::ScalarPointEvaluation, target_num, i);
 		}, target_evaluation);
 
         	return target_evaluation;
@@ -275,7 +275,7 @@ public:
 			for (int j=0, N=*loop_size; j<N; ++j) {
         			int* neighbor_id = (int*)PyArray_GETPTR2(np_arr_neighborlist, i, j+1); // first index is size in neighborlist
 				double *source_val = (double*)PyArray_GETPTR1(np_arr_sourcedata, *neighbor_id);
-				target_evaluation += (*source_val)*gmls_object->getAlpha0TensorTo0Tensor(Compadre::ReconstructionOperator::TargetOperation::ScalarPointEvaluation, i, j);
+				target_evaluation += (*source_val)*gmls_object->getAlpha0TensorTo0Tensor(Compadre::TargetOperation::ScalarPointEvaluation, i, j);
 			}
 
 			double* val = (double*)PyArray_GETPTR1(np_arr_out, i);

@@ -118,23 +118,23 @@ protected:
     int _dimensions;
 
     //! reconstruction space for GMLS problems, set at GMLS class instantiation
-    ReconstructionOperator::ReconstructionSpace _reconstruction_space;
+    ReconstructionSpace _reconstruction_space;
 
     //! polynomial sampling functional used to construct P matrix, set at GMLS class instantiation
-    ReconstructionOperator::SamplingFunctional _polynomial_sampling_functional;
+    SamplingFunctional _polynomial_sampling_functional;
 
     //! generally the same as _polynomial_sampling_functional, but can differ if specified at 
     //! GMLS class instantiation
-    ReconstructionOperator::SamplingFunctional _data_sampling_functional;
+    SamplingFunctional _data_sampling_functional;
 
     //! vector containing target functionals to be applied for curvature
-    Kokkos::View<ReconstructionOperator::TargetOperation*> _curvature_support_operations;
+    Kokkos::View<TargetOperation*> _curvature_support_operations;
 
     //! vector containing target functionals to be applied for reconstruction problem (device)
-    Kokkos::View<ReconstructionOperator::TargetOperation*> _operations;
+    Kokkos::View<TargetOperation*> _operations;
 
     //! vector containing target functionals to be applied for reconstruction problem (host)
-    Kokkos::View<ReconstructionOperator::TargetOperation*>::HostMirror _host_operations;
+    Kokkos::View<TargetOperation*>::HostMirror _host_operations;
 
 
 
@@ -147,13 +147,13 @@ protected:
 
 
     //! solver type for GMLS problem, can also be set to MANIFOLD for manifold problems
-    ReconstructionOperator::DenseSolverType _dense_solver_type;
+    DenseSolverType _dense_solver_type;
 
     //! weighting kernel type for GMLS
-    ReconstructionOperator::WeightingFunctionType _weighting_type;
+    WeightingFunctionType _weighting_type;
 
     //! weighting kernel type for curvature problem
-    ReconstructionOperator::WeightingFunctionType _curvature_weighting_type;
+    WeightingFunctionType _curvature_weighting_type;
 
     //! power to be used for weighting kernel
     int _weighting_power;
@@ -178,7 +178,7 @@ protected:
 
 
     //! vector of user requested target operations
-    std::vector<ReconstructionOperator::TargetOperation> _lro; 
+    std::vector<TargetOperation> _lro; 
 
     //! vector containing a mapping from a target functionals enum value to the its place in the list
     //! of target functionals to be applied
@@ -299,7 +299,7 @@ protected:
         \param sampling_strategy    [in] - sampling functional specification
     */
     KOKKOS_INLINE_FUNCTION
-    void calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, scratch_matrix_type* V = NULL, scratch_matrix_type* T = NULL, const ReconstructionOperator::SamplingFunctional sampling_strategy = ReconstructionOperator::SamplingFunctional::PointSample) const;
+    void calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, scratch_matrix_type* V = NULL, scratch_matrix_type* T = NULL, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample) const;
 
     /*! \brief Evaluates the gradient of a polynomial basis under the Dirac Delta (pointwise) sampling function.
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -314,7 +314,7 @@ protected:
         \param sampling_strategy    [in] - sampling functional specification
     */
     KOKKOS_INLINE_FUNCTION
-    void calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionOperator::SamplingFunctional sampling_strategy) const;
+    void calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const SamplingFunctional sampling_strategy) const;
 
     /*! \brief Evaluates the weighting kernel
         \param r                [in] - Euclidean distance of relative vector. Euclidean distance of (target - neighbor) in some basis.
@@ -323,7 +323,7 @@ protected:
         \param power            [in] - power parameter to be given to the kernel.
     */
     KOKKOS_INLINE_FUNCTION
-    double Wab(const double r, const double h, const ReconstructionOperator::WeightingFunctionType& weighting_type, const int power) const; 
+    double Wab(const double r, const double h, const WeightingFunctionType& weighting_type, const int power) const; 
     
     //! Standard factorial function
     KOKKOS_INLINE_FUNCTION
@@ -342,7 +342,7 @@ protected:
         \param sampling_strategy    [in] - sampling functional specification
     */
     KOKKOS_INLINE_FUNCTION
-    void createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p = false, scratch_matrix_type* V = NULL, scratch_matrix_type* T = NULL, const ReconstructionOperator::SamplingFunctional sampling_strategy = ReconstructionOperator::SamplingFunctional::PointSample) const;
+    void createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p = false, scratch_matrix_type* V = NULL, scratch_matrix_type* T = NULL, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample) const;
 
     /*! \brief Fills the _P matrix with P*sqrt(w) for use in solving for curvature
 
@@ -543,25 +543,25 @@ public:
 #endif
 
         // temporary, just to avoid warning
-        _dense_solver_type = ReconstructionOperator::DenseSolverType::QR;
+        _dense_solver_type = DenseSolverType::QR;
         // set based on input
         this->setSolverType(dense_solver_type);
 
-        _lro_lookup = std::vector<int>(ReconstructionOperator::TargetOperation::COUNT,-1); // hard coded against number of operations defined
-        _lro = std::vector<ReconstructionOperator::TargetOperation>();
+        _lro_lookup = std::vector<int>(TargetOperation::COUNT,-1); // hard coded against number of operations defined
+        _lro = std::vector<TargetOperation>();
 
         // various initializations
         _type = 1;
         _total_alpha_values = 0;
 
-        _weighting_type = ReconstructionOperator::WeightingFunctionType::Power;
-        _curvature_weighting_type = ReconstructionOperator::WeightingFunctionType::Power;
+        _weighting_type = WeightingFunctionType::Power;
+        _curvature_weighting_type = WeightingFunctionType::Power;
         _weighting_power = 2;
         _curvature_weighting_power = 2;
 
-        _reconstruction_space = ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial;
-        _polynomial_sampling_functional = ReconstructionOperator::SamplingFunctional::PointSample;
-        _data_sampling_functional = ReconstructionOperator::SamplingFunctional::PointSample;
+        _reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial;
+        _polynomial_sampling_functional = SamplingFunctional::PointSample;
+        _data_sampling_functional = SamplingFunctional::PointSample;
 
         _basis_multiplier = 1;
         _sampling_multiplier = 1;
@@ -572,9 +572,9 @@ public:
 
     //! Constructor for the case when the data sampling functional does not match the polynomial
     //! sampling functional. Only case anticipated is staggered Laplacian.
-    GMLS(ReconstructionOperator::ReconstructionSpace reconstruction_space,
-        ReconstructionOperator::SamplingFunctional polynomial_sampling_strategy,
-        ReconstructionOperator::SamplingFunctional data_sampling_strategy,
+    GMLS(ReconstructionSpace reconstruction_space,
+        SamplingFunctional polynomial_sampling_strategy,
+        SamplingFunctional data_sampling_strategy,
         const int poly_order,
         const std::string dense_solver_type = std::string("QR"),
         const int manifold_curvature_poly_order = 2,
@@ -588,8 +588,8 @@ public:
 
     //! Constructor for the case when nonstandard sampling functionals or reconstruction spaces
     //! are to be used. Reconstruction space and sampling strategy can only be set at instantiation.
-    GMLS(ReconstructionOperator::ReconstructionSpace reconstruction_space,
-            ReconstructionOperator::SamplingFunctional dual_sampling_strategy,
+    GMLS(ReconstructionSpace reconstruction_space,
+            SamplingFunctional dual_sampling_strategy,
             const int poly_order,
             const std::string dense_solver_type = std::string("QR"),
             const int manifold_curvature_poly_order = 2,
@@ -686,10 +686,10 @@ public:
     int getDimensions() const { return _dimensions; }
 
     //! Type for weighting kernel for GMLS problem
-    ReconstructionOperator::WeightingFunctionType getWeightingType() const { return _weighting_type; }
+    WeightingFunctionType getWeightingType() const { return _weighting_type; }
 
     //! Type for weighting kernel for curvature 
-    ReconstructionOperator::WeightingFunctionType getManifoldWeightingType() const { return _curvature_weighting_type; }
+    WeightingFunctionType getManifoldWeightingType() const { return _curvature_weighting_type; }
 
     //! Power for weighting kernel for GMLS problem
     int getWeightingPower() const { return _weighting_power; }
@@ -701,58 +701,58 @@ public:
     int getNumberOfQuadraturePoints() const { return _number_of_quadrature_points; }
 
     //! Helper function for getting alphas for scalar reconstruction from scalar data
-    double getAlpha0TensorTo0Tensor(ReconstructionOperator::TargetOperation lro, const int target_index, const int neighbor_index) const {
+    double getAlpha0TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index) const {
         // e.g. Dirac Delta target of a scalar field
         return getAlpha(lro, target_index, 0, 0, neighbor_index, 0, 0);
     }
 
     //! Helper function for getting alphas for vector reconstruction from scalar data
-    double getAlpha0TensorTo1Tensor(ReconstructionOperator::TargetOperation lro, const int target_index, const int output_component, const int neighbor_index) const {
+    double getAlpha0TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index) const {
         // e.g. gradient of a scalar field
         return getAlpha(lro, target_index, output_component, 0, neighbor_index, 0, 0);
     }
 
     //! Helper function for getting alphas for matrix reconstruction from scalar data
-    double getAlpha0TensorTo2Tensor(ReconstructionOperator::TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index) const {
+    double getAlpha0TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index) const {
         return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, 0, 0);
     }
 
     //! Helper function for getting alphas for scalar reconstruction from vector data
-    double getAlpha1TensorTo0Tensor(ReconstructionOperator::TargetOperation lro, const int target_index, const int neighbor_index, const int input_component) const {
+    double getAlpha1TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component) const {
         // e.g. divergence of a vector field
         return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component, 0);
     }
 
     //! Helper function for getting alphas for vector reconstruction from vector data
-    double getAlpha1TensorTo1Tensor(ReconstructionOperator::TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component) const {
+    double getAlpha1TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component) const {
         // e.g. curl of a vector field
         return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component, 0);
     }
 
     //! Helper function for getting alphas for matrix reconstruction from vector data
-    double getAlpha1TensorTo2Tensor(ReconstructionOperator::TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component) const {
+    double getAlpha1TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component) const {
         // e.g. gradient of a vector field
         return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component, 0);
     }
 
     //! Helper function for getting alphas for scalar reconstruction from matrix data
-    double getAlpha2TensorTo0Tensor(ReconstructionOperator::TargetOperation lro, const int target_index, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2) const {
+    double getAlpha2TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2) const {
         return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component_axis_1, input_component_axis_2);
     }
 
     //! Helper function for getting alphas for vector reconstruction from matrix data
-    double getAlpha2TensorTo1Tensor(ReconstructionOperator::TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2) const {
+    double getAlpha2TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2) const {
         return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component_axis_1, input_component_axis_2);
     }
 
     //! Helper function for getting alphas for matrix reconstruction from matrix data
-    double getAlpha2TensorTo2Tensor(ReconstructionOperator::TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2) const {
+    double getAlpha2TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2) const {
         return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component_axis_1, input_component_axis_2);
     }
 
     //! Underlying function all interface helper functions call to retrieve alpha values
-    double getAlpha(ReconstructionOperator::TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2) const {
-        // lro - the operator from ReconstructionOperator::TargetOperations
+    double getAlpha(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2) const {
+        // lro - the operator from TargetOperations
         // target_index - the # for the target site where information is required
         // neighbor_index - the # for the neighbor of the target
         //
@@ -773,8 +773,8 @@ public:
         //
 
         const int lro_number = _lro_lookup[(int)lro];
-        const int input_index = ReconstructionOperator::getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
-        const int output_index = ReconstructionOperator::getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
+        const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
+        const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
 
         return _host_alphas(ORDER_INDICES(target_index,
                 (_host_lro_total_offsets[lro_number] + input_index*_host_lro_output_tile_size[lro_number] + output_index)*_number_of_neighbors_list(target_index)
@@ -783,10 +783,10 @@ public:
 
     //! Returns a stencil to transform data from its existing state into the input expected 
     //! for some sampling functionals.
-    double getPreStencilWeight(ReconstructionOperator::SamplingFunctional sro, const int target_index, const int neighbor_index, bool for_target, const int output_component = 0, const int input_component = 0) const {
+    double getPreStencilWeight(SamplingFunctional sro, const int target_index, const int neighbor_index, bool for_target, const int output_component = 0, const int input_component = 0) const {
         // for certain sampling strategies, linear combinations of the neighbor and target value are needed
         // for the traditional PointSample, this value is 1 for the neighbor and 0 for the target
-        if (sro == ReconstructionOperator::SamplingFunctional::PointSample ) {
+        if (sro == SamplingFunctional::PointSample ) {
             if (for_target) return 0; else return 1;
         }
         // 2 is because there is one value for each neighbor and one value for the target, for each target
@@ -794,33 +794,33 @@ public:
     }
 
     //! Dimensions ^ output rank for target operation
-    int getOutputDimensionOfOperation(ReconstructionOperator::TargetOperation lro) const {
+    int getOutputDimensionOfOperation(TargetOperation lro) const {
         return this->_lro_output_tile_size[_lro_lookup[(int)lro]];
     }
 
     //! Dimensions ^ input rank for target operation
-    int getInputDimensionOfOperation(ReconstructionOperator::TargetOperation lro) const {
+    int getInputDimensionOfOperation(TargetOperation lro) const {
         return this->_lro_input_tile_size[_lro_lookup[(int)lro]];
     }
 
     //! Dimensions ^ output rank for sampling operation
-    int getOutputDimensionOfSampling(ReconstructionOperator::SamplingFunctional sro) const {
-        return std::pow(_dimensions, ReconstructionOperator::SamplingOutputTensorRank[(int)sro]);
+    int getOutputDimensionOfSampling(SamplingFunctional sro) const {
+        return std::pow(_dimensions, SamplingOutputTensorRank[(int)sro]);
     }
 
     //! Dimensions ^ output rank for sampling operation
-    int getInputDimensionOfSampling(ReconstructionOperator::SamplingFunctional sro) const {
-        return std::pow(_dimensions, ReconstructionOperator::SamplingInputTensorRank[(int)sro]);
+    int getInputDimensionOfSampling(SamplingFunctional sro) const {
+        return std::pow(_dimensions, SamplingInputTensorRank[(int)sro]);
     }
 
     //! Output rank for sampling operation
-    int getOutputRankOfSampling(ReconstructionOperator::SamplingFunctional sro) const {
-        return ReconstructionOperator::SamplingOutputTensorRank[(int)sro];
+    int getOutputRankOfSampling(SamplingFunctional sro) const {
+        return SamplingOutputTensorRank[(int)sro];
     }
 
     //! Input rank for sampling operation
-    int getInputRankOfSampling(ReconstructionOperator::SamplingFunctional sro) const {
-        return ReconstructionOperator::SamplingInputTensorRank[(int)sro];
+    int getInputRankOfSampling(SamplingFunctional sro) const {
+        return SamplingInputTensorRank[(int)sro];
     }
 
 ///@}
@@ -956,18 +956,18 @@ public:
     //! Type for weighting kernel for GMLS problem
     void setWeightingType( const std::string &wt) {
         if (wt == "power") {
-            _weighting_type = ReconstructionOperator::WeightingFunctionType::Power;
+            _weighting_type = WeightingFunctionType::Power;
         } else {
-            _weighting_type = ReconstructionOperator::WeightingFunctionType::Gaussian;
+            _weighting_type = WeightingFunctionType::Gaussian;
         }
     }
 
     //! Type for weighting kernel for curvature 
     void setCurvatureWeightingType( const std::string &wt) {
         if (wt == "power") {
-            _curvature_weighting_type = ReconstructionOperator::WeightingFunctionType::Power;
+            _curvature_weighting_type = WeightingFunctionType::Power;
         } else {
-            _curvature_weighting_type = ReconstructionOperator::WeightingFunctionType::Gaussian;
+            _curvature_weighting_type = WeightingFunctionType::Gaussian;
         }
     }
 
@@ -996,24 +996,24 @@ public:
         std::string solver_type_to_lower = dense_solver_type;
         transform(solver_type_to_lower.begin(), solver_type_to_lower.end(), solver_type_to_lower.begin(), ::tolower);
         if (solver_type_to_lower == "svd") {
-            _dense_solver_type = ReconstructionOperator::DenseSolverType::SVD;
+            _dense_solver_type = DenseSolverType::SVD;
         } else if (solver_type_to_lower == "manifold") {
-            _dense_solver_type = ReconstructionOperator::DenseSolverType::MANIFOLD;
-            _curvature_support_operations = Kokkos::View<ReconstructionOperator::TargetOperation*>("operations needed for manifold gradient reconstruction", 1);
-            _curvature_support_operations[0] = ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation;
+            _dense_solver_type = DenseSolverType::MANIFOLD;
+            _curvature_support_operations = Kokkos::View<TargetOperation*>("operations needed for manifold gradient reconstruction", 1);
+            _curvature_support_operations[0] = TargetOperation::GradientOfScalarPointEvaluation;
         } else {
-            _dense_solver_type = ReconstructionOperator::DenseSolverType::QR;
+            _dense_solver_type = DenseSolverType::QR;
         }
     }
 
     //! Adds a target to the vector of target functional to be applied to the reconstruction
-    void addTargets(ReconstructionOperator::TargetOperation lro) {
-        std::vector<ReconstructionOperator::TargetOperation> temporary_lro_vector(1, lro);
+    void addTargets(TargetOperation lro) {
+        std::vector<TargetOperation> temporary_lro_vector(1, lro);
         this->addTargets(temporary_lro_vector);
     }
 
     //! Adds a vector of target functionals to the vector of target functionals already to be applied to the reconstruction
-    void addTargets(std::vector<ReconstructionOperator::TargetOperation> lro) {
+    void addTargets(std::vector<TargetOperation> lro) {
         // if called multiple times with different dimensions, only the last
         // dimension called with is used for all
 
@@ -1062,8 +1062,8 @@ public:
             _host_lro_total_offsets(i) = total_offset;
 
             // allows for a tile of the product of dimension^input_tensor_rank * dimension^output_tensor_rank * the number of neighbors
-            int output_tile_size = std::pow(_dimensions, ReconstructionOperator::TargetOutputTensorRank[(int)_lro[i]]);
-            int input_tile_size = std::pow(_dimensions, ReconstructionOperator::TargetInputTensorRank[(int)_lro[i]]);
+            int output_tile_size = std::pow(_dimensions, TargetOutputTensorRank[(int)_lro[i]]);
+            int input_tile_size = std::pow(_dimensions, TargetInputTensorRank[(int)_lro[i]]);
             _host_lro_output_tile_size(i) = output_tile_size;
             _host_lro_input_tile_size(i) = input_tile_size;
 
@@ -1071,8 +1071,8 @@ public:
             output_offset += output_tile_size;
             input_offset += input_tile_size;
 
-            _host_lro_input_tensor_rank(i) = ReconstructionOperator::TargetInputTensorRank[(int)_lro[i]];
-            _host_lro_output_tensor_rank(i) = ReconstructionOperator::TargetOutputTensorRank[(int)_lro[i]];
+            _host_lro_input_tensor_rank(i) = TargetInputTensorRank[(int)_lro[i]];
+            _host_lro_output_tensor_rank(i) = TargetOutputTensorRank[(int)_lro[i]];
         }
 
         _total_alpha_values = total_offset;
@@ -1088,7 +1088,7 @@ public:
     //! Empties the vector of target functionals to apply to the reconstruction
     void clearTargets() {
         _lro.clear();
-        for (int i=0; i<ReconstructionOperator::TargetOperation::COUNT; ++i) {
+        for (int i=0; i<TargetOperation::COUNT; ++i) {
             _lro_lookup[i] = -1;
         }
     }

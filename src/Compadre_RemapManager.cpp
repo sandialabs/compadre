@@ -226,7 +226,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 				_GMLS->setOperatorCoefficients(kokkos_augmented_operator_coefficients_host);
 			}
 
-		    std::vector<ReconstructionOperator::TargetOperation> lro;
+		    std::vector<TargetOperation> lro;
 		    for (local_index_type j=i; j<_queue.size(); j++) {
 		    	// only add targets with same sampling strategy and reconstruction space
 		    	if ((_queue[j]._reconstruction_space == _queue[i]._reconstruction_space) && (_queue[j]._polynomial_sampling_functional == _queue[i]._polynomial_sampling_functional) && (_queue[j]._data_sampling_functional == _queue[i]._data_sampling_functional))
@@ -237,7 +237,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 			_GMLS->generateAlphas(); // all operations requested
 
 			// check that src_coords == trg_coords
-			TEUCHOS_TEST_FOR_EXCEPT_MSG(_queue[i]._data_sampling_functional!=ReconstructionOperator::SamplingFunctional::PointSample && _src_particles->getCoordsConst()->nLocal()!=_trg_particles->getCoordsConst()->nLocal(), "Sampling method requires target coordinates be the same as source coordinates.");
+			TEUCHOS_TEST_FOR_EXCEPT_MSG(_queue[i]._data_sampling_functional!=SamplingFunctional::PointSample && _src_particles->getCoordsConst()->nLocal()!=_trg_particles->getCoordsConst()->nLocal(), "Sampling method requires target coordinates be the same as source coordinates.");
 		}
 
 
@@ -269,7 +269,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 					int output_dim;
 
 					// special case of point remap one component at a time
-					if (_queue[i]._target_operation==ReconstructionOperator::TargetOperation::ScalarPointEvaluation) {
+					if (_queue[i]._target_operation==TargetOperation::ScalarPointEvaluation) {
 						output_dim = source_field_dim;
 					} else {
 						output_dim = _GMLS->getOutputDimensionOfOperation(_queue[i]._target_operation);
@@ -299,7 +299,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 
 			// check for the case of point remap from n dim to ndim
 			bool component_by_component_pointwise = false;
-			if (_queue[i]._target_operation==ReconstructionOperator::TargetOperation::ScalarPointEvaluation) {
+			if (_queue[i]._target_operation==TargetOperation::ScalarPointEvaluation) {
 				TEUCHOS_TEST_FOR_EXCEPT_MSG(target_field_dim != source_field_dim, "Dimensions between target field and source field do not match under pointwise remap component by component.");
 				component_by_component_pointwise = true;
 			} else {
@@ -368,7 +368,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 							else target_values(j,k) += alphas_l * source_halo_values_holder(neighbors[l].first-num_local_particles, k);
 						}
 					} else {
-						if (_queue[i]._data_sampling_functional==ReconstructionOperator::SamplingFunctional::PointSample) {
+						if (_queue[i]._data_sampling_functional==SamplingFunctional::PointSample) {
 							for (local_index_type l=0; l<num_neighbors; l++) {
 								for (local_index_type m=0; m<source_field_dim; m++) {
 									double alphas_l = _GMLS->getAlpha(_queue[i]._target_operation, j, k, 0, l, m, 0);

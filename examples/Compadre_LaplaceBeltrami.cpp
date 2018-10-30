@@ -205,10 +205,10 @@ int main (int argc, char* args[]) {
 
 			//Remap or Solve
 			Teuchos::RCP<Compadre::RemapManager> rm = Teuchos::rcp(new Compadre::RemapManager(parameters, particles.getRawPtr(), new_particles.getRawPtr(), halo_size));
-//			Compadre::RemapObject ro1("scaledSphereHarmonic", "computedSphereHarmonic", ReconstructionOperator::TargetOperation::PointEvaluation, ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
-//			Compadre::RemapObject ro2("scaledSphereHarmonic", "computedSphereHarmonic", ReconstructionOperator::TargetOperation::PointEvaluation, ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample);
-//			Compadre::RemapObject ro3("scaledSphereHarmonic", "computedSphereHarmonic", ReconstructionOperator::TargetOperation::PointEvaluation, ReconstructionOperator::SamplingFunctional::PointSample);
-//			Compadre::RemapObject ro4("scaledSphereHarmonic", "computedSphereHarmonic", ReconstructionOperator::TargetOperation::PointEvaluation, ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSamplestaggered_div_gradompadre::RemapObject ro5("scaledSphereHarmonic", "computedSphereHarmonic", ReconstructionOperator::TargetOperation::PointEvaluation, ReconstructionOperator::SamplingFunctional::PointSample);
+//			Compadre::RemapObject ro1("scaledSphereHarmonic", "computedSphereHarmonic", TargetOperation::PointEvaluation, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
+//			Compadre::RemapObject ro2("scaledSphereHarmonic", "computedSphereHarmonic", TargetOperation::PointEvaluation, SamplingFunctional::StaggeredEdgeIntegralSample);
+//			Compadre::RemapObject ro3("scaledSphereHarmonic", "computedSphereHarmonic", TargetOperation::PointEvaluation, SamplingFunctional::PointSample);
+//			Compadre::RemapObject ro4("scaledSphereHarmonic", "computedSphereHarmonic", TargetOperation::PointEvaluation, SamplingFunctional::StaggeredEdgeIntegralSamplestaggered_div_gradompadre::RemapObject ro5("scaledSphereHarmonic", "computedSphereHarmonic", TargetOperation::PointEvaluation, SamplingFunctional::PointSample);
 //
 //			rm->add(ro1);
 //			rm->add(ro2);
@@ -223,29 +223,29 @@ int main (int argc, char* args[]) {
 				new_particles->getFieldManager()->createField(1, "computedSphereHarmonic", "m/s");
 				new_particles->getFieldManager()->createField(1, "exact_solution", "m/s");
 
-				Compadre::RemapObject ro("scaledSphereHarmonic", "computedSphereHarmonic", ReconstructionOperator::TargetOperation::ScalarPointEvaluation);
+				Compadre::RemapObject ro("scaledSphereHarmonic", "computedSphereHarmonic", TargetOperation::ScalarPointEvaluation);
 				rm->add(ro);
 				rm->execute();
 			} else if (parameters->get<std::string>("solution type")=="vector") {
 				new_particles->getFieldManager()->createField(3, "computedGradSphereHarmonic", "m/s");
 				new_particles->getFieldManager()->createField(3, "exact_solution", "m/s");
 
-				Compadre::RemapObject ro("sourceGradientSphereHarmonic", "computedGradSphereHarmonic", ReconstructionOperator::TargetOperation::VectorPointEvaluation, ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial, ReconstructionOperator::SamplingFunctional::ManifoldVectorSample);
+				Compadre::RemapObject ro("sourceGradientSphereHarmonic", "computedGradSphereHarmonic", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::ManifoldVectorSample);
 				rm->add(ro);
 				rm->execute();
 			} else if (parameters->get<std::string>("solution type")=="laplace") {
 				new_particles->getFieldManager()->createField(1, "computedSphereHarmonic", "m/s");
 				new_particles->getFieldManager()->createField(1, "exact_solution", "m/s");
 
-				Compadre::RemapObject ro("scaledSphereHarmonic", "computedSphereHarmonic", ReconstructionOperator::TargetOperation::LaplacianOfScalarPointEvaluation);
+				Compadre::RemapObject ro("scaledSphereHarmonic", "computedSphereHarmonic", TargetOperation::LaplacianOfScalarPointEvaluation);
 				rm->add(ro);
 				rm->execute();
 			} else if (parameters->get<std::string>("solution type")=="staggered_laplace") {
 				new_particles->getFieldManager()->createField(1, "computedSphereHarmonic", "m/s");
 				new_particles->getFieldManager()->createField(1, "exact_solution", "m/s");
 
-				Compadre::RemapObject ro("scaledSphereHarmonic", "computedSphereHarmonic", ReconstructionOperator::TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial, ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample, ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
-//				Compadre::RemapObject ro("scaledSphereHarmonic", "computedSphereHarmonic", ReconstructionOperator::TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial, ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
+				Compadre::RemapObject ro("scaledSphereHarmonic", "computedSphereHarmonic", TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::StaggeredEdgeIntegralSample, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
+//				Compadre::RemapObject ro("scaledSphereHarmonic", "computedSphereHarmonic", TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
 				rm->add(ro);
 				rm->execute();
 			} else if (parameters->get<std::string>("solution type")=="staggered_div_grad") {
@@ -256,8 +256,8 @@ int main (int argc, char* args[]) {
 				new_particles->getFieldManager()->createField(3, "exact_solution", "m/s");
 				new_particles->getFieldManager()->createField(3, "solution", "m/s");
 
-				Compadre::RemapObject ro("scaledSphereHarmonic", "computedGradSphereHarmonic", ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation, ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial, ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
-//				Compadre::RemapObject ro1("sourceGradientSphereHarmonic", "computedLaplacianSphereHarmonic", ReconstructionOperator::DivergenceOfVectorPointEvaluation, ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample);
+				Compadre::RemapObject ro("scaledSphereHarmonic", "computedGradSphereHarmonic", TargetOperation::GradientOfScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
+//				Compadre::RemapObject ro1("sourceGradientSphereHarmonic", "computedLaplacianSphereHarmonic", DivergenceOfVectorPointEvaluation, SamplingFunctional::StaggeredEdgeIntegralSample);
 
 				rm->add(ro);
 //				rm->add(ro1);
@@ -279,18 +279,18 @@ int main (int argc, char* args[]) {
 				new_particles->getFieldManager()->createField(3, "solution", "m/s");
 				new_particles->getFieldManager()->createField(3, "exact_solution", "m/s");
 
-//				Compadre::RemapObject ro("scaledSphereHarmonic", "computedGradSphereHarmonicX", ReconstructionOperator::TargetOperation::PartialXOfScalarPointEvaluation);
-//				Compadre::RemapObject ro2("scaledSphereHarmonic", "computedGradSphereHarmonicY", ReconstructionOperator::TargetOperation::PartialYOfScalarPointEvaluation);
-//				Compadre::RemapObject ro3("scaledSphereHarmonic", "computedGradSphereHarmonicZ", ReconstructionOperator::TargetOperation::PartialZOfScalarPointEvaluation);
-				Compadre::RemapObject ro("scaledSphereHarmonic", "computedGradSphereHarmonic", ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation);
+//				Compadre::RemapObject ro("scaledSphereHarmonic", "computedGradSphereHarmonicX", TargetOperation::PartialXOfScalarPointEvaluation);
+//				Compadre::RemapObject ro2("scaledSphereHarmonic", "computedGradSphereHarmonicY", TargetOperation::PartialYOfScalarPointEvaluation);
+//				Compadre::RemapObject ro3("scaledSphereHarmonic", "computedGradSphereHarmonicZ", TargetOperation::PartialZOfScalarPointEvaluation);
+				Compadre::RemapObject ro("scaledSphereHarmonic", "computedGradSphereHarmonic", TargetOperation::GradientOfScalarPointEvaluation);
 
-//				Compadre::RemapObject ro("scaledSphereHarmonic", "computedGradSphereHarmonicX", ReconstructionOperator::TargetOperation::PartialXOfScalarPointEvaluation, ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
-//				Compadre::RemapObject ro2("scaledSphereHarmonic", "computedGradSphereHarmonicY", ReconstructionOperator::TargetOperation::PartialYOfScalarPointEvaluation, ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
-//				Compadre::RemapObject ro3("scaledSphereHarmonic", "computedGradSphereHarmonicZ", ReconstructionOperator::TargetOperation::PartialZOfScalarPointEvaluation, ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
+//				Compadre::RemapObject ro("scaledSphereHarmonic", "computedGradSphereHarmonicX", TargetOperation::PartialXOfScalarPointEvaluation, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
+//				Compadre::RemapObject ro2("scaledSphereHarmonic", "computedGradSphereHarmonicY", TargetOperation::PartialYOfScalarPointEvaluation, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
+//				Compadre::RemapObject ro3("scaledSphereHarmonic", "computedGradSphereHarmonicZ", TargetOperation::PartialZOfScalarPointEvaluation, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
 
-//				Compadre::RemapObject ro("scaledSphereHarmonic", "computedGradSphereHarmonicX", ReconstructionOperator::TargetOperation::PartialXOfScalarPointEvaluation, ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample);
-//				Compadre::RemapObject ro2("scaledSphereHarmonic", "computedGradSphereHarmonicY", ReconstructionOperator::TargetOperation::PartialYOfScalarPointEvaluation, ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample);
-//				Compadre::RemapObject ro3("scaledSphereHarmonic", "computedGradSphereHarmonicZ", ReconstructionOperator::TargetOperation::PartialZOfScalarPointEvaluation, ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample);
+//				Compadre::RemapObject ro("scaledSphereHarmonic", "computedGradSphereHarmonicX", TargetOperation::PartialXOfScalarPointEvaluation, SamplingFunctional::StaggeredEdgeIntegralSample);
+//				Compadre::RemapObject ro2("scaledSphereHarmonic", "computedGradSphereHarmonicY", TargetOperation::PartialYOfScalarPointEvaluation, SamplingFunctional::StaggeredEdgeIntegralSample);
+//				Compadre::RemapObject ro3("scaledSphereHarmonic", "computedGradSphereHarmonicZ", TargetOperation::PartialZOfScalarPointEvaluation, SamplingFunctional::StaggeredEdgeIntegralSample);
 
 				rm->add(ro);
 //				rm->add(ro2);
@@ -306,8 +306,8 @@ int main (int argc, char* args[]) {
 				new_particles->getFieldManager()->createField(3, "solution", "m/s");
 				new_particles->getFieldManager()->createField(3, "exact_solution", "m/s");
 
-//				Compadre::RemapObject ro("scaledSphereHarmonic", "computedGradSphereHarmonic", ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation, ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial, ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
-				Compadre::RemapObject ro("scaledSphereHarmonic", "computedGradSphereHarmonic", ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation, ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial, ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample, ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
+//				Compadre::RemapObject ro("scaledSphereHarmonic", "computedGradSphereHarmonic", TargetOperation::GradientOfScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
+				Compadre::RemapObject ro("scaledSphereHarmonic", "computedGradSphereHarmonic", TargetOperation::GradientOfScalarPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::StaggeredEdgeIntegralSample, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
 
 				if (parameters->get<int>("physics number")==3) {
 					particles->getFieldManager()->createField(1, "kappa", "m/s");
@@ -332,10 +332,10 @@ int main (int argc, char* args[]) {
 				new_particles->getFieldManager()->createField(3, "exact_solution", "m/s");
 				new_particles->getFieldManager()->createField(3, "solution", "m/s");
 
-				Compadre::RemapObject ro("scaledSphereHarmonic", "computedGradSphereHarmonic", ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation, ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial, ReconstructionOperator::SamplingFunctional::PointSample);
+				Compadre::RemapObject ro("scaledSphereHarmonic", "computedGradSphereHarmonic", TargetOperation::GradientOfScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
 
-//				Compadre::RemapObject ro("scaledSphereHarmonic", "computedGradSphereHarmonic", ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation, ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
-//				Compadre::RemapObject ro1("sourceGradientSphereHarmonic", "computedLaplacianSphereHarmonic", ReconstructionOperator::DivergenceOfVectorPointEvaluation, ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample);
+//				Compadre::RemapObject ro("scaledSphereHarmonic", "computedGradSphereHarmonic", TargetOperation::GradientOfScalarPointEvaluation, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
+//				Compadre::RemapObject ro1("sourceGradientSphereHarmonic", "computedLaplacianSphereHarmonic", DivergenceOfVectorPointEvaluation, SamplingFunctional::StaggeredEdgeIntegralSample);
 
 				rm->add(ro);
 //				rm->add(ro1);
@@ -353,7 +353,7 @@ int main (int argc, char* args[]) {
 
 				new_particles->getFieldManager()->createField(1, "computedDivGradSphereHarmonic", "m/s");
 
-				Compadre::RemapObject ro("sourceGradientSphereHarmonic", "computedDivGradSphereHarmonic", ReconstructionOperator::TargetOperation::DivergenceOfVectorPointEvaluation, ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial, ReconstructionOperator::SamplingFunctional::ManifoldGradientVectorSample);
+				Compadre::RemapObject ro("sourceGradientSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::DivergenceOfVectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::ManifoldGradientVectorSample);
 				rm->add(ro);
 				rm->execute();
 			} else if (parameters->get<std::string>("solution type")=="staggered_div") {
@@ -365,10 +365,10 @@ int main (int argc, char* args[]) {
 				new_particles->getFieldManager()->createField(1, "computedDivGradSphereHarmonic", "m/s");
 
 				// this is a good test that with no integration error in the sampling, we can perform the correct divergence on the reconstructed polynomial that is calculated via integrating polynomials
-//				Compadre::RemapObject ro("scaledSphereHarmonic","computedDivGradSphereHarmonic", ReconstructionOperator::TargetOperation::DivergenceOfScalarPointEvaluation, ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial, ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample, ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
+//				Compadre::RemapObject ro("scaledSphereHarmonic","computedDivGradSphereHarmonic", TargetOperation::DivergenceOfScalarPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::StaggeredEdgeIntegralSample, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
 
 				// this tests the integration on the samples (likely second order at best given each edge only contains two values) combined with divergence on the reconstructed polynomial calculated via integrating polynomials
-				Compadre::RemapObject ro("sourceGradientSphereHarmonic", "computedDivGradSphereHarmonic", ReconstructionOperator::TargetOperation::DivergenceOfScalarPointEvaluation, ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial, ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample);
+				Compadre::RemapObject ro("sourceGradientSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::DivergenceOfScalarPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::StaggeredEdgeIntegralSample);
 				rm->add(ro);
 				rm->execute();
 			} else { // lb solve or five strip
@@ -424,9 +424,9 @@ int main (int argc, char* args[]) {
 				new_particles->getFieldManager()->createField(1, "computedDivGradSphereHarmonic", "m/s");
 //				new_particles->getFieldManager()->createField(3, "computedDivGradSphereHarmonic", "m/s");
 
-				Compadre::RemapObject ro("computedGradSphereHarmonic", "computedDivGradSphereHarmonic", ReconstructionOperator::TargetOperation::DivergenceOfVectorPointEvaluation, ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial, ReconstructionOperator::SamplingFunctional::ManifoldGradientVectorSample);
-//				Compadre::RemapObject ro("computedGradSphereHarmonic", "computedDivGradSphereHarmonic", ReconstructionOperator::TargetOperation::StaggeredDivergenceOfVectorPointEvaluation, ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample);
-//				Compadre::RemapObject ro("computedGradSphereHarmonic", "computedDivGradSphereHarmonic", ReconstructionOperator::TargetOperation::VectorPointEvaluation, ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample);
+				Compadre::RemapObject ro("computedGradSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::DivergenceOfVectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::ManifoldGradientVectorSample);
+//				Compadre::RemapObject ro("computedGradSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::StaggeredDivergenceOfVectorPointEvaluation, SamplingFunctional::StaggeredEdgeIntegralSample);
+//				Compadre::RemapObject ro("computedGradSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::VectorPointEvaluation, SamplingFunctional::StaggeredEdgeIntegralSample);
 
 				rm2->add(ro);
 				rm2->execute();
@@ -443,7 +443,7 @@ int main (int argc, char* args[]) {
 
 				Teuchos::RCP<Compadre::RemapManager> rm2 = Teuchos::rcp(new Compadre::RemapManager(parameters, new_particles.getRawPtr(), new_particles.getRawPtr(), halo_size));
 				new_particles->getFieldManager()->createField(1, "computedDivGradSphereHarmonic", "m/s");
-				Compadre::RemapObject ro("computedGradSphereHarmonic", "computedDivGradSphereHarmonic", ReconstructionOperator::TargetOperation::DivergenceOfScalarPointEvaluation, ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial, ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample);
+				Compadre::RemapObject ro("computedGradSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::DivergenceOfScalarPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::StaggeredEdgeIntegralSample);
 
 				rm2->add(ro);
 				rm2->execute();
@@ -463,9 +463,9 @@ int main (int argc, char* args[]) {
 
 
 				new_particles->getFieldManager()->createField(3, "computedKappaGrad", "m/s");
-//				Compadre::RemapObject ro("solution", "computedKappaGrad", ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation, ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial, ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample, ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
-				Compadre::RemapObject ro("solution", "computedKappaGrad", ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation, ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial, ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
-//				Compadre::RemapObject ro("solution", "computedKappaGrad", ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation, ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial, ReconstructionOperator::SamplingFunctional::PointSample);
+//				Compadre::RemapObject ro("solution", "computedKappaGrad", TargetOperation::GradientOfScalarPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::StaggeredEdgeIntegralSample, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
+				Compadre::RemapObject ro("solution", "computedKappaGrad", TargetOperation::GradientOfScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
+//				Compadre::RemapObject ro("solution", "computedKappaGrad", TargetOperation::GradientOfScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
 
 
 				if (parameters->get<int>("physics number")==3) {

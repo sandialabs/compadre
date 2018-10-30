@@ -2,7 +2,6 @@
 #define _GMLS_OPERATORS_HPP_
 
 namespace Compadre {
-namespace ReconstructionOperator {
 
     //! Available target functionals
     enum TargetOperation {
@@ -199,7 +198,6 @@ namespace ReconstructionOperator {
     //    return true;
     //}
 
-}; // ReconstructionOperator
 }; // Compadre
 
 #endif

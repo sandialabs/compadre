@@ -14,7 +14,7 @@ void GMLS::generateAlphas() {
      */
 
     // copy over operations
-    _operations = Kokkos::View<ReconstructionOperator::TargetOperation*> ("operations", _lro.size());
+    _operations = Kokkos::View<TargetOperation*> ("operations", _lro.size());
     _host_operations = Kokkos::create_mirror_view(_operations);
     
     const int max_num_neighbors = _neighbor_lists.dimension_1()-1;
@@ -34,8 +34,8 @@ void GMLS::generateAlphas() {
             _total_alpha_values*max_num_neighbors));
 
     // initialize weights to be applied to data in order to get it into the form expected as a sample
-    if (_data_sampling_functional != ReconstructionOperator::SamplingFunctional::PointSample) {
-        _prestencil_weights = Kokkos::View<double**, layout_type>("prestencil weights", _neighbor_lists.dimension_0(), std::pow(_dimensions,ReconstructionOperator::SamplingOutputTensorRank[_data_sampling_functional]+1)*2*max_num_neighbors, 0);
+    if (_data_sampling_functional != SamplingFunctional::PointSample) {
+        _prestencil_weights = Kokkos::View<double**, layout_type>("prestencil weights", _neighbor_lists.dimension_0(), std::pow(_dimensions,SamplingOutputTensorRank[_data_sampling_functional]+1)*2*max_num_neighbors, 0);
     }
 
     /*
@@ -44,7 +44,7 @@ void GMLS::generateAlphas() {
 
     // check whether the sampling function acting on the basis will induce a nontrivial nullspace
     // an example would be reconstructing from gradient information, which would annihilate constants
-    if (ReconstructionOperator::SamplingNontrivialNullspace[_polynomial_sampling_functional]==1) {
+    if (SamplingNontrivialNullspace[_polynomial_sampling_functional]==1) {
         _nontrivial_nullspace = true;
     }
 
@@ -54,8 +54,8 @@ void GMLS::generateAlphas() {
 
     // calculate sampling dimension 
     // for example calculating a vector field on a manifold all at once, rather than component by component
-    if (ReconstructionOperator::SamplingOutputTensorRank[_data_sampling_functional] > 0) {
-        if (_dense_solver_type == ReconstructionOperator::DenseSolverType::MANIFOLD) {
+    if (SamplingOutputTensorRank[_data_sampling_functional] > 0) {
+        if (_dense_solver_type == DenseSolverType::MANIFOLD) {
             _sampling_multiplier = _dimensions-1;
         } else {
             _sampling_multiplier = _dimensions;
@@ -65,8 +65,8 @@ void GMLS::generateAlphas() {
     }
 
     // calculate the dimension of the basis (a vector space on a manifold requires two components, for example)
-    if (ReconstructionOperator::ReconstructionSpaceRank[_reconstruction_space] > 0) {
-        if (_dense_solver_type == ReconstructionOperator::DenseSolverType::MANIFOLD) {
+    if (ReconstructionSpaceRank[_reconstruction_space] > 0) {
+        if (_dense_solver_type == DenseSolverType::MANIFOLD) {
             _basis_multiplier = _dimensions-1;
         } else {
             _basis_multiplier = _dimensions;
@@ -76,7 +76,7 @@ void GMLS::generateAlphas() {
     }
 
     // special case for using a higher order for sampling from a polynomial space that are gradients of a scalar polynomial
-    if (_polynomial_sampling_functional == ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
+    if (_polynomial_sampling_functional == SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
         // if the reconstruction is being made with a gradient of a basis, then we want that basis to be one order higher so that
         // the gradient is consistent with the convergence order expected.
         _poly_order += 1;
@@ -99,7 +99,7 @@ void GMLS::generateAlphas() {
     int this_num_columns = _basis_multiplier*_NP;
     int manifold_NP = 0;
 
-    if (_dense_solver_type == ReconstructionOperator::DenseSolverType::MANIFOLD) {
+    if (_dense_solver_type == DenseSolverType::MANIFOLD) {
         // these dimensions already calculated differ in the case of manifolds
         manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
         const int target_NP = this->getNP(_poly_order, _dimensions-1);
@@ -167,7 +167,7 @@ void GMLS::generateAlphas() {
     Kokkos::fence();
 
 
-    if (_dense_solver_type == ReconstructionOperator::DenseSolverType::MANIFOLD) {
+    if (_dense_solver_type == DenseSolverType::MANIFOLD) {
 
         /*
          *    MANIFOLD Problems
@@ -218,11 +218,11 @@ void GMLS::generateAlphas() {
         Kokkos::fence();
 
         // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
-        if (_dense_solver_type == ReconstructionOperator::DenseSolverType::QR) {
+        if (_dense_solver_type == DenseSolverType::QR) {
             Kokkos::Profiling::pushRegion("QR Factorization");
             GMLS_LinearAlgebra::batchQRFactorize(_P.ptr_on_device(), max_num_rows, this_num_columns, _RHS.ptr_on_device(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.dimension_0(), max_num_neighbors, _number_of_neighbors_list.data());
             Kokkos::Profiling::popRegion();
-        } else if (_dense_solver_type == ReconstructionOperator::DenseSolverType::SVD) {
+        } else if (_dense_solver_type == DenseSolverType::SVD) {
             Kokkos::Profiling::pushRegion("SVD Factorization");
             GMLS_LinearAlgebra::batchSVDFactorize(_P.ptr_on_device(), max_num_rows, this_num_columns, _RHS.ptr_on_device(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.dimension_0(), max_num_neighbors, _number_of_neighbors_list.data());
             Kokkos::Profiling::popRegion();
@@ -241,7 +241,7 @@ void GMLS::generateAlphas() {
 
     // copy computed alphas back to the host
     _host_alphas = Kokkos::create_mirror_view(_alphas);
-    if (_data_sampling_functional != ReconstructionOperator::SamplingFunctional::PointSample)
+    if (_data_sampling_functional != SamplingFunctional::PointSample)
         _host_prestencil_weights = Kokkos::create_mirror_view(_prestencil_weights);
     Kokkos::deep_copy(_host_alphas, _alphas);
     Kokkos::fence();
@@ -699,7 +699,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
      *    Prestencil Weight Calculations
      */
 
-    if (_data_sampling_functional == ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
+    if (_data_sampling_functional == SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
 
         double operator_coefficient = 1;
         if (_operator_coefficients.dimension_0() > 0) {
@@ -719,7 +719,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
         }
     }
     // generate prestencils that require information about the change of basis to the manifold
-    else if (_data_sampling_functional == ReconstructionOperator::SamplingFunctional::ManifoldVectorSample) {
+    else if (_data_sampling_functional == SamplingFunctional::ManifoldVectorSample) {
         const int neighbor_offset = _neighbor_lists.dimension_1()-1;
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)),
                     [=] (const int m) {
@@ -732,7 +732,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
                 _prestencil_weights(target_index, (_dimensions-1)*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m+1) =  0;
             }
         });
-    } else if (_data_sampling_functional == ReconstructionOperator::SamplingFunctional::ManifoldGradientVectorSample) {
+    } else if (_data_sampling_functional == SamplingFunctional::ManifoldGradientVectorSample) {
         const int neighbor_offset = _neighbor_lists.dimension_1()-1;
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)),
                     [=] (const int m) {
@@ -745,7 +745,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
                 _prestencil_weights(target_index, (_dimensions-1)*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m+1) =  0;
             }
         });
-    } else if (_data_sampling_functional == ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample) {
+    } else if (_data_sampling_functional == SamplingFunctional::StaggeredEdgeIntegralSample) {
         const int neighbor_offset = _neighbor_lists.dimension_1()-1;
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)), [=] (const int m) {
             for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {

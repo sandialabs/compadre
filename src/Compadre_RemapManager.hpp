@@ -19,10 +19,10 @@ struct RemapObject {
 		local_index_type src_fieldnum;
 		local_index_type trg_fieldnum;
 
-		ReconstructionOperator::TargetOperation _target_operation;
-		ReconstructionOperator::ReconstructionSpace _reconstruction_space;
-		ReconstructionOperator::SamplingFunctional _polynomial_sampling_functional;
-		ReconstructionOperator::SamplingFunctional _data_sampling_functional;
+		TargetOperation _target_operation;
+		ReconstructionSpace _reconstruction_space;
+		SamplingFunctional _polynomial_sampling_functional;
+		SamplingFunctional _data_sampling_functional;
 
 		std::string _operator_coefficients_fieldname;
 
@@ -30,7 +30,7 @@ struct RemapObject {
 
 
 		// basic instantiation with differing polynomial and data sampling functionals
-		RemapObject(ReconstructionOperator::TargetOperation target_operation, ReconstructionOperator::ReconstructionSpace reconstruction_space, ReconstructionOperator::SamplingFunctional polynomial_sampling_functional, ReconstructionOperator::SamplingFunctional data_sampling_functional, bool obfet = false) {
+		RemapObject(TargetOperation target_operation, ReconstructionSpace reconstruction_space, SamplingFunctional polynomial_sampling_functional, SamplingFunctional data_sampling_functional, bool obfet = false) {
 			src_fieldnum = -1;
 			trg_fieldnum = -1;
 			_target_operation = target_operation;
@@ -40,26 +40,26 @@ struct RemapObject {
 			_obfet = obfet;
 		}
 		// basic instantiation with SAME polynomial and data sampling functionals
-		RemapObject(ReconstructionOperator::TargetOperation target_operation = ReconstructionOperator::TargetOperation::ScalarPointEvaluation, ReconstructionOperator::ReconstructionSpace reconstruction_space = ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial, ReconstructionOperator::SamplingFunctional sampling_functional = ReconstructionOperator::SamplingFunctional::PointSample, bool obfet = false)
+		RemapObject(TargetOperation target_operation = TargetOperation::ScalarPointEvaluation, ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional sampling_functional = SamplingFunctional::PointSample, bool obfet = false)
 			: RemapObject(target_operation, reconstruction_space, sampling_functional, sampling_functional, obfet) {}
 
 
-		RemapObject(const std::string& source_name, const std::string& target_name, ReconstructionOperator::TargetOperation target_operation, ReconstructionOperator::ReconstructionSpace reconstruction_space, ReconstructionOperator::SamplingFunctional polynomial_sampling_functional, ReconstructionOperator::SamplingFunctional data_sampling_functional, bool obfet = false)
+		RemapObject(const std::string& source_name, const std::string& target_name, TargetOperation target_operation, ReconstructionSpace reconstruction_space, SamplingFunctional polynomial_sampling_functional, SamplingFunctional data_sampling_functional, bool obfet = false)
 			: RemapObject(target_operation, reconstruction_space, polynomial_sampling_functional, data_sampling_functional, obfet) {
 			src_fieldname = source_name;
 			if (target_name.empty()) trg_fieldname = source_name;
 			else trg_fieldname = target_name;
 		}
-		RemapObject(const std::string& source_name, const std::string& target_name = std::string(), ReconstructionOperator::TargetOperation target_operation = ReconstructionOperator::TargetOperation::ScalarPointEvaluation, ReconstructionOperator::ReconstructionSpace reconstruction_space = ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial, ReconstructionOperator::SamplingFunctional sampling_functional = ReconstructionOperator::SamplingFunctional::PointSample, bool obfet = false)
+		RemapObject(const std::string& source_name, const std::string& target_name = std::string(), TargetOperation target_operation = TargetOperation::ScalarPointEvaluation, ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional sampling_functional = SamplingFunctional::PointSample, bool obfet = false)
 			: RemapObject(source_name, target_name, target_operation, reconstruction_space, sampling_functional, sampling_functional, obfet) {}
 
 
-		RemapObject(const local_index_type source_num, const local_index_type target_num, ReconstructionOperator::TargetOperation target_operation, ReconstructionOperator::ReconstructionSpace reconstruction_space, ReconstructionOperator::SamplingFunctional polynomial_sampling_functional, ReconstructionOperator::SamplingFunctional data_sampling_functional, bool obfet = false)
+		RemapObject(const local_index_type source_num, const local_index_type target_num, TargetOperation target_operation, ReconstructionSpace reconstruction_space, SamplingFunctional polynomial_sampling_functional, SamplingFunctional data_sampling_functional, bool obfet = false)
 			: RemapObject(target_operation, reconstruction_space, polynomial_sampling_functional, data_sampling_functional, obfet) {
 			src_fieldnum = source_num;
 			if (target_num < 0) trg_fieldnum = source_num;
 		}
-		RemapObject(const local_index_type source_num, const local_index_type target_num = -1, ReconstructionOperator::TargetOperation target_operation = ReconstructionOperator::TargetOperation::ScalarPointEvaluation, ReconstructionOperator::ReconstructionSpace reconstruction_space = ReconstructionOperator::ReconstructionSpace::ScalarTaylorPolynomial, ReconstructionOperator::SamplingFunctional sampling_functional = ReconstructionOperator::SamplingFunctional::PointSample, bool obfet = false)
+		RemapObject(const local_index_type source_num, const local_index_type target_num = -1, TargetOperation target_operation = TargetOperation::ScalarPointEvaluation, ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional sampling_functional = SamplingFunctional::PointSample, bool obfet = false)
 			: RemapObject(source_num, target_num, target_operation, reconstruction_space, sampling_functional, sampling_functional, obfet) {}
 
 
