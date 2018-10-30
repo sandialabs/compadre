@@ -25,16 +25,16 @@ private:
 	GMLS* gmls_object;
 
 public:
-	GMLS_Python(const int poly_order, std::string dense_solver_type, const int manifold_poly_order, const int dimensions) {
-		gmls_object = new GMLS(poly_order, dense_solver_type, manifold_poly_order, dimensions);
+	GMLS_Python(const int poly_order, std::string dense_solver_type, const int curvature_poly_order, const int dimensions) {
+		gmls_object = new GMLS(poly_order, dense_solver_type, curvature_poly_order, dimensions);
 		// initialized, but values not set
 	}
 
 	~GMLS_Python() { delete gmls_object; }
 
-	void setWeightingOrder(int regular_weight, int manifold_weight = -1) {
-		if (manifold_weight < 0) manifold_weight = regular_weight;
-		gmls_object->setManifoldWeightingPower(manifold_weight);
+	void setWeightingOrder(int regular_weight, int curvature_weight = -1) {
+		if (curvature_weight < 0) curvature_weight = regular_weight;
+		gmls_object->setCurvatureWeightingPower(curvature_weight);
 		gmls_object->setWeightingPower(regular_weight);
 	}
 

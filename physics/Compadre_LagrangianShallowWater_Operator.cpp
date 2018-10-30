@@ -178,7 +178,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 	GMLS my_scalar_GMLS ( _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 			_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-			_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+			_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 	my_scalar_GMLS.setProblemData(
 			kokkos_neighbor_lists_host,
 			kokkos_augmented_source_coordinates_host,
@@ -186,14 +186,14 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 			kokkos_epsilons_host);
 	my_scalar_GMLS.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 	my_scalar_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
-	my_scalar_GMLS.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
-	my_scalar_GMLS.setManifoldWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold weighting power"));
+	my_scalar_GMLS.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
+	my_scalar_GMLS.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 
 	GMLS my_vector_GMLS (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
 			ReconstructionOperator::SamplingFunctional::ManifoldVectorSample,
 			_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 			_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-			_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+			_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 	my_vector_GMLS.setProblemData(
 			kokkos_neighbor_lists_host,
 			kokkos_augmented_source_coordinates_host,
@@ -201,14 +201,14 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 			kokkos_epsilons_host);
 	my_vector_GMLS.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 	my_vector_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
-	my_vector_GMLS.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
-	my_vector_GMLS.setManifoldWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold weighting power"));
+	my_vector_GMLS.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
+	my_vector_GMLS.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 
 	GMLS my_vector_gradient_GMLS (ReconstructionOperator::ReconstructionSpace::VectorTaylorPolynomial,
 			ReconstructionOperator::SamplingFunctional::ManifoldGradientVectorSample,
 			_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 			_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-			_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+			_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 	my_vector_gradient_GMLS.setProblemData(
 			kokkos_neighbor_lists_host,
 			kokkos_augmented_source_coordinates_host,
@@ -216,8 +216,8 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 			kokkos_epsilons_host);
 	my_vector_gradient_GMLS.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 	my_vector_gradient_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
-	my_vector_gradient_GMLS.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
-	my_vector_gradient_GMLS.setManifoldWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold weighting power"));
+	my_vector_gradient_GMLS.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
+	my_vector_gradient_GMLS.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 
 	bool use_velocity_interpolation = true;
 	bool use_staggered_gradient_fix = false;
@@ -230,7 +230,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 				ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+				_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 		my_GMLS_staggered_grad.setProblemData(
 			kokkos_neighbor_lists_host,
 			kokkos_augmented_source_coordinates_host,
@@ -238,8 +238,8 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 			kokkos_epsilons_host);
 		my_GMLS_staggered_grad.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 		my_GMLS_staggered_grad.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
-		my_GMLS_staggered_grad.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
-		my_GMLS_staggered_grad.setManifoldWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold weighting power"));
+		my_GMLS_staggered_grad.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
+		my_GMLS_staggered_grad.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 
 		// add scalar sample targets
 		my_scalar_GMLS.addTargets(ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation);
@@ -564,7 +564,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 				ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample,
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+				_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 		my_GMLS_staggered_div.setProblemData(
 			kokkos_neighbor_lists_host,
 			kokkos_augmented_source_coordinates_host,
@@ -572,8 +572,8 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 			kokkos_epsilons_host);
 		my_GMLS_staggered_div.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 		my_GMLS_staggered_div.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
-		my_GMLS_staggered_div.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
-		my_GMLS_staggered_div.setManifoldWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold weighting power"));
+		my_GMLS_staggered_div.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
+		my_GMLS_staggered_div.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 		my_GMLS_staggered_div.setNumberOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature points"));
 
 		my_scalar_GMLS.addTargets(ReconstructionOperator::TargetOperation::ScalarPointEvaluation);

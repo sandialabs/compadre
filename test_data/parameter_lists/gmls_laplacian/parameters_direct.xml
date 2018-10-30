@@ -10,12 +10,10 @@
   <ParameterList name="solver">
     <Parameter name="type" type="string" value="direct"/>
   </ParameterList>
-  <ParameterList name="gmls">
-    <Parameter name="porder" type="int" value="2"/>
-    <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
-  </ParameterList>
   <ParameterList name="remap">
     <Parameter name="weighting power" type="int" value="6"/>
+    <Parameter name="porder" type="int" value="2"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>

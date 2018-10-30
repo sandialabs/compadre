@@ -292,7 +292,7 @@ void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_ve
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, Kokkos::View<ReconstructionOperator::TargetOperation*> operations, scratch_matrix_type V, scratch_matrix_type T, scratch_matrix_type G_inv, scratch_vector_type manifold_curvature_coefficients, scratch_vector_type manifold_curvature_gradients, const int basis_multiplier_component) const {
+void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, scratch_matrix_type V, scratch_matrix_type T, scratch_matrix_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients, const int basis_multiplier_component) const {
 
     // only designed for 2D manifold embedded in 3D space
     const int target_index = teamMember.league_rank();
@@ -371,22 +371,22 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     double h = _epsilons(target_index);
                     double a1, a2, a3, a4, a5;
                     if (_curvature_poly_order > 0) {
-                        a1 = manifold_curvature_coefficients(1);
-                        a2 = manifold_curvature_coefficients(2);
+                        a1 = curvature_coefficients(1);
+                        a2 = curvature_coefficients(2);
                     }
                     if (_curvature_poly_order > 1) {
-                        a3 = manifold_curvature_coefficients(3);
-                        a4 = manifold_curvature_coefficients(4);
-                        a5 = manifold_curvature_coefficients(5);
+                        a3 = curvature_coefficients(3);
+                        a4 = curvature_coefficients(4);
+                        a5 = curvature_coefficients(5);
                     }
                     double den = (h*h + a1*a1 + a2*a2);
 
                     // Gaussian Curvature sanity check
-//                    double a1 = manifold_curvature_coefficients(1);
-//                    double a2 = manifold_curvature_coefficients(2);
-//                    double a3 = 0.5*manifold_curvature_coefficients(3);
-//                    double a4 = 1.0*manifold_curvature_coefficients(4);
-//                    double a5 = 0.5*manifold_curvature_coefficients(5);
+//                    double a1 = curvature_coefficients(1);
+//                    double a2 = curvature_coefficients(2);
+//                    double a3 = 0.5*curvature_coefficients(3);
+//                    double a4 = 1.0*curvature_coefficients(4);
+//                    double a5 = 0.5*curvature_coefficients(5);
 //                    double den = (h*h + a1*a1 + a2*a2);
 //                    double K_curvature = ( - a4*a4 + 4*a3*a5) / den2 / den2;
 //                    std::cout << "Gaussian curvature is: " << K_curvature << std::endl;
@@ -415,13 +415,13 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         double h = _epsilons(target_index);
                         double a1, a2, a3, a4, a5;
                         if (_curvature_poly_order > 0) {
-                            a1 = manifold_curvature_coefficients(1);
-                            a2 = manifold_curvature_coefficients(2);
+                            a1 = curvature_coefficients(1);
+                            a2 = curvature_coefficients(2);
                         }
                         if (_curvature_poly_order > 1) {
-                            a3 = manifold_curvature_coefficients(3);
-                            a4 = manifold_curvature_coefficients(4);
-                            a5 = manifold_curvature_coefficients(5);
+                            a3 = curvature_coefficients(3);
+                            a4 = curvature_coefficients(4);
+                            a5 = curvature_coefficients(5);
                         }
                         double den = (h*h + a1*a1 + a2*a2);
 
@@ -452,13 +452,13 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         double h = _epsilons(target_index);
                         double a1, a2, a3, a4, a5;
                         if (_curvature_poly_order > 0) {
-                            a1 = manifold_curvature_coefficients(1);
-                            a2 = manifold_curvature_coefficients(2);
+                            a1 = curvature_coefficients(1);
+                            a2 = curvature_coefficients(2);
                         }
                         if (_curvature_poly_order > 1) {
-                            a3 = manifold_curvature_coefficients(3);
-                            a4 = manifold_curvature_coefficients(4);
-                            a5 = manifold_curvature_coefficients(5);
+                            a3 = curvature_coefficients(3);
+                            a4 = curvature_coefficients(4);
+                            a5 = curvature_coefficients(5);
                         }
                         double den = (h*h + a1*a1 + a2*a2);
 
@@ -488,13 +488,13 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     double h = _epsilons(target_index);
                     double a1, a2, a3, a4, a5;
                     if (_curvature_poly_order > 0) {
-                        a1 = manifold_curvature_coefficients(1);
-                        a2 = manifold_curvature_coefficients(2);
+                        a1 = curvature_coefficients(1);
+                        a2 = curvature_coefficients(2);
                     }
                     if (_curvature_poly_order > 1) {
-                        a3 = manifold_curvature_coefficients(3);
-                        a4 = manifold_curvature_coefficients(4);
-                        a5 = manifold_curvature_coefficients(5);
+                        a3 = curvature_coefficients(3);
+                        a4 = curvature_coefficients(4);
+                        a5 = curvature_coefficients(5);
                     }
                     double den = (h*h + a1*a1 + a2*a2);
 
@@ -576,11 +576,11 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         for (int j=0; j<target_NP; ++j) {
                             double t1a = G_inv(0,0);
                             double t2a = G_inv(0,1);
-                            double t3a = G_inv(0,0)*manifold_curvature_gradients(0) + G_inv(0,1)*manifold_curvature_gradients(1);
+                            double t3a = G_inv(0,0)*curvature_gradients(0) + G_inv(0,1)*curvature_gradients(1);
 
                             double t1b = G_inv(0,1);
                             double t2b = G_inv(1,1);
-                            double t3b = G_inv(0,1)*manifold_curvature_gradients(0) + G_inv(1,1)*manifold_curvature_gradients(1);
+                            double t3b = G_inv(0,1)*curvature_gradients(0) + G_inv(1,1)*curvature_gradients(1);
 
                             double v1c = V(0,0)*t1a + V(0,1)*t2a + V(0,2)*t3a;
                             double v2c = V(1,0)*t1a + V(1,1)*t2a + V(1,2)*t3a;
@@ -607,8 +607,8 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 
                         double h = _epsilons(target_index);
-                        double a1 = manifold_curvature_coefficients(1);
-                        double a2 = manifold_curvature_coefficients(2);
+                        double a1 = curvature_coefficients(1);
+                        double a2 = curvature_coefficients(2);
 
                         double q1 = (h*h + a2*a2)/(h*h*h + h*a1*a1 + h*a2*a2);
                         double q2 = -(a1*a2)/(h*h*h + h*a1*a1 + h*a2*a2);
@@ -616,11 +616,11 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
 
                         double t1a = q1*1 + q2*0;
                         double t2a = q1*0 + q2*1;
-                        double t3a = q1*manifold_curvature_gradients(0) + q2*manifold_curvature_gradients(1);
+                        double t3a = q1*curvature_gradients(0) + q2*curvature_gradients(1);
 
                         double t1b = q2*1 + q3*0;
                         double t2b = q2*0 + q3*1;
-                        double t3b = q2*manifold_curvature_gradients(0) + q3*manifold_curvature_gradients(1);
+                        double t3b = q2*curvature_gradients(0) + q3*curvature_gradients(1);
 
                         // scaled
                         int offset = (_lro_total_offsets[i]+0)*target_NP;
@@ -666,7 +666,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
 
                         double t1 = v1*1 + v2*0;
                         double t2 = v1*0 + v2*1;
-                        double t3 = v1*manifold_curvature_gradients(0) + v2*manifold_curvature_gradients(1);
+                        double t3 = v1*curvature_gradients(0) + v2*curvature_gradients(1);
 
                         P_target_row(offset + j, basis_multiplier_component) = t1*V(0,0) + t2*V(0,1) + t3*V(0,2);
                     }
@@ -686,7 +686,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
 
                         double t1 = v1*1 + v2*0;
                         double t2 = v1*0 + v2*1;
-                        double t3 = v1*manifold_curvature_gradients(0) + v2*manifold_curvature_gradients(1);
+                        double t3 = v1*curvature_gradients(0) + v2*curvature_gradients(1);
 
                         P_target_row(offset + j, basis_multiplier_component) = t1*V(1,0) + t2*V(1,1) + t3*V(1,2);
                     }
@@ -706,7 +706,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
 
                         double t1 = v1*1 + v2*0;
                         double t2 = v1*0 + v2*1;
-                        double t3 = v1*manifold_curvature_gradients(0) + v2*manifold_curvature_gradients(1);
+                        double t3 = v1*curvature_gradients(0) + v2*curvature_gradients(1);
 
                         P_target_row(offset + j, basis_multiplier_component) = t1*V(2,0) + t2*V(2,1) + t3*V(2,2);
                     }
@@ -720,13 +720,13 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         double h = _epsilons(target_index);
                         double a1, a2, a3, a4, a5;
                         if (_curvature_poly_order > 0) {
-                            a1 = manifold_curvature_coefficients(1);
-                            a2 = manifold_curvature_coefficients(2);
+                            a1 = curvature_coefficients(1);
+                            a2 = curvature_coefficients(2);
                         }
                         if (_curvature_poly_order > 1) {
-                            a3 = manifold_curvature_coefficients(3);
-                            a4 = manifold_curvature_coefficients(4);
-                            a5 = manifold_curvature_coefficients(5);
+                            a3 = curvature_coefficients(3);
+                            a4 = curvature_coefficients(4);
+                            a5 = curvature_coefficients(5);
                         }
                         double den = (h*h + a1*a1 + a2*a2);
 
@@ -775,13 +775,13 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         double h = _epsilons(target_index);
                         double a1, a2, a3, a4, a5;
                         if (_curvature_poly_order > 0) {
-                            a1 = manifold_curvature_coefficients(1);
-                            a2 = manifold_curvature_coefficients(2);
+                            a1 = curvature_coefficients(1);
+                            a2 = curvature_coefficients(2);
                         }
                         if (_curvature_poly_order > 1) {
-                            a3 = manifold_curvature_coefficients(3);
-                            a4 = manifold_curvature_coefficients(4);
-                            a5 = manifold_curvature_coefficients(5);
+                            a3 = curvature_coefficients(3);
+                            a4 = curvature_coefficients(4);
+                            a5 = curvature_coefficients(5);
                         }
                         double den = (h*h + a1*a1 + a2*a2);
 
@@ -815,13 +815,13 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         double h = _epsilons(target_index);
                         double a1, a2, a3, a4, a5;
                         if (_curvature_poly_order > 0) {
-                            a1 = manifold_curvature_coefficients(1);
-                            a2 = manifold_curvature_coefficients(2);
+                            a1 = curvature_coefficients(1);
+                            a2 = curvature_coefficients(2);
                         }
                         if (_curvature_poly_order > 1) {
-                            a3 = manifold_curvature_coefficients(3);
-                            a4 = manifold_curvature_coefficients(4);
-                            a5 = manifold_curvature_coefficients(5);
+                            a3 = curvature_coefficients(3);
+                            a4 = curvature_coefficients(4);
+                            a5 = curvature_coefficients(5);
                         }
                         double den = (h*h + a1*a1 + a2*a2);
 
@@ -866,7 +866,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         double v1 =    t1(j)*G_inv(0,0);
 
                         double t1 = v1*1;
-                        double t2 = v1*manifold_curvature_gradients(0);
+                        double t2 = v1*curvature_gradients(0);
 
                         P_target_row(offset + j, basis_multiplier_component) = t1*V(0,0) + t2*V(0,1);
                     }
@@ -881,7 +881,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         double v1 =    t1(j)*G_inv(0,0);
 
                         double t1 = v1*1;
-                        double t2 = v1*manifold_curvature_gradients(0);
+                        double t2 = v1*curvature_gradients(0);
 
                         P_target_row(offset + j, basis_multiplier_component) = t1*V(1,0) + t2*V(1,1);
                     }
@@ -897,7 +897,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         double v1 =    t1(j)*G_inv(0,0);
 
                         double t1 = v1*1;
-                        double t2 = v1*manifold_curvature_gradients(0);
+                        double t2 = v1*curvature_gradients(0);
 
                         P_target_row(offset + j, basis_multiplier_component) = t1*V(0,0) + t2*V(0,1);
                     }
@@ -914,7 +914,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         double v1 =    t1(j)*G_inv(0,0);
 
                         double t1 = v1*1;
-                        double t2 = v1*manifold_curvature_gradients(0);
+                        double t2 = v1*curvature_gradients(0);
 
                         P_target_row(offset + j, basis_multiplier_component) = t1*V(1,0) + t2*V(1,1);
                     }

@@ -90,27 +90,18 @@ void ParameterManager::setDefaultParameters() {
 	coordinatesList->set("type", "euclidean");
 	coordinatesList->set("units", "cm");
 
-	// GMLS Details
-	Teuchos::RCP<Teuchos::ParameterList> gmlsList = Teuchos::rcp(new Teuchos::ParameterList("gmls"));
-	gmlsList->set("porder", 2);
-	// "porder" determines the # of points needed to define a polynomial basis of that order
-	// For good measure, you multiply this by:
-	gmlsList->set("neighbors needed multiplier", 1.2); // default
-	// In order to ensure unisolvency, we increase the number of neighbors needed by some factor
-	gmlsList->set("manifold porder", 2); // order to reconstruct manifold with when requested
-
 	// Remap Details
 	Teuchos::RCP<Teuchos::ParameterList> remapList = Teuchos::rcp(new Teuchos::ParameterList("remap"));
 	remapList->set("porder", 2);
-	remapList->set("manifold porder", 2); // order to reconstruct manifold with when requested
+	remapList->set("curvature porder", 0); // order to reconstruct manifold with when requested
 	remapList->set("neighbors needed multiplier", 1.2);
 	remapList->set("dense linear solver", "QR");
 	remapList->set("weighting power", (local_index_type)8);
 	remapList->set("weighting type", "power");
 	// weighting type for covariance matrix from which a tangent plane to the manifold is derived
-	remapList->set("manifold weighting power", (local_index_type)8);
+	remapList->set("curvature weighting power", (local_index_type)8);
 	// weighting power for covariance matrix from which a tangent plane to the manifold is derived
-	remapList->set("manifold weighting type", "power");
+	remapList->set("curvature weighting type", "power");
 	remapList->set("obfet", (bool)false);
 	remapList->set("source weighting field name", "");
 	remapList->set("target weighting field name", "");
@@ -178,7 +169,6 @@ void ParameterManager::setDefaultParameters() {
 
 	_parameter_list->set("solver", *solverList);
 	_parameter_list->set("coordinates", *coordinatesList);
-	_parameter_list->set("gmls", *gmlsList);
 	_parameter_list->set("remap", *remapList);
 	_parameter_list->set("neighborhood", *neighborList);
 	_parameter_list->set("halo", *haloList);

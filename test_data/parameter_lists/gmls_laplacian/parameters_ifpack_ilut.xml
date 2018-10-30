@@ -10,12 +10,10 @@
     <Parameter name="type" type="string" value="iterative"/>
     <Parameter name="file" type="string" value="../test_data/parameter_lists/gmls_laplacian/solver_ifpack_ilut.xml"/>
   </ParameterList>
-  <ParameterList name="gmls">
-    <Parameter name="porder" type="int" value="2"/>
-    <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
-  </ParameterList>
   <ParameterList name="remap">
     <Parameter name="weighting power" type="int" value="10"/>
+    <Parameter name="porder" type="int" value="2"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>

@@ -14,12 +14,10 @@
     <Parameter name="file" type="string" value="../test_data/parameter_lists/gmls_laplacian/solver_amg_rel1e-15.xml"/>
     <!--<Parameter name="save residual over solution" type="bool" value="true"/>-->
   </ParameterList>
-  <ParameterList name="gmls">
-    <Parameter name="porder" type="int" value="2"/>
-    <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
-  </ParameterList>
   <ParameterList name="remap">
     <Parameter name="weighting power" type="int" value="12"/>
+    <Parameter name="porder" type="int" value="2"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>

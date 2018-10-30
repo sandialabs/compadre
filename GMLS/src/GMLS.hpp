@@ -286,15 +286,42 @@ protected:
         CallFunctorWithTeamThreadsAndVectors<Tag>(threads_per_team, 1, team_scratch_size_a, team_scratch_size_b, thread_scratch_size_a, thread_scratch_size_b);
     }
 
-    //! Evaluates the polynomial basis under a particular sampling function. Generally used to fill a row of P.
+    /*! \brief Evaluates the polynomial basis under a particular sampling function. Generally used to fill a row of P.
+        \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
+        \param target_index         [in] - target number
+        \param neighbor_index       [in] - index of neighbor for this target with respect to local numbering [0,...,number of neighbors for target]
+        \param alpha                [in] - double to determine convex combination of target and neighbor site at which to evaluate polynomials. (1-alpha)*neighbor + alpha*target
+        \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
+        \param poly_order           [in] - polynomial basis degree
+        \param specific_order_only  [in] - boolean for only evaluating one degree of polynomial when true
+        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are a coarse approximation of the tangent plane
+        \param T                    [in] - high order orthonormal approximation of tangent plane in first _dimensions-1 columns of T
+        \param sampling_strategy    [in] - sampling functional specification
+    */
     KOKKOS_INLINE_FUNCTION
     void calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, scratch_matrix_type* V = NULL, scratch_matrix_type* T = NULL, const ReconstructionOperator::SamplingFunctional sampling_strategy = ReconstructionOperator::SamplingFunctional::PointSample) const;
 
-    //! Evaluates the gradient of a polynomial basis under the Dirac Delta (pointwise) sampling function. 
+    /*! \brief Evaluates the gradient of a polynomial basis under the Dirac Delta (pointwise) sampling function.
+        \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
+        \param target_index         [in] - target number
+        \param neighbor_index       [in] - index of neighbor for this target with respect to local numbering [0,...,number of neighbors for target]
+        \param alpha                [in] - double to determine convex combination of target and neighbor site at which to evaluate polynomials. (1-alpha)*neighbor + alpha*target
+        \param partial_direction    [in] - direction that partial is taken with respect to, e.g. 0 is x direction, 1 is y direction
+        \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
+        \param poly_order           [in] - polynomial basis degree
+        \param specific_order_only  [in] - boolean for only evaluating one degree of polynomial when true
+        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are a coarse approximation of the tangent plane
+        \param sampling_strategy    [in] - sampling functional specification
+    */
     KOKKOS_INLINE_FUNCTION
     void calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionOperator::SamplingFunctional sampling_strategy) const;
 
-    //! Evaluates the weighting kernel
+    /*! \brief Evaluates the weighting kernel
+        \param r                [in] - Euclidean distance of relative vector. Euclidean distance of (target - neighbor) in some basis.
+        \param h                [in] - window size. Kernel is guaranteed to take on a value of zero if it exceeds h.
+        \param weighting_type   [in] - weighting type to be evaluated as the kernel. e,g. power, Gaussian, etc..
+        \param power            [in] - power parameter to be given to the kernel.
+    */
     KOKKOS_INLINE_FUNCTION
     double Wab(const double r, const double h, const ReconstructionOperator::WeightingFunctionType& weighting_type, const int power) const; 
     
@@ -302,25 +329,76 @@ protected:
     KOKKOS_INLINE_FUNCTION
     double factorial(const int n) const;
 
-    //! Fills the _P matrix with either P or P*sqrt(w)
+    /*! \brief Fills the _P matrix with either P or P*sqrt(w)
+        \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
+        \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
+        \param P                   [out] - 2D Kokkos View which will contain evaluation of sampling functional on polynomial basis for each neighbor the target has (stored column major)
+        \param w                   [out] - 1D Kokkos View which will contain weighting kernel values for the target with each neighbor if weight_p = true
+        \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
+        \param polynomial_order     [in] - polynomial basis degree
+        \param weight_p             [in] - boolean whether to fill w with kernel weights
+        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are a coarse approximation of the tangent plane
+        \param T                    [in] - high order orthonormal approximation of tangent plane in first _dimensions-1 columns of T
+        \param sampling_strategy    [in] - sampling functional specification
+    */
     KOKKOS_INLINE_FUNCTION
     void createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p = false, scratch_matrix_type* V = NULL, scratch_matrix_type* T = NULL, const ReconstructionOperator::SamplingFunctional sampling_strategy = ReconstructionOperator::SamplingFunctional::PointSample) const;
 
-    //! Fills the _P matrix with P*sqrt(w) for use in solving for curvature
+    /*! \brief Fills the _P matrix with P*sqrt(w) for use in solving for curvature
+
+         Uses _curvature_poly_order as the polynomial order of the basis
+
+        \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
+        \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
+        \param P                   [out] - 2D Kokkos View which will contain evaluation of sampling functional on polynomial basis for each neighbor the target has (stored column major)
+        \param w                   [out] - 1D Kokkos View which will contain weighting kernel values for the target with each neighbor if weight_p = true
+        \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
+        \param only_specific_order  [in] - boolean for only evaluating one degree of polynomial when true
+        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are a coarse approximation of the tangent plane
+    */
     KOKKOS_INLINE_FUNCTION
     void createWeightsAndPForCurvature(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, bool only_specific_order, scratch_matrix_type* V = NULL) const;
 
-    //! Evaluates a polynomial basis with a target functional applied to each member of the basis
+    /*! \brief Evaluates a polynomial basis with a target functional applied to each member of the basis
+        \param teamMember                   [in] - Kokkos::TeamPolicy member type (created by parallel_for)
+        \param t1                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
+        \param t2                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
+        \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
+        \param basis_multiplier_component   [in] - which column of P_target_row is being filled. Also, specifies which component of vector polynomial basis is being used, e.g. a linear vector basis could be [1,0], [0,1], [x,0], [0,x], [y,0], [0,y], [z,0], and [0,z], but this parameter specifies whether it is [0,y] or [y,0] being evaluated.
+    */
     KOKKOS_INLINE_FUNCTION
     void computeTargetFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, const int basis_multiplier_component = 0) const;
 
-    //! Evaluates a polynomial basis for the curvature with a gradient target functional applied
+    /*! \brief Evaluates a polynomial basis for the curvature with a gradient target functional applied
+
+        _operations is used by this function which is set through a modifier function
+
+        \param teamMember                   [in] - Kokkos::TeamPolicy member type (created by parallel_for)
+        \param t1                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
+        \param t2                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
+        \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
+        \param basis_multiplier_component   [in] - which column of P_target_row is being filled. Also, specifies which component of vector polynomial basis is being used, e.g. a linear vector basis could be [1,0], [0,1], [x,0], [0,x], [y,0], [0,y], [z,0], and [0,z], but this parameter specifies whether it is [0,y] or [y,0] being evaluated.
+    */
     KOKKOS_INLINE_FUNCTION
     void computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, scratch_matrix_type* V, const int neighbor_index, const double alpha, const int basis_multiplier_component = 0) const;
 
-    //! Evaluates a polynomial basis a target functional applied which using information from the manifold curvature
+    /*! \brief Evaluates a polynomial basis with a target functional applied, using information from the manifold curvature
+
+         _operations is used by this function which is set through a modifier function
+
+        \param teamMember                   [in] - Kokkos::TeamPolicy member type (created by parallel_for)
+        \param t1                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
+        \param t2                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
+        \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
+        \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are a coarse approximation of the tangent plane
+        \param T                            [in] - high order orthonormal approximation of tangent plane in first _dimensions-1 columns of T
+        \param G_inv                        [in] - (_dimensions-1)*(_dimensions-1) Kokkos View containing inverse of metric tensor
+        \param curvature_coefficients       [in] - polynomial coefficients for curvature
+        \param curvature_gradients          [in] - approximation of gradient of curvature, Kokkos View of size (_dimensions-1)
+        \param basis_multiplier_component   [in] - which column of P_target_row is being filled. Also, specifies which component of vector polynomial basis is being used, e.g. a linear vector basis could be [1,0], [0,1], [x,0], [0,x], [y,0], [0,y], [z,0], and [0,z], but this parameter specifies whether it is [0,y] or [y,0] being evaluated.
+    */
     KOKKOS_INLINE_FUNCTION
-    void computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, Kokkos::View<ReconstructionOperator::TargetOperation*> operations, scratch_matrix_type V, scratch_matrix_type T, scratch_matrix_type G_inv, scratch_vector_type manifold_curvature_coefficients, scratch_vector_type manifold_curvature_gradients, const int basis_multiplier_component = 0) const;
+    void computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, scratch_matrix_type V, scratch_matrix_type T, scratch_matrix_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients, const int basis_multiplier_component = 0) const;
 
     //! Helper function for applying the evaluations from a target functional to the polynomial coefficients
     KOKKOS_INLINE_FUNCTION
@@ -885,7 +963,7 @@ public:
     }
 
     //! Type for weighting kernel for curvature 
-    void setManifoldWeightingType( const std::string &wt) {
+    void setCurvatureWeightingType( const std::string &wt) {
         if (wt == "power") {
             _curvature_weighting_type = ReconstructionOperator::WeightingFunctionType::Power;
         } else {
@@ -900,7 +978,7 @@ public:
     }
 
     //! Sets basis order to be used when reoncstructing curvature
-    void setManifoldPolynomialOrder(const int manifold_poly_order) {
+    void setCurvaturePolynomialOrder(const int manifold_poly_order) {
         _curvature_poly_order = manifold_poly_order;
     }
 
@@ -908,7 +986,7 @@ public:
     void setWeightingPower(int wp) { _weighting_power = wp; }
 
     //! Power for weighting kernel for curvature
-    void setManifoldWeightingPower(int wp) { _curvature_weighting_power = wp; }
+    void setCurvatureWeightingPower(int wp) { _curvature_weighting_power = wp; }
 
     //! Number of 1D quadrature points to use for staggered approach
     void setNumberOfQuadraturePoints(int np) { _number_of_quadrature_points = np; }

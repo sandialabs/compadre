@@ -107,7 +107,7 @@ int main (int argc, char* args[]) {
 			//
 			// GMLS Test
 			//
-			int Porder = parameters->get<Teuchos::ParameterList>("gmls").get<int>("porder");
+			int Porder = parameters->get<Teuchos::ParameterList>("remap").get<int>("porder");
 			double h_size = 2.0/hsize[i];
 
 			std::string testfilename(fnames[i]);
@@ -151,7 +151,7 @@ int main (int argc, char* args[]) {
 
 		 		LO neighbors_needed = Compadre::GMLS::getNP(Porder);
 
-				LO extra_neighbors = parameters->get<Teuchos::ParameterList>("gmls").get<double>("neighbors needed multiplier") * neighbors_needed;
+				LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
 				particles->getNeighborhood()->constructAllNeighborList(particles->getCoordsConst()->getHaloSize(), extra_neighbors);
 
 				// Iterative solver for the problem

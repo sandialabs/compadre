@@ -11,7 +11,7 @@
     <Parameter name="blocked" type="bool" value="true"/>
     <Parameter name="file" type="string" value="../test_data/parameter_lists/gmls_laplacian/solver_ifpack_relaxation_block1x1.xml"/>
   </ParameterList>
-  <ParameterList name="gmls">
+  <ParameterList name="remap">
     <Parameter name="porder" type="int" value="2"/>
     <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
   </ParameterList>

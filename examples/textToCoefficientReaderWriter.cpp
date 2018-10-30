@@ -287,7 +287,7 @@ int main (int argc, char* args[]) {
 							kokkos_epsilons_host,
 							parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 							"SVD",
-							parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder")));
+							parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder")));
 
 				_GMLS->setWeightingType(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 				_GMLS->setWeightingPower(parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));

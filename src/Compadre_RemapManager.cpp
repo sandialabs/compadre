@@ -59,7 +59,8 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 		transform(solver_type_to_lower.begin(), solver_type_to_lower.end(), solver_type_to_lower.begin(), ::tolower);
 
 		if (solver_type_to_lower == "manifold") {
-			neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
+			int max_order = std::max(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
+			neighbors_needed = GMLS::getNP(max_order, 2);
 		} else {
 			neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 3);
 		}
@@ -177,7 +178,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 					_queue[i]._data_sampling_functional,
 					_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 					_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-					_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder")));
+					_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder")));
 
 			_GMLS->setProblemData(kokkos_neighbor_lists_host,
 					kokkos_augmented_source_coordinates_host,
@@ -186,8 +187,8 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 
 			_GMLS->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 			_GMLS->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
-			_GMLS->setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
-			_GMLS->setManifoldWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold weighting power"));
+			_GMLS->setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
+			_GMLS->setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 			_GMLS->setNumberOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature points"));
 
 			// are they using operator coefficients

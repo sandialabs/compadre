@@ -65,7 +65,7 @@ def execute_test(grid_1, grid_2, porder, field_type, use_obfet=False, metric=2, 
     for item in g.getchildren():
         if (item.attrib['name']=="porder"):
             item.attrib['value']=str(porder);
-        if (item.attrib['name']=="manifold porder"):
+        if (item.attrib['name']=="curvature porder"):
             item.attrib['value']=str(porder);
         if (item.attrib['name']=="obfet"):
             if use_obfet:

@@ -274,9 +274,6 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > RHS(_RHS.data() + target_index*max_num_rows*max_num_rows, max_num_rows, max_num_rows);
     Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > w(_w.data() + target_index*max_num_rows, max_num_rows);
 
-    scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_a), max_num_rows);
-    scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_a), max_num_rows);
-
     // delta, used for each thread
     scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), this_num_columns);
 
@@ -414,10 +411,6 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
     Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > w(_w.data() + target_index*max_num_rows, max_num_rows);
 
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > V(_V.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
-
-    scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_b), max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
-    scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_b), max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
-    scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), max_P_row_size, _sampling_multiplier);
 
     // delta, used for each thread
     scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), max_NP*_basis_multiplier);
@@ -674,7 +667,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
      */
 
     for (int n=0; n<_sampling_multiplier; ++n) {
-        this->computeTargetFunctionalsOnManifold(teamMember, t1, t2, P_target_row, _operations, V, T, G_inv, manifold_coeffs, manifold_gradient_coeffs, n);
+        this->computeTargetFunctionalsOnManifold(teamMember, t1, t2, P_target_row, V, T, G_inv, manifold_coeffs, manifold_gradient_coeffs, n);
     }
     teamMember.team_barrier();
 

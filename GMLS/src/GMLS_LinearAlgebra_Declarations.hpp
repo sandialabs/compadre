@@ -82,8 +82,8 @@ namespace GMLS_LinearAlgebra {
         \param M                    [in] - number of rows containing data (maximum rows over everything in batch)
         \param N                    [in] - number of columns containing data
         \param num_matrices         [in] - number of target (GMLS problems to be solved)
-        \param max_neighbors        [in] - optional integer for maximum neighbor over all targets
-        \param neighbor_list_sizes  [in] - optional pointer to all neighbor list sizes for each target
+        \param max_neighbors        [in] - integer for maximum neighbor over all targets
+        \param neighbor_list_sizes  [in] - pointer to all neighbor list sizes for each target
     */
     void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors = 0, int * neighbor_list_sizes = NULL);
 
@@ -101,8 +101,8 @@ namespace GMLS_LinearAlgebra {
         \param M                    [in] - number of rows containing data (maximum rows over everything in batch)
         \param N                    [in] - number of columns containing data
         \param num_matrices         [in] - number of target (GMLS problems to be solved)
-        \param max_neighbors        [in] - optional integer for maximum neighbor over all targets
-        \param neighbor_list_sizes  [in] - optional pointer to all neighbor list sizes for each target
+        \param max_neighbors        [in] - integer for maximum neighbor over all targets
+        \param neighbor_list_sizes  [in] - pointer to all neighbor list sizes for each target
     */
     void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors = 0, int * neighbor_list_sizes = NULL);
 

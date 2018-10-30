@@ -217,12 +217,12 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 //				kokkos_epsilons_host,
 //				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 //				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-//				_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+//				_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 //
 //		my_GMLS.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 //		my_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
-//		my_GMLS.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
-//		my_GMLS.setManifoldWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold weighting power"));
+//		my_GMLS.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
+//		my_GMLS.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 //
 //		my_GMLS.addTargets(ReconstructionOperator::TargetOperation::LaplacianOfScalarPointEvaluation);
 //		my_GMLS.generateAlphas(); // just point evaluations
@@ -296,7 +296,7 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 				ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+				_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 		my_GMLS.setProblemData(
 				kokkos_neighbor_lists_host,
 				kokkos_augmented_source_coordinates_host,
@@ -304,8 +304,8 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 				kokkos_epsilons_host);
 		my_GMLS.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 		my_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
-		my_GMLS.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
-		my_GMLS.setManifoldWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold weighting power"));
+		my_GMLS.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
+		my_GMLS.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 		my_GMLS.setNumberOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature points"));
 
 //		my_GMLS.addTargets(ReconstructionOperator::TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation);
@@ -398,7 +398,7 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 				ReconstructionOperator::SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+				_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 		my_GMLS_staggered_grad.setProblemData(
 				kokkos_neighbor_lists_host,
 				kokkos_augmented_source_coordinates_host,
@@ -406,8 +406,8 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 				kokkos_epsilons_host);
 		my_GMLS_staggered_grad.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 		my_GMLS_staggered_grad.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
-		my_GMLS_staggered_grad.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
-		my_GMLS_staggered_grad.setManifoldWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold weighting power"));
+		my_GMLS_staggered_grad.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
+		my_GMLS_staggered_grad.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 		my_GMLS_staggered_grad.setNumberOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature points"));
 
 		my_GMLS_staggered_grad.addTargets(ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation);
@@ -417,7 +417,7 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 				ReconstructionOperator::SamplingFunctional::StaggeredEdgeIntegralSample,
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+				_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 		my_GMLS_staggered_div.setProblemData(
 				kokkos_neighbor_lists_host,
 				kokkos_augmented_source_coordinates_host,
@@ -425,8 +425,8 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 				kokkos_epsilons_host);
 		my_GMLS_staggered_div.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 		my_GMLS_staggered_div.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
-		my_GMLS_staggered_div.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
-		my_GMLS_staggered_div.setManifoldWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold weighting power"));
+		my_GMLS_staggered_div.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
+		my_GMLS_staggered_div.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 		my_GMLS_staggered_div.setNumberOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature points"));
 
 		my_GMLS_staggered_div.addTargets(ReconstructionOperator::TargetOperation::DivergenceOfScalarPointEvaluation);
@@ -593,7 +593,7 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 				ReconstructionOperator::SamplingFunctional::PointSample,
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+				_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 		my_GMLS_staggered_grad.setProblemData(
 				kokkos_neighbor_lists_host,
 				kokkos_augmented_source_coordinates_host,
@@ -601,8 +601,8 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 				kokkos_epsilons_host);
 		my_GMLS_staggered_grad.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 		my_GMLS_staggered_grad.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
-		my_GMLS_staggered_grad.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
-		my_GMLS_staggered_grad.setManifoldWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold weighting power"));
+		my_GMLS_staggered_grad.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
+		my_GMLS_staggered_grad.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 		my_GMLS_staggered_grad.setNumberOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature points"));
 
 		my_GMLS_staggered_grad.addTargets(ReconstructionOperator::TargetOperation::GradientOfScalarPointEvaluation);
@@ -612,7 +612,7 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 				ReconstructionOperator::SamplingFunctional::ManifoldGradientVectorSample,
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold porder"));
+				_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 		my_GMLS_staggered_div.setProblemData(
 				kokkos_neighbor_lists_host,
 				kokkos_augmented_source_coordinates_host,
@@ -620,8 +620,8 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 				kokkos_epsilons_host);
 		my_GMLS_staggered_div.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 		my_GMLS_staggered_div.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
-		my_GMLS_staggered_div.setManifoldWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("manifold weighting type"));
-		my_GMLS_staggered_div.setManifoldWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("manifold weighting power"));
+		my_GMLS_staggered_div.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
+		my_GMLS_staggered_div.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 		my_GMLS_staggered_div.setNumberOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature points"));
 
 		my_GMLS_staggered_div.addTargets(ReconstructionOperator::TargetOperation::DivergenceOfVectorPointEvaluation);

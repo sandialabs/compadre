@@ -69,7 +69,7 @@ for key1, porder in enumerate(porders):
         for item in g.getchildren():
             if (item.attrib['name']=="porder"):
                 item.attrib['value']=porder;
-            if (item.attrib['name']=="manifold porder"):
+            if (item.attrib['name']=="curvature porder"):
                 item.attrib['value']=porder;
 
         # have solution type now

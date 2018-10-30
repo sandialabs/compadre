@@ -9,10 +9,6 @@
     <Parameter name="type" type="string" value="iterative"/>
     <Parameter name="file" type="string" value="../test_data/parameter_lists/trilinos_test/solver_amg.xml"/>
   </ParameterList>
-  <ParameterList name="gmls">
-    <Parameter name="porder" type="int" value="2"/>
-    <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
-  </ParameterList>
   <ParameterList name="remap">
     <Parameter name="porder" type="int" value="2"/>
     <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
