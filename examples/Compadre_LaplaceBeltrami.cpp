@@ -63,6 +63,13 @@ int main (int argc, char* args[]) {
 	} catch (...) {
 	}
 
+    std::string nc_type;
+    try {
+        nc_type = parameters->get<Teuchos::ParameterList>("io").get<std::string>("nc type");
+    } catch (...) {
+        nc_type = "";
+    }
+
 	Teuchos::GlobalMPISession mpi(&argc, &args);
 	Teuchos::oblackholestream bstream;
 	Teuchos::RCP<const Teuchos::Comm<int> > comm = Teuchos::DefaultComm<int>::getComm();
@@ -98,7 +105,7 @@ int main (int argc, char* args[]) {
 		FirstReadTime->start();
 		Compadre::FileManager fm;
 		std::string testfilename(parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file"));
-		fm.setReader(testfilename, particles, parameters->get<Teuchos::ParameterList>("io").get<std::string>("nc type"));
+		fm.setReader(testfilename, particles, nc_type);
 		fm.read();
 		FirstReadTime->stop();
 
@@ -197,7 +204,7 @@ int main (int argc, char* args[]) {
 				SecondReadTime->start();
 				Compadre::FileManager fm2;
 				std::string testfilename(parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file"));
-				fm2.setReader(testfilename, new_particles, parameters->get<Teuchos::ParameterList>("io").get<std::string>("nc type"));
+				fm2.setReader(testfilename, new_particles, nc_type);
 				fm2.read();
 				SecondReadTime->stop();
 
@@ -674,7 +681,15 @@ int main (int argc, char* args[]) {
 			}
 			WriteTime->stop();
 
-			Compadre::host_view_type grid_area_field = particles->getFieldManager()->getFieldByName("grid_area")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+			bool use_grid_area_for_L2 = false;
+			Compadre::host_view_type grid_area_field;
+		    try {
+		        grid_area_field = particles->getFieldManager()->getFieldByName("grid_area")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+		        use_grid_area_for_L2 = true;
+		    } catch (...) {
+		    }
+		    // if a weighted L2 is desire, use_grid_area_for_L2 can be checked before-hand
+
 
 			double exact = 0;
 			GO num_solved_for = 0;
