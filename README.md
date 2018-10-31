@@ -1,22 +1,3 @@
-
-\mainpage Compadre Toolkit
-
-\section About
-
-The Compadre Toolkit provides a framework for meshless remap and PDE solution. It allows users to harness meshless discretizations such as Generalized Moving Least Squares (GMLS), while executing these parallel communication-sparse, computationally-dense kernels on modern architectures. 
-
-\subsection Generalized Moving Least Squares (GMLS)
-
-A GMLS problem requires the specification of a target functional \f$\tau\f$ (Compadre::TargetOperation), a reconstruction space \f$V\f$ (Compadre::ReconstructionSpace), and a sampling functional \f$\lambda\f$ (Compadre::SamplingFunctional).
-
-The Compadre Toolkit is designed to efficiently assemble, factorize, and solve large batches of minimization problems having the form:
-
-<center>
-\f$p^{*} = \underset{p \in V}{\text{arg min}}\;\frac{1}{2}\sum_{j=1}^N (\lambda_j(u)-\lambda_j(p))^{2}\omega(\tau;\lambda_j).\f$
-
-\f$\tau(u) \approx \tau(p^{*})\f$
-</center>
-
 \section installing_sec Installing the Compadre Toolkit
  
 \subsection installing_subsec Compadre Toolkit Installation Instructions
@@ -111,3 +92,31 @@ the instructions for importing from CMake into eclipse are as follows:
 
 The folder ./extern_example has a build directory with a my-do-configure-cpu.sh script already created inside.
 This example demonstrates how one can go about linking to the installed Compadre Toolkit from another application.
+
+
+\mainpage Compadre Toolkit
+
+\section About
+
+The Compadre Toolkit provides a framework for meshless remap and PDE solution. It allows users to harness meshless discretizations such as Generalized Moving Least Squares (GMLS), while executing these parallel communication-sparse, computationally-dense kernels on modern architectures. 
+
+\subsection Generalized Moving Least Squares (GMLS)
+
+A GMLS problem requires the specification of a target functional \f$\tau\f$ (Compadre::TargetOperation), a reconstruction space \f$V\f$ (Compadre::ReconstructionSpace), and a sampling functional \f$\lambda\f$ (Compadre::SamplingFunctional).
+
+The Compadre Toolkit is designed to efficiently assemble, factorize, and solve large batches of minimization problems having the form:
+
+<center>
+\f$p^{*} = \underset{p \in V}{\text{arg min}}\;\frac{1}{2}\sum_{j=1}^N (\lambda_j(u)-\lambda_j(p))^{2}\omega(\tau;\lambda_j).\f$
+
+\f$\tau(u) \approx \tau(p^{*})\f$
+</center>
+
+\section Recent Changes
+
+<a href="md__home_pakuber_Desktop_ProjectStubs_Particles_compadre_repo_Changelog.html"> See recent changes</a>.
+
+\section Toolkit Installation
+
+<a href="md__home_pakuber_Desktop_ProjectStubs_Particles_compadre_repo_README.html"> See installation instructions</a>.
+

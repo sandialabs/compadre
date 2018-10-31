@@ -1,4 +1,4 @@
-version 0.0.2 (changes from 0.0.1)
+Changes in version 0.0.2 (changes from 0.0.1)
 ================================
 - Added documentation for GMLS class.
 - Added storage of a batch of matrices in GMLS, which when combined with tags
@@ -13,7 +13,3 @@ version 0.0.2 (changes from 0.0.1)
   GMLS_Operators.hpp, GMLS_Quadrature.hpp, and GMLS_Targets.hpp.
 - Removed all BOOST dependencies from the toolkit. Now, either building using 
   Kokkos on the GPU (Cuda) or providing LAPACK is required.
-
- 
-
-
