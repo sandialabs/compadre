@@ -798,40 +798,39 @@ public:
     //! \param output_component_axis_2  [in] - Columns for a rank 2 tensor, 0 for rank less than 2 output tensor
     //! \param input_component_axis_1   [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
     //! \param input_component_axis_2   [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
-    //! which has the same stride and layout as the alphas
-    template <typename view_type_data, typename view_type_neighbors>
-    double applyAlphasToData(view_type_data sampling_data, view_type_neighbors neighbor_lists, TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
+    template <typename view_type_data>
+    double applyAlphasToData(view_type_data sampling_data, TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
 
         double value = 0;
+        const int lro_number = _lro_lookup[(int)lro];
+        const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
+        const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
+        const int this_host_lro_total_offset = this->_host_lro_total_offsets[lro_number];
+        const int this_host_lro_output_tile_size = this->_host_lro_output_tile_size[lro_number];
         if (std::is_same<typename view_type_data::memory_space, Kokkos::HostSpace>::value) {
-            assert((std::is_same<typename view_type_neighbors::memory_space, Kokkos::HostSpace>::value)==true && "neighbor_lists has a different memory space than sampling_data");
-            const int lro_number = _lro_lookup[(int)lro];
-            const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
-            const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
-
             // loop through neighbor list for this target_index
             // grabbing data from that entry of data
             // for now a regular parallel_for loop on HOST
-            Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,neighbor_lists(target_index,0)), KOKKOS_LAMBDA(const int i, double& t_value) {
-                t_value += sampling_data(neighbor_lists(target_index, i+1))*_host_alphas(ORDER_INDICES(target_index,
-                    (_host_lro_total_offsets[lro_number] + input_index*_host_lro_output_tile_size[lro_number] + output_index)
+            Kokkos::parallel_reduce("applyAlphasToData::Host", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_host_neighbor_lists(target_index,0)), KOKKOS_LAMBDA(const int i, double& t_value) {
+                t_value += sampling_data(_host_neighbor_lists(target_index, i+1))*_host_alphas(ORDER_INDICES(target_index,
+                    (this_host_lro_total_offset + input_index*this_host_lro_output_tile_size + output_index)
                     *_number_of_neighbors_list(target_index) + i));
             }, value);
         } else {
 #ifdef COMPADRE_USE_CUDA
-            assert((std::is_same<typename view_type_neighbors::memory_space, Kokkos::CudaSpace>::value)==true && "neighbor_lists has a different memory space than sampling_data");
-            const int lro_number = _lro_lookup[(int)lro];
-            const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
-            const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
-
             // loop through neighbor list for this target_index
             // grabbing data from that entry of data
             // for now a regular parallel_for loop on HOST
-            Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,neighbor_lists(target_index,0)), KOKKOS_LAMBDA(const int i, double& t_value) {
-                t_value += sampling_data(neighbor_lists(target_index, i+1))*_alphas(ORDER_INDICES(target_index,
-                    (_lro_total_offsets[lro_number] + input_index*_lro_output_tile_size[lro_number] + output_index)
+            
+            // assists in lambda capture
+            auto neighbor_lists = this->_neighbor_lists;
+            auto alphas = this->_alphas;
+
+            Kokkos::parallel_reduce("applyAlphasToData::Device", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,_host_neighbor_lists(target_index,0)), KOKKOS_LAMBDA(const int& i, double& t_value) {
+                t_value += sampling_data(neighbor_lists(target_index, i+1))*alphas(ORDER_INDICES(target_index,
+                    (this_host_lro_total_offset + input_index*this_host_lro_output_tile_size + output_index)
                     *neighbor_lists(target_index,0) + i));
-            }, value);
+            }, value );
 #endif
         }
         return value;
@@ -855,43 +854,42 @@ public:
     //! \param output_component_axis_2  [in] - Columns for a rank 2 tensor, 0 for rank less than 2 output tensor
     //! \param input_component_axis_1   [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
     //! \param input_component_axis_2   [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
-    //! which has the same stride and layout as the alphas
-    template <typename view_type_data, typename view_type_neighbors>
-    double applyAlphasToData(view_type_data sampling_data, const int column, view_type_neighbors neighbor_lists, TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
+    template <typename view_type_data>
+    double applyAlphasToData(view_type_data sampling_data, const int column, TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
 
-        // TODO ADD DEVICE CHECK ASSERT
-
+        double value = 0;
         const int lro_number = _lro_lookup[(int)lro];
         const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
         const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
+        const int this_host_lro_total_offset = this->_host_lro_total_offsets[lro_number];
+        const int this_host_lro_output_tile_size = this->_host_lro_output_tile_size[lro_number];
+        if (std::is_same<typename view_type_data::memory_space, Kokkos::HostSpace>::value) {
+            // loop through neighbor list for this target_index
+            // grabbing data from that entry of data
+            // for now a regular parallel_for loop on HOST
+            Kokkos::parallel_reduce("applyAlphasToData::Host", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_host_neighbor_lists(target_index,0)), KOKKOS_LAMBDA(const int i, double& t_value) {
+                t_value += sampling_data(_host_neighbor_lists(target_index, i+1), column)*_host_alphas(ORDER_INDICES(target_index,
+                    (this_host_lro_total_offset + input_index*this_host_lro_output_tile_size + output_index)
+                    *_number_of_neighbors_list(target_index) + i));
+            }, value);
+        } else {
+#ifdef COMPADRE_USE_CUDA
+            // loop through neighbor list for this target_index
+            // grabbing data from that entry of data
+            // for now a regular parallel_for loop on HOST
+            
+            // assists in lambda capture
+            auto neighbor_lists = this->_neighbor_lists;
+            auto alphas = this->_alphas;
 
-        // loop through neighbor list for this target_index
-        // grabbing data from that entry of data
-        double value = 0;
-        // for now a regular parallel_for loop on HOST
-        for (int i=0; i<neighbor_lists(target_index, 0); ++i) {
-            value += sampling_data(neighbor_lists(target_index, i+1), column)*_host_alphas(ORDER_INDICES(target_index,
-                (_host_lro_total_offsets[lro_number] + input_index*_host_lro_output_tile_size[lro_number] + output_index)
-                *_number_of_neighbors_list(target_index) + i));
+            Kokkos::parallel_reduce("applyAlphasToData::Device", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,_host_neighbor_lists(target_index,0)), KOKKOS_LAMBDA(const int& i, double& t_value) {
+                t_value += sampling_data(neighbor_lists(target_index, i+1), column)*alphas(ORDER_INDICES(target_index,
+                    (this_host_lro_total_offset + input_index*this_host_lro_output_tile_size + output_index)
+                    *neighbor_lists(target_index,0) + i));
+            }, value );
+#endif
         }
         return value;
-
-        //// TODO ADD DEVICE CHECK ASSERT
-
-        //const int lro_number = _lro_lookup[(int)lro];
-        //const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
-        //const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
-
-        //// loop through neighbor list for this target_index
-        //// grabbing data from that entry of data
-        //double value = 0;
-        //// for now a regular parallel_for loop on HOST
-        //for (int i=0; i<neighbor_lists(target_index, 0); ++i) {
-        //    value += *(sampling_data_ptr + neighbor_lists(target_index, i+1))*_host_alphas(ORDER_INDICES(target_index,
-        //        (_host_lro_total_offsets[lro_number] + input_index*_host_lro_output_tile_size[lro_number] + output_index)
-        //        *_number_of_neighbors_list(target_index) + i));
-        //}
-        //return value;
     }
 
     //! Returns a stencil to transform data from its existing state into the input expected 
@@ -983,13 +981,16 @@ public:
     void setNeighborLists(Kokkos::View<int**, Kokkos::DefaultExecutionSpace> neighbor_lists) {
         // allocate memory on device
         _neighbor_lists = neighbor_lists;
-        Kokkos::View<int**>::HostMirror host_neighbor_lists = Kokkos::create_mirror_view(_neighbor_lists);
-        Kokkos::deep_copy(host_neighbor_lists, _neighbor_lists);
+
+        _host_neighbor_lists = Kokkos::create_mirror_view(_neighbor_lists);
+        // copy data from host to device
+        Kokkos::deep_copy(_host_neighbor_lists, _neighbor_lists);
 
         _number_of_neighbors_list = Kokkos::View<int*, Kokkos::HostSpace>("number of neighbors", neighbor_lists.dimension_0());
         for (int i=0; i<_neighbor_lists.dimension_0(); ++i) {
-            _number_of_neighbors_list(i) = host_neighbor_lists(i,0);
+            _number_of_neighbors_list(i) = _host_neighbor_lists(i,0);
         }
+        printf("%p\n", _neighbor_lists.ptr_on_device());
     }
 
     //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries
