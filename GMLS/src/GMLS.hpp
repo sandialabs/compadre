@@ -2,8 +2,8 @@
 #define _GMLS_HPP_
 
 #include "GMLS_Config.h"
-#include <assert.h>
 #include <type_traits>
+#include <vector>
 
 #include "GMLS_LinearAlgebra_Definitions.hpp"
 #include "GMLS_Operators.hpp"
@@ -779,6 +779,119 @@ public:
         return _host_alphas(ORDER_INDICES(target_index,
                 (_host_lro_total_offsets[lro_number] + input_index*_host_lro_output_tile_size[lro_number] + output_index)*_number_of_neighbors_list(target_index)
                         + neighbor_index));
+    }
+   
+    //! Dot product of alphas with sampling data where sampling data is in a 1D Kokkos View
+    //! 
+    //! This function is to be used when the alpha values have already been calculated and stored for use 
+    //! with any combination of the neighbor hoodsampling basis.
+    //!
+    //! Currently only supports one output component / input component at a time. The user will need to loop over the output 
+    //! components in order to fill a vector target or matrix target.
+    //! 
+    //! Assumptions on input data:
+    //! \param sampling_data            [in] - 1D Kokkos View that must reside on same device (GPU or CPU) as neighbor_lists    
+    //! \param neighbor_lists           [in] - same data and layout as 2D Kokkos View used to construct the GMLS class, but may differ from device used to construct GMLS class
+    //! \param lro                      [in] - Target operation from the TargetOperation enum
+    //! \param target_index             [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
+    //! \param output_component_axis_1  [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
+    //! \param output_component_axis_2  [in] - Columns for a rank 2 tensor, 0 for rank less than 2 output tensor
+    //! \param input_component_axis_1   [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
+    //! \param input_component_axis_2   [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
+    //! which has the same stride and layout as the alphas
+    template <typename view_type_data, typename view_type_neighbors>
+    double applyAlphasToData(view_type_data sampling_data, view_type_neighbors neighbor_lists, TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
+
+        double value = 0;
+        if (std::is_same<typename view_type_data::memory_space, Kokkos::HostSpace>::value) {
+            assert((std::is_same<typename view_type_neighbors::memory_space, Kokkos::HostSpace>::value)==true && "neighbor_lists has a different memory space than sampling_data");
+            const int lro_number = _lro_lookup[(int)lro];
+            const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
+            const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
+
+            // loop through neighbor list for this target_index
+            // grabbing data from that entry of data
+            // for now a regular parallel_for loop on HOST
+            Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,neighbor_lists(target_index,0)), KOKKOS_LAMBDA(const int i, double& t_value) {
+                t_value += sampling_data(neighbor_lists(target_index, i+1))*_host_alphas(ORDER_INDICES(target_index,
+                    (_host_lro_total_offsets[lro_number] + input_index*_host_lro_output_tile_size[lro_number] + output_index)
+                    *_number_of_neighbors_list(target_index) + i));
+            }, value);
+        } else {
+#ifdef COMPADRE_USE_CUDA
+            assert((std::is_same<typename view_type_neighbors::memory_space, Kokkos::CudaSpace>::value)==true && "neighbor_lists has a different memory space than sampling_data");
+            const int lro_number = _lro_lookup[(int)lro];
+            const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
+            const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
+
+            // loop through neighbor list for this target_index
+            // grabbing data from that entry of data
+            // for now a regular parallel_for loop on HOST
+            Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,neighbor_lists(target_index,0)), KOKKOS_LAMBDA(const int i, double& t_value) {
+                t_value += sampling_data(neighbor_lists(target_index, i+1))*_alphas(ORDER_INDICES(target_index,
+                    (_lro_total_offsets[lro_number] + input_index*_lro_output_tile_size[lro_number] + output_index)
+                    *neighbor_lists(target_index,0) + i));
+            }, value);
+#endif
+        }
+        return value;
+    }
+
+    //! Dot product of alphas with sampling data where sampling data is in a 2D Kokkos View
+    //! 
+    //! This function is to be used when the alpha values have already been calculated and stored for use 
+    //! with any combination of the neighborhood sampling basis.
+    //!
+    //! Currently only supports one output component / input component at a time. The user will need to loop over the output 
+    //! components in order to fill a vector target or matrix target.
+    //! 
+    //! Assumptions on input data:
+    //! \param sampling_data            [in] - 2D Kokkos View that must reside on same device (GPU or CPU) as neighbor_lists, and has the layout #targets * columns of data
+    //! \param column                   [in] - column of sampling_data to use
+    //! \param neighbor_lists           [in] - same data and layout as 2D Kokkos View used to construct the GMLS class, but may differ from device used to construct GMLS class
+    //! \param lro                      [in] - Target operation from the TargetOperation enum
+    //! \param target_index             [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
+    //! \param output_component_axis_1  [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
+    //! \param output_component_axis_2  [in] - Columns for a rank 2 tensor, 0 for rank less than 2 output tensor
+    //! \param input_component_axis_1   [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
+    //! \param input_component_axis_2   [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
+    //! which has the same stride and layout as the alphas
+    template <typename view_type_data, typename view_type_neighbors>
+    double applyAlphasToData(view_type_data sampling_data, const int column, view_type_neighbors neighbor_lists, TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
+
+        // TODO ADD DEVICE CHECK ASSERT
+
+        const int lro_number = _lro_lookup[(int)lro];
+        const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
+        const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
+
+        // loop through neighbor list for this target_index
+        // grabbing data from that entry of data
+        double value = 0;
+        // for now a regular parallel_for loop on HOST
+        for (int i=0; i<neighbor_lists(target_index, 0); ++i) {
+            value += sampling_data(neighbor_lists(target_index, i+1), column)*_host_alphas(ORDER_INDICES(target_index,
+                (_host_lro_total_offsets[lro_number] + input_index*_host_lro_output_tile_size[lro_number] + output_index)
+                *_number_of_neighbors_list(target_index) + i));
+        }
+        return value;
+
+        //// TODO ADD DEVICE CHECK ASSERT
+
+        //const int lro_number = _lro_lookup[(int)lro];
+        //const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
+        //const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
+
+        //// loop through neighbor list for this target_index
+        //// grabbing data from that entry of data
+        //double value = 0;
+        //// for now a regular parallel_for loop on HOST
+        //for (int i=0; i<neighbor_lists(target_index, 0); ++i) {
+        //    value += *(sampling_data_ptr + neighbor_lists(target_index, i+1))*_host_alphas(ORDER_INDICES(target_index,
+        //        (_host_lro_total_offsets[lro_number] + input_index*_host_lro_output_tile_size[lro_number] + output_index)
+        //        *_number_of_neighbors_list(target_index) + i));
+        //}
+        //return value;
     }
 
     //! Returns a stencil to transform data from its existing state into the input expected 

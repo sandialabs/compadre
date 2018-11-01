@@ -8,7 +8,6 @@
   #include <cublas_v2.h>
   #include <cublas_api.h>
   #include <cusolverDn.h>
-  #include <assert.h>
 #endif
 
 #ifdef COMPADRE_USE_LAPACK
@@ -25,6 +24,7 @@
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Random.hpp>
+#include <assert.h>
 
 // KOKKOS TYPEDEFS
 
