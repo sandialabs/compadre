@@ -393,7 +393,7 @@ bool all_passed = true;
     });
     Kokkos::fence();
     Kokkos::Profiling::popRegion();
-    Kokkos::Profiling::pushRegion("Remap");
+    Kokkos::Profiling::pushRegion("Apply Alphas to Data");
 
     // remap is done here under a particular linear operator
     // it is important to note that if you expect to use the data as a 1D view, then you should use *

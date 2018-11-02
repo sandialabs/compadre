@@ -244,8 +244,6 @@ bool all_passed = true;
         }
     }
 
-    bool use_arbitrary_order_divergence = true;
-
     const double failure_tolerance = 1e-9;
 
     const int order = atoi(args[1]); // 9
@@ -361,23 +359,29 @@ bool all_passed = true;
     std::cout << "Took " << instantiation_time << "s to complete instantiation." << std::endl;
 
     Kokkos::Profiling::pushRegion("Creating Data");
+
     
     // need Kokkos View storing true solution
     Kokkos::View<double*, Kokkos::HostSpace> sampling_data("samples of true solution", source_coords.dimension_0());
-    Kokkos::View<double*[3], Kokkos::LayoutLeft, Kokkos::HostSpace> divergence_sampling_data("samples of true solution for divergence test", source_coords.dimension_0());
+	Kokkos::View<double**, Kokkos::HostSpace> gradient_sampling_data("samples of true gradient", source_coords.dimension_0(), dimension);
+    Kokkos::View<double**, Kokkos::LayoutLeft, Kokkos::HostSpace> divergence_sampling_data("samples of true solution for divergence test", source_coords.dimension_0(), dimension);
     Kokkos::parallel_for("Sampling Manufactured Solutions", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,source_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
         double xval = source_coords(i,0);
         double yval = (dimension>1) ? source_coords(i,1) : 0;
         double zval = (dimension>2) ? source_coords(i,2) : 0;
         sampling_data(i) = trueSolution(xval, yval, zval, order, dimension);
+        double true_grad[3] = {0,0,0};
+        trueGradient(true_grad, xval, yval,zval, order, dimension);
         for (int j=0; j<dimension; ++j) {
             divergence_sampling_data(i,j) = divergenceTestSamples(xval, yval, zval, j, dimension);
+            gradient_sampling_data(i,j) = true_grad[j];
         }
     });
     Kokkos::Profiling::popRegion();
 
     for (int i=0; i<number_target_coords; i++) {
 
+        Kokkos::Profiling::pushRegion("Apply Alphas to Data");
         double GMLS_value = my_GMLS.applyAlphasToDataSingleComponentSingleTarget(sampling_data, ScalarPointEvaluation, i, 0, 0, 0, 0);
         //for (int j = 0; j< neighbor_lists(i,0); j++){
         //    double xval = source_coords(neighbor_lists(i,j+1),0);
@@ -426,9 +430,9 @@ bool all_passed = true;
         //    }
         //}
 
-        double GMLS_Divergence = my_GMLS.applyAlphasToDataSingleComponentSingleTarget(sampling_data, DivergenceOfVectorPointEvaluation, i, 0, 0, 0, 0);
-        if (dimension>1) GMLS_Divergence += my_GMLS.applyAlphasToDataSingleComponentSingleTarget(sampling_data, DivergenceOfVectorPointEvaluation, i, 0, 0, 1, 0);
-        if (dimension>2) GMLS_Divergence += my_GMLS.applyAlphasToDataSingleComponentSingleTarget(sampling_data, DivergenceOfVectorPointEvaluation, i, 0, 0, 2, 0);
+        double GMLS_Divergence = my_GMLS.applyAlphasToDataSingleComponentSingleTarget(Kokkos::subview(gradient_sampling_data,Kokkos::ALL,0), DivergenceOfVectorPointEvaluation, i, 0, 0, 0, 0);
+        if (dimension>1) GMLS_Divergence += my_GMLS.applyAlphasToDataSingleComponentSingleTarget(Kokkos::subview(gradient_sampling_data,Kokkos::ALL,1), DivergenceOfVectorPointEvaluation, i, 0, 0, 1, 0);
+        if (dimension>2) GMLS_Divergence += my_GMLS.applyAlphasToDataSingleComponentSingleTarget(Kokkos::subview(gradient_sampling_data,Kokkos::ALL,2), DivergenceOfVectorPointEvaluation, i, 0, 0, 2, 0);
         //double GMLS_Divergence = 0.0;
         //for (int j = 0; j< neighbor_lists(i,0); j++){
         //    double xval = source_coords(neighbor_lists(i,j+1),0);
@@ -463,6 +467,8 @@ bool all_passed = true;
             }
 
         }
+
+        Kokkos::Profiling::popRegion();
         //if (dimension>1) {
         //    for (int j = 0; j< neighbor_lists(i,0); j++){
         //        double xval = source_coords(neighbor_lists(i,j+1),0);
@@ -505,8 +511,7 @@ bool all_passed = true;
         double actual_Gradient[3] = {0,0,0};
         trueGradient(actual_Gradient, xval, yval, zval, order, dimension);
         double actual_Divergence;
-        if (use_arbitrary_order_divergence) actual_Divergence = trueDivergence(xval, yval, zval, order, dimension);
-        else actual_Divergence = divergenceTestSolution(xval, yval, zval, dimension);
+        actual_Divergence = trueLaplacian(xval, yval, zval, order, dimension);
 
         double actual_CurlX = 0;
         double actual_CurlY = 0;
