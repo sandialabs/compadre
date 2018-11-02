@@ -784,9 +784,8 @@ public:
     //! Dot product of alphas with sampling data where sampling data is in a 1D Kokkos View
     //! 
     //! This function is to be used when the alpha values have already been calculated and stored for use 
-    //! with any combination of the neighbor hoodsampling basis.
     //!
-    //! Currently only supports one output component / input component at a time. The user will need to loop over the output 
+    //! Only supports one output component / input component at a time. The user will need to loop over the output 
     //! components in order to fill a vector target or matrix target.
     //! 
     //! Assumptions on input data:
@@ -839,9 +838,8 @@ public:
     //! Dot product of alphas with sampling data where sampling data is in a 2D Kokkos View
     //! 
     //! This function is to be used when the alpha values have already been calculated and stored for use 
-    //! with any combination of the neighborhood sampling basis.
     //!
-    //! Currently only supports one output component / input component at a time. The user will need to loop over the output 
+    //! Only supports one output component / input component at a time. The user will need to loop over the output 
     //! components in order to fill a vector target or matrix target.
     //! 
     //! Assumptions on input data:
@@ -890,6 +888,33 @@ public:
 #endif
         }
         return value;
+    }
+
+    //! Transformation of data under GMLS
+    //! 
+    //! This function is to be used when the alpha values have already been calculated and stored for use.
+    //!
+    //! Produces a Kokkos View as output
+    //! 
+    //! Assumptions on input data:
+    //! \param sampling_data            [in] - 2D Kokkos View that must reside on same device (GPU or CPU) as neighbor_lists, and has the layout #targets * columns of data. It is assumed that this data has already been transformed by the sampling functional.
+    //! \param column                   [in] - column of sampling_data to use
+    //! \param neighbor_lists           [in] - same data and layout as 2D Kokkos View used to construct the GMLS class, but may differ from device used to construct GMLS class
+    //! \param lro                      [in] - Target operation from the TargetOperation enum
+    //! \param target_index             [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
+    //! \param output_component_axis_1  [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
+    //! \param output_component_axis_2  [in] - Columns for a rank 2 tensor, 0 for rank less than 2 output tensor
+    //! \param input_component_axis_1   [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
+    //! \param input_component_axis_2   [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
+    template <typename view_type_data>
+    double applyTargetToData(view_type_data sampling_data, TargetOperation lro) const {
+        // TODO fill this in
+    }
+
+    //! like applyTargetToData above, but will write to the users provided view
+    template <typename view_type_output, typename view_type_mapping, typename view_type_data>
+    double applyTargetToData(view_type_output output_data, view_type_mapping target_mapping, view_type_data sampling_data, TargetOperation lro) const {
+        // TODO fill this in
     }
 
     //! Returns a stencil to transform data from its existing state into the input expected 

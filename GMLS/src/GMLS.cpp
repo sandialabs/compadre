@@ -130,7 +130,7 @@ void GMLS::generateAlphas() {
         _manifold_curvature_coefficients = Kokkos::View<double*>("manifold curvature coefficients",_target_coordinates.dimension_0()*manifold_NP);
         _manifold_curvature_gradient = Kokkos::View<double*>("manifold curvature gradient",_target_coordinates.dimension_0()*(_dimensions-1));
 
-    } else  { // QR
+    } else  { // Standard GMLS
 
         /*
          *    Calculate Scratch Space Allocations
@@ -191,7 +191,8 @@ void GMLS::generateAlphas() {
         this->CallFunctorWithTeamThreads<AssembleManifoldPsqrtW>(threads_per_team, team_scratch_size_a, team_scratch_size_b, thread_scratch_size_a, thread_scratch_size_b);
 
         // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
-        if (_nontrivial_nullspace) {
+        // uses SVD if necessary or if explicitly asked to do so (much slower than QR)
+        if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
             Kokkos::Profiling::pushRegion("Manifold SVD Factorization");
             GMLS_LinearAlgebra::batchSVDFactorize(_P.ptr_on_device(), max_num_rows, this_num_columns, _RHS.ptr_on_device(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.dimension_0(), max_num_neighbors, _number_of_neighbors_list.data());
             Kokkos::Profiling::popRegion();
@@ -218,13 +219,14 @@ void GMLS::generateAlphas() {
         Kokkos::fence();
 
         // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
-        if (_dense_solver_type == DenseSolverType::QR) {
-            Kokkos::Profiling::pushRegion("QR Factorization");
-            GMLS_LinearAlgebra::batchQRFactorize(_P.ptr_on_device(), max_num_rows, this_num_columns, _RHS.ptr_on_device(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.dimension_0(), max_num_neighbors, _number_of_neighbors_list.data());
-            Kokkos::Profiling::popRegion();
-        } else if (_dense_solver_type == DenseSolverType::SVD) {
+        // uses SVD if necessary or if explicitly asked to do so (much slower than QR)
+        if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
             Kokkos::Profiling::pushRegion("SVD Factorization");
             GMLS_LinearAlgebra::batchSVDFactorize(_P.ptr_on_device(), max_num_rows, this_num_columns, _RHS.ptr_on_device(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.dimension_0(), max_num_neighbors, _number_of_neighbors_list.data());
+            Kokkos::Profiling::popRegion();
+        } else {
+            Kokkos::Profiling::pushRegion("QR Factorization");
+            GMLS_LinearAlgebra::batchQRFactorize(_P.ptr_on_device(), max_num_rows, this_num_columns, _RHS.ptr_on_device(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.dimension_0(), max_num_neighbors, _number_of_neighbors_list.data());
             Kokkos::Profiling::popRegion();
         }
         Kokkos::fence();
