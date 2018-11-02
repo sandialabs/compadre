@@ -3434,6 +3434,30 @@ SWIGINTERNINLINE PyObject*
 #ifdef __cplusplus
 extern "C" {
 #endif
+SWIGINTERN PyObject *_wrap_initializeKokkos(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  
+  if (!PyArg_ParseTuple(args,(char *)":initializeKokkos")) SWIG_fail;
+  initializeKokkos();
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_finalizeKokkos(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  
+  if (!PyArg_ParseTuple(args,(char *)":finalizeKokkos")) SWIG_fail;
+  finalizeKokkos();
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
 SWIGINTERN PyObject *_wrap_MPI_Kokkos_initialize(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   MPI_Kokkos *arg1 = (MPI_Kokkos *) 0 ;
@@ -4030,6 +4054,8 @@ fail:
 
 static PyMethodDef SwigMethods[] = {
 	 { (char *)"SWIG_PyInstanceMethod_New", (PyCFunction)SWIG_PyInstanceMethod_New, METH_O, NULL},
+	 { (char *)"initializeKokkos", _wrap_initializeKokkos, METH_VARARGS, NULL},
+	 { (char *)"finalizeKokkos", _wrap_finalizeKokkos, METH_VARARGS, NULL},
 	 { (char *)"MPI_Kokkos_initialize", _wrap_MPI_Kokkos_initialize, METH_VARARGS, NULL},
 	 { (char *)"MPI_Kokkos_finalize", _wrap_MPI_Kokkos_finalize, METH_VARARGS, NULL},
 	 { (char *)"new_MPI_Kokkos", _wrap_new_MPI_Kokkos, METH_VARARGS, NULL},

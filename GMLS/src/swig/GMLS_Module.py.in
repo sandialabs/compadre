@@ -103,6 +103,14 @@ except AttributeError:
     _newclass = 0
 
 
+
+def initializeKokkos():
+    return _GMLS_Module.initializeKokkos()
+initializeKokkos = _GMLS_Module.initializeKokkos
+
+def finalizeKokkos():
+    return _GMLS_Module.finalizeKokkos()
+finalizeKokkos = _GMLS_Module.finalizeKokkos
 class MPI_Kokkos(_object):
     __swig_setmethods__ = {}
     __setattr__ = lambda self, name, value: _swig_setattr(self, MPI_Kokkos, name, value)

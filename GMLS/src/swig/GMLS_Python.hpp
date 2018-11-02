@@ -12,6 +12,14 @@
     #include <mpi.h>
 #endif
 
+void initializeKokkos() {
+       Kokkos::initialize();
+}
+
+void finalizeKokkos() {
+       Kokkos::finalize(); 
+}
+
 class MPI_Kokkos {
 public:
 
