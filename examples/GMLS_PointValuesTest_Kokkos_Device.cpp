@@ -377,8 +377,8 @@ bool all_passed = true;
 
     // need Kokkos View storing true solution
     Kokkos::View<double*, Kokkos::DefaultExecutionSpace> sampling_data_device("samples of true solution", source_coords_device.dimension_0());
-    Kokkos::View<double*[3], Kokkos::DefaultExecutionSpace> gradient_sampling_data_device("samples of true gradient", source_coords_device.dimension_0());
-    Kokkos::View<double*[3], Kokkos::DefaultExecutionSpace> divergence_sampling_data_device("samples of true solution for divergence test", source_coords_device.dimension_0());
+    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> gradient_sampling_data_device("samples of true gradient", source_coords_device.dimension_0(), dimension);
+    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> divergence_sampling_data_device("samples of true solution for divergence test", source_coords_device.dimension_0(), dimension);
     Kokkos::parallel_for("Sampling Manufactured Solutions", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,source_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
         double xval = source_coords_device(i,0);
         double yval = (dimension>1) ? source_coords_device(i,1) : 0;
@@ -392,6 +392,8 @@ bool all_passed = true;
         }
     });
     Kokkos::fence();
+    Kokkos::Profiling::popRegion();
+    Kokkos::Profiling::pushRegion("Remap");
 
     // remap is done here under a particular linear operator
     // it is important to note that if you expect to use the data as a 1D view, then you should use *
