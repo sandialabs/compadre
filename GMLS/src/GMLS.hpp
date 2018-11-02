@@ -789,8 +789,7 @@ public:
     //! components in order to fill a vector target or matrix target.
     //! 
     //! Assumptions on input data:
-    //! \param sampling_data            [in] - 1D Kokkos View that must reside on same device (GPU or CPU) as neighbor_lists    
-    //! \param neighbor_lists           [in] - same data and layout as 2D Kokkos View used to construct the GMLS class, but may differ from device used to construct GMLS class
+    //! \param sampling_data            [in] - 1D Kokkos View
     //! \param lro                      [in] - Target operation from the TargetOperation enum
     //! \param target_index             [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
     //! \param output_component_axis_1  [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
@@ -843,9 +842,8 @@ public:
     //! components in order to fill a vector target or matrix target.
     //! 
     //! Assumptions on input data:
-    //! \param sampling_data            [in] - 2D Kokkos View that must reside on same device (GPU or CPU) as neighbor_lists, and has the layout #targets * columns of data
+    //! \param sampling_data            [in] - 2D Kokkos View that that has the dimensions #targets * columns of data
     //! \param column                   [in] - column of sampling_data to use
-    //! \param neighbor_lists           [in] - same data and layout as 2D Kokkos View used to construct the GMLS class, but may differ from device used to construct GMLS class
     //! \param lro                      [in] - Target operation from the TargetOperation enum
     //! \param target_index             [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
     //! \param output_component_axis_1  [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
@@ -894,21 +892,35 @@ public:
     //! 
     //! This function is to be used when the alpha values have already been calculated and stored for use.
     //!
-    //! Produces a Kokkos View as output
+    //! Produces a Kokkos View as output. The data type (double* or double**) must be specified as a template
+    //! type if one wish to get a 1D Kokkos View back that can be indexed into with only one ordinal.
     //! 
     //! Assumptions on input data:
-    //! \param sampling_data            [in] - 2D Kokkos View that must reside on same device (GPU or CPU) as neighbor_lists, and has the layout #targets * columns of data. It is assumed that this data has already been transformed by the sampling functional.
-    //! \param column                   [in] - column of sampling_data to use
-    //! \param neighbor_lists           [in] - same data and layout as 2D Kokkos View used to construct the GMLS class, but may differ from device used to construct GMLS class
+    //! \param sampling_data            [in] - 2D Kokkos View that has the layout #targets * columns of data. It is assumed that this data has already been transformed by the sampling functional.
     //! \param lro                      [in] - Target operation from the TargetOperation enum
-    //! \param target_index             [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
-    //! \param output_component_axis_1  [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
-    //! \param output_component_axis_2  [in] - Columns for a rank 2 tensor, 0 for rank less than 2 output tensor
-    //! \param input_component_axis_1   [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
-    //! \param input_component_axis_2   [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
-    template <typename view_type_data>
-    double applyTargetToData(view_type_data sampling_data, TargetOperation lro) const {
-        // TODO fill this in
+    template <typename output_data_type = double**, typename output_memory_space, typename view_type_data>
+    Kokkos::View<output_data_type, typename view_type_data::array_layout, output_memory_space> 
+            applyTargetToData(view_type_data sampling_data, TargetOperation lro) const {
+
+        const int lro_number = _lro_lookup[(int)lro];
+        Kokkos::View<output_data_type, typename view_type_data::array_layout, output_memory_space> 
+            target_output("output of target", _host_neighbor_lists.dimension_0(), _host_lro_output_tile_size[lro_number]);
+
+        auto target_output_mirror = Kokkos::create_mirror(target_output);
+        for (int i=0; i<this->_host_lro_output_tile_size[lro_number]; ++i) {
+            const int output_axis_1 = i / _dimensions;
+            const int output_axis_2 = i % _dimensions;
+            for (int j=0; j<this->_host_lro_input_tile_size[lro_number]; ++j) {
+                const int input_axis_1 = j / _dimensions;
+                const int input_axis_2 = j % _dimensions;
+                for (int k=0; k<target_output_mirror.dimension_0(); ++k) {
+                    target_output_mirror(k, i) += applyAlphasToData(sampling_data, j, lro, k, output_axis_1, output_axis_2, input_axis_1, input_axis_2);
+                }
+            }
+        }
+
+        Kokkos::deep_copy(target_output, target_output_mirror);
+        return target_output;
     }
 
     //! like applyTargetToData above, but will write to the users provided view
@@ -1015,7 +1027,6 @@ public:
         for (int i=0; i<_neighbor_lists.dimension_0(); ++i) {
             _number_of_neighbors_list(i) = _host_neighbor_lists(i,0);
         }
-        printf("%p\n", _neighbor_lists.ptr_on_device());
     }
 
     //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries

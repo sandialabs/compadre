@@ -245,8 +245,6 @@ bool all_passed = true;
         }
     }
 
-    bool use_arbitrary_order_divergence = true;
-
     const double failure_tolerance = 1e-9;
 
     const int order = atoi(args[1]); // 9
@@ -379,139 +377,65 @@ bool all_passed = true;
 
     // need Kokkos View storing true solution
     Kokkos::View<double*, Kokkos::DefaultExecutionSpace> sampling_data_device("samples of true solution", source_coords_device.dimension_0());
+    Kokkos::View<double*[3], Kokkos::DefaultExecutionSpace> gradient_sampling_data_device("samples of true gradient", source_coords_device.dimension_0());
     Kokkos::View<double*[3], Kokkos::DefaultExecutionSpace> divergence_sampling_data_device("samples of true solution for divergence test", source_coords_device.dimension_0());
     Kokkos::parallel_for("Sampling Manufactured Solutions", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,source_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
         double xval = source_coords_device(i,0);
         double yval = (dimension>1) ? source_coords_device(i,1) : 0;
         double zval = (dimension>2) ? source_coords_device(i,2) : 0;
         sampling_data_device(i) = trueSolution(xval, yval, zval, order, dimension);
+        double true_grad[3] = {0,0,0};
+        trueGradient(true_grad, xval, yval,zval, order, dimension);
         for (int j=0; j<dimension; ++j) {
             divergence_sampling_data_device(i,j) = divergenceTestSamples(xval, yval, zval, j, dimension);
+            gradient_sampling_data_device(i,j) = true_grad[j];
         }
     });
     Kokkos::fence();
+
+    // remap is done here under a particular linear operator
+    // it is important to note that if you expect to use the data as a 1D view, then you should use *
+    // however, if you know that the target operation will result in a 2D view (vector or matrix output),
+    // then you should template with double** as this is something that can not be infered from the input data
+    // or the target operator at compile time
+    auto output_value = my_GMLS.applyTargetToData<double*, Kokkos::HostSpace>(sampling_data_device, ScalarPointEvaluation);
+    auto output_laplacian = my_GMLS.applyTargetToData<double*, Kokkos::HostSpace>(sampling_data_device, LaplacianOfScalarPointEvaluation);
+    auto output_gradient = my_GMLS.applyTargetToData<double**, Kokkos::HostSpace>(sampling_data_device, GradientOfScalarPointEvaluation);
+    auto output_divergence = my_GMLS.applyTargetToData<double*, Kokkos::HostSpace>(gradient_sampling_data_device, DivergenceOfVectorPointEvaluation);
+    auto output_curl = my_GMLS.applyTargetToData<double**, Kokkos::HostSpace>(divergence_sampling_data_device, CurlOfVectorPointEvaluation);
 
     Kokkos::Profiling::popRegion();
 
     for (int i=0; i<number_target_coords; i++) {
 
-        double GMLS_value = my_GMLS.applyAlphasToData(sampling_data_device, ScalarPointEvaluation, i, 0, 0, 0, 0);
-        //double GMLS_value = 0.0;
-        //for (int j = 0; j< neighbor_lists(i,0); j++){
-        //    double xval = source_coords(neighbor_lists(i,j+1),0);
-        //    double yval = (dimension>1) ? source_coords(neighbor_lists(i,j+1),1) : 0;
-        //    double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
-        //    GMLS_value += my_GMLS.getAlpha0TensorTo0Tensor(ScalarPointEvaluation, i, j)*trueSolution(xval, yval, zval, order, dimension);
-        //}
 
-        double GMLS_Laplacian = my_GMLS.applyAlphasToData(sampling_data_device, LaplacianOfScalarPointEvaluation, i, 0, 0, 0, 0);
-        //double GMLS_Laplacian = 0.0;
-        //for (int j = 0; j< neighbor_lists(i,0); j++){
-        //    double xval = source_coords(neighbor_lists(i,j+1),0);
-        //    double yval = (dimension>1) ? source_coords(neighbor_lists(i,j+1),1) : 0;
-        //    double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
-        //    GMLS_Laplacian += my_GMLS.getAlpha0TensorTo0Tensor(LaplacianOfScalarPointEvaluation, i, j)*trueSolution(xval, yval, zval, order, dimension);
-        //}
 
-        double GMLS_GradX = my_GMLS.applyAlphasToData(sampling_data_device, GradientOfScalarPointEvaluation, i, 0, 0, 0, 0);
-        //double GMLS_GradX = 0.0;
-        //for (int j = 0; j< neighbor_lists(i,0); j++){
-        //    double xval = source_coords(neighbor_lists(i,j+1),0);
-        //    double yval = (dimension>1) ? source_coords(neighbor_lists(i,j+1),1) : 0;
-        //    double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
-        //    GMLS_GradX += my_GMLS.getAlpha0TensorTo1Tensor(GradientOfScalarPointEvaluation, i, 0, j)*trueSolution(xval, yval, zval, order, dimension);
-        //}
 
-        double GMLS_GradY = (dimension>1) ? my_GMLS.applyAlphasToData(sampling_data_device, GradientOfScalarPointEvaluation, i, 1, 0, 0, 0) : 0;
-        //double GMLS_GradY = 0.0;
-        //if (dimension>1) {
-        //    for (int j = 0; j< neighbor_lists(i,0); j++){
-        //        double xval = source_coords(neighbor_lists(i,j+1),0);
-        //        double yval = source_coords(neighbor_lists(i,j+1),1);
-        //        double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
-        //        GMLS_GradY += my_GMLS.getAlpha0TensorTo1Tensor(GradientOfScalarPointEvaluation, i, 1, j)*trueSolution(xval, yval, zval, order, dimension);
-        //    }
-        //}
+        // load value from output
+        double GMLS_value = output_value(i);
 
-        double GMLS_GradZ = (dimension>2) ? my_GMLS.applyAlphasToData(sampling_data_device, GradientOfScalarPointEvaluation, i, 2, 0, 0, 0) : 0;
-        //double GMLS_GradZ = 0.0;
-        //if (dimension>2) {
-        //    for (int j = 0; j< neighbor_lists(i,0); j++){
-        //        double xval = source_coords(neighbor_lists(i,j+1),0);
-        //        double yval = source_coords(neighbor_lists(i,j+1),1);
-        //        double zval = source_coords(neighbor_lists(i,j+1),2);
-        //        GMLS_GradZ += my_GMLS.getAlpha0TensorTo1Tensor(GradientOfScalarPointEvaluation, i, 2, j)*trueSolution(xval, yval, zval, order, dimension);
-        //    }
-        //}
+        // load laplacian from output
+        double GMLS_Laplacian = output_laplacian(i);//my_GMLS.applyAlphasToData(sampling_data_device, LaplacianOfScalarPointEvaluation, i, 0, 0, 0, 0);
 
-        double GMLS_Divergence = my_GMLS.applyAlphasToData(sampling_data_device, DivergenceOfVectorPointEvaluation, i, 0, 0, 0, 0);
-        if (dimension>1) GMLS_Divergence += my_GMLS.applyAlphasToData(sampling_data_device, DivergenceOfVectorPointEvaluation, i, 0, 0, 1, 0);
-        if (dimension>2) GMLS_Divergence += my_GMLS.applyAlphasToData(sampling_data_device, DivergenceOfVectorPointEvaluation, i, 0, 0, 2, 0);
-        //double GMLS_Divergence = 0.0;
-        //for (int j = 0; j< neighbor_lists(i,0); j++){
-        //    double xval = source_coords(neighbor_lists(i,j+1),0);
-        //    double yval = (dimension>1) ? source_coords(neighbor_lists(i,j+1),1) : 0;
-        //    double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
-        //    // TODO: use different functions for the vector components
-        //    if (use_arbitrary_order_divergence) {
-        //        GMLS_Divergence += my_GMLS.getAlpha1TensorTo0Tensor(DivergenceOfVectorPointEvaluation, i, j, 0)*trueSolution(xval, yval, zval, order, dimension);
-        //        if (dimension>1) GMLS_Divergence += my_GMLS.getAlpha1TensorTo0Tensor(DivergenceOfVectorPointEvaluation, i, j, 1)*trueSolution(xval, yval, zval, order, dimension);
-        //        if (dimension>2) GMLS_Divergence += my_GMLS.getAlpha1TensorTo0Tensor(DivergenceOfVectorPointEvaluation, i, j, 2)*trueSolution(xval, yval, zval, order, dimension);
-        //    } else {
-        //        for (int k=0; k<dimension; ++k) {
-        //            GMLS_Divergence += my_GMLS.getAlpha1TensorTo0Tensor(DivergenceOfVectorPointEvaluation, i, j, k)*divergenceTestSamples(xval, yval, zval, k, dimension);
-        //        }
-        //    }
-        //}
+        // load partial x from gradient
+        double GMLS_GradX = output_gradient(i,0);//my_GMLS.applyAlphasToData(sampling_data_device, GradientOfScalarPointEvaluation, i, 0, 0, 0, 0);
 
-        double GMLS_CurlX = 0.0;
-        double GMLS_CurlY = 0.0;
-        double GMLS_CurlZ = 0.0;
+        // load partial y from gradient
+        double GMLS_GradY = (dimension>1) ? output_gradient(i,1) : 0;
 
-        if (dimension>1) {
-            for (int j=0; j<dimension; ++j) {
-                GMLS_CurlX += my_GMLS.applyAlphasToData(divergence_sampling_data_device, j, CurlOfVectorPointEvaluation, i, 0, 0, j, 0);
-                GMLS_CurlY += my_GMLS.applyAlphasToData(divergence_sampling_data_device, j, CurlOfVectorPointEvaluation, i, 1, 0, j, 0);
-            }
-        } 
+        // load partial z from gradient
+        double GMLS_GradZ = (dimension>2) ? output_gradient(i,2) : 0;
 
-        if (dimension>2) {
-            for (int j=0; j<dimension; ++j) {
-                GMLS_CurlZ += my_GMLS.applyAlphasToData(divergence_sampling_data_device, j, CurlOfVectorPointEvaluation, i, 2, 0, j, 0);
-            }
+        // load divergence from output
+        double GMLS_Divergence = output_divergence(i);
 
-        }
-        //if (dimension>1) {
-        //    for (int j = 0; j< neighbor_lists(i,0); j++){
-        //        double xval = source_coords(neighbor_lists(i,j+1),0);
-        //        double yval = source_coords(neighbor_lists(i,j+1),1);
-        //        double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
-        //        for (int k=0; k<dimension; ++k) {
-        //            GMLS_CurlX += my_GMLS.getAlpha1TensorTo1Tensor(CurlOfVectorPointEvaluation, i, 0, j, k)*divergenceTestSamples(xval, yval, zval, k, dimension);
-        //        }
-        //    }
+        // load curl from output
+        double GMLS_CurlX = (dimension>1) ? output_curl(i,0) : 0;
+        double GMLS_CurlY = (dimension>1) ? output_curl(i,1) : 0;
+        double GMLS_CurlZ = (dimension>2) ? output_curl(i,2) : 0;
 
-        //    for (int j = 0; j< neighbor_lists(i,0); j++){
-        //        double xval = source_coords(neighbor_lists(i,j+1),0);
-        //        double yval = source_coords(neighbor_lists(i,j+1),1);
-        //        double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
-        //        for (int k=0; k<dimension; ++k) {
-        //            GMLS_CurlY += my_GMLS.getAlpha1TensorTo1Tensor(CurlOfVectorPointEvaluation, i, 1, j, k)*divergenceTestSamples(xval, yval, zval, k, dimension);
-        //        }
-        //    }
-        //}
 
-        //if (dimension>2) {
-        //    for (int j = 0; j< neighbor_lists(i,0); j++){
-        //        double xval = source_coords(neighbor_lists(i,j+1),0);
-        //        double yval = source_coords(neighbor_lists(i,j+1),1);
-        //        double zval = source_coords(neighbor_lists(i,j+1),2);
-        //        for (int k=0; k<dimension; ++k) {
-        //            GMLS_CurlZ += my_GMLS.getAlpha1TensorTo1Tensor(CurlOfVectorPointEvaluation, i, 2, j, k)*divergenceTestSamples(xval, yval, zval, k, dimension);
-        //        }
-        //    }
-        //}
-        //
+
         Kokkos::Profiling::pushRegion("Comparison");
 
         double xval = target_coords(i,0);
@@ -524,8 +448,7 @@ bool all_passed = true;
         double actual_Gradient[3] = {0,0,0};
         trueGradient(actual_Gradient, xval, yval, zval, order, dimension);
         double actual_Divergence;
-        if (use_arbitrary_order_divergence) actual_Divergence = trueDivergence(xval, yval, zval, order, dimension);
-        else actual_Divergence = divergenceTestSolution(xval, yval, zval, dimension);
+        actual_Divergence = trueLaplacian(xval, yval, zval, order, dimension);
 
         double actual_CurlX = 0;
         double actual_CurlY = 0;
