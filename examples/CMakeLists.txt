@@ -1,0 +1,67 @@
+# ERROR MESSAGES IF A TEST IS NOT RUN
+SET(OPENBLAS_NUM_THREADS "1")
+
+
+###############
+#
+#
+# Template Functions
+#
+#
+###############
+
+function(add_exe_w_compadre EXE_NAME CPP_NAME)
+  add_executable(${EXE_NAME} ${CPP_NAME})
+  target_link_libraries(${EXE_NAME} PRIVATE compadre)
+  bob_export_target(${EXE_NAME})
+endfunction(add_exe_w_compadre)
+
+###############
+#
+#
+# GMLS Examples / Tests
+#
+#
+###############
+if (Compadre_EXAMPLES)
+
+  add_exe_w_compadre(GMLS_KokkosHostView_Test GMLS_KokkosHost.cpp)
+  add_exe_w_compadre(GMLS_KokkosDeviceView_Test GMLS_KokkosDevice.cpp)
+
+  if (Compadre_TESTS)
+
+    # Host views tests for GMLS
+
+    ADD_TEST(NAME GMLS_KokkosHostView_Dim3_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_KokkosHostView_Test "4" "200" "3" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_KokkosHostView_Dim3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    
+    ADD_TEST(NAME GMLS_KokkosHostView_Dim2_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_KokkosHostView_Test "4" "200" "2" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_KokkosHostView_Dim2_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    
+    ADD_TEST(NAME GMLS_KokkosHostView_Dim1_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_KokkosHostView_Test "4" "200" "1" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_KokkosHostView_Dim1_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+
+    # Device views tests for GMLS
+
+    ADD_TEST(NAME GMLS_KokkosDeviceView_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_KokkosDeviceView_Test "4" "200" "3" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_KokkosDeviceView_Dim3_QR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    
+    ADD_TEST(NAME GMLS_KokkosDeviceView_Dim2_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_KokkosDeviceView_Test "4" "200" "2" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_KokkosDeviceView_Dim2_QR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    
+    ADD_TEST(NAME GMLS_KokkosDeviceView_Dim1_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_KokkosDeviceView_Test "4" "200" "1" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_KokkosDeviceView_Dim1_QR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+
+    # WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH} )
+    if (Compadre_USE_PYTHON)
+      CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/gmls_3d_convergence.py.in" "${CMAKE_CURRENT_BINARY_DIR}/gmls_3d_convergence.py" @ONLY)
+      ADD_TEST(NAME GMLS_Python_Convergence_Test_3d_Point_Reconstruction COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${PYTHON_EXECUTABLE} "${CMAKE_CURRENT_BINARY_DIR}/gmls_3d_convergence.py")
+      SET_TESTS_PROPERTIES(GMLS_Python_Convergence_Test_3d_Point_Reconstruction PROPERTIES LABELS "UnitTest;unit;python;kokkos" TIMEOUT 10)
+    endif()
+
+  endif (Compadre_TESTS)
+endif (Compadre_EXAMPLES)
+
+bob_end_subdir()
+
+
