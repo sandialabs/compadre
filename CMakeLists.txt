@@ -187,7 +187,7 @@ if (Compadre_USE_PYTHON)
       MESSAGE(FATAL_ERROR "Numpy headers not found, but needed when Compadre_USE_PYTHON:BOOL=ON. Try setting Numpy_PREFIX.")
     ENDIF()
 
-    set(SWIG_PREFIX "../GMLS/src/swig") # relative to examples folder
+    set(SWIG_PREFIX "../python") # relative to examples folder
     if (PYTHON_VERSION_MAJOR EQUAL 3)
       set(GMLS_Module_DEST "lib/python3/dist-packages")
     else()
@@ -399,7 +399,7 @@ if (Compadre_USE_CUDA OR Compadre_USE_LAPACK)
   endif()
 
   if(Compadre_USE_PYTHON)
-    add_subdirectory(swig)
+    add_subdirectory(python)
   endif()
 
 else ()
