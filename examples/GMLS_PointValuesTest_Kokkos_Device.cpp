@@ -400,11 +400,16 @@ bool all_passed = true;
     // however, if you know that the target operation will result in a 2D view (vector or matrix output),
     // then you should template with double** as this is something that can not be infered from the input data
     // or the target operator at compile time
-    auto output_value = my_GMLS.applyTargetToData<double*, Kokkos::HostSpace>(sampling_data_device, ScalarPointEvaluation);
-    auto output_laplacian = my_GMLS.applyTargetToData<double*, Kokkos::HostSpace>(sampling_data_device, LaplacianOfScalarPointEvaluation);
-    auto output_gradient = my_GMLS.applyTargetToData<double**, Kokkos::HostSpace>(sampling_data_device, GradientOfScalarPointEvaluation);
-    auto output_divergence = my_GMLS.applyTargetToData<double*, Kokkos::HostSpace>(gradient_sampling_data_device, DivergenceOfVectorPointEvaluation);
-    auto output_curl = my_GMLS.applyTargetToData<double**, Kokkos::HostSpace>(divergence_sampling_data_device, CurlOfVectorPointEvaluation);
+    auto output_value = my_GMLS.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+            (sampling_data_device, ScalarPointEvaluation);
+    auto output_laplacian = my_GMLS.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+            (sampling_data_device, LaplacianOfScalarPointEvaluation);
+    auto output_gradient = my_GMLS.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+            (sampling_data_device, GradientOfScalarPointEvaluation);
+    auto output_divergence = my_GMLS.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+            (gradient_sampling_data_device, DivergenceOfVectorPointEvaluation);
+    auto output_curl = my_GMLS.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+            (divergence_sampling_data_device, CurlOfVectorPointEvaluation);
 
     Kokkos::Profiling::popRegion();
 
@@ -470,36 +475,36 @@ bool all_passed = true;
 
         if(GMLS_value!=GMLS_value || std::abs(actual_value - GMLS_value) > failure_tolerance) {
             all_passed = false;
-            std::cout << "Failed Actual by: " << std::abs(actual_value - GMLS_value) << std::endl;
+            std::cout << i << " Failed Actual by: " << std::abs(actual_value - GMLS_value) << std::endl;
         }
 
         if(std::abs(actual_Laplacian - GMLS_Laplacian) > failure_tolerance) {
             all_passed = false;
-            std::cout << "Failed Laplacian by: " << std::abs(actual_Laplacian - GMLS_Laplacian) << std::endl;
+            std::cout << i << " Failed Laplacian by: " << std::abs(actual_Laplacian - GMLS_Laplacian) << std::endl;
         }
 
         if(std::abs(actual_Gradient[0] - GMLS_GradX) > failure_tolerance) {
             all_passed = false;
-            std::cout << "Failed GradX by: " << std::abs(actual_Gradient[0] - GMLS_GradX) << std::endl;
+            std::cout << i << " Failed GradX by: " << std::abs(actual_Gradient[0] - GMLS_GradX) << std::endl;
         }
 
         if (dimension>1) {
             if(std::abs(actual_Gradient[1] - GMLS_GradY) > failure_tolerance) {
                 all_passed = false;
-                std::cout << "Failed GradY by: " << std::abs(actual_Gradient[1] - GMLS_GradY) << std::endl;
+                std::cout << i << " Failed GradY by: " << std::abs(actual_Gradient[1] - GMLS_GradY) << std::endl;
             }
         }
 
         if (dimension>2) {
             if(std::abs(actual_Gradient[2] - GMLS_GradZ) > failure_tolerance) {
                 all_passed = false;
-                std::cout << "Failed GradZ by: " << std::abs(actual_Gradient[2] - GMLS_GradZ) << std::endl;
+                std::cout << i << " Failed GradZ by: " << std::abs(actual_Gradient[2] - GMLS_GradZ) << std::endl;
             }
         }
 
         if(std::abs(actual_Divergence - GMLS_Divergence) > failure_tolerance) {
             all_passed = false;
-            std::cout << "Failed Divergence by: " << std::abs(actual_Divergence - GMLS_Divergence) << std::endl;
+            std::cout << i << " Failed Divergence by: " << std::abs(actual_Divergence - GMLS_Divergence) << std::endl;
         }
 
         double tmp_diff = 0;
@@ -509,7 +514,7 @@ bool all_passed = true;
             tmp_diff += std::abs(actual_CurlZ - GMLS_CurlZ);
         if(std::abs(tmp_diff) > failure_tolerance) {
             all_passed = false;
-            std::cout << "Failed Curl by: " << std::abs(tmp_diff) << std::endl;
+            std::cout << i << " Failed Curl by: " << std::abs(tmp_diff) << std::endl;
         }
         Kokkos::Profiling::popRegion();
     }

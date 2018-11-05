@@ -233,38 +233,6 @@ protected:
     int _scratch_thread_level_b;
 
 
-    //! struct allowing for subviews of 1D or 2D Kokkos Views
-    template <typename view_type_out, int rank_out, typename view_type_in, int rank_in> 
-    struct SubviewMaker {
-        void execute(const GMLS* this_gmls_class, view_type_out out, const int column_out, view_type_in in, const int column_in, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) {
-            auto sub_out = Kokkos::subview(out, Kokkos::ALL, column_out);
-            auto sub_in = Kokkos::subview(in, Kokkos::ALL, column_in);
-            this_gmls_class->applyAlphasToDataSingleComponentAllTargets(sub_out, sub_in, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, input_component_axis_2);
-        }
-    };
-
-    template <typename view_type_out, typename view_type_in> 
-    struct SubviewMaker<view_type_out,1,view_type_in,1> {
-        void execute(const GMLS* this_gmls_class, view_type_out out, const int column_out, view_type_in in, const int column_in, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) {
-            this_gmls_class->applyAlphasToDataSingleComponentAllTargets(out, in, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, input_component_axis_2);
-        }
-    };
-
-    template <typename view_type_out, typename view_type_in> 
-    struct SubviewMaker<view_type_out,2,view_type_in,1> {
-        void execute(const GMLS* this_gmls_class, view_type_out out, const int column_out, view_type_in in, const int column_in, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) {
-            auto sub_out = Kokkos::subview(out, Kokkos::ALL, column_out);
-            this_gmls_class->applyAlphasToDataSingleComponentAllTargets(sub_out, in, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, input_component_axis_2);
-        }
-    };
-
-    template <typename view_type_out, typename view_type_in> 
-    struct SubviewMaker<view_type_out,1,view_type_in,2> {
-        void execute(const GMLS* this_gmls_class, view_type_out out, const int column_out, view_type_in in, const int column_in, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) {
-            auto sub_in = Kokkos::subview(in, Kokkos::ALL, column_in);
-            this_gmls_class->applyAlphasToDataSingleComponentAllTargets(out, sub_in, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, input_component_axis_2);
-        }
-    };
 
 
 
@@ -815,7 +783,7 @@ public:
                         + neighbor_index));
     }
    
-    //! Dot product of alphas with sampling data where sampling data is in a 1D Kokkos View
+    //! Dot product of alphas with sampling data, FOR A SINGLE target_index,  where sampling data is in a 1D Kokkos View
     //! 
     //! This function is to be used when the alpha values have already been calculated and stored for use 
     //!
@@ -823,7 +791,7 @@ public:
     //! components in order to fill a vector target or matrix target.
     //! 
     //! Assumptions on input data:
-    //! \param sampling_input_data      [in] - 1D Kokkos View
+    //! \param sampling_input_data      [in] - 1D Kokkos View (no restriction on memory space)
     //! \param lro                      [in] - Target operation from the TargetOperation enum
     //! \param target_index             [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
     //! \param output_component_axis_1  [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
@@ -831,7 +799,7 @@ public:
     //! \param input_component_axis_1   [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
     //! \param input_component_axis_2   [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
     template <typename view_type_data>
-    double applyAlphasToDataSingleComponentSingleTarget(view_type_data sampling_input_data, TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
+    double applyAlphasToDataSingleComponentSingleTargetSite(view_type_data sampling_input_data, TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
 
         double value = 0;
         const int lro_number = _lro_lookup[(int)lro];
@@ -868,150 +836,190 @@ public:
         return value;
     }
 
-//    //! Dot product of alphas with sampling data where sampling data is in a 2D Kokkos View
-//    //! 
-//    //! This function is to be used when the alpha values have already been calculated and stored for use 
-//    //!
-//    //! Only supports one output component / input component at a time. The user will need to loop over the output 
-//    //! components in order to fill a vector target or matrix target.
-//    //! 
-//    //! Assumptions on input data:
-//    //! \param sampling_input_data            [in] - 2D Kokkos View that that has the dimensions #targets * columns of data
-//    //! \param input_column                   [in] - input_column of sampling_input_data to use
-//    //! \param lro                      [in] - Target operation from the TargetOperation enum
-//    //! \param target_index             [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
-//    //! \param output_component_axis_1  [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
-//    //! \param output_component_axis_2  [in] - Columns for a rank 2 tensor, 0 for rank less than 2 output tensor
-//    //! \param input_component_axis_1   [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
-//    //! \param input_component_axis_2   [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
-//    template <typename view_type_data>
-//    double applyAlphasToDataSingleComponentSingleTarget(view_type_data sampling_input_data, const int input_column, TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
-//
-//        double value = 0;
-//        const int lro_number = _lro_lookup[(int)lro];
-//        const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
-//        const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
-//        const int this_host_lro_total_offset = this->_host_lro_total_offsets[lro_number];
-//        const int this_host_lro_output_tile_size = this->_host_lro_output_tile_size[lro_number];
-//        if (std::is_same<typename view_type_data::memory_space, Kokkos::HostSpace>::value) {
-//            // loop through neighbor list for this target_index
-//            // grabbing data from that entry of data
-//            // for now a regular parallel_for loop on HOST
-//            Kokkos::parallel_reduce("applyAlphasToData::Host", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_host_neighbor_lists(target_index,0)), KOKKOS_LAMBDA(const int i, double& t_value) {
-//                t_value += sampling_input_data(_host_neighbor_lists(target_index, i+1), input_column)*_host_alphas(ORDER_INDICES(target_index,
-//                    (this_host_lro_total_offset + input_index*this_host_lro_output_tile_size + output_index)
-//                    *_number_of_neighbors_list(target_index) + i));
-//            }, value);
-//        } else {
-//#ifdef COMPADRE_USE_CUDA
-//            // loop through neighbor list for this target_index
-//            // grabbing data from that entry of data
-//            // for now a regular parallel_for loop on HOST
-//            
-//            // assists in lambda capture
-//            auto neighbor_lists = this->_neighbor_lists;
-//            auto alphas = this->_alphas;
-//
-//            Kokkos::parallel_reduce("applyAlphasToData::Device", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,_host_neighbor_lists(target_index,0)), KOKKOS_LAMBDA(const int& i, double& t_value) {
-//                t_value += sampling_input_data(neighbor_lists(target_index, i+1), input_column)*alphas(ORDER_INDICES(target_index,
-//                    (this_host_lro_total_offset + input_index*this_host_lro_output_tile_size + output_index)
-//                    *neighbor_lists(target_index,0) + i));
-//            }, value );
-//#endif
-//        }
-//        return value;
-//    }
-
-
-    //! 1d array for input and output
+    //! Dot product of alphas with sampling data where sampling data is in a 1D Kokkos View and output view is also a 1D Kokkos View
+    //! 
+    //! This function is to be used when the alpha values have already been calculated and stored for use.
+    //!
+    //! Only supports one output component / input component at a time. The user will need to loop over the output 
+    //! components in order to fill a vector target or matrix target.
+    //! 
+    //! Assumptions on input data:
+    //! \param output_data_single_column       [out] - 1D Kokkos View (memory space must match sampling_data_single_column)
+    //! \param sampling_data_single_column      [in] - 1D Kokkos View (memory space must match output_data_single_column)
+    //! \param lro                              [in] - Target operation from the TargetOperation enum
+    //! \param target_index                     [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
+    //! \param output_component_axis_1          [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
+    //! \param output_component_axis_2          [in] - Columns for a rank 2 tensor, 0 for rank less than 2 output tensor
+    //! \param input_component_axis_1           [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
+    //! \param input_component_axis_2           [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
     template <typename view_type_data_out, typename view_type_data_in>
-    void applyAlphasToDataSingleComponentAllTargets(view_type_data_out output_data_single_column, view_type_data_in sampling_data_single_column, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
+    void applyAlphasToDataSingleComponentAllTargetSites(view_type_data_out output_data_single_column, view_type_data_in sampling_data_single_column, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
 
         const int lro_number = _lro_lookup[(int)lro];
         const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
         const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
         const int this_host_lro_total_offset = this->_host_lro_total_offsets[lro_number];
         const int this_host_lro_output_tile_size = this->_host_lro_output_tile_size[lro_number];
-
         const int num_targets = _host_neighbor_lists.dimension_0(); // one row for each target
+
+        // make sure input and output views have same memory space
+        assert((std::is_same<typename view_type_data_out::memory_space, typename view_type_data_in::memory_space>::value) && 
+                "output_data_single_column view and input_data_single_column view have difference memory spaces.");
+
+        // It is possible to call this function with a view having a memory space of the host
+        // this first case takes case of that scenario. If this function is called by applyTargetToData,
+        // then it will always provide a view having memory space of the device (else case)
         if (std::is_same<typename view_type_data_in::memory_space, Kokkos::HostSpace>::value) {
             typedef Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace> alpha_policy;
             typedef Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace>::member_type alpha_member_type;
-            // loop through neighbor list for this target_index
-            // grabbing data from that entry of data
-            // for now a regular parallel_for loop on HOST
-            Kokkos::parallel_for(Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace>(num_targets, Kokkos::AUTO), 
+            // loops over target_indexes
+            Kokkos::parallel_for(alpha_policy(num_targets, Kokkos::AUTO), 
                     KOKKOS_LAMBDA(const alpha_member_type& teamMember) {
-                double value;
+                double value = 0;
                 const int target_index = teamMember.league_rank();
+                const double previous_value = output_data_single_column(target_index);
+                teamMember.team_barrier();
+                // loops over neighbors of target_index
                 Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,_host_neighbor_lists(target_index,0)), [=](const int i, double& t_value) {
                     t_value += sampling_data_single_column(_host_neighbor_lists(target_index, i+1))*_host_alphas(ORDER_INDICES(target_index,
                         (this_host_lro_total_offset + input_index*this_host_lro_output_tile_size + output_index)
                         *_number_of_neighbors_list(target_index) + i));
                 }, value);
-                output_data_single_column(target_index) += value;
+                output_data_single_column(target_index) = previous_value + value;
             });
         } else {
-#ifdef COMPADRE_USE_CUDA
-            typedef Kokkos::TeamPolic<Kokkos::DefaultExecutionSpace> alpha_policy;
+            typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> alpha_policy;
+            typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type alpha_member_type;
 
-            // loop through neighbor list for this target_index
-            // grabbing data from that entry of data
-            // for now a regular parallel_for loop on HOST
-            
-            // assists in lambda capture
+            // this function is not a functor, so no capture on *this takes place, and therefore memory addresses will be illegal accesses
+            // if made on the device, even if this->... is on the device, so we create a name that will be captured by KOKKOS_LAMBDA
             auto neighbor_lists = this->_neighbor_lists;
             auto alphas = this->_alphas;
-
-            Kokkos::parallel_reduce("applyAlphasToData::Device", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,_host_neighbor_lists(target_index,0)), KOKKOS_LAMBDA(const int& i, double& t_value) {
-                t_value += sampling_data(neighbor_lists(target_index, i+1))*alphas(ORDER_INDICES(target_index,
-                    (this_host_lro_total_offset + input_index*this_host_lro_output_tile_size + output_index)
-                    *neighbor_lists(target_index,0) + i));
-            }, value );
-#endif
+            Kokkos::fence();
+            // loops over target_indexes
+            Kokkos::parallel_for(alpha_policy(num_targets, Kokkos::AUTO), 
+                    KOKKOS_LAMBDA(const alpha_member_type& teamMember) {
+                double value = 0;
+                const int target_index = teamMember.league_rank();
+                const double previous_value = output_data_single_column(target_index);
+                teamMember.team_barrier();
+                // loops over neighbors of target_index
+                Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, neighbor_lists(target_index,0)), [=](const int i, double& t_value) {
+                    t_value += sampling_data_single_column(neighbor_lists(target_index, i+1))*alphas(ORDER_INDICES(target_index,
+                        (this_host_lro_total_offset + input_index*this_host_lro_output_tile_size + output_index)
+                        *neighbor_lists(target_index,0) + i));
+                }, value );
+                output_data_single_column(target_index) = previous_value + value;
+            });
         }
+        Kokkos::fence();
     }
+
+    //! helper struct allowing for subviews of 1D or 2D Kokkos Views with partial template instantiation
+    template <typename view_type_out, int rank_out, typename view_type_in, int rank_in> 
+    struct SubviewMaker {
+        void execute(const GMLS* this_gmls_class, view_type_out out, const int column_out, view_type_in in, const int column_in, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) {
+            auto sub_out = Kokkos::subview(out, Kokkos::ALL, column_out);
+            auto sub_in = Kokkos::subview(in, Kokkos::ALL, column_in);
+            this_gmls_class->applyAlphasToDataSingleComponentAllTargetSites(sub_out, sub_in, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, input_component_axis_2);
+        }
+    };
+
+    //! helper struct allowing for subviews of 1D or 2D Kokkos Views with partial template instantiation
+    template <typename view_type_out, typename view_type_in> 
+    struct SubviewMaker<view_type_out,1,view_type_in,1> {
+        void execute(const GMLS* this_gmls_class, view_type_out out, const int column_out, view_type_in in, const int column_in, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) {
+            this_gmls_class->applyAlphasToDataSingleComponentAllTargetSites(out, in, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, input_component_axis_2);
+        }
+    };
+
+    //! helper struct allowing for subviews of 1D or 2D Kokkos Views with partial template instantiation
+    template <typename view_type_out, typename view_type_in> 
+    struct SubviewMaker<view_type_out,2,view_type_in,1> {
+        void execute(const GMLS* this_gmls_class, view_type_out out, const int column_out, view_type_in in, const int column_in, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) {
+            auto sub_out = Kokkos::subview(out, Kokkos::ALL, column_out);
+            this_gmls_class->applyAlphasToDataSingleComponentAllTargetSites(sub_out, in, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, input_component_axis_2);
+        }
+    };
+
+    //! helper struct allowing for subviews of 1D or 2D Kokkos Views with partial template instantiation
+    template <typename view_type_out, typename view_type_in> 
+    struct SubviewMaker<view_type_out,1,view_type_in,2> {
+        void execute(const GMLS* this_gmls_class, view_type_out out, const int column_out, view_type_in in, const int column_in, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) {
+            auto sub_in = Kokkos::subview(in, Kokkos::ALL, column_in);
+            this_gmls_class->applyAlphasToDataSingleComponentAllTargetSites(out, sub_in, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, input_component_axis_2);
+        }
+    };
 
     //! Transformation of data under GMLS
     //! 
     //! This function is to be used when the alpha values have already been calculated and stored for use.
     //!
-    //! Produces a Kokkos View as output. The data type (double* or double**) must be specified as a template
-    //! type if one wish to get a 1D Kokkos View back that can be indexed into with only one ordinal.
+    //! Produces a Kokkos View as output with a Kokkos memory_space provided as a template tag by the caller. 
+    //! The data type (double* or double**) must also be specified as a template type if one wish to get a 1D 
+    //! Kokkos View back that can be indexed into with only one ordinal.
     //! 
     //! Assumptions on input data:
-    //! \param sampling_data            [in] - 1D or 2D Kokkos View that has the layout #targets * columns of data. It is assumed that this data has already been transformed by the sampling functional.
+    //! \param sampling_data            [in] - 1D or 2D Kokkos View that has the layout #targets * columns of data. Memory space for data can be host or device. It is assumed that this data has already been transformed by the sampling functional.
     //! \param lro                      [in] - Target operation from the TargetOperation enum
-    template <typename output_data_type = double**, typename output_memory_space, typename view_type_input_data>
-    Kokkos::View<output_data_type, typename view_type_input_data::array_layout, output_memory_space>  // shares layout of input
-            applyTargetToData(view_type_input_data sampling_data, TargetOperation lro) const {
+    template <typename output_data_type = double**, typename output_memory_space, typename view_type_input_data, typename output_array_layout = typename view_type_input_data::array_layout>
+    Kokkos::View<output_data_type, output_array_layout, output_memory_space>  // shares layout of input by default
+            applyAlphasToDataAllComponentsAllTargetSites(view_type_input_data sampling_data, TargetOperation lro) const {
 
-        typedef Kokkos::View<output_data_type, typename view_type_input_data::array_layout, output_memory_space> output_view_type;
+        // output can be device or host
+        // input can be device or host
+        // move everything to device and calculate there, then move back to host if necessary
 
+        typedef Kokkos::View<output_data_type, output_array_layout, output_memory_space> output_view_type;
+        
         const int lro_number = _lro_lookup[(int)lro];
+
+        // create view on whatever memory space the user specified with their template argument when calling this function
         output_view_type target_output("output of target", _host_neighbor_lists.dimension_0() /* number of targets */, 
                 _host_lro_output_tile_size[lro_number]);
 
-        assert(((this->_host_lro_output_tile_size[lro_number]==1 && output_view_type::rank==1) || output_view_type::rank!=1) && "Output view is requested as rank 1, but the target requires a rank larger than 1. Try double** as template argument.");
-        auto sm = SubviewMaker<output_view_type,output_view_type::rank,view_type_input_data,view_type_input_data::rank>();
+        // create device mirror and write into it then copy back at the end
+        auto target_output_device_mirror = Kokkos::create_mirror(Kokkos::DefaultExecutionSpace::memory_space(), target_output);
+        auto sampling_data_device_mirror = Kokkos::create_mirror(Kokkos::DefaultExecutionSpace::memory_space(), sampling_data);
 
-        //auto target_output_mirror = Kokkos::create_mirror(target_output);
+        // copy sampling data from whatever memory space it is in to the device (does nothing if already on the device)
+        Kokkos::deep_copy(sampling_data_device_mirror, sampling_data);
+        Kokkos::deep_copy(target_output_device_mirror, 0);
+
+        // make sure input and output columns make sense under the target operation
+        assert(((this->_host_lro_output_tile_size[lro_number]==1 && output_view_type::rank==1) || output_view_type::rank!=1) && 
+                "Output view is requested as rank 1, but the target requires a rank larger than 1. Try double** as template argument.");
+
+        // we need to specialize a template on the rank of the output view type and the input view type,
+        // but partial template specialization is not available for functions, so we use a nested member struct,
+        // which does allow for partial template specialization
+        auto sm = SubviewMaker<decltype(target_output_device_mirror),output_view_type::rank,
+                decltype(sampling_data_device_mirror),view_type_input_data::rank>();
+
+        Kokkos::fence();
+        // loop over components of output of the target operation
         for (int i=0; i<this->_host_lro_output_tile_size[lro_number]; ++i) {
             const int output_component_axis_1 = i / _dimensions;
             const int output_component_axis_2 = i % _dimensions;
+            // loop over components of input of the target operation
             for (int j=0; j<this->_host_lro_input_tile_size[lro_number]; ++j) {
                 const int input_component_axis_1 = j / _dimensions;
                 const int input_component_axis_2 = j % _dimensions;
-
-                sm.execute(this, target_output, i, sampling_data, j, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, input_component_axis_2);
+                // creates subviews if necessary so that only a 1D Kokkos View is exposed as the input and 
+                // output for applyAlphasToDataSingleComponentAllTargets
+                sm.execute(this, target_output_device_mirror, i, sampling_data_device_mirror, j, lro, output_component_axis_1, 
+                        output_component_axis_2, input_component_axis_1, input_component_axis_2);
             }
         }
+
+        // copy back to whatever memory space the user requester through templating from the device
+        Kokkos::deep_copy(target_output, target_output_device_mirror);
         return target_output;
     }
 
     //! like applyTargetToData above, but will write to the users provided view
     template <typename view_type_output, typename view_type_mapping, typename view_type_data>
-    double applyTargetToData(view_type_output output_data, view_type_mapping target_mapping, view_type_data sampling_data, TargetOperation lro) const {
+    double applyTargetToData(view_type_output output_data, view_type_data sampling_data, TargetOperation lro, view_type_mapping target_mapping = Kokkos::View<int*>()) const {
         // TODO fill this in
     }
 
