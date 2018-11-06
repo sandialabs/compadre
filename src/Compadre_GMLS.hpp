@@ -1207,6 +1207,11 @@ public:
         }
     }
 
+    //! Type for weighting kernel for GMLS problem
+    void setWeightingType( const WeightingFunctionType wt) {
+        _weighting_type = wt;
+    }
+
     //! Type for weighting kernel for curvature 
     void setCurvatureWeightingType( const std::string &wt) {
         if (wt == "power") {

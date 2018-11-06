@@ -208,32 +208,25 @@ int main (int argc, char* args[]);
  * \example "GMLS Tutorial" based on GMLS_Device.cpp
  * \section ex GMLS Example with Device Views
  *
- * This tutorial sets up a batch of GMLS problems, solves the minimization problems, and applies the coefficients produce to data.
+ * This tutorial sets up a batch of GMLS problems, solves the minimization problems, and applies the coefficients produced to data.
  * 
  * \section ex1a Parse Command Line Arguments
  * \snippet GMLS_Device.cpp Parse Command Line Arguments
- * Here we parse the command line arguements.
  *
  * \section ex1b Setting Up The Point Cloud
  * \snippet GMLS_Device.cpp Setting Up The Point Cloud
- * Here we set up the point cloud.
  *
- * \section ex2 Setting Up The GMLS Object
- * \snippet GMLS_Device.cpp Setting Up The GMLS Object
- * Here we set up the GMLS problem.
- * 
- * \section ex3 Creating The Data
+ * \section ex2 Creating The Data
  * \snippet GMLS_Device.cpp Creating The Data
- * Here we create the data.
  *
+ * \section ex3 Setting Up The GMLS Object
+ * \snippet GMLS_Device.cpp Setting Up The GMLS Object
+ * 
  * \section ex4 Apply GMLS Alphas To Data
  * \snippet GMLS_Device.cpp Apply GMLS Alphas To Data
- * Apply the alphas to the data.
  *
  * \section ex5 Check That Solution Is Correct
  * \snippet GMLS_Device.cpp Check That Solution Is Correct
- * Check that the applied target is correct.
- *
  *
  */ 
 

@@ -33,6 +33,13 @@ MPI_Init(&argc, &args);
 // initializes Kokkos with command line arguments given
 Kokkos::initialize(argc, args);
 
+// becomes false if the computed solution not within the failure_threshold of the actual solution
+bool all_passed = true;
+
+// code block to reduce scope for all Kokkos View allocations
+// otherwise, Views may be deallocating when we call Kokkos::finalize() later
+{
+
 // check if 5 arguments are given from the command line, the first being the program name
 //  solver_type used for factorization in solving each GMLS problem:
 //      0 - SVD used for factorization in solving each GMLS problem
@@ -321,9 +328,6 @@ Kokkos::Profiling::popRegion();
 //! [Check That Solution Is Correct]
 
 
-// becomes false if the computed solution not within the failure_threshold of the actual solution
-bool all_passed = true;
-
 // loop through the target sites
 for (int i=0; i<number_target_coords; i++) {
 
@@ -431,6 +435,9 @@ for (int i=0; i<number_target_coords; i++) {
     // ends timer
     Kokkos::Profiling::popRegion();
 }
+
+} // end of code block to reduce scope, causing Kokkos View de-allocations
+// otherwise, Views may be deallocating when we call Kokkos::finalize() later
 
 // finalize Kokkos and MPI (if available)
 Kokkos::finalize();
