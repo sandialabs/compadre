@@ -25,8 +25,8 @@ endfunction(add_exe_w_compadre)
 ###############
 if (Compadre_EXAMPLES)
 
-  add_exe_w_compadre(GMLS_KokkosHostView_Test GMLS_KokkosHost.cpp)
-  add_exe_w_compadre(GMLS_KokkosDeviceView_Test GMLS_KokkosDevice.cpp)
+  add_exe_w_compadre(GMLS_KokkosHostView_Test GMLS_Host.cpp)
+  add_exe_w_compadre(GMLS_KokkosDeviceView_Test GMLS_Device.cpp)
 
   if (Compadre_TESTS)
 
