@@ -271,8 +271,8 @@ bool all_passed = true;
         solver_name = "QR";
     }
     
-    // initialize and instance of the GMLS class 
-    GMLS my_GMLS(order, solver_name.c_str(), 2 /*manifield order*/, dimension);
+    // initialize an instance of the GMLS class 
+    GMLS my_GMLS(order, solver_name.c_str(), 2 /*manifold order*/, dimension);
     
     // pass in neighbor lists, source coordinates, target coordinates, and window sizes
     //

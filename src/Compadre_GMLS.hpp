@@ -1239,6 +1239,11 @@ public:
         }
     }
 
+    //! Type for weighting kernel for curvature
+    void setCurvatureWeightingType( const WeightingFunctionType wt) {
+        _curvature_weighting_type = wt;
+    }
+
     //! Sets basis order to be used when reoncstructing any function
     void setPolynomialOrder(const int poly_order) {
         _poly_order = poly_order;
