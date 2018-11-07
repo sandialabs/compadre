@@ -672,12 +672,30 @@ public:
 ///@}
 
 
-    //! Returns dimension of basis for a given polynomial order and dimension
+    //! Returns size of the basis for a given polynomial order and dimension
     KOKKOS_INLINE_FUNCTION
     static int getNP(const int m, const int dimension = 3) {
         if (dimension == 3) return (m+1)*(m+2)*(m+3)/6;
         else if (dimension == 2) return (m+1)*(m+2)/2;
         else return m+1;
+    }
+
+    //! Returns number of neighbors needed for unisolvency for a given basis order and dimension
+    KOKKOS_INLINE_FUNCTION
+    static int getNN(const int m, const int dimension = 3) {
+        const int np = getNP(m, dimension);
+        int nn = np;
+        switch (dimension) {
+            case 3:
+                nn = np * (1.7 + m*0.1);
+                break;
+            case 2:
+                nn = np * (1.4 + m*0.03);
+                break;
+            case 1:
+                nn = np * 1.1;
+        }
+        return nn;
     }
 
 /** @name Accessors

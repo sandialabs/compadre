@@ -8,6 +8,9 @@
 
 #include <Compadre_Config.h>
 #include <Compadre_GMLS.hpp>
+
+#include <Compadre_PointCloud.hpp>
+
 #include "GMLS_Tutorial.hpp"
 
 #ifdef COMPADRE_USE_MPI
@@ -84,32 +87,29 @@ if (argc >= 2) {
 
 // the functions we will be seeking to reconstruct are in the span of the basis
 // of the reconstruction space we choose for GMLS, so the error should be very small
-const double failure_tolerance = 1e-8;
+const double failure_tolerance = 1e-9;
 
-// seed the random generator
-std::mt19937 rng(50);
+// Laplacian is a second order differential operator, which we expect to be slightly less accurate
+const double laplacian_failure_tolerance = 1e-9;
 
 // minimum neighbors for unisolvency is the same as the size of the polynomial basis 
 const int min_neighbors = Compadre::GMLS::getNP(order, dimension);
 
 // maximum neighbors calculated to be the minimum number of neighbors needed for unisolvency 
-// enlarged by some multiplier (generally 10% to 40%)
-const int max_neighbors = Compadre::GMLS::getNP(order, dimension)*1.33;
-
-// uniform distribution ranging from min_neighbors to max_neighbors allowing for each
-// target site to have a different number of neighbors
-std::uniform_int_distribution<int> gen_num_neighbors(min_neighbors, max_neighbors);
+// enlarged by some multiplier (generally 10% to 40%, but calculated by GMLS class)
+const int max_neighbors = Compadre::GMLS::getNN(order, dimension);
 
 //! [Parse Command Line Arguments]
 Kokkos::Timer timer;
 Kokkos::Profiling::pushRegion("Setup");
 //! [Setting Up The Point Cloud]
 
-// number of source coordinate sites that is reasonable
-const int number_source_coords = max_neighbors*number_target_coords;
+// approximate spacing of source sites
+double h_spacing = 0.05;
+int n_neg1_to_1 = 2*(1/h_spacing) + 1; // always odd
 
-// these are indices into rows of the source coordinates 2d array
-std::uniform_int_distribution<int> gen_neighbor_number(0, number_source_coords-1); 
+// number of source coordinate sites that will fill a box of [-1,1]x[-1,1]x[-1,1] with a spacing approximately h
+const int number_source_coords = std::pow(n_neg1_to_1, dimension);
 
 // each row is a neighbor list for a target site, with the first column of each row containing
 // the number of neighbors for that rows corresponding target site
@@ -117,74 +117,110 @@ Kokkos::View<int**, Kokkos::DefaultExecutionSpace> neighbor_lists_device("neighb
         number_target_coords, max_neighbors+1); // first column is # of neighbors
 Kokkos::View<int**>::HostMirror neighbor_lists = Kokkos::create_mirror_view(neighbor_lists_device);
 
-// coordinates of source sites
-Kokkos::View<double**, Kokkos::DefaultExecutionSpace> source_coords_device("source coordinates", 
-        number_source_coords, dimension);
-Kokkos::View<double**>::HostMirror source_coords = Kokkos::create_mirror_view(source_coords_device);
-
 // each target site has a window size
 Kokkos::View<double*, Kokkos::DefaultExecutionSpace> epsilon_device("h supports", number_target_coords);
 Kokkos::View<double*>::HostMirror epsilon = Kokkos::create_mirror_view(epsilon_device);
 
+// coordinates of source sites
+Kokkos::View<double**, Kokkos::DefaultExecutionSpace> source_coords_device("source coordinates", 
+        number_source_coords, 3);
+Kokkos::View<double**>::HostMirror source_coords = Kokkos::create_mirror_view(source_coords_device);
+
 // coordinates of target sites
-Kokkos::View<double**, Kokkos::DefaultExecutionSpace> target_coords_device ("target coordinates", number_target_coords, dimension);
+Kokkos::View<double**, Kokkos::DefaultExecutionSpace> target_coords_device ("target coordinates", number_target_coords, 3);
 Kokkos::View<double**>::HostMirror target_coords = Kokkos::create_mirror_view(target_coords_device);
 
-// set a window size for each target site that is 0.5
-for (int i=0; i<number_target_coords; i++) {
-    epsilon(i) = 0.5;
+// fill source coordinates with a uniform grid
+int source_index = 0;
+double this_coord[3] = {0,0,0};
+for (int i=-n_neg1_to_1/2; i<n_neg1_to_1/2+1; ++i) {
+    this_coord[0] = i*h_spacing;
+    for (int j=-n_neg1_to_1/2; j<n_neg1_to_1/2+1; ++j) {
+        this_coord[1] = j*h_spacing;
+        for (int k=-n_neg1_to_1/2; k<n_neg1_to_1/2+1; ++k) {
+            this_coord[2] = k*h_spacing;
+            if (dimension==3) {
+                source_coords(source_index,0) = this_coord[0]; 
+                source_coords(source_index,1) = this_coord[1]; 
+                source_coords(source_index,2) = this_coord[2]; 
+                source_index++;
+            }
+        }
+        if (dimension==2) {
+            source_coords(source_index,0) = this_coord[0]; 
+            source_coords(source_index,1) = this_coord[1]; 
+            source_coords(source_index,2) = 0;
+            source_index++;
+        }
+    }
+    if (dimension==1) {
+        source_coords(source_index,0) = this_coord[0]; 
+        source_coords(source_index,1) = 0;
+        source_coords(source_index,2) = 0;
+        source_index++;
+    }
 }
 
-// filling source sites with random coordinates
-for(int i=0; i<number_source_coords; i++){
+// fill target coords somewhere inside of [-0.5,0.5]x[-0.5,0.5]x[-0.5,0.5]
+for(int i=0; i<number_target_coords; i++){
 
-    // rand() produces random number between 0 and RAND_MAX
-    // these values are all between [0.0,0.25]
-    double randx = (2.0*(double)rand() / (double) RAND_MAX - 1.0)*epsilon(0)/2.0;
-    double randy = (2.0*(double)rand() / (double) RAND_MAX - 1.0)*epsilon(0)/2.0;
-    double randz = (2.0*(double)rand() / (double) RAND_MAX - 1.0)*epsilon(0)/2.0;
+    // first, we get a uniformly random distributed direction
+    double rand_dir[3] = {0,0,0};
 
-    source_coords(i,0) = randx;
-    if (dimension>1) source_coords(i,1) = randy;
-    if (dimension>2) source_coords(i,2) = randz;
+    for (int j=0; j<dimension; ++j) {
+        // rand_dir[j] is in [-0.5, 0.5]
+        rand_dir[j] = ((double)rand() / (double) RAND_MAX) - 0.5;
+    }
+
+    // then we get a uniformly random radius
+    for (int j=0; j<dimension; ++j) {
+        target_coords(i,j) = rand_dir[j];
+    }
+
 }
 
-// target_epsilon ensures that all targets are in a tighter ball than the source sites
-const double target_epsilon = 0.1;
 
-// fill target coords
-for(int i=0; i<number_target_coords; i++){ //ignore first ten entries
+// Point cloud construction for neighbor search
+typedef Compadre::PointCloud<Kokkos::View<double**>::HostMirror> cloud_type;
+typedef nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<double, cloud_type>, cloud_type, 3> tree_type;
 
-    // rand() produces random number between 0 and RAND_MAX
-    // these values are all between [0.0,0.05]
-    double randx = (2.0*(double)rand() / (double) RAND_MAX - 1.0)*target_epsilon/2.0;
-    double randy = (2.0*(double)rand() / (double) RAND_MAX - 1.0)*target_epsilon/2.0;
-    double randz = (2.0*(double)rand() / (double) RAND_MAX - 1.0)*target_epsilon/2.0;
+nanoflann::SearchParams search_parameters; // default parameters
 
-    target_coords(i,0) = randx;
-    if (dimension>1) target_coords(i,1) = randy;
-    if (dimension>2) target_coords(i,2) = randz;
-}
+cloud_type point_cloud = cloud_type(source_coords);
+const int maxLeaf = 10;
+tree_type *kd_tree = new tree_type(dimension, point_cloud, nanoflann::KDTreeSingleIndexAdaptorParams(maxLeaf));
+kd_tree->buildIndex();
+
+size_t neighbor_indices[max_neighbors];
+double neighbor_distances[max_neighbors];
 
 // each row of neighbor lists is a neighbor list for the target site corresponding to that row
 for (int i=0; i<number_target_coords; i++) {
 
-    // number of neighbors is random between minumum and maximum number of neighbors
-    const int num_neighbors_for_target_site_i = gen_num_neighbors(rng);
+    for (int j=0; j<max_neighbors; j++) {
+        neighbor_indices[j] = 0;
+        neighbor_distances[j] = 0;
+    }
+
+    // target_coords is LayoutLeft on device and HostMirro, so giving a pointer to this data would lead to a wrong
+    // result if the device is a GPU
+    double this_target_coord[3] = {target_coords(i,0), target_coords(i,1), target_coords(i,2)};
+    auto neighbors_found = kd_tree->knnSearch(&this_target_coord[0], max_neighbors, neighbor_indices, neighbor_distances) ;
 
     // the number of neighbors is stored in column zero of the neighbor lists 2D array
-    neighbor_lists(i,0) = num_neighbors_for_target_site_i;
+    neighbor_lists(i,0) = neighbors_found;
 
     // loop over each neighbor index and fill with a value
-    for(int j=0; j<num_neighbors_for_target_site_i; j++){
-        // uses all source sites in order, but with overlap between adjacent target sites 
-        // neighbor lists
-
-        // these rows would normally be filled by the result of a neighbor search using
-        // a kdtree
-        neighbor_lists(i,j+1) = i*max_neighbors + j;
+    for(int j=0; j<neighbors_found; j++){
+        neighbor_lists(i,j+1) = neighbor_indices[j];
     }
+
+    // add 20% to window from location where the last neighbor was found
+    // neighbor_distances stores squared distances from neighbor to target, as returned by nanoflann
+    epsilon(i) = std::sqrt(neighbor_distances[neighbors_found-1])*1.2;
+
 }
+free(kd_tree);
 
 
 //! [Setting Up The Point Cloud]
@@ -242,6 +278,12 @@ lro[4] = CurlOfVectorPointEvaluation;
 
 // and then pass them to the GMLS class
 my_GMLS.addTargets(lro);
+
+// sets the weighting kernel function from WeightingFunctionType
+my_GMLS.setWeightingType(WeightingFunctionType::Power);
+
+// power to use in that weighting kernel function
+my_GMLS.setWeightingPower(2);
 
 // generate the alphas that to be combined with data for each target operation requested in lro
 my_GMLS.generateAlphas();
@@ -374,9 +416,6 @@ for (int i=0; i<number_target_coords; i++) {
 
     double actual_Curl[3] = {0,0,0}; // initialized for 3, but only filled up to dimension 
     // (and not at all for dimimension = 1)
-    double actual_CurlX = 0;
-    double actual_CurlY = 0;
-    double actual_CurlZ = 0;
     if (dimension>1) {
         actual_Curl[0] = curlTestSolution(xval, yval, zval, 0, dimension);
         actual_Curl[1] = curlTestSolution(xval, yval, zval, 1, dimension);
@@ -392,9 +431,9 @@ for (int i=0; i<number_target_coords; i++) {
     }
 
     // check Laplacian
-    if(std::abs(actual_Laplacian - GMLS_Laplacian) > failure_tolerance) {
+    if(std::abs(actual_Laplacian - GMLS_Laplacian) > laplacian_failure_tolerance) {
         all_passed = false;
-        std::cout << i << " Failed Laplacian by: " << std::abs(actual_Laplacian - GMLS_Laplacian) << std::endl;
+        std::cout << i <<" Failed Laplacian by: " << std::abs(actual_Laplacian - GMLS_Laplacian) << std::endl;
     }
 
     // check gradient
@@ -422,14 +461,16 @@ for (int i=0; i<number_target_coords; i++) {
     }
 
     // check curl
-    double tmp_diff = 0;
-    if (dimension>1)
-        tmp_diff += std::abs(actual_Curl[0] - GMLS_CurlX) + std::abs(actual_Curl[1] - GMLS_CurlY);
-    if (dimension>2)
-        tmp_diff += std::abs(actual_Curl[2] - GMLS_CurlZ);
-    if(std::abs(tmp_diff) > failure_tolerance) {
-        all_passed = false;
-        std::cout << i << " Failed Curl by: " << std::abs(tmp_diff) << std::endl;
+    if (order > 2) { // reconstructed solution not in basis unless order greater than 2 used
+        double tmp_diff = 0;
+        if (dimension>1)
+            tmp_diff += std::abs(actual_Curl[0] - GMLS_CurlX) + std::abs(actual_Curl[1] - GMLS_CurlY);
+        if (dimension>2)
+            tmp_diff += std::abs(actual_Curl[2] - GMLS_CurlZ);
+        if(std::abs(tmp_diff) > failure_tolerance) {
+            all_passed = false;
+            std::cout << i << " Failed Curl by: " << std::abs(tmp_diff) << std::endl;
+        }
     }
 
     // ends timer

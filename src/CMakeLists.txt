@@ -11,6 +11,7 @@ set(COMPADRE_HEADERS
   Compadre_LinearAlgebra_Definitions.hpp
   Compadre_Misc.hpp
   Compadre_Operators.hpp
+  Compadre_PointCloud.hpp
   )
 
 
@@ -47,6 +48,11 @@ endif()
 
 bob_export_target(compadre)
 
+set(COMPADRE_TPL
+    tpl/nanoflann.hpp
+)
+
+install(FILES ${COMPADRE_TPL} DESTINATION include/tpl)
 
 install(FILES ${COMPADRE_HEADERS} DESTINATION include)
 

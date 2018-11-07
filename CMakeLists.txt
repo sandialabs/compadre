@@ -392,6 +392,7 @@ bob_get_semver()
 # check that either CUDA or LAPACK were turned on (needed for any computation to be performed)
 
 if (Compadre_USE_CUDA OR Compadre_USE_LAPACK)
+
   add_subdirectory(src)
   
   if(Compadre_EXAMPLES)
