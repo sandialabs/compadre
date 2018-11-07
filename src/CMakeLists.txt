@@ -11,7 +11,7 @@ set(COMPADRE_HEADERS
   Compadre_LinearAlgebra_Definitions.hpp
   Compadre_Misc.hpp
   Compadre_Operators.hpp
-  Compadre_PointCloud.hpp
+  Compadre_PointCloudSearch.hpp
   )
 
 

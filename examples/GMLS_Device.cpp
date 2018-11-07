@@ -8,8 +8,7 @@
 
 #include <Compadre_Config.h>
 #include <Compadre_GMLS.hpp>
-
-#include <Compadre_PointCloud.hpp>
+#include <Compadre_PointCloudSearch.hpp>
 
 #include "GMLS_Tutorial.hpp"
 
@@ -22,9 +21,7 @@
 
 using namespace Compadre;
 
-int main (int argc, char* args[])
-{
-
+int main (int argc, char* args[]) {
 
 //! [Parse Command Line Arguments]
 
@@ -101,7 +98,7 @@ const int max_neighbors = Compadre::GMLS::getNN(order, dimension);
 
 //! [Parse Command Line Arguments]
 Kokkos::Timer timer;
-Kokkos::Profiling::pushRegion("Setup");
+Kokkos::Profiling::pushRegion("Setup Point Data");
 //! [Setting Up The Point Cloud]
 
 // approximate spacing of source sites
@@ -129,6 +126,7 @@ Kokkos::View<double**>::HostMirror source_coords = Kokkos::create_mirror_view(so
 // coordinates of target sites
 Kokkos::View<double**, Kokkos::DefaultExecutionSpace> target_coords_device ("target coordinates", number_target_coords, 3);
 Kokkos::View<double**>::HostMirror target_coords = Kokkos::create_mirror_view(target_coords_device);
+
 
 // fill source coordinates with a uniform grid
 int source_index = 0;
@@ -180,53 +178,78 @@ for(int i=0; i<number_target_coords; i++){
 }
 
 
-// Point cloud construction for neighbor search
-typedef Compadre::PointCloud<Kokkos::View<double**>::HostMirror> cloud_type;
-typedef nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<double, cloud_type>, cloud_type, 3> tree_type;
-
-nanoflann::SearchParams search_parameters; // default parameters
-
-cloud_type point_cloud = cloud_type(source_coords);
-const int maxLeaf = 10;
-tree_type *kd_tree = new tree_type(dimension, point_cloud, nanoflann::KDTreeSingleIndexAdaptorParams(maxLeaf));
-kd_tree->buildIndex();
-
-size_t neighbor_indices[max_neighbors];
-double neighbor_distances[max_neighbors];
-
-// each row of neighbor lists is a neighbor list for the target site corresponding to that row
-for (int i=0; i<number_target_coords; i++) {
-
-    for (int j=0; j<max_neighbors; j++) {
-        neighbor_indices[j] = 0;
-        neighbor_distances[j] = 0;
-    }
-
-    // target_coords is LayoutLeft on device and HostMirro, so giving a pointer to this data would lead to a wrong
-    // result if the device is a GPU
-    double this_target_coord[3] = {target_coords(i,0), target_coords(i,1), target_coords(i,2)};
-    auto neighbors_found = kd_tree->knnSearch(&this_target_coord[0], max_neighbors, neighbor_indices, neighbor_distances) ;
-
-    // the number of neighbors is stored in column zero of the neighbor lists 2D array
-    neighbor_lists(i,0) = neighbors_found;
-
-    // loop over each neighbor index and fill with a value
-    for(int j=0; j<neighbors_found; j++){
-        neighbor_lists(i,j+1) = neighbor_indices[j];
-    }
-
-    // add 20% to window from location where the last neighbor was found
-    // neighbor_distances stores squared distances from neighbor to target, as returned by nanoflann
-    epsilon(i) = std::sqrt(neighbor_distances[neighbors_found-1])*1.2;
-
-}
-free(kd_tree);
-
-
 //! [Setting Up The Point Cloud]
 
+Kokkos::Profiling::popRegion();
+Kokkos::Profiling::pushRegion("Creating Data");
+
+//! [Creating The Data]
+
+
+// source coordinates need copied to device before using to construct sampling data
+Kokkos::deep_copy(source_coords_device, source_coords);
+
+// target coordinates copied next, because it is a convenient time to send them to device
+Kokkos::deep_copy(target_coords_device, target_coords);
+
+// need Kokkos View storing true solution
+Kokkos::View<double*, Kokkos::DefaultExecutionSpace> sampling_data_device("samples of true solution", 
+        source_coords_device.dimension_0());
+
+Kokkos::View<double**, Kokkos::DefaultExecutionSpace> gradient_sampling_data_device("samples of true gradient", 
+        source_coords_device.dimension_0(), dimension);
+
+Kokkos::View<double**, Kokkos::DefaultExecutionSpace> divergence_sampling_data_device
+        ("samples of true solution for divergence test", source_coords_device.dimension_0(), dimension);
+
+Kokkos::parallel_for("Sampling Manufactured Solutions", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>
+        (0,source_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
+
+    // coordinates of source site i
+    double xval = source_coords_device(i,0);
+    double yval = (dimension>1) ? source_coords_device(i,1) : 0;
+    double zval = (dimension>2) ? source_coords_device(i,2) : 0;
+
+    // data for targets with scalar input
+    sampling_data_device(i) = trueSolution(xval, yval, zval, order, dimension);
+
+    // data for targets with vector input (divergence)
+    double true_grad[3] = {0,0,0};
+    trueGradient(true_grad, xval, yval,zval, order, dimension);
+
+    for (int j=0; j<dimension; ++j) {
+        gradient_sampling_data_device(i,j) = true_grad[j];
+
+        // data for target with vector input (curl)
+        divergence_sampling_data_device(i,j) = divergenceTestSamples(xval, yval, zval, j, dimension);
+    }
+
+});
+
+
+//! [Creating The Data]
 
 Kokkos::Profiling::popRegion();
+Kokkos::Profiling::pushRegion("Neighbor Search");
+
+//! [Performing Neighbor Search]
+
+
+// Point cloud construction for neighbor search
+// CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
+auto point_cloud_search(CreatePointCloudSearch(source_coords, target_coords));
+
+// query the point cloud to generate the neighbor lists using a kdtree to produce the n nearest neighbor
+// to each target site, adding 20% to whatever the distance away the further neighbor used is from
+// each target to the view for epsilon
+point_cloud_search.generateNeighborListsFromKNNSearch(neighbor_lists, epsilon, max_neighbors, dimension, 
+        1.2 /* epsilon multiplier */);
+
+
+//! [Performing Neighbor Search]
+
+Kokkos::Profiling::popRegion();
+Kokkos::fence(); // let call to build neighbor lists complete before copying back to device
 timer.reset();
 
 //! [Setting Up The GMLS Object]
@@ -237,8 +260,6 @@ timer.reset();
 // and used these instead, and then the copying of data to the device
 // would be performed in the GMLS class
 Kokkos::deep_copy(neighbor_lists_device, neighbor_lists);
-Kokkos::deep_copy(source_coords_device, source_coords);
-Kokkos::deep_copy(target_coords_device, target_coords);
 Kokkos::deep_copy(epsilon_device, epsilon);
 
 // solver name for passing into the GMLS class
@@ -292,52 +313,10 @@ my_GMLS.generateAlphas();
 //! [Setting Up The GMLS Object]
 
 double instantiation_time = timer.seconds();
-std::cout << "Took " << instantiation_time << "s to complete instantiation." << std::endl;
-
-Kokkos::Profiling::pushRegion("Creating Data");
-
-//! [Creating The Data]
-
-
-// need Kokkos View storing true solution
-Kokkos::View<double*, Kokkos::DefaultExecutionSpace> sampling_data_device("samples of true solution", 
-        source_coords_device.dimension_0());
-
-Kokkos::View<double**, Kokkos::DefaultExecutionSpace> gradient_sampling_data_device("samples of true gradient", 
-        source_coords_device.dimension_0(), dimension);
-
-Kokkos::View<double**, Kokkos::DefaultExecutionSpace> divergence_sampling_data_device
-        ("samples of true solution for divergence test", source_coords_device.dimension_0(), dimension);
-
-Kokkos::parallel_for("Sampling Manufactured Solutions", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>
-        (0,source_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
-
-    // coordinates of source site i
-    double xval = source_coords_device(i,0);
-    double yval = (dimension>1) ? source_coords_device(i,1) : 0;
-    double zval = (dimension>2) ? source_coords_device(i,2) : 0;
-
-    // data for targets with scalar input
-    sampling_data_device(i) = trueSolution(xval, yval, zval, order, dimension);
-
-    // data for targets with vector input (divergence)
-    double true_grad[3] = {0,0,0};
-    trueGradient(true_grad, xval, yval,zval, order, dimension);
-
-    for (int j=0; j<dimension; ++j) {
-        gradient_sampling_data_device(i,j) = true_grad[j];
-
-        // data for target with vector input (curl)
-        divergence_sampling_data_device(i,j) = divergenceTestSamples(xval, yval, zval, j, dimension);
-    }
-
-});
-
-
-//! [Creating The Data]
-Kokkos::fence();
-Kokkos::Profiling::popRegion();
+std::cout << "Took " << instantiation_time << "s to complete alphas generation." << std::endl;
+Kokkos::fence(); // let generateAlphas finish up before using alphas
 Kokkos::Profiling::pushRegion("Apply Alphas to Data");
+
 //! [Apply GMLS Alphas To Data]
 
 
@@ -365,6 +344,7 @@ auto output_curl = my_GMLS.applyAlphasToDataAllComponentsAllTargetSites<double**
 
 //! [Apply GMLS Alphas To Data]
 
+Kokkos::fence(); // let application of alphas to data finish before using results
 Kokkos::Profiling::popRegion();
 
 //! [Check That Solution Is Correct]
@@ -496,4 +476,4 @@ if(all_passed) {
 }
 
 //! [Check That Solution Is Correct]
-};
+}

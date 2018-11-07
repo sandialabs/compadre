@@ -216,6 +216,9 @@ int main (int argc, char* args[]);
  * \section ex1b Setting Up The Point Cloud
  * \snippet GMLS_Device.cpp Setting Up The Point Cloud
  *
+ * \section ex1c Performing Neighbor Search
+ * \snippet GMLS_Device.cpp Performing Neighbor Search
+ *
  * \section ex2 Creating The Data
  * \snippet GMLS_Device.cpp Creating The Data
  *
