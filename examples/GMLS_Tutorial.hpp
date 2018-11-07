@@ -228,9 +228,11 @@ int main (int argc, char* args[]);
  * \section ex4 Apply GMLS Alphas To Data
  * \snippet GMLS_Device.cpp Apply GMLS Alphas To Data
  *
- * \section ex5 Check That Solution Is Correct
- * \snippet GMLS_Device.cpp Check That Solution Is Correct
+ * \section ex5 Check That Solutions Are Correct
+ * \snippet GMLS_Device.cpp Check That Solutions Are Correct
  *
+ * \section ex6 Finalize Program
+ * \snippet GMLS_Device.cpp Finalize Program
  */ 
 
 #endif
