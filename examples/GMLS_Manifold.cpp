@@ -274,7 +274,7 @@ Kokkos::initialize(argc, args);
     solver_name = "MANIFOLD";
     
     // initialize an instance of the GMLS class 
-    GMLS my_GMLS(order, solver_name.c_str(), order-1 /*manifold order*/, dimension);
+    GMLS my_GMLS(order, solver_name.c_str(), order /*manifold order*/, dimension);
     
     // pass in neighbor lists, source coordinates, target coordinates, and window sizes
     //
@@ -293,9 +293,10 @@ Kokkos::initialize(argc, args);
     my_GMLS.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
     
     // create a vector of target operations
-    std::vector<TargetOperation> lro(2);
+    std::vector<TargetOperation> lro(3);
     lro[0] = ScalarPointEvaluation;
     lro[1] = LaplacianOfScalarPointEvaluation;
+    lro[2] = GradientOfScalarPointEvaluation;
 
     // and then pass them to the GMLS class
     my_GMLS.addTargets(lro);
@@ -337,6 +338,9 @@ Kokkos::initialize(argc, args);
     
     auto output_laplacian = my_GMLS.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
             (sampling_data_device, LaplacianOfScalarPointEvaluation);
+
+    auto output_gradient = my_GMLS.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+            (sampling_data_device, GradientOfScalarPointEvaluation);
     
 
     //! [Apply GMLS Alphas To Data]
@@ -352,6 +356,8 @@ Kokkos::initialize(argc, args);
     double values_norm = 0;
     double laplacian_error = 0;
     double laplacian_norm = 0;
+    double gradient_ambient_error = 0;
+    double gradient_ambient_norm = 0;
     
     // loop through the target sites
     for (int i=0; i<number_target_coords; i++) {
@@ -370,14 +376,20 @@ Kokkos::initialize(argc, args);
         // evaluation of various exact solutions
         double actual_value = sphere_harmonic54(xval, yval, zval);
         double actual_Laplacian = laplace_beltrami_sphere_harmonic54(xval, yval, zval);
+        double actual_Gradient_ambient[3] = {0,0,0}; // initialized for 3, but only filled up to dimension
+        gradient_sphereHarmonic54_ambient(actual_Gradient_ambient, xval, yval, zval);
 
         values_error += (GMLS_value - actual_value)*(GMLS_value - actual_value);
         values_norm  += actual_value*actual_value;
     
         laplacian_error += (GMLS_Laplacian - actual_Laplacian)*(GMLS_Laplacian - actual_Laplacian);
         laplacian_norm += actual_Laplacian*actual_Laplacian;
-//        double actual_Gradient[3] = {0,0,0}; // initialized for 3, but only filled up to dimension
-//        trueGradient(actual_Gradient, xval, yval, zval, order, dimension);
+
+        for (int j=0; j<dimension; ++j) {
+            gradient_ambient_error += (output_gradient(i,j) - actual_Gradient_ambient[j])*(output_gradient(i,j) - actual_Gradient_ambient[j]);
+            gradient_ambient_norm += actual_Gradient_ambient[j]*actual_Gradient_ambient[j];
+        }
+
 //    
         // check actual function value
         //if(GMLS_value!=GMLS_value || std::abs(actual_value - GMLS_value) > failure_tolerance) {
@@ -397,13 +409,20 @@ Kokkos::initialize(argc, args);
     values_error = std::sqrt(values_error);
     values_norm /= number_target_coords;
     values_norm = std::sqrt(values_norm);
+
     laplacian_error /= number_target_coords;
-    laplacian_error = std::sqrt(values_error);
+    laplacian_error = std::sqrt(laplacian_error);
     laplacian_norm /= number_target_coords;
-    laplacian_norm = std::sqrt(values_norm);
+    laplacian_norm = std::sqrt(laplacian_norm);
+
+    gradient_ambient_error /= number_target_coords;
+    gradient_ambient_error = std::sqrt(gradient_ambient_error);
+    gradient_ambient_norm /= number_target_coords;
+    gradient_ambient_norm = std::sqrt(gradient_ambient_norm);
    
-    printf("Actual Error: %g", values_error / values_norm);  
-    printf("Laplacian Error: %g", laplacian_error / laplacian_norm);  
+    printf("Point Value Error: %g\n", values_error / values_norm);  
+    printf("Laplace-Beltrami Error: %g\n", laplacian_error / laplacian_norm);  
+    printf("Surface Gradient (Ambient) Error: %g\n", gradient_ambient_error / gradient_ambient_norm);  
     //! [Check That Solutions Are Correct] 
     // popRegion hidden from tutorial
     // stop timing comparison loop

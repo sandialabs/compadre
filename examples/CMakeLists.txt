@@ -51,9 +51,14 @@ if (Compadre_EXAMPLES)
     ADD_TEST(NAME GMLS_Device_Dim1_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "4" "200" "1" "1" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_Device_Dim1_QR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
 
-    # Manifold tests for GMLS
-    ADD_TEST(NAME GMLS_Manifold_Dim3 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Test "4" "200" "3" "1" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_Manifold_Dim3 PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    #    # Manifold tests for GMLS
+    #    ADD_TEST(NAME GMLS_Manifold_Dim3 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Test "4" "200" "3" "1" "--kokkos-threads=2")
+    #    SET_TESTS_PROPERTIES(GMLS_Manifold_Dim3 PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+
+    # Python driven test of a C++ executable (Python changes command line arguments given to executable)
+    CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Manifold.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" @ONLY)
+    ADD_TEST(NAME GMLS_Manifold_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" "3" "4")
+    SET_TESTS_PROPERTIES(GMLS_Manifold_Refinement_Study PROPERTIES LABELS "ConvergenceTest;convergence;manifold" TIMEOUT 10)
 
     # WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH} )
     if (Compadre_USE_PYTHON)
