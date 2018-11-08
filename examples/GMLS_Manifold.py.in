@@ -50,7 +50,7 @@ for grid_num in range(grids):
 print errors
 
 for key, operator in enumerate(target_operators):
-    print "\n\n%s rates: porder:%s\n============="%(operator, porder)
+    print "\n\n%s rates: porder:%s\n============="%(operator.replace('\\',''), porder)
     for i in range(1,len(errors[key])):
         if (errors[key][i]!=0):
             rate = math.log(errors[key][i]/errors[key][i-1])/math.log(.5)

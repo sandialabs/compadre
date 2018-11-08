@@ -63,13 +63,13 @@ double legendre54(double z) {
 KOKKOS_INLINE_FUNCTION
 double sphere_harmonic54(double x, double y, double z) {
     const double lon = longitude(x, y, z);
-    return 30.0 * std::cos(4.0 * lon) * legendre54(z);
+    return std::cos(4.0 * lon) * legendre54(z);
 }
 
 KOKKOS_INLINE_FUNCTION
 double laplace_beltrami_sphere_harmonic54(double x, double y, double z) {
     const double lon = longitude(x, y, z);
-    return -900.0 * std::cos(4.0 * lon) * legendre54(z);
+    return -30 * std::cos(4.0 * lon) * legendre54(z);
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -96,6 +96,20 @@ void gradient_sphereHarmonic54_ambient(double *gradient, double x, double y, dou
     gradient[1] = A * std::cos(lon) - B * std::sin(lat) * std::sin(lon);
     gradient[2] = B * std::cos(lat);
 }
+
+KOKKOS_INLINE_FUNCTION
+void velocity_sphereHarmonic54_ambient(double *velocity, double x, double y, double z) {
+    const double lat = latitude(x, y, z); // phi
+    const double lon = longitude(x, y, z); // lambda
+
+    const double U = 0.5* std::cos(4.0 * lon) * std::pow(std::cos(lat),3) * ( 5 * std::cos(2.0 * lat) - 3.0 );
+    const double V = 4.0 * std::pow(std::cos(lat),3) * std::sin(4.0 * lon) * std::sin(lat);
+
+    velocity[0] = -U * std::sin(lon) - V * std::sin(lat) * std::cos(lon);
+    velocity[1] = U * std::cos(lon) - V * std::sin(lat) * std::sin(lon);
+    velocity[2] = V * std::cos(lat);
+}
+
 
 
 /** Manifold GMLS Example 

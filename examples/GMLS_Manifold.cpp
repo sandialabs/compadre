@@ -124,7 +124,7 @@ Kokkos::initialize(argc, args);
         double d_phi = a/d_theta;
         for (int i=0; i<M_theta; ++i) {
             double theta = PI*(i + 0.5)/M_theta;
-            int M_phi = std::round(2*PI*std::sin(theta)/d_theta);
+            int M_phi = std::round(2*PI*std::sin(theta)/d_phi);
             for (int j=0; j<M_phi; ++j) {
                 double phi = 2*PI*j/M_phi;
                 source_coords(N_count, 0) = theta;
@@ -176,7 +176,7 @@ Kokkos::initialize(argc, args);
         double d_phi = a/d_theta;
         for (int i=0; i<M_theta; ++i) {
             double theta = PI*(i + 0.5)/M_theta;
-            int M_phi = std::round(2*PI*std::sin(theta)/d_theta);
+            int M_phi = std::round(2*PI*std::sin(theta)/d_phi);
             for (int j=0; j<M_phi; ++j) {
                 double phi = 2*PI*j/M_phi;
                 target_coords(N_count, 0) = theta;
@@ -342,6 +342,32 @@ Kokkos::initialize(argc, args);
     auto output_gradient = my_GMLS.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
             (sampling_data_device, GradientOfScalarPointEvaluation);
     
+    Kokkos::fence(); // let application of alphas to data finish before using results
+
+    // move gradient data to device so that it can be transformed into velocity
+    auto output_gradient_device_mirror = Kokkos::create_mirror(Kokkos::DefaultExecutionSpace::memory_space(), output_gradient);
+    Kokkos::deep_copy(output_gradient_device_mirror, output_gradient);
+    Kokkos::parallel_for("Create Velocity From Surface Gradient", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>
+            (0,target_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
+    
+        // coordinates of target site i
+        double xval = target_coords_device(i,0);
+        double yval = (dimension>1) ? target_coords_device(i,1) : 0;
+        double zval = (dimension>2) ? target_coords_device(i,2) : 0;
+
+		double gradx = output_gradient_device_mirror(i,0);
+		double grady = output_gradient_device_mirror(i,1);
+		double gradz = output_gradient_device_mirror(i,2);
+    
+		// overwrites gradient with velocity
+        output_gradient_device_mirror(i,0) = (grady*zval - yval*gradz);
+        output_gradient_device_mirror(i,1) = (-(gradx*zval - xval*gradz));
+        output_gradient_device_mirror(i,2) = (gradx*yval - xval*grady);
+    
+    });
+    Kokkos::deep_copy(output_gradient, output_gradient_device_mirror);
+
+
 
     //! [Apply GMLS Alphas To Data]
     
@@ -377,7 +403,8 @@ Kokkos::initialize(argc, args);
         double actual_value = sphere_harmonic54(xval, yval, zval);
         double actual_Laplacian = laplace_beltrami_sphere_harmonic54(xval, yval, zval);
         double actual_Gradient_ambient[3] = {0,0,0}; // initialized for 3, but only filled up to dimension
-        gradient_sphereHarmonic54_ambient(actual_Gradient_ambient, xval, yval, zval);
+        ///gradient_sphereHarmonic54_ambient(actual_Gradient_ambient, xval, yval, zval);
+        velocity_sphereHarmonic54_ambient(actual_Gradient_ambient, xval, yval, zval);
 
         values_error += (GMLS_value - actual_value)*(GMLS_value - actual_value);
         values_norm  += actual_value*actual_value;
