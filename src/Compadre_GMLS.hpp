@@ -1272,8 +1272,13 @@ public:
             _dense_solver_type = DenseSolverType::SVD;
         } else if (solver_type_to_lower == "manifold") {
             _dense_solver_type = DenseSolverType::MANIFOLD;
-            _curvature_support_operations = Kokkos::View<TargetOperation*>("operations needed for manifold gradient reconstruction", 1);
-            _curvature_support_operations[0] = TargetOperation::GradientOfScalarPointEvaluation;
+            _curvature_support_operations = Kokkos::View<TargetOperation*>
+                ("operations needed for manifold gradient reconstruction", 1);
+            auto curvature_support_operations_mirror = 
+                Kokkos::create_mirror(_curvature_support_operations);
+            curvature_support_operations_mirror(0) = 
+                TargetOperation::GradientOfScalarPointEvaluation;
+            Kokkos::deep_copy(_curvature_support_operations, curvature_support_operations_mirror);
         } else {
             _dense_solver_type = DenseSolverType::QR;
         }
