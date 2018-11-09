@@ -344,28 +344,28 @@ Kokkos::initialize(argc, args);
     
     Kokkos::fence(); // let application of alphas to data finish before using results
 
-    // move gradient data to device so that it can be transformed into velocity
-    auto output_gradient_device_mirror = Kokkos::create_mirror(Kokkos::DefaultExecutionSpace::memory_space(), output_gradient);
-    Kokkos::deep_copy(output_gradient_device_mirror, output_gradient);
-    Kokkos::parallel_for("Create Velocity From Surface Gradient", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>
-            (0,target_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
-    
-        // coordinates of target site i
-        double xval = target_coords_device(i,0);
-        double yval = (dimension>1) ? target_coords_device(i,1) : 0;
-        double zval = (dimension>2) ? target_coords_device(i,2) : 0;
+    //// move gradient data to device so that it can be transformed into velocity
+    //auto output_gradient_device_mirror = Kokkos::create_mirror(Kokkos::DefaultExecutionSpace::memory_space(), output_gradient);
+    //Kokkos::deep_copy(output_gradient_device_mirror, output_gradient);
+    //Kokkos::parallel_for("Create Velocity From Surface Gradient", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>
+    //        (0,target_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
+    //
+    //    // coordinates of target site i
+    //    double xval = target_coords_device(i,0);
+    //    double yval = (dimension>1) ? target_coords_device(i,1) : 0;
+    //    double zval = (dimension>2) ? target_coords_device(i,2) : 0;
 
-		double gradx = output_gradient_device_mirror(i,0);
-		double grady = output_gradient_device_mirror(i,1);
-		double gradz = output_gradient_device_mirror(i,2);
-    
-		// overwrites gradient with velocity
-        output_gradient_device_mirror(i,0) = (grady*zval - yval*gradz);
-        output_gradient_device_mirror(i,1) = (-(gradx*zval - xval*gradz));
-        output_gradient_device_mirror(i,2) = (gradx*yval - xval*grady);
-    
-    });
-    Kokkos::deep_copy(output_gradient, output_gradient_device_mirror);
+	//	double gradx = output_gradient_device_mirror(i,0);
+	//	double grady = output_gradient_device_mirror(i,1);
+	//	double gradz = output_gradient_device_mirror(i,2);
+    //
+	//	// overwrites gradient with velocity
+    //    output_gradient_device_mirror(i,0) = (grady*zval - yval*gradz);
+    //    output_gradient_device_mirror(i,1) = (-(gradx*zval - xval*gradz));
+    //    output_gradient_device_mirror(i,2) = (gradx*yval - xval*grady);
+    //
+    //});
+    //Kokkos::deep_copy(output_gradient, output_gradient_device_mirror);
 
 
 
@@ -403,8 +403,8 @@ Kokkos::initialize(argc, args);
         double actual_value = sphere_harmonic54(xval, yval, zval);
         double actual_Laplacian = laplace_beltrami_sphere_harmonic54(xval, yval, zval);
         double actual_Gradient_ambient[3] = {0,0,0}; // initialized for 3, but only filled up to dimension
-        ///gradient_sphereHarmonic54_ambient(actual_Gradient_ambient, xval, yval, zval);
-        velocity_sphereHarmonic54_ambient(actual_Gradient_ambient, xval, yval, zval);
+        gradient_sphereHarmonic54_ambient(actual_Gradient_ambient, xval, yval, zval);
+        //velocity_sphereHarmonic54_ambient(actual_Gradient_ambient, xval, yval, zval);
 
         values_error += (GMLS_value - actual_value)*(GMLS_value - actual_value);
         values_norm  += actual_value*actual_value;
