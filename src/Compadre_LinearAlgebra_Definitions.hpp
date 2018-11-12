@@ -110,23 +110,23 @@ void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, 
 		if (dimensions==2) {
 
 			for (int i=0; i<2; ++i) {
-				V(i,0) = v[i];
+				V(0,i) = v[i];
 			}
 
 			// orthonormalize second eigenvector against first
-			V(0,1) = 1.0; V(1,1) = 1.0;
-			dot_product = V(0,0)*V(0,1) + V(1,0)*V(1,1);
-			V(0,1) -= dot_product*V(0,0);
-			V(1,1) -= dot_product*V(1,0);
+			V(1,0) = 1.0; V(1,1) = 1.0;
+			dot_product = V(0,0)*V(1,0) + V(0,1)*V(1,1);
+			V(1,0) -= dot_product*V(0,0);
+			V(1,1) -= dot_product*V(0,1);
 
-			norm = std::sqrt(V(0,1)*V(0,1) + V(1,1)*V(1,1));
-			V(0,1) /= norm;
+			norm = std::sqrt(V(1,0)*V(1,0) + V(1,1)*V(1,1));
+			V(1,0) /= norm;
 			V(1,1) /= norm;
 
 		} else { // otherwise, work on second eigenvalue
 
 			for (int i=0; i<3; ++i) {
-				V(i,0) = v[i];
+				V(0,i) = v[i];
 				for (int j=0; j<3; ++j) {
 					PtP(i,j) -= norm_v*v[i]*v[j];
 				}
@@ -159,41 +159,41 @@ void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, 
 			}
 
 			for (int i=0; i<3; ++i) {
-				V(i,1) = v[i];
+				V(1,i) = v[i];
 			}
 
 			// orthonormalize second eigenvector against first
-			dot_product = V(0,0)*V(0,1) + V(1,0)*V(1,1) + V(2,0)*V(2,1);
+			dot_product = V(0,0)*V(1,0) + V(0,1)*V(1,1) + V(0,2)*V(1,2);
 
-			V(0,1) -= dot_product*V(0,0);
-			V(1,1) -= dot_product*V(1,0);
-			V(2,1) -= dot_product*V(2,0);
+			V(1,0) -= dot_product*V(0,0);
+			V(1,1) -= dot_product*V(0,1);
+			V(1,2) -= dot_product*V(0,2);
 
-			norm = std::sqrt(V(0,1)*V(0,1) + V(1,1)*V(1,1) + V(2,1)*V(2,1));
-			V(0,1) /= norm;
+			norm = std::sqrt(V(1,0)*V(1,0) + V(1,1)*V(1,1) + V(1,2)*V(1,2));
+			V(1,0) /= norm;
 			V(1,1) /= norm;
-			V(2,1) /= norm;
+			V(1,2) /= norm;
 
 			// orthonormalize third eigenvector against first and second
-			V(0,2) = 1.0; V(1,2) = 1.0; V(2,2) = 1.0;
-			dot_product = V(0,0)*V(0,2) + V(1,0)*V(1,2) + V(2,0)*V(2,2);
-			V(0,2) -= dot_product*V(0,0);
-			V(1,2) -= dot_product*V(1,0);
-			V(2,2) -= dot_product*V(2,0);
+			V(2,0) = 1.0; V(2,1) = 1.0; V(2,2) = 1.0;
+			dot_product = V(0,0)*V(2,0) + V(0,1)*V(2,1) + V(0,2)*V(2,2);
+			V(2,0) -= dot_product*V(0,0);
+			V(2,1) -= dot_product*V(0,1);
+			V(2,2) -= dot_product*V(0,2);
 
-			norm = std::sqrt(V(0,2)*V(0,2) + V(1,2)*V(1,2) + V(2,2)*V(2,2));
-			V(0,2) /= norm;
-			V(1,2) /= norm;
+			norm = std::sqrt(V(2,0)*V(2,0) + V(2,1)*V(2,1) + V(2,2)*V(2,2));
+			V(2,0) /= norm;
+			V(2,1) /= norm;
 			V(2,2) /= norm;
 
-			dot_product = V(0,1)*V(0,2) + V(1,1)*V(1,2) + V(2,1)*V(2,2);
-			V(0,2) -= dot_product*V(0,1);
-			V(1,2) -= dot_product*V(1,1);
-			V(2,2) -= dot_product*V(2,1);
+			dot_product = V(1,0)*V(2,0) + V(1,1)*V(2,1) + V(1,2)*V(2,2);
+			V(2,0) -= dot_product*V(1,0);
+			V(2,1) -= dot_product*V(1,1);
+			V(2,2) -= dot_product*V(1,2);
 
-			norm = std::sqrt(V(0,2)*V(0,2) + V(1,2)*V(1,2) + V(2,2)*V(2,2));
-			V(0,2) /= norm;
-			V(1,2) /= norm;
+			norm = std::sqrt(V(2,0)*V(2,0) + V(2,1)*V(2,1) + V(2,2)*V(2,2));
+			V(2,0) /= norm;
+			V(2,1) /= norm;
 			V(2,2) /= norm;
 
 		}

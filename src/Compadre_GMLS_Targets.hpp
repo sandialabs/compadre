@@ -582,13 +582,13 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                             double t2b = G_inv(1,1);
                             double t3b = G_inv(0,1)*curvature_gradients(0) + G_inv(1,1)*curvature_gradients(1);
 
-                            double v1c = V(0,0)*t1a + V(0,1)*t2a + V(0,2)*t3a;
-                            double v2c = V(1,0)*t1a + V(1,1)*t2a + V(1,2)*t3a;
-                            double v3c = V(2,0)*t1a + V(2,1)*t2a + V(2,2)*t3a;
+                            double v1c = V(0,0)*t1a + V(1,0)*t2a + V(2,0)*t3a;
+                            double v2c = V(0,1)*t1a + V(1,1)*t2a + V(2,1)*t3a;
+                            double v3c = V(0,2)*t1a + V(1,2)*t2a + V(2,2)*t3a;
 
-                            double v1d = V(0,0)*t1b + V(0,1)*t2b + V(0,2)*t3b;
-                            double v2d = V(1,0)*t1b + V(1,1)*t2b + V(1,2)*t3b;
-                            double v3d = V(2,0)*t1b + V(2,1)*t2b + V(2,2)*t3b;
+                            double v1d = V(0,0)*t1b + V(1,0)*t2b + V(2,0)*t3b;
+                            double v2d = V(0,1)*t1b + V(1,1)*t2b + V(2,1)*t3b;
+                            double v3d = V(0,2)*t1b + V(1,2)*t2b + V(2,2)*t3b;
 
                             offset = (_lro_total_offsets[i]+0)*_basis_multiplier*target_NP;
                             P_target_row(offset + j, basis_multiplier_component) = v1c*t1(j);
@@ -628,8 +628,8 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                             P_target_row(offset + j, basis_multiplier_component) = 0;
                         }
                         if (_poly_order > 0 && _curvature_poly_order > 0) {
-                            P_target_row(offset + 1, basis_multiplier_component) = t1a*V(0,0) + t2a*V(0,1) + t3a*V(0,2);
-                            P_target_row(offset + 2, basis_multiplier_component) = t1b*V(0,0) + t2b*V(0,1) + t3b*V(0,2);
+                            P_target_row(offset + 1, basis_multiplier_component) = t1a*V(0,0) + t2a*V(1,0) + t3a*V(2,0);
+                            P_target_row(offset + 2, basis_multiplier_component) = t1b*V(0,0) + t2b*V(1,0) + t3b*V(2,0);
                         }
 
                         offset = (_lro_total_offsets[i]+1)*target_NP;
@@ -637,8 +637,8 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                             P_target_row(offset + j, basis_multiplier_component) = 0;
                         }
                         if (_poly_order > 0 && _curvature_poly_order > 0) {
-                            P_target_row(offset + 1, basis_multiplier_component) = t1a*V(1,0) + t2a*V(1,1) + t3a*V(1,2);
-                            P_target_row(offset + 2, basis_multiplier_component) = t1b*V(1,0) + t2b*V(1,1) + t3b*V(1,2);
+                            P_target_row(offset + 1, basis_multiplier_component) = t1a*V(0,1) + t2a*V(1,1) + t3a*V(2,1);
+                            P_target_row(offset + 2, basis_multiplier_component) = t1b*V(0,1) + t2b*V(1,1) + t3b*V(2,1);
                         }
 
                         offset = (_lro_total_offsets[i]+2)*target_NP;
@@ -646,8 +646,8 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                             P_target_row(offset + j, basis_multiplier_component) = 0;
                         }
                         if (_poly_order > 0 && _curvature_poly_order > 0) {
-                            P_target_row(offset + 1, basis_multiplier_component) = t1a*V(2,0) + t2a*V(2,1) + t3a*V(2,2);
-                            P_target_row(offset + 2, basis_multiplier_component) = t1b*V(2,0) + t2b*V(2,1) + t3b*V(2,2);
+                            P_target_row(offset + 1, basis_multiplier_component) = t1a*V(0,2) + t2a*V(1,2) + t3a*V(2,2);
+                            P_target_row(offset + 2, basis_multiplier_component) = t1b*V(0,2) + t2b*V(1,2) + t3b*V(2,2);
                         }
 
                     });
@@ -668,7 +668,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         double t2 = v1*0 + v2*1;
                         double t3 = v1*curvature_gradients(0) + v2*curvature_gradients(1);
 
-                        P_target_row(offset + j, basis_multiplier_component) = t1*V(0,0) + t2*V(0,1) + t3*V(0,2);
+                        P_target_row(offset + j, basis_multiplier_component) = t1*V(0,0) + t2*V(1,0) + t3*V(2,0);
                     }
                 });
             } else if (_operations(i) == TargetOperation::PartialYOfScalarPointEvaluation) {
@@ -688,7 +688,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         double t2 = v1*0 + v2*1;
                         double t3 = v1*curvature_gradients(0) + v2*curvature_gradients(1);
 
-                        P_target_row(offset + j, basis_multiplier_component) = t1*V(1,0) + t2*V(1,1) + t3*V(1,2);
+                        P_target_row(offset + j, basis_multiplier_component) = t1*V(0,1) + t2*V(1,1) + t3*V(2,1);
                     }
                 });
             } else if (_operations(i) == TargetOperation::PartialZOfScalarPointEvaluation) {
@@ -708,7 +708,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         double t2 = v1*0 + v2*1;
                         double t3 = v1*curvature_gradients(0) + v2*curvature_gradients(1);
 
-                        P_target_row(offset + j, basis_multiplier_component) = t1*V(2,0) + t2*V(2,1) + t3*V(2,2);
+                        P_target_row(offset + j, basis_multiplier_component) = t1*V(0,2) + t2*V(1,2) + t3*V(2,2);
                     }
                 });
             } else if (_operations(i) == TargetOperation::DivergenceOfVectorPointEvaluation) {
@@ -868,7 +868,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         double t1 = v1*1;
                         double t2 = v1*curvature_gradients(0);
 
-                        P_target_row(offset + j, basis_multiplier_component) = t1*V(0,0) + t2*V(0,1);
+                        P_target_row(offset + j, basis_multiplier_component) = t1*V(0,0) + t2*V(1,0);
                     }
 
                     offset = (_lro_total_offsets[i]+1)*target_NP;
@@ -883,7 +883,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         double t1 = v1*1;
                         double t2 = v1*curvature_gradients(0);
 
-                        P_target_row(offset + j, basis_multiplier_component) = t1*V(1,0) + t2*V(1,1);
+                        P_target_row(offset + j, basis_multiplier_component) = t1*V(0,1) + t2*V(1,1);
                     }
                 });
             } else if (_operations(i) == TargetOperation::PartialXOfScalarPointEvaluation) {
@@ -899,7 +899,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         double t1 = v1*1;
                         double t2 = v1*curvature_gradients(0);
 
-                        P_target_row(offset + j, basis_multiplier_component) = t1*V(0,0) + t2*V(0,1);
+                        P_target_row(offset + j, basis_multiplier_component) = t1*V(0,0) + t2*V(1,0);
                     }
                 });
             } else if (_operations(i) == TargetOperation::PartialYOfScalarPointEvaluation) {
@@ -916,7 +916,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         double t1 = v1*1;
                         double t2 = v1*curvature_gradients(0);
 
-                        P_target_row(offset + j, basis_multiplier_component) = t1*V(1,0) + t2*V(1,1);
+                        P_target_row(offset + j, basis_multiplier_component) = t1*V(0,1) + t2*V(1,1);
                     }
                 });
             } else {

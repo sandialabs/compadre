@@ -505,9 +505,9 @@ protected:
     double convertGlobalToLocalCoordinate(const XYZ global_coord, const int dim, const scratch_matrix_type* V) const {
         // only written for 2d manifold in 3d space
         double val = 0;
-        val += global_coord.x * (*V)(0, dim);
-        val += global_coord.y * (*V)(1, dim); // can't be called from dimension 1 problem
-        if (_dimensions>2) val += global_coord.z * (*V)(2, dim);
+        val += global_coord.x * (*V)(dim, 0);
+        val += global_coord.y * (*V)(dim, 1); // can't be called from dimension 1 problem
+        if (_dimensions>2) val += global_coord.z * (*V)(dim, 2);
         return val;
     }
 
@@ -517,11 +517,11 @@ protected:
         // only written for 2d manifold in 3d space
         double val;
         if (dim == 0 && _dimensions==2) { // 2D problem with 1D manifold
-            val = local_coord.x * (*V)(dim, 0);
+            val = local_coord.x * (*V)(0, dim);
         } else if (dim == 0) { // 3D problem with 2D manifold
-            val = local_coord.x * ((*V)(dim, 0) + (*V)(dim, 1));
+            val = local_coord.x * ((*V)(0, dim) + (*V)(1, dim));
         } else if (dim == 1) { // 3D problem with 2D manifold
-            val = local_coord.y * ((*V)(dim, 0) + (*V)(dim, 1));
+            val = local_coord.y * ((*V)(0, dim) + (*V)(1, dim));
         }
         return val;
     }

@@ -545,8 +545,8 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
         for (int i=0; i<_dimensions-1; ++i) {
             // build
             for (int j=0; j<_dimensions; ++j) {
-                T(i,j) = manifold_gradient_coeffs(i)*V(j,_dimensions-1);
-                T(i,j) += V(j,i);
+                T(i,j) = manifold_gradient_coeffs(i)*V(_dimensions-1,j);
+                T(i,j) += V(i,j);
             }
         }
 
@@ -739,7 +739,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
                     [=] (const int m) {
             for (int j=0; j<_dimensions; ++j) {
                 for (int k=0; k<_dimensions-1; ++k) {
-                    _prestencil_weights(target_index, k*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m  ) =  V(j,k);
+                    _prestencil_weights(target_index, k*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m  ) =  V(k,j);
                     _prestencil_weights(target_index, k*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m+1) =  0;
                 }
                 _prestencil_weights(target_index, (_dimensions-1)*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m  ) =  0;
@@ -756,9 +756,9 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
                     tangent_quadrature_coord_2d[j] -= getNeighborCoordinate(target_index, m, j, &V);
                 }
                 double tangent_vector[3];
-                tangent_vector[0] = tangent_quadrature_coord_2d[0]*V(0,0) + tangent_quadrature_coord_2d[1]*V(0,1);
-                tangent_vector[1] = tangent_quadrature_coord_2d[0]*V(1,0) + tangent_quadrature_coord_2d[1]*V(1,1);
-                tangent_vector[2] = tangent_quadrature_coord_2d[0]*V(2,0) + tangent_quadrature_coord_2d[1]*V(2,1);
+                tangent_vector[0] = tangent_quadrature_coord_2d[0]*V(0,0) + tangent_quadrature_coord_2d[1]*V(1,0);
+                tangent_vector[1] = tangent_quadrature_coord_2d[0]*V(0,1) + tangent_quadrature_coord_2d[1]*V(1,1);
+                tangent_vector[2] = tangent_quadrature_coord_2d[0]*V(0,2) + tangent_quadrature_coord_2d[1]*V(1,2);
 
                 for (int j=0; j<_dimensions; ++j) {
                     _prestencil_weights(target_index, j*2*neighbor_offset + 2*m  ) +=  (1-_parameterized_quadrature_sites[quadrature])*tangent_vector[j]*_quadrature_weights[quadrature];
