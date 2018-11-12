@@ -382,14 +382,8 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     double den = (h*h + a1*a1 + a2*a2);
 
                     // Gaussian Curvature sanity check
-//                    double a1 = curvature_coefficients(1);
-//                    double a2 = curvature_coefficients(2);
-//                    double a3 = 0.5*curvature_coefficients(3);
-//                    double a4 = 1.0*curvature_coefficients(4);
-//                    double a5 = 0.5*curvature_coefficients(5);
-//                    double den = (h*h + a1*a1 + a2*a2);
-//                    double K_curvature = ( - a4*a4 + 4*a3*a5) / den2 / den2;
-//                    std::cout << "Gaussian curvature is: " << K_curvature << std::endl;
+                    //double K_curvature = ( - a4*a4 + a3*a5) / den / den;
+                    //std::cout << "Gaussian curvature is: " << K_curvature << std::endl;
 
 
                     const int offset = _lro_total_offsets[i]*target_NP;

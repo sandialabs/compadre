@@ -566,6 +566,31 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
                 T(1,j) /= norm;
             }
         }
+
+        // copy T to V
+        for (int i=0; i<_dimensions-1; ++i) {
+            for (int j=0; j<_dimensions; ++j) {
+                V(i,j) = T(i,j);
+            }
+        }
+        double norm_t_normal = 0;
+        if (_dimensions>2) {
+            V(_dimensions-1,0) = T(0,1)*T(1,2) - T(1,1)*T(0,2);
+            norm_t_normal += V(_dimensions-1,0)*V(_dimensions-1,0);
+            V(_dimensions-1,1) = -(T(0,0)*T(1,2) - T(1,0)*T(0,2));
+            norm_t_normal += V(_dimensions-1,1)*V(_dimensions-1,1);
+            V(_dimensions-1,2) = T(0,0)*T(1,1) - T(1,0)*T(0,1);
+            norm_t_normal += V(_dimensions-1,2)*V(_dimensions-1,2);
+        } else {
+            V(_dimensions-1,0) = T(1,1) - T(0,1);
+            norm_t_normal += V(_dimensions-1,0)*V(_dimensions-1,0);
+            V(_dimensions-1,1) = T(0,0) - T(1,0);
+            norm_t_normal += V(_dimensions-1,1)*V(_dimensions-1,1);
+        }
+        norm_t_normal = std::sqrt(norm_t_normal);
+        for (int i=0; i<_dimensions-1; ++i) {
+            V(_dimensions-1,i) /= norm_t_normal;
+        }
     });
     teamMember.team_barrier();
 }
