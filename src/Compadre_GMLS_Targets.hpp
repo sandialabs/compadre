@@ -14,7 +14,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
     for (int i=0; i<_operations.size(); ++i) {
         if (_operations(i) == TargetOperation::ScalarPointEvaluation) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                this->calcPij(P_target_row.data()+_lro_total_offsets[i]*target_NP, target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, NULL /*&T*/, SamplingFunctional::PointSample);
+                this->calcPij(P_target_row.data()+_lro_total_offsets[i]*target_NP, target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, SamplingFunctional::PointSample);
             });
         } else if (_operations(i) == TargetOperation::VectorPointEvaluation) {
             ASSERT_WITH_MESSAGE(false, "Functionality for vectors not yet available. Currently performed using ScalarPointEvaluation for each component.");
@@ -265,7 +265,7 @@ void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_ve
         if (_curvature_support_operations(i) == TargetOperation::ScalarPointEvaluation) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                 int offset = i*manifold_NP;
-                this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _curvature_poly_order, false /*bool on only specific order*/, V, NULL /*&T*/, SamplingFunctional::PointSample);
+                this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _curvature_poly_order, false /*bool on only specific order*/, V, SamplingFunctional::PointSample);
                 for (int j=0; j<manifold_NP; ++j) {
                     P_target_row(offset + j, basis_multiplier_component) = t1(j);
                 }
@@ -292,7 +292,7 @@ void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_ve
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, scratch_matrix_type V, scratch_matrix_type T, scratch_matrix_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients, const int basis_multiplier_component) const {
+void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, scratch_matrix_type V, scratch_matrix_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients, const int basis_multiplier_component) const {
 
     // only designed for 2D manifold embedded in 3D space
     const int target_index = teamMember.league_rank();
@@ -303,7 +303,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
             if (_operations(i) == TargetOperation::ScalarPointEvaluation) {
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 //                    this->calcPij(P_target_row.data()+_lro_total_offsets[i]*target_NP, target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, SamplingFunctional::PointSample);
-                    this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, &T, SamplingFunctional::PointSample);
+                    this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, SamplingFunctional::PointSample);
                     int offset = _lro_total_offsets[i]*target_NP;
                     for (int j=0; j<target_NP; ++j) {
                         P_target_row(offset + j, basis_multiplier_component) = t1(j);
@@ -314,16 +314,16 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 
                     // output component 0
-                    this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, &T, SamplingFunctional::PointSample);
+                    this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, SamplingFunctional::PointSample);
                     int offset = (_lro_total_offsets[i]+0*_lro_output_tile_size[i]+0)*_basis_multiplier*target_NP;
                     for (int j=0; j<target_NP; ++j) {
-                        P_target_row(offset + j, basis_multiplier_component) = t1(j)*T(0,0);
+                        P_target_row(offset + j, basis_multiplier_component) = t1(j)*V(0,0);
                         P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
                     }
                     offset = (_lro_total_offsets[i]+1*_lro_output_tile_size[i]+0)*_basis_multiplier*target_NP;
                     for (int j=0; j<target_NP; ++j) {
                         P_target_row(offset + j, basis_multiplier_component) = 0;
-                        P_target_row(offset + target_NP + j, basis_multiplier_component) = t1(j)*T(1,0);
+                        P_target_row(offset + target_NP + j, basis_multiplier_component) = t1(j)*V(1,0);
                     }
                     offset = (_lro_total_offsets[i]+2*_lro_output_tile_size[i]+0)*_basis_multiplier*target_NP;
                     for (int j=0; j<target_NP; ++j) {
@@ -334,13 +334,13 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     // output component 1
                     offset = (_lro_total_offsets[i]+0*_lro_output_tile_size[i]+1)*_basis_multiplier*target_NP;
                     for (int j=0; j<target_NP; ++j) {
-                        P_target_row(offset + j, basis_multiplier_component) = t1(j)*T(0,1);
+                        P_target_row(offset + j, basis_multiplier_component) = t1(j)*V(0,1);
                         P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
                     }
                     offset = (_lro_total_offsets[i]+1*_lro_output_tile_size[i]+1)*_basis_multiplier*target_NP;
                     for (int j=0; j<target_NP; ++j) {
                         P_target_row(offset + j, basis_multiplier_component) = 0;
-                        P_target_row(offset + target_NP + j, basis_multiplier_component) = t1(j)*T(1,1);
+                        P_target_row(offset + target_NP + j, basis_multiplier_component) = t1(j)*V(1,1);
                     }
                     offset = (_lro_total_offsets[i]+2*_lro_output_tile_size[i]+1)*_basis_multiplier*target_NP;
                     for (int j=0; j<target_NP; ++j) {
@@ -351,13 +351,13 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     // output component 2
                     offset = (_lro_total_offsets[i]+0*_lro_output_tile_size[i]+2)*_basis_multiplier*target_NP;
                     for (int j=0; j<target_NP; ++j) {
-                        P_target_row(offset + j, basis_multiplier_component) = t1(j)*T(0,2);
+                        P_target_row(offset + j, basis_multiplier_component) = t1(j)*V(0,2);
                         P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
                     }
                     offset = (_lro_total_offsets[i]+1*_lro_output_tile_size[i]+2)*_basis_multiplier*target_NP;
                     for (int j=0; j<target_NP; ++j) {
                         P_target_row(offset + j, basis_multiplier_component) = 0;
-                        P_target_row(offset + target_NP + j, basis_multiplier_component) = t1(j)*T(1,2);
+                        P_target_row(offset + target_NP + j, basis_multiplier_component) = t1(j)*V(1,2);
                     }
                     offset = (_lro_total_offsets[i]+2*_lro_output_tile_size[i]+2)*_basis_multiplier*target_NP;
                     for (int j=0; j<target_NP; ++j) {
@@ -510,13 +510,13 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     // output component 0
                     int offset = (_lro_total_offsets[i]+0*_lro_output_tile_size[i]+0)*_basis_multiplier*target_NP;
                     for (int j=0; j<target_NP; ++j) {
-                        P_target_row(offset + j, basis_multiplier_component) = t1(j)*T(0,0);
+                        P_target_row(offset + j, basis_multiplier_component) = t1(j)*V(0,0);
                         P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
                     }
                     offset = (_lro_total_offsets[i]+1*_lro_output_tile_size[i]+0)*_basis_multiplier*target_NP;
                     for (int j=0; j<target_NP; ++j) {
                         P_target_row(offset + j, basis_multiplier_component) = 0;
-                        P_target_row(offset + target_NP + j, basis_multiplier_component) = t1(j)*T(1,0);
+                        P_target_row(offset + target_NP + j, basis_multiplier_component) = t1(j)*V(1,0);
                     }
                     offset = (_lro_total_offsets[i]+2*_lro_output_tile_size[i]+0)*_basis_multiplier*target_NP;
                     for (int j=0; j<target_NP; ++j) {
@@ -527,13 +527,13 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     // output component 1
                     offset = (_lro_total_offsets[i]+0*_lro_output_tile_size[i]+1)*_basis_multiplier*target_NP;
                     for (int j=0; j<target_NP; ++j) {
-                        P_target_row(offset + j, basis_multiplier_component) = t1(j)*T(0,1);
+                        P_target_row(offset + j, basis_multiplier_component) = t1(j)*V(0,1);
                         P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
                     }
                     offset = (_lro_total_offsets[i]+1*_lro_output_tile_size[i]+1)*_basis_multiplier*target_NP;
                     for (int j=0; j<target_NP; ++j) {
                         P_target_row(offset + j, basis_multiplier_component) = 0;
-                        P_target_row(offset + target_NP + j, basis_multiplier_component) = t1(j)*T(1,1);
+                        P_target_row(offset + target_NP + j, basis_multiplier_component) = t1(j)*V(1,1);
                     }
                     offset = (_lro_total_offsets[i]+2*_lro_output_tile_size[i]+1)*_basis_multiplier*target_NP;
                     for (int j=0; j<target_NP; ++j) {
@@ -544,13 +544,13 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     // output component 2
                     offset = (_lro_total_offsets[i]+0*_lro_output_tile_size[i]+2)*_basis_multiplier*target_NP;
                     for (int j=0; j<target_NP; ++j) {
-                        P_target_row(offset + j, basis_multiplier_component) = t1(j)*T(0,2);
+                        P_target_row(offset + j, basis_multiplier_component) = t1(j)*V(0,2);
                         P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
                     }
                     offset = (_lro_total_offsets[i]+1*_lro_output_tile_size[i]+2)*_basis_multiplier*target_NP;
                     for (int j=0; j<target_NP; ++j) {
                         P_target_row(offset + j, basis_multiplier_component) = 0;
-                        P_target_row(offset + target_NP + j, basis_multiplier_component) = t1(j)*T(1,2);
+                        P_target_row(offset + target_NP + j, basis_multiplier_component) = t1(j)*V(1,2);
                     }
                     offset = (_lro_total_offsets[i]+2*_lro_output_tile_size[i]+2)*_basis_multiplier*target_NP;
                     for (int j=0; j<target_NP; ++j) {
@@ -562,7 +562,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
             } else if (_operations(i) == TargetOperation::GradientOfScalarPointEvaluation) {
                 if (_polynomial_sampling_functional==SamplingFunctional::StaggeredEdgeIntegralSample) {
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                        this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, &T, SamplingFunctional::PointSample);
+                        this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, SamplingFunctional::PointSample);
                     });
                     teamMember.team_barrier();
                     int offset;

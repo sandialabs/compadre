@@ -124,8 +124,7 @@ void GMLS::generateAlphas() {
 
 
         // allocate data on the device (initialized to zero)
-        _V = Kokkos::View<double*>("V",_target_coordinates.dimension_0()*_dimensions*_dimensions);
-        _T = Kokkos::View<double***>("T",_target_coordinates.dimension_0(),_dimensions-1,_dimensions);
+        _T = Kokkos::View<double***>("T",_target_coordinates.dimension_0(),_dimensions,_dimensions);
         _manifold_metric_tensor_inverse = Kokkos::View<double*>("manifold metric tensor inverse",_target_coordinates.dimension_0()*(_dimensions-1)*(_dimensions-1));
         _manifold_curvature_coefficients = Kokkos::View<double*>("manifold curvature coefficients",_target_coordinates.dimension_0()*manifold_NP);
         _manifold_curvature_gradient = Kokkos::View<double*>("manifold curvature gradient",_target_coordinates.dimension_0()*(_dimensions-1));
@@ -301,7 +300,7 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
      */
 
     // creates the matrix sqrt(W)*P
-    this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions, _poly_order, true /*weight_p*/, NULL /*&V*/, NULL /*&T*/, _polynomial_sampling_functional);
+    this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions, _poly_order, true /*weight_p*/, NULL /*&V*/, _polynomial_sampling_functional);
 
     // fill in RHS with Identity * sqrt(weights)
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_rows), [=] (const int i) {
@@ -379,7 +378,7 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
 
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() + target_index*max_num_rows*this_num_columns, max_num_rows, this_num_columns);
     Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > w(_w.data() + target_index*max_num_rows, max_num_rows);
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > V(_V.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
+    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
 
     scratch_matrix_type PTP(teamMember.team_scratch(_scratch_team_level_b), _dimensions, _dimensions);
 
@@ -396,8 +395,8 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
     // create PsqrtW^T*PsqrtW
     GMLS_LinearAlgebra::createM(teamMember, PTP, PsqrtW, _dimensions /* # of columns */, this->getNNeighbors(target_index));
 
-    // create coarse approximation of tangent plane in first two columns of V, with normal direction in third column
-    GMLS_LinearAlgebra::largestTwoEigenvectorsThreeByThreeSymmetric(teamMember, V, PTP, _dimensions);
+    // create coarse approximation of tangent plane in first two rows of T, with normal direction in third column
+    GMLS_LinearAlgebra::largestTwoEigenvectorsThreeByThreeSymmetric(teamMember, T, PTP, _dimensions);
 
 }
 
@@ -428,7 +427,7 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > RHS(_RHS.data() + target_index*max_num_rows*max_num_rows, max_num_rows, max_num_rows);
     Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > w(_w.data() + target_index*max_num_rows, max_num_rows);
 
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > V(_V.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
+    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
 
     // delta, used for each thread
     scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), max_NP*_basis_multiplier);
@@ -439,7 +438,7 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
     //
 
     // creates the matrix sqrt(W)*P
-    this->createWeightsAndPForCurvature(teamMember, delta, CurvaturePsqrtW, w, _dimensions-1, false /* only specific order */, &V);
+    this->createWeightsAndPForCurvature(teamMember, delta, CurvaturePsqrtW, w, _dimensions-1, false /* only specific order */, &T);
     teamMember.team_barrier();
 
     // CurvaturePsqrtW is sized according to max_num_rows x this_num_columns of which in this case
@@ -481,8 +480,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
 
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > Q(_RHS.data() + target_index*max_num_rows*max_num_rows, max_num_rows, max_num_rows);
 
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > V(_V.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*(_dimensions-1)*_dimensions, _dimensions-1, _dimensions);
+    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
 
     scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_b), max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
     scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_b), max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
@@ -499,7 +497,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
     //  GET TARGET COEFFICIENTS RELATED TO GRADIENT TERMS
     //
     // reconstruct grad_xi1 and grad_xi2, not used for manifold_coeffs
-    this->computeCurvatureFunctionals(teamMember, t1, t2, P_target_row, &V);
+    this->computeCurvatureFunctionals(teamMember, t1, t2, P_target_row, &T);
     teamMember.team_barrier();
 
     double grad_xi1 = 0, grad_xi2 = 0;
@@ -516,7 +514,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
         }
         teamMember.team_barrier();
 
-        XYZ rel_coord = getRelativeCoord(target_index, i, _dimensions, &V);
+        XYZ rel_coord = getRelativeCoord(target_index, i, _dimensions, &T);
         double normal_coordinate = rel_coord[_dimensions-1];
 
         // apply coefficients to sample data
@@ -528,13 +526,17 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
     Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
 
         double grad_xi[2] = {grad_xi1, grad_xi2};
+        double T_row[3];
 
         // Construct T (high order approximation of orthonormal tangent vectors)
         for (int i=0; i<_dimensions-1; ++i) {
+            for (int j=0; j<_dimensions; ++j) {
+                T_row[j] = T(i,j);
+            }
             // build
             for (int j=0; j<_dimensions; ++j) {
-                T(i,j) = grad_xi[i]*V(_dimensions-1,j);
-                T(i,j) += V(i,j);
+                T(i,j) = grad_xi[i]*T(_dimensions-1,j);
+                T(i,j) += T_row[j];
             }
         }
 
@@ -567,29 +569,24 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
             }
         }
 
-        // copy T to V
-        for (int i=0; i<_dimensions-1; ++i) {
-            for (int j=0; j<_dimensions; ++j) {
-                V(i,j) = T(i,j);
-            }
-        }
+        // get normal vector to first two rows of T
         double norm_t_normal = 0;
         if (_dimensions>2) {
-            V(_dimensions-1,0) = T(0,1)*T(1,2) - T(1,1)*T(0,2);
-            norm_t_normal += V(_dimensions-1,0)*V(_dimensions-1,0);
-            V(_dimensions-1,1) = -(T(0,0)*T(1,2) - T(1,0)*T(0,2));
-            norm_t_normal += V(_dimensions-1,1)*V(_dimensions-1,1);
-            V(_dimensions-1,2) = T(0,0)*T(1,1) - T(1,0)*T(0,1);
-            norm_t_normal += V(_dimensions-1,2)*V(_dimensions-1,2);
+            T(_dimensions-1,0) = T(0,1)*T(1,2) - T(1,1)*T(0,2);
+            norm_t_normal += T(_dimensions-1,0)*T(_dimensions-1,0);
+            T(_dimensions-1,1) = -(T(0,0)*T(1,2) - T(1,0)*T(0,2));
+            norm_t_normal += T(_dimensions-1,1)*T(_dimensions-1,1);
+            T(_dimensions-1,2) = T(0,0)*T(1,1) - T(1,0)*T(0,1);
+            norm_t_normal += T(_dimensions-1,2)*T(_dimensions-1,2);
         } else {
-            V(_dimensions-1,0) = T(1,1) - T(0,1);
-            norm_t_normal += V(_dimensions-1,0)*V(_dimensions-1,0);
-            V(_dimensions-1,1) = T(0,0) - T(1,0);
-            norm_t_normal += V(_dimensions-1,1)*V(_dimensions-1,1);
+            T(_dimensions-1,0) = T(1,1) - T(0,1);
+            norm_t_normal += T(_dimensions-1,0)*T(_dimensions-1,0);
+            T(_dimensions-1,1) = T(0,0) - T(1,0);
+            norm_t_normal += T(_dimensions-1,1)*T(_dimensions-1,1);
         }
         norm_t_normal = std::sqrt(norm_t_normal);
         for (int i=0; i<_dimensions-1; ++i) {
-            V(_dimensions-1,i) /= norm_t_normal;
+            T(_dimensions-1,i) /= norm_t_normal;
         }
     });
     teamMember.team_barrier();
@@ -621,8 +618,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
 
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > Q(_RHS.data() + target_index*max_num_rows*max_num_rows, max_num_rows, max_num_rows);
 
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > V(_V.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*(_dimensions-1)*_dimensions, _dimensions-1, _dimensions);
+    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
 
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > G_inv(_manifold_metric_tensor_inverse.data() + target_index*(_dimensions-1)*(_dimensions-1), _dimensions-1, _dimensions-1);
     Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > manifold_coeffs(_manifold_curvature_coefficients.data() + target_index*manifold_NP, manifold_NP);
@@ -643,7 +639,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
     //  GET TARGET COEFFICIENTS RELATED TO GRADIENT TERMS
     //
     // reconstruct grad_xi1 and grad_xi2, not used for manifold_coeffs
-    this->computeCurvatureFunctionals(teamMember, t1, t2, P_target_row, &V);
+    this->computeCurvatureFunctionals(teamMember, t1, t2, P_target_row, &T);
     teamMember.team_barrier();
 
     Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
@@ -667,7 +663,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
         }
         teamMember.team_barrier();
 
-        XYZ rel_coord = getRelativeCoord(target_index, i, _dimensions, &V);
+        XYZ rel_coord = getRelativeCoord(target_index, i, _dimensions, &T);
         double normal_coordinate = rel_coord[_dimensions-1];
 
         // apply coefficients to sample data
@@ -749,8 +745,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > Q(_RHS.data() + target_index*max_num_rows*max_num_rows, max_num_rows, max_num_rows);
     Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > w(_w.data() + target_index*max_num_rows, max_num_rows);
 
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > V(_V.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*(_dimensions-1)*_dimensions, _dimensions-1, _dimensions);
+    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
 
     // delta, used for each thread
     scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), max_NP*_basis_multiplier);
@@ -761,7 +756,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
      */
 
 
-    this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions-1, _poly_order, true /* weight with W*/, &V, &T, _polynomial_sampling_functional);
+    this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions-1, _poly_order, true /* weight with W*/, &T, _polynomial_sampling_functional);
     teamMember.team_barrier();
     
     // fill in RHS with Identity * sqrt(weights)
@@ -801,8 +796,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > Coeffs(_RHS.data() + target_index*max_num_rows*max_num_rows, max_num_rows, max_num_rows);
     Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > w(_w.data() + target_index*max_num_rows, max_num_rows);
 
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > V(_V.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*(_dimensions-1)*_dimensions, _dimensions-1, _dimensions);
+    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
 
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > G_inv(_manifold_metric_tensor_inverse.data() + target_index*(_dimensions-1)*(_dimensions-1), _dimensions-1, _dimensions-1);
     Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > manifold_coeffs(_manifold_curvature_coefficients.data() + target_index*manifold_NP, manifold_NP);
@@ -817,7 +811,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
      */
 
     for (int n=0; n<_sampling_multiplier; ++n) {
-        this->computeTargetFunctionalsOnManifold(teamMember, t1, t2, P_target_row, V, T, G_inv, manifold_coeffs, manifold_gradient_coeffs, n);
+        this->computeTargetFunctionalsOnManifold(teamMember, t1, t2, P_target_row, T, G_inv, manifold_coeffs, manifold_gradient_coeffs, n);
     }
     teamMember.team_barrier();
 
@@ -842,8 +836,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
      *    Data
      */
 
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > V(_V.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*(_dimensions-1)*_dimensions, _dimensions-1, _dimensions);
+    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
 
     /*
      *    Prestencil Weight Calculations
@@ -888,7 +881,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
                     [=] (const int m) {
             for (int j=0; j<_dimensions; ++j) {
                 for (int k=0; k<_dimensions-1; ++k) {
-                    _prestencil_weights(target_index, k*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m  ) =  V(k,j);
+                    _prestencil_weights(target_index, k*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m  ) =  T(k,j);
                     _prestencil_weights(target_index, k*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m+1) =  0;
                 }
                 _prestencil_weights(target_index, (_dimensions-1)*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m  ) =  0;
@@ -901,13 +894,13 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
             for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {
                 XYZ tangent_quadrature_coord_2d;
                 for (int j=0; j<_dimensions-1; ++j) {
-                    tangent_quadrature_coord_2d[j] = getTargetCoordinate(target_index, j, &V);
-                    tangent_quadrature_coord_2d[j] -= getNeighborCoordinate(target_index, m, j, &V);
+                    tangent_quadrature_coord_2d[j] = getTargetCoordinate(target_index, j, &T);
+                    tangent_quadrature_coord_2d[j] -= getNeighborCoordinate(target_index, m, j, &T);
                 }
                 double tangent_vector[3];
-                tangent_vector[0] = tangent_quadrature_coord_2d[0]*V(0,0) + tangent_quadrature_coord_2d[1]*V(1,0);
-                tangent_vector[1] = tangent_quadrature_coord_2d[0]*V(0,1) + tangent_quadrature_coord_2d[1]*V(1,1);
-                tangent_vector[2] = tangent_quadrature_coord_2d[0]*V(0,2) + tangent_quadrature_coord_2d[1]*V(1,2);
+                tangent_vector[0] = tangent_quadrature_coord_2d[0]*T(0,0) + tangent_quadrature_coord_2d[1]*T(1,0);
+                tangent_vector[1] = tangent_quadrature_coord_2d[0]*T(0,1) + tangent_quadrature_coord_2d[1]*T(1,1);
+                tangent_vector[2] = tangent_quadrature_coord_2d[0]*T(0,2) + tangent_quadrature_coord_2d[1]*T(1,2);
 
                 for (int j=0; j<_dimensions; ++j) {
                     _prestencil_weights(target_index, j*2*neighbor_offset + 2*m  ) +=  (1-_parameterized_quadrature_sites[quadrature])*tangent_vector[j]*_quadrature_weights[quadrature];

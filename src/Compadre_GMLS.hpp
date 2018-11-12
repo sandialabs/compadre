@@ -38,13 +38,9 @@ protected:
     //! sqrt(w)*Identity matrix for all problems, later holds polynomial coefficients for all problems
     Kokkos::View<double*> _RHS;
 
-    //! First _dimensions-1 columns contains coarse approximation of tangent vectors for all problems
-    //! Last column contains coarse approximation of normal vector.
-    Kokkos::View<double*> _V;
-
     //! Rank 3 tensor for high order approximation of tangent vectors for all problems. First rank is
-    //! for the target index, the second is for the local direction to the manifolds (_dimensions-1)
-    //! and the third is for the spatial dimension (_dimensions)
+    //! for the target index, the second is for the local direction to the manifolds 0..(_dimensions-1)
+    //! are tangent, _dimensions is the normal, and the third is for the spatial dimension (_dimensions)
     Kokkos::View<double***> _T;
 
     //! _dimensions columns contains high order approximation of normal vector for all problems. This
@@ -308,12 +304,12 @@ protected:
         \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
         \param poly_order           [in] - polynomial basis degree
         \param specific_order_only  [in] - boolean for only evaluating one degree of polynomial when true
-        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are a coarse approximation of the tangent plane
+        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
         \param T                    [in] - high order orthonormal approximation of tangent plane in first _dimensions-1 columns of T
         \param sampling_strategy    [in] - sampling functional specification
     */
     KOKKOS_INLINE_FUNCTION
-    void calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, scratch_matrix_type* V = NULL, scratch_matrix_type* T = NULL, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample) const;
+    void calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, scratch_matrix_type* V = NULL, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample) const;
 
     /*! \brief Evaluates the gradient of a polynomial basis under the Dirac Delta (pointwise) sampling function.
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -324,7 +320,7 @@ protected:
         \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
         \param poly_order           [in] - polynomial basis degree
         \param specific_order_only  [in] - boolean for only evaluating one degree of polynomial when true
-        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are a coarse approximation of the tangent plane
+        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
         \param sampling_strategy    [in] - sampling functional specification
     */
     KOKKOS_INLINE_FUNCTION
@@ -351,12 +347,12 @@ protected:
         \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
         \param polynomial_order     [in] - polynomial basis degree
         \param weight_p             [in] - boolean whether to fill w with kernel weights
-        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are a coarse approximation of the tangent plane
+        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
         \param T                    [in] - high order orthonormal approximation of tangent plane in first _dimensions-1 columns of T
         \param sampling_strategy    [in] - sampling functional specification
     */
     KOKKOS_INLINE_FUNCTION
-    void createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p = false, scratch_matrix_type* V = NULL, scratch_matrix_type* T = NULL, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample) const;
+    void createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p = false, scratch_matrix_type* V = NULL, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample) const;
 
     /*! \brief Fills the _P matrix with P*sqrt(w) for use in solving for curvature
 
@@ -368,7 +364,7 @@ protected:
         \param w                   [out] - 1D Kokkos View which will contain weighting kernel values for the target with each neighbor if weight_p = true
         \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
         \param only_specific_order  [in] - boolean for only evaluating one degree of polynomial when true
-        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are a coarse approximation of the tangent plane
+        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
     */
     KOKKOS_INLINE_FUNCTION
     void createWeightsAndPForCurvature(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, bool only_specific_order, scratch_matrix_type* V = NULL) const;
@@ -391,7 +387,7 @@ protected:
         \param t1                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
         \param t2                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
         \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
-        \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are a coarse approximation of the tangent plane
+        \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
         \param basis_multiplier_component   [in] - which column of P_target_row is being filled. Also, specifies which component of vector polynomial basis is being used, e.g. a linear vector basis could be [1,0], [0,1], [x,0], [0,x], [y,0], [0,y], [z,0], and [0,z], but this parameter specifies whether it is [0,y] or [y,0] being evaluated.
     */
     KOKKOS_INLINE_FUNCTION
@@ -405,7 +401,7 @@ protected:
         \param t1                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
         \param t2                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
         \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
-        \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are a coarse approximation of the tangent plane
+        \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
         \param T                            [in] - high order orthonormal approximation of tangent plane in first _dimensions-1 columns of T
         \param G_inv                        [in] - (_dimensions-1)*(_dimensions-1) Kokkos View containing inverse of metric tensor
         \param curvature_coefficients       [in] - polynomial coefficients for curvature
@@ -413,7 +409,7 @@ protected:
         \param basis_multiplier_component   [in] - which column of P_target_row is being filled. Also, specifies which component of vector polynomial basis is being used, e.g. a linear vector basis could be [1,0], [0,1], [x,0], [0,x], [y,0], [0,y], [z,0], and [0,z], but this parameter specifies whether it is [0,y] or [y,0] being evaluated.
     */
     KOKKOS_INLINE_FUNCTION
-    void computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, scratch_matrix_type V, scratch_matrix_type T, scratch_matrix_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients, const int basis_multiplier_component = 0) const;
+    void computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, scratch_matrix_type V, scratch_matrix_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients, const int basis_multiplier_component = 0) const;
 
     //! Helper function for applying the evaluations from a target functional to the polynomial coefficients
     KOKKOS_INLINE_FUNCTION
@@ -1226,15 +1222,16 @@ public:
         _epsilons = epsilons;
     }
 
-    //! Sets orthonormal tangent directions for reconstruction on a manifold. The first rank of this 2D array corresponds to the target indices,
-    //! i.e., rows of the neighbor lists 2D array. The second rank is the ordinal of the tangent direction (spatial dimensions-1), and the
-    //! third rank is indices into the spatial dimension.
+    //! Sets orthonormal tangent directions for reconstruction on a manifold. The first rank of this 2D array 
+    //! corresponds to the target indices, i.e., rows of the neighbor lists 2D array. The second rank is the 
+    //! ordinal of the tangent direction (spatial dimensions-1 are tangent, last one is normal), and the third 
+    //! rank is indices into the spatial dimension.
     template<typename view_type>
     void setTangentDirections(view_type tangent_directions) {
 
         // allocate memory on device
         _T = Kokkos::View<double***, layout_type>("device tangent directions",
-                _target_coordinates.dimension_0(), _dimensions-1, _dimensions);
+                _target_coordinates.dimension_0(), _dimensions, _dimensions);
 
         auto host_T = Kokkos::create_mirror_view(_T);
         Kokkos::deep_copy(host_T, tangent_directions);
@@ -1243,12 +1240,19 @@ public:
         _orthonormal_tangent_space_provided = true;
     }
 
-    //! Sets orthonormal tangent directions for reconstruction on a manifold. The first rank of this 2D array corresponds to the target indices,
-    //! i.e., rows of the neighbor lists 2D array. The second rank is the ordinal of the tangent direction (spatial dimensions-1), and the
-    //! third rank is indices into the spatial dimension.
+    //! Sets orthonormal tangent directions for reconstruction on a manifold. The first rank of this 2D array 
+    //! corresponds to the target indices, i.e., rows of the neighbor lists 2D array. The second rank is the 
+    //! ordinal of the tangent direction (spatial dimensions-1 are tangent, last one is normal), and the third 
+    //! rank is indices into the spatial dimension.
     template<typename view_type>
     void setTangentDirections(Kokkos::View<double***, Kokkos::DefaultExecutionSpace> tangent_directions) {
-        // allocate memory on device
+        assert((tangent_directions.dimension_0()==_target_coordinates.dimensions_0()) && 
+                "First rank of tangent_direction has wrong dimension.");
+        assert((tangent_directions.dimension_1()==_dimensions) && 
+                "Second rank of tangent_direction has wrong dimension.");
+        assert((tangent_directions.dimension_2()==_dimensions) && 
+                "Third rank of tangent_direction has wrong dimension.");
+        // copy smart pointer to view on device
         _T = tangent_directions;
         _orthonormal_tangent_space_provided = true;
     }
