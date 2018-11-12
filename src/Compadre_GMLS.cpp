@@ -512,7 +512,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
             double alpha_ij = 0;
             Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
                     manifold_NP), [=] (const int l, double &talpha_ij) {
-                talpha_ij += P_target_row(manifold_NP*k+l,0)*Q(i,l);
+                talpha_ij += P_target_row(manifold_NP*k+l,0)*Q(ORDER_INDICES(i,l));
             }, alpha_ij);
             Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                 manifold_gradient(i*(_dimensions-1) + k) = alpha_ij; // stored staggered, grad_xi1, grad_xi2, grad_xi1, grad_xi2, ....
@@ -530,7 +530,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
         Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
             // coefficients without a target premultiplied
             for (int j=0; j<manifold_NP; ++j) {
-                manifold_coeffs(j) += Q(i,j) * normal_coordinate;
+                manifold_coeffs(j) += Q(ORDER_INDICES(i,j)) * normal_coordinate;
             }
         });
     }

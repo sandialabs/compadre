@@ -105,6 +105,7 @@ class PointCloudSearch {
             team_scratch_size += scratch_double_view::shmem_size(3); // target coordinate
             team_scratch_size += scratch_int_view::shmem_size(1); // neighbors found
 
+            //printf("%d num target sites\n", num_target_sites);
             // each row of neighbor lists is a neighbor list for the target site corresponding to that row
             Kokkos::parallel_for(loop_policy(num_target_sites, Kokkos::AUTO)
                     .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)), 
@@ -123,6 +124,7 @@ class PointCloudSearch {
                     neighbor_distances(j) = 0;
                 });
             
+                teamMember.team_barrier();
                 Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                     // target_coords is LayoutLeft on device and its HostMirror, so giving a pointer to 
                     // this data would lead to a wrong result if the device is a GPU
@@ -140,13 +142,14 @@ class PointCloudSearch {
                     // neighbor_distances stores squared distances from neighbor to target, as returned by nanoflann
                 });
 
+                teamMember.team_barrier();
                 // loop over each neighbor index and fill with a value
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbors_found(0)), [=](const int j) {
-                    neighbor_lists(i,j+1) = neighbor_indices(j);
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, static_cast<int>(neighbors_found(0))), [&](const int j) {
+                    // cast to an whatever data type the 2D array of neighbor lists is using
+                    neighbor_lists(i,j+1) = static_cast<typename std::remove_pointer<typename std::remove_pointer<typename neighbor_lists_view_type::data_type>::type>::type>(neighbor_indices(j));
                 });
-
             });
-
+            Kokkos::fence();
             // deallocate nanoflann kdtree
             free(kd_tree);
         }

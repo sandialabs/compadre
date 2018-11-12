@@ -138,7 +138,7 @@ Kokkos::initialize(argc, args);
             double phi = source_coords(i,1);
             source_coords(i,0) = r*std::sin(theta)*std::cos(phi);
             source_coords(i,1) = r*std::sin(theta)*std::sin(phi);
-            source_coords(i,2) = cos(theta);
+            source_coords(i,2) = r*cos(theta);
             //printf("%f %f %f\n", source_coords(i,0), source_coords(i,1), source_coords(i,2));
         }
         number_source_coords = N_count;
@@ -169,10 +169,10 @@ Kokkos::initialize(argc, args);
         // fill target coordinates from surface of a sphere with quasiuniform points
         // stop when enough points are found
         int N_count = 0;
-        double a = 4.0*PI*r*r/((double)(1.5*number_target_coords));
+        double a = 4.0*PI*r*r/((double)(5.0*number_target_coords)); // 5.0 is in case number_target_coords is set to something very small (like 1)
         double d = std::sqrt(a);
         int M_theta = std::round(PI/d);
-        double d_theta = PI/M_theta;
+        double d_theta = PI/((double)M_theta);
         double d_phi = a/d_theta;
         for (int i=0; i<M_theta; ++i) {
             double theta = PI*(i + 0.5)/M_theta;
@@ -190,13 +190,12 @@ Kokkos::initialize(argc, args);
             if (enough_pts_found) break;
         }
 
-        printf("%d %d\n", N_count, number_target_coords);
         for (int i=0; i<N_count; ++i) {
             double theta = target_coords(i,0);
             double phi = target_coords(i,1);
             target_coords(i,0) = r*std::sin(theta)*std::cos(phi);
             target_coords(i,1) = r*std::sin(theta)*std::sin(phi);
-            target_coords(i,2) = cos(theta);
+            target_coords(i,2) = r*cos(theta);
             //printf("%f %f %f\n", target_coords(i,0), target_coords(i,1), target_coords(i,2));
         }
     }
@@ -205,6 +204,7 @@ Kokkos::initialize(argc, args);
     //! [Setting Up The Point Cloud]
     
     Kokkos::Profiling::popRegion();
+    Kokkos::fence();
     Kokkos::Profiling::pushRegion("Creating Data");
     
     //! [Creating The Data]
@@ -215,6 +215,10 @@ Kokkos::initialize(argc, args);
     
     // target coordinates copied next, because it is a convenient time to send them to device
     Kokkos::deep_copy(target_coords_device, target_coords);
+
+    // ensure that source coordinates are sent to device before evaluating sampling data based on them
+    Kokkos::fence(); 
+
     
     // need Kokkos View storing true solution
     Kokkos::View<double*, Kokkos::DefaultExecutionSpace> sampling_data_device("samples of true solution", 
@@ -252,7 +256,7 @@ Kokkos::initialize(argc, args);
     point_cloud_search.generateNeighborListsFromKNNSearch(neighbor_lists, epsilon, max_neighbors, dimension, 
             1.2 /* epsilon multiplier */);
     
-    
+
     //! [Performing Neighbor Search]
     
     Kokkos::Profiling::popRegion();
