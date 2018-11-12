@@ -117,6 +117,12 @@ protected:
     //! dimension of basis for polynomial reconstruction
     int _NP;
 
+    //! spatial dimension of the points, set at class instantiation only
+    int _global_dimensions;
+
+    //! dimension of the problem, set at class instantiation only. For manifolds, generally _global_dimensions-1
+    int _local_dimensions;
+
     //! dimension of the problem, set at class instantiation only
     int _dimensions;
 

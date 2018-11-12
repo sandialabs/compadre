@@ -333,8 +333,9 @@ Kokkos::initialize(argc, args);
     // as the sampling functional
     GMLS my_GMLS_vector(ReconstructionSpace::VectorTaylorPolynomial,SamplingFunctional::ManifoldVectorSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
     my_GMLS_vector.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
-    std::vector<TargetOperation> lro_vector(1);
+    std::vector<TargetOperation> lro_vector(2);
     lro_vector[0] = VectorPointEvaluation;
+    lro_vector[1] = DivergenceOfVectorPointEvaluation;
     my_GMLS_vector.addTargets(lro_vector);
     my_GMLS_vector.setCurvatureWeightingType(WeightingFunctionType::Power);
     my_GMLS_vector.setCurvatureWeightingPower(2);
@@ -342,18 +343,18 @@ Kokkos::initialize(argc, args);
     my_GMLS_vector.setWeightingPower(2);
     my_GMLS_vector.generateAlphas();
 
-    // initialize another instance of the GMLS class for problems with a vector basis on a manifold and point evaluation of that vector 
-    // as the sampling functional
-    GMLS my_GMLS_divergence(ReconstructionSpace::VectorTaylorPolynomial,SamplingFunctional::ManifoldGradientVectorSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
-    my_GMLS_divergence.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
-    std::vector<TargetOperation> lro_divergence(1);
-    lro_divergence[0] = DivergenceOfVectorPointEvaluation;
-    my_GMLS_divergence.addTargets(lro_divergence);
-    my_GMLS_divergence.setCurvatureWeightingType(WeightingFunctionType::Power);
-    my_GMLS_divergence.setCurvatureWeightingPower(2);
-    my_GMLS_divergence.setWeightingType(WeightingFunctionType::Power);
-    my_GMLS_divergence.setWeightingPower(2);
-    my_GMLS_divergence.generateAlphas();
+//    // initialize another instance of the GMLS class for problems with a vector basis on a manifold and point evaluation of that vector 
+//    // as the sampling functional
+//    GMLS my_GMLS_divergence(ReconstructionSpace::VectorTaylorPolynomial,SamplingFunctional::ManifoldGradientVectorSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
+//    my_GMLS_divergence.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+//    std::vector<TargetOperation> lro_divergence(1);
+//    lro_divergence[0] = DivergenceOfVectorPointEvaluation;
+//    my_GMLS_divergence.addTargets(lro_divergence);
+//    my_GMLS_divergence.setCurvatureWeightingType(WeightingFunctionType::Power);
+//    my_GMLS_divergence.setCurvatureWeightingPower(2);
+//    my_GMLS_divergence.setWeightingType(WeightingFunctionType::Power);
+//    my_GMLS_divergence.setWeightingPower(2);
+//    my_GMLS_divergence.generateAlphas();
 
 
     //! [Setting Up The GMLS Object]
@@ -384,6 +385,7 @@ Kokkos::initialize(argc, args);
     //beginning of insert (TODO: this should be dealt with automatically in the future)
 
 
+    Kokkos::Profiling::pushRegion("Vector Remap");
     auto output_vector = Kokkos::View<double**, Kokkos::HostSpace>("vector remap values done manually", target_coords.dimension_0(), 3);
     {
         auto sampling_vector_data_host = Kokkos::create_mirror(sampling_vector_data_device);
@@ -395,9 +397,9 @@ Kokkos::initialize(argc, args);
         Kokkos::parallel_for("Sampling Manufactured Solutions For Vector", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
                 (0,target_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
 
-            double contracted_sum[3];
+            double contracted_sum[2];
             for (int l=0; l<neighbor_lists(i,0); l++) {
-                for (int m=0; m<3; m++) {
+                for (int m=0; m<2; m++) {
                     contracted_sum[m] = 0;
                     for (int n=0; n<3; n++) {
                         // if locally owned data
@@ -405,7 +407,7 @@ Kokkos::initialize(argc, args);
                     }
                 }
 
-                for (int m=0; m<3; m++) {
+                for (int m=0; m<2; m++) {
                     // apply gmls coefficients to equal rank data
                     for (int k=0; k<3; k++) { // only 2 used
                         double alphas_l = my_GMLS_vector.getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, k, l, m);
@@ -417,9 +419,11 @@ Kokkos::initialize(argc, args);
                 }
             }
         });
-         Kokkos::fence();
+        Kokkos::fence();
     }
+    Kokkos::Profiling::popRegion();
 
+    Kokkos::Profiling::pushRegion("Divergence Remap");
     auto output_divergence = Kokkos::View<double*, Kokkos::HostSpace>("div remap of grad values done manually", target_coords.dimension_0());
     {
         auto sampling_vector_data_host = Kokkos::create_mirror(sampling_vector_data_device);
@@ -431,19 +435,19 @@ Kokkos::initialize(argc, args);
         Kokkos::parallel_for("Sampling Manufactured Solutions for Div", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
                 (0,target_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
 
-            double contracted_sum[3];
+            double contracted_sum[2];
             for (int l=0; l<neighbor_lists(i,0); l++) {
-                for (int m=0; m<3; m++) {
+                for (int m=0; m<2; m++) {
                     contracted_sum[m] = 0;
                     for (int n=0; n<3; n++) {
                         // if locally owned data
-                        contracted_sum[m] += my_GMLS_divergence.getPreStencilWeight(SamplingFunctional::ManifoldGradientVectorSample, i, l, false /* for neighbor*/, m, n) * sampling_vector_data_host(neighbor_lists(i,l+1), n);
+                        contracted_sum[m] += my_GMLS_vector.getPreStencilWeight(SamplingFunctional::ManifoldVectorSample, i, l, false /* for neighbor*/, m, n) * sampling_vector_data_host(neighbor_lists(i,l+1), n);
                     }
                 }
 
-                for (int m=0; m<3; m++) {
+                for (int m=0; m<2; m++) {
                     // apply gmls coefficients to equal rank data
-                    double alphas_l = my_GMLS_divergence.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, m);
+                    double alphas_l = my_GMLS_vector.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, m);
                     assert((alphas_l==alphas_l) && "NaN in coefficients from GMLS");
                     double new_value = alphas_l * contracted_sum[m];
                     double old_value = output_divergence(i);
@@ -451,8 +455,44 @@ Kokkos::initialize(argc, args);
                 }
             }
         });
-         Kokkos::fence();
+        Kokkos::fence();
     }
+    Kokkos::Profiling::popRegion();
+//    Kokkos::Profiling::pushRegion("Divergence Remap");
+//    auto output_divergence = Kokkos::View<double*, Kokkos::HostSpace>("div remap of grad values done manually", target_coords.dimension_0());
+//    {
+//        auto sampling_vector_data_host = Kokkos::create_mirror(sampling_vector_data_device);
+//        Kokkos::deep_copy(sampling_vector_data_host, sampling_vector_data_device);
+//        Kokkos::fence();
+//        //data now on host
+//        
+//        // remap is manual
+//        Kokkos::parallel_for("Sampling Manufactured Solutions for Div", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
+//                (0,target_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
+//
+//            double contracted_sum[3];
+//            for (int l=0; l<neighbor_lists(i,0); l++) {
+//                for (int m=0; m<3; m++) {
+//                    contracted_sum[m] = 0;
+//                    for (int n=0; n<3; n++) {
+//                        // if locally owned data
+//                        contracted_sum[m] += my_GMLS_divergence.getPreStencilWeight(SamplingFunctional::ManifoldGradientVectorSample, i, l, false /* for neighbor*/, m, n) * sampling_vector_data_host(neighbor_lists(i,l+1), n);
+//                    }
+//                }
+//
+//                for (int m=0; m<3; m++) {
+//                    // apply gmls coefficients to equal rank data
+//                    double alphas_l = my_GMLS_divergence.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, m);
+//                    assert((alphas_l==alphas_l) && "NaN in coefficients from GMLS");
+//                    double new_value = alphas_l * contracted_sum[m];
+//                    double old_value = output_divergence(i);
+//                    output_divergence(i) = new_value + old_value;
+//                }
+//            }
+//        });
+//        Kokkos::fence();
+//    }
+//    Kokkos::Profiling::popRegion();
 
     //end of manual insert
     

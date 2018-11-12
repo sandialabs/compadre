@@ -708,7 +708,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
             } else if (_operations(i) == TargetOperation::DivergenceOfVectorPointEvaluation) {
                 if (_data_sampling_functional==SamplingFunctional::StaggeredEdgeIntegralSample) {
                     ASSERT_WITH_MESSAGE(false, "Functionality not yet available.");
-                } else if (_data_sampling_functional==SamplingFunctional::ManifoldGradientVectorSample) {
+                } else if (_data_sampling_functional==SamplingFunctional::ManifoldGradientVectorSample || _data_sampling_functional==SamplingFunctional::ManifoldVectorSample) {
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 
                         double h = _epsilons(target_index);
@@ -754,12 +754,12 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         P_target_row(offset + target_NP + 1, basis_multiplier_component) = c1b;
                         P_target_row(offset + target_NP + 2, basis_multiplier_component) = c2b;
 
-                        // 3rd input component (no contribution)
-                        offset = (_lro_total_offsets[i]+2*_lro_output_tile_size[i]+0)*_basis_multiplier*target_NP;
-                        for (int j=0; j<target_NP; ++j) {
-                            P_target_row(offset + j, basis_multiplier_component) = 0;
-                            P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
-                        }
+                        //// 3rd input component (no contribution)
+                        //offset = (_lro_total_offsets[i]+2*_lro_output_tile_size[i]+0)*_basis_multiplier*target_NP;
+                        //for (int j=0; j<target_NP; ++j) {
+                        //    P_target_row(offset + j, basis_multiplier_component) = 0;
+                        //    P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
+                        //}
                     });
                 }
             } else if (_operations(i) == TargetOperation::DivergenceOfScalarPointEvaluation) {
