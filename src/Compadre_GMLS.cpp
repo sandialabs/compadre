@@ -125,7 +125,7 @@ void GMLS::generateAlphas() {
 
         // allocate data on the device (initialized to zero)
         _V = Kokkos::View<double*>("V",_target_coordinates.dimension_0()*_dimensions*_dimensions);
-        _T = Kokkos::View<double*>("T",_target_coordinates.dimension_0()*_dimensions*(_dimensions-1));
+        _T = Kokkos::View<double***>("T",_target_coordinates.dimension_0(),_dimensions-1,_dimensions);
         _manifold_metric_tensor_inverse = Kokkos::View<double*>("manifold metric tensor inverse",_target_coordinates.dimension_0()*(_dimensions-1)*(_dimensions-1));
         _manifold_curvature_coefficients = Kokkos::View<double*>("manifold curvature coefficients",_target_coordinates.dimension_0()*manifold_NP);
         _manifold_curvature_gradient = Kokkos::View<double*>("manifold curvature gradient",_target_coordinates.dimension_0()*(_dimensions-1));
@@ -471,7 +471,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
     Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > w(_w.data() + target_index*max_num_rows, max_num_rows);
 
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > V(_V.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*_dimensions*(_dimensions-1), _dimensions, _dimensions-1);
+    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*(_dimensions-1)*_dimensions, _dimensions-1, _dimensions);
 
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > G_inv(_manifold_metric_tensor_inverse.data() + target_index*(_dimensions-1)*(_dimensions-1), _dimensions-1, _dimensions-1);
     Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > manifold_coeffs(_manifold_curvature_coefficients.data() + target_index*manifold_NP, manifold_NP);
@@ -545,37 +545,37 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
         for (int i=0; i<_dimensions-1; ++i) {
             // build
             for (int j=0; j<_dimensions; ++j) {
-                T(j,i) = manifold_gradient_coeffs(i)*V(j,_dimensions-1);
-                T(j,i) += V(j,i);
+                T(i,j) = manifold_gradient_coeffs(i)*V(j,_dimensions-1);
+                T(i,j) += V(j,i);
             }
         }
 
         // calculate norm
         double norm = 0;
         for (int j=0; j<_dimensions; ++j) {
-            norm += T(j,0)*T(j,0);
+            norm += T(0,j)*T(0,j);
         }
 
         // normalize first vector
         norm = std::sqrt(norm);
         for (int j=0; j<_dimensions; ++j) {
-            T(j,0) /= norm;
+            T(0,j) /= norm;
         }
 
         // orthonormalize next vector
         if (_dimensions-1 == 2) { // 2d manifold
-            double dot_product = T(0,0)*T(0,1) + T(1,0)*T(1,1) + T(2,0)*T(2,1);
+            double dot_product = T(0,0)*T(1,0) + T(0,1)*T(1,1) + T(0,2)*T(1,2);
             for (int j=0; j<_dimensions; ++j) {
-                T(j,1) -= dot_product*T(j,0);
+                T(1,j) -= dot_product*T(0,j);
             }
             // normalize second vector
             norm = 0;
             for (int j=0; j<_dimensions; ++j) {
-                norm += T(j,1)*T(j,1);
+                norm += T(1,j)*T(1,j);
             }
             norm = std::sqrt(norm);
             for (int j=0; j<_dimensions; ++j) {
-                T(j,1) /= norm;
+                T(1,j) /= norm;
             }
         }
 
@@ -653,7 +653,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
     Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > w(_w.data() + target_index*max_num_rows, max_num_rows);
 
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > V(_V.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*_dimensions*(_dimensions-1), _dimensions, _dimensions-1);
+    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*(_dimensions-1)*_dimensions, _dimensions-1, _dimensions);
 
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > G_inv(_manifold_metric_tensor_inverse.data() + target_index*(_dimensions-1)*(_dimensions-1), _dimensions-1, _dimensions-1);
     Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > manifold_coeffs(_manifold_curvature_coefficients.data() + target_index*manifold_NP, manifold_NP);
@@ -694,7 +694,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
      */
 
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > V(_V.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*_dimensions*(_dimensions-1), _dimensions, _dimensions-1);
+    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*(_dimensions-1)*_dimensions, _dimensions-1, _dimensions);
 
     /*
      *    Prestencil Weight Calculations
@@ -726,7 +726,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
                     [=] (const int m) {
             for (int j=0; j<_dimensions; ++j) {
                 for (int k=0; k<_dimensions-1; ++k) {
-                    _prestencil_weights(target_index, k*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m  ) =  T(j,k);
+                    _prestencil_weights(target_index, k*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m  ) =  T(k,j);
                     _prestencil_weights(target_index, k*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m+1) =  0;
                 }
                 _prestencil_weights(target_index, (_dimensions-1)*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m  ) =  0;

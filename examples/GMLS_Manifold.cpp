@@ -220,9 +220,13 @@ Kokkos::initialize(argc, args);
     Kokkos::fence(); 
 
     
-    // need Kokkos View storing true solution
+    // need Kokkos View storing true solution (for samples)
     Kokkos::View<double*, Kokkos::DefaultExecutionSpace> sampling_data_device("samples of true solution", 
             source_coords_device.dimension_0());
+
+    // need Kokkos View storing true vector solution (for samples)
+    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> sampling_vector_data_device("samples of vector true solution", 
+            source_coords_device.dimension_0(), 3);
     
     Kokkos::parallel_for("Sampling Manufactured Solutions", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>
             (0,source_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
@@ -234,7 +238,12 @@ Kokkos::initialize(argc, args);
     
         // data for targets with scalar input
         sampling_data_device(i) = sphere_harmonic54(xval, yval, zval);
-    
+
+        for (int j=0; j<3; ++j) {
+            double gradient[3] = {0,0,0};
+            gradient_sphereHarmonic54_ambient(gradient, xval, yval, zval);
+            sampling_vector_data_device(i,j) = gradient[j];
+        }
     });
     
     
@@ -277,9 +286,13 @@ Kokkos::initialize(argc, args);
     std::string solver_name;
     solver_name = "MANIFOLD";
     
-    // initialize an instance of the GMLS class 
-    GMLS my_GMLS(order, solver_name.c_str(), order /*manifold order*/, dimension);
+    // initialize an instance of the GMLS class for problems with a scalar basis and traditional point sampling as the sampling functional
+    GMLS my_GMLS_scalar(order, solver_name.c_str(), order /*manifold order*/, dimension);
     
+    // initialize another instance of the GMLS class for problems with a vector basis on a manifold and point evaluation of that vector 
+    // as the sampling functional
+    GMLS my_GMLS_vector(ReconstructionSpace::VectorTaylorPolynomial,SamplingFunctional::ManifoldVectorSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
+
     // pass in neighbor lists, source coordinates, target coordinates, and window sizes
     //
     // neighbor lists have the format:
@@ -294,31 +307,41 @@ Kokkos::initialize(argc, args);
     //      dimensions: (# number of target sites) X (dimension)
     //                  # of target sites is same as # of rows of neighbor lists
     //
-    my_GMLS.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    my_GMLS_scalar.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    my_GMLS_vector.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
     
     // create a vector of target operations
-    std::vector<TargetOperation> lro(3);
-    lro[0] = ScalarPointEvaluation;
-    lro[1] = LaplacianOfScalarPointEvaluation;
-    lro[2] = GradientOfScalarPointEvaluation;
+    std::vector<TargetOperation> lro_scalar(3);
+    lro_scalar[0] = ScalarPointEvaluation;
+    lro_scalar[1] = LaplacianOfScalarPointEvaluation;
+    lro_scalar[2] = GradientOfScalarPointEvaluation;
+
+    std::vector<TargetOperation> lro_vector(1);
+    lro_vector[0] = VectorPointEvaluation;
 
     // and then pass them to the GMLS class
-    my_GMLS.addTargets(lro);
+    my_GMLS_scalar.addTargets(lro_scalar);
+    my_GMLS_vector.addTargets(lro_vector);
 
     // sets the weighting kernel function from WeightingFunctionType for curvature
-    my_GMLS.setCurvatureWeightingType(WeightingFunctionType::Power);
+    my_GMLS_scalar.setCurvatureWeightingType(WeightingFunctionType::Power);
+    my_GMLS_vector.setCurvatureWeightingType(WeightingFunctionType::Power);
     
     // power to use in the weighting kernel function for curvature coefficients
-    my_GMLS.setCurvatureWeightingPower(2);
+    my_GMLS_scalar.setCurvatureWeightingPower(2);
+    my_GMLS_vector.setCurvatureWeightingPower(2);
     
     // sets the weighting kernel function from WeightingFunctionType
-    my_GMLS.setWeightingType(WeightingFunctionType::Power);
+    my_GMLS_scalar.setWeightingType(WeightingFunctionType::Power);
+    my_GMLS_vector.setWeightingType(WeightingFunctionType::Power);
     
     // power to use in that weighting kernel function
-    my_GMLS.setWeightingPower(2);
+    my_GMLS_scalar.setWeightingPower(2);
+    my_GMLS_vector.setWeightingPower(2);
     
     // generate the alphas that to be combined with data for each target operation requested in lro
-    my_GMLS.generateAlphas();
+    my_GMLS_scalar.generateAlphas();
+    my_GMLS_vector.generateAlphas();
     
     
     //! [Setting Up The GMLS Object]
@@ -337,14 +360,54 @@ Kokkos::initialize(argc, args);
     // then you should template with double** as this is something that can not be infered from the input data
     // or the target operator at compile time
     
-    auto output_value = my_GMLS.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+    auto output_value = my_GMLS_scalar.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
             (sampling_data_device, ScalarPointEvaluation);
     
-    auto output_laplacian = my_GMLS.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+    auto output_laplacian = my_GMLS_scalar.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
             (sampling_data_device, LaplacianOfScalarPointEvaluation);
 
-    auto output_gradient = my_GMLS.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+    auto output_gradient = my_GMLS_scalar.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
             (sampling_data_device, GradientOfScalarPointEvaluation);
+
+    //beginning of insert (TODO: this should be dealt with automatically in the future)
+
+
+    auto output_vector = Kokkos::View<double**, Kokkos::HostSpace>("vector remap values done manually", target_coords.dimension_0(), 3);
+	auto sampling_vector_data_host = Kokkos::create_mirror(sampling_vector_data_device);
+	Kokkos::deep_copy(sampling_vector_data_host, sampling_vector_data_device);
+ 	Kokkos::fence();
+    //data now on host
+    
+    // remap is manual
+    Kokkos::parallel_for("Sampling Manufactured Solutions", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
+            (0,target_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
+
+        double contracted_sum[3];
+    	for (int l=0; l<neighbor_lists(i,0); l++) {
+    	    for (int m=0; m<3; m++) {
+    	        contracted_sum[m] = 0;
+    	        for (int n=0; n<3; n++) {
+    	            // if locally owned data
+    	            contracted_sum[m] += my_GMLS_vector.getPreStencilWeight(SamplingFunctional::ManifoldVectorSample, i, l, false /* for neighbor*/, m, n) * sampling_vector_data_host(neighbor_lists(i,l+1), n);
+    	        }
+    	    }
+
+    	    for (int m=0; m<3; m++) {
+    	        // apply gmls coefficients to equal rank data
+    	        for (int k=0; k<3; k++) { // only 2 used
+    	            double alphas_l = my_GMLS_vector.getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, k, l, m);
+				    assert((alphas_l==alphas_l) && "NaN in coefficients from GMLS");
+                    double new_value = alphas_l * contracted_sum[m];
+                    double old_value = output_vector(i,k);
+    	            output_vector(i,k) = new_value + old_value;
+                }
+    	    }
+    	}
+    });
+ 	Kokkos::fence();
+	
+
+    //end of manual insert
     
     Kokkos::fence(); // let application of alphas to data finish before using results
 
@@ -388,6 +451,8 @@ Kokkos::initialize(argc, args);
     double laplacian_norm = 0;
     double gradient_ambient_error = 0;
     double gradient_ambient_norm = 0;
+    double vector_ambient_error = 0;
+    double vector_ambient_norm = 0;
     
     // loop through the target sites
     for (int i=0; i<number_target_coords; i++) {
@@ -421,6 +486,11 @@ Kokkos::initialize(argc, args);
             gradient_ambient_norm += actual_Gradient_ambient[j]*actual_Gradient_ambient[j];
         }
 
+        for (int j=0; j<dimension; ++j) {
+            vector_ambient_error += (output_vector(i,j) - actual_Gradient_ambient[j])*(output_vector(i,j) - actual_Gradient_ambient[j]);
+            vector_ambient_norm += actual_Gradient_ambient[j]*actual_Gradient_ambient[j];
+        }
+
 //    
         // check actual function value
         //if(GMLS_value!=GMLS_value || std::abs(actual_value - GMLS_value) > failure_tolerance) {
@@ -451,9 +521,15 @@ Kokkos::initialize(argc, args);
     gradient_ambient_norm /= number_target_coords;
     gradient_ambient_norm = std::sqrt(gradient_ambient_norm);
    
+    vector_ambient_error /= number_target_coords;
+    vector_ambient_error = std::sqrt(vector_ambient_error);
+    vector_ambient_norm /= number_target_coords;
+    vector_ambient_norm = std::sqrt(vector_ambient_norm);
+
     printf("Point Value Error: %g\n", values_error / values_norm);  
     printf("Laplace-Beltrami Error: %g\n", laplacian_error / laplacian_norm);  
     printf("Surface Gradient (Ambient) Error: %g\n", gradient_ambient_error / gradient_ambient_norm);  
+    printf("Surface Vector Error: %g\n", vector_ambient_error / vector_ambient_norm);  
     //! [Check That Solutions Are Correct] 
     // popRegion hidden from tutorial
     // stop timing comparison loop
