@@ -29,7 +29,7 @@ if (len(sys.argv) > 2):
 
 errors = []
 
-target_operators=("Point Value", "Laplace-Beltrami", "Surface Gradient \(Ambient\)", "Surface Vector")#, "Surface Gradient (Manifold)", 
+target_operators=("Point Value", "Laplace-Beltrami", "Surface Gradient \(Ambient\)", "Surface Vector", "Surface Divergence")#, "Surface Gradient (Manifold)", 
 for operator in target_operators:
     errors.append([])
 
