@@ -635,6 +635,9 @@ public:
     //! Tag for functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity for curvature
     struct AssembleCurvaturePsqrtW{};
 
+    //! Tag for functor to evaluate curvature targets and construct accurate tangent direction approximation for manifolds
+    struct GetAccurateTangentDirections{};
+
     //! Tag for functor to evaluate curvature targets and apply to coefficients of curvature reconstruction
     struct ApplyCurvatureTargets{};
 
@@ -664,6 +667,10 @@ public:
     //! Functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity for curvature
     KOKKOS_INLINE_FUNCTION
     void operator() (const AssembleCurvaturePsqrtW&, const member_type& teamMember) const;
+
+    //! Functor to evaluate curvature targets and construct accurate tangent direction approximation for manifolds
+    KOKKOS_INLINE_FUNCTION
+    void operator() (const GetAccurateTangentDirections&, const member_type& teamMember) const;
 
     //! Functor to evaluate curvature targets and apply to coefficients of curvature reconstruction
     KOKKOS_INLINE_FUNCTION
