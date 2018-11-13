@@ -382,82 +382,113 @@ Kokkos::initialize(argc, args);
     auto output_gradient = my_GMLS_scalar.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
             (sampling_data_device, GradientOfScalarPointEvaluation);
 
+    auto output_vector = my_GMLS_vector.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+            (sampling_vector_data_device, VectorPointEvaluation, ManifoldVectorSample);
+    
+    auto output_divergence = my_GMLS_vector.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+            (sampling_vector_data_device, DivergenceOfVectorPointEvaluation, ManifoldVectorSample);
+
+    //my_GMLS_vector.applyDataTransformGlobalOrLocal(sampling_vector_data_device, CoordinatesType::Ambient, CoordinatesType::Local);
+
     //beginning of insert (TODO: this should be dealt with automatically in the future)
 
 
-    Kokkos::Profiling::pushRegion("Vector Remap");
-    auto output_vector = Kokkos::View<double**, Kokkos::HostSpace>("vector remap values done manually", target_coords.dimension_0(), 3);
-    {
-        auto sampling_vector_data_host = Kokkos::create_mirror(sampling_vector_data_device);
-        Kokkos::deep_copy(sampling_vector_data_host, sampling_vector_data_device);
-        Kokkos::fence();
-        //data now on host
-        
-        // remap is manual
-        Kokkos::parallel_for("Sampling Manufactured Solutions For Vector", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
-                (0,target_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
+    //Kokkos::Profiling::pushRegion("Vector Remap");
+    //auto output_vector = Kokkos::View<double**, Kokkos::HostSpace>("vector remap values done manually", target_coords.dimension_0(), 3);
+    //{
+    //    auto sampling_vector_data_host = Kokkos::create_mirror(sampling_vector_data_device);
+    //    Kokkos::deep_copy(sampling_vector_data_host, sampling_vector_data_device);
+    //    Kokkos::fence();
 
-            double contracted_sum[2];
-            for (int l=0; l<neighbor_lists(i,0); l++) {
-                for (int m=0; m<2; m++) {
-                    contracted_sum[m] = 0;
-                    for (int n=0; n<3; n++) {
-                        // if locally owned data
-                        contracted_sum[m] += my_GMLS_vector.getPreStencilWeight(SamplingFunctional::ManifoldVectorSample, i, l, false /* for neighbor*/, m, n) * sampling_vector_data_host(neighbor_lists(i,l+1), n);
-                    }
-                }
+    //    //my_GMLS_vector.applyDataTransformGlobalOrLocal(sampling_vector_data_host, CoordinatesType::Ambient, CoordinatesType::Local);
 
-                for (int m=0; m<2; m++) {
-                    // apply gmls coefficients to equal rank data
-                    for (int k=0; k<3; k++) { // only 2 used
-                        double alphas_l = my_GMLS_vector.getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, k, l, m);
-                        assert((alphas_l==alphas_l) && "NaN in coefficients from GMLS");
-                        double new_value = alphas_l * contracted_sum[m];
-                        double old_value = output_vector(i,k);
-                        output_vector(i,k) = new_value + old_value;
-                    }
-                }
-            }
-        });
-        Kokkos::fence();
-    }
-    Kokkos::Profiling::popRegion();
+    //    Kokkos::fence();
+    //    //data now on host
+    //    
+    //    // remap is manual
+    //    Kokkos::parallel_for("Sampling Manufactured Solutions For Vector", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
+    //            (0,target_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
 
-    Kokkos::Profiling::pushRegion("Divergence Remap");
-    auto output_divergence = Kokkos::View<double*, Kokkos::HostSpace>("div remap of grad values done manually", target_coords.dimension_0());
-    {
-        auto sampling_vector_data_host = Kokkos::create_mirror(sampling_vector_data_device);
-        Kokkos::deep_copy(sampling_vector_data_host, sampling_vector_data_device);
-        Kokkos::fence();
-        //data now on host
-        
-        // remap is manual
-        Kokkos::parallel_for("Sampling Manufactured Solutions for Div", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
-                (0,target_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
+    //        double contracted_sum[3];
+    //        for (int l=0; l<neighbor_lists(i,0); l++) {
+    //            //for (int m=0; m<2; m++) {
+    //            //    contracted_sum[m] = 0;
+    //            //    for (int n=0; n<3; n++) {
+    //            //        contracted_sum[m] += my_GMLS_vector.getPreStencilWeight(SamplingFunctional::ManifoldVectorSample, i, l, false /* for neighbor*/, m, n) * sampling_vector_data_host(neighbor_lists(i,l+1), n);
+    //            //    }
+    //            //}
+    //            for (int m=0; m<2; m++) {
+    //                contracted_sum[m] = sampling_vector_data_host(neighbor_lists(i,l+1), m);
+    //            }
+    //            contracted_sum[2] = 0;
 
-            double contracted_sum[2];
-            for (int l=0; l<neighbor_lists(i,0); l++) {
-                for (int m=0; m<2; m++) {
-                    contracted_sum[m] = 0;
-                    for (int n=0; n<3; n++) {
-                        // if locally owned data
-                        contracted_sum[m] += my_GMLS_vector.getPreStencilWeight(SamplingFunctional::ManifoldVectorSample, i, l, false /* for neighbor*/, m, n) * sampling_vector_data_host(neighbor_lists(i,l+1), n);
-                    }
-                }
+    //            double new_value[3] = {0,0,0};
+    //            for (int m=0; m<2; m++) {
+    //                // apply gmls coefficients to equal rank data
+    //                for (int k=0; k<3; k++) { // only 2 used
+    //                    double alphas_l = my_GMLS_vector.getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, k, l, m);
+    //                    assert((alphas_l==alphas_l) && "NaN in coefficients from GMLS");
+    //                    new_value[k] += alphas_l * contracted_sum[m];
+    //                }
+    //            }
 
-                for (int m=0; m<2; m++) {
-                    // apply gmls coefficients to equal rank data
-                    double alphas_l = my_GMLS_vector.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, m);
-                    assert((alphas_l==alphas_l) && "NaN in coefficients from GMLS");
-                    double new_value = alphas_l * contracted_sum[m];
-                    double old_value = output_divergence(i);
-                    output_divergence(i) = new_value + old_value;
-                }
-            }
-        });
-        Kokkos::fence();
-    }
-    Kokkos::Profiling::popRegion();
+    //            double transformed_new_value[3];
+    //            for (int m=0; m<3; m++) {
+    //                transformed_new_value[m] = new_value[m];
+    //            }
+    //            //for (int m=0; m<3; m++) {
+    //            //    transformed_new_value[m] = 0;
+    //            //    for (int n=0; n<2; n++) {
+    //            //        transformed_new_value[m] += my_GMLS_vector.getPreStencilWeight(SamplingFunctional::ManifoldVectorSample, i, l, false /* for neighbor*/, n, m) * new_value[n];
+    //            //    }
+    //            //}
+    //            for (int k=0; k<3; k++) { 
+    //                double old_value = output_vector(i,k);
+    //                output_vector(i,k) = transformed_new_value[k] + old_value;
+    //            }
+
+
+    //        }
+    //    });
+    //    Kokkos::fence();
+    //}
+    //Kokkos::Profiling::popRegion();
+
+    //Kokkos::Profiling::pushRegion("Divergence Remap");
+    //auto output_divergence = Kokkos::View<double*, Kokkos::HostSpace>("div remap of grad values done manually", target_coords.dimension_0());
+    //{
+    //    auto sampling_vector_data_host = Kokkos::create_mirror(sampling_vector_data_device);
+    //    Kokkos::deep_copy(sampling_vector_data_host, sampling_vector_data_device);
+    //    Kokkos::fence();
+    //    //data now on host
+    //    
+    //    // remap is manual
+    //    Kokkos::parallel_for("Sampling Manufactured Solutions for Div", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
+    //            (0,target_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
+
+    //        double contracted_sum[2];
+    //        for (int l=0; l<neighbor_lists(i,0); l++) {
+    //            for (int m=0; m<2; m++) {
+    //                contracted_sum[m] = 0;
+    //                for (int n=0; n<3; n++) {
+    //                    // if locally owned data
+    //                    contracted_sum[m] += my_GMLS_vector.getPreStencilWeight(SamplingFunctional::ManifoldVectorSample, i, l, false /* for neighbor*/, m, n) * sampling_vector_data_host(neighbor_lists(i,l+1), n);
+    //                }
+    //            }
+
+    //            for (int m=0; m<2; m++) {
+    //                // apply gmls coefficients to equal rank data
+    //                double alphas_l = my_GMLS_vector.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, m);
+    //                assert((alphas_l==alphas_l) && "NaN in coefficients from GMLS");
+    //                double new_value = alphas_l * contracted_sum[m];
+    //                double old_value = output_divergence(i);
+    //                output_divergence(i) = new_value + old_value;
+    //            }
+    //        }
+    //    });
+    //    Kokkos::fence();
+    //}
+    //Kokkos::Profiling::popRegion();
 //    Kokkos::Profiling::pushRegion("Divergence Remap");
 //    auto output_divergence = Kokkos::View<double*, Kokkos::HostSpace>("div remap of grad values done manually", target_coords.dimension_0());
 //    {

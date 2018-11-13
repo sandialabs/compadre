@@ -164,6 +164,13 @@ namespace Compadre {
         return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
     }
 
+    //! Coordinate type for input and output format of vector data on manifold problems.
+    //! Anything without a manifold is always Ambient.
+    enum CoordinatesType {
+        Ambient, ///< a 2D manifold in 3D in ambient coordinates would have 3 components for a vector
+        Local,   ///< a 2D manifold in 3D in local coordinates would have 2 components for a vector
+    };
+
     //static int getSamplingInputIndex(const int operation_num, const int input_component_axis_1, const int input_component_axis_2) {
     //    const int axis_1_size = (SamplingInputTensorRank[operation_num] > 1) ? SamplingInputTensorRank[operation_num] : 1;
     //    return axis_1_size*input_component_axis_1 + input_component_axis_2; // 0 for scalar, 0 for vector;

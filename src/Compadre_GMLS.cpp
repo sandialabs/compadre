@@ -35,7 +35,7 @@ void GMLS::generateAlphas() {
 
     // initialize weights to be applied to data in order to get it into the form expected as a sample
     if (_data_sampling_functional != SamplingFunctional::PointSample) {
-        _prestencil_weights = Kokkos::View<double**, layout_type>("prestencil weights", _neighbor_lists.dimension_0(), std::pow(_dimensions,SamplingOutputTensorRank[_data_sampling_functional]+1)*2*max_num_neighbors, 0);
+        _prestencil_weights = Kokkos::View<double**, layout_type>("prestencil weights", _neighbor_lists.dimension_0(), std::pow(_local_dimensions,SamplingInputTensorRank[_data_sampling_functional])*std::pow(_global_dimensions,SamplingOutputTensorRank[_data_sampling_functional])*2*max_num_neighbors, 0);
     }
 
     /*
@@ -871,8 +871,6 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
                     _prestencil_weights(target_index, k*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m  ) =  T(k,j);
                     _prestencil_weights(target_index, k*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m+1) =  0;
                 }
-                _prestencil_weights(target_index, (_dimensions-1)*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m  ) =  0;
-                _prestencil_weights(target_index, (_dimensions-1)*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m+1) =  0;
             }
         });
     } else if (_data_sampling_functional == SamplingFunctional::ManifoldGradientVectorSample) {
@@ -884,8 +882,6 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
                     _prestencil_weights(target_index, k*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m  ) =  T(k,j);
                     _prestencil_weights(target_index, k*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m+1) =  0;
                 }
-                _prestencil_weights(target_index, (_dimensions-1)*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m  ) =  0;
-                _prestencil_weights(target_index, (_dimensions-1)*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m+1) =  0;
             }
         });
     } else if (_data_sampling_functional == SamplingFunctional::StaggeredEdgeIntegralSample) {
