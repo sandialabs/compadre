@@ -365,57 +365,6 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
                     }
 
-//                    // output component 0
-//                    this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, SamplingFunctional::PointSample);
-//                    int offset = (_lro_total_offsets[i]+0*_lro_output_tile_size[i]+0)*_basis_multiplier*target_NP;
-//                    for (int j=0; j<target_NP; ++j) {
-//                        P_target_row(offset + j, basis_multiplier_component) = t1(j)*V(0,0);
-//                        P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
-//                    }
-//                    offset = (_lro_total_offsets[i]+1*_lro_output_tile_size[i]+0)*_basis_multiplier*target_NP;
-//                    for (int j=0; j<target_NP; ++j) {
-//                        P_target_row(offset + j, basis_multiplier_component) = 0;
-//                        P_target_row(offset + target_NP + j, basis_multiplier_component) = t1(j)*V(1,0);
-//                    }
-//                    offset = (_lro_total_offsets[i]+2*_lro_output_tile_size[i]+0)*_basis_multiplier*target_NP;
-//                    for (int j=0; j<target_NP; ++j) {
-//                        P_target_row(offset + j, basis_multiplier_component) = 0;
-//                        P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
-//                    }
-//
-//                    // output component 1
-//                    offset = (_lro_total_offsets[i]+0*_lro_output_tile_size[i]+1)*_basis_multiplier*target_NP;
-//                    for (int j=0; j<target_NP; ++j) {
-//                        P_target_row(offset + j, basis_multiplier_component) = t1(j)*V(0,1);
-//                        P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
-//                    }
-//                    offset = (_lro_total_offsets[i]+1*_lro_output_tile_size[i]+1)*_basis_multiplier*target_NP;
-//                    for (int j=0; j<target_NP; ++j) {
-//                        P_target_row(offset + j, basis_multiplier_component) = 0;
-//                        P_target_row(offset + target_NP + j, basis_multiplier_component) = t1(j)*V(1,1);
-//                    }
-//                    offset = (_lro_total_offsets[i]+2*_lro_output_tile_size[i]+1)*_basis_multiplier*target_NP;
-//                    for (int j=0; j<target_NP; ++j) {
-//                        P_target_row(offset + j, basis_multiplier_component) = 0;
-//                        P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
-//                    }
-//
-//                    // output component 2
-//                    offset = (_lro_total_offsets[i]+0*_lro_output_tile_size[i]+2)*_basis_multiplier*target_NP;
-//                    for (int j=0; j<target_NP; ++j) {
-//                        P_target_row(offset + j, basis_multiplier_component) = t1(j)*V(0,2);
-//                        P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
-//                    }
-//                    offset = (_lro_total_offsets[i]+1*_lro_output_tile_size[i]+2)*_basis_multiplier*target_NP;
-//                    for (int j=0; j<target_NP; ++j) {
-//                        P_target_row(offset + j, basis_multiplier_component) = 0;
-//                        P_target_row(offset + target_NP + j, basis_multiplier_component) = t1(j)*V(1,2);
-//                    }
-//                    offset = (_lro_total_offsets[i]+2*_lro_output_tile_size[i]+2)*_basis_multiplier*target_NP;
-//                    for (int j=0; j<target_NP; ++j) {
-//                        P_target_row(offset + j, basis_multiplier_component) = 0;
-//                        P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
-//                    }
                 });
             } else if (_operations(i) == TargetOperation::LaplacianOfScalarPointEvaluation) {
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
@@ -662,11 +611,9 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
 
                         double t1a = q1*1 + q2*0;
                         double t2a = q1*0 + q2*1;
-                        double t3a = q1*curvature_gradients(0) + q2*curvature_gradients(1);
 
                         double t1b = q2*1 + q3*0;
                         double t2b = q2*0 + q3*1;
-                        double t3b = q2*curvature_gradients(0) + q3*curvature_gradients(1);
 
                         // scaled
                         int offset = (_lro_total_offsets[i]+0)*target_NP;
@@ -674,8 +621,8 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                             P_target_row(offset + j, basis_multiplier_component) = 0;
                         }
                         if (_poly_order > 0 && _curvature_poly_order > 0) {
-                            P_target_row(offset + 1, basis_multiplier_component) = t1a + t2a;//*V(0,0) + t2a*V(1,0) + t3a*V(2,0);
-                            P_target_row(offset + 2, basis_multiplier_component) = 0;//t1b*V(0,0) + t2b*V(1,0) + t3b*V(2,0);
+                            P_target_row(offset + 1, basis_multiplier_component) = t1a + t2a;
+                            P_target_row(offset + 2, basis_multiplier_component) = 0;
                         }
 
                         offset = (_lro_total_offsets[i]+1)*target_NP;
@@ -683,8 +630,8 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                             P_target_row(offset + j, basis_multiplier_component) = 0;
                         }
                         if (_poly_order > 0 && _curvature_poly_order > 0) {
-                            P_target_row(offset + 1, basis_multiplier_component) = 0;//t1a*V(0,1) + t2a*V(1,1) + t3a*V(2,1);
-                            P_target_row(offset + 2, basis_multiplier_component) = t1b + t2b;//t1b*V(0,1) + t2b*V(1,1) + t3b*V(2,1);
+                            P_target_row(offset + 1, basis_multiplier_component) = 0;
+                            P_target_row(offset + 2, basis_multiplier_component) = t1b + t2b;
                         }
 
                         offset = (_lro_total_offsets[i]+2)*target_NP;
@@ -695,34 +642,6 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                             P_target_row(offset + 1, basis_multiplier_component) = 0;
                             P_target_row(offset + 2, basis_multiplier_component) = 0;
                         }
-
-//                        // scaled
-//                        int offset = (_lro_total_offsets[i]+0)*target_NP;
-//                        for (int j=0; j<target_NP; ++j) {
-//                            P_target_row(offset + j, basis_multiplier_component) = 0;
-//                        }
-//                        if (_poly_order > 0 && _curvature_poly_order > 0) {
-//                            P_target_row(offset + 1, basis_multiplier_component) = t1a*V(0,0) + t2a*V(1,0) + t3a*V(2,0);
-//                            P_target_row(offset + 2, basis_multiplier_component) = t1b*V(0,0) + t2b*V(1,0) + t3b*V(2,0);
-//                        }
-//
-//                        offset = (_lro_total_offsets[i]+1)*target_NP;
-//                        for (int j=0; j<target_NP; ++j) {
-//                            P_target_row(offset + j, basis_multiplier_component) = 0;
-//                        }
-//                        if (_poly_order > 0 && _curvature_poly_order > 0) {
-//                            P_target_row(offset + 1, basis_multiplier_component) = t1a*V(0,1) + t2a*V(1,1) + t3a*V(2,1);
-//                            P_target_row(offset + 2, basis_multiplier_component) = t1b*V(0,1) + t2b*V(1,1) + t3b*V(2,1);
-//                        }
-//
-//                        offset = (_lro_total_offsets[i]+2)*target_NP;
-//                        for (int j=0; j<target_NP; ++j) {
-//                            P_target_row(offset + j, basis_multiplier_component) = 0;
-//                        }
-//                        if (_poly_order > 0 && _curvature_poly_order > 0) {
-//                            P_target_row(offset + 1, basis_multiplier_component) = t1a*V(0,2) + t2a*V(1,2) + t3a*V(2,2);
-//                            P_target_row(offset + 2, basis_multiplier_component) = t1b*V(0,2) + t2b*V(1,2) + t3b*V(2,2);
-//                        }
 
                     });
                 }

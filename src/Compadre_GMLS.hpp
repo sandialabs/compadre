@@ -41,7 +41,7 @@ protected:
     //! Rank 3 tensor for high order approximation of tangent vectors for all problems. First rank is
     //! for the target index, the second is for the local direction to the manifolds 0..(_dimensions-1)
     //! are tangent, _dimensions is the normal, and the third is for the spatial dimension (_dimensions)
-    Kokkos::View<double***> _T;
+    Kokkos::View<double*> _T;
 
     //! _dimensions columns contains high order approximation of normal vector for all problems. This
     //! can be set by the user or calculated automatically in the case of manifold problems.
@@ -513,13 +513,6 @@ protected:
         return val;
     }
 
-    //! Returns a component of the local coordinate after transformation from global to local under the orthonormal basis V.
-    KOKKOS_INLINE_FUNCTION
-    double globalToLocalCoordinateTensor(const int target_index, const int dim_in, const int dim_out) const {
-        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > V(_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
-        return V(dim_out, dim_in);
-    }
-
     //! Returns a component of the global coordinate after transformation from local to global under the orthonormal basis V^T.
     KOKKOS_INLINE_FUNCTION
     double convertLocalToGlobalCoordinate(const XYZ local_coord, const int dim, const scratch_matrix_type* V) const {
@@ -533,12 +526,6 @@ protected:
             val = local_coord.y * ((*V)(0, dim) + (*V)(1, dim));
         }
         return val;
-    }
-
-    //! Returns a component of the global coordinate after transformation from local to global under the orthonormal basis V^T.
-    KOKKOS_INLINE_FUNCTION
-    double localToGlobalCoordinateTensor(const int target_index, const int dim_in, const int dim_out) const {
-        return globalToLocalCoordinateTensor(target_index, dim_out, dim_in);
     }
 
 ///@}
@@ -614,9 +601,9 @@ public:
         const int dimensions = 3)
             : GMLS(poly_order, dense_solver_type, manifold_curvature_poly_order, dimensions) {
 
-    _reconstruction_space = reconstruction_space;
-    _polynomial_sampling_functional = polynomial_sampling_strategy;
-    _data_sampling_functional = data_sampling_strategy;
+        _reconstruction_space = reconstruction_space;
+        _polynomial_sampling_functional = polynomial_sampling_strategy;
+        _data_sampling_functional = data_sampling_strategy;
     };
 
     //! Constructor for the case when nonstandard sampling functionals or reconstruction spaces
@@ -1000,60 +987,80 @@ public:
         // make sure input and output views have same memory space
         assert((std::is_same<typename view_type_data_out::memory_space, typename view_type_data_in::memory_space>::value) && 
                 "output_data_single_column view and input_data_single_column view have difference memory spaces.");
-        auto this_T = this->_T;
+
         bool weight_with_pre_T = (pre_transform_local_index>=0 && pre_transform_global_index>=0) ? true : false;
         bool weight_with_post_T = (post_transform_local_index>=0 && post_transform_global_index>=0) ? true : false;
 
-        // It is possible to call this function with a view having a memory space of the host
-        // this first case takes case of that scenario. If this function is called by applyTargetToData,
-        // then it will always provide a view having memory space of the device (else case)
-        if (std::is_same<typename view_type_data_in::memory_space, Kokkos::HostSpace>::value) {
-            typedef Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace> alpha_policy;
-            typedef Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace>::member_type alpha_member_type;
-            // loops over target_indexes
-            Kokkos::parallel_for(alpha_policy(num_targets, Kokkos::AUTO), 
-                    KOKKOS_LAMBDA(const alpha_member_type& teamMember) {
-                double value = 0;
-                const int target_index = teamMember.league_rank();
-                const double previous_value = output_data_single_column(target_index);
-                teamMember.team_barrier();
-                // loops over neighbors of target_index
-                Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,_host_neighbor_lists(target_index,0)), [=](const int i, double& t_value) {
-                    t_value += sampling_data_single_column(_host_neighbor_lists(target_index, i+1))*_host_alphas(ORDER_INDICES(target_index,
-                        (this_host_lro_total_offset + input_index*this_host_lro_output_tile_size + output_index)
-                        *_number_of_neighbors_list(target_index) + i));
-                }, value);
-                auto pre_T = (weight_with_pre_T) ? this_T(target_index, pre_transform_local_index, pre_transform_global_index) : 1;
-                auto post_T = (weight_with_post_T) ? this_T(target_index, post_transform_local_index, post_transform_global_index) : 1;
-                output_data_single_column(target_index) = previous_value + pre_T*post_T*value;
-            });
-        } else {
+        //// It is possible to call this function with a view having a memory space of the host
+        //// this first case takes case of that scenario. If this function is called by applyTargetToData,
+        //// then it will always provide a view having memory space of the device (else case)
+        //if (std::is_same<typename view_type_data_in::memory_space, Kokkos::HostSpace>::value) {
+        //    typedef Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace> alpha_policy;
+        //    typedef Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace>::member_type alpha_member_type;
+
+        //    auto this_T = this->_T;
+
+        //    // loops over target_indexes
+        //    Kokkos::parallel_for(alpha_policy(num_targets, Kokkos::AUTO), 
+        //            KOKKOS_LAMBDA(const alpha_member_type& teamMember) {
+        //        double value = 0;
+        //        const int target_index = teamMember.league_rank();
+        //        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(this_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
+        //        const double previous_value = output_data_single_column(target_index);
+        //        teamMember.team_barrier();
+        //        // loops over neighbors of target_index
+        //        Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,_host_neighbor_lists(target_index,0)), [=](const int i, double& t_value) {
+        //            t_value += sampling_data_single_column(_host_neighbor_lists(target_index, i+1))*_host_alphas(ORDER_INDICES(target_index,
+        //                (this_host_lro_total_offset + input_index*this_host_lro_output_tile_size + output_index)
+        //                *_number_of_neighbors_list(target_index) + i));
+        //        }, value);
+        //        double pre_T = (weight_with_pre_T) ? 
+        //            this_T(target_index, pre_transform_local_index, pre_transform_global_index) : 1;
+        //        double post_T = (weight_with_post_T) ? 
+        //            this_T(target_index, post_transform_local_index, post_transform_global_index) : 1;
+
+        //        output_data_single_column(target_index) = previous_value + pre_T*post_T*value;
+        //    });
+        //} else {
             typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> alpha_policy;
             typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type alpha_member_type;
 
-            // this function is not a functor, so no capture on *this takes place, and therefore memory addresses will be illegal accesses
-            // if made on the device, even if this->... is on the device, so we create a name that will be captured by KOKKOS_LAMBDA
+            // this function is not a functor, so no capture on *this takes place, and therefore memory addresses 
+            // will be illegal accesses if made on the device, even if this->... is on the device, so we create a 
+            // name that will be captured by KOKKOS_LAMBDA
             auto neighbor_lists = this->_neighbor_lists;
             auto alphas = this->_alphas;
-            Kokkos::fence();
-            // loops over target_indexes
+            auto dimensions = this->_dimensions;
+            auto this_T = this->_T;
+
+            // loops over target indices
+            double * t_start = this->_T.ptr_on_device();
             Kokkos::parallel_for(alpha_policy(num_targets, Kokkos::AUTO), 
                     KOKKOS_LAMBDA(const alpha_member_type& teamMember) {
+
                 double value = 0;
                 const int target_index = teamMember.league_rank();
-                const double previous_value = output_data_single_column(target_index);
+
+                Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T
+                        (this_T.data() + target_index*dimensions*dimensions, dimensions, dimensions);
                 teamMember.team_barrier();
+
                 // loops over neighbors of target_index
+                const double previous_value = output_data_single_column(target_index);
                 Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, neighbor_lists(target_index,0)), [=](const int i, double& t_value) {
                     t_value += sampling_data_single_column(neighbor_lists(target_index, i+1))*alphas(ORDER_INDICES(target_index,
                         (this_host_lro_total_offset + input_index*this_host_lro_output_tile_size + output_index)
                         *neighbor_lists(target_index,0) + i));
                 }, value );
-                auto pre_T = (weight_with_pre_T) ? this_T(target_index, pre_transform_local_index, pre_transform_global_index) : 1;
-                auto post_T = (weight_with_post_T) ? this_T(target_index, post_transform_local_index, post_transform_global_index) : 1;
-                output_data_single_column(target_index) = previous_value + pre_T*post_T*value;
+
+                double pre_T = (weight_with_pre_T) ? T(pre_transform_local_index, pre_transform_global_index) : 1.0;
+                double post_T = (weight_with_post_T) ? T(post_transform_local_index, post_transform_global_index) : 1.0;
+                double added_value = pre_T*post_T*value;
+                Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
+                    output_data_single_column(target_index) = previous_value + added_value;
+                });
             });
-        }
+        //}
         Kokkos::fence();
     }
 
@@ -1172,18 +1179,18 @@ public:
         // we need to specialize a template on the rank of the output view type and the input view type,
         // but partial template specialization is not available for functions, so we use a nested member struct,
         // which does allow for partial template specialization
-        auto sm = SubviewMakerForTargetOperations<decltype(target_output_device_mirror),output_view_type::rank,
-                decltype(sampling_data_device_mirror),view_type_input_data::rank>();
+        //auto sm = SubviewMakerForTargetOperations<decltype(target_output_device_mirror),output_view_type::rank,
+        //        decltype(sampling_data_device_mirror),view_type_input_data::rank>();
         auto sm_w_pre_post_transform = SubviewMakerForPrePostAndTargetOperations<decltype(target_output_device_mirror),
              output_view_type::rank, decltype(sampling_data_device_mirror),view_type_input_data::rank>();
 
         Kokkos::fence();
         // loop over components of output of the target operation
         for (int i=0; i<this->_host_lro_output_tile_size[lro_number]; ++i) {
-            //const int output_component_axis_1 = i / _dimensions;
-            //const int output_component_axis_2 = i % _dimensions;
             const int output_component_axis_1 = i % _dimensions;
             const int output_component_axis_2 = i / _dimensions;
+            //const int output_component_axis_1 = i / _dimensions;
+            //const int output_component_axis_2 = i % _dimensions;
             // loop over components of input of the target operation
             for (int j=0; j<this->_host_lro_input_tile_size[lro_number]; ++j) {
                 const int input_component_axis_1 = j % _dimensions;
@@ -1201,6 +1208,7 @@ public:
                             sm_w_pre_post_transform.execute(this, target_output_device_mirror, k, sampling_data_device_mirror, 
                                     l, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
                                     input_component_axis_2, j, k, i, l);
+                            Kokkos::fence();
                         }
                     }
 
@@ -1215,7 +1223,8 @@ public:
                                 input_component_axis_2, -1, -1, i, k);
                     }
 
-                } else if (coords_in==CoordinatesType::Ambient && sro==SamplingFunctional::ManifoldVectorSample) {
+                } 
+                else if (coords_in==CoordinatesType::Ambient && sro==SamplingFunctional::ManifoldVectorSample) {
 
                     for (int k=0; k<_global_dimensions; ++k) {
                         // creates subviews if necessary so that only a 1D Kokkos View is exposed as the input and 
@@ -1228,8 +1237,11 @@ public:
                 } else { // standard
                     // creates subviews if necessary so that only a 1D Kokkos View is exposed as the input and 
                     // output for applyAlphasToDataSingleComponentAllTargets
-                    sm.execute(this, target_output_device_mirror, i, sampling_data_device_mirror, j, lro, output_component_axis_1, 
-                            output_component_axis_2, input_component_axis_1, input_component_axis_2);
+                    sm_w_pre_post_transform.execute(this, target_output_device_mirror, i, sampling_data_device_mirror, 
+                            j, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
+                            input_component_axis_2, -1, -1, -1, -1);
+                    //sm.execute(this, target_output_device_mirror, i, sampling_data_device_mirror, j, lro, output_component_axis_1, 
+                    //        output_component_axis_2, input_component_axis_1, input_component_axis_2);
                 }
             }
         }
@@ -1410,40 +1422,40 @@ public:
         _epsilons = epsilons;
     }
 
-    //! Sets orthonormal tangent directions for reconstruction on a manifold. The first rank of this 2D array 
-    //! corresponds to the target indices, i.e., rows of the neighbor lists 2D array. The second rank is the 
-    //! ordinal of the tangent direction (spatial dimensions-1 are tangent, last one is normal), and the third 
-    //! rank is indices into the spatial dimension.
-    template<typename view_type>
-    void setTangentDirections(view_type tangent_directions) {
+    ////! Sets orthonormal tangent directions for reconstruction on a manifold. The first rank of this 2D array 
+    ////! corresponds to the target indices, i.e., rows of the neighbor lists 2D array. The second rank is the 
+    ////! ordinal of the tangent direction (spatial dimensions-1 are tangent, last one is normal), and the third 
+    ////! rank is indices into the spatial dimension.
+    //template<typename view_type>
+    //void setTangentDirections(view_type tangent_directions) {
 
-        // allocate memory on device
-        _T = Kokkos::View<double***, layout_type>("device tangent directions",
-                _target_coordinates.dimension_0(), _dimensions, _dimensions);
+    //    // allocate memory on device
+    //    _T = Kokkos::View<double***, rank3_layout_type>("device tangent directions",
+    //            _target_coordinates.dimension_0(), _dimensions, _dimensions);
 
-        auto host_T = Kokkos::create_mirror_view(_T);
-        Kokkos::deep_copy(host_T, tangent_directions);
-        // copy data from host to device
-        Kokkos::deep_copy(_T, host_T);
-        _orthonormal_tangent_space_provided = true;
-    }
+    //    auto host_T = Kokkos::create_mirror_view(_T);
+    //    Kokkos::deep_copy(host_T, tangent_directions);
+    //    // copy data from host to device
+    //    Kokkos::deep_copy(_T, host_T);
+    //    _orthonormal_tangent_space_provided = true;
+    //}
 
-    //! Sets orthonormal tangent directions for reconstruction on a manifold. The first rank of this 2D array 
-    //! corresponds to the target indices, i.e., rows of the neighbor lists 2D array. The second rank is the 
-    //! ordinal of the tangent direction (spatial dimensions-1 are tangent, last one is normal), and the third 
-    //! rank is indices into the spatial dimension.
-    template<typename view_type>
-    void setTangentDirections(Kokkos::View<double***, Kokkos::DefaultExecutionSpace> tangent_directions) {
-        assert((tangent_directions.dimension_0()==_target_coordinates.dimension_0()) && 
-                "First rank of tangent_direction has wrong dimension.");
-        assert((tangent_directions.dimension_1()==_dimensions) && 
-                "Second rank of tangent_direction has wrong dimension.");
-        assert((tangent_directions.dimension_2()==_dimensions) && 
-                "Third rank of tangent_direction has wrong dimension.");
-        // copy smart pointer to view on device
-        _T = tangent_directions;
-        _orthonormal_tangent_space_provided = true;
-    }
+    ////! Sets orthonormal tangent directions for reconstruction on a manifold. The first rank of this 2D array 
+    ////! corresponds to the target indices, i.e., rows of the neighbor lists 2D array. The second rank is the 
+    ////! ordinal of the tangent direction (spatial dimensions-1 are tangent, last one is normal), and the third 
+    ////! rank is indices into the spatial dimension.
+    //template<typename view_type>
+    //void setTangentDirections(Kokkos::View<double***, Kokkos::DefaultExecutionSpace> tangent_directions) {
+    //    assert((tangent_directions.dimension_0()==_target_coordinates.dimension_0()) && 
+    //            "First rank of tangent_direction has wrong dimension.");
+    //    assert((tangent_directions.dimension_1()==_dimensions) && 
+    //            "Second rank of tangent_direction has wrong dimension.");
+    //    assert((tangent_directions.dimension_2()==_dimensions) && 
+    //            "Third rank of tangent_direction has wrong dimension.");
+    //    // copy smart pointer to view on device
+    //    _T = tangent_directions;
+    //    _orthonormal_tangent_space_provided = true;
+    //}
 
     //! Not well supported. Sets coefficients to be used in a prestencil weight or polynomial basis evaluation operator.
     void setOperatorCoefficients(Kokkos::View<double**, Kokkos::HostSpace> operator_coefficients) {

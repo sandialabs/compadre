@@ -124,7 +124,7 @@ void GMLS::generateAlphas() {
 
 
         // allocate data on the device (initialized to zero)
-        _T = Kokkos::View<double***>("T",_target_coordinates.dimension_0(),_dimensions,_dimensions);
+        _T = Kokkos::View<double*>("T",_target_coordinates.dimension_0()*_dimensions*_dimensions);
         _manifold_metric_tensor_inverse = Kokkos::View<double*>("manifold metric tensor inverse",_target_coordinates.dimension_0()*(_dimensions-1)*(_dimensions-1));
         _manifold_curvature_coefficients = Kokkos::View<double*>("manifold curvature coefficients",_target_coordinates.dimension_0()*manifold_NP);
         _manifold_curvature_gradient = Kokkos::View<double*>("manifold curvature gradient",_target_coordinates.dimension_0()*(_dimensions-1));
@@ -470,7 +470,6 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
     const int max_manifold_NP = (manifold_NP > target_NP) ? manifold_NP : target_NP;
     const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
-    const int this_num_columns = _basis_multiplier*max_manifold_NP;
     const int this_num_neighbors = this->getNNeighbors(target_index);
     const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
 
@@ -520,6 +519,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
         // apply coefficients to sample data
         grad_xi1 += manifold_gradient(i*(_dimensions-1)) * normal_coordinate;
         if (_dimensions>2) grad_xi2 += manifold_gradient(i*(_dimensions-1)+1) * normal_coordinate;
+        teamMember.team_barrier();
     }
 
     // Constructs high order orthonormal tangent space T and inverse of metric tensor
@@ -608,7 +608,6 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
     const int max_manifold_NP = (manifold_NP > target_NP) ? manifold_NP : target_NP;
     const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
-    const int this_num_columns = _basis_multiplier*max_manifold_NP;
     const int this_num_neighbors = this->getNNeighbors(target_index);
     const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
 
@@ -676,6 +675,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
                 manifold_coeffs(j) += Q(ORDER_INDICES(i,j)) * normal_coordinate;
             }
         });
+        teamMember.team_barrier();
     }
 
     // Constructs high order orthonormal tangent space T and inverse of metric tensor
@@ -735,7 +735,6 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
     const int this_num_neighbors = this->getNNeighbors(target_index);
-    const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
 
     /*
      *    Data
