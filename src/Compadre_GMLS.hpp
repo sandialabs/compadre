@@ -587,7 +587,11 @@ public:
         _orthonormal_tangent_space_provided = false; 
 
         _global_dimensions = dimensions;
-        _local_dimensions = dimensions-1;
+        if (_dense_solver_type == DenseSolverType::MANIFOLD) {
+            _local_dimensions = dimensions-1;
+        } else {
+            _local_dimensions = dimensions;
+        }
     }
 
     //! Constructor for the case when the data sampling functional does not match the polynomial
@@ -1159,9 +1163,16 @@ public:
         
         const int lro_number = _lro_lookup[(int)lro];
 
+        int output_dimensions;
+        if (coords_out==CoordinatesType::Ambient && _dense_solver_type==MANIFOLD && TargetOutputTensorRank[(int)lro]==1) {
+            output_dimensions = _global_dimensions;
+        } else {
+            output_dimensions = _host_lro_output_tile_size[lro_number];
+        }
+
         // create view on whatever memory space the user specified with their template argument when calling this function
         output_view_type target_output("output of target", _host_neighbor_lists.dimension_0() /* number of targets */, 
-                _host_lro_output_tile_size[lro_number]);
+                output_dimensions);
 
         // create device mirror and write into it then copy back at the end
         auto target_output_device_mirror = Kokkos::create_mirror(Kokkos::DefaultExecutionSpace::memory_space(), target_output);
@@ -1185,18 +1196,17 @@ public:
              output_view_type::rank, decltype(sampling_data_device_mirror),view_type_input_data::rank>();
 
         Kokkos::fence();
+
+        // only written for up to rank 1 to rank 1 remap
+        
         // loop over components of output of the target operation
         for (int i=0; i<this->_host_lro_output_tile_size[lro_number]; ++i) {
-            const int output_component_axis_1 = i % _dimensions;
-            const int output_component_axis_2 = i / _dimensions;
-            //const int output_component_axis_1 = i / _dimensions;
-            //const int output_component_axis_2 = i % _dimensions;
+            const int output_component_axis_1 = i;
+            const int output_component_axis_2 = 0;
             // loop over components of input of the target operation
             for (int j=0; j<this->_host_lro_input_tile_size[lro_number]; ++j) {
-                const int input_component_axis_1 = j % _dimensions;
-                const int input_component_axis_2 = j / _dimensions;
-                //const int input_component_axis_1 = j / _dimensions;
-                //const int input_component_axis_2 = j % _dimensions;
+                const int input_component_axis_1 = j;
+                const int input_component_axis_2 = 0;
                 if ((coords_in==CoordinatesType::Ambient && sro==SamplingFunctional::ManifoldVectorSample) &&
                         (coords_out==CoordinatesType::Ambient && _dense_solver_type==MANIFOLD 
                          && TargetOutputTensorRank[(int)lro]==1)) {
@@ -1223,8 +1233,7 @@ public:
                                 input_component_axis_2, -1, -1, i, k);
                     }
 
-                } 
-                else if (coords_in==CoordinatesType::Ambient && sro==SamplingFunctional::ManifoldVectorSample) {
+                } else if (coords_in==CoordinatesType::Ambient && sro==SamplingFunctional::ManifoldVectorSample) {
 
                     for (int k=0; k<_global_dimensions; ++k) {
                         // creates subviews if necessary so that only a 1D Kokkos View is exposed as the input and 
@@ -1240,8 +1249,6 @@ public:
                     sm_w_pre_post_transform.execute(this, target_output_device_mirror, i, sampling_data_device_mirror, 
                             j, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
                             input_component_axis_2, -1, -1, -1, -1);
-                    //sm.execute(this, target_output_device_mirror, i, sampling_data_device_mirror, j, lro, output_component_axis_1, 
-                    //        output_component_axis_2, input_component_axis_1, input_component_axis_2);
                 }
             }
         }
@@ -1497,7 +1504,7 @@ public:
     //! Sets basis order to be used when reoncstructing any function
     void setPolynomialOrder(const int poly_order) {
         _poly_order = poly_order;
-        _NP = this->getNP(_poly_order);
+        _NP = this->getNP(_poly_order, _dimensions);
     }
 
     //! Sets basis order to be used when reoncstructing curvature
@@ -1590,8 +1597,8 @@ public:
             _host_lro_total_offsets(i) = total_offset;
 
             // allows for a tile of the product of dimension^input_tensor_rank * dimension^output_tensor_rank * the number of neighbors
-            int output_tile_size = std::pow(_dimensions, TargetOutputTensorRank[(int)_lro[i]]);
-            int input_tile_size = std::pow(_dimensions, TargetInputTensorRank[(int)_lro[i]]);
+            int output_tile_size = std::pow(_local_dimensions, TargetOutputTensorRank[(int)_lro[i]]);
+            int input_tile_size = std::pow(_local_dimensions, TargetInputTensorRank[(int)_lro[i]]);
             _host_lro_output_tile_size(i) = output_tile_size;
             _host_lro_input_tile_size(i) = input_tile_size;
 

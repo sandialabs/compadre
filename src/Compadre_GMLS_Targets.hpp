@@ -325,11 +325,6 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         P_target_row(offset + j, basis_multiplier_component) = 0;
                         P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
                     }
-                    offset = (_lro_total_offsets[i]+2*_lro_output_tile_size[i]+0)*_basis_multiplier*target_NP;
-                    for (int j=0; j<target_NP; ++j) {
-                        P_target_row(offset + j, basis_multiplier_component) = 0;
-                        P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
-                    }
 
                     // output component 1
                     offset = (_lro_total_offsets[i]+0*_lro_output_tile_size[i]+1)*_basis_multiplier*target_NP;
@@ -341,28 +336,6 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     for (int j=0; j<target_NP; ++j) {
                         P_target_row(offset + j, basis_multiplier_component) = 0;
                         P_target_row(offset + target_NP + j, basis_multiplier_component) = t1(j);
-                    }
-                    offset = (_lro_total_offsets[i]+2*_lro_output_tile_size[i]+1)*_basis_multiplier*target_NP;
-                    for (int j=0; j<target_NP; ++j) {
-                        P_target_row(offset + j, basis_multiplier_component) = 0;
-                        P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
-                    }
-
-                    // output component 2
-                    offset = (_lro_total_offsets[i]+0*_lro_output_tile_size[i]+2)*_basis_multiplier*target_NP;
-                    for (int j=0; j<target_NP; ++j) {
-                        P_target_row(offset + j, basis_multiplier_component) = 0;
-                        P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
-                    }
-                    offset = (_lro_total_offsets[i]+1*_lro_output_tile_size[i]+2)*_basis_multiplier*target_NP;
-                    for (int j=0; j<target_NP; ++j) {
-                        P_target_row(offset + j, basis_multiplier_component) = 0;
-                        P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
-                    }
-                    offset = (_lro_total_offsets[i]+2*_lro_output_tile_size[i]+2)*_basis_multiplier*target_NP;
-                    for (int j=0; j<target_NP; ++j) {
-                        P_target_row(offset + j, basis_multiplier_component) = 0;
-                        P_target_row(offset + target_NP + j, basis_multiplier_component) = 0;
                     }
 
                 });
@@ -632,15 +605,6 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         if (_poly_order > 0 && _curvature_poly_order > 0) {
                             P_target_row(offset + 1, basis_multiplier_component) = 0;
                             P_target_row(offset + 2, basis_multiplier_component) = t1b + t2b;
-                        }
-
-                        offset = (_lro_total_offsets[i]+2)*target_NP;
-                        for (int j=0; j<target_NP; ++j) {
-                            P_target_row(offset + j, basis_multiplier_component) = 0;
-                        }
-                        if (_poly_order > 0 && _curvature_poly_order > 0) {
-                            P_target_row(offset + 1, basis_multiplier_component) = 0;
-                            P_target_row(offset + 2, basis_multiplier_component) = 0;
                         }
 
                     });
