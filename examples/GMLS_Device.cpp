@@ -8,6 +8,7 @@
 
 #include <Compadre_Config.h>
 #include <Compadre_GMLS.hpp>
+#include <Compadre_Remap.hpp>
 #include <Compadre_PointCloudSearch.hpp>
 
 #include "GMLS_Tutorial.hpp"
@@ -327,19 +328,21 @@ bool all_passed = true;
     // then you should template with double** as this is something that can not be infered from the input data
     // or the target operator at compile time
     
-    auto output_value = my_GMLS.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+    Remap remap_manager(my_GMLS);
+    
+    auto output_value = remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
             (sampling_data_device, ScalarPointEvaluation);
     
-    auto output_laplacian = my_GMLS.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+    auto output_laplacian = remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
             (sampling_data_device, LaplacianOfScalarPointEvaluation);
     
-    auto output_gradient = my_GMLS.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+    auto output_gradient = remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
             (sampling_data_device, GradientOfScalarPointEvaluation);
     
-    auto output_divergence = my_GMLS.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+    auto output_divergence = remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
             (gradient_sampling_data_device, DivergenceOfVectorPointEvaluation);
     
-    auto output_curl = my_GMLS.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+    auto output_curl = remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
             (divergence_sampling_data_device, CurlOfVectorPointEvaluation);
     
     

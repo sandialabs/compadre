@@ -2,6 +2,7 @@
 #define _COMPADRE_LINEAR_ALGEBRA_DECLARATIONS_HPP_
 
 #include "Compadre_Config.h"
+#include "Compadre_Typedefs.hpp"
 
 #ifdef COMPADRE_USE_CUDA
   #include <cuda_runtime.h>
@@ -21,29 +22,6 @@
   void openblas_set_num_threads(int num_threads);
 #endif
 #endif // COMPADRE_USE_LAPACK
-
-#include <Kokkos_Core.hpp>
-#include <Kokkos_Random.hpp>
-#include <assert.h>
-
-// KOKKOS TYPEDEFS
-
-typedef Kokkos::TeamPolicy<>               team_policy;
-typedef Kokkos::TeamPolicy<>::member_type  member_type;
-
-typedef Kokkos::DefaultExecutionSpace::array_layout layout_type;
-
-// reorders indices for layout of device
-#ifdef COMPADRE_USE_CUDA
-#define ORDER_INDICES(i,j) j,i
-#else
-#define ORDER_INDICES(i,j) i,j
-#endif
-
-typedef Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_matrix_type;
-typedef Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_vector_type;
-typedef Kokkos::View<int*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_local_index_type;
-
 
 namespace Compadre {
 

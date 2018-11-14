@@ -8,6 +8,7 @@
 
 #include <Compadre_Config.h>
 #include <Compadre_GMLS.hpp>
+#include <Compadre_Remap.hpp>
 #include "GMLS_Tutorial.hpp"
 
 #ifdef COMPADRE_USE_MPI
@@ -181,57 +182,60 @@ bool all_passed = true;
     for (int i=0; i<number_target_coords; i++) {
 
         Kokkos::Profiling::pushRegion("Apply Alphas to Data");
-        double GMLS_value = my_GMLS.applyAlphasToDataSingleComponentSingleTargetSite(sampling_data, ScalarPointEvaluation, i, 0, 0, 0, 0);
+
+        Remap remap_manager(my_GMLS);
+
+        double GMLS_value = remap_manager.applyAlphasToDataSingleComponentSingleTargetSite(sampling_data, ScalarPointEvaluation, i, 0, 0, 0, 0);
         //for (int j = 0; j< neighbor_lists(i,0); j++){
         //    double xval = source_coords(neighbor_lists(i,j+1),0);
         //    double yval = (dimension>1) ? source_coords(neighbor_lists(i,j+1),1) : 0;
         //    double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
-        //    GMLS_value += my_GMLS.getAlpha0TensorTo0Tensor(ScalarPointEvaluation, i, j)*trueSolution(xval, yval, zval, order, dimension);
+        //    GMLS_value += remap_manager.getAlpha0TensorTo0Tensor(ScalarPointEvaluation, i, j)*trueSolution(xval, yval, zval, order, dimension);
         //}
 
-        double GMLS_Laplacian = my_GMLS.applyAlphasToDataSingleComponentSingleTargetSite(sampling_data, LaplacianOfScalarPointEvaluation, i, 0, 0, 0, 0);
+        double GMLS_Laplacian = remap_manager.applyAlphasToDataSingleComponentSingleTargetSite(sampling_data, LaplacianOfScalarPointEvaluation, i, 0, 0, 0, 0);
         //double GMLS_Laplacian = 0.0;
         //for (int j = 0; j< neighbor_lists(i,0); j++){
         //    double xval = source_coords(neighbor_lists(i,j+1),0);
         //    double yval = (dimension>1) ? source_coords(neighbor_lists(i,j+1),1) : 0;
         //    double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
-        //    GMLS_Laplacian += my_GMLS.getAlpha0TensorTo0Tensor(LaplacianOfScalarPointEvaluation, i, j)*trueSolution(xval, yval, zval, order, dimension);
+        //    GMLS_Laplacian += remap_manager.getAlpha0TensorTo0Tensor(LaplacianOfScalarPointEvaluation, i, j)*trueSolution(xval, yval, zval, order, dimension);
         //}
 
-        double GMLS_GradX = my_GMLS.applyAlphasToDataSingleComponentSingleTargetSite(sampling_data, GradientOfScalarPointEvaluation, i, 0, 0, 0, 0);
+        double GMLS_GradX = remap_manager.applyAlphasToDataSingleComponentSingleTargetSite(sampling_data, GradientOfScalarPointEvaluation, i, 0, 0, 0, 0);
         //double GMLS_GradX = 0.0;
         //for (int j = 0; j< neighbor_lists(i,0); j++){
         //    double xval = source_coords(neighbor_lists(i,j+1),0);
         //    double yval = (dimension>1) ? source_coords(neighbor_lists(i,j+1),1) : 0;
         //    double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
-        //    GMLS_GradX += my_GMLS.getAlpha0TensorTo1Tensor(GradientOfScalarPointEvaluation, i, 0, j)*trueSolution(xval, yval, zval, order, dimension);
+        //    GMLS_GradX += remap_manager.getAlpha0TensorTo1Tensor(GradientOfScalarPointEvaluation, i, 0, j)*trueSolution(xval, yval, zval, order, dimension);
         //}
 
-        double GMLS_GradY = (dimension>1) ? my_GMLS.applyAlphasToDataSingleComponentSingleTargetSite(sampling_data, GradientOfScalarPointEvaluation, i, 1, 0, 0, 0) : 0;
+        double GMLS_GradY = (dimension>1) ? remap_manager.applyAlphasToDataSingleComponentSingleTargetSite(sampling_data, GradientOfScalarPointEvaluation, i, 1, 0, 0, 0) : 0;
         //double GMLS_GradY = 0.0;
         //if (dimension>1) {
         //    for (int j = 0; j< neighbor_lists(i,0); j++){
         //        double xval = source_coords(neighbor_lists(i,j+1),0);
         //        double yval = source_coords(neighbor_lists(i,j+1),1);
         //        double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
-        //        GMLS_GradY += my_GMLS.getAlpha0TensorTo1Tensor(GradientOfScalarPointEvaluation, i, 1, j)*trueSolution(xval, yval, zval, order, dimension);
+        //        GMLS_GradY += remap_manager.getAlpha0TensorTo1Tensor(GradientOfScalarPointEvaluation, i, 1, j)*trueSolution(xval, yval, zval, order, dimension);
         //    }
         //}
 
-        double GMLS_GradZ = (dimension>2) ? my_GMLS.applyAlphasToDataSingleComponentSingleTargetSite(sampling_data, GradientOfScalarPointEvaluation, i, 2, 0, 0, 0) : 0;
+        double GMLS_GradZ = (dimension>2) ? remap_manager.applyAlphasToDataSingleComponentSingleTargetSite(sampling_data, GradientOfScalarPointEvaluation, i, 2, 0, 0, 0) : 0;
         //double GMLS_GradZ = 0.0;
         //if (dimension>2) {
         //    for (int j = 0; j< neighbor_lists(i,0); j++){
         //        double xval = source_coords(neighbor_lists(i,j+1),0);
         //        double yval = source_coords(neighbor_lists(i,j+1),1);
         //        double zval = source_coords(neighbor_lists(i,j+1),2);
-        //        GMLS_GradZ += my_GMLS.getAlpha0TensorTo1Tensor(GradientOfScalarPointEvaluation, i, 2, j)*trueSolution(xval, yval, zval, order, dimension);
+        //        GMLS_GradZ += remap_manager.getAlpha0TensorTo1Tensor(GradientOfScalarPointEvaluation, i, 2, j)*trueSolution(xval, yval, zval, order, dimension);
         //    }
         //}
 
-        double GMLS_Divergence = my_GMLS.applyAlphasToDataSingleComponentSingleTargetSite(Kokkos::subview(gradient_sampling_data,Kokkos::ALL,0), DivergenceOfVectorPointEvaluation, i, 0, 0, 0, 0);
-        if (dimension>1) GMLS_Divergence += my_GMLS.applyAlphasToDataSingleComponentSingleTargetSite(Kokkos::subview(gradient_sampling_data,Kokkos::ALL,1), DivergenceOfVectorPointEvaluation, i, 0, 0, 1, 0);
-        if (dimension>2) GMLS_Divergence += my_GMLS.applyAlphasToDataSingleComponentSingleTargetSite(Kokkos::subview(gradient_sampling_data,Kokkos::ALL,2), DivergenceOfVectorPointEvaluation, i, 0, 0, 2, 0);
+        double GMLS_Divergence = 0;// = remap_manager.applyAlphasToDataSingleComponentSingleTargetSite(Kokkos::subview(gradient_sampling_data,Kokkos::ALL,0), DivergenceOfVectorPointEvaluation, i, 0, 0, 0, 0);
+//        if (dimension>1) GMLS_Divergence += remap_manager.applyAlphasToDataSingleComponentSingleTargetSite(Kokkos::subview(gradient_sampling_data,Kokkos::ALL,1), DivergenceOfVectorPointEvaluation, i, 0, 0, 1, 0);
+//        if (dimension>2) GMLS_Divergence += remap_manager.applyAlphasToDataSingleComponentSingleTargetSite(Kokkos::subview(gradient_sampling_data,Kokkos::ALL,2), DivergenceOfVectorPointEvaluation, i, 0, 0, 2, 0);
         //double GMLS_Divergence = 0.0;
         //for (int j = 0; j< neighbor_lists(i,0); j++){
         //    double xval = source_coords(neighbor_lists(i,j+1),0);
@@ -239,12 +243,12 @@ bool all_passed = true;
         //    double zval = (dimension>2) ? source_coords(neighbor_lists(i,j+1),2) : 0;
         //    // TODO: use different functions for the vector components
         //    if (use_arbitrary_order_divergence) {
-        //        GMLS_Divergence += my_GMLS.getAlpha1TensorTo0Tensor(DivergenceOfVectorPointEvaluation, i, j, 0)*trueSolution(xval, yval, zval, order, dimension);
-        //        if (dimension>1) GMLS_Divergence += my_GMLS.getAlpha1TensorTo0Tensor(DivergenceOfVectorPointEvaluation, i, j, 1)*trueSolution(xval, yval, zval, order, dimension);
-        //        if (dimension>2) GMLS_Divergence += my_GMLS.getAlpha1TensorTo0Tensor(DivergenceOfVectorPointEvaluation, i, j, 2)*trueSolution(xval, yval, zval, order, dimension);
+        //        GMLS_Divergence += remap_manager.getAlpha1TensorTo0Tensor(DivergenceOfVectorPointEvaluation, i, j, 0)*trueSolution(xval, yval, zval, order, dimension);
+        //        if (dimension>1) GMLS_Divergence += remap_manager.getAlpha1TensorTo0Tensor(DivergenceOfVectorPointEvaluation, i, j, 1)*trueSolution(xval, yval, zval, order, dimension);
+        //        if (dimension>2) GMLS_Divergence += remap_manager.getAlpha1TensorTo0Tensor(DivergenceOfVectorPointEvaluation, i, j, 2)*trueSolution(xval, yval, zval, order, dimension);
         //    } else {
         //        for (int k=0; k<dimension; ++k) {
-        //            GMLS_Divergence += my_GMLS.getAlpha1TensorTo0Tensor(DivergenceOfVectorPointEvaluation, i, j, k)*divergenceTestSamples(xval, yval, zval, k, dimension);
+        //            GMLS_Divergence += remap_manager.getAlpha1TensorTo0Tensor(DivergenceOfVectorPointEvaluation, i, j, k)*divergenceTestSamples(xval, yval, zval, k, dimension);
         //        }
         //    }
         //}
@@ -253,19 +257,19 @@ bool all_passed = true;
         double GMLS_CurlY = 0.0;
         double GMLS_CurlZ = 0.0;
 
-        if (dimension>1) {
-            for (int j=0; j<dimension; ++j) {
-                GMLS_CurlX += my_GMLS.applyAlphasToDataSingleComponentSingleTargetSite(Kokkos::subview(divergence_sampling_data,Kokkos::ALL,j), CurlOfVectorPointEvaluation, i, 0, 0, j, 0);
-                GMLS_CurlY += my_GMLS.applyAlphasToDataSingleComponentSingleTargetSite(Kokkos::subview(divergence_sampling_data,Kokkos::ALL,j), CurlOfVectorPointEvaluation, i, 1, 0, j, 0);
-            }
-        } 
-
-        if (dimension>2) {
-            for (int j=0; j<dimension; ++j) {
-                GMLS_CurlZ += my_GMLS.applyAlphasToDataSingleComponentSingleTargetSite(Kokkos::subview(divergence_sampling_data,Kokkos::ALL,j), CurlOfVectorPointEvaluation, i, 2, 0, j, 0);
-            }
-
-        }
+//        if (dimension>1) {
+//            for (int j=0; j<dimension; ++j) {
+//                GMLS_CurlX += remap_manager.applyAlphasToDataSingleComponentSingleTargetSite(Kokkos::subview(divergence_sampling_data,Kokkos::ALL,j), CurlOfVectorPointEvaluation, i, 0, 0, j, 0);
+//                GMLS_CurlY += remap_manager.applyAlphasToDataSingleComponentSingleTargetSite(Kokkos::subview(divergence_sampling_data,Kokkos::ALL,j), CurlOfVectorPointEvaluation, i, 1, 0, j, 0);
+//            }
+//        } 
+//
+//        if (dimension>2) {
+//            for (int j=0; j<dimension; ++j) {
+//                GMLS_CurlZ += remap_manager.applyAlphasToDataSingleComponentSingleTargetSite(Kokkos::subview(divergence_sampling_data,Kokkos::ALL,j), CurlOfVectorPointEvaluation, i, 2, 0, j, 0);
+//            }
+//
+//        }
 
         Kokkos::Profiling::popRegion();
         //if (dimension>1) {

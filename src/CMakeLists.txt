@@ -12,6 +12,8 @@ set(COMPADRE_HEADERS
   Compadre_Misc.hpp
   Compadre_Operators.hpp
   Compadre_PointCloudSearch.hpp
+  Compadre_Typedefs.hpp
+  Compadre_Remap.hpp
   )
 
 

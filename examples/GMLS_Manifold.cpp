@@ -8,6 +8,7 @@
 
 #include <Compadre_Config.h>
 #include <Compadre_GMLS.hpp>
+#include <Compadre_Remap.hpp>
 #include <Compadre_PointCloudSearch.hpp>
 
 #include "GMLS_Manifold.hpp"
@@ -360,19 +361,22 @@ Kokkos::initialize(argc, args);
     // then you should template with double** as this is something that can not be infered from the input data
     // or the target operator at compile time
     
-    auto output_value = my_GMLS_scalar.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+    Remap scalar_remap_manager(my_GMLS_scalar);
+    Remap vector_remap_manager(my_GMLS_vector);
+    
+    auto output_value = scalar_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
             (sampling_data_device, ScalarPointEvaluation);
     
-    auto output_laplacian = my_GMLS_scalar.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+    auto output_laplacian = scalar_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
             (sampling_data_device, LaplacianOfScalarPointEvaluation);
 
-    auto output_gradient = my_GMLS_scalar.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+    auto output_gradient = scalar_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
             (sampling_data_device, GradientOfScalarPointEvaluation);
 
-    auto output_vector = my_GMLS_vector.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+    auto output_vector = vector_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
             (sampling_vector_data_device, VectorPointEvaluation, ManifoldVectorSample);
     
-    auto output_divergence = my_GMLS_vector.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+    auto output_divergence = vector_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
             (sampling_vector_data_device, DivergenceOfVectorPointEvaluation, ManifoldVectorSample);
 
 //Kokkos::Profiling::pushRegion("Vector Remap");
