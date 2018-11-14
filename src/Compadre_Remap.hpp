@@ -4,17 +4,82 @@
 #include "Compadre_Typedefs.hpp"
 #include "Compadre_GMLS.hpp"
 
+template< bool B, class T = void >
+using enable_if_t = typename std::enable_if<B,T>::type;
+
 namespace Compadre {
 
+
+
+
+
+template<typename T, typename T2=void>
+struct Subview1D { 
+    
+    T _data_in;
+
+    Subview1D(T data_in) {
+        _data_in = data_in;
+    }
+
+
+    auto get1DView(const int column_num) -> decltype(Kokkos::subview(_data_in, Kokkos::ALL, column_num)) {
+        assert((column_num<_data_in.dimension_1()) && "Subview asked for column > second dimension of input data.");
+        return Kokkos::subview(_data_in, Kokkos::ALL, column_num);
+    }
+
+};
+
+template<typename T>
+struct Subview1D<T, enable_if_t<(T::rank<2)> >
+{ 
+
+    T _data_in;
+
+    Subview1D(T data_in) {
+        _data_in = data_in;
+    }
+
+    auto get1DView(const int column_num) -> decltype(Kokkos::subview(_data_in, Kokkos::ALL)) {
+        assert((column_num==0) && "Subview asked for column column_num!=0, but _data_in is rank 1.");
+        return Kokkos::subview(_data_in, Kokkos::ALL);
+    }
+
+};
+
+//! Copies data_in to the device, and then allows for access to 1D columns of data on device
+template <typename T>
+auto Create1DSliceOnDeviceView(T sampling_input_data_host_or_device) -> Subview1D<decltype(Kokkos::create_mirror_view(
+                    Kokkos::DefaultExecutionSpace::memory_space(), sampling_input_data_host_or_device))> {
+//Subview1D<T> Create1DSliceOnDeviceView(T sampling_input_data_host_or_device) {
+
+	// makes view on the device (does nothing if already on the device)
+    auto sampling_input_data_device = Kokkos::create_mirror_view(
+        Kokkos::DefaultExecutionSpace::memory_space(), sampling_input_data_host_or_device);
+    Kokkos::deep_copy(sampling_input_data_device, sampling_input_data_host_or_device);
+    Kokkos::fence();
+
+    return Subview1D<decltype(sampling_input_data_device)>(sampling_input_data_device);
+    //return Subview1D<decltype(sampling_input_data_host_or_device)>(sampling_input_data_host_or_device);
+    //return Subview1D<T>(sampling_input_data_host_or_device);
+}
+
+
+
+//! \brief Lightweight Remap Helper
+//! This class is a lightweight wrapper for extracting information to remap from a GMLS class
+//! and applying it to data. 
 class Remap {
 
 private:
 
-    GMLS& _gmls;
+    GMLS *_gmls;
 
 public:
 
-    Remap(GMLS gmls) : _gmls(gmls) {};
+    Remap(GMLS *gmls) : _gmls(gmls) {
+        Kokkos::fence();
+    };
 
     ~Remap() {};
 
@@ -34,51 +99,46 @@ public:
     //! \param input_component_axis_1   [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
     //! \param input_component_axis_2   [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
     template <typename view_type_data>
-    double applyAlphasToDataSingleComponentSingleTargetSite(view_type_data sampling_input_data, TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
+    double applyAlphasToDataSingleComponentSingleTargetSite(view_type_data sampling_input_data, const int column_of_input, TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
 
-        const int alpha_column_offset = _gmls.getAlphaColumnOffset(lro, target_index, output_component_axis_1, 
+        printf("INITIATED!!!\n");
+        double value = 0;
+
+        printf("2INITIATED!!!\n");
+        const int alpha_column_offset = _gmls->getAlphaColumnOffset(lro, target_index, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2);
+        printf("2INITIATED3!!!\n");
 
-        // if sampling data lives on the host, this moves it to the device
-        // all work is done on the device
-        auto sampling_input_data_device = Kokkos::create_mirror(
-                Kokkos::DefaultExecutionSpace::memory_space(), sampling_input_data);
-        //Kokkos::deep_copy(sampling_input_data_device, sampling_input_data);
-        //Kokkos::fence();
+	    auto sampling_subview_maker = Create1DSliceOnDeviceView(sampling_input_data);
 
-        //if (std::is_same<typename view_type_data::memory_space, Kokkos::HostSpace>::value) {
-        //    // loop through neighbor list for this target_index
-        //    // grabbing data from that entry of data
-        //    // for now a regular parallel_for loop on HOST
-        //    Kokkos::parallel_reduce("applyAlphasToData::Host", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_gmls->getNNeighbors(target_index)), KOKKOS_LAMBDA(const int i, double& t_value) {
-        //        t_value += sampling_input_data(_host_neighbor_lists(target_index, i+1))
-        //            *_host_alphas(ORDER_INDICES(target_index, alpha_column_offset + i));
-        //    }, value);
-        //} else {
-//#ifdef COMPADRE_USE_CUDA
+        // loop through neighbor list for this target_index
+        // grabbing data from that entry of data
+        
+        // gather needed information for remap
+        auto neighbor_lists = _gmls->getNeighborLists();
+        auto alphas         = _gmls->getAlphas();
+        auto neighbor_lists_lengths = _gmls->getNeighborListsLengths();
+		auto sampling_data_device = sampling_subview_maker.get1DView(column_of_input);
+        Kokkos::fence();
+        //auto neighbor_lists = _gmls.getNeighborLists<Kokkos::DefaultExecutionSpace::memory_space()>();
+        //auto alphas         = _gmls.getAlphas<Kokkos::DefaultExecutionSpace::memory_space()>();
+        //auto neighbor_lists_lengths = _gmls.getNeighborListsLengths<Kokkos::HostSpace>();
+		//auto sampling_data_device = sampling_subview_maker.get1DView(column_of_input);
 
-            // loop through neighbor list for this target_index
-            // grabbing data from that entry of data
-            
-            // gather needed information for remap
-            auto neighbor_lists = _gmls.getNeighborLists();
-            auto alphas = _gmls.getAlphas();
-            auto neighbor_lists_lengths = _gmls.getNeighborListsLengths();
+        printf("%d x %d\n", alphas.dimension_0(), alphas.dimension_1());
+        printf("n %d\n", neighbor_lists_lengths.dimension_0());
+        
+        Kokkos::parallel_reduce("applyAlphasToData::Device", 
+                Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,neighbor_lists_lengths(target_index)), 
+                KOKKOS_LAMBDA(const int i, double& t_value) {
 
-            double value = 0;
+            t_value += sampling_data_device(neighbor_lists(target_index, i+1))
+                *alphas(ORDER_INDICES(target_index, alpha_column_offset + i));
 
-            //Kokkos::parallel_reduce("applyAlphasToData::Device", 
-            //        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,neighbor_lists_lengths(target_index)), 
-            //        KOKKOS_LAMBDA(const int& i, double& t_value) {
+        }, value );
 
-            ////    t_value += sampling_input_data_device(neighbor_lists(target_index, i+1))
-            ////        *alphas(ORDER_INDICES(target_index, alpha_column_offset + i));
+        Kokkos::fence();
 
-            //}, value );
-
-            Kokkos::fence();
-//#endif
-        //}
         return value;
     }
 
@@ -462,6 +522,15 @@ public:
     double applyTargetToData(view_type_output output_data, view_type_data sampling_data, TargetOperation lro, view_type_mapping target_mapping = Kokkos::View<int*>()) const {
         // TODO fill this in
     }
+    //! helper struct allowing for subviews of 1D or 2D Kokkos Views with partial template instantiation
+    template <typename view_type_out, int rank_out, typename view_type_in, int rank_in> 
+    struct SubviewMaker {
+        void execute(const Remap* this_gmls_class, view_type_out out, const int column_out, view_type_in in, const int column_in, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1) {
+            auto sub_out = Kokkos::subview(out, Kokkos::ALL, column_out);
+            auto sub_in = Kokkos::subview(in, Kokkos::ALL, column_in);
+            this_gmls_class->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(sub_out, sub_in, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, input_component_axis_2, pre_transform_local_index, pre_transform_global_index, post_transform_local_index, post_transform_global_index);
+        }
+    };
 
 }; // Remap
 

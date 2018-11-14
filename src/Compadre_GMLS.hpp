@@ -749,19 +749,25 @@ public:
 
     //! Get a view (host) of the length of each neighbor list. 
     //! Each entry corresponds to a row of _neighbor_lists.
-    Kokkos::View<const int*, Kokkos::HostSpace> getNeighborListsLengths() const { 
+    decltype(_number_of_neighbors_list) getNeighborListsLengths() const { 
         return _number_of_neighbors_list; 
     }
 
     //! Get a view (device) of all neighbor lists. First column is the number of neighbors for that row's list.
-    Kokkos::View<const int**, layout_type> getNeighborLists() const { return _neighbor_lists; }
+    decltype(_neighbor_lists) getNeighborLists() const { return _neighbor_lists; }
 
     //! Retrieves the offset for which column a needed alpha coefficient is in 
     //! (but still needs a neighbor number added to this returned value to be meaningful)
     int getAlphaColumnOffset(TargetOperation lro, const int target_index, const int output_component_axis_1, 
             const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
 
+        for (int i=0; i<_lro_lookup.size(); ++i) {
+            printf("%d: is %d\n", i, _lro_lookup[i]);
+        }
+
+        printf("b: %d", (int)lro);
         const int lro_number = _lro_lookup[(int)lro];
+        printf("a: %d\n", lro_number);
         const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
         const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
 
@@ -770,7 +776,7 @@ public:
     }
 
     //! Get a view on the device of all alphas
-    Kokkos::View<const double**, layout_type> getAlphas() const { return _alphas; }
+    decltype(_alphas) getAlphas() const { return _alphas; }
 
     //! Helper function for getting alphas for scalar reconstruction from scalar data
     double getAlpha0TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index) const {

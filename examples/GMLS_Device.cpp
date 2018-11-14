@@ -328,7 +328,7 @@ bool all_passed = true;
     // then you should template with double** as this is something that can not be infered from the input data
     // or the target operator at compile time
     
-    Remap remap_manager(my_GMLS);
+    Remap remap_manager(&my_GMLS);
     
     auto output_value = remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
             (sampling_data_device, ScalarPointEvaluation);

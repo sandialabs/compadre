@@ -361,8 +361,8 @@ Kokkos::initialize(argc, args);
     // then you should template with double** as this is something that can not be infered from the input data
     // or the target operator at compile time
     
-    Remap scalar_remap_manager(my_GMLS_scalar);
-    Remap vector_remap_manager(my_GMLS_vector);
+    Remap scalar_remap_manager(&my_GMLS_scalar);
+    Remap vector_remap_manager(&my_GMLS_vector);
     
     auto output_value = scalar_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
             (sampling_data_device, ScalarPointEvaluation);
