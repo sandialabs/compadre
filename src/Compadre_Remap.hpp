@@ -95,7 +95,7 @@ public:
 
     ~Remap() {};
 
-    //! Dot product of alphas with sampling data, FOR A SINGLE target_index,  where sampling data is in a 1D Kokkos View
+    //! Dot product of alphas with sampling data, FOR A SINGLE target_index,  where sampling data is in a 1D/2D Kokkos View
     //! 
     //! This function is to be used when the alpha values have already been calculated and stored for use 
     //!
@@ -103,7 +103,8 @@ public:
     //! components in order to fill a vector target or matrix target.
     //! 
     //! Assumptions on input data:
-    //! \param sampling_input_data      [in] - 1D Kokkos View (no restriction on memory space)
+    //! \param sampling_input_data      [in] - 1D/2D Kokkos View (no restriction on memory space)
+    //! \param column_of_input          [in] - Column of sampling_input_data to use for this input component
     //! \param lro                      [in] - Target operation from the TargetOperation enum
     //! \param target_index             [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
     //! \param output_component_axis_1  [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
@@ -142,7 +143,8 @@ public:
         return value;
     }
 
-    //! Dot product of alphas with sampling data where sampling data is in a 1D Kokkos View and output view is also a 1D Kokkos View
+    //! Dot product of alphas with sampling data where sampling data is in a 1D/2D Kokkos View and output view is also 
+    //! a 1D/2D Kokkos View, however THE SAMPLING DATA and OUTPUT VIEW MUST BE ON THE DEVICE!
     //! 
     //! This function is to be used when the alpha values have already been calculated and stored for use.
     //!
@@ -150,7 +152,7 @@ public:
     //! components in order to fill a vector target or matrix target.
     //! 
     //! Assumptions on input data:
-    //! \param output_data_single_column       [out] - 1D Kokkos View (memory space must match sampling_data_single_column)
+    //! \param output_data_single_column       [out] - 1D Kokkos View (memory space must be Kokkos::DefaultExecutionSpace::memory_space())
     //! \param sampling_data_single_column      [in] - 1D Kokkos View (memory space must match output_data_single_column)
     //! \param lro                              [in] - Target operation from the TargetOperation enum
     //! \param target_index                     [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
@@ -158,6 +160,10 @@ public:
     //! \param output_component_axis_2          [in] - Columns for a rank 2 tensor, 0 for rank less than 2 output tensor
     //! \param input_component_axis_1           [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
     //! \param input_component_axis_2           [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
+    //! \param pre_transform_local_index        [in] - For manifold problems, this is the local coordinate direction that sampling data may need to be transformed to before the application of GMLS
+    //! \param pre_transform_global_index       [in] - For manifold problems, this is the global coordinate direction that sampling data can be represented in
+    //! \param post_transform_local_index       [in] - For manifold problems, this is the local coordinate direction that vector output target functionals from GMLS will output into
+    //! \param post_transform_global_index      [in] - For manifold problems, this is the global coordinate direction that the target functional output from GMLS will be transformed into
     template <typename view_type_data_out, typename view_type_data_in>
     void applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(view_type_data_out output_data_single_column, view_type_data_in sampling_data_single_column, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1) const {
 
@@ -264,7 +270,7 @@ public:
 
     //! Transformation of data under GMLS
     //! 
-    //! This function is to be used when the alpha values have already been calculated and stored for use.
+    //! This function is the go to function to be used when the alpha values have already been calculated and stored for use.
     //!
     //! Produces a Kokkos View as output with a Kokkos memory_space provided as a template tag by the caller. 
     //! The data type (double* or double**) must also be specified as a template type if one wish to get a 1D 
@@ -273,6 +279,8 @@ public:
     //! Assumptions on input data:
     //! \param sampling_data            [in] - 1D or 2D Kokkos View that has the layout #targets * columns of data. Memory space for data can be host or device. It is assumed that this data has already been transformed by the sampling functional.
     //! \param lro                      [in] - Target operation from the TargetOperation enum
+    //! \param coords_in                [in] - For manifold problems, whether to transform vector sampling data from ambient to local space on the manifold before applying the GMLS target operations
+    //! \param coords_out               [in] - For manifold problems, whether to transform GMLS vector target output into ambient space
     template <typename output_data_type = double**, typename output_memory_space, typename view_type_input_data, typename output_array_layout = typename view_type_input_data::array_layout>
     Kokkos::View<output_data_type, output_array_layout, output_memory_space>  // shares layout of input by default
             applyAlphasToDataAllComponentsAllTargetSites(view_type_input_data sampling_data, TargetOperation lro, SamplingFunctional sro = SamplingFunctional::PointSample, CoordinatesType coords_in = CoordinatesType::Ambient, CoordinatesType coords_out = CoordinatesType::Ambient) const {
@@ -291,7 +299,7 @@ public:
         // gather needed information for remap
         auto neighbor_lists = _gmls->getNeighborLists();
 
-        
+        // determines the number of columns needed for output after action of the target functional
         int output_dimensions;
         if (coords_out==CoordinatesType::Ambient && problem_type==MANIFOLD && TargetOutputTensorRank[(int)lro]==1) {
             output_dimensions = global_dimensions;
@@ -302,15 +310,6 @@ public:
         // create view on whatever memory space the user specified with their template argument when calling this function
         output_view_type target_output("output of target", neighbor_lists.dimension_0() /* number of targets */, 
                 output_dimensions);
-
-        // create device mirror and write into it then copy back at the end
-        //auto target_output_device_mirror = Kokkos::create_mirror(Kokkos::DefaultExecutionSpace::memory_space(), target_output);
-        //auto sampling_data_device_mirror = Kokkos::create_mirror(Kokkos::DefaultExecutionSpace::memory_space(), sampling_data);
-
-        // copy sampling data from whatever memory space it is in to the device (does nothing if already on the device)
-        //Kokkos::deep_copy(sampling_data_device_mirror, sampling_data);
-        //Kokkos::deep_copy(target_output_device_mirror, 0);
-        //Kokkos::fence();
 
         // make sure input and output columns make sense under the target operation
         assert(((output_dimension_of_operator==1 && output_view_type::rank==1) || output_view_type::rank!=1) && 
@@ -335,62 +334,32 @@ public:
                          && TargetOutputTensorRank[(int)lro]==1)) {
                     for (int k=0; k<global_dimensions; ++k) {
                         for (int l=0; l<global_dimensions; ++l) {
-
-                            //auto sub_out = Kokkos::subview(out, Kokkos::ALL, column_out);
-                            //auto sampling_data_device = sampling_subview_maker.get1DView(column_of_input);
-                            this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(output_subview_maker.get1DView(k), 
-                                sampling_subview_maker.get1DView(l), lro, output_component_axis_1, 
-                                output_component_axis_2, input_component_axis_1, input_component_axis_2,
-                                j, k, i, l);
-
-
-                            // creates subviews if necessary so that only a 1D Kokkos View is exposed as the input and 
-                            // output for applyAlphasToDataSingleComponentAllTargets
-                            //sm_w_pre_post_transform.execute(this, target_output_device_mirror, k, sampling_data_device_mirror, 
-                            //        l, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
-                            //        input_component_axis_2, j, k, i, l);
-                            //Kokkos::fence();
+                            this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
+                                    output_subview_maker.get1DView(k), sampling_subview_maker.get1DView(l), 
+                                    lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
+                                    input_component_axis_2, j, k, i, l);
                         }
                     }
 
                 } else if (coords_out==CoordinatesType::Ambient && problem_type==MANIFOLD && 
                         TargetOutputTensorRank[(int)lro]==1) {
-
                     for (int k=0; k<global_dimensions; ++k) {
-                        this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(output_subview_maker.get1DView(k), 
-                            sampling_subview_maker.get1DView(j), lro, output_component_axis_1, 
-                            output_component_axis_2, input_component_axis_1, input_component_axis_2,
-                            -1, -1, i, k);
-                        // creates subviews if necessary so that only a 1D Kokkos View is exposed as the input and 
-                        // output for applyAlphasToDataSingleComponentAllTargets
-                        //sm_w_pre_post_transform.execute(this, target_output_device_mirror, k, sampling_data_device_mirror, 
-                        //        j, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
-                        //        input_component_axis_2, -1, -1, i, k);
+                        this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
+                                output_subview_maker.get1DView(k), sampling_subview_maker.get1DView(j), lro, 
+                                output_component_axis_1, output_component_axis_2, input_component_axis_1, 
+                                input_component_axis_2, -1, -1, i, k);
                     }
-
                 } else if (coords_in==CoordinatesType::Ambient && sro==SamplingFunctional::ManifoldVectorSample) {
-
                     for (int k=0; k<global_dimensions; ++k) {
-                        this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(output_subview_maker.get1DView(i), 
-                            sampling_subview_maker.get1DView(k), lro, output_component_axis_1, 
-                            output_component_axis_2, input_component_axis_1, input_component_axis_2,
-                            j, k, -1, -1);
-                        // creates subviews if necessary so that only a 1D Kokkos View is exposed as the input and 
-                        // output for applyAlphasToDataSingleComponentAllTargets
-                        //sm_w_pre_post_transform.execute(this, target_output_device_mirror, i, sampling_data_device_mirror, 
-                        //        k, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
-                        //        input_component_axis_2, j, k, -1, -1);
+                        this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
+                                output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(k), lro, 
+                                output_component_axis_1, output_component_axis_2, input_component_axis_1, 
+                                input_component_axis_2, j, k, -1, -1);
                     }
-
                 } else { // standard
-                    this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(output_subview_maker.get1DView(i), 
-                        sampling_subview_maker.get1DView(j), lro, output_component_axis_1, 
-                        output_component_axis_2, input_component_axis_1, input_component_axis_2);
-                    // creates subviews if necessary so that only a 1D Kokkos View is exposed as the input and 
-                    // output for applyAlphasToDataSingleComponentAllTargets
-                    //sm_w_pre_post_transform.execute(this, target_output_device_mirror, i, sampling_data_device_mirror, 
-                    //        j, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
-                    //        input_component_axis_2, -1, -1, -1, -1);
+                    this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
+                            output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(j), lro, 
+                            output_component_axis_1, output_component_axis_2, input_component_axis_1, input_component_axis_2);
                 }
             }
         }
@@ -405,15 +374,6 @@ public:
 //    double applyTargetToData(view_type_output output_data, view_type_data sampling_data, TargetOperation lro, view_type_mapping target_mapping = Kokkos::View<int*>()) const {
 //        // TODO fill this in
 //    }
-//    //! helper struct allowing for subviews of 1D or 2D Kokkos Views with partial template instantiation
-//    template <typename view_type_out, int rank_out, typename view_type_in, int rank_in> 
-//    struct SubviewMaker {
-//        void execute(const Remap* this_gmls_class, view_type_out out, const int column_out, view_type_in in, const int column_in, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1) {
-//            auto sub_out = Kokkos::subview(out, Kokkos::ALL, column_out);
-//            auto sub_in = Kokkos::subview(in, Kokkos::ALL, column_in);
-//            this_gmls_class->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(sub_out, sub_in, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, input_component_axis_2, pre_transform_local_index, pre_transform_global_index, post_transform_local_index, post_transform_global_index);
-//        }
-//    };
 
 }; // Remap
 
