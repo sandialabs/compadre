@@ -87,6 +87,63 @@ private:
 
     GMLS *_gmls;
 
+
+public:
+
+    Remap(GMLS *gmls) : _gmls(gmls) {
+        Kokkos::fence();
+    };
+
+    ~Remap() {};
+
+    //! Dot product of alphas with sampling data, FOR A SINGLE target_index,  where sampling data is in a 1D/2D Kokkos View
+    //! 
+    //! This function is to be used when the alpha values have already been calculated and stored for use 
+    //!
+    //! Only supports one output component / input component at a time. The user will need to loop over the output 
+    //! components in order to fill a vector target or matrix target.
+    //! 
+    //! Assumptions on input data:
+    //! \param sampling_input_data      [in] - 1D/2D Kokkos View (no restriction on memory space)
+    //! \param column_of_input          [in] - Column of sampling_input_data to use for this input component
+    //! \param lro                      [in] - Target operation from the TargetOperation enum
+    //! \param target_index             [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
+    //! \param output_component_axis_1  [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
+    //! \param output_component_axis_2  [in] - Columns for a rank 2 tensor, 0 for rank less than 2 output tensor
+    //! \param input_component_axis_1   [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
+    //! \param input_component_axis_2   [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
+    template <typename view_type_data>
+    double applyAlphasToDataSingleComponentSingleTargetSite(view_type_data sampling_input_data, const int column_of_input, TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
+
+        double value = 0;
+
+        const int alpha_column_base_multiplier = _gmls->getAlphaColumnOffset(lro, output_component_axis_1, 
+                output_component_axis_2, input_component_axis_1, input_component_axis_2);
+
+        auto sampling_subview_maker = Create1DSliceOnDeviceView(sampling_input_data);
+
+        
+        // gather needed information for remap
+        auto neighbor_lists = _gmls->getNeighborLists();
+        auto alphas         = _gmls->getAlphas();
+        auto neighbor_lists_lengths = _gmls->getNeighborListsLengths();
+        auto sampling_data_device = sampling_subview_maker.get1DView(column_of_input);
+        
+        // loop through neighbor list for this target_index
+        // grabbing data from that entry of data
+        Kokkos::parallel_reduce("applyAlphasToData::Device", 
+                Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,neighbor_lists_lengths(target_index)), 
+                KOKKOS_LAMBDA(const int i, double& t_value) {
+
+            t_value += sampling_data_device(neighbor_lists(target_index, i+1))
+                *alphas(ORDER_INDICES(target_index, alpha_column_base_multiplier*neighbor_lists(target_index, 0) + i));
+
+        }, value );
+        Kokkos::fence();
+
+        return value;
+    }
+
     //! Dot product of alphas with sampling data where sampling data is in a 1D/2D Kokkos View and output view is also 
     //! a 1D/2D Kokkos View, however THE SAMPLING DATA and OUTPUT VIEW MUST BE ON THE DEVICE!
     //! 
@@ -181,64 +238,6 @@ private:
         });
         Kokkos::fence();
     }
-
-
-public:
-
-    Remap(GMLS *gmls) : _gmls(gmls) {
-        Kokkos::fence();
-    };
-
-    ~Remap() {};
-
-    //! Dot product of alphas with sampling data, FOR A SINGLE target_index,  where sampling data is in a 1D/2D Kokkos View
-    //! 
-    //! This function is to be used when the alpha values have already been calculated and stored for use 
-    //!
-    //! Only supports one output component / input component at a time. The user will need to loop over the output 
-    //! components in order to fill a vector target or matrix target.
-    //! 
-    //! Assumptions on input data:
-    //! \param sampling_input_data      [in] - 1D/2D Kokkos View (no restriction on memory space)
-    //! \param column_of_input          [in] - Column of sampling_input_data to use for this input component
-    //! \param lro                      [in] - Target operation from the TargetOperation enum
-    //! \param target_index             [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
-    //! \param output_component_axis_1  [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
-    //! \param output_component_axis_2  [in] - Columns for a rank 2 tensor, 0 for rank less than 2 output tensor
-    //! \param input_component_axis_1   [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
-    //! \param input_component_axis_2   [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
-    template <typename view_type_data>
-    double applyAlphasToDataSingleComponentSingleTargetSite(view_type_data sampling_input_data, const int column_of_input, TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
-
-        double value = 0;
-
-        const int alpha_column_base_multiplier = _gmls->getAlphaColumnOffset(lro, output_component_axis_1, 
-                output_component_axis_2, input_component_axis_1, input_component_axis_2);
-
-        auto sampling_subview_maker = Create1DSliceOnDeviceView(sampling_input_data);
-
-        
-        // gather needed information for remap
-        auto neighbor_lists = _gmls->getNeighborLists();
-        auto alphas         = _gmls->getAlphas();
-        auto neighbor_lists_lengths = _gmls->getNeighborListsLengths();
-        auto sampling_data_device = sampling_subview_maker.get1DView(column_of_input);
-        
-        // loop through neighbor list for this target_index
-        // grabbing data from that entry of data
-        Kokkos::parallel_reduce("applyAlphasToData::Device", 
-                Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,neighbor_lists_lengths(target_index)), 
-                KOKKOS_LAMBDA(const int i, double& t_value) {
-
-            t_value += sampling_data_device(neighbor_lists(target_index, i+1))
-                *alphas(ORDER_INDICES(target_index, alpha_column_base_multiplier*neighbor_lists(target_index, 0) + i));
-
-        }, value );
-        Kokkos::fence();
-
-        return value;
-    }
-
 
     //! Transformation of data under GMLS
     //! 
