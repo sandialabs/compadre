@@ -269,8 +269,10 @@ void GMLS::generateAlphas() {
 
     // copy computed alphas back to the host
     _host_alphas = Kokkos::create_mirror_view(_alphas);
-    if (_data_sampling_functional != SamplingFunctional::PointSample)
+    if (_data_sampling_functional != SamplingFunctional::PointSample) {
         _host_prestencil_weights = Kokkos::create_mirror_view(_prestencil_weights);
+        Kokkos::deep_copy(_host_prestencil_weights, _prestencil_weights);
+    }
     Kokkos::deep_copy(_host_alphas, _alphas);
     Kokkos::fence();
 }

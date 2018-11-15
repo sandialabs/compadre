@@ -174,6 +174,7 @@ public:
 
         const int alpha_column_base_multiplier = _gmls->getAlphaColumnOffset(lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2);
+        const int alpha_column_base_multiplier2 = alpha_column_base_multiplier;
 
         auto global_dimensions = _gmls->getGlobalDimensions();
 
@@ -190,17 +191,15 @@ public:
                 "output_data_single_column view and input_data_single_column view have difference memory spaces.");
 
         bool weight_with_pre_T = (pre_transform_local_index>=0 && pre_transform_global_index>=0) ? true : false;
+        bool target_plus_neighbor_staggered_schema = SamplingTensorForTargetSite[(int)sro];
 
         typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> alpha_policy;
         typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type alpha_member_type;
 
-        //const int team_scratch_size = scratch_vector_type::shmem_size(1);
         // loops over target indices
         Kokkos::parallel_for(alpha_policy(num_targets, Kokkos::AUTO),
-                //.set_scratch_size(0 /* shared memory level */, Kokkos::PerTeam(team_scratch_size)), 
                 KOKKOS_LAMBDA(const alpha_member_type& teamMember) {
 
-            double value = 0;
             const int target_index = teamMember.league_rank();
 
             Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T
@@ -209,16 +208,21 @@ public:
             teamMember.team_barrier();
 
 
-            // loops over neighbors of target_index
             const double previous_value = output_data_single_column(target_index);
+
+            // loops over neighbors of target_index
+            double gmls_value = 0;
             Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, neighbor_lists(target_index,0)), [=](const int i, double& t_value) {
                 const double neighbor_varying_pre_T =  (weight_with_pre_T && vary_on_neighbor) ?
                     prestencil_weights(0, target_index, i, pre_transform_local_index, pre_transform_global_index)
                     : 1.0;
+
                 t_value += neighbor_varying_pre_T * sampling_data_single_column(neighbor_lists(target_index, i+1))
                     *alphas(ORDER_INDICES(target_index, alpha_column_base_multiplier*neighbor_lists(target_index,0) +i));
-            }, value );
 
+            }, gmls_value );
+
+            // data contract for sampling functional
             double pre_T = 1.0;
             if (weight_with_pre_T) {
                 if (!vary_on_neighbor && vary_on_target) {
@@ -230,8 +234,34 @@ public:
                 }
             }
 
+            double staggered_value_from_targets = 0;
+            double pre_T_staggered = 1.0;
+            // loops over target_index for each neighbor for staggered approaches
+            if (target_plus_neighbor_staggered_schema) {
+                Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, neighbor_lists(target_index,0)), [=](const int i, double& t_value) {
+                    const double neighbor_varying_pre_T_staggered =  (weight_with_pre_T && vary_on_neighbor) ?
+                        prestencil_weights(1, target_index, i, pre_transform_local_index, pre_transform_global_index)
+                        : 1.0;
+
+                    t_value += neighbor_varying_pre_T_staggered * sampling_data_single_column(neighbor_lists(target_index, 1))
+                        *alphas(ORDER_INDICES(target_index, alpha_column_base_multiplier2*neighbor_lists(target_index,0) +i));
+
+                }, staggered_value_from_targets );
+
+                // for staggered approaches that transform source data for the target and neighbors
+                if (weight_with_pre_T) {
+                    if (!vary_on_neighbor && vary_on_target) {
+                        pre_T_staggered = prestencil_weights(1, target_index, 0, pre_transform_local_index, 
+                                pre_transform_global_index); 
+                    } else { // doesn't vary on target or neighbor
+                        pre_T_staggered = prestencil_weights(1, 0, 0, pre_transform_local_index, 
+                                pre_transform_global_index); 
+                    }
+                }
+            }
+
             double post_T = (transform_output_ambient) ? T(post_transform_local_index, post_transform_global_index) : 1.0;
-            double added_value = pre_T*post_T*value;
+            double added_value = post_T*(pre_T*gmls_value + pre_T_staggered*staggered_value_from_targets);
             Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
                 output_data_single_column(target_index) = previous_value + added_value;
             });
@@ -294,7 +324,6 @@ public:
 
         // all loop logic based on transforming data under a sampling functional
         // into something that is valid input for GMLS
-        bool target_plus_neighbor_staggered_schema = SamplingTensorForTargetSite[(int)sro];
         bool vary_on_target, vary_on_neighbor;
 
         if (SamplingTensorStyle[(int)sro] == Identity || SamplingTensorStyle[(int)sro] == SameForAll) {
