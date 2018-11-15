@@ -48,18 +48,6 @@ Kokkos::initialize(argc, args);
         }
     }
     
-    // check if 5 arguments are given from the command line, the first being the program name
-    //  solver_type used for factorization in solving each GMLS problem:
-    //      0 - SVD used for factorization in solving each GMLS problem
-    //      1 - QR  used for factorization in solving each GMLS problem
-    int solver_type = 1; // QR by default
-    if (argc >= 5) {
-        int arg5toi = atoi(args[4]);
-        if (arg5toi > 0) {
-            solver_type = arg5toi;
-        }
-    }
-    
     // check if 4 arguments are given from the command line
     //  dimension for the coordinates and the solution
     int dimension = 3; // dimension 3 by default

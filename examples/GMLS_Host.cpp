@@ -260,20 +260,19 @@ bool all_passed = true;
         double GMLS_CurlX = 0.0;
         double GMLS_CurlY = 0.0;
         double GMLS_CurlZ = 0.0;
+        if (dimension>1) {
+            for (int j=0; j<dimension; ++j) {
+                GMLS_CurlX += remap_manager.applyAlphasToDataSingleComponentSingleTargetSite(divergence_sampling_data, j, CurlOfVectorPointEvaluation, i, 0, 0, j, 0);
+                GMLS_CurlY += remap_manager.applyAlphasToDataSingleComponentSingleTargetSite(divergence_sampling_data, j, CurlOfVectorPointEvaluation, i, 1, 0, j, 0);
+            }
+        } 
 
-        //if (dimension>1) {
-        //    for (int j=0; j<dimension; ++j) {
-        //        GMLS_CurlX += remap_manager.applyAlphasToDataSingleComponentSingleTargetSite(divergence_sampling_data, j, CurlOfVectorPointEvaluation, i, 0, 0, j, 0);
-        //        GMLS_CurlY += remap_manager.applyAlphasToDataSingleComponentSingleTargetSite(divergence_sampling_data, j, CurlOfVectorPointEvaluation, i, 1, 0, j, 0);
-        //    }
-        //} 
+        if (dimension>2) {
+            for (int j=0; j<dimension; ++j) {
+                GMLS_CurlZ += remap_manager.applyAlphasToDataSingleComponentSingleTargetSite(divergence_sampling_data, j, CurlOfVectorPointEvaluation, i, 2, 0, j, 0);
+            }
 
-        //if (dimension>2) {
-        //    for (int j=0; j<dimension; ++j) {
-        //        GMLS_CurlZ += remap_manager.applyAlphasToDataSingleComponentSingleTargetSite(divergence_sampling_data, j, CurlOfVectorPointEvaluation, i, 2, 0, j, 0);
-        //    }
-
-        //}
+        }
 
         Kokkos::Profiling::popRegion();
         //if (dimension>1) {

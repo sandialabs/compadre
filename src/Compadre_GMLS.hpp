@@ -732,6 +732,15 @@ public:
     //! Dimension of the GMLS problem, set only at class instantiation
     int getDimensions() const { return _dimensions; }
 
+    //! Dimension of the GMLS problem's point data (spatial description of points in ambient space), set only at class instantiation
+    int getGlobalDimensions() const { return _global_dimensions; }
+
+    //! Local dimension of the GMLS problem (less than global dimension if on a manifold), set only at class instantiation
+    int getLocalDimensions() const { return _local_dimensions; }
+
+    //! Get type of problem for GMLS
+    DenseSolverType getProblemType() { return _dense_solver_type; }
+
     //! Type for weighting kernel for GMLS problem
     WeightingFunctionType getWeightingType() const { return _weighting_type; }
 
@@ -756,26 +765,23 @@ public:
     //! Get a view (device) of all neighbor lists. First column is the number of neighbors for that row's list.
     decltype(_neighbor_lists) getNeighborLists() const { return _neighbor_lists; }
 
-    //! Retrieves the offset for which column a needed alpha coefficient is in 
-    //! (but still needs a neighbor number added to this returned value to be meaningful)
-    int getAlphaColumnOffset(TargetOperation lro, const int target_index, const int output_component_axis_1, 
+    //! Get a view (device) of all tangent direction bundles.
+    decltype(_T) getTangentDirections() const { return _T; }
+
+    //! Retrieves the offset for an operator based on input and output component, generic to row
+    //! (but still multiplied by the number of neighbors for each row and then needs a neighbor number added 
+    //! to this returned value to be meaningful)
+    int getAlphaColumnOffset(TargetOperation lro, const int output_component_axis_1, 
             const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
 
-        for (int i=0; i<_lro_lookup.size(); ++i) {
-            printf("%d: is %d\n", i, _lro_lookup[i]);
-        }
-
-        printf("b: %d", (int)lro);
         const int lro_number = _lro_lookup[(int)lro];
-        printf("a: %d\n", lro_number);
         const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
         const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
 
-        return  (_host_lro_total_offsets[lro_number] + input_index*_host_lro_output_tile_size[lro_number] + output_index)
-                    *_number_of_neighbors_list(target_index);
+        return  _host_lro_total_offsets[lro_number] + input_index*_host_lro_output_tile_size[lro_number] + output_index;
     }
 
-    //! Get a view on the device of all alphas
+    //! Get a view (device) of all alphas
     decltype(_alphas) getAlphas() const { return _alphas; }
 
     //! Helper function for getting alphas for scalar reconstruction from scalar data
@@ -850,10 +856,10 @@ public:
         // that are relavent to the operator in question.
         //
 
-        const int alpha_column_offset = this->getAlphaColumnOffset( lro, target_index, output_component_axis_1, 
+        const int alpha_column_offset = this->getAlphaColumnOffset( lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2);
 
-        return _host_alphas(ORDER_INDICES(target_index, alpha_column_offset + neighbor_index));
+        return _host_alphas(ORDER_INDICES(target_index, alpha_column_offset*_number_of_neighbors_list(target_index) + neighbor_index));
     }
 
     //! Returns a stencil to transform data from its existing state into the input expected 
@@ -870,12 +876,12 @@ public:
 
     //! Dimensions ^ output rank for target operation
     int getOutputDimensionOfOperation(TargetOperation lro) const {
-        return this->_lro_output_tile_size[_lro_lookup[(int)lro]];
+        return this->_host_lro_output_tile_size[_lro_lookup[(int)lro]];
     }
 
     //! Dimensions ^ input rank for target operation
     int getInputDimensionOfOperation(TargetOperation lro) const {
-        return this->_lro_input_tile_size[_lro_lookup[(int)lro]];
+        return this->_host_lro_input_tile_size[_lro_lookup[(int)lro]];
     }
 
     //! Dimensions ^ output rank for sampling operation
