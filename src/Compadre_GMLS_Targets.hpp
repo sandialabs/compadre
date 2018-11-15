@@ -671,7 +671,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
             } else if (_operations(i) == TargetOperation::DivergenceOfVectorPointEvaluation) {
                 if (_data_sampling_functional==SamplingFunctional::StaggeredEdgeIntegralSample) {
                     ASSERT_WITH_MESSAGE(false, "Functionality not yet available.");
-                } else if (_data_sampling_functional==SamplingFunctional::ManifoldGradientVectorSample || _data_sampling_functional==SamplingFunctional::ManifoldVectorSample) {
+                } else if (_data_sampling_functional==SamplingFunctional::ManifoldVectorSample) {
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 
                         double h = _epsilons(target_index);

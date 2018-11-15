@@ -33,10 +33,20 @@ void GMLS::generateAlphas() {
     _alphas = Kokkos::View<double**, layout_type>("coefficients", ORDER_INDICES(_neighbor_lists.dimension_0(), 
             _total_alpha_values*max_num_neighbors));
 
-    // initialize weights to be applied to data in order to get it into the form expected as a sample
-    if (_data_sampling_functional != SamplingFunctional::PointSample) {
-        _prestencil_weights = Kokkos::View<double**, layout_type>("prestencil weights", _neighbor_lists.dimension_0(), std::pow(_local_dimensions,SamplingInputTensorRank[_data_sampling_functional])*std::pow(_global_dimensions,SamplingOutputTensorRank[_data_sampling_functional])*2*max_num_neighbors, 0);
-    }
+    // initialize the prestencil weights that are applied to sampling data to put it into a form 
+    // that the GMLS operator will be able to operate on
+    auto sro = _data_sampling_functional;
+    _prestencil_weights = Kokkos::View<double*****, layout_type>("Prestencil weights",
+            std::pow(2,SamplingTensorForTargetSite[(int)sro]), 
+            (SamplingTensorStyle[(int)sro]==DifferentEachTarget 
+                    || SamplingTensorStyle[(int)sro]==DifferentEachNeighbor) ?
+                _neighbor_lists.dimension_0() : 1,
+            (SamplingTensorStyle[(int)sro]==DifferentEachNeighbor) ?
+                max_num_neighbors : 1,
+            (SamplingOutputTensorRank[(int)sro]>0) ?
+                _local_dimensions : 1,
+            (SamplingInputTensorRank[(int)sro]>0) ?
+                _global_dimensions : 1);
 
     /*
      *    Determine if Nontrivial Null Space in Solution
@@ -842,47 +852,14 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
      */
 
     if (_data_sampling_functional == SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
-
-        double operator_coefficient = 1;
-        if (_operator_coefficients.dimension_0() > 0) {
-            operator_coefficient = _operator_coefficients(this->getNeighborIndex(target_index,0),0);
+        _prestencil_weights(0,0,0,0,0) = -1;
+        _prestencil_weights(1,0,0,0,0) = 1;
+    } else if (_data_sampling_functional == SamplingFunctional::ManifoldVectorSample) {
+        for (int j=0; j<_dimensions; ++j) {
+            for (int k=0; k<_dimensions-1; ++k) {
+                _prestencil_weights(0,target_index,0,k,j) =  T(k,j);
+            }
         }
-        _prestencil_weights(target_index, 0) = -operator_coefficient;
-        _prestencil_weights(target_index, 1) =  operator_coefficient;
-
-        for (int i=1; i<this->getNNeighbors(target_index); ++i) {
-
-            if (_operator_coefficients.dimension_0() > 0) {
-                operator_coefficient = 0.5*(_operator_coefficients(this->getNeighborIndex(target_index,0),0) + _operator_coefficients(this->getNeighborIndex(target_index,i),0));
-            }
-            _prestencil_weights(target_index, 2*i  ) = -operator_coefficient;
-            _prestencil_weights(target_index, 2*i+1) =  operator_coefficient;
-
-        }
-    }
-    // generate prestencils that require information about the change of basis to the manifold
-    else if (_data_sampling_functional == SamplingFunctional::ManifoldVectorSample) {
-        const int neighbor_offset = _neighbor_lists.dimension_1()-1;
-        Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)),
-                    [=] (const int m) {
-            for (int j=0; j<_dimensions; ++j) {
-                for (int k=0; k<_dimensions-1; ++k) {
-                    _prestencil_weights(target_index, k*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m  ) =  T(k,j);
-                    _prestencil_weights(target_index, k*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m+1) =  0;
-                }
-            }
-        });
-    } else if (_data_sampling_functional == SamplingFunctional::ManifoldGradientVectorSample) {
-        const int neighbor_offset = _neighbor_lists.dimension_1()-1;
-        Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)),
-                    [=] (const int m) {
-            for (int j=0; j<_dimensions; ++j) {
-                for (int k=0; k<_dimensions-1; ++k) {
-                    _prestencil_weights(target_index, k*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m  ) =  T(k,j);
-                    _prestencil_weights(target_index, k*_dimensions*2*neighbor_offset + j*2*neighbor_offset + 2*m+1) =  0;
-                }
-            }
-        });
     } else if (_data_sampling_functional == SamplingFunctional::StaggeredEdgeIntegralSample) {
         const int neighbor_offset = _neighbor_lists.dimension_1()-1;
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)), [=] (const int m) {
@@ -898,8 +875,8 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
                 tangent_vector[2] = tangent_quadrature_coord_2d[0]*T(0,2) + tangent_quadrature_coord_2d[1]*T(1,2);
 
                 for (int j=0; j<_dimensions; ++j) {
-                    _prestencil_weights(target_index, j*2*neighbor_offset + 2*m  ) +=  (1-_parameterized_quadrature_sites[quadrature])*tangent_vector[j]*_quadrature_weights[quadrature];
-                    _prestencil_weights(target_index, j*2*neighbor_offset + 2*m+1) +=  _parameterized_quadrature_sites[quadrature]*tangent_vector[j]*_quadrature_weights[quadrature];
+                    _prestencil_weights(0,target_index,m,0,j) +=  (1-_parameterized_quadrature_sites[quadrature])*tangent_vector[j]*_quadrature_weights[quadrature];
+                    _prestencil_weights(1,target_index,m,0,j) +=  _parameterized_quadrature_sites[quadrature]*tangent_vector[j]*_quadrature_weights[quadrature];
                 }
             }
         });

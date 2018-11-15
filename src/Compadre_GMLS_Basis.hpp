@@ -56,12 +56,6 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
 
     if (polynomial_sampling_functional == SamplingFunctional::PointSample) {
 
-//        double operator_coefficient = 1;
-//        // use neighbor scalar value
-//        if (_operator_coefficients.dimension_0() > 0) { // user set this vector
-//            operator_coefficient = _operator_coefficients(neighbor_index,0);
-//        }
-
         double cutoff_p = _epsilons(target_index);
         int alphax, alphay, alphaz;
         double alphaf;
@@ -96,13 +90,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                     i++;
             }
         }
-    } else if (polynomial_sampling_functional == SamplingFunctional::ManifoldVectorSample || polynomial_sampling_functional == SamplingFunctional::ManifoldGradientVectorSample) {
-
-//        double operator_coefficient = 1;
-//        // use neighbor scalar value
-//        if (_operator_coefficients.dimension_0() > 0) { // user set this vector
-//            operator_coefficient = _operator_coefficients(neighbor_index,0);
-//        }
+    } else if (polynomial_sampling_functional == SamplingFunctional::ManifoldVectorSample) {
 
         const int dimension_offset = this->getNP(_poly_order, dimension);
         double cutoff_p = _epsilons(target_index);
@@ -150,13 +138,6 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
         }
     } else if (polynomial_sampling_functional == SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
 
-        double operator_coefficient = 1;
-//        // use average scalar value
-//        if (_operator_coefficients.dimension_0() > 0) { // user set this vector
-//            operator_coefficient = 0.5*(_operator_coefficients(target_index,0) + _operator_coefficients(neighbor_index,0));
-//            std::cout << operator_coefficient << std::endl;
-//        }
-
         {
 
             double cutoff_p = _epsilons(target_index);
@@ -172,7 +153,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                         for (alphay = 0; alphay <= s; alphay++){
                             alphax = s - alphay;
                             alphaf = factorial(alphax)*factorial(alphay)*factorial(alphaz);
-                            *(delta+i) = -operator_coefficient*std::pow(relative_coord.x/cutoff_p,alphax)
+                            *(delta+i) = -std::pow(relative_coord.x/cutoff_p,alphax)
                                         *std::pow(relative_coord.y/cutoff_p,alphay)
                                         *std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf;
                             i++;
@@ -182,14 +163,14 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                     for (alphay = 0; alphay <= n; alphay++){
                         alphax = n - alphay;
                         alphaf = factorial(alphax)*factorial(alphay);
-                        *(delta+i) = -operator_coefficient*std::pow(relative_coord.x/cutoff_p,alphax)
+                        *(delta+i) = -std::pow(relative_coord.x/cutoff_p,alphax)
                                     *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf;
                         i++;
                     }
                 } else { // dimension == 1
                         alphax = n;
                         alphaf = factorial(alphax);
-                        *(delta+i) = -operator_coefficient*std::pow(relative_coord.x/cutoff_p,alphax)/alphaf;
+                        *(delta+i) = -std::pow(relative_coord.x/cutoff_p,alphax)/alphaf;
                         i++;
                 }
             }
@@ -212,7 +193,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                         for (alphay = 0; alphay <= s; alphay++){
                             alphax = s - alphay;
                             alphaf = factorial(alphax)*factorial(alphay)*factorial(alphaz);
-                            *(delta+i) += operator_coefficient*std::pow(relative_coord.x/cutoff_p,alphax)
+                            *(delta+i) += std::pow(relative_coord.x/cutoff_p,alphax)
                                         *std::pow(relative_coord.y/cutoff_p,alphay)
                                         *std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf;
                             i++;
@@ -222,25 +203,19 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                     for (alphay = 0; alphay <= n; alphay++){
                         alphax = n - alphay;
                         alphaf = factorial(alphax)*factorial(alphay);
-                        *(delta+i) += operator_coefficient*std::pow(relative_coord.x/cutoff_p,alphax)
+                        *(delta+i) += std::pow(relative_coord.x/cutoff_p,alphax)
                                     *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf;
                         i++;
                     }
                 } else { // dimension == 1
                         alphax = n;
                         alphaf = factorial(alphax);
-                        *(delta+i) += operator_coefficient*std::pow(relative_coord.x/cutoff_p,alphax)/alphaf;
+                        *(delta+i) += std::pow(relative_coord.x/cutoff_p,alphax)/alphaf;
                         i++;
                 }
             }
         }
     } else if (polynomial_sampling_functional == SamplingFunctional::StaggeredEdgeIntegralSample) {
-
-        double operator_coefficient = 1;
-//        // use average scalar value
-//        if (_operator_coefficients.dimension_0() > 0) { // user set this vector
-//            operator_coefficient = 0.5*(_operator_coefficients(target_index,0) + _operator_coefficients(neighbor_index,0));
-//        }
 
         double cutoff_p = _epsilons(target_index);
 
@@ -278,9 +253,9 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
 
                         // multiply by quadrature weight
                         if (quadrature==0) {
-                            *(delta+i) = operator_coefficient * dot_product * _quadrature_weights[quadrature];
+                            *(delta+i) = dot_product * _quadrature_weights[quadrature];
                         } else {
-                            *(delta+i) += operator_coefficient * dot_product * _quadrature_weights[quadrature];
+                            *(delta+i) += dot_product * _quadrature_weights[quadrature];
                         }
                         i++;
                     }

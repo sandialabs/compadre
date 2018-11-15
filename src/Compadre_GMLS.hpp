@@ -55,7 +55,6 @@ protected:
     Kokkos::View<double*> _manifold_curvature_gradient;
 
     
-
     //! contains local IDs of neighbors to get coordinates from _source_coordinates (device)
     Kokkos::View<int**, layout_type> _neighbor_lists; 
 
@@ -88,18 +87,14 @@ protected:
 
     //! generated alpha coefficients (host)
     Kokkos::View<const double**, layout_type>::HostMirror _host_alphas;
-
+    
     //! generated weights for nontraditional samples required to transform data into expected sampling 
-    //! functional form (device)
-    Kokkos::View<double**, layout_type> _prestencil_weights; 
+    //! functional form (device). 
+    Kokkos::View<double*****, layout_type> _prestencil_weights; 
 
     //! generated weights for nontraditional samples required to transform data into expected sampling 
     //! functional form (host)
-    Kokkos::View<const double**, layout_type>::HostMirror _host_prestencil_weights;
-
-    //! not currently supported well, but meant to get coefficients for an operator such as div kappa 
-    //! grad into the polynomial sampling when building P
-    Kokkos::View<double**, layout_type> _operator_coefficients; // coefficients for operators or prestencils
+    Kokkos::View<const double*****, layout_type>::HostMirror _host_prestencil_weights;
 
 
 
@@ -768,6 +763,24 @@ public:
     //! Get a view (device) of all tangent direction bundles.
     decltype(_T) getTangentDirections() const { return _T; }
 
+    //! Get a view (device) of all rank 2 preprocessing tensors
+    //! This is a rank 5 tensor that is able to provide data transformation
+    //! into a form that GMLS is able to operate on. The ranks are as follows:
+    //!
+    //! 1 - Either size 2 if it operates on the target site and neighbor site (staggered schemes)
+    //!     or 1 if it operates only on the neighbor sites (almost every scheme)
+    //!
+    //! 2 - If the data transform varies with each target site (but could be the same for each neighbor of that target site), then this is the number of target sites
+    //!
+    //! 3 - If the data transform varies with each neighbor of each target site, then this is the number of neighbors for each respective target (max number of neighbors for all target sites is its uniform size)
+    //!
+    //! 4 - Data transform resulting in rank 1 data for the GMLS operator will have size _local_dimensions, otherwise 1
+    //!
+    //! 5 - Data transform taking in rank 1 data will have size _global_dimensions, otherwise 1
+    decltype(_prestencil_weights) getPrestencilWeights() const { 
+        return _prestencil_weights;
+    }
+
     //! Retrieves the offset for an operator based on input and output component, generic to row
     //! (but still multiplied by the number of neighbors for each row and then needs a neighbor number added 
     //! to this returned value to be meaningful)
@@ -870,8 +883,20 @@ public:
         if (sro == SamplingFunctional::PointSample ) {
             if (for_target) return 0; else return 1;
         }
-        // 2 is because there is one value for each neighbor and one value for the target, for each target
-        return _host_prestencil_weights(target_index, output_component*_global_dimensions*2*(_neighbor_lists.dimension_1()-1) + input_component*2*(_neighbor_lists.dimension_1()-1) + 2*neighbor_index + (int)for_target);
+
+        // these check conditions on the sampling operator and change indexing on target and neighbors
+        // in order to reuse information, such as if the same data transformation is used, regardless
+        // of target site or neighbor site
+        const int target_index_in_weights = 
+            (SamplingTensorStyle[(int)sro]==DifferentEachTarget 
+                    || SamplingTensorStyle[(int)sro]==DifferentEachNeighbor) ?
+                target_index : 0;
+        const int neighbor_index_in_weights = 
+            (SamplingTensorStyle[(int)sro]==DifferentEachNeighbor) ?
+                neighbor_index : 0;
+
+        return _host_prestencil_weights((int)for_target, target_index_in_weights, neighbor_index_in_weights, 
+                    output_component, input_component);
     }
 
     //! Dimensions ^ output rank for target operation
@@ -886,12 +911,12 @@ public:
 
     //! Dimensions ^ output rank for sampling operation
     int getOutputDimensionOfSampling(SamplingFunctional sro) const {
-        return std::pow(_dimensions, SamplingOutputTensorRank[(int)sro]);
+        return std::pow(_local_dimensions, SamplingOutputTensorRank[(int)sro]);
     }
 
     //! Dimensions ^ output rank for sampling operation
     int getInputDimensionOfSampling(SamplingFunctional sro) const {
-        return std::pow(_dimensions, SamplingInputTensorRank[(int)sro]);
+        return std::pow(_global_dimensions, SamplingInputTensorRank[(int)sro]);
     }
 
     //! Output rank for sampling operation
@@ -1061,15 +1086,6 @@ public:
     //    _T = tangent_directions;
     //    _orthonormal_tangent_space_provided = true;
     //}
-
-    //! Not well supported. Sets coefficients to be used in a prestencil weight or polynomial basis evaluation operator.
-    void setOperatorCoefficients(Kokkos::View<double**, Kokkos::HostSpace> operator_coefficients) {
-        // allocate memory on device
-        _operator_coefficients = Kokkos::View<double**, layout_type>("device operator coefficients",
-                operator_coefficients.dimension_0(), operator_coefficients.dimension_1());
-        // copy data from host to device
-        Kokkos::deep_copy(_operator_coefficients, operator_coefficients);
-    }
 
     //! Type for weighting kernel for GMLS problem
     void setWeightingType( const std::string &wt) {

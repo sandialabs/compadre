@@ -87,6 +87,102 @@ private:
 
     GMLS *_gmls;
 
+    //! Dot product of alphas with sampling data where sampling data is in a 1D/2D Kokkos View and output view is also 
+    //! a 1D/2D Kokkos View, however THE SAMPLING DATA and OUTPUT VIEW MUST BE ON THE DEVICE!
+    //! 
+    //! This function is to be used when the alpha values have already been calculated and stored for use.
+    //!
+    //! Only supports one output component / input component at a time. The user will need to loop over the output 
+    //! components in order to fill a vector target or matrix target.
+    //! 
+    //! Assumptions on input data:
+    //! \param output_data_single_column       [out] - 1D Kokkos View (memory space must be Kokkos::DefaultExecutionSpace::memory_space())
+    //! \param sampling_data_single_column      [in] - 1D Kokkos View (memory space must match output_data_single_column)
+    //! \param lro                              [in] - Target operation from the TargetOperation enum
+    //! \param sro                              [in] - Sampling functional from the SamplingFunctional enum
+    //! \param target_index                     [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
+    //! \param output_component_axis_1          [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
+    //! \param output_component_axis_2          [in] - Columns for a rank 2 tensor, 0 for rank less than 2 output tensor
+    //! \param input_component_axis_1           [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
+    //! \param input_component_axis_2           [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
+    //! \param pre_transform_local_index        [in] - For manifold problems, this is the local coordinate direction that sampling data may need to be transformed to before the application of GMLS
+    //! \param pre_transform_global_index       [in] - For manifold problems, this is the global coordinate direction that sampling data can be represented in
+    //! \param post_transform_local_index       [in] - For manifold problems, this is the local coordinate direction that vector output target functionals from GMLS will output into
+    //! \param post_transform_global_index      [in] - For manifold problems, this is the global coordinate direction that the target functional output from GMLS will be transformed into
+    //! \param transform_output_ambient         [in] - Whether or not a 1D output from GMLS is on the manifold and needs to be mapped to ambient space
+    //! \param vary_on_target                   [in] - Whether the sampling functional has a tensor to act on sampling data that varies with each target site
+    //! \param vary_on_neighbor                 [in] - Whether the sampling functional has a tensor to act on sampling data that varies with each neighbor site in addition to varying wit each target site
+    template <typename view_type_data_out, typename view_type_data_in>
+    void applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(view_type_data_out output_data_single_column, view_type_data_in sampling_data_single_column, TargetOperation lro, SamplingFunctional sro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1, bool transform_output_ambient = false, bool vary_on_target = false, bool vary_on_neighbor = false) const {
+
+        const int alpha_column_base_multiplier = _gmls->getAlphaColumnOffset(lro, output_component_axis_1, 
+                output_component_axis_2, input_component_axis_1, input_component_axis_2);
+
+        auto global_dimensions = _gmls->getGlobalDimensions();
+
+        // gather needed information for remap
+        auto neighbor_lists = _gmls->getNeighborLists();
+        auto alphas         = _gmls->getAlphas();
+        auto tangent_directions = _gmls->getTangentDirections();
+        auto prestencil_weights = _gmls->getPrestencilWeights();
+
+        const int num_targets = neighbor_lists.dimension_0(); // one row for each target
+
+        // make sure input and output views have same memory space
+        assert((std::is_same<typename view_type_data_out::memory_space, typename view_type_data_in::memory_space>::value) && 
+                "output_data_single_column view and input_data_single_column view have difference memory spaces.");
+
+        bool weight_with_pre_T = (pre_transform_local_index>=0 && pre_transform_global_index>=0) ? true : false;
+
+        typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> alpha_policy;
+        typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type alpha_member_type;
+
+        //const int team_scratch_size = scratch_vector_type::shmem_size(1);
+        // loops over target indices
+        Kokkos::parallel_for(alpha_policy(num_targets, Kokkos::AUTO),
+                //.set_scratch_size(0 /* shared memory level */, Kokkos::PerTeam(team_scratch_size)), 
+                KOKKOS_LAMBDA(const alpha_member_type& teamMember) {
+
+            double value = 0;
+            const int target_index = teamMember.league_rank();
+
+            Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T
+                    (tangent_directions.data() + target_index*global_dimensions*global_dimensions, 
+                     global_dimensions, global_dimensions);
+            teamMember.team_barrier();
+
+
+            // loops over neighbors of target_index
+            const double previous_value = output_data_single_column(target_index);
+            Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, neighbor_lists(target_index,0)), [=](const int i, double& t_value) {
+                const double neighbor_varying_pre_T =  (weight_with_pre_T && vary_on_neighbor) ?
+                    prestencil_weights(0, target_index, i, pre_transform_local_index, pre_transform_global_index)
+                    : 1.0;
+                t_value += neighbor_varying_pre_T * sampling_data_single_column(neighbor_lists(target_index, i+1))
+                    *alphas(ORDER_INDICES(target_index, alpha_column_base_multiplier*neighbor_lists(target_index,0) +i));
+            }, value );
+
+            double pre_T = 1.0;
+            if (weight_with_pre_T) {
+                if (!vary_on_neighbor && vary_on_target) {
+                    pre_T = prestencil_weights(0, target_index, 0, pre_transform_local_index, 
+                            pre_transform_global_index); 
+                } else { // doesn't vary on target or neighbor
+                    pre_T = prestencil_weights(0, 0, 0, pre_transform_local_index, 
+                            pre_transform_global_index); 
+                }
+            }
+
+            double post_T = (transform_output_ambient) ? T(post_transform_local_index, post_transform_global_index) : 1.0;
+            double added_value = pre_T*post_T*value;
+            Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
+                output_data_single_column(target_index) = previous_value + added_value;
+            });
+        });
+        Kokkos::fence();
+    }
+
+
 public:
 
     Remap(GMLS *gmls) : _gmls(gmls) {
@@ -143,147 +239,22 @@ public:
         return value;
     }
 
-    //! Dot product of alphas with sampling data where sampling data is in a 1D/2D Kokkos View and output view is also 
-    //! a 1D/2D Kokkos View, however THE SAMPLING DATA and OUTPUT VIEW MUST BE ON THE DEVICE!
-    //! 
-    //! This function is to be used when the alpha values have already been calculated and stored for use.
-    //!
-    //! Only supports one output component / input component at a time. The user will need to loop over the output 
-    //! components in order to fill a vector target or matrix target.
-    //! 
-    //! Assumptions on input data:
-    //! \param output_data_single_column       [out] - 1D Kokkos View (memory space must be Kokkos::DefaultExecutionSpace::memory_space())
-    //! \param sampling_data_single_column      [in] - 1D Kokkos View (memory space must match output_data_single_column)
-    //! \param lro                              [in] - Target operation from the TargetOperation enum
-    //! \param target_index                     [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
-    //! \param output_component_axis_1          [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
-    //! \param output_component_axis_2          [in] - Columns for a rank 2 tensor, 0 for rank less than 2 output tensor
-    //! \param input_component_axis_1           [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
-    //! \param input_component_axis_2           [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
-    //! \param pre_transform_local_index        [in] - For manifold problems, this is the local coordinate direction that sampling data may need to be transformed to before the application of GMLS
-    //! \param pre_transform_global_index       [in] - For manifold problems, this is the global coordinate direction that sampling data can be represented in
-    //! \param post_transform_local_index       [in] - For manifold problems, this is the local coordinate direction that vector output target functionals from GMLS will output into
-    //! \param post_transform_global_index      [in] - For manifold problems, this is the global coordinate direction that the target functional output from GMLS will be transformed into
-    template <typename view_type_data_out, typename view_type_data_in>
-    void applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(view_type_data_out output_data_single_column, view_type_data_in sampling_data_single_column, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1) const {
-
-        const int alpha_column_base_multiplier = _gmls->getAlphaColumnOffset(lro, output_component_axis_1, 
-                output_component_axis_2, input_component_axis_1, input_component_axis_2);
-
-        auto global_dimensions = _gmls->getGlobalDimensions();
-
-        // gather needed information for remap
-        auto neighbor_lists = _gmls->getNeighborLists();
-        auto alphas         = _gmls->getAlphas();
-        auto tangent_directions = _gmls->getTangentDirections();
-
-        const int num_targets = neighbor_lists.dimension_0(); // one row for each target
-        
-        //const int this_host_lro_total_offset = this->_host_lro_total_offsets[lro_number];
-        
-        
-        //const int lro_number = _lro_lookup[(int)lro];
-        //const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
-        //const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
-        //const int this_host_lro_output_tile_size = this->_host_lro_output_tile_size[lro_number];
-
-        // make sure input and output views have same memory space
-        assert((std::is_same<typename view_type_data_out::memory_space, typename view_type_data_in::memory_space>::value) && 
-                "output_data_single_column view and input_data_single_column view have difference memory spaces.");
-
-        bool weight_with_pre_T = (pre_transform_local_index>=0 && pre_transform_global_index>=0) ? true : false;
-        bool weight_with_post_T = (post_transform_local_index>=0 && post_transform_global_index>=0) ? true : false;
-
-        //// It is possible to call this function with a view having a memory space of the host
-        //// this first case takes case of that scenario. If this function is called by applyTargetToData,
-        //// then it will always provide a view having memory space of the device (else case)
-        //if (std::is_same<typename view_type_data_in::memory_space, Kokkos::HostSpace>::value) {
-        //    typedef Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace> alpha_policy;
-        //    typedef Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace>::member_type alpha_member_type;
-
-        //    auto this_T = this->_T;
-
-        //    // loops over target_indexes
-        //    Kokkos::parallel_for(alpha_policy(num_targets, Kokkos::AUTO), 
-        //            KOKKOS_LAMBDA(const alpha_member_type& teamMember) {
-        //        double value = 0;
-        //        const int target_index = teamMember.league_rank();
-        //        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(this_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
-        //        const double previous_value = output_data_single_column(target_index);
-        //        teamMember.team_barrier();
-        //        // loops over neighbors of target_index
-        //        Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,_host_neighbor_lists(target_index,0)), [=](const int i, double& t_value) {
-        //            t_value += sampling_data_single_column(_host_neighbor_lists(target_index, i+1))*_host_alphas(ORDER_INDICES(target_index,
-        //                (this_host_lro_total_offset + input_index*output_dimension_of_operator + output_index)
-        //                *_number_of_neighbors_list(target_index) + i));
-        //        }, value);
-        //        double pre_T = (weight_with_pre_T) ? 
-        //            this_T(target_index, pre_transform_local_index, pre_transform_global_index) : 1;
-        //        double post_T = (weight_with_post_T) ? 
-        //            this_T(target_index, post_transform_local_index, post_transform_global_index) : 1;
-
-        //        output_data_single_column(target_index) = previous_value + pre_T*post_T*value;
-        //    });
-        //} else {
-            typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> alpha_policy;
-            typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type alpha_member_type;
-
-            // this function is not a functor, so no capture on *this takes place, and therefore memory addresses 
-            // will be illegal accesses if made on the device, even if this->... is on the device, so we create a 
-            // name that will be captured by KOKKOS_LAMBDA
-            //auto neighbor_lists = this->_neighbor_lists;
-            //auto alphas = this->_alphas;
-            //auto dimensions = this->_dimensions;
-            //auto this_T = this->_T;
-
-            // loops over target indices
-            Kokkos::parallel_for(alpha_policy(num_targets, Kokkos::AUTO), 
-                    KOKKOS_LAMBDA(const alpha_member_type& teamMember) {
-
-                double value = 0;
-                const int target_index = teamMember.league_rank();
-
-                Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T
-                        (tangent_directions.data() + target_index*global_dimensions*global_dimensions, 
-                         global_dimensions, global_dimensions);
-                teamMember.team_barrier();
-
-                // loops over neighbors of target_index
-                const double previous_value = output_data_single_column(target_index);
-                Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, neighbor_lists(target_index,0)), [=](const int i, double& t_value) {
-                    t_value += sampling_data_single_column(neighbor_lists(target_index, i+1))
-                        *alphas(ORDER_INDICES(target_index, alpha_column_base_multiplier*neighbor_lists(target_index,0) +i));
-
-                }, value );
-
-                double pre_T = (weight_with_pre_T) ? T(pre_transform_local_index, pre_transform_global_index) : 1.0;
-                double post_T = (weight_with_post_T) ? T(post_transform_local_index, post_transform_global_index) : 1.0;
-                double added_value = pre_T*post_T*value;
-                Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
-                    output_data_single_column(target_index) = previous_value + added_value;
-                });
-            });
-        //}
-        Kokkos::fence();
-    }
-
 
     //! Transformation of data under GMLS
     //! 
-    //! This function is the go to function to be used when the alpha values have already been calculated and stored for use.
+    //! This function is the go to function to be used when the alpha values have already been calculated and stored for use. The sampling functional provided instructs how a data transformation tensor is to be used on source data before it is provided to the GMLS operator. Once the sampling functional (if applicable) and the GMLS operator have been applied, this function also handles mapping the local vector back to the ambient space if working on a manifold problem and a target functional who has rank 1 output.
     //!
     //! Produces a Kokkos View as output with a Kokkos memory_space provided as a template tag by the caller. 
     //! The data type (double* or double**) must also be specified as a template type if one wish to get a 1D 
     //! Kokkos View back that can be indexed into with only one ordinal.
     //! 
     //! Assumptions on input data:
-    //! \param sampling_data            [in] - 1D or 2D Kokkos View that has the layout #targets * columns of data. Memory space for data can be host or device. It is assumed that this data has already been transformed by the sampling functional.
+    //! \param sampling_data            [in] - 1D or 2D Kokkos View that has the layout #targets * columns of data. Memory space for data can be host or device. 
     //! \param lro                      [in] - Target operation from the TargetOperation enum
-    //! \param coords_in                [in] - For manifold problems, whether to transform vector sampling data from ambient to local space on the manifold before applying the GMLS target operations
-    //! \param coords_out               [in] - For manifold problems, whether to transform GMLS vector target output into ambient space
+    //! \param sro                      [in] - Sampling functional from the SamplingFunctional enum
     template <typename output_data_type = double**, typename output_memory_space, typename view_type_input_data, typename output_array_layout = typename view_type_input_data::array_layout>
     Kokkos::View<output_data_type, output_array_layout, output_memory_space>  // shares layout of input by default
-            applyAlphasToDataAllComponentsAllTargetSites(view_type_input_data sampling_data, TargetOperation lro, SamplingFunctional sro = SamplingFunctional::PointSample, CoordinatesType coords_in = CoordinatesType::Ambient, CoordinatesType coords_out = CoordinatesType::Ambient) const {
+            applyAlphasToDataAllComponentsAllTargetSites(view_type_input_data sampling_data, TargetOperation lro, SamplingFunctional sro = SamplingFunctional::PointSample) const {
 
         // output can be device or host
         // input can be device or host
@@ -301,7 +272,7 @@ public:
 
         // determines the number of columns needed for output after action of the target functional
         int output_dimensions;
-        if (coords_out==CoordinatesType::Ambient && problem_type==MANIFOLD && TargetOutputTensorRank[(int)lro]==1) {
+        if (problem_type==MANIFOLD && TargetOutputTensorRank[(int)lro]==1) {
             output_dimensions = global_dimensions;
         } else {
             output_dimensions = output_dimension_of_operator;
@@ -318,7 +289,29 @@ public:
         // we need to specialize a template on the rank of the output view type and the input view type
         auto sampling_subview_maker = Create1DSliceOnDeviceView(sampling_data);
         auto output_subview_maker = Create1DSliceOnDeviceView(target_output);
-        
+
+        // figure out preprocessing and postprocessing
+        auto prestencil_weights = _gmls->getPrestencilWeights();
+
+        // all loop logic based on transforming data under a sampling functional
+        // into something that is valid input for GMLS
+        bool target_plus_neighbor_staggered_schema = SamplingTensorForTargetSite[(int)sro];
+        bool vary_on_target, vary_on_neighbor;
+
+        if (SamplingTensorStyle[(int)sro] == Identity || SamplingTensorStyle[(int)sro] == SameForAll) {
+            vary_on_target = false;
+            vary_on_neighbor = false;
+        } else if (SamplingTensorStyle[(int)sro] == DifferentEachTarget) {
+            vary_on_target = true;
+            vary_on_neighbor = false;
+        } else if (SamplingTensorStyle[(int)sro] == DifferentEachNeighbor) {
+            vary_on_target = true;
+            vary_on_neighbor = true;
+        }
+        bool loop_global_dimensions = SamplingInputTensorRank[(int)sro]>0; 
+        bool transform_gmls_output_to_ambient = (problem_type==MANIFOLD && TargetOutputTensorRank[(int)lro]==1);
+
+
         // only written for up to rank 1 to rank 1 remap
         // loop over components of output of the target operation
         for (int i=0; i<output_dimension_of_operator; ++i) {
@@ -329,37 +322,38 @@ public:
                 const int input_component_axis_1 = j;
                 const int input_component_axis_2 = 0;
 
-                if ((coords_in==CoordinatesType::Ambient && sro==SamplingFunctional::ManifoldVectorSample) &&
-                        (coords_out==CoordinatesType::Ambient && problem_type==MANIFOLD 
-                         && TargetOutputTensorRank[(int)lro]==1)) {
-                    for (int k=0; k<global_dimensions; ++k) {
-                        for (int l=0; l<global_dimensions; ++l) {
+                if (loop_global_dimensions && transform_gmls_output_to_ambient) {
+                    for (int k=0; k<global_dimensions; ++k) { // loop for handling sampling functional
+                        for (int l=0; l<global_dimensions; ++l) { // loop for transforming output of GMLS to ambient
                             this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
                                     output_subview_maker.get1DView(k), sampling_subview_maker.get1DView(l), 
-                                    lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
-                                    input_component_axis_2, j, k, i, l);
+                                    lro, sro, output_component_axis_1, output_component_axis_2, 
+                                    input_component_axis_1, input_component_axis_2, j, k, i, l,
+                                    transform_gmls_output_to_ambient, vary_on_target, vary_on_neighbor);
                         }
                     }
-
-                } else if (coords_out==CoordinatesType::Ambient && problem_type==MANIFOLD && 
-                        TargetOutputTensorRank[(int)lro]==1) {
-                    for (int k=0; k<global_dimensions; ++k) {
+                } else if (transform_gmls_output_to_ambient) {
+                    for (int k=0; k<global_dimensions; ++k) { // loop for transforming output of GMLS to ambient
                         this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
-                                output_subview_maker.get1DView(k), sampling_subview_maker.get1DView(j), lro, 
+                                output_subview_maker.get1DView(k), sampling_subview_maker.get1DView(j), lro, sro, 
                                 output_component_axis_1, output_component_axis_2, input_component_axis_1, 
-                                input_component_axis_2, -1, -1, i, k);
+                                input_component_axis_2, -1, -1, i, k,
+                                transform_gmls_output_to_ambient, vary_on_target, vary_on_neighbor);
                     }
-                } else if (coords_in==CoordinatesType::Ambient && sro==SamplingFunctional::ManifoldVectorSample) {
-                    for (int k=0; k<global_dimensions; ++k) {
+                } else if (loop_global_dimensions) {
+                    for (int k=0; k<global_dimensions; ++k) { // loop for handling sampling functional
                         this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
-                                output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(k), lro, 
+                                output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(k), lro, sro, 
                                 output_component_axis_1, output_component_axis_2, input_component_axis_1, 
-                                input_component_axis_2, j, k, -1, -1);
+                                input_component_axis_2, j, k, -1, -1, transform_gmls_output_to_ambient,
+                                vary_on_target, vary_on_neighbor);
                     }
                 } else { // standard
                     this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
-                            output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(j), lro, 
-                            output_component_axis_1, output_component_axis_2, input_component_axis_1, input_component_axis_2);
+                            output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(j), lro, sro, 
+                            output_component_axis_1, output_component_axis_2, input_component_axis_1, 
+                            input_component_axis_2, -1, -1, -1, -1,
+                            transform_gmls_output_to_ambient, vary_on_target, vary_on_neighbor);
                 }
             }
         }

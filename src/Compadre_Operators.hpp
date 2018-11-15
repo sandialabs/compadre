@@ -98,8 +98,6 @@ namespace Compadre {
         PointSample,
         //! Point evaluations of the entire vector source function
         ManifoldVectorSample,
-        //! Point evaluations of the entire vector when the source function is known to be a gradient
-        ManifoldGradientVectorSample,
         //! Analytical integral of a gradient source vector is just a difference of the scalar source at neighbor and target
         StaggeredEdgeAnalyticGradientIntegralSample,
         //! Samples consist of the result of integrals of a vector dotted with the tangent along edges between neighbor and target
@@ -110,7 +108,6 @@ namespace Compadre {
     const int SamplingInputTensorRank[] = {
         0, ///< PointSample
         1, ///< ManifoldVectorSample
-        1, ///< ManifoldGradientVectorSample
         0, ///< StaggeredEdgeAnalyticGradientIntegralSample,
         1, ///< StaggeredEdgeIntegralSample
     };
@@ -119,9 +116,33 @@ namespace Compadre {
     const int SamplingOutputTensorRank[] {
         0, ///< PointSample
         1, ///< ManifoldVectorSample
-        1, ///< ManifoldGradientVectorSample
         0, ///< StaggeredEdgeAnalyticGradientIntegralSample,
         0, ///< StaggeredEdgeIntegralSample
+    };
+
+    //! Describes the SamplingFunction relationship to targets, neighbors
+    enum RemapTransformType {
+        Identity,           ///< No action performed on data before GMLS target operation
+        SameForAll,         ///< Each neighbor for each target all apply the same transform
+        DifferentEachTarget,   ///< Each target applies a different data transform, but the same to each neighbor
+        DifferentEachNeighbor, ///< Each target applies a different transform for each neighbor
+    };
+
+    //! Rank of sampling functional output for each SamplingFunctional
+    const int SamplingTensorStyle[] {
+        (int)Identity,              ///< PointSample
+        (int)DifferentEachTarget,   ///< ManifoldVectorSample
+        (int)SameForAll,            ///< StaggeredEdgeAnalyticGradientIntegralSample,
+        (int)DifferentEachNeighbor, ///< StaggeredEdgeIntegralSample
+    };
+
+    //! Whether or not the SamplingTensor acts on the target site as well as the neighbors.
+    //! This makes sense only in staggered schemes, when each target site is also a source site
+    const int SamplingTensorForTargetSite[] {
+        0, ///< PointSample
+        0, ///< ManifoldVectorSample
+        1, ///< StaggeredEdgeAnalyticGradientIntegralSample,
+        1, ///< StaggeredEdgeIntegralSample
     };
 
     //! Whether the SamplingFunctional + ReconstructionSpace results in a nontrivial nullspace requiring SVD
@@ -130,7 +151,6 @@ namespace Compadre {
         // with a nontrivial nullspace requiring SVD
         0, ///< PointSample
         0, ///< ManifoldVectorSample
-        0, ///< ManifoldGradientVectorSample
         1, ///< StaggeredEdgeAnalyticGradientIntegralSample,
         1, ///< StaggeredEdgeIntegralSample
     };
