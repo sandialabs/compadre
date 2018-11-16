@@ -18,6 +18,7 @@ void GMLS::generateAlphas() {
     _host_operations = Kokkos::create_mirror_view(_operations);
     
     const int max_num_neighbors = _neighbor_lists.dimension_1()-1;
+    assert((max_num_neighbors >= 0) && "Neighbor lists not set in GMLS class before calling generateAlphas");
     
     // loop through list of linear reconstruction operations to be performed and set them on the host
     for (int i=0; i<_lro.size(); ++i) _host_operations(i) = _lro[i];
@@ -63,27 +64,14 @@ void GMLS::generateAlphas() {
      */
 
     // calculate sampling dimension 
-    // for example calculating a vector field on a manifold all at once, rather than component by component
-    if (SamplingOutputTensorRank[_data_sampling_functional] > 0) {
-        if (_dense_solver_type == DenseSolverType::MANIFOLD) {
-            _sampling_multiplier = _dimensions-1;
-        } else {
-            _sampling_multiplier = _dimensions;
-        }
-    } else {
-        _sampling_multiplier = 1;
-    }
+    // this would normally be SamplingOutputTensorRank[_data_sampling_functional], but we also want to handle the
+    // case of reconstructions where a scalar basis is reused as a vector, and this handles everything
+    _sampling_multiplier = std::pow(_local_dimensions, 
+            std::min(ActualReconstructionSpaceRank[(int)_reconstruction_space], 
+                SamplingOutputTensorRank[_data_sampling_functional]));
 
     // calculate the dimension of the basis (a vector space on a manifold requires two components, for example)
-    if (ReconstructionSpaceRank[_reconstruction_space] > 0) {
-        if (_dense_solver_type == DenseSolverType::MANIFOLD) {
-            _basis_multiplier = _dimensions-1;
-        } else {
-            _basis_multiplier = _dimensions;
-        }
-    } else {
-        _basis_multiplier = 1;
-    }
+    _basis_multiplier = std::pow(_local_dimensions, ActualReconstructionSpaceRank[(int)_reconstruction_space]);
 
     // special case for using a higher order for sampling from a polynomial space that are gradients of a scalar polynomial
     if (_polynomial_sampling_functional == SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
@@ -312,7 +300,7 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
      */
 
     // creates the matrix sqrt(W)*P
-    this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions, _poly_order, true /*weight_p*/, NULL /*&V*/, _polynomial_sampling_functional);
+    this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions, _poly_order, true /*weight_p*/, NULL /*&V*/, _reconstruction_space, _polynomial_sampling_functional);
 
     // fill in RHS with Identity * sqrt(weights)
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_rows), [=] (const int i) {
@@ -767,7 +755,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
      */
 
 
-    this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions-1, _poly_order, true /* weight with W*/, &T, _polynomial_sampling_functional);
+    this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions-1, _poly_order, true /* weight with W*/, &T, _reconstruction_space, _polynomial_sampling_functional);
     teamMember.team_barrier();
     
     // fill in RHS with Identity * sqrt(weights)
@@ -856,7 +844,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
     if (_data_sampling_functional == SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
         _prestencil_weights(0,0,0,0,0) = -1;
         _prestencil_weights(1,0,0,0,0) = 1;
-    } else if (_data_sampling_functional == SamplingFunctional::ManifoldVectorSample) {
+    } else if (_data_sampling_functional == SamplingFunctional::VectorPointSample) {
         for (int j=0; j<_dimensions; ++j) {
             for (int k=0; k<_dimensions-1; ++k) {
                 _prestencil_weights(0,target_index,0,k,j) =  T(k,j);

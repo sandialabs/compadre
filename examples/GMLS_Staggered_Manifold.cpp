@@ -274,7 +274,7 @@ Kokkos::initialize(argc, args);
     
     // create a vector of target operations
     std::vector<TargetOperation> lro_vector_1(1);
-    lro_vector_1[0] = DivergenceOfScalarPointEvaluation;
+    lro_vector_1[0] = StaggeredDivergencePointEvaluation;
 
     // and then pass them to the GMLS class
     my_GMLS_vector_1.addTargets(lro_vector_1);
@@ -300,8 +300,9 @@ Kokkos::initialize(argc, args);
             SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, 
             order, solver_name.c_str(), order /*manifold order*/, dimension);
     my_GMLS_vector_2.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
-    std::vector<TargetOperation> lro_vector_2(1);
+    std::vector<TargetOperation> lro_vector_2(2);
     lro_vector_2[0] = ChainedStaggeredLaplacianOfScalarPointEvaluation;
+    lro_vector_2[1] = StaggeredDivergencePointEvaluation;
     my_GMLS_vector_2.addTargets(lro_vector_2);
     my_GMLS_vector_2.setCurvatureWeightingType(WeightingFunctionType::Power);
     my_GMLS_vector_2.setCurvatureWeightingPower(2);
@@ -350,9 +351,13 @@ Kokkos::initialize(argc, args);
     Remap scalar_remap_manager(&my_GMLS_scalar);
     
 
-    auto output_divergence = 
+    auto output_divergence_vectorsamples = 
         vector_1_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (sampling_vector_data_device, DivergenceOfScalarPointEvaluation, StaggeredEdgeIntegralSample);
+            (sampling_vector_data_device, StaggeredDivergencePointEvaluation, StaggeredEdgeIntegralSample);
+
+    auto output_divergence_scalarsamples = 
+        vector_2_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+            (sampling_data_device, StaggeredDivergencePointEvaluation, StaggeredEdgeAnalyticGradientIntegralSample);
 
     auto output_laplacian_vectorbasis = 
         vector_2_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
@@ -381,8 +386,11 @@ Kokkos::initialize(argc, args);
     //double gradient_ambient_error = 0;
     //double gradient_ambient_norm = 0;
 
-    double divergence_ambient_error = 0;
-    double divergence_ambient_norm = 0;
+    double divergence_vectorsamples_ambient_error = 0;
+    double divergence_vectorsamples_ambient_norm = 0;
+
+    double divergence_scalarsamples_ambient_error = 0;
+    double divergence_scalarsamples_ambient_norm = 0;
     
     // loop through the target sites
     for (int i=0; i<number_target_coords; i++) {
@@ -410,8 +418,11 @@ Kokkos::initialize(argc, args);
         //}
 
         //printf("Error of %f, %f vs %f\n", (output_divergence(i) - actual_Laplacian), output_divergence(i), actual_Laplacian);
-        divergence_ambient_error += (output_divergence(i) - actual_Laplacian)*(output_divergence(i) - actual_Laplacian);
-        divergence_ambient_norm += actual_Laplacian*actual_Laplacian;
+        divergence_vectorsamples_ambient_error += (output_divergence_vectorsamples(i) - actual_Laplacian)*(output_divergence_vectorsamples(i) - actual_Laplacian);
+        divergence_vectorsamples_ambient_norm += actual_Laplacian*actual_Laplacian;
+
+        divergence_scalarsamples_ambient_error += (output_divergence_scalarsamples(i) - actual_Laplacian)*(output_divergence_scalarsamples(i) - actual_Laplacian);
+        divergence_scalarsamples_ambient_norm += actual_Laplacian*actual_Laplacian;
 
     }
 
@@ -430,15 +441,21 @@ Kokkos::initialize(argc, args);
     //gradient_ambient_norm /= number_target_coords;
     //gradient_ambient_norm = std::sqrt(gradient_ambient_norm);
 
-    divergence_ambient_error /= number_target_coords;
-    divergence_ambient_error = std::sqrt(divergence_ambient_error);
-    divergence_ambient_norm /= number_target_coords;
-    divergence_ambient_norm = std::sqrt(divergence_ambient_norm);
+    divergence_vectorsamples_ambient_error /= number_target_coords;
+    divergence_vectorsamples_ambient_error = std::sqrt(divergence_vectorsamples_ambient_error);
+    divergence_vectorsamples_ambient_norm /= number_target_coords;
+    divergence_vectorsamples_ambient_norm = std::sqrt(divergence_vectorsamples_ambient_norm);
+
+    divergence_scalarsamples_ambient_error /= number_target_coords;
+    divergence_scalarsamples_ambient_error = std::sqrt(divergence_scalarsamples_ambient_error);
+    divergence_scalarsamples_ambient_norm /= number_target_coords;
+    divergence_scalarsamples_ambient_norm = std::sqrt(divergence_scalarsamples_ambient_norm);
 
     printf("Staggered Laplace-Beltrami (VectorBasis) Error: %g\n", laplacian_vectorbasis_error / laplacian_vectorbasis_norm);  
     printf("Staggered Laplace-Beltrami (ScalarBasis) Error: %g\n", laplacian_scalarbasis_error / laplacian_scalarbasis_norm);  
     //printf("Surface Gradient (Ambient) Error: %g\n", gradient_ambient_error / gradient_ambient_norm);  
-    printf("Surface Staggered Divergence Error: %g\n", divergence_ambient_error / divergence_ambient_norm);  
+    printf("Surface Staggered Divergence (VectorSamples) Error: %g\n", divergence_vectorsamples_ambient_error / divergence_vectorsamples_ambient_norm);  
+    printf("Surface Staggered Divergence (ScalarSamples) Error: %g\n", divergence_scalarsamples_ambient_error / divergence_scalarsamples_ambient_norm);  
     //! [Check That Solutions Are Correct] 
     // popRegion hidden from tutorial
     // stop timing comparison loop

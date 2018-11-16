@@ -304,11 +304,11 @@ protected:
         \param poly_order           [in] - polynomial basis degree
         \param specific_order_only  [in] - boolean for only evaluating one degree of polynomial when true
         \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-        \param T                    [in] - high order orthonormal approximation of tangent plane in first _dimensions-1 columns of T
+        \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
         \param sampling_strategy    [in] - sampling functional specification
     */
     KOKKOS_INLINE_FUNCTION
-    void calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, scratch_matrix_type* V = NULL, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample) const;
+    void calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, scratch_matrix_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample) const;
 
     /*! \brief Evaluates the gradient of a polynomial basis under the Dirac Delta (pointwise) sampling function.
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -320,10 +320,11 @@ protected:
         \param poly_order           [in] - polynomial basis degree
         \param specific_order_only  [in] - boolean for only evaluating one degree of polynomial when true
         \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
+        \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
         \param sampling_strategy    [in] - sampling functional specification
     */
     KOKKOS_INLINE_FUNCTION
-    void calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const SamplingFunctional sampling_strategy) const;
+    void calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy) const;
 
     /*! \brief Evaluates the weighting kernel
         \param r                [in] - Euclidean distance of relative vector. Euclidean distance of (target - neighbor) in some basis.
@@ -347,11 +348,11 @@ protected:
         \param polynomial_order     [in] - polynomial basis degree
         \param weight_p             [in] - boolean whether to fill w with kernel weights
         \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-        \param T                    [in] - high order orthonormal approximation of tangent plane in first _dimensions-1 columns of T
+        \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
         \param sampling_strategy    [in] - sampling functional specification
     */
     KOKKOS_INLINE_FUNCTION
-    void createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p = false, scratch_matrix_type* V = NULL, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample) const;
+    void createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p = false, scratch_matrix_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample) const;
 
     /*! \brief Fills the _P matrix with P*sqrt(w) for use in solving for curvature
 
@@ -401,7 +402,6 @@ protected:
         \param t2                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
         \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
         \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-        \param T                            [in] - high order orthonormal approximation of tangent plane in first _dimensions-1 columns of T
         \param G_inv                        [in] - (_dimensions-1)*(_dimensions-1) Kokkos View containing inverse of metric tensor
         \param curvature_coefficients       [in] - polynomial coefficients for curvature
         \param curvature_gradients          [in] - approximation of gradient of curvature, Kokkos View of size (_dimensions-1)
