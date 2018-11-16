@@ -376,12 +376,17 @@ public:
                                 input_component_axis_2, j, k, -1, -1, transform_gmls_output_to_ambient,
                                 vary_on_target, vary_on_neighbor);
                     }
+                } else if (SamplingTensorStyle[(int)sro] != Identity) {
+                    this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
+                            output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(j), lro, sro, 
+                            output_component_axis_1, output_component_axis_2, input_component_axis_1, 
+                            input_component_axis_2, 0, 0, -1, -1,
+                            transform_gmls_output_to_ambient, vary_on_target, vary_on_neighbor);
                 } else { // standard
                     this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
                             output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(j), lro, sro, 
                             output_component_axis_1, output_component_axis_2, input_component_axis_1, 
-                            input_component_axis_2, -1, -1, -1, -1,
-                            transform_gmls_output_to_ambient, vary_on_target, vary_on_neighbor);
+                            input_component_axis_2);
                 }
             }
         }

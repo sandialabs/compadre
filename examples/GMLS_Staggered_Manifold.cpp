@@ -38,6 +38,15 @@ Kokkos::initialize(argc, args);
 // code block to reduce scope for all Kokkos View allocations
 // otherwise, Views may be deallocating when we call Kokkos::finalize() later
 {
+    // check if 6 arguments are given from the command line, the first being the program name
+    //  N_pts_on_sphere used to determine spatial resolution
+    int N_pts_on_sphere = 1000; // QR by default
+    if (argc >= 6) {
+        int arg6toi = atoi(args[5]);
+        if (arg6toi > 0) {
+            N_pts_on_sphere = arg6toi;
+        }
+    }
     
     // check if 4 arguments are given from the command line
     //  dimension for the coordinates and the solution
@@ -58,10 +67,6 @@ Kokkos::initialize(argc, args);
             number_target_coords = arg3toi;
         }
     }
-
-    // check if 6 arguments are given from the command line, the first being the program name
-    //  N_pts_on_sphere used to determine spatial resolution
-    int N_pts_on_sphere = number_target_coords; // QR by default
     
     // check if 2 arguments are given from the command line
     //  set the number of target sites where we will reconstruct the target functionals at
@@ -79,7 +84,7 @@ Kokkos::initialize(argc, args);
     
     // maximum neighbors calculated to be the minimum number of neighbors needed for unisolvency 
     // enlarged by some multiplier (generally 10% to 40%, but calculated by GMLS class)
-    const int max_neighbors = Compadre::GMLS::getNN(order, dimension-1);
+    const int max_neighbors = 1.5*Compadre::GMLS::getNN(order, dimension-1);
     
     //! [Parse Command Line Arguments]
     Kokkos::Timer timer;
@@ -125,13 +130,11 @@ Kokkos::initialize(argc, args);
             //printf("%f %f %f\n", source_coords(i,0), source_coords(i,1), source_coords(i,2));
         }
         number_source_coords = N_count;
-        number_target_coords = N_count;
     }
 
     // resize source_coords to the size actually needed
     Kokkos::resize(source_coords, number_source_coords, 3);
     Kokkos::resize(source_coords_device, number_source_coords, 3);
-
 
     // each row is a neighbor list for a target site, with the first column of each row containing
     // the number of neighbors for that rows corresponding target site
@@ -143,14 +146,24 @@ Kokkos::initialize(argc, args);
     Kokkos::View<double*, Kokkos::DefaultExecutionSpace> epsilon_device("h supports", number_target_coords);
     Kokkos::View<double*>::HostMirror epsilon = Kokkos::create_mirror_view(epsilon_device);
     
-    //// coordinates of target sites
-    //Kokkos::View<double**, Kokkos::DefaultExecutionSpace> target_coords_device = source_coords_device;
-    //Kokkos::View<double**>::HostMirror target_coords = source_coords;
-    // coordinates of target sites,
+    // coordinates of target sites
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> target_coords_device("target coordinates", 
             number_target_coords, 3);
     Kokkos::View<double**>::HostMirror target_coords = Kokkos::create_mirror_view(target_coords_device);
-    Kokkos::deep_copy(target_coords, source_coords);
+
+    // seed random number generator
+    std::mt19937 rng(50);
+    
+    // generate random integers in [0...number_source_coords-1] (used to pick target sites)
+    std::uniform_int_distribution<int> gen_num_neighbors(0, number_source_coords-1); // uniform, unbiased
+
+    // fill target sites with random selections from source sites
+    for (int i=0; i<number_target_coords; ++i) {
+        const int source_site_to_copy = gen_num_neighbors(rng);
+        for (int j=0; j<3; ++j) {
+            target_coords(i,j) = source_coords(source_site_to_copy,j);
+        }
+    }
 
 
     //! [Setting Up The Point Cloud]
@@ -188,14 +201,14 @@ Kokkos::initialize(argc, args);
     
         // data for targets with scalar input
         sampling_data_device(i) = sphere_harmonic54(xval, yval, zval);
-        printf("%f\n", sampling_data_device(i));
+        //printf("%f\n", sampling_data_device(i));
 
         for (int j=0; j<3; ++j) {
             double gradient[3] = {0,0,0};
             gradient_sphereHarmonic54_ambient(gradient, xval, yval, zval);
             sampling_vector_data_device(i,j) = gradient[j];
         }
-        printf("%f %f %f\n", sampling_vector_data_device(i,0), sampling_vector_data_device(i,1), sampling_vector_data_device(i,2));
+        //printf("%f %f %f\n", sampling_vector_data_device(i,0), sampling_vector_data_device(i,1), sampling_vector_data_device(i,2));
     });
     
     
@@ -371,6 +384,47 @@ Kokkos::initialize(argc, args);
         scalar_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
             (sampling_data_device, ChainedStaggeredLaplacianOfScalarPointEvaluation, StaggeredEdgeAnalyticGradientIntegralSample);
 
+    //Kokkos::Profiling::pushRegion("Laplacian Remap");
+    //auto output_laplacian_scalarbasis = Kokkos::View<double*, Kokkos::HostSpace>("laplacian of values done manually", target_coords.dimension_0());
+    //{
+    //    auto sampling_data_host = Kokkos::create_mirror(sampling_data_device);
+    //    Kokkos::deep_copy(sampling_data_host, sampling_data_device);
+    //    Kokkos::fence();
+    //    //data now on host
+    //    
+    //    // remap is manual
+    //    Kokkos::parallel_for("Sampling Manufactured Solutions for Div", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
+    //            (0,target_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
+
+    //        double contracted_sum[1];
+    //        for (int l=0; l<neighbor_lists(i,0); l++) {
+    //            for (int m=0; m<1; m++) {
+    //                contracted_sum[m] = 0;
+    //                for (int n=0; n<1; n++) {
+    //                    // if locally owned data
+    //                    //contracted_sum[m] += sampling_data_host(neighbor_lists(i,l+1));
+    //                    contracted_sum[m] += my_GMLS_scalar.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, false /* for neighbor*/, m, n) * sampling_data_host(neighbor_lists(i,l+1));
+    //                    printf("n val: %f\n", my_GMLS_scalar.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, false /* for neighbor*/, m, n));
+    //                    contracted_sum[m] += my_GMLS_scalar.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, true /* for neighbor*/, m, n) * sampling_data_host(neighbor_lists(i,1));
+    //                    //printf("i %d, n0: %d\n", i, neighbor_lists(i,1));
+    //                    printf("t val: %f\n", my_GMLS_scalar.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, true /* for neighbor*/, m, n));
+    //                }
+    //            }
+
+    //            for (int m=0; m<1; m++) {
+    //                // apply gmls coefficients to equal rank data
+    //                double alphas_l = my_GMLS_scalar.getAlpha0TensorTo0Tensor(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, i, l);
+    //                assert((alphas_l==alphas_l) && "NaN in coefficients from GMLS");
+    //                double new_value = alphas_l * contracted_sum[m];
+    //                double old_value = output_laplacian_scalarbasis(i);
+    //                output_laplacian_scalarbasis(i) = new_value + old_value;
+    //            }
+    //        }
+    //    });
+    //    Kokkos::fence();
+    //}
+    //Kokkos::Profiling::popRegion();
+
 
 
     //! [Apply GMLS Alphas To Data]
@@ -410,6 +464,7 @@ Kokkos::initialize(argc, args);
         laplacian_vectorbasis_error += (output_laplacian_vectorbasis(i) - actual_Laplacian)*(output_laplacian_vectorbasis(i) - actual_Laplacian);
         laplacian_vectorbasis_norm += actual_Laplacian*actual_Laplacian;
 
+        //printf("Error of %f, %f vs %f\n", (output_laplacian_scalarbasis(i) - actual_Laplacian), output_laplacian_scalarbasis(i), actual_Laplacian);
         laplacian_scalarbasis_error += (output_laplacian_scalarbasis(i) - actual_Laplacian)*(output_laplacian_scalarbasis(i) - actual_Laplacian);
         laplacian_scalarbasis_norm += actual_Laplacian*actual_Laplacian;
 

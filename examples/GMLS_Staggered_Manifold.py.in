@@ -35,7 +35,7 @@ for operator in target_operators:
 
 for grid_num in range(grids):
     with open(os.devnull, 'w') as devnull:
-        output_commands = ["@CMAKE_CURRENT_BINARY_DIR@/GMLS_Staggered_Manifold_Test","%d"%porder,"%d"%(20*num_target_sites*pow(4,grid_num)),"3","1"]
+        output_commands = ["@CMAKE_CURRENT_BINARY_DIR@/GMLS_Staggered_Manifold_Test","%d"%porder,"%d"%num_target_sites,"3","1","%d"%(20*num_target_sites*pow(4,grid_num))]
         print output_commands
         output = subprocess.check_output(output_commands, stderr=devnull)
         #print output
