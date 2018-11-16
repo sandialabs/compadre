@@ -251,70 +251,69 @@ Kokkos::initialize(argc, args);
     std::string solver_name;
     solver_name = "MANIFOLD";
     
-    //// initialize an instance of the GMLS class for problems with a scalar basis and traditional point sampling as the sampling functional
-    //GMLS my_GMLS_vector_1(ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::StaggeredEdgeIntegralSample, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
+    // initialize an instance of the GMLS class
+    GMLS my_GMLS_vector_1(ReconstructionSpace::VectorTaylorPolynomial, 
+            SamplingFunctional::StaggeredEdgeIntegralSample, 
+            order, solver_name.c_str(), order /*manifold order*/, dimension);
+    
+    // pass in neighbor lists, source coordinates, target coordinates, and window sizes
     //
-    //// pass in neighbor lists, source coordinates, target coordinates, and window sizes
-    ////
-    //// neighbor lists have the format:
-    ////      dimensions: (# number of target sites) X (# maximum number of neighbors for any given target + 1)
-    ////                  the first column contains the number of neighbors for that rows corresponding target index
-    ////
-    //// source coordinates have the format:
-    ////      dimensions: (# number of source sites) X (dimension)
-    ////                  entries in the neighbor lists (integers) correspond to rows of this 2D array
-    ////
-    //// target coordinates have the format:
-    ////      dimensions: (# number of target sites) X (dimension)
-    ////                  # of target sites is same as # of rows of neighbor lists
-    ////
-    //my_GMLS_vector_1.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    // neighbor lists have the format:
+    //      dimensions: (# number of target sites) X (# maximum number of neighbors for any given target + 1)
+    //                  the first column contains the number of neighbors for that rows corresponding target index
     //
-    //// create a vector of target operations
-    //std::vector<TargetOperation> lro_vector_1(1);
-    //lro_vector_1[0] = ChainedStaggeredLaplacianOfScalarPointEvaluation;
+    // source coordinates have the format:
+    //      dimensions: (# number of source sites) X (dimension)
+    //                  entries in the neighbor lists (integers) correspond to rows of this 2D array
+    //
+    // target coordinates have the format:
+    //      dimensions: (# number of target sites) X (dimension)
+    //                  # of target sites is same as # of rows of neighbor lists
+    //
+    my_GMLS_vector_1.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    
+    // create a vector of target operations
+    std::vector<TargetOperation> lro_vector_1(1);
+    lro_vector_1[0] = DivergenceOfScalarPointEvaluation;
 
-    //// and then pass them to the GMLS class
-    //my_GMLS_vector_1.addTargets(lro_vector_1);
+    // and then pass them to the GMLS class
+    my_GMLS_vector_1.addTargets(lro_vector_1);
 
-    //// sets the weighting kernel function from WeightingFunctionType for curvature
-    //my_GMLS_vector_1.setCurvatureWeightingType(WeightingFunctionType::Power);
-    //
-    //// power to use in the weighting kernel function for curvature coefficients
-    //my_GMLS_vector_1.setCurvatureWeightingPower(2);
-    //
-    //// sets the weighting kernel function from WeightingFunctionType
-    //my_GMLS_vector_1.setWeightingType(WeightingFunctionType::Power);
-    //
-    //// power to use in that weighting kernel function
-    //my_GMLS_vector_1.setWeightingPower(2);
-    //
-    //// generate the alphas that to be combined with data for each target operation requested in lro
-    //my_GMLS_vector_1.generateAlphas();
-    //
-    //// initialize another instance of the GMLS class for problems with a vector basis on a manifold and point 
-    //// evaluation of that vector as the sampling functional
-    //GMLS my_GMLS_vector_2(ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::StaggeredEdgeIntegralSample, 
-    //        order, solver_name.c_str(), order /*manifold order*/, dimension);
-    //my_GMLS_vector_2.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    // sets the weighting kernel function from WeightingFunctionType for curvature
+    my_GMLS_vector_1.setCurvatureWeightingType(WeightingFunctionType::Power);
+    
+    // power to use in the weighting kernel function for curvature coefficients
+    my_GMLS_vector_1.setCurvatureWeightingPower(2);
+    
+    // sets the weighting kernel function from WeightingFunctionType
+    my_GMLS_vector_1.setWeightingType(WeightingFunctionType::Power);
+    
+    // power to use in that weighting kernel function
+    my_GMLS_vector_1.setWeightingPower(2);
+    
+    // generate the alphas that to be combined with data for each target operation requested in lro
+    my_GMLS_vector_1.generateAlphas();
+    
+    // initialize another instance of the GMLS class
+    GMLS my_GMLS_vector_2(ReconstructionSpace::VectorTaylorPolynomial, 
+            SamplingFunctional::StaggeredEdgeIntegralSample, 
+            SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, 
+            order, solver_name.c_str(), order /*manifold order*/, dimension);
+    my_GMLS_vector_2.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    std::vector<TargetOperation> lro_vector_2(1);
+    lro_vector_2[0] = ChainedStaggeredLaplacianOfScalarPointEvaluation;
+    my_GMLS_vector_2.addTargets(lro_vector_2);
+    my_GMLS_vector_2.setCurvatureWeightingType(WeightingFunctionType::Power);
+    my_GMLS_vector_2.setCurvatureWeightingPower(2);
+    my_GMLS_vector_2.setWeightingType(WeightingFunctionType::Power);
+    my_GMLS_vector_2.setWeightingPower(2);
+    my_GMLS_vector_2.generateAlphas();
 
-
-    //std::vector<TargetOperation> lro_vector_2(1);
-    //lro_vector_2[0] = DivergenceOfScalarPointEvaluation;
-    //my_GMLS_vector_2.addTargets(lro_vector_2);
-    //my_GMLS_vector_2.setCurvatureWeightingType(WeightingFunctionType::Power);
-    //my_GMLS_vector_2.setCurvatureWeightingPower(2);
-    //my_GMLS_vector_2.setWeightingType(WeightingFunctionType::Power);
-    //my_GMLS_vector_2.setWeightingPower(2);
-    //my_GMLS_vector_2.generateAlphas();
-
-    // initialize another instance of the GMLS class for problems with a vector basis on a manifold and point 
-    // evaluation of that vector as the sampling functional
+    // initialize another instance of the GMLS class
     GMLS my_GMLS_scalar(ReconstructionSpace::ScalarTaylorPolynomial, 
             SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, 
             order, solver_name.c_str(), order /*manifold order*/, dimension);
     my_GMLS_scalar.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
-
 
     std::vector<TargetOperation> lro_scalar(1);
     lro_scalar[0] = ChainedStaggeredLaplacianOfScalarPointEvaluation;
@@ -346,85 +345,22 @@ Kokkos::initialize(argc, args);
     // It uses information from the GMLS class to determine how many components are in the input 
     // as well as output for any choice of target functionals and then performs the contactions
     // on the data using the alpha coefficients generated by the GMLS class, all on the device.
-    //Remap vector_1_remap_manager(&my_GMLS_vector_1);
-    //Remap vector_2_remap_manager(&my_GMLS_vector_2);
+    Remap vector_1_remap_manager(&my_GMLS_vector_1);
+    Remap vector_2_remap_manager(&my_GMLS_vector_2);
     Remap scalar_remap_manager(&my_GMLS_scalar);
     
-//    auto output_value = scalar_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-//            (sampling_data_device, ScalarPointEvaluation);
-//    
-//    auto output_laplacian = scalar_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-//            (sampling_data_device, LaplacianOfScalarPointEvaluation);
-//
-//    auto output_gradient = scalar_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-//            (sampling_data_device, GradientOfScalarPointEvaluation);
-//
-//    auto output_vector = vector_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-//            (sampling_vector_data_device, VectorPointEvaluation, ManifoldVectorSample);
-//    
-//    auto output_divergence = vector_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-//            (sampling_vector_data_device, DivergenceOfVectorPointEvaluation, ManifoldVectorSample);
-//
-//    auto output_value = scalar_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-//            (sampling_data_device, ScalarPointEvaluation);
-//
 
-    auto output_laplacian_vectorbasis = Kokkos::View<double*, Kokkos::HostSpace>("", number_target_coords);
-    auto output_divergence = Kokkos::View<double*, Kokkos::HostSpace>("", number_target_coords);
+    auto output_divergence = 
+        vector_1_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+            (sampling_vector_data_device, DivergenceOfScalarPointEvaluation, StaggeredEdgeIntegralSample);
 
-    //auto output_laplacian_vectorbasis = 
-    //    vector_1_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-    //        (sampling_data_device, ChainedStaggeredLaplacianOfScalarPointEvaluation, StaggeredEdgeAnalyticGradientIntegralSample);
-
-    //auto output_divergence = 
-    //    vector_2_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-    //        (sampling_vector_data_device, DivergenceOfScalarPointEvaluation, StaggeredEdgeIntegralSample);
+    auto output_laplacian_vectorbasis = 
+        vector_2_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+            (sampling_data_device, ChainedStaggeredLaplacianOfScalarPointEvaluation, StaggeredEdgeAnalyticGradientIntegralSample);
 
     auto output_laplacian_scalarbasis = 
         scalar_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
             (sampling_data_device, ChainedStaggeredLaplacianOfScalarPointEvaluation, StaggeredEdgeAnalyticGradientIntegralSample);
-
-    //Kokkos::Profiling::pushRegion("Laplacian Remap");
-    //auto output_laplacian_scalarbasis = Kokkos::View<double*, Kokkos::HostSpace>("laplacian of values done manually", target_coords.dimension_0());
-    //{
-    //    auto sampling_data_host = Kokkos::create_mirror(sampling_data_device);
-    //    Kokkos::deep_copy(sampling_data_host, sampling_data_device);
-    //    Kokkos::fence();
-    //    //data now on host
-    //    
-    //    // remap is manual
-    //    Kokkos::parallel_for("Sampling Manufactured Solutions for Div", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
-    //            (0,target_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
-
-    //        double contracted_sum[1];
-    //        for (int l=0; l<neighbor_lists(i,0); l++) {
-    //            for (int m=0; m<1; m++) {
-    //                contracted_sum[m] = 0;
-    //                for (int n=0; n<1; n++) {
-    //                    // if locally owned data
-    //                    //contracted_sum[m] += sampling_data_host(neighbor_lists(i,l+1));
-    //                    contracted_sum[m] += my_GMLS_scalar.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, false /* for neighbor*/, m, n) * sampling_data_host(neighbor_lists(i,l+1));
-    //                    printf("n val: %f\n", my_GMLS_scalar.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, false /* for neighbor*/, m, n));
-    //                    contracted_sum[m] += my_GMLS_scalar.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, true /* for neighbor*/, m, n) * sampling_data_host(neighbor_lists(i,1));
-    //                    //printf("i %d, n0: %d\n", i, neighbor_lists(i,1));
-    //                    printf("t val: %f\n", my_GMLS_scalar.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, true /* for neighbor*/, m, n));
-    //                }
-    //            }
-
-    //            for (int m=0; m<1; m++) {
-    //                // apply gmls coefficients to equal rank data
-    //                double alphas_l = my_GMLS_scalar.getAlpha0TensorTo0Tensor(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, i, l);
-    //                assert((alphas_l==alphas_l) && "NaN in coefficients from GMLS");
-    //                double new_value = alphas_l * contracted_sum[m];
-    //                double old_value = output_laplacian_scalarbasis(i);
-    //                output_laplacian_scalarbasis(i) = new_value + old_value;
-    //            }
-    //        }
-    //    });
-    //    Kokkos::fence();
-    //}
-    //Kokkos::Profiling::popRegion();
-
 
 
     //! [Apply GMLS Alphas To Data]
@@ -473,6 +409,7 @@ Kokkos::initialize(argc, args);
         //    gradient_ambient_norm += actual_Gradient_ambient[j]*actual_Gradient_ambient[j];
         //}
 
+        //printf("Error of %f, %f vs %f\n", (output_divergence(i) - actual_Laplacian), output_divergence(i), actual_Laplacian);
         divergence_ambient_error += (output_divergence(i) - actual_Laplacian)*(output_divergence(i) - actual_Laplacian);
         divergence_ambient_norm += actual_Laplacian*actual_Laplacian;
 

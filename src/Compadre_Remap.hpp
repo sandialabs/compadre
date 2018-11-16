@@ -228,7 +228,7 @@ public:
                 if (!vary_on_neighbor && vary_on_target) {
                     pre_T = prestencil_weights(0, target_index, 0, pre_transform_local_index, 
                             pre_transform_global_index); 
-                } else { // doesn't vary on target or neighbor
+                } else if (!vary_on_target) { // doesn't vary on target or neighbor
                     pre_T = prestencil_weights(0, 0, 0, pre_transform_local_index, 
                             pre_transform_global_index); 
                 }
@@ -253,7 +253,7 @@ public:
                     if (!vary_on_neighbor && vary_on_target) {
                         pre_T_staggered = prestencil_weights(1, target_index, 0, pre_transform_local_index, 
                                 pre_transform_global_index); 
-                    } else { // doesn't vary on target or neighbor
+                    } else if (!vary_on_target) { // doesn't vary on target or neighbor
                         pre_T_staggered = prestencil_weights(1, 0, 0, pre_transform_local_index, 
                                 pre_transform_global_index); 
                     }
