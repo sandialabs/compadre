@@ -31,34 +31,13 @@ namespace Compadre {
         //! Point evaluation of the chained staggered Laplacian acting on VectorTaylorPolynomial 
         //! basis + StaggeredEdgeIntegralSample sampling functional
         ChainedStaggeredLaplacianOfScalarPointEvaluation,
-        //! Gradient is calculated by taking vector point evaluation of gradient basis
-        StaggeredGradientPointEvaluation,
-        //! Divergence of a vector that is already transformed into a scalar
-        StaggeredDivergencePointEvaluation,
         //! Should be the total count of all available target functionals
-        COUNT=14,
+        COUNT=12,
     };
 
-    //! Rank of target functional input for each TargetOperation 
-    //! (should match some ReconstructionSpace's EffectiveReconstructionRank)
-    const int TargetInputTensorRank[] = {
-        0, ///< ScalarPointEvaluation
-        1, ///< VectorPointEvaluation
-        0, ///< LaplacianOfScalarPointEvaluation
-        1, ///< VectorLaplacianPointEvaluation
-        0, ///< GradientOfScalarPointEvaluation
-        1, ///< GradientOfVectorPointEvaluation
-        1, ///< DivergenceOfVectorPointEvaluation
-        1, ///< CurlOfVectorPointEvaluation
-        0, ///< PartialXOfScalarPointEvaluation
-        0, ///< PartialYOfScalarPointEvaluation
-        0, ///< PartialZOfScalarPointEvaluation
-        0, ///< ChainedStaggeredLaplacianOfScalarPointEvaluation
-        1, ///< StaggeredGradientPointEvaluation
-        0, ///< StaggeredDivergencePointEvaluation
-    };
-
-    //! Rank of target functional output for each TargetOperation
+    //! Rank of target functional output for each TargetOperation 
+    //! Rank of target functional input for each TargetOperation is based on the output
+    //! rank of the SamplingFunctional used on the polynomial basis
     const int TargetOutputTensorRank[] {
         0, ///< PointEvaluation
         1, ///< VectorPointEvaluation
@@ -72,8 +51,6 @@ namespace Compadre {
         0, ///< PartialYOfScalarPointEvaluation
         0, ///< PartialZOfScalarPointEvaluation
         0, ///< ChainedStaggeredLaplacianOfScalarPointEvaluation
-        1, ///< StaggeredGradientPointEvaluation
-        0, ///< StaggeredDivergencePointEvaluation
     };
 
     //! Space in which to reconstruct polynomial
@@ -109,6 +86,9 @@ namespace Compadre {
         PointSample,
         //! Point evaluations of the entire vector source function
         VectorPointSample,
+        //! Point evaluations of the entire vector source function 
+        //! (but on a manifold, so it includes a transform into local coordinates)
+        ManifoldVectorPointSample,
         //! Analytical integral of a gradient source vector is just a difference of the scalar source at neighbor and target
         StaggeredEdgeAnalyticGradientIntegralSample,
         //! Samples consist of the result of integrals of a vector dotted with the tangent along edges between neighbor and target
@@ -119,6 +99,7 @@ namespace Compadre {
     const int SamplingInputTensorRank[] = {
         0, ///< PointSample
         1, ///< VectorPointSample
+        1, ///< ManifoldVectorPointSample
         0, ///< StaggeredEdgeAnalyticGradientIntegralSample,
         1, ///< StaggeredEdgeIntegralSample
     };
@@ -127,6 +108,7 @@ namespace Compadre {
     const int SamplingOutputTensorRank[] {
         0, ///< PointSample
         1, ///< VectorPointSample
+        1, ///< ManifoldVectorPointSample
         0, ///< StaggeredEdgeAnalyticGradientIntegralSample,
         0, ///< StaggeredEdgeIntegralSample
     };
@@ -142,7 +124,8 @@ namespace Compadre {
     //! Rank of sampling functional output for each SamplingFunctional
     const int SamplingTensorStyle[] {
         (int)Identity,              ///< PointSample
-        (int)DifferentEachTarget,   ///< VectorPointSample
+        (int)Identity,              ///< VectorPointSample
+        (int)DifferentEachTarget,   ///< ManifoldVectorPointSample
         (int)SameForAll,            ///< StaggeredEdgeAnalyticGradientIntegralSample,
         (int)DifferentEachNeighbor, ///< StaggeredEdgeIntegralSample
     };
@@ -152,6 +135,7 @@ namespace Compadre {
     const int SamplingTensorForTargetSite[] {
         0, ///< PointSample
         0, ///< VectorPointSample
+        0, ///< ManifoldVectorPointSample
         1, ///< StaggeredEdgeAnalyticGradientIntegralSample,
         1, ///< StaggeredEdgeIntegralSample
     };
@@ -162,6 +146,7 @@ namespace Compadre {
         // with a nontrivial nullspace requiring SVD
         0, ///< PointSample
         0, ///< VectorPointSample
+        0, ///< ManifoldVectorPointSample
         1, ///< StaggeredEdgeAnalyticGradientIntegralSample,
         1, ///< StaggeredEdgeIntegralSample
     };
@@ -183,18 +168,6 @@ namespace Compadre {
         Gaussian
     };
 
-    //! Helper function for finding alpha coefficients
-    static int getTargetInputIndex(const int operation_num, const int input_component_axis_1, const int input_component_axis_2) {
-        const int axis_1_size = (TargetInputTensorRank[operation_num] > 1) ? TargetInputTensorRank[operation_num] : 1;
-        return axis_1_size*input_component_axis_1 + input_component_axis_2; // 0 for scalar, 0 for vector;
-    }
-
-    //! Helper function for finding alpha coefficients
-    static int getTargetOutputIndex(const int operation_num, const int output_component_axis_1, const int output_component_axis_2) {
-        const int axis_1_size = (TargetOutputTensorRank[operation_num] > 1) ? TargetOutputTensorRank[operation_num] : 1;
-        return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
-    }
-
     //! Coordinate type for input and output format of vector data on manifold problems.
     //! Anything without a manifold is always Ambient.
     enum CoordinatesType {
@@ -202,15 +175,22 @@ namespace Compadre {
         Local,   ///< a 2D manifold in 3D in local coordinates would have 2 components for a vector
     };
 
+    //! Helper function for finding alpha coefficients
+    static int getTargetOutputIndex(const int operation_num, const int output_component_axis_1, const int output_component_axis_2) {
+        const int axis_1_size = (TargetOutputTensorRank[operation_num] > 1) ? TargetOutputTensorRank[operation_num] : 1;
+        return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
+    }
+
     //static int getSamplingInputIndex(const int operation_num, const int input_component_axis_1, const int input_component_axis_2) {
     //    const int axis_1_size = (SamplingInputTensorRank[operation_num] > 1) ? SamplingInputTensorRank[operation_num] : 1;
     //    return axis_1_size*input_component_axis_1 + input_component_axis_2; // 0 for scalar, 0 for vector;
     //}
 
-    //static int getSamplingOutputIndex(const int operation_num, const int output_component_axis_1, const int output_component_axis_2) {
-    //    const int axis_1_size = (SamplingOutputTensorRank[operation_num] > 1) ? SamplingOutputTensorRank[operation_num] : 1;
-    //    return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
-    //}
+    //! Helper function for finding alpha coefficients
+    static int getSamplingOutputIndex(const int operation_num, const int output_component_axis_1, const int output_component_axis_2) {
+        const int axis_1_size = (SamplingOutputTensorRank[operation_num] > 1) ? SamplingOutputTensorRank[operation_num] : 1;
+        return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
+    }
 
     //static bool validTargetSpaceSample(TargetOperation to, ReconstructionSpace rs, SamplingFunctional sf) {
     //    // all valid combinations to be added here

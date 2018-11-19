@@ -29,7 +29,7 @@ if (len(sys.argv) > 2):
 
 errors = []
 
-target_operators=("Staggered Laplace-Beltrami \(VectorBasis\)", "Staggered Laplace-Beltrami \(ScalarBasis\)", "Surface Staggered Divergence \(VectorSamples\)", "Surface Staggered Divergence \(ScalarSamples\)")
+target_operators=("Staggered Laplace-Beltrami \(VectorBasis\)", "Staggered Laplace-Beltrami \(ScalarBasis\)", "Surface Staggered Divergence \(VectorSamples\)", "Surface Staggered Divergence \(ScalarSamples\)")#, "Surface Staggered Gradient \(VectorBasis\)", "Surface Staggered Gradient \(ScalarBasis\)")
 for operator in target_operators:
     errors.append([])
 

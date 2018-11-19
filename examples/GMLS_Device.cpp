@@ -273,7 +273,7 @@ bool all_passed = true;
     }
     
     // initialize an instance of the GMLS class 
-    GMLS my_GMLS(order, solver_name.c_str(), 2 /*manifold order*/, dimension);
+    GMLS my_GMLS(VectorOfScalarClonesTaylorPolynomial, VectorPointSample, order, solver_name.c_str(), 2 /*manifold order*/, dimension);
     
     // pass in neighbor lists, source coordinates, target coordinates, and window sizes
     //
@@ -343,10 +343,10 @@ bool all_passed = true;
             (sampling_data_device, GradientOfScalarPointEvaluation);
     
     auto output_divergence = remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (gradient_sampling_data_device, DivergenceOfVectorPointEvaluation);
+            (gradient_sampling_data_device, DivergenceOfVectorPointEvaluation, VectorPointSample);
     
     auto output_curl = remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (divergence_sampling_data_device, CurlOfVectorPointEvaluation);
+            (divergence_sampling_data_device, CurlOfVectorPointEvaluation, VectorPointSample);
     
     
     //! [Apply GMLS Alphas To Data]

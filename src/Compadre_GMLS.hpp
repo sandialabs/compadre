@@ -122,6 +122,9 @@ protected:
     //! reconstruction space for GMLS problems, set at GMLS class instantiation
     ReconstructionSpace _reconstruction_space;
 
+    //! actual rank of reconstruction basis
+    int _reconstruction_space_rank;
+
     //! polynomial sampling functional used to construct P matrix, set at GMLS class instantiation
     SamplingFunctional _polynomial_sampling_functional;
 
@@ -568,9 +571,10 @@ public:
         _weighting_power = 2;
         _curvature_weighting_power = 2;
 
-        _reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial;
-        _polynomial_sampling_functional = SamplingFunctional::PointSample;
-        _data_sampling_functional = SamplingFunctional::PointSample;
+        _reconstruction_space = ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial;
+        _polynomial_sampling_functional = SamplingFunctional::VectorPointSample;
+        _data_sampling_functional = SamplingFunctional::VectorPointSample;
+        _reconstruction_space_rank = ActualReconstructionSpaceRank[_reconstruction_space];
 
         _basis_multiplier = 1;
         _sampling_multiplier = 1;
@@ -582,6 +586,12 @@ public:
         _global_dimensions = dimensions;
         if (_dense_solver_type == DenseSolverType::MANIFOLD) {
             _local_dimensions = dimensions-1;
+            // VectorPointSample is dealt with differently on a manifold since it includes a coordinate
+            // transform to a manifold's local chart
+            if (_polynomial_sampling_functional == SamplingFunctional::VectorPointSample)
+                _polynomial_sampling_functional = SamplingFunctional::ManifoldVectorPointSample;
+            if (_data_sampling_functional == SamplingFunctional::VectorPointSample)
+                _data_sampling_functional = SamplingFunctional::ManifoldVectorPointSample;
         } else {
             _local_dimensions = dimensions;
         }
@@ -601,6 +611,18 @@ public:
         _reconstruction_space = reconstruction_space;
         _polynomial_sampling_functional = polynomial_sampling_strategy;
         _data_sampling_functional = data_sampling_strategy;
+        _reconstruction_space_rank = ActualReconstructionSpaceRank[_reconstruction_space];
+        if (_dense_solver_type == DenseSolverType::MANIFOLD) {
+            // VectorPointSample is dealt with differently on a manifold since it includes a coordinate
+            // transform to a manifold's local chart
+            if (_polynomial_sampling_functional == SamplingFunctional::VectorPointSample)
+                _polynomial_sampling_functional = SamplingFunctional::ManifoldVectorPointSample;
+            if (_data_sampling_functional == SamplingFunctional::VectorPointSample)
+                _data_sampling_functional = SamplingFunctional::ManifoldVectorPointSample;
+        }
+        assert((SamplingOutputTensorRank[(int)_polynomial_sampling_functional] 
+                    == SamplingOutputTensorRank[(int)_polynomial_sampling_functional]) 
+                && "Output rank of polynomial and data sampling functionals must match.");
     };
 
     //! Constructor for the case when nonstandard sampling functionals or reconstruction spaces
@@ -788,7 +810,13 @@ public:
             const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
 
         const int lro_number = _lro_lookup[(int)lro];
-        const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
+        assert((lro_number >= 0) && "getAlphasColumnOffset called for a TargetOperation that was not registered.");
+
+        // the target functional input indexing is sized based on the output rank of the sampling
+        // functional used, which can not be inferred unless a specification of target functional,
+        // reconstruction space, and sampling functional are all known (as was the case at the
+        // construction of this class)
+        const int input_index = getSamplingOutputIndex((int)_polynomial_sampling_functional, input_component_axis_1, input_component_axis_2);
         const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
 
         return  _host_lro_total_offsets[lro_number] + input_index*_host_lro_output_tile_size[lro_number] + output_index;
@@ -1212,7 +1240,9 @@ public:
 
             // allows for a tile of the product of dimension^input_tensor_rank * dimension^output_tensor_rank * the number of neighbors
             int output_tile_size = std::pow(_local_dimensions, TargetOutputTensorRank[(int)_lro[i]]);
-            int input_tile_size = std::pow(_local_dimensions, TargetInputTensorRank[(int)_lro[i]]);
+            // the target functional input indexing is sized based on the output rank of the sampling
+            // functional used
+            int input_tile_size = getOutputDimensionOfSampling(_polynomial_sampling_functional);
             _host_lro_output_tile_size(i) = output_tile_size;
             _host_lro_input_tile_size(i) = input_tile_size;
 
@@ -1220,7 +1250,9 @@ public:
             output_offset += output_tile_size;
             input_offset += input_tile_size;
 
-            _host_lro_input_tensor_rank(i) = TargetInputTensorRank[(int)_lro[i]];
+            // the target functional output rank is based on the output rank of the sampling
+            // functional used
+            _host_lro_input_tensor_rank(i) = SamplingOutputTensorRank[(int)_polynomial_sampling_functional];
             _host_lro_output_tensor_rank(i) = TargetOutputTensorRank[(int)_lro[i]];
         }
 

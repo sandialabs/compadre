@@ -324,7 +324,7 @@ Kokkos::initialize(argc, args);
     // evaluation of that vector as the sampling functional
     // VectorTaylorPolynomial indicates that the basis will be a polynomial with as many components as the
     // dimension of the manifold. This differs from another possibility, which follows this class.
-    GMLS my_GMLS_vector(ReconstructionSpace::VectorTaylorPolynomial,SamplingFunctional::VectorPointSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
+    GMLS my_GMLS_vector(ReconstructionSpace::VectorTaylorPolynomial,SamplingFunctional::ManifoldVectorPointSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
     my_GMLS_vector.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
     std::vector<TargetOperation> lro_vector(2);
     lro_vector[0] = VectorPointEvaluation;
@@ -360,7 +360,7 @@ Kokkos::initialize(argc, args);
     //  In the print-out for this program, we include the timings and errors on this and VectorTaylorPolynomial
     //  in order to demonstrate that they produce exactly the same answer, but that one is much more efficient.
     //
-    GMLS my_GMLS_vector_of_scalar_clones(ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial,SamplingFunctional::VectorPointSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
+    GMLS my_GMLS_vector_of_scalar_clones(ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial,SamplingFunctional::ManifoldVectorPointSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
     my_GMLS_vector_of_scalar_clones.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
     std::vector<TargetOperation> lro_vector_of_scalar_clones(2);
     lro_vector_of_scalar_clones[0] = VectorPointEvaluation;
@@ -408,18 +408,18 @@ Kokkos::initialize(argc, args);
             (sampling_data_device, GradientOfScalarPointEvaluation);
 
     auto output_vector = vector_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (sampling_vector_data_device, VectorPointEvaluation, VectorPointSample);
+            (sampling_vector_data_device, VectorPointEvaluation, ManifoldVectorPointSample);
     
     auto output_divergence = vector_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (sampling_vector_data_device, DivergenceOfVectorPointEvaluation, VectorPointSample);
+            (sampling_vector_data_device, DivergenceOfVectorPointEvaluation, ManifoldVectorPointSample);
 
     auto output_vector_of_scalar_clones = 
         vector_remap_manager_of_scalar_clones.applyAlphasToDataAllComponentsAllTargetSites<double**, 
-        Kokkos::HostSpace>(sampling_vector_data_device, VectorPointEvaluation, VectorPointSample);
+        Kokkos::HostSpace>(sampling_vector_data_device, VectorPointEvaluation, ManifoldVectorPointSample);
     
     auto output_divergence_of_scalar_clones = 
         vector_remap_manager_of_scalar_clones.applyAlphasToDataAllComponentsAllTargetSites<double*, 
-        Kokkos::HostSpace>(sampling_vector_data_device, DivergenceOfVectorPointEvaluation, VectorPointSample);
+        Kokkos::HostSpace>(sampling_vector_data_device, DivergenceOfVectorPointEvaluation, ManifoldVectorPointSample);
 
 
     //    Kokkos::fence(); // let application of alphas to data finish before using results

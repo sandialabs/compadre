@@ -142,7 +142,7 @@ bool all_passed = true;
         solver_name = "QR";
     }
 
-    GMLS my_GMLS(order, solver_name.c_str(), 2 /*manifield order*/, dimension);
+    GMLS my_GMLS(order, solver_name.c_str(), 2 /*manifold order*/, dimension);
     my_GMLS.setProblemData(neighbor_lists, source_coords, target_coords, epsilon);
     my_GMLS.setWeightingPower(10);
 

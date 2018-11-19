@@ -48,7 +48,10 @@ struct Subview1D<T, T2, enable_if_t<(T::rank<2)> >
     }
 
     auto get1DView(const int column_num) -> decltype(Kokkos::subview(_data_in, Kokkos::ALL)) {
-        assert((column_num==0) && "Subview asked for column column_num!=0, but _data_in is rank 1.");
+        // TODO: There is a valid use case for violating this assert, so in the future we may want
+        // to add other logic to the remap function calling this so that it knows to do nothing with
+        // this data.
+        //assert((column_num==0) && "Subview asked for column column_num!=0, but _data_in is rank 1.");
         return Kokkos::subview(_data_in, Kokkos::ALL);
     }
 
@@ -285,6 +288,7 @@ public:
     Kokkos::View<output_data_type, output_array_layout, output_memory_space>  // shares layout of input by default
             applyAlphasToDataAllComponentsAllTargetSites(view_type_input_data sampling_data, TargetOperation lro, SamplingFunctional sro = SamplingFunctional::PointSample) const {
 
+
         // output can be device or host
         // input can be device or host
         // move everything to device and calculate there, then move back to host if necessary
@@ -307,6 +311,9 @@ public:
             output_dimensions = output_dimension_of_operator;
         }
 
+        // special case for VectorPointSample, because if it is on a manifold it includes data transform to local charts
+        if (problem_type==MANIFOLD && sro==VectorPointSample) sro = ManifoldVectorPointSample;
+
         // create view on whatever memory space the user specified with their template argument when calling this function
         output_view_type target_output("output of target", neighbor_lists.dimension_0() /* number of targets */, 
                 output_dimensions);
@@ -325,6 +332,9 @@ public:
         // all loop logic based on transforming data under a sampling functional
         // into something that is valid input for GMLS
         bool vary_on_target, vary_on_neighbor;
+        auto sro_style = SamplingTensorStyle[(int)sro];
+        bool loop_global_dimensions = SamplingInputTensorRank[(int)sro]>0 && sro_style!=Identity; 
+
 
         if (SamplingTensorStyle[(int)sro] == Identity || SamplingTensorStyle[(int)sro] == SameForAll) {
             vary_on_target = false;
@@ -336,7 +346,8 @@ public:
             vary_on_target = true;
             vary_on_neighbor = true;
         }
-        bool loop_global_dimensions = SamplingInputTensorRank[(int)sro]>0; 
+
+
         bool transform_gmls_output_to_ambient = (problem_type==MANIFOLD && TargetOutputTensorRank[(int)lro]==1);
 
 
@@ -376,7 +387,7 @@ public:
                                 input_component_axis_2, j, k, -1, -1, transform_gmls_output_to_ambient,
                                 vary_on_target, vary_on_neighbor);
                     }
-                } else if (SamplingTensorStyle[(int)sro] != Identity) {
+                } else if (sro_style != Identity) {
                     this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
                             output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(j), lro, sro, 
                             output_component_axis_1, output_component_axis_2, input_component_axis_1, 
