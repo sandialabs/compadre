@@ -377,10 +377,9 @@ protected:
         \param t1                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
         \param t2                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
         \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
-        \param basis_multiplier_component   [in] - which column of P_target_row is being filled. Also, specifies which component of vector polynomial basis is being used, e.g. a linear vector basis could be [1,0], [0,1], [x,0], [0,x], [y,0], [0,y], [z,0], and [0,z], but this parameter specifies whether it is [0,y] or [y,0] being evaluated.
     */
     KOKKOS_INLINE_FUNCTION
-    void computeTargetFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, const int basis_multiplier_component = 0) const;
+    void computeTargetFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_vector_type P_target_row) const;
 
     /*! \brief Evaluates a polynomial basis for the curvature with a gradient target functional applied
 
@@ -391,10 +390,9 @@ protected:
         \param t2                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
         \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
         \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-        \param basis_multiplier_component   [in] - which column of P_target_row is being filled. Also, specifies which component of vector polynomial basis is being used, e.g. a linear vector basis could be [1,0], [0,1], [x,0], [0,x], [y,0], [0,y], [z,0], and [0,z], but this parameter specifies whether it is [0,y] or [y,0] being evaluated.
     */
     KOKKOS_INLINE_FUNCTION
-    void computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, scratch_matrix_type* V, const int basis_multiplier_component = 0) const;
+    void computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_vector_type P_target_row, scratch_matrix_type* V) const;
 
     /*! \brief Evaluates a polynomial basis with a target functional applied, using information from the manifold curvature
 
@@ -408,14 +406,13 @@ protected:
         \param G_inv                        [in] - (_dimensions-1)*(_dimensions-1) Kokkos View containing inverse of metric tensor
         \param curvature_coefficients       [in] - polynomial coefficients for curvature
         \param curvature_gradients          [in] - approximation of gradient of curvature, Kokkos View of size (_dimensions-1)
-        \param basis_multiplier_component   [in] - which column of P_target_row is being filled. Also, specifies which component of vector polynomial basis is being used, e.g. a linear vector basis could be [1,0], [0,1], [x,0], [0,x], [y,0], [0,y], [z,0], and [0,z], but this parameter specifies whether it is [0,y] or [y,0] being evaluated.
     */
     KOKKOS_INLINE_FUNCTION
-    void computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, scratch_matrix_type V, scratch_matrix_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients, const int basis_multiplier_component = 0) const;
+    void computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_vector_type P_target_row, scratch_matrix_type V, scratch_matrix_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients) const;
 
     //! Helper function for applying the evaluations from a target functional to the polynomial coefficients
     KOKKOS_INLINE_FUNCTION
-    void applyTargetsToCoefficients(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type w, scratch_matrix_type P_target_row, const int target_NP) const;
+    void applyTargetsToCoefficients(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type w, scratch_vector_type P_target_row, const int target_NP) const;
 
     //! Generates quadrature for staggered approach
     void generate1DQuadrature();

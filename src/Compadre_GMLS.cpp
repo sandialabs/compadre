@@ -117,7 +117,7 @@ void GMLS::generateAlphas() {
         team_scratch_size_b += scratch_vector_type::shmem_size(max_num_neighbors*std::max(_sampling_multiplier,_basis_multiplier)); // t1 work vector for qr
         team_scratch_size_b += scratch_vector_type::shmem_size(max_num_neighbors*std::max(_sampling_multiplier,_basis_multiplier)); // t2 work vector for qr
 
-        team_scratch_size_b += scratch_matrix_type::shmem_size(max_P_row_size, 1); // row of P matrix, one for each operator
+        team_scratch_size_b += scratch_vector_type::shmem_size(max_P_row_size); // row of P matrix, one for each operator
         thread_scratch_size_b += scratch_vector_type::shmem_size(max_NP*_basis_multiplier); // delta, used for each thread
 
 
@@ -137,7 +137,7 @@ void GMLS::generateAlphas() {
         team_scratch_size_a += scratch_vector_type::shmem_size(max_num_rows); // t2 work vector for qr
 
         // row of P matrix, one for each operator
-        team_scratch_size_b += scratch_matrix_type::shmem_size(this_num_columns*_total_alpha_values, 1); 
+        team_scratch_size_b += scratch_vector_type::shmem_size(this_num_columns*_total_alpha_values); 
 
         thread_scratch_size_b += scratch_vector_type::shmem_size(this_num_columns); // delta, used for each thread
     }
@@ -338,7 +338,7 @@ void GMLS::operator()(const ApplyStandardTargets&, const member_type& teamMember
 
     scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_a), max_num_rows);
     scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_a), max_num_rows);
-    scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), this_num_columns*_total_alpha_values, 1);
+    scratch_vector_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), this_num_columns*_total_alpha_values);
 
     /*
      *    Apply Standard Target Evaluations to Polynomial Coefficients
@@ -484,7 +484,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
     scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_b), max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
     scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_b), max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
     scratch_vector_type manifold_gradient(teamMember.team_scratch(_scratch_team_level_b), (_dimensions-1)*max_num_neighbors);
-    scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), max_P_row_size, 1);
+    scratch_vector_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), max_P_row_size);
 
 
     /*
@@ -627,7 +627,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
     scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_b), max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
     scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_b), max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
     scratch_vector_type manifold_gradient(teamMember.team_scratch(_scratch_team_level_b), (_dimensions-1)*max_num_neighbors);
-    scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), max_P_row_size, 1);
+    scratch_vector_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), max_P_row_size);
 
     /*
      *    Manifold
@@ -803,14 +803,14 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
 
     scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_b), max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
     scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_b), max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
-    scratch_matrix_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), max_P_row_size, 1);
+    scratch_vector_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), max_P_row_size);
 
     /*
      *    Apply Standard Target Evaluations to Polynomial Coefficients
      */
 
     Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-        this->computeTargetFunctionalsOnManifold(teamMember, t1, t2, P_target_row, T, G_inv, manifold_coeffs, manifold_gradient_coeffs, 0);
+        this->computeTargetFunctionalsOnManifold(teamMember, t1, t2, P_target_row, T, G_inv, manifold_coeffs, manifold_gradient_coeffs);
     });
     teamMember.team_barrier();
 
