@@ -5,7 +5,7 @@
 
 #include <Kokkos_Core.hpp>
 
-#include <GMLS.hpp> // for getNP()
+#include <Compadre_GMLS.hpp> // for getNP()
 #include <Compadre_GlobalConstants.hpp>
 #include <Compadre_ProblemT.hpp>
 #include <Compadre_ParticlesT.hpp>
@@ -237,7 +237,8 @@ int main (int argc, char* args[]) {
 				new_particles->getFieldManager()->createField(3, "computedGradSphereHarmonic", "m/s");
 				new_particles->getFieldManager()->createField(3, "exact_solution", "m/s");
 
-				Compadre::RemapObject ro("sourceGradientSphereHarmonic", "computedGradSphereHarmonic", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::ManifoldVectorSample);
+				//Compadre::RemapObject ro("sourceGradientSphereHarmonic", "computedGradSphereHarmonic", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::ManifoldVectorPointSample);
+				Compadre::RemapObject ro("sourceGradientSphereHarmonic", "computedGradSphereHarmonic", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, SamplingFunctional::ManifoldVectorPointSample);
 				rm->add(ro);
 				rm->execute();
 			} else if (parameters->get<std::string>("solution type")=="laplace") {
@@ -360,7 +361,7 @@ int main (int argc, char* args[]) {
 
 				new_particles->getFieldManager()->createField(1, "computedDivGradSphereHarmonic", "m/s");
 
-				Compadre::RemapObject ro("sourceGradientSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::DivergenceOfVectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::ManifoldGradientVectorSample);
+				Compadre::RemapObject ro("sourceGradientSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::DivergenceOfVectorPointEvaluation, ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, SamplingFunctional::ManifoldVectorPointSample);
 				rm->add(ro);
 				rm->execute();
 			} else if (parameters->get<std::string>("solution type")=="staggered_div") {
@@ -372,10 +373,10 @@ int main (int argc, char* args[]) {
 				new_particles->getFieldManager()->createField(1, "computedDivGradSphereHarmonic", "m/s");
 
 				// this is a good test that with no integration error in the sampling, we can perform the correct divergence on the reconstructed polynomial that is calculated via integrating polynomials
-//				Compadre::RemapObject ro("scaledSphereHarmonic","computedDivGradSphereHarmonic", TargetOperation::DivergenceOfScalarPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::StaggeredEdgeIntegralSample, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
+//				Compadre::RemapObject ro("scaledSphereHarmonic","computedDivGradSphereHarmonic", TargetOperation::DivergenceOfVectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::StaggeredEdgeIntegralSample, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
 
 				// this tests the integration on the samples (likely second order at best given each edge only contains two values) combined with divergence on the reconstructed polynomial calculated via integrating polynomials
-				Compadre::RemapObject ro("sourceGradientSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::DivergenceOfScalarPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::StaggeredEdgeIntegralSample);
+				Compadre::RemapObject ro("sourceGradientSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::DivergenceOfVectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::StaggeredEdgeIntegralSample);
 				rm->add(ro);
 				rm->execute();
 			} else { // lb solve or five strip
@@ -431,7 +432,7 @@ int main (int argc, char* args[]) {
 				new_particles->getFieldManager()->createField(1, "computedDivGradSphereHarmonic", "m/s");
 //				new_particles->getFieldManager()->createField(3, "computedDivGradSphereHarmonic", "m/s");
 
-				Compadre::RemapObject ro("computedGradSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::DivergenceOfVectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::ManifoldGradientVectorSample);
+				Compadre::RemapObject ro("computedGradSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::DivergenceOfVectorPointEvaluation, ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, SamplingFunctional::ManifoldVectorPointSample);
 //				Compadre::RemapObject ro("computedGradSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::StaggeredDivergenceOfVectorPointEvaluation, SamplingFunctional::StaggeredEdgeIntegralSample);
 //				Compadre::RemapObject ro("computedGradSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::VectorPointEvaluation, SamplingFunctional::StaggeredEdgeIntegralSample);
 
@@ -450,7 +451,7 @@ int main (int argc, char* args[]) {
 
 				Teuchos::RCP<Compadre::RemapManager> rm2 = Teuchos::rcp(new Compadre::RemapManager(parameters, new_particles.getRawPtr(), new_particles.getRawPtr(), halo_size));
 				new_particles->getFieldManager()->createField(1, "computedDivGradSphereHarmonic", "m/s");
-				Compadre::RemapObject ro("computedGradSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::DivergenceOfScalarPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::StaggeredEdgeIntegralSample);
+				Compadre::RemapObject ro("computedGradSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::DivergenceOfVectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::StaggeredEdgeIntegralSample);
 
 				rm2->add(ro);
 				rm2->execute();

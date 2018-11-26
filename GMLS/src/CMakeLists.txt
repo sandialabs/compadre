@@ -1,26 +1,24 @@
 bob_config_header("${CMAKE_CURRENT_BINARY_DIR}/GMLS_Config.h")
 set(GMLS_HEADERS
   "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Config.h"
-  GMLS.hpp
-  GMLS_ApplyTargetEvaluations.hpp
-  GMLS_Basis.hpp
-  GMLS_LinearAlgebra_Declarations.hpp
-  GMLS_LinearAlgebra_Definitions.hpp
-  GMLS_Misc.hpp
-  GMLS_Operators.hpp
-  GMLS_Quadrature.hpp
-  GMLS_Targets.hpp
+  Compadre_GMLS.hpp
+  Compadre_GMLS_ApplyTargetEvaluations.hpp
+  Compadre_GMLS_Basis.hpp
+  Compadre_GMLS_Quadrature.hpp
+  Compadre_GMLS_Targets.hpp
+  Compadre_LinearAlgebra_Declarations.hpp
+  Compadre_LinearAlgebra_Definitions.hpp
+  Compadre_Misc.hpp
+  Compadre_Operators.hpp
+  Compadre_PointCloudSearch.hpp
+  Compadre_Remap.hpp
+  GMLS_Typedefs.hpp
   )
-
 
 set(GMLS_SOURCES
-  GMLS.cpp
-  GMLS_LinearAlgebra.cpp
+  Compadre_GMLS.cpp
+  Compadre_LinearAlgebra.cpp
   )
-
-
-
-
 
 add_library(gmls ${GMLS_SOURCES})
 bob_library_includes(gmls)
@@ -49,6 +47,11 @@ endif()
 
 bob_export_target(gmls)
 
+set(GMLS_TPL
+    tpl/nanoflann.hpp
+)
+
+install(FILES ${GMLS_TPL} DESTINATION include/tpl)
 
 install(FILES ${GMLS_HEADERS} DESTINATION include)
 

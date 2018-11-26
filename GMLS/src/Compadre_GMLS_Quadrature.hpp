@@ -1,7 +1,7 @@
-#ifndef _GMLS_QUADRATURE_HPP_
-#define _GMLS_QUADRATURE_HPP_
+#ifndef _COMPADRE_GMLS_QUADRATURE_HPP_
+#define _COMPADRE_GMLS_QUADRATURE_HPP_
 
-#include "GMLS.hpp"
+#include "Compadre_GMLS.hpp"
 
 namespace Compadre {
 

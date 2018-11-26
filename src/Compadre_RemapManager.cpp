@@ -13,7 +13,8 @@
 #include "Compadre_nanoflannPointCloudT.hpp"
 #endif
 
-#include <GMLS.hpp>
+#include <Compadre_GMLS.hpp>
+#include <Compadre_Remap.hpp>
 
 
 
@@ -147,18 +148,6 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 		//****************
 
 
-		// two alternative methods for adding targets
-		// the first is left as a diagnostic to test adding one at a time
-//	    for (local_index_type i=0; i<_queue.size(); i++) {
-//	    	if (_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver") == "MANIFOLD") {
-//	    		_GMLS->addTargets(_queue[i]._operation, 2 /* dimension */);
-//	    	} else {
-//	    		_GMLS->addTargets(_queue[i]._operation, 3 /* dimension */);
-//	    	}
-//	    }
-//	    _GMLS->generateAlphas(); // all operations requested
-//	}
-
 	// loop over all of the fields and use the stored coefficients
 	for (local_index_type i=0; i<_queue.size(); i++) {
 
@@ -223,7 +212,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 						}
 					}
 				});
-				_GMLS->setOperatorCoefficients(kokkos_augmented_operator_coefficients_host);
+				//_GMLS->setOperatorCoefficients(kokkos_augmented_operator_coefficients_host);
 			}
 
 		    std::vector<TargetOperation> lro;
@@ -237,7 +226,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 			_GMLS->generateAlphas(); // all operations requested
 
 			// check that src_coords == trg_coords
-			TEUCHOS_TEST_FOR_EXCEPT_MSG(_queue[i]._data_sampling_functional!=SamplingFunctional::PointSample && _src_particles->getCoordsConst()->nLocal()!=_trg_particles->getCoordsConst()->nLocal(), "Sampling method requires target coordinates be the same as source coordinates.");
+			TEUCHOS_TEST_FOR_EXCEPT_MSG((_queue[i]._data_sampling_functional!=SamplingFunctional::PointSample && _queue[i]._data_sampling_functional!=SamplingFunctional::VectorPointSample) && _src_particles->getCoordsConst()->nLocal()!=_trg_particles->getCoordsConst()->nLocal(), "Sampling method requires target coordinates be the same as source coordinates.");
 		}
 
 
@@ -256,6 +245,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 			const local_index_type source_field_dim = _src_particles->getFieldManagerConst()->
 					getFieldByID(source_field_num)->nDim();
 
+            printf("field we are working on is: %s\n", _queue[i].trg_fieldname.c_str());
 
 			local_index_type target_field_num;
 			if (_queue[i].trg_fieldnum >= 0) target_field_num = _queue[i].trg_fieldnum;
@@ -268,12 +258,13 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 
 					int output_dim;
 
-					// special case of point remap one component at a time
-					if (_queue[i]._target_operation==TargetOperation::ScalarPointEvaluation) {
+					// special case of point remap
+					if (_queue[i]._target_operation==TargetOperation::ScalarPointEvaluation || _queue[i]._target_operation==TargetOperation::VectorPointEvaluation) {
 						output_dim = source_field_dim;
 					} else {
-						output_dim = _GMLS->getOutputDimensionOfOperation(_queue[i]._target_operation);
+						output_dim = _GMLS->getOutputDimensionOfOperation(_queue[i]._target_operation, true /*always ambient representation*/);
 					}
+                    printf("output dim: %d\n", output_dim);
 
 					// field wasn't registered in target, so we are collecting its information from source particles
 					_trg_particles->getFieldManager()->createField(
@@ -297,23 +288,24 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 			const local_index_type target_field_dim = _trg_particles->getFieldManagerConst()->
 					getFieldByID(target_field_num)->nDim();
 
-			// check for the case of point remap from n dim to ndim
-			bool component_by_component_pointwise = false;
-			if (_queue[i]._target_operation==TargetOperation::ScalarPointEvaluation) {
-				TEUCHOS_TEST_FOR_EXCEPT_MSG(target_field_dim != source_field_dim, "Dimensions between target field and source field do not match under pointwise remap component by component.");
-				component_by_component_pointwise = true;
-			} else {
+			//// check for the case of point remap from n dim to ndim
+			//bool component_by_component_pointwise = false;
+			//if (_queue[i]._target_operation==TargetOperation::ScalarPointEvaluation) {
+			//	TEUCHOS_TEST_FOR_EXCEPT_MSG(target_field_dim != source_field_dim, "Dimensions between target field and source field do not match under pointwise remap component by component.");
+			//	component_by_component_pointwise = true;
+			//} else {
 				// check reasonableness of dimensions in and out of the operation for remap against the source and target fields
 				std::ostringstream msg;
-				msg << "Dimensions between target field (" << target_field_dim << ") and operation on source field (" << _GMLS->getOutputDimensionOfOperation(_queue[i]._target_operation) << ") does not match." << std::endl;
-				TEUCHOS_TEST_FOR_EXCEPT_MSG(target_field_dim != _GMLS->getOutputDimensionOfOperation(_queue[i]._target_operation), msg.str());
+				printf("field num: %d\n", _queue[i].trg_fieldnum);
+				msg << "Dimensions between target field (" << target_field_dim << ") and operation on source field (" << _GMLS->getOutputDimensionOfOperation(_queue[i]._target_operation, true /*always ambient representation*/) << ") does not match for the field." << std::endl;
+				TEUCHOS_TEST_FOR_EXCEPT_MSG(target_field_dim != _GMLS->getOutputDimensionOfOperation(_queue[i]._target_operation, true), msg.str());
 				if (_GMLS->getInputDimensionOfSampling(_queue[i]._data_sampling_functional)==_GMLS->getOutputDimensionOfSampling(_queue[i]._data_sampling_functional)) {
 					printf("%d, %d, %d, %d\n\n\n", _queue[i]._target_operation, _queue[i]._data_sampling_functional, _GMLS->getInputDimensionOfSampling(_queue[i]._data_sampling_functional), _GMLS->getOutputDimensionOfSampling(_queue[i]._data_sampling_functional));
 					TEUCHOS_TEST_FOR_EXCEPT_MSG(source_field_dim != _GMLS->getInputDimensionOfOperation(_queue[i]._target_operation), "Dimensions between source field and operation input dimension does not match.");
 				} else {
 					TEUCHOS_TEST_FOR_EXCEPT_MSG(source_field_dim != _GMLS->getInputDimensionOfSampling(_queue[i]._data_sampling_functional), "Dimensions between source field and sampling strategy input dimension does not match.");
 				}
-			}
+			//}
 
 			host_view_type target_values = _trg_particles->getFieldManager()->
 					getFieldByID(target_field_num)->getMultiVectorPtr()->getLocalView<host_view_type>();
@@ -327,184 +319,38 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 			const local_index_type num_local_particles = source_values_holder.dimension_0();
 
 
+		    Kokkos::View<double**, Kokkos::HostSpace> kokkos_source_values("source values", source_coords->nLocal(true /* include halo in count */), source_field_dim);
+
+		    // fill in the source values, adding regular with halo values into a kokkos view
+		    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,source_coords->nLocal(false /* include halo in count*/)), KOKKOS_LAMBDA(const int i) {
+                for (int j=0; j<source_field_dim; ++j) {
+		    	    kokkos_source_values(i,j) = source_values_holder(i,j);
+                }
+		    });
+                    printf("i: %d %d\n", source_coords->nLocal(false /* not includinghalo in count*/), source_coords->nLocal(true /*include halo in count */));
+		    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(source_coords->nLocal(false /* not includinghalo in count*/), source_coords->nLocal(true /*include halo in count */)), KOKKOS_LAMBDA(const int i) {
+                for (int j=0; j<source_field_dim; ++j) {
+		    	    kokkos_source_values(i,j) = source_halo_values_holder(i-num_local_particles,j);
+                }
+            });
 
 
-			bool input_rank_of_sampling_greater_than_output_rank_of_sampling = (_GMLS->getInputRankOfSampling(_queue[i]._data_sampling_functional) > _GMLS->getOutputRankOfSampling(_queue[i]._data_sampling_functional));
-			bool input_rank_of_sampling_great_than_0_and_equal_to_output_rank_of_sampling = (_GMLS->getInputRankOfSampling(_queue[i]._data_sampling_functional) > 0 && _GMLS->getInputRankOfSampling(_queue[i]._data_sampling_functional)==_GMLS->getOutputRankOfSampling(_queue[i]._data_sampling_functional));
 
 
+            // create a remap class object to handle applying data transforms and GMLS operator
+            // as well as the transformation back from local charts to ambient space (if on a manifold)
+            Remap remap_agent(_GMLS.getRawPtr());
 
-
-//			for (local_index_type j=0; j<num_target_values; j++) {
+            auto output_vector = remap_agent.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+                (kokkos_source_values, _queue[i]._target_operation, _queue[i]._data_sampling_functional);
+            
+            // copy remapped solution back into field
 			Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, num_target_values), KOKKOS_LAMBDA(const int j) {
-
-				const std::vector<std::pair<size_t, scalar_type> > neighbors = _neighborhoodInfo->getNeighbors(j);
-				const local_index_type num_neighbors = neighbors.size();
-
 				for (local_index_type k=0; k<target_field_dim; k++) {
-					target_values(j,k) = 0;
+                    target_values(j,k) = output_vector(j,k);
+                }
+            });
 
-//					std::vector<double> min_box = _src_particles->getCoordsConst()->boundingBoxMinOnProcessor(_src_particles->getCoordsConst()->getComm()->getRank());
-//					std::vector<double> max_box = _src_particles->getCoordsConst()->boundingBoxMaxOnProcessor(_src_particles->getCoordsConst()->getComm()->getRank());
-//					xyz_type xj = _trg_particles->getCoordsConst()->getLocalCoords(j, false);
-
-//					if (xj.x!=1 || xj.y!=1 || xj.z!=1) {
-//						std::cout << num_target_values << ": " << min_box[0] << "-" << max_box[0] << "\n" << min_box[1] << "-" << max_box[1] << "\n" << min_box[2] << "-" << max_box[2] << "\n===\n" << xj.x << "," << xj.y << "," << xj.z << " " << j << " " << k << std::endl;
-//					}
-					// TODO: generalize to tensors of rank > 1 later
-					if (component_by_component_pointwise) {
-						for (local_index_type l=0; l<num_neighbors; l++) {
-//							xyz_type xj = _src_particles->getCoordsConst()->getLocalCoords(neighbors[l].first, false);
-
-							double alphas_l = _GMLS->getAlpha0TensorTo0Tensor(_queue[i]._target_operation, j, l);
-							if (alphas_l!=alphas_l) {
-								std::ostringstream msg;
-								msg << "NaN in coefficients from GMLS on processor " << _src_particles->getCoordsConst()->getComm()->getRank() << std::endl;
-								TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.str());
-							}
-							if (neighbors[l].first<num_local_particles) target_values(j,k) += alphas_l * source_values_holder(neighbors[l].first, k);
-							// if locally owned data
-							// otherwise halo data
-							else target_values(j,k) += alphas_l * source_halo_values_holder(neighbors[l].first-num_local_particles, k);
-						}
-					} else {
-						if (_queue[i]._data_sampling_functional==SamplingFunctional::PointSample) {
-							for (local_index_type l=0; l<num_neighbors; l++) {
-								for (local_index_type m=0; m<source_field_dim; m++) {
-									double alphas_l = _GMLS->getAlpha(_queue[i]._target_operation, j, k, 0, l, m, 0);
-									if (alphas_l!=alphas_l) {
-										std::ostringstream msg;
-										msg << "NaN in coefficients from GMLS on processor " << _src_particles->getCoordsConst()->getComm()->getRank() << std::endl;
-										TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.str());
-									}
-
-									// if locally owned data
-									if (neighbors[l].first<num_local_particles) target_values(j,k) += alphas_l * source_values_holder(neighbors[l].first, m);
-									// otherwise halo data
-									else target_values(j,k) += alphas_l * source_halo_values_holder(neighbors[l].first-num_local_particles, m);
-								}
-							}
-						} else {
-							if (_GMLS->getInputDimensionOfSampling(_queue[i]._data_sampling_functional)==_GMLS->getOutputDimensionOfSampling(_queue[i]._data_sampling_functional) && _GMLS->getOutputDimensionOfSampling(_queue[i]._data_sampling_functional)==1) {
-								for (local_index_type l=0; l<num_neighbors; l++) {
-									for (local_index_type m=0; m<source_field_dim; m++) {
-										// TODO: generalize to tensors of rank > 1 later
-										double alphas_l = _GMLS->getAlpha(_queue[i]._target_operation, j, k, 0, l, m, 0);
-										if (alphas_l!=alphas_l) {
-											std::ostringstream msg;
-											msg << "NaN in coefficients from GMLS on processor " << _src_particles->getCoordsConst()->getComm()->getRank() << std::endl;
-											TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.str());
-										}
-										// if locally owned data
-										if (neighbors[l].first<num_local_particles) target_values(j,k) += alphas_l * _GMLS->getPreStencilWeight(_queue[i]._data_sampling_functional, j, l, false /* for neighbor*/) * source_values_holder(neighbors[l].first, m);
-										// otherwise halo data
-										else target_values(j,k) += alphas_l * _GMLS->getPreStencilWeight(_queue[i]._data_sampling_functional, j, l, false /* for neighbor*/) * source_halo_values_holder(neighbors[l].first-num_local_particles, m);
-
-										// if locally owned data
-										if (neighbors[0].first<num_local_particles) target_values(j,k) += alphas_l * _GMLS->getPreStencilWeight(_queue[i]._data_sampling_functional, j, l, true /* for target*/) * source_values_holder(neighbors[0].first, m);
-										// otherwise halo data
-										else target_values(j,k) += alphas_l * _GMLS->getPreStencilWeight(_queue[i]._data_sampling_functional, j, l, true /* for target*/) * source_halo_values_holder(neighbors[0].first-num_local_particles, m);
-									}
-								}
-							} else if (input_rank_of_sampling_greater_than_output_rank_of_sampling) {
-								TEUCHOS_TEST_FOR_EXCEPT_MSG(_GMLS->getInputRankOfSampling(_queue[i]._data_sampling_functional)>1, "Not yet supported for input rank greater than 1.");
-								// reduce the rank of the data first (from rank 1 to rank 0)
-
-								double contracted_sum;
-								for (local_index_type l=0; l<num_neighbors; l++) {
-									contracted_sum = 0;
-
-									// use 1 as sources and should be the same
-//									xyz_type xj = _src_particles->getCoordsConst()->getLocalCoords(neighbors[l].first, false);
-//									xyz_type xi = _src_particles->getCoordsConst()->getLocalCoords(neighbors[0].first, false);
-
-									for (local_index_type m=0; m<source_field_dim; m++) {
-										// if locally owned data
-										if (neighbors[l].first<num_local_particles) contracted_sum += _GMLS->getPreStencilWeight(_queue[i]._data_sampling_functional, j, l, false /* for neighbor*/, 0, m) * source_values_holder(neighbors[l].first, m);
-										// otherwise halo data
-										else contracted_sum += _GMLS->getPreStencilWeight(_queue[i]._data_sampling_functional, j, l, false /* for neighbor*/, 0, m) * source_halo_values_holder(neighbors[l].first-num_local_particles, m);
-										// if locally owned data
-										contracted_sum += _GMLS->getPreStencilWeight(_queue[i]._data_sampling_functional, j, l, true /* for target*/, 0, m) * source_values_holder(neighbors[0].first, m); // neighbors[0] is always local
-									}
-									// apply gmls coefficients to lower rank data
-									double alphas_l = _GMLS->getAlpha(_queue[i]._target_operation, j, k, 0, l, 0 /*rank 0 data*/, 0);
-									if (alphas_l!=alphas_l) {
-										std::ostringstream msg;
-										msg << "NaN in coefficients from GMLS on processor " << _src_particles->getCoordsConst()->getComm()->getRank() << std::endl;
-										TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.str());
-									}
-
-//									double great_circle_chord_length = std::sqrt((xi.x-xj.x)*(xi.x-xj.x) + (xi.y-xj.y)*(xi.y-xj.y) + (xi.z-xj.z)*(xi.z-xj.z));
-//									double delta_angle = 2.0 * std::asin(great_circle_chord_length / 2);
-//									double radius = std::sqrt(xi.x*xi.x + xi.y*xi.y + xi.z*xi.z);
-//									double great_circle_distance = radius * delta_angle;
-
-//									double sum = (xj.x-xi.x) + (xj.y-xi.y) + (xj.z-xi.z);
-//									printf("contracted_data(l): %f vs %f", contracted_data(l), sum);
-//									printf("contracted_data(l): %f, %f, %f, %f\n", std::sqrt(contracted_data(l)), great_circle_distance, std::sqrt(contracted_data(l))-great_circle_distance, great_circle_chord_length);
-									target_values(j,k) += alphas_l * contracted_sum;
-//									printf("contracted_data(l,x): %f, %f\n", contracted_data(l,0), (xj-xi)[0]);
-//									printf("contracted_data(l,y): %f, %f\n", contracted_data(l,1), (xj-xi)[1]);
-//									printf("contracted_data(l,z): %f, %f\n", contracted_data(l,2), (xj-xi)[2]);
-//									printf("%f, %f\n", great_circle_distance, great_circle_chord_length);
-								}
-							} else if (input_rank_of_sampling_great_than_0_and_equal_to_output_rank_of_sampling) {
-								TEUCHOS_TEST_FOR_EXCEPT_MSG(_GMLS->getInputRankOfSampling(_queue[i]._data_sampling_functional)>1, "Not yet supported for input rank greater than 1.");
-								// (from rank 1 to rank 1)
-
-								double contracted_sum[3];
-								for (local_index_type l=0; l<num_neighbors; l++) {
-									for (local_index_type m=0; m<source_field_dim; m++) {
-										contracted_sum[m] = 0;
-										for (local_index_type n=0; n<source_field_dim; n++) {
-											// if locally owned data
-											if (neighbors[l].first<num_local_particles) contracted_sum[m] += _GMLS->getPreStencilWeight(_queue[i]._data_sampling_functional, j, l, false /* for neighbor*/, m, n) * source_values_holder(neighbors[l].first, n);
-											// otherwise halo data
-											else contracted_sum[m] += _GMLS->getPreStencilWeight(_queue[i]._data_sampling_functional, j, l, false /* for neighbor*/, m, n) * source_halo_values_holder(neighbors[l].first-num_local_particles, n);
-											// if locally owned data
-											if (neighbors[0].first<num_local_particles) contracted_sum[m] += _GMLS->getPreStencilWeight(_queue[i]._data_sampling_functional, j, l, true /* for target*/, m, n) * source_values_holder(neighbors[0].first, n);
-											// otherwise halo data
-											else contracted_sum[m] += _GMLS->getPreStencilWeight(_queue[i]._data_sampling_functional, j, l, true /* for target*/, m, n) * source_values_holder(neighbors[0].first-num_local_particles, n);
-										}
-									}
-//									// test to see whether projection to local space and back preserves an accurate solution
-//									if (l==0) {
-//										target_values(j,k) += _GMLS->getPreStencilWeight(_queue[i]._strategy, j, l, false /* for neighbor*/, 0, k) * contracted_data(l,0);
-//										target_values(j,k) += _GMLS->getPreStencilWeight(_queue[i]._strategy, j, l, false /* for neighbor*/, 1, k) * contracted_data(l,1);
-//									}
-//									target_values(j,k) += alphas_l * contracted_data(l,m);
-
-//									xyz_type xj = _src_particles->getCoordsConst()->getLocalCoords(neighbors[l].first, false);
-//									xyz_type xi = _src_particles->getCoordsConst()->getLocalCoords(neighbors[0].first, false);
-//									double great_circle_chord_length = std::sqrt((xi.x-xj.x)*(xi.x-xj.x) + (xi.y-xj.y)*(xi.y-xj.y) + (xi.z-xj.z)*(xi.z-xj.z));
-//									double delta_angle = 2.0 * std::asin(great_circle_chord_length / 2);
-//									double radius = std::sqrt(xi.x*xi.x + xi.y*xi.y + xi.z*xi.z);
-//									double great_circle_distance = radius * delta_angle;
-//									double diff_dist = contracted_data(l,0) + contracted_data(l,1) + contracted_data(l,2);
-//									printf("contracted_data(l): %f, %f, %f, %f\n", diff_dist,
-//											great_circle_distance*great_circle_distance, diff_dist-great_circle_distance*great_circle_distance, great_circle_chord_length);
-
-									for (local_index_type m=0; m<source_field_dim; m++) {
-										// apply gmls coefficients to equal rank data
-										double alphas_l = _GMLS->getAlpha1TensorTo1Tensor(_queue[i]._target_operation, j, k, l, m);
-										if (alphas_l!=alphas_l) {
-											std::ostringstream msg;
-											msg << "NaN in coefficients from GMLS on processor " << _src_particles->getCoordsConst()->getComm()->getRank() << std::endl;
-											TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.str());
-										}
-										target_values(j,k) += alphas_l * contracted_sum[m];
-									}
-								}
-							} else {
-								std::ostringstream msg;
-								msg << "Input dimension of sampling is smaller than output dimension of sampling." << std::endl;
-								TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.str());
-							}
-						}
-					}
-				}
-			});
-//			}
 
 			// optional OBFET
 			if (_queue[i]._obfet) {
@@ -513,6 +359,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 			}
 
 		} else { // coordinate remap
+
 			// get field dimension for source from _src_particles using info in the object in the queue
 			const local_index_type source_field_dim = _src_particles->getCoordsConst()->nDim();
 
@@ -542,29 +389,43 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 
 			const local_index_type num_local_particles = source_values_holder.dimension_0();
 
-//			for (local_index_type j=0; j<num_target_values; j++) {
-			Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_target_values), KOKKOS_LAMBDA(const int j) {
 
-				const std::vector<std::pair<size_t, scalar_type> > neighbors = _neighborhoodInfo->getNeighbors(j);
-				const local_index_type num_neighbors = neighbors.size();
 
+
+
+		    // fill in the source values, adding regular with halo values into a kokkos view
+		    Kokkos::View<double**, Kokkos::HostSpace> kokkos_source_values("source values", source_coords->nLocal(true /* include halo in count */), source_field_dim);
+
+            // copy data local owned by this process
+		    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,source_coords->nLocal(false /* include halo in count*/)), KOKKOS_LAMBDA(const int i) {
+                for (int j=0; j<source_field_dim; ++j) {
+		    	    kokkos_source_values(i,j) = source_values_holder(i,j);
+                }
+		    });
+            // copy halo data 
+		    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(source_coords->nLocal(false /* not includinghalo in count*/), source_coords->nLocal(true /*include halo in count */)), KOKKOS_LAMBDA(const int i) {
+                for (int j=0; j<source_field_dim; ++j) {
+		    	    kokkos_source_values(i,j) = source_halo_values_holder(i-num_local_particles,j);
+                }
+            });
+
+
+
+
+            // create a remap class object to handle applying data transforms and GMLS operator
+            // as well as the transformation back from local charts to ambient space (if on a manifold)
+            Remap remap_agent(_GMLS.getRawPtr());
+
+            auto output_vector = remap_agent.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+                (kokkos_source_values, _queue[i]._target_operation, _queue[i]._data_sampling_functional);
+            
+            // copy remapped coordinates back into target particles coordinates
+			Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, num_target_values), KOKKOS_LAMBDA(const int j) {
 				for (local_index_type k=0; k<target_field_dim; k++) {
-					target_values(j,k) = 0;
-					for (local_index_type l=0; l<num_neighbors; l++) {
-						//always component_by_component_pointwise
-						double alphas_l = _GMLS->getAlpha0TensorTo0Tensor(_queue[i]._target_operation, j, l);
-						if (alphas_l!=alphas_l) {
-							std::ostringstream msg;
-							msg << "NaN in coefficients from GMLS on processor " << _src_particles->getCoordsConst()->getComm()->getRank() << std::endl;
-							TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.str());
-						}
-						// if locally owned data
-						if (neighbors[l].first<num_local_particles) target_values(j,k) += alphas_l * source_values_holder(neighbors[l].first, k);
-						// otherwise halo data
-						else target_values(j,k) += alphas_l * source_halo_values_holder(neighbors[l].first-num_local_particles, k);
-					}
-				}
-			});
+                    target_values(j,k) = output_vector(j,k);
+                }
+            });
+
 		}
 	}
 	} // _queue.size>0
@@ -575,6 +436,67 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 		_neighborhoodInfo = Teuchos::null;
 		_GMLS = Teuchos::null;
 	}
+}
+
+void RemapManager::add(RemapObject obj) {
+	// This function sorts through insert by checking the sampling strategy type
+	// and inserting in the correct position
+    
+
+    // The only special case is when a user provides no sampling type, so they get a point sample
+    // but they want to remap a vector field
+    
+    // get output dimension of target
+	// get target and source field numbers
+	local_index_type source_field_num;
+	if (obj.src_fieldnum != -1) { // use the field id provided
+		source_field_num = obj.src_fieldnum;
+	} else {
+		source_field_num = _src_particles->getFieldManagerConst()->getIDOfFieldFromName(obj.src_fieldname);
+	}
+
+    // user asked to remap a vector, but provided point sample as the target operation
+    // or they asked to remap coordinates and provided point sample as the target operation
+    if ((source_field_num >= 0 && obj._target_operation == TargetOperation::ScalarPointEvaluation && _src_particles->getFieldManagerConst()->getFieldByID(source_field_num)->nDim() > 1)
+            || (source_field_num < 0 && obj._target_operation == TargetOperation::ScalarPointEvaluation && _src_particles->getCoordsConst()->nDim() > 1)) {
+        printf("changed %s from scalar to vector.\n", obj.src_fieldname.c_str());
+        printf("changed %d from scalar to vector.\n", obj.src_fieldnum);
+        obj._target_operation = TargetOperation::VectorPointEvaluation;
+        obj._reconstruction_space = ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial;
+        //obj._reconstruction_space = ReconstructionSpace::VectorTaylorPolynomial;
+        obj._polynomial_sampling_functional = SamplingFunctional::VectorPointSample;
+        obj._data_sampling_functional = obj._polynomial_sampling_functional;
+    } 
+//else { // coordinates
+//        if (obj._target_operation == TargetOperation::ScalarPointEvaluation && _src_particles->getCoordsConst()->nDim() > 1) {//->nDim() > 1) {
+//            obj._target_operation = TargetOperation::VectorPointEvaluation;
+//            obj._reconstruction_space = ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial;
+//            obj._polynomial_sampling_functional = SamplingFunctional::VectorPointSample;
+//            obj._data_sampling_functional = obj._polynomial_sampling_functional;
+//        }
+//    }
+
+
+	// if empty, then add the remap object
+	if (_queue.size()==0) {
+		_queue.push_back(obj);
+		return;
+	}
+	// loop through remap objects until we find one with the same samplings and reconstruction space, then add to the end of it
+	bool obj_inserted = false;
+	local_index_type index_with_last_match = -1;
+
+	for (local_index_type i=0; i<_queue.size(); ++i) {
+		if ((_queue[i]._reconstruction_space == obj._reconstruction_space) && (_queue[i]._polynomial_sampling_functional == obj._polynomial_sampling_functional) && (_queue[i]._data_sampling_functional == obj._data_sampling_functional)) {
+			index_with_last_match = i;
+		} else if (index_with_last_match > -1) { // first time they differ in strategies after finding the sampling / space match
+			// insert at this index
+			_queue.insert(_queue.begin()+i, obj); // end of previously found location
+			obj_inserted = true;
+			break;
+		}
+	}
+	if (!obj_inserted) _queue.push_back(obj); // also takes care of case where you match up to the last item in the queue, but never found one that differed
 }
 
 }

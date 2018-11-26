@@ -34,32 +34,46 @@ endfunction(add_exe_w_compadre)
 ###############
 if (GMLS_EXAMPLES)
 
-  add_exe_w_gmls(GMLS_PointValuesTest_Kokkos_HostViews GMLS_PointValuesTest_Kokkos_Host.cpp)
-  add_exe_w_gmls(GMLS_PointValuesTest_Kokkos_DeviceViews GMLS_PointValuesTest_Kokkos_Device.cpp)
+  add_exe_w_gmls(GMLS_Host_Test GMLS_Host.cpp)
+  add_exe_w_gmls(GMLS_Device_Test GMLS_Device.cpp)
+  add_exe_w_gmls(GMLS_Manifold_Test GMLS_Manifold.cpp)
+  add_exe_w_gmls(GMLS_Staggered_Manifold_Test GMLS_Staggered_Manifold.cpp)
 
   if (GMLS_TESTS)
 
     # Host views tests for GMLS
-
-    ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim3HostViewsSVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos_HostViews "4" "200" "3" "0" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim3HostViewsSVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    ADD_TEST(NAME GMLS_Host_Dim3_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "4" "200" "3" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_Host_Dim3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
     
-    ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim2HostViewsSVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos_HostViews "4" "200" "2" "0" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim2HostViewsSVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    ADD_TEST(NAME GMLS_Host_Dim2_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "4" "200" "2" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_Host_Dim2_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
     
-    ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim1HostViewsSVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos_HostViews "4" "200" "1" "0" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim1HostViewsSVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    ADD_TEST(NAME GMLS_Host_Dim1_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "4" "200" "1" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_Host_Dim1_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
 
     # Device views tests for GMLS
+    ADD_TEST(NAME GMLS_Device_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "4" "200" "3" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_Device_Dim3_QR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    
+    ADD_TEST(NAME GMLS_Device_Dim2_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "4" "200" "2" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_Device_Dim2_QR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    
+    ADD_TEST(NAME GMLS_Device_Dim1_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "4" "200" "1" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_Device_Dim1_QR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
 
-    ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim3DeviceViewsQR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos_DeviceViews "4" "200" "3" "1" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim3DeviceViewsQR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
-    
-    ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim2DeviceViewsQR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos_DeviceViews "4" "200" "2" "1" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim2DeviceViewsQR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
-    
-    ADD_TEST(NAME GMLS_PointValuesUnitTestKokkosDim1DeviceViewsQR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_PointValuesTest_Kokkos_DeviceViews "4" "200" "1" "1" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_PointValuesUnitTestKokkosDim1DeviceViewsQR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    #    # Manifold tests for GMLS
+    #    ADD_TEST(NAME GMLS_Manifold_Dim3 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Test "4" "200" "3" "1" "--kokkos-threads=2")
+    #    SET_TESTS_PROPERTIES(GMLS_Manifold_Dim3 PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+
+    # Python driven test of a C++ executable (Python changes command line arguments given to executable)
+    CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Manifold.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" @ONLY)
+    ADD_TEST(NAME GMLS_Manifold_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" "3" "4")
+    SET_TESTS_PROPERTIES(GMLS_Manifold_Refinement_Study PROPERTIES LABELS "ConvergenceTest;convergence;manifold" TIMEOUT 10)
+
+    # Python driven test of a C++ executable (Python changes command line arguments given to executable)
+    CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Staggered_Manifold.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py" @ONLY)
+    ADD_TEST(NAME GMLS_Staggered_Manifold_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py" "3" "4")
+    SET_TESTS_PROPERTIES(GMLS_Staggered_Manifold_Refinement_Study PROPERTIES LABELS "ConvergenceTest;convergence;manifold;staggered" TIMEOUT 10)
 
     # WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH} )
     if (Compadre_USE_PYTHON)
@@ -230,8 +244,8 @@ if (Compadre_EXAMPLES AND Compadre_USE_Trilinos)
     ADD_TEST(NAME ManifoldDivergenceOfGradientTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "3") # 4 polynomial order, 2 successive meshes, 3-divergence of gradient interpolation
     SET_TESTS_PROPERTIES(ManifoldDivergenceOfGradientTest PROPERTIES LABELS "manifold;interpolation;divergence;gradient")
     
-    ADD_TEST(NAME ManifoldStaggeredDivergenceOfGradientTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "4") # 4 polynomial order, 2 successive meshes, 4-divergence of gradient interpolation
-    SET_TESTS_PROPERTIES(ManifoldStaggeredDivergenceOfGradientTest PROPERTIES LABELS "manifold;interpolation;staggered;divergence;gradient")
+    #ADD_TEST(NAME ManifoldStaggeredDivergenceOfGradientTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "4") # 4 polynomial order, 2 successive meshes, 4-divergence of gradient interpolation
+    #SET_TESTS_PROPERTIES(ManifoldStaggeredDivergenceOfGradientTest PROPERTIES LABELS "manifold;interpolation;staggered;divergence;gradient")
     
     ADD_TEST(NAME ManifoldLaplaceTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "5") # 4 polynomial order, 2 successive meshes, 5-laplacian
     SET_TESTS_PROPERTIES(ManifoldLaplaceTest PROPERTIES LABELS "manifold;interpolation;laplace")
@@ -239,8 +253,8 @@ if (Compadre_EXAMPLES AND Compadre_USE_Trilinos)
     ADD_TEST(NAME LaplaceBeltramiTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "6") # 4 polynomial order, 2 successive meshes, 6-laplace solve
     SET_TESTS_PROPERTIES(LaplaceBeltramiTest PROPERTIES LABELS "manifold;beltrami;Beltrami")
     
-    ADD_TEST(NAME ManifoldStaggeredGradientTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "7") # 4 polynomial order, 2 successive meshes, 7-staggered gradient interpolation
-    SET_TESTS_PROPERTIES(ManifoldStaggeredGradientTest PROPERTIES LABELS "manifold;interpolation;gradient;staggered")
+    #ADD_TEST(NAME ManifoldStaggeredGradientTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "7") # 4 polynomial order, 2 successive meshes, 7-staggered gradient interpolation
+    #SET_TESTS_PROPERTIES(ManifoldStaggeredGradientTest PROPERTIES LABELS "manifold;interpolation;gradient;staggered")
     
     ADD_TEST(NAME ManifoldDivergenceTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "8") # 4 polynomial order, 2 successive meshes, 8-divergence interpolation
     SET_TESTS_PROPERTIES(ManifoldDivergenceTest PROPERTIES LABELS "manifold;interpolation;divergence;div;only")

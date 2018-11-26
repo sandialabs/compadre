@@ -1,12 +1,12 @@
-#ifndef _GMLS_APPLY_TARGET_EVALUATIONS_HPP_
-#define _GMLS_APPLY_TARGET_EVALUATIONS_HPP_
+#ifndef _COMPADRE_GMLS_APPLY_TARGET_EVALUATIONS_HPP_
+#define _COMPADRE_GMLS_APPLY_TARGET_EVALUATIONS_HPP_
 
-#include "GMLS.hpp"
+#include "Compadre_GMLS.hpp"
 
 namespace Compadre {
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type w, scratch_matrix_type P_target_row, const int target_NP) const {
+void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type w, scratch_vector_type P_target_row, const int target_NP) const {
 
     const int target_index = teamMember.league_rank();
 
@@ -20,9 +20,9 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
                         Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
                             _basis_multiplier*target_NP), [=] (const int l, double &talpha_ij) {
                             if (_sampling_multiplier>1 && m<_sampling_multiplier) {
-                                talpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*Q(ORDER_INDICES(i + m*this->getNNeighbors(target_index),l));
+                                talpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l)*Q(ORDER_INDICES(i + m*this->getNNeighbors(target_index),l));
                             } else if (_sampling_multiplier == 1) {
-                                talpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l, 0)*Q(ORDER_INDICES(i,l));
+                                talpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l)*Q(ORDER_INDICES(i,l));
                             } else {
                                 talpha_ij += 0;
                             }
@@ -50,14 +50,14 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
 //                            Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember,
 //                                _basis_multiplier*target_NP), [=] (const int l, double &talpha_ij) {
 //                            //for (int l=0; l<_basis_multiplier*target_NP; ++l) {
-//                                talpha_ij += P_target_row(P_offset + l, 0)*Q(ORDER_INDICES(m_neighbor_offset,l));
+//                                talpha_ij += P_target_row(P_offset + l)*Q(ORDER_INDICES(m_neighbor_offset,l));
 //                            }, alpha_ij);
 //                            //}
 //                        } else if (_sampling_multiplier == 1) {
 //                            Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember,
 //                                _basis_multiplier*target_NP), [=] (const int l, double &talpha_ij) {
 //                            //for (int l=0; l<_basis_multiplier*target_NP; ++l) {
-//                                talpha_ij += P_target_row(P_offset + l, 0)*Q(ORDER_INDICES(i,l));
+//                                talpha_ij += P_target_row(P_offset + l)*Q(ORDER_INDICES(i,l));
 //                            }, alpha_ij);
 //                            //}
 //                        } 
@@ -87,11 +87,11 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
                             if (_sampling_multiplier>1 && m<_sampling_multiplier) {
                                 const int m_neighbor_offset = i+m*this->getNNeighbors(target_index);
                                 for (int l=0; l<_basis_multiplier*target_NP; ++l) {
-                                    alpha_ij += P_target_row(P_offset + l, 0)*Q(ORDER_INDICES(m_neighbor_offset,l));
+                                    alpha_ij += P_target_row(P_offset + l)*Q(ORDER_INDICES(m_neighbor_offset,l));
                                 }
                             } else if (_sampling_multiplier == 1) {
                                 for (int l=0; l<_basis_multiplier*target_NP; ++l) {
-                                    alpha_ij += P_target_row(P_offset + l, 0)*Q(ORDER_INDICES(i,l));
+                                    alpha_ij += P_target_row(P_offset + l)*Q(ORDER_INDICES(i,l));
                                 }
                             } 
                             _alphas(ORDER_INDICES(target_index, alpha_offset + i)) = alpha_ij;

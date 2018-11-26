@@ -1,4 +1,4 @@
-#include "GMLS_LinearAlgebra_Definitions.hpp"
+#include "Compadre_LinearAlgebra_Definitions.hpp"
 
 namespace Compadre{
 namespace GMLS_LinearAlgebra {
@@ -150,9 +150,9 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
       cusolver_stat = cusolverDnCreateGesvdjInfo(&gesvdj_params);
       assert(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Create GesvdjInfo");
 
-      const double tol = 1.e-16;
+      const double tol = 1.e-14;
       const int max_sweeps = 15;
-      const int sort_svd  = 0;   /* sort singular values */
+      const int sort_svd  = 1;   /* sort singular values */
 
       cusolver_stat = cusolverDnXgesvdjSetTolerance(gesvdj_params, tol);
       assert(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Set Tolerance");

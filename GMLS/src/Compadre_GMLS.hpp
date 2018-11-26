@@ -1,13 +1,12 @@
-#ifndef _GMLS_HPP_
-#define _GMLS_HPP_
+#ifndef _COMPADRE_GMLS_HPP_
+#define _COMPADRE_GMLS_HPP_
 
 #include "GMLS_Config.h"
-#include <type_traits>
-#include <vector>
+#include "GMLS_Typedefs.hpp"
 
-#include "GMLS_LinearAlgebra_Definitions.hpp"
-#include "GMLS_Operators.hpp"
-#include "GMLS_Misc.hpp"
+#include "Compadre_Misc.hpp"
+#include "Compadre_Operators.hpp"
+#include "Compadre_LinearAlgebra_Definitions.hpp"
 
 #define ASSERT_WITH_MESSAGE(condition, message) do { \
 if (!(condition)) { printf((message)); } \
@@ -37,12 +36,14 @@ protected:
     //! sqrt(w)*Identity matrix for all problems, later holds polynomial coefficients for all problems
     Kokkos::View<double*> _RHS;
 
-    //! First _dimensions-1 columns contains coarse approximation of tangent vectors for all problems
-    //! Last column contains coarse approximation of normal vector.
-    Kokkos::View<double*> _V;
-
-    //! _dimensions-1 columns contains high order approximation of tangent vectors for all problems
+    //! Rank 3 tensor for high order approximation of tangent vectors for all problems. First rank is
+    //! for the target index, the second is for the local direction to the manifolds 0..(_dimensions-1)
+    //! are tangent, _dimensions is the normal, and the third is for the spatial dimension (_dimensions)
     Kokkos::View<double*> _T;
+
+    //! _dimensions columns contains high order approximation of normal vector for all problems. This
+    //! can be set by the user or calculated automatically in the case of manifold problems.
+    Kokkos::View<double**> _N;
 
     //! metric tensor inverse for all problems
     Kokkos::View<double*> _manifold_metric_tensor_inverse;
@@ -54,7 +55,6 @@ protected:
     Kokkos::View<double*> _manifold_curvature_gradient;
 
     
-
     //! contains local IDs of neighbors to get coordinates from _source_coordinates (device)
     Kokkos::View<int**, layout_type> _neighbor_lists; 
 
@@ -87,18 +87,14 @@ protected:
 
     //! generated alpha coefficients (host)
     Kokkos::View<const double**, layout_type>::HostMirror _host_alphas;
-
+    
     //! generated weights for nontraditional samples required to transform data into expected sampling 
-    //! functional form (device)
-    Kokkos::View<double**, layout_type> _prestencil_weights; 
+    //! functional form (device). 
+    Kokkos::View<double*****, layout_type> _prestencil_weights; 
 
     //! generated weights for nontraditional samples required to transform data into expected sampling 
     //! functional form (host)
-    Kokkos::View<const double**, layout_type>::HostMirror _host_prestencil_weights;
-
-    //! not currently supported well, but meant to get coefficients for an operator such as div kappa 
-    //! grad into the polynomial sampling when building P
-    Kokkos::View<double**, layout_type> _operator_coefficients; // coefficients for operators or prestencils
+    Kokkos::View<const double*****, layout_type>::HostMirror _host_prestencil_weights;
 
 
 
@@ -114,11 +110,20 @@ protected:
     //! dimension of basis for polynomial reconstruction
     int _NP;
 
+    //! spatial dimension of the points, set at class instantiation only
+    int _global_dimensions;
+
+    //! dimension of the problem, set at class instantiation only. For manifolds, generally _global_dimensions-1
+    int _local_dimensions;
+
     //! dimension of the problem, set at class instantiation only
     int _dimensions;
 
     //! reconstruction space for GMLS problems, set at GMLS class instantiation
     ReconstructionSpace _reconstruction_space;
+
+    //! actual rank of reconstruction basis
+    int _reconstruction_space_rank;
 
     //! polynomial sampling functional used to construct P matrix, set at GMLS class instantiation
     SamplingFunctional _polynomial_sampling_functional;
@@ -174,6 +179,11 @@ protected:
 
     //! whether or not operator to be inverted for GMLS problem has a nontrivial nullspace (requiring SVD)
     bool _nontrivial_nullspace;
+
+    //! whether or not the orthonormal tangent directions were provided by the user. If they are not,
+    //! then for the case of calculations on manifolds, a GMLS approximation of the tangent space will
+    //! be made and stored for use.
+    bool _orthonormal_tangent_space_provided; 
 
 
 
@@ -296,12 +306,12 @@ protected:
         \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
         \param poly_order           [in] - polynomial basis degree
         \param specific_order_only  [in] - boolean for only evaluating one degree of polynomial when true
-        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are a coarse approximation of the tangent plane
-        \param T                    [in] - high order orthonormal approximation of tangent plane in first _dimensions-1 columns of T
+        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
+        \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
         \param sampling_strategy    [in] - sampling functional specification
     */
     KOKKOS_INLINE_FUNCTION
-    void calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, scratch_matrix_type* V = NULL, scratch_matrix_type* T = NULL, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample) const;
+    void calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, scratch_matrix_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample) const;
 
     /*! \brief Evaluates the gradient of a polynomial basis under the Dirac Delta (pointwise) sampling function.
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -312,11 +322,12 @@ protected:
         \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
         \param poly_order           [in] - polynomial basis degree
         \param specific_order_only  [in] - boolean for only evaluating one degree of polynomial when true
-        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are a coarse approximation of the tangent plane
+        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
+        \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
         \param sampling_strategy    [in] - sampling functional specification
     */
     KOKKOS_INLINE_FUNCTION
-    void calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const SamplingFunctional sampling_strategy) const;
+    void calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy) const;
 
     /*! \brief Evaluates the weighting kernel
         \param r                [in] - Euclidean distance of relative vector. Euclidean distance of (target - neighbor) in some basis.
@@ -339,12 +350,12 @@ protected:
         \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
         \param polynomial_order     [in] - polynomial basis degree
         \param weight_p             [in] - boolean whether to fill w with kernel weights
-        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are a coarse approximation of the tangent plane
-        \param T                    [in] - high order orthonormal approximation of tangent plane in first _dimensions-1 columns of T
+        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
+        \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
         \param sampling_strategy    [in] - sampling functional specification
     */
     KOKKOS_INLINE_FUNCTION
-    void createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p = false, scratch_matrix_type* V = NULL, scratch_matrix_type* T = NULL, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample) const;
+    void createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p = false, scratch_matrix_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample) const;
 
     /*! \brief Fills the _P matrix with P*sqrt(w) for use in solving for curvature
 
@@ -356,7 +367,7 @@ protected:
         \param w                   [out] - 1D Kokkos View which will contain weighting kernel values for the target with each neighbor if weight_p = true
         \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
         \param only_specific_order  [in] - boolean for only evaluating one degree of polynomial when true
-        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are a coarse approximation of the tangent plane
+        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
     */
     KOKKOS_INLINE_FUNCTION
     void createWeightsAndPForCurvature(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, bool only_specific_order, scratch_matrix_type* V = NULL) const;
@@ -366,10 +377,9 @@ protected:
         \param t1                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
         \param t2                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
         \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
-        \param basis_multiplier_component   [in] - which column of P_target_row is being filled. Also, specifies which component of vector polynomial basis is being used, e.g. a linear vector basis could be [1,0], [0,1], [x,0], [0,x], [y,0], [0,y], [z,0], and [0,z], but this parameter specifies whether it is [0,y] or [y,0] being evaluated.
     */
     KOKKOS_INLINE_FUNCTION
-    void computeTargetFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, const int basis_multiplier_component = 0) const;
+    void computeTargetFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_vector_type P_target_row) const;
 
     /*! \brief Evaluates a polynomial basis for the curvature with a gradient target functional applied
 
@@ -379,11 +389,10 @@ protected:
         \param t1                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
         \param t2                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
         \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
-        \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are a coarse approximation of the tangent plane
-        \param basis_multiplier_component   [in] - which column of P_target_row is being filled. Also, specifies which component of vector polynomial basis is being used, e.g. a linear vector basis could be [1,0], [0,1], [x,0], [0,x], [y,0], [0,y], [z,0], and [0,z], but this parameter specifies whether it is [0,y] or [y,0] being evaluated.
+        \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
     */
     KOKKOS_INLINE_FUNCTION
-    void computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, scratch_matrix_type* V, const int basis_multiplier_component = 0) const;
+    void computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_vector_type P_target_row, scratch_matrix_type* V) const;
 
     /*! \brief Evaluates a polynomial basis with a target functional applied, using information from the manifold curvature
 
@@ -393,19 +402,17 @@ protected:
         \param t1                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
         \param t2                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
         \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
-        \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are a coarse approximation of the tangent plane
-        \param T                            [in] - high order orthonormal approximation of tangent plane in first _dimensions-1 columns of T
+        \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
         \param G_inv                        [in] - (_dimensions-1)*(_dimensions-1) Kokkos View containing inverse of metric tensor
         \param curvature_coefficients       [in] - polynomial coefficients for curvature
         \param curvature_gradients          [in] - approximation of gradient of curvature, Kokkos View of size (_dimensions-1)
-        \param basis_multiplier_component   [in] - which column of P_target_row is being filled. Also, specifies which component of vector polynomial basis is being used, e.g. a linear vector basis could be [1,0], [0,1], [x,0], [0,x], [y,0], [0,y], [z,0], and [0,z], but this parameter specifies whether it is [0,y] or [y,0] being evaluated.
     */
     KOKKOS_INLINE_FUNCTION
-    void computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type P_target_row, scratch_matrix_type V, scratch_matrix_type T, scratch_matrix_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients, const int basis_multiplier_component = 0) const;
+    void computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_vector_type P_target_row, scratch_matrix_type V, scratch_matrix_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients) const;
 
     //! Helper function for applying the evaluations from a target functional to the polynomial coefficients
     KOKKOS_INLINE_FUNCTION
-    void applyTargetsToCoefficients(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type w, scratch_matrix_type P_target_row, const int target_NP) const;
+    void applyTargetsToCoefficients(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type w, scratch_vector_type P_target_row, const int target_NP) const;
 
     //! Generates quadrature for staggered approach
     void generate1DQuadrature();
@@ -493,9 +500,9 @@ protected:
     double convertGlobalToLocalCoordinate(const XYZ global_coord, const int dim, const scratch_matrix_type* V) const {
         // only written for 2d manifold in 3d space
         double val = 0;
-        val += global_coord.x * (*V)(0, dim);
-        val += global_coord.y * (*V)(1, dim); // can't be called from dimension 1 problem
-        if (_dimensions>2) val += global_coord.z * (*V)(2, dim);
+        val += global_coord.x * (*V)(dim, 0);
+        val += global_coord.y * (*V)(dim, 1); // can't be called from dimension 1 problem
+        if (_dimensions>2) val += global_coord.z * (*V)(dim, 2);
         return val;
     }
 
@@ -505,11 +512,11 @@ protected:
         // only written for 2d manifold in 3d space
         double val;
         if (dim == 0 && _dimensions==2) { // 2D problem with 1D manifold
-            val = local_coord.x * (*V)(dim, 0);
+            val = local_coord.x * (*V)(0, dim);
         } else if (dim == 0) { // 3D problem with 2D manifold
-            val = local_coord.x * ((*V)(dim, 0) + (*V)(dim, 1));
+            val = local_coord.x * ((*V)(0, dim) + (*V)(1, dim));
         } else if (dim == 1) { // 3D problem with 2D manifold
-            val = local_coord.y * ((*V)(dim, 0) + (*V)(dim, 1));
+            val = local_coord.y * ((*V)(0, dim) + (*V)(1, dim));
         }
         return val;
     }
@@ -561,15 +568,30 @@ public:
         _weighting_power = 2;
         _curvature_weighting_power = 2;
 
-        _reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial;
-        _polynomial_sampling_functional = SamplingFunctional::PointSample;
-        _data_sampling_functional = SamplingFunctional::PointSample;
+        _reconstruction_space = ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial;
+        _polynomial_sampling_functional = SamplingFunctional::VectorPointSample;
+        _data_sampling_functional = SamplingFunctional::VectorPointSample;
+        _reconstruction_space_rank = ActualReconstructionSpaceRank[_reconstruction_space];
 
         _basis_multiplier = 1;
         _sampling_multiplier = 1;
         _number_of_quadrature_points = 2;
 
         _nontrivial_nullspace = false;
+        _orthonormal_tangent_space_provided = false; 
+
+        _global_dimensions = dimensions;
+        if (_dense_solver_type == DenseSolverType::MANIFOLD) {
+            _local_dimensions = dimensions-1;
+            // VectorPointSample is dealt with differently on a manifold since it includes a coordinate
+            // transform to a manifold's local chart
+            if (_polynomial_sampling_functional == SamplingFunctional::VectorPointSample)
+                _polynomial_sampling_functional = SamplingFunctional::ManifoldVectorPointSample;
+            if (_data_sampling_functional == SamplingFunctional::VectorPointSample)
+                _data_sampling_functional = SamplingFunctional::ManifoldVectorPointSample;
+        } else {
+            _local_dimensions = dimensions;
+        }
     }
 
     //! Constructor for the case when the data sampling functional does not match the polynomial
@@ -583,9 +605,21 @@ public:
         const int dimensions = 3)
             : GMLS(poly_order, dense_solver_type, manifold_curvature_poly_order, dimensions) {
 
-    _reconstruction_space = reconstruction_space;
-    _polynomial_sampling_functional = polynomial_sampling_strategy;
-    _data_sampling_functional = data_sampling_strategy;
+        _reconstruction_space = reconstruction_space;
+        _polynomial_sampling_functional = polynomial_sampling_strategy;
+        _data_sampling_functional = data_sampling_strategy;
+        _reconstruction_space_rank = ActualReconstructionSpaceRank[_reconstruction_space];
+        if (_dense_solver_type == DenseSolverType::MANIFOLD) {
+            // VectorPointSample is dealt with differently on a manifold since it includes a coordinate
+            // transform to a manifold's local chart
+            if (_polynomial_sampling_functional == SamplingFunctional::VectorPointSample)
+                _polynomial_sampling_functional = SamplingFunctional::ManifoldVectorPointSample;
+            if (_data_sampling_functional == SamplingFunctional::VectorPointSample)
+                _data_sampling_functional = SamplingFunctional::ManifoldVectorPointSample;
+        }
+        assert((SamplingOutputTensorRank[(int)_polynomial_sampling_functional] 
+                    == SamplingOutputTensorRank[(int)_polynomial_sampling_functional]) 
+                && "Output rank of polynomial and data sampling functionals must match.");
     };
 
     //! Constructor for the case when nonstandard sampling functionals or reconstruction spaces
@@ -622,6 +656,9 @@ public:
     //! Tag for functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity for curvature
     struct AssembleCurvaturePsqrtW{};
 
+    //! Tag for functor to evaluate curvature targets and construct accurate tangent direction approximation for manifolds
+    struct GetAccurateTangentDirections{};
+
     //! Tag for functor to evaluate curvature targets and apply to coefficients of curvature reconstruction
     struct ApplyCurvatureTargets{};
 
@@ -652,6 +689,10 @@ public:
     KOKKOS_INLINE_FUNCTION
     void operator() (const AssembleCurvaturePsqrtW&, const member_type& teamMember) const;
 
+    //! Functor to evaluate curvature targets and construct accurate tangent direction approximation for manifolds
+    KOKKOS_INLINE_FUNCTION
+    void operator() (const GetAccurateTangentDirections&, const member_type& teamMember) const;
+
     //! Functor to evaluate curvature targets and apply to coefficients of curvature reconstruction
     KOKKOS_INLINE_FUNCTION
     void operator() (const ApplyCurvatureTargets&, const member_type& teamMember) const;
@@ -671,12 +712,30 @@ public:
 ///@}
 
 
-    //! Returns dimension of basis for a given polynomial order and dimension
+    //! Returns size of the basis for a given polynomial order and dimension
     KOKKOS_INLINE_FUNCTION
     static int getNP(const int m, const int dimension = 3) {
         if (dimension == 3) return (m+1)*(m+2)*(m+3)/6;
         else if (dimension == 2) return (m+1)*(m+2)/2;
         else return m+1;
+    }
+
+    //! Returns number of neighbors needed for unisolvency for a given basis order and dimension
+    KOKKOS_INLINE_FUNCTION
+    static int getNN(const int m, const int dimension = 3) {
+        const int np = getNP(m, dimension);
+        int nn = np;
+        switch (dimension) {
+            case 3:
+                nn = np * (1.7 + m*0.1);
+                break;
+            case 2:
+                nn = np * (1.4 + m*0.03);
+                break;
+            case 1:
+                nn = np * 1.1;
+        }
+        return nn;
     }
 
 /** @name Accessors
@@ -686,6 +745,15 @@ public:
 
     //! Dimension of the GMLS problem, set only at class instantiation
     int getDimensions() const { return _dimensions; }
+
+    //! Dimension of the GMLS problem's point data (spatial description of points in ambient space), set only at class instantiation
+    int getGlobalDimensions() const { return _global_dimensions; }
+
+    //! Local dimension of the GMLS problem (less than global dimension if on a manifold), set only at class instantiation
+    int getLocalDimensions() const { return _local_dimensions; }
+
+    //! Get type of problem for GMLS
+    DenseSolverType getProblemType() { return _dense_solver_type; }
 
     //! Type for weighting kernel for GMLS problem
     WeightingFunctionType getWeightingType() const { return _weighting_type; }
@@ -701,6 +769,58 @@ public:
 
     //! Number of 1D quadrature points to use for staggered approach
     int getNumberOfQuadraturePoints() const { return _number_of_quadrature_points; }
+
+    //! Get a view (host) of the length of each neighbor list. 
+    //! Each entry corresponds to a row of _neighbor_lists.
+    decltype(_number_of_neighbors_list) getNeighborListsLengths() const { 
+        return _number_of_neighbors_list; 
+    }
+
+    //! Get a view (device) of all neighbor lists. First column is the number of neighbors for that row's list.
+    decltype(_neighbor_lists) getNeighborLists() const { return _neighbor_lists; }
+
+    //! Get a view (device) of all tangent direction bundles.
+    decltype(_T) getTangentDirections() const { return _T; }
+
+    //! Get a view (device) of all rank 2 preprocessing tensors
+    //! This is a rank 5 tensor that is able to provide data transformation
+    //! into a form that GMLS is able to operate on. The ranks are as follows:
+    //!
+    //! 1 - Either size 2 if it operates on the target site and neighbor site (staggered schemes)
+    //!     or 1 if it operates only on the neighbor sites (almost every scheme)
+    //!
+    //! 2 - If the data transform varies with each target site (but could be the same for each neighbor of that target site), then this is the number of target sites
+    //!
+    //! 3 - If the data transform varies with each neighbor of each target site, then this is the number of neighbors for each respective target (max number of neighbors for all target sites is its uniform size)
+    //!
+    //! 4 - Data transform resulting in rank 1 data for the GMLS operator will have size _local_dimensions, otherwise 1
+    //!
+    //! 5 - Data transform taking in rank 1 data will have size _global_dimensions, otherwise 1
+    decltype(_prestencil_weights) getPrestencilWeights() const { 
+        return _prestencil_weights;
+    }
+
+    //! Retrieves the offset for an operator based on input and output component, generic to row
+    //! (but still multiplied by the number of neighbors for each row and then needs a neighbor number added 
+    //! to this returned value to be meaningful)
+    int getAlphaColumnOffset(TargetOperation lro, const int output_component_axis_1, 
+            const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
+
+        const int lro_number = _lro_lookup[(int)lro];
+        assert((lro_number >= 0) && "getAlphasColumnOffset called for a TargetOperation that was not registered.");
+
+        // the target functional input indexing is sized based on the output rank of the sampling
+        // functional used, which can not be inferred unless a specification of target functional,
+        // reconstruction space, and sampling functional are all known (as was the case at the
+        // construction of this class)
+        const int input_index = getSamplingOutputIndex((int)_polynomial_sampling_functional, input_component_axis_1, input_component_axis_2);
+        const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
+
+        return  _host_lro_total_offsets[lro_number] + input_index*_host_lro_output_tile_size[lro_number] + output_index;
+    }
+
+    //! Get a view (device) of all alphas
+    decltype(_alphas) getAlphas() const { return _alphas; }
 
     //! Helper function for getting alphas for scalar reconstruction from scalar data
     double getAlpha0TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index) const {
@@ -774,253 +894,10 @@ public:
         // that are relavent to the operator in question.
         //
 
-        const int lro_number = _lro_lookup[(int)lro];
-        const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
-        const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
+        const int alpha_column_offset = this->getAlphaColumnOffset( lro, output_component_axis_1, 
+                output_component_axis_2, input_component_axis_1, input_component_axis_2);
 
-        return _host_alphas(ORDER_INDICES(target_index,
-                (_host_lro_total_offsets[lro_number] + input_index*_host_lro_output_tile_size[lro_number] + output_index)*_number_of_neighbors_list(target_index)
-                        + neighbor_index));
-    }
-   
-    //! Dot product of alphas with sampling data, FOR A SINGLE target_index,  where sampling data is in a 1D Kokkos View
-    //! 
-    //! This function is to be used when the alpha values have already been calculated and stored for use 
-    //!
-    //! Only supports one output component / input component at a time. The user will need to loop over the output 
-    //! components in order to fill a vector target or matrix target.
-    //! 
-    //! Assumptions on input data:
-    //! \param sampling_input_data      [in] - 1D Kokkos View (no restriction on memory space)
-    //! \param lro                      [in] - Target operation from the TargetOperation enum
-    //! \param target_index             [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
-    //! \param output_component_axis_1  [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
-    //! \param output_component_axis_2  [in] - Columns for a rank 2 tensor, 0 for rank less than 2 output tensor
-    //! \param input_component_axis_1   [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
-    //! \param input_component_axis_2   [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
-    template <typename view_type_data>
-    double applyAlphasToDataSingleComponentSingleTargetSite(view_type_data sampling_input_data, TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
-
-        double value = 0;
-        const int lro_number = _lro_lookup[(int)lro];
-        const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
-        const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
-        const int this_host_lro_total_offset = this->_host_lro_total_offsets[lro_number];
-        const int this_host_lro_output_tile_size = this->_host_lro_output_tile_size[lro_number];
-        if (std::is_same<typename view_type_data::memory_space, Kokkos::HostSpace>::value) {
-            // loop through neighbor list for this target_index
-            // grabbing data from that entry of data
-            // for now a regular parallel_for loop on HOST
-            Kokkos::parallel_reduce("applyAlphasToData::Host", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_host_neighbor_lists(target_index,0)), KOKKOS_LAMBDA(const int i, double& t_value) {
-                t_value += sampling_input_data(_host_neighbor_lists(target_index, i+1))*_host_alphas(ORDER_INDICES(target_index,
-                    (this_host_lro_total_offset + input_index*this_host_lro_output_tile_size + output_index)
-                    *_number_of_neighbors_list(target_index) + i));
-            }, value);
-        } else {
-#ifdef COMPADRE_USE_CUDA
-            // loop through neighbor list for this target_index
-            // grabbing data from that entry of data
-            // for now a regular parallel_for loop on HOST
-            
-            // assists in lambda capture
-            auto neighbor_lists = this->_neighbor_lists;
-            auto alphas = this->_alphas;
-
-            Kokkos::parallel_reduce("applyAlphasToData::Device", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,_host_neighbor_lists(target_index,0)), KOKKOS_LAMBDA(const int& i, double& t_value) {
-                t_value += sampling_input_data(neighbor_lists(target_index, i+1))*alphas(ORDER_INDICES(target_index,
-                    (this_host_lro_total_offset + input_index*this_host_lro_output_tile_size + output_index)
-                    *neighbor_lists(target_index,0) + i));
-            }, value );
-#endif
-        }
-        return value;
-    }
-
-    //! Dot product of alphas with sampling data where sampling data is in a 1D Kokkos View and output view is also a 1D Kokkos View
-    //! 
-    //! This function is to be used when the alpha values have already been calculated and stored for use.
-    //!
-    //! Only supports one output component / input component at a time. The user will need to loop over the output 
-    //! components in order to fill a vector target or matrix target.
-    //! 
-    //! Assumptions on input data:
-    //! \param output_data_single_column       [out] - 1D Kokkos View (memory space must match sampling_data_single_column)
-    //! \param sampling_data_single_column      [in] - 1D Kokkos View (memory space must match output_data_single_column)
-    //! \param lro                              [in] - Target operation from the TargetOperation enum
-    //! \param target_index                     [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
-    //! \param output_component_axis_1          [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
-    //! \param output_component_axis_2          [in] - Columns for a rank 2 tensor, 0 for rank less than 2 output tensor
-    //! \param input_component_axis_1           [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
-    //! \param input_component_axis_2           [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
-    template <typename view_type_data_out, typename view_type_data_in>
-    void applyAlphasToDataSingleComponentAllTargetSites(view_type_data_out output_data_single_column, view_type_data_in sampling_data_single_column, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
-
-        const int lro_number = _lro_lookup[(int)lro];
-        const int input_index = getTargetInputIndex((int)lro, input_component_axis_1, input_component_axis_2);
-        const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
-        const int this_host_lro_total_offset = this->_host_lro_total_offsets[lro_number];
-        const int this_host_lro_output_tile_size = this->_host_lro_output_tile_size[lro_number];
-        const int num_targets = _host_neighbor_lists.dimension_0(); // one row for each target
-
-        // make sure input and output views have same memory space
-        assert((std::is_same<typename view_type_data_out::memory_space, typename view_type_data_in::memory_space>::value) && 
-                "output_data_single_column view and input_data_single_column view have difference memory spaces.");
-
-        // It is possible to call this function with a view having a memory space of the host
-        // this first case takes case of that scenario. If this function is called by applyTargetToData,
-        // then it will always provide a view having memory space of the device (else case)
-        if (std::is_same<typename view_type_data_in::memory_space, Kokkos::HostSpace>::value) {
-            typedef Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace> alpha_policy;
-            typedef Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace>::member_type alpha_member_type;
-            // loops over target_indexes
-            Kokkos::parallel_for(alpha_policy(num_targets, Kokkos::AUTO), 
-                    KOKKOS_LAMBDA(const alpha_member_type& teamMember) {
-                double value = 0;
-                const int target_index = teamMember.league_rank();
-                const double previous_value = output_data_single_column(target_index);
-                teamMember.team_barrier();
-                // loops over neighbors of target_index
-                Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,_host_neighbor_lists(target_index,0)), [=](const int i, double& t_value) {
-                    t_value += sampling_data_single_column(_host_neighbor_lists(target_index, i+1))*_host_alphas(ORDER_INDICES(target_index,
-                        (this_host_lro_total_offset + input_index*this_host_lro_output_tile_size + output_index)
-                        *_number_of_neighbors_list(target_index) + i));
-                }, value);
-                output_data_single_column(target_index) = previous_value + value;
-            });
-        } else {
-            typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> alpha_policy;
-            typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type alpha_member_type;
-
-            // this function is not a functor, so no capture on *this takes place, and therefore memory addresses will be illegal accesses
-            // if made on the device, even if this->... is on the device, so we create a name that will be captured by KOKKOS_LAMBDA
-            auto neighbor_lists = this->_neighbor_lists;
-            auto alphas = this->_alphas;
-            Kokkos::fence();
-            // loops over target_indexes
-            Kokkos::parallel_for(alpha_policy(num_targets, Kokkos::AUTO), 
-                    KOKKOS_LAMBDA(const alpha_member_type& teamMember) {
-                double value = 0;
-                const int target_index = teamMember.league_rank();
-                const double previous_value = output_data_single_column(target_index);
-                teamMember.team_barrier();
-                // loops over neighbors of target_index
-                Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, neighbor_lists(target_index,0)), [=](const int i, double& t_value) {
-                    t_value += sampling_data_single_column(neighbor_lists(target_index, i+1))*alphas(ORDER_INDICES(target_index,
-                        (this_host_lro_total_offset + input_index*this_host_lro_output_tile_size + output_index)
-                        *neighbor_lists(target_index,0) + i));
-                }, value );
-                output_data_single_column(target_index) = previous_value + value;
-            });
-        }
-        Kokkos::fence();
-    }
-
-    //! helper struct allowing for subviews of 1D or 2D Kokkos Views with partial template instantiation
-    template <typename view_type_out, int rank_out, typename view_type_in, int rank_in> 
-    struct SubviewMaker {
-        void execute(const GMLS* this_gmls_class, view_type_out out, const int column_out, view_type_in in, const int column_in, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) {
-            auto sub_out = Kokkos::subview(out, Kokkos::ALL, column_out);
-            auto sub_in = Kokkos::subview(in, Kokkos::ALL, column_in);
-            this_gmls_class->applyAlphasToDataSingleComponentAllTargetSites(sub_out, sub_in, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, input_component_axis_2);
-        }
-    };
-
-    //! helper struct allowing for subviews of 1D or 2D Kokkos Views with partial template instantiation
-    template <typename view_type_out, typename view_type_in> 
-    struct SubviewMaker<view_type_out,1,view_type_in,1> {
-        void execute(const GMLS* this_gmls_class, view_type_out out, const int column_out, view_type_in in, const int column_in, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) {
-            this_gmls_class->applyAlphasToDataSingleComponentAllTargetSites(out, in, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, input_component_axis_2);
-        }
-    };
-
-    //! helper struct allowing for subviews of 1D or 2D Kokkos Views with partial template instantiation
-    template <typename view_type_out, typename view_type_in> 
-    struct SubviewMaker<view_type_out,2,view_type_in,1> {
-        void execute(const GMLS* this_gmls_class, view_type_out out, const int column_out, view_type_in in, const int column_in, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) {
-            auto sub_out = Kokkos::subview(out, Kokkos::ALL, column_out);
-            this_gmls_class->applyAlphasToDataSingleComponentAllTargetSites(sub_out, in, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, input_component_axis_2);
-        }
-    };
-
-    //! helper struct allowing for subviews of 1D or 2D Kokkos Views with partial template instantiation
-    template <typename view_type_out, typename view_type_in> 
-    struct SubviewMaker<view_type_out,1,view_type_in,2> {
-        void execute(const GMLS* this_gmls_class, view_type_out out, const int column_out, view_type_in in, const int column_in, TargetOperation lro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) {
-            auto sub_in = Kokkos::subview(in, Kokkos::ALL, column_in);
-            this_gmls_class->applyAlphasToDataSingleComponentAllTargetSites(out, sub_in, lro, output_component_axis_1, output_component_axis_2, input_component_axis_1, input_component_axis_2);
-        }
-    };
-
-    //! Transformation of data under GMLS
-    //! 
-    //! This function is to be used when the alpha values have already been calculated and stored for use.
-    //!
-    //! Produces a Kokkos View as output with a Kokkos memory_space provided as a template tag by the caller. 
-    //! The data type (double* or double**) must also be specified as a template type if one wish to get a 1D 
-    //! Kokkos View back that can be indexed into with only one ordinal.
-    //! 
-    //! Assumptions on input data:
-    //! \param sampling_data            [in] - 1D or 2D Kokkos View that has the layout #targets * columns of data. Memory space for data can be host or device. It is assumed that this data has already been transformed by the sampling functional.
-    //! \param lro                      [in] - Target operation from the TargetOperation enum
-    template <typename output_data_type = double**, typename output_memory_space, typename view_type_input_data, typename output_array_layout = typename view_type_input_data::array_layout>
-    Kokkos::View<output_data_type, output_array_layout, output_memory_space>  // shares layout of input by default
-            applyAlphasToDataAllComponentsAllTargetSites(view_type_input_data sampling_data, TargetOperation lro) const {
-
-        // output can be device or host
-        // input can be device or host
-        // move everything to device and calculate there, then move back to host if necessary
-
-        typedef Kokkos::View<output_data_type, output_array_layout, output_memory_space> output_view_type;
-        
-        const int lro_number = _lro_lookup[(int)lro];
-
-        // create view on whatever memory space the user specified with their template argument when calling this function
-        output_view_type target_output("output of target", _host_neighbor_lists.dimension_0() /* number of targets */, 
-                _host_lro_output_tile_size[lro_number]);
-
-        // create device mirror and write into it then copy back at the end
-        auto target_output_device_mirror = Kokkos::create_mirror(Kokkos::DefaultExecutionSpace::memory_space(), target_output);
-        auto sampling_data_device_mirror = Kokkos::create_mirror(Kokkos::DefaultExecutionSpace::memory_space(), sampling_data);
-
-        // copy sampling data from whatever memory space it is in to the device (does nothing if already on the device)
-        Kokkos::deep_copy(sampling_data_device_mirror, sampling_data);
-        Kokkos::deep_copy(target_output_device_mirror, 0);
-
-        // make sure input and output columns make sense under the target operation
-        assert(((this->_host_lro_output_tile_size[lro_number]==1 && output_view_type::rank==1) || output_view_type::rank!=1) && 
-                "Output view is requested as rank 1, but the target requires a rank larger than 1. Try double** as template argument.");
-
-        // we need to specialize a template on the rank of the output view type and the input view type,
-        // but partial template specialization is not available for functions, so we use a nested member struct,
-        // which does allow for partial template specialization
-        auto sm = SubviewMaker<decltype(target_output_device_mirror),output_view_type::rank,
-                decltype(sampling_data_device_mirror),view_type_input_data::rank>();
-
-        Kokkos::fence();
-        // loop over components of output of the target operation
-        for (int i=0; i<this->_host_lro_output_tile_size[lro_number]; ++i) {
-            const int output_component_axis_1 = i / _dimensions;
-            const int output_component_axis_2 = i % _dimensions;
-            // loop over components of input of the target operation
-            for (int j=0; j<this->_host_lro_input_tile_size[lro_number]; ++j) {
-                const int input_component_axis_1 = j / _dimensions;
-                const int input_component_axis_2 = j % _dimensions;
-                // creates subviews if necessary so that only a 1D Kokkos View is exposed as the input and 
-                // output for applyAlphasToDataSingleComponentAllTargets
-                sm.execute(this, target_output_device_mirror, i, sampling_data_device_mirror, j, lro, output_component_axis_1, 
-                        output_component_axis_2, input_component_axis_1, input_component_axis_2);
-            }
-        }
-
-        // copy back to whatever memory space the user requester through templating from the device
-        Kokkos::deep_copy(target_output, target_output_device_mirror);
-        return target_output;
-    }
-
-    //! like applyTargetToData above, but will write to the users provided view
-    template <typename view_type_output, typename view_type_mapping, typename view_type_data>
-    double applyTargetToData(view_type_output output_data, view_type_data sampling_data, TargetOperation lro, view_type_mapping target_mapping = Kokkos::View<int*>()) const {
-        // TODO fill this in
+        return _host_alphas(ORDER_INDICES(target_index, alpha_column_offset*_number_of_neighbors_list(target_index) + neighbor_index));
     }
 
     //! Returns a stencil to transform data from its existing state into the input expected 
@@ -1031,28 +908,50 @@ public:
         if (sro == SamplingFunctional::PointSample ) {
             if (for_target) return 0; else return 1;
         }
-        // 2 is because there is one value for each neighbor and one value for the target, for each target
-        return _host_prestencil_weights(target_index, output_component*_dimensions*2*(_neighbor_lists.dimension_1()-1) + input_component*2*(_neighbor_lists.dimension_1()-1) + 2*neighbor_index + (int)for_target);
+
+        // these check conditions on the sampling operator and change indexing on target and neighbors
+        // in order to reuse information, such as if the same data transformation is used, regardless
+        // of target site or neighbor site
+        const int target_index_in_weights = 
+            (SamplingTensorStyle[(int)sro]==DifferentEachTarget 
+                    || SamplingTensorStyle[(int)sro]==DifferentEachNeighbor) ?
+                target_index : 0;
+        const int neighbor_index_in_weights = 
+            (SamplingTensorStyle[(int)sro]==DifferentEachNeighbor) ?
+                neighbor_index : 0;
+
+        return _host_prestencil_weights((int)for_target, target_index_in_weights, neighbor_index_in_weights, 
+                    output_component, input_component);
     }
 
     //! Dimensions ^ output rank for target operation
-    int getOutputDimensionOfOperation(TargetOperation lro) const {
-        return this->_lro_output_tile_size[_lro_lookup[(int)lro]];
+    int getOutputDimensionOfOperation(TargetOperation lro, bool ambient = false) const {
+        int return_val;
+        if (ambient) return_val = std::pow(_global_dimensions, TargetOutputTensorRank[(int)lro]);
+        else return_val = std::pow(_local_dimensions, TargetOutputTensorRank[(int)lro]);
+        return return_val;
     }
 
-    //! Dimensions ^ input rank for target operation
+    //! Dimensions ^ input rank for target operation (always in local chart if on a manifold, never ambient space)
     int getInputDimensionOfOperation(TargetOperation lro) const {
-        return this->_lro_input_tile_size[_lro_lookup[(int)lro]];
+        return this->_host_lro_input_tile_size[_lro_lookup[(int)lro]];
+        // this is the same retunr values as the OutputDimensionOfSampling for the GMLS class's SamplingFunctional
     }
 
-    //! Dimensions ^ output rank for sampling operation
+    //! Dimensions ^ output rank for sampling operation (always in local chart if on a manifold, never ambient space)
     int getOutputDimensionOfSampling(SamplingFunctional sro) const {
-        return std::pow(_dimensions, SamplingOutputTensorRank[(int)sro]);
+        return std::pow(_local_dimensions, SamplingOutputTensorRank[(int)sro]);
+        //return this->getOutputDimensionOfSampling(_local_dimensions, SamplingOutputTensorRank[(int)sro]);
     }
 
-    //! Dimensions ^ output rank for sampling operation
+    ////! Static helper function for determining the output
+    //static int getOutputDimensionOfSampling(const int spatial_dimension, SamplingFunctional sro) const {
+    //    return std::pow(_local_dimensions, SamplingOutputTensorRank[(int)sro]);
+    //}
+
+    //! Dimensions ^ output rank for sampling operation (always in ambient space, never local chart on a manifold)
     int getInputDimensionOfSampling(SamplingFunctional sro) const {
-        return std::pow(_dimensions, SamplingInputTensorRank[(int)sro]);
+        return std::pow(_global_dimensions, SamplingInputTensorRank[(int)sro]);
     }
 
     //! Output rank for sampling operation
@@ -1188,14 +1087,40 @@ public:
         _epsilons = epsilons;
     }
 
-    //! Not well supported. Sets coefficients to be used in a prestencil weight or polynomial basis evaluation operator.
-    void setOperatorCoefficients(Kokkos::View<double**, Kokkos::HostSpace> operator_coefficients) {
-        // allocate memory on device
-        _operator_coefficients = Kokkos::View<double**, layout_type>("device operator coefficients",
-                operator_coefficients.dimension_0(), operator_coefficients.dimension_1());
-        // copy data from host to device
-        Kokkos::deep_copy(_operator_coefficients, operator_coefficients);
-    }
+    ////! Sets orthonormal tangent directions for reconstruction on a manifold. The first rank of this 2D array 
+    ////! corresponds to the target indices, i.e., rows of the neighbor lists 2D array. The second rank is the 
+    ////! ordinal of the tangent direction (spatial dimensions-1 are tangent, last one is normal), and the third 
+    ////! rank is indices into the spatial dimension.
+    //template<typename view_type>
+    //void setTangentDirections(view_type tangent_directions) {
+
+    //    // allocate memory on device
+    //    _T = Kokkos::View<double***, rank3_layout_type>("device tangent directions",
+    //            _target_coordinates.dimension_0(), _dimensions, _dimensions);
+
+    //    auto host_T = Kokkos::create_mirror_view(_T);
+    //    Kokkos::deep_copy(host_T, tangent_directions);
+    //    // copy data from host to device
+    //    Kokkos::deep_copy(_T, host_T);
+    //    _orthonormal_tangent_space_provided = true;
+    //}
+
+    ////! Sets orthonormal tangent directions for reconstruction on a manifold. The first rank of this 2D array 
+    ////! corresponds to the target indices, i.e., rows of the neighbor lists 2D array. The second rank is the 
+    ////! ordinal of the tangent direction (spatial dimensions-1 are tangent, last one is normal), and the third 
+    ////! rank is indices into the spatial dimension.
+    //template<typename view_type>
+    //void setTangentDirections(Kokkos::View<double***, Kokkos::DefaultExecutionSpace> tangent_directions) {
+    //    assert((tangent_directions.dimension_0()==_target_coordinates.dimension_0()) && 
+    //            "First rank of tangent_direction has wrong dimension.");
+    //    assert((tangent_directions.dimension_1()==_dimensions) && 
+    //            "Second rank of tangent_direction has wrong dimension.");
+    //    assert((tangent_directions.dimension_2()==_dimensions) && 
+    //            "Third rank of tangent_direction has wrong dimension.");
+    //    // copy smart pointer to view on device
+    //    _T = tangent_directions;
+    //    _orthonormal_tangent_space_provided = true;
+    //}
 
     //! Type for weighting kernel for GMLS problem
     void setWeightingType( const std::string &wt) {
@@ -1204,6 +1129,11 @@ public:
         } else {
             _weighting_type = WeightingFunctionType::Gaussian;
         }
+    }
+
+    //! Type for weighting kernel for GMLS problem
+    void setWeightingType( const WeightingFunctionType wt) {
+        _weighting_type = wt;
     }
 
     //! Type for weighting kernel for curvature 
@@ -1215,10 +1145,15 @@ public:
         }
     }
 
+    //! Type for weighting kernel for curvature
+    void setCurvatureWeightingType( const WeightingFunctionType wt) {
+        _curvature_weighting_type = wt;
+    }
+
     //! Sets basis order to be used when reoncstructing any function
     void setPolynomialOrder(const int poly_order) {
         _poly_order = poly_order;
-        _NP = this->getNP(_poly_order);
+        _NP = this->getNP(_poly_order, _dimensions);
     }
 
     //! Sets basis order to be used when reoncstructing curvature
@@ -1243,8 +1178,13 @@ public:
             _dense_solver_type = DenseSolverType::SVD;
         } else if (solver_type_to_lower == "manifold") {
             _dense_solver_type = DenseSolverType::MANIFOLD;
-            _curvature_support_operations = Kokkos::View<TargetOperation*>("operations needed for manifold gradient reconstruction", 1);
-            _curvature_support_operations[0] = TargetOperation::GradientOfScalarPointEvaluation;
+            _curvature_support_operations = Kokkos::View<TargetOperation*>
+                ("operations needed for manifold gradient reconstruction", 1);
+            auto curvature_support_operations_mirror = 
+                Kokkos::create_mirror(_curvature_support_operations);
+            curvature_support_operations_mirror(0) = 
+                TargetOperation::GradientOfScalarPointEvaluation;
+            Kokkos::deep_copy(_curvature_support_operations, curvature_support_operations_mirror);
         } else {
             _dense_solver_type = DenseSolverType::QR;
         }
@@ -1306,8 +1246,11 @@ public:
             _host_lro_total_offsets(i) = total_offset;
 
             // allows for a tile of the product of dimension^input_tensor_rank * dimension^output_tensor_rank * the number of neighbors
-            int output_tile_size = std::pow(_dimensions, TargetOutputTensorRank[(int)_lro[i]]);
-            int input_tile_size = std::pow(_dimensions, TargetInputTensorRank[(int)_lro[i]]);
+            int output_tile_size = std::pow(_local_dimensions, TargetOutputTensorRank[(int)_lro[i]]);
+
+            // the target functional input indexing is sized based on the output rank of the sampling
+            // functional used
+            int input_tile_size = getOutputDimensionOfSampling(_polynomial_sampling_functional);
             _host_lro_output_tile_size(i) = output_tile_size;
             _host_lro_input_tile_size(i) = input_tile_size;
 
@@ -1315,7 +1258,9 @@ public:
             output_offset += output_tile_size;
             input_offset += input_tile_size;
 
-            _host_lro_input_tensor_rank(i) = TargetInputTensorRank[(int)_lro[i]];
+            // the target functional output rank is based on the output rank of the sampling
+            // functional used
+            _host_lro_input_tensor_rank(i) = SamplingOutputTensorRank[(int)_polynomial_sampling_functional];
             _host_lro_output_tensor_rank(i) = TargetOutputTensorRank[(int)_lro[i]];
         }
 

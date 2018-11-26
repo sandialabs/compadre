@@ -9,7 +9,7 @@
 #include <Compadre_NeighborhoodT.hpp>
 #include <Compadre_XyzVector.hpp>
 
-#include <GMLS.hpp>
+#include <Compadre_GMLS.hpp>
 
 #ifdef COMPADRE_USE_OPENMP
 #include <omp.h>
@@ -190,7 +190,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 	my_scalar_GMLS.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 
 	GMLS my_vector_GMLS (ReconstructionSpace::VectorTaylorPolynomial,
-			SamplingFunctional::ManifoldVectorSample,
+			SamplingFunctional::ManifoldVectorPointSample,
 			_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 			_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
 			_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
@@ -205,7 +205,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 	my_vector_GMLS.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 
 	GMLS my_vector_gradient_GMLS (ReconstructionSpace::VectorTaylorPolynomial,
-			SamplingFunctional::ManifoldGradientVectorSample,
+			SamplingFunctional::ManifoldVectorPointSample,
 			_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 			_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
 			_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
@@ -247,7 +247,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 		// add vector sample targets
 		my_vector_GMLS.addTargets(TargetOperation::VectorPointEvaluation);
-		my_vector_GMLS.addTargets(TargetOperation::LaplacianOfVectorPointEvaluation);
+		my_vector_GMLS.addTargets(TargetOperation::VectorLaplacianPointEvaluation);
 
 		if (use_staggered_gradient_fix) {
 			my_GMLS_staggered_grad.addTargets(TargetOperation::GradientOfScalarPointEvaluation);
@@ -357,9 +357,9 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 					if (use_velocity_interpolation) {
 						double contracted_data[3] = {0,0,0};
 						for (local_index_type dim=0; dim<3; ++dim) {
-							contracted_data[dim] += v_data_0 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorSample, i, l, false /* for neighbor*/, dim, 0);
-							contracted_data[dim] += v_data_1 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorSample, i, l, false /* for neighbor*/, dim, 1);
-							contracted_data[dim] += v_data_2 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorSample, i, l, false /* for neighbor*/, dim, 2);
+							contracted_data[dim] += v_data_0 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 0);
+							contracted_data[dim] += v_data_1 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 1);
+							contracted_data[dim] += v_data_2 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 2);
 						}
 						for (local_index_type dim=0; dim<3; ++dim) {
 							reconstructed_v0 += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, 0, l, dim);
@@ -473,14 +473,14 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 						double contracted_data[3] = {0,0,0};
 						for (local_index_type dim=0; dim<3; ++dim) {
-							contracted_data[dim] += v_data_0 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorSample, i, l, false /* for neighbor*/, dim, 0);
-							contracted_data[dim] += v_data_1 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorSample, i, l, false /* for neighbor*/, dim, 1);
-							contracted_data[dim] += v_data_2 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorSample, i, l, false /* for neighbor*/, dim, 2);
+							contracted_data[dim] += v_data_0 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 0);
+							contracted_data[dim] += v_data_1 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 1);
+							contracted_data[dim] += v_data_2 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 2);
 						}
 						for (local_index_type dim=0; dim<3; ++dim) {
-							reconstructed_laplace_u_0 += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::LaplacianOfVectorPointEvaluation, i, 0, l, dim);
-							reconstructed_laplace_u_1 += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::LaplacianOfVectorPointEvaluation, i, 1, l, dim);
-							reconstructed_laplace_u_2 += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::LaplacianOfVectorPointEvaluation, i, 2, l, dim);
+							reconstructed_laplace_u_0 += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorLaplacianPointEvaluation, i, 0, l, dim);
+							reconstructed_laplace_u_1 += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorLaplacianPointEvaluation, i, 1, l, dim);
+							reconstructed_laplace_u_2 += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorLaplacianPointEvaluation, i, 2, l, dim);
 						}
 					}
 
@@ -580,7 +580,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 		// for Eulerian
 		my_scalar_GMLS.addTargets(TargetOperation::GradientOfScalarPointEvaluation);
 		if (use_staggered_divergence_fix) {
-			my_GMLS_staggered_div.addTargets(TargetOperation::DivergenceOfScalarPointEvaluation);
+			my_GMLS_staggered_div.addTargets(TargetOperation::DivergenceOfVectorPointEvaluation);
 			my_GMLS_staggered_div.generateAlphas();
 		} else {
 			my_vector_gradient_GMLS.addTargets(TargetOperation::DivergenceOfVectorPointEvaluation);
@@ -670,14 +670,14 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 						contracted_data += v_data_mine_0 * my_GMLS_staggered_div.getPreStencilWeight(SamplingFunctional::StaggeredEdgeIntegralSample, i, l, true /* for neighbor*/, 0, 0);
 						contracted_data += v_data_mine_1 * my_GMLS_staggered_div.getPreStencilWeight(SamplingFunctional::StaggeredEdgeIntegralSample, i, l, true /* for neighbor*/, 0, 1);
 						contracted_data += v_data_mine_2 * my_GMLS_staggered_div.getPreStencilWeight(SamplingFunctional::StaggeredEdgeIntegralSample, i, l, true /* for neighbor*/, 0, 2);
-						reconstructed_div_v += contracted_data * my_GMLS_staggered_div.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfScalarPointEvaluation, i, l);
+						reconstructed_div_v += contracted_data * my_GMLS_staggered_div.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l);
 
 					} else {
 						double contracted_data[3] = {0,0,0};
 						for (local_index_type dim=0; dim<3; ++dim) {
-							contracted_data[dim] += v_data_0 * my_vector_gradient_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldGradientVectorSample, i, l, false /* for neighbor*/, dim, 0);
-							contracted_data[dim] += v_data_1 * my_vector_gradient_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldGradientVectorSample, i, l, false /* for neighbor*/, dim, 1);
-							contracted_data[dim] += v_data_2 * my_vector_gradient_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldGradientVectorSample, i, l, false /* for neighbor*/, dim, 2);
+							contracted_data[dim] += v_data_0 * my_vector_gradient_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 0);
+							contracted_data[dim] += v_data_1 * my_vector_gradient_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 1);
+							contracted_data[dim] += v_data_2 * my_vector_gradient_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 2);
 						}
 						for (local_index_type dim=0; dim<3; ++dim) {
 							reconstructed_div_v += contracted_data[dim] * my_vector_gradient_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, dim);
@@ -746,9 +746,9 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 	//					reconstructed_v2 += v_data_2 * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, l); // TODO: Convert to VectorPointEvaluation
 						double contracted_data[3] = {0,0,0};
 						for (local_index_type dim=0; dim<3; ++dim) {
-							contracted_data[dim] += v_data_0 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorSample, i, l, false /* for neighbor*/, dim, 0);
-							contracted_data[dim] += v_data_1 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorSample, i, l, false /* for neighbor*/, dim, 1);
-							contracted_data[dim] += v_data_2 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorSample, i, l, false /* for neighbor*/, dim, 2);
+							contracted_data[dim] += v_data_0 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 0);
+							contracted_data[dim] += v_data_1 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 1);
+							contracted_data[dim] += v_data_2 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 2);
 						}
 						for (local_index_type dim=0; dim<3; ++dim) {
 							reconstructed_v0 += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, 0, l, dim);

@@ -1,4 +1,4 @@
-#include "Compadre_Config.h"
+#include "GMLS_Config.h"
 #include "Compadre_Typedefs.hpp"
 #include "Compadre_GlobalConstants.hpp"
 #include "Compadre_SimpleSphericalCoords.hpp"

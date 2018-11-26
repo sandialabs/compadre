@@ -1,7 +1,7 @@
 #ifndef _GMLS_PYTHON_HPP_
 #define _GMLS_PYTHON_HPP_
 
-#include <GMLS.hpp>
+#include <Compadre_GMLS.hpp>
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Random.hpp>
 #include <Python.h>

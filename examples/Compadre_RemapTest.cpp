@@ -20,6 +20,7 @@
 
 #define NUMBER_OF_PTS_EACH_DIRECTION 21
 
+using namespace Compadre;
 typedef int LO;
 typedef long GO;
 typedef double ST;

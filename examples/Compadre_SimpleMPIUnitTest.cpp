@@ -1,6 +1,6 @@
 #include "Compadre_SimpleMPI.hpp"
 #include <iostream>
-#include "Compadre_Config.h"
+#include "GMLS_Config.h"
 #include "Teuchos_GlobalMPISession.hpp"
 #include "Teuchos_RCP.hpp"
 #include "Tpetra_Core.hpp"

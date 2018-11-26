@@ -27,7 +27,7 @@
 #include "Compadre_GlobalConstants.hpp"
 static const Compadre::GlobalConstants consts;
 
-#include <GMLS.hpp> // for getNP()
+#include <Compadre_GMLS.hpp> // for getNP()
 
 #include <iostream>
 

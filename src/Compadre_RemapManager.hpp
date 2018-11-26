@@ -4,7 +4,7 @@
 #include "Compadre_Config.h"
 #include "Compadre_Typedefs.hpp"
 
-#include <GMLS.hpp>
+#include <Compadre_GMLS.hpp>
 
 namespace Compadre {
 
@@ -18,6 +18,8 @@ struct RemapObject {
 		std::string trg_fieldname;
 		local_index_type src_fieldnum;
 		local_index_type trg_fieldnum;
+        local_index_type src_dim;
+        local_index_type trg_dim;
 
 		TargetOperation _target_operation;
 		ReconstructionSpace _reconstruction_space;
@@ -115,31 +117,7 @@ class RemapManager {
 
 		~RemapManager() {};
 
-		void add(RemapObject obj) {
-			// This function sorts through insert by checking the sampling strategy type
-			// and inserting in the correct position
-
-			// if empty, then add the remap object
-			if (_queue.size()==0) {
-				_queue.push_back(obj);
-				return;
-			}
-			// loop through remap objects until we find one with the same samplings and reconstruction space, then add to the end of it
-			bool obj_inserted = false;
-			local_index_type index_with_last_match = -1;
-
-			for (local_index_type i=0; i<_queue.size(); ++i) {
-				if ((_queue[i]._reconstruction_space == obj._reconstruction_space) && (_queue[i]._polynomial_sampling_functional == obj._polynomial_sampling_functional) && (_queue[i]._data_sampling_functional == obj._data_sampling_functional)) {
-					index_with_last_match = i;
-				} else if (index_with_last_match > -1) { // first time they differ in strategies after finding the sampling / space match
-					// insert at this index
-					_queue.insert(_queue.begin()+i, obj); // end of previously found location
-					obj_inserted = true;
-					break;
-				}
-			}
-			if (!obj_inserted) _queue.push_back(obj); // also takes care of case where you match up to the last item in the queue, but never found one that differed
-		}
+		void add(RemapObject obj);
 
 		void clear() {
 			_queue = std::vector<RemapObject>();

@@ -5,7 +5,7 @@
 
 #include <Kokkos_Core.hpp>
 
-#include <GMLS.hpp> // for getNP()
+#include <Compadre_GMLS.hpp> // for getNP()
 #include <Compadre_GlobalConstants.hpp>
 #include <Compadre_ProblemT.hpp>
 #include <Compadre_ParticlesT.hpp>

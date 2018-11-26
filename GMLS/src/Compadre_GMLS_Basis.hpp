@@ -1,7 +1,7 @@
-#ifndef _GMLS_BASIS_HPP_
-#define _GMLS_BASIS_HPP_
+#ifndef _COMPADRE_GMLS_BASIS_HPP_
+#define _COMPADRE_GMLS_BASIS_HPP_
 
-#include "GMLS.hpp"
+#include "Compadre_GMLS.hpp"
 
 namespace Compadre {
 
@@ -30,7 +30,7 @@ double GMLS::factorial(const int n) const {
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, scratch_matrix_type* T, const SamplingFunctional polynomial_sampling_functional) const {
+void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
@@ -54,13 +54,11 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
         for (int i=0; i<3; ++i) relative_coord[i] = 0;
     }
 
-    if (polynomial_sampling_functional == SamplingFunctional::PointSample) {
-
-//        double operator_coefficient = 1;
-//        // use neighbor scalar value
-//        if (_operator_coefficients.dimension_0() > 0) { // user set this vector
-//            operator_coefficient = _operator_coefficients(neighbor_index,0);
-//        }
+    // basis ActualReconstructionSpaceRank is 0 (evaluated like a scalar) and sampling functional is traditional
+    if ((polynomial_sampling_functional == SamplingFunctional::PointSample ||
+            polynomial_sampling_functional == SamplingFunctional::VectorPointSample ||
+            polynomial_sampling_functional == SamplingFunctional::ManifoldVectorPointSample) &&
+            (reconstruction_space == ScalarTaylorPolynomial || reconstruction_space == VectorOfScalarClonesTaylorPolynomial)) {
 
         double cutoff_p = _epsilons(target_index);
         int alphax, alphay, alphaz;
@@ -96,13 +94,11 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                     i++;
             }
         }
-    } else if (polynomial_sampling_functional == SamplingFunctional::ManifoldVectorSample || polynomial_sampling_functional == SamplingFunctional::ManifoldGradientVectorSample) {
 
-//        double operator_coefficient = 1;
-//        // use neighbor scalar value
-//        if (_operator_coefficients.dimension_0() > 0) { // user set this vector
-//            operator_coefficient = _operator_coefficients(neighbor_index,0);
-//        }
+    // basis ActualReconstructionSpaceRank is 1 (is a true vector basis) and sampling functional is traditional
+    } else if ((polynomial_sampling_functional == SamplingFunctional::VectorPointSample ||
+                polynomial_sampling_functional == SamplingFunctional::ManifoldVectorPointSample) &&
+                    (reconstruction_space == VectorTaylorPolynomial)) {
 
         const int dimension_offset = this->getNP(_poly_order, dimension);
         double cutoff_p = _epsilons(target_index);
@@ -148,14 +144,11 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 }
             }
         }
-    } else if (polynomial_sampling_functional == SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
 
-        double operator_coefficient = 1;
-//        // use average scalar value
-//        if (_operator_coefficients.dimension_0() > 0) { // user set this vector
-//            operator_coefficient = 0.5*(_operator_coefficients(target_index,0) + _operator_coefficients(neighbor_index,0));
-//            std::cout << operator_coefficient << std::endl;
-//        }
+
+    // basis is actually scalar with staggered sampling functional
+    } else if ((polynomial_sampling_functional == SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) &&
+            (reconstruction_space == ScalarTaylorPolynomial)) {
 
         {
 
@@ -172,7 +165,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                         for (alphay = 0; alphay <= s; alphay++){
                             alphax = s - alphay;
                             alphaf = factorial(alphax)*factorial(alphay)*factorial(alphaz);
-                            *(delta+i) = -operator_coefficient*std::pow(relative_coord.x/cutoff_p,alphax)
+                            *(delta+i) = -std::pow(relative_coord.x/cutoff_p,alphax)
                                         *std::pow(relative_coord.y/cutoff_p,alphay)
                                         *std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf;
                             i++;
@@ -182,14 +175,14 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                     for (alphay = 0; alphay <= n; alphay++){
                         alphax = n - alphay;
                         alphaf = factorial(alphax)*factorial(alphay);
-                        *(delta+i) = -operator_coefficient*std::pow(relative_coord.x/cutoff_p,alphax)
+                        *(delta+i) = -std::pow(relative_coord.x/cutoff_p,alphax)
                                     *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf;
                         i++;
                     }
                 } else { // dimension == 1
                         alphax = n;
                         alphaf = factorial(alphax);
-                        *(delta+i) = -operator_coefficient*std::pow(relative_coord.x/cutoff_p,alphax)/alphaf;
+                        *(delta+i) = -std::pow(relative_coord.x/cutoff_p,alphax)/alphaf;
                         i++;
                 }
             }
@@ -212,7 +205,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                         for (alphay = 0; alphay <= s; alphay++){
                             alphax = s - alphay;
                             alphaf = factorial(alphax)*factorial(alphay)*factorial(alphaz);
-                            *(delta+i) += operator_coefficient*std::pow(relative_coord.x/cutoff_p,alphax)
+                            *(delta+i) += std::pow(relative_coord.x/cutoff_p,alphax)
                                         *std::pow(relative_coord.y/cutoff_p,alphay)
                                         *std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf;
                             i++;
@@ -222,25 +215,19 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                     for (alphay = 0; alphay <= n; alphay++){
                         alphax = n - alphay;
                         alphaf = factorial(alphax)*factorial(alphay);
-                        *(delta+i) += operator_coefficient*std::pow(relative_coord.x/cutoff_p,alphax)
+                        *(delta+i) += std::pow(relative_coord.x/cutoff_p,alphax)
                                     *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf;
                         i++;
                     }
                 } else { // dimension == 1
                         alphax = n;
                         alphaf = factorial(alphax);
-                        *(delta+i) += operator_coefficient*std::pow(relative_coord.x/cutoff_p,alphax)/alphaf;
+                        *(delta+i) += std::pow(relative_coord.x/cutoff_p,alphax)/alphaf;
                         i++;
                 }
             }
         }
     } else if (polynomial_sampling_functional == SamplingFunctional::StaggeredEdgeIntegralSample) {
-
-        double operator_coefficient = 1;
-//        // use average scalar value
-//        if (_operator_coefficients.dimension_0() > 0) { // user set this vector
-//            operator_coefficient = 0.5*(_operator_coefficients(target_index,0) + _operator_coefficients(neighbor_index,0));
-//        }
 
         double cutoff_p = _epsilons(target_index);
 
@@ -278,9 +265,9 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
 
                         // multiply by quadrature weight
                         if (quadrature==0) {
-                            *(delta+i) = operator_coefficient * dot_product * _quadrature_weights[quadrature];
+                            *(delta+i) = dot_product * _quadrature_weights[quadrature];
                         } else {
-                            *(delta+i) += operator_coefficient * dot_product * _quadrature_weights[quadrature];
+                            *(delta+i) += dot_product * _quadrature_weights[quadrature];
                         }
                         i++;
                     }
@@ -292,7 +279,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
 
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const SamplingFunctional polynomial_sampling_functional) const {
+void GMLS::calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
@@ -422,7 +409,7 @@ void GMLS::calcGradientPij(double* delta, const int target_index, const int neig
 
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p, scratch_matrix_type* V, scratch_matrix_type* T, const SamplingFunctional polynomial_sampling_functional) const {
+void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p, scratch_matrix_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional) const {
     /*
      * Creates sqrt(W)*P
      */
@@ -463,7 +450,7 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
             // generate weight vector from distances and window sizes
             w(i+my_num_neighbors*d) = this->Wab(r, _epsilons(target_index), _weighting_type, _weighting_power);
 
-            this->calcPij(delta.data(), target_index, i + d*my_num_neighbors, 0 /*alpha*/, dimension, polynomial_order, false /*bool on only specific order*/, V, T, polynomial_sampling_functional);
+            this->calcPij(delta.data(), target_index, i + d*my_num_neighbors, 0 /*alpha*/, dimension, polynomial_order, false /*bool on only specific order*/, V, reconstruction_space, polynomial_sampling_functional);
 
             int storage_size = this->getNP(polynomial_order, dimension);
             storage_size *= _basis_multiplier;
