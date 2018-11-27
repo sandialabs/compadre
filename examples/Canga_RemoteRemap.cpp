@@ -115,27 +115,26 @@ int main (int argc, char* args[]) {
 			// define some field on the source particles
 			// define a field specific to the process running
 			if (my_coloring == 25) {
-				Compadre::SineProducts sinx_sol;
 				Compadre::ShallowWaterTestCases shallow_water_case_2_sol(2);
 				particles->getFieldManager()->createField(3,"source_sinx","m^2/1a");
 				particles->getFieldManager()->getFieldByName("source_sinx")->
 						localInitFromVectorFunction(&shallow_water_case_2_sol);
-						//localInitFromVectorFunction(&sinx_sol);
 				Compadre::SphereHarmonic sphere_harmonic_sol(2,2);
 				particles->getFieldManager()->createField(1,"source_sphere_harmonics","m^2/1b");
 				particles->getFieldManager()->getFieldByName("source_sphere_harmonics")->
 						localInitFromScalarFunction(&sphere_harmonic_sol);
+
+                // this field will not remap accurately as it is a vector that is not
+                // tangent to the manifold
 				Compadre::ConstantEachDimension constant_sol(1,2,3);
 				particles->getFieldManager()->createField(3,"source_constant","m^2/1c");
 				particles->getFieldManager()->getFieldByName("source_constant")->
 						localInitFromVectorFunction(&constant_sol);
 			} else if (my_coloring == 33) {
-				Compadre::SecondOrderBasis second_order_sol;
-				Compadre::ShallowWaterTestCases shallow_water_case_5_sol(5);
+                Compadre::SphereTestVelocity sphere_velocity_sol;
 				particles->getFieldManager()->createField(3,"source_x2","m^2-2a--");
 				particles->getFieldManager()->getFieldByName("source_x2")->
-						localInitFromVectorFunction(&shallow_water_case_5_sol);
-						//localInitFromVectorFunction(&second_order_sol);
+						localInitFromVectorFunction(&sphere_velocity_sol);
 			}
 
 		 	// calculate h_size for mesh
@@ -201,11 +200,12 @@ int main (int argc, char* args[]) {
 		 	// get appropriate "true solution" for the peer processes
 			Teuchos::RCP<Compadre::AnalyticFunction> function;
 			if (my_coloring == 25) {
-				//function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis));
-				function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ShallowWaterTestCases(5)));
+				function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SphereTestVelocity));
 			} else if (my_coloring == 33) {
 				function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ShallowWaterTestCases(2)));
-				//function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts));
+
+                // this field will not remap accurately as it is a vector that is not
+                // tangent to the manifold
 //				function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ConstantEachDimension(1,2,3)));
 			}
 
@@ -220,7 +220,6 @@ int main (int argc, char* args[]) {
 				norm += (exact.x - vals[0])*(exact.x-vals[0]);
 				norm += (exact.y - vals[1])*(exact.y-vals[1]);
 				norm += (exact.z - vals[2])*(exact.z-vals[2]);
-                //printf("%f %f %f, %f %f %f\n", exact.x, exact.y, exact.z, vals[0], vals[1], vals[2]);
 			}
 			norm /= (double)(coords->nGlobalMax());
 
@@ -229,9 +228,9 @@ int main (int argc, char* args[]) {
 			Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, norm, global_norm_ptr);
 			global_norm = sqrt(global_norm);
 			if (my_coloring == 25) {
-				if (comm->getRank()==0) std::cout << "Global Norm of x^2: " << global_norm << "\n";
+				if (comm->getRank()==0) std::cout << "Global Norm of Spherical Velocity: " << global_norm << "\n";
 			} else if (my_coloring == 33) {
-				if (comm->getRank()==0) std::cout << "Global Norm of sin(x): " << global_norm << "\n";
+				if (comm->getRank()==0) std::cout << "Global Norm of Shallow Water Test Case 2: " << global_norm << "\n";
 			}
 
 		}

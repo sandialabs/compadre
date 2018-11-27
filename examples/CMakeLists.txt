@@ -271,9 +271,13 @@ if (Compadre_EXAMPLES AND Compadre_USE_Trilinos)
     ADD_TEST(NAME CangaRemoteRemap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/cangaRemoteRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_lower.xml" "--kokkos-threads=1" ":" "-np" 5 ${CMAKE_CURRENT_BINARY_DIR}/cangaRemoteRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_upper.xml" "--kokkos-threads=1")
     SET_TESTS_PROPERTIES(CangaRemoteRemap PROPERTIES LABELS "Canga;canga;remote")
     
-    ADD_TEST(NAME CangaConvergenceTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/sphere_convergence.py" "2" "2") # 2nd polynomial order, 2 successive meshes
+    ADD_TEST(NAME CangaConvergenceTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/sphere_convergence.py" "2" "2" "0") # 2nd polynomial order, 2 successive meshes, 0 for no obfet
     SET_TESTS_PROPERTIES(CangaConvergenceTest PROPERTIES LABELS "manifold;interpolation;canga")
     
+    # This test uses OBFET, so it is limited to 2nd order asymptotically
+    ADD_TEST(NAME CangaConvergenceTestWObfet COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/sphere_convergence.py" "2" "2" "1") # 2nd polynomial order, 2 successive meshes, 1 for obfet
+    SET_TESTS_PROPERTIES(CangaConvergenceTestWObfet PROPERTIES LABELS "manifold;interpolation;canga;obfet")
+
     ADD_TEST(NAME CangaIntercomparison COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/cangaIntercomparison.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_lower_compare.xml" "--kokkos-threads=1" ":" "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/cangaIntercomparison.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_upper_compare.xml" "--kokkos-threads=1")
     SET_TESTS_PROPERTIES(CangaIntercomparison PROPERTIES LABELS "Canga;canga;comparison;compare")
     

@@ -24,7 +24,7 @@
     <Parameter name="size" type="double" value=".0125"/>
   </ParameterList>
   <ParameterList name="halo">
-    <Parameter name="multiplier" type="double" value="2.5"/>
+    <Parameter name="multiplier" type="double" value="1.0"/>
     <Parameter name="size" type="double" value="0.3"/>
   </ParameterList>
   <!--ParameterList name="remap">
