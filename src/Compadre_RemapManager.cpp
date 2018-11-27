@@ -319,18 +319,20 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 			const local_index_type num_local_particles = source_values_holder.dimension_0();
 
 
-		    Kokkos::View<double**, Kokkos::HostSpace> kokkos_source_values("source values", source_coords->nLocal(true /* include halo in count */), source_field_dim);
 
 		    // fill in the source values, adding regular with halo values into a kokkos view
-		    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,source_coords->nLocal(false /* include halo in count*/)), KOKKOS_LAMBDA(const int i) {
-                for (int j=0; j<source_field_dim; ++j) {
-		    	    kokkos_source_values(i,j) = source_values_holder(i,j);
+		    Kokkos::View<double**, Kokkos::HostSpace> kokkos_source_values("source values", source_coords->nLocal(true /* include halo in count */), source_field_dim);
+
+            // copy data local owned by this process
+		    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,source_coords->nLocal(false /* include halo in count*/)), KOKKOS_LAMBDA(const int j) {
+                for (local_index_type k=0; k<source_field_dim; ++k) {
+		    	    kokkos_source_values(j,k) = source_values_holder(j,k);
                 }
 		    });
-                    printf("i: %d %d\n", source_coords->nLocal(false /* not includinghalo in count*/), source_coords->nLocal(true /*include halo in count */));
-		    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(source_coords->nLocal(false /* not includinghalo in count*/), source_coords->nLocal(true /*include halo in count */)), KOKKOS_LAMBDA(const int i) {
-                for (int j=0; j<source_field_dim; ++j) {
-		    	    kokkos_source_values(i,j) = source_halo_values_holder(i-num_local_particles,j);
+            // copy halo data 
+		    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(source_coords->nLocal(false /* not includinghalo in count*/), source_coords->nLocal(true /*include halo in count */)), KOKKOS_LAMBDA(const int j) {
+                for (local_index_type k=0; k<source_field_dim; ++k) {
+		    	    kokkos_source_values(j,k) = source_halo_values_holder(j-num_local_particles,k);
                 }
             });
 
@@ -397,15 +399,15 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
 		    Kokkos::View<double**, Kokkos::HostSpace> kokkos_source_values("source values", source_coords->nLocal(true /* include halo in count */), source_field_dim);
 
             // copy data local owned by this process
-		    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,source_coords->nLocal(false /* include halo in count*/)), KOKKOS_LAMBDA(const int i) {
-                for (int j=0; j<source_field_dim; ++j) {
-		    	    kokkos_source_values(i,j) = source_values_holder(i,j);
+		    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,source_coords->nLocal(false /* include halo in count*/)), KOKKOS_LAMBDA(const int j) {
+                for (local_index_type k=0; k<source_field_dim; ++k) {
+		    	    kokkos_source_values(j,k) = source_values_holder(j,k);
                 }
 		    });
             // copy halo data 
-		    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(source_coords->nLocal(false /* not includinghalo in count*/), source_coords->nLocal(true /*include halo in count */)), KOKKOS_LAMBDA(const int i) {
-                for (int j=0; j<source_field_dim; ++j) {
-		    	    kokkos_source_values(i,j) = source_halo_values_holder(i-num_local_particles,j);
+		    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(source_coords->nLocal(false /* not includinghalo in count*/), source_coords->nLocal(true /*include halo in count */)), KOKKOS_LAMBDA(const int j) {
+                for (local_index_type k=0; k<source_field_dim; ++k) {
+		    	    kokkos_source_values(j,k) = source_halo_values_holder(j-num_local_particles,k);
                 }
             });
 
