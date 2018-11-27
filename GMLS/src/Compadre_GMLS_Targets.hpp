@@ -39,7 +39,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 
                         // output component 0
-                        this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
+                        this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
                         int offset = (_lro_total_offsets[i]+0*_lro_output_tile_size[i]+0)*_basis_multiplier*target_NP;
                         for (int j=0; j<target_NP; ++j) {
                             P_target_row(offset + j) = t1(j);
@@ -105,7 +105,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 
                         // output component 0
-                        this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
+                        this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
                         int offset = (_lro_total_offsets[i]+0*_lro_output_tile_size[i]+0)*_basis_multiplier*target_NP;
                         for (int j=0; j<target_NP; ++j) {
                             P_target_row(offset + j) = t1(j);
@@ -155,7 +155,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 
                         // output component 0
-                        this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
+                        this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
                         int offset = (_lro_total_offsets[i]+0*_lro_output_tile_size[i]+0)*_basis_multiplier*target_NP;
                         for (int j=0; j<target_NP; ++j) {
                             P_target_row(offset + j) = t1(j);
@@ -185,7 +185,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 
                         // output component 0
-                        this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
+                        this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
                         int offset = (_lro_total_offsets[i]+0*_lro_output_tile_size[i]+0)*_basis_multiplier*target_NP;
                         for (int j=0; j<target_NP; ++j) {
                             P_target_row(offset + j) = t1(j);
