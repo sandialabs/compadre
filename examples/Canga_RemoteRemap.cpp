@@ -18,10 +18,12 @@
 
 #include <iostream>
 
+using namespace Compadre;
+
 typedef int LO;
 typedef long GO;
 typedef double ST;
-typedef Compadre::XyzVector xyz_type;
+typedef XyzVector xyz_type;
 
 int main (int argc, char* args[]) {
 
@@ -114,9 +116,11 @@ int main (int argc, char* args[]) {
 			// define a field specific to the process running
 			if (my_coloring == 25) {
 				Compadre::SineProducts sinx_sol;
+				Compadre::ShallowWaterTestCases shallow_water_case_2_sol(2);
 				particles->getFieldManager()->createField(3,"source_sinx","m^2/1a");
 				particles->getFieldManager()->getFieldByName("source_sinx")->
-						localInitFromVectorFunction(&sinx_sol);
+						localInitFromVectorFunction(&shallow_water_case_2_sol);
+						//localInitFromVectorFunction(&sinx_sol);
 				Compadre::SphereHarmonic sphere_harmonic_sol(2,2);
 				particles->getFieldManager()->createField(1,"source_sphere_harmonics","m^2/1b");
 				particles->getFieldManager()->getFieldByName("source_sphere_harmonics")->
@@ -127,9 +131,11 @@ int main (int argc, char* args[]) {
 						localInitFromVectorFunction(&constant_sol);
 			} else if (my_coloring == 33) {
 				Compadre::SecondOrderBasis second_order_sol;
+				Compadre::ShallowWaterTestCases shallow_water_case_5_sol(5);
 				particles->getFieldManager()->createField(3,"source_x2","m^2-2a--");
 				particles->getFieldManager()->getFieldByName("source_x2")->
-						localInitFromVectorFunction(&second_order_sol);
+						localInitFromVectorFunction(&shallow_water_case_5_sol);
+						//localInitFromVectorFunction(&second_order_sol);
 			}
 
 		 	// calculate h_size for mesh
@@ -167,7 +173,7 @@ int main (int argc, char* args[]) {
 		 	std::vector<Compadre::RemapObject> remap_vec;
 			if (my_coloring == 25) {
 //				Compadre::RemapObject r1("source_x2", "peer_x2");
-				Compadre::RemapObject r1("source_x2", "peer");
+				Compadre::RemapObject r1("source_x2", "peer", VectorPointEvaluation, VectorOfScalarClonesTaylorPolynomial, ManifoldVectorPointSample);
 				remap_vec.push_back(r1);
 			} else if (my_coloring == 33) {
 				Compadre::RemapObject r1("source_constant", "peer_constant");
@@ -195,9 +201,11 @@ int main (int argc, char* args[]) {
 		 	// get appropriate "true solution" for the peer processes
 			Teuchos::RCP<Compadre::AnalyticFunction> function;
 			if (my_coloring == 25) {
-				function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis));
+				//function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis));
+				function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ShallowWaterTestCases(5)));
 			} else if (my_coloring == 33) {
-				function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts));
+				function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ShallowWaterTestCases(2)));
+				//function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts));
 //				function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ConstantEachDimension(1,2,3)));
 			}
 
@@ -212,6 +220,7 @@ int main (int argc, char* args[]) {
 				norm += (exact.x - vals[0])*(exact.x-vals[0]);
 				norm += (exact.y - vals[1])*(exact.y-vals[1]);
 				norm += (exact.z - vals[2])*(exact.z-vals[2]);
+                //printf("%f %f %f, %f %f %f\n", exact.x, exact.y, exact.z, vals[0], vals[1], vals[2]);
 			}
 			norm /= (double)(coords->nGlobalMax());
 
