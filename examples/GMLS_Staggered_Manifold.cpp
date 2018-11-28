@@ -300,10 +300,10 @@ Kokkos::initialize(argc, args);
             SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, 
             order, solver_name.c_str(), order /*manifold order*/, dimension);
     my_GMLS_vector_2.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
-    std::vector<TargetOperation> lro_vector_2(3);
+    std::vector<TargetOperation> lro_vector_2(2);
     lro_vector_2[0] = ChainedStaggeredLaplacianOfScalarPointEvaluation;
     lro_vector_2[1] = DivergenceOfVectorPointEvaluation;
-    lro_vector_2[2] = GradientOfScalarPointEvaluation;
+    //lro_vector_2[2] = GradientOfScalarPointEvaluation;
     my_GMLS_vector_2.addTargets(lro_vector_2);
     my_GMLS_vector_2.setCurvatureWeightingType(WeightingFunctionType::Power);
     my_GMLS_vector_2.setCurvatureWeightingPower(2);
@@ -317,9 +317,9 @@ Kokkos::initialize(argc, args);
             order, solver_name.c_str(), order /*manifold order*/, dimension);
     my_GMLS_scalar.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
 
-    std::vector<TargetOperation> lro_scalar(2);
+    std::vector<TargetOperation> lro_scalar(1);
     lro_scalar[0] = ChainedStaggeredLaplacianOfScalarPointEvaluation;
-    lro_scalar[1] = GradientOfScalarPointEvaluation;
+    //lro_scalar[1] = GradientOfScalarPointEvaluation;
     my_GMLS_scalar.addTargets(lro_scalar);
     my_GMLS_scalar.setCurvatureWeightingType(WeightingFunctionType::Power);
     my_GMLS_scalar.setCurvatureWeightingPower(2);
@@ -353,13 +353,13 @@ Kokkos::initialize(argc, args);
     Remap scalar_remap_manager(&my_GMLS_scalar);
     
 
-    auto output_gradient_vectorbasis = 
-        vector_2_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (sampling_data_device, GradientOfScalarPointEvaluation, StaggeredEdgeAnalyticGradientIntegralSample);
+    //auto output_gradient_vectorbasis = 
+    //    vector_2_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+    //        (sampling_data_device, GradientOfScalarPointEvaluation, StaggeredEdgeAnalyticGradientIntegralSample);
 
-    auto output_gradient_scalarbasis = 
-        scalar_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (sampling_data_device, GradientOfScalarPointEvaluation, StaggeredEdgeAnalyticGradientIntegralSample);
+    //auto output_gradient_scalarbasis = 
+    //    scalar_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+    //        (sampling_data_device, GradientOfScalarPointEvaluation, StaggeredEdgeAnalyticGradientIntegralSample);
 
     auto output_divergence_vectorsamples = 
         vector_1_remap_manager.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
@@ -425,17 +425,17 @@ Kokkos::initialize(argc, args);
         laplacian_scalarbasis_error += (output_laplacian_scalarbasis(i) - actual_Laplacian)*(output_laplacian_scalarbasis(i) - actual_Laplacian);
         laplacian_scalarbasis_norm += actual_Laplacian*actual_Laplacian;
 
-        for (int j=0; j<dimension; ++j) {
-            //printf("VectorBasis Error of %f, %f vs %f\n", (output_gradient_vectorbasis(i,j) - actual_Gradient_ambient[j]), output_gradient_vectorbasis(i,j), actual_Gradient_ambient[j]);
-            gradient_vectorbasis_ambient_error += (output_gradient_vectorbasis(i,j) - actual_Gradient_ambient[j])*(output_gradient_vectorbasis(i,j) - actual_Gradient_ambient[j]);
-            gradient_vectorbasis_ambient_norm += actual_Gradient_ambient[j]*actual_Gradient_ambient[j];
-        }
+        //for (int j=0; j<dimension; ++j) {
+        //    //printf("VectorBasis Error of %f, %f vs %f\n", (output_gradient_vectorbasis(i,j) - actual_Gradient_ambient[j]), output_gradient_vectorbasis(i,j), actual_Gradient_ambient[j]);
+        //    gradient_vectorbasis_ambient_error += (output_gradient_vectorbasis(i,j) - actual_Gradient_ambient[j])*(output_gradient_vectorbasis(i,j) - actual_Gradient_ambient[j]);
+        //    gradient_vectorbasis_ambient_norm += actual_Gradient_ambient[j]*actual_Gradient_ambient[j];
+        //}
 
-        for (int j=0; j<dimension; ++j) {
-            //printf("ScalarBasis Error of %f, %f vs %f\n", (output_gradient_scalarbasis(i,j) - actual_Gradient_ambient[j]), output_gradient_scalarbasis(i,j), actual_Gradient_ambient[j]);
-            gradient_scalarbasis_ambient_error += (output_gradient_scalarbasis(i,j) - actual_Gradient_ambient[j])*(output_gradient_scalarbasis(i,j) - actual_Gradient_ambient[j]);
-            gradient_scalarbasis_ambient_norm += actual_Gradient_ambient[j]*actual_Gradient_ambient[j];
-        }
+        //for (int j=0; j<dimension; ++j) {
+        //    //printf("ScalarBasis Error of %f, %f vs %f\n", (output_gradient_scalarbasis(i,j) - actual_Gradient_ambient[j]), output_gradient_scalarbasis(i,j), actual_Gradient_ambient[j]);
+        //    gradient_scalarbasis_ambient_error += (output_gradient_scalarbasis(i,j) - actual_Gradient_ambient[j])*(output_gradient_scalarbasis(i,j) - actual_Gradient_ambient[j]);
+        //    gradient_scalarbasis_ambient_norm += actual_Gradient_ambient[j]*actual_Gradient_ambient[j];
+        //}
 
         //printf("Error of %f, %f vs %f\n", (output_divergence(i) - actual_Laplacian), output_divergence(i), actual_Laplacian);
         divergence_vectorsamples_ambient_error += (output_divergence_vectorsamples(i) - actual_Laplacian)*(output_divergence_vectorsamples(i) - actual_Laplacian);
