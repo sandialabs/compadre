@@ -17,7 +17,18 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
     }
 
     const int target_NP = this->getNP(_poly_order, _dimensions);
+
     for (int i=0; i<_operations.size(); ++i) {
+
+        bool operation_handled = true;
+
+        // USER defined targets should be added to this file
+        // if the USER defined targets don't catch this operation, then operation_handled will be false
+        #include "USER_StandardTargetFunctionals.hpp"
+
+        // if the user didn't handle the operation, we pass it along to the toolkit's targets
+        if (!operation_handled) {
+
         if (_operations(i) == TargetOperation::ScalarPointEvaluation || (_operations(i) == TargetOperation::VectorPointEvaluation && _dimensions == 1) /* vector is a scalar in 1D */) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                 this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
@@ -608,6 +619,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
         } else {
             assert((false) && "Functionality not yet available.");
         }
+        } // !operation_handled
     }
 }
 
@@ -667,6 +679,15 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
     }
 
     for (int i=0; i<_operations.size(); ++i) {
+
+        bool operation_handled = true;
+
+        // USER defined targets on the manifold should be added to this file
+        // if the USER defined targets don't catch this operation, then operation_handled will be false
+        #include "USER_ManifoldTargetFunctionals.hpp"
+
+        // if the user didn't handle the operation, we pass it along to the toolkit's targets
+        if (!operation_handled) {
         if (_dimensions>2) {
             if (_operations(i) == TargetOperation::ScalarPointEvaluation) {
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
@@ -1597,6 +1618,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                 assert((false) && "Functionality not yet available.");
             }
         }
+        } // !operation_handled
     }
 }
 

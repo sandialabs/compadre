@@ -935,21 +935,17 @@ public:
     //! Dimensions ^ input rank for target operation (always in local chart if on a manifold, never ambient space)
     int getInputDimensionOfOperation(TargetOperation lro) const {
         return this->_host_lro_input_tile_size[_lro_lookup[(int)lro]];
-        // this is the same retunr values as the OutputDimensionOfSampling for the GMLS class's SamplingFunctional
+        // this is the same return values as the OutputDimensionOfSampling for the GMLS class's SamplingFunctional
     }
 
-    //! Dimensions ^ output rank for sampling operation (always in local chart if on a manifold, never ambient space)
+    //! Dimensions ^ output rank for sampling operation 
+    //! (always in local chart if on a manifold, never ambient space)
     int getOutputDimensionOfSampling(SamplingFunctional sro) const {
         return std::pow(_local_dimensions, SamplingOutputTensorRank[(int)sro]);
-        //return this->getOutputDimensionOfSampling(_local_dimensions, SamplingOutputTensorRank[(int)sro]);
     }
 
-    ////! Static helper function for determining the output
-    //static int getOutputDimensionOfSampling(const int spatial_dimension, SamplingFunctional sro) const {
-    //    return std::pow(_local_dimensions, SamplingOutputTensorRank[(int)sro]);
-    //}
-
-    //! Dimensions ^ output rank for sampling operation (always in ambient space, never local chart on a manifold)
+    //! Dimensions ^ output rank for sampling operation 
+    //! (always in ambient space, never local chart on a manifold)
     int getInputDimensionOfSampling(SamplingFunctional sro) const {
         return std::pow(_global_dimensions, SamplingInputTensorRank[(int)sro]);
     }
