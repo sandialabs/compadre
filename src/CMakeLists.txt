@@ -14,6 +14,8 @@ set(COMPADRE_HEADERS
   Compadre_PointCloudSearch.hpp
   Compadre_Typedefs.hpp
   Compadre_Remap.hpp
+  USER_StandardTargetFunctionals.hpp
+  USER_ManifoldTargetFunctionals.hpp
   )
 
 

@@ -312,7 +312,9 @@ public:
         }
 
         // special case for VectorPointSample, because if it is on a manifold it includes data transform to local charts
-        if (problem_type==MANIFOLD && sro==VectorPointSample) sro = ManifoldVectorPointSample;
+        if (problem_type==MANIFOLD && sro==VectorPointSample) {
+            sro = ManifoldVectorPointSample;
+        }
 
         // create view on whatever memory space the user specified with their template argument when calling this function
         output_view_type target_output("output of target", neighbor_lists.dimension_0() /* number of targets */, 

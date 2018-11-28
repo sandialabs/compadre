@@ -925,21 +925,27 @@ public:
     }
 
     //! Dimensions ^ output rank for target operation
-    int getOutputDimensionOfOperation(TargetOperation lro) const {
-        return this->_host_lro_output_tile_size[_lro_lookup[(int)lro]];
+    int getOutputDimensionOfOperation(TargetOperation lro, bool ambient = false) const {
+        int return_val;
+        if (ambient) return_val = std::pow(_global_dimensions, TargetOutputTensorRank[(int)lro]);
+        else return_val = std::pow(_local_dimensions, TargetOutputTensorRank[(int)lro]);
+        return return_val;
     }
 
-    //! Dimensions ^ input rank for target operation
+    //! Dimensions ^ input rank for target operation (always in local chart if on a manifold, never ambient space)
     int getInputDimensionOfOperation(TargetOperation lro) const {
         return this->_host_lro_input_tile_size[_lro_lookup[(int)lro]];
+        // this is the same return values as the OutputDimensionOfSampling for the GMLS class's SamplingFunctional
     }
 
-    //! Dimensions ^ output rank for sampling operation
+    //! Dimensions ^ output rank for sampling operation 
+    //! (always in local chart if on a manifold, never ambient space)
     int getOutputDimensionOfSampling(SamplingFunctional sro) const {
         return std::pow(_local_dimensions, SamplingOutputTensorRank[(int)sro]);
     }
 
-    //! Dimensions ^ output rank for sampling operation
+    //! Dimensions ^ output rank for sampling operation 
+    //! (always in ambient space, never local chart on a manifold)
     int getInputDimensionOfSampling(SamplingFunctional sro) const {
         return std::pow(_global_dimensions, SamplingInputTensorRank[(int)sro]);
     }
@@ -1237,6 +1243,7 @@ public:
 
             // allows for a tile of the product of dimension^input_tensor_rank * dimension^output_tensor_rank * the number of neighbors
             int output_tile_size = std::pow(_local_dimensions, TargetOutputTensorRank[(int)_lro[i]]);
+
             // the target functional input indexing is sized based on the output rank of the sampling
             // functional used
             int input_tile_size = getOutputDimensionOfSampling(_polynomial_sampling_functional);
