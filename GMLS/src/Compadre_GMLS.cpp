@@ -345,9 +345,7 @@ void GMLS::operator()(const ApplyStandardTargets&, const member_type& teamMember
      */
 
     // get evaluation of target functionals
-    Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-        this->computeTargetFunctionals(teamMember, t1, t2, P_target_row);
-    });
+    this->computeTargetFunctionals(teamMember, t1, t2, P_target_row);
     teamMember.team_barrier();
 
     this->applyTargetsToCoefficients(teamMember, t1, t2, Coeffs, PsqrtW, w, P_target_row, _NP); 
@@ -809,9 +807,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
      *    Apply Standard Target Evaluations to Polynomial Coefficients
      */
 
-    Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-        this->computeTargetFunctionalsOnManifold(teamMember, t1, t2, P_target_row, T, G_inv, manifold_coeffs, manifold_gradient_coeffs);
-    });
+    this->computeTargetFunctionalsOnManifold(teamMember, t1, t2, P_target_row, T, G_inv, manifold_coeffs, manifold_gradient_coeffs);
     teamMember.team_barrier();
 
     this->applyTargetsToCoefficients(teamMember, t1, t2, Coeffs, PsqrtW, w, P_target_row, target_NP); 
@@ -871,6 +867,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
             }
         });
     }
+    teamMember.team_barrier();
 }
 
 }; // Compadre

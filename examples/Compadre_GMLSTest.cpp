@@ -252,7 +252,7 @@ int main (int argc, char* args[]) {
 			if (parameters->get<std::string>("solution type")=="sine") {
 				 if (i>0) TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i-1]/errors[i] < 3.5, "Second order not achieved for sine solution (should be 4).");
 			} else {
-				TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i] > 1e-14, "Second order solution not recovered exactly.");
+				TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i] > 1e-13, "Second order solution not recovered exactly.");
 			}
 		}
 		if (comm->getRank()==0) parameters->print();
