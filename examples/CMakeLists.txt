@@ -34,12 +34,21 @@ endfunction(add_exe_w_compadre)
 ###############
 if (GMLS_EXAMPLES)
 
+  if(Compadre_USE_LAPACK)
+    add_exe_w_gmls(LAPACK_Test UnitTest_ThreadedLapack.cpp) 
+  endif()
   add_exe_w_gmls(GMLS_Host_Test GMLS_Host.cpp)
   add_exe_w_gmls(GMLS_Device_Test GMLS_Device.cpp)
   add_exe_w_gmls(GMLS_Manifold_Test GMLS_Manifold.cpp)
   add_exe_w_gmls(GMLS_Staggered_Manifold_Test GMLS_Staggered_Manifold.cpp)
 
   if (GMLS_TESTS)
+
+    if(Compadre_USE_LAPACK)
+      # Test if LAPACK+BLAS are compatible for use in the toolkit
+      ADD_TEST(NAME LAPACK_THREADED COMMAND ${CMAKE_CURRENT_BINARY_DIR}/LAPACK_Test "--kokkos-threads=8")
+      SET_TESTS_PROPERTIES(LAPACK_THREADED PROPERTIES LABELS "UnitTest;unit;lapack;Lapack;LAPACK;kokkos" TIMEOUT 1)
+    endif()
 
     # Host views tests for GMLS
     ADD_TEST(NAME GMLS_Host_Dim3_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "4" "200" "3" "0" "--kokkos-threads=2")
@@ -282,18 +291,18 @@ if (Compadre_EXAMPLES AND Compadre_USE_Trilinos)
     SET_TESTS_PROPERTIES(CangaIntercomparison PROPERTIES LABELS "Canga;canga;comparison;compare")
     
     
-    # SHALLOW WATER TESTS
-    
-    ADD_TEST(NAME LagrangianShallowWater2 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/lagrangianShallowWater.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/shallow_water/parameters_case2.xml" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(LagrangianShallowWater2 PROPERTIES LABELS "shallow;case2")
-    
-    ADD_TEST(NAME LagrangianShallowWater5 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/lagrangianShallowWater.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/shallow_water/parameters_case5.xml" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(LagrangianShallowWater5 PROPERTIES LABELS "shallow;case5")
+    ## SHALLOW WATER TESTS
+    #
+    #ADD_TEST(NAME LagrangianShallowWater2 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/lagrangianShallowWater.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/shallow_water/parameters_case2.xml" "--kokkos-threads=2")
+    #SET_TESTS_PROPERTIES(LagrangianShallowWater2 PROPERTIES LABELS "shallow;case2")
+    #
+    #ADD_TEST(NAME LagrangianShallowWater5 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/lagrangianShallowWater.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/shallow_water/parameters_case5.xml" "--kokkos-threads=2")
+    #SET_TESTS_PROPERTIES(LagrangianShallowWater5 PROPERTIES LABELS "shallow;case5")
 
 
-    # RT0 REMAP TO VECTOR TEST
-    ADD_TEST(NAME RT0Remap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/RT0Remap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_RT0.xml" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(RT0Remap PROPERTIES LABELS "rt0")
+    ## RT0 REMAP TO VECTOR TEST
+    #ADD_TEST(NAME RT0Remap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/RT0Remap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_RT0.xml" "--kokkos-threads=2")
+    #SET_TESTS_PROPERTIES(RT0Remap PROPERTIES LABELS "rt0")
 
     # SET FLAGS FOR TESTS NOT RUN
 

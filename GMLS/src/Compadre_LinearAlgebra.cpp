@@ -64,7 +64,6 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
     // size needed to malloc for each problem
     lwork = (int)wkopt;
-	printf("lwork %d\n", lwork);
 
     Kokkos::Profiling::popRegion();
 
@@ -89,7 +88,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
             double * rhs_offset = RHS + i*ldb*ndb;
 
             // use a custom # of neighbors for each problem, if possible
-            const int multiplier = M/max_neighbors; // assumes M is some positive integer scalaing of max_neighbors
+            const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
             int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
 
             dgels_( const_cast<char *>(transpose_or_no.c_str()), 
@@ -114,7 +113,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
             double * rhs_offset = RHS + i*ldb*ndb;
 
             // use a custom # of neighbors for each problem, if possible
-            const int multiplier = M/max_neighbors; // assumes M is some positive integer scalaing of max_neighbors
+            const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
             int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
 
             dgels_( const_cast<char *>(transpose_or_no.c_str()), 
@@ -332,7 +331,7 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
         const int target_index = teamMember.league_rank();
 
         // use a custom # of neighbors for each problem, if possible
-        const int multiplier = M/max_neighbors; // assumes M is some positive integer scalaing of max_neighbors
+        const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
         int my_num_rows = d_neighbor_list_sizes(target_index)*multiplier;
         //int my_num_rows = d_neighbor_list_sizes(target_index)*multiplier : M;
 
@@ -427,7 +426,7 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
                 double * rhs_offset = RHS + i*ldb*ndb;
 
                 // use a custom # of neighbors for each problem, if possible
-                const int multiplier = M/max_neighbors; // assumes M is some positive integer scalaing of max_neighbors
+                const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
                 int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
 
                 dgelsd_( const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rows), 
@@ -456,7 +455,7 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
                 double * rhs_offset = RHS + i*ldb*ndb;
 
                 // use a custom # of neighbors for each problem, if possible
-                const int multiplier = M/max_neighbors; // assumes M is some positive integer scalaing of max_neighbors
+                const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
                 int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
 
                 dgelsd_( const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rows), 
