@@ -189,7 +189,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 	my_scalar_GMLS.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
 	my_scalar_GMLS.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 
-	GMLS my_vector_GMLS (ReconstructionSpace::VectorTaylorPolynomial,
+	GMLS my_vector_GMLS (ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial,
 			SamplingFunctional::ManifoldVectorPointSample,
 			_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 			_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
@@ -204,25 +204,12 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 	my_vector_GMLS.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
 	my_vector_GMLS.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 
-	GMLS my_vector_gradient_GMLS (ReconstructionSpace::VectorTaylorPolynomial,
-			SamplingFunctional::ManifoldVectorPointSample,
-			_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-			_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-			_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
-	my_vector_gradient_GMLS.setProblemData(
-			kokkos_neighbor_lists_host,
-			kokkos_augmented_source_coordinates_host,
-			kokkos_target_coordinates,
-			kokkos_epsilons_host);
-	my_vector_gradient_GMLS.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-	my_vector_gradient_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
-	my_vector_gradient_GMLS.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
-	my_vector_gradient_GMLS.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 
-	bool use_velocity_interpolation = true;
+	bool use_velocity_interpolation = true;//true;
 	bool use_staggered_gradient_fix = false;
 	int mountain_source_data = 0; // 0-GMLS, 1-GMLS-Staggered
-	bool use_staggered_divergence_fix = true;
+	bool use_staggered_divergence_fix = false;
+
 
 	if (_particles->getFieldManager()->getIDOfFieldFromName("velocity") == field_one) {
 
@@ -255,6 +242,8 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 		}
 		my_scalar_GMLS.generateAlphas();
 		my_vector_GMLS.generateAlphas();
+
+        auto tangent_directions = my_scalar_GMLS.getTangentDirections();
 
 
 		host_view_type b_data = _b->getLocalView<host_view_type>();
@@ -309,16 +298,23 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 //						}
 
 
+            // local view of tangent directions
+            Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > td
+                    (tangent_directions.data() + i*3*3, 3, 3);
 
 
 			if (bc_id(i, 0) == 0) {
 
-				double reconstructed_h_grad_0 = 0;
-				double reconstructed_h_grad_1 = 0;
-				double reconstructed_h_grad_2 = 0;
-				double reconstructed_v0 = 0;
-				double reconstructed_v1 = 0;
-				double reconstructed_v2 = 0;
+				double reconstructed_h_grad_0_local = 0;
+				double reconstructed_h_grad_1_local = 0;
+				double reconstructed_h_grad_0_ambient = 0;
+				double reconstructed_h_grad_1_ambient = 0;
+				double reconstructed_h_grad_2_ambient = 0;
+				double reconstructed_v0_local = 0;
+				double reconstructed_v1_local = 0;
+				double reconstructed_v0_ambient = 0;
+				double reconstructed_v1_ambient = 0;
+				double reconstructed_v2_ambient = 0;
 
 				const local_index_type my_index = static_cast<local_index_type>(neighbors[0].first);
 				double h_data_mine_0 = (my_index < nlocal) ? h_data(my_index, 0) : h_halo_data(my_index-nlocal, 0);
@@ -327,11 +323,6 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 				double v_data_mine_1 = (my_index < nlocal) ? v_data(my_index, 1) : v_halo_data(my_index-nlocal, 1);
 				double v_data_mine_2 = (my_index < nlocal) ? v_data(my_index, 2) : v_halo_data(my_index-nlocal, 2);
 
-				if (!use_velocity_interpolation) {
-					reconstructed_v0 = v_data_mine_0;
-					reconstructed_v1 = v_data_mine_1;
-					reconstructed_v2 = v_data_mine_2;
-				}
 				for (local_index_type l = 0; l < num_neighbors; l++) {
 					const local_index_type neighbor_index = static_cast<local_index_type>(neighbors[l].first);
 
@@ -341,57 +332,62 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 					double v_data_2 = (neighbor_index < nlocal) ? v_data(neighbor_index, 2) : v_halo_data(neighbor_index-nlocal, 2);
 
 					if (use_staggered_gradient_fix) {
-						reconstructed_h_grad_0 += h_data_0 * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, l);
-						reconstructed_h_grad_1 += h_data_0 * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, l);
-						reconstructed_h_grad_2 += h_data_0 * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 2, l);
+						reconstructed_h_grad_0_local += h_data_0 * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, l);
+						reconstructed_h_grad_1_local += h_data_0 * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, l);
 
-						reconstructed_h_grad_0 -= h_data_mine_0 * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, l);
-						reconstructed_h_grad_1 -= h_data_mine_0 * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, l);
-						reconstructed_h_grad_2 -= h_data_mine_0 * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 2, l);
+						reconstructed_h_grad_0_local -= h_data_mine_0 * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, l);
+						reconstructed_h_grad_1_local -= h_data_mine_0 * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, l);
 					} else {
-						reconstructed_h_grad_0 += h_data_0 * my_scalar_GMLS.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, l);
-						reconstructed_h_grad_1 += h_data_0 * my_scalar_GMLS.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, l);
-						reconstructed_h_grad_2 += h_data_0 * my_scalar_GMLS.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 2, l);
+						reconstructed_h_grad_0_local += h_data_0 * my_scalar_GMLS.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, l);
+						reconstructed_h_grad_1_local += h_data_0 * my_scalar_GMLS.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, l);
 					}
 
 					if (use_velocity_interpolation) {
-						double contracted_data[3] = {0,0,0};
-						for (local_index_type dim=0; dim<3; ++dim) {
+						double contracted_data[2] = {0,0};
+						for (local_index_type dim=0; dim<2; ++dim) {
 							contracted_data[dim] += v_data_0 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 0);
 							contracted_data[dim] += v_data_1 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 1);
 							contracted_data[dim] += v_data_2 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 2);
 						}
-						for (local_index_type dim=0; dim<3; ++dim) {
-							reconstructed_v0 += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, 0, l, dim);
-							reconstructed_v1 += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, 1, l, dim);
-							reconstructed_v2 += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, 2, l, dim);
+						for (local_index_type dim=0; dim<2; ++dim) {
+							reconstructed_v0_local += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, 0, l, dim);
+							reconstructed_v1_local += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, 1, l, dim);
 						}
 					}
 
-//					reconstructed_v0 += v_data_0 * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, l);
-//					reconstructed_v1 += v_data_1 * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, l);
-//					reconstructed_v2 += v_data_2 * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, l);
 
 					if (_parameters->get<int>("shallow water test case") != 2) {
 						xyz_type neighbor_xyz = _particles->getCoordsConst()->getLocalCoords(neighbor_index, include_halo, use_physical_coords);
 						double h_value = swtc->evalScalar(neighbor_xyz);
 						if (mountain_source_data==1 && use_staggered_gradient_fix) {
-							reconstructed_h_grad_0 += h_value * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, l);
-							reconstructed_h_grad_1 += h_value * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, l);
-							reconstructed_h_grad_2 += h_value * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 2, l);
-							reconstructed_h_grad_0 -= h_value_mine * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, l);
-							reconstructed_h_grad_1 -= h_value_mine * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, l);
-							reconstructed_h_grad_2 -= h_value_mine * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 2, l);
-//							reconstructed_h_grad_0 += h_value * my_GMLS.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, l);
-//							reconstructed_h_grad_1 += h_value * my_GMLS.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, l);
-//							reconstructed_h_grad_2 += h_value * my_GMLS.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 2, l);
+							reconstructed_h_grad_0_local += h_value * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, l);
+							reconstructed_h_grad_1_local += h_value * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, l);
+
+							reconstructed_h_grad_0_local -= h_value_mine * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, l);
+							reconstructed_h_grad_1_local -= h_value_mine * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, l);
 						} else if (mountain_source_data==0) {
-							reconstructed_h_grad_0 += h_value * my_scalar_GMLS.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, l);
-							reconstructed_h_grad_1 += h_value * my_scalar_GMLS.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, l);
-							reconstructed_h_grad_2 += h_value * my_scalar_GMLS.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 2, l);
+							reconstructed_h_grad_0_local += h_value * my_scalar_GMLS.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, l);
+							reconstructed_h_grad_1_local += h_value * my_scalar_GMLS.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, l);
 						}
 					}
 				}
+                
+
+                // convert to ambient from local
+                reconstructed_h_grad_0_ambient = td(0,0)*reconstructed_h_grad_0_local + td(1,0)*reconstructed_h_grad_1_local;
+                reconstructed_h_grad_1_ambient = td(0,1)*reconstructed_h_grad_0_local + td(1,1)*reconstructed_h_grad_1_local;
+                reconstructed_h_grad_2_ambient = td(0,2)*reconstructed_h_grad_0_local + td(1,2)*reconstructed_h_grad_1_local;
+
+				if (use_velocity_interpolation) {
+                    reconstructed_v0_ambient = td(0,0)*reconstructed_v0_local + td(1,0)*reconstructed_v1_local;
+                    reconstructed_v1_ambient = td(0,1)*reconstructed_v0_local + td(1,1)*reconstructed_v1_local;
+                    reconstructed_v2_ambient = td(0,2)*reconstructed_v0_local + td(1,2)*reconstructed_v1_local;
+                } else {
+					reconstructed_v0_ambient = v_data_mine_0;
+					reconstructed_v1_ambient = v_data_mine_1;
+					reconstructed_v2_ambient = v_data_mine_2;
+                }
+
 
 				double coriolis_1=0;
 				double coriolis_2=0;
@@ -435,9 +431,9 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 				}
 
 				// remove normal contribution of forces
-				double force[3] = {-coriolis_force * (normal_direction.y*reconstructed_v2 - reconstructed_v1*normal_direction.z) - _gravity*reconstructed_h_grad_0,
-						coriolis_force * (normal_direction.x*reconstructed_v2 - reconstructed_v0*normal_direction.z) - _gravity*reconstructed_h_grad_1,
-						-coriolis_force * (normal_direction.x*reconstructed_v1 - reconstructed_v0*normal_direction.y) - _gravity*reconstructed_h_grad_2};
+				double force[3] = {-coriolis_force * (normal_direction.y*reconstructed_v2_ambient - reconstructed_v1_ambient*normal_direction.z) - _gravity*reconstructed_h_grad_0_ambient,
+						coriolis_force * (normal_direction.x*reconstructed_v2_ambient - reconstructed_v0_ambient*normal_direction.z) - _gravity*reconstructed_h_grad_1_ambient,
+						-coriolis_force * (normal_direction.x*reconstructed_v1_ambient - reconstructed_v0_ambient*normal_direction.y) - _gravity*reconstructed_h_grad_2_ambient};
 
 //				double dot_product = force[0]*normal_direction.x + force[1]*normal_direction.y + force[2]*normal_direction.z;
 //				force[0] -= dot_product * normal_direction.x;
@@ -446,9 +442,9 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 
 				// remove normal contribution of forces
-				double advective_force[3] = {-(reconstructed_v0*reconstructed_v0_grad0 + reconstructed_v1*reconstructed_v0_grad1 + reconstructed_v2*reconstructed_v0_grad2),
-						-(reconstructed_v0*reconstructed_v1_grad0 + reconstructed_v1*reconstructed_v1_grad1 + reconstructed_v2*reconstructed_v1_grad2),
-						-(reconstructed_v0*reconstructed_v2_grad0 + reconstructed_v1*reconstructed_v2_grad1 + reconstructed_v2*reconstructed_v2_grad2)};
+				double advective_force[3] = {-(reconstructed_v0_ambient*reconstructed_v0_grad0 + reconstructed_v1_ambient*reconstructed_v0_grad1 + reconstructed_v2_ambient*reconstructed_v0_grad2),
+						-(reconstructed_v0_ambient*reconstructed_v1_grad0 + reconstructed_v1_ambient*reconstructed_v1_grad1 + reconstructed_v2_ambient*reconstructed_v1_grad2),
+						-(reconstructed_v0_ambient*reconstructed_v2_grad0 + reconstructed_v1_ambient*reconstructed_v2_grad1 + reconstructed_v2_ambient*reconstructed_v2_grad2)};
 
 //				double advective_dot_product = advective_force[0]*normal_direction.x + advective_force[1]*normal_direction.y + advective_force[2]*normal_direction.z;
 //				advective_force[0] -= advective_dot_product * normal_direction.x;
@@ -460,9 +456,8 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 				if (artificial_viscosity_coeff > 0) {
 
-					double reconstructed_laplace_u_0 = 0;
-					double reconstructed_laplace_u_1 = 0;
-					double reconstructed_laplace_u_2 = 0;
+					double reconstructed_laplace_u_0_local = 0;
+					double reconstructed_laplace_u_1_local = 0;
 
 					for (local_index_type l = 0; l < num_neighbors; l++) {
 						const local_index_type neighbor_index = static_cast<local_index_type>(neighbors[l].first);
@@ -471,23 +466,24 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 						double v_data_1 = (neighbor_index < nlocal) ? v_data(neighbor_index, 1) : v_halo_data(neighbor_index-nlocal, 1);
 						double v_data_2 = (neighbor_index < nlocal) ? v_data(neighbor_index, 2) : v_halo_data(neighbor_index-nlocal, 2);
 
-						double contracted_data[3] = {0,0,0};
-						for (local_index_type dim=0; dim<3; ++dim) {
+						double contracted_data[2] = {0,0};
+						for (local_index_type dim=0; dim<2; ++dim) {
 							contracted_data[dim] += v_data_0 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 0);
 							contracted_data[dim] += v_data_1 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 1);
 							contracted_data[dim] += v_data_2 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 2);
 						}
-						for (local_index_type dim=0; dim<3; ++dim) {
-							reconstructed_laplace_u_0 += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorLaplacianPointEvaluation, i, 0, l, dim);
-							reconstructed_laplace_u_1 += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorLaplacianPointEvaluation, i, 1, l, dim);
-							reconstructed_laplace_u_2 += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorLaplacianPointEvaluation, i, 2, l, dim);
+						for (local_index_type dim=0; dim<2; ++dim) {
+							reconstructed_laplace_u_0_local += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorLaplacianPointEvaluation, i, 0, l, dim);
+							reconstructed_laplace_u_1_local += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorLaplacianPointEvaluation, i, 1, l, dim);
 						}
 					}
+                    double reconstructed_laplace_u_0_ambient = td(0,0)*reconstructed_v0_local + td(1,0)*reconstructed_v1_local;
+                    double reconstructed_laplace_u_1_ambient = td(0,1)*reconstructed_v0_local + td(1,1)*reconstructed_v1_local;
+                    double reconstructed_laplace_u_2_ambient = td(0,2)*reconstructed_v0_local + td(1,2)*reconstructed_v1_local;
 
-					// remove normal contribution of forces
-					artificial_diffusion_force[0] = artificial_viscosity_coeff * reconstructed_laplace_u_0;
-					artificial_diffusion_force[1] = artificial_viscosity_coeff * reconstructed_laplace_u_1;
-					artificial_diffusion_force[2] = artificial_viscosity_coeff * reconstructed_laplace_u_2;
+					artificial_diffusion_force[0] = artificial_viscosity_coeff * reconstructed_laplace_u_0_ambient;
+					artificial_diffusion_force[1] = artificial_viscosity_coeff * reconstructed_laplace_u_1_ambient;
+					artificial_diffusion_force[2] = artificial_viscosity_coeff * reconstructed_laplace_u_2_ambient;
 
 //					double artificial_diffusion_dot_product = artificial_diffusion_force[0]*normal_direction.x + artificial_diffusion_force[1]*normal_direction.y + artificial_diffusion_force[2]*normal_direction.z;
 //					artificial_diffusion_force[0] -= artificial_diffusion_dot_product * normal_direction.x;
@@ -511,23 +507,23 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 //					}
 
 					if (k==0) {
-						b_data(row, 0) -= 1./ (swtc->getRadius()*swtc->getRadius()) * xyz.x * (reconstructed_v0*reconstructed_v0 + reconstructed_v1*reconstructed_v1 + reconstructed_v2*reconstructed_v2);
+						b_data(row, 0) -= 1./ (swtc->getRadius()*swtc->getRadius()) * xyz.x * (reconstructed_v0_ambient*reconstructed_v0_ambient + reconstructed_v1_ambient*reconstructed_v1_ambient + reconstructed_v2_ambient*reconstructed_v2_ambient);
 					} else if (k==1) {
-						b_data(row, 0) -= 1./ (swtc->getRadius()*swtc->getRadius()) * xyz.y * (reconstructed_v0*reconstructed_v0 + reconstructed_v1*reconstructed_v1 + reconstructed_v2*reconstructed_v2);
+						b_data(row, 0) -= 1./ (swtc->getRadius()*swtc->getRadius()) * xyz.y * (reconstructed_v0_ambient*reconstructed_v0_ambient + reconstructed_v1_ambient*reconstructed_v1_ambient + reconstructed_v2_ambient*reconstructed_v2_ambient);
 					} else if (k==2) {
-						b_data(row, 0) -= 1./ (swtc->getRadius()*swtc->getRadius()) * xyz.z * (reconstructed_v0*reconstructed_v0 + reconstructed_v1*reconstructed_v1 + reconstructed_v2*reconstructed_v2);
+						b_data(row, 0) -= 1./ (swtc->getRadius()*swtc->getRadius()) * xyz.z * (reconstructed_v0_ambient*reconstructed_v0_ambient + reconstructed_v1_ambient*reconstructed_v1_ambient + reconstructed_v2_ambient*reconstructed_v2_ambient);
 					}
 
 					if (k==0) {
 						b_data(row, 0) += force[0];//-coriolis_force * (normal_direction.y*reconstructed_v2 - reconstructed_v1*normal_direction.z) - _gravity*reconstructed_h_grad_0;
-						coriolis_1 += -coriolis_force * (normal_direction.y*reconstructed_v2 - reconstructed_v1*normal_direction.z);
+						coriolis_1 += -coriolis_force * (normal_direction.y*reconstructed_v2_ambient - reconstructed_v1_ambient*normal_direction.z);
 					} else if (k==1) {
 						b_data(row, 0) += force[1];//coriolis_force * (normal_direction.x*reconstructed_v2 - reconstructed_v0*normal_direction.z) - _gravity*reconstructed_h_grad_1;
-						coriolis_2 += coriolis_force * (normal_direction.x*reconstructed_v2 - reconstructed_v0*normal_direction.z);
+						coriolis_2 += coriolis_force * (normal_direction.x*reconstructed_v2_ambient - reconstructed_v0_ambient*normal_direction.z);
 
 					} else if (k==2) {
 						b_data(row, 0) += force[2];//-coriolis_force * (normal_direction.x*reconstructed_v1 - reconstructed_v0*normal_direction.y) - _gravity*reconstructed_h_grad_2;
-						coriolis_3 += -coriolis_force * (normal_direction.x*reconstructed_v1 - reconstructed_v0*normal_direction.y);
+						coriolis_3 += -coriolis_force * (normal_direction.x*reconstructed_v1_ambient - reconstructed_v0_ambient*normal_direction.y);
 					}
 
 
@@ -547,11 +543,11 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 					if (artificial_viscosity_coeff > 0) {
 						// artificial viscosity
 						if (k==0) {
-							b_data(row,0) += artificial_diffusion_force[0];
+							b_data(row,0) -= artificial_diffusion_force[0];
 						} else if (k==1) {
-							b_data(row,0) += artificial_diffusion_force[1];
+							b_data(row,0) -= artificial_diffusion_force[1];
 						} else if (k==2) {
-							b_data(row,0) += artificial_diffusion_force[2];
+							b_data(row,0) -= artificial_diffusion_force[2];
 						}
 					}
 				}
@@ -583,10 +579,12 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 			my_GMLS_staggered_div.addTargets(TargetOperation::DivergenceOfVectorPointEvaluation);
 			my_GMLS_staggered_div.generateAlphas();
 		} else {
-			my_vector_gradient_GMLS.addTargets(TargetOperation::DivergenceOfVectorPointEvaluation);
-			my_vector_gradient_GMLS.generateAlphas();
+			my_vector_GMLS.addTargets(TargetOperation::DivergenceOfVectorPointEvaluation);
+			my_vector_GMLS.generateAlphas();
 		}
 		my_scalar_GMLS.generateAlphas();
+
+        auto tangent_directions = my_scalar_GMLS.getTangentDirections();
 
 
 		host_view_type b_data = _b->getLocalView<host_view_type>();
@@ -627,27 +625,69 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 //			}
 
 //			if (bc_id(i, 0) == 0) {
+
+                // local view of tangent directions
+                Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > td
+                        (tangent_directions.data() + i*3*3, 3, 3);
+
 				local_index_type row = local_to_dof_map[i][field_one][0];
 
 				double reconstructed_h = 0;
 				double reconstructed_div_v = 0;
 
-				// Eulerian
-				double reconstructed_v0 = 0;
-				double reconstructed_v1 = 0;
-				double reconstructed_v2 = 0;
-				double reconstructed_h_grad0 = 0;
-				double reconstructed_h_grad1 = 0;
-				double reconstructed_h_grad2 = 0;
+                // Reconstruction needed for Eulerian case only
+				double reconstructed_v0_local = 0;
+				double reconstructed_v1_local = 0;
+				double reconstructed_v0_ambient = 0;
+				double reconstructed_v1_ambient = 0;
+				double reconstructed_v2_ambient = 0;
+				double reconstructed_h_grad0_local = 0;
+				double reconstructed_h_grad1_local = 0;
+				double reconstructed_h_grad0_ambient = 0;
+				double reconstructed_h_grad1_ambient = 0;
+				double reconstructed_h_grad2_ambient = 0;
 
 				const local_index_type my_index = static_cast<local_index_type>(neighbors[0].first);
 				double v_data_mine_0 = (my_index < nlocal) ? v_data(my_index, 0) : v_halo_data(my_index-nlocal, 0);
 				double v_data_mine_1 = (my_index < nlocal) ? v_data(my_index, 1) : v_halo_data(my_index-nlocal, 1);
 				double v_data_mine_2 = (my_index < nlocal) ? v_data(my_index, 2) : v_halo_data(my_index-nlocal, 2);
 
-				reconstructed_v0 = v_data_mine_0;
-				reconstructed_v1 = v_data_mine_1;
-				reconstructed_v2 = v_data_mine_2;
+				if (EULERIAN) {
+				    if (use_velocity_interpolation) {
+				    	for (local_index_type l = 0; l < num_neighbors; l++) {
+				    		const local_index_type neighbor_index = static_cast<local_index_type>(neighbors[l].first);
+				    		double v_data_0 = (neighbor_index < nlocal) ? v_data(neighbor_index, 0) : v_halo_data(neighbor_index-nlocal, 0);
+				    		double v_data_1 = (neighbor_index < nlocal) ? v_data(neighbor_index, 1) : v_halo_data(neighbor_index-nlocal, 1);
+				    		double v_data_2 = (neighbor_index < nlocal) ? v_data(neighbor_index, 2) : v_halo_data(neighbor_index-nlocal, 2);
+
+				    		double contracted_data[2] = {0,0};
+				    		for (local_index_type dim=0; dim<2; ++dim) {
+				    			contracted_data[dim] += v_data_0 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 0);
+				    			contracted_data[dim] += v_data_1 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 1);
+				    			contracted_data[dim] += v_data_2 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 2);
+				    		}
+				    		for (local_index_type dim=0; dim<2; ++dim) {
+				    			reconstructed_v0_local += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, 0, l, dim);
+				    			reconstructed_v1_local += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, 1, l, dim);
+				    		}
+				    	}
+
+                        // local view of tangent directions
+                        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > td
+                                (tangent_directions.data() + i*3*3, 3, 3);
+
+                        // convert to ambient from local
+                        reconstructed_v0_ambient = td(0,0)*reconstructed_v0_local + td(1,0)*reconstructed_v1_local;
+                        reconstructed_v1_ambient = td(0,1)*reconstructed_v0_local + td(1,1)*reconstructed_v1_local;
+                        reconstructed_v2_ambient = td(0,2)*reconstructed_v0_local + td(1,2)*reconstructed_v1_local;
+
+				    } else {
+				    	reconstructed_v0_ambient = v_data_mine_0;
+				    	reconstructed_v1_ambient = v_data_mine_1;
+				    	reconstructed_v2_ambient = v_data_mine_2;
+				    }
+                }
+
 
 				for (local_index_type l = 0; l < num_neighbors; l++) {
 					const local_index_type neighbor_index = static_cast<local_index_type>(neighbors[l].first);
@@ -673,26 +713,28 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 						reconstructed_div_v += contracted_data * my_GMLS_staggered_div.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l);
 
 					} else {
-						double contracted_data[3] = {0,0,0};
-						for (local_index_type dim=0; dim<3; ++dim) {
-							contracted_data[dim] += v_data_0 * my_vector_gradient_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 0);
-							contracted_data[dim] += v_data_1 * my_vector_gradient_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 1);
-							contracted_data[dim] += v_data_2 * my_vector_gradient_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 2);
+						double contracted_data[2] = {0,0};
+						for (local_index_type dim=0; dim<2; ++dim) {
+							contracted_data[dim] += v_data_0 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 0);
+							contracted_data[dim] += v_data_1 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 1);
+							contracted_data[dim] += v_data_2 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 2);
 						}
-						for (local_index_type dim=0; dim<3; ++dim) {
-							reconstructed_div_v += contracted_data[dim] * my_vector_gradient_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, dim);
+						for (local_index_type dim=0; dim<2; ++dim) {
+							reconstructed_div_v += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, dim);
 						}
 					}
 
 					if (EULERIAN) {
-						reconstructed_h_grad0 += h_data_0 * my_scalar_GMLS.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, l);
-						reconstructed_h_grad1 += h_data_0 * my_scalar_GMLS.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, l);
-						reconstructed_h_grad2 += h_data_0 * my_scalar_GMLS.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 2, l);
-//						reconstructed_v0 += v_data_0 * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, l); // TODO: Convert to VectorPointEvaluation
-//						reconstructed_v1 += v_data_1 * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, l); // TODO: Convert to VectorPointEvaluation
-//						reconstructed_v2 += v_data_2 * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, l); // TODO: Convert to VectorPointEvaluation
+						reconstructed_h_grad0_local += h_data_0 * my_scalar_GMLS.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, l);
+						reconstructed_h_grad1_local += h_data_0 * my_scalar_GMLS.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, l);
 					}
 				}
+
+                // convert to ambient from local
+                reconstructed_h_grad0_ambient = td(0,0)*reconstructed_h_grad0_local + td(1,0)*reconstructed_h_grad1_local;
+                reconstructed_h_grad1_ambient = td(0,1)*reconstructed_h_grad0_local + td(1,1)*reconstructed_h_grad1_local;
+                reconstructed_h_grad2_ambient = td(0,2)*reconstructed_h_grad0_local + td(1,2)*reconstructed_h_grad1_local;
+
 
 //				printf("%f %f\n", reconstructed_div_v, reconstructed_h);
 				b_data(row, 0) = - reconstructed_h * reconstructed_div_v;
@@ -703,7 +745,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 //					double transformed_h_grad1 = P[1][0]*reconstructed_h_grad0 + P[1][1]*reconstructed_h_grad1 + P[1][2]*reconstructed_h_grad2;
 //					double transformed_h_grad2 = P[2][0]*reconstructed_h_grad0 + P[2][1]*reconstructed_h_grad1 + P[2][2]*reconstructed_h_grad2;
 //					b_data(row, 0) -= (reconstructed_v0*transformed_h_grad0 + reconstructed_v1*transformed_h_grad1 + reconstructed_v2*transformed_h_grad2);
-					b_data(row, 0) -= (reconstructed_v0*reconstructed_h_grad0 + reconstructed_v1*reconstructed_h_grad1 + reconstructed_v2*reconstructed_h_grad2);
+					b_data(row, 0) -= (reconstructed_v0_ambient*reconstructed_h_grad0_ambient + reconstructed_v1_ambient*reconstructed_h_grad1_ambient + reconstructed_v2_ambient*reconstructed_h_grad2_ambient);
 				}
 //			}
 
@@ -715,6 +757,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 			my_vector_GMLS.addTargets(TargetOperation::VectorPointEvaluation);
 			my_vector_GMLS.generateAlphas();
 		}
+        auto tangent_directions = my_vector_GMLS.getTangentDirections();
 
 		host_view_type b_data = _b->getLocalView<host_view_type>();
 		host_view_type v_data = _particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst()->getLocalView<host_view_type>();
@@ -730,9 +773,11 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 			if (bc_id(i, 0) == 0) {
 
-				double reconstructed_v0 = 0;
-				double reconstructed_v1 = 0;
-				double reconstructed_v2 = 0;
+				double reconstructed_v0_local = 0;
+				double reconstructed_v1_local = 0;
+				double reconstructed_v0_ambient = 0;
+				double reconstructed_v1_ambient = 0;
+				double reconstructed_v2_ambient = 0;
 
 				if (use_velocity_interpolation) {
 					for (local_index_type l = 0; l < num_neighbors; l++) {
@@ -741,29 +786,35 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 						double v_data_1 = (neighbor_index < nlocal) ? v_data(neighbor_index, 1) : v_halo_data(neighbor_index-nlocal, 1);
 						double v_data_2 = (neighbor_index < nlocal) ? v_data(neighbor_index, 2) : v_halo_data(neighbor_index-nlocal, 2);
 
-	//					reconstructed_v0 += v_data_0 * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, l); // TODO: Convert to VectorPointEvaluation
-	//					reconstructed_v1 += v_data_1 * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, l); // TODO: Convert to VectorPointEvaluation
-	//					reconstructed_v2 += v_data_2 * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, l); // TODO: Convert to VectorPointEvaluation
-						double contracted_data[3] = {0,0,0};
-						for (local_index_type dim=0; dim<3; ++dim) {
+						double contracted_data[2] = {0,0};
+						for (local_index_type dim=0; dim<2; ++dim) {
 							contracted_data[dim] += v_data_0 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 0);
 							contracted_data[dim] += v_data_1 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 1);
 							contracted_data[dim] += v_data_2 * my_vector_GMLS.getPreStencilWeight(SamplingFunctional::ManifoldVectorPointSample, i, l, false /* for neighbor*/, dim, 2);
 						}
-						for (local_index_type dim=0; dim<3; ++dim) {
-							reconstructed_v0 += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, 0, l, dim);
-							reconstructed_v1 += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, 1, l, dim);
-							reconstructed_v2 += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, 2, l, dim);
+						for (local_index_type dim=0; dim<2; ++dim) {
+							reconstructed_v0_local += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, 0, l, dim);
+							reconstructed_v1_local += contracted_data[dim] * my_vector_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, 1, l, dim);
 						}
 					}
+
+                    // local view of tangent directions
+                    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > td
+                            (tangent_directions.data() + i*3*3, 3, 3);
+
+                    // convert to ambient from local
+                    reconstructed_v0_ambient = td(0,0)*reconstructed_v0_local + td(1,0)*reconstructed_v1_local;
+                    reconstructed_v1_ambient = td(0,1)*reconstructed_v0_local + td(1,1)*reconstructed_v1_local;
+                    reconstructed_v2_ambient = td(0,2)*reconstructed_v0_local + td(1,2)*reconstructed_v1_local;
+
 				} else {
 					const local_index_type my_index = static_cast<local_index_type>(neighbors[0].first);
 					double v_data_mine_0 = (my_index < nlocal) ? v_data(my_index, 0) : v_halo_data(my_index, 0);
 					double v_data_mine_1 = (my_index < nlocal) ? v_data(my_index, 1) : v_halo_data(my_index, 1);
 					double v_data_mine_2 = (my_index < nlocal) ? v_data(my_index, 2) : v_halo_data(my_index, 2);
-					reconstructed_v0 = v_data_mine_0;
-					reconstructed_v1 = v_data_mine_1;
-					reconstructed_v2 = v_data_mine_2;
+					reconstructed_v0_ambient = v_data_mine_0;
+					reconstructed_v1_ambient = v_data_mine_1;
+					reconstructed_v2_ambient = v_data_mine_2;
 				}
 //				const local_index_type my_index = static_cast<local_index_type>(neighbors[0].first);
 //				reconstructed_v0 = (my_index < nlocal) ? v_data(my_index, 0) : v_halo_data(my_index-nlocal, 0);
@@ -786,9 +837,9 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 
 				// remove normal contribution of forces
-				double force[3] = {reconstructed_v0,
-									reconstructed_v1,
-									reconstructed_v2};
+				double force[3] = {reconstructed_v0_ambient,
+									reconstructed_v1_ambient,
+									reconstructed_v2_ambient};
 
 //				double dot_product = force[0]*normal_direction.x + force[1]*normal_direction.y + force[2]*normal_direction.z;
 //				force[0] -= dot_product * normal_direction.x;
