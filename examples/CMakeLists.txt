@@ -1,6 +1,7 @@
 # ERROR MESSAGES IF A TEST IS NOT RUN
 SET(SOLVER_SUPPORT_ISSUE "Missing Trilinos linear solver support.")
 SET(CANGA_ENABLED_ISSUE "Canga not enabled. Use CANGA_ENABLED:BOOL=ON to enable.")
+SET(LAPACK_THREADSAFE_ISSUE "LAPACK_DECLARED_THREADSAFE=OFF. Massive performance loss due to serial LAPACK implementation provided at configure.")
 SET(OPENBLAS_NUM_THREADS "1")
 
 
@@ -46,8 +47,11 @@ if (GMLS_EXAMPLES)
 
     if(Compadre_USE_LAPACK)
       # Test if LAPACK+BLAS are compatible for use in the toolkit
-      ADD_TEST(NAME LAPACK_THREADED COMMAND ${CMAKE_CURRENT_BINARY_DIR}/LAPACK_Test "--kokkos-threads=8")
-      SET_TESTS_PROPERTIES(LAPACK_THREADED PROPERTIES LABELS "UnitTest;unit;lapack;Lapack;LAPACK;kokkos" TIMEOUT 1)
+      ADD_TEST(NAME LAPACK_THREADSAFE COMMAND ${CMAKE_CURRENT_BINARY_DIR}/LAPACK_Test "--kokkos-threads=8")
+      SET_TESTS_PROPERTIES(LAPACK_THREADSAFE PROPERTIES LABELS "UnitTest;unit;lapack;Lapack;LAPACK;kokkos" TIMEOUT 5)
+      IF (NOT (LAPACK_DECLARED_THREADSAFE))
+          SET_TESTS_PROPERTIES(LAPACK_THREADSAFE PROPERTIES REQUIRED_FILES ${LAPACK_THREADSAFE_ISSUE})
+      ENDIF()
     endif()
 
     # Host views tests for GMLS

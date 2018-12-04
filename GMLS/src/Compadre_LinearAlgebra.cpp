@@ -91,11 +91,13 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
             const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
             int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
 
+            Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
             dgels_( const_cast<char *>(transpose_or_no.c_str()), 
                     const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rows), 
                     p_offset, const_cast<int*>(&lda), 
                     rhs_offset, const_cast<int*>(&ldb), 
                     scratch_work.data(), const_cast<int*>(&lwork), &i_info);
+            });
 
             if (i_info != 0)
               printf("\n dgels failed on index %d.", i);
@@ -429,11 +431,13 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
                 const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
                 int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
 
+                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                 dgelsd_( const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rows), 
                          p_offset, const_cast<int*>(&lda), 
                          rhs_offset, const_cast<int*>(&ldb), 
                          scratch_s.data(), const_cast<double*>(&rcond), &i_rank,
                          scratch_work.data(), const_cast<int*>(&lwork), scratch_iwork.data(), &i_info);
+                });
 
                 if (i_info != 0)
                   printf("\n dgelsd failed on index %d.", i);
