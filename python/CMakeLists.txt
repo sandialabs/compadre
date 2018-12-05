@@ -63,13 +63,39 @@ elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
 
 elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
 
-  EXECUTE_PROCESS(
-  COMMAND "ldconfig" "-p"
-  COMMAND "grep" "stdc++"
-  OUTPUT_VARIABLE STDC_LIB
-  OUTPUT_STRIP_TRAILING_WHITESPACE )
-  STRING(REGEX REPLACE "(^[^\n\r]*x86-64\\) => )([^\n\r]*)(.*$)" "\\2" STDC_LIB ${STDC_LIB})
+  if (DEFINED ENV{MKL_ROOT}) 
+    SET(MKL_ROOT "$ENV{MKL_ROOT}")
+  elseif(DEFINED ENV{MKLROOT})
+    SET(MKL_ROOT "$ENV{MKLROOT}")
+  else()
+    EXECUTE_PROCESS(
+    COMMAND "which" "icc" 
+    OUTPUT_VARIABLE ICC_ROOT
+    OUTPUT_STRIP_TRAILING_WHITESPACE )
+    MESSAGE(STATUS "ICC ROOT: ${ICC_ROOT}")
+    STRING(REGEX REPLACE "(^[^\n\r]*/)(icc$)" "\\1" ICC_ROOT ${ICC_ROOT})
+    MESSAGE(STATUS "ICC ROOT: ${ICC_ROOT}")
+    SET(MKL_ROOT "${ICC_ROOT}/../../mkl/lib/intel64")
+    MESSAGE(STATUS "MKL ROOT: ${MKL_ROOT}")
+  endif()
+
+  # only needed if python needs to know mkl library locations
+  bob_input(MKL_PREFIX "${MKL_ROOT}" PATH "Path to MKL libraries")
+  if (MKL_PREFIX)
+    set(CMAKE_PREFIX_PATH ${MKL_PREFIX} ${CMAKE_PREFIX_PATH})
+    # libstdc++ will not conflict with anything in python
+    # but additional libraries (MKL) are needed
+    FIND_LIBRARY(MKL_CORE_LIB NAMES mkl_core)
+    FIND_LIBRARY(MKL_MC3_LIB NAMES mkl_mc3)
+    IF (NOT(MKL_CORE_LIB) OR NOT(MKL_MC3_LIB))
+      MESSAGE(FATAL_ERROR "Compadre_USE_PYTHON:BOOL=ON, but using an Intel compiler without a valid MKL_PREFIX given.")
+    ENDIF()
+  else()
+      MESSAGE(FATAL_ERROR "Compadre_USE_PYTHON:BOOL=ON, but using an Intel compiler without a valid MKL_PREFIX given.")
+  endif()
   
+  target_link_libraries(gmls_module PUBLIC ${MKL_CORE_LIB} ${MKL_MC3_LIB})
+
   EXECUTE_PROCESS(
   COMMAND "ldconfig" "-p"
   COMMAND "grep" "gomp"
