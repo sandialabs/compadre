@@ -68,36 +68,68 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
     Kokkos::Profiling::popRegion();
 
     std::string transpose_or_no = "N";
-    int scratch_space_size = scratch_vector_type::shmem_size( lwork );  // work space
 
-    Kokkos::parallel_for(
-        team_policy(num_matrices, Kokkos::AUTO)
-        .set_scratch_size(0, Kokkos::PerTeam(scratch_space_size)),
-        KOKKOS_LAMBDA (const member_type& teamMember) {
+    #ifdef LAPACK_DECLARED_THREADSAFE
+
+        int scratch_space_size = scratch_vector_type::shmem_size( lwork );  // work space
+
+        Kokkos::parallel_for(
+            team_policy(num_matrices, Kokkos::AUTO)
+            .set_scratch_size(0, Kokkos::PerTeam(scratch_space_size)),
+            KOKKOS_LAMBDA (const member_type& teamMember) {
 
             scratch_vector_type scratch_work(teamMember.team_scratch(0), lwork);
 
             int i_info = 0;
-    
+        
             const int i = teamMember.league_rank();
 
             double * p_offset = P + i*lda*nda;
             double * rhs_offset = RHS + i*ldb*ndb;
 
             // use a custom # of neighbors for each problem, if possible
-            const int multiplier = M/max_neighbors; // assumes M is some positive integer scalaing of max_neighbors
+            const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
+            int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
+
+            Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+            dgels_( const_cast<char *>(transpose_or_no.c_str()), 
+                    const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rows), 
+                    p_offset, const_cast<int*>(&lda), 
+                    rhs_offset, const_cast<int*>(&ldb), 
+                    scratch_work.data(), const_cast<int*>(&lwork), &i_info);
+            });
+
+            if (i_info != 0)
+              printf("\n dgels failed on index %d.", i);
+
+        }, "QR Execution");
+
+    #else
+
+        double * scratch_work = (double *)malloc(sizeof(double)*lwork);
+        for (int i=0; i<num_matrices; ++i) {
+
+            int i_info = 0;
+        
+            double * p_offset = P + i*lda*nda;
+            double * rhs_offset = RHS + i*ldb*ndb;
+
+            // use a custom # of neighbors for each problem, if possible
+            const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
             int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
 
             dgels_( const_cast<char *>(transpose_or_no.c_str()), 
                     const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rows), 
                     p_offset, const_cast<int*>(&lda), 
                     rhs_offset, const_cast<int*>(&ldb), 
-                    scratch_work.data(), const_cast<int*>(&lwork), &i_info);
+                    scratch_work, const_cast<int*>(&lwork), &i_info);
 
             if (i_info != 0)
               printf("\n dgels failed on index %d.", i);
+        }
+        free(scratch_work);
 
-    }, "QR Execution");
+    #endif // LAPACK is not threadsafe
 
 #endif
 
@@ -301,7 +333,7 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
         const int target_index = teamMember.league_rank();
 
         // use a custom # of neighbors for each problem, if possible
-        const int multiplier = M/max_neighbors; // assumes M is some positive integer scalaing of max_neighbors
+        const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
         int my_num_rows = d_neighbor_list_sizes(target_index)*multiplier;
         //int my_num_rows = d_neighbor_list_sizes(target_index)*multiplier : M;
 
@@ -371,43 +403,81 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
 
     Kokkos::Profiling::popRegion();
 
+    #ifdef LAPACK_DECLARED_THREADSAFE
     
-    int scratch_space_size = 0;
-    scratch_space_size += scratch_vector_type::shmem_size( lwork );  // work space
-    scratch_space_size += scratch_vector_type::shmem_size( std::max(M,N) );  // s
-    scratch_space_size += scratch_local_index_type::shmem_size( liwork ); // iwork space
+        int scratch_space_size = 0;
+        scratch_space_size += scratch_vector_type::shmem_size( lwork );  // work space
+        scratch_space_size += scratch_vector_type::shmem_size( std::max(M,N) );  // s
+        scratch_space_size += scratch_local_index_type::shmem_size( liwork ); // iwork space
+        
+        Kokkos::parallel_for(
+            team_policy(num_matrices, Kokkos::AUTO)
+            .set_scratch_size(0, Kokkos::PerTeam(scratch_space_size)),
+            KOKKOS_LAMBDA (const member_type& teamMember) {
+
+                scratch_vector_type scratch_work(teamMember.team_scratch(0), lwork);
+                scratch_vector_type scratch_s(teamMember.team_scratch(0), std::max(M,N) );
+                scratch_local_index_type scratch_iwork(teamMember.team_scratch(0), liwork);
+
+                int i_rank = 0;
+                int i_info = 0;
+        
+                const int i = teamMember.league_rank();
+
+                double * p_offset = P + i*lda*nda;
+                double * rhs_offset = RHS + i*ldb*ndb;
+
+                // use a custom # of neighbors for each problem, if possible
+                const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
+                int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
+
+                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                dgelsd_( const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rows), 
+                         p_offset, const_cast<int*>(&lda), 
+                         rhs_offset, const_cast<int*>(&ldb), 
+                         scratch_s.data(), const_cast<double*>(&rcond), &i_rank,
+                         scratch_work.data(), const_cast<int*>(&lwork), scratch_iwork.data(), &i_info);
+                });
+
+                if (i_info != 0)
+                  printf("\n dgelsd failed on index %d.", i);
+
+        }, "SVD Execution");
+
+    #else
     
-    Kokkos::parallel_for(
-        team_policy(num_matrices, Kokkos::AUTO)
-        .set_scratch_size(0, Kokkos::PerTeam(scratch_space_size)),
-        KOKKOS_LAMBDA (const member_type& teamMember) {
+        double * scratch_work = (double *)malloc(sizeof(double)*lwork);
+        double * scratch_s = (double *)malloc(sizeof(double)*std::max(M,N));
+        int * scratch_iwork = (int *)malloc(sizeof(int)*liwork);
+        
+        for (int i=0; i<num_matrices; ++i) {
 
-            scratch_vector_type scratch_work(teamMember.team_scratch(0), lwork);
-            scratch_vector_type scratch_s(teamMember.team_scratch(0), std::max(M,N) );
-            scratch_local_index_type scratch_iwork(teamMember.team_scratch(0), liwork);
+                int i_rank = 0;
+                int i_info = 0;
+        
+                double * p_offset = P + i*lda*nda;
+                double * rhs_offset = RHS + i*ldb*ndb;
 
-            int i_rank = 0;
-            int i_info = 0;
-    
-            const int i = teamMember.league_rank();
+                // use a custom # of neighbors for each problem, if possible
+                const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
+                int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
 
-            double * p_offset = P + i*lda*nda;
-            double * rhs_offset = RHS + i*ldb*ndb;
+                dgelsd_( const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rows), 
+                         p_offset, const_cast<int*>(&lda), 
+                         rhs_offset, const_cast<int*>(&ldb), 
+                         scratch_s, const_cast<double*>(&rcond), &i_rank,
+                         scratch_work, const_cast<int*>(&lwork), scratch_iwork, &i_info);
 
-            // use a custom # of neighbors for each problem, if possible
-            const int multiplier = M/max_neighbors; // assumes M is some positive integer scalaing of max_neighbors
-            int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
+                if (i_info != 0)
+                  printf("\n dgelsd failed on index %d.", i);
 
-            dgelsd_( const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rows), 
-                     p_offset, const_cast<int*>(&lda), 
-                     rhs_offset, const_cast<int*>(&ldb), 
-                     scratch_s.data(), const_cast<double*>(&rcond), &i_rank,
-                     scratch_work.data(), const_cast<int*>(&lwork), scratch_iwork.data(), &i_info);
+        }
 
-            if (i_info != 0)
-              printf("\n dgelsd failed on index %d.", i);
+        free(scratch_work);
+        free(scratch_s);
+        free(scratch_iwork);
 
-    }, "SVD Execution");
+    #endif // LAPACK is not threadsafe
 
 #endif
 }

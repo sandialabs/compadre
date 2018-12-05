@@ -1,4 +1,5 @@
 # ERROR MESSAGES IF A TEST IS NOT RUN
+SET(LAPACK_THREADSAFE_ISSUE "LAPACK_DECLARED_THREADSAFE=OFF. Massive performance loss due to serial LAPACK implementation provided at configure.")
 SET(OPENBLAS_NUM_THREADS "1")
 
 
@@ -25,12 +26,24 @@ endfunction(add_exe_w_compadre)
 ###############
 if (Compadre_EXAMPLES)
 
+  if(Compadre_USE_LAPACK)
+    add_exe_w_compadre(LAPACK_Test UnitTest_ThreadedLapack.cpp) 
+  endif()
   add_exe_w_compadre(GMLS_Host_Test GMLS_Host.cpp)
   add_exe_w_compadre(GMLS_Device_Test GMLS_Device.cpp)
   add_exe_w_compadre(GMLS_Manifold_Test GMLS_Manifold.cpp)
   add_exe_w_compadre(GMLS_Staggered_Manifold_Test GMLS_Staggered_Manifold.cpp)
 
   if (Compadre_TESTS)
+
+    if(Compadre_USE_LAPACK)
+      # Test if LAPACK+BLAS are compatible for use in the toolkit
+      ADD_TEST(NAME LAPACK_THREADSAFE COMMAND ${CMAKE_CURRENT_BINARY_DIR}/LAPACK_Test "--kokkos-threads=8")
+      SET_TESTS_PROPERTIES(LAPACK_THREADSAFE PROPERTIES LABELS "UnitTest;unit;lapack;Lapack;LAPACK;kokkos" TIMEOUT 5)
+      IF (NOT (LAPACK_DECLARED_THREADSAFE))
+          SET_TESTS_PROPERTIES(LAPACK_THREADSAFE PROPERTIES REQUIRED_FILES ${LAPACK_THREADSAFE_ISSUE})
+      ENDIF()
+    endif()
 
     # Host views tests for GMLS
     ADD_TEST(NAME GMLS_Host_Dim3_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "4" "200" "3" "0" "--kokkos-threads=2")

@@ -1,4 +1,4 @@
-#include <GMLS_Config.h>
+#include <Compadre_Config.h>
 #include "Compadre_LinearAlgebra_Definitions.hpp"
 
 #include <assert.h>
