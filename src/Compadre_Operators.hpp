@@ -235,6 +235,16 @@ namespace Compadre {
     //    return true;
     //}
 
+    /*
+       \page pageGMLSOperators GMLS Target Operations, Spaces, and Sampling Functionals
+       \section sectionGMLSTarget Target Operations
+
+       \section sectionGMLSSpace Reconstruction Spaces
+
+       \section sectionGMLSSampling Sampling Functionals 
+    */
+
+
 }; // Compadre
 
 #endif
