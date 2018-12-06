@@ -114,7 +114,7 @@ void velocity_sphereHarmonic54_ambient(double *velocity, double x, double y, dou
 
 /** Manifold GMLS Example 
  *
- *  Exercises remap over various orders and numbers of targets for targets including point evaluation, Laplace-Beltrami, gradient and gradient on a manifold.
+ *  Exercises GMLS operator evaluation with data over various orders and numbers of targets for targets including point evaluation, Laplace-Beltrami, gradient and gradient on a manifold.
  */
 int main (int argc, char* args[]);
 

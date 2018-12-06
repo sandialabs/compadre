@@ -148,8 +148,8 @@ class GMLS_Python(_object):
     def getAlphas0Tensor(self, target_num, pyObjectArray_neighborList):
         return _GMLS_Module.GMLS_Python_getAlphas0Tensor(self, target_num, pyObjectArray_neighborList)
 
-    def applyStencilTo0Tensor(self, *args):
-        return _GMLS_Module.GMLS_Python_applyStencilTo0Tensor(self, *args)
+    def applyStencil(self, pyObjectArray_in):
+        return _GMLS_Module.GMLS_Python_applyStencil(self, pyObjectArray_in)
 GMLS_Python_swigregister = _GMLS_Module.GMLS_Python_swigregister
 GMLS_Python_swigregister(GMLS_Python)
 
@@ -157,6 +157,10 @@ GMLS_Python_swigregister(GMLS_Python)
 def getNP(poly_order, dimensions):
     return _GMLS_Module.getNP(poly_order, dimensions)
 getNP = _GMLS_Module.getNP
+
+def getNN(poly_order, dimensions):
+    return _GMLS_Module.getNN(poly_order, dimensions)
+getNN = _GMLS_Module.getNN
 # This file is compatible with both classic and new-style classes.
 
 

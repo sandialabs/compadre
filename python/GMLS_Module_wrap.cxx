@@ -3421,9 +3421,6 @@ SWIG_AsPtr_std_string (PyObject * obj, std::string **val)
 }
 
 
-  #define SWIG_From_double   PyFloat_FromDouble 
-
-
 SWIGINTERNINLINE PyObject*
   SWIG_From_int  (int value)
 {
@@ -3807,126 +3804,28 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_GMLS_Python_applyStencilTo0Tensor__SWIG_0(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
-  PyObject *resultobj = 0;
-  GMLS_Python *arg1 = (GMLS_Python *) 0 ;
-  int arg2 ;
-  PyObject *arg3 = (PyObject *) 0 ;
-  PyObject *arg4 = (PyObject *) 0 ;
-  void *argp1 = 0 ;
-  int res1 = 0 ;
-  int val2 ;
-  int ecode2 = 0 ;
-  PyObject * obj0 = 0 ;
-  PyObject * obj1 = 0 ;
-  PyObject * obj2 = 0 ;
-  PyObject * obj3 = 0 ;
-  double result;
-  
-  if (!PyArg_ParseTuple(args,(char *)"OOOO:GMLS_Python_applyStencilTo0Tensor",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_GMLS_Python, 0 |  0 );
-  if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "GMLS_Python_applyStencilTo0Tensor" "', argument " "1"" of type '" "GMLS_Python *""'"); 
-  }
-  arg1 = reinterpret_cast< GMLS_Python * >(argp1);
-  ecode2 = SWIG_AsVal_int(obj1, &val2);
-  if (!SWIG_IsOK(ecode2)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "GMLS_Python_applyStencilTo0Tensor" "', argument " "2"" of type '" "int""'");
-  } 
-  arg2 = static_cast< int >(val2);
-  arg3 = obj2;
-  arg4 = obj3;
-  result = (double)(arg1)->applyStencilTo0Tensor(arg2,arg3,arg4);
-  resultobj = SWIG_From_double(static_cast< double >(result));
-  return resultobj;
-fail:
-  return NULL;
-}
-
-
-SWIGINTERN PyObject *_wrap_GMLS_Python_applyStencilTo0Tensor__SWIG_1(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_GMLS_Python_applyStencil(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   GMLS_Python *arg1 = (GMLS_Python *) 0 ;
   PyObject *arg2 = (PyObject *) 0 ;
-  PyObject *arg3 = (PyObject *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   PyObject * obj1 = 0 ;
-  PyObject * obj2 = 0 ;
   PyObject *result = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OOO:GMLS_Python_applyStencilTo0Tensor",&obj0,&obj1,&obj2)) SWIG_fail;
+  if (!PyArg_ParseTuple(args,(char *)"OO:GMLS_Python_applyStencil",&obj0,&obj1)) SWIG_fail;
   res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_GMLS_Python, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "GMLS_Python_applyStencilTo0Tensor" "', argument " "1"" of type '" "GMLS_Python *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "GMLS_Python_applyStencil" "', argument " "1"" of type '" "GMLS_Python *""'"); 
   }
   arg1 = reinterpret_cast< GMLS_Python * >(argp1);
   arg2 = obj1;
-  arg3 = obj2;
-  result = (PyObject *)(arg1)->applyStencilTo0Tensor(arg2,arg3);
+  result = (PyObject *)(arg1)->applyStencil(arg2);
   resultobj = result;
   return resultobj;
 fail:
   return NULL;
-}
-
-
-SWIGINTERN PyObject *_wrap_GMLS_Python_applyStencilTo0Tensor(PyObject *self, PyObject *args) {
-  Py_ssize_t argc;
-  PyObject *argv[5] = {
-    0
-  };
-  Py_ssize_t ii;
-  
-  if (!PyTuple_Check(args)) SWIG_fail;
-  argc = args ? PyObject_Length(args) : 0;
-  for (ii = 0; (ii < 4) && (ii < argc); ii++) {
-    argv[ii] = PyTuple_GET_ITEM(args,ii);
-  }
-  if (argc == 3) {
-    int _v;
-    void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_GMLS_Python, 0);
-    _v = SWIG_CheckState(res);
-    if (_v) {
-      _v = (argv[1] != 0);
-      if (_v) {
-        _v = (argv[2] != 0);
-        if (_v) {
-          return _wrap_GMLS_Python_applyStencilTo0Tensor__SWIG_1(self, args);
-        }
-      }
-    }
-  }
-  if (argc == 4) {
-    int _v;
-    void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_GMLS_Python, 0);
-    _v = SWIG_CheckState(res);
-    if (_v) {
-      {
-        int res = SWIG_AsVal_int(argv[1], NULL);
-        _v = SWIG_CheckState(res);
-      }
-      if (_v) {
-        _v = (argv[2] != 0);
-        if (_v) {
-          _v = (argv[3] != 0);
-          if (_v) {
-            return _wrap_GMLS_Python_applyStencilTo0Tensor__SWIG_0(self, args);
-          }
-        }
-      }
-    }
-  }
-  
-fail:
-  SWIG_SetErrorMsg(PyExc_NotImplementedError,"Wrong number or type of arguments for overloaded function 'GMLS_Python_applyStencilTo0Tensor'.\n"
-    "  Possible C/C++ prototypes are:\n"
-    "    GMLS_Python::applyStencilTo0Tensor(int,PyObject *,PyObject *)\n"
-    "    GMLS_Python::applyStencilTo0Tensor(PyObject *,PyObject *)\n");
-  return 0;
 }
 
 
@@ -3968,6 +3867,37 @@ fail:
 }
 
 
+SWIGINTERN PyObject *_wrap_getNN(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  int arg1 ;
+  int arg2 ;
+  int val1 ;
+  int ecode1 = 0 ;
+  int val2 ;
+  int ecode2 = 0 ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  int result;
+  
+  if (!PyArg_ParseTuple(args,(char *)"OO:getNN",&obj0,&obj1)) SWIG_fail;
+  ecode1 = SWIG_AsVal_int(obj0, &val1);
+  if (!SWIG_IsOK(ecode1)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode1), "in method '" "getNN" "', argument " "1"" of type '" "int""'");
+  } 
+  arg1 = static_cast< int >(val1);
+  ecode2 = SWIG_AsVal_int(obj1, &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "getNN" "', argument " "2"" of type '" "int""'");
+  } 
+  arg2 = static_cast< int >(val2);
+  result = (int)getNN(arg1,arg2);
+  resultobj = SWIG_From_int(static_cast< int >(result));
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
 static PyMethodDef SwigMethods[] = {
 	 { (char *)"SWIG_PyInstanceMethod_New", (PyCFunction)SWIG_PyInstanceMethod_New, METH_O, NULL},
 	 { (char *)"initializeKokkos", _wrap_initializeKokkos, METH_VARARGS, NULL},
@@ -3981,9 +3911,10 @@ static PyMethodDef SwigMethods[] = {
 	 { (char *)"GMLS_Python_setWindowSizes", _wrap_GMLS_Python_setWindowSizes, METH_VARARGS, NULL},
 	 { (char *)"GMLS_Python_generatePointEvaluationStencil", _wrap_GMLS_Python_generatePointEvaluationStencil, METH_VARARGS, NULL},
 	 { (char *)"GMLS_Python_getAlphas0Tensor", _wrap_GMLS_Python_getAlphas0Tensor, METH_VARARGS, NULL},
-	 { (char *)"GMLS_Python_applyStencilTo0Tensor", _wrap_GMLS_Python_applyStencilTo0Tensor, METH_VARARGS, NULL},
+	 { (char *)"GMLS_Python_applyStencil", _wrap_GMLS_Python_applyStencil, METH_VARARGS, NULL},
 	 { (char *)"GMLS_Python_swigregister", GMLS_Python_swigregister, METH_VARARGS, NULL},
 	 { (char *)"getNP", _wrap_getNP, METH_VARARGS, NULL},
+	 { (char *)"getNN", _wrap_getNN, METH_VARARGS, NULL},
 	 { NULL, NULL, 0, NULL }
 };
 

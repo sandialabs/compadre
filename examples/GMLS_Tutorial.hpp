@@ -200,7 +200,7 @@ double curlTestSolution(double x, double y, double z, int component, int dimensi
 
 /** Standard GMLS Example 
  *
- *  Exercises remap over various orders and numbers of targets for targets including point evaluation, Laplacian, divergence, curl, and gradient.
+ *  Exercises GMLS operator evaluation with data over various orders and numbers of targets for targets including point evaluation, Laplacian, divergence, curl, and gradient.
  */
 int main (int argc, char* args[]);
 

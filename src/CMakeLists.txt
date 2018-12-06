@@ -13,7 +13,7 @@ set(COMPADRE_HEADERS
   Compadre_Operators.hpp
   Compadre_PointCloudSearch.hpp
   Compadre_Typedefs.hpp
-  Compadre_Remap.hpp
+  Compadre_Evaluator.hpp
   USER_StandardTargetFunctionals.hpp
   USER_ManifoldTargetFunctionals.hpp
   )

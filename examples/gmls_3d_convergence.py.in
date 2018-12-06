@@ -104,7 +104,9 @@ def test1(ND):
     #print data_vector
     
     # apply stencil to sample data for all targets
-    computed_answer = gmls_obj.applyStencilTo0Tensor(neighbor_lists, data_vector)
+    #computed_answer = gmls_obj.applyStencilTo0Tensor(neighbor_lists, data_vector)
+    computed_answer = gmls_obj.applyStencil(data_vector)
+
     l2_error = 0
     for i in range(NT):
         l2_error += np.power(abs(computed_answer[i] - sinxsinysinz(target_sites[i])),2)

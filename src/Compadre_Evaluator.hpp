@@ -1,5 +1,5 @@
-#ifndef _COMPADRE_REMAP_HPP_
-#define _COMPADRE_REMAP_HPP_
+#ifndef _COMPADRE_EVALUATOR_HPP_
+#define _COMPADRE_EVALUATOR_HPP_
 
 #include "Compadre_Typedefs.hpp"
 #include "Compadre_GMLS.hpp"
@@ -49,7 +49,7 @@ struct Subview1D<T, T2, enable_if_t<(T::rank<2)> >
 
     auto get1DView(const int column_num) -> decltype(Kokkos::subview(_data_in, Kokkos::ALL)) {
         // TODO: There is a valid use case for violating this assert, so in the future we may want
-        // to add other logic to the remap function calling this so that it knows to do nothing with
+        // to add other logic to the evaluator function calling this so that it knows to do nothing with
         // this data.
         //assert((column_num==0) && "Subview asked for column column_num!=0, but _data_in is rank 1.");
         return Kokkos::subview(_data_in, Kokkos::ALL);
@@ -81,10 +81,11 @@ auto Create1DSliceOnDeviceView(T sampling_input_data_host_or_device) -> Subview1
 
 
 
-//! \brief Lightweight Remap Helper
-//! This class is a lightweight wrapper for extracting information to remap from a GMLS class
-//! and applying it to data. 
-class Remap {
+//! \brief Lightweight Evaluator Helper
+//! This class is a lightweight wrapper for extracting and applying all relevant data from a GMLS class
+//! in order to transform data into a form that can be acted on by the GMLS operator, apply the action of
+//! the GMLS operator, and then transform data again (only if on a manifold)
+class Evaluator {
 
 private:
 
@@ -93,11 +94,11 @@ private:
 
 public:
 
-    Remap(GMLS *gmls) : _gmls(gmls) {
+    Evaluator(GMLS *gmls) : _gmls(gmls) {
         Kokkos::fence();
     };
 
-    ~Remap() {};
+    ~Evaluator() {};
 
     //! Dot product of alphas with sampling data, FOR A SINGLE target_index,  where sampling data is in a 1D/2D Kokkos View
     //! 
@@ -126,7 +127,7 @@ public:
         auto sampling_subview_maker = Create1DSliceOnDeviceView(sampling_input_data);
 
         
-        // gather needed information for remap
+        // gather needed information for evaluation
         auto neighbor_lists = _gmls->getNeighborLists();
         auto alphas         = _gmls->getAlphas();
         auto neighbor_lists_lengths = _gmls->getNeighborListsLengths();
@@ -181,7 +182,7 @@ public:
 
         auto global_dimensions = _gmls->getGlobalDimensions();
 
-        // gather needed information for remap
+        // gather needed information for evaluation
         auto neighbor_lists = _gmls->getNeighborLists();
         auto alphas         = _gmls->getAlphas();
         auto tangent_directions = _gmls->getTangentDirections();
@@ -300,7 +301,7 @@ public:
         auto output_dimension_of_operator = _gmls->getOutputDimensionOfOperation(lro);
         auto input_dimension_of_operator = _gmls->getInputDimensionOfOperation(lro);
 
-        // gather needed information for remap
+        // gather needed information for evaluation
         auto neighbor_lists = _gmls->getNeighborLists();
 
         // determines the number of columns needed for output after action of the target functional
@@ -353,7 +354,7 @@ public:
         bool transform_gmls_output_to_ambient = (problem_type==MANIFOLD && TargetOutputTensorRank[(int)lro]==1);
 
 
-        // only written for up to rank 1 to rank 1 remap
+        // only written for up to rank 1 to rank 1 (in / out)
         // loop over components of output of the target operation
         for (int i=0; i<output_dimension_of_operator; ++i) {
             const int output_component_axis_1 = i;
@@ -415,7 +416,7 @@ public:
 //        // TODO fill this in
 //    }
 
-}; // Remap
+}; // Evaluator
 
 }; // Compadre
 

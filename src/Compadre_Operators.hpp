@@ -114,7 +114,7 @@ namespace Compadre {
     };
 
     //! Describes the SamplingFunction relationship to targets, neighbors
-    enum RemapTransformType {
+    enum SamplingTransformType {
         Identity,           ///< No action performed on data before GMLS target operation
         SameForAll,         ///< Each neighbor for each target all apply the same transform
         DifferentEachTarget,   ///< Each target applies a different data transform, but the same to each neighbor
