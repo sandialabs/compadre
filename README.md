@@ -96,7 +96,7 @@ The folder ./extern_example has a build directory with a my-do-configure-cpu.sh 
 This example demonstrates how one can go about linking to the installed Compadre Toolkit from another application.
 
 
-\mainpage Compadre Toolkit
+\mainpage Compadre (Compatible Particle Discretization and Remap) Toolkit
 
 \section About
 

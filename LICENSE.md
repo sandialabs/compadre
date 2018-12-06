@@ -1,3 +1,6 @@
+License {#bsdlicense}
+=============
+
 Copyright 2018 National Technology & Engineering Solutions of Sandia, LLC (NTESS).
 Under the terms of Contract DE-NA0003525, the U.S. Government retains certain rights 
 in this software.
@@ -27,7 +30,7 @@ of the authors and should not be interpreted as representing official policies,
 either expressed or implied, of NTESS or the U.S. Government.
 
 
-   Questions? Contact Paul Kuberry  (pakuber@sandia.gov)
+   Questions? Contact Paul Kuberry  (pakuber@sandia.gov),
                       Peter Bosler  (pabosle@sandia.gov), or
                       Nat Trask     (natrask@sandia.gov)
 
