@@ -1,6 +1,4 @@
 import sys 
-#lib1 = cdll.LoadLibrary('@GOMP_LIB@')
-#lib2 = cdll.LoadLibrary('@STDC_LIB@')
 
 # installation folder
 gmls_python_installation_path = "@SWIG_PREFIX@"
@@ -13,7 +11,6 @@ import numpy as np
 import math
 import random
 import scipy.spatial.kdtree as kdtree
-#import matplotlib.pyplot as plt
 
 # just for formatting
 class colors:
@@ -23,7 +20,6 @@ class colors:
 # function used to generate sample data
 def sinxsinysinz(coord):
     return math.sin(coord[0])*math.sin(coord[1])*math.sin(coord[2])
-
 
 def test1(ND):
     random.seed(1234) # for consistent results
@@ -58,7 +54,6 @@ def test1(ND):
     for i in range(NT):
         target_sites.append([random.uniform(xmin, xmax), random.uniform(ymin, ymax), random.uniform(zmin, zmax)])
     target_sites = np.array(target_sites, dtype='d')
-    #print target_sites
 
     
     # source sites
@@ -67,7 +62,6 @@ def test1(ND):
         for j in range(ND):
             for k in range(ND):
                 t_sites.append([dx[i],dy[j],dz[k]])
-    #print t_sites
     source_sites = np.array(t_sites, dtype=np.dtype('d'))
 
 
@@ -80,11 +74,8 @@ def test1(ND):
         query_result = my_kdtree.query(target_sites[target_num], k=int(neighbor_number_multiplier*GMLS_Module.getNP(polyOrder, dimensions)), eps=0)
         neighbor_lists.append([query_result[1].size,] + list(query_result[1]))
         epsilons.append(query_result[0][-1])
-        #epsilons.append(query_result[0][-1]*epsilon_multiplier)
     neighbor_lists = np.array(neighbor_lists, dtype=np.dtype(int))
     epsilons = np.array(epsilons, dtype=np.dtype('d'))
-    #print neighbor_lists
-    #print epsilons
 
     # set data in gmls object
     gmls_obj.setWindowSizes(epsilons)
@@ -92,19 +83,18 @@ def test1(ND):
     gmls_obj.setTargetSites(target_sites)
     gmls_obj.setNeighbors(neighbor_lists)
     
+
     # generate stencil
     gmls_obj.generatePointEvaluationStencil()
-   
 
+   
     # create sample data at source sites
     data_vector = [] 
     for i in range(N):
         data_vector.append(sinxsinysinz(source_sites[i]))
     data_vector = np.array(data_vector, dtype=np.dtype('d'))
-    #print data_vector
     
     # apply stencil to sample data for all targets
-    #computed_answer = gmls_obj.applyStencilTo0Tensor(neighbor_lists, data_vector)
     computed_answer = gmls_obj.applyStencil(data_vector)
 
     l2_error = 0
@@ -112,18 +102,14 @@ def test1(ND):
         l2_error += np.power(abs(computed_answer[i] - sinxsinysinz(target_sites[i])),2)
     l2_error = math.sqrt(l2_error)  
     
-    # APPLY STENCIL TO SAMPLE DATA FOR ONE TARGET
-    #np_data_sources = np.array([1.0]*N, dtype=np.dtype('d'))
-    #computed_answer = gmls_obj.applyStencilTo0Tensor(0, neighbor_lists, data_vector)
-    #print "Computed: "+str(computed_answer), "Actual:"+str(sinxsinysinz(target_sites[0]))
-    #l2_error = abs(computed_answer - sinxsinysinz(target_sites[0]))
-    #print "Error: "+str(l2_error) 
-    #print gmls_obj
     return l2_error
 
 GMLS_Module.initializeKokkos()
-# # of points in each dimension to run the test over
+
+# of points in each dimension to run the test over
 ND = [5, 10, 20, 40]
+
+# Calculate rates of convergence and print errors
 print "\n" + colors.HEADER + "(l2) Errors:" + colors.ENDC
 errors = list()
 for nd in ND:
