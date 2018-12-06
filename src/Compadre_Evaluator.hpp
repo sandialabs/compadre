@@ -15,15 +15,22 @@ struct Subview1D {
     
     T _data_in;
     T2 _data_original_view;
+    bool _scalar_as_vector_if_needed;
 
-    Subview1D(T data_in, T2 data_original_view) {
+    Subview1D(T data_in, T2 data_original_view, bool scalar_as_vector_if_needed) {
         _data_in = data_in;
         _data_original_view = data_original_view;
+        _scalar_as_vector_if_needed = scalar_as_vector_if_needed; 
     }
 
     auto get1DView(const int column_num) -> decltype(Kokkos::subview(_data_in, Kokkos::ALL, column_num)) {
-        assert((column_num<_data_in.dimension_1()) && "Subview asked for column > second dimension of input data.");
-        return Kokkos::subview(_data_in, Kokkos::ALL, column_num);
+        if (!_scalar_as_vector_if_needed) {
+            assert((column_num<_data_in.dimension_1()) && "Subview asked for column > second dimension of input data.");
+        }
+        if (column_num<_data_in.dimension_1())
+            return Kokkos::subview(_data_in, Kokkos::ALL, column_num);
+        else // scalar treated as a vector (being reused for each component of the vector input that was expected)
+            return Kokkos::subview(_data_in, Kokkos::ALL, 0);
     }
 
     T2 copyToAndReturnOriginalView() {
@@ -41,17 +48,21 @@ struct Subview1D<T, T2, enable_if_t<(T::rank<2)> >
 
     T _data_in;
     T2 _data_original_view;
+    bool _scalar_as_vector_if_needed;
 
-    Subview1D(T data_in, T2 data_original_view) {
+    Subview1D(T data_in, T2 data_original_view, bool scalar_as_vector_if_needed) {
         _data_in = data_in;
         _data_original_view = data_original_view;
+        _scalar_as_vector_if_needed = scalar_as_vector_if_needed; 
     }
 
     auto get1DView(const int column_num) -> decltype(Kokkos::subview(_data_in, Kokkos::ALL)) {
         // TODO: There is a valid use case for violating this assert, so in the future we may want
         // to add other logic to the evaluator function calling this so that it knows to do nothing with
         // this data.
-        //assert((column_num==0) && "Subview asked for column column_num!=0, but _data_in is rank 1.");
+        if (!_scalar_as_vector_if_needed) {
+            assert((column_num==0) && "Subview asked for column column_num!=0, but _data_in is rank 1.");
+        }
         return Kokkos::subview(_data_in, Kokkos::ALL);
     }
 
@@ -66,7 +77,7 @@ struct Subview1D<T, T2, enable_if_t<(T::rank<2)> >
 //! Copies data_in to the device, and then allows for access to 1D columns of data on device.
 //! Handles either 2D or 1D views as input, and they can be on the host or the device.
 template <typename T>
-auto Create1DSliceOnDeviceView(T sampling_input_data_host_or_device) -> Subview1D<decltype(Kokkos::create_mirror_view(
+auto Create1DSliceOnDeviceView(T sampling_input_data_host_or_device, bool scalar_as_vector_if_needed) -> Subview1D<decltype(Kokkos::create_mirror_view(
                     Kokkos::DefaultExecutionSpace::memory_space(), sampling_input_data_host_or_device)), T> {
 
     // makes view on the device (does nothing if already on the device)
@@ -75,7 +86,8 @@ auto Create1DSliceOnDeviceView(T sampling_input_data_host_or_device) -> Subview1
     Kokkos::deep_copy(sampling_input_data_device, sampling_input_data_host_or_device);
     Kokkos::fence();
 
-    return Subview1D<decltype(sampling_input_data_device),T>(sampling_input_data_device, sampling_input_data_host_or_device);
+    return Subview1D<decltype(sampling_input_data_device),T>(sampling_input_data_device, 
+            sampling_input_data_host_or_device, scalar_as_vector_if_needed);
 }
 
 
@@ -116,15 +128,16 @@ public:
     //! \param output_component_axis_2  [in] - Columns for a rank 2 tensor, 0 for rank less than 2 output tensor
     //! \param input_component_axis_1   [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
     //! \param input_component_axis_2   [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
+    //! \param scalar_as_vector_if_needed [in] - If a 1D view is given, where a 2D view is expected (scalar values given where a vector was expected), then the scalar will be repeated for as many components as the vector has
     template <typename view_type_data>
-    double applyAlphasToDataSingleComponentSingleTargetSite(view_type_data sampling_input_data, const int column_of_input, TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
+    double applyAlphasToDataSingleComponentSingleTargetSite(view_type_data sampling_input_data, const int column_of_input, TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, bool scalar_as_vector_if_needed = true) const {
 
         double value = 0;
 
         const int alpha_column_base_multiplier = _gmls->getAlphaColumnOffset(lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2);
 
-        auto sampling_subview_maker = Create1DSliceOnDeviceView(sampling_input_data);
+        auto sampling_subview_maker = Create1DSliceOnDeviceView(sampling_input_data, scalar_as_vector_if_needed);
 
         
         // gather needed information for evaluation
@@ -282,12 +295,13 @@ public:
     //! Kokkos View back that can be indexed into with only one ordinal.
     //! 
     //! Assumptions on input data:
-    //! \param sampling_data            [in] - 1D or 2D Kokkos View that has the layout #targets * columns of data. Memory space for data can be host or device. 
-    //! \param lro                      [in] - Target operation from the TargetOperation enum
-    //! \param sro                      [in] - Sampling functional from the SamplingFunctional enum
+    //! \param sampling_data              [in] - 1D or 2D Kokkos View that has the layout #targets * columns of data. Memory space for data can be host or device. 
+    //! \param lro                        [in] - Target operation from the TargetOperation enum
+    //! \param sro                        [in] - Sampling functional from the SamplingFunctional enum
+    //! \param scalar_as_vector_if_needed [in] - If a 1D view is given, where a 2D view is expected (scalar values given where a vector was expected), then the scalar will be repeated for as many components as the vector has
     template <typename output_data_type = double**, typename output_memory_space, typename view_type_input_data, typename output_array_layout = typename view_type_input_data::array_layout>
     Kokkos::View<output_data_type, output_array_layout, output_memory_space>  // shares layout of input by default
-            applyAlphasToDataAllComponentsAllTargetSites(view_type_input_data sampling_data, TargetOperation lro, SamplingFunctional sro = SamplingFunctional::PointSample) const {
+            applyAlphasToDataAllComponentsAllTargetSites(view_type_input_data sampling_data, TargetOperation lro, SamplingFunctional sro = SamplingFunctional::PointSample, bool scalar_as_vector_if_needed = true) const {
 
 
         // output can be device or host
@@ -326,8 +340,8 @@ public:
                 "Output view is requested as rank 1, but the target requires a rank larger than 1. Try double** as template argument.");
 
         // we need to specialize a template on the rank of the output view type and the input view type
-        auto sampling_subview_maker = Create1DSliceOnDeviceView(sampling_data);
-        auto output_subview_maker = Create1DSliceOnDeviceView(target_output);
+        auto sampling_subview_maker = Create1DSliceOnDeviceView(sampling_data, scalar_as_vector_if_needed);
+        auto output_subview_maker = Create1DSliceOnDeviceView(target_output, false); // output will always be the correct dimension
 
         // figure out preprocessing and postprocessing
         auto prestencil_weights = _gmls->getPrestencilWeights();
