@@ -60,13 +60,19 @@ void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_
 
 
 KOKKOS_INLINE_FUNCTION
-void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, scratch_matrix_type V, scratch_matrix_type PtP, const int dimensions) {
+void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, scratch_matrix_type V, scratch_matrix_type PtP, const int dimensions, pool_type& random_number_pool) {
 
 	Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+
+        double maxRange = 100;
+
+        generator_type rand_gen = random_number_pool.get_state();
 		// put in a power method here and a deflation by first found eigenvalue
 		double eigenvalue_relative_tolerance = 1e-6; // TODO: use something smaller, but really anything close is acceptable for this manifold
-		double v[3] = {1, 1, 1};
-		double v_old[3] = {1, 1, 1};
+
+        
+		double v[3] = {rand_gen.drand(maxRange), rand_gen.drand(maxRange), rand_gen.drand(maxRange)};
+		double v_old[3] = {v[0], v[1], v[2]};
 
 		double error = 1;
 		double norm_v;
@@ -133,8 +139,8 @@ void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, 
 			}
 
 			error = 1;
-			v[0] = 1; v[1] = 1; v[2] = 1;
-			v_old[0] = 1; v_old[1] = 1; v_old[2] = 1;
+			v[0] = rand_gen.drand(maxRange); v[1] = rand_gen.drand(maxRange); v[2] = rand_gen.drand(maxRange);
+			v_old[0] = v[0]; v_old[1] = v[1]; v_old[2] =v[2];
 			while (error > eigenvalue_relative_tolerance) {
 
 				double tmp1 = v[0];
@@ -175,7 +181,7 @@ void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, 
 			V(1,2) /= norm;
 
 			// orthonormalize third eigenvector against first and second
-			V(2,0) = 1.0; V(2,1) = 1.0; V(2,2) = 1.0;
+			V(2,0) = rand_gen.drand(maxRange); V(2,1)= rand_gen.drand(maxRange); V(2,2) = rand_gen.drand(maxRange);
 			dot_product = V(0,0)*V(2,0) + V(0,1)*V(2,1) + V(0,2)*V(2,2);
 			V(2,0) -= dot_product*V(0,0);
 			V(2,1) -= dot_product*V(0,1);
@@ -198,7 +204,9 @@ void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, 
 
 		}
 
+        random_number_pool.free_state(rand_gen);
 	});
+
 }
 
 }; // GMLS_LinearAlgebra

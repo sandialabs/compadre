@@ -44,7 +44,7 @@ namespace GMLS_LinearAlgebra {
         \param dimensions    [in] - dimension of PtP
     */
     KOKKOS_INLINE_FUNCTION
-    void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, scratch_matrix_type V, scratch_matrix_type PtP, const int dimensions);
+    void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, scratch_matrix_type V, scratch_matrix_type PtP, const int dimensions, pool_type& random_number_pool);
 
     /*! \brief Calls LAPACK or CUBLAS to solve a batch of QR problems
 

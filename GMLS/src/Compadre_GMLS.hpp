@@ -24,6 +24,9 @@ namespace Compadre {
 class GMLS {
 protected:
 
+    // random numbe generator pool
+    pool_type _random_number_pool;
+
     // matrices that may be needed for matrix factorization on the device
     // supports batched matrix factorization dispatch
 
@@ -535,6 +538,9 @@ public:
             const std::string dense_solver_type = std::string("QR"),
             const int manifold_curvature_poly_order = 2,
             const int dimensions = 3) : _poly_order(poly_order), _curvature_poly_order(manifold_curvature_poly_order), _dimensions(dimensions) {
+
+        // seed random number generator pool
+        _random_number_pool = pool_type(1);
 
         _NP = this->getNP(_poly_order, dimensions);
         Kokkos::fence();
