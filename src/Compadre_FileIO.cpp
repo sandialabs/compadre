@@ -25,9 +25,12 @@
 	#include <vtkPDataSetWriter.h>
 	#include <vtkXMLPPolyDataWriter.h>
 	#include <vtkXMLPPolyDataReader.h>
+	#include <vtkXMLPolyDataReader.h>
 	#include <vtkXMLPUnstructuredGridWriter.h>
 	#include <vtkXMLPUnstructuredGridReader.h>
+	#include <vtkXMLUnstructuredGridReader.h>
 	#include <vtkUnstructuredGridReader.h>
+    #include <vtkXMLGenericDataObjectReader.h>
 
 	// VTK Filters
 	#include <vtkAppendFilter.h>
@@ -1548,7 +1551,13 @@ int LegacyVTKFileIO::read(const std::string& fn) {
 		reader->Update();
 		_dataSet = vtkDataSet::SafeDownCast(reader->GetOutput());
 	} else {
-		TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Unsupported VTK data type.");
+        // could be an XML file 
+		vtkSmartPointer<vtkXMLGenericDataObjectReader> xml_general_reader =
+		    vtkSmartPointer<vtkXMLGenericDataObjectReader>::New();
+		xml_general_reader->SetFileName(fn.c_str());
+		xml_general_reader->Update();
+		
+		_dataSet = vtkDataSet::SafeDownCast(xml_general_reader->GetOutputAsDataSet());
 	}
 
 	coords_type* coords = _particles->getCoords();
