@@ -19,23 +19,15 @@ double GMLS::Wab(const double r, const double h, const WeightingFunctionType& we
 }
 
 KOKKOS_INLINE_FUNCTION
-double GMLS::factorial(const int n) const {
-
-    double f = 1.0;
-    for(int i = 1; i <= n; i++){
-        f*=i;
-    }
-    return f;
-
-}
-
-KOKKOS_INLINE_FUNCTION
 void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
  */
     const int my_num_neighbors = this->getNNeighbors(target_index);
+    
+    // store precalculated factorials for speedup
+    const double factorial[15] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
 
     int component = 0;
     if (neighbor_index >= my_num_neighbors) {
@@ -72,7 +64,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                     int s = n - alphaz;
                     for (alphay = 0; alphay <= s; alphay++){
                         alphax = s - alphay;
-                        alphaf = factorial(alphax)*factorial(alphay)*factorial(alphaz);
+                        alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
                         *(delta+i) = std::pow(relative_coord.x/cutoff_p,alphax)
                                     *std::pow(relative_coord.y/cutoff_p,alphay)
                                     *std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf;
@@ -82,14 +74,14 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
             } else if (dimension == 2) {
                 for (alphay = 0; alphay <= n; alphay++){
                     alphax = n - alphay;
-                    alphaf = factorial(alphax)*factorial(alphay);
+                    alphaf = factorial[alphax]*factorial[alphay];
                     *(delta+i) = std::pow(relative_coord.x/cutoff_p,alphax)
                                 *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf;
                     i++;
                 }
             } else { // dimension == 1
                     alphax = n;
-                    alphaf = factorial(alphax);
+                    alphaf = factorial[alphax];
                     *(delta+i) = std::pow(relative_coord.x/cutoff_p,alphax)/alphaf;
                     i++;
             }
@@ -116,7 +108,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                             int s = n - alphaz;
                             for (alphay = 0; alphay <= s; alphay++){
                                 alphax = s - alphay;
-                                alphaf = factorial(alphax)*factorial(alphay)*factorial(alphaz);
+                                alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
                                 *(delta+component*dimension_offset+i) = std::pow(relative_coord.x/cutoff_p,alphax)
                                             *std::pow(relative_coord.y/cutoff_p,alphay)
                                             *std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf;
@@ -126,14 +118,14 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                     } else if (dimension == 2) {
                         for (alphay = 0; alphay <= n; alphay++){
                             alphax = n - alphay;
-                            alphaf = factorial(alphax)*factorial(alphay);
+                            alphaf = factorial[alphax]*factorial[alphay];
                             *(delta+component*dimension_offset+i) = std::pow(relative_coord.x/cutoff_p,alphax)
                                         *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf;
                             i++;
                         }
                     } else { // dimension == 1
                             alphax = n;
-                            alphaf = factorial(alphax);
+                            alphaf = factorial[alphax];
                             *(delta+component*dimension_offset+i) = std::pow(relative_coord.x/cutoff_p,alphax)/alphaf;
                             i++;
                     }
@@ -164,7 +156,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                         int s = n - alphaz;
                         for (alphay = 0; alphay <= s; alphay++){
                             alphax = s - alphay;
-                            alphaf = factorial(alphax)*factorial(alphay)*factorial(alphaz);
+                            alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
                             *(delta+i) = -std::pow(relative_coord.x/cutoff_p,alphax)
                                         *std::pow(relative_coord.y/cutoff_p,alphay)
                                         *std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf;
@@ -174,14 +166,14 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 } else if (dimension == 2) {
                     for (alphay = 0; alphay <= n; alphay++){
                         alphax = n - alphay;
-                        alphaf = factorial(alphax)*factorial(alphay);
+                        alphaf = factorial[alphax]*factorial[alphay];
                         *(delta+i) = -std::pow(relative_coord.x/cutoff_p,alphax)
                                     *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf;
                         i++;
                     }
                 } else { // dimension == 1
                         alphax = n;
-                        alphaf = factorial(alphax);
+                        alphaf = factorial[alphax];
                         *(delta+i) = -std::pow(relative_coord.x/cutoff_p,alphax)/alphaf;
                         i++;
                 }
@@ -204,7 +196,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                         int s = n - alphaz;
                         for (alphay = 0; alphay <= s; alphay++){
                             alphax = s - alphay;
-                            alphaf = factorial(alphax)*factorial(alphay)*factorial(alphaz);
+                            alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
                             *(delta+i) += std::pow(relative_coord.x/cutoff_p,alphax)
                                         *std::pow(relative_coord.y/cutoff_p,alphay)
                                         *std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf;
@@ -214,14 +206,14 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 } else if (dimension == 2) {
                     for (alphay = 0; alphay <= n; alphay++){
                         alphax = n - alphay;
-                        alphaf = factorial(alphax)*factorial(alphay);
+                        alphaf = factorial[alphax]*factorial[alphay];
                         *(delta+i) += std::pow(relative_coord.x/cutoff_p,alphax)
                                     *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf;
                         i++;
                     }
                 } else { // dimension == 1
                         alphax = n;
-                        alphaf = factorial(alphax);
+                        alphaf = factorial[alphax];
                         *(delta+i) += std::pow(relative_coord.x/cutoff_p,alphax)/alphaf;
                         i++;
                 }
@@ -252,7 +244,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 for (int n = start_index; n <= poly_order; n++){
                     for (alphay = 0; alphay <= n; alphay++){
                         alphax = n - alphay;
-                        alphaf = factorial(alphax)*factorial(alphay);
+                        alphaf = factorial[alphax]*factorial[alphay];
 
                         // local evaluation of vector [0,p] or [p,0]
                         double v0, v1;
@@ -284,6 +276,9 @@ void GMLS::calcGradientPij(double* delta, const int target_index, const int neig
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
  */
+    // store precalculated factorials for speedup
+    const double factorial[15] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
+
     // alpha corresponds to the linear combination of target_index and neighbor_index coordinates
     // coordinate to evaluate = alpha*(target_index's coordinate) + (1-alpha)*(neighbor_index's coordinate)
 
@@ -327,7 +322,7 @@ void GMLS::calcGradientPij(double* delta, const int target_index, const int neig
                         *(delta+i) = 0;
                         i++;
                     } else {
-                        alphaf = factorial(alphax-alphax_start)*factorial(alphay-alphay_start)*factorial(alphaz-alphaz_start);
+                        alphaf = factorial[alphax-alphax_start]*factorial[alphay-alphay_start]*factorial[alphaz-alphaz_start];
                         if (ones) {
                             if (partial_direction==0) {
                                 *(delta+i) = 1./cutoff_p
@@ -365,7 +360,7 @@ void GMLS::calcGradientPij(double* delta, const int target_index, const int neig
                     *(delta+i) = 0;
                     i++;
                 } else {
-                    alphaf = factorial(alphax-alphax_start)*factorial(alphay-alphay_start);
+                    alphaf = factorial[alphax-alphax_start]*factorial[alphay-alphay_start];
                     if (ones) {
                         if (partial_direction==0) {
                             *(delta+i) = 1./cutoff_p
@@ -392,7 +387,7 @@ void GMLS::calcGradientPij(double* delta, const int target_index, const int neig
                     *(delta+i) = 0;
                     i++;
                 } else {
-                    alphaf = factorial(alphax-alphax_start);
+                    alphaf = factorial[alphax-alphax_start];
                     if (ones) {
                         if (partial_direction==0) {
                             *(delta+i) = 1./cutoff_p/alphaf;

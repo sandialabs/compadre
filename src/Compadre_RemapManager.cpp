@@ -14,7 +14,7 @@
 #endif
 
 #include <Compadre_GMLS.hpp>
-#include <Compadre_Remap.hpp>
+#include <Compadre_Evaluator.hpp>
 
 
 
@@ -273,9 +273,9 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
     
     
     
-                // create a remap class object to handle applying data transforms and GMLS operator
+                // create an Evaluator class object to handle applying data transforms and GMLS operator
                 // as well as the transformation back from local charts to ambient space (if on a manifold)
-                Remap remap_agent(_GMLS.getRawPtr());
+                Evaluator remap_agent(_GMLS.getRawPtr());
     
                 auto output_vector = remap_agent.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
                     //(source_values_holder, _queue[i]._target_operation, _queue[i]._data_sampling_functional);
@@ -349,9 +349,9 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
     
     
     
-                // create a remap class object to handle applying data transforms and GMLS operator
+                // create an Evaluator class object to handle applying data transforms and GMLS operator
                 // as well as the transformation back from local charts to ambient space (if on a manifold)
-                Remap remap_agent(_GMLS.getRawPtr());
+                Evaluator remap_agent(_GMLS.getRawPtr());
     
                 auto output_vector = remap_agent.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
                     (kokkos_source_values, _queue[i]._target_operation, _queue[i]._data_sampling_functional);

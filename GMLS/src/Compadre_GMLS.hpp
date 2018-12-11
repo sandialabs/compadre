@@ -341,10 +341,6 @@ protected:
     KOKKOS_INLINE_FUNCTION
     double Wab(const double r, const double h, const WeightingFunctionType& weighting_type, const int power) const; 
     
-    //! Standard factorial function
-    KOKKOS_INLINE_FUNCTION
-    double factorial(const int n) const;
-
     /*! \brief Fills the _P matrix with either P or P*sqrt(w)
         \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.

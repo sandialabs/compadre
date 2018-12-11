@@ -11,7 +11,7 @@ set(GMLS_HEADERS
   Compadre_Misc.hpp
   Compadre_Operators.hpp
   Compadre_PointCloudSearch.hpp
-  Compadre_Remap.hpp
+  Compadre_Evaluator.hpp
   GMLS_Typedefs.hpp
   USER_StandardTargetFunctionals.hpp
   USER_ManifoldTargetFunctionals.hpp

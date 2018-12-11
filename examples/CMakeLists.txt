@@ -90,8 +90,8 @@ if (GMLS_EXAMPLES)
 
     # WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH} )
     if (Compadre_USE_PYTHON)
-      CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/gmls_3d_convergence.py.in" "${CMAKE_CURRENT_BINARY_DIR}/gmls_3d_convergence.py" @ONLY)
-      ADD_TEST(NAME GMLS_Python_Convergence_Test_3d_Point_Reconstruction COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${PYTHON_EXECUTABLE} "${CMAKE_CURRENT_BINARY_DIR}/gmls_3d_convergence.py")
+      CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/Python_3D_Convergence.py.in" "${CMAKE_CURRENT_BINARY_DIR}/Python_3D_Convergence.py" @ONLY)
+      ADD_TEST(NAME GMLS_Python_Convergence_Test_3d_Point_Reconstruction COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${PYTHON_EXECUTABLE} "${CMAKE_CURRENT_BINARY_DIR}/Python_3D_Convergence.py")
       SET_TESTS_PROPERTIES(GMLS_Python_Convergence_Test_3d_Point_Reconstruction PROPERTIES LABELS "UnitTest;unit;python;kokkos" TIMEOUT 10)
     endif()
 
