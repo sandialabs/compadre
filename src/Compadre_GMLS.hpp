@@ -24,6 +24,9 @@ namespace Compadre {
 class GMLS {
 protected:
 
+    // random numbe generator pool
+    pool_type _random_number_pool;
+
     // matrices that may be needed for matrix factorization on the device
     // supports batched matrix factorization dispatch
 
@@ -338,10 +341,6 @@ protected:
     KOKKOS_INLINE_FUNCTION
     double Wab(const double r, const double h, const WeightingFunctionType& weighting_type, const int power) const; 
     
-    //! Standard factorial function
-    KOKKOS_INLINE_FUNCTION
-    double factorial(const int n) const;
-
     /*! \brief Fills the _P matrix with either P or P*sqrt(w)
         \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -535,6 +534,9 @@ public:
             const std::string dense_solver_type = std::string("QR"),
             const int manifold_curvature_poly_order = 2,
             const int dimensions = 3) : _poly_order(poly_order), _curvature_poly_order(manifold_curvature_poly_order), _dimensions(dimensions) {
+
+        // seed random number generator pool
+        _random_number_pool = pool_type(1);
 
         _NP = this->getNP(_poly_order, dimensions);
         Kokkos::fence();

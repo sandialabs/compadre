@@ -27,4 +27,7 @@ typedef Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanag
 typedef Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_vector_type;
 typedef Kokkos::View<int*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_local_index_type;
 
+typedef Kokkos::Random_XorShift64_Pool<> pool_type;
+typedef typename pool_type::generator_type generator_type;
+
 #endif

@@ -174,7 +174,7 @@ void GMLS::generateAlphas() {
         this->generate1DQuadrature();
 
         if (!_orthonormal_tangent_space_provided) { // user did not specify orthonormal tangent directions, so we approximate them first
-            // coarse tangent plane approximation
+            // coarse tangent plane approximation construction of P^T*P
             this->CallFunctorWithTeamThreads<ComputeCoarseTangentPlane>(threads_per_team, team_scratch_size_a, team_scratch_size_b, thread_scratch_size_a, thread_scratch_size_b);
 
             // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity for curvature
@@ -394,7 +394,10 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
     GMLS_LinearAlgebra::createM(teamMember, PTP, PsqrtW, _dimensions /* # of columns */, this->getNNeighbors(target_index));
 
     // create coarse approximation of tangent plane in first two rows of T, with normal direction in third column
-    GMLS_LinearAlgebra::largestTwoEigenvectorsThreeByThreeSymmetric(teamMember, T, PTP, _dimensions);
+    GMLS_LinearAlgebra::largestTwoEigenvectorsThreeByThreeSymmetric(teamMember, T, PTP, _dimensions, 
+            const_cast<pool_type&>(_random_number_pool));
+
+    teamMember.team_barrier();
 
 }
 
