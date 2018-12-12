@@ -1,6 +1,6 @@
 Changelog {#changelog}
 =============
-Changes in version 0.0.2 (changes from 0.0.1)
+Changes in version 1.0.0 (changes from 0.0.1)
 ================================
 - Added documentation for GMLS class.
 - Added storage of a batch of matrices in GMLS, which when combined with tags
