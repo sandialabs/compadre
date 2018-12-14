@@ -587,6 +587,7 @@ if (CompadreHarness_USE_CUDA OR CompadreHarness_USE_LAPACK)
       SOURCE_DIR "${PROJECT_SOURCE_DIR}/toolkit"
       CMAKE_ARGS ${Toolkit_ARGS}
       BUILD_ALWAYS 1
+      TEST_AFTER_INSTALL ON
       )
   #    GIT_REPOSITORY "/ascldap/users/pakuber/Desktop/ProjectStubs/Particles/barebone_toolkit"
   # UPDATE_DISCONNECTED 1 indicates that GIT_TAG is a hash and it is stable
