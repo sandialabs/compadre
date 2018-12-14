@@ -1,5 +1,5 @@
-#ifndef _COMPADRE_TYPEDEFS_HPP_
-#define _COMPADRE_TYPEDEFS_HPP_
+#ifndef _COMPADRE_HARNESS_TYPEDEFS_HPP_
+#define _COMPADRE_HARNESS_TYPEDEFS_HPP_
 
 #include <Teuchos_RCP.hpp>
 #include <Teuchos_Comm.hpp>
@@ -22,9 +22,7 @@
 #include <Zoltan2_PartitioningSolution.hpp>
 #include <Zoltan2_PartitioningProblem.hpp>
 
-#ifdef COMPADRE_USE_NANOFLANN
 #include <TPL/nanoflann/nanoflann.hpp>
-#endif
 
 //#include <MatrixMarket_Tpetra.hpp>
 

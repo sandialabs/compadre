@@ -4,10 +4,8 @@
 #include "Compadre_CoordsT.hpp"
 #include "Compadre_EuclideanCoordsT.hpp"
 #include "Compadre_SphericalCoordsT.hpp"
-#ifdef COMPADRE_USE_NANOFLANN
 #include "Compadre_nanoflannInformation.hpp"
 #include "Compadre_nanoflannPointCloudT.hpp"
-#endif
 #include "Compadre_FieldManager.hpp"
 #include "Compadre_DOFManager.hpp"
 #include "Compadre_XyzVector.hpp"
@@ -362,13 +360,9 @@ void ParticlesT::createNeighborhood() {
 
 
 	if (method=="nanoflann") {
-#ifdef COMPADRE_USE_NANOFLANN
 		local_index_type maxLeaf = _parameters->get<Teuchos::ParameterList>("neighborhood").get<int>("max leaf");
 		_neighborhoodInfo = Teuchos::rcp_static_cast<ParticlesT::neighbors_type>(Teuchos::rcp(
 				new ParticlesT::nanoflann_neighbors_type(this, _parameters, maxLeaf)));
-#else
-		TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Nanoflann selected as search method but not built against Nanoflann.");
-#endif
 	}
 	else {
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Selected a search method that is not nanoflann.");

@@ -1,7 +1,7 @@
-#ifndef _GMLS_TYPEDEFS_HPP_
-#define _GMLS_TYPEDEFS_HPP_
+#ifndef _COMPADRE_TYPEDEFS_HPP_
+#define _COMPADRE_TYPEDEFS_HPP_
 
-#include "GMLS_Config.h"
+#include "Compadre_Config.h"
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Random.hpp>

@@ -9,7 +9,7 @@
 
 #include <sys/stat.h>
 
-#ifdef COMPADRE_USE_VTK
+#ifdef COMPADREHARNESS_USE_VTK
 
 	// VTK Fundamentals
 	#include <vtkStreamingDemandDrivenPipeline.h>
@@ -44,12 +44,12 @@
 
 #endif
 
-#ifdef COMPADRE_USE_NETCDF
+#ifdef COMPADREHARNESS_USE_NETCDF
 	// NetCDF
 	#include <netcdf.h>
 #endif
 
-#ifdef COMPADRE_USE_NETCDF_MPI
+#ifdef COMPADREHARNESS_USE_NETCDF_MPI
 	#include <netcdf_par.h>
 #endif
 
@@ -86,29 +86,29 @@ void FileManager::setReader(const std::string& _fn, Teuchos::RCP<ParticlesT>& pa
 	transform(type_to_lower.begin(), type_to_lower.end(), type_to_lower.begin(), ::tolower);
 
 	if (extension == "vtk" || extension == "vtu" || extension == "vtp") {
-#ifdef COMPADRE_USE_VTK
+#ifdef COMPADREHARNESS_USE_VTK
 		_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::LegacyVTKFileIO(particles.getRawPtr()))); // data being read in is just polydata
 		_is_parallel = false;
 #else
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Not built with VTK.");
 #endif
 	} else if (extension == "pvtp") {
-#ifdef COMPADRE_USE_VTK
+#ifdef COMPADREHARNESS_USE_VTK
 		_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::XMLVTPFileIO(particles.getRawPtr())));
 		_is_parallel = true;
 #else
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Not built with VTK.");
 #endif
 	} else if (extension == "pvtu") {
-#ifdef COMPADRE_USE_VTK
+#ifdef COMPADREHARNESS_USE_VTK
 		_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::XMLVTUFileIO(particles.getRawPtr())));
 		_is_parallel = true;
 #else
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Not built with VTK.");
 #endif
 	} else if (extension == "nc") {
-#ifdef COMPADRE_USE_NETCDF
-	#ifdef COMPADRE_USE_NETCDF_MPI
+#ifdef COMPADREHARNESS_USE_NETCDF
+	#ifdef COMPADREHARNESS_USE_NETCDF_MPI
 		// TODO: be careful that Parallel reader can actually handle the .nc file. Unless written by a parallel writer, it can not.
 		if (type_to_lower.length() == 0) {
 			_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::ParallelHDF5NetCDFFileIO(particles.getRawPtr())));
@@ -142,26 +142,26 @@ void FileManager::setWriter(const std::string& _fn, Teuchos::RCP<ParticlesT>& pa
 	std::string extension = _writer_fn.substr(pos+1, _writer_fn.length() - pos);
 	transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
 	if (extension == "pvtp") {
-#ifdef COMPADRE_USE_VTK
+#ifdef COMPADREHARNESS_USE_VTK
 		_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::XMLVTPFileIO(particles.getRawPtr())));
 #else
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Not built with VTK.");
 #endif
 	} else if (extension == "pvtu") {
-#ifdef COMPADRE_USE_VTK
+#ifdef COMPADREHARNESS_USE_VTK
 		_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::XMLVTUFileIO(particles.getRawPtr())));
 #else
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Not built with VTK.");
 #endif
 	} else if (extension == "pvtk") {
-#ifdef COMPADRE_USE_VTK
+#ifdef COMPADREHARNESS_USE_VTK
 		_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::LegacyVTKFileIO(particles.getRawPtr())));
 #else
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Not built with VTK.");
 #endif
 	} else if (extension == "nc") {
-#ifdef COMPADRE_USE_NETCDF
-	#ifdef COMPADRE_USE_NETCDF_MPI
+#ifdef COMPADREHARNESS_USE_NETCDF
+	#ifdef COMPADREHARNESS_USE_NETCDF_MPI
 			_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::ParallelHDF5NetCDFFileIO(particles.getRawPtr())));
 	#else
 			_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::SerialNetCDFFileIO(particles.getRawPtr())));
@@ -207,7 +207,7 @@ void FileManager::generateWriteMesh() {
 	}
 }
 
-#ifdef COMPADRE_USE_VTK
+#ifdef COMPADREHARNESS_USE_VTK
 
 void VTKData::generateDataSet(bool include_halo, bool for_writing_output, bool use_physical_coords) {
 
@@ -478,9 +478,9 @@ void VTKFileIO::populateParticles() {
 	}
 }
 
-#endif // COMPADRE_USE_VTK
+#endif // COMPADREHARNESS_USE_VTK
 
-#ifdef COMPADRE_USE_NETCDF
+#ifdef COMPADREHARNESS_USE_NETCDF
 
 int SerialNetCDFFileIO::read(const std::string& fn) {
 	// TODO: write this to only read in data needed, rather than all and then use what is needed
@@ -1000,7 +1000,7 @@ int SerialHOMMEFileIO::read(const std::string& fn) {
 	return 1;
 }
 
-#ifdef COMPADRE_USE_NETCDF_MPI
+#ifdef COMPADREHARNESS_USE_NETCDF_MPI
 
 int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 	#define NC_INDEPENDENT 0
@@ -1521,10 +1521,10 @@ int ParallelHOMMEFileIO::read(const std::string& fn) {
 
 
 
-#endif // COMPADRE_USE_NETCDF_MPI
-#endif // COMPADRE_USE_NETCDF
+#endif // COMPADREHARNESS_USE_NETCDF_MPI
+#endif // COMPADREHARNESS_USE_NETCDF
 
-#ifdef COMPADRE_USE_VTK
+#ifdef COMPADREHARNESS_USE_VTK
 
 int LegacyVTKFileIO::read(const std::string& fn) {
 
@@ -1753,9 +1753,9 @@ int XMLVTPFileIO::read(const std::string& fn) {
 	return 1;
 }
 
-#endif // COMPADRE_USE_VTK
+#endif // COMPADREHARNESS_USE_VTK
 
-#ifdef COMPADRE_USE_NETCDF
+#ifdef COMPADREHARNESS_USE_NETCDF
 
 void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	//http://www.unidata.ucar.edu/software/netcdf/docs/data_type.html
@@ -1885,7 +1885,7 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "File not closed successfully.");
 }
 
-#ifdef COMPADRE_USE_NETCDF_MPI
+#ifdef COMPADREHARNESS_USE_NETCDF_MPI
 
 void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	#define NC_INDEPENDENT 0
@@ -2052,10 +2052,10 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "File not closed successfully.");
 }
 
-#endif // COMPADRE_USE_NETCDF
-#endif // COMPADRE_USE_NETCDF_MPI
+#endif // COMPADREHARNESS_USE_NETCDF
+#endif // COMPADREHARNESS_USE_NETCDF_MPI
 
-#ifdef COMPADRE_USE_VTK
+#ifdef COMPADREHARNESS_USE_VTK
 
 void LegacyVTKFileIO::write(const std::string& fn, bool use_binary) {
 	local_index_type comm_size = _particles->getCoordsConst()->getComm()->getSize();
@@ -2387,6 +2387,6 @@ void VTKFileIO::writeMesh(const std::string& fn) {
 	controller->Finalize(1);
 }
 
-#endif // COMPADRE_USE_VTK
+#endif // COMPADREHARNESS_USE_VTK
 
 }

@@ -2,7 +2,7 @@
 #define _COMPADRE_SIMPLE_MPI_
 
 // Replicated data algorithm
-#include "Compadre_Typedefs.hpp"
+#include "CompadreHarness_Typedefs.hpp"
 #include <mpi.h>
 
 namespace Compadre {

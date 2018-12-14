@@ -28,7 +28,7 @@ SET_TARGET_PROPERTIES( gmls_module
 
 # find all target dependencies
 
-target_link_libraries(gmls_module PUBLIC gmls)
+target_link_libraries(gmls_module PUBLIC compadre)
 if (APPLE)
   target_link_libraries(gmls_module PUBLIC ${PYTHON_LIBRARIES})
 endif()

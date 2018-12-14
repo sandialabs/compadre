@@ -1,8 +1,8 @@
 #ifndef _COMPADRE_PROBLEM_HPP_
 #define _COMPADRE_PROBLEM_HPP_
 
-#include "Compadre_Config.h"
-#include "Compadre_Typedefs.hpp"
+#include "CompadreHarness_Config.h"
+#include "CompadreHarness_Typedefs.hpp"
 
 
 

@@ -6,8 +6,6 @@
 #include "Compadre_EuclideanCoordsT.hpp"
 #include "Compadre_SphericalCoordsT.hpp"
 #include "Compadre_AnalyticFunctions.hpp"
-
-#ifdef COMPADRE_USE_NANOFLANN
 #include <TPL/nanoflann/nanoflann.hpp>
 #include "Compadre_nanoflannPointCloudT.hpp"
 
@@ -176,9 +174,3 @@ int main(int argc, char* args[]) {
 	Kokkos::finalize();
 return 0;
 }
-#else
-int main(int argc, char* args[]) {
-	std::cout << "\n\n\n\n\n\n\n\n\n\n\n\n*********** This test requires Nanoflann. However, this project was built without Nanoflann. ***********\n\n\n\n\n\n\n\n\n\n\n\n" << std::endl;
-	return -1;
-}
-#endif

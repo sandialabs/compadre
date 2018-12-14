@@ -1,7 +1,7 @@
 #ifndef _COMPADRE_EVALUATOR_HPP_
 #define _COMPADRE_EVALUATOR_HPP_
 
-#include "GMLS_Typedefs.hpp"
+#include "Compadre_Typedefs.hpp"
 #include "Compadre_GMLS.hpp"
 
 template< bool B, class T = void >

@@ -1,8 +1,8 @@
 #ifndef _COMPADRE_GMLS_HPP_
 #define _COMPADRE_GMLS_HPP_
 
-#include "GMLS_Config.h"
-#include "GMLS_Typedefs.hpp"
+#include "Compadre_Config.h"
+#include "Compadre_Typedefs.hpp"
 
 #include "Compadre_Misc.hpp"
 #include "Compadre_Operators.hpp"

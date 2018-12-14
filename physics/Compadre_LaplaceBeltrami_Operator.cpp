@@ -10,7 +10,7 @@
 
 #include <Compadre_GMLS.hpp>
 
-#ifdef COMPADRE_USE_OPENMP
+#ifdef COMPADREHARNESS_USE_OPENMP
 #include <omp.h>
 #endif
 

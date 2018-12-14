@@ -8,10 +8,8 @@
 
 #include "Compadre_OBFET.hpp"
 
-#ifdef COMPADRE_USE_NANOFLANN
 #include "Compadre_nanoflannInformation.hpp"
 #include "Compadre_nanoflannPointCloudT.hpp"
-#endif
 
 #include <Compadre_GMLS.hpp>
 #include <Compadre_Evaluator.hpp>
@@ -37,13 +35,9 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
     
     
         if (method=="nanoflann") {
-#ifdef COMPADRE_USE_NANOFLANN
             local_index_type maxLeaf = _parameters->get<Teuchos::ParameterList>("neighborhood").get<int>("max leaf");
             _neighborhoodInfo = Teuchos::rcp_static_cast<neighbors_type>(Teuchos::rcp(
                     new nanoflann_neighbors_type(_src_particles, _parameters, maxLeaf, _trg_particles, use_physical_coords)));
-#else
-            TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Nanoflann selected as search method but not built against Nanoflann.");
-#endif
         }
         else {
             TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Selected a search method that is not nanoflann.");

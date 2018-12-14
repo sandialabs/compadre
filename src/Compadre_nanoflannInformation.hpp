@@ -2,9 +2,7 @@
 #define _COMPADRE_NANOFLANNINFORMATION_HPP_
 
 #include "Compadre_NeighborhoodT.hpp"
-#ifdef COMPADRE_USE_NANOFLANN
-	#include "TPL/nanoflann/nanoflann.hpp"
-#endif
+#include "TPL/nanoflann/nanoflann.hpp"
 
 namespace Compadre {
 
@@ -16,7 +14,6 @@ class LocalPointCloudT;
  * Derived class of NeighborhoodT specialized for using Nanoflann to perform KdTree search.
 */
 
-#ifdef COMPADRE_USE_NANOFLANN
 class NanoFlannInformation : public NeighborhoodT {
 
 	protected:
@@ -43,7 +40,6 @@ class NanoFlannInformation : public NeighborhoodT {
 
 
 };
-#endif
 
 
 }

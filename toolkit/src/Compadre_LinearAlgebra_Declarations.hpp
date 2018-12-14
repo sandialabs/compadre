@@ -1,8 +1,8 @@
 #ifndef _COMPADRE_LINEAR_ALGEBRA_DECLARATIONS_HPP_
 #define _COMPADRE_LINEAR_ALGEBRA_DECLARATIONS_HPP_
 
-#include "GMLS_Config.h"
-#include "GMLS_Typedefs.hpp"
+#include "Compadre_Config.h"
+#include "Compadre_Typedefs.hpp"
 
 #ifdef COMPADRE_USE_CUDA
   #include <cuda_runtime.h>

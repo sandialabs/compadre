@@ -1,10 +1,10 @@
 #ifndef _COMPADRE_FILEIO_
 #define _COMPADRE_FILEIO_
 
-#include "Compadre_Config.h"
-#include "Compadre_Typedefs.hpp"
+#include "CompadreHarness_Config.h"
+#include "CompadreHarness_Typedefs.hpp"
 
-#ifdef COMPADRE_USE_VTK
+#ifdef COMPADREHARNESS_USE_VTK
 	#include <vtkSmartPointer.h>
 #endif
 
@@ -51,7 +51,7 @@ class FileIO {
 
 };
 
-#ifdef COMPADRE_USE_NETCDF
+#ifdef COMPADREHARNESS_USE_NETCDF
 
 class NetCDFFileIO : public FileIO {
 	/*
@@ -119,7 +119,7 @@ class SerialHOMMEFileIO : public SerialNetCDFFileIO {
 
 };
 
-#ifdef COMPADRE_USE_NETCDF_MPI
+#ifdef COMPADREHARNESS_USE_NETCDF_MPI
 
 class ParallelHDF5NetCDFFileIO : public NetCDFFileIO {
 	/*
@@ -188,10 +188,10 @@ class ParallelMPASFileIO : public NetCDFFileIO {
 
 };
 
-#endif // COMPADRE_USE_NETCDF_MPI
-#endif // COMPADRE_USE_NETCDF
+#endif // COMPADREHARNESS_USE_NETCDF_MPI
+#endif // COMPADREHARNESS_USE_NETCDF
 
-#ifdef COMPADRE_USE_VTK
+#ifdef COMPADREHARNESS_USE_VTK
 
 class VTKFileIO : public FileIO {
 	/*
@@ -274,7 +274,7 @@ class XMLVTPFileIO : public VTKFileIO {
 
 };
 
-#endif // COMPADRE_USE_VTK
+#endif // COMPADREHARNESS_USE_VTK
 
 class FileManager {
 
@@ -306,7 +306,7 @@ class FileManager {
 		void generateWriteMesh();
 };
 
-#ifdef COMPADRE_USE_VTK
+#ifdef COMPADREHARNESS_USE_VTK
 
 class VTKData {
 	/*
@@ -339,7 +339,7 @@ class VTKData {
 		void generateCombinedDataSet();
 };
 
-#endif // COMPADRE_USE_VTK
+#endif // COMPADREHARNESS_USE_VTK
 }
 
 #endif

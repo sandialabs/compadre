@@ -2,7 +2,7 @@
 # everything requires Tpetra, Zoltan2, TeuchosComm, and TeuchosParameterList
 # ProblemT requires linear solvers, i.e. SolverT.cpp
 # SolveT requires 
-set(Compadre_SOURCES
+set(CompadreHarness_SOURCES
   Compadre_AnalyticFunctions.cpp     
   Compadre_BoundaryConditionsT.cpp   
   Compadre_CoordsT.cpp               
@@ -30,36 +30,42 @@ set(Compadre_SOURCES
   Compadre_XyzVector.cpp
   )
 
-add_library(compadre ${Compadre_SOURCES})
-bob_library_includes(compadre)
+add_library(compadreharness ${CompadreHarness_SOURCES})
+bob_library_includes(compadreharness)
 
 
-if (Compadre_USE_Trilinos)
-  bob_link_dependency(compadre PUBLIC Trilinos)
+if (CompadreHarness_USE_Trilinos)
+  bob_link_dependency(compadreharness PUBLIC Trilinos)
 endif()
 
-if (Compadre_USE_VTK)
-  bob_link_dependency(compadre PUBLIC VTK)
+if (CompadreHarness_USE_VTK)
+  bob_link_dependency(compadreharness PUBLIC VTK)
 endif()
 
-if(Compadre_USE_Netcdf)
-  target_include_directories(compadre PUBLIC "${Netcdf_INCLUDE_DIR}")
-  target_link_libraries(compadre PUBLIC "${Netcdf_LIBRARIES}")
+if(CompadreHarness_USE_Netcdf)
+  target_include_directories(compadreharness PUBLIC "${Netcdf_INCLUDE_DIR}")
+  target_link_libraries(compadreharness PUBLIC "${Netcdf_LIBRARIES}")
 endif()
-if(Compadre_USE_Netcdf_MPI)
-  target_include_directories(compadre PUBLIC "${Netcdf_MPI_INCLUDE_DIR}")
+if(CompadreHarness_USE_Netcdf_MPI)
+  target_include_directories(compadreharness PUBLIC "${Netcdf_MPI_INCLUDE_DIR}")
 endif()
 
+add_dependencies(compadreharness Toolkit) # compadreharness relies on Toolkit
+#find_library(Toolkit_LIBRARY compadre HINTS "${Toolkit_PREFIX}/lib" NO_DEFAULT_PATH)
+#target_link_libraries(compadreharness PUBLIC "${Toolkit_LIBRARY}")
+target_link_libraries(compadreharness PUBLIC "${Toolkit_PREFIX}/lib/libcompadre${CMAKE_SHARED_LIBRARY_SUFFIX}")
+#target_include_directories(compadreharness PUBLIC "Toolkit-install")
+target_include_directories(compadreharness PUBLIC  
+  $<BUILD_INTERFACE:${Toolkit_PREFIX}/include>  
+  $<INSTALL_INTERFACE:include> 
+)
+
+bob_export_target(compadreharness)
 
 
-target_link_libraries(compadre PUBLIC gmls)
-
-bob_export_target(compadre)
-
-
-bob_config_header("${CMAKE_CURRENT_BINARY_DIR}/Compadre_Config.h")
-set(Compadre_HEADERS
-  "${CMAKE_CURRENT_BINARY_DIR}/Compadre_Config.h"
+bob_config_header("${CMAKE_CURRENT_BINARY_DIR}/CompadreHarness_Config.h")
+set(CompadreHarness_HEADERS
+  "${CMAKE_CURRENT_BINARY_DIR}/CompadreHarness_Config.h"
   Compadre_AnalyticFunctions.hpp     
   Compadre_BoundaryConditionsT.hpp   
   Compadre_CoordsT.hpp               
@@ -89,22 +95,22 @@ set(Compadre_HEADERS
   Compadre_SolverT.hpp
   Compadre_SourcesT.hpp
   Compadre_SphericalCoordsT.hpp
-  Compadre_Typedefs.hpp
+  CompadreHarness_Typedefs.hpp
   Compadre_XyzVector.hpp
   )
 
-set(Compadre_TPL_Cobra
+set(CompadreHarness_TPL_Cobra
   TPL/Cobra_SLBQP.hpp
   )
   
 
-set(Compadre_TPL_Nanoflann
+set(CompadreHarness_TPL_Nanoflann
   TPL/nanoflann/nanoflann.hpp
   )
 
-install(FILES ${Compadre_HEADERS} DESTINATION include)
-install(FILES ${Compadre_TPL_Cobra} DESTINATION include/TPL)
-install(FILES ${Compadre_TPL_Nanoflann} DESTINATION include/TPL/nanoflann)
+install(FILES ${CompadreHarness_HEADERS} DESTINATION include)
+install(FILES ${CompadreHarness_TPL_Cobra} DESTINATION include/TPL)
+install(FILES ${CompadreHarness_TPL_Nanoflann} DESTINATION include/TPL/nanoflann)
 
 bob_end_subdir()
 

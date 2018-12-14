@@ -4,7 +4,7 @@
 #include "Compadre_CoordsT.hpp"
 #include "Compadre_ParticlesT.hpp"
 
-#ifdef COMPADRE_USE_OPENMP
+#ifdef COMPADREHARNESS_USE_OPENMP
 #include <omp.h>
 #endif
 

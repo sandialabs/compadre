@@ -1,9 +1,5 @@
 # ERROR MESSAGES IF A TEST IS NOT RUN
 SET(SOLVER_SUPPORT_ISSUE "Missing Trilinos linear solver support.")
-SET(CANGA_ENABLED_ISSUE "Canga not enabled. Use CANGA_ENABLED:BOOL=ON to enable.")
-SET(LAPACK_THREADSAFE_ISSUE "LAPACK_DECLARED_THREADSAFE=OFF. Massive performance loss due to serial LAPACK implementation provided at configure.")
-SET(OPENBLAS_NUM_THREADS "1")
-
 
 ###############
 #
@@ -13,106 +9,28 @@ SET(OPENBLAS_NUM_THREADS "1")
 #
 ###############
 
-function(add_exe_w_gmls EXE_NAME CPP_NAME)
-  add_executable(${EXE_NAME} ${CPP_NAME})
-  target_link_libraries(${EXE_NAME} PRIVATE gmls)
-  bob_export_target(${EXE_NAME})
-endfunction(add_exe_w_gmls)
-
 function(add_exe_w_compadre EXE_NAME CPP_NAME)
   add_executable(${EXE_NAME} ${CPP_NAME})
-  target_link_libraries(${EXE_NAME} PRIVATE physics compadre)
+  target_link_libraries(${EXE_NAME} PRIVATE physics compadreharness)
   bob_export_target(${EXE_NAME})
 endfunction(add_exe_w_compadre)
 
 
-###############
-#
-#
-# GMLS Examples / Tests
-#
-#
-###############
-if (GMLS_EXAMPLES)
-
-  if(Compadre_USE_LAPACK)
-    add_exe_w_gmls(LAPACK_Test UnitTest_ThreadedLapack.cpp) 
-  endif()
-  add_exe_w_gmls(GMLS_Host_Test GMLS_Host.cpp)
-  add_exe_w_gmls(GMLS_Device_Test GMLS_Device.cpp)
-  add_exe_w_gmls(GMLS_Manifold_Test GMLS_Manifold.cpp)
-  add_exe_w_gmls(GMLS_Staggered_Manifold_Test GMLS_Staggered_Manifold.cpp)
-
-  if (GMLS_TESTS)
-
-    if(Compadre_USE_LAPACK)
-      # Test if LAPACK+BLAS are compatible for use in the toolkit
-      ADD_TEST(NAME LAPACK_THREADSAFE COMMAND ${CMAKE_CURRENT_BINARY_DIR}/LAPACK_Test "--kokkos-threads=8")
-      SET_TESTS_PROPERTIES(LAPACK_THREADSAFE PROPERTIES LABELS "UnitTest;unit;lapack;Lapack;LAPACK;kokkos" TIMEOUT 5)
-      IF (NOT (LAPACK_DECLARED_THREADSAFE))
-          SET_TESTS_PROPERTIES(LAPACK_THREADSAFE PROPERTIES REQUIRED_FILES ${LAPACK_THREADSAFE_ISSUE})
-      ENDIF()
-    endif()
-
-    # Host views tests for GMLS
-    ADD_TEST(NAME GMLS_Host_Dim3_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "4" "200" "3" "0" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_Host_Dim3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
-    
-    ADD_TEST(NAME GMLS_Host_Dim2_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "4" "200" "2" "0" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_Host_Dim2_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
-    
-    ADD_TEST(NAME GMLS_Host_Dim1_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "4" "200" "1" "0" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_Host_Dim1_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
-
-    # Device views tests for GMLS
-    ADD_TEST(NAME GMLS_Device_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "4" "200" "3" "1" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_Device_Dim3_QR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
-    
-    ADD_TEST(NAME GMLS_Device_Dim2_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "4" "200" "2" "1" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_Device_Dim2_QR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
-    
-    ADD_TEST(NAME GMLS_Device_Dim1_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "4" "200" "1" "1" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_Device_Dim1_QR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
-
-    #    # Manifold tests for GMLS
-    #    ADD_TEST(NAME GMLS_Manifold_Dim3 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Test "4" "200" "3" "1" "--kokkos-threads=2")
-    #    SET_TESTS_PROPERTIES(GMLS_Manifold_Dim3 PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
-
-    # Python driven test of a C++ executable (Python changes command line arguments given to executable)
-    CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Manifold.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" @ONLY)
-    ADD_TEST(NAME GMLS_Manifold_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" "3" "4")
-    SET_TESTS_PROPERTIES(GMLS_Manifold_Refinement_Study PROPERTIES LABELS "ConvergenceTest;convergence;manifold" TIMEOUT 15)
-
-    # Python driven test of a C++ executable (Python changes command line arguments given to executable)
-    CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Staggered_Manifold.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py" @ONLY)
-    ADD_TEST(NAME GMLS_Staggered_Manifold_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py" "3" "4")
-    SET_TESTS_PROPERTIES(GMLS_Staggered_Manifold_Refinement_Study PROPERTIES LABELS "ConvergenceTest;convergence;manifold;staggered" TIMEOUT 15)
-
-    # WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH} )
-    if (Compadre_USE_PYTHON)
-      CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/Python_3D_Convergence.py.in" "${CMAKE_CURRENT_BINARY_DIR}/Python_3D_Convergence.py" @ONLY)
-      ADD_TEST(NAME GMLS_Python_Convergence_Test_3d_Point_Reconstruction COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${PYTHON_EXECUTABLE} "${CMAKE_CURRENT_BINARY_DIR}/Python_3D_Convergence.py")
-      SET_TESTS_PROPERTIES(GMLS_Python_Convergence_Test_3d_Point_Reconstruction PROPERTIES LABELS "UnitTest;unit;python;kokkos" TIMEOUT 10)
-    endif()
-
-  endif (GMLS_TESTS)
-endif (GMLS_EXAMPLES)
-
 
 ###############
 #
 #
-# Compadre Examples / Tests
+# CompadreHarness Examples / Tests
 #
 #
 ###############
 
 
-if (Compadre_TESTS)
+if (CompadreHarness_TESTS)
   file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/../test_data" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/..")
 endif()
 
-if (Compadre_EXAMPLES AND Compadre_USE_Trilinos)
+if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
   add_exe_w_compadre(CompadreGMLSTest Compadre_GMLSTest.cpp)
   add_exe_w_compadre(tpetraCoordsTest.exe Compadre_TrilinosTest.cpp)
   add_exe_w_compadre(spherePoisson.exe Compadre_SpherePoissonTest.cpp)
@@ -125,14 +43,14 @@ if (Compadre_EXAMPLES AND Compadre_USE_Trilinos)
   add_exe_w_compadre(lagrangianTest.exe Compadre_LagrangianTest.cpp)
   add_exe_w_compadre(remoteRemapTest.exe Compadre_RemoteRemapTest.cpp)
   add_exe_w_compadre(laplaceBeltrami.exe Compadre_LaplaceBeltrami.cpp)
-  IF(Compadre_CANGA_ENABLED)
+  IF(CompadreHarness_CANGA_ENABLED)
     add_exe_w_compadre(cangaRemoteRemap.exe Canga_RemoteRemap.cpp)
     add_exe_w_compadre(cangaIntercomparison.exe Canga_Intercomparison.cpp)
   ENDIF()
   add_exe_w_compadre(lagrangianShallowWater.exe Compadre_LagrangianShallowWater.cpp)
   add_exe_w_compadre(RT0Remap.exe Compadre_RT0_Remap.cpp)
   
-  if (Compadre_TESTS)
+  if (CompadreHarness_TESTS)
 
     # GMLS LAPLACIAN
 
@@ -281,18 +199,20 @@ if (Compadre_EXAMPLES AND Compadre_USE_Trilinos)
     
     # CANGA TESTS
     
-    ADD_TEST(NAME CangaRemoteRemap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/cangaRemoteRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_lower.xml" "--kokkos-threads=1" ":" "-np" 5 ${CMAKE_CURRENT_BINARY_DIR}/cangaRemoteRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_upper.xml" "--kokkos-threads=1")
-    SET_TESTS_PROPERTIES(CangaRemoteRemap PROPERTIES LABELS "Canga;canga;remote")
-    
-    ADD_TEST(NAME CangaConvergenceTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/sphere_convergence.py" "2" "2" "0") # 2nd polynomial order, 2 successive meshes, 0 for no obfet
-    SET_TESTS_PROPERTIES(CangaConvergenceTest PROPERTIES LABELS "manifold;interpolation;canga")
-    
-    # This test uses OBFET, so it is limited to 2nd order asymptotically
-    ADD_TEST(NAME CangaConvergenceTestWObfet COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/sphere_convergence.py" "2" "2" "1") # 2nd polynomial order, 2 successive meshes, 1 for obfet
-    SET_TESTS_PROPERTIES(CangaConvergenceTestWObfet PROPERTIES LABELS "manifold;interpolation;canga;obfet")
+    IF (CompadreHarness_CANGA_ENABLED)
+        ADD_TEST(NAME CangaRemoteRemap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/cangaRemoteRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_lower.xml" "--kokkos-threads=1" ":" "-np" 5 ${CMAKE_CURRENT_BINARY_DIR}/cangaRemoteRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_upper.xml" "--kokkos-threads=1")
+        SET_TESTS_PROPERTIES(CangaRemoteRemap PROPERTIES LABELS "Canga;canga;remote")
+        
+        ADD_TEST(NAME CangaConvergenceTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/sphere_convergence.py" "2" "2" "0") # 2nd polynomial order, 2 successive meshes, 0 for no obfet
+        SET_TESTS_PROPERTIES(CangaConvergenceTest PROPERTIES LABELS "manifold;interpolation;canga")
+        
+        # This test uses OBFET, so it is limited to 2nd order asymptotically
+        ADD_TEST(NAME CangaConvergenceTestWObfet COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/sphere_convergence.py" "2" "2" "1") # 2nd polynomial order, 2 successive meshes, 1 for obfet
+        SET_TESTS_PROPERTIES(CangaConvergenceTestWObfet PROPERTIES LABELS "manifold;interpolation;canga;obfet")
 
-    ADD_TEST(NAME CangaIntercomparison COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/cangaIntercomparison.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_lower_compare.xml" "--kokkos-threads=1" ":" "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/cangaIntercomparison.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_upper_compare.xml" "--kokkos-threads=1")
-    SET_TESTS_PROPERTIES(CangaIntercomparison PROPERTIES LABELS "Canga;canga;comparison;compare")
+        ADD_TEST(NAME CangaIntercomparison COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/cangaIntercomparison.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_lower_compare.xml" "--kokkos-threads=1" ":" "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/cangaIntercomparison.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_upper_compare.xml" "--kokkos-threads=1")
+        SET_TESTS_PROPERTIES(CangaIntercomparison PROPERTIES LABELS "Canga;canga;comparison;compare")
+    ENDIF()
     
     
     ## SHALLOW WATER TESTS
@@ -309,11 +229,6 @@ if (Compadre_EXAMPLES AND Compadre_USE_Trilinos)
     #SET_TESTS_PROPERTIES(RT0Remap PROPERTIES LABELS "rt0")
 
     # SET FLAGS FOR TESTS NOT RUN
-
-    IF (NOT (Compadre_CANGA_ENABLED))
-      SET_TESTS_PROPERTIES(CangaRemoteRemap PROPERTIES REQUIRED_FILES ${CANGA_ENABLED_ISSUE})
-      SET_TESTS_PROPERTIES(CangaConvergenceTest PROPERTIES REQUIRED_FILES ${CANGA_ENABLED_ISSUE})
-    ENDIF()
     
     IF (NOT (TRILINOS_LINEAR_SOLVES))
       SET_TESTS_PROPERTIES(TrilinosTest PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})

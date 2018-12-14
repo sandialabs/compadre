@@ -2,15 +2,12 @@
 
 #include "Compadre_CoordsT.hpp"
 #include "Compadre_ParticlesT.hpp"
-#ifdef COMPADRE_USE_NANOFLANN
 #include "Compadre_nanoflannPointCloudT.hpp"
-#endif
 
-#ifdef COMPADRE_USE_OPENMP
+#ifdef COMPADREHARNESS_USE_OPENMP
 #include <omp.h>
 #endif
 
-#ifdef COMPADRE_USE_NANOFLANN
 namespace Compadre {
 
 NanoFlannInformation::NanoFlannInformation( const particles_type * source_particles, Teuchos::RCP<Teuchos::ParameterList> parameters
@@ -46,4 +43,3 @@ void NanoFlannInformation::constructSingleNeighborList(const scalar_type* coordi
 }
 
 }
-#endif

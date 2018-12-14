@@ -33,7 +33,7 @@ set(Physics_SOURCES
 add_library(physics ${Physics_SOURCES})
 bob_library_includes(physics)
 
-target_link_libraries(physics PRIVATE compadre)
+target_link_libraries(physics PRIVATE compadreharness)
 
 bob_export_target(physics)
 

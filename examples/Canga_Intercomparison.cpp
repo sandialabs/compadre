@@ -127,7 +127,6 @@ int main (int argc, char* args[]) {
 	Teuchos::RCP<const Teuchos::Comm<int> > comm = global_comm->split(my_coloring, global_comm->getRank());
 
 
-#ifdef COMPADRE_CANGA_ENABLED
 
 	{
 
@@ -518,8 +517,6 @@ int main (int argc, char* args[]) {
 		MiscTime->stop();
 	}
 
-
-#endif
 
 	Teuchos::TimeMonitor::summarize();
 	Kokkos::finalize();

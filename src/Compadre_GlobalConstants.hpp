@@ -7,7 +7,7 @@
 #ifndef _COMPADRE_GlobalConstants_HPP_
 #define _COMPADRE_GlobalConstants_HPP_
 
-#include "Compadre_Typedefs.hpp"
+#include "CompadreHarness_Typedefs.hpp"
 
 namespace Compadre {
 

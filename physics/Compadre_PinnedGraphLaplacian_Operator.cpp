@@ -7,7 +7,7 @@
 #include <Compadre_DOFManager.hpp>
 #include <Compadre_NeighborhoodT.hpp>
 
-#ifdef COMPADRE_USE_OPENMP
+#ifdef COMPADREHARNESS_USE_OPENMP
 #include <omp.h>
 #endif
 
@@ -26,6 +26,7 @@ void PinnedGraphLaplacianPhysics::computeGraph(local_index_type field_one, local
 	}
 
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
+
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
 	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
 	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =

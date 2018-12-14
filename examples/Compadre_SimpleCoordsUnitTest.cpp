@@ -1,5 +1,5 @@
-#include "GMLS_Config.h"
-#include "Compadre_Typedefs.hpp"
+#include "CompadreHarness_Config.h"
+#include "CompadreHarness_Typedefs.hpp"
 #include "Compadre_GlobalConstants.hpp"
 #include "Compadre_SimpleSphericalCoords.hpp"
 #include "Compadre_SimpleEuclidean.hpp"

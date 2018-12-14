@@ -13,7 +13,7 @@
 
 #include "GMLS_Tutorial.hpp"
 
-#ifdef COMPADRE_USE_MPI
+#ifdef COMPADREHARNESS_USE_MPI
 #include <mpi.h>
 #endif
 
@@ -28,7 +28,7 @@ using namespace Compadre;
 int main (int argc, char* args[]) {
 
 // initializes MPI (if available) with command line arguments given
-#ifdef COMPADRE_USE_MPI
+#ifdef COMPADREHARNESS_USE_MPI
 MPI_Init(&argc, &args);
 #endif
 
@@ -474,7 +474,7 @@ bool all_passed = true;
 
 // finalize Kokkos and MPI (if available)
 Kokkos::finalize();
-#ifdef COMPADRE_USE_MPI
+#ifdef COMPADREHARNESS_USE_MPI
 MPI_Finalize();
 #endif
 

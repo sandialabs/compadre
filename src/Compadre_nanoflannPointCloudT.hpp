@@ -1,8 +1,8 @@
 #ifndef _COMPADRE_NANOFLANN_POINTCLOUD_HPP_
 #define	_COMPADRE_NANOFLANN_POINTCLOUD_HPP_
 
-#include "Compadre_Config.h"
-#include "Compadre_Typedefs.hpp"
+#include "CompadreHarness_Config.h"
+#include "CompadreHarness_Typedefs.hpp"
 
 #include "Compadre_CoordsT.hpp"
 #include "Compadre_XyzVector.hpp"

@@ -2,17 +2,17 @@ cmake_minimum_required(VERSION 3.0.0)
 
 ##########
 #
-#   Compadre Details
+#   CompadreHarness Details
 #
 ########## 
-PROJECT(Compadre VERSION 0.0.2 LANGUAGES CXX)
+PROJECT(CompadreHarness VERSION 1.0.0 LANGUAGES CXX)
 
 # cmake helper functions
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/bob.cmake)
 
 bob_begin_package()
 
-
+include(ExternalProject)
 
 
 ##########
@@ -25,20 +25,16 @@ bob_begin_package()
 
 
 
-
-#NANOFLANN
-bob_option(Compadre_USE_Nanoflann "Use Nanoflann" ON) # header included in TPLs
-
 #LAPACK
-bob_option(Compadre_USE_LAPACK "Use LAPACK" ON)
-SET(Compadre_USE_OPENBLAS OFF) # need to know if openblas is used in order to limit its ability to spawn threads
+bob_option(CompadreHarness_USE_LAPACK "Use LAPACK" ON)
+SET(CompadreHarness_USE_OPENBLAS OFF) # need to know if openblas is used in order to limit its ability to spawn threads
 bob_input(LAPACK_PREFIX "" PATH "Path to LAPACK install")
 if (LAPACK_PREFIX)
   set(CMAKE_PREFIX_PATH ${LAPACK_PREFIX} ${CMAKE_PREFIX_PATH})
 endif()
 bob_input(LAPACK_LOCATION "" PATH "Optional explicit path to exact location of LAPACK")
 bob_option(LAPACK_DECLARED_THREADSAFE "Is LAPACK threadsafe? If not, default to serial calls for solves." ON)
-if (Compadre_USE_LAPACK)
+if (CompadreHarness_USE_LAPACK)
   if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
     # Intel compiler detected. Will use "-mkl" and no need to find Lapack or Blas
   else()
@@ -49,7 +45,7 @@ if (Compadre_USE_LAPACK)
     endif()
     MESSAGE(STATUS "LAPACK_LIB: ${LAPACK_LIB}")
     IF (NOT(LAPACK_LIB))
-      MESSAGE(FATAL_ERROR "Compadre_USE_LAPACK is ON, but LAPACK_PREFIX was set incorrectly.")
+      MESSAGE(FATAL_ERROR "CompadreHarness_USE_LAPACK is ON, but LAPACK_PREFIX was set incorrectly.")
     ELSE()
       IF(APPLE)
         execute_process(COMMAND otool -L  "${LAPACK_LIB}" OUTPUT_VARIABLE LAPACK_DEPENDENCIES) 
@@ -58,25 +54,25 @@ if (Compadre_USE_LAPACK)
       ENDIF()
       string(FIND "${LAPACK_DEPENDENCIES}" "openblas" BLAS_MATCH)
       if ("${BLAS_MATCH}" GREATER "-1")
-        SET(Compadre_USE_OPENBLAS ON)
+        SET(CompadreHarness_USE_OPENBLAS ON)
       endif()
     ENDIF()
   endif()
 endif()
 
 #TRILINOS
-bob_option(Compadre_USE_Trilinos "Use Trilinos" ON)
+bob_option(CompadreHarness_USE_Trilinos "Use Trilinos" ON)
 bob_input(Trilinos_PREFIX "" PATH "Path to Trilinos install")
 if (Trilinos_PREFIX)
   set(CMAKE_PREFIX_PATH ${Trilinos_PREFIX} ${CMAKE_PREFIX_PATH})
 endif()
-bob_option(Compadre_USE_Trilinos_Solvers "Use Trilinos Linear Algebra capabilities" ON)
-bob_option(Compadre_USE_Trilinos_CXX_Flags "Use Trilinos CXX flags" ON)
+bob_option(CompadreHarness_USE_Trilinos_Solvers "Use Trilinos Linear Algebra capabilities" ON)
+bob_option(CompadreHarness_USE_Trilinos_CXX_Flags "Use Trilinos CXX flags" ON)
 
 SET(TRILINOS_LINEAR_SOLVES OFF)
-IF (Compadre_USE_Trilinos)
+IF (CompadreHarness_USE_Trilinos)
   FIND_PACKAGE(Trilinos)
-  if (Compadre_USE_Trilinos_Solvers)
+  if (CompadreHarness_USE_Trilinos_Solvers)
     bob_add_dependency(PUBLIC NAME Trilinos
       TARGETS "${Trilinos_LIBRARIES}"
       INCLUDE_DIR_VARS 
@@ -182,16 +178,16 @@ IF (Compadre_USE_Trilinos)
     MESSAGE(STATUS "Found Trilinos but could not find Stratimikos.")
   ENDIF()
   
-  if (Compadre_USE_Trilinos_Solvers)
+  if (CompadreHarness_USE_Trilinos_Solvers)
     IF ((Amesos2TrilinosID GREATER -1 ) AND (BelosTrilinosID GREATER -1 ) AND (Ifpack2TrilinosID GREATER -1 ) AND (MueLuTrilinosID GREATER -1 ) AND (ThyraTrilinosID GREATER -1 ) AND (TekoTrilinosID GREATER -1 ) AND (StratimikosTrilinosID GREATER -1 ))
       MESSAGE(STATUS "All packages needed for linear solves in Trilinos found.")
       SET(TRILINOS_LINEAR_SOLVES ON)
     ELSE()
-      MESSAGE(FATAL_ERROR "Compadre_USE_Trilinos_Solvers=ON but not all packages needed in Trilinos for linear solves were found.")
+      MESSAGE(FATAL_ERROR "CompadreHarness_USE_Trilinos_Solvers=ON but not all packages needed in Trilinos for linear solves were found.")
     ENDIF()
   else()
     IF ((Amesos2TrilinosID GREATER -1 ) AND (BelosTrilinosID GREATER -1 ) AND (Ifpack2TrilinosID GREATER -1 ) AND (MueLuTrilinosID GREATER -1 ) AND (ThyraTrilinosID GREATER -1 ) AND (TekoTrilinosID GREATER -1 ) AND (StratimikosTrilinosID GREATER -1 ))
-      MESSAGE(STATUS "All packages needed for linear solves in Trilinos found, but not enabled because Compadre_USE_Trilinos_Solvers=OFF.")
+      MESSAGE(STATUS "All packages needed for linear solves in Trilinos found, but not enabled because CompadreHarness_USE_Trilinos_Solvers=OFF.")
       SET(TRILINOS_LINEAR_SOLVES OFF)
     ENDIF()
 
@@ -201,13 +197,13 @@ ENDIF()
 
 
 #KOKKOS
-bob_option(Compadre_USE_KokkosCore "Use KokkosCore" ON)
+bob_option(CompadreHarness_USE_KokkosCore "Use KokkosCore" ON)
 bob_input(KokkosCore_PREFIX "${Trilinos_PREFIX}" PATH "Path to KokkosCore install")
 set(KOKKOS_IN_TRILINOS OFF)
 if (KokkosCore_PREFIX)
   set(CMAKE_PREFIX_PATH ${KokkosCore_PREFIX} ${CMAKE_PREFIX_PATH})
 endif()
-if (Compadre_USE_KokkosCore)
+if (CompadreHarness_USE_KokkosCore)
   if ("${KokkosCore_PREFIX}" STREQUAL "${Trilinos_PREFIX}") 
     SET(KOKKOS_IN_TRILINOS ON)
     MESSAGE(STATUS "Using KokkosCore in Trilinos.")
@@ -232,16 +228,16 @@ if (Compadre_USE_KokkosCore)
     ENDIF()
   endif()
 else()
-  MESSAGE(FATAL_ERROR "Compadre_USE_KokkosCore set to OFF, but entire toolkit relies on KokkosCore.")
+  MESSAGE(FATAL_ERROR "CompadreHarness_USE_KokkosCore set to OFF, but entire toolkit relies on KokkosCore.")
 endif()
 
 #NETCDF
-bob_option(Compadre_USE_Netcdf "Use Netcdf" ON)
+bob_option(CompadreHarness_USE_Netcdf "Use Netcdf" ON)
 bob_input(Netcdf_PREFIX "" PATH "Path to Netcdf install")
 if (Netcdf_PREFIX)
   set(CMAKE_PREFIX_PATH ${Netcdf_PREFIX} ${CMAKE_PREFIX_PATH})
 endif()
-if (Compadre_USE_Netcdf)
+if (CompadreHarness_USE_Netcdf)
   find_path(Netcdf_INCLUDE_DIR NAMES "netcdf.h" HINT ${Netcdf_PREFIX})
   find_library(Netcdf_LIBRARY netcdf HINT "${Netcdf_INCLUDE_DIR}/../lib" NO_DEFAULT_PATH)
   set(Netcdf_INCLUDE_DIRS ${Netcdf_INCLUDE_DIR})
@@ -249,28 +245,28 @@ if (Compadre_USE_Netcdf)
   MESSAGE(STATUS "Netcdf_INCLUDE_DIRS: ${Netcdf_INCLUDE_DIR}")
   MESSAGE(STATUS "Netcdf_LIBRARIES: ${Netcdf_LIBRARY}")
   IF (NOT(Netcdf_INCLUDE_DIRS) OR NOT(Netcdf_LIBRARIES))
-    MESSAGE(FATAL_ERROR "Compadre_USE_Netcdf is ON, but Netcdf_PREFIX was set incorrectly.")
+    MESSAGE(FATAL_ERROR "CompadreHarness_USE_Netcdf is ON, but Netcdf_PREFIX was set incorrectly.")
   ENDIF()
   find_path(Netcdf_MPI_INCLUDE_DIR NAMES "netcdf_par.h" HINT ${Netcdf_PREFIX})
   if (NOT(Netcdf_MPI_INCLUDE_DIR))
     MESSAGE(STATUS "Netcdf with MPI_IO support NOT found.")
-    set(Compadre_USE_Netcdf_MPI OFF)
+    set(CompadreHarness_USE_Netcdf_MPI OFF)
   else()
     MESSAGE(STATUS "Netcdf with MPI_IO support found.")
-    set(Compadre_USE_Netcdf_MPI ON)
+    set(CompadreHarness_USE_Netcdf_MPI ON)
   endif()
   MESSAGE(STATUS "Netcdf_MPI_INCLUDE_DIRS: ${Netcdf_MPI_INCLUDE_DIR}")
 else()
-    set(Compadre_USE_Netcdf_MPI OFF)
+    set(CompadreHarness_USE_Netcdf_MPI OFF)
 endif()
    
 #VTK
-bob_option(Compadre_USE_VTK "Use VTK" ON)
+bob_option(CompadreHarness_USE_VTK "Use VTK" ON)
 bob_input(VTK_PREFIX "" PATH "Path to VTK install")
 if (VTK_PREFIX)
   set(CMAKE_PREFIX_PATH ${VTK_PREFIX} ${CMAKE_PREFIX_PATH})
 endif()
-IF (Compadre_USE_VTK)
+IF (CompadreHarness_USE_VTK)
   FIND_PACKAGE(VTK)
   bob_add_dependency(PUBLIC NAME VTK
     TARGETS "${VTK_LIBRARIES}"
@@ -288,16 +284,16 @@ ENDIF()
 
 #MPI
 FIND_PACKAGE(MPI)
-bob_option(Compadre_USE_MPI "Use MPI for parallelism" ${MPI_FOUND})
+bob_option(CompadreHarness_USE_MPI "Use MPI for parallelism" ${MPI_FOUND})
 
 
 #PYTHON
-bob_option(Compadre_USE_PYTHON "Use PYTHON" OFF)
+bob_option(CompadreHarness_USE_PYTHON "Use PYTHON" OFF)
 bob_input(PYTHON_PREFIX "" PATH "Path to PYTHON install")
 if (PYTHON_PREFIX)
   set(CMAKE_PREFIX_PATH ${PYTHON_PREFIX} ${CMAKE_PREFIX_PATH})
 endif()
-if (Compadre_USE_PYTHON)
+if (CompadreHarness_USE_PYTHON)
 
   FIND_PACKAGE(PythonLibs)
   IF(PythonLibs_FOUND)
@@ -333,7 +329,7 @@ if (Compadre_USE_PYTHON)
     IF (Numpy_INCLUDE_DIRS)
       MESSAGE(STATUS "Numpy_INCLUDE_DIRS: ${Numpy_INCLUDE_DIRS}")
     ELSE()
-      MESSAGE(FATAL_ERROR "Numpy headers not found, but needed when Compadre_USE_PYTHON:BOOL=ON. Try setting Numpy_PREFIX.")
+      MESSAGE(FATAL_ERROR "Numpy headers not found, but needed when CompadreHarness_USE_PYTHON:BOOL=ON. Try setting Numpy_PREFIX.")
     ENDIF()
 
     set(SWIG_PREFIX "../GMLS/src/swig") # relative to examples folder
@@ -356,26 +352,26 @@ endif()
 ##########
 
 
-bob_option(GMLS_TESTS "Compile GMLS tests" ON)
-bob_option(Compadre_TESTS "Compile Compadre tests" ON)
+bob_option(Toolkit_TESTS "Compile GMLS tests" ON)
+bob_option(CompadreHarness_TESTS "Compile CompadreHarness tests" ON)
 
-bob_option(GMLS_EXAMPLES "Compile GMLS examples" "${GMLS_TESTS}")
-bob_option(Compadre_EXAMPLES "Compile Compadre examples" "${Compadre_TESTS}")
+bob_option(Toolkit_EXAMPLES "Compile GMLS examples" "${Toolkit_TESTS}")
+bob_option(CompadreHarness_EXAMPLES "Compile CompadreHarness examples" "${CompadreHarness_TESTS}")
 
-# physics compiled by default if Compadre_EXAMPLES is ON and not if OFF
-bob_option(Compadre_PHYSICS "Compile Compadre Physics" "${Compadre_EXAMPLES}")
+# physics compiled by default if CompadreHarness_EXAMPLES is ON and not if OFF
+bob_option(CompadreHarness_PHYSICS "Compile CompadreHarness Physics" "${CompadreHarness_EXAMPLES}")
 
 
-bob_option(Compadre_CANGA_ENABLED "Compile optional CANGA tests and examples" OFF)
-if ((Compadre_TESTS OR Compadre_EXAMPLES OR Compadre_PHYSICS) AND Compadre_USE_Trilinos)
-  set(Compadre_Compadre_REQUIRED  ON)
+bob_option(CompadreHarness_CANGA_ENABLED "Compile optional CANGA tests and examples" OFF)
+if ((CompadreHarness_TESTS OR CompadreHarness_EXAMPLES OR CompadreHarness_PHYSICS) AND CompadreHarness_USE_Trilinos)
+  set(CompadreHarness_Compadre_REQUIRED  ON)
 else()
-  set(Compadre_Compadre_REQUIRED  OFF)
+  set(CompadreHarness_Compadre_REQUIRED  OFF)
 endif()
-MESSAGE(STATUS "Compadre harness required to be built: ${Compadre_Compadre_REQUIRED}")
-bob_option(Compadre_USE_Compadre "Build Trilinos based harness for GMLS" ON)
-if (Compadre_USE_Compadre OR Compadre_Compadre_REQUIRED)
-  set(Compadre_USE_Compadre ON)
+MESSAGE(STATUS "Compadre harness required to be built: ${CompadreHarness_Compadre_REQUIRED}")
+bob_option(CompadreHarness_USE_Harness "Build Trilinos based harness for GMLS" ON)
+if (CompadreHarness_USE_Harness OR CompadreHarness_Compadre_REQUIRED)
+  set(CompadreHarness_USE_Harness ON)
 endif()
 
 ##########
@@ -396,7 +392,7 @@ IF (KOKKOS_IN_TRILINOS)
       message(FATAL_ERROR
         "Please reconfigure Kokkos with -DKokkos_ENABLE_Cuda_Lambda:BOOL=ON")
     else()
-      bob_option(Compadre_USE_CUDA "Whether to use CUDA" ON)
+      bob_option(CompadreHarness_USE_CUDA "Whether to use CUDA" ON)
     endif()
   endif()
 ELSE()
@@ -409,7 +405,7 @@ ELSE()
     find_library(CUDA_CUBLAS_LIBRARIES cublas HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
     find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
     MESSAGE(STATUS "CUDA_LIBRARIES: ${CUDA_INCLUDE_DIRS}/../lib64")
-    bob_option(Compadre_USE_CUDA "Whether to use CUDA" ON)
+    bob_option(CompadreHarness_USE_CUDA "Whether to use CUDA" ON)
   endif()
 ENDIF()
 
@@ -419,10 +415,10 @@ ENDIF()
 ##
 if (KokkosCore_HAS_CUDA)
   find_package(CUDA)
-  bob_input(Compadre_CUDA_ARCH "" STRING "CUDA arch specifier")
-  bob_option(Compadre_USE_CUDA "Whether to use CUDA" ON)
+  bob_input(CompadreHarness_CUDA_ARCH "" STRING "CUDA arch specifier")
+  bob_option(CompadreHarness_USE_CUDA "Whether to use CUDA" ON)
 endif()
-bob_option(Compadre_USE_OpenMP "Whether to use OpenMP" "${KokkosCore_HAS_OpenMP}")
+bob_option(CompadreHarness_USE_OpenMP "Whether to use OpenMP" "${KokkosCore_HAS_OpenMP}")
 
 
 
@@ -448,9 +444,9 @@ else()
   bob_cxx11_flags()
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     set(FLAGS "${FLAGS} -fno-omit-frame-pointer")
-    if(Compadre_USE_CUDA)
-      if (Compadre_CUDA_ARCH)
-        add_compile_options($<$<COMPILE_LANGUAGE:CXX>:--cuda-gpu-arch=${Compadre_CUDA_ARCH}>)
+    if(CompadreHarness_USE_CUDA)
+      if (CompadreHarness_CUDA_ARCH)
+        add_compile_options($<$<COMPILE_LANGUAGE:CXX>:--cuda-gpu-arch=${CompadreHarness_CUDA_ARCH}>)
       endif()
       add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-x>)
       add_compile_options($<$<COMPILE_LANGUAGE:CXX>:cuda>)
@@ -458,23 +454,23 @@ else()
       set(FLAGS "${FLAGS} -Wno-weak-vtables")
     endif()
   elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
-    if(Compadre_USE_CUDA)
+    if(CompadreHarness_USE_CUDA)
       set(FLAGS "${FLAGS} -expt-extended-lambda -lineinfo")
-      if (Compadre_CUDA_ARCH)
-        set(FLAGS "${FLAGS} -arch=${Compadre_CUDA_ARCH}")
+      if (CompadreHarness_CUDA_ARCH)
+        set(FLAGS "${FLAGS} -arch=${CompadreHarness_CUDA_ARCH}")
       endif()
       if (CUDA_VERSION EQUAL 9)
         set(FLAGS "${FLAGS} -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored")
       endif()
     else()
       set(FLAGS "${FLAGS} -fno-omit-frame-pointer")
-      if(Compadre_USE_OpenMP)
+      if(CompadreHarness_USE_OpenMP)
         set(FLAGS "${FLAGS} -fopenmp")
       endif()
     endif()
   elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
     set(FLAGS "${FLAGS} -fno-omit-frame-pointer")
-    if(Compadre_USE_OpenMP)
+    if(CompadreHarness_USE_OpenMP)
       set(FLAGS "${FLAGS} -fopenmp")
     endif()
   else()
@@ -484,7 +480,7 @@ else()
 endif()
 
 
-if (Compadre_USE_Trilinos_CXX_Flags)
+if (CompadreHarness_USE_Trilinos_CXX_Flags)
   # Get compiler flags from Trilinos
   SET(CMAKE_CXX_FLAGS "")
   IF (Trilinos_CXX_COMPILER_FLAGS) 
@@ -513,40 +509,37 @@ bob_end_cxx_flags()
 ##########
 
 
-set(Compadre_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
+set(CompadreHarness_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
-set(Compadre_KEY_BOOLS
-    Compadre_CANGA_ENABLED
-    Compadre_USE_CUDA
-    Compadre_USE_KokkosCore
-    Compadre_USE_LAPACK
-    Compadre_USE_OPENBLAS
-    Compadre_USE_MPI
-    Compadre_USE_Nanoflann
-    Compadre_USE_Netcdf
-    Compadre_USE_Netcdf_MPI
-    Compadre_USE_OpenMP
-    Compadre_USE_PYTHON
-    Compadre_USE_Trilinos
-    Compadre_USE_VTK
+set(CompadreHarness_KEY_BOOLS
+    CompadreHarness_USE_LAPACK
+    CompadreHarness_USE_OPENBLAS
+    CompadreHarness_USE_MPI
+    CompadreHarness_USE_Nanoflann
+    CompadreHarness_USE_Netcdf
+    CompadreHarness_USE_Netcdf_MPI
+    CompadreHarness_USE_OpenMP
+    CompadreHarness_USE_PYTHON
+    CompadreHarness_USE_Trilinos
+    CompadreHarness_USE_VTK
     TRILINOS_LINEAR_SOLVES
     LAPACK_DECLARED_THREADSAFE
    )
 
-set(Compadre_KEY_INTS
-    Compadre_VERSION_MAJOR
-    Compadre_VERSION_MINOR
-    Compadre_VERSION_PATCH
+set(CompadreHarness_KEY_INTS
+    CompadreHarness_VERSION_MAJOR
+    CompadreHarness_VERSION_MINOR
+    CompadreHarness_VERSION_PATCH
    )
 
-set(Compadre_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-set(Compadre_KEY_STRINGS
-    Compadre_SEMVER
-    Compadre_COMMIT
-    Compadre_CXX_FLAGS
-    Compadre_CMAKE_ARGS
+set(CompadreHarness_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+set(CompadreHarness_KEY_STRINGS
+    CompadreHarness_SEMVER
+    CompadreHarness_COMMIT
+    CompadreHarness_CXX_FLAGS
+    CompadreHarness_CMAKE_ARGS
     GMLS_Module_DEST
-    Compadre_INSTALL_PREFIX
+    CompadreHarness_INSTALL_PREFIX
 )
 
 
@@ -567,22 +560,60 @@ bob_get_semver()
 
 # check that either CUDA or LAPACK were turned on (needed for any computation to be performed)
 
-if (Compadre_USE_CUDA OR Compadre_USE_LAPACK)
-  add_subdirectory(GMLS)
+
+if (CompadreHarness_USE_CUDA OR CompadreHarness_USE_LAPACK)
+  set(Toolkit_PREFIX "${PROJECT_BINARY_DIR}/Toolkit-install")
+  set(Toolkit_ARGS
+    "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+    "-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}"
+    "-DCMAKE_INSTALL_PREFIX=${Toolkit_PREFIX}"
+    "-DCompadre_USE_CUDA:BOOL=${CompadreHarness_USE_CUDA}"
+    "-DCompadre_USE_LAPACK:BOOL=${CompadreHarness_USE_LAPACK}"
+    "-DCompadre_USE_PYTHON:BOOL=${CompadreHarness_USE_PYTHON}"
+    "-DCompadre_EXAMPLES:BOOL=${Toolkit_EXAMPLES}"
+    "-DKokkosCore_PREFIX=${KokkosCore_PREFIX}"
+    "-DTrilinos_PREFIX=${Trilinos_PREFIX}"
+    "-DCompadre_USE_Trilinos:BOOL=${CompadreHarness_USE_Trilinos}"
+    "-DCompadre_TESTS:BOOL=${Toolkit_TESTS}"
+  )
   
-  if(Compadre_USE_Compadre)
+      #GIT_REPOSITORY "/ascldap/users/pakuber/Desktop/ProjectStubs/Particles/barebone_toolkit"
+
+  externalproject_add(Toolkit
+      PREFIX toolkit
+      SOURCE_DIR "${PROJECT_SOURCE_DIR}/toolkit"
+      CMAKE_ARGS ${Toolkit_ARGS}
+      BUILD_ALWAYS 1
+      )
+  #    GIT_REPOSITORY "/ascldap/users/pakuber/Desktop/ProjectStubs/Particles/barebone_toolkit"
+  # UPDATE_DISCONNECTED 1 indicates that GIT_TAG is a hash and it is stable
+  #SOURCE_DIR "${PROJECT_SOURCE_DIR}/toolkit"
+  #    UPDATE_COMMAND "" 
+  #DOWNLOAD_DIR "${PROJECT_SOURCE_DIR}/toolkit"
+  #    GIT_REPOSITORY "git+ssh://software.sandia.gov/git/compadre-dev"
+  #    GIT_TAG "e590e1bba62823"
+  set(CMAKE_INSTALL_RPATH ${Toolkit_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
+
+  #ExternalProject_Get_Property(Toolkit toolkit_install_dir)
+  #include_directories(${toolkit_install_dir}/include)
+  #add_dependencies(project_b_exe project_a)
+
+  #target_link_libraries(project_b_exe ${install_dir}/lib/alib.lib)
+  #add_subdirectory(GMLS)
+  
+  if(CompadreHarness_USE_Harness)
     add_subdirectory(src)
   endif()
   
-  if(Compadre_USE_Trilinos AND Compadre_PHYSICS)
+  if(CompadreHarness_USE_Trilinos AND CompadreHarness_PHYSICS)
     add_subdirectory(physics)
   endif()
   
-  if(GMLS_EXAMPLES OR Compadre_EXAMPLES)
+  if(CompadreHarness_EXAMPLES)
     add_subdirectory(examples)
   endif()
 else ()
-  MESSAGE(FATAL_ERROR "Both Compadre_USE_CUDA and Compadre_USE_LAPACK are currently OFF.\n Since these are both OFF, either Compadre_USE_LAPACK is set to OFF explicitly in the build script, or CUDA was not found in the KokkosCore specified (Compadre_USE_CUDA is a calculated variable, not an option to be set).")
+  MESSAGE(FATAL_ERROR "Both CompadreHarness_USE_CUDA and CompadreHarness_USE_LAPACK are currently OFF.\n Since these are both OFF, either CompadreHarness_USE_LAPACK is set to OFF explicitly in the build script, or CUDA was not found in the KokkosCore specified (CompadreHarness_USE_CUDA is a calculated variable, not an option to be set).")
 endif () 
 
 
@@ -594,8 +625,8 @@ endif ()
 #
 #
 ##########
-bob_option(Compadre_BUILD_Doxygen "Compile Doxygen documentation" ON)
-if(Compadre_BUILD_Doxygen)
+bob_option(CompadreHarness_BUILD_Doxygen "Compile Doxygen documentation" ON)
+if(CompadreHarness_BUILD_Doxygen)
   configure_file("${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in" "${CMAKE_CURRENT_BINARY_DIR}/doc/Doxyfile"
                  @ONLY)
   configure_file("${CMAKE_CURRENT_SOURCE_DIR}/doc/DoxygenLayout.xml" "${CMAKE_CURRENT_BINARY_DIR}/doc/DoxygenLayout.xml"
@@ -604,7 +635,7 @@ if(Compadre_BUILD_Doxygen)
                     COMMAND doxygen
                     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/doc )
   # still must be called manually with "make Doxygen"
-endif(Compadre_BUILD_Doxygen)
+endif(CompadreHarness_BUILD_Doxygen)
 
 
 set (augmented_list "${Trilinos_LIBRARIES}" "${VTK_LIBRARIES}")

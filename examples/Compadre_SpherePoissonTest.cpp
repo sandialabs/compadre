@@ -5,7 +5,7 @@
 #include <Tpetra_Core.hpp>
 #include <Kokkos_Core.hpp>
 #include <Kokkos_TeuchosCommAdapters.hpp>
-#include "Compadre_Typedefs.hpp"
+#include "CompadreHarness_Typedefs.hpp"
 #include "Compadre_CoordsT.hpp"
 #include "Compadre_ParticlesT.hpp"
 #include "Compadre_FieldT.hpp"

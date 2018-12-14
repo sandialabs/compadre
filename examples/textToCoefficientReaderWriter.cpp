@@ -9,9 +9,7 @@
 #include <Compadre_RemapManager.hpp>
 #include <Compadre_EuclideanCoordsT.hpp>
 #include <Compadre_SphericalCoordsT.hpp>
-#ifdef COMPADRE_USE_NANOFLANN
 #include <Compadre_nanoflannInformation.hpp>
-#endif
 #include <Compadre_VTKInformation.hpp>
 #include <Compadre_FieldT.hpp>
 #include <Compadre_XyzVector.hpp>
@@ -180,22 +178,9 @@ int main (int argc, char* args[]) {
 				typedef Compadre::NanoFlannInformation nanoflann_neighbors_type;
 				typedef Compadre::VTKInformation vtk_neighbors_type;
 				Teuchos::RCP<neighbors_type> neighborhoodInfo;
-				if (method=="nanoflann") {
-#ifdef COMPADRE_USE_NANOFLANN
 					LO maxLeaf = parameters->get<Teuchos::ParameterList>("neighborhood").get<int>("max leaf");
 					neighborhoodInfo = Teuchos::rcp_static_cast<neighbors_type>(Teuchos::rcp(
 							new nanoflann_neighbors_type(particles.getRawPtr(), parameters, maxLeaf, new_particles.getRawPtr())));
-#else
-					TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Nanoflann selected as search method but not built against Nanoflann.");
-#endif
-				} else if (method=="vtk") {
-#ifdef USE_VTK
-					neighborhoodInfo = Teuchos::rcp_static_cast<neighbors_type>(Teuchos::rcp(
-							new vtk_neighbors_type(particles.getRawPtr(), parameters, new_particles.getRawPtr())));
-#else
-					TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "vtk selected as search method but not built against VTK.");
-#endif
-				}
 
 				LO neighbors_needed;
 				neighbors_needed = Compadre::GMLS::getNP(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),2);
