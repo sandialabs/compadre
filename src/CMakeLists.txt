@@ -51,10 +51,7 @@ if(CompadreHarness_USE_Netcdf_MPI)
 endif()
 
 add_dependencies(compadreharness Toolkit) # compadreharness relies on Toolkit
-#find_library(Toolkit_LIBRARY compadre HINTS "${Toolkit_PREFIX}/lib" NO_DEFAULT_PATH)
-#target_link_libraries(compadreharness PUBLIC "${Toolkit_LIBRARY}")
 target_link_libraries(compadreharness PUBLIC "${Toolkit_PREFIX}/lib/libcompadre${CMAKE_SHARED_LIBRARY_SUFFIX}")
-#target_include_directories(compadreharness PUBLIC "Toolkit-install")
 target_include_directories(compadreharness PUBLIC  
   $<BUILD_INTERFACE:${Toolkit_PREFIX}/include>  
   $<INSTALL_INTERFACE:include> 
