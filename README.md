@@ -1,3 +1,5 @@
+Installation Guide {#installguide}
+=============
 \section installing_sec Installing the Compadre Toolkit
  
 \subsection installing_subsec Compadre Toolkit Installation Instructions
@@ -56,7 +58,7 @@
 
 \subsection importing_eclipse_subsec Importing Project Into Eclipse
 
-__From https://stackoverflow.com/questions/11645575/importing-a-cmake-project-into-eclipse-cdt,
+From https://stackoverflow.com/questions/11645575/importing-a-cmake-project-into-eclipse-cdt,
 the instructions for importing from CMake into eclipse are as follows:
 
 \verbatim
@@ -94,7 +96,7 @@ The folder ./extern_example has a build directory with a my-do-configure-cpu.sh 
 This example demonstrates how one can go about linking to the installed Compadre Toolkit from another application.
 
 
-\mainpage Compadre Toolkit
+\mainpage Compadre (Compatible Particle Discretization and Remap) Toolkit
 
 \section About
 
@@ -114,9 +116,8 @@ The Compadre Toolkit is designed to efficiently assemble, factorize, and solve l
 
 \section Recent Changes
 
-<a href="md__home_pakuber_Desktop_ProjectStubs_Particles_compadre_repo_Changelog.html"> See recent changes</a>.
+\ref changelog "See recent changes".
 
 \section Toolkit Installation
 
-<a href="md__home_pakuber_Desktop_ProjectStubs_Particles_compadre_repo_README.html"> See installation instructions</a>.
-
+\ref installguide "See installation instructions".
