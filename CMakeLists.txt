@@ -584,6 +584,7 @@ if (CompadreHarness_USE_CUDA OR CompadreHarness_USE_LAPACK)
       #GIT_REPOSITORY "/ascldap/users/pakuber/Desktop/ProjectStubs/Particles/barebone_toolkit"
 
   # RPATH related settings
+  # https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/RPATH-handling
   SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
   SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
   SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
