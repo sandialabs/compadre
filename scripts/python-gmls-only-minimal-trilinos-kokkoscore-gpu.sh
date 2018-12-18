@@ -10,20 +10,20 @@ find . -mindepth 1 -type d -exec rm -rf {} +
 cmake \
     -D CMAKE_CXX_COMPILER=/ascldap/users/pakuber/releases/kokkos/launch/install/bin/nvcc_wrapper \
     -D CMAKE_INSTALL_PREFIX=./install \
-    -D Compadre_USE_Trilinos:BOOL=ON \
-    -D Compadre_USE_Trilinos_CXX_Flags:BOOL=ON \
-    -D Compadre_USE_Trilinos_Solvers:BOOL=OFF \
-    -D Compadre_USE_Netcdf:BOOL=OFF \
-    -D Compadre_USE_VTK:BOOL=OFF \
-    -D Compadre_USE_PYTHON:BOOL=ON \
-    -D Compadre_USE_Compadre:BOOL=OFF \
+    -D CompadreHarness_USE_Trilinos:BOOL=ON \
+    -D CompadreHarness_USE_Trilinos_CXX_Flags:BOOL=ON \
+    -D CompadreHarness_USE_Trilinos_Solvers:BOOL=OFF \
+    -D CompadreHarness_USE_Netcdf:BOOL=OFF \
+    -D CompadreHarness_USE_VTK:BOOL=OFF \
+    -D CompadreHarness_USE_PYTHON:BOOL=ON \
+    -D CompadreHarness_USE_Harness:BOOL=OFF \
+    -D CompadreHarness_EXAMPLES:BOOL=OFF \
+    -D CompadreHarness_TESTS:BOOL=OFF \
+    -D CompadreHarness_CANGA_ENABLED:BOOL=OFF \
+    -D Toolkit_EXAMPLES:BOOL=ON \
+    -D Toolkit_TESTS:BOOL=ON \
     -D Trilinos_PREFIX:FILEPATH="/ascldap/users/pakuber/releases/Trilinos/build3/install" \
     -D Netcdf_PREFIX:FILEPATH="/ascldap/users/pakuber/releases/netcdf" \
     -D VTK_PREFIX:FILEPATH="/ascldap/users/pakuber/releases/VTK" \
-    -D Compadre_EXAMPLES:BOOL=OFF \
-    -D Compadre_TESTS:BOOL=OFF \
-    -D GMLS_EXAMPLES:BOOL=ON \
-    -D GMLS_TESTS:BOOL=ON \
-    -D Compadre_CANGA_ENABLED:BOOL=OFF \
     \
     ..
