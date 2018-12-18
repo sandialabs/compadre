@@ -582,6 +582,14 @@ if (CompadreHarness_USE_CUDA OR CompadreHarness_USE_LAPACK)
   
       #GIT_REPOSITORY "/ascldap/users/pakuber/Desktop/ProjectStubs/Particles/barebone_toolkit"
 
+  # RPATH related settings
+  SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
+  SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+  SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+  SET(CMAKE_INSTALL_RPATH ${Toolkit_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
+  SET(CMAKE_BUILD_RPATH ${Toolkit_PREFIX}/lib ${CMAKE_BUILD_RPATH})
+  SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
+
   externalproject_add(Toolkit
       PREFIX toolkit
       SOURCE_DIR "${PROJECT_SOURCE_DIR}/toolkit"
@@ -589,6 +597,7 @@ if (CompadreHarness_USE_CUDA OR CompadreHarness_USE_LAPACK)
       BUILD_ALWAYS 1
       TEST_AFTER_INSTALL ON
       )
+
   #    GIT_REPOSITORY "/ascldap/users/pakuber/Desktop/ProjectStubs/Particles/barebone_toolkit"
   # UPDATE_DISCONNECTED 1 indicates that GIT_TAG is a hash and it is stable
   #SOURCE_DIR "${PROJECT_SOURCE_DIR}/toolkit"
@@ -596,14 +605,6 @@ if (CompadreHarness_USE_CUDA OR CompadreHarness_USE_LAPACK)
   #DOWNLOAD_DIR "${PROJECT_SOURCE_DIR}/toolkit"
   #    GIT_REPOSITORY "git+ssh://software.sandia.gov/git/compadre-dev"
   #    GIT_TAG "e590e1bba62823"
-  set(CMAKE_INSTALL_RPATH ${Toolkit_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
-
-  #ExternalProject_Get_Property(Toolkit toolkit_install_dir)
-  #include_directories(${toolkit_install_dir}/include)
-  #add_dependencies(project_b_exe project_a)
-
-  #target_link_libraries(project_b_exe ${install_dir}/lib/alib.lib)
-  #add_subdirectory(GMLS)
   
   if(CompadreHarness_USE_Harness)
     add_subdirectory(src)
