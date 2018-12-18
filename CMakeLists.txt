@@ -575,6 +575,7 @@ if (CompadreHarness_USE_CUDA OR CompadreHarness_USE_LAPACK)
     "-DCompadre_USE_PYTHON:BOOL=${CompadreHarness_USE_PYTHON}"
     "-DCompadre_EXAMPLES:BOOL=${Toolkit_EXAMPLES}"
     "-DKokkosCore_PREFIX=${KokkosCore_PREFIX}"
+    "-DNumpy_PREFIX=${Numpy_PREFIX}"
     "-DTrilinos_PREFIX=${Trilinos_PREFIX}"
     "-DCompadre_USE_Trilinos:BOOL=${CompadreHarness_USE_Trilinos}"
     "-DCompadre_TESTS:BOOL=${Toolkit_TESTS}"
