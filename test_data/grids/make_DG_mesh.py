@@ -9,13 +9,22 @@ from scipy.integrate import quad
 def get_velocity(coordinate):
     return np.array((np.sin(coordinate[0]), np.cos(coordinate[1])))
 
-def get_quadrature(poly_order, dimension=2):
-    num_points_lookup=[1,1,3,4,6]
-    num_points = num_points_lookup[poly_order]
+def get_num_points_for_order(poly_order, dimension=2):
+    if (dimension==1):
+        num_points_lookup=[1,1,1,2,2]
+        num_points = num_points_lookup[poly_order]
+        return num_points
+    else:
+        num_points_lookup=[1,1,3,4,6]
+        num_points = num_points_lookup[poly_order]
+        return num_points
 
+def get_quadrature(poly_order, dimension=2):
+
+    num_points = get_num_points_for_order(poly_order, dimension)
     w=np.empty([num_points],dtype="d")
-    q=np.empty([num_points,2],dtype="d")
     if (dimension==2):
+        q=np.empty([num_points,2],dtype="d")
         if (num_points==1):
             w[0]=0.5;
             q[0,0]=1./3.;
@@ -43,8 +52,44 @@ def get_quadrature(poly_order, dimension=2):
             q[2,1]=0.6;
             q[3,0]=0.2;
             q[3,1]=0.2;
-    return (w,q)
+        return (w,q)
+    if (dimension==1):
+        q=np.empty([num_points],dtype="d")
+        if (num_points==1):
+            w[0]=2;
+            q[0]=0;
+        elif (num_points==2):
+            w[0]=1.;
+            w[1]=1.;
+            q[0]=-1./math.sqrt(3);
+            q[1]= 1./math.sqrt(3);
+        return (w,q)
 
+def get_triangle_area(physical_vertices):
+    t1 = np.empty([2], dtype='d')
+    t2 = np.empty([2], dtype='d')
+    for i in range(2):
+        t1[i] = physical_vertices[0,i]-physical_vertices[1,i]
+        t2[i] = physical_vertices[1,i]-physical_vertices[2,i]
+    return abs(np.cross(t1,t2))
+
+def transform_reference_triangle_point(weights, ref_quadrature, physical_vertices):
+    scaling = get_triangle_area(physical_vertices)
+    updated_weights = np.copy(weights) * scaling
+    updated_quadrature = np.empty(ref_quadrature.shape, dtype='d')
+    pv=physical_vertices
+    a = np.array([[pv[0,0]-pv[2,0], pv[1,0]-pv[2,0]], [pv[0,1]-pv[2,1], pv[1,1]-pv[2,1]]], dtype='d');
+    ainv = np.linalg.inv(np.matrix(a))
+    print(updated_quadrature.shape) 
+    print(ref_quadrature.shape) 
+    for i in range(ref_quadrature.shape[0]):
+        updated_quadrature[i,:] = np.dot(a, ref_quadrature[i,:]) + pv[2,:].T
+    return updated_quadrature
+    
+    #print (updated_quadrature)
+    #print (ainv)
+    #print (updated_weights)
+    
 def get_unit_normal_vector(line_coordinates):
     # (x0,y0,x1,y1) are given
 
@@ -114,6 +159,9 @@ variation = .00 # as a decimal for a percent
 
 h_all=[0.2]#,0.1,0.05,0.025,0.0125,0.00625]
 
+poly_order = 3
+num_points_interior = get_num_points_for_order(poly_order, 2)
+num_points_exterior = get_num_points_for_order(poly_order, 1)
 
 for key, h in enumerate(h_all):
     
@@ -140,24 +188,45 @@ for key, h in enumerate(h_all):
 
     tri = Delaunay(points, qhull_options="Qt")
 
-    # if (vis):
-    #     visualization
-    #     import matplotlib.pyplot as plt
-    #     plt.triplot(points[:,0], points[:,1], tri.simplices.copy())
-    #     plt.plot(points[:,0], points[:,1], 'o')
-    #     plt.show()
 
-    # calculate all lines
-    all_lines = set()
+    
+    all_weights = np.empty([tri.simplices.shape[0], num_points_interior + num_points_exterior], dtype='d')
+    all_quadrature = np.empty([tri.simplices.shape[0], 2*(num_points_interior + num_points_exterior)], dtype='d')
+    all_normals = np.empty([tri.simplices.shape[0], 2*(num_points_interior + num_points_exterior)], dtype='d')
+    all_interior = np.empty([tri.simplices.shape[0], num_points_interior + num_points_exterior], dtype='int')
+    all_vertices = np.empty([tri.simplices.shape[0], num_points_interior + num_points_exterior], dtype='d')
+
+    (w_interior, q_interior) = get_quadrature(poly_order, 2)
+    (w_exterior, q_exterior) = get_quadrature(poly_order, 1)
     for i in range(tri.simplices.shape[0]): # all triangles
+        physical_vertices = np.empty([3,2], dtype='d')
         for j in range(3): # vertices
-            pair = [tri.simplices[i][j], tri.simplices[i][(j+1) % 3]]
-            pair.sort()
-            pair = tuple(pair)
-            all_lines.add(pair)
-    lines = np.ndarray([len(all_lines),2], dtype='int32')
-    for i, line in enumerate(all_lines):
-        lines[i,:] = np.array(line)
+            physical_vertices[j,:] = points[tri.simplices[i][j], :]
+        q_physical_interior = transform_reference_triangle_point(w_interior, q_interior, physical_vertices) 
+        for j in range(num_points_interior):
+            all_quadrature[i, 2*j  ] = q_physical_interior[j, 0]
+            all_quadrature[i, 2*j+1] = q_physical_interior[j, 1]
+
+    if (vis):
+        # visualization
+        import matplotlib.pyplot as plt
+        plt.triplot(points[:,0], points[:,1], tri.simplices.copy())
+        plt.plot(points[:,0], points[:,1], 'o')
+        for i in range(num_points_interior):
+            plt.plot(all_quadrature[:,2*i + 0], all_quadrature[:,2*i + 1], 'o')
+        plt.show()
+
+    ## calculate all lines
+    #all_lines = set()
+    #for i in range(tri.simplices.shape[0]): # all triangles
+    #    for j in range(3): # vertices
+    #        pair = [tri.simplices[i][j], tri.simplices[i][(j+1) % 3]]
+    #        pair.sort()
+    #        pair = tuple(pair)
+    #        all_lines.add(pair)
+    #lines = np.ndarray([len(all_lines),2], dtype='int32')
+    #for i, line in enumerate(all_lines):
+    #    lines[i,:] = np.array(line)
 
     #if (vis):
     #    # visualization of directed edges
@@ -188,85 +257,86 @@ for key, h in enumerate(h_all):
     #get new points for the lines by copying from coordinates
     #freeing the edges from being attached to one another
     #now transform by their midpoint
-    new_line_points = np.concatenate((points[lines[:,0],:],points[lines[:,1],:]),axis=1)
-    unit_normal_vectors = np.zeros([new_line_points.shape[0],lines.shape[1]])
-    solution_on_line = np.zeros(new_line_points.shape[0])
-    for i, row in enumerate(new_line_points):
+    #new_line_points = np.concatenate((points[lines[:,0],:],points[lines[:,1],:]),axis=1)
+    #unit_normal_vectors = np.zeros([new_line_points.shape[0],lines.shape[1]])
+    #solution_on_line = np.zeros(new_line_points.shape[0])
+    #for i, row in enumerate(new_line_points):
 
-        midpoint = 0.5*row[0:2] + 0.5*row[2:4]
-        scaled_midpoint = blowup_ratio*midpoint
+    #    midpoint = 0.5*row[0:2] + 0.5*row[2:4]
+    #    scaled_midpoint = blowup_ratio*midpoint
 
-        # remove old midpoint
-        new_line_points[i,0:2] -= midpoint
-        new_line_points[i,2:4] -= midpoint
+    #    # remove old midpoint
+    #    new_line_points[i,0:2] -= midpoint
+    #    new_line_points[i,2:4] -= midpoint
 
-        # generate random rotation matrix
-        if (random_rotation):
-            theta = rotation_max*math.pi/180.0*(random.random()-.5)
-            c, s = np.cos(theta), np.sin(theta)
-            R = np.array(((c,-s), (s, c)))
-            t_vec = new_line_points[i,0:2]
-            new_line_points[i,0:2] = np.dot(np.transpose(R), t_vec)
-            t_vec = new_line_points[i,2:4]
-            new_line_points[i,2:4] = np.dot(np.transpose(R), t_vec)
+    #    # generate random rotation matrix
+    #    if (random_rotation):
+    #        theta = rotation_max*math.pi/180.0*(random.random()-.5)
+    #        c, s = np.cos(theta), np.sin(theta)
+    #        R = np.array(((c,-s), (s, c)))
+    #        t_vec = new_line_points[i,0:2]
+    #        new_line_points[i,0:2] = np.dot(np.transpose(R), t_vec)
+    #        t_vec = new_line_points[i,2:4]
+    #        new_line_points[i,2:4] = np.dot(np.transpose(R), t_vec)
 
-        # insert scaled midpoint
-        new_line_points[i,0:2] += scaled_midpoint
-        new_line_points[i,2:4] += scaled_midpoint
-        
-        # integrate v against normal along this line
-        solution_on_line[i] = integrate_along_line(new_line_points[i,:])
-        unit_normal_vectors[i] = get_unit_normal_vector(new_line_points[i,:])
+    #    # insert scaled midpoint
+    #    new_line_points[i,0:2] += scaled_midpoint
+    #    new_line_points[i,2:4] += scaled_midpoint
+    #    
+    #    # integrate v against normal along this line
+    #    solution_on_line[i] = integrate_along_line(new_line_points[i,:])
+    #    unit_normal_vectors[i] = get_unit_normal_vector(new_line_points[i,:])
 
-    if (vis):
-        # visualization of directed edges
-        import matplotlib.pyplot as plt
-        from matplotlib import collections as mc
-        from matplotlib.pyplot import arrow as arrow
-        fig, ax = plt.subplots()
-        line_list = []
-        for row in new_line_points:
-            #line_list.append([[points[row[0],0], points[row[0],1]],[points[row[1],0], points[row[1],1]]])
-            line_list.append([row[0:2],row[2:4]]) #row[[points[row[0],0], points[row[0],1]],[points[row[1],0], points[row[1],1]]])
-            #origin = line_list[-1][0]
-            #diff = list(points[row[1],:]-points[row[0],:])
-            #ax.arrow(origin[0], origin[1], diff[0], diff[1])
-        lc = mc.LineCollection(line_list, linewidths=2)
-        #X = points[lines[:,0],0]
-        #Y = points[lines[:,0],1]
-        #print X, Y
-        #U = points[lines[:,1],0] - points[lines[:,0],0]
-        ##U = np.zeros(lines.shape[0]) #points[lines[:,1],0] - points[lines[:,0],0]
-        #V = points[lines[:,1],1] - points[lines[:,0],1]
-        ##V = np.ones(lines.shape[0]) #points[lines[:,1],1] - points[lines[:,0],1]
-        #q = ax.quiver(X, Y, U, V, scale=None)
-        ax.add_collection(lc)
-        ax.autoscale()
-        ax.margins(0.1)
-        plt.show()
+    ##if (vis):
+    ##    # visualization of directed edges
+    ##    import matplotlib.pyplot as plt
+    ##    from matplotlib import collections as mc
+    ##    from matplotlib.pyplot import arrow as arrow
+    ##    fig, ax = plt.subplots()
+    ##    line_list = []
+    ##    for row in new_line_points:
+    ##        #line_list.append([[points[row[0],0], points[row[0],1]],[points[row[1],0], points[row[1],1]]])
+    ##        line_list.append([row[0:2],row[2:4]]) #row[[points[row[0],0], points[row[0],1]],[points[row[1],0], points[row[1],1]]])
+    ##        #origin = line_list[-1][0]
+    ##        #diff = list(points[row[1],:]-points[row[0],:])
+    ##        #ax.arrow(origin[0], origin[1], diff[0], diff[1])
+    ##    lc = mc.LineCollection(line_list, linewidths=2)
+    ##    #X = points[lines[:,0],0]
+    ##    #Y = points[lines[:,0],1]
+    ##    #print X, Y
+    ##    #U = points[lines[:,1],0] - points[lines[:,0],0]
+    ##    ##U = np.zeros(lines.shape[0]) #points[lines[:,1],0] - points[lines[:,0],0]
+    ##    #V = points[lines[:,1],1] - points[lines[:,0],1]
+    ##    ##V = np.ones(lines.shape[0]) #points[lines[:,1],1] - points[lines[:,0],1]
+    ##    #q = ax.quiver(X, Y, U, V, scale=None)
+    ##    ax.add_collection(lc)
+    ##    ax.autoscale()
+    ##    ax.margins(0.1)
+    ##    plt.show()
 
-    # write solution to netcdf
-    dataset = Dataset('dg_%d.nc'%key, mode="w", clobber=True, diskless=False,\
-                       persist=False, keepweakref=False, format='NETCDF4')
-    dataset.createDimension('num_entities', size=new_line_points.shape[0])
-    dataset.createDimension('related_coordinates_size', size=2*2) # 2 is spatial description and a 1d dimension entity has two endpoint to describe
-    dataset.createDimension('spatial_dimension', size=2) # 2 is spatial dimension
-    dataset.setncattr('entity_dimension',int(1)) # lines are 1d objects
-    dataset.setncattr('spatial_dimension',int(2)) # represented in 2D space
+    ## write solution to netcdf
+    #dataset = Dataset('dg_%d.nc'%key, mode="w", clobber=True, diskless=False,\
+    #                   persist=False, keepweakref=False, format='NETCDF4')
+    #dataset.createDimension('num_entities', size=tri.simplices.shape[0])
+    #dataset.createDimension('related_coordinates_size', size=physical_quadrature.shape[0]*2) # 2 is spatial description x number of quadrature points
+    #dataset.createDimension('spatial_dimension', size=2) # 2 is spatial dimension
+    #dataset.setncattr('entity_dimension',int(0)) # points are 0d objects
+    #dataset.setncattr('spatial_dimension',int(2)) # represented in 2D space
 
-    dataset.createVariable('related_coordinates', datatype='d', dimensions=('num_entities','related_coordinates_size'), zlib=False, complevel=4,\
-                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
-                           endian='native', least_significant_digit=None, fill_value=None)
+    #dataset.createVariable('quadrature_related_coordinates', datatype='d', dimensions=('num_entities','related_coordinates_size'), zlib=False, complevel=4,\
+    #                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+    #                       endian='native', least_significant_digit=None, fill_value=None)
 
-    dataset.createVariable('unit_normals', datatype='d', dimensions=('num_entities','spatial_dimension'), zlib=False, complevel=4,\
-                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
-                           endian='native', least_significant_digit=None, fill_value=None)
+    #dataset.createVariable('unit_normals', datatype='d', dimensions=('num_entities','spatial_dimension'), zlib=False, complevel=4,\
+    #                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+    #                       endian='native', least_significant_digit=None, fill_value=None)
 
-    dataset.variables['related_coordinates'][:,:]=new_line_points[:,:]
-    dataset.variables['unit_normals'][:,:]=unit_normal_vectors[:,:]
+    #dataset.variables['quadrature_points'][:,:]=new_line_points[:,:]
+    #dataset.variables['quadrature_weights'][:,:]=unit_normal_vectors[:,:]
+    #dataset.variables['quadrature_weights'][:,:]=unit_normal_vectors[:,:]
 
-    #help(dataset)
-    dataset.close()
+    ##help(dataset)
+    #dataset.close()
 
 print (get_quadrature(3))
 
