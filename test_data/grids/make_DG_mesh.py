@@ -15,7 +15,7 @@ def get_num_points_for_order(poly_order, dimension=2):
         num_points = num_points_lookup[poly_order]
         return num_points
     else:
-        num_points_lookup=[1,1,3,4,6]
+        num_points_lookup=[1,1,3,4]
         num_points = num_points_lookup[poly_order]
         return num_points
 
@@ -65,6 +65,13 @@ def get_quadrature(poly_order, dimension=2):
             q[1]= 1./math.sqrt(3);
         return (w,q)
 
+def get_line_lengths(physical_vertices):
+    pv=physical_vertices
+    lengths = np.empty([3], dtype='d')
+    for i in range(3):
+        lengths[i] = math.sqrt(pow(pv[(i+1)%3, 0]-pv[i,0], 2) + pow(pv[(i+1)%3, 1]-pv[i,1], 2))
+    return lengths
+
 def get_triangle_area(physical_vertices):
     t1 = np.empty([2], dtype='d')
     t2 = np.empty([2], dtype='d')
@@ -73,6 +80,33 @@ def get_triangle_area(physical_vertices):
         t2[i] = physical_vertices[1,i]-physical_vertices[2,i]
     return abs(np.cross(t1,t2))
 
+def transform_reference_line_point(weights, ref_quadrature, physical_vertices, vertex_indices):
+    centroid = np.zeros([2], dtype='d')
+    for i in range(3):
+        centroid += 1./3. * physical_vertices[i,:]
+
+    scaling = 0.5 * get_line_lengths(physical_vertices)
+    updated_weights = np.empty([3*weights.shape[0]], dtype='d')
+    updated_quadrature = np.empty([3*ref_quadrature.shape[0], 2], dtype='d')
+    normal_directions = np.empty([3*ref_quadrature.shape[0], 2], dtype='d')
+    for i in range(3):
+        for j in range(weights.shape[0]):
+            updated_weights[i*weights.shape[0] + j] = scaling[i] * weights[j];
+            alpha = 0.5 * (ref_quadrature[j] - (-1))
+            updated_quadrature[i*ref_quadrature.shape[0] + j, :] = alpha * physical_vertices[(i+1)%3, :] + (1-alpha) * physical_vertices[i, :]
+            diff_vec = physical_vertices[(i+1)%3, :] - physical_vertices[i, :]
+            normal_directions[i*ref_quadrature.shape[0] + j, 0] = -diff_vec[1]
+            normal_directions[i*ref_quadrature.shape[0] + j, 1] =  diff_vec[0]
+            normal_directions[i*ref_quadrature.shape[0] + j, :] /= np.linalg.norm(normal_directions[i*ref_quadrature.shape[0] + j, :])
+
+            midpoint_on_edge = 0.5 * physical_vertices[(i+1)%3, :] + 0.5 * physical_vertices[i, :]
+            vector_from_center_to_edge = midpoint_on_edge - centroid
+            #print( np.sign(np.dot(vector_from_center_to_edge, normal_directions[i*ref_quadrature.shape[0] + j, :])) )
+            # dot product to determine if they go the same direction
+            normal_directions[i*ref_quadrature.shape[0] + j, :] *= np.sign(np.dot(vector_from_center_to_edge, normal_directions[i*ref_quadrature.shape[0] + j, :]))
+
+    return (updated_weights, updated_quadrature, normal_directions)
+
 def transform_reference_triangle_point(weights, ref_quadrature, physical_vertices):
     scaling = get_triangle_area(physical_vertices)
     updated_weights = np.copy(weights) * scaling
@@ -80,15 +114,9 @@ def transform_reference_triangle_point(weights, ref_quadrature, physical_vertice
     pv=physical_vertices
     a = np.array([[pv[0,0]-pv[2,0], pv[1,0]-pv[2,0]], [pv[0,1]-pv[2,1], pv[1,1]-pv[2,1]]], dtype='d');
     ainv = np.linalg.inv(np.matrix(a))
-    print(updated_quadrature.shape) 
-    print(ref_quadrature.shape) 
     for i in range(ref_quadrature.shape[0]):
         updated_quadrature[i,:] = np.dot(a, ref_quadrature[i,:]) + pv[2,:].T
-    return updated_quadrature
-    
-    #print (updated_quadrature)
-    #print (ainv)
-    #print (updated_weights)
+    return (updated_weights, updated_quadrature)
     
 def get_unit_normal_vector(line_coordinates):
     # (x0,y0,x1,y1) are given
@@ -151,10 +179,10 @@ width  = 1.0
 
 # random transformations of the original mesh
 random.seed(1234)
-blowup_ratio = 2 # 1 does nothing, identity
+blowup_ratio = 1 # 1 does nothing, identity
 random_rotation = True
 rotation_max = 180 # in degrees (either clockwise or counterclockwise, 180 should be highest needed)
-variation = .00 # as a decimal for a percent
+variation = .40 # as a decimal for a percent
 
 
 h_all=[0.2]#,0.1,0.05,0.025,0.0125,0.00625]
@@ -190,134 +218,77 @@ for key, h in enumerate(h_all):
 
 
     
-    all_weights = np.empty([tri.simplices.shape[0], num_points_interior + num_points_exterior], dtype='d')
-    all_quadrature = np.empty([tri.simplices.shape[0], 2*(num_points_interior + num_points_exterior)], dtype='d')
-    all_normals = np.empty([tri.simplices.shape[0], 2*(num_points_interior + num_points_exterior)], dtype='d')
-    all_interior = np.empty([tri.simplices.shape[0], num_points_interior + num_points_exterior], dtype='int')
-    all_vertices = np.empty([tri.simplices.shape[0], num_points_interior + num_points_exterior], dtype='d')
+    all_weights = np.empty([tri.simplices.shape[0], num_points_interior + 3*num_points_exterior], dtype='d')
+    all_quadrature = np.empty([tri.simplices.shape[0], 2*(num_points_interior + 3*num_points_exterior)], dtype='d')
+    all_normals = np.zeros([tri.simplices.shape[0], 2*(num_points_interior + 3*num_points_exterior)], dtype='d')
+    all_interior = np.zeros([tri.simplices.shape[0], num_points_interior + 3*num_points_exterior], dtype='int')
+    all_vertices = np.zeros([tri.simplices.shape[0], 2], dtype='d')
 
     (w_interior, q_interior) = get_quadrature(poly_order, 2)
     (w_exterior, q_exterior) = get_quadrature(poly_order, 1)
     for i in range(tri.simplices.shape[0]): # all triangles
         physical_vertices = np.empty([3,2], dtype='d')
+        vertex_indices = np.empty([3], dtype='int')
         for j in range(3): # vertices
             physical_vertices[j,:] = points[tri.simplices[i][j], :]
-        q_physical_interior = transform_reference_triangle_point(w_interior, q_interior, physical_vertices) 
+            vertex_indices[j] = tri.simplices[i][j]
+            all_vertices[i,:] += 1./3.*points[tri.simplices[i][j], :]
+
+        (w_physical_interior, q_physical_interior) = transform_reference_triangle_point(w_interior, q_interior, physical_vertices) 
         for j in range(num_points_interior):
             all_quadrature[i, 2*j  ] = q_physical_interior[j, 0]
             all_quadrature[i, 2*j+1] = q_physical_interior[j, 1]
+            all_weights   [i, j    ] = w_physical_interior[j]
+
+        (w_physical_exterior, q_physical_exterior, q_normals_exterior) = transform_reference_line_point(w_exterior, q_exterior, physical_vertices, vertex_indices) 
+        for k in range(3): # edges
+            for j in range(num_points_exterior):
+                all_quadrature[i, 2*num_points_interior + 2*k*num_points_exterior + 2*j  ] = q_physical_exterior[k*num_points_exterior + j, 0]
+                all_quadrature[i, 2*num_points_interior + 2*k*num_points_exterior + 2*j+1] = q_physical_exterior[k*num_points_exterior + j, 1]
+                all_normals   [i, 2*num_points_interior + 2*k*num_points_exterior + 2*j  ] = q_normals_exterior[k*num_points_exterior + j, 0]
+                all_normals   [i, 2*num_points_interior + 2*k*num_points_exterior + 2*j+1] = q_normals_exterior[k*num_points_exterior + j, 1]
+                all_interior  [i, num_points_interior + k*num_points_exterior + j] = 1;
+                all_weights   [i, num_points_interior + k*num_points_exterior + j] = w_physical_exterior[k*num_points_exterior + j]
+
 
     if (vis):
+        #for z in range(all_quadrature.shape[0]):
         # visualization
         import matplotlib.pyplot as plt
-        plt.triplot(points[:,0], points[:,1], tri.simplices.copy())
-        plt.plot(points[:,0], points[:,1], 'o')
+        from matplotlib import collections as mc
+        #plt.triplot(points[:,0], points[:,1], tri.simplices.copy())
+        all_lines = list()
+        fig, ax = plt.subplots()
+        ax.plot(points[:,0], points[:,1], 'o')
         for i in range(num_points_interior):
-            plt.plot(all_quadrature[:,2*i + 0], all_quadrature[:,2*i + 1], 'o')
+            ax.plot(all_quadrature[:,2*i + 0], all_quadrature[:,2*i + 1], 'o')
+        for k in range(3): # edges
+            for j in range(num_points_exterior):
+                ax.plot(all_quadrature[:,2*(num_points_interior + k*num_points_exterior + j) + 0], all_quadrature[:,2*(num_points_interior + k*num_points_exterior + j) + 1], 'o')
+        #for i in range(z,z+1):#all_quadrature.shape[0]):
+        for i in range(all_quadrature.shape[0]):
+            for k in range(3):
+                for j in range(num_points_exterior):
+                    all_lines.append([[all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 0], all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 1]], [0.3*h*all_normals[i,2*(num_points_interior + k*num_points_exterior + j) + 0]+all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 0], 0.3*h*all_normals[i,2*(num_points_interior + k*num_points_exterior + j) + 1]+all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 1]]])
+
+        lc = mc.LineCollection(all_lines, linewidths=2)
+        ax.add_collection(lc)
+        ax.triplot(points[:,0], points[:,1], tri.simplices.copy())
+        ax.autoscale()
+        ax.margins(0.1)
+        ax.axis('equal')
         plt.show()
 
-    ## calculate all lines
-    #all_lines = set()
-    #for i in range(tri.simplices.shape[0]): # all triangles
-    #    for j in range(3): # vertices
-    #        pair = [tri.simplices[i][j], tri.simplices[i][(j+1) % 3]]
-    #        pair.sort()
-    #        pair = tuple(pair)
-    #        all_lines.add(pair)
-    #lines = np.ndarray([len(all_lines),2], dtype='int32')
-    #for i, line in enumerate(all_lines):
-    #    lines[i,:] = np.array(line)
 
-    #if (vis):
-    #    # visualization of directed edges
-    #    import matplotlib.pyplot as plt
-    #    from matplotlib import collections as mc
-    #    from matplotlib.pyplot import arrow as arrow
-    #    fig, ax = plt.subplots()
-    #    line_list = []
-    #    for row in lines:
-    #        line_list.append([[points[row[0],0], points[row[0],1]],[points[row[1],0], points[row[1],1]]])
-    #        #origin = line_list[-1][0]
-    #        #diff = list(points[row[1],:]-points[row[0],:])
-    #        #ax.arrow(origin[0], origin[1], diff[0], diff[1])
-    #    lc = mc.LineCollection(line_list, linewidths=2)
-    #    #X = points[lines[:,0],0]
-    #    #Y = points[lines[:,0],1]
-    #    #print X, Y
-    #    #U = points[lines[:,1],0] - points[lines[:,0],0]
-    #    ##U = np.zeros(lines.shape[0]) #points[lines[:,1],0] - points[lines[:,0],0]
-    #    #V = points[lines[:,1],1] - points[lines[:,0],1]
-    #    ##V = np.ones(lines.shape[0]) #points[lines[:,1],1] - points[lines[:,0],1]
-    #    #q = ax.quiver(X, Y, U, V, scale=None)
-    #    ax.add_collection(lc)
-    #    ax.autoscale()
-    #    ax.margins(0.1)
-    #    plt.show()
-
-    #get new points for the lines by copying from coordinates
-    #freeing the edges from being attached to one another
-    #now transform by their midpoint
-    #new_line_points = np.concatenate((points[lines[:,0],:],points[lines[:,1],:]),axis=1)
-    #unit_normal_vectors = np.zeros([new_line_points.shape[0],lines.shape[1]])
-    #solution_on_line = np.zeros(new_line_points.shape[0])
-    #for i, row in enumerate(new_line_points):
-
-    #    midpoint = 0.5*row[0:2] + 0.5*row[2:4]
-    #    scaled_midpoint = blowup_ratio*midpoint
-
-    #    # remove old midpoint
-    #    new_line_points[i,0:2] -= midpoint
-    #    new_line_points[i,2:4] -= midpoint
-
-    #    # generate random rotation matrix
-    #    if (random_rotation):
-    #        theta = rotation_max*math.pi/180.0*(random.random()-.5)
-    #        c, s = np.cos(theta), np.sin(theta)
-    #        R = np.array(((c,-s), (s, c)))
-    #        t_vec = new_line_points[i,0:2]
-    #        new_line_points[i,0:2] = np.dot(np.transpose(R), t_vec)
-    #        t_vec = new_line_points[i,2:4]
-    #        new_line_points[i,2:4] = np.dot(np.transpose(R), t_vec)
-
-    #    # insert scaled midpoint
-    #    new_line_points[i,0:2] += scaled_midpoint
-    #    new_line_points[i,2:4] += scaled_midpoint
-    #    
-    #    # integrate v against normal along this line
-    #    solution_on_line[i] = integrate_along_line(new_line_points[i,:])
-    #    unit_normal_vectors[i] = get_unit_normal_vector(new_line_points[i,:])
-
-    ##if (vis):
-    ##    # visualization of directed edges
-    ##    import matplotlib.pyplot as plt
-    ##    from matplotlib import collections as mc
-    ##    from matplotlib.pyplot import arrow as arrow
-    ##    fig, ax = plt.subplots()
-    ##    line_list = []
-    ##    for row in new_line_points:
-    ##        #line_list.append([[points[row[0],0], points[row[0],1]],[points[row[1],0], points[row[1],1]]])
-    ##        line_list.append([row[0:2],row[2:4]]) #row[[points[row[0],0], points[row[0],1]],[points[row[1],0], points[row[1],1]]])
-    ##        #origin = line_list[-1][0]
-    ##        #diff = list(points[row[1],:]-points[row[0],:])
-    ##        #ax.arrow(origin[0], origin[1], diff[0], diff[1])
-    ##    lc = mc.LineCollection(line_list, linewidths=2)
-    ##    #X = points[lines[:,0],0]
-    ##    #Y = points[lines[:,0],1]
-    ##    #print X, Y
-    ##    #U = points[lines[:,1],0] - points[lines[:,0],0]
-    ##    ##U = np.zeros(lines.shape[0]) #points[lines[:,1],0] - points[lines[:,0],0]
-    ##    #V = points[lines[:,1],1] - points[lines[:,0],1]
-    ##    ##V = np.ones(lines.shape[0]) #points[lines[:,1],1] - points[lines[:,0],1]
-    ##    #q = ax.quiver(X, Y, U, V, scale=None)
-    ##    ax.add_collection(lc)
-    ##    ax.autoscale()
-    ##    ax.margins(0.1)
-    ##    plt.show()
-
-    ## write solution to netcdf
-    #dataset = Dataset('dg_%d.nc'%key, mode="w", clobber=True, diskless=False,\
-    #                   persist=False, keepweakref=False, format='NETCDF4')
-    #dataset.createDimension('num_entities', size=tri.simplices.shape[0])
+    # write solution to netcdf
+    dataset = Dataset('dg_%d.nc'%key, mode="w", clobber=True, diskless=False,\
+                       persist=False, keepweakref=False, format='NETCDF4')
+    dataset.createDimension('num_cell', size=tri.simplices.shape[0])
+    dataset.createDimension('num_interior_quadrature', size=num_points_interior)
+    dataset.createDimension('num_exterior_quadrature', size=3*num_points_exterior)
+    dataset.createDimension('num_total_quadrature', size=num_points_interior + 3*num_points_exterior)
+    dataset.createDimension('vector_for_quadrature', size=2*(num_points_interior + 3*num_points_exterior)) # a vector at each quadrature point
+    dataset.createDimension('scalar_for_quadrature', size=num_points_interior + 3*num_points_exterior) # a vector at each quadrature point
     #dataset.createDimension('related_coordinates_size', size=physical_quadrature.shape[0]*2) # 2 is spatial description x number of quadrature points
     #dataset.createDimension('spatial_dimension', size=2) # 2 is spatial dimension
     #dataset.setncattr('entity_dimension',int(0)) # points are 0d objects
@@ -335,8 +306,8 @@ for key, h in enumerate(h_all):
     #dataset.variables['quadrature_weights'][:,:]=unit_normal_vectors[:,:]
     #dataset.variables['quadrature_weights'][:,:]=unit_normal_vectors[:,:]
 
-    ##help(dataset)
-    #dataset.close()
+    #help(dataset)
+    dataset.close()
 
 print (get_quadrature(3))
 
