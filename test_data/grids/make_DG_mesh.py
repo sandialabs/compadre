@@ -182,10 +182,11 @@ random.seed(1234)
 blowup_ratio = 1 # 1 does nothing, identity
 random_rotation = True
 rotation_max = 180 # in degrees (either clockwise or counterclockwise, 180 should be highest needed)
-variation = .40 # as a decimal for a percent
+variation = .00 # as a decimal for a percent
 
 
-h_all=[0.2]#,0.1,0.05,0.025,0.0125,0.00625]
+#h_all=[0.2]#,0.1,0.05,0.025,0.0125,0.00625]
+h_all=[0.1,0.05,0.025,0.0125,0.00625]
 
 poly_order = 3
 num_points_interior = get_num_points_for_order(poly_order, 2)
@@ -221,7 +222,7 @@ for key, h in enumerate(h_all):
     all_weights = np.empty([tri.simplices.shape[0], num_points_interior + 3*num_points_exterior], dtype='d')
     all_quadrature = np.empty([tri.simplices.shape[0], 2*(num_points_interior + 3*num_points_exterior)], dtype='d')
     all_normals = np.zeros([tri.simplices.shape[0], 2*(num_points_interior + 3*num_points_exterior)], dtype='d')
-    all_interior = np.zeros([tri.simplices.shape[0], num_points_interior + 3*num_points_exterior], dtype='int')
+    all_interior = np.ones([tri.simplices.shape[0], num_points_interior + 3*num_points_exterior], dtype='int')
     all_vertices = np.zeros([tri.simplices.shape[0], 2], dtype='d')
 
     (w_interior, q_interior) = get_quadrature(poly_order, 2)
@@ -247,7 +248,7 @@ for key, h in enumerate(h_all):
                 all_quadrature[i, 2*num_points_interior + 2*k*num_points_exterior + 2*j+1] = q_physical_exterior[k*num_points_exterior + j, 1]
                 all_normals   [i, 2*num_points_interior + 2*k*num_points_exterior + 2*j  ] = q_normals_exterior[k*num_points_exterior + j, 0]
                 all_normals   [i, 2*num_points_interior + 2*k*num_points_exterior + 2*j+1] = q_normals_exterior[k*num_points_exterior + j, 1]
-                all_interior  [i, num_points_interior + k*num_points_exterior + j] = 1;
+                all_interior  [i, num_points_interior + k*num_points_exterior + j] = 0;
                 all_weights   [i, num_points_interior + k*num_points_exterior + j] = w_physical_exterior[k*num_points_exterior + j]
 
 
@@ -269,7 +270,7 @@ for key, h in enumerate(h_all):
         for i in range(all_quadrature.shape[0]):
             for k in range(3):
                 for j in range(num_points_exterior):
-                    all_lines.append([[all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 0], all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 1]], [0.3*h*all_normals[i,2*(num_points_interior + k*num_points_exterior + j) + 0]+all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 0], 0.3*h*all_normals[i,2*(num_points_interior + k*num_points_exterior + j) + 1]+all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 1]]])
+                    all_lines.append([[all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 0], all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 1]], [0.1*h*all_normals[i,2*(num_points_interior + k*num_points_exterior + j) + 0]+all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 0], 0.1*h*all_normals[i,2*(num_points_interior + k*num_points_exterior + j) + 1]+all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 1]]])
 
         lc = mc.LineCollection(all_lines, linewidths=2)
         ax.add_collection(lc)
@@ -283,32 +284,56 @@ for key, h in enumerate(h_all):
     # write solution to netcdf
     dataset = Dataset('dg_%d.nc'%key, mode="w", clobber=True, diskless=False,\
                        persist=False, keepweakref=False, format='NETCDF4')
-    dataset.createDimension('num_cell', size=tri.simplices.shape[0])
+    dataset.createDimension('num_entities', size=tri.simplices.shape[0])
     dataset.createDimension('num_interior_quadrature', size=num_points_interior)
     dataset.createDimension('num_exterior_quadrature', size=3*num_points_exterior)
     dataset.createDimension('num_total_quadrature', size=num_points_interior + 3*num_points_exterior)
     dataset.createDimension('vector_for_quadrature', size=2*(num_points_interior + 3*num_points_exterior)) # a vector at each quadrature point
-    dataset.createDimension('scalar_for_quadrature', size=num_points_interior + 3*num_points_exterior) # a vector at each quadrature point
-    #dataset.createDimension('related_coordinates_size', size=physical_quadrature.shape[0]*2) # 2 is spatial description x number of quadrature points
-    #dataset.createDimension('spatial_dimension', size=2) # 2 is spatial dimension
-    #dataset.setncattr('entity_dimension',int(0)) # points are 0d objects
-    #dataset.setncattr('spatial_dimension',int(2)) # represented in 2D space
+    dataset.createDimension('scalar_for_quadrature', size=num_points_interior + 3*num_points_exterior) # a scalar at each quadrature point
+    dataset.createDimension('spatial_dimension', size=2) # 2 is spatial dimension
+    dataset.createDimension('scalar_dim', size=1) 
 
-    #dataset.createVariable('quadrature_related_coordinates', datatype='d', dimensions=('num_entities','related_coordinates_size'), zlib=False, complevel=4,\
-    #                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
-    #                       endian='native', least_significant_digit=None, fill_value=None)
+    dataset.createVariable('x', datatype='d', dimensions=('num_entities','scalar_dim'), zlib=False, complevel=4,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
 
-    #dataset.createVariable('unit_normals', datatype='d', dimensions=('num_entities','spatial_dimension'), zlib=False, complevel=4,\
-    #                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
-    #                       endian='native', least_significant_digit=None, fill_value=None)
+    dataset.createVariable('y', datatype='d', dimensions=('num_entities','scalar_dim'), zlib=False, complevel=4,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
 
-    #dataset.variables['quadrature_points'][:,:]=new_line_points[:,:]
-    #dataset.variables['quadrature_weights'][:,:]=unit_normal_vectors[:,:]
-    #dataset.variables['quadrature_weights'][:,:]=unit_normal_vectors[:,:]
+    dataset.createVariable('z', datatype='d', dimensions=('num_entities','scalar_dim'), zlib=False, complevel=4,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
+
+    dataset.createVariable('quadrature_weights', datatype='d', dimensions=('num_entities','scalar_for_quadrature'), zlib=False, complevel=4,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
+
+    dataset.createVariable('quadrature_points', datatype='d', dimensions=('num_entities','vector_for_quadrature'), zlib=False, complevel=4,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
+
+    dataset.createVariable('unit_normal', datatype='d', dimensions=('num_entities','vector_for_quadrature'), zlib=False, complevel=4,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
+
+    dataset.createVariable('interior', datatype='int', dimensions=('num_entities','scalar_for_quadrature'), zlib=False, complevel=4,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
+
+
+    dataset.variables['x'][:,:]=all_vertices[:,0]
+    dataset.variables['y'][:,:]=all_vertices[:,1]
+    dataset.variables['z'][:,:]=np.zeros(all_vertices[:,1].shape)
+    dataset.variables['quadrature_weights'][:,:]=all_weights[:,:]
+    dataset.variables['quadrature_points'][:,:]=all_quadrature[:,:]
+    dataset.variables['unit_normal'][:,:]=all_normals[:,:]
+    dataset.variables['interior'][:,:]=all_interior[:,:]
+
 
     #help(dataset)
     dataset.close()
 
-print (get_quadrature(3))
+#print (get_quadrature(3))
 
 
