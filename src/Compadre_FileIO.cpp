@@ -1165,7 +1165,7 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 
 			size_t dim_1;
 			retval = nc_inq_dimlen(ncid, dims_for_var[0], &dim_1);
-			TEUCHOS_TEST_FOR_EXCEPT_MSG(dim_1 == local_coords_size, "Wrong dimensions for field data.");
+			TEUCHOS_TEST_FOR_EXCEPT_MSG(dim_1 != nPtsGlobal, "Wrong dimensions for field data.");
 
 			size_t dim_2 = 1;
 			if (num_dims > 1)
@@ -1418,7 +1418,7 @@ int ParallelHOMMEFileIO::read(const std::string& fn) {
 
 			size_t dim_1;
 			retval = nc_inq_dimlen(ncid, dims_for_var[0], &dim_1);
-			TEUCHOS_TEST_FOR_EXCEPT_MSG(dim_1 == local_coords_size, "Wrong dimensions for field data.");
+			TEUCHOS_TEST_FOR_EXCEPT_MSG(dim_1 != nPtsGlobal, "Wrong dimensions for field data.");
 
 			size_t dim_2 = 1;
 			if (num_dims > 1)

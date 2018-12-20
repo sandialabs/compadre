@@ -43,6 +43,7 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
   add_exe_w_compadre(lagrangianTest.exe Compadre_LagrangianTest.cpp)
   add_exe_w_compadre(remoteRemapTest.exe Compadre_RemoteRemapTest.cpp)
   add_exe_w_compadre(laplaceBeltrami.exe Compadre_LaplaceBeltrami.cpp)
+  add_exe_w_compadre(advectionDiffusion.exe Compadre_AdvectionDiffusion.cpp)
   IF(CompadreHarness_CANGA_ENABLED)
     add_exe_w_compadre(cangaRemoteRemap.exe Canga_RemoteRemap.cpp)
     add_exe_w_compadre(cangaIntercomparison.exe Canga_Intercomparison.cpp)
@@ -195,7 +196,11 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
     
     ADD_TEST(NAME ManifoldStaggeredLaplaceTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "10") # 4 polynomial order, 2 successive meshes, 10-staggered laplacian
     SET_TESTS_PROPERTIES(ManifoldStaggeredLaplaceTest PROPERTIES LABELS "manifold;interpolation;laplacian;staggered")
+
+    # ADVECTION DIFFUSION TESTS
     
+    ADD_TEST(NAME AdvectionDiffusionTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/advectiondiffusion_convergence.py" "4" "2") # 4 polynomial order, 2 successive meshes
+    SET_TESTS_PROPERTIES(AdvectionDiffusionTest PROPERTIES LABELS "advection;diffusion;dg;variational;weakform")
     
     # CANGA TESTS
     

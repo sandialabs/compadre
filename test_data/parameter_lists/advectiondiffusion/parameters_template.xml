@@ -1,0 +1,30 @@
+<ParameterList name="Compadre">
+  <ParameterList name="io">
+    <Parameter name="input file prefix" type="string" value="../test_data/grids/"/>
+    <Parameter name="input file" type="string" value="dg_0.nc"/>
+    <Parameter name="output file prefix" type="string" value="../test_data/"/>
+    <Parameter name="output file" type="string" value="dg_out.pvtp"/>
+    <Parameter name="vtk produce mesh" type="bool" value="false"/>
+  </ParameterList>
+  <ParameterList name="solver">
+    <Parameter name="type" type="string" value="iterative"/>
+    <Parameter name="file" type="string" value="./test_data/parameter_lists/advectiondiffusion/solver_amg.xml"/>
+    <!--<Parameter name="save residual over solution" type="bool" value="true"/>-->
+  </ParameterList>
+  <ParameterList name="remap">
+    <Parameter name="weighting power" type="int" value="10"/>
+    <Parameter name="porder" type="int" value="2"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="1.1"/>
+  </ParameterList>
+  <ParameterList name="neighborhood">
+    <Parameter name="method" type="string" value="nanoflann"/>
+    <Parameter name="dynamic radius" type="bool" value="true"/>
+    <Parameter name="spatially varying radius" type="bool" value="true"/>
+    <Parameter name="multiplier" type="double" value="2.00"/>
+    <Parameter name="size" type="double" value="25.5"/>
+  </ParameterList>
+  <ParameterList name="halo">
+    <Parameter name="dynamic" type="bool" value="true"/>
+    <Parameter name="multiplier" type="double" value="16.0"/>
+  </ParameterList>
+</ParameterList>

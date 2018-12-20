@@ -171,7 +171,7 @@ def integrate_along_line(line_coordinates):
     # return the integral
     return quad(integrand, 0, 1, args=(line_coordinates, unit_normal_vector))[0]
 
-vis = True
+vis = False
 
 # geometry
 height = 1.0
@@ -186,7 +186,7 @@ variation = .00 # as a decimal for a percent
 
 
 #h_all=[0.2]#,0.1,0.05,0.025,0.0125,0.00625]
-h_all=[0.1,0.05,0.025,0.0125,0.00625]
+h_all=[0.1,0.05]#,0.025,0.0125,0.00625]
 
 poly_order = 3
 num_points_interior = get_num_points_for_order(poly_order, 2)
@@ -293,15 +293,15 @@ for key, h in enumerate(h_all):
     dataset.createDimension('spatial_dimension', size=2) # 2 is spatial dimension
     dataset.createDimension('scalar_dim', size=1) 
 
-    dataset.createVariable('x', datatype='d', dimensions=('num_entities','scalar_dim'), zlib=False, complevel=4,\
+    dataset.createVariable('x', datatype='d', dimensions=('num_entities'), zlib=False, complevel=4,\
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
-    dataset.createVariable('y', datatype='d', dimensions=('num_entities','scalar_dim'), zlib=False, complevel=4,\
+    dataset.createVariable('y', datatype='d', dimensions=('num_entities'), zlib=False, complevel=4,\
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
-    dataset.createVariable('z', datatype='d', dimensions=('num_entities','scalar_dim'), zlib=False, complevel=4,\
+    dataset.createVariable('z', datatype='d', dimensions=('num_entities'), zlib=False, complevel=4,\
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
@@ -322,9 +322,9 @@ for key, h in enumerate(h_all):
                            endian='native', least_significant_digit=None, fill_value=None)
 
 
-    dataset.variables['x'][:,:]=all_vertices[:,0]
-    dataset.variables['y'][:,:]=all_vertices[:,1]
-    dataset.variables['z'][:,:]=np.zeros(all_vertices[:,1].shape)
+    dataset.variables['x'][:]=all_vertices[:,0]
+    dataset.variables['y'][:]=all_vertices[:,1]
+    dataset.variables['z'][:]=np.zeros(all_vertices[:,1].shape)
     dataset.variables['quadrature_weights'][:,:]=all_weights[:,:]
     dataset.variables['quadrature_points'][:,:]=all_quadrature[:,:]
     dataset.variables['unit_normal'][:,:]=all_normals[:,:]
