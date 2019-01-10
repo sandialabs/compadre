@@ -8,13 +8,14 @@
   </ParameterList>
   <ParameterList name="solver">
     <Parameter name="type" type="string" value="iterative"/>
-    <Parameter name="file" type="string" value="./test_data/parameter_lists/advectiondiffusion/solver_amg.xml"/>
+    <Parameter name="file" type="string" value="../test_data/parameter_lists/advectiondiffusion/solver_amg.xml"/>
+    <Parameter name="blocked" type="bool" value="true"/>
     <!--<Parameter name="save residual over solution" type="bool" value="true"/>-->
   </ParameterList>
   <ParameterList name="remap">
-    <Parameter name="weighting power" type="int" value="10"/>
+    <Parameter name="weighting power" type="int" value="13"/>
     <Parameter name="porder" type="int" value="2"/>
-    <Parameter name="neighbors needed multiplier" type="double" value="1.1"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="2.6"/>
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>

@@ -210,15 +210,27 @@ scalar_type CylinderSinLonCosZRHS::evalScalar(const xyz_type& xyzIn) const {
 
 
 scalar_type SineProducts::evalScalar(const xyz_type& xyzIn) const {
-    return sin(xyzIn.x)*sin(xyzIn.y)*sin(xyzIn.z);
+    if (_dim==3) {
+        return sin(xyzIn.x)*sin(xyzIn.y)*sin(xyzIn.z);
+    } else {
+        return sin(xyzIn.x)*sin(xyzIn.y);
+    }
 }
 
 xyz_type SineProducts::evalVector(const xyz_type& xyzIn) const {
-    return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn),2*evalScalar(xyzIn));
+    if (_dim==3) {
+        return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn),2*evalScalar(xyzIn));
+    } else {
+        return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn),0);
+    }
 }
 
 scalar_type SineProducts::evalScalarLaplacian(const xyz_type& xyzIn) const {
-	return -3*sin(xyzIn.x)*sin(xyzIn.y)*sin(xyzIn.z);
+    if (_dim==3) {
+        return -3*sin(xyzIn.x)*sin(xyzIn.y)*sin(xyzIn.z);
+    } else {
+        return -2*sin(xyzIn.x)*sin(xyzIn.y);
+    }
 }
 
 scalar_type SecondOrderBasis::evalScalar(const xyz_type& xyzIn) const {

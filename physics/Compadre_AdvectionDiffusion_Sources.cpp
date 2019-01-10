@@ -15,11 +15,7 @@ typedef Compadre::XyzVector xyz_type;
 
 void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time) {
 	Teuchos::RCP<Compadre::AnalyticFunction> function;
-	if (_parameters->get<std::string>("solution type")=="sine") {
-		function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts));
-	} else {
-		function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis));
-	}
+    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
 
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_b.is_null(), "Tpetra Multivector for RHS not yet specified.");
 	if (field_two == -1) {
@@ -42,14 +38,14 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
 		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
 			const local_index_type dof = local_to_dof_map[i][field_one][k];
 			xyz_type pt(pts(i, 0), pts(i, 1), pts(i, 2));
-			if (bc_id(i,0)==0) rhs_vals(dof,0) = function->evalScalarLaplacian(pt);
+			if (bc_id(i,0)==0) rhs_vals(dof,0) = -function->evalScalarLaplacian(pt);
 		}
 	}
 }
 
 std::vector<InteractingFields> AdvectionDiffusionSources::gatherFieldInteractions() {
 	std::vector<InteractingFields> field_interactions;
-	field_interactions.push_back(InteractingFields(op_needing_interaction::source, 0));
+    //field_interactions.push_back(InteractingFields(op_needing_interaction::source, _particles->getFieldManagerConst()->getIDOfFieldFromName("solution")));
 	return field_interactions;
 }
 

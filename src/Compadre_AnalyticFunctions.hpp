@@ -287,7 +287,11 @@ class SineProducts : public AnalyticFunction {
 
 	typedef XyzVector xyz_type;
 
+	const int _dim;
+
 	public :
+
+	    SineProducts(const int dim = 3) : _dim(dim) {}
 
 		virtual scalar_type evalScalar(const xyz_type& xIn) const;
 

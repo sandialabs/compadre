@@ -17,11 +17,15 @@ void AdvectionDiffusionBoundaryConditions::flagBoundaries() {
 	device_view_type pts = this->_coords->getPts()->getLocalView<device_view_type>();
 	local_index_type bc_id_size = this->_particles->getFlags()->getLocalLength();
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,bc_id_size), KOKKOS_LAMBDA(const int i) {
-		scalar_type epsilon_ball = 1e-6;
-		if (std::abs(pts(i,0)-1.0)<epsilon_ball || std::abs(pts(i,0)+1.0)<epsilon_ball || std::abs(pts(i,1)-1.0)<epsilon_ball || std::abs(pts(i,1)+1.0)<epsilon_ball || std::abs(pts(i,2)-1.0)<epsilon_ball || std::abs(pts(i,2)+1.0)<epsilon_ball) {
-			this->_particles->setFlag(i, 1);
+		scalar_type epsilon_ball = 2e-1;
+		if (std::abs(pts(i,0)-0.0)<epsilon_ball || std::abs(pts(i,0)-1.0)<epsilon_ball) {
+		    // left and right
+		    this->_particles->setFlag(i, 1);
+		} else if (std::abs(pts(i,1)-0.0)<epsilon_ball || std::abs(pts(i,1)-1.0)<epsilon_ball) {
+		    // top and bottom
+		    this->_particles->setFlag(i, 1);
 		} else {
-			this->_particles->setFlag(i, 0);
+		    this->_particles->setFlag(i, 0);
 		}
 	});
 
@@ -29,11 +33,8 @@ void AdvectionDiffusionBoundaryConditions::flagBoundaries() {
 
 void AdvectionDiffusionBoundaryConditions::applyBoundaries(local_index_type field_one, local_index_type field_two, scalar_type time) {
 	Teuchos::RCP<Compadre::AnalyticFunction> function;
-	if (_parameters->get<std::string>("solution type")=="sine") {
-		function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts));
-	} else {
-		function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis));
-	}
+	function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
+
 
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_b.is_null(), "Tpetra Multivector for BCS not yet specified.");
 	if (field_two == -1) {
@@ -64,7 +65,7 @@ void AdvectionDiffusionBoundaryConditions::applyBoundaries(local_index_type fiel
 
 std::vector<InteractingFields> AdvectionDiffusionBoundaryConditions::gatherFieldInteractions() {
 	std::vector<InteractingFields> field_interactions;
-	field_interactions.push_back(InteractingFields(op_needing_interaction::bc,0));
+	//field_interactions.push_back(InteractingFields(op_needing_interaction::bc, _particles->getFieldManagerConst()->getIDOfFieldFromName("solution")));
 	return field_interactions;
 }
 
