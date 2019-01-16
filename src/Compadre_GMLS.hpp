@@ -444,11 +444,11 @@ protected:
 
         double inside_val = delta_vector.x*delta_vector.x;
         switch (dimension) {
-        case 2:
-            inside_val += delta_vector.y*delta_vector.y;
-            // no break is intentional
         case 3:
             inside_val += delta_vector.z*delta_vector.z;
+            // no break is intentional
+        case 2:
+            inside_val += delta_vector.y*delta_vector.y;
             // no break is intentional
         default:
             break;
