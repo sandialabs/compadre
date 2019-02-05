@@ -18,10 +18,11 @@
     <Parameter name="method" type="string" value="nanoflann"/>
     <Parameter name="dynamic radius" type="bool" value="true"/>
     <Parameter name="spatially varying radius" type="bool" value="true"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.5"/>
     <Parameter name="multiplier" type="double" value="1.125"/>
   </ParameterList>
   <ParameterList name="halo">
     <Parameter name="dynamic" type="bool" value="true"/>
-    <Parameter name="multiplier" type="double" value="3.0"/>
+    <Parameter name="multiplier" type="double" value="4.0"/>
   </ParameterList>
 </ParameterList>

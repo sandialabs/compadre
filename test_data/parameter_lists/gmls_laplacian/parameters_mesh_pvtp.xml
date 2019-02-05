@@ -15,7 +15,6 @@
   <ParameterList name="remap">
     <Parameter name="weighting power" type="int" value="10"/>
     <Parameter name="porder" type="int" value="2"/>
-    <Parameter name="cutoff multiplier" type="double" value="1.1"/>
     <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
   </ParameterList>
   <ParameterList name="neighborhood">
@@ -23,6 +22,7 @@
     <Parameter name="dynamic radius" type="bool" value="true"/>
     <Parameter name="spatially varying radius" type="bool" value="true"/>
     <Parameter name="multiplier" type="double" value="1.25"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.5"/>
   </ParameterList>
   <ParameterList name="halo">
     <Parameter name="dynamic" type="bool" value="true"/>
