@@ -105,6 +105,11 @@ Kokkos::finalize();
 MPI_Finalize();
 #endif
 
+#ifndef LAPACK_DECLARED_THREADSAFE
+    printf("LAPACK_DECLARED_THREADSAFE=OFF. Massive performance loss due to serial LAPACK implementation provided at configure.\n");
+    return 77;
+#endif
+
 if (number_wrong > 0) {
     printf("Incorrect result. LAPACK IS NOT THREADSAFE AND CANNOT BE USED WITH THIS TOOLKIT! Either provide a thread safe LAPACK+BLAS combination or set -DLAPACK_DECLARED_THREADSAFE:BOOL=OFF in CMake and take a MASSIVE performance hit.\n");
     return -1;

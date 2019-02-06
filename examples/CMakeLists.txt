@@ -1,5 +1,4 @@
 # ERROR MESSAGES IF A TEST IS NOT RUN
-SET(LAPACK_THREADSAFE_ISSUE "LAPACK_DECLARED_THREADSAFE=OFF. Massive performance loss due to serial LAPACK implementation provided at configure.")
 SET(OPENBLAS_NUM_THREADS "1")
 
 
@@ -38,11 +37,9 @@ if (Compadre_EXAMPLES)
 
     if(Compadre_USE_LAPACK)
       # Test if LAPACK+BLAS are compatible for use in the toolkit
-      ADD_TEST(NAME LAPACK_THREADSAFE COMMAND ${CMAKE_CURRENT_BINARY_DIR}/LAPACK_Test "--kokkos-threads=8")
+      ADD_TEST(NAME LAPACK_THREADSAFE COMMAND ${CMAKE_CURRENT_BINARY_DIR}/LAPACK_Test "--kokkos-threads=8" --verbose --output-on-failure)
       SET_TESTS_PROPERTIES(LAPACK_THREADSAFE PROPERTIES LABELS "UnitTest;unit;lapack;Lapack;LAPACK;kokkos" TIMEOUT 5)
-      IF (NOT (LAPACK_DECLARED_THREADSAFE))
-          SET_TESTS_PROPERTIES(LAPACK_THREADSAFE PROPERTIES REQUIRED_FILES ${LAPACK_THREADSAFE_ISSUE})
-      ENDIF()
+      SET_TESTS_PROPERTIES(LAPACK_THREADSAFE PROPERTIES SKIP_RETURN_CODE 77)
     endif()
 
     # Host views tests for GMLS
@@ -72,7 +69,7 @@ if (Compadre_EXAMPLES)
     # Python driven test of a C++ executable (Python changes command line arguments given to executable)
     CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Manifold.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" @ONLY)
     ADD_TEST(NAME GMLS_Manifold_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" "3" "4")
-    SET_TESTS_PROPERTIES(GMLS_Manifold_Refinement_Study PROPERTIES LABELS "ConvergenceTest;convergence;manifold" TIMEOUT 10)
+    SET_TESTS_PROPERTIES(GMLS_Manifold_Refinement_Study PROPERTIES LABELS "ConvergenceTest;convergence;manifold" TIMEOUT 20)
 
     # Python driven test of a C++ executable (Python changes command line arguments given to executable)
     CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Staggered_Manifold.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py" @ONLY)

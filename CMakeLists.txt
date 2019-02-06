@@ -371,6 +371,7 @@ set(Compadre_KEY_BOOLS
     Compadre_USE_OpenMP
     Compadre_USE_PYTHON
     Compadre_USE_Trilinos
+    LAPACK_DECLARED_THREADSAFE
    )
 
 set(Compadre_KEY_INTS
