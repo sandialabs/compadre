@@ -548,8 +548,6 @@ bob_get_commit()
 bob_get_semver()
 
 
-
-
 ##########
 #
 #
@@ -559,7 +557,6 @@ bob_get_semver()
 ##########
 
 # check that either CUDA or LAPACK were turned on (needed for any computation to be performed)
-
 
 if (CompadreHarness_USE_CUDA OR CompadreHarness_USE_LAPACK)
   set(Toolkit_PREFIX "${PROJECT_BINARY_DIR}/Toolkit-install")
@@ -609,6 +606,47 @@ if (CompadreHarness_USE_CUDA OR CompadreHarness_USE_LAPACK)
   #    GIT_TAG "e590e1bba62823"
   
   if(CompadreHarness_USE_Harness)
+
+    ##########
+    #
+    #
+    #  COMPOSE LIBRARY (ONLY NEEDED IF HARNESS IS BEING BUILT)
+    #
+    #
+    ##########
+    
+    if (KOKKOS_IN_TRILINOS)
+        set (Compose_Kokkos_DIR "${KokkosCore_PREFIX}/lib/cmake/Kokkos")
+    else()
+        set (Compose_Kokkos_DIR "${KokkosCore_PREFIX}")
+    endif()
+    set(Compose_PREFIX "${PROJECT_BINARY_DIR}/Compose-install")
+    set(Compose_ARGS
+      "-DCMAKE_INSTALL_PREFIX=${Compose_PREFIX}"
+      "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+      "-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}"
+      "-DKokkos_DIR=${Compose_Kokkos_DIR}"
+      "-DKOKKOS_IN_TRILINOS=${KOKKOS_IN_TRILINOS}"
+    )
+    
+    # RPATH related settings
+    # https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/RPATH-handling
+    SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
+    SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+    SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+    SET(CMAKE_INSTALL_RPATH ${Compose_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
+    SET(CMAKE_BUILD_RPATH ${Compose_PREFIX}/lib ${CMAKE_BUILD_RPATH})
+    SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
+    
+    externalproject_add(Compose
+        PREFIX compose
+        SOURCE_DIR "${PROJECT_SOURCE_DIR}/compose"
+        CMAKE_ARGS ${Compose_ARGS}
+        BUILD_ALWAYS 1
+        TEST_AFTER_INSTALL OFF
+    )
+
+
     add_subdirectory(src)
   endif()
   

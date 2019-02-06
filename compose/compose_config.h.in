@@ -1,0 +1,13 @@
+#ifndef COMPOSE_CONFIG_H
+#define COMPOSE_CONFIG_H
+
+// If defined, insert debug code into MPI wrappers.
+#cmakedefine COMPOSE_DEBUG_MPI
+
+// If defined, use non-optimal OpenMP threading to debug GPU-like parallelism.
+#cmakedefine COMPOSE_MIMIC_GPU
+
+// If defined, time QLT operations and display timers at the end.
+#cmakedefine COMPOSE_QLT_TIME
+
+#endif // COMPOSE_CONFIG_H
