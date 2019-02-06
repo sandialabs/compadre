@@ -1,0 +1,29 @@
+{
+  "creators": [
+    {
+      "affiliation": "Center for Computing Research, Sandia National Laboratories",
+      "name": "Kuberry, Paul",
+      "orcid": "0000-0002-2426-4591"
+    },
+    {
+      "affiliation": "Center for Computing Research, Sandia National Laboratories",
+      "name": "Bosler, Peter"
+    },
+    {
+      "affiliation": "Center for Computing Research, Sandia National Laboratories",
+      "name": "Trask, Nathaniel",
+      "orcid": "0000-0003-1575-6380"
+    },
+    {
+      "affiliation": "Computational Mathematics, Pacific Northwest National Laboratory",
+      "name": "Howard, Amanda"
+    }
+  ],
+  "keywords": [
+    "meshless",
+    "discretization",
+    "compatible"
+  ],
+  "license": "BSD-2",
+  "upload_type": "software"
+}
