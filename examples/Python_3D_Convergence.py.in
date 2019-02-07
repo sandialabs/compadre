@@ -110,14 +110,14 @@ GMLS_Module.initializeKokkos()
 ND = [5, 10, 20, 40]
 
 # Calculate rates of convergence and print errors
-print "\n" + colors.HEADER + "(l2) Errors:" + colors.ENDC
+print("\n" + colors.HEADER + "(l2) Errors:" + colors.ENDC)
 errors = list()
 for nd in ND:
     errors.append(test1(nd))
-    print str(errors[-1])
+    print(str(errors[-1]))
 
-print "\n" + colors.HEADER + "(l2) Rates:" + colors.ENDC
+print("\n" + colors.HEADER + "(l2) Rates:" + colors.ENDC)
 for i in range(len(ND)-1):
-    print str(math.log(errors[i+1]/errors[i])/math.log(0.5))
-print "\n"
+    print(str(math.log(errors[i+1]/errors[i])/math.log(0.5)))
+print("\n")
 GMLS_Module.finalizeKokkos()
