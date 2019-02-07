@@ -594,7 +594,7 @@ if (CompadreHarness_USE_CUDA OR CompadreHarness_USE_LAPACK)
       SOURCE_DIR "${PROJECT_SOURCE_DIR}/toolkit"
       CMAKE_ARGS ${Toolkit_ARGS}
       BUILD_ALWAYS 1
-      TEST_AFTER_INSTALL ON
+      TEST_AFTER_INSTALL OFF
       )
 
   #    GIT_REPOSITORY "/ascldap/users/pakuber/Desktop/ProjectStubs/Particles/barebone_toolkit"
@@ -645,6 +645,7 @@ if (CompadreHarness_USE_CUDA OR CompadreHarness_USE_LAPACK)
         BUILD_ALWAYS 1
         TEST_AFTER_INSTALL OFF
     )
+    add_definitions (-DCOMPOSE_CONFIG_IS_CMAKE)
 
 
     add_subdirectory(src)

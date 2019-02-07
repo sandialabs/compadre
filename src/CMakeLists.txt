@@ -53,7 +53,7 @@ endif()
 add_dependencies(compadreharness Compose) # compadreharness relies on Compose
 target_link_libraries(compadreharness PUBLIC "${Compose_PREFIX}/lib/libcompose${CMAKE_SHARED_LIBRARY_SUFFIX}")
 target_include_directories(compadreharness PUBLIC  
-  $<BUILD_INTERFACE:${Compose_PREFIX}/include>  
+  $<BUILD_INTERFACE:${Compose_PREFIX}/include/compose>  
   $<INSTALL_INTERFACE:include> 
 )
 
