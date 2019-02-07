@@ -58,30 +58,28 @@
 From https://stackoverflow.com/questions/11645575/importing-a-cmake-project-into-eclipse-cdt,
 the instructions for importing from CMake into eclipse are as follows:
 
-```
- First, choose a directory for the CMake files. I prefer to keep my Eclipse workspaces in 
- ~/workspaces and the source code in ~/src. Data which I need to build or test the project 
- goes in subdirs of the project's workspace dir, so I suggest doing the same for CMake.
- 
- Assuming both your workspace and source folders are named someproject, do:
- 
- cd ~/workspaces/someproject
- mkdir cmake
- cd cmake
- cmake -G "Eclipse CDT4 - Unix Makefiles" ~/src/someproject
- 
- Then, in your Eclipse workspace, do:
- 
- File > Import... > General > Existing Projects into Workspace
- 
- Check Select root directory and choose ~/workspaces/someproject/cmake. Make sure Copy projects into workspace is NOT checked.
- 
- Click Finish and you have a CMake project in your workspace.
- 
- Two things to note:
- 
-   I used cmake for the workspace subdir, but you can use a name of your choice.
-   If you make any changes to your build configuration (such as editing Makefile.am), you will need to re-run the 
-   last command in order for Eclipse to pick up the changes.
+> First, choose a directory for the CMake files. I prefer to keep my Eclipse workspaces in 
+> ~/workspaces and the source code in ~/src. Data which I need to build or test the project 
+> goes in subdirs of the project's workspace dir, so I suggest doing the same for CMake.
+> 
+> Assuming both your workspace and source folders are named someproject, do:
+> 
+> cd ~/workspaces/someproject
+> mkdir cmake
+> cd cmake
+> cmake -G "Eclipse CDT4 - Unix Makefiles" ~/src/someproject
+> 
+> Then, in your Eclipse workspace, do:
+> 
+> File > Import... > General > Existing Projects into Workspace
+> 
+> Check Select root directory and choose ~/workspaces/someproject/cmake. Make sure Copy projects into workspace is NOT checked.
+> 
+> Click Finish and you have a CMake project in your workspace.
+> 
+> Two things to note:
+> 
+>   I used cmake for the workspace subdir, but you can use a name of your choice.
+>   If you make any changes to your build configuration (such as editing Makefile.am), you will need to re-run the 
+>   last command in order for Eclipse to pick up the changes.
 
-```

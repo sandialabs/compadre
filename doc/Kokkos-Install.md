@@ -1,8 +1,8 @@
-# Kokkos Installation Instruction
-1.) Download kokkos from github via:
+# Installing Kokkos
+1.) Download Kokkos from github via:
 
 ```
-git clone https://github.com/kokkos/kokkos.git
+>> git clone https://github.com/kokkos/kokkos.git
 ```
 
 2.) Build kokkos via:
@@ -17,7 +17,7 @@ insert the following two lines (for basic cpu with openmp build), but change pre
 would like. if you do not change it, then kokkos will be installed in /some/path/to/kokkos/build/install-openmp
 
 ```
-CXX=`which g++`
+CXX="/path/to/your_c++_compiler"
 ../generate_makefile.bash --compiler=$CXX --with-openmp --with-serial --prefix="../install-openmp" --cxxflags="-fPIC"
 ```
 
@@ -37,4 +37,5 @@ CXX=`which g++`
 >> make install
 ```
 
-7.) Replace the line KOKKOSCORE_PREFIX='/path/to/kokkos/installation/not/set' with the path to where you have now installed Kokkos.
+7.) Note where you installed Kokkos, as this install folder will be the location that your Compadre Toolkit build scripts should use as the value for the variable KokkosCore_PREFIX.
+

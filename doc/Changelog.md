@@ -1,5 +1,4 @@
 # Changelog
-
 ## Changes in version 1.0.0 (changes from 0.0.1)
 - Added documentation for GMLS class.
 
