@@ -150,7 +150,8 @@ endif()
 
 #MPI
 FIND_PACKAGE(MPI QUIET)
-bob_option(Compadre_USE_MPI "Use MPI for parallelism" ${MPI_FOUND})
+bob_option(Compadre_USE_MPI "Use MPI for parallelism" ${MPI_CXX_FOUND})
+message(STATUS "MPI Enabled: ${MPI_CXX_FOUND}")
 
 #PYTHON
 bob_option(Compadre_USE_PYTHON "Use PYTHON" OFF)
