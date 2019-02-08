@@ -24,10 +24,14 @@ INSTALL_PREFIX="./install"
 # optional CMake variables to pass in are PYTHON_PREFIX and PYTHON_EXECUTABLE
 # if they are not passed in, then `which python` is called to determine your
 # python executable, and from that sitepackages and libraries are inferred.
+
+# Compadre_USE_LAPACK set to off because there is no point in searching for
+# LAPACK libraries when we are using Cuda toolkit libraries for dense solves
 cmake \
     -D CMAKE_CXX_COMPILER="$MY_KOKKOSCORE_PREFIX/bin/nvcc_wrapper" \
     -D CMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
     -D KokkosCore_PREFIX="$MY_KOKKOSCORE_PREFIX" \
     -D Compadre_USE_PYTHON:BOOL=ON \
+    -D Compadre_USE_LAPACK:BOOL=OFF \
     \
     ..
