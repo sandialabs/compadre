@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.0.0)
 #   Compadre Details
 #
 ########## 
-PROJECT(Compadre VERSION 1.0.0 LANGUAGES CXX)
+PROJECT(Compadre VERSION 1.0.1 LANGUAGES CXX)
 
 # cmake helper functions
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/bob.cmake)

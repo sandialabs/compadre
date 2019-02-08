@@ -1,4 +1,9 @@
 # Changelog
+## Changes in version 1.0.1 (changes from 1.0.0)
+- Fixed README.md and added installation instructions as their own .md file
+
+- Updated Python scripts to be compliant with Python 3.x
+
 ## Changes in version 1.0.0 (changes from 0.0.1)
 - Added documentation for GMLS class.
 

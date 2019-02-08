@@ -1,4 +1,4 @@
-# COMpatible PArticle Discretization and Remap Toolkit
+# COMpatible PArticle Discretization and REmap Toolkit
 
 ## About
 
