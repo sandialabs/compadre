@@ -39,6 +39,11 @@ if (Compadre_USE_LAPACK)
   target_link_libraries(compadre PUBLIC "${LAPACK_LIB}")
 endif()
 
+if (Compadre_USE_MPI)
+    target_include_directories(compadre PUBLIC "${MPI_CXX_INCLUDE_PATH}")
+    target_link_libraries(compadre PUBLIC "${MPI_CXX_LIBRARIES}")
+endif()
+
 if (KokkosCore_HAS_CUDA OR (KOKKOS_INTERNAL_USE_CUDA EQUAL "1"))
   target_include_directories(compadre PUBLIC "${CUDA_INCLUDE_DIRS}")
   target_link_libraries(compadre PUBLIC "${CUDA_CUBLAS_LIBRARIES}")
