@@ -661,6 +661,9 @@ public:
     //! Tag for functor to evaluate curvature targets and construct accurate tangent direction approximation for manifolds
     struct GetAccurateTangentDirections{};
 
+    //! Tag for functor to determine if tangent directions need reordered, and to reorder them if needed
+    struct FixTangentDirectionOrdering{};
+
     //! Tag for functor to evaluate curvature targets and apply to coefficients of curvature reconstruction
     struct ApplyCurvatureTargets{};
 
@@ -694,6 +697,11 @@ public:
     //! Functor to evaluate curvature targets and construct accurate tangent direction approximation for manifolds
     KOKKOS_INLINE_FUNCTION
     void operator() (const GetAccurateTangentDirections&, const member_type& teamMember) const;
+
+    //! Functor to determine if tangent directions need reordered, and to reorder them if needed
+    //! We require that the normal is consistent with a right hand rule on the tangent vectors
+    KOKKOS_INLINE_FUNCTION
+    void operator() (const FixTangentDirectionOrdering&, const member_type& teamMember) const;
 
     //! Functor to evaluate curvature targets and apply to coefficients of curvature reconstruction
     KOKKOS_INLINE_FUNCTION

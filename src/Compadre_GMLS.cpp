@@ -189,6 +189,9 @@ void GMLS::generateAlphas() {
             this->CallFunctorWithTeamThreads<GetAccurateTangentDirections>(threads_per_team, team_scratch_size_a, team_scratch_size_b, thread_scratch_size_a, thread_scratch_size_b);
         }
 
+        // check that determinant of tangent directions and normal direction have same sign for all targets
+        this->CallFunctorWithTeamThreads<FixTangentDirectionOrdering>(threads_per_team, team_scratch_size_a, team_scratch_size_b, thread_scratch_size_a, thread_scratch_size_b);
+
         // this time assembling curvature PsqrtW matrix is using a highly accurate approximation of the tangent, previously calculated
         // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity for curvature
         this->CallFunctorWithTeamThreads<AssembleCurvaturePsqrtW>(threads_per_team, team_scratch_size_a, team_scratch_size_b, thread_scratch_size_a, thread_scratch_size_b);
@@ -589,6 +592,52 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
         for (int i=0; i<_dimensions-1; ++i) {
             T(_dimensions-1,i) /= norm_t_normal;
         }
+    });
+    teamMember.team_barrier();
+}
+
+KOKKOS_INLINE_FUNCTION
+void GMLS::operator()(const FixTangentDirectionOrdering&, const member_type& teamMember) const {
+
+    /*
+     *    Dimensions
+     */
+
+    const int target_index = teamMember.league_rank();
+
+    /*
+     *    Data
+     */
+
+    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
+
+    // calculate determinant of tangent bundle and normal direction to determine the sign
+    // if the sign is positive, then switch ordering of tangent vectors and negate normal direction
+    Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+    double determinant = 0;
+    if (_dimensions == 3) {
+        determinant = T(0,0)*((T(1,1)*T(2,2)) - (T(2,1)*T(1,2))) -T(0,1)*(T(1,0)*T(2,2) - T(2,0)*T(1,2)) + T(0,2)*(T(1,0)*T(2,1) - T(2,0)*T(1,1));
+        if (determinant < 0) {
+            for (int i=0; i<_dimensions; ++i) {
+                // swap tangent directions
+                double tmp = T(0,i);
+                T(0,i) = T(1,i);
+                T(1,i) = tmp;
+                // negate normal direction
+                T(2,i) = -T(2,i);
+            }
+        }
+    } else if (_dimensions == 2) {
+        determinant = T(0,0)*T(1,1) - T(0,1)*T(1,0);
+        if (determinant < 0) {
+            for (int i=0; i<_dimensions; ++i) {
+                // negate tangent direction
+                T(0,i) = -T(0,i);
+                // negate normal direction
+                T(1,i) = -T(1,i);
+            }
+        }
+    }
     });
     teamMember.team_barrier();
 }
