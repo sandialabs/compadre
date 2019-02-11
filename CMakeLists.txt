@@ -12,8 +12,8 @@ include(${CMAKE_CURRENT_LIST_DIR}/cmake/bob.cmake)
 
 bob_begin_package()
 
-
-
+# Set to OFF for significantly faster performance and ON for error tracking
+bob_option(Compadre_DEBUG "Run Compadre Toolkit in DEBUG mode" ON)
 
 ##########
 #
@@ -362,6 +362,7 @@ bob_end_cxx_flags()
 set(Compadre_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
 set(Compadre_KEY_BOOLS
+    Compadre_DEBUG
     Compadre_USE_CUDA
     Compadre_USE_KokkosCore
     Compadre_USE_LAPACK
