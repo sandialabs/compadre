@@ -40,6 +40,9 @@ typedef typename pool_type::generator_type generator_type;
         throw std::logic_error(_ss_.str());                             \
     }                                                                   \
   } while (0)
+
+//! compadre_kernel_assert_release is similar to compadre_assert_release, but is a call on the device, 
+//! namely inside of a function marked KOKKOS_INLINE_FUNCTION
 # define compadre_kernel_assert_release(condition) do { \
     if ( ! (condition))                         \
       Kokkos::abort(#condition);                \
@@ -64,5 +67,7 @@ typedef typename pool_type::generator_type generator_type;
 #  define compadre_assert_debug(condition)
 #  define compadre_kernel_assert_debug(condition)
 #endif
+//! compadre_kernel_assert_debug is similar to compadre_assert_debug, but is a call on the device, 
+//! namely inside of a function marked KOKKOS_INLINE_FUNCTION
 
 #endif
