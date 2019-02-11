@@ -25,7 +25,7 @@ struct Subview1D {
 
     auto get1DView(const int column_num) -> decltype(Kokkos::subview(_data_in, Kokkos::ALL, column_num)) {
         if (!_scalar_as_vector_if_needed) {
-            assert((column_num<_data_in.dimension_1()) && "Subview asked for column > second dimension of input data.");
+            compadre_assert_debug((column_num<_data_in.dimension_1()) && "Subview asked for column > second dimension of input data.");
         }
         if (column_num<_data_in.dimension_1())
             return Kokkos::subview(_data_in, Kokkos::ALL, column_num);
@@ -61,7 +61,7 @@ struct Subview1D<T, T2, enable_if_t<(T::rank<2)> >
         // to add other logic to the evaluator function calling this so that it knows to do nothing with
         // this data.
         if (!_scalar_as_vector_if_needed) {
-            assert((column_num==0) && "Subview asked for column column_num!=0, but _data_in is rank 1.");
+            compadre_assert_debug((column_num==0) && "Subview asked for column column_num!=0, but _data_in is rank 1.");
         }
         return Kokkos::subview(_data_in, Kokkos::ALL);
     }
@@ -204,7 +204,7 @@ public:
         const int num_targets = neighbor_lists.dimension_0(); // one row for each target
 
         // make sure input and output views have same memory space
-        assert((std::is_same<typename view_type_data_out::memory_space, typename view_type_data_in::memory_space>::value) && 
+        compadre_assert_debug((std::is_same<typename view_type_data_out::memory_space, typename view_type_data_in::memory_space>::value) && 
                 "output_data_single_column view and input_data_single_column view have difference memory spaces.");
 
         bool weight_with_pre_T = (pre_transform_local_index>=0 && pre_transform_global_index>=0) ? true : false;
@@ -336,7 +336,7 @@ public:
                 output_dimensions);
 
         // make sure input and output columns make sense under the target operation
-        assert(((output_dimension_of_operator==1 && output_view_type::rank==1) || output_view_type::rank!=1) && 
+        compadre_assert_debug(((output_dimension_of_operator==1 && output_view_type::rank==1) || output_view_type::rank!=1) && 
                 "Output view is requested as rank 1, but the target requires a rank larger than 1. Try double** as template argument.");
 
         // we need to specialize a template on the rank of the output view type and the input view type
