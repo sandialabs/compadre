@@ -187,6 +187,10 @@ void GMLS::generateAlphas() {
 
             // evaluates targets, applies target evaluation to polynomial coefficients for curvature
             this->CallFunctorWithTeamThreads<GetAccurateTangentDirections>(threads_per_team, team_scratch_size_a, team_scratch_size_b, thread_scratch_size_a, thread_scratch_size_b);
+
+            // copy tangent bundle from device back to host
+            _host_T = Kokkos::create_mirror_view(_T);
+            Kokkos::deep_copy(_host_T, _T);
         }
 
         // this time assembling curvature PsqrtW matrix is using a highly accurate approximation of the tangent, previously calculated
