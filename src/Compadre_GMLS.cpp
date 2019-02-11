@@ -701,11 +701,11 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
         double G_determinant;
         if (_dimensions==2) {
             G_determinant = G(0,0);
-            compadre_assert_debug((G_determinant!=0) && "Determinant is zero.");
+            compadre_kernel_assert_debug((G_determinant!=0) && "Determinant is zero.");
             G_inv(0,0) = 1/G_determinant;
         } else {
             G_determinant = G(0,0)*G(1,1) - G(0,1)*G(1,0); //std::sqrt(G_inv(0,0)*G_inv(1,1) - G_inv(0,1)*G_inv(1,0));
-            compadre_assert_debug((G_determinant!=0) && "Determinant is zero.");
+            compadre_kernel_assert_debug((G_determinant!=0) && "Determinant is zero.");
             {
                 // inverse of 2x2
                 G_inv(0,0) = G(1,1)/G_determinant;
