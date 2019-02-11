@@ -791,7 +791,7 @@ public:
     double getTangentBundle(const int target_index, const int direction, const int component) {
         // Component index 0.._dimensions-2 will return tangent direction
         // Component index _dimensions-1 will return the normal direction
-        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_host_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
+        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> >::HostMirror T(_host_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
         return T(direction, component);
     }
 
