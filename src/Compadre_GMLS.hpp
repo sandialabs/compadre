@@ -44,6 +44,9 @@ protected:
     //! are tangent, _dimensions is the normal, and the third is for the spatial dimension (_dimensions)
     Kokkos::View<double*> _T;
 
+    //! tangent vectors information (host)
+    Kokkos::View<double*>::HostMirror _host_T;
+
     //! _dimensions columns contains high order approximation of normal vector for all problems. This
     //! can be set by the user or calculated automatically in the case of manifold problems.
     Kokkos::View<double**> _N;
@@ -784,6 +787,14 @@ public:
     //! Get a view (device) of all tangent direction bundles.
     decltype(_T) getTangentDirections() const { return _T; }
 
+    //! Get component of tangent or normal directions for manifold problems
+    double getTangentBundle(const int target_index, const int direction, const int component) {
+        // Component index 0.._dimensions-2 will return tangent direction
+        // Component index _dimensions-1 will return the normal direction
+        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> >::HostMirror T(_host_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
+        return T(direction, component);
+    }
+
     //! Get a view (device) of all rank 2 preprocessing tensors
     //! This is a rank 5 tensor that is able to provide data transformation
     //! into a form that GMLS is able to operate on. The ranks are as follows:
@@ -1085,23 +1096,37 @@ public:
         _epsilons = epsilons;
     }
 
-    ////! Sets orthonormal tangent directions for reconstruction on a manifold. The first rank of this 2D array 
-    ////! corresponds to the target indices, i.e., rows of the neighbor lists 2D array. The second rank is the 
-    ////! ordinal of the tangent direction (spatial dimensions-1 are tangent, last one is normal), and the third 
-    ////! rank is indices into the spatial dimension.
-    //template<typename view_type>
-    //void setTangentDirections(view_type tangent_directions) {
+    //! Sets orthonormal tangent directions for reconstruction on a manifold. The first rank of this 2D array 
+    //! corresponds to the target indices, i.e., rows of the neighbor lists 2D array. The second rank is the 
+    //! ordinal of the tangent direction (spatial dimensions-1 are tangent, last one is normal), and the third 
+    //! rank is indices into the spatial dimension.
+    template<typename view_type>
+    void setTangentBundle(view_type tangent_directions) {
+        // accept input from user as a rank 3 tensor
+        // but convert data to a rank 2 tensor with the last rank of dimension = _dimensions x _dimensions
+        // this allows for nonstrided views on the device later
+        
+        // add assert for manifold
+        // (_dense_solver_type == DenseSolverType::MANIFOLD) {
 
-    //    // allocate memory on device
-    //    _T = Kokkos::View<double***, rank3_layout_type>("device tangent directions",
-    //            _target_coordinates.dimension_0(), _dimensions, _dimensions);
+        // allocate memory on device
+        _T = Kokkos::View<double*>("device tangent directions", _target_coordinates.dimension_0()*_dimensions*_dimensions);
 
-    //    auto host_T = Kokkos::create_mirror_view(_T);
-    //    Kokkos::deep_copy(host_T, tangent_directions);
-    //    // copy data from host to device
-    //    Kokkos::deep_copy(_T, host_T);
-    //    _orthonormal_tangent_space_provided = true;
-    //}
+        // rearrange data on device from data given on host
+        Kokkos::parallel_for("copy tangent vectors", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, _target_coordinates.dimension_0()), KOKKOS_LAMBDA(const int i) {
+            Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + i*_dimensions*_dimensions, _dimensions, _dimensions);
+            for (int j=0; j<_dimensions; ++j) {
+                for (int k=0; k<_dimensions; ++k) {
+                    T(j,k) = tangent_directions(i, j, k);
+                }
+            }
+        });
+        _orthonormal_tangent_space_provided = true;
+
+        // copy data from device back to host in rearranged format
+        _host_T = Kokkos::create_mirror_view(_T);
+        Kokkos::deep_copy(_host_T, _T);
+    }
 
     ////! Sets orthonormal tangent directions for reconstruction on a manifold. The first rank of this 2D array 
     ////! corresponds to the target indices, i.e., rows of the neighbor lists 2D array. The second rank is the 

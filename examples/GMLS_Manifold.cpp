@@ -318,7 +318,7 @@ Kokkos::initialize(argc, args);
     
     // generate the alphas that to be combined with data for each target operation requested in lro
     my_GMLS_scalar.generateAlphas();
-    
+
     Kokkos::Profiling::pushRegion("Full Polynomial Basis GMLS Solution");
     // initialize another instance of the GMLS class for problems with a vector basis on a manifold and point 
     // evaluation of that vector as the sampling functional
@@ -457,6 +457,8 @@ Kokkos::initialize(argc, args);
     
     //! [Check That Solutions Are Correct]
     
+    double tangent_bundle_error = 0;
+    double tangent_bundle_norm = 0;
     double values_error = 0;
     double values_norm = 0;
     double laplacian_error = 0;
@@ -485,6 +487,24 @@ Kokkos::initialize(argc, args);
         double xval = target_coords(i,0);
         double yval = (dimension>1) ? target_coords(i,1) : 0;
         double zval = (dimension>2) ? target_coords(i,2) : 0;
+        double coord[3] = {xval, yval, zval};
+
+        // get tangent vector and see if orthgonal to coordinate (it should be on a sphere)
+        for (int j=0; j<dimension-1; ++j) {
+            double tangent_inner_prod = 0;
+            for (int k=0; k<dimension; ++k) {
+                tangent_inner_prod += coord[k] * my_GMLS_scalar.getTangentBundle(i, j, k);
+            }
+            tangent_bundle_error += tangent_inner_prod * tangent_inner_prod;
+        }
+        double normal_inner_prod = 0;
+        for (int k=0; k<dimension; ++k) {
+            normal_inner_prod += coord[k] * my_GMLS_scalar.getTangentBundle(i, dimension-1, k);
+        }
+        // inner product could be plus or minus 1 (depends on tangent direction ordering)
+        double normal_error_to_sum = (normal_inner_prod > 0) ? normal_inner_prod - 1 : normal_inner_prod + 1;
+        tangent_bundle_error += normal_error_to_sum * normal_error_to_sum;
+        tangent_bundle_norm += 1;
     
         // evaluation of various exact solutions
         double actual_value = sphere_harmonic54(xval, yval, zval);
@@ -521,6 +541,11 @@ Kokkos::initialize(argc, args);
         divergence_of_scalar_clones_ambient_norm += actual_Laplacian*actual_Laplacian;
 
     }
+
+    tangent_bundle_error /= number_target_coords;
+    tangent_bundle_error = std::sqrt(tangent_bundle_error);
+    tangent_bundle_norm /= number_target_coords;
+    tangent_bundle_norm = std::sqrt(tangent_bundle_norm);
     
     values_error /= number_target_coords;
     values_error = std::sqrt(values_error);
@@ -557,6 +582,7 @@ Kokkos::initialize(argc, args);
     divergence_of_scalar_clones_ambient_norm /= number_target_coords;
     divergence_of_scalar_clones_ambient_norm = std::sqrt(divergence_of_scalar_clones_ambient_norm);
 
+    printf("Tangent Bundle Error: %g\n", tangent_bundle_error / tangent_bundle_norm);  
     printf("Point Value Error: %g\n", values_error / values_norm);  
     printf("Laplace-Beltrami Error: %g\n", laplacian_error / laplacian_norm);  
     printf("Surface Gradient (Ambient) Error: %g\n", gradient_ambient_error / gradient_ambient_norm);  
