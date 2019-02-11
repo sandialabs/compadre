@@ -55,7 +55,7 @@ void GMLS::generate1DQuadrature() {
         parameterized_quadrature_sites[4] = 0.5*(1-1./3.*std::sqrt(5+2*std::sqrt(10./7.)));
         break;
     default:
-        ASSERT_WITH_MESSAGE(false, "Unsupported number of quadrature points.");
+        compadre_assert_release(false && "Unsupported number of quadrature points.");
         quadrature_weights[0] = 0.5;
         quadrature_weights[1] = 0.5;
         parameterized_quadrature_sites[0] = 0.5*(1-std::sqrt(1./3.));

@@ -18,7 +18,7 @@ void GMLS::generateAlphas() {
     _host_operations = Kokkos::create_mirror_view(_operations);
     
     const int max_num_neighbors = _neighbor_lists.dimension_1()-1;
-    assert((max_num_neighbors >= 0) && "Neighbor lists not set in GMLS class before calling generateAlphas");
+    compadre_assert_release((max_num_neighbors >= 0) && "Neighbor lists not set in GMLS class before calling generateAlphas");
     
     // loop through list of linear reconstruction operations to be performed and set them on the host
     for (int i=0; i<_lro.size(); ++i) _host_operations(i) = _lro[i];
@@ -701,11 +701,11 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
         double G_determinant;
         if (_dimensions==2) {
             G_determinant = G(0,0);
-            assert((G_determinant!=0) && "Determinant is zero.");
+            compadre_assert_debug((G_determinant!=0) && "Determinant is zero.");
             G_inv(0,0) = 1/G_determinant;
         } else {
             G_determinant = G(0,0)*G(1,1) - G(0,1)*G(1,0); //std::sqrt(G_inv(0,0)*G_inv(1,1) - G_inv(0,1)*G_inv(1,0));
-            assert((G_determinant!=0) && "Determinant is zero.");
+            compadre_assert_debug((G_determinant!=0) && "Determinant is zero.");
             {
                 // inverse of 2x2
                 G_inv(0,0) = G(1,1)/G_determinant;

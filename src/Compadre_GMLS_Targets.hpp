@@ -612,7 +612,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                 }
             }
         } else {
-            assert((false) && "Functionality not yet available.");
+            compadre_assert_release((false) && "Functionality not yet available.");
         }
         } // !operation_handled
     }
@@ -655,7 +655,7 @@ void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_ve
                 }
             });
         } else {
-            assert((false) && "Functionality not yet available.");
+            compadre_assert_release((false) && "Functionality not yet available.");
         }
     }
 }
@@ -1022,17 +1022,17 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                 } else if (_reconstruction_space_rank == 1
                         && _polynomial_sampling_functional 
                             == SamplingFunctional::StaggeredEdgeIntegralSample) {
-                    assert((false) && "Functionality not yet available.");
+                    compadre_assert_release((false) && "Functionality not yet available.");
 
                 // staggered gradient w/ edge integrals known analytically, using a basis
                 // of potentials
                 } else if (_reconstruction_space_rank == 0
                         && _polynomial_sampling_functional 
                             == SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
-                    assert((false) && "Functionality not yet available.");
+                    compadre_assert_release((false) && "Functionality not yet available.");
 
                 } else {
-                    assert((false) && "Functionality not yet available.");
+                    compadre_assert_release((false) && "Functionality not yet available.");
                 }
             } else if (_operations(i) == TargetOperation::DivergenceOfVectorPointEvaluation) {
                 // vector basis
@@ -1174,10 +1174,10 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
 
                     });
                 } else {
-                    assert((false) && "Functionality not yet available.");
+                    compadre_assert_release((false) && "Functionality not yet available.");
                 }
             } else {
-                assert((false) && "Functionality not yet available.");
+                compadre_assert_release((false) && "Functionality not yet available.");
             }
         } else if (_dimensions==2) { // 1D manifold in 2D problem
             if (_operations(i) == TargetOperation::GradientOfScalarPointEvaluation) {
@@ -1193,7 +1193,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     }
                 });
             } else {
-                assert((false) && "Functionality not yet available.");
+                compadre_assert_release((false) && "Functionality not yet available.");
             }
         }
         } // !operation_handled

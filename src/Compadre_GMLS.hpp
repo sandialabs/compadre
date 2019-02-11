@@ -8,9 +8,6 @@
 #include "Compadre_Operators.hpp"
 #include "Compadre_LinearAlgebra_Definitions.hpp"
 
-#define ASSERT_WITH_MESSAGE(condition, message) do { \
-if (!(condition)) { printf((message)); } \
-assert ((condition)); } while(false)
 
 namespace Compadre {
 
@@ -622,7 +619,7 @@ public:
             if (_data_sampling_functional == SamplingFunctional::VectorPointSample)
                 _data_sampling_functional = SamplingFunctional::ManifoldVectorPointSample;
         }
-        assert((SamplingOutputTensorRank[(int)_polynomial_sampling_functional] 
+        compadre_assert_release((SamplingOutputTensorRank[(int)_polynomial_sampling_functional] 
                     == SamplingOutputTensorRank[(int)_polynomial_sampling_functional]) 
                 && "Output rank of polynomial and data sampling functionals must match.");
     };
@@ -820,7 +817,7 @@ public:
             const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
 
         const int lro_number = _lro_lookup[(int)lro];
-        assert((lro_number >= 0) && "getAlphasColumnOffset called for a TargetOperation that was not registered.");
+        compadre_assert_debug((lro_number >= 0) && "getAlphasColumnOffset called for a TargetOperation that was not registered.");
 
         // the target functional input indexing is sized based on the output rank of the sampling
         // functional used, which can not be inferred unless a specification of target functional,
@@ -1127,23 +1124,6 @@ public:
         _host_T = Kokkos::create_mirror_view(_T);
         Kokkos::deep_copy(_host_T, _T);
     }
-
-    ////! Sets orthonormal tangent directions for reconstruction on a manifold. The first rank of this 2D array 
-    ////! corresponds to the target indices, i.e., rows of the neighbor lists 2D array. The second rank is the 
-    ////! ordinal of the tangent direction (spatial dimensions-1 are tangent, last one is normal), and the third 
-    ////! rank is indices into the spatial dimension.
-    //template<typename view_type>
-    //void setTangentDirections(Kokkos::View<double***, Kokkos::DefaultExecutionSpace> tangent_directions) {
-    //    assert((tangent_directions.dimension_0()==_target_coordinates.dimension_0()) && 
-    //            "First rank of tangent_direction has wrong dimension.");
-    //    assert((tangent_directions.dimension_1()==_dimensions) && 
-    //            "Second rank of tangent_direction has wrong dimension.");
-    //    assert((tangent_directions.dimension_2()==_dimensions) && 
-    //            "Third rank of tangent_direction has wrong dimension.");
-    //    // copy smart pointer to view on device
-    //    _T = tangent_directions;
-    //    _orthonormal_tangent_space_provided = true;
-    //}
 
     //! Type for weighting kernel for GMLS problem
     void setWeightingType( const std::string &wt) {

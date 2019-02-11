@@ -1,6 +1,6 @@
 #include <tpl/nanoflann.hpp>
 #include <Kokkos_Core.hpp>
-#include <assert.h>
+#include "Compadre_Typedefs.hpp"
 
 namespace Compadre {
 
@@ -20,9 +20,9 @@ class PointCloudSearch {
 
         PointCloudSearch(view_type src_pts_view, view_type trg_pts_view) 
                 : _src_pts_view(src_pts_view), _trg_pts_view(trg_pts_view) {
-            assert((std::is_same<typename view_type::memory_space, Kokkos::HostSpace>::value) &&
+            compadre_assert_release((std::is_same<typename view_type::memory_space, Kokkos::HostSpace>::value) &&
                     "Views passed to PointCloudSearch at construction should reside on the host.");
-            assert((src_pts_view.dimension_1()==3 && trg_pts_view.dimension_1()==3) &&
+            compadre_assert_release((src_pts_view.dimension_1()==3 && trg_pts_view.dimension_1()==3) &&
                     "Views passed to PointCloudSearch at construction must have second dimension of 3.");
         };
 
@@ -58,9 +58,9 @@ class PointCloudSearch {
                 epsilons_view_type epsilons, const int neighbors_needed, 
                 const int dimension = 3, const double epsilon_multiplier = 1.2) {
 
-            assert((std::is_same<typename neighbor_lists_view_type::memory_space, Kokkos::HostSpace>::value) &&
+            compadre_assert_release((std::is_same<typename neighbor_lists_view_type::memory_space, Kokkos::HostSpace>::value) &&
                     "Views passed to generateNeighborListsFromKNNSearch should reside on the host.");
-            assert((std::is_same<typename epsilons_view_type::memory_space, Kokkos::HostSpace>::value) &&
+            compadre_assert_release((std::is_same<typename epsilons_view_type::memory_space, Kokkos::HostSpace>::value) &&
                     "Views passed to generateNeighborListsFromKNNSearch should reside on the host.");
 
             // define the cloud_type using this class
@@ -83,10 +83,10 @@ class PointCloudSearch {
             const int num_target_sites = _trg_pts_view.dimension_0();
 
             // allocate neighbor lists and epsilons
-            assert((neighbor_lists.dimension_0()==num_target_sites 
+            compadre_assert_release((neighbor_lists.dimension_0()==num_target_sites 
                         && neighbor_lists.dimension_1()==neighbors_needed+1) 
                         && "neighbor lists View does not have the correct dimensions");
-            assert((epsilons.dimension_0()==num_target_sites)
+            compadre_assert_release((epsilons.dimension_0()==num_target_sites)
                         && "epsilons View does not have the correct dimension");
 
             typedef Kokkos::View<double*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
