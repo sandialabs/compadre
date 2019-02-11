@@ -47,7 +47,7 @@ typedef typename pool_type::generator_type generator_type;
 
 //! compadre_assert_debug is used for assertions that are checked in loops, as these significantly
 //! impact performance. When NDEBUG is set, these conditions are not checked.
-#ifndef NDEBUG
+#ifdef COMPADRE_DEBUG
 # define compadre_assert_debug(condition) do {                                \
     if ( ! (condition)) {                                               \
       std::stringstream _ss_;                                           \
@@ -61,8 +61,8 @@ typedef typename pool_type::generator_type generator_type;
       Kokkos::abort(#condition);                \
   } while (0)
 #else
-#  define compadre_assert(condition)
-#  define compadre_kernel_assert(condition)
+#  define compadre_assert_debug(condition)
+#  define compadre_kernel_assert_debug(condition)
 #endif
 
 #endif
