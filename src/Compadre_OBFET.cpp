@@ -121,11 +121,11 @@ void OBFET::solveAndUpdate() {
             auto target_num_global = this->_target_particles->getCoordsConst()->nGlobal();
             for (int j=0; j<target_num_local; ++j) {
                 caas.set_rhom(j, 0, weights[j]);
-                caas.set_Qm(j, 0, target_values[j], source_mins[j], source_maxs[j], global_conserved_quantity / target_num_global);
+                caas.set_Qm(j, 0, target_values[j]*weights[j], source_mins[j]*weights[j], source_maxs[j]*weights[j], global_conserved_quantity / target_num_global);
             }
             caas.run();
             for (int j=0; j<target_num_local; ++j) {
-                updated_target_values[j] = caas.get_Qm(j, 0);
+                updated_target_values[j] = caas.get_Qm(j, 0)/weights[j];
             }
 
             // diagnostic
