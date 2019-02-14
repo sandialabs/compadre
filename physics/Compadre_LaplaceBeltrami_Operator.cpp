@@ -375,6 +375,101 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 			}
 	//	}
 		});
+	} else if (_parameters->get<std::string>("solution type")!="lb solve" && (_physics_type==1 || _physics_type==3)) {
+		// GMLS operator
+
+		GMLS my_GMLS (ReconstructionSpace::ScalarTaylorPolynomial,
+				SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
+				SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
+				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
+				_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
+
+//		GMLS my_GMLS (ReconstructionSpace::VectorTaylorPolynomial,
+//				SamplingFunctional::StaggeredEdgeIntegralSample,
+//				SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
+//				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+//				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
+//				_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
+		my_GMLS.setProblemData(
+				kokkos_neighbor_lists_host,
+				kokkos_augmented_source_coordinates_host,
+				kokkos_target_coordinates,
+				kokkos_epsilons_host);
+		my_GMLS.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
+		my_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+		my_GMLS.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
+		my_GMLS.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
+		my_GMLS.setNumberOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature points"));
+
+		my_GMLS.addTargets(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation);
+		//my_GMLS.addTargets(TargetOperation::DivergenceOfVectorPointEvaluation);
+		my_GMLS.generateAlphas(); // just point evaluations
+
+		// get maximum number of neighbors * fields[field_two]->nDim()
+		int team_scratch_size = host_scratch_vector_type::shmem_size(max_num_neighbors * fields[field_two]->nDim()); // values
+		team_scratch_size += host_scratch_local_index_type::shmem_size(max_num_neighbors * fields[field_two]->nDim()); // local column indices
+		const local_index_type host_scratch_team_level = 0; // not used in Kokkos currently
+
+//		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal), KOKKOS_LAMBDA(const int i) {
+		Kokkos::parallel_for(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
+			const int i = teamMember.league_rank();
+
+			host_scratch_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+			host_scratch_vector_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+
+			scalar_type target_coeff = fsos->evalDiffusionCoefficient(target_coords->getLocalCoords(i, false));
+
+			const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
+			const local_index_type num_neighbors = neighbors.size();
+
+			//Print error if there's not enough neighbors:
+			TEUCHOS_TEST_FOR_EXCEPT_MSG(num_neighbors < neighbors_needed,
+					"ERROR: Number of neighbors: " + std::to_string(num_neighbors) << " Neighbors needed: " << std::to_string(neighbors_needed) );
+
+			//Put the values of alpha in the proper place in the global matrix
+			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+				local_index_type row = local_to_dof_map[i][field_one][k];
+
+				for (local_index_type l = 0; l < num_neighbors; l++) {
+
+					scalar_type avg_coeff = 1;
+					if (_physics_type==3) {
+						scalar_type neighbor_coeff = fsos->evalDiffusionCoefficient(source_coords->getLocalCoords(static_cast<local_index_type>(neighbors[l].first), true));
+						avg_coeff = 0.5*(target_coeff + neighbor_coeff);
+					}
+
+					for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+						col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][n];
+						if (n==k) { // same field, same component
+							// implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
+							// and checking its boundary condition
+							if (bc_id(i, 0) != 0) {
+								if (i==static_cast<local_index_type>(neighbors[l].first)) {
+									val_data(l*fields[field_two]->nDim() + n) = 1.0;
+								} else {
+									val_data(l*fields[field_two]->nDim() + n) = 0.0;
+								}
+							} else {
+								val_data(l*fields[field_two]->nDim() + n) = avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
+								val_data(0*fields[field_two]->nDim() + n) += avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
+//								val_data(l*fields[field_two]->nDim() + n) = avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
+//								val_data(0*fields[field_two]->nDim() + n) += avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
+							}
+						} else {
+							val_data(l*fields[field_two]->nDim() + n) = 0.0;
+						}
+					}
+				}
+				//#pragma omp critical
+				{
+					//this->_A->insertLocalValues(row, cols, values);
+					this->_A->sumIntoLocalValues(row, num_neighbors * fields[field_two]->nDim(), val_data.data(), col_data.data());//, /*atomics*/false);
+				}
+			}
+	//	}
+		});
+
 	} else
 		if (_physics_type==1 || _physics_type==3) { // Chained staggered grad and div
 

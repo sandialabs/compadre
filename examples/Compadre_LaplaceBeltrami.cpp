@@ -31,6 +31,8 @@ static const Compadre::GlobalConstants consts;
 
 #include <iostream>
 
+#define STACK_TRACE(call) try { call; } catch (const std::exception& e ) { TEUCHOS_TRACE(e); }
+
 typedef int LO;
 typedef long GO;
 typedef double ST;
@@ -129,7 +131,7 @@ int main (int argc, char* args[]) {
 						localInitFromVectorFunction(&function1);
 
 			} else if (parameters->get<std::string>("solution type") == "five_strip") {
-				particles->getFieldManager()->createField(3, "solution", "m/s");
+				particles->getFieldManager()->createField(1, "solution", "m/s");
 				Compadre::ConstantEachDimension function1 = Compadre::ConstantEachDimension(1,1,1);
 				particles->getFieldManager()->getFieldByName("solution")->
 						localInitFromVectorFunction(&function1);
@@ -230,7 +232,7 @@ int main (int argc, char* args[]) {
 
 				Compadre::RemapObject ro("scaledSphereHarmonic", "computedSphereHarmonic", TargetOperation::ScalarPointEvaluation);
 				rm->add(ro);
-				rm->execute();
+				STACK_TRACE(rm->execute());
 			} else if (parameters->get<std::string>("solution type")=="vector") {
 				new_particles->getFieldManager()->createField(3, "computedGradSphereHarmonic", "m/s");
 				new_particles->getFieldManager()->createField(3, "exact_solution", "m/s");
@@ -238,14 +240,14 @@ int main (int argc, char* args[]) {
 				//Compadre::RemapObject ro("sourceGradientSphereHarmonic", "computedGradSphereHarmonic", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::ManifoldVectorPointSample);
 				Compadre::RemapObject ro("sourceGradientSphereHarmonic", "computedGradSphereHarmonic", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, SamplingFunctional::ManifoldVectorPointSample);
 				rm->add(ro);
-				rm->execute();
+				STACK_TRACE(rm->execute());
 			} else if (parameters->get<std::string>("solution type")=="laplace") {
 				new_particles->getFieldManager()->createField(1, "computedSphereHarmonic", "m/s");
 				new_particles->getFieldManager()->createField(1, "exact_solution", "m/s");
 
 				Compadre::RemapObject ro("scaledSphereHarmonic", "computedSphereHarmonic", TargetOperation::LaplacianOfScalarPointEvaluation);
 				rm->add(ro);
-				rm->execute();
+				STACK_TRACE(rm->execute());
 			} else if (parameters->get<std::string>("solution type")=="staggered_laplace") {
 				new_particles->getFieldManager()->createField(1, "computedSphereHarmonic", "m/s");
 				new_particles->getFieldManager()->createField(1, "exact_solution", "m/s");
@@ -253,7 +255,7 @@ int main (int argc, char* args[]) {
 				Compadre::RemapObject ro("scaledSphereHarmonic", "computedSphereHarmonic", TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::StaggeredEdgeIntegralSample, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
 //				Compadre::RemapObject ro("scaledSphereHarmonic", "computedSphereHarmonic", TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
 				rm->add(ro);
-				rm->execute();
+				STACK_TRACE(rm->execute());
 			} else if (parameters->get<std::string>("solution type")=="staggered_div_grad") {
 				new_particles->getFieldManager()->createField(3, "computedGradSphereHarmonic", "m/s");
 //				new_particles->getFieldManager()->createField(1, "computedLaplacianSphereHarmonic", "m/s");
@@ -268,7 +270,7 @@ int main (int argc, char* args[]) {
 				rm->add(ro);
 //				rm->add(ro1);
 
-				rm->execute();
+				STACK_TRACE(rm->execute());
 
 //				Compadre::SphereHarmonic function3 = Compadre::SphereHarmonic(4,5);
 //				new_particles->getFieldManager()->getFieldByName("computedGradSphereHarmonic")->
@@ -304,7 +306,7 @@ int main (int argc, char* args[]) {
 
 //				std::cout << rm->queueToString() << std::endl;
 
-				rm->execute();
+				STACK_TRACE(rm->execute());
 			} else if (parameters->get<std::string>("solution type")=="staggered_grad") {
 //				new_particles->getFieldManager()->createField(3, "computedGradSphereHarmonic", "m/s");
 
@@ -328,7 +330,7 @@ int main (int argc, char* args[]) {
 				}
 
 				rm->add(ro);
-				rm->execute();
+				STACK_TRACE(rm->execute());
 
 			} else if (parameters->get<std::string>("solution type")=="div_grad") {
 				new_particles->getFieldManager()->createField(3, "computedGradSphereHarmonic", "m/s");
@@ -346,7 +348,7 @@ int main (int argc, char* args[]) {
 				rm->add(ro);
 //				rm->add(ro1);
 
-				rm->execute();
+				STACK_TRACE(rm->execute());
 
 //				Compadre::SphereHarmonic function3 = Compadre::SphereHarmonic(4,5);
 //				new_particles->getFieldManager()->getFieldByName("computedGradSphereHarmonic")->
@@ -361,7 +363,7 @@ int main (int argc, char* args[]) {
 
 				Compadre::RemapObject ro("sourceGradientSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::DivergenceOfVectorPointEvaluation, ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, SamplingFunctional::ManifoldVectorPointSample);
 				rm->add(ro);
-				rm->execute();
+				STACK_TRACE(rm->execute());
 			} else if (parameters->get<std::string>("solution type")=="staggered_div") {
 				new_particles->getFieldManager()->createField(1, "exact_solution", "m/s");
 
@@ -376,7 +378,7 @@ int main (int argc, char* args[]) {
 				// this tests the integration on the samples (likely second order at best given each edge only contains two values) combined with divergence on the reconstructed polynomial calculated via integrating polynomials
 				Compadre::RemapObject ro("sourceGradientSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::DivergenceOfVectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::StaggeredEdgeIntegralSample);
 				rm->add(ro);
-				rm->execute();
+				STACK_TRACE(rm->execute());
 			} else { // lb solve or five strip
 
 				particles->getFieldManager()->createField(1, "exact_solution", "m/s");
@@ -406,12 +408,12 @@ int main (int argc, char* args[]) {
 
 				// assembly
 				AssemblyTime->start();
-				problem->initialize();
+				STACK_TRACE(problem->initialize());
 				AssemblyTime->stop();
 
 				//solving
 				SolvingTime->start();
-				problem->solve();
+				STACK_TRACE(problem->solve());
 				SolvingTime->stop();
 
 				particles->getFieldManager()->updateFieldsHaloData();
@@ -435,7 +437,7 @@ int main (int argc, char* args[]) {
 //				Compadre::RemapObject ro("computedGradSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::VectorPointEvaluation, SamplingFunctional::StaggeredEdgeIntegralSample);
 
 				rm2->add(ro);
-				rm2->execute();
+				STACK_TRACE(rm2->execute());
 
 //				Compadre::SphereHarmonic function3 = Compadre::SphereHarmonic(4,5);
 //				new_particles->getFieldManager()->getFieldByName("computedDivGradSphereHarmonic")->
@@ -452,7 +454,7 @@ int main (int argc, char* args[]) {
 				Compadre::RemapObject ro("computedGradSphereHarmonic", "computedDivGradSphereHarmonic", TargetOperation::DivergenceOfVectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::StaggeredEdgeIntegralSample);
 
 				rm2->add(ro);
-				rm2->execute();
+				STACK_TRACE(rm2->execute());
 
 //				Compadre::SphereHarmonic function3 = Compadre::SphereHarmonic(4,5);
 //				new_particles->getFieldManager()->getFieldByName("computedDivGradSphereHarmonic")->
@@ -469,25 +471,33 @@ int main (int argc, char* args[]) {
 
 
 				new_particles->getFieldManager()->createField(3, "computedKappaGrad", "m/s");
-//				Compadre::RemapObject ro("solution", "computedKappaGrad", TargetOperation::GradientOfScalarPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::StaggeredEdgeIntegralSample, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
-				Compadre::RemapObject ro("solution", "computedKappaGrad", TargetOperation::GradientOfScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample);
-//				Compadre::RemapObject ro("solution", "computedKappaGrad", TargetOperation::GradientOfScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
-
-
-				if (parameters->get<int>("physics number")==3) {
-					particles->getFieldManager()->createField(1, "kappa", "m/s");
-					Compadre::FiveStripOnSphere function3 = Compadre::FiveStripOnSphere();
-					Compadre::host_view_type kappa_field =  particles->getFieldManager()->getFieldByName("kappa")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-					for(int j=0; j<coords->nLocal(); j++){
-						xyz_type xyz = coords->getLocalCoords(j);
-						kappa_field(j,0) = function3.evalDiffusionCoefficient(xyz);
-					}
-					particles->getFieldManager()->updateFieldsHaloData();
-					ro.setOperatorCoefficients("kappa");
-				}
+				Compadre::RemapObject ro("solution", "computedKappaGrad", TargetOperation::GradientOfScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
 
 				rm->add(ro);
-				rm->execute();
+				STACK_TRACE(rm->execute());
+
+				if (parameters->get<int>("physics number")==3) {
+					new_particles->getFieldManager()->createField(1, "kappa", "m/s");
+					new_particles->getFieldManager()->createField(1, "lon", "m/s");
+					Compadre::FiveStripOnSphere function3 = Compadre::FiveStripOnSphere();
+
+				    new_particles->getFieldManager()->getFieldByName("lon")->
+						localInitFromScalarFunction(&function3);
+
+
+					Compadre::host_view_type kappa_field =  new_particles->getFieldManager()->getFieldByName("kappa")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+					Compadre::host_view_type lon_field =  new_particles->getFieldManager()->getFieldByName("lon")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+					Compadre::host_view_type computed_kappa_grad_field =  new_particles->getFieldManager()->getFieldByName("computedKappaGrad")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+
+					for(int j=0; j<coords->nLocal(); j++){
+						xyz_type xyz = new_coords->getLocalCoords(j);
+						kappa_field(j,0) = function3.evalDiffusionCoefficient(xyz);
+					    for(int k=0; k<3; k++){
+						    computed_kappa_grad_field(j,k) *= kappa_field(j,0);
+                        }
+					}
+					new_particles->getFieldManager()->updateFieldsHaloData();
+				}
 
 				Compadre::FiveStripOnSphere function3 = Compadre::FiveStripOnSphere();
 				new_particles->getFieldManager()->createField(3, "exactKappaGrad", "m/s");
@@ -516,9 +526,9 @@ int main (int argc, char* args[]) {
 				}
 			} else if (parameters->get<int>("physics number") == 3){
 				if (parameters->get<std::string>("solution type")=="lb solve")
-					function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::FiveStripOnSphere));
-				else
 					function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ConstantEachDimension(0,0,0)));
+				else
+					function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::FiveStripOnSphere));
 			} else if (parameters->get<int>("physics number") == 10){
 				if (parameters->get<std::string>("solution type")=="lb solve" || parameters->get<std::string>("solution type")=="point" || parameters->get<std::string>("solution type")=="vector")
 					function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::CylinderSinLonCosZ));

@@ -14,7 +14,7 @@ h_all=[0.2,0.1,0.05,0.025,0.0125,0.00625]
 height = 2.0
 radius = 1.0
 
-variation = .05#15 # as a decimal for a percent
+variation = .00#15 # as a decimal for a percent
 
 
 for key, h in enumerate(h_all):
@@ -27,7 +27,7 @@ for key, h in enumerate(h_all):
     
     circumference_points = int(2*math.pi*radius / h)
     z_layer = int(height / h)
-    flagged_layers_top_and_bottom = .2*z_layer
+    flagged_layers_top_and_bottom = .02*z_layer
     
     angle_delta = 2*math.pi/circumference_points
     
