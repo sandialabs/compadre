@@ -657,6 +657,8 @@ int main (int argc, char* args[]) {
 					exact_solution_field(j,1) = vector_exact.y;
 					exact_solution_field(j,2) = vector_exact.z;
 				}
+			} else if (parameters->get<std::string>("solution type")=="five_strip") {
+				solution_field = new_particles->getFieldManager()->getFieldByName("computedKappaGrad")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
 			} else {
 				solution_field = particles->getFieldManager()->getFieldByName("solution")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
 //				printf("A operation:\n");
@@ -721,6 +723,10 @@ int main (int argc, char* args[]) {
 						exact = -function->evalScalar(xyz);
 					} else if (parameters->get<std::string>("solution type")=="div" || parameters->get<std::string>("solution type")=="staggered_div") {
 						exact = -function->evalScalar(xyz);
+					} else if (parameters->get<std::string>("solution type")=="five_strip") {
+					    xyz_type this_xyz = new_coords->getLocalCoords(j);
+					    auto this_function = Teuchos::rcp_static_cast<Compadre::FiveStripOnSphere>(Teuchos::rcp(new Compadre::FiveStripOnSphere));
+						exact = this_function->evalDiffusionCoefficient(this_xyz);
 					} else { // lb solve
 						if (parameters->get<LO>("physics number")<3) {
 							exact = function->evalScalar(xyz) * (1.0 / (5 * (5 + 1)));
@@ -730,7 +736,9 @@ int main (int argc, char* args[]) {
 					}
 
 	//				exact = function->evalScalar(xyz) * (1.0 / (5 * (5 + 1)));
-					physical_coordinate_weighted_l2_norm += (solution_field(j,0) - exact)*(solution_field(j,0) - exact);//*grid_area_field(j,0);
+					if (parameters->get<std::string>("solution type")!="five_strip") {
+					  physical_coordinate_weighted_l2_norm += (solution_field(j,0) - exact)*(solution_field(j,0) - exact);//*grid_area_field(j,0);
+                    }
 	//				if (parameters->get<std::string>("solution type")=="div_grad" ||  parameters->get<std::string>("solution type")=="staggered_div_grad")
 	//					physical_coordinate_weighted_l2_norm += (solution_field2(j,0) - exact)*(solution_field2(j,0) - exact);
 
@@ -741,6 +749,15 @@ int main (int argc, char* args[]) {
 						physical_coordinate_weighted_l2_norm += (solution_field(j,1) - function->evalScalarDerivative(xyz).y)*(solution_field(j,1) - function->evalScalarDerivative(xyz).y);
 						physical_coordinate_weighted_l2_norm += (solution_field(j,2) - function->evalScalarDerivative(xyz).z)*(solution_field(j,2) - function->evalScalarDerivative(xyz).z);
 					}
+
+                    if (parameters->get<std::string>("solution type")=="five_strip") {
+                        double magnitude_of_grad = 0;
+                        for (int k=0; k<3; ++k) {
+                            magnitude_of_grad += solution_field(j,k)*solution_field(j,k);
+                        }
+                        magnitude_of_grad = std::sqrt(magnitude_of_grad);
+					    physical_coordinate_weighted_l2_norm += (magnitude_of_grad - exact)*(magnitude_of_grad - exact);//*grid_area_field(j,0);
+                    }
 	//				physical_coordinate_weighted_l2_norm += (solution_field(j,0) - exact)*(solution_field(j,0) - exact)*grid_area_field(j,0);
 					exact_coordinate_weighted_l2_norm += exact*exact;//*grid_area_field(j,0);
 	//				exact_coordinate_weighted_l2_norm += exact*exact*grid_area_field(j,0);

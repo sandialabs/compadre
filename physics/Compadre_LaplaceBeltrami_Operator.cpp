@@ -287,16 +287,19 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 	if (_parameters->get<std::string>("solution type")=="lb solve") { // Staggered Laplace-Beltrami
 		// GMLS operator
 
-//		GMLS my_GMLS (ReconstructionSpace::ScalarTaylorPolynomial,
-//				SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
-//				SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
-
-		GMLS my_GMLS (ReconstructionSpace::VectorTaylorPolynomial,
-				SamplingFunctional::StaggeredEdgeIntegralSample,
+		GMLS my_GMLS (ReconstructionSpace::ScalarTaylorPolynomial,
+				SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
 				SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
 				_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
+
+//		GMLS my_GMLS (ReconstructionSpace::VectorTaylorPolynomial,
+//				SamplingFunctional::StaggeredEdgeIntegralSample,
+//				SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample,
+//				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+//				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
+//				_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 		my_GMLS.setProblemData(
 				kokkos_neighbor_lists_host,
 				kokkos_augmented_source_coordinates_host,
@@ -308,8 +311,8 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 		my_GMLS.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 		my_GMLS.setNumberOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature points"));
 
-//		my_GMLS.addTargets(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation);
-		my_GMLS.addTargets(TargetOperation::DivergenceOfVectorPointEvaluation);
+		my_GMLS.addTargets(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation);
+//		my_GMLS.addTargets(TargetOperation::DivergenceOfVectorPointEvaluation);
 		my_GMLS.generateAlphas(); // just point evaluations
 
 		// get maximum number of neighbors * fields[field_two]->nDim()
@@ -357,10 +360,10 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 									val_data(l*fields[field_two]->nDim() + n) = 0.0;
 								}
 							} else {
-//								val_data(l*fields[field_two]->nDim() + n) = avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
-//								val_data(0*fields[field_two]->nDim() + n) += avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
-								val_data(l*fields[field_two]->nDim() + n) = avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
-								val_data(0*fields[field_two]->nDim() + n) += avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
+								val_data(l*fields[field_two]->nDim() + n) = avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
+								val_data(0*fields[field_two]->nDim() + n) += avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
+//								val_data(l*fields[field_two]->nDim() + n) = avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
+//								val_data(0*fields[field_two]->nDim() + n) += avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
 							}
 						} else {
 							val_data(l*fields[field_two]->nDim() + n) = 0.0;
