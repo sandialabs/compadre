@@ -29,3 +29,24 @@ p^{*}& =& \underset{p \in V}{\text{arg min}}\;\frac{1}{2}\sum_{j=1}^N (\lambda_j
 
 [Installation of Compadre](doc/Compadre-Install.md)
 
+## Citing the Software
+
+If you write a paper using results obtained with the help of the Compadre Toolkit, please cite the following reference:
+
+```
+@misc{paul_kuberry_2019_2560287,
+  author       = {Paul Kuberry and
+                  Peter Bosler and
+                  Nathaniel Trask},
+  title        = {Compadre Toolkit},
+  month        = feb,
+  year         = 2019,
+  doi          = {10.5281/zenodo.2560287},
+  url          = {https://doi.org/10.5281/zenodo.2560287}
+}
+```
+
+If you would like to export the reference information to either CSL, DataCite, Dublin, Core, JSON, JSON-LD, MARCXML, or Mendeley, please find the export section at the bottom-right corner once you follow the link below:
+
+<a href="https://doi.org/10.5281/zenodo.2557929" target="_blank"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.2557929.svg"></a>
+
