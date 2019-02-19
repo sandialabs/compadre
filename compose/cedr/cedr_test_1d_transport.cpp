@@ -269,17 +269,25 @@ Int run (const mpi::Parallel::Ptr& parallel, const Input& in) {
   auto tree = qlt::tree::make_tree_over_1d_mesh(parallel, in.ncells,
                                                 false /* imbalanced */);
   typedef qlt::QLT<Kokkos::DefaultHostExecutionSpace> QLTT;
-  QLTT qlt(parallel, in.ncells, tree);
+  QLTT qltnn(parallel, in.ncells, tree), qlt(parallel, in.ncells, tree);
 
   typedef caas::CAAS<Kokkos::DefaultHostExecutionSpace> CAAST;
   CAAST caas(parallel, in.ncells);
 
-  CDR* cdrs[] = {&qlt, &caas};
+  CDR* cdrs[] = {&qltnn, &qlt, &caas};
   const int ncdrs = sizeof(cdrs)/sizeof(*cdrs);
 
+  bool first = true;
   for (CDR* cdr : cdrs) {
-    cdr->declare_tracer(cedr::ProblemType::conserve |
-                        cedr::ProblemType::shapepreserve, 0);
+    if (first) {
+      QLTT* qlt = dynamic_cast<QLTT*>(cdr);
+      cedr_assert(qlt);
+      qlt->declare_tracer(cedr::ProblemType::conserve |
+                          cedr::ProblemType::nonnegative, 0);
+      first = false;
+    } else
+      cdr->declare_tracer(cedr::ProblemType::conserve |
+                          cedr::ProblemType::shapepreserve, 0);
     cdr->end_tracer_declarations();
     for (Int i = 0; i < in.ncells; ++i)
       cdr->set_rhom(i, 0, p.area(i));
@@ -302,7 +310,7 @@ Int run (const mpi::Parallel::Ptr& parallel, const Input& in) {
   const Int nsteps = Int(3.17*in.ncells);
   const Int ncycles = 1;
   
-  const char* names[] = {"yqlt", "ycaas"};
+  const char* names[] = {"yqltnn", "yqlt", "ycaas"};
   for (int ic = 0; ic < ncdrs; ++ic) {
     std::copy(y0.begin(), y0.end(), yf.begin());
     for (Int i = 0; i < ncycles; ++i)

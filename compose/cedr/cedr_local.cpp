@@ -95,9 +95,8 @@ bool check_1eq_bc_qp_foc (
     os << "label: " << label << "\n";
   return ok;
 }
-} // namespace test
 
-Int unittest () {
+Int test_1eq_bc_qp () {
   bool verbose = true;
   Int nerr = 0;
 
@@ -202,7 +201,7 @@ Int unittest () {
       b += a[i]*y[i];
   };
 
-  for (n = 2; n <= 16; ++n) {
+  for (n = 2; n <= N; ++n) {
     const Int count = n == 2 ? 100 : 10;
     for (Int i = 0; i < count; ++i) {
       gena();
@@ -222,5 +221,77 @@ Int unittest () {
   return  nerr;
 }
 
+Int test_1eq_nonneg () {
+  using cedr::util::urand;
+  using cedr::util::reldif;
+
+  bool verbose = true;
+  Int nerr = 0;
+
+  Int n;
+  static const Int N = 16;
+  Real w[N], a[N], b, xlo[N], xhi[N], y[N], x_ls[N], x_caas[N], x1_ls[N], x1_caas[N];
+
+  for (n = 2; n <= 2; ++n) {
+    const Int count = 20;
+    for (Int trial = 0; trial < count; ++trial) {
+      b = 0.5*n*urand();
+      for (Int i = 0; i < n; ++i) {
+        w[i] = 0.1 + urand();
+        a[i] = 0.1 + urand();
+        xlo[i] = 0;
+        xhi[i] = b/a[i];
+        y[i] = urand();
+        if (urand() > 0.8) y[i] *= -1;
+        x1_caas[i] = urand() > 0.5 ? y[i] : -1;
+        x1_ls[i] = urand() > 0.5 ? y[i] : -1;
+      }
+      solve_1eq_nonneg(n, a, b, y, x1_caas, w, Method::caas);
+      caas(n, a, b, xlo, xhi, y, x_caas);
+      solve_1eq_nonneg(n, a, b, y, x1_ls, w, Method::least_squares);
+      solve_1eq_bc_qp(n, w, a, b, xlo, xhi, y, x_ls);
+      const Real rd_caas = reldif(x_caas, x1_caas, 2);
+      const Real rd_ls = reldif(x_ls, x1_ls, 2);
+      if (rd_ls > 1e1*std::numeric_limits<Real>::epsilon() ||
+          rd_caas > 1e1*std::numeric_limits<Real>::epsilon()) {
+        pr(puf(rd_ls) pu(rd_caas));
+        if (verbose) {
+          using cedr::util::prarr;
+          prarr("w", w, n);
+          prarr("a", a, n);
+          prarr("xhi", xhi, n);
+          prarr("y", y, n);
+          prarr("x_ls", x_ls, n);
+          prarr("x1_ls", x1_ls, n);
+          prarr("x_caas", x_caas, n);
+          prarr("x1_caas", x1_caas, n);
+          prc(b);
+          Real mass = 0;
+          for (Int i = 0; i < n; ++i) mass += a[i]*x_ls[i];
+          prc(mass);
+          mass = 0;
+          for (Int i = 0; i < n; ++i) mass += a[i]*x_ls[i];
+          prc(mass);
+          mass = 0;
+          for (Int i = 0; i < n; ++i) mass += a[i]*x_caas[i];
+          prc(mass);
+        }
+        ++nerr;
+      }
+    }
+  }
+
+  return nerr;
 }
+
+} // namespace test
+
+Int unittest () {
+  Int nerr = 0;
+  nerr += test::test_1eq_bc_qp();
+  nerr += test::test_1eq_nonneg();
+  return nerr;
 }
+
+} // namespace local
+} // namespace cedr

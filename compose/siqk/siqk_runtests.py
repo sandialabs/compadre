@@ -27,7 +27,7 @@ if testno == 0:
                 for ylate in ylates:
                     cmd = ('OMP_NUM_THREADS=8 {exe:s} --testno 0 --xlate {xlate:1.15e} --ylate {ylate:1.14e} --angle {angle:1.15e} -n {n:d}'.
                            format(exe=exe, xlate=xlate, ylate=ylate, angle=angle, n=n))
-                    stat = os.system(cmd + ' | grep PASSED &> /dev/null')
+                    stat = os.system(cmd)
                     if stat:
                         fails.append(cmd)
                     else:
@@ -40,7 +40,7 @@ elif testno == 1:
         for angle in angles:
             cmd = ('OMP_NUM_THREADS=8 {exe:s} --testno 1 --angle {angle:1.15e} -n {n:d}'.
                    format(exe=exe, angle=angle, n=n))
-            stat = os.system(cmd + ' | grep PASSED &> /dev/null')
+            stat = os.system(cmd)
             if stat:
                 fails.append(cmd)
             else:

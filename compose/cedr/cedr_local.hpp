@@ -10,14 +10,16 @@
 namespace cedr {
 namespace local {
 
-// Solve
-//     min_x sum_i w(i) (x(i) - y(i))^2
-//      st   a' x = b
+// The following routines solve
+//     min_x norm(x - y; w)
+//      st   a'x = b
 //           xlo <= x <= xhi,
-// a(i), w(i) > 0. Return 0 on success and x == y, 1 on success and x != y, -1
-// if infeasible, -2 if max_its hit with no solution. See Section 3 of Bochev,
-// Ridzal, Shashkov, Fast optimization-based conservative remap of scalar fields
-// through aggregate mass transfer. lambda is used in check_1eq_bc_qp_foc.
+// a > 0, w > 0.
+
+// Minimize the weighted 2-norm. Return 0 on success and x == y, 1 on success
+// and x != y, -1 if infeasible, -2 if max_its hit with no solution. See section
+// 3 of Bochev, Ridzal, Shashkov, Fast optimization-based conservative remap of
+// scalar fields through aggregate mass transfer.
 KOKKOS_INLINE_FUNCTION
 Int solve_1eq_bc_qp(const Int n, const Real* w, const Real* a, const Real b,
                     const Real* xlo, const Real* xhi,
@@ -28,16 +30,29 @@ Int solve_1eq_bc_qp_2d(const Real* w, const Real* a, const Real b,
                        const Real* xlo, const Real* xhi,
                        const Real* y, Real* x);
 
-// ClipAndAssuredSum. Does not check for feasibility.
+// ClipAndAssuredSum. Minimize the 1-norm with w = 1s. Does not check for
+// feasibility.
 KOKKOS_INLINE_FUNCTION
 void caas(const Int n, const Real* a, const Real b,
           const Real* xlo, const Real* xhi,
           const Real* y, Real* x);
 
+struct Method { enum Enum { least_squares, caas }; };
+
+// Solve
+//     min_x norm(x - y; w)
+//      st   a'x = b
+//           x >= 0,
+// a, w > 0. Return 0 on success and x == y, 1 on success and x != y, -1 if
+// infeasible. w is used only if lcl_method = least_squares.
+KOKKOS_INLINE_FUNCTION
+Int solve_1eq_nonneg(const Int n, const Real* a, const Real b, const Real* y, Real* x,
+                     const Real* w, const Method::Enum lcl_method);
+
 Int unittest();
 
-}
-}
+} // namespace local
+} // namespace cedr
 
 #include "cedr_local_inl.hpp"
 

@@ -21,9 +21,8 @@ Real calc_r_tol (const Real b, const Real* a, const Real* y, const Int n) {
 // on a common case. Return -1 if infeasible, 1 if a corner is a solution, 0 if
 // feasible and a corner is not.
 KOKKOS_INLINE_FUNCTION
-Int check_lu (const Int n, const Real* a, const Real& b,
-              const Real* xlo, const Real* xhi, const Real* y, const Real& r_tol,
-              Real* x) {
+Int check_lu (const Int n, const Real* a, const Real& b, const Real* xlo,
+              const Real* xhi, const Real& r_tol, Real* x) {
   Real r = -b;
   for (Int i = 0; i < n; ++i) {
     x[i] = xlo[i];
@@ -71,7 +70,7 @@ Int solve_1eq_bc_qp_2d (const Real* w, const Real* a, const Real b,
                         const Real* xlo, const Real* xhi, 
                         const Real* y, Real* x) {
   const Real r_tol = impl::calc_r_tol(b, a, y, 2);
-  Int info = impl::check_lu(2, a, b, xlo, xhi, y, r_tol, x);
+  Int info = impl::check_lu(2, a, b, xlo, xhi, r_tol, x);
   if (info != 0) return info;
 
   { // Check if the optimal point ignoring bound constraints is in bounds.
@@ -166,7 +165,7 @@ Int solve_1eq_bc_qp (const Int n, const Real* w, const Real* a, const Real b,
                      const Real* xlo, const Real* xhi, const Real* y, Real* x,
                      const Int max_its) {
   const Real r_tol = impl::calc_r_tol(b, a, y, n);
-  Int info = impl::check_lu(n, a, b, xlo, xhi, y, r_tol, x);
+  Int info = impl::check_lu(n, a, b, xlo, xhi, r_tol, x);
   if (info != 0) return info;
 
   for (int i = 0; i < n; ++i)
@@ -298,6 +297,30 @@ void caas (const Int n, const Real* a, const Real b,
   // Clip again for numerics.
   for (Int i = 0; i < n; ++i)
     x[i] = cedr::impl::max(xlo[i], cedr::impl::min(xhi[i], x[i]));
+}
+
+KOKKOS_INLINE_FUNCTION
+Int solve_1eq_nonneg (const Int n, const Real* a, const Real b, const Real* y, Real* x,
+                      const Real* w,  const Method::Enum method) {
+  cedr_kernel_assert(n <= 16);
+  if (b < 0) return -1;
+
+  const Real zero[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+  // Set the upper bound to the value that implies that just one slot gets all
+  // of the mass.
+  Real xhi[16];
+  for (int i = 0; i < n; ++i)
+    xhi[i] = b/a[i];
+
+  if (method == Method::caas) {
+    caas(n, a, b, zero, xhi, y, x);
+    return 1;
+  } else {
+    if (n == 2)
+      return solve_1eq_bc_qp_2d(w, a, b, zero, xhi, y, x);
+    else
+      return solve_1eq_bc_qp(n, w, a, b, zero, xhi, y, x);
+  }
 }
 
 } // namespace local

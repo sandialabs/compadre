@@ -8,6 +8,11 @@
 
 namespace cedr {
 // Constrained Density Reconstructor interface.
+//   Find a point Qm in the set
+//      { Qm: ( i) e'Qm = Qm_global
+//            (ii) Qm_min <= Qm <= Qm_max },
+// where e is the vector of 1s. Each algorithm in CEDR has its own optimality
+// principle to decide on the point.
 struct CDR {
   typedef std::shared_ptr<CDR> Ptr;
 
@@ -52,7 +57,8 @@ struct CDR {
     const Int& lclcellidx, const Int& tracer_idx,
     // Current tracer mass in this cell.
     const Real& Qm,
-    // Minimum and maximum permitted tracer mass in this cell.
+    // Minimum and maximum permitted tracer mass in this cell. Ignored if
+    // ProblemType is 'nonnegative'.
     const Real& Qm_min, const Real& Qm_max,
     // If mass conservation is requested, provide the previous Qm, which will be
     // summed to give the desired global mass.

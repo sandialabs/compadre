@@ -28,23 +28,30 @@ void QLT<ES>::set_Qm (const Int& lclcellidx, const Int& tracer_idx,
     const Int bdi = md_.a_d.trcr2bl2r(tracer_idx);
     bd = &bd_.l2r_data(ndps*lclcellidx + bdi);
   }
-  bd[1] = Qm;
   {
     const Int problem_type = md_.a_d.trcr2prob(tracer_idx);
+    Int next = 0;
     if (problem_type & ProblemType::shapepreserve) {
       bd[0] = Qm_min;
+      bd[1] = Qm;
       bd[2] = Qm_max;
+      next = 3;
     } else if (problem_type & ProblemType::consistent) {
       const Real rhom = bd_.l2r_data(ndps*lclcellidx);
       bd[0] = Qm_min / rhom;
+      bd[1] = Qm;
       bd[2] = Qm_max / rhom;
+      next = 3;
+    } else if (problem_type & ProblemType::nonnegative) {
+      bd[0] = Qm;
+      next = 1;
     } else {
       cedr_kernel_throw_if(true, "set_Q: invalid problem_type.");
     }
     if (problem_type & ProblemType::conserve) {
       cedr_kernel_throw_if(Qm_prev == std::numeric_limits<Real>::infinity(),
                            "Qm_prev was not provided to set_Q.");
-      bd[3] = Qm_prev;
+      bd[next] = Qm_prev;
     }
   }
 }
@@ -89,6 +96,24 @@ void r2l_nl_adjust_bounds (Real Qm_bnd[2], const Real rhom[2], Real Qm_extra) {
   }
 }
 
+template <typename ES> KOKKOS_INLINE_FUNCTION
+int QLT<ES>::MetaData::get_problem_type (const int& idx) {
+  static const Int problem_type[] = {
+    CPT::st, CPT::cst, CPT::t, CPT::ct, CPT::nn, CPT::cnn
+  };
+  return problem_type[idx];
+}
+    
+template <typename ES> KOKKOS_INLINE_FUNCTION
+int QLT<ES>::MetaData::get_problem_type_l2r_bulk_size (const int& mask) {
+  if (mask & ProblemType::nonnegative) {
+    if (mask & ProblemType::conserve) return 2;
+    return 1;
+  }
+  if (mask & ProblemType::conserve) return 4;
+  return 3;
+}
+
 namespace impl {
 KOKKOS_INLINE_FUNCTION
 void solve_node_problem (const Real& rhom, const Real* pd, const Real& Qm,
@@ -108,7 +133,7 @@ void solve_node_problem (const Real& rhom, const Real* pd, const Real& Qm,
       // If the discrepancy is numerical noise, don't act on it.
       const Real tol = 10*std::numeric_limits<Real>::epsilon();
       const Real discrepancy = lo ? Qm_min - Qm : Qm - Qm_max;
-      if (discrepancy > tol*Qm_max) {
+      if (discrepancy > tol*(Qm_max - Qm_min)) {
         const Real rhom_kids[] = {rhom0, rhom1};
         r2l_nl_adjust_bounds(lo ? Qm_min_kids : Qm_max_kids,
                              rhom_kids,
@@ -134,7 +159,7 @@ void solve_node_problem (const Real& rhom, const Real* pd, const Real& Qm,
   { // Solve the node's QP.
     static const Real ones[] = {1, 1};
     const Real w[] = {1/rhom0, 1/rhom1};
-    Real Qm_kids[2] = {k0d[1], k1d[1]};
+    Real Qm_kids[] = {k0d[1], k1d[1]};
     local::solve_1eq_bc_qp_2d(w, ones, Qm, Qm_min_kids, Qm_max_kids,
                               Qm_orig_kids, Qm_kids);
     Qm0 = Qm_kids[0];
@@ -147,16 +172,28 @@ void solve_node_problem (const Int problem_type,
                          const Real& rhom, const Real* pd, const Real& Qm,
                          const Real& rhom0, const Real* k0d, Real& Qm0,
                          const Real& rhom1, const Real* k1d, Real& Qm1) {
-  if ( ! (problem_type & ProblemType::shapepreserve)) {      
+  if ((problem_type & ProblemType::consistent) &&
+      ! (problem_type & ProblemType::shapepreserve)) {      
     Real mpd[3], mk0d[3], mk1d[3];
     mpd[0]  = pd [0]*rhom ; mpd [1] = pd[1] ; mpd [2] = pd [2]*rhom ;
     mk0d[0] = k0d[0]*rhom0; mk0d[1] = k0d[1]; mk0d[2] = k0d[2]*rhom0;
     mk1d[0] = k1d[0]*rhom1; mk1d[1] = k1d[1]; mk1d[2] = k1d[2]*rhom1;
-    impl::solve_node_problem(rhom, mpd, Qm, rhom0, mk0d, Qm0, rhom1, mk1d, Qm1);
+    solve_node_problem(rhom, mpd, Qm, rhom0, mk0d, Qm0, rhom1, mk1d, Qm1);
     return;
+  } else if (problem_type & ProblemType::nonnegative) {
+    static const Real ones[] = {1, 1};
+    const Real w[] = {1/rhom0, 1/rhom1};
+    Real Qm_orig_kids[] = {k0d[0], k1d[0]};
+    Real Qm_kids[2] = {k0d[0], k1d[0]};
+    local::solve_1eq_nonneg(2, ones, Qm, Qm_orig_kids, Qm_kids, w,
+                            local::Method::least_squares);
+    Qm0 = Qm_kids[0];
+    Qm1 = Qm_kids[1];
+  } else {
+    solve_node_problem(rhom, pd, Qm, rhom0, k0d, Qm0, rhom1, k1d, Qm1);
   }
-  solve_node_problem(rhom, pd, Qm, rhom0, k0d, Qm0, rhom1, k1d, Qm1);
 }
+
 } // namespace impl
 } // namespace qlt
 } // namespace cedr
