@@ -624,6 +624,7 @@ if (CompadreHarness_USE_CUDA OR CompadreHarness_USE_LAPACK)
     set(Compose_ARGS
       "-DCMAKE_INSTALL_PREFIX=${Compose_PREFIX}"
       "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+      "-DBUILD_SHARED_LIBS=ON"
       "-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}"
       "-DKokkos_DIR=${Compose_Kokkos_DIR}"
       "-DKOKKOS_IN_TRILINOS=${KOKKOS_IN_TRILINOS}"
@@ -631,12 +632,8 @@ if (CompadreHarness_USE_CUDA OR CompadreHarness_USE_LAPACK)
     
     # RPATH related settings
     # https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/RPATH-handling
-    SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
-    SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
-    SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
     SET(CMAKE_INSTALL_RPATH ${Compose_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
     SET(CMAKE_BUILD_RPATH ${Compose_PREFIX}/lib ${CMAKE_BUILD_RPATH})
-    SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
     
     externalproject_add(Compose
         PREFIX compose
