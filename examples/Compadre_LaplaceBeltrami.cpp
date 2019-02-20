@@ -191,7 +191,8 @@ int main (int argc, char* args[]) {
 
 				particles->createNeighborhood();
 				particles->getNeighborhood()->setAllHSupportSizes(h_support);
-				LO neighbors_needed = Compadre::GMLS::getNP(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
+				LO neighbors_needed = Compadre::GMLS::getNP(std::max(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+                           parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder")), 2);
 				LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
 				particles->getNeighborhood()->constructAllNeighborList(particles->getCoordsConst()->getHaloSize(), extra_neighbors);
 				NeighborSearchTime->stop();
@@ -388,7 +389,7 @@ int main (int argc, char* args[]) {
 
 				// construct physics, sources, and boundary conditions
 				Teuchos::RCP<Compadre::LaplaceBeltramiPhysics> physics =
-					Teuchos::rcp( new Compadre::LaplaceBeltramiPhysics(particles, parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")));
+					Teuchos::rcp( new Compadre::LaplaceBeltramiPhysics(particles, std::max(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"))));
 				Teuchos::RCP<Compadre::LaplaceBeltramiSources> source =
 					Teuchos::rcp( new Compadre::LaplaceBeltramiSources(particles));
 				Teuchos::RCP<Compadre::LaplaceBeltramiBoundaryConditions> bcs =
@@ -464,10 +465,12 @@ int main (int argc, char* args[]) {
 				new_particles->buildHalo(halo_size);
 				new_particles->getFieldManager()->updateFieldsHaloData();
 
-//				Compadre::FiveStripOnSphere function2 = Compadre::FiveStripOnSphere();
-//				particles->getFieldManager()->getFieldByName("solution")->
-//										localInitFromScalarFunction(&function2);
-//				particles->getFieldManager()->updateFieldsHaloData();
+                // DEBUG
+                //printf("DEBUG MODE: solution computed set to exact.\n");
+				//Compadre::FiveStripOnSphere function2 = Compadre::FiveStripOnSphere();
+				//particles->getFieldManager()->getFieldByName("solution")->
+				//						localInitFromScalarFunction(&function2);
+				//particles->getFieldManager()->updateFieldsHaloData();
 
 
 				new_particles->getFieldManager()->createField(3, "computedKappaGrad", "m/s");
@@ -658,7 +661,11 @@ int main (int argc, char* args[]) {
 					exact_solution_field(j,2) = vector_exact.z;
 				}
 			} else if (parameters->get<std::string>("solution type")=="five_strip") {
-				solution_field = new_particles->getFieldManager()->getFieldByName("computedKappaGrad")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                if (post_process_grad) {
+				    solution_field = new_particles->getFieldManager()->getFieldByName("computedKappaGrad")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                } else {
+				    solution_field = particles->getFieldManager()->getFieldByName("solution")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                }
 			} else {
 				solution_field = particles->getFieldManager()->getFieldByName("solution")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
 //				printf("A operation:\n");
@@ -724,9 +731,12 @@ int main (int argc, char* args[]) {
 					} else if (parameters->get<std::string>("solution type")=="div" || parameters->get<std::string>("solution type")=="staggered_div") {
 						exact = -function->evalScalar(xyz);
 					} else if (parameters->get<std::string>("solution type")=="five_strip") {
-					    xyz_type this_xyz = new_coords->getLocalCoords(j);
-					    auto this_function = Teuchos::rcp_static_cast<Compadre::FiveStripOnSphere>(Teuchos::rcp(new Compadre::FiveStripOnSphere));
-						exact = this_function->evalDiffusionCoefficient(this_xyz);
+                        if (post_process_grad) {
+					        xyz_type this_xyz = new_coords->getLocalCoords(j);
+                            exact = function->evalVector(this_xyz).x;
+                        } else {
+							exact = function->evalScalar(xyz);
+                        }
 					} else { // lb solve
 						if (parameters->get<LO>("physics number")<3) {
 							exact = function->evalScalar(xyz) * (1.0 / (5 * (5 + 1)));
@@ -736,13 +746,11 @@ int main (int argc, char* args[]) {
 					}
 
 	//				exact = function->evalScalar(xyz) * (1.0 / (5 * (5 + 1)));
-					if (parameters->get<std::string>("solution type")!="five_strip") {
-					  physical_coordinate_weighted_l2_norm += (solution_field(j,0) - exact)*(solution_field(j,0) - exact);//*grid_area_field(j,0);
-                    }
+					physical_coordinate_weighted_l2_norm += (solution_field(j,0) - exact)*(solution_field(j,0) - exact);//*grid_area_field(j,0);
 	//				if (parameters->get<std::string>("solution type")=="div_grad" ||  parameters->get<std::string>("solution type")=="staggered_div_grad")
 	//					physical_coordinate_weighted_l2_norm += (solution_field2(j,0) - exact)*(solution_field2(j,0) - exact);
 
-					if (parameters->get<std::string>("solution type")=="grad" || parameters->get<std::string>("solution type")=="staggered_grad") {
+					if (parameters->get<std::string>("solution type")=="grad" || parameters->get<std::string>("solution type")=="staggered_grad" || (parameters->get<std::string>("solution type")=="five_strip" && post_process_grad)) {
 						physical_coordinate_weighted_l2_norm += (solution_field(j,1) - function->evalVector(xyz).y)*(solution_field(j,1) - function->evalVector(xyz).y);
 						physical_coordinate_weighted_l2_norm += (solution_field(j,2) - function->evalVector(xyz).z)*(solution_field(j,2) - function->evalVector(xyz).z);
 					} else if (parameters->get<std::string>("solution type")=="vector") {
@@ -750,14 +758,6 @@ int main (int argc, char* args[]) {
 						physical_coordinate_weighted_l2_norm += (solution_field(j,2) - function->evalScalarDerivative(xyz).z)*(solution_field(j,2) - function->evalScalarDerivative(xyz).z);
 					}
 
-                    if (parameters->get<std::string>("solution type")=="five_strip") {
-                        double magnitude_of_grad = 0;
-                        for (int k=0; k<3; ++k) {
-                            magnitude_of_grad += solution_field(j,k)*solution_field(j,k);
-                        }
-                        magnitude_of_grad = std::sqrt(magnitude_of_grad);
-					    physical_coordinate_weighted_l2_norm += (magnitude_of_grad - exact)*(magnitude_of_grad - exact);//*grid_area_field(j,0);
-                    }
 	//				physical_coordinate_weighted_l2_norm += (solution_field(j,0) - exact)*(solution_field(j,0) - exact)*grid_area_field(j,0);
 					exact_coordinate_weighted_l2_norm += exact*exact;//*grid_area_field(j,0);
 	//				exact_coordinate_weighted_l2_norm += exact*exact*grid_area_field(j,0);

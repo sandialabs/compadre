@@ -27,7 +27,7 @@ for key, h in enumerate(h_all):
     
     circumference_points = int(2*math.pi*radius / h)
     z_layer = int(height / h)
-    flagged_layers_top_and_bottom = .02*z_layer
+    flagged_layers_top_and_bottom = .00001*z_layer
     
     angle_delta = 2*math.pi/circumference_points
     
