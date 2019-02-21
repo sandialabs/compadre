@@ -82,7 +82,7 @@ void ParameterManager::setDefaultParameters() {
 	solverList->set("type", "iterative");
 	solverList->set("file", "");
 	solverList->set("save residual over solution", (bool)false);
-	solverList->set("blocked", false); // block assembly and solve?
+	solverList->set("blocked", true); // block assembly and solve?
 	solverList->set("blocks", 1); // how many blocks
 
 	// Coordinate Details

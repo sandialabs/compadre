@@ -126,14 +126,20 @@ int main (int argc, char* args[]) {
 
 			if (parameters->get<std::string>("solution type") == "lb solve") {
 				particles->getFieldManager()->createField(1, "solution", "m/s");
+				particles->getFieldManager()->createField(1, "lagrange multiplier", "NA");
 				Compadre::ConstantEachDimension function1 = Compadre::ConstantEachDimension(1,1,1);
 				particles->getFieldManager()->getFieldByName("solution")->
+						localInitFromVectorFunction(&function1);
+				particles->getFieldManager()->getFieldByName("lagrange multiplier")->
 						localInitFromVectorFunction(&function1);
 
 			} else if (parameters->get<std::string>("solution type") == "five_strip") {
 				particles->getFieldManager()->createField(1, "solution", "m/s");
+				particles->getFieldManager()->createField(1, "lagrange multiplier", "NA");
 				Compadre::ConstantEachDimension function1 = Compadre::ConstantEachDimension(1,1,1);
 				particles->getFieldManager()->getFieldByName("solution")->
+						localInitFromVectorFunction(&function1);
+				particles->getFieldManager()->getFieldByName("lagrange multiplier")->
 						localInitFromVectorFunction(&function1);
 //				Compadre::FiveStripOnSphere function1 = Compadre::FiveStripOnSphere();
 //				particles->getFieldManager()->getFieldByName("solution")->

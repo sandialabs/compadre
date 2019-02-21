@@ -18,18 +18,7 @@ void LaplaceBeltramiBoundaryConditions::flagBoundaries() {
 	local_index_type bc_id_size = this->_particles->getFlags()->getLocalLength();
 	if (_parameters->get<local_index_type>("physics number")<3) {
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,bc_id_size), KOKKOS_LAMBDA(const int i) {
-		scalar_type epsilon_ball = 1e-1;
-
-			if (std::abs((1.0-pts(i,0))*(1.0-pts(i,0)))+std::abs((0.0-pts(i,1))*(0.0-pts(i,1)))+std::abs((0.0-pts(i,2))*(0.0-pts(i,2)))<epsilon_ball) {
-				this->_particles->setFlag(i, 1);
-			} else if (std::abs((1.0+pts(i,0))*(1.0+pts(i,0)))+std::abs((0.0-pts(i,1))*(0.0-pts(i,1)))+std::abs((0.0-pts(i,2))*(0.0-pts(i,2)))<epsilon_ball) {
-				this->_particles->setFlag(i, 2);
-			} else {
-				this->_particles->setFlag(i, 0);
-			}
-
-		// DIAGNOSTIC for apply A*b stored in x, also requires turning off Dirichlet conditions in operator
-//		this->_particles->setFlag(i,1);
+		this->_particles->setFlag(i, 0);
 	});
 	}
 }

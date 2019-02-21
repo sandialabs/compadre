@@ -19,7 +19,7 @@
   <ParameterList name="remap">
     <Parameter name="porder" type="int" value="4"/>
     <Parameter name="curvature porder" type="int" value="3"/>
-    <Parameter name="neighbors needed multiplier" type="double" value="2.8"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
     <Parameter name="dense linear solver" type="string" value="MANIFOLD"/>
     <Parameter name="weighting power" type="int" value="12"/>
     <Parameter name="curvature weighting power" type="int" value="12"/>
@@ -31,7 +31,7 @@
     <Parameter name="spatially varying radius" type="bool" value="true"/>
     <Parameter name="multiplier" type="double" value="2.10"/>
     <Parameter name="size" type="double" value="0.25"/>
-    <Parameter name="cutoff multiplier" type="double" value="1.1"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.8"/>
   </ParameterList>
   <ParameterList name="halo">
     <Parameter name="dynamic" type="bool" value="true"/>

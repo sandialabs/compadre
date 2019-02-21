@@ -27,6 +27,14 @@ typedef Compadre::FieldT fields_type;
 typedef Compadre::NeighborhoodT neighborhood_type;
 typedef Compadre::XyzVector xyz_type;
 
+/*
+ * 
+ *
+ *  Fixup idea: only one of the processors has the DOF 0 for LM, we must identify this a priori or just pick it
+ *  then we need each processor to fill in their portion of this row, but they may not even have local (so they can't sum into local, because it isn't local)
+ *  Normally, we use the halo to determine the column maps
+ *
+ */ 
 
 
 
@@ -46,7 +54,10 @@ void LaplaceBeltramiPhysics::computeGraph(local_index_type field_one, local_inde
 			_dof_data->getDOFMap();
 	size_t max_num_neighbors = neighborhood->getMaxNumNeighbors();
 
-	if (_physics_type==0) {
+    auto solution_field_id = _particles->getFieldManagerConst()->getIDOfFieldFromName("solution");
+    auto lm_field_id = _particles->getFieldManagerConst()->getIDOfFieldFromName("lagrange multiplier");
+
+    if (field_one == solution_field_id && field_two == solution_field_id) {
 		//#pragma omp parallel for
 		for(local_index_type i = 0; i < nlocal; i++) {
 			local_index_type num_neighbors = neighborhood->getNeighbors(i).size();
@@ -68,34 +79,18 @@ void LaplaceBeltramiPhysics::computeGraph(local_index_type field_one, local_inde
 				}
 			}
 		}
-	} else {
-		//#pragma omp parallel for
-		for(local_index_type i = 0; i < nlocal; i++) {
-			std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
-			local_index_type num_neighbors = neighbors.size();
-
-//			const local_index_type components_of_field_for_rhs = 1;
+    } else if (field_one == lm_field_id && field_two == solution_field_id) {
+        // row all DOFs for solution against Lagrange Multiplier
+		for(local_index_type i = 0; i < 1; i++) { // only first DOF of LM
 			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
 				local_index_type row = local_to_dof_map[i][field_one][k];
 
-				Teuchos::Array<local_index_type> col_data(max_num_neighbors * max_num_neighbors * fields[field_two]->nDim());
+				Teuchos::Array<local_index_type> col_data(nlocal * fields[field_two]->nDim());
 				Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
 
-				for (local_index_type l = 0; l < num_neighbors; l++) {
-
-					if (neighbors[l].first < nlocal) {
-						local_index_type neighbor_l_num_neighbors = neighborhood->getNeighbors(neighbors[l].first).size();
-						std::vector<std::pair<size_t, scalar_type> > neighbor_l_neighbors = neighborhood->getNeighbors(neighbors[l].first);
-
-						for (local_index_type m = 0; m < neighbor_l_num_neighbors; m++) {
-							for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-								cols[l*max_num_neighbors*fields[field_two]->nDim() + m*fields[field_two]->nDim() + n] = local_to_dof_map[static_cast<local_index_type>(neighbor_l_neighbors[m].first)][field_two][n];
-							}
-						}
-					} else {
-						for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-							cols[l*fields[field_two]->nDim() + n] = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][n];
-						}
+				for (local_index_type l = 0; l < nlocal; l++) {
+					for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+						cols[l*fields[field_two]->nDim() + n] = local_to_dof_map[l][field_two][n];
 					}
 				}
 				//#pragma omp critical
@@ -104,17 +99,49 @@ void LaplaceBeltramiPhysics::computeGraph(local_index_type field_one, local_inde
 				}
 			}
 		}
-	}
+
+    } else if (field_one == solution_field_id && field_two == lm_field_id) {
+        // col all DOFs for solution against Lagrange Multiplier
+		for(local_index_type i = 0; i < nlocal; i++) {
+			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+				local_index_type row = local_to_dof_map[i][field_one][k];
+
+				Teuchos::Array<local_index_type> col_data(fields[field_two]->nDim());
+				Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+				for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+					cols[n] = local_to_dof_map[0][field_two][n];
+				}
+				//#pragma omp critical
+				{
+					this->_A_graph->insertLocalIndices(row, cols);
+				}
+			}
+		}
+    } else {
+        // identity on all DOFs for Lagrange Multiplier (even DOFs not really used, since we only use first LM dof for now)
+		for(local_index_type i = 0; i < nlocal; i++) {
+			local_index_type num_neighbors = neighborhood->getNeighbors(i).size();
+			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+				local_index_type row = local_to_dof_map[i][field_one][k];
+
+				Teuchos::Array<local_index_type> col_data(fields[field_two]->nDim());
+				Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+				for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+					cols[n] = local_to_dof_map[i][field_two][n];
+				}
+				//#pragma omp critical
+				{
+					this->_A_graph->insertLocalIndices(row, cols);
+				}
+			}
+		}
+    }
 	ComputeGraphTime->stop();
 }
 
 void LaplaceBeltramiPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
 	Teuchos::RCP<Teuchos::Time> ComputeMatrixTime = Teuchos::TimeMonitor::getNewCounter ("Compute Matrix Time");
 	ComputeMatrixTime->start();
-
-if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solution") && field_two == _particles->getFieldManagerConst()->getIDOfFieldFromName("solution")) {
-
-	const local_index_type neighbors_needed = GMLS::getNP(Porder, 2);
 
 	bool include_halo = true;
 	bool no_halo = false;
@@ -135,12 +162,18 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 			_dof_data->getDOFMap();
 	const host_view_type bc_id = this->_particles->getFlags()->getLocalView<host_view_type>();
 
+    auto solution_field_id = _particles->getFieldManagerConst()->getIDOfFieldFromName("solution");
+    auto lm_field_id = _particles->getFieldManagerConst()->getIDOfFieldFromName("lagrange multiplier");
+
+if (field_one == solution_field_id && field_two == solution_field_id) {
 
 	//****************
 	//
 	//  Copying data from particles (std::vector's, multivectors, etc....) to views used by local reconstruction class
 	//
 	//****************
+    
+	const local_index_type neighbors_needed = GMLS::getNP(Porder, 2);
 
 	// generate the interpolation operator and call the coefficients needed (storing them)
 	const coords_type* target_coords = this->_coords;
@@ -876,21 +909,93 @@ if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solut
 //		_A->describe(*out, Teuchos::VERB_EXTREME);
 	}
 
+} else if (field_one == lm_field_id && field_two == solution_field_id) {
+    // row all DOFs for solution against Lagrange Multiplier
+	for(local_index_type i = 0; i < 1; i++) { // only first DOF of LM
+		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+			local_index_type row = local_to_dof_map[i][field_one][k];
 
+			Teuchos::Array<local_index_type> col_data(nlocal * fields[field_two]->nDim());
+			Teuchos::Array<scalar_type> val_data(nlocal * fields[field_two]->nDim());
+			Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+			Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
 
+			for (local_index_type l = 0; l < nlocal; l++) {
+				for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+					cols[l*fields[field_two]->nDim() + n] = local_to_dof_map[l][field_two][n];
+					vals[l*fields[field_two]->nDim() + n] = 1;
+				}
+			}
+			//#pragma omp critical
+			{
+		        this->_A->sumIntoLocalValues(row, cols, vals);
+			}
+		}
+	}
+} else if (field_one == solution_field_id && field_two == lm_field_id) {
 
+    // col all DOFs for solution against Lagrange Multiplier
+	for(local_index_type i = 0; i < nlocal; i++) {
+		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+			local_index_type row = local_to_dof_map[i][field_one][k];
 
-	TEUCHOS_ASSERT(!this->_A.is_null());
+			Teuchos::Array<local_index_type> col_data(fields[field_two]->nDim());
+			Teuchos::Array<scalar_type> val_data(fields[field_two]->nDim());
+			Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+			Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
+
+			for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+				cols[n] = local_to_dof_map[0][field_two][n];
+                vals[n] = 1;
+			}
+			//#pragma omp critical
+			{
+		        this->_A->sumIntoLocalValues(row, cols, vals);
+			}
+		}
+	}
+} else {
+    // identity on all DOFs for Lagrange Multiplier (even DOFs not really used, since we only use first LM dof for now)
+    //
+    scalar_type eps_penalty = nlocal;
+
+	for(local_index_type i = 0; i < nlocal; i++) {
+		local_index_type num_neighbors = neighborhood->getNeighbors(i).size();
+		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+			local_index_type row = local_to_dof_map[i][field_one][k];
+
+			Teuchos::Array<local_index_type> col_data(fields[field_two]->nDim());
+			Teuchos::Array<scalar_type> val_data(fields[field_two]->nDim());
+			Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+			Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
+			for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+                if (i==0) {
+				    cols[n] = local_to_dof_map[i][field_two][n];
+				    vals[n] = eps_penalty;
+                } else {
+				    cols[n] = local_to_dof_map[i][field_two][n];
+				    vals[n] = 1;
+                }
+			}
+			//#pragma omp critical
+			{
+		        this->_A->sumIntoLocalValues(row, cols, vals);
+			}
+		}
+	}
+}
+
 //	this->_A->print(std::cout);
 	ComputeMatrixTime->stop();
-
-}
 
 }
 
 const std::vector<InteractingFields> LaplaceBeltramiPhysics::gatherFieldInteractions() {
 	std::vector<InteractingFields> field_interactions;
 	field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _particles->getFieldManagerConst()->getIDOfFieldFromName("solution")));
+	field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _particles->getFieldManagerConst()->getIDOfFieldFromName("solution"), _particles->getFieldManagerConst()->getIDOfFieldFromName("lagrange multiplier")));
+	field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _particles->getFieldManagerConst()->getIDOfFieldFromName("lagrange multiplier"), _particles->getFieldManagerConst()->getIDOfFieldFromName("solution")));
+	field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _particles->getFieldManagerConst()->getIDOfFieldFromName("lagrange multiplier")));
 	return field_interactions;
 }
     

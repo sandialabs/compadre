@@ -11,6 +11,7 @@
     <Parameter name="type" type="string" value="iterative"/>
     <Parameter name="file" type="string" value="../test_data/parameter_lists/gmls_laplacian/solver_amg.xml"/>
     <!--<Parameter name="save residual over solution" type="bool" value="true"/>-->
+    <Parameter name="blocked" type="bool" value="false"/>
   </ParameterList>
   <ParameterList name="remap">
     <Parameter name="weighting power" type="int" value="10"/>
