@@ -72,10 +72,12 @@ Teuchos::RCP<const DOFManager::dof_data_type> DOFManager::generateDOFMap(std::ve
 
 	if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")) {
 		for (local_index_type i=0; i<field_numbers.size(); i++) {
+            // check field type here to determine if particle_gids_locally_owned is appropriate
 			row_map_gids[i] = gid_view_type("row gids", _fields[field_numbers[i]]->nDim() * particle_gids_locally_owned.dimension_0());
 			col_map_gids[i] = gid_view_type("col gids", _fields[field_numbers[i]]->nDim() * (particle_gids_locally_owned.dimension_0() + num_halo_particle_gids) );
 		}
 	} else {
+        //    check field type here to determine if particle_gids_locally_owned is appropriate
 		row_map_gids[0] = gid_view_type("row gids", field_dimensions_total_size * particle_gids_locally_owned.dimension_0());
 		col_map_gids[0] = gid_view_type("col gids", field_dimensions_total_size * (particle_gids_locally_owned.dimension_0() + num_halo_particle_gids) );
 	}

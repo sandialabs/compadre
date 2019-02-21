@@ -28,10 +28,12 @@ class FieldT {
 		Teuchos::RCP<mvec_type> _vals;
 		Teuchos::RCP<mvec_type> _halo_vals;
 
+        const FieldSparsityType _field_sparsity;
+
 	public :
 
 		FieldT(const coords_type* coords, const int nDim, const std::string name = "noName",
-			   const std::string units = "null");
+			   const std::string units = "null", const FieldSparsityType fst = FieldSparsityType::Banded);
 		
 		virtual ~FieldT() {};
 
@@ -43,6 +45,8 @@ class FieldT {
 		
 		device_view_type getDeviceView();
 		
+		const FieldSparsityType getFieldSparsityType() { return _field_sparsity; }
+
 		void resize();
 
 		void resetCoords(const coords_type* coords);

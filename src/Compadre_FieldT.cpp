@@ -5,8 +5,8 @@
 
 namespace Compadre {
 
-FieldT::FieldT(const coords_type* coords, const int nDim, const std::string name, const std::string units)
-				: _name(name), _units(units), _nDim(nDim), _coords(coords) {
+FieldT::FieldT(const coords_type* coords, const int nDim, const std::string name, const std::string units, const FieldSparsityType fst)
+				: _name(name), _units(units), _nDim(nDim), _coords(coords), _field_sparsity(fst) {
 	   const bool setToZero = true;
 	   _vals = Teuchos::rcp(new mvec_type(coords->getMapConst(), nDim, setToZero));
 	   _halo_vals = Teuchos::rcp(new mvec_type(coords->getMapConst(true /*halo*/), nDim, setToZero));

@@ -106,6 +106,20 @@ Teuchos::RCP<const mvec_type> ProblemT::getb(local_index_type row_block) const {
 
 void ProblemT::initialize(scalar_type initial_simulation_time) {
 
+    // do a check on whether any field in the interaction list
+    // has type "Global" rather than "Banded", then it is not supported
+    // for the nonblocked style (because nonblocked assumes all
+    // field are of the "Banded" style)
+    // In the future, could export a blocked matrix to a single matrix 
+    // block as a way of enforcing the unblocked approach
+    for (InteractingFields interaction:_field_interactions) {
+        auto src_sparsity_type = _particles->getFieldManager()->getFieldByID(interaction.src_fieldnum)->getFieldSparsityType();
+        auto trg_sparsity_type = _particles->getFieldManager()->getFieldByID(interaction.trg_fieldnum)->getFieldSparsityType();
+        TEUCHOS_TEST_FOR_EXCEPT_MSG(_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==false && (src_sparsity_type == FieldSparsityType::Global), "Non-blocked matrix system incompatible with global FieldSparsityType.");
+        TEUCHOS_TEST_FOR_EXCEPT_MSG(_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==false && (trg_sparsity_type == FieldSparsityType::Global), "Non-blocked matrix system incompatible with global FieldSparsityType.");
+    }
+
+
 	// first get the max number of blocks that will be used
 	local_index_type max_blocks = 0;
 	for (InteractingFields interaction:_field_interactions) {

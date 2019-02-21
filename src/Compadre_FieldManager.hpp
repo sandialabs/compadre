@@ -88,7 +88,7 @@ class FieldManager {
 
 		// Modify Fields / Data
 
-		Teuchos::RCP<field_type> createField(const local_index_type nDim, const std::string name = "noName", const std::string units = "null");
+		Teuchos::RCP<field_type> createField(const local_index_type nDim, const std::string name = "noName", const std::string units = "null", const FieldSparsityType fst = FieldSparsityType::Banded);
 
 		void updateFieldsHaloData(local_index_type field_num = -1);
 

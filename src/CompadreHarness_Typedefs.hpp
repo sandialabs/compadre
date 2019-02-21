@@ -76,6 +76,14 @@ namespace Compadre {
 
     enum op_needing_interaction { bc, source, physics };
 
+    //! Whether DOF interactions in a field are global or locally supported
+    enum FieldSparsityType {
+        //! Locally supported DOF interaction leading to a banded matrix
+        Banded,
+        //! Globally supported DOF interaction leading to completely filled row or column of a matrix
+        Global
+    };
+
     struct InteractingFields {
         public:
             std::string src_fieldname;

@@ -102,13 +102,13 @@ local_index_type FieldManager::getFieldOffset(local_index_type idx) const {
 
 // Modify Fields / Data
 
-Teuchos::RCP<FieldManager::field_type> FieldManager::createField(const local_index_type nDim, const std::string name, const std::string units) {
+Teuchos::RCP<FieldManager::field_type> FieldManager::createField(const local_index_type nDim, const std::string name, const std::string units, const FieldSparsityType fst) {
 	total_field_dimension_updated = false;
 	field_offsets_updated = false;
 	max_num_field_dim_updated = false;
 
 	_field_map.insert(std::pair<const std::string, const local_index_type>(name, _fields.size())); // size() is the correct index, since not yet appended
-	_fields.push_back(Teuchos::rcp(new FieldManager::field_type(_particles->getCoordsConst(), nDim, name, units)));
+	_fields.push_back(Teuchos::rcp(new FieldManager::field_type(_particles->getCoordsConst(), nDim, name, units, fst)));
 	// since an insertion of a field offsets every other field, this should only be marked as modified
 	// and later regenerated all at once
 
