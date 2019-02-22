@@ -173,9 +173,8 @@ void ProblemT::initialize(scalar_type initial_simulation_time) {
 
 	// now that we know actual # of blocks we can build a DOF data with the DOF manager
 	if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
-		// if it is blocked, we already have the DOF information stored
-		_problem_dof_data = _particles->getDOFManagerConst()->getParticlesDOFData();
-//		_problem_dof_data = _particles->getDOFManager()->getgenerateDOFMap(_block_row_to_field_map);
+		// regenerate DOF information, because we have a local ordering specific to our field interactions
+		_problem_dof_data = _particles->getDOFManager()->generateDOFMap(_block_row_to_field_map);
 	} else {
 		// otherwise we need to generate the information for the requested fields
 		_problem_dof_data = _particles->getDOFManager()->generateDOFMap(_block_row_to_field_map);
