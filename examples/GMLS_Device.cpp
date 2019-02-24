@@ -94,10 +94,6 @@ bool all_passed = true;
     // minimum neighbors for unisolvency is the same as the size of the polynomial basis 
     const int min_neighbors = Compadre::GMLS::getNP(order, dimension);
     
-    // maximum neighbors calculated to be the minimum number of neighbors needed for unisolvency 
-    // enlarged by some multiplier (generally 10% to 40%, but calculated by GMLS class)
-    const int max_neighbors = Compadre::GMLS::getNN(order, dimension);
-    
     //! [Parse Command Line Arguments]
     Kokkos::Timer timer;
     Kokkos::Profiling::pushRegion("Setup Point Data");
@@ -109,16 +105,6 @@ bool all_passed = true;
     
     // number of source coordinate sites that will fill a box of [-1,1]x[-1,1]x[-1,1] with a spacing approximately h
     const int number_source_coords = std::pow(n_neg1_to_1, dimension);
-    
-    // each row is a neighbor list for a target site, with the first column of each row containing
-    // the number of neighbors for that rows corresponding target site
-    Kokkos::View<int**, Kokkos::DefaultExecutionSpace> neighbor_lists_device("neighbor lists", 
-            number_target_coords, max_neighbors+1); // first column is # of neighbors
-    Kokkos::View<int**>::HostMirror neighbor_lists = Kokkos::create_mirror_view(neighbor_lists_device);
-    
-    // each target site has a window size
-    Kokkos::View<double*, Kokkos::DefaultExecutionSpace> epsilon_device("h supports", number_target_coords);
-    Kokkos::View<double*>::HostMirror epsilon = Kokkos::create_mirror_view(epsilon_device);
     
     // coordinates of source sites
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> source_coords_device("source coordinates", 
@@ -240,12 +226,26 @@ bool all_passed = true;
     // Point cloud construction for neighbor search
     // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
     auto point_cloud_search(CreatePointCloudSearch(source_coords, target_coords));
+
+    // each row is a neighbor list for a target site, with the first column of each row containing
+    // the number of neighbors for that rows corresponding target site
+    double epsilon_multiplier = 1.5;
+    int estimated_upper_bound_number_neighbors = 
+        point_cloud_search.getEstimatedNumberNeighborsUpperBound(min_neighbors, dimension, epsilon_multiplier);
+
+    Kokkos::View<int**, Kokkos::DefaultExecutionSpace> neighbor_lists_device("neighbor lists", 
+            number_target_coords, estimated_upper_bound_number_neighbors); // first column is # of neighbors
+    Kokkos::View<int**>::HostMirror neighbor_lists = Kokkos::create_mirror_view(neighbor_lists_device);
+    
+    // each target site has a window size
+    Kokkos::View<double*, Kokkos::DefaultExecutionSpace> epsilon_device("h supports", number_target_coords);
+    Kokkos::View<double*>::HostMirror epsilon = Kokkos::create_mirror_view(epsilon_device);
     
     // query the point cloud to generate the neighbor lists using a kdtree to produce the n nearest neighbor
-    // to each target site, adding 20% to whatever the distance away the further neighbor used is from
+    // to each target site, adding (epsilon_multiplier-1)*100% to whatever the distance away the further neighbor used is from
     // each target to the view for epsilon
-    point_cloud_search.generateNeighborListsFromKNNSearch(neighbor_lists, epsilon, max_neighbors, dimension, 
-            1.2 /* epsilon multiplier */);
+    point_cloud_search.generateNeighborListsFromKNNSearch(neighbor_lists, epsilon, min_neighbors, dimension, 
+            epsilon_multiplier);
     
     
     //! [Performing Neighbor Search]
