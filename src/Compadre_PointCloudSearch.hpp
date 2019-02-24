@@ -68,6 +68,31 @@ class RadiusResultSet {
         return worst_pair;
 
     }
+
+    inline void sort() { 
+        // puts closest neighbor as the first entry in the neighbor list
+
+        if (count > 0) {
+
+            DistanceType worst_distance = std::numeric_limits<DistanceType>::max();
+            IndexType worst_distance_index = 0;
+            IndexType worst_index = 0;
+            for (int i=0; i<=count; ++i) {
+                if (r_dist[i] < worst_distance) {
+                    worst_distance = r_dist[i];
+                    worst_distance_index = i_dist[i];
+                    worst_index = i;
+                }
+            }
+
+            if (worst_index != 0) {
+                auto tmp_ind = i_dist[0];
+                i_dist[0] = worst_distance_index;
+                i_dist[worst_index] = tmp_ind;
+            }
+
+        }
+    }
 };
 
 

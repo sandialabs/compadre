@@ -1306,6 +1306,8 @@ namespace nanoflann
 		size_t radiusSearchCustomCallback(const ElementType *query_point, SEARCH_CALLBACK &resultSet, const SearchParams& searchParams = SearchParams() ) const
 		{
 			this->findNeighbors(resultSet, query_point, searchParams);
+			if (searchParams.sorted)
+				resultSet.sort();
 			return resultSet.size();
 		}
 

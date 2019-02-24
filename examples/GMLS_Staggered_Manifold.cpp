@@ -80,7 +80,7 @@ Kokkos::initialize(argc, args);
     
     // minimum neighbors for unisolvency is the same as the size of the polynomial basis 
     // dimension has one subtracted because it is a D-1 manifold represented in D dimensions
-    const int min_neighbors = Compadre::GMLS::getNP(order+1, dimension-1);
+    const int min_neighbors = Compadre::GMLS::getNP(order, dimension-1);
     
     //! [Parse Command Line Arguments]
     Kokkos::Timer timer;
@@ -212,7 +212,7 @@ Kokkos::initialize(argc, args);
 
     // each row is a neighbor list for a target site, with the first column of each row containing
     // the number of neighbors for that rows corresponding target site
-    double epsilon_multiplier = 1.9;
+    double epsilon_multiplier = 1.5;
     int estimated_upper_bound_number_neighbors = 
         point_cloud_search.getEstimatedNumberNeighborsUpperBound(min_neighbors, dimension, epsilon_multiplier);
 
@@ -229,7 +229,7 @@ Kokkos::initialize(argc, args);
     // each target to the view for epsilon
     point_cloud_search.generateNeighborListsFromKNNSearch(neighbor_lists, epsilon, min_neighbors, dimension, 
             epsilon_multiplier);
-    
+
 
     //! [Performing Neighbor Search]
     
