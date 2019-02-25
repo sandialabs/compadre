@@ -22,7 +22,7 @@
   >> cd ./build
   >> vi script_you_choose.sh
 ```
-  (make any changes and save)
+  (make any changes and save, [Python Interface and Matlab examples](Python-Interface-Install.md))
   
 ```
   >> ./script_you_choose.sh
