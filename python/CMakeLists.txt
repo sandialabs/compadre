@@ -110,6 +110,10 @@ bob_export_target(gmls_module)
 
 CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/__init__.py.in" "${CMAKE_CURRENT_BINARY_DIR}/__init__.py")
 CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Module.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Module.py")
+if(Compadre_USE_MATLAB)
+  CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/compadre_py_util.py" "${CMAKE_CURRENT_BINARY_DIR}/compadre_py_util.py" COPYONLY)
+  CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/Matlab_1D_Using_Python_Interface.m" "${CMAKE_CURRENT_BINARY_DIR}/Matlab_1D_Using_Python_Interface.m" COPYONLY)
+endif()
 
 install(FILES ${GMLS_Module_HEADERS} DESTINATION include)
 
@@ -125,7 +129,15 @@ set(GMLS_Module_PYTHON_FILES
   "${CMAKE_CURRENT_BINARY_DIR}/__init__.py"
   )
 
+set(GMLS_Module_MATLAB_FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/compadre_py_util.py"
+  "${CMAKE_CURRENT_BINARY_DIR}/Matlab_1D_Using_Python_Interface.m"
+  )
+
 install(FILES ${GMLS_Module_PYTHON_FILES} DESTINATION "${GMLS_Module_DEST}")
+if(Compadre_USE_MATLAB)
+    install(FILES ${GMLS_Module_MATLAB_FILES} DESTINATION "${GMLS_Module_DEST}")
+endif()
 
 bob_end_subdir()
 
