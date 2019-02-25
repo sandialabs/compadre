@@ -1,3 +1,10 @@
+% check version to see if compatible
+V=regexp(version,'\d*','Match');
+if (str2num(V{length(V)}) < 2017)
+    fprintf('Error: Matlab version is too old to interface correctly to Python. Try Matlab 2017a or newer.')
+    throw()
+end
+
 % add current folder to path
 if count(py.sys.path,'.') == 0  
     insert(py.sys.path,int32(0),'');
