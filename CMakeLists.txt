@@ -155,6 +155,7 @@ message(STATUS "MPI Enabled: ${MPI_CXX_FOUND}")
 
 #PYTHON
 bob_option(Compadre_USE_PYTHON "Use PYTHON" OFF)
+bob_option(Compadre_USE_MATLAB "Use MATLAB interface for PYTHON" OFF)
 bob_input(PYTHON_PREFIX "" PATH "Path to PYTHON install")
 if (PYTHON_PREFIX)
   set(CMAKE_PREFIX_PATH ${PYTHON_PREFIX} ${CMAKE_PREFIX_PATH})
