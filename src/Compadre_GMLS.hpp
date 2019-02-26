@@ -235,15 +235,22 @@ protected:
 
     //! lowest level memory for Kokkos::parallel_for for team access memory
     int _scratch_team_level_a;
+    int _team_scratch_size_a;
 
     //! higher (slower) level memory for Kokkos::parallel_for for team access memory
     int _scratch_thread_level_a;
+    int _thread_scratch_size_a;
 
     //! lowest level memory for Kokkos::parallel_for for thread access memory
     int _scratch_team_level_b;
+    int _team_scratch_size_b;
 
     //! higher (slower) level memory for Kokkos::parallel_for for thread access memory
     int _scratch_thread_level_b;
+    int _thread_scratch_size_b;
+
+    //! calculated number of threads per team
+    int _threads_per_team;
 
 
 
@@ -552,6 +559,7 @@ public:
         _scratch_team_level_b = 0;
         _scratch_thread_level_b = 0;
 #endif
+        _threads_per_team = 0;
 
         // temporary, just to avoid warning
         _dense_solver_type = DenseSolverType::QR;
@@ -1288,6 +1296,12 @@ public:
     //! Sets up the batch of GMLS problems to be solved for. Provides alpha values
     //! that can later be contracted against data or degrees of freedom to form a
     //! global linear system.
+    void generatePolynomialCoefficients();
+
+    //! Calculates target operations and applies the evaluations to the previously 
+    //! constructed polynomial coefficients. If polynomial coefficients were not
+    //! already calculated, then generatePolynomialCoefficients() will also be
+    //! called.
     void generateAlphas();
 
 ///@}
