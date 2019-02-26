@@ -10,11 +10,9 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
 
     const int target_index = teamMember.league_rank();
 
-    for (int i=0; i<P_target_row.dimension_0(); ++i) {
-        for (int j=0; j<P_target_row.dimension_1(); ++j) {
-            P_target_row(i,j) = 0;
-        }
-    }
+    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, P_target_row.dimension_0()), [=] (const int i) {
+        P_target_row(i) = 0;
+    });
 
     const int target_NP = this->getNP(_poly_order, _dimensions);
 
