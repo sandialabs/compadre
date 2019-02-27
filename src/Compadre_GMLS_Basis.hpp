@@ -42,7 +42,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
             relative_coord[i] = (alpha-1)*getTargetCoordinate(target_index, i, V);
             relative_coord[i] += (1-alpha)*getNeighborCoordinate(target_index, neighbor_index, i, V);
         }
-    } else if (additional_evaluation_index > -1) {
+    } else if (additional_evaluation_index > 0) {
         for (int i=0; i<dimension; ++i) {
             // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
             relative_coord[i] = getTargetAuxiliaryCoordinate(additional_evaluation_index, i, V);
@@ -277,7 +277,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
 
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional) const {
+void GMLS::calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_index) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
@@ -290,13 +290,19 @@ void GMLS::calcGradientPij(double* delta, const int target_index, const int neig
 
     // partial_direction - 0=x, 1=y, 2=z
     XYZ relative_coord;
-    if (neighbor_index > -1)
+    if (neighbor_index > -1) {
         for (int i=0; i<dimension; ++i) {
             // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
             relative_coord[i] = (alpha-1)*getTargetCoordinate(target_index, i, V);
             relative_coord[i] += (1-alpha)*getNeighborCoordinate(target_index, neighbor_index, i, V);
         }
-    else {
+    } else if (additional_evaluation_index > 0) {
+        for (int i=0; i<dimension; ++i) {
+            // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
+            relative_coord[i] = getTargetAuxiliaryCoordinate(additional_evaluation_index, i, V);
+            relative_coord[i] -= getTargetCoordinate(target_index, i, V);
+        }
+    } else {
         for (int i=0; i<3; ++i) relative_coord[i] = 0;
     }
 

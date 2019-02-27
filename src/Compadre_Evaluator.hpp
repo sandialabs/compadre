@@ -130,12 +130,12 @@ public:
     //! \param input_component_axis_2   [in] - Columns for a rank 2 tensor, 0 for rank less than 2 input tensor
     //! \param scalar_as_vector_if_needed [in] - If a 1D view is given, where a 2D view is expected (scalar values given where a vector was expected), then the scalar will be repeated for as many components as the vector has
     template <typename view_type_data>
-    double applyAlphasToDataSingleComponentSingleTargetSite(view_type_data sampling_input_data, const int column_of_input, TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, bool scalar_as_vector_if_needed = true) const {
+    double applyAlphasToDataSingleComponentSingleTargetSite(view_type_data sampling_input_data, const int column_of_input, TargetOperation lro, const int target_index, const int evaluation_site_local_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, bool scalar_as_vector_if_needed = true) const {
 
         double value = 0;
 
         const int alpha_column_base_multiplier = _gmls->getAlphaColumnOffset(lro, output_component_axis_1, 
-                output_component_axis_2, input_component_axis_1, input_component_axis_2);
+                output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
 
         auto sampling_subview_maker = Create1DSliceOnDeviceView(sampling_input_data, scalar_as_vector_if_needed);
 
@@ -187,10 +187,10 @@ public:
     //! \param vary_on_target                   [in] - Whether the sampling functional has a tensor to act on sampling data that varies with each target site
     //! \param vary_on_neighbor                 [in] - Whether the sampling functional has a tensor to act on sampling data that varies with each neighbor site in addition to varying wit each target site
     template <typename view_type_data_out, typename view_type_data_in>
-    void applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(view_type_data_out output_data_single_column, view_type_data_in sampling_data_single_column, TargetOperation lro, SamplingFunctional sro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1, bool transform_output_ambient = false, bool vary_on_target = false, bool vary_on_neighbor = false) const {
+    void applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(view_type_data_out output_data_single_column, view_type_data_in sampling_data_single_column, TargetOperation lro, SamplingFunctional sro, const int evaluation_site_local_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1, bool transform_output_ambient = false, bool vary_on_target = false, bool vary_on_neighbor = false) const {
 
         const int alpha_column_base_multiplier = _gmls->getAlphaColumnOffset(lro, output_component_axis_1, 
-                output_component_axis_2, input_component_axis_1, input_component_axis_2);
+                output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
         const int alpha_column_base_multiplier2 = alpha_column_base_multiplier;
 
         auto global_dimensions = _gmls->getGlobalDimensions();
@@ -301,7 +301,7 @@ public:
     //! \param scalar_as_vector_if_needed [in] - If a 1D view is given, where a 2D view is expected (scalar values given where a vector was expected), then the scalar will be repeated for as many components as the vector has
     template <typename output_data_type = double**, typename output_memory_space, typename view_type_input_data, typename output_array_layout = typename view_type_input_data::array_layout>
     Kokkos::View<output_data_type, output_array_layout, output_memory_space>  // shares layout of input by default
-            applyAlphasToDataAllComponentsAllTargetSites(view_type_input_data sampling_data, TargetOperation lro, SamplingFunctional sro = SamplingFunctional::PointSample, bool scalar_as_vector_if_needed = true) const {
+            applyAlphasToDataAllComponentsAllTargetSites(view_type_input_data sampling_data, TargetOperation lro, SamplingFunctional sro = SamplingFunctional::PointSample, bool scalar_as_vector_if_needed = true, const int evaluation_site_local_index = 0) const {
 
 
         // output can be device or host
@@ -383,7 +383,7 @@ public:
                         for (int l=0; l<global_dimensions; ++l) { // loop for transforming output of GMLS to ambient
                             this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
                                     output_subview_maker.get1DView(k), sampling_subview_maker.get1DView(l), 
-                                    lro, sro, output_component_axis_1, output_component_axis_2, 
+                                    lro, sro, evaluation_site_local_index, output_component_axis_1, output_component_axis_2, 
                                     input_component_axis_1, input_component_axis_2, j, k, i, l,
                                     transform_gmls_output_to_ambient, vary_on_target, vary_on_neighbor);
                         }
@@ -392,7 +392,7 @@ public:
                     for (int k=0; k<global_dimensions; ++k) { // loop for transforming output of GMLS to ambient
                         this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
                                 output_subview_maker.get1DView(k), sampling_subview_maker.get1DView(j), lro, sro, 
-                                output_component_axis_1, output_component_axis_2, input_component_axis_1, 
+                                evaluation_site_local_index, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
                                 input_component_axis_2, -1, -1, i, k,
                                 transform_gmls_output_to_ambient, vary_on_target, vary_on_neighbor);
                     }
@@ -400,20 +400,20 @@ public:
                     for (int k=0; k<global_dimensions; ++k) { // loop for handling sampling functional
                         this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
                                 output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(k), lro, sro, 
-                                output_component_axis_1, output_component_axis_2, input_component_axis_1, 
+                                evaluation_site_local_index, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
                                 input_component_axis_2, j, k, -1, -1, transform_gmls_output_to_ambient,
                                 vary_on_target, vary_on_neighbor);
                     }
                 } else if (sro_style != Identity) {
                     this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
                             output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(j), lro, sro, 
-                            output_component_axis_1, output_component_axis_2, input_component_axis_1, 
+                            evaluation_site_local_index, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
                             input_component_axis_2, 0, 0, -1, -1,
                             transform_gmls_output_to_ambient, vary_on_target, vary_on_neighbor);
                 } else { // standard
                     this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
                             output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(j), lro, sro, 
-                            output_component_axis_1, output_component_axis_2, input_component_axis_1, 
+                            evaluation_site_local_index, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
                             input_component_axis_2);
                 }
             }
