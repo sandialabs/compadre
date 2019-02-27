@@ -362,10 +362,12 @@ bool all_passed = true;
     Evaluator gmls_evaluator(&my_GMLS);
     
     auto output_value = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (sampling_data_device, ScalarPointEvaluation);
+            (sampling_data_device, ScalarPointEvaluation, SamplingFunctional::PointSample, 
+             true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
     
     auto output_gradient = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (sampling_data_device, GradientOfScalarPointEvaluation);
+            (sampling_data_device, GradientOfScalarPointEvaluation, SamplingFunctional::PointSample, 
+             true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
     
     //! [Apply GMLS Alphas To Data]
     
@@ -393,9 +395,9 @@ bool all_passed = true;
         double GMLS_GradZ = (dimension>2) ? output_gradient(i,2) : 0;
     
         // target site i's coordinate
-        double xval = target_coords(i,0);
-        double yval = (dimension>1) ? target_coords(i,1) : 0;
-        double zval = (dimension>2) ? target_coords(i,2) : 0;
+        double xval = target_coords(i,0) + 1e-7;
+        double yval = (dimension>1) ? target_coords(i,1) + 1e-7 : 0;
+        double zval = (dimension>2) ? target_coords(i,2) + 1e-7 : 0;
     
         // evaluation of various exact solutions
         double actual_value = trueSolution(xval, yval, zval, order, dimension);

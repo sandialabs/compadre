@@ -330,9 +330,10 @@ protected:
         \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
         \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
         \param sampling_strategy    [in] - sampling functional specification
+        \param additional_evaluation_index [in] - local index for evaluation sites 
     */
     KOKKOS_INLINE_FUNCTION
-    void calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, scratch_matrix_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample, const int additional_evaluation_index = -1) const;
+    void calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, scratch_matrix_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample, const int additional_evaluation_index = 0) const;
 
     /*! \brief Evaluates the gradient of a polynomial basis under the Dirac Delta (pointwise) sampling function.
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -346,9 +347,10 @@ protected:
         \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
         \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
         \param sampling_strategy    [in] - sampling functional specification
+        \param additional_evaluation_index [in] - local index for evaluation sites 
     */
     KOKKOS_INLINE_FUNCTION
-    void calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy) const;
+    void calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int additional_evaluation_index = 0) const;
 
     /*! \brief Evaluates the weighting kernel
         \param r                [in] - Euclidean distance of relative vector. Euclidean distance of (target - neighbor) in some basis.
@@ -879,7 +881,8 @@ public:
     //! (but still multiplied by the number of neighbors for each row and then needs a neighbor number added 
     //! to this returned value to be meaningful)
     int getAlphaColumnOffset(TargetOperation lro, const int output_component_axis_1, 
-            const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2) const {
+            const int output_component_axis_2, const int input_component_axis_1, 
+            const int input_component_axis_2, const int additional_evaluation_local_index = 0) const {
 
         const int lro_number = _lro_lookup[(int)lro];
         compadre_assert_debug((lro_number >= 0) && "getAlphasColumnOffset called for a TargetOperation that was not registered.");
@@ -891,7 +894,7 @@ public:
         const int input_index = getSamplingOutputIndex((int)_polynomial_sampling_functional, input_component_axis_1, input_component_axis_2);
         const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
 
-        return  _host_lro_total_offsets[lro_number] + input_index*_host_lro_output_tile_size[lro_number] + output_index;
+        return getPTargetOffsetIndex(lro_number, input_index, output_index, additional_evaluation_local_index);
     }
 
     //! Get a view (device) of all alphas
