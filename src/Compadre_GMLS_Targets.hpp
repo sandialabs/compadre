@@ -35,15 +35,15 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
         if (_operations(i) == TargetOperation::ScalarPointEvaluation || (_operations(i) == TargetOperation::VectorPointEvaluation && _dimensions == 1) /* vector is a scalar in 1D */) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                 this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
-                int offset = getPTargetOffsetIndex(i, 0, 0)*target_NP;
+                int offset = getPTargetOffsetIndex(i, 0, 0)*_basis_multiplier*target_NP;
                 for (int j=0; j<target_NP; ++j) {
                     P_target_row(offset + j) = t1(j);
                 }
 
                 if (additional_evaluation_sites_need_handled) {
-                    for (int j=0; j<_additional_evaluation_indices(target_index,0); ++j) { 
+                    for (int j=1; j<=_additional_evaluation_indices(target_index,0); ++j) { 
                         this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample, getAdditionalEvaluationIndex(target_index,j));
-                        offset = getPTargetOffsetIndex(i, 0, 0, j)*target_NP;
+                        offset = getPTargetOffsetIndex(i, 0, 0, j)*_basis_multiplier*target_NP;
                         for (int k=0; k<target_NP; ++k) {
                             P_target_row(offset + k) = t1(k);
                         }

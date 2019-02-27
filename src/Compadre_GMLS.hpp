@@ -468,7 +468,9 @@ protected:
     //! that evaluation
     KOKKOS_INLINE_FUNCTION
     int getAdditionalEvaluationIndex(const int target_index, const int additional_list_num) const {
-        return _additional_evaluation_indices(target_index, additional_list_num+1);
+        compadre_kernel_assert_debug((additional_list_num >= 1) 
+            && "additional_list_num must be greater than or equal to 1, unlike neighbor lists which begin indexing at 0.");
+        return _additional_evaluation_indices(target_index, additional_list_num);
     }
 
     //! Returns Euclidean norm of a vector
@@ -575,9 +577,11 @@ protected:
 
     //! Get offset depending on 
     KOKKOS_INLINE_FUNCTION
-    int getPTargetOffsetIndex(const int lro_num, const int input_component, const int output_component, const int additional_evaluation_local_index = -1) const {
-        // the +1 is so we get a multiplier of 0 if additional_evaluation_local_index is not specified
-        return (_total_alpha_values*(additional_evaluation_local_index+1) + _lro_total_offsets[lro_num] + input_component*_lro_output_tile_size[lro_num]+output_component)*_basis_multiplier;
+    int getPTargetOffsetIndex(const int lro_num, const int input_component, const int output_component, const int additional_evaluation_local_index = 0) const {
+        return ( _total_alpha_values*additional_evaluation_local_index 
+                + _lro_total_offsets[lro_num] 
+                + input_component*_lro_output_tile_size[lro_num] 
+                + output_component );
     }
 
 ///@}
