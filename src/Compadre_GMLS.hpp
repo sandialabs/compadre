@@ -99,17 +99,17 @@ protected:
     //! functional form (host)
     Kokkos::View<const double*****, layout_type>::HostMirror _host_prestencil_weights;
 
-    //! (OPTIONAL) user provided auxiliary coordinates for target operation evaluation (device)
-    Kokkos::View<double**, layout_type> _auxiliary_evaluation_coordinates; 
+    //! (OPTIONAL) user provided additional coordinates for target operation evaluation (device)
+    Kokkos::View<double**, layout_type> _additional_evaluation_coordinates; 
 
-    //! (OPTIONAL) contains indices of entries in the _auxiliary_evaluation_coordinates view (device)
-    Kokkos::View<int**, layout_type> _auxiliary_evaluation_indices; 
+    //! (OPTIONAL) contains indices of entries in the _additional_evaluation_coordinates view (device)
+    Kokkos::View<int**, layout_type> _additional_evaluation_indices; 
 
-    //! (OPTIONAL) contains indices of entries in the _auxiliary_evaluation_coordinates view (host)
-    Kokkos::View<int**, layout_type>::HostMirror _host_auxiliary_evaluation_indices;
+    //! (OPTIONAL) contains indices of entries in the _additional_evaluation_coordinates view (host)
+    Kokkos::View<int**, layout_type>::HostMirror _host_additional_evaluation_indices;
 
-    //! (OPTIONAL) contains the # of auxiliary coordinate indices for each target (host)
-    Kokkos::View<int*, Kokkos::HostSpace> _number_of_auxiliary_evaluation_indices; 
+    //! (OPTIONAL) contains the # of additional coordinate indices for each target (host)
+    Kokkos::View<int*, Kokkos::HostSpace> _number_of_additional_evaluation_indices; 
 
 
     //! reconstruction type
@@ -1146,71 +1146,71 @@ public:
     }
 
     //! (OPTIONAL)
-    //! Sets auxiliary points for evaluation of target operation on polynomial reconstruction.
+    //! Sets additional points for evaluation of target operation on polynomial reconstruction.
     //! If this is never called, then the target sites are the only locations where the target
     //! operations will be evaluated and applied to polynomial reconstructions.
     template <typename view_type>
     void setAuxiliaryEvaluationCoordinates(view_type evaluation_coordinates) {
         // Catches Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace
         // allocate memory on device
-        _auxiliary_evaluation_coordinates = Kokkos::View<double**, layout_type>("device auxiliary evaluation coordinates",
+        _additional_evaluation_coordinates = Kokkos::View<double**, layout_type>("device additional evaluation coordinates",
             evaluation_coordinates.dimension_0(), evaluation_coordinates.dimension_1());
 
-        auto host_auxiliary_evaluation_coordinates = Kokkos::create_mirror_view(_auxiliary_evaluation_coordinates);
-        Kokkos::deep_copy(host_auxiliary_evaluation_coordinates, evaluation_coordinates);
+        auto host_additional_evaluation_coordinates = Kokkos::create_mirror_view(_additional_evaluation_coordinates);
+        Kokkos::deep_copy(host_additional_evaluation_coordinates, evaluation_coordinates);
         // copy data from host to device
-        Kokkos::deep_copy(_auxiliary_evaluation_coordinates, host_auxiliary_evaluation_coordinates);
+        Kokkos::deep_copy(_additional_evaluation_coordinates, host_additional_evaluation_coordinates);
     }
 
     //! (OPTIONAL)
-    //! Sets auxiliary points for evaluation of target operation on polynomial reconstruction.
+    //! Sets additional points for evaluation of target operation on polynomial reconstruction.
     //! If this is never called, then the target sites are the only locations where the target
     //! operations will be evaluated and applied to polynomial reconstructions. (device)
     template <typename view_type>
     void setAuxiliaryEvaluationCoordinates(Kokkos::View<double**, Kokkos::DefaultExecutionSpace> evaluation_coordinates) {
-        _auxiliary_evaluation_coordinates = evaluation_coordinates;
+        _additional_evaluation_coordinates = evaluation_coordinates;
     }
 
     //! (OPTIONAL)
-    //! Sets the auxiliary target evaluation coordinate indices list information. Should be # targets x maximum number of indices
+    //! Sets the additional target evaluation coordinate indices list information. Should be # targets x maximum number of indices
     //! evaluation indices for any target + 1. first entry in every row should be the number of indices for the corresponding target.
     template <typename view_type>
     void setAuxiliaryEvaluationIndicesLists(view_type indices_lists) {
         // Catches Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace
         // allocate memory on device
-        _auxiliary_evaluation_indices = Kokkos::View<int**, layout_type>("device auxiliary evaluation indices",
+        _additional_evaluation_indices = Kokkos::View<int**, layout_type>("device additional evaluation indices",
             indices_lists.dimension_0(), indices_lists.dimension_1());
 
-        _host_auxiliary_evaluation_indices = Kokkos::create_mirror_view(_auxiliary_evaluation_indices);
-        Kokkos::deep_copy(_host_auxiliary_evaluation_indices, indices_lists);
+        _host_additional_evaluation_indices = Kokkos::create_mirror_view(_additional_evaluation_indices);
+        Kokkos::deep_copy(_host_additional_evaluation_indices, indices_lists);
         // copy data from host to device
-        Kokkos::deep_copy(_auxiliary_evaluation_indices, _host_auxiliary_evaluation_indices);
+        Kokkos::deep_copy(_additional_evaluation_indices, _host_additional_evaluation_indices);
 
-        _number_of_auxiliary_evaluation_indices 
-            = Kokkos::View<int*, Kokkos::HostSpace>("number of auxiliary evaluation indices", indices_lists.dimension_0());
+        _number_of_additional_evaluation_indices 
+            = Kokkos::View<int*, Kokkos::HostSpace>("number of additional evaluation indices", indices_lists.dimension_0());
 
-        for (int i=0; i<_auxiliary_evaluation_indices.dimension_0(); ++i) {
-            _number_of_auxiliary_evaluation_indices(i) = indices_lists(i,0);
+        for (int i=0; i<_additional_evaluation_indices.dimension_0(); ++i) {
+            _number_of_additional_evaluation_indices(i) = indices_lists(i,0);
         }
     }
 
     //! (OPTIONAL)
-    //! Sets the auxiliary target evaluation coordinate indices list information. Should be # targets x maximum number of indices
+    //! Sets the additional target evaluation coordinate indices list information. Should be # targets x maximum number of indices
     //! evaluation indices for any target + 1. first entry in every row should be the number of indices for the corresponding target.
     template <typename view_type>
     void setAuxiliaryEvaluationIndicesLists(Kokkos::View<int**, Kokkos::DefaultExecutionSpace> indices_lists) {
         // allocate memory on device
-        _auxiliary_evaluation_indices = indices_lists;
+        _additional_evaluation_indices = indices_lists;
 
-        _host_auxiliary_evaluation_indices = Kokkos::create_mirror_view(_auxiliary_evaluation_indices);
+        _host_additional_evaluation_indices = Kokkos::create_mirror_view(_additional_evaluation_indices);
         // copy data from host to device
-        Kokkos::deep_copy(_host_auxiliary_evaluation_indices, _auxiliary_evaluation_indices);
+        Kokkos::deep_copy(_host_additional_evaluation_indices, _additional_evaluation_indices);
 
-        _number_of_auxiliary_evaluation_indices 
-            = Kokkos::View<int*, Kokkos::HostSpace>("number of auxiliary evaluation indices", indices_lists.dimension_0());
+        _number_of_additional_evaluation_indices 
+            = Kokkos::View<int*, Kokkos::HostSpace>("number of additional evaluation indices", indices_lists.dimension_0());
 
-        for (int i=0; i<_auxiliary_evaluation_indices.dimension_0(); ++i) {
-            _number_of_auxiliary_evaluation_indices(i) = _host_auxiliary_evaluation_indices(i,0);
+        for (int i=0; i<_additional_evaluation_indices.dimension_0(); ++i) {
+            _number_of_additional_evaluation_indices(i) = _host_additional_evaluation_indices(i,0);
         }
     }
 
