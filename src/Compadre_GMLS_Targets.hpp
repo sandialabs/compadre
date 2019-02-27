@@ -8,6 +8,11 @@ namespace Compadre {
 KOKKOS_INLINE_FUNCTION
 void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_vector_type P_target_row) const {
 
+    // determine if additional evaluation sites are requested by user and handled by target operations 
+    bool additional_evaluation_sites_need_handled = 
+        (_additional_evaluation_coordinates.extent(0) > 0) ? true : false; // additional evaluation sites are specified
+    bool additional_evaluation_sites_handled = false; // target operations that can handle these sites should flip this flag
+
     const int target_index = teamMember.league_rank();
 
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, P_target_row.dimension_0()), [=] (const int i) {
@@ -28,6 +33,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
         if (!operation_handled) {
 
         if (_operations(i) == TargetOperation::ScalarPointEvaluation || (_operations(i) == TargetOperation::VectorPointEvaluation && _dimensions == 1) /* vector is a scalar in 1D */) {
+            additional_evaluation_sites_handled = true; // calcPij can handle non-target site evaluations
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                 this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
                 int offset = _lro_total_offsets[i]*_basis_multiplier*target_NP;
@@ -37,6 +43,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                 }
             });
         } else if (_operations(i) == TargetOperation::VectorPointEvaluation) {
+            additional_evaluation_sites_handled = true; // calcPij can handle non-target site evaluations
             if (_dimensions == 3) {
                 // vector basis
                 if (_reconstruction_space_rank == 1) {
@@ -613,6 +620,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
             compadre_kernel_assert_release((false) && "Functionality not yet available.");
         }
         } // !operation_handled
+        compadre_kernel_assert_release(((additional_evaluation_sites_need_handled && additional_evaluation_sites_handled) || (!additional_evaluation_sites_need_handled)) && "Auxiliary evaluation coordinates are specified by user, but are calling a target operation that can not handle evaluating additional sites.");
     }
 }
 
