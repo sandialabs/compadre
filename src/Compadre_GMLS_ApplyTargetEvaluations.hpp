@@ -12,24 +12,30 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
 
     if (std::is_same<scratch_matrix_type::array_layout, Kokkos::LayoutRight>::value) {
         // CPU
-        for (int i=0; i<this->getNNeighbors(target_index); ++i) {
-            for (int j=0; j<_operations.size(); ++j) {
-                for (int k=0; k<_lro_output_tile_size[j]; ++k) {
-                    for (int m=0; m<_lro_input_tile_size[j]; ++m) {
-                        double alpha_ij = 0;
-                        Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-                            _basis_multiplier*target_NP), [=] (const int l, double &talpha_ij) {
-                            if (_sampling_multiplier>1 && m<_sampling_multiplier) {
-                                talpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l)*Q(ORDER_INDICES(i + m*this->getNNeighbors(target_index),l));
-                            } else if (_sampling_multiplier == 1) {
-                                talpha_ij += P_target_row(_basis_multiplier*target_NP*(_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k) + l)*Q(ORDER_INDICES(i,l));
-                            } else {
-                                talpha_ij += 0;
-                            }
-                        }, alpha_ij);
-                        Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                            _alphas(ORDER_INDICES(target_index, (_lro_total_offsets[j] + m*_lro_output_tile_size[j] + k)*_neighbor_lists(target_index,0) + i)) = alpha_ij;
-                        });
+        
+        const int num_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
+                ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
+
+        for (int e=0; e<num_evaluation_sites; ++e) {
+            for (int i=0; i<this->getNNeighbors(target_index); ++i) {
+                for (int j=0; j<_operations.size(); ++j) {
+                    for (int k=0; k<_lro_output_tile_size[j]; ++k) {
+                        for (int m=0; m<_lro_input_tile_size[j]; ++m) {
+                            double alpha_ij = 0;
+                            Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
+                                _basis_multiplier*target_NP), [=] (const int l, double &talpha_ij) {
+                                if (_sampling_multiplier>1 && m<_sampling_multiplier) {
+                                    talpha_ij += P_target_row(getPTargetOffsetIndex(j,m,k,e)*_basis_multiplier*target_NP + l)*Q(ORDER_INDICES(i + m*this->getNNeighbors(target_index),l));
+                                } else if (_sampling_multiplier == 1) {
+                                    talpha_ij += P_target_row(getPTargetOffsetIndex(j,m,k,e)*_basis_multiplier*target_NP + l)*Q(ORDER_INDICES(i,l));
+                                } else {
+                                    talpha_ij += 0;
+                                }
+                            }, alpha_ij);
+                            Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                                _alphas(ORDER_INDICES(target_index, getPTargetOffsetIndex(j,m,k,e)*_neighbor_lists(target_index,0) + i)) = alpha_ij;
+                            });
+                        }
                     }
                 }
             }

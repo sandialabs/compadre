@@ -32,8 +32,10 @@ void GMLS::generatePolynomialCoefficients() {
      */
 
     // initialize all alpha values to be used for taking the dot product with data to get a reconstruction 
+    const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
+                ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
     _alphas = Kokkos::View<double**, layout_type>("coefficients", ORDER_INDICES(_neighbor_lists.dimension_0(), 
-            _total_alpha_values*max_num_neighbors));
+            _total_alpha_values*max_num_neighbors*max_evaluation_sites));
 
     // initialize the prestencil weights that are applied to sampling data to put it into a form 
     // that the GMLS operator will be able to operate on
@@ -97,8 +99,6 @@ void GMLS::generatePolynomialCoefficients() {
     int max_num_rows = _sampling_multiplier*max_num_neighbors;
     int this_num_columns = _basis_multiplier*_NP;
     int manifold_NP = 0;
-    const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
-                ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
 
     if (_dense_solver_type == DenseSolverType::MANIFOLD) {
         // these dimensions already calculated differ in the case of manifolds
@@ -410,8 +410,6 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
     const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
-    const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
-                ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
 
     /*
      *    Data
