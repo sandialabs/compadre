@@ -105,7 +105,7 @@ void GMLS::generatePolynomialCoefficients() {
         const int max_manifold_NP = (manifold_NP > target_NP) ? manifold_NP : target_NP;
         const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
         this_num_columns = _basis_multiplier*max_manifold_NP;
-        const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
+        const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier*(_additional_evaluation_indices.extent(1)+1); // +1 is for the original target site which always gets evaluated
 
         /*
          *    Calculate Scratch Space Allocations
@@ -138,7 +138,8 @@ void GMLS::generatePolynomialCoefficients() {
         _team_scratch_size_a += scratch_vector_type::shmem_size(max_num_rows); // t2 work vector for qr
 
         // row of P matrix, one for each operator
-        _team_scratch_size_b += scratch_vector_type::shmem_size(this_num_columns*_total_alpha_values); 
+        // +1 is for the original target site which always gets evaluated
+        _team_scratch_size_b += scratch_vector_type::shmem_size(this_num_columns*_total_alpha_values*(_additional_evaluation_indices.extent(1)+1)); 
 
         _thread_scratch_size_b += scratch_vector_type::shmem_size(this_num_columns); // delta, used for each thread
     }
@@ -374,7 +375,7 @@ void GMLS::operator()(const ApplyStandardTargets&, const member_type& teamMember
 
     scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_a), max_num_rows);
     scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_a), max_num_rows);
-    scratch_vector_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), this_num_columns*_total_alpha_values);
+    scratch_vector_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), this_num_columns*_total_alpha_values*(_additional_evaluation_indices.extent(1)+1)); // +1 is for the original target site which always gets evaluated
 
     /*
      *    Apply Standard Target Evaluations to Polynomial Coefficients
@@ -508,7 +509,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
     const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_neighbors = this->getNNeighbors(target_index);
-    const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
+    const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier*(_additional_evaluation_indices.extent(1)+1); // +1 is for the original target site which always gets evaluated
 
     /*
      *    Data
@@ -646,7 +647,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
     const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_neighbors = this->getNNeighbors(target_index);
-    const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
+    const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier*(_additional_evaluation_indices.extent(1)+1); // +1 is for the original target site which always gets evaluated
 
     /*
      *    Data
@@ -822,7 +823,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
     const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
-    const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier;
+    const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier*(_additional_evaluation_indices.extent(1)+1); // +1 is for the original target site which always gets evaluated
 
     /*
      *    Data

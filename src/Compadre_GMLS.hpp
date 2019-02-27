@@ -332,7 +332,7 @@ protected:
         \param sampling_strategy    [in] - sampling functional specification
     */
     KOKKOS_INLINE_FUNCTION
-    void calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, scratch_matrix_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample) const;
+    void calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, scratch_matrix_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample, const int additional_evaluation_index = -1) const;
 
     /*! \brief Evaluates the gradient of a polynomial basis under the Dirac Delta (pointwise) sampling function.
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -456,6 +456,21 @@ protected:
         return _neighbor_lists(target_index, neighbor_list_num+1);
     }
 
+    //! (OPTIONAL)
+    //! Returns number of additional evaluation sites for a particular target
+    KOKKOS_INLINE_FUNCTION
+    int getNAdditionalEvaluationCoordinates(const int target_index) const {
+        return _additional_evaluation_indices(target_index,0);
+    }
+
+    //! (OPTIONAL)
+    //! Mapping from [0,number of additional evaluation sites for a target] to the row that contains the coordinates for
+    //! that evaluation
+    KOKKOS_INLINE_FUNCTION
+    int getAdditionalEvaluationIndex(const int target_index, const int additional_list_num) const {
+        return _additional_evaluation_indices(target_index, additional_list_num+1);
+    }
+
     //! Returns Euclidean norm of a vector
     KOKKOS_INLINE_FUNCTION
     double EuclideanVectorLength(const XYZ& delta_vector, const int dimension) const {
@@ -479,11 +494,30 @@ protected:
     //! depends upon V being specified
     KOKKOS_INLINE_FUNCTION
     double getTargetCoordinate(const int target_index, const int dim, const scratch_matrix_type* V = NULL) const {
+        compadre_kernel_assert_debug((_target_coordinates.extent(0) >= target_index) && "Target index is out of range for _target_coordinates.");
         if (V==NULL) {
             return _target_coordinates(target_index, dim);
         } else {
-            XYZ target_coord = XYZ(_target_coordinates(target_index, 0), _target_coordinates(target_index, 1), _target_coordinates(target_index, 2));
+            XYZ target_coord = XYZ( _target_coordinates(target_index, 0), 
+                                    _target_coordinates(target_index, 1), 
+                                    _target_coordinates(target_index, 2));
             return this->convertGlobalToLocalCoordinate(target_coord, dim, V);
+        }
+    }
+
+    //! (OPTIONAL)
+    //! Returns one component of the additional evaluation coordinates. Whether global or local coordinates 
+    //! depends upon V being specified
+    KOKKOS_INLINE_FUNCTION
+    double getTargetAuxiliaryCoordinate(const int additional_evaluation_index, const int dim, const scratch_matrix_type* V = NULL) const {
+        compadre_kernel_assert_debug((_additional_evaluation_coordinates.extent(0) >= additional_evaluation_index) && "Additional evaluation index is out of range for _additional_evaluation_coordinates.");
+        if (V==NULL) {
+            return _additional_evaluation_coordinates(additional_evaluation_index, dim);
+        } else {
+            XYZ additional_target_coord = XYZ( _additional_evaluation_coordinates(additional_evaluation_index, 0),
+                                               _additional_evaluation_coordinates(additional_evaluation_index, 1),
+                                               _additional_evaluation_coordinates(additional_evaluation_index, 2));
+            return this->convertGlobalToLocalCoordinate(additional_target_coord, dim, V);
         }
     }
 
@@ -491,6 +525,7 @@ protected:
     //! depends upon V being specified
     KOKKOS_INLINE_FUNCTION
     double getNeighborCoordinate(const int target_index, const int neighbor_list_num, const int dim, const scratch_matrix_type* V = NULL) const {
+        compadre_kernel_assert_debug((_source_coordinates.extent(0) >= this->getNeighborIndex(target_index, neighbor_list_num)) && "Source index is out of range for _source_coordinates.");
         if (V==NULL) {
             return _source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), dim);
         } else {
@@ -536,6 +571,13 @@ protected:
             val = local_coord.y * ((*V)(0, dim) + (*V)(1, dim));
         }
         return val;
+    }
+
+    //! Get offset depending on 
+    KOKKOS_INLINE_FUNCTION
+    int getPTargetOffsetIndex(const int lro_num, const int input_component, const int output_component, const int additional_evaluation_local_index = -1) const {
+        // the +1 is so we get a multiplier of 0 if additional_evaluation_local_index is not specified
+        return (_total_alpha_values*(additional_evaluation_local_index+1) + _lro_total_offsets[lro_num] + input_component*_lro_output_tile_size[lro_num]+output_component)*_basis_multiplier;
     }
 
 ///@}
