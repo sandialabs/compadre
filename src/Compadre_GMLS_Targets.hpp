@@ -39,7 +39,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                 for (int j=0; j<num_evaluation_sites; ++j) { 
                     this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample, j);
-                    int offset = getPTargetOffsetIndex(i, 0, 0, j)*_basis_multiplier*target_NP;
+                    int offset = getTargetOffsetIndexDevice(i, 0, 0, j)*_basis_multiplier*target_NP;
                     for (int k=0; k<target_NP; ++k) {
                         P_target_row(offset + k) = t1(k);
                     }
@@ -252,7 +252,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
         } else if (_operations(i) == TargetOperation::GradientOfScalarPointEvaluation) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                 for (int j=0; j<num_evaluation_sites; ++j) { 
-                    int offset = getPTargetOffsetIndex(i, 0, 0, j)*_basis_multiplier*target_NP;
+                    int offset = getTargetOffsetIndexDevice(i, 0, 0, j)*_basis_multiplier*target_NP;
                     for (int k=0; k<target_NP; ++k) {
                         P_target_row(offset + k) = 0;
                     }
@@ -260,7 +260,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     this->calcGradientPij(P_target_row.data()+offset, target_index, -1 /* target is neighbor */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample, j);
 
                     if (_dimensions>1) {
-                        offset = getPTargetOffsetIndex(i, 0, 1, j)*_basis_multiplier*target_NP;
+                        offset = getTargetOffsetIndexDevice(i, 0, 1, j)*_basis_multiplier*target_NP;
                         for (int k=0; k<target_NP; ++k) {
                             P_target_row(offset + k) = 0;
                         }
@@ -269,7 +269,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     }
 
                     if (_dimensions>2) {
-                        offset = getPTargetOffsetIndex(i, 0, 2, j)*_basis_multiplier*target_NP;
+                        offset = getTargetOffsetIndexDevice(i, 0, 2, j)*_basis_multiplier*target_NP;
                         for (int k=0; k<target_NP; ++k) {
                             P_target_row(offset + k) = 0;
                         }

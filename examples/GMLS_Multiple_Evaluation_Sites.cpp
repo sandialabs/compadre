@@ -327,8 +327,7 @@ bool all_passed = true;
     my_GMLS.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
 
     // set up additional sites to evaluate target operators
-    my_GMLS.setAuxiliaryEvaluationCoordinates(additional_target_coords_device);
-    my_GMLS.setAuxiliaryEvaluationIndicesLists(additional_target_indices_device);
+    my_GMLS.setAdditionalEvaluationSitesData(additional_target_indices_device, additional_target_coords_device);
     
     // create a vector of target operations
     std::vector<TargetOperation> lro(2);
