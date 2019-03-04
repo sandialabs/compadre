@@ -579,8 +579,16 @@ protected:
     }
 
     //! Get offset depending on 
+    int getTargetOffsetIndexHost(const int lro_num, const int input_component, const int output_component, const int additional_evaluation_local_index = 0) const {
+        return ( _total_alpha_values*additional_evaluation_local_index 
+                + _host_lro_total_offsets[lro_num] 
+                + input_component*_host_lro_output_tile_size[lro_num] 
+                + output_component );
+    }
+
+    //! Get offset depending on 
     KOKKOS_INLINE_FUNCTION
-    int getPTargetOffsetIndex(const int lro_num, const int input_component, const int output_component, const int additional_evaluation_local_index = 0) const {
+    int getTargetOffsetIndexDevice(const int lro_num, const int input_component, const int output_component, const int additional_evaluation_local_index = 0) const {
         return ( _total_alpha_values*additional_evaluation_local_index 
                 + _lro_total_offsets[lro_num] 
                 + input_component*_lro_output_tile_size[lro_num] 
@@ -895,7 +903,7 @@ public:
         const int input_index = getSamplingOutputIndex((int)_polynomial_sampling_functional, input_component_axis_1, input_component_axis_2);
         const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
 
-        return getPTargetOffsetIndex(lro_number, input_index, output_index, additional_evaluation_local_index);
+        return getTargetOffsetIndexHost(lro_number, input_index, output_index, additional_evaluation_local_index);
     }
 
     //! Get a view (device) of all alphas
@@ -1058,6 +1066,15 @@ public:
         this->setSourceSites<view_type_2>(source_coordinates);
         this->setTargetSites<view_type_3>(target_coordinates);
         this->setWindowSizes<view_type_4>(epsilons);
+    }
+
+    //! (OPTIONAL) Sets additional evaluation sites for each target site
+    template<typename view_type_1, typename view_type_2>
+    void setAdditionalEvaluationSitesData(
+            view_type_1 additional_evaluation_indices,
+            view_type_2 additional_evaluation_coordinates) {
+        this->setAuxiliaryEvaluationIndicesLists<view_type_1>(additional_evaluation_indices);
+        this->setAuxiliaryEvaluationCoordinates<view_type_2>(additional_evaluation_coordinates);
     }
 
     //! Sets neighbor list information. Should be # targets x maximum number of neighbors for any target + 1.
