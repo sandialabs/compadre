@@ -21,6 +21,15 @@ class colors:
 def sinxsinysinz(coord):
     return math.sin(coord[0])*math.sin(coord[1])*math.sin(coord[2])
 
+# function used to get analytic gradient
+def grad_sinxsinysinz(coord,component):
+    if (component==0):
+        return math.cos(coord[0])*math.sin(coord[1])*math.sin(coord[2])
+    elif (component==1):
+        return math.sin(coord[0])*math.cos(coord[1])*math.sin(coord[2])
+    elif (component==2):
+        return math.sin(coord[0])*math.sin(coord[1])*math.cos(coord[2])
+
 def test1(ND):
     random.seed(1234) # for consistent results
 
@@ -131,9 +140,24 @@ def test1(ND):
     l2_error = 0
     for i in range(NT):
         l2_error += np.power(abs(computed_answer[i] - sinxsinysinz(target_sites[i])),2)
-    l2_error = math.sqrt(l2_error)  
+    l2_error = math.sqrt(l2_error/float(NT))  
+
+    # get polynomial coefficients
+    polynomial_coefficients = gmls_obj.getPolynomialCoefficients(data_vector)
+
+    # alternative way to compute h1 semi norm
+    # could remap using the gradient operator, but instead this uses calculated polynomial coefficients and applies
+    # the action of the gradient target operation on the polynomial basis at the target sites
+    # this serves as a test for getting accurate calculation and retrieval of polynomial coefficients using
+    # the python interface
+    h1_seminorm_error = 0
+    for i in range(NT):
+        h1_seminorm_error += np.power(abs(1./epsilons[i]*polynomial_coefficients[i,1] - grad_sinxsinysinz(target_sites[i],0)),2)
+        h1_seminorm_error += np.power(abs(1./epsilons[i]*polynomial_coefficients[i,2] - grad_sinxsinysinz(target_sites[i],1)),2)
+        h1_seminorm_error += np.power(abs(1./epsilons[i]*polynomial_coefficients[i,3] - grad_sinxsinysinz(target_sites[i],2)),2)
+    h1_seminorm_error = math.sqrt(h1_seminorm_error/float(NT))  
     
-    return l2_error
+    return (l2_error, h1_seminorm_error)
 
 GMLS_Module.initializeKokkos()
 
@@ -145,10 +169,20 @@ print("\n" + colors.HEADER + "(l2) Errors:" + colors.ENDC)
 errors = list()
 for nd in ND:
     errors.append(test1(nd))
-    print(str(errors[-1]))
+    print(str(errors[-1][0]))
 
 print("\n" + colors.HEADER + "(l2) Rates:" + colors.ENDC)
 for i in range(len(ND)-1):
-    print(str(math.log(errors[i+1]/errors[i])/math.log(0.5)))
+    print(str(math.log(errors[i+1][0]/errors[i][0])/math.log(0.5)))
+print("\n")
+
+# Calculate rates of convergence and print errors
+print("\n" + colors.HEADER + "(h1-seminorm) Errors:" + colors.ENDC)
+for nd in ND:
+    print(str(errors[-1][1]))
+
+print("\n" + colors.HEADER + "(h1-seminorm) Rates:" + colors.ENDC)
+for i in range(len(ND)-1):
+    print(str(math.log(errors[i+1][1]/errors[i][1])/math.log(0.5)))
 print("\n")
 GMLS_Module.finalizeKokkos()

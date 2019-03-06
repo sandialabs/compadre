@@ -151,6 +151,74 @@ public:
         gmls_object->generateAlphas();
     }
 
+    PyObject* getPolynomialCoefficients(PyObject* pyObjectArray_in) {
+
+        // cast as a numpy array
+        PyArrayObject *np_arr_in = reinterpret_cast<PyArrayObject*>(pyObjectArray_in);
+    
+        // copy data into Kokkos View
+        // read in size in each dimension
+        const int num_dims_in = PyArray_NDIM(np_arr_in);
+        npy_intp* dims_in = PyArray_DIMS(np_arr_in);
+        int npyLength1D = dims_in[0];
+        int npyLength2D = (num_dims_in > 1) ? dims_in[1] : 1;
+    
+        // create Kokkos View on host to copy into
+        Kokkos::View<double**, Kokkos::HostSpace> source_data("source data", npyLength1D, npyLength2D); 
+    
+        // overwrite existing data assuming a 2D layout
+        if (num_dims_in == 1) {
+            Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,npyLength1D), [=](int i) {
+                double* val = (double*)PyArray_GETPTR1(np_arr_in, i);
+                source_data(i,0) = *val;
+            });
+        } else {
+            Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,npyLength1D), [=](int i) {
+                for (int j = 0; j < npyLength2D; ++j) {
+                    double* val = (double*)PyArray_GETPTR2(np_arr_in, i, j);
+                    source_data(i,j) = *val;
+                }
+            });
+        }
+
+
+
+        // get polynomial coefficient size
+        const int NP = gmls_object->getPolynomialCoefficientsSize();
+        // get number of target sites
+        const int NT = gmls_object->getNeighborLists().dimension_0();
+
+        // copy data into Kokkos View
+        // set dimensions
+        npy_intp dims_out[2] = {static_cast<npy_intp>(NT), static_cast<npy_intp>(NP)};
+
+        // allocate memory for array 
+        PyObject *pyObjectArray_out = PyArray_SimpleNew(2, dims_out, NPY_DOUBLE);
+        if (!pyObjectArray_out) {
+                printf("Out of memory.\n");
+        }
+
+        // recast as a numpy array and write assuming a 1D layout
+        PyArrayObject *np_arr_out = reinterpret_cast<PyArrayObject*>(pyObjectArray_out);
+
+
+        Compadre::Evaluator gmls_evaluator(gmls_object);
+        auto polynomial_coefficients = gmls_evaluator.applyFullPolynomialCoefficientsBasisToDataAllComponents<double**, Kokkos::HostSpace>
+            (source_data);
+
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,NP), [=](int i) {
+            for (int target_num=0; target_num<NT; target_num++) {
+                double polynomial_coefficient = polynomial_coefficients(target_num, i);
+                double* val = (double*)PyArray_GETPTR2(np_arr_out, target_num, i);
+                *val = polynomial_coefficient;
+            }
+        });
+
+        // return the Python object
+        return pyObjectArray_out;
+
+    }
+
     PyObject* getAlphas0Tensor(int target_num, PyObject* pyObjectArray_neighborList) {
         // cast as a numpy array
         PyArrayObject *np_arr_neighborlist = reinterpret_cast<PyArrayObject*>(pyObjectArray_neighborList);
