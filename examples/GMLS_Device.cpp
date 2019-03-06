@@ -346,8 +346,11 @@ bool all_passed = true;
             (gradient_sampling_data_device, DivergenceOfVectorPointEvaluation, VectorPointSample);
     
     auto output_curl = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (divergence_sampling_data_device, CurlOfVectorPointEvaluation, VectorPointSample);
+            (divergence_sampling_data_device, CurlOfVectorPointEvaluation);
     
+    // retrieves polynomial coefficients instead of remapped field
+    auto scalar_coefficients = gmls_evaluator.applyFullPolynomialCoefficientsBasisToDataAllComponents<double**, Kokkos::HostSpace>
+            (sampling_data_device, VectorPointSample);
     
     //! [Apply GMLS Alphas To Data]
     
@@ -369,7 +372,11 @@ bool all_passed = true;
         double GMLS_Laplacian = output_laplacian(i);
     
         // load partial x from gradient
-        double GMLS_GradX = output_gradient(i,0);
+        // this is a test that the scalar_coefficients 2d array returned hold valid entries
+        // scalar_coefficients(i,1)*1./epsilon(i) is equivalent to the target operation acting 
+        // on the polynomials applied to the polynomial coefficients
+        double GMLS_GradX = scalar_coefficients(i,1)*1./epsilon(i);
+                            //output_gradient(i,0);
     
         // load partial y from gradient
         double GMLS_GradY = (dimension>1) ? output_gradient(i,1) : 0;

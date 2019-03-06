@@ -791,6 +791,7 @@ public:
 
 
     //! Returns size of the basis for a given polynomial order and dimension
+    //! General to dimension 1..3 and polynomial order m
     KOKKOS_INLINE_FUNCTION
     static int getNP(const int m, const int dimension = 3) {
         if (dimension == 3) return (m+1)*(m+2)*(m+3)/6;
@@ -820,6 +821,12 @@ public:
  *  Retrieve member variables through public member functions
  */
 ///@{
+
+    //! Returns size of the basis used in instance's polynomial reconstruction
+    int getPolynomialCoefficientsSize() const { return _basis_multiplier*_NP; }
+
+    //! Returns size of the full polynomial coefficients matrix tile sizes
+    int getPolynomialCoefficientsMatrixTileSize() const { return _sampling_multiplier*(_neighbor_lists.dimension_1()-1); }
 
     //! Dimension of the GMLS problem, set only at class instantiation
     int getDimensions() const { return _dimensions; }
@@ -861,11 +868,18 @@ public:
     decltype(_T) getTangentDirections() const { return _T; }
 
     //! Get component of tangent or normal directions for manifold problems
-    double getTangentBundle(const int target_index, const int direction, const int component) {
+    double getTangentBundle(const int target_index, const int direction, const int component) const {
         // Component index 0.._dimensions-2 will return tangent direction
         // Component index _dimensions-1 will return the normal direction
         Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> >::HostMirror T(_host_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
         return T(direction, component);
+    }
+
+    //! Get the local index (internal) to GMLS for a particular TargetOperation
+    //! Every TargetOperation has a global index which can be readily found in Compadre::TargetOperation
+    //! but this function returns the index used inside of the GMLS class
+    int getTargetOperationLocalIndex(TargetOperation lro) const {
+        return _lro_lookup[(int)lro];
     }
 
     //! Get a view (device) of all rank 2 preprocessing tensors
@@ -908,6 +922,15 @@ public:
 
     //! Get a view (device) of all alphas
     decltype(_alphas) getAlphas() const { return _alphas; }
+
+    //! Get a view (device) of all polynomial coefficients basis
+    decltype(_RHS) getFullPolynomialCoefficientsBasis() const { return _RHS; }
+
+    //! Get the polynomial sampling functional specified at instantiation
+    SamplingFunctional getPolynomialSamplingFunctional() const { return _polynomial_sampling_functional; }
+ 
+    //! Get the data sampling functional specified at instantiation (often the same as the polynomial sampling functional)
+    SamplingFunctional getDataSamplingFunctional() const { return _data_sampling_functional; }
 
     //! Helper function for getting alphas for scalar reconstruction from scalar data
     double getAlpha0TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index) const {
