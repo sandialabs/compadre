@@ -103,11 +103,10 @@ void GMLS::generatePolynomialCoefficients() {
     if (_dense_solver_type == DenseSolverType::MANIFOLD) {
         // these dimensions already calculated differ in the case of manifolds
         manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
-        const int target_NP = this->getNP(_poly_order, _dimensions-1);
-        const int max_manifold_NP = (manifold_NP > target_NP) ? manifold_NP : target_NP;
-        const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
+        _NP = this->getNP(_poly_order, _dimensions-1);
+        const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
         this_num_columns = _basis_multiplier*max_manifold_NP;
-        const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier*max_evaluation_sites;
+        const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_manifold_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_manifold_NP*_total_alpha_values*_basis_multiplier*max_evaluation_sites;
 
         /*
          *    Calculate Scratch Space Allocations
@@ -121,7 +120,7 @@ void GMLS::generatePolynomialCoefficients() {
         _team_scratch_size_b += scratch_vector_type::shmem_size(max_num_neighbors*std::max(_sampling_multiplier,_basis_multiplier)); // t2 work vector for qr
 
         _team_scratch_size_b += scratch_vector_type::shmem_size(max_P_row_size); // row of P matrix, one for each operator
-        _thread_scratch_size_b += scratch_vector_type::shmem_size(max_NP*_basis_multiplier); // delta, used for each thread
+        _thread_scratch_size_b += scratch_vector_type::shmem_size(max_manifold_NP*_basis_multiplier); // delta, used for each thread
 
 
         // allocate data on the device (initialized to zero)
@@ -405,9 +404,7 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
 
     const int max_num_rows = _sampling_multiplier*max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
-    const int target_NP = this->getNP(_poly_order, _dimensions-1);
-    const int max_manifold_NP = (manifold_NP > target_NP) ? manifold_NP : target_NP;
-    const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
+    const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
 
@@ -422,7 +419,7 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
     scratch_matrix_type PTP(teamMember.team_scratch(_scratch_team_level_b), _dimensions, _dimensions);
 
     // delta, used for each thread
-    scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), max_NP*_basis_multiplier);
+    scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), max_manifold_NP*_basis_multiplier);
 
     /*
      *    Determine Coarse Approximation of Manifold Tangent Plane
@@ -454,9 +451,7 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
 
     const int max_num_rows = _sampling_multiplier*max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
-    const int target_NP = this->getNP(_poly_order, _dimensions-1);
-    const int max_manifold_NP = (manifold_NP > target_NP) ? manifold_NP : target_NP;
-    const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
+    const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_neighbors = this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
@@ -472,7 +467,7 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
 
     // delta, used for each thread
-    scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), max_NP*_basis_multiplier);
+    scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), max_manifold_NP*_basis_multiplier);
 
 
     //
@@ -508,14 +503,12 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
 
     const int max_num_rows = _sampling_multiplier*max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
-    const int target_NP = this->getNP(_poly_order, _dimensions-1);
-    const int max_manifold_NP = (manifold_NP > target_NP) ? manifold_NP : target_NP;
-    const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
+    const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_neighbors = this->getNNeighbors(target_index);
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
-    const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier*max_evaluation_sites;
+    const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_manifold_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_manifold_NP*_total_alpha_values*_basis_multiplier*max_evaluation_sites;
 
     /*
      *    Data
@@ -648,14 +641,12 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
 
     const int max_num_rows = _sampling_multiplier*max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
-    const int target_NP = this->getNP(_poly_order, _dimensions-1);
-    const int max_manifold_NP = (manifold_NP > target_NP) ? manifold_NP : target_NP;
-    const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
+    const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_neighbors = this->getNNeighbors(target_index);
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
-    const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier*max_evaluation_sites;
+    const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_manifold_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_manifold_NP*_total_alpha_values*_basis_multiplier*max_evaluation_sites;
 
     /*
      *    Data
@@ -775,9 +766,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
 
     const int max_num_rows = _sampling_multiplier*max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
-    const int target_NP = this->getNP(_poly_order, _dimensions-1);
-    const int max_manifold_NP = (manifold_NP > target_NP) ? manifold_NP : target_NP;
-    const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
+    const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
     const int this_num_neighbors = this->getNNeighbors(target_index);
@@ -793,7 +782,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
     Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
 
     // delta, used for each thread
-    scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), max_NP*_basis_multiplier);
+    scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), max_manifold_NP*_basis_multiplier);
 
 
     /*
@@ -826,14 +815,12 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
 
     const int max_num_rows = _sampling_multiplier*max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
-    const int target_NP = this->getNP(_poly_order, _dimensions-1);
-    const int max_manifold_NP = (manifold_NP > target_NP) ? manifold_NP : target_NP;
-    const int max_NP = (max_manifold_NP > _NP) ? max_manifold_NP : _NP;
+    const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
-    const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_NP*_total_alpha_values*_basis_multiplier*max_evaluation_sites;
+    const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_manifold_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_manifold_NP*_total_alpha_values*_basis_multiplier*max_evaluation_sites;
 
     /*
      *    Data
@@ -860,7 +847,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
     this->computeTargetFunctionalsOnManifold(teamMember, t1, t2, P_target_row, T, G_inv, manifold_coeffs, manifold_gradient_coeffs);
     teamMember.team_barrier();
 
-    this->applyTargetsToCoefficients(teamMember, t1, t2, Coeffs, PsqrtW, w, P_target_row, target_NP); 
+    this->applyTargetsToCoefficients(teamMember, t1, t2, Coeffs, PsqrtW, w, P_target_row, _NP); 
 
     teamMember.team_barrier();
 }
