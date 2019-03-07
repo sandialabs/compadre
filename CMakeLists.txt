@@ -81,9 +81,15 @@ endif()
 bob_option(Compadre_USE_KokkosCore "Use KokkosCore" ON)
 bob_input(KokkosCore_PREFIX "${Trilinos_PREFIX}" PATH "Path to KokkosCore install")
 bob_input(KokkosCore_ARCH "" STRING "Architecture to specify for KokkosCore")
-bob_option(Compadre_USE_CUDA "Whether to use CUDA" OFF)
-bob_option(Compadre_USE_OpenMP "Whether to use OpenMP" ON)
-bob_option(Compadre_USE_Pthreads "Whether to use Pthreads" OFF)
+if (APPLE)
+  bob_option(Compadre_USE_CUDA "Whether to use CUDA" OFF)
+  bob_option(Compadre_USE_OpenMP "Whether to use OpenMP" OFF)
+  bob_option(Compadre_USE_Pthread "Whether to use Pthread" ON)
+else()
+  bob_option(Compadre_USE_CUDA "Whether to use CUDA" OFF)
+  bob_option(Compadre_USE_OpenMP "Whether to use OpenMP" ON)
+  bob_option(Compadre_USE_Pthread "Whether to use Pthread" OFF)
+endif()
 set(KOKKOS_IN_TRILINOS OFF)
 set(KOKKOS_EXISTING_ELSEWHERE OFF)
 
@@ -154,45 +160,61 @@ else()
         "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
         "-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}"
         "-DCMAKE_INSTALL_PREFIX=${KokkosCore_PREFIX}"
+        "-DKokkos_ENABLE_OpenMP=${Compadre_USE_OpenMP}"
+        "-DKokkos_ENABLE_Pthread=${Compadre_USE_Pthread}"
+        "-DKokkos_ENABLE_Cuda=${Compadre_USE_Cuda}"
       )
       
       SET(CMAKE_INSTALL_RPATH ${KokkosCore_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
       SET(CMAKE_BUILD_RPATH ${KokkosCore_PREFIX}/lib ${CMAKE_BUILD_RPATH})
-      
-      SET(KokkosCore_CONFIGURE_STRING "${PROJECT_SOURCE_DIR}/kokkos/generate_makefile.bash")
-      SET(KokkosCore_BUILD_STRING "--prefix=${KokkosCore_PREFIX} --compiler=${CMAKE_CXX_COMPILER} --cxxflags=-fPIC --with-serial")
-      if (Compadre_USE_CUDA)
-        SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --arch=${KokkosCore_ARCH} --with-cuda-options=enable_lambda --compiler=$HOME/releases/kokkos/bin/nvcc_wrapper")
-        if (CUDA_PREFIX)
-            SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --with-cuda=${CUDA_PREFIX}")
-        endif()
-      else()
-        SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --arch=${KokkosCore_ARCH} --compiler=${CMAKE_CXX_COMPILER}")
-      endif()
-      if (Compadre_USE_OpenMP)
-        SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --with-openmp")
-      endif()
-      if (Compadre_USE_Pthreads)
-        SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --with-pthread")
-      endif()
 
-      set(arguments "")
-      FOREACH( arg ${KokkosCore_BUILD_STRING} )
-        SET( arguments "${arguments} ${cpp}" )
-      ENDFOREACH( arg )
+      #SET(KokkosCore_DEVICES "")
+      #if (Compadre_USE_CUDA)
+      #  SET(KokkosCore_DEVICES "Cuda;${KokkosCore_DEVICES}")
+      #endif()
+      #if (Compadre_USE_OpenMP)
+      #  SET(KokkosCore_DEVICES "OpenMP;${KokkosCore_DEVICES}")
+      #endif()
+      #if (Compadre_USE_Pthread)
+      #  SET(KokkosCore_DEVICES "Pthread;${KokkosCore_DEVICES}")
+      #endif()
+
+      #SET(KokkosCore_CONFIGURE_STRING "${PROJECT_SOURCE_DIR}/kokkos/generate_makefile.bash")
+      #SET(KokkosCore_BUILD_STRING "--prefix=${KokkosCore_PREFIX} --compiler=${CMAKE_CXX_COMPILER} --cxxflags=-fPIC --with-serial")
+      #if (Compadre_USE_CUDA)
+      #  SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --arch=${KokkosCore_ARCH} --with-cuda-options=enable_lambda --compiler=$HOME/releases/kokkos/bin/nvcc_wrapper")
+      #  if (CUDA_PREFIX)
+      #      SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --with-cuda=${CUDA_PREFIX}")
+      #  endif()
+      #else()
+      #  SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --arch=${KokkosCore_ARCH} --compiler=${CMAKE_CXX_COMPILER}")
+      #endif()
+      #if (Compadre_USE_OpenMP)
+      #  SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --with-openmp")
+      #endif()
+      #if (Compadre_USE_Pthread)
+      #  SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --with-pthread")
+      #endif()
+
+      #set(arguments "")
+      #FOREACH( arg ${KokkosCore_BUILD_STRING} )
+      #  SET( arguments "${arguments} ${cpp}" )
+      #ENDFOREACH( arg )
       
+      #CONFIGURE_FILE("${PROJECT_SOURCE_DIR}/kokkos/Makefile.kokkos.in" "${PROJECT_SOURCE_DIR}/kokkos/Makefile.kokkos" @ONLY)
       externalproject_add(KokkosCore
           PREFIX kokkoscore
           SOURCE_DIR "${PROJECT_SOURCE_DIR}/kokkos"
           CMAKE_ARGS ${KokkosCore_ARGS}
           BUILD_ALWAYS 1
-          CONFIGURE_COMMAND COMMAND "${KokkosCore_CONFIGURE_STRING}" "${arguments}"
+          #CONFIGURE_COMMAND ${CMAKE} COMMAND ""
+          #CONFIGURE_COMMAND COMMAND "${KokkosCore_CONFIGURE_STRING}" "${arguments}"
           #CONFIGURE_COMMAND COMMAND "${KokkosCore_CONFIGURE_STRING}" "${KokkosCore_BUILD_STRING}"
           #BUILD_COMMAND COMMAND ${MAKE}
           #INSTALL_COMMAND ${MAKE} install
           TEST_AFTER_INSTALL OFF
       )
-      ExternalProject_Get_property(KokkosCore BINARY_DIR)
+  #ExternalProject_Get_property(KokkosCore BINARY_DIR)
       #get_property(DIRECTORY PROPERTY EP_STEP_TARGETS build)
           #BUILD_IN_SOURCE 1
           #kokkoscore/src/KokkosCore-build
@@ -200,8 +222,8 @@ else()
           #CONFIGURE_COMMAND ""
           #CONFIGURE_COMMAND ${KokkosCore_BUILD_STRING} COMMAND ${MAKE}
           #BUILD_COMMAND ${KokkosCore_BUILD_STRING} COMMAND ${MAKE}
-          SET(KokkosCore_INCLUDE_DIRS "${BINARY_DIR}/install/include")
-          SET(KokkosCore_STATIC_LIB "${BINARY_DIR}/install/lib/libkokkos.a")
+          SET(KokkosCore_INCLUDE_DIRS "${KokkosCore_PREFIX}/include")
+          SET(KokkosCore_STATIC_LIB "${KokkosCore_PREFIX}/lib/libkokkos.a")
     else()
       set(CMAKE_PREFIX_PATH ${KokkosCore_PREFIX} ${CMAKE_PREFIX_PATH})
       FIND_FILE(Kokkos_PROJECT_FULL_FILENAME name kokkos_generated_settings.cmake HINTS "${KokkosCore_PREFIX}" NO_DEFAULT_PATH)
@@ -279,7 +301,7 @@ endif()
 #  if (Compadre_USE_OpenMP)
 #    SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --with-openmp")
 #  endif()
-#  if (Compadre_USE_Pthreads)
+#  if (Compadre_USE_Pthread)
 #    SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --with-pthread")
 #  endif()
 #
