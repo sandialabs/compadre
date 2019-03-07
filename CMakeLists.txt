@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.3.0)
 
 ##########
 #
@@ -14,6 +14,16 @@ bob_begin_package()
 
 # Set to OFF for significantly faster performance and ON for error tracking
 bob_option(Compadre_DEBUG "Run Compadre Toolkit in DEBUG mode" ON)
+
+# RPATH related settings
+# https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/RPATH-handling
+SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
+SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
+
+include(ExternalProject)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11")
 
 ##########
 #
@@ -66,6 +76,17 @@ bob_input(Trilinos_PREFIX "" PATH "Path to Trilinos install")
 if (Trilinos_PREFIX)
   set(CMAKE_PREFIX_PATH ${Trilinos_PREFIX} ${CMAKE_PREFIX_PATH})
 endif()
+
+#KOKKOS
+bob_option(Compadre_USE_KokkosCore "Use KokkosCore" ON)
+bob_input(KokkosCore_PREFIX "${Trilinos_PREFIX}" PATH "Path to KokkosCore install")
+bob_input(KokkosCore_ARCH "" STRING "Architecture to specify for KokkosCore")
+bob_option(Compadre_USE_CUDA "Whether to use CUDA" OFF)
+bob_option(Compadre_USE_OpenMP "Whether to use OpenMP" ON)
+bob_option(Compadre_USE_Pthreads "Whether to use Pthreads" OFF)
+set(KOKKOS_IN_TRILINOS OFF)
+set(KOKKOS_EXISTING_ELSEWHERE OFF)
+
 IF (Compadre_USE_Trilinos)
   FIND_PACKAGE(Trilinos)
   set(Compadre_USE_Trilinos_CXX_Flags ON)
@@ -110,43 +131,168 @@ IF (Compadre_USE_Trilinos)
   LIST(REVERSE Trilinos_INCLUDE_DIRS)
   MESSAGE("   Trilinos_INCLUDE_DIRS = ${Trilinos_INCLUDE_DIRS}")
   MESSAGE("   Trilinos_CXX_FLAGS = ${Trilinos_CXX_COMPILER_FLAGS}")
-  
+
+  LIST(FIND Trilinos_PACKAGE_LIST KokkosCore KokkosCoreID)
+  IF (KokkosCoreID GREATER -1 )
+    MESSAGE(STATUS "Found KokkosCore inside Trilinos!")
+    set(KOKKOS_IN_TRILINOS ON)
+  ELSE()
+    MESSAGE(FATAL_ERROR "Found Trilinos but could not find KokkosCore.")
+  ENDIF()
 ENDIF()
 
-#KOKKOS
-bob_option(Compadre_USE_KokkosCore "Use KokkosCore" ON)
-bob_input(KokkosCore_PREFIX "${Trilinos_PREFIX}" PATH "Path to KokkosCore install")
-set(KOKKOS_IN_TRILINOS OFF)
-if (KokkosCore_PREFIX)
-  set(CMAKE_PREFIX_PATH ${KokkosCore_PREFIX} ${CMAKE_PREFIX_PATH})
-endif()
-if (Compadre_USE_KokkosCore)
-  if ("${KokkosCore_PREFIX}" STREQUAL "${Trilinos_PREFIX}") 
-    SET(KOKKOS_IN_TRILINOS ON)
-    MESSAGE(STATUS "Using KokkosCore in Trilinos.")
-    bob_add_dependency(PUBLIC NAME KokkosCore TARGETS kokkoscore INCLUDE_DIR_VARS KokkosCore_INCLUDE_DIRS)
+if (KOKKOS_IN_TRILINOS)
+  bob_add_dependency(PUBLIC NAME KokkosCore TARGETS kokkoscore INCLUDE_DIR_VARS KokkosCore_INCLUDE_DIRS)
+else()
+  if(NOT(Compadre_USE_KokkosCore))
+    MESSAGE(FATAL_ERROR "Compadre_USE_KokkosCore set to OFF, but entire toolkit relies on KokkosCore.")
   else()
-    FIND_FILE(Kokkos_PROJECT_FULL_FILENAME name kokkos_generated_settings.cmake HINTS "${KokkosCore_PREFIX}" NO_DEFAULT_PATH)
-    GET_FILENAME_COMPONENT(Kokkos_PROJECT_FILENAME ${Kokkos_PROJECT_FULL_FILENAME} NAME)
-    IF(Kokkos_PROJECT_FILENAME)
-      FIND_PACKAGE(KokkosCore CONFIGS "${Kokkos_PROJECT_FILENAME}") 
-      IF(KokkosCore_FOUND)
-        MESSAGE(STATUS "KokkosCore found at ${Kokkos_PROJECT_FULL_FILENAME}")
-        GET_FILENAME_COMPONENT(KokkosCore_INSTALL_DIR ${Kokkos_PROJECT_FULL_FILENAME} DIRECTORY)
-        SET(KokkosCore_INCLUDE_DIRS "${KokkosCore_INSTALL_DIR}/include")
-        SET(KokkosCore_STATIC_LIB "${KokkosCore_INSTALL_DIR}/lib/${KOKKOS_LINK_DEPENDS}")
-        MESSAGE(STATUS "KokkosCore_INCLUDE_DIRS: ${KokkosCore_INCLUDE_DIRS}")
-        MESSAGE(STATUS "KokkosCore_STATIC_LIB: ${KokkosCore_STATIC_LIB}")
+    if (KokkosCore_PREFIX STREQUAL "")
+      # Case where we install KokkosCore
+      set(KokkosCore_PREFIX "${PROJECT_BINARY_DIR}/KokkosCore-install")
+      set(KokkosCore_ARGS
+        "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+        "-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}"
+        "-DCMAKE_INSTALL_PREFIX=${KokkosCore_PREFIX}"
+      )
+      
+      SET(CMAKE_INSTALL_RPATH ${KokkosCore_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
+      SET(CMAKE_BUILD_RPATH ${KokkosCore_PREFIX}/lib ${CMAKE_BUILD_RPATH})
+      
+      SET(KokkosCore_CONFIGURE_STRING "${PROJECT_SOURCE_DIR}/kokkos/generate_makefile.bash")
+      SET(KokkosCore_BUILD_STRING "--prefix=${KokkosCore_PREFIX} --compiler=${CMAKE_CXX_COMPILER} --cxxflags=-fPIC --with-serial")
+      if (Compadre_USE_CUDA)
+        SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --arch=${KokkosCore_ARCH} --with-cuda-options=enable_lambda --compiler=$HOME/releases/kokkos/bin/nvcc_wrapper")
+        if (CUDA_PREFIX)
+            SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --with-cuda=${CUDA_PREFIX}")
+        endif()
+      else()
+        SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --arch=${KokkosCore_ARCH} --compiler=${CMAKE_CXX_COMPILER}")
+      endif()
+      if (Compadre_USE_OpenMP)
+        SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --with-openmp")
+      endif()
+      if (Compadre_USE_Pthreads)
+        SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --with-pthread")
+      endif()
+
+      set(arguments "")
+      FOREACH( arg ${KokkosCore_BUILD_STRING} )
+        SET( arguments "${arguments} ${cpp}" )
+      ENDFOREACH( arg )
+      
+      externalproject_add(KokkosCore
+          PREFIX kokkoscore
+          SOURCE_DIR "${PROJECT_SOURCE_DIR}/kokkos"
+          CMAKE_ARGS ${KokkosCore_ARGS}
+          BUILD_ALWAYS 1
+          CONFIGURE_COMMAND COMMAND "${KokkosCore_CONFIGURE_STRING}" "${arguments}"
+          #CONFIGURE_COMMAND COMMAND "${KokkosCore_CONFIGURE_STRING}" "${KokkosCore_BUILD_STRING}"
+          #BUILD_COMMAND COMMAND ${MAKE}
+          #INSTALL_COMMAND ${MAKE} install
+          TEST_AFTER_INSTALL OFF
+      )
+      ExternalProject_Get_property(KokkosCore BINARY_DIR)
+      #get_property(DIRECTORY PROPERTY EP_STEP_TARGETS build)
+          #BUILD_IN_SOURCE 1
+          #kokkoscore/src/KokkosCore-build
+          #CONFIGURE_COMMAND "mkdir ${PROJECT_BINARY_DIR}/kokkoscore" COMMAND "mkdir ${PROJECT_BINARY_DIR}/kokkoscore" -r ${PROJECT_SOURCE_DIR}/kokkos ${KokkosCore_PREFIX}"
+          #CONFIGURE_COMMAND ""
+          #CONFIGURE_COMMAND ${KokkosCore_BUILD_STRING} COMMAND ${MAKE}
+          #BUILD_COMMAND ${KokkosCore_BUILD_STRING} COMMAND ${MAKE}
+          SET(KokkosCore_INCLUDE_DIRS "${BINARY_DIR}/install/include")
+          SET(KokkosCore_STATIC_LIB "${BINARY_DIR}/install/lib/libkokkos.a")
+    else()
+      set(CMAKE_PREFIX_PATH ${KokkosCore_PREFIX} ${CMAKE_PREFIX_PATH})
+      FIND_FILE(Kokkos_PROJECT_FULL_FILENAME name kokkos_generated_settings.cmake HINTS "${KokkosCore_PREFIX}" NO_DEFAULT_PATH)
+      GET_FILENAME_COMPONENT(Kokkos_PROJECT_FILENAME ${Kokkos_PROJECT_FULL_FILENAME} NAME)
+      IF(Kokkos_PROJECT_FILENAME)
+        FIND_PACKAGE(KokkosCore CONFIGS "${Kokkos_PROJECT_FILENAME}") 
+        IF(KokkosCore_FOUND)
+          MESSAGE(STATUS "KokkosCore found at ${Kokkos_PROJECT_FULL_FILENAME}")
+          GET_FILENAME_COMPONENT(KokkosCore_INSTALL_DIR ${Kokkos_PROJECT_FULL_FILENAME} DIRECTORY)
+          SET(KokkosCore_INCLUDE_DIRS "${KokkosCore_INSTALL_DIR}/include")
+          SET(KokkosCore_STATIC_LIB "${KokkosCore_INSTALL_DIR}/lib/${KOKKOS_LINK_DEPENDS}")
+          MESSAGE(STATUS "KokkosCore_INCLUDE_DIRS: ${KokkosCore_INCLUDE_DIRS}")
+          MESSAGE(STATUS "KokkosCore_STATIC_LIB: ${KokkosCore_STATIC_LIB}")
+        ELSE()
+            MESSAGE(FATAL_ERROR "KokkosCore from outside of Trilinos requested, but kokkos_generated_settings.cmake was not found.")
+        ENDIF()
       ELSE()
           MESSAGE(FATAL_ERROR "KokkosCore from outside of Trilinos requested, but kokkos_generated_settings.cmake was not found.")
       ENDIF()
-    ELSE()
-        MESSAGE(FATAL_ERROR "KokkosCore from outside of Trilinos requested, but kokkos_generated_settings.cmake was not found.")
-    ENDIF()
+      set(KOKKOS_EXISTING_ELSEWHERE ON)
+    endif()
   endif()
-else()
-  MESSAGE(FATAL_ERROR "Compadre_USE_KokkosCore set to OFF, but entire toolkit relies on KokkosCore.")
 endif()
+
+#set(KOKKOS_IN_TRILINOS OFF)
+#if (KokkosCore_PREFIX)
+#  set(CMAKE_PREFIX_PATH ${KokkosCore_PREFIX} ${CMAKE_PREFIX_PATH})
+#  if (Compadre_USE_KokkosCore)
+#    if ("${KokkosCore_PREFIX}" STREQUAL "${Trilinos_PREFIX}") 
+#      SET(KOKKOS_IN_TRILINOS ON)
+#      MESSAGE(STATUS "Using KokkosCore in Trilinos.")
+#      bob_add_dependency(PUBLIC NAME KokkosCore TARGETS kokkoscore INCLUDE_DIR_VARS KokkosCore_INCLUDE_DIRS)
+#    else()
+#      FIND_FILE(Kokkos_PROJECT_FULL_FILENAME name kokkos_generated_settings.cmake HINTS "${KokkosCore_PREFIX}" NO_DEFAULT_PATH)
+#      GET_FILENAME_COMPONENT(Kokkos_PROJECT_FILENAME ${Kokkos_PROJECT_FULL_FILENAME} NAME)
+#      IF(Kokkos_PROJECT_FILENAME)
+#        FIND_PACKAGE(KokkosCore CONFIGS "${Kokkos_PROJECT_FILENAME}") 
+#        IF(KokkosCore_FOUND)
+#          MESSAGE(STATUS "KokkosCore found at ${Kokkos_PROJECT_FULL_FILENAME}")
+#          GET_FILENAME_COMPONENT(KokkosCore_INSTALL_DIR ${Kokkos_PROJECT_FULL_FILENAME} DIRECTORY)
+#          SET(KokkosCore_INCLUDE_DIRS "${KokkosCore_INSTALL_DIR}/include")
+#          SET(KokkosCore_STATIC_LIB "${KokkosCore_INSTALL_DIR}/lib/${KOKKOS_LINK_DEPENDS}")
+#          MESSAGE(STATUS "KokkosCore_INCLUDE_DIRS: ${KokkosCore_INCLUDE_DIRS}")
+#          MESSAGE(STATUS "KokkosCore_STATIC_LIB: ${KokkosCore_STATIC_LIB}")
+#        ELSE()
+#            MESSAGE(FATAL_ERROR "KokkosCore from outside of Trilinos requested, but kokkos_generated_settings.cmake was not found.")
+#        ENDIF()
+#      ELSE()
+#          MESSAGE(FATAL_ERROR "KokkosCore from outside of Trilinos requested, but kokkos_generated_settings.cmake was not found.")
+#      ENDIF()
+#    endif()
+#  else()
+#    MESSAGE(FATAL_ERROR "Compadre_USE_KokkosCore set to OFF, but entire toolkit relies on KokkosCore.")
+#  endif()
+#else()
+#  set(KokkosCore_PREFIX "${PROJECT_BINARY_DIR}/KokkosCore-install")
+#  set(KokkosCore_ARGS
+#    "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+#    "-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}"
+#    "-DCMAKE_INSTALL_PREFIX=${KokkosCore_PREFIX}"
+#  )
+#
+#  SET(CMAKE_INSTALL_RPATH ${KokkosCore_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
+#  SET(CMAKE_BUILD_RPATH ${KokkosCore_PREFIX}/lib ${CMAKE_BUILD_RPATH})
+#
+#  SET(KokkosCore_BUILD_STRING pwd COMMAND "./generate_makefile.bash --compiler=${CMAKE_CXX_COMPILER} --cxxflags=-fPIC --with-serial")
+#  if (Compadre_USE_CUDA)
+#    SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --arch=${KokkosCore_ARCH} --with-cuda-options=enable_lambda --compiler=$HOME/releases/kokkos/bin/nvcc_wrapper")
+#    if (CUDA_PREFIX)
+#        SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --with-cuda=${CUDA_PREFIX}")
+#    endif()
+#  else()
+#    SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --arch=${KokkosCore_ARCH} --compiler=${CMAKE_CXX_COMPILER}")
+#  endif()
+#  if (Compadre_USE_OpenMP)
+#    SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --with-openmp")
+#  endif()
+#  if (Compadre_USE_Pthreads)
+#    SET(KokkosCore_BUILD_STRING "${KokkosCore_BUILD_STRING} --with-pthread")
+#  endif()
+#
+#  externalproject_add(KokkosCore
+#      PREFIX kokkoscore
+#      SOURCE_DIR "${PROJECT_SOURCE_DIR}/kokkos"
+#      CMAKE_ARGS ${KokkosCore_ARGS}
+#      BUILD_ALWAYS 1
+#      BUILD_COMMAND ${KokkosCore_BUILD_STRING} COMMAND ${MAKE}
+#      INSTALL_COMMAND ${MAKE} install
+#      TEST_AFTER_INSTALL OFF
+#  )
+#endif()
 
 #MPI
 FIND_PACKAGE(MPI QUIET)
@@ -238,12 +384,17 @@ bob_option(Compadre_EXAMPLES "Compile Compadre examples" "${Compadre_TESTS}")
 IF (KOKKOS_IN_TRILINOS)
   include(${CMAKE_CURRENT_LIST_DIR}/cmake/detect_trilinos_opts.cmake)
   detect_trilinos_opts()
-  if (KokkosCore_HAS_CUDA)
-    if (NOT KokkosCore_HAS_CUDA_LAMBDA)
-      message(FATAL_ERROR
-        "Please reconfigure Kokkos with -DKokkos_ENABLE_Cuda_Lambda:BOOL=ON")
+  if (Compadre_USE_CUDA)
+    if (KokkosCore_HAS_CUDA)
+      if (NOT KokkosCore_HAS_CUDA_LAMBDA)
+        message(FATAL_ERROR
+          "Please reconfigure Kokkos with -DKokkos_ENABLE_Cuda_Lambda:BOOL=ON")
+      else()
+        bob_option(Compadre_USE_CUDA "Whether to use CUDA" ON)
+      endif()
     else()
-      bob_option(Compadre_USE_CUDA "Whether to use CUDA" ON)
+      message(FATAL_ERROR
+          "KokkosCore found in Trilinos, and Compadre_USE_CUDA=ON, but KokkosCore_HAS_CUDA found to be false.")
     endif()
   endif()
 ELSE()
@@ -261,18 +412,6 @@ ELSE()
 ENDIF()
 
 
-##
-##   OpenMP / Cuda
-##
-if (KokkosCore_HAS_CUDA)
-  find_package(CUDA)
-  bob_input(Compadre_CUDA_ARCH "" STRING "CUDA arch specifier")
-  bob_option(Compadre_USE_CUDA "Whether to use CUDA" ON)
-endif()
-bob_option(Compadre_USE_OpenMP "Whether to use OpenMP" "${KokkosCore_HAS_OpenMP}")
-
-
-
 ##########
 #
 #
@@ -284,13 +423,7 @@ bob_option(Compadre_USE_OpenMP "Whether to use OpenMP" "${KokkosCore_HAS_OpenMP}
 
 
 
-if(NOT(KOKKOS_IN_TRILINOS))
-  IF (KOKKOS_CXX_FLAGS) 
-    FOREACH(arg ${KOKKOS_CXX_FLAGS} )
-      SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${arg}")
-    ENDFOREACH()
-  ENDIF()
-else()
+if(KOKKOS_IN_TRILINOS)
   bob_begin_cxx_flags()
   bob_cxx11_flags()
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -328,6 +461,12 @@ else()
     message(WARNING "Unexpected compiler type ${CMAKE_CXX_COMPILER_ID}")
   endif()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FLAGS}")
+else()
+  IF (KOKKOS_CXX_FLAGS) 
+    FOREACH(arg ${KOKKOS_CXX_FLAGS} )
+      SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${arg}")
+    ENDFOREACH()
+  ENDIF()
 endif()
 
 
