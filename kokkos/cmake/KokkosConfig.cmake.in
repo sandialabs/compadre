@@ -7,6 +7,9 @@
 GET_FILENAME_COMPONENT(Kokkos_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 SET(Kokkos_INCLUDE_DIRS "@CONF_INCLUDE_DIRS@")
 
+# added by Compadre to get all KOKKOS_* variables
+INCLUDE("@CONF_INCLUDE_DIRS@/../kokkos_generated_settings.cmake")
+
 # Our library dependencies (contains definitions for IMPORTED targets)
 IF(NOT TARGET kokkos AND NOT Kokkos_BINARY_DIR)
   INCLUDE("${Kokkos_CMAKE_DIR}/KokkosTargets.cmake")
