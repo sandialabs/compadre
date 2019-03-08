@@ -1,5 +1,8 @@
 # Is this a build as part of Trilinos?
 
+# added by Compadre to quiet the Kokkos installation
+set(CMAKE_INSTALL_MESSAGE LAZY)
+
 IF(COMMAND TRIBITS_PACKAGE_DECL)
   SET(KOKKOS_HAS_TRILINOS ON CACHE BOOL "")
 ELSE()
