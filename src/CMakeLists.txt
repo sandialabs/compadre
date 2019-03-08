@@ -28,27 +28,20 @@ set(COMPADRE_SOURCES
 add_library(compadre ${COMPADRE_SOURCES})
 bob_library_includes(compadre)
 
+# link to Kokkos
 if (KOKKOS_EXISTING_ELSEWHERE) # user points to Kokkos installation
   target_include_directories(compadre PUBLIC "${KokkosCore_INCLUDE_DIRS}")
   target_link_libraries(compadre PUBLIC "${KokkosCore_STATIC_LIB}")
-elseif(KOKKOS_IN_TRILINOS) # Kokkos found in Trilinos installation
+elseif (KOKKOS_IN_TRILINOS) # Kokkos found in Trilinos installation
   bob_link_dependency(compadre PUBLIC KokkosCore)
-else() # Kokkos built for user by this project
+elseif (KOKKOS_BUILT_FOR_USER) # Kokkos built for user by this project
   # adds a KokkosCore dependency to compadre, but checks whether or not CMake needs to rescan after
   # building KokkosCore
   add_dependencies(compadre RescanKokkosCore)
   target_link_libraries(compadre PUBLIC "${KokkosCore_STATIC_LIB}")
 endif()
 
-if (Compadre_USE_LAPACK)
-  target_link_libraries(compadre PUBLIC "${LAPACK_LIB}")
-endif()
-
-if (Compadre_USE_MPI)
-    target_include_directories(compadre PUBLIC "${MPI_CXX_INCLUDE_PATH}")
-    target_link_libraries(compadre PUBLIC "${MPI_CXX_LIBRARIES}")
-endif()
-
+# link to CUDA
 if (Compadre_USE_CUDA AND NOT(KOKKOS_IN_TRILINOS))
   target_include_directories(compadre PUBLIC "${CUDA_INCLUDE_DIRS}")
   target_link_libraries(compadre PUBLIC "${CUDA_CUBLAS_LIBRARIES}")
@@ -57,7 +50,15 @@ if (Compadre_USE_CUDA AND NOT(KOKKOS_IN_TRILINOS))
   MESSAGE(STATUS "${CUDA_INCLUDE_DIRS}")
 endif()
 
+# link to LAPACK
+if (Compadre_USE_LAPACK)
+  target_link_libraries(compadre PUBLIC "${LAPACK_LIB}")
+endif()
+
+# link to MPI
 if (Compadre_USE_MPI)
+  target_include_directories(compadre PUBLIC "${MPI_CXX_INCLUDE_PATH}")
+  target_link_libraries(compadre PUBLIC "${MPI_CXX_LIBRARIES}")
   target_link_libraries(compadre PUBLIC mpi)
 endif()
 

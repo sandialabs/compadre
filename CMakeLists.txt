@@ -35,41 +35,6 @@ include(ExternalProject)
 
 
 
-#LAPACK
-bob_option(Compadre_USE_LAPACK "Use LAPACK" ON)
-SET(Compadre_USE_OPENBLAS OFF) # need to know if openblas is used in order to limit its ability to spawn threads
-bob_input(LAPACK_PREFIX "" PATH "Path to LAPACK install")
-if (LAPACK_PREFIX)
-  set(CMAKE_PREFIX_PATH ${LAPACK_PREFIX} ${CMAKE_PREFIX_PATH})
-endif()
-bob_input(LAPACK_LOCATION "" PATH "Optional explicit path to exact location of LAPACK")
-bob_option(LAPACK_DECLARED_THREADSAFE "Is LAPACK threadsafe? If not, default to serial calls for solves." ON)
-if (Compadre_USE_LAPACK)
-  if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
-    # Intel compiler detected. Will use "-mkl" and no need to find Lapack or Blas
-  else()
-    if ("${LAPACK_LOCATION}" STREQUAL "")
-      FIND_LIBRARY(LAPACK_LIB lapack)
-    else()
-      SET(LAPACK_LIB "${LAPACK_LOCATION}")
-    endif()
-    MESSAGE(STATUS "LAPACK_LIB: ${LAPACK_LIB}")
-    IF (NOT(LAPACK_LIB))
-      MESSAGE(FATAL_ERROR "Compadre_USE_LAPACK is ON, but LAPACK_PREFIX was set incorrectly.")
-    ELSE()
-      IF(APPLE)
-        execute_process(COMMAND otool -L  "${LAPACK_LIB}" OUTPUT_VARIABLE LAPACK_DEPENDENCIES) 
-      ELSE()
-        execute_process(COMMAND ldd "${LAPACK_LIB}" OUTPUT_VARIABLE LAPACK_DEPENDENCIES) 
-      ENDIF()
-      string(FIND "${LAPACK_DEPENDENCIES}" "openblas" BLAS_MATCH)
-      if ("${BLAS_MATCH}" GREATER "-1")
-        SET(Compadre_USE_OPENBLAS ON)
-      endif()
-    ENDIF()
-  endif()
-endif()
-
 #TRILINOS
 bob_input(Trilinos_PREFIX "" PATH "Path to Trilinos install")
 if (Trilinos_PREFIX)
@@ -109,6 +74,7 @@ if (Compadre_USE_OpenMP AND NOT(Compadre_USE_CUDA))
 endif()
 set(KOKKOS_IN_TRILINOS OFF)
 set(KOKKOS_EXISTING_ELSEWHERE OFF)
+set(KOKKOS_BUILT_FOR_USER OFF)
 
 IF (Compadre_USE_Trilinos)
   FIND_PACKAGE(Trilinos)
@@ -163,8 +129,6 @@ IF (Compadre_USE_Trilinos)
     MESSAGE(FATAL_ERROR "Found Trilinos but could not find KokkosCore.")
   ENDIF()
 
-  # add check for Kokkos_HAS_CUDA and Kokkos_HAS_OpenMP and Kokkos_HAS_Pthreads
-  # and change our settings, alerting user if they are different
 ENDIF()
 
 if (KOKKOS_IN_TRILINOS)
@@ -174,6 +138,7 @@ else()
     MESSAGE(FATAL_ERROR "Compadre_USE_KokkosCore set to OFF, but entire toolkit relies on KokkosCore.")
   else()
     if (KokkosCore_PREFIX STREQUAL "")
+      SET(KOKKOS_BUILT_FOR_USER ON)
       # Case where we install KokkosCore
       # If we enter this case, then the first time the following find_package will fail
       # After configuring the CMake project, the RescanKokkosCore target will cause
@@ -283,6 +248,47 @@ FIND_PACKAGE(MPI QUIET)
 bob_option(Compadre_USE_MPI "Use MPI for parallelism" ${MPI_CXX_FOUND})
 message(STATUS "MPI Enabled: ${MPI_CXX_FOUND}")
 
+#LAPACK
+set(Compadre_USE_LAPACK ON)
+if (Compadre_USE_CUDA)
+  set(Compadre_USE_LAPACK OFF)
+  message(STATUS "Compadre_USE_LAPACK set to OFF because Compadre_USE_CUDA is ON")
+endif()
+message(STATUS "Compadre_USE_LAPACK: ${Compadre_USE_LAPACK}")
+SET(Compadre_USE_OPENBLAS OFF) # need to know if openblas is used in order to limit its ability to spawn threads
+bob_input(LAPACK_PREFIX "" PATH "Path to LAPACK install")
+if (LAPACK_PREFIX)
+  set(CMAKE_PREFIX_PATH ${LAPACK_PREFIX} ${CMAKE_PREFIX_PATH})
+endif()
+bob_input(LAPACK_LOCATION "" PATH "Optional explicit path to exact location of LAPACK")
+bob_option(LAPACK_DECLARED_THREADSAFE "Is LAPACK threadsafe? If not, default to serial calls for solves." ON)
+if (Compadre_USE_LAPACK)
+  if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
+    # Intel compiler detected. Will use "-mkl" and no need to find Lapack or Blas
+  else()
+    if ("${LAPACK_LOCATION}" STREQUAL "")
+      FIND_LIBRARY(LAPACK_LIB lapack)
+    else()
+      SET(LAPACK_LIB "${LAPACK_LOCATION}")
+    endif()
+    MESSAGE(STATUS "LAPACK_LIB: ${LAPACK_LIB}")
+    IF (NOT(LAPACK_LIB))
+      MESSAGE(FATAL_ERROR "Compadre_USE_LAPACK is ON, but LAPACK_PREFIX was set incorrectly.")
+    ELSE()
+      IF(APPLE)
+        execute_process(COMMAND otool -L  "${LAPACK_LIB}" OUTPUT_VARIABLE LAPACK_DEPENDENCIES) 
+      ELSE()
+        execute_process(COMMAND ldd "${LAPACK_LIB}" OUTPUT_VARIABLE LAPACK_DEPENDENCIES) 
+      ENDIF()
+      string(FIND "${LAPACK_DEPENDENCIES}" "openblas" BLAS_MATCH)
+      if ("${BLAS_MATCH}" GREATER "-1")
+        SET(Compadre_USE_OPENBLAS ON)
+      endif()
+    ENDIF()
+  endif()
+endif()
+
+
 #PYTHON
 bob_option(Compadre_USE_PYTHON "Use PYTHON" OFF)
 bob_option(Compadre_USE_MATLAB "Use MATLAB interface for PYTHON" OFF)
@@ -364,8 +370,8 @@ bob_option(Compadre_EXAMPLES "Compile Compadre examples" "${Compadre_TESTS}")
 
 
 
-##  Detect KokkosCore functionality from Trilinos
 IF (KOKKOS_IN_TRILINOS)
+  #  Detect KokkosCore functionality from Trilinos
   include(${CMAKE_CURRENT_LIST_DIR}/cmake/detect_trilinos_opts.cmake)
   detect_trilinos_opts()
   if (Compadre_USE_CUDA)
@@ -381,41 +387,22 @@ IF (KOKKOS_IN_TRILINOS)
           "KokkosCore found in Trilinos, and Compadre_USE_CUDA=ON, but KokkosCore_HAS_CUDA found to be false.")
     endif()
   endif()
-ELSE()
-  if (KOKKOS_INTERNAL_USE_CUDA EQUAL "1")
-    if (CUDA_PREFIX STREQUAL "")
-      # Find Cuda using hints from kokkos generate makefile
-      set(CMAKE_PREFIX_PATH "${KOKKOS_GMAKE_TPL_LIBRARY_DIRS}/.." ${CMAKE_PREFIX_PATH})
-      find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINT "${KOKKOS_GMAKE_TPL_LIBRARY_DIRS}/..")
-      MESSAGE(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
-      set(CMAKE_PREFIX_PATH ${KOKKOS_GMAKE_TPL_LIBRARY_DIRS} ${CMAKE_PREFIX_PATH})
-      find_library(CUDA_CUBLAS_LIBRARIES cublas HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-      find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-      find_library(CUDA_CUDART_LIBRARIES cudart HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-      if ((NOT CUDA_CUBLAS_LIBRARIES) OR (NOT CUDA_CUSOLVER_LIBRARIES) OR (NOT CUDA_CUDART_LIBRARIES))
-        message(FATAL_ERROR "CUDA_PREFIX not specified and not able to be determined from Kokkos configuration.")
-      endif()
-      MESSAGE(STATUS "CUDA_LIBRARIES: ${CUDA_INCLUDE_DIRS}/../lib64")
-    else()
-      find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINT "${CUDA_PREFIX}/include")
-      find_library(CUDA_CUBLAS_LIBRARIES cublas HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-      find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-      find_library(CUDA_CUDART_LIBRARIES cudart HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-      if ((NOT CUDA_CUBLAS_LIBRARIES) OR (NOT CUDA_CUSOLVER_LIBRARIES) OR (NOT CUDA_CUDART_LIBRARIES))
-        message(FATAL_ERROR "CUDA_PREFIX specified but Cuda was not found at that location.")
-      endif()
-      MESSAGE(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
-      MESSAGE(STATUS "CUDA_LIBRARIES: ${CUDA_INCLUDE_DIRS}/../lib64")
+ELSEIF (KOKKOS_EXISTING_ELSEWHERE)
+  # existing standalone KokkosCore
+  if (CUDA_PREFIX STREQUAL "")
+    # Find Cuda using hints from kokkos generate makefile
+    set(CMAKE_PREFIX_PATH "${KOKKOS_GMAKE_TPL_LIBRARY_DIRS}/.." ${CMAKE_PREFIX_PATH})
+    find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINT "${KOKKOS_GMAKE_TPL_LIBRARY_DIRS}/..")
+    MESSAGE(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
+    set(CMAKE_PREFIX_PATH ${KOKKOS_GMAKE_TPL_LIBRARY_DIRS} ${CMAKE_PREFIX_PATH})
+    find_library(CUDA_CUBLAS_LIBRARIES cublas HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+    find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+    find_library(CUDA_CUDART_LIBRARIES cudart HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+    if ((NOT CUDA_CUBLAS_LIBRARIES) OR (NOT CUDA_CUSOLVER_LIBRARIES) OR (NOT CUDA_CUDART_LIBRARIES))
+      message(FATAL_ERROR "CUDA_PREFIX not specified and not able to be determined from Kokkos configuration.")
     endif()
-  elseif(Compadre_USE_CUDA) 
-    # case where we built KokkosCore ourselves
-
-    if (CUDA_PREFIX STREQUAL "")
-      EXECUTE_PROCESS(
-          COMMAND which "nvcc" WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} RESULT_VARIABLE CUDA_PREFIX
-      )	
-      MESSAGE(STATUS "CUDA_PREFIX automatically determined: ${CUDA_PREFIX}")
-    endif()
+    MESSAGE(STATUS "CUDA_LIBRARIES: ${CUDA_INCLUDE_DIRS}/../lib64")
+  else()
     find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINT "${CUDA_PREFIX}/include")
     find_library(CUDA_CUBLAS_LIBRARIES cublas HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
     find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
@@ -426,6 +413,24 @@ ELSE()
     MESSAGE(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
     MESSAGE(STATUS "CUDA_LIBRARIES: ${CUDA_INCLUDE_DIRS}/../lib64")
   endif()
+ELSEIF (KOKKOS_BUILT_FOR_USER)
+  # case where we built KokkosCore ourselves
+
+  if (CUDA_PREFIX STREQUAL "")
+    EXECUTE_PROCESS(
+        COMMAND which "nvcc" WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} RESULT_VARIABLE CUDA_PREFIX
+    )	
+    MESSAGE(STATUS "CUDA_PREFIX automatically determined: ${CUDA_PREFIX}")
+  endif()
+  find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINT "${CUDA_PREFIX}/include")
+  find_library(CUDA_CUBLAS_LIBRARIES cublas HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+  find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+  find_library(CUDA_CUDART_LIBRARIES cudart HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+  if ((NOT CUDA_CUBLAS_LIBRARIES) OR (NOT CUDA_CUSOLVER_LIBRARIES) OR (NOT CUDA_CUDART_LIBRARIES))
+    message(FATAL_ERROR "CUDA_PREFIX specified but Cuda was not found at that location.")
+  endif()
+  MESSAGE(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
+  MESSAGE(STATUS "CUDA_LIBRARIES: ${CUDA_INCLUDE_DIRS}/../lib64")
 ENDIF()
 
 
