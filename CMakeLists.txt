@@ -71,15 +71,20 @@ if (Compadre_USE_LAPACK)
 endif()
 
 #TRILINOS
-bob_option(Compadre_USE_Trilinos "Use Trilinos" OFF)
 bob_input(Trilinos_PREFIX "" PATH "Path to Trilinos install")
 if (Trilinos_PREFIX)
   set(CMAKE_PREFIX_PATH ${Trilinos_PREFIX} ${CMAKE_PREFIX_PATH})
+  set(Compadre_USE_Trilinos ON)
 endif()
 
 #KOKKOS
 bob_option(Compadre_USE_KokkosCore "Use KokkosCore" ON)
 bob_input(KokkosCore_PREFIX "${Trilinos_PREFIX}" PATH "Path to KokkosCore install")
+
+if (Trilinos_PREFIX AND NOT("${KokkosCore_PREFIX}" STREQUAL "${Trilinos_PREFIX}"))
+    # check both KokkosCore_PREFIX and Trilinos_PREFIX were specified differ (if either or both are not specified, it is fine)
+    MESSAGE(FATAL_ERROR "KokkosCore_PREFIX and Trilinos_PREFIX were both specified, but with different values")
+endif()
 configure_file("${PROJECT_SOURCE_DIR}/kokkos/bin/nvcc_wrapper.in" "${PROJECT_SOURCE_DIR}/kokkos/bin/nvcc_wrapper" @ONLY)
 bob_input(KokkosCore_ARCH "" STRING "Architecture to specify for KokkosCore")
 if (APPLE)
