@@ -12,4 +12,4 @@ if ((gomp_lib_filepath is not 'None') and (gomp_lib_filepath is not 'GOMP_LIB-NO
 if ((stdc_lib_filepath is not 'None') and (stdc_lib_filepath is not 'STDC_LIB-NOTFOUND')):
     lib2 = cdll.LoadLibrary(stdc_lib_filepath)
 # import the gmls model
-import GMLS_Python
+import GMLS_Module
