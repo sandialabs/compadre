@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.3.0)
+cmake_minimum_required(VERSION 3.0.0)
 
 ##########
 #
@@ -61,6 +61,7 @@ else()
   bob_option(Compadre_USE_OpenMP "Whether to use OpenMP" ON)
   bob_option(Compadre_USE_Pthread "Whether to use Pthread" OFF)
 endif()
+bob_option(Compadre_EXPLICITLY_DISABLE_CUDA "Special case CUDA override" OFF)
 if (Compadre_USE_CUDA)
   if (KokkosCore_PREFIX STREQUAL "")
     # replace users compiler with nvcc_wrapper which uses their compiler
@@ -128,6 +129,41 @@ IF (Compadre_USE_Trilinos)
   ELSE()
     MESSAGE(FATAL_ERROR "Found Trilinos but could not find KokkosCore.")
   ENDIF()
+
+  #  Detect KokkosCore functionality from Trilinos
+  include(${CMAKE_CURRENT_LIST_DIR}/cmake/detect_trilinos_opts.cmake)
+  detect_trilinos_opts()
+
+  # get kokkos settings, change our settings, error to user if we something they requested is not enabled
+  if (KokkosCore_HAS_CUDA AND NOT(Compadre_EXPLICITLY_DISABLE_CUDA))
+    if (NOT KokkosCore_HAS_CUDA_LAMBDA)
+      message(FATAL_ERROR "Please reconfigure Trilinos with -DKokkos_ENABLE_Cuda_Lambda:BOOL=ON or set Compadre_EXPLICITLY_DISABLE_CUDA to ON")
+    endif()
+    message(STATUS "CUDA enabled in KokkosCore in Trilinos, setting Compadre_USE_CUDA to ON")
+    set(Compadre_USE_CUDA ON)
+  else()
+    if (Compadre_USE_CUDA)
+      message(FATAL_ERROR "Compadre_USE_CUDA is ON, but the Kokkos at Trilinos_PREFIX does not have CUDA enabled.")
+    endif()
+  endif()
+
+  if (KokkosCore_HAS_OpenMP)
+    message(STATUS "OpenMP enabled in KokkosCore in Trilinos, setting Compadre_USE_OpenMP to ON")
+    set(Compadre_USE_OpenMP ON)
+  else()
+    if (Compadre_USE_OpenMP)
+      message(FATAL_ERROR "Compadre_USE_OpenMP is ON, but the Kokkos at Trilinos_PREFIX does not have OpenMP enabled.")
+    endif()
+  endif()
+
+  if (KokkosCore_HAS_Pthreads)
+    message(STATUS "Pthread enabled in KokkosCore in Trilinos, setting Compadre_USE_Pthread to ON")
+    set(Compadre_USE_Pthread ON)
+  else()
+    if (Compadre_USE_Pthread)
+      message(FATAL_ERROR "Compadre_USE_Pthread is ON, but the Kokkos at Trilinos_PREFIX does not have Pthread enabled.")
+    endif()
+  endif()
 
 ENDIF()
 
@@ -205,7 +241,7 @@ else()
           MESSAGE(STATUS "KokkosCore_STATIC_LIB: ${KokkosCore_STATIC_LIB}")
 
           # get kokkos settings, change our settings, error to user if we something they requested is not enabled
-          if (KOKKOS_INTERNAL_USE_CUDA EQUAL "1")
+          if ((KOKKOS_INTERNAL_USE_CUDA EQUAL "1") AND NOT(Compadre_EXPLICITLY_DISABLE_CUDA))
             message(STATUS "CUDA enabled in Kokkos, setting Compadre_USE_CUDA to ON")
             set(Compadre_USE_CUDA ON)
           else()
@@ -363,46 +399,50 @@ bob_option(Compadre_EXAMPLES "Compile Compadre examples" "${Compadre_TESTS}")
 ##########
 #
 #
-#  Kokkos Configurations
+#  CUDA Libraries Locations from Kokkos Configurations
 #
 #
 ##########
 
 
 
-IF (KOKKOS_IN_TRILINOS)
-  #  Detect KokkosCore functionality from Trilinos
-  include(${CMAKE_CURRENT_LIST_DIR}/cmake/detect_trilinos_opts.cmake)
-  detect_trilinos_opts()
-  if (Compadre_USE_CUDA)
-    if (KokkosCore_HAS_CUDA)
-      if (NOT KokkosCore_HAS_CUDA_LAMBDA)
-        message(FATAL_ERROR
-          "Please reconfigure Kokkos with -DKokkos_ENABLE_Cuda_Lambda:BOOL=ON")
-      else()
-        bob_option(Compadre_USE_CUDA "Whether to use CUDA" ON)
+if (Compadre_USE_CUDA)
+  IF (KOKKOS_IN_TRILINOS)
+    # already taken care of by Trilinos linking
+  ELSEIF (KOKKOS_EXISTING_ELSEWHERE)
+    # existing standalone KokkosCore
+    if (CUDA_PREFIX STREQUAL "")
+      # Find Cuda using hints from kokkos generate makefile
+      set(CMAKE_PREFIX_PATH "${KOKKOS_GMAKE_TPL_LIBRARY_DIRS}/.." ${CMAKE_PREFIX_PATH})
+      find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINT "${KOKKOS_GMAKE_TPL_LIBRARY_DIRS}/..")
+      MESSAGE(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
+      set(CMAKE_PREFIX_PATH ${KOKKOS_GMAKE_TPL_LIBRARY_DIRS} ${CMAKE_PREFIX_PATH})
+      find_library(CUDA_CUBLAS_LIBRARIES cublas HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+      find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+      find_library(CUDA_CUDART_LIBRARIES cudart HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+      if ((NOT CUDA_CUBLAS_LIBRARIES) OR (NOT CUDA_CUSOLVER_LIBRARIES) OR (NOT CUDA_CUDART_LIBRARIES))
+        message(FATAL_ERROR "CUDA_PREFIX not specified and not able to be determined from Kokkos configuration.")
       endif()
+      MESSAGE(STATUS "CUDA_LIBRARIES: ${CUDA_INCLUDE_DIRS}/../lib64")
     else()
-      message(FATAL_ERROR
-          "KokkosCore found in Trilinos, and Compadre_USE_CUDA=ON, but KokkosCore_HAS_CUDA found to be false.")
+      find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINT "${CUDA_PREFIX}/include")
+      find_library(CUDA_CUBLAS_LIBRARIES cublas HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+      find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+      find_library(CUDA_CUDART_LIBRARIES cudart HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+      if ((NOT CUDA_CUBLAS_LIBRARIES) OR (NOT CUDA_CUSOLVER_LIBRARIES) OR (NOT CUDA_CUDART_LIBRARIES))
+        message(FATAL_ERROR "CUDA_PREFIX specified but Cuda was not found at that location.")
+      endif()
+      MESSAGE(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
+      MESSAGE(STATUS "CUDA_LIBRARIES: ${CUDA_INCLUDE_DIRS}/../lib64")
     endif()
-  endif()
-ELSEIF (KOKKOS_EXISTING_ELSEWHERE)
-  # existing standalone KokkosCore
-  if (CUDA_PREFIX STREQUAL "")
-    # Find Cuda using hints from kokkos generate makefile
-    set(CMAKE_PREFIX_PATH "${KOKKOS_GMAKE_TPL_LIBRARY_DIRS}/.." ${CMAKE_PREFIX_PATH})
-    find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINT "${KOKKOS_GMAKE_TPL_LIBRARY_DIRS}/..")
-    MESSAGE(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
-    set(CMAKE_PREFIX_PATH ${KOKKOS_GMAKE_TPL_LIBRARY_DIRS} ${CMAKE_PREFIX_PATH})
-    find_library(CUDA_CUBLAS_LIBRARIES cublas HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-    find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-    find_library(CUDA_CUDART_LIBRARIES cudart HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-    if ((NOT CUDA_CUBLAS_LIBRARIES) OR (NOT CUDA_CUSOLVER_LIBRARIES) OR (NOT CUDA_CUDART_LIBRARIES))
-      message(FATAL_ERROR "CUDA_PREFIX not specified and not able to be determined from Kokkos configuration.")
+  ELSEIF (KOKKOS_BUILT_FOR_USER)
+    # case where we built KokkosCore ourselves
+    if (CUDA_PREFIX STREQUAL "")
+      EXECUTE_PROCESS(
+          COMMAND which "nvcc" WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} RESULT_VARIABLE CUDA_PREFIX
+      )	
+      MESSAGE(STATUS "CUDA_PREFIX automatically determined: ${CUDA_PREFIX}")
     endif()
-    MESSAGE(STATUS "CUDA_LIBRARIES: ${CUDA_INCLUDE_DIRS}/../lib64")
-  else()
     find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINT "${CUDA_PREFIX}/include")
     find_library(CUDA_CUBLAS_LIBRARIES cublas HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
     find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
@@ -412,26 +452,8 @@ ELSEIF (KOKKOS_EXISTING_ELSEWHERE)
     endif()
     MESSAGE(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
     MESSAGE(STATUS "CUDA_LIBRARIES: ${CUDA_INCLUDE_DIRS}/../lib64")
-  endif()
-ELSEIF (KOKKOS_BUILT_FOR_USER)
-  # case where we built KokkosCore ourselves
-
-  if (CUDA_PREFIX STREQUAL "")
-    EXECUTE_PROCESS(
-        COMMAND which "nvcc" WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} RESULT_VARIABLE CUDA_PREFIX
-    )	
-    MESSAGE(STATUS "CUDA_PREFIX automatically determined: ${CUDA_PREFIX}")
-  endif()
-  find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINT "${CUDA_PREFIX}/include")
-  find_library(CUDA_CUBLAS_LIBRARIES cublas HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-  find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-  find_library(CUDA_CUDART_LIBRARIES cudart HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-  if ((NOT CUDA_CUBLAS_LIBRARIES) OR (NOT CUDA_CUSOLVER_LIBRARIES) OR (NOT CUDA_CUDART_LIBRARIES))
-    message(FATAL_ERROR "CUDA_PREFIX specified but Cuda was not found at that location.")
-  endif()
-  MESSAGE(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
-  MESSAGE(STATUS "CUDA_LIBRARIES: ${CUDA_INCLUDE_DIRS}/../lib64")
-ENDIF()
+  ENDIF()
+endif()
 
 
 ##########
