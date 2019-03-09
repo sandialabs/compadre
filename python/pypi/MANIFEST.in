@@ -1,4 +1,0 @@
-include README.md
-include LICENSE.md
-recursive-include compadre *
-include compadre/_GMLS_Module.so
