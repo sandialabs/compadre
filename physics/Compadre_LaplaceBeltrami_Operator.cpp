@@ -147,21 +147,19 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
 
     } else if (field_one == solution_field_id && field_two == lm_field_id) {
         // col all DOFs for solution against Lagrange Multiplier
-		for(local_index_type i = 0; i < nlocal; i++) {
-			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-				local_index_type row = local_to_dof_map[i][field_one][k];
+        auto comm = this->_particles->getCoordsConst()->getComm();
+        if (comm->getRank() == 0) {
+		    for(local_index_type i = 0; i < nlocal; i++) {
+		    	for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+		    		local_index_type row = local_to_dof_map[i][field_one][k];
 
-				Teuchos::Array<local_index_type> col_data(fields[field_two]->nDim());
-				Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
-				for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-					cols[n] = local_to_dof_map[0][field_two][n];
-				}
-				//#pragma omp critical
-				{
-					this->_A_graph->insertLocalIndices(row, cols);
-				}
-			}
-		}
+		    		Teuchos::Array<local_index_type> col_data(1);
+		    		Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+		    		cols[0] = 0; // local index 0 is global shared index
+		    		this->_A_graph->insertLocalIndices(row, cols);
+		    	}
+		    }
+        }
     } else {
         // identity on all DOFs for Lagrange Multiplier (even DOFs not really used, since we only use first LM dof for now)
 		for(local_index_type i = 0; i < nlocal; i++) {
@@ -969,30 +967,27 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 		}
 	}
     // local index 0 is the shared global id for the lagrange multiplier
-    //local_index_type row = local_to_dof_map[0][field_one][0];
     this->_A->sumIntoLocalValues(0, cols, vals);
 } else if (field_one == solution_field_id && field_two == lm_field_id) {
 
     // col all DOFs for solution against Lagrange Multiplier
-	for(local_index_type i = 0; i < nlocal; i++) {
-		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-			local_index_type row = local_to_dof_map[i][field_one][k];
+    auto comm = this->_particles->getCoordsConst()->getComm();
+    if (comm->getRank() == 0) {
+	    for(local_index_type i = 0; i < nlocal; i++) {
+	    	for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+	    		local_index_type row = local_to_dof_map[i][field_one][k];
 
-			Teuchos::Array<local_index_type> col_data(fields[field_two]->nDim());
-			Teuchos::Array<scalar_type> val_data(fields[field_two]->nDim());
-			Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
-			Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
+	    		Teuchos::Array<local_index_type> col_data(1);
+	    		Teuchos::Array<scalar_type> val_data(1);
+	    		Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+	    		Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
 
-			for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-				cols[n] = local_to_dof_map[0][field_two][n];
-                vals[n] = 1;
-			}
-			//#pragma omp critical
-			{
-		        this->_A->sumIntoLocalValues(row, cols, vals);
-			}
-		}
-	}
+	    		cols[0] = 0; // local index 0 is global shared index
+                vals[0] = 1;
+	    	    this->_A->sumIntoLocalValues(row, cols, vals);
+	    	}
+	    }
+    }
 } else {
     // identity on all DOFs for Lagrange Multiplier (even DOFs not really used, since we only use first LM dof for now)
     //
