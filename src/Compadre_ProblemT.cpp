@@ -219,7 +219,7 @@ void ProblemT::initialize(scalar_type initial_simulation_time) {
 
 		// complete each block after graph computed
 		if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
-			A_graph[row_block][col_block]->fillComplete();
+			A_graph[row_block][col_block]->fillComplete(_problem_dof_data->getRowMap(col_block), _problem_dof_data->getRowMap(row_block));
 		}
 	}
 	if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==false) {
@@ -238,7 +238,7 @@ void ProblemT::initialize(scalar_type initial_simulation_time) {
 		assembleOperator(field_one, field_two);
 		if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
 			if (_A[row_block][col_block]->isFillActive())
-				_A[row_block][col_block]->fillComplete();
+				_A[row_block][col_block]->fillComplete(_problem_dof_data->getRowMap(col_block), _problem_dof_data->getRowMap(row_block));
 		}
 	}
 	if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==false) {
