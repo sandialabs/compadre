@@ -38,10 +38,14 @@ typedef Compadre::XyzVector xyz_type;
 
 
 
-void LaplaceBeltramiPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
+Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
 	if (field_two == -1) {
 		field_two = field_one;
 	}
+
+    // check that the solver is in 'blocked' mode
+    TEUCHOS_TEST_FOR_EXCEPT_MSG(_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==false, 
+            "Non-blocked matrix system incompatible with Lagrange multiplier based Laplace-Beltrami solve.");
 
 	Teuchos::RCP<Teuchos::Time> ComputeGraphTime = Teuchos::TimeMonitor::getNewCounter ("Compute Graph Time");
 	ComputeGraphTime->start();
@@ -56,6 +60,7 @@ void LaplaceBeltramiPhysics::computeGraph(local_index_type field_one, local_inde
 
     auto solution_field_id = _particles->getFieldManagerConst()->getIDOfFieldFromName("solution");
     auto lm_field_id = _particles->getFieldManagerConst()->getIDOfFieldFromName("lagrange multiplier");
+
 
     if (field_one == solution_field_id && field_two == solution_field_id) {
 		//#pragma omp parallel for
@@ -81,24 +86,64 @@ void LaplaceBeltramiPhysics::computeGraph(local_index_type field_one, local_inde
 		}
     } else if (field_one == lm_field_id && field_two == solution_field_id) {
         // row all DOFs for solution against Lagrange Multiplier
-		for(local_index_type i = 0; i < 1; i++) { // only first DOF of LM
-			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-				local_index_type row = local_to_dof_map[i][field_one][k];
 
-				Teuchos::Array<local_index_type> col_data(nlocal * fields[field_two]->nDim());
-				Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+        // create a new graph from the existing one, but with an updated row map augmented by a single global dof
+        // for the lagrange multiplier
+        auto existing_row_map = this->_A_graph->getRowMap();
+        auto existing_col_map = this->_A_graph->getColMap();
 
-				for (local_index_type l = 0; l < nlocal; l++) {
-					for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-						cols[l*fields[field_two]->nDim() + n] = local_to_dof_map[l][field_two][n];
-					}
-				}
-				//#pragma omp critical
-				{
-					this->_A_graph->insertLocalIndices(row, cols);
-				}
+        size_t max_entries_per_row;
+        Teuchos::ArrayRCP<const size_t> empty_array;
+        bool bound_same_for_all_local_rows = true;
+        this->_A_graph->getNumEntriesPerLocalRowUpperBound(empty_array, max_entries_per_row, bound_same_for_all_local_rows);
+
+        auto row_map_index_base = existing_row_map->getIndexBase();
+        auto row_map_global_num_elements = existing_row_map->getGlobalNumElements();
+        auto row_map_entries = existing_row_map->getMyGlobalIndices();
+
+        auto comm = this->_particles->getCoordsConst()->getComm();
+        const int offset_size = (comm->getRank() == 0) ? 0 : 1;
+        Kokkos::View<global_index_type*> new_row_map_entries("", row_map_entries.extent(0)+offset_size);
+
+        for (local_index_type i=0; i<row_map_entries.extent(0); ++i) {
+            new_row_map_entries(i+offset_size) = row_map_entries(i);
+        }
+
+        {
+            // exchange information between processors to get first index on processor 0
+            global_index_type global_index_proc_0_element_0;
+            if (comm->getRank()==0) {
+                global_index_proc_0_element_0 = row_map_entries(0);
+            }
+
+            // broadcast from processor 0 to other ranks
+            Teuchos::broadcast<local_index_type, global_index_type>(*comm, 0 /*processor broadcasting*/, 
+                    1 /*size*/, &global_index_proc_0_element_0);
+
+            // now the first entry in the map is to the shared gid for the LM
+            new_row_map_entries(0) = global_index_proc_0_element_0;
+
+        }
+
+        auto new_row_map = Teuchos::rcp(new map_type(row_map_global_num_elements,
+                										new_row_map_entries,
+                										row_map_index_base,
+                										this->_particles->getCoordsConst()->getComm()));
+
+        this->_A_graph = Teuchos::rcp(new crs_graph_type (new_row_map, existing_col_map, max_entries_per_row));
+
+        // row all DOFs for solution against Lagrange Multiplier
+		Teuchos::Array<local_index_type> col_data(nlocal * fields[field_two]->nDim());
+		Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+
+		for (local_index_type l = 0; l < nlocal; l++) {
+			for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+				cols[l*fields[field_two]->nDim() + n] = local_to_dof_map[l][field_two][n];
 			}
 		}
+        // local index 0 is global index shared by all processors
+        //local_index_type row = local_to_dof_map[0][field_one][0];
+		this->_A_graph->insertLocalIndices(0, cols);
 
     } else if (field_one == solution_field_id && field_two == lm_field_id) {
         // col all DOFs for solution against Lagrange Multiplier
@@ -137,6 +182,7 @@ void LaplaceBeltramiPhysics::computeGraph(local_index_type field_one, local_inde
 		}
     }
 	ComputeGraphTime->stop();
+    return _A_graph;
 }
 
 void LaplaceBeltramiPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
@@ -911,27 +957,20 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 } else if (field_one == lm_field_id && field_two == solution_field_id) {
     // row all DOFs for solution against Lagrange Multiplier
-	for(local_index_type i = 0; i < 1; i++) { // only first DOF of LM
-		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-			local_index_type row = local_to_dof_map[i][field_one][k];
+	Teuchos::Array<local_index_type> col_data(nlocal * fields[field_two]->nDim());
+	Teuchos::Array<scalar_type> val_data(nlocal * fields[field_two]->nDim());
+	Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+	Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
 
-			Teuchos::Array<local_index_type> col_data(nlocal * fields[field_two]->nDim());
-			Teuchos::Array<scalar_type> val_data(nlocal * fields[field_two]->nDim());
-			Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
-			Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
-
-			for (local_index_type l = 0; l < nlocal; l++) {
-				for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-					cols[l*fields[field_two]->nDim() + n] = local_to_dof_map[l][field_two][n];
-					vals[l*fields[field_two]->nDim() + n] = 1;
-				}
-			}
-			//#pragma omp critical
-			{
-		        this->_A->sumIntoLocalValues(row, cols, vals);
-			}
+	for (local_index_type l = 0; l < nlocal; l++) {
+		for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+			cols[l*fields[field_two]->nDim() + n] = local_to_dof_map[l][field_two][n];
+			vals[l*fields[field_two]->nDim() + n] = 1;
 		}
 	}
+    // local index 0 is the shared global id for the lagrange multiplier
+    //local_index_type row = local_to_dof_map[0][field_one][0];
+    this->_A->sumIntoLocalValues(0, cols, vals);
 } else if (field_one == solution_field_id && field_two == lm_field_id) {
 
     // col all DOFs for solution against Lagrange Multiplier

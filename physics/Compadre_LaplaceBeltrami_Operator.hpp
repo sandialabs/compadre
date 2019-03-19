@@ -28,7 +28,7 @@ class LaplaceBeltramiPhysics : public PhysicsT {
 		
 		virtual ~LaplaceBeltramiPhysics() {}
 		
-		virtual void computeGraph(local_index_type field_one, local_index_type field_two = -1);
+		virtual Teuchos::RCP<crs_graph_type> computeGraph(local_index_type field_one, local_index_type field_two = -1);
 
 		virtual void computeMatrix(local_index_type field_one, local_index_type field_two = -1, scalar_type time = 0.0);
 

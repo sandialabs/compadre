@@ -20,7 +20,7 @@
     <Parameter name="type" type="string" value="iterative"/>
     <Parameter name="file" type="string" value="../test_data/parameter_lists/laplace_beltrami/solver_amg.xml"/>
     <!--Parameter name="type" type="string" value="direct"/-->
-    <Parameter name="blocked" type="bool" value="false"/>
+    <Parameter name="blocked" type="bool" value="true"/>
   </ParameterList>
   <ParameterList name="remap">
     <Parameter name="porder" type="int" value="4"/>

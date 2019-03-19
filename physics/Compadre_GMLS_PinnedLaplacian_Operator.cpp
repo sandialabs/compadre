@@ -28,7 +28,7 @@ typedef Compadre::XyzVector xyz_type;
 
 
 
-void GMLS_LaplacianPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
+Teuchos::RCP<crs_graph_type> GMLS_LaplacianPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
 	if (field_two == -1) {
 		field_two = field_one;
 	}
@@ -65,6 +65,7 @@ void GMLS_LaplacianPhysics::computeGraph(local_index_type field_one, local_index
 		}
 	}
 	ComputeGraphTime->stop();
+    return this->_A_graph;
 }
 
 void GMLS_LaplacianPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {

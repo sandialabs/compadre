@@ -17,7 +17,7 @@ typedef Compadre::CoordsT coords_type;
 typedef Compadre::FieldT fields_type;
 typedef Compadre::NeighborhoodT neighborhood_type;
 
-void PinnedGraphLaplacianPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
+Teuchos::RCP<crs_graph_type> PinnedGraphLaplacianPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
 	Teuchos::RCP<Teuchos::Time> ComputeGraphTime = Teuchos::TimeMonitor::getNewCounter ("Compute Graph Time");
 	ComputeGraphTime->start();
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_A_graph.is_null(), "Tpetra CrsGraph for Physics not yet specified.");
@@ -56,6 +56,7 @@ void PinnedGraphLaplacianPhysics::computeGraph(local_index_type field_one, local
 	}
 
 	ComputeGraphTime->stop();
+    return this->_A_graph;
 }
 
 void PinnedGraphLaplacianPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {

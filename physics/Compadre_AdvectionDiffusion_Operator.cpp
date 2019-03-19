@@ -28,7 +28,7 @@ typedef Compadre::XyzVector xyz_type;
 
 
 
-void AdvectionDiffusionPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
+Teuchos::RCP<crs_graph_type> AdvectionDiffusionPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
 	if (field_two == -1) {
 		field_two = field_one;
 	}
@@ -65,6 +65,7 @@ void AdvectionDiffusionPhysics::computeGraph(local_index_type field_one, local_i
         }
     }
 	ComputeGraphTime->stop();
+    return this->_A_graph;
 }
 
 void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
