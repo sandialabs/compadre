@@ -28,13 +28,10 @@ if (PYTHON_CALLING_BUILD)
   if (APPLE)
     SET(CMAKE_BUILD_RPATH ${CMAKE_BUILD_RPATH} "@loader_path/")
     SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} "@loader_path/")
-    # python setup package create CMAKE_OSX_DEPLOYMENT_TARGET requiring the following flag
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
   else()
     SET(CMAKE_BUILD_RPATH ${CMAKE_BUILD_RPATH} "$ORIGIN/")
     SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} "$ORIGIN/")
     SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,origin")
-    #SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-rpath,$$ORIGIN")
   endif()
 endif()
 
@@ -208,6 +205,7 @@ else()
       set(KokkosCore_ARGS
         "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
         "-DCMAKE_CXX_FLAGS=${KokkosCore_FLAGS}"
+        "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS}"
         "-DCMAKE_INSTALL_PREFIX=${KokkosCore_PREFIX}"
         "-DKokkos_ENABLE_OpenMP=${Compadre_USE_OpenMP}"
         "-DKokkos_ENABLE_Pthread=${Compadre_USE_Pthread}"
@@ -215,6 +213,7 @@ else()
         "-DKOKKOS_ARCH=${KokkosCore_ARCH}"
         "-DKOKKOS_CUDA_DIR=${CUDA_PREFIX}"
         "-DKokkos_ENABLE_Cuda_Lambda=ON"
+        "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}"
       )
       
       # update the RPATH from for the includes and libraries this externalproject will create
@@ -413,7 +412,7 @@ if (Compadre_USE_PYTHON)
   file(GLOB PYTHON_LIBNAME
     "${PYTHON_PATHS}/libpython*${CMAKE_SHARED_LIBRARY_SUFFIX}"
   )
-  get_filename_component(PYTHON_LIBNAME_BASE ${PYTHON_LIBNAME} NAME)
+  get_filename_component(PYTHON_LIBNAME_BASE "${PYTHON_LIBNAME}" NAME)
   STRING(REGEX REPLACE "lib(.*)${CMAKE_SHARED_LIBRARY_SUFFIX}" "\\1" PYTHON_LIBNAME "${PYTHON_LIBNAME_BASE}")
 
   MESSAGE(STATUS "PYTHON_LIBNAME: ${PYTHON_LIBNAME}")
@@ -620,9 +619,10 @@ set(Compadre_KEY_STRINGS
 )
 
 
-
-bob_get_commit()
-bob_get_semver()
+if (NOT(PYTHON_CALLING_BUILD))
+  bob_get_commit()
+  bob_get_semver()
+endif()
 
 
 

@@ -30,7 +30,7 @@ SET_TARGET_PROPERTIES( gmls_module
 
 target_link_libraries(gmls_module PUBLIC compadre)
 if (APPLE)
-  target_link_libraries(gmls_module PUBLIC ${PYTHON_LIBRARIES})
+  set_target_properties(gmls_module PROPERTIES LINK_FLAGS "${CMAKE_PYTHON_SHARED_LINKER_FLAGS}")
 endif()
 target_include_directories(gmls_module PUBLIC ${PYTHON_INCLUDE_DIRS})
 target_include_directories(gmls_module PUBLIC ${Numpy_INCLUDE_DIRS})
