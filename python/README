@@ -1,0 +1,8 @@
+After updating the GMLS_Python.h wrapper:
+1. execute run_swig.sh to generate new python wrappers
+
+Internal instruction for publishing packages to pypi:
+2. execute 
+ >> run_packaging.sh [version] 
+to gather and build the package, postprocess the data, and upload to pypi
+

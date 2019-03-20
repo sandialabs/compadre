@@ -109,10 +109,8 @@ endif()
 bob_export_target(gmls_module)
 
 set(LOAD_CDLL "True")
-CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/__init__.py.in" "${CMAKE_CURRENT_BINARY_DIR}/__init__.py")
+CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/compadre/__init__.py" "${CMAKE_CURRENT_BINARY_DIR}/__init__.py" COPYONLY)
 CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Module.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Module.py")
-set(LOAD_CDLL "False")
-CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Module.py.in" "${CMAKE_CURRENT_BINARY_DIR}/compadre/GMLS_Module.py")
 
 if(Compadre_USE_MATLAB)
   CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/compadre_py_util.py" "${CMAKE_CURRENT_BINARY_DIR}/compadre_py_util.py" COPYONLY)
@@ -128,25 +126,9 @@ install(TARGETS gmls_module
   RUNTIME DESTINATION "${GMLS_Module_DEST}"
 )
 
-install(TARGETS gmls_module
-  ARCHIVE DESTINATION "${GMLS_Module_DEST}/compadre"
-  LIBRARY DESTINATION "${GMLS_Module_DEST}/compadre"
-  RUNTIME DESTINATION "${GMLS_Module_DEST}/compadre"
-)
-
 set(GMLS_Module_PYTHON_FILES
   "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Module.py"
   "${CMAKE_CURRENT_BINARY_DIR}/__init__.py"
-  )
-
-set(GMLS_Module_PYTHON_DIST_FILES
-  "${CMAKE_CURRENT_SOURCE_DIR}/pypi/setup.py"
-  "${PROJECT_SOURCE_DIR}/README.md"
-  "${PROJECT_SOURCE_DIR}/LICENSE.md"
-  )
-set(GMLS_Module_PYTHON_DIST_COMPADRE_FILES
-  "${CMAKE_CURRENT_BINARY_DIR}/compadre/GMLS_Module.py"
-  "${CMAKE_CURRENT_SOURCE_DIR}/pypi/__init__.py"
   )
 
 set(GMLS_Module_MATLAB_FILES
@@ -155,8 +137,6 @@ set(GMLS_Module_MATLAB_FILES
   )
 
 install(FILES ${GMLS_Module_PYTHON_FILES} DESTINATION "${GMLS_Module_DEST}")
-install(FILES ${GMLS_Module_PYTHON_DIST_FILES} DESTINATION "${GMLS_Module_DEST}")
-install(FILES ${GMLS_Module_PYTHON_DIST_COMPADRE_FILES} DESTINATION "${GMLS_Module_DEST}/compadre")
 if(Compadre_USE_MATLAB)
     install(FILES ${GMLS_Module_MATLAB_FILES} DESTINATION "${GMLS_Module_DEST}")
 endif()
