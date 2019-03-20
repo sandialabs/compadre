@@ -22,6 +22,23 @@ SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
 
+# RPATH should always include the folder it is called from
+bob_option(PYTHON_CALLING_BUILD "Python setuptools calling build" OFF)
+if (PYTHON_CALLING_BUILD)
+  if (APPLE)
+    SET(CMAKE_BUILD_RPATH ${CMAKE_BUILD_RPATH} "@loader_path/")
+    SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} "@loader_path/")
+    # python setup package create CMAKE_OSX_DEPLOYMENT_TARGET requiring the following flag
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+  else()
+    SET(CMAKE_BUILD_RPATH ${CMAKE_BUILD_RPATH} "$ORIGIN/")
+    SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} "$ORIGIN/")
+    SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,origin")
+    #SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-rpath,$$ORIGIN")
+  endif()
+endif()
+
+
 include(ExternalProject)
 
 
@@ -380,13 +397,30 @@ if (Compadre_USE_PYTHON)
   set(SWIG_PREFIX "../python") # relative to examples folder
   bob_input(GMLS_Module_DEST "lib/python/dist-packages" PATH "Path to install python module")
 
-  FIND_PACKAGE(PythonLibs)
-  IF(PythonLibs_FOUND)
-    MESSAGE(STATUS "PYTHON_LIBRARIES: ${PYTHON_LIBRARIES}")
-    MESSAGE(STATUS "PYTHON_INCLUDE_DIRS: ${PYTHON_INCLUDE_DIRS}")
-  ELSE()
-    MESSAGE(FATAL_ERROR "Compadre_USE_PYTHON set to ON, but PythonLibs not found at location set for PYTHON_PREFIX: ${PYTHON_PREFIX}")
+  IF(NOT EXISTS ${PYTHON_INCLUDE_DIRS})
+    EXECUTE_PROCESS(
+      COMMAND "${PYTHON_EXECUTABLE}" -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())"
+      OUTPUT_VARIABLE PYTHON_INCLUDE_DIRS
+      OUTPUT_STRIP_TRAILING_WHITESPACE )
   ENDIF()
+
+  EXECUTE_PROCESS(
+    COMMAND "${PYTHON_EXECUTABLE}" -c "from distutils import sysconfig; print(sysconfig.get_config_var(\"LIBDIR\"))"
+    OUTPUT_VARIABLE PYTHON_PATHS
+    OUTPUT_STRIP_TRAILING_WHITESPACE )
+  MESSAGE(STATUS "PYTHON_PATHS: ${PYTHON_PATHS}")
+
+  file(GLOB PYTHON_LIBNAME
+    "${PYTHON_PATHS}/libpython*${CMAKE_SHARED_LIBRARY_SUFFIX}"
+  )
+  get_filename_component(PYTHON_LIBNAME_BASE ${PYTHON_LIBNAME} NAME)
+  STRING(REGEX REPLACE "lib(.*)${CMAKE_SHARED_LIBRARY_SUFFIX}" "\\1" PYTHON_LIBNAME "${PYTHON_LIBNAME_BASE}")
+
+  MESSAGE(STATUS "PYTHON_LIBNAME: ${PYTHON_LIBNAME}")
+  find_library(PYTHON_LIBRARIES NAME "${PYTHON_LIBNAME}" PATHS "${PYTHON_PATHS}" NO_DEFAULT_PATH)
+
+  MESSAGE(STATUS "PYTHON_INCLUDE_DIRS: ${PYTHON_INCLUDE_DIRS}")
+  MESSAGE(STATUS "PYTHON_LIBRARIES: ${PYTHON_LIBRARIES}")
 
 endif()
 

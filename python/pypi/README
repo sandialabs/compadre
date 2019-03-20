@@ -1,7 +1,0 @@
-Internal instruction for publishing wheels:
-1. install with Compadre_USE_Python=ON
-2. go to install directory/lib/python/dist-packages
-3. >> python3 setup.py sdist bdist_wheel
-4. >> python3 -m twine upload --repository-url https://test.pypi.org/legacy/ dist/* --verbose
-5. Using a virtualenv, run >> python3 -m pip install --index-url https://test.pypi.org/simple/ --no-deps --upgrade compadre
-
