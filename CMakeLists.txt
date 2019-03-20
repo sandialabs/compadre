@@ -361,8 +361,14 @@ if (Compadre_USE_PYTHON)
       OUTPUT_STRIP_TRAILING_WHITESPACE )
   ENDIF()
   MESSAGE(STATUS "PYTHON_SITEPACKAGES: ${PYTHON_SITEPACKAGES}")
-  
-  bob_input(Numpy_PREFIX "${PYTHON_SITEPACKAGES}/numpy/core/include" PATH "Installation location of Numpy headers" )
+
+  IF(NOT EXISTS ${Numpy_PREFIX})
+    EXECUTE_PROCESS(
+      COMMAND "${PYTHON_EXECUTABLE}" -c "import numpy; print(numpy.get_include())"
+      OUTPUT_VARIABLE Numpy_PREFIX
+      OUTPUT_STRIP_TRAILING_WHITESPACE )
+  ENDIF()
+  MESSAGE(STATUS "Numpy_PREFIX: ${Numpy_PREFIX}")
   
   FIND_PATH(Numpy_INCLUDE_DIRS numpy/arrayobject.h HINTS ${Numpy_PREFIX})
   IF (Numpy_INCLUDE_DIRS)
@@ -372,7 +378,7 @@ if (Compadre_USE_PYTHON)
   ENDIF()
 
   set(SWIG_PREFIX "../python") # relative to examples folder
-  set(GMLS_Module_DEST "lib/python/dist-packages")
+  bob_input(GMLS_Module_DEST "lib/python/dist-packages" PATH "Path to install python module")
 
   FIND_PACKAGE(PythonLibs)
   IF(PythonLibs_FOUND)
