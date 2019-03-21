@@ -15,6 +15,16 @@ bob_begin_package()
 # Set to OFF for significantly faster performance and ON for error tracking
 bob_option(Compadre_DEBUG "Run Compadre Toolkit in DEBUG mode" ON)
 
+# RPATH related settings
+# https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/RPATH-handling
+SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
+SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
+
+include(ExternalProject)
+
+
 ##########
 #
 #
@@ -25,47 +35,48 @@ bob_option(Compadre_DEBUG "Run Compadre Toolkit in DEBUG mode" ON)
 
 
 
-#LAPACK
-bob_option(Compadre_USE_LAPACK "Use LAPACK" ON)
-SET(Compadre_USE_OPENBLAS OFF) # need to know if openblas is used in order to limit its ability to spawn threads
-bob_input(LAPACK_PREFIX "" PATH "Path to LAPACK install")
-if (LAPACK_PREFIX)
-  set(CMAKE_PREFIX_PATH ${LAPACK_PREFIX} ${CMAKE_PREFIX_PATH})
-endif()
-bob_input(LAPACK_LOCATION "" PATH "Optional explicit path to exact location of LAPACK")
-bob_option(LAPACK_DECLARED_THREADSAFE "Is LAPACK threadsafe? If not, default to serial calls for solves." ON)
-if (Compadre_USE_LAPACK)
-  if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
-    # Intel compiler detected. Will use "-mkl" and no need to find Lapack or Blas
-  else()
-    if ("${LAPACK_LOCATION}" STREQUAL "")
-      FIND_LIBRARY(LAPACK_LIB lapack)
-    else()
-      SET(LAPACK_LIB "${LAPACK_LOCATION}")
-    endif()
-    MESSAGE(STATUS "LAPACK_LIB: ${LAPACK_LIB}")
-    IF (NOT(LAPACK_LIB))
-      MESSAGE(FATAL_ERROR "Compadre_USE_LAPACK is ON, but LAPACK_PREFIX was set incorrectly.")
-    ELSE()
-      IF(APPLE)
-        execute_process(COMMAND otool -L  "${LAPACK_LIB}" OUTPUT_VARIABLE LAPACK_DEPENDENCIES) 
-      ELSE()
-        execute_process(COMMAND ldd "${LAPACK_LIB}" OUTPUT_VARIABLE LAPACK_DEPENDENCIES) 
-      ENDIF()
-      string(FIND "${LAPACK_DEPENDENCIES}" "openblas" BLAS_MATCH)
-      if ("${BLAS_MATCH}" GREATER "-1")
-        SET(Compadre_USE_OPENBLAS ON)
-      endif()
-    ENDIF()
-  endif()
-endif()
-
 #TRILINOS
-bob_option(Compadre_USE_Trilinos "Use Trilinos" OFF)
 bob_input(Trilinos_PREFIX "" PATH "Path to Trilinos install")
 if (Trilinos_PREFIX)
   set(CMAKE_PREFIX_PATH ${Trilinos_PREFIX} ${CMAKE_PREFIX_PATH})
+  set(Compadre_USE_Trilinos ON)
 endif()
+
+#KOKKOS
+bob_option(Compadre_USE_KokkosCore "Use KokkosCore" ON)
+bob_input(KokkosCore_PREFIX "${Trilinos_PREFIX}" PATH "Path to KokkosCore install")
+
+if (Trilinos_PREFIX AND NOT("${KokkosCore_PREFIX}" STREQUAL "${Trilinos_PREFIX}"))
+    # check both KokkosCore_PREFIX and Trilinos_PREFIX were specified differ (if either or both are not specified, it is fine)
+    MESSAGE(FATAL_ERROR "KokkosCore_PREFIX and Trilinos_PREFIX were both specified, but with different values")
+endif()
+configure_file("${PROJECT_SOURCE_DIR}/kokkos/bin/nvcc_wrapper.in" "${PROJECT_SOURCE_DIR}/kokkos/bin/nvcc_wrapper" @ONLY)
+bob_input(KokkosCore_ARCH "" STRING "Architecture to specify for KokkosCore")
+if (APPLE)
+  bob_option(Compadre_USE_CUDA "Whether to use CUDA" OFF)
+  bob_option(Compadre_USE_OpenMP "Whether to use OpenMP" OFF)
+  bob_option(Compadre_USE_Pthread "Whether to use Pthread" ON)
+else()
+  bob_option(Compadre_USE_CUDA "Whether to use CUDA" OFF)
+  bob_option(Compadre_USE_OpenMP "Whether to use OpenMP" ON)
+  bob_option(Compadre_USE_Pthread "Whether to use Pthread" OFF)
+endif()
+bob_option(Compadre_EXPLICITLY_DISABLE_CUDA "Special case CUDA override" OFF)
+if (Compadre_USE_CUDA)
+  if (KokkosCore_PREFIX STREQUAL "")
+    # replace users compiler with nvcc_wrapper which uses their compiler
+    set(CMAKE_CXX_COMPILER "${PROJECT_SOURCE_DIR}/kokkos/bin/nvcc_wrapper")
+    message("CXX_COMPILER changed to: ${CMAKE_CXX_COMPILER}")
+  endif()
+endif()
+if (Compadre_USE_OpenMP AND NOT(Compadre_USE_CUDA))
+  # If cuda is enabled, nvcc_wrapper will take of openmp flag
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
+endif()
+set(KOKKOS_IN_TRILINOS OFF)
+set(KOKKOS_EXISTING_ELSEWHERE OFF)
+set(KOKKOS_BUILT_FOR_USER OFF)
+
 IF (Compadre_USE_Trilinos)
   FIND_PACKAGE(Trilinos)
   set(Compadre_USE_Trilinos_CXX_Flags ON)
@@ -110,48 +121,209 @@ IF (Compadre_USE_Trilinos)
   LIST(REVERSE Trilinos_INCLUDE_DIRS)
   MESSAGE("   Trilinos_INCLUDE_DIRS = ${Trilinos_INCLUDE_DIRS}")
   MESSAGE("   Trilinos_CXX_FLAGS = ${Trilinos_CXX_COMPILER_FLAGS}")
-  
+
+  LIST(FIND Trilinos_PACKAGE_LIST KokkosCore KokkosCoreID)
+  IF (KokkosCoreID GREATER -1 )
+    MESSAGE(STATUS "Found KokkosCore inside Trilinos!")
+    set(KOKKOS_IN_TRILINOS ON)
+  ELSE()
+    MESSAGE(FATAL_ERROR "Found Trilinos but could not find KokkosCore.")
+  ENDIF()
+
+  #  Detect KokkosCore functionality from Trilinos
+  include(${CMAKE_CURRENT_LIST_DIR}/cmake/detect_trilinos_opts.cmake)
+  detect_trilinos_opts()
+
+  # get kokkos settings, change our settings, error to user if we something they requested is not enabled
+  if (KokkosCore_HAS_CUDA AND NOT(Compadre_EXPLICITLY_DISABLE_CUDA))
+    if (NOT KokkosCore_HAS_CUDA_LAMBDA)
+      message(FATAL_ERROR "Please reconfigure Trilinos with -DKokkos_ENABLE_Cuda_Lambda:BOOL=ON or set Compadre_EXPLICITLY_DISABLE_CUDA to ON")
+    endif()
+    message(STATUS "CUDA enabled in KokkosCore in Trilinos, setting Compadre_USE_CUDA to ON")
+    set(Compadre_USE_CUDA ON)
+  else()
+    if (Compadre_USE_CUDA)
+      message(FATAL_ERROR "Compadre_USE_CUDA is ON, but the Kokkos at Trilinos_PREFIX does not have CUDA enabled.")
+    endif()
+  endif()
+
+  if (KokkosCore_HAS_OpenMP)
+    message(STATUS "OpenMP enabled in KokkosCore in Trilinos, setting Compadre_USE_OpenMP to ON")
+    set(Compadre_USE_OpenMP ON)
+  else()
+    if (Compadre_USE_OpenMP)
+      message(FATAL_ERROR "Compadre_USE_OpenMP is ON, but the Kokkos at Trilinos_PREFIX does not have OpenMP enabled.")
+    endif()
+  endif()
+
+  if (KokkosCore_HAS_Pthreads)
+    message(STATUS "Pthread enabled in KokkosCore in Trilinos, setting Compadre_USE_Pthread to ON")
+    set(Compadre_USE_Pthread ON)
+  else()
+    if (Compadre_USE_Pthread)
+      message(FATAL_ERROR "Compadre_USE_Pthread is ON, but the Kokkos at Trilinos_PREFIX does not have Pthread enabled.")
+    endif()
+  endif()
+
 ENDIF()
 
-#KOKKOS
-bob_option(Compadre_USE_KokkosCore "Use KokkosCore" ON)
-bob_input(KokkosCore_PREFIX "${Trilinos_PREFIX}" PATH "Path to KokkosCore install")
-set(KOKKOS_IN_TRILINOS OFF)
-if (KokkosCore_PREFIX)
-  set(CMAKE_PREFIX_PATH ${KokkosCore_PREFIX} ${CMAKE_PREFIX_PATH})
-endif()
-if (Compadre_USE_KokkosCore)
-  if ("${KokkosCore_PREFIX}" STREQUAL "${Trilinos_PREFIX}") 
-    SET(KOKKOS_IN_TRILINOS ON)
-    MESSAGE(STATUS "Using KokkosCore in Trilinos.")
-    bob_add_dependency(PUBLIC NAME KokkosCore TARGETS kokkoscore INCLUDE_DIR_VARS KokkosCore_INCLUDE_DIRS)
+if (KOKKOS_IN_TRILINOS)
+  bob_add_dependency(PUBLIC NAME KokkosCore TARGETS kokkoscore INCLUDE_DIR_VARS KokkosCore_INCLUDE_DIRS)
+else()
+  if(NOT(Compadre_USE_KokkosCore))
+    MESSAGE(FATAL_ERROR "Compadre_USE_KokkosCore set to OFF, but entire toolkit relies on KokkosCore.")
   else()
-    FIND_FILE(Kokkos_PROJECT_FULL_FILENAME name kokkos_generated_settings.cmake HINTS "${KokkosCore_PREFIX}" NO_DEFAULT_PATH)
-    GET_FILENAME_COMPONENT(Kokkos_PROJECT_FILENAME ${Kokkos_PROJECT_FULL_FILENAME} NAME)
-    IF(Kokkos_PROJECT_FILENAME)
-      FIND_PACKAGE(KokkosCore CONFIGS "${Kokkos_PROJECT_FILENAME}") 
-      IF(KokkosCore_FOUND)
-        MESSAGE(STATUS "KokkosCore found at ${Kokkos_PROJECT_FULL_FILENAME}")
-        GET_FILENAME_COMPONENT(KokkosCore_INSTALL_DIR ${Kokkos_PROJECT_FULL_FILENAME} DIRECTORY)
-        SET(KokkosCore_INCLUDE_DIRS "${KokkosCore_INSTALL_DIR}/include")
-        SET(KokkosCore_STATIC_LIB "${KokkosCore_INSTALL_DIR}/lib/${KOKKOS_LINK_DEPENDS}")
-        MESSAGE(STATUS "KokkosCore_INCLUDE_DIRS: ${KokkosCore_INCLUDE_DIRS}")
-        MESSAGE(STATUS "KokkosCore_STATIC_LIB: ${KokkosCore_STATIC_LIB}")
+    if (KokkosCore_PREFIX STREQUAL "")
+      SET(KOKKOS_BUILT_FOR_USER ON)
+      # Case where we install KokkosCore
+      # If we enter this case, then the first time the following find_package will fail
+      # After configuring the CMake project, the RescanKokkosCore target will cause
+      # CMake to build Kokkos and then rescan the CMake file, allowing us to get the
+      # KOKKOS_CXX_FLAGS that we will use to compile the project
+
+      # Check for Kokkos will succeed only in the case of a rescan of the CMakeLists.txt 
+      set(KokkosCore_PREFIX "${PROJECT_BINARY_DIR}/KokkosCore-install")
+      find_package(Kokkos PATHS "${KokkosCore_PREFIX}/lib/CMake/Kokkos" NO_DEFAULT_PATH QUIET)
+
+      # fPIC flag is needed to link against Kokkos library when our library we are creating is shared
+      set(KokkosCore_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+      set(KokkosCore_ARGS
+        "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+        "-DCMAKE_CXX_FLAGS=${KokkosCore_FLAGS}"
+        "-DCMAKE_INSTALL_PREFIX=${KokkosCore_PREFIX}"
+        "-DKokkos_ENABLE_OpenMP=${Compadre_USE_OpenMP}"
+        "-DKokkos_ENABLE_Pthread=${Compadre_USE_Pthread}"
+        "-DKokkos_ENABLE_Cuda=${Compadre_USE_CUDA}"
+        "-DKOKKOS_ARCH=${KokkosCore_ARCH}"
+        "-DKOKKOS_CUDA_DIR=${CUDA_PREFIX}"
+        "-DKokkos_ENABLE_Cuda_Lambda=ON"
+      )
+      
+      # update the RPATH from for the includes and libraries this externalproject will create
+      SET(CMAKE_INSTALL_RPATH ${KokkosCore_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
+      SET(CMAKE_BUILD_RPATH ${KokkosCore_PREFIX}/lib ${CMAKE_BUILD_RPATH})
+
+      externalproject_add(KokkosCore
+          PREFIX kokkoscore
+          SOURCE_DIR "${PROJECT_SOURCE_DIR}/kokkos"
+          CMAKE_ARGS ${KokkosCore_ARGS}
+          BUILD_ALWAYS 1
+          TEST_AFTER_INSTALL OFF
+      )
+
+      SET(KokkosCore_INCLUDE_DIRS "${KokkosCore_PREFIX}/include")
+      SET(KokkosCore_STATIC_LIB "${KokkosCore_PREFIX}/lib/libkokkos.a")
+      include_directories(${KokkosCore_INCLUDE_DIRS})
+
+      if (NOT Kokkos_FOUND)
+        # first scan via CMake so Kokkos not built yet
+        add_custom_target(RescanKokkosCore ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR} ${CMAKE_SOURCE_DIR} DEPENDS KokkosCore)
+      else()
+        # second scan via CMake so we set a blank custom target
+        add_custom_target(RescanKokkosCore)
+      endif()
+
+    else()
+
+      # Existing KokkosCore indicated by user by setting KokkosCore_PREFIX, so we look for it
+
+      set(CMAKE_PREFIX_PATH ${KokkosCore_PREFIX} ${CMAKE_PREFIX_PATH})
+      FIND_FILE(Kokkos_PROJECT_FULL_FILENAME name kokkos_generated_settings.cmake HINTS "${KokkosCore_PREFIX}" NO_DEFAULT_PATH)
+      GET_FILENAME_COMPONENT(Kokkos_PROJECT_FILENAME ${Kokkos_PROJECT_FULL_FILENAME} NAME)
+      IF(Kokkos_PROJECT_FILENAME)
+        FIND_PACKAGE(KokkosCore CONFIGS "${Kokkos_PROJECT_FILENAME}") 
+        IF(KokkosCore_FOUND)
+          MESSAGE(STATUS "KokkosCore found at ${Kokkos_PROJECT_FULL_FILENAME}")
+          GET_FILENAME_COMPONENT(KokkosCore_INSTALL_DIR ${Kokkos_PROJECT_FULL_FILENAME} DIRECTORY)
+          SET(KokkosCore_INCLUDE_DIRS "${KokkosCore_INSTALL_DIR}/include")
+          SET(KokkosCore_STATIC_LIB "${KokkosCore_INSTALL_DIR}/lib/${KOKKOS_LINK_DEPENDS}")
+          MESSAGE(STATUS "KokkosCore_INCLUDE_DIRS: ${KokkosCore_INCLUDE_DIRS}")
+          MESSAGE(STATUS "KokkosCore_STATIC_LIB: ${KokkosCore_STATIC_LIB}")
+
+          # get kokkos settings, change our settings, error to user if we something they requested is not enabled
+          if ((KOKKOS_INTERNAL_USE_CUDA EQUAL "1") AND NOT(Compadre_EXPLICITLY_DISABLE_CUDA))
+            message(STATUS "CUDA enabled in Kokkos, setting Compadre_USE_CUDA to ON")
+            set(Compadre_USE_CUDA ON)
+          else()
+            if (Compadre_USE_CUDA)
+              message(FATAL_ERROR "Compadre_USE_CUDA is ON, but the Kokkos at KokkosCore_PREFIX does not have CUDA enabled.")
+            endif()
+          endif()
+
+          if (KOKKOS_INTERNAL_USE_OPENMP EQUAL "1")
+            message(STATUS "OpenMP enabled in Kokkos, setting Compadre_USE_OpenMP to ON")
+            set(Compadre_USE_OpenMP ON)
+          else()
+            if (Compadre_USE_OpenMP)
+              message(FATAL_ERROR "Compadre_USE_OpenMP is ON, but the Kokkos at KokkosCore_PREFIX does not have OpenMP enabled.")
+            endif()
+          endif()
+
+          if (KOKKOS_INTERNAL_USE_PTHREADS EQUAL "1")
+            message(STATUS "Pthread enabled in Kokkos, setting Compadre_USE_Pthread to ON")
+            set(Compadre_USE_Pthread ON)
+          else()
+            if (Compadre_USE_Pthread)
+              message(FATAL_ERROR "Compadre_USE_Pthread is ON, but the Kokkos at KokkosCore_PREFIX does not have Pthread enabled.")
+            endif()
+          endif()
+
+        ELSE()
+            MESSAGE(FATAL_ERROR "KokkosCore from outside of Trilinos requested, but kokkos_generated_settings.cmake was not found.")
+        ENDIF()
       ELSE()
           MESSAGE(FATAL_ERROR "KokkosCore from outside of Trilinos requested, but kokkos_generated_settings.cmake was not found.")
       ENDIF()
-    ELSE()
-        MESSAGE(FATAL_ERROR "KokkosCore from outside of Trilinos requested, but kokkos_generated_settings.cmake was not found.")
-    ENDIF()
+      set(KOKKOS_EXISTING_ELSEWHERE ON)
+    endif()
   endif()
-else()
-  MESSAGE(FATAL_ERROR "Compadre_USE_KokkosCore set to OFF, but entire toolkit relies on KokkosCore.")
 endif()
 
 #MPI
 FIND_PACKAGE(MPI QUIET)
 bob_option(Compadre_USE_MPI "Use MPI for parallelism" ${MPI_CXX_FOUND})
 message(STATUS "MPI Enabled: ${MPI_CXX_FOUND}")
+
+#LAPACK
+set(Compadre_USE_LAPACK ON)
+if (Compadre_USE_CUDA)
+  set(Compadre_USE_LAPACK OFF)
+  message(STATUS "Compadre_USE_LAPACK set to OFF because Compadre_USE_CUDA is ON")
+endif()
+message(STATUS "Compadre_USE_LAPACK: ${Compadre_USE_LAPACK}")
+SET(Compadre_USE_OPENBLAS OFF) # need to know if openblas is used in order to limit its ability to spawn threads
+bob_input(LAPACK_PREFIX "" PATH "Path to LAPACK install")
+if (LAPACK_PREFIX)
+  set(CMAKE_PREFIX_PATH ${LAPACK_PREFIX} ${CMAKE_PREFIX_PATH})
+endif()
+bob_input(LAPACK_LOCATION "" PATH "Optional explicit path to exact location of LAPACK")
+bob_option(LAPACK_DECLARED_THREADSAFE "Is LAPACK threadsafe? If not, default to serial calls for solves." ON)
+if (Compadre_USE_LAPACK)
+  if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
+    # Intel compiler detected. Will use "-mkl" and no need to find Lapack or Blas
+  else()
+    if ("${LAPACK_LOCATION}" STREQUAL "")
+      FIND_LIBRARY(LAPACK_LIB lapack)
+    else()
+      SET(LAPACK_LIB "${LAPACK_LOCATION}")
+    endif()
+    MESSAGE(STATUS "LAPACK_LIB: ${LAPACK_LIB}")
+    IF (NOT(LAPACK_LIB))
+      MESSAGE(FATAL_ERROR "Compadre_USE_LAPACK is ON, but LAPACK_PREFIX was set incorrectly.")
+    ELSE()
+      IF(APPLE)
+        execute_process(COMMAND otool -L  "${LAPACK_LIB}" OUTPUT_VARIABLE LAPACK_DEPENDENCIES) 
+      ELSE()
+        execute_process(COMMAND ldd "${LAPACK_LIB}" OUTPUT_VARIABLE LAPACK_DEPENDENCIES) 
+      ENDIF()
+      string(FIND "${LAPACK_DEPENDENCIES}" "openblas" BLAS_MATCH)
+      if ("${BLAS_MATCH}" GREATER "-1")
+        SET(Compadre_USE_OPENBLAS ON)
+      endif()
+    ENDIF()
+  endif()
+endif()
+
 
 #PYTHON
 bob_option(Compadre_USE_PYTHON "Use PYTHON" OFF)
@@ -227,50 +399,61 @@ bob_option(Compadre_EXAMPLES "Compile Compadre examples" "${Compadre_TESTS}")
 ##########
 #
 #
-#  Kokkos Configurations
+#  CUDA Libraries Locations from Kokkos Configurations
 #
 #
 ##########
 
 
 
-##  Detect KokkosCore functionality from Trilinos
-IF (KOKKOS_IN_TRILINOS)
-  include(${CMAKE_CURRENT_LIST_DIR}/cmake/detect_trilinos_opts.cmake)
-  detect_trilinos_opts()
-  if (KokkosCore_HAS_CUDA)
-    if (NOT KokkosCore_HAS_CUDA_LAMBDA)
-      message(FATAL_ERROR
-        "Please reconfigure Kokkos with -DKokkos_ENABLE_Cuda_Lambda:BOOL=ON")
+if (Compadre_USE_CUDA)
+  IF (KOKKOS_IN_TRILINOS)
+    # already taken care of by Trilinos linking
+  ELSEIF (KOKKOS_EXISTING_ELSEWHERE)
+    # existing standalone KokkosCore
+    if (CUDA_PREFIX STREQUAL "")
+      # Find Cuda using hints from kokkos generate makefile
+      set(CMAKE_PREFIX_PATH "${KOKKOS_GMAKE_TPL_LIBRARY_DIRS}/.." ${CMAKE_PREFIX_PATH})
+      find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINT "${KOKKOS_GMAKE_TPL_LIBRARY_DIRS}/..")
+      MESSAGE(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
+      set(CMAKE_PREFIX_PATH ${KOKKOS_GMAKE_TPL_LIBRARY_DIRS} ${CMAKE_PREFIX_PATH})
+      find_library(CUDA_CUBLAS_LIBRARIES cublas HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+      find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+      find_library(CUDA_CUDART_LIBRARIES cudart HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+      if ((NOT CUDA_CUBLAS_LIBRARIES) OR (NOT CUDA_CUSOLVER_LIBRARIES) OR (NOT CUDA_CUDART_LIBRARIES))
+        message(FATAL_ERROR "CUDA_PREFIX not specified and not able to be determined from Kokkos configuration.")
+      endif()
+      MESSAGE(STATUS "CUDA_LIBRARIES: ${CUDA_INCLUDE_DIRS}/../lib64")
     else()
-      bob_option(Compadre_USE_CUDA "Whether to use CUDA" ON)
+      find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINT "${CUDA_PREFIX}/include")
+      find_library(CUDA_CUBLAS_LIBRARIES cublas HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+      find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+      find_library(CUDA_CUDART_LIBRARIES cudart HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+      if ((NOT CUDA_CUBLAS_LIBRARIES) OR (NOT CUDA_CUSOLVER_LIBRARIES) OR (NOT CUDA_CUDART_LIBRARIES))
+        message(FATAL_ERROR "CUDA_PREFIX specified but Cuda was not found at that location.")
+      endif()
+      MESSAGE(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
+      MESSAGE(STATUS "CUDA_LIBRARIES: ${CUDA_INCLUDE_DIRS}/../lib64")
     endif()
-  endif()
-ELSE()
-  if (KOKKOS_INTERNAL_USE_CUDA EQUAL "1")
-    # Find Cuda using hints from kokkos generate makefile
-    set(CMAKE_PREFIX_PATH "${KOKKOS_GMAKE_TPL_LIBRARY_DIRS}/.." ${CMAKE_PREFIX_PATH})
-    find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINT "${KOKKOS_GMAKE_TPL_LIBRARY_DIRS}/..")
-    MESSAGE(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
-    set(CMAKE_PREFIX_PATH ${KOKKOS_GMAKE_TPL_LIBRARY_DIRS} ${CMAKE_PREFIX_PATH})
+  ELSEIF (KOKKOS_BUILT_FOR_USER)
+    # case where we built KokkosCore ourselves
+    if (CUDA_PREFIX STREQUAL "")
+      EXECUTE_PROCESS(
+          COMMAND which "nvcc" WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} RESULT_VARIABLE CUDA_PREFIX
+      )	
+      MESSAGE(STATUS "CUDA_PREFIX automatically determined: ${CUDA_PREFIX}")
+    endif()
+    find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINT "${CUDA_PREFIX}/include")
     find_library(CUDA_CUBLAS_LIBRARIES cublas HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
     find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+    find_library(CUDA_CUDART_LIBRARIES cudart HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+    if ((NOT CUDA_CUBLAS_LIBRARIES) OR (NOT CUDA_CUSOLVER_LIBRARIES) OR (NOT CUDA_CUDART_LIBRARIES))
+      message(FATAL_ERROR "CUDA_PREFIX specified but Cuda was not found at that location.")
+    endif()
+    MESSAGE(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
     MESSAGE(STATUS "CUDA_LIBRARIES: ${CUDA_INCLUDE_DIRS}/../lib64")
-    bob_option(Compadre_USE_CUDA "Whether to use CUDA" ON)
-  endif()
-ENDIF()
-
-
-##
-##   OpenMP / Cuda
-##
-if (KokkosCore_HAS_CUDA)
-  find_package(CUDA)
-  bob_input(Compadre_CUDA_ARCH "" STRING "CUDA arch specifier")
-  bob_option(Compadre_USE_CUDA "Whether to use CUDA" ON)
+  ENDIF()
 endif()
-bob_option(Compadre_USE_OpenMP "Whether to use OpenMP" "${KokkosCore_HAS_OpenMP}")
-
 
 
 ##########
@@ -284,13 +467,7 @@ bob_option(Compadre_USE_OpenMP "Whether to use OpenMP" "${KokkosCore_HAS_OpenMP}
 
 
 
-if(NOT(KOKKOS_IN_TRILINOS))
-  IF (KOKKOS_CXX_FLAGS) 
-    FOREACH(arg ${KOKKOS_CXX_FLAGS} )
-      SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${arg}")
-    ENDFOREACH()
-  ENDIF()
-else()
+if(KOKKOS_IN_TRILINOS)
   bob_begin_cxx_flags()
   bob_cxx11_flags()
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -328,6 +505,12 @@ else()
     message(WARNING "Unexpected compiler type ${CMAKE_CXX_COMPILER_ID}")
   endif()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FLAGS}")
+else()
+  IF (KOKKOS_CXX_FLAGS) 
+    FOREACH(arg ${KOKKOS_CXX_FLAGS} )
+      SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${arg}")
+    ENDFOREACH()
+  ENDIF()
 endif()
 
 
