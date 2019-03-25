@@ -40,9 +40,9 @@ def test1():
     gmls_obj.generatePointEvaluationStencil()
     
     np_data_sources = np.array([1.0]*1000, dtype=np.dtype('d'))
-    print gmls_obj.applyStencilTo0Tensor(0, neighbor_lists, np_data_sources)
+    print(gmls_obj.applyStencilTo0Tensor(0, neighbor_lists, np_data_sources))
     
-    print gmls_obj
+    print(gmls_obj)
 
 def test2():
     
@@ -91,9 +91,9 @@ def test2():
     np_data_sources = np.cos(dx)*np.cos(dy)
     ans = gmls_manifold_obj.applyStencilTo0Tensor(0, neighbor_lists, np_data_sources)
 
-    print ans, np.cos(1), ans-np.cos(1)
+    print(ans, np.cos(1), ans-np.cos(1))
     #print ans, 1, ans-1
-    print gmls_manifold_obj
+    print(gmls_manifold_obj)
     #plt.plot(dx, np_data_sources)
     #plt.plot([0], [ans], marker='o', markersize=3, color="red")
     #plt.show()

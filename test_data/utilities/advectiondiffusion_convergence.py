@@ -56,8 +56,8 @@ for key1, porder in enumerate(porders):
         
         with open(os.devnull, 'w') as devnull:
             commands = ["mpirun", "-np", "2", "./advectionDiffusion.exe","--i=../test_data/parameter_lists/advectiondiffusion/parameters.xml","--kokkos-threads=4"]
-            print " ".join(commands)
-            output = subprocess.check_output(commands, stderr=devnull)
+            print(" ".join(commands))
+            output = subprocess.check_output(commands, stderr=devnull, encoding='UTF-8')
             #print output
             m = re.search('(?<=compare len: )[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?', output)
             errors.append(float(m.group(0)))
@@ -66,14 +66,14 @@ for key1, porder in enumerate(porders):
             break
     
     #print errors
-    print "\n\nerror rates: porder:%s\n============="%(porder,)
+    print("\n\nerror rates: porder:%s\n============="%(porder,))
     for i in range(1,len(errors)):
         if (errors[i]!=0):
             rate = math.log(errors[i]/errors[i-1])/math.log(.5)
-            print str(rate) + ", " + str(errors[i]) + ", " + str(errors[i-1])
+            print(str(rate) + ", " + str(errors[i]) + ", " + str(errors[i-1]))
             #assert(check_bounds(porder, rate))
         else:
-            print "NaN - Division by zero"
+            print("NaN - Division by zero")
         
     errors = []
     

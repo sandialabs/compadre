@@ -38,25 +38,25 @@ for (timestep, fname)  in zip(time_step, file_names):
     tree.write(open('./parameters_generated.xml', 'wb'))
     
     #subprocess.call(["mpirun", "-np", "1", "../bin/lagrangianShallowWater.exe","--i=parameters_generated.xml","--kokkos-threads=1", "|", "tee", "out.txt"])
-    output = subprocess.check_output(["mpirun", "-np", "1", "../bin/lagrangianShallowWater.exe","--i=parameters_generated.xml","--kokkos-threads=1"])
-    print output
+    output = subprocess.check_output(["mpirun", "-np", "1", "../bin/lagrangianShallowWater.exe","--i=parameters_generated.xml","--kokkos-threads=1"], encoding='UTF-8')
+    print(output)
     m = re.search('(?<=Global relative VELOCITY error: )[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?', output)
     velocity_errors.append(float(m.group(0)))
     m = re.search('(?<=Global relative HEIGHT error: )[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?', output)
     height_errors.append(float(m.group(0)))
 
 #print height_errors
-print "HEIGHT Rates:\n============="
+print("HEIGHT Rates:\n=============")
 for i in range(1,len(height_errors)):
     if (height_errors[i]!=0):
-        print str(math.log(height_errors[i]/height_errors[i-1])/math.log(.5))
+        print(str(math.log(height_errors[i]/height_errors[i-1])/math.log(.5)))
     else:
-        print "NaN - Division by zero"
+        print("NaN - Division by zero")
     
 #print velocity_errors
-print "\n\nVELOCITY Rates:\n==============="
+print("\n\nVELOCITY Rates:\n===============")
 for i in range(1,len(velocity_errors)):
     if (velocity_errors[i]!=0):
-        print str(math.log(velocity_errors[i]/velocity_errors[i-1])/math.log(.5))
+        print(str(math.log(velocity_errors[i]/velocity_errors[i-1])/math.log(.5)))
     else:
-        print "NaN - Division by zero"
+        print("NaN - Division by zero")

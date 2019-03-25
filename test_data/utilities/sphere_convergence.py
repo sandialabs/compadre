@@ -94,9 +94,9 @@ for key1, porder in enumerate(porders):
         tree.write(open('../test_data/parameter_lists/canga/parameters_upper_1.xml', 'wb'))
         
         if (use_obfet):
-            output = subprocess.check_output(["mpirun", "-np", "1", "./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","1","./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_upper_1.xml","--kokkos-threads=1"])
+            output = subprocess.check_output(["mpirun", "-np", "1", "./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","1","./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_upper_1.xml","--kokkos-threads=1"], encoding='UTF-8')
         else:
-            output = subprocess.check_output(["mpirun", "-np", "5", "./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","3","./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_upper_1.xml","--kokkos-threads=1"])
+            output = subprocess.check_output(["mpirun", "-np", "5", "./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","3","./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_upper_1.xml","--kokkos-threads=1"], encoding='UTF-8')
         #output = subprocess.check_output(["mpirun", "-np", "2", "../bin/cangaRemoteRemap.exe","--i=canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","3","../bin/cangaRemoteRemap.exe","--i=canga/parameters_upper_1.xml","--kokkos-threads=1"])
         #print output
         m = re.search('(?<=Global Norm of Shallow Water Test Case 2: )[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?', output)
@@ -109,24 +109,24 @@ for key1, porder in enumerate(porders):
     
 
     #print height_errors
-    print "\n\nShallow Water Test Case 2 Rates: POrder:%s\n============="%porder
+    print("\n\nShallow Water Test Case 2 Rates: POrder:%s\n============="%porder)
     for i in range(1,len(sw_case2_errors)):
         if (sw_case2_errors[i]!=0):
             rate = math.log(sw_case2_errors[i]/sw_case2_errors[i-1])/math.log(.5)
-            print str(rate)
+            print(str(rate))
             #assert(check_bounds(porder, rate))
         else:
-            print "NaN - Division by zero"
+            print("NaN - Division by zero")
         
     #print velocity_errors
-    print "\n\nSphere Velocity Rates: POrder:%s\n==============="%porder
+    print("\n\nSphere Velocity Rates: POrder:%s\n==============="%porder)
     for i in range(1,len(sphere_velocity_errors)):
         if (sphere_velocity_errors[i]!=0):
             rate = math.log(sphere_velocity_errors[i]/sphere_velocity_errors[i-1])/math.log(.5)
-            print str(rate)
+            print(str(rate))
             #assert(check_bounds(porder, rate))
         else:
-            print "NaN - Division by zero"
+            print("NaN - Division by zero")
   
     sw_case2_errors = []
     sphere_velocity_errors = []
