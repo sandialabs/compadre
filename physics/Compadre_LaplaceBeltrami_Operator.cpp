@@ -199,6 +199,7 @@ void LaplaceBeltramiPhysics::computeMatrix(local_index_type field_one, local_ind
 	//Loop over all particles, convert to GMLS data types, solve problem, and insert into matrix:
 
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
+	const global_index_type nglobal = this->_coords->nGlobal();
 	const local_index_type ntotalfielddimensions = this->_particles->getFieldManagerConst()->getTotalFieldDimensions();
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
 	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
@@ -990,8 +991,8 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
     }
 } else {
     // identity on all DOFs for Lagrange Multiplier (even DOFs not really used, since we only use first LM dof for now)
-    //
-    scalar_type eps_penalty = nlocal;
+    //scalar_type eps_penalty = nglobal;
+    scalar_type eps_penalty = 1e-5;
 
 	for(local_index_type i = 0; i < nlocal; i++) {
 		local_index_type num_neighbors = neighborhood->getNeighbors(i).size();

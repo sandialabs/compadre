@@ -21,8 +21,8 @@
     <Parameter name="curvature porder" type="int" value="3"/>
     <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
     <Parameter name="dense linear solver" type="string" value="MANIFOLD"/>
-    <Parameter name="weighting power" type="int" value="12"/>
-    <Parameter name="curvature weighting power" type="int" value="12"/>
+    <Parameter name="weighting power" type="int" value="4"/>
+    <Parameter name="curvature weighting power" type="int" value="4"/>
     <Parameter name="quadrature points" type="int" value="3"/>
   </ParameterList>
   <ParameterList name="neighborhood">
