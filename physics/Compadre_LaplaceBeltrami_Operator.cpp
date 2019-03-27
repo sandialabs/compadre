@@ -991,8 +991,8 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
     }
 } else {
     // identity on all DOFs for Lagrange Multiplier (even DOFs not really used, since we only use first LM dof for now)
-    //scalar_type eps_penalty = nglobal;
-    scalar_type eps_penalty = 1e-5;
+    scalar_type eps_penalty = nglobal;
+    //scalar_type eps_penalty = 1e-5;
 
 	for(local_index_type i = 0; i < nlocal; i++) {
 		local_index_type num_neighbors = neighborhood->getNeighbors(i).size();
