@@ -57,9 +57,12 @@ endif()
 
 # link to MPI
 if (Compadre_USE_MPI)
-  target_include_directories(compadre PUBLIC "${MPI_CXX_INCLUDE_PATH}")
-  target_link_libraries(compadre PUBLIC "${MPI_CXX_LIBRARIES}")
-  target_link_libraries(compadre PUBLIC mpi)
+  if (MPI_CXX_INCLUDE_PATH)
+    target_include_directories(compadre PUBLIC "${MPI_CXX_INCLUDE_PATH}")
+  endif()
+  if (MPI_CXX_LIBRARIES)
+    target_link_libraries(compadre PUBLIC "${MPI_CXX_LIBRARIES}")
+  endif()
 endif()
 
 bob_export_target(compadre)
