@@ -106,7 +106,7 @@ def execute_test(grid_1, grid_2, porder, field_type, use_obfet=False, metric=2, 
     tree.write(open('./canga/parameters_upper_1.xml', 'wb'))
     
     #subprocess.call(['C:\\Temp\\a b c\\Notepad.exe', 'C:\\test.txt'])
-    output = subprocess.check_output(["mpirun", "-np", "1", "../bin/cangaIntercomparison.exe","--i=canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","1","../bin/cangaIntercomparison.exe","--i=canga/parameters_upper_1.xml","--kokkos-threads=1"], encoding='UTF-8')
+    output = subprocess.check_output(["mpirun", "-np", "1", "../bin/cangaIntercomparison.exe","--i=canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","1","../bin/cangaIntercomparison.exe","--i=canga/parameters_upper_1.xml","--kokkos-threads=1"]).decode()
     print(output)
     if (metric==2):
         m = re.search('(?<=L1 Error: )[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?', output)

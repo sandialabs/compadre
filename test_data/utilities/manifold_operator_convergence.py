@@ -85,7 +85,7 @@ for key1, porder in enumerate(porders):
         with open(os.devnull, 'w') as devnull:
             commands = ["mpirun", "-np", "2", "./laplaceBeltrami.exe","--i=../test_data/parameter_lists/laplace_beltrami/parameters_"+solution_type_names[solution_type_num]+".xml","--kokkos-threads=4"]
             print(" ".join(commands))
-            output = subprocess.check_output(commands, stderr=devnull, encoding='UTF-8')
+            output = subprocess.check_output(commands, stderr=devnull).decode()
             #print output
             m = re.search('(?<=Global Norm: )[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?', output)
             errors.append(float(m.group(0)))

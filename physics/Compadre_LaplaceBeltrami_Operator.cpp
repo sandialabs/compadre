@@ -125,7 +125,7 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
 
         }
 
-        auto new_row_map = Teuchos::rcp(new map_type(row_map_global_num_elements,
+        auto new_row_map = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
                 										new_row_map_entries,
                 										row_map_index_base,
                 										this->_particles->getCoordsConst()->getComm()));

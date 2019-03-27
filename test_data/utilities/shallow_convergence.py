@@ -38,7 +38,7 @@ for (timestep, fname)  in zip(time_step, file_names):
     tree.write(open('./parameters_generated.xml', 'wb'))
     
     #subprocess.call(["mpirun", "-np", "1", "../bin/lagrangianShallowWater.exe","--i=parameters_generated.xml","--kokkos-threads=1", "|", "tee", "out.txt"])
-    output = subprocess.check_output(["mpirun", "-np", "1", "../bin/lagrangianShallowWater.exe","--i=parameters_generated.xml","--kokkos-threads=1"], encoding='UTF-8')
+    output = subprocess.check_output(["mpirun", "-np", "1", "../bin/lagrangianShallowWater.exe","--i=parameters_generated.xml","--kokkos-threads=1"]).decode()
     print(output)
     m = re.search('(?<=Global relative VELOCITY error: )[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?', output)
     velocity_errors.append(float(m.group(0)))
