@@ -8,17 +8,23 @@ namespace Compadre {
 KOKKOS_INLINE_FUNCTION
 void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_vector_type P_target_row) const {
 
+    // determine if additional evaluation sites are requested by user and handled by target operations 
+    bool additional_evaluation_sites_need_handled = 
+        (_additional_evaluation_coordinates.extent(0) > 0) ? true : false; // additional evaluation sites are specified
+
     const int target_index = teamMember.league_rank();
 
-    for (int i=0; i<P_target_row.dimension_0(); ++i) {
-        for (int j=0; j<P_target_row.dimension_1(); ++j) {
-            P_target_row(i,j) = 0;
-        }
-    }
+    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, P_target_row.dimension_0()), [=] (const int i) {
+        P_target_row(i) = 0;
+    });
 
     const int target_NP = this->getNP(_poly_order, _dimensions);
+    const int num_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
+                ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
 
     for (int i=0; i<_operations.size(); ++i) {
+
+        bool additional_evaluation_sites_handled = false; // target operations that can handle these sites should flip this flag
 
         bool operation_handled = true;
 
@@ -31,14 +37,17 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
 
         if (_operations(i) == TargetOperation::ScalarPointEvaluation || (_operations(i) == TargetOperation::VectorPointEvaluation && _dimensions == 1) /* vector is a scalar in 1D */) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
-                int offset = _lro_total_offsets[i]*_basis_multiplier*target_NP;
-
-                for (int j=0; j<target_NP; ++j) {
-                    P_target_row(offset + j) = t1(j);
+                for (int j=0; j<num_evaluation_sites; ++j) { 
+                    this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample, j);
+                    int offset = getTargetOffsetIndexDevice(i, 0, 0, j)*_basis_multiplier*target_NP;
+                    for (int k=0; k<target_NP; ++k) {
+                        P_target_row(offset + k) = t1(k);
+                    }
                 }
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             });
         } else if (_operations(i) == TargetOperation::VectorPointEvaluation) {
+            additional_evaluation_sites_handled = true; // calcPij can handle non-target site evaluations
             if (_dimensions == 3) {
                 // vector basis
                 if (_reconstruction_space_rank == 1) {
@@ -242,30 +251,33 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
             });
         } else if (_operations(i) == TargetOperation::GradientOfScalarPointEvaluation) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                int offset = (_lro_total_offsets[i]+0)*_basis_multiplier*target_NP;
-                for (int j=0; j<target_NP; ++j) {
-                    P_target_row(offset + j) = 0;
-                }
-                P_target_row(offset + 1) = std::pow(_epsilons(target_index), -1);
-//                this->calcGradientPij(P_target_row.data()+offset, target_index, -1 /* target is neighbor */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
-
-                if (_dimensions>1) {
-                    offset = (_lro_total_offsets[i]+1)*_basis_multiplier*target_NP;
-                    for (int j=0; j<target_NP; ++j) {
-                        P_target_row(offset + j) = 0;
+                for (int j=0; j<num_evaluation_sites; ++j) { 
+                    int offset = getTargetOffsetIndexDevice(i, 0, 0, j)*_basis_multiplier*target_NP;
+                    for (int k=0; k<target_NP; ++k) {
+                        P_target_row(offset + k) = 0;
                     }
-                    P_target_row(offset + 2) = std::pow(_epsilons(target_index), -1);
-//                    this->calcGradientPij(P_target_row.data()+offset, target_index, -1 /* target is neighbor */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
-                }
+                    //P_target_row(offset + 1) = std::pow(_epsilons(target_index), -1);
+                    this->calcGradientPij(P_target_row.data()+offset, target_index, -1 /* target is neighbor */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample, j);
 
-                if (_dimensions>2) {
-                    offset = (_lro_total_offsets[i]+2)*_basis_multiplier*target_NP;
-                    for (int j=0; j<target_NP; ++j) {
-                        P_target_row(offset + j) = 0;
+                    if (_dimensions>1) {
+                        offset = getTargetOffsetIndexDevice(i, 0, 1, j)*_basis_multiplier*target_NP;
+                        for (int k=0; k<target_NP; ++k) {
+                            P_target_row(offset + k) = 0;
+                        }
+                        //P_target_row(offset + 2) = std::pow(_epsilons(target_index), -1);
+                        this->calcGradientPij(P_target_row.data()+offset, target_index, -1 /* target is neighbor */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample, j);
                     }
-                    P_target_row(offset + 3) = std::pow(_epsilons(target_index), -1);
-//                    this->calcGradientPij(P_target_row.data()+offset, target_index, -1 /* target is neighbor */, 1 /*alpha*/, 2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
+
+                    if (_dimensions>2) {
+                        offset = getTargetOffsetIndexDevice(i, 0, 2, j)*_basis_multiplier*target_NP;
+                        for (int k=0; k<target_NP; ++k) {
+                            P_target_row(offset + k) = 0;
+                        }
+                        //P_target_row(offset + 3) = std::pow(_epsilons(target_index), -1);
+                        this->calcGradientPij(P_target_row.data()+offset, target_index, -1 /* target is neighbor */, 1 /*alpha*/, 2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample, j);
+                    }
                 }
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             });
         } else if (_operations(i) == TargetOperation::PartialXOfScalarPointEvaluation) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
@@ -612,8 +624,10 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                 }
             }
         } else {
-            assert((false) && "Functionality not yet available.");
+            compadre_kernel_assert_release((false) && "Functionality not yet available.");
         }
+
+        compadre_kernel_assert_release(((additional_evaluation_sites_need_handled && additional_evaluation_sites_handled) || (!additional_evaluation_sites_need_handled)) && "Auxiliary evaluation coordinates are specified by user, but are calling a target operation that can not handle evaluating additional sites.");
         } // !operation_handled
     }
 }
@@ -655,7 +669,7 @@ void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_ve
                 }
             });
         } else {
-            assert((false) && "Functionality not yet available.");
+            compadre_kernel_assert_release((false) && "Functionality not yet available.");
         }
     }
 }
@@ -1022,17 +1036,17 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                 } else if (_reconstruction_space_rank == 1
                         && _polynomial_sampling_functional 
                             == SamplingFunctional::StaggeredEdgeIntegralSample) {
-                    assert((false) && "Functionality not yet available.");
+                    compadre_kernel_assert_release((false) && "Functionality not yet available.");
 
                 // staggered gradient w/ edge integrals known analytically, using a basis
                 // of potentials
                 } else if (_reconstruction_space_rank == 0
                         && _polynomial_sampling_functional 
                             == SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
-                    assert((false) && "Functionality not yet available.");
+                    compadre_kernel_assert_release((false) && "Functionality not yet available.");
 
                 } else {
-                    assert((false) && "Functionality not yet available.");
+                    compadre_kernel_assert_release((false) && "Functionality not yet available.");
                 }
             } else if (_operations(i) == TargetOperation::DivergenceOfVectorPointEvaluation) {
                 // vector basis
@@ -1174,10 +1188,10 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
 
                     });
                 } else {
-                    assert((false) && "Functionality not yet available.");
+                    compadre_kernel_assert_release((false) && "Functionality not yet available.");
                 }
             } else {
-                assert((false) && "Functionality not yet available.");
+                compadre_kernel_assert_release((false) && "Functionality not yet available.");
             }
         } else if (_dimensions==2) { // 1D manifold in 2D problem
             if (_operations(i) == TargetOperation::GradientOfScalarPointEvaluation) {
@@ -1193,7 +1207,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     }
                 });
             } else {
-                assert((false) && "Functionality not yet available.");
+                compadre_kernel_assert_release((false) && "Functionality not yet available.");
             }
         }
         } // !operation_handled

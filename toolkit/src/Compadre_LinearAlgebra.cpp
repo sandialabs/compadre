@@ -171,29 +171,29 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
 
       for (int i=0; i<NUM_STREAMS; ++i) {
           cusolver_stat = cusolverDnCreate(&cusolver_handles[i]);
-          assert(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "DN Create");
+          compadre_assert_release(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "DN Create");
           cudaStat1 = cudaStreamCreateWithFlags(&streams[i], cudaStreamNonBlocking);
-          assert(cudaSuccess == cudaStat1 && "Cuda Stream Create");
+          compadre_assert_release(cudaSuccess == cudaStat1 && "Cuda Stream Create");
           cusolver_stat = cusolverDnSetStream(cusolver_handles[i], streams[i]);
-          assert(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Cuda Set Stream");
+          compadre_assert_release(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Cuda Set Stream");
       }
 
 
       cusolver_stat = cusolverDnCreateGesvdjInfo(&gesvdj_params);
-      assert(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Create GesvdjInfo");
+      compadre_assert_release(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Create GesvdjInfo");
 
       const double tol = 1.e-14;
       const int max_sweeps = 15;
       const int sort_svd  = 1;   /* sort singular values */
 
       cusolver_stat = cusolverDnXgesvdjSetTolerance(gesvdj_params, tol);
-      assert(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Set Tolerance");
+      compadre_assert_release(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Set Tolerance");
 
       cusolver_stat = cusolverDnXgesvdjSetMaxSweeps(gesvdj_params, max_sweeps);
-      assert(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Set Sweeps");
+      compadre_assert_release(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Set Sweeps");
 
       cusolver_stat = cusolverDnXgesvdjSetSortEig(gesvdj_params, sort_svd);
-      assert(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Sort SVD");
+      compadre_assert_release(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Sort SVD");
 
       const cusolverEigMode_t jobz = CUSOLVER_EIG_MODE_VECTOR; /* compute singular vectors */
 
@@ -214,11 +214,11 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
               V.ptr_on_device(), ldv, // V
               &lwork, gesvdj_params, num_matrices
           );
-          assert(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Get Work Size");
+          compadre_assert_release(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Get Work Size");
 
           Kokkos::View<double*> work("work for cusolver", lwork);
           cudaStat1 = cudaDeviceSynchronize();
-          assert(cudaSuccess == cudaStat1 && "Device Sync 1");
+          compadre_assert_release(cudaSuccess == cudaStat1 && "Device Sync 1");
         Kokkos::Profiling::popRegion();
 
         Kokkos::Profiling::pushRegion("SVD::Execution");
@@ -233,8 +233,8 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
               devInfo.ptr_on_device(), gesvdj_params, num_matrices
           );
           cudaStat1 = cudaDeviceSynchronize();
-          assert(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Solver Didn't Succeed");
-          assert(cudaSuccess == cudaStat1 && "Device Sync 2");
+          compadre_assert_release(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Solver Didn't Succeed");
+          compadre_assert_release(cudaSuccess == cudaStat1 && "Device Sync 2");
         Kokkos::Profiling::popRegion();
 
     } else { // bigger than 32 (batched dgesvdj can only handle 32x32)
@@ -247,7 +247,7 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
   
           //cusolver_stat = cusolverDnDgesvd_bufferSize(
           //    cusolver_handles[0], M, N, &lwork );
-          //assert (cusolver_stat == CUSOLVER_STATUS_SUCCESS && "dgesvd Work Size Failed");
+          //compadre_assert_release (cusolver_stat == CUSOLVER_STATUS_SUCCESS && "dgesvd Work Size Failed");
   
           cusolver_stat = cusolverDnDgesvdj_bufferSize(
               cusolver_handles[0], jobz, econ,
@@ -258,7 +258,7 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
               V.ptr_on_device(), ldv, // V
               &lwork, gesvdj_params
           );
-          assert(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Get Work Size");
+          compadre_assert_release(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Get Work Size");
   
           Kokkos::View<double*> work("CUDA work space", lwork*num_matrices);
           //Kokkos::View<double*> rwork("CUDA work space", (min_mn-1)*num_matrices);

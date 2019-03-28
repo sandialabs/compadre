@@ -19,7 +19,7 @@ double GMLS::Wab(const double r, const double h, const WeightingFunctionType& we
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional) const {
+void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_local_index) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
@@ -36,13 +36,18 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
     }
 
     XYZ relative_coord;
-    if (neighbor_index > -1)
+    if (neighbor_index > -1) {
         for (int i=0; i<dimension; ++i) {
             // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
             relative_coord[i] = (alpha-1)*getTargetCoordinate(target_index, i, V);
             relative_coord[i] += (1-alpha)*getNeighborCoordinate(target_index, neighbor_index, i, V);
         }
-    else {
+    } else if (additional_evaluation_local_index > 0) {
+        for (int i=0; i<dimension; ++i) {
+            relative_coord[i] = getTargetAuxiliaryCoordinate(target_index, additional_evaluation_local_index, i, V);
+            relative_coord[i] -= getTargetCoordinate(target_index, i, V);
+        }
+    } else {
         for (int i=0; i<3; ++i) relative_coord[i] = 0;
     }
 
@@ -266,12 +271,14 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 }
             }
         }
+    } else {
+        compadre_kernel_assert_release((false) && "Sampling and basis space combination not defined.");
     }
 }
 
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional) const {
+void GMLS::calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_index) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
@@ -284,121 +291,90 @@ void GMLS::calcGradientPij(double* delta, const int target_index, const int neig
 
     // partial_direction - 0=x, 1=y, 2=z
     XYZ relative_coord;
-    if (neighbor_index > -1)
+    if (neighbor_index > -1) {
         for (int i=0; i<dimension; ++i) {
             // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
             relative_coord[i] = (alpha-1)*getTargetCoordinate(target_index, i, V);
             relative_coord[i] += (1-alpha)*getNeighborCoordinate(target_index, neighbor_index, i, V);
         }
-    else {
+    } else if (additional_evaluation_index > 0) {
+        for (int i=0; i<dimension; ++i) {
+            relative_coord[i] = getTargetAuxiliaryCoordinate(target_index, additional_evaluation_index, i, V);
+            relative_coord[i] -= getTargetCoordinate(target_index, i, V);
+        }
+    } else {
         for (int i=0; i<3; ++i) relative_coord[i] = 0;
     }
 
     double cutoff_p = _epsilons(target_index);
 
-    int alphax, alphay, alphaz;
-    double alphaf;
-    int i = 0;
-    const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
+    if ((polynomial_sampling_functional == SamplingFunctional::PointSample ||
+            polynomial_sampling_functional == SamplingFunctional::VectorPointSample ||
+            polynomial_sampling_functional == SamplingFunctional::ManifoldVectorPointSample) &&
+            (reconstruction_space == ScalarTaylorPolynomial || reconstruction_space == VectorOfScalarClonesTaylorPolynomial)) {
 
-    const int alphax_start = (partial_direction == 0) ? 1 : 0;
-    const int alphay_start = (partial_direction == 1) ? 1 : 0;
-    const int alphaz_start = (partial_direction == 2) ? 1 : 0;
+        int alphax, alphay, alphaz;
+        double alphaf;
+        int i = 0;
+        const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
 
-    for (int n = start_index; n <= poly_order; n++){
-        if (dimension == 3) {
-            for (alphaz = 0; alphaz <= n; alphaz++){
-                int s = n - alphaz;
-                for (alphay = 0; alphay <= s; alphay++){
-                    alphax = s - alphay;
-                    bool zero_out = (partial_direction==0 && alphax==0)
-                                    || (partial_direction==1 && alphay==0)
-                                    || (partial_direction==2 && alphaz==0);
-                    bool ones = (partial_direction==0 && alphax==1)
-                                    || (partial_direction==1 && alphay==1)
-                                    || (partial_direction==2 && alphaz==1);
+        for (int n = start_index; n <= poly_order; n++){
+            if (dimension == 3) {
+                for (alphaz = 0; alphaz <= n; alphaz++){
 
-                    if (zero_out) {
-                        *(delta+i) = 0;
-                        i++;
-                    } else {
-                        alphaf = factorial[alphax-alphax_start]*factorial[alphay-alphay_start]*factorial[alphaz-alphaz_start];
-                        if (ones) {
-                            if (partial_direction==0) {
-                                *(delta+i) = 1./cutoff_p
-                                            *std::pow(relative_coord.y/cutoff_p, alphay)
-                                            *std::pow(relative_coord.z/cutoff_p, alphaz)/alphaf;
-                                i++;
-                            } else if (partial_direction==1) {
-                                *(delta+i) = 1./cutoff_p * std::pow(relative_coord.x/cutoff_p, alphax)
-                                            *std::pow(relative_coord.z/cutoff_p, alphaz)/alphaf;
-                                i++;
-                            } else {
-                                *(delta+i) = 1./cutoff_p * std::pow(relative_coord.x/cutoff_p, alphax)
-                                            *std::pow(relative_coord.y/cutoff_p, alphay)/alphaf;
-                                i++;
-                            }
+                    int s = n - alphaz;
+                    for (alphay = 0; alphay <= s; alphay++){
+                        alphax = s - alphay;
+
+                        int x_pow = (partial_direction == 0) ? alphax-1 : alphax;
+                        int y_pow = (partial_direction == 1) ? alphay-1 : alphay;
+                        int z_pow = (partial_direction == 2) ? alphaz-1 : alphaz;
+
+                        if (x_pow<0 || y_pow<0 || z_pow<0) {
+                            *(delta+i) = 0;
                         } else {
-                            *(delta+i) = 1./cutoff_p * std::pow(relative_coord.x/cutoff_p, alphax)
-                                        *std::pow(relative_coord.y/cutoff_p, alphay)
-                                        *std::pow(relative_coord.z/cutoff_p, alphaz)/alphaf;
-                            i++;
+                            alphaf = factorial[x_pow]*factorial[y_pow]*factorial[z_pow];
+                            *(delta+i) = 1./cutoff_p 
+                                        *std::pow(relative_coord.x/cutoff_p,x_pow)
+                                        *std::pow(relative_coord.y/cutoff_p,y_pow)
+                                        *std::pow(relative_coord.z/cutoff_p,z_pow)/alphaf;
                         }
-                    }
-                }
-            }
-        } else if (dimension == 2) {
-            for (alphay = 0; alphay <= n; alphay++){
-                alphax = n - alphay;
-
-                bool zero_out = (partial_direction==0 && alphax==0)
-                                || (partial_direction==1 && alphay==0);
-                bool ones = (partial_direction==0 && alphax==1)
-                                || (partial_direction==1 && alphay==1);
-
-                if (zero_out) {
-                    *(delta+i) = 0;
-                    i++;
-                } else {
-                    alphaf = factorial[alphax-alphax_start]*factorial[alphay-alphay_start];
-                    if (ones) {
-                        if (partial_direction==0) {
-                            *(delta+i) = 1./cutoff_p
-                                        *std::pow(relative_coord.y/cutoff_p, alphay)/alphaf;
-                            i++;
-                        } else if (partial_direction==1) {
-                            *(delta+i) = 1./cutoff_p * std::pow(relative_coord.x/cutoff_p, alphax)/alphaf;
-                            i++;
-                        }
-                    } else {
-                        *(delta+i) = 1./cutoff_p * std::pow(relative_coord.x/cutoff_p, alphax)
-                                    *std::pow(relative_coord.y/cutoff_p, alphay)/alphaf;
                         i++;
                     }
                 }
-            }
-        } else { // dimension == 1
-                alphax = n;
+            } else if (dimension == 2) {
+                for (alphay = 0; alphay <= n; alphay++){
+                    alphax = n - alphay;
 
-                bool zero_out = (partial_direction==0 && alphax==0);
-                bool ones = (partial_direction==0 && alphax==1);
+                    int x_pow = (partial_direction == 0) ? alphax-1 : alphax;
+                    int y_pow = (partial_direction == 1) ? alphay-1 : alphay;
 
-                if (zero_out) {
-                    *(delta+i) = 0;
-                    i++;
-                } else {
-                    alphaf = factorial[alphax-alphax_start];
-                    if (ones) {
-                        if (partial_direction==0) {
-                            *(delta+i) = 1./cutoff_p/alphaf;
-                            i++;
-                        }
+                    if (x_pow<0 || y_pow<0) {
+                        *(delta+i) = 0;
                     } else {
-                        *(delta+i) = 1./cutoff_p * std::pow(relative_coord.x/cutoff_p, alphax)/alphaf;
-                        i++;
+                        alphaf = factorial[x_pow]*factorial[y_pow];
+                        *(delta+i) = 1./cutoff_p 
+                                    *std::pow(relative_coord.x/cutoff_p,x_pow)
+                                    *std::pow(relative_coord.y/cutoff_p,y_pow)/alphaf;
                     }
+                    i++;
                 }
+            } else { // dimension == 1
+                    alphax = n;
+
+                    int x_pow = (partial_direction == 0) ? alphax-1 : alphax;
+                    if (x_pow<0) {
+                        *(delta+i) = 0;
+                    } else {
+                        alphaf = factorial[x_pow];
+                        *(delta+i) = 1./cutoff_p 
+                                    *std::pow(relative_coord.x/cutoff_p,x_pow)/alphaf;
+                    }
+                    i++;
+            }
         }
+    } else {
+        compadre_kernel_assert_release((false) && "Sampling and basis space combination not defined.");
     }
 }
 

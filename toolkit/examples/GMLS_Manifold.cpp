@@ -82,10 +82,6 @@ Kokkos::initialize(argc, args);
     // dimension has one subtracted because it is a D-1 manifold represented in D dimensions
     const int min_neighbors = Compadre::GMLS::getNP(order, dimension-1);
     
-    // maximum neighbors calculated to be the minimum number of neighbors needed for unisolvency 
-    // enlarged by some multiplier (generally 10% to 40%, but calculated by GMLS class)
-    const int max_neighbors = Compadre::GMLS::getNN(order, dimension-1);
-    
     //! [Parse Command Line Arguments]
     Kokkos::Timer timer;
     Kokkos::Profiling::pushRegion("Setup Point Data");
@@ -137,17 +133,6 @@ Kokkos::initialize(argc, args);
     Kokkos::resize(source_coords, number_source_coords, 3);
     Kokkos::resize(source_coords_device, number_source_coords, 3);
 
-
-    // each row is a neighbor list for a target site, with the first column of each row containing
-    // the number of neighbors for that rows corresponding target site
-    Kokkos::View<int**, Kokkos::DefaultExecutionSpace> neighbor_lists_device("neighbor lists", 
-            number_target_coords, max_neighbors+1); // first column is # of neighbors
-    Kokkos::View<int**>::HostMirror neighbor_lists = Kokkos::create_mirror_view(neighbor_lists_device);
-    
-    // each target site has a window size
-    Kokkos::View<double*, Kokkos::DefaultExecutionSpace> epsilon_device("h supports", number_target_coords);
-    Kokkos::View<double*>::HostMirror epsilon = Kokkos::create_mirror_view(epsilon_device);
-    
     // coordinates of target sites
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> target_coords_device ("target coordinates", 
             number_target_coords, 3);
@@ -247,13 +232,26 @@ Kokkos::initialize(argc, args);
     // Point cloud construction for neighbor search
     // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
     auto point_cloud_search(CreatePointCloudSearch(source_coords, target_coords));
+
+    // each row is a neighbor list for a target site, with the first column of each row containing
+    // the number of neighbors for that rows corresponding target site
+    double epsilon_multiplier = 1.9;
+    int estimated_upper_bound_number_neighbors = 
+        point_cloud_search.getEstimatedNumberNeighborsUpperBound(min_neighbors, dimension, epsilon_multiplier);
+
+    Kokkos::View<int**, Kokkos::DefaultExecutionSpace> neighbor_lists_device("neighbor lists", 
+            number_target_coords, estimated_upper_bound_number_neighbors); // first column is # of neighbors
+    Kokkos::View<int**>::HostMirror neighbor_lists = Kokkos::create_mirror_view(neighbor_lists_device);
+    
+    // each target site has a window size
+    Kokkos::View<double*, Kokkos::DefaultExecutionSpace> epsilon_device("h supports", number_target_coords);
+    Kokkos::View<double*>::HostMirror epsilon = Kokkos::create_mirror_view(epsilon_device);
     
     // query the point cloud to generate the neighbor lists using a kdtree to produce the n nearest neighbor
-    // to each target site, adding 20% to whatever the distance away the further neighbor used is from
+    // to each target site, adding (epsilon_multiplier-1)*100% to whatever the distance away the further neighbor used is from
     // each target to the view for epsilon
-    point_cloud_search.generateNeighborListsFromKNNSearch(neighbor_lists, epsilon, max_neighbors, dimension, 
-            1.2 /* epsilon multiplier */);
-    
+    point_cloud_search.generateNeighborListsFromKNNSearch(neighbor_lists, epsilon, min_neighbors, dimension, 
+            epsilon_multiplier);
 
     //! [Performing Neighbor Search]
     
@@ -318,7 +316,7 @@ Kokkos::initialize(argc, args);
     
     // generate the alphas that to be combined with data for each target operation requested in lro
     my_GMLS_scalar.generateAlphas();
-    
+
     Kokkos::Profiling::pushRegion("Full Polynomial Basis GMLS Solution");
     // initialize another instance of the GMLS class for problems with a vector basis on a manifold and point 
     // evaluation of that vector as the sampling functional
@@ -457,6 +455,8 @@ Kokkos::initialize(argc, args);
     
     //! [Check That Solutions Are Correct]
     
+    double tangent_bundle_error = 0;
+    double tangent_bundle_norm = 0;
     double values_error = 0;
     double values_norm = 0;
     double laplacian_error = 0;
@@ -485,6 +485,24 @@ Kokkos::initialize(argc, args);
         double xval = target_coords(i,0);
         double yval = (dimension>1) ? target_coords(i,1) : 0;
         double zval = (dimension>2) ? target_coords(i,2) : 0;
+        double coord[3] = {xval, yval, zval};
+
+        // get tangent vector and see if orthgonal to coordinate (it should be on a sphere)
+        for (int j=0; j<dimension-1; ++j) {
+            double tangent_inner_prod = 0;
+            for (int k=0; k<dimension; ++k) {
+                tangent_inner_prod += coord[k] * my_GMLS_scalar.getTangentBundle(i, j, k);
+            }
+            tangent_bundle_error += tangent_inner_prod * tangent_inner_prod;
+        }
+        double normal_inner_prod = 0;
+        for (int k=0; k<dimension; ++k) {
+            normal_inner_prod += coord[k] * my_GMLS_scalar.getTangentBundle(i, dimension-1, k);
+        }
+        // inner product could be plus or minus 1 (depends on tangent direction ordering)
+        double normal_error_to_sum = (normal_inner_prod > 0) ? normal_inner_prod - 1 : normal_inner_prod + 1;
+        tangent_bundle_error += normal_error_to_sum * normal_error_to_sum;
+        tangent_bundle_norm += 1;
     
         // evaluation of various exact solutions
         double actual_value = sphere_harmonic54(xval, yval, zval);
@@ -521,6 +539,11 @@ Kokkos::initialize(argc, args);
         divergence_of_scalar_clones_ambient_norm += actual_Laplacian*actual_Laplacian;
 
     }
+
+    tangent_bundle_error /= number_target_coords;
+    tangent_bundle_error = std::sqrt(tangent_bundle_error);
+    tangent_bundle_norm /= number_target_coords;
+    tangent_bundle_norm = std::sqrt(tangent_bundle_norm);
     
     values_error /= number_target_coords;
     values_error = std::sqrt(values_error);
@@ -557,6 +580,7 @@ Kokkos::initialize(argc, args);
     divergence_of_scalar_clones_ambient_norm /= number_target_coords;
     divergence_of_scalar_clones_ambient_norm = std::sqrt(divergence_of_scalar_clones_ambient_norm);
 
+    printf("Tangent Bundle Error: %g\n", tangent_bundle_error / tangent_bundle_norm);  
     printf("Point Value Error: %g\n", values_error / values_norm);  
     printf("Laplace-Beltrami Error: %g\n", laplacian_error / laplacian_norm);  
     printf("Surface Gradient (Ambient) Error: %g\n", gradient_ambient_error / gradient_ambient_norm);  
