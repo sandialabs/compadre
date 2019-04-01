@@ -30,7 +30,7 @@ SET_TARGET_PROPERTIES( gmls_module
 
 target_link_libraries(gmls_module PUBLIC compadre)
 if (APPLE)
-  target_link_libraries(gmls_module PUBLIC ${PYTHON_LIBRARIES})
+  set_target_properties(gmls_module PROPERTIES LINK_FLAGS "${CMAKE_PYTHON_SHARED_LINKER_FLAGS}")
 endif()
 target_include_directories(gmls_module PUBLIC ${PYTHON_INCLUDE_DIRS})
 target_include_directories(gmls_module PUBLIC ${Numpy_INCLUDE_DIRS})
@@ -108,8 +108,10 @@ endif()
 
 bob_export_target(gmls_module)
 
-CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/__init__.py.in" "${CMAKE_CURRENT_BINARY_DIR}/__init__.py")
+set(LOAD_CDLL "True")
+CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/compadre/__init__.py" "${CMAKE_CURRENT_BINARY_DIR}/__init__.py" COPYONLY)
 CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Module.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Module.py")
+
 if(Compadre_USE_MATLAB)
   CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/compadre_py_util.py" "${CMAKE_CURRENT_BINARY_DIR}/compadre_py_util.py" COPYONLY)
   CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/Matlab_1D_Using_Python_Interface.m" "${CMAKE_CURRENT_BINARY_DIR}/Matlab_1D_Using_Python_Interface.m" COPYONLY)

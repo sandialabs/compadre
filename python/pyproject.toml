@@ -1,0 +1,2 @@
+[build-system]
+requires = ["setuptools","wheel>=0.33.1","cmake","numpy>=1.16.0","pathlib2"]
