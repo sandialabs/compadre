@@ -73,6 +73,7 @@ class build_ext(build_ext_orig):
             '-DCMAKE_CXX_FLAGS=' + " ".join(COMPILE_OPTIONS),
             '-DCMAKE_SHARED_LINKER_FLAGS=' + " ".join(LINK_OPTIONS),
             '-DCMAKE_PYTHON_SHARED_LINKER_FLAGS=' + " ".join(PYTHON_SPECIFIC_LINK_OPTIONS),
+            '-DPYTHON_EXECUTABLE=' + str(sys.executable),
             '-DCMAKE_OSX_DEPLOYMENT_TARGET=10.11',
             '-DCompadre_USE_PYTHON:BOOL=ON',
             '-DCompadre_USE_MATLAB:BOOL=ON',
