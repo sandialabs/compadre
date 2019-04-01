@@ -24,10 +24,15 @@ SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
 
 # RPATH should always include the folder it is called from
 bob_option(PYTHON_CALLING_BUILD "Python setuptools calling build" OFF)
-if (PYTHON_CALLING_BUILD)
+bob_option(Compadre_USE_PYTHON "Use PYTHON" OFF)
+if (Compadre_USE_PYTHON)
   if (APPLE)
     SET(CMAKE_BUILD_RPATH ${CMAKE_BUILD_RPATH} "@loader_path/")
     SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} "@loader_path/")
+    if (NOT(PYTHON_CALLING_BUILD))
+      # If python is calling the build, it will provide these flags
+      SET(CMAKE_PYTHON_SHARED_LINKER_FLAGS "-undefined dynamic_lookup -nodefaultlibs")
+    endif()
   else()
     SET(CMAKE_BUILD_RPATH ${CMAKE_BUILD_RPATH} "$ORIGIN/")
     SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} "$ORIGIN/")
@@ -347,7 +352,6 @@ endif()
 
 
 #PYTHON
-bob_option(Compadre_USE_PYTHON "Use PYTHON" OFF)
 bob_option(Compadre_USE_MATLAB "Use MATLAB interface for PYTHON" OFF)
 bob_input(PYTHON_PREFIX "" PATH "Path to PYTHON install")
 if (PYTHON_PREFIX)
