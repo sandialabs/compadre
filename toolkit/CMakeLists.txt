@@ -22,6 +22,25 @@ SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
 
+# RPATH should always include the folder it is called from
+bob_option(PYTHON_CALLING_BUILD "Python setuptools calling build" OFF)
+bob_option(Compadre_USE_PYTHON "Use PYTHON" OFF)
+if (Compadre_USE_PYTHON)
+  if (APPLE)
+    SET(CMAKE_BUILD_RPATH ${CMAKE_BUILD_RPATH} "@loader_path/")
+    SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} "@loader_path/")
+    if (NOT(PYTHON_CALLING_BUILD))
+      # If python is calling the build, it will provide these flags
+      SET(CMAKE_PYTHON_SHARED_LINKER_FLAGS "-undefined dynamic_lookup -nodefaultlibs")
+    endif()
+  else()
+    SET(CMAKE_BUILD_RPATH ${CMAKE_BUILD_RPATH} "$ORIGIN/")
+    SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} "$ORIGIN/")
+    SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,origin")
+  endif()
+endif()
+
+
 include(ExternalProject)
 
 
@@ -191,6 +210,7 @@ else()
       set(KokkosCore_ARGS
         "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
         "-DCMAKE_CXX_FLAGS=${KokkosCore_FLAGS}"
+        "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS}"
         "-DCMAKE_INSTALL_PREFIX=${KokkosCore_PREFIX}"
         "-DKokkos_ENABLE_OpenMP=${Compadre_USE_OpenMP}"
         "-DKokkos_ENABLE_Pthread=${Compadre_USE_Pthread}"
@@ -198,6 +218,7 @@ else()
         "-DKOKKOS_ARCH=${KokkosCore_ARCH}"
         "-DKOKKOS_CUDA_DIR=${CUDA_PREFIX}"
         "-DKokkos_ENABLE_Cuda_Lambda=ON"
+        "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}"
       )
       
       # update the RPATH from for the includes and libraries this externalproject will create
@@ -331,7 +352,6 @@ endif()
 
 
 #PYTHON
-bob_option(Compadre_USE_PYTHON "Use PYTHON" OFF)
 bob_option(Compadre_USE_MATLAB "Use MATLAB interface for PYTHON" OFF)
 bob_input(PYTHON_PREFIX "" PATH "Path to PYTHON install")
 if (PYTHON_PREFIX)
@@ -361,8 +381,14 @@ if (Compadre_USE_PYTHON)
       OUTPUT_STRIP_TRAILING_WHITESPACE )
   ENDIF()
   MESSAGE(STATUS "PYTHON_SITEPACKAGES: ${PYTHON_SITEPACKAGES}")
-  
-  bob_input(Numpy_PREFIX "${PYTHON_SITEPACKAGES}/numpy/core/include" PATH "Installation location of Numpy headers" )
+
+  IF(NOT EXISTS ${Numpy_PREFIX})
+    EXECUTE_PROCESS(
+      COMMAND "${PYTHON_EXECUTABLE}" -c "import numpy; print(numpy.get_include())"
+      OUTPUT_VARIABLE Numpy_PREFIX
+      OUTPUT_STRIP_TRAILING_WHITESPACE )
+  ENDIF()
+  MESSAGE(STATUS "Numpy_PREFIX: ${Numpy_PREFIX}")
   
   FIND_PATH(Numpy_INCLUDE_DIRS numpy/arrayobject.h HINTS ${Numpy_PREFIX})
   IF (Numpy_INCLUDE_DIRS)
@@ -372,15 +398,32 @@ if (Compadre_USE_PYTHON)
   ENDIF()
 
   set(SWIG_PREFIX "../python") # relative to examples folder
-  set(GMLS_Module_DEST "lib/python/dist-packages")
+  bob_input(GMLS_Module_DEST "lib/python/dist-packages" PATH "Path to install python module")
 
-  FIND_PACKAGE(PythonLibs)
-  IF(PythonLibs_FOUND)
-    MESSAGE(STATUS "PYTHON_LIBRARIES: ${PYTHON_LIBRARIES}")
-    MESSAGE(STATUS "PYTHON_INCLUDE_DIRS: ${PYTHON_INCLUDE_DIRS}")
-  ELSE()
-    MESSAGE(FATAL_ERROR "Compadre_USE_PYTHON set to ON, but PythonLibs not found at location set for PYTHON_PREFIX: ${PYTHON_PREFIX}")
+  IF(NOT EXISTS ${PYTHON_INCLUDE_DIRS})
+    EXECUTE_PROCESS(
+      COMMAND "${PYTHON_EXECUTABLE}" -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())"
+      OUTPUT_VARIABLE PYTHON_INCLUDE_DIRS
+      OUTPUT_STRIP_TRAILING_WHITESPACE )
   ENDIF()
+
+  EXECUTE_PROCESS(
+    COMMAND "${PYTHON_EXECUTABLE}" -c "from distutils import sysconfig; print(sysconfig.get_config_var(\"LIBDIR\"))"
+    OUTPUT_VARIABLE PYTHON_PATHS
+    OUTPUT_STRIP_TRAILING_WHITESPACE )
+  MESSAGE(STATUS "PYTHON_PATHS: ${PYTHON_PATHS}")
+
+  file(GLOB PYTHON_LIBNAME
+    "${PYTHON_PATHS}/libpython*${CMAKE_SHARED_LIBRARY_SUFFIX}"
+  )
+  get_filename_component(PYTHON_LIBNAME_BASE "${PYTHON_LIBNAME}" NAME)
+  STRING(REGEX REPLACE "lib(.*)${CMAKE_SHARED_LIBRARY_SUFFIX}" "\\1" PYTHON_LIBNAME "${PYTHON_LIBNAME_BASE}")
+
+  MESSAGE(STATUS "PYTHON_LIBNAME: ${PYTHON_LIBNAME}")
+  find_library(PYTHON_LIBRARIES NAME "${PYTHON_LIBNAME}" PATHS "${PYTHON_PATHS}" NO_DEFAULT_PATH)
+
+  MESSAGE(STATUS "PYTHON_INCLUDE_DIRS: ${PYTHON_INCLUDE_DIRS}")
+  MESSAGE(STATUS "PYTHON_LIBRARIES: ${PYTHON_LIBRARIES}")
 
 endif()
 
@@ -580,9 +623,10 @@ set(Compadre_KEY_STRINGS
 )
 
 
-
-bob_get_commit()
-bob_get_semver()
+if (NOT(PYTHON_CALLING_BUILD))
+  bob_get_commit()
+  bob_get_semver()
+endif()
 
 
 
