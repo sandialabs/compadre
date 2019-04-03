@@ -30,11 +30,16 @@ private:
 public:
 
     GMLS_Python(const int poly_order, std::string dense_solver_type, const int curvature_poly_order, const int dimensions) {
+
         gmls_object = new Compadre::GMLS(poly_order, dense_solver_type, curvature_poly_order, dimensions);
-        // initialized, but values not set
+
     }
 
-    ~GMLS_Python() { delete gmls_object; }
+    ~GMLS_Python() { 
+
+		delete gmls_object; 
+
+	}
 
     void setWeightingOrder(int regular_weight, int curvature_weight = -1) {
         if (curvature_weight < 0) curvature_weight = regular_weight;
@@ -148,6 +153,7 @@ public:
 
     void generatePointEvaluationStencil() {
         gmls_object->addTargets(Compadre::TargetOperation::ScalarPointEvaluation);
+        gmls_object->addTargets(Compadre::TargetOperation::PartialXOfScalarPointEvaluation);
         gmls_object->generateAlphas();
     }
 
@@ -249,7 +255,7 @@ public:
         return pyObjectArray_out;
     }
 
-    PyObject* applyStencil(PyObject* pyObjectArray_in) {
+    PyObject* applyStencil(PyObject* pyObjectArray_in, std::string target_operation = "point") {
         // this is the preferred method for performing the evaluation of a GMLS operator
         // currently, it only supports PointEvaluation, can easily be expanded in the future
 
@@ -282,8 +288,14 @@ public:
         }
 
         Compadre::Evaluator gmls_evaluator(gmls_object);
+        Compadre::TargetOperation requested_operation;
+        if (target_operation == "point") {
+            requested_operation = Compadre::TargetOperation::ScalarPointEvaluation;
+        } else if (target_operation == "grad_x") {
+            requested_operation = Compadre::TargetOperation::PartialXOfScalarPointEvaluation;
+        }
         auto output_values = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (source_data, Compadre::TargetOperation::ScalarPointEvaluation);
+            (source_data, requested_operation);
 
         auto dim_out_0 = output_values.dimension_0();
         auto dim_out_1 = output_values.dimension_1();
