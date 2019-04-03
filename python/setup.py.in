@@ -99,7 +99,7 @@ class build_ext(build_ext_orig):
                 os.listdir(python_temp) if 
                 os.path.isfile(os.path.join(python_temp, _lib)) and 
                 os.path.splitext(_lib)[1] in [".dll", ".so", ".dylib",".py"]
-                and not (_lib.startswith("python") or _lib.startswith("compadre"))]
+                and not (_lib.startswith("python"))]
         for lib in libs:
             shutil.move(lib, os.path.join(dest_temp,
                                           os.path.basename(lib)))

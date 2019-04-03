@@ -1,12 +1,12 @@
 import numpy as np
 import scipy.spatial.kdtree as kdtree
-import GMLS_Module
+import compadre
 
 
 def get_neighborlist(source_sites, target_sites, polyOrder, dimensions):
     # neighbor search
     my_kdtree = kdtree.KDTree(source_sites, leafsize=10)
-    min_neighbors_needed = GMLS_Module.getNP(polyOrder, dimensions);
+    min_neighbors_needed = compadre.getNP(polyOrder, dimensions);
     neighbor_lists = []
     temp_neighbor_lists = [] 
     NT = target_sites.shape[0]

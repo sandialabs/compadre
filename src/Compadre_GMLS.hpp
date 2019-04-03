@@ -1078,6 +1078,11 @@ public:
  */
 ///@{
 
+    void resetCoefficientData() {
+        if (_RHS.extent(0) >= 0)
+            _RHS = Kokkos::View<double*>("RHS",0);
+    }
+
     //! Sets basic problem data (neighbor lists, source coordinates, and target coordinates)
     template<typename view_type_1, typename view_type_2, typename view_type_3, typename view_type_4>
     void setProblemData(
@@ -1118,6 +1123,7 @@ public:
         for (int i=0; i<_neighbor_lists.dimension_0(); ++i) {
             _number_of_neighbors_list(i) = neighbor_lists(i,0);
         }
+        this->resetCoefficientData();
     }
 
     //! Sets neighbor list information. 2D array should be # targets x maximum number of neighbors for any target + 1.
@@ -1135,6 +1141,7 @@ public:
         for (int i=0; i<_neighbor_lists.dimension_0(); ++i) {
             _number_of_neighbors_list(i) = _host_neighbor_lists(i,0);
         }
+        this->resetCoefficientData();
     }
 
     //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries
@@ -1150,7 +1157,7 @@ public:
         Kokkos::deep_copy(_host_source_coordinates, source_coordinates);
         // copy data from host to device
         Kokkos::deep_copy(_source_coordinates, _host_source_coordinates);
-
+        this->resetCoefficientData();
     }
 
     //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries
@@ -1159,6 +1166,7 @@ public:
     void setSourceSites(Kokkos::View<double**, Kokkos::DefaultExecutionSpace> source_coordinates) {
         // allocate memory on device
         _source_coordinates = source_coordinates;
+        this->resetCoefficientData();
     }
 
     //! Sets target coordinate information. Rows of this 2D-array should correspond to rows of the neighbor lists.
@@ -1172,6 +1180,7 @@ public:
         Kokkos::deep_copy(_host_target_coordinates, target_coordinates);
         // copy data from host to device
         Kokkos::deep_copy(_target_coordinates, _host_target_coordinates);
+        this->resetCoefficientData();
     }
 
     //! Sets target coordinate information. Rows of this 2D-array should correspond to rows of the neighbor lists.
@@ -1179,6 +1188,7 @@ public:
     void setTargetSites(Kokkos::View<double**, Kokkos::DefaultExecutionSpace> target_coordinates) {
         // allocate memory on device
         _target_coordinates = target_coordinates;
+        this->resetCoefficientData();
     }
 
     //! Sets window sizes, also called the support of the kernel
@@ -1193,6 +1203,7 @@ public:
         Kokkos::deep_copy(_host_epsilons, epsilons);
         // copy data from host to device
         Kokkos::deep_copy(_epsilons, _host_epsilons);
+        this->resetCoefficientData();
     }
 
     //! Sets window sizes, also called the support of the kernel (device)
@@ -1200,6 +1211,7 @@ public:
     void setWindowSizes(Kokkos::View<double*, Kokkos::DefaultExecutionSpace> epsilons) {
         // allocate memory on device
         _epsilons = epsilons;
+        this->resetCoefficientData();
     }
 
     //! (OPTIONAL)
@@ -1233,6 +1245,7 @@ public:
         // copy data from device back to host in rearranged format
         _host_T = Kokkos::create_mirror_view(_T);
         Kokkos::deep_copy(_host_T, _T);
+        this->resetCoefficientData();
     }
 
     //! (OPTIONAL)
@@ -1250,6 +1263,7 @@ public:
         Kokkos::deep_copy(host_additional_evaluation_coordinates, evaluation_coordinates);
         // copy data from host to device
         Kokkos::deep_copy(_additional_evaluation_coordinates, host_additional_evaluation_coordinates);
+        this->resetCoefficientData();
     }
 
     //! (OPTIONAL)
@@ -1259,6 +1273,7 @@ public:
     template <typename view_type>
     void setAuxiliaryEvaluationCoordinates(Kokkos::View<double**, Kokkos::DefaultExecutionSpace> evaluation_coordinates) {
         _additional_evaluation_coordinates = evaluation_coordinates;
+        this->resetCoefficientData();
     }
 
     //! (OPTIONAL)
@@ -1282,6 +1297,7 @@ public:
         for (int i=0; i<_additional_evaluation_indices.dimension_0(); ++i) {
             _number_of_additional_evaluation_indices(i) = indices_lists(i,0);
         }
+        this->resetCoefficientData();
     }
 
     //! (OPTIONAL)
@@ -1302,6 +1318,7 @@ public:
         for (int i=0; i<_additional_evaluation_indices.dimension_0(); ++i) {
             _number_of_additional_evaluation_indices(i) = _host_additional_evaluation_indices(i,0);
         }
+        this->resetCoefficientData();
     }
 
 
@@ -1312,11 +1329,13 @@ public:
         } else {
             _weighting_type = WeightingFunctionType::Gaussian;
         }
+        this->resetCoefficientData();
     }
 
     //! Type for weighting kernel for GMLS problem
     void setWeightingType( const WeightingFunctionType wt) {
         _weighting_type = wt;
+        this->resetCoefficientData();
     }
 
     //! Type for weighting kernel for curvature 
@@ -1326,32 +1345,45 @@ public:
         } else {
             _curvature_weighting_type = WeightingFunctionType::Gaussian;
         }
+        this->resetCoefficientData();
     }
 
     //! Type for weighting kernel for curvature
     void setCurvatureWeightingType( const WeightingFunctionType wt) {
         _curvature_weighting_type = wt;
+        this->resetCoefficientData();
     }
 
     //! Sets basis order to be used when reoncstructing any function
     void setPolynomialOrder(const int poly_order) {
         _poly_order = poly_order;
         _NP = this->getNP(_poly_order, _dimensions);
+        this->resetCoefficientData();
     }
 
     //! Sets basis order to be used when reoncstructing curvature
     void setCurvaturePolynomialOrder(const int manifold_poly_order) {
         _curvature_poly_order = manifold_poly_order;
+        this->resetCoefficientData();
     }
 
     //! Power for weighting kernel for GMLS problem
-    void setWeightingPower(int wp) { _weighting_power = wp; }
+    void setWeightingPower(int wp) { 
+        _weighting_power = wp;
+        this->resetCoefficientData();
+    }
 
     //! Power for weighting kernel for curvature
-    void setCurvatureWeightingPower(int wp) { _curvature_weighting_power = wp; }
+    void setCurvatureWeightingPower(int wp) { 
+        _curvature_weighting_power = wp;
+        this->resetCoefficientData();
+    }
 
     //! Number of 1D quadrature points to use for staggered approach
-    void setNumberOfQuadraturePoints(int np) { _number_of_quadrature_points = np; }
+    void setNumberOfQuadraturePoints(int np) { 
+        _number_of_quadrature_points = np;
+        this->resetCoefficientData();
+    }
 
     //! Parses a string to determine solver type
     void setSolverType(const std::string& dense_solver_type) {
@@ -1371,12 +1403,14 @@ public:
         } else {
             _dense_solver_type = DenseSolverType::QR;
         }
+        this->resetCoefficientData();
     }
 
     //! Adds a target to the vector of target functional to be applied to the reconstruction
     void addTargets(TargetOperation lro) {
         std::vector<TargetOperation> temporary_lro_vector(1, lro);
         this->addTargets(temporary_lro_vector);
+        this->resetCoefficientData();
     }
 
     //! Adds a vector of target functionals to the vector of target functionals already to be applied to the reconstruction
@@ -1454,7 +1488,7 @@ public:
         Kokkos::deep_copy(_lro_input_tile_size, _host_lro_input_tile_size);
         Kokkos::deep_copy(_lro_output_tensor_rank, _host_lro_output_tensor_rank);
         Kokkos::deep_copy(_lro_input_tensor_rank, _host_lro_input_tensor_rank);
-
+        this->resetCoefficientData();
     }
 
     //! Empties the vector of target functionals to apply to the reconstruction
@@ -1463,6 +1497,7 @@ public:
         for (int i=0; i<TargetOperation::COUNT; ++i) {
             _lro_lookup[i] = -1;
         }
+        this->resetCoefficientData();
     }
 
     //! Sets up the batch of GMLS problems to be solved for. Provides alpha values
