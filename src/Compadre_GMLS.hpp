@@ -1121,7 +1121,7 @@ public:
 
         _number_of_neighbors_list = Kokkos::View<int*, Kokkos::HostSpace>("number of neighbors", neighbor_lists.dimension_0());
         for (int i=0; i<_neighbor_lists.dimension_0(); ++i) {
-            _number_of_neighbors_list(i) = neighbor_lists(i,0);
+            _number_of_neighbors_list(i) = _host_neighbor_lists(i,0);
         }
         this->resetCoefficientData();
     }
