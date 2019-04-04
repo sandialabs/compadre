@@ -65,9 +65,6 @@ if (Compadre_EXAMPLES)
     SET_TESTS_PROPERTIES(GMLS_Device_Dim1_QR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
 
     # Device views tests for small batch GMLS, reusing GMLS class object
-    ADD_TEST(NAME GMLS_SmallBatchReuse_Device_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_SmallBatchReuse_Device_Test "4" "200" "3" "1" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_SmallBatchReuse_Device_Dim3_QR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
-    
     ADD_TEST(NAME GMLS_SmallBatchReuse_Device_Dim2_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_SmallBatchReuse_Device_Test "4" "200" "2" "1" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_SmallBatchReuse_Device_Dim2_QR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
     
