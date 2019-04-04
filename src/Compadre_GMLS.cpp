@@ -389,6 +389,7 @@ void GMLS::operator()(const ApplyStandardTargets&, const member_type& teamMember
     teamMember.team_barrier();
 
     this->applyTargetsToCoefficients(teamMember, t1, t2, Coeffs, PsqrtW, w, P_target_row, _NP); 
+    teamMember.team_barrier();
 }
 
 
