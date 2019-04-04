@@ -3,6 +3,7 @@
 
 #include <Compadre_GMLS.hpp>
 #include <Compadre_Evaluator.hpp>
+#include <Compadre_PointCloudSearch.hpp>
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Random.hpp>
 #include <Python.h>
@@ -26,6 +27,19 @@ class GMLS_Python {
 private:
 
     Compadre::GMLS* gmls_object;
+    typedef Kokkos::View<double**, Kokkos::HostSpace> double_2d_view_type;
+    typedef Kokkos::View<int**, Kokkos::HostSpace> int_2d_view_type;
+    typedef Kokkos::View<double*, Kokkos::HostSpace> double_1d_view_type;
+
+    typedef nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<double, Compadre::PointCloudSearch<double_2d_view_type> >, 
+            Compadre::PointCloudSearch<double_2d_view_type>, 3> tree_type;
+    std::shared_ptr<tree_type> kd_tree;
+    std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> > point_cloud_search;
+
+    double_2d_view_type _source_coords;
+    double_2d_view_type _target_coords;
+    int_2d_view_type _neighbor_lists;
+    double_1d_view_type _epsilon;
 
 public:
 
@@ -71,6 +85,33 @@ public:
     
         // set values from Kokkos View
         gmls_object->setNeighborLists(neighbor_lists);
+        _neighbor_lists = neighbor_lists;
+    }
+
+    PyObject* getNeighborLists() {
+
+        compadre_assert_release((_neighbor_lists.extent(0)>0) && "getNeighborLists() called, but neighbor lists were never set.");
+
+        // allocate memory for array 
+        npy_intp dims_out[2] = {static_cast<npy_intp>(_neighbor_lists.extent(0)), static_cast<npy_intp>(_neighbor_lists.extent(1))};
+        PyObject *pyObjectArray_out = PyArray_SimpleNew(2, dims_out, NPY_INT);
+        if (!pyObjectArray_out) {
+                printf("Out of memory.\n");
+        }
+
+        // recast as a numpy array and write assuming a 1D layout
+        PyArrayObject *np_arr_out = reinterpret_cast<PyArrayObject*>(pyObjectArray_out);
+
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dims_out[0]), [=](int i) {
+            for (int j=0; j<dims_out[1]; ++j) {
+                int* val = (int*)PyArray_GETPTR2(np_arr_out, i, j);
+                *val = _neighbor_lists(i,j);
+            }
+        });
+        Kokkos::fence();
+
+        // return the 2D Python object
+        return pyObjectArray_out;
     }
 
     void setSourceSites(PyObject* pyObjectArray_in) {
@@ -99,6 +140,33 @@ public:
         
         // set values from Kokkos View
         gmls_object->setSourceSites(source_coords);
+        _source_coords = source_coords;
+    }
+
+    PyObject* getSourceSites() {
+
+        compadre_assert_release((_source_coords.extent(0)>0) && "getSourceSites() called, but source sites were never set.");
+
+        // allocate memory for array 
+        npy_intp dims_out[2] = {static_cast<npy_intp>(_source_coords.extent(0)), static_cast<npy_intp>(_source_coords.extent(1))};
+        PyObject *pyObjectArray_out = PyArray_SimpleNew(2, dims_out, NPY_DOUBLE);
+        if (!pyObjectArray_out) {
+                printf("Out of memory.\n");
+        }
+
+        // recast as a numpy array and write assuming a 1D layout
+        PyArrayObject *np_arr_out = reinterpret_cast<PyArrayObject*>(pyObjectArray_out);
+
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dims_out[0]), [=](int i) {
+            for (int j=0; j<dims_out[1]; ++j) {
+                double* val = (double*)PyArray_GETPTR2(np_arr_out, i, j);
+                *val = _source_coords(i,j);
+            }
+        });
+        Kokkos::fence();
+
+        // return the 2D Python object
+        return pyObjectArray_out;
     }
 
     void setTargetSites(PyObject* pyObjectArray_in) {
@@ -127,9 +195,37 @@ public:
         
         // set values from Kokkos View
         gmls_object->setTargetSites(target_coords);
+        _target_coords = target_coords;
+    }
+
+    PyObject* getTargetSites() {
+
+        compadre_assert_release((_target_coords.extent(0)>0) && "getTargetSites() called, but target sites were never set.");
+
+        // allocate memory for array 
+        npy_intp dims_out[2] = {static_cast<npy_intp>(_target_coords.extent(0)), static_cast<npy_intp>(_target_coords.extent(1))};
+        PyObject *pyObjectArray_out = PyArray_SimpleNew(2, dims_out, NPY_DOUBLE);
+        if (!pyObjectArray_out) {
+                printf("Out of memory.\n");
+        }
+
+        // recast as a numpy array and write assuming a 1D layout
+        PyArrayObject *np_arr_out = reinterpret_cast<PyArrayObject*>(pyObjectArray_out);
+
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dims_out[0]), [=](int i) {
+            for (int j=0; j<dims_out[1]; ++j) {
+                double* val = (double*)PyArray_GETPTR2(np_arr_out, i, j);
+                *val = _target_coords(i,j);
+            }
+        });
+        Kokkos::fence();
+
+        // return the 2D Python object
+        return pyObjectArray_out;
     }
 
     void setWindowSizes(PyObject* pyObjectArray_in) {
+
         // cast as a numpy array
         PyArrayObject *np_arr_in = reinterpret_cast<PyArrayObject*>(pyObjectArray_in);
         
@@ -149,6 +245,31 @@ public:
         
         // set values from Kokkos View
         gmls_object->setWindowSizes(epsilon);
+        _epsilon = epsilon;
+    }
+
+    PyObject* getWindowSizes() {
+
+        compadre_assert_release((_epsilon.extent(0)>0) && "getWindowSizes() called, but window sizes were never set.");
+
+        // allocate memory for array 
+        npy_intp dims_out[1] = {static_cast<npy_intp>(_epsilon.extent(0))};
+        PyObject *pyObjectArray_out = PyArray_SimpleNew(1, dims_out, NPY_DOUBLE);
+        if (!pyObjectArray_out) {
+                printf("Out of memory.\n");
+        }
+
+        // recast as a numpy array and write assuming a 1D layout
+        PyArrayObject *np_arr_out = reinterpret_cast<PyArrayObject*>(pyObjectArray_out);
+
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dims_out[0]), [=](int i) {
+            double* val = (double*)PyArray_GETPTR1(np_arr_out, i);
+            *val = _epsilon(i);
+        });
+        Kokkos::fence();
+
+        // return the 1D Python object
+        return pyObjectArray_out;
     }
 
     void generatePointEvaluationStencil() {
@@ -347,6 +468,90 @@ public:
         }
     }
 
+    void generateKDTree(PyObject* pyObjectArray_in) {
+        // cast as a numpy array
+        PyArrayObject *np_arr_in = reinterpret_cast<PyArrayObject*>(pyObjectArray_in);
+        
+        // copy data into Kokkos View
+        // read in size in each dimension
+        npy_intp* dims_in = PyArray_DIMS(np_arr_in);
+        int npyLength1D = dims_in[0];
+        int npyLength2D = dims_in[1];
+        
+        //  assert(npyLength2Dd == gmls_object->getDimensions());
+        
+        // create Kokkos View on host to copy into
+        Kokkos::View<double**, Kokkos::HostSpace> source_coords("neighbor coordinates", npyLength1D, npyLength2D);
+        
+        // overwrite existing data assuming a 2D layout
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,npyLength1D), [=](int i) {
+            for (int j = 0; j < npyLength2D; ++j)
+            {
+                double* val = (double*)PyArray_GETPTR2(np_arr_in, i, j);
+                source_coords(i,j) = *val;
+            }
+        });
+        point_cloud_search = std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> >(new Compadre::PointCloudSearch<double_2d_view_type>(source_coords));
+        kd_tree = point_cloud_search->generateKDTree(gmls_object->getGlobalDimensions());
+
+        _source_coords = source_coords;
+    }
+
+    void generateNeighborListsFromKNNSearchAndSet(PyObject* pyObjectArray_in, int poly_order, int dimension = 3, double epsilon_multiplier = 1.6, bool max_search_radius = 0.0) {
+
+        int neighbors_needed = Compadre::GMLS::getNP(poly_order, dimension);
+
+        // convert pyObjectArray_in to a kokkos view for target sites
+        // cast as a numpy array
+        PyArrayObject *np_arr_in = reinterpret_cast<PyArrayObject*>(pyObjectArray_in);
+        
+        // copy data into Kokkos View
+        // read in size in each dimension
+        npy_intp* dims_in = PyArray_DIMS(np_arr_in);
+        int npyLength1D = dims_in[0];
+        int npyLength2D = dims_in[1];
+        
+        //  assert(npyLength2Dd == gmls_object->getDimensions());
+        
+        // create Kokkos View on host to copy into
+        Kokkos::View<double**, Kokkos::HostSpace> target_coords("target site coordinates", npyLength1D, npyLength2D);
+        
+        // overwrite existing data assuming a 2D layout
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,npyLength1D), [=](int i) {
+            for (int j = 0; j < npyLength2D; ++j)
+            {
+                double* val = (double*)PyArray_GETPTR2(np_arr_in, i, j);
+                target_coords(i,j) = *val;
+            }
+        });
+
+        // how many target sites
+        int number_target_coords = target_coords.extent(0);
+
+        int estimated_upper_bound_number_neighbors = 
+            point_cloud_search->getEstimatedNumberNeighborsUpperBound(neighbors_needed, dimension, epsilon_multiplier);
+        
+        // make neighbor list kokkos view
+        int_2d_view_type neighbor_lists("neighbor lists", 
+                number_target_coords, estimated_upper_bound_number_neighbors); // first column is # of neighbors
+        
+        // make epsilons kokkos view
+        double_1d_view_type epsilon("h supports", number_target_coords);
+        
+        // call point_cloud_search using targets
+        // use these neighbor lists and epsilons to set the gmls object
+        point_cloud_search->generateNeighborListsFromKNNSearch(target_coords, neighbor_lists, epsilon, neighbors_needed, dimension, epsilon_multiplier, kd_tree);
+
+        // set these views in the GMLS object
+        gmls_object->setTargetSites(target_coords);
+        gmls_object->setNeighborLists(neighbor_lists);
+        gmls_object->setWindowSizes(epsilon);
+
+        _target_coords = target_coords;
+        _neighbor_lists = neighbor_lists;
+        _epsilon = epsilon;
+
+    }
 };
 
 int getNP(const int poly_order, const int dimensions) {

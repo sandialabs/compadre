@@ -56,10 +56,11 @@ class RadiusResultSet {
         compadre_kernel_assert_release((count>0) && "Cannot invoke RadiusResultSet::worst_item() on "
                                                     "an empty list of results.");
 
-        DistanceType worst_distance = std::numeric_limits<DistanceType>::max();
-        IndexType worst_distance_index = 0;
+        //return worst_pair;
+        DistanceType worst_distance = std::numeric_limits<DistanceType>::min();
+        IndexType worst_distance_index = -1;
         for (int i=0; i<=count; ++i) {
-            if (r_dist[i] < worst_distance) {
+            if (r_dist[i] > worst_distance) {
                 worst_distance = r_dist[i];
                 worst_distance_index = i_dist[i];
             }
@@ -72,26 +73,26 @@ class RadiusResultSet {
 
     inline void sort() { 
         // puts closest neighbor as the first entry in the neighbor list
+        // leaves the rest unsorted
 
         if (count > 0) {
 
-            DistanceType worst_distance = std::numeric_limits<DistanceType>::max();
-            IndexType worst_distance_index = 0;
-            IndexType worst_index = 0;
-            for (int i=0; i<=count; ++i) {
-                if (r_dist[i] < worst_distance) {
-                    worst_distance = r_dist[i];
-                    worst_distance_index = i_dist[i];
-                    worst_index = i;
+            DistanceType best_distance = std::numeric_limits<DistanceType>::max();
+            IndexType best_distance_index = -1;
+            int best_index = -1;
+            for (int i=0; i<count; ++i) {
+                if (r_dist[i] < best_distance) {
+                    best_distance = r_dist[i];
+                    best_distance_index = i_dist[i];
+                    best_index = i;
                 }
             }
 
-            if (worst_index != 0) {
+            if (best_index != 0) {
                 auto tmp_ind = i_dist[0];
-                i_dist[0] = worst_distance_index;
-                i_dist[worst_index] = tmp_ind;
+                i_dist[0] = best_distance_index;
+                i_dist[best_index] = tmp_ind;
             }
-
         }
     }
 };
