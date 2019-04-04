@@ -17,6 +17,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, P_target_row.dimension_0()), [=] (const int i) {
         P_target_row(i) = 0;
     });
+    teamMember.team_barrier();
 
     const int target_NP = this->getNP(_poly_order, _dimensions);
     const int num_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
@@ -629,6 +630,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
 
         compadre_kernel_assert_release(((additional_evaluation_sites_need_handled && additional_evaluation_sites_handled) || (!additional_evaluation_sites_need_handled)) && "Auxiliary evaluation coordinates are specified by user, but are calling a target operation that can not handle evaluating additional sites.");
         } // !operation_handled
+        teamMember.team_barrier();
     }
 }
 

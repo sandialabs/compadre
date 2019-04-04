@@ -204,7 +204,7 @@ class PointCloudSearch {
 
             // part 1. do knn search for neighbors needed for unisolvency
             // each row of neighbor lists is a neighbor list for the target site corresponding to that row
-            Kokkos::parallel_for(loop_policy(num_target_sites, Kokkos::AUTO)
+            Kokkos::parallel_for("knn search", loop_policy(num_target_sites, Kokkos::AUTO)
                     .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)), 
                     KOKKOS_LAMBDA(const loop_member_type& teamMember) {
 
@@ -254,7 +254,7 @@ class PointCloudSearch {
 
             // part 2. do radius search using window size from knn search
             // each row of neighbor lists is a neighbor list for the target site corresponding to that row
-            Kokkos::parallel_for(loop_policy(num_target_sites, Kokkos::AUTO)
+            Kokkos::parallel_for("radius search", loop_policy(num_target_sites, Kokkos::AUTO)
                     .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)), 
                     KOKKOS_LAMBDA(const loop_member_type& teamMember) {
 
