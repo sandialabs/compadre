@@ -231,7 +231,7 @@ Kokkos::initialize(argc, args);
     
     // Point cloud construction for neighbor search
     // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
-    auto point_cloud_search(CreatePointCloudSearch(source_coords, target_coords));
+    auto point_cloud_search(CreatePointCloudSearch(source_coords));
 
     // each row is a neighbor list for a target site, with the first column of each row containing
     // the number of neighbors for that rows corresponding target site
@@ -250,7 +250,7 @@ Kokkos::initialize(argc, args);
     // query the point cloud to generate the neighbor lists using a kdtree to produce the n nearest neighbor
     // to each target site, adding (epsilon_multiplier-1)*100% to whatever the distance away the further neighbor used is from
     // each target to the view for epsilon
-    point_cloud_search.generateNeighborListsFromKNNSearch(neighbor_lists, epsilon, min_neighbors, dimension, 
+    point_cloud_search.generateNeighborListsFromKNNSearch(target_coords, neighbor_lists, epsilon, min_neighbors, dimension, 
             epsilon_multiplier);
 
     //! [Performing Neighbor Search]
