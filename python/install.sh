@@ -81,8 +81,19 @@ if [ "$VERSION" == "" ]; then
     VERSION="$DEFAULT_VERSION"
 fi
 
+# check that Python is version 3.0 or higher
+check_python_version () {
+    VERSION_SUFFICIENT=`$1 -c "import sys; print(sys.version_info >= (3,0));"`
+    if [ "$VERSION_SUFFICIENT" == "False" ]; then
+        echo "Python package requires Python version 3.0 or higher."
+        exit 1
+    fi
+}
+
 # install the python package of compadre for the user
 if [ "$INSTALL" == "YES" ]; then
+
+    check_python_version $EXECUTABLE
 
     python insert_version.py $VERSION
     echo "version $VERSION inserted into setup file."
@@ -99,6 +110,8 @@ fi
 
 # (NOT for users) create a python package that can be uploaded to pypi 
 if [ "$PACKAGE" == "YES" ]; then
+
+    check_python_version $EXECUTABLE
 
     python insert_version.py $VERSION
     echo "version $VERSION inserted into setup file."
