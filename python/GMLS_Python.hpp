@@ -542,6 +542,8 @@ public:
         // use these neighbor lists and epsilons to set the gmls object
         point_cloud_search->generateNeighborListsFromKNNSearch(target_coords, neighbor_lists, epsilon, neighbors_needed, dimension, epsilon_multiplier, kd_tree);
 
+        Kokkos::fence();
+
         // set these views in the GMLS object
         gmls_object->setTargetSites(target_coords);
         gmls_object->setNeighborLists(neighbor_lists);
