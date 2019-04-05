@@ -54,13 +54,16 @@ np_x = compadre_py_util.get_2D_numpy_array(flat_x, py.int(length(flat_x)/3), py.
 np_y = compadre_py_util.get_2D_numpy_array(flat_y, py.int(length(flat_y)/3), py.int(3));
 
 % returns a dictionary with epsilons and with neighbor_lists
-d = compadre_py_util.get_neighborlist(np_x,np_y,poly_order,spatial_dimensions);
+epsilon_multiplier = 1.5;
+my_gmls.generateKDTree(np_x)
+my_gmls.generateNeighborListsFromKNNSearchAndSet(np_y, poly_order, spatial_dimensions, epsilon_multiplier)
+% this command also performs:
+% my_gmls.setTargetSites(np_y);
+% my_gmls.setWindowSizes(epsilons);
+% my_gmls.setNeighbors(neighbor_lists);
 
 % set source, targets, window sizes, and neighbor lists
 my_gmls.setSourceSites(np_x);
-my_gmls.setTargetSites(np_y);
-my_gmls.setWindowSizes(d{'epsilons'});
-my_gmls.setNeighbors(d{'neighbor_lists'});
 
 % generates stencil
 my_gmls.generatePointEvaluationStencil();
