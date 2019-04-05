@@ -1,6 +1,7 @@
 #include <tpl/nanoflann.hpp>
 #include <Kokkos_Core.hpp>
 #include "Compadre_Typedefs.hpp"
+#include <memory>
 
 namespace Compadre {
 
@@ -55,10 +56,11 @@ class RadiusResultSet {
         compadre_kernel_assert_release((count>0) && "Cannot invoke RadiusResultSet::worst_item() on "
                                                     "an empty list of results.");
 
-        DistanceType worst_distance = std::numeric_limits<DistanceType>::max();
-        IndexType worst_distance_index = 0;
+        //return worst_pair;
+        DistanceType worst_distance = std::numeric_limits<DistanceType>::min();
+        IndexType worst_distance_index = -1;
         for (int i=0; i<=count; ++i) {
-            if (r_dist[i] < worst_distance) {
+            if (r_dist[i] > worst_distance) {
                 worst_distance = r_dist[i];
                 worst_distance_index = i_dist[i];
             }
@@ -71,26 +73,26 @@ class RadiusResultSet {
 
     inline void sort() { 
         // puts closest neighbor as the first entry in the neighbor list
+        // leaves the rest unsorted
 
         if (count > 0) {
 
-            DistanceType worst_distance = std::numeric_limits<DistanceType>::max();
-            IndexType worst_distance_index = 0;
-            IndexType worst_index = 0;
-            for (int i=0; i<=count; ++i) {
-                if (r_dist[i] < worst_distance) {
-                    worst_distance = r_dist[i];
-                    worst_distance_index = i_dist[i];
-                    worst_index = i;
+            DistanceType best_distance = std::numeric_limits<DistanceType>::max();
+            IndexType best_distance_index = -1;
+            int best_index = -1;
+            for (int i=0; i<count; ++i) {
+                if (r_dist[i] < best_distance) {
+                    best_distance = r_dist[i];
+                    best_distance_index = i_dist[i];
+                    best_index = i;
                 }
             }
 
-            if (worst_index != 0) {
+            if (best_index != 0) {
                 auto tmp_ind = i_dist[0];
-                i_dist[0] = worst_distance_index;
-                i_dist[worst_index] = tmp_ind;
+                i_dist[0] = best_distance_index;
+                i_dist[best_index] = tmp_ind;
             }
-
         }
     }
 };
@@ -102,23 +104,23 @@ class PointCloudSearch {
 
     protected:
 
+        // define the cloud_type using this class
+        typedef nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<double, PointCloudSearch<view_type> >, 
+                PointCloudSearch<view_type>, 3> tree_type;
+
+
         //! source site coordinates
         view_type _src_pts_view;
 
-        //! target site coordinates
-        view_type _trg_pts_view;
-
     public:
 
-        PointCloudSearch(view_type src_pts_view, view_type trg_pts_view) 
-                : _src_pts_view(src_pts_view), _trg_pts_view(trg_pts_view) {
+        PointCloudSearch(view_type src_pts_view) 
+                : _src_pts_view(src_pts_view) {
             compadre_assert_release((std::is_same<typename view_type::memory_space, Kokkos::HostSpace>::value) &&
                     "Views passed to PointCloudSearch at construction should reside on the host.");
-            compadre_assert_release((src_pts_view.dimension_1()==3 && trg_pts_view.dimension_1()==3) &&
+            compadre_assert_release(src_pts_view.dimension_1()==3 &&
                     "Views passed to PointCloudSearch at construction must have second dimension of 3.");
         };
-
-        PointCloudSearch(view_type src_pts_view) : PointCloudSearch(src_pts_view, src_pts_view) {};
     
         ~PointCloudSearch() {};
 
@@ -126,7 +128,9 @@ class PointCloudSearch {
         //! for a given choice of dimension, basis size, and epsilon_multiplier. Assumes quasiuniform distribution
         //! of points. This result can be used to size a preallocated neighbor_lists kokkos view.
         static inline int getEstimatedNumberNeighborsUpperBound(int unisolvency_size, const int dimension, const double epsilon_multiplier) {
-            return 2.0 * unisolvency_size * pow(epsilon_multiplier, dimension) + 1; // +1 is for the number of neighbors entry needed in the first entry of each row
+            int multiplier = 1;
+            if (dimension==1) multiplier = 2;
+            return multiplier * 2.0 * unisolvency_size * pow(epsilon_multiplier, dimension) + 1; // +1 is for the number of neighbors entry needed in the first entry of each row
         }
     
         //! Bounding box query method required by Nanoflann.
@@ -149,35 +153,39 @@ class PointCloudSearch {
 
         }
 
-        //! Generates neighbor lists
-        template <typename neighbor_lists_view_type, typename epsilons_view_type>
-        void generateNeighborListsFromKNNSearch(neighbor_lists_view_type neighbor_lists,
-                epsilons_view_type epsilons, const int neighbors_needed, 
-                const int dimension = 3, const double epsilon_multiplier = 1.6, bool max_search_radius = 0.0) {
-
-            compadre_assert_release((std::is_same<typename neighbor_lists_view_type::memory_space, Kokkos::HostSpace>::value) &&
-                    "Views passed to generateNeighborListsFromKNNSearch should reside on the host.");
-            compadre_assert_release((std::is_same<typename epsilons_view_type::memory_space, Kokkos::HostSpace>::value) &&
-                    "Views passed to generateNeighborListsFromKNNSearch should reside on the host.");
-
-            // define the cloud_type using this class
-            typedef nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<double, decltype(*this)>, 
-                    decltype(*this), 3> tree_type;
-
-            // default search parameters
-            nanoflann::SearchParams search_parameters; 
+        std::shared_ptr<tree_type> generateKDTree(const int dimension = 3) {
 
             // maximum number of levels in the tree constructed by nanoflann
             const int maxLeaf = 10;
 
             // allocate a kd_tree from nanoflann
-            tree_type *kd_tree = new tree_type(dimension, *this, nanoflann::KDTreeSingleIndexAdaptorParams(maxLeaf));
+            std::shared_ptr<tree_type> kd_tree(new tree_type(dimension, *this, nanoflann::KDTreeSingleIndexAdaptorParams(maxLeaf)));
 
             // insert points to build up the tree
             kd_tree->buildIndex();
 
+            return kd_tree;
+
+        }
+
+        //! Generates neighbor lists
+        template <typename neighbor_lists_view_type, typename epsilons_view_type>
+        void generateNeighborListsFromKNNSearch(view_type trg_pts_view, neighbor_lists_view_type neighbor_lists,
+                epsilons_view_type epsilons, const int neighbors_needed, 
+                const int dimension = 3, const double epsilon_multiplier = 1.6, std::shared_ptr<tree_type> kd_tree = NULL, bool max_search_radius = 0.0) {
+
+            compadre_assert_release(trg_pts_view.dimension_1()==3 &&
+                    "Views passed to PointCloudSearch at construction must have second dimension of 3.");
+            compadre_assert_release((std::is_same<typename neighbor_lists_view_type::memory_space, Kokkos::HostSpace>::value) &&
+                    "Views passed to generateNeighborListsFromKNNSearch should reside on the host.");
+            compadre_assert_release((std::is_same<typename epsilons_view_type::memory_space, Kokkos::HostSpace>::value) &&
+                    "Views passed to generateNeighborListsFromKNNSearch should reside on the host.");
+
             // loop size
-            const int num_target_sites = _trg_pts_view.dimension_0();
+            const int num_target_sites = trg_pts_view.dimension_0();
+
+            if (!kd_tree)
+                kd_tree = this->generateKDTree(dimension);
 
             // allocate neighbor lists and epsilons
             compadre_assert_release((neighbor_lists.dimension_0()==num_target_sites 
@@ -226,7 +234,7 @@ class PointCloudSearch {
                     // target_coords is LayoutLeft on device and its HostMirror, so giving a pointer to 
                     // this data would lead to a wrong result if the device is a GPU
 
-                    for (int j=0; j<3; ++j) this_target_coord(j) = _trg_pts_view(i,j);
+                    for (int j=0; j<3; ++j) this_target_coord(j) = trg_pts_view(i,j);
 
                     neighbors_found(0) = kd_tree->knnSearch(this_target_coord.data(), neighbors_needed, 
                             neighbor_indices.data(), neighbor_distances.data()) ;
@@ -279,7 +287,7 @@ class PointCloudSearch {
                     // target_coords is LayoutLeft on device and its HostMirror, so giving a pointer to 
                     // this data would lead to a wrong result if the device is a GPU
 
-                    for (int j=0; j<3; ++j) this_target_coord(j) = _trg_pts_view(i,j);
+                    for (int j=0; j<3; ++j) this_target_coord(j) = trg_pts_view(i,j);
 
                     nanoflann::SearchParams sp; // default parameters
                     Compadre::RadiusResultSet<double> rrs(epsilons(i)*epsilons(i), neighbor_distances.data(), neighbor_indices.data(), neighbor_lists.dimension_1());
@@ -305,9 +313,6 @@ class PointCloudSearch {
 
             });
             Kokkos::fence();
-
-            // deallocate nanoflann kdtree
-            free(kd_tree);
         }
 
 }; // PointCloudSearch
