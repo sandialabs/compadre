@@ -65,7 +65,7 @@ int main(int argc, char* args[]) {
 		// PARSE COMMAND LINE ARGUMENTS
 		Teuchos::CommandLineProcessor clp;
 		clp.setDocString("Poisson solver for the sphere. Argument --filename=afile is required to define a particle set.");
-		std::string fname = "../test_data/grids/icos_tri_sphere/icosTri_6.vtk";
+		std::string fname = "../test_data/grids/icos_tri_sphere/icosTri_5.vtk";
 		clp.setOption("filename", &fname, "particle set .vtk filename", false);
 		clp.throwExceptions(false);
 
