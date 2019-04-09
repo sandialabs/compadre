@@ -8,7 +8,7 @@
     <!--Parameter name="input file" type="string" value="ne30np4_pentagons.091226.nc"/-->
     <!--Parameter name="input file" type="string" value="ne30np4_latlon.091226.nc"/-->
     <!--Parameter name="input file" type="string" value="ne30np4_latlon.091226.nc"/-->
-    <Parameter name="input file" type="string" value="mpas_40962.nc"/>
+    <Parameter name="input file" type="string" value="mpas_2562.nc"/>
     <!--Parameter name="input file" type="string" value="mpas_10242.nc"/-->
     <Parameter name="output file prefix" type="string" value="../test_data/"/>
     <Parameter name="output file" type="string" value="canga_output_upper.pvtp"/>
