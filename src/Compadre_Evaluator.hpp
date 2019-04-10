@@ -235,7 +235,7 @@ public:
             const int target_index = teamMember.league_rank();
 
             Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T
-                    (tangent_directions.data() + target_index*global_dimensions*global_dimensions, 
+                    (tangent_directions.data() + TO_GLOBAL(target_index)*TO_GLOBAL(global_dimensions)*TO_GLOBAL(global_dimensions), 
                      global_dimensions, global_dimensions);
             teamMember.team_barrier();
 
