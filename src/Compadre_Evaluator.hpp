@@ -235,7 +235,7 @@ public:
             const int target_index = teamMember.league_rank();
 
             Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T
-                    (tangent_directions.data() + target_index*global_dimensions*global_dimensions, 
+                    (tangent_directions.data() + TO_GLOBAL(target_index)*TO_GLOBAL(global_dimensions)*TO_GLOBAL(global_dimensions), 
                      global_dimensions, global_dimensions);
             teamMember.team_barrier();
 
@@ -507,11 +507,14 @@ public:
                 const int target_index = teamMember.league_rank();
 
                 Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T
-                        (tangent_directions.data() + target_index*global_dimensions*global_dimensions, 
+                        (tangent_directions.data() 
+                            + TO_GLOBAL(target_index)*TO_GLOBAL(global_dimensions)*TO_GLOBAL(global_dimensions), 
                          global_dimensions, global_dimensions);
 
                 Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > Coeffs
-                        (coeffs.data() + target_index*coefficient_matrix_tile_size*coefficient_matrix_tile_size, 
+                        (coeffs.data() 
+                            + TO_GLOBAL(target_index)*TO_GLOBAL(coefficient_matrix_tile_size)
+                                *TO_GLOBAL(coefficient_matrix_tile_size), 
                          coefficient_matrix_tile_size, coefficient_matrix_tile_size);
                 teamMember.team_barrier();
 
