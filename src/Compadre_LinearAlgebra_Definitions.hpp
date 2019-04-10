@@ -23,8 +23,8 @@ void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_
 
             Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k, double &entry_val) {
                 // assumes layout left input matrix
-                double val_i = *(p_data + i*weighted_P.dimension_0() + k);
-                double val_j = *(p_data + j*weighted_P.dimension_0() + k);
+                double val_i = *(p_data + TO_GLOBAL(i)*TO_GLOBAL(weighted_P.dimension_0()) + TO_GLOBAL(k));
+                double val_j = *(p_data + TO_GLOBAL(j)*TO_GLOBAL(weighted_P.dimension_0()) + TO_GLOBAL(k));
                 entry_val += val_i*val_j;
             }, M_data_entry_i_j );
 
@@ -40,7 +40,7 @@ void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_
 
         Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k, double &entry_val) {
             // assumes layout left input matrix
-            double val = *(p_data + i*weighted_P.dimension_0() + k);
+            double val = *(p_data + TO_GLOBAL(i)*TO_GLOBAL(weighted_P.dimension_0()) + TO_GLOBAL(k));
             entry_val += val*val;
         }, M_data_entry_i_j );
 

@@ -391,7 +391,7 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 //        printf("storage size: %d\n", storage_size);
 //    }
 //    printf("weight_p: %d\n", weight_p);
-        double * p_data = P.data();
+    double * p_data = P.data();
     const int my_num_neighbors = this->getNNeighbors(target_index);
 
     teamMember.team_barrier();
@@ -428,13 +428,15 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 
             if (weight_p) {
                 for (int j = 0; j < storage_size; ++j) {
-                                // stores layout left for CUDA or LAPACK calls later
+                    // stores layout left for CUDA or LAPACK calls later
+                    // no need to convert offsets to global indices because the sum will never be large
                     *(p_data + j*P.dimension_0() + i+my_num_neighbors*d) = delta[j] * std::sqrt(w(i+my_num_neighbors*d));
                 }
 
             } else {
                 for (int j = 0; j < storage_size; ++j) {
-                                // stores layout left for CUDA or LAPACK calls later
+                    // stores layout left for CUDA or LAPACK calls later
+                    // no need to convert offsets to global indices because the sum will never be large
                     *(p_data + j*P.dimension_0() + i+my_num_neighbors*d) = delta[j];
                 }
             }
