@@ -8,6 +8,24 @@
 #include <type_traits>
 #include <vector>
 #include <sstream>
+#include <cstddef>
+
+/*!
+ 
+  Data types in Compadre Toolkit:
+
+    - Intention is to do local work, i.e. on a single node, so the default ordinal is local_index_type
+    - When doing pointer arithmetic, it is possible to overflow local_index_type, so use global_index_type
+
+*/
+
+// Indices and data types
+typedef double      scalar_type;
+typedef int         local_index_type;
+typedef std::size_t global_index_type;
+
+// helper function when doing pointer arithmetic
+#define TO_GLOBAL(variable) ((global_index_type)variable)
 
 // KOKKOS TYPEDEFS
 
