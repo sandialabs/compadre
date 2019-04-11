@@ -8,9 +8,12 @@
 #include "Compadre_XyzVector.hpp"
 
 #include "TPL/Cobra_SLBQP.hpp" // OBFET
-#include "cedr_mpi.hpp"
-#include "cedr_util.hpp"
-#include "cedr_caas.hpp"
+
+#ifdef COMPADREHARNESS_USE_COMPOSE
+  #include "cedr_mpi.hpp"
+  #include "cedr_util.hpp"
+  #include "cedr_caas.hpp"
+#endif
 
 namespace Compadre {
 
@@ -107,7 +110,7 @@ void OBFET::solveAndUpdate() {
             std::cout << "Residual   ... " << astatus.residual << "\n";
 
         } else {
-
+#ifdef COMPADREHARNESS_USE_COMPOSE
             MPI_Comm comm = *(Teuchos::rcp_dynamic_cast<const Teuchos::MpiComm<int>>(this->_target_particles->getCoordsConst()->getComm(), true /*throw on fail*/)->getRawMpiComm());
             auto parallel = cedr::mpi::make_parallel(comm);
             srand(0);
@@ -152,7 +155,9 @@ void OBFET::solveAndUpdate() {
                 std::cout << "Residual        ... " << residual << "\n";
             }
             TEUCHOS_TEST_FOR_EXCEPT_MSG(out_of_bounds!=0, "At least one constructed value out of bounds after bounds preservation enforced.");
-
+#else
+            TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Compose package called but not built. Enable with '-D Compadre_USE_Compose:BOOL=ON'.");
+#endif // COMPADRE_USE_COMPOSE
         }
         // replace data on target with this
         for (local_index_type j=0; j<_target_particles->getCoordsConst()->nLocal(); ++j) {
