@@ -1079,7 +1079,7 @@ public:
 ///@{
 
     void resetCoefficientData() {
-        if (_RHS.extent(0) >= 0)
+        if (_RHS.extent(0) > 0)
             _RHS = Kokkos::View<double*>("RHS",0);
     }
 

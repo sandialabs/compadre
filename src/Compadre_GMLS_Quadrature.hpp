@@ -56,14 +56,6 @@ void GMLS::generate1DQuadrature() {
         break;
     default:
         compadre_assert_release(false && "Unsupported number of quadrature points.");
-        quadrature_weights[0] = 0.5;
-        quadrature_weights[1] = 0.5;
-        parameterized_quadrature_sites[0] = 0.5*(1-std::sqrt(1./3.));
-        parameterized_quadrature_sites[1] = 0.5*(1+std::sqrt(1./3.));
-        for (int i=2; i<_number_of_quadrature_points; ++i) {
-            quadrature_weights[i] = 0;
-            parameterized_quadrature_sites[i] = 0;
-        }
     }
 
     Kokkos::deep_copy(_quadrature_weights, quadrature_weights);
