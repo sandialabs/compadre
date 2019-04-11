@@ -1,3 +1,10 @@
+/*
+ *
+ * This examples tests the ability to reuse a GMLS class instance, 
+ * changing the target and neighbor list for the new target.
+ *
+ */
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -96,7 +103,6 @@ bool all_passed = true;
     
     //! [Parse Command Line Arguments]
     Kokkos::Timer timer;
-    Kokkos::Profiling::pushRegion("Setup Point Data");
     //! [Setting Up The Point Cloud]
     
     // approximate spacing of source sites
@@ -168,8 +174,6 @@ bool all_passed = true;
     
     //! [Setting Up The Point Cloud]
     
-    Kokkos::Profiling::popRegion();
-    Kokkos::Profiling::pushRegion("Creating Data");
     
     //! [Creating The Data]
     
@@ -217,52 +221,8 @@ bool all_passed = true;
     
     //! [Creating The Data]
     
-    Kokkos::Profiling::popRegion();
-    Kokkos::Profiling::pushRegion("Neighbor Search");
-    
-    //! [Performing Neighbor Search]
-    
-    
-    // Point cloud construction for neighbor search
-    // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
-    auto point_cloud_search(CreatePointCloudSearch(source_coords));
-
-    // each row is a neighbor list for a target site, with the first column of each row containing
-    // the number of neighbors for that rows corresponding target site
-    double epsilon_multiplier = 1.5;
-    int estimated_upper_bound_number_neighbors = 
-        point_cloud_search.getEstimatedNumberNeighborsUpperBound(min_neighbors, dimension, epsilon_multiplier);
-
-    Kokkos::View<int**, Kokkos::DefaultExecutionSpace> neighbor_lists_device("neighbor lists", 
-            number_target_coords, estimated_upper_bound_number_neighbors); // first column is # of neighbors
-    Kokkos::View<int**>::HostMirror neighbor_lists = Kokkos::create_mirror_view(neighbor_lists_device);
-    
-    // each target site has a window size
-    Kokkos::View<double*, Kokkos::DefaultExecutionSpace> epsilon_device("h supports", number_target_coords);
-    Kokkos::View<double*>::HostMirror epsilon = Kokkos::create_mirror_view(epsilon_device);
-    
-    // query the point cloud to generate the neighbor lists using a kdtree to produce the n nearest neighbor
-    // to each target site, adding (epsilon_multiplier-1)*100% to whatever the distance away the further neighbor used is from
-    // each target to the view for epsilon
-    point_cloud_search.generateNeighborListsFromKNNSearch(target_coords, neighbor_lists, epsilon, min_neighbors, dimension, 
-            epsilon_multiplier);
-    
-    
-    //! [Performing Neighbor Search]
-    
-    Kokkos::Profiling::popRegion();
-    Kokkos::fence(); // let call to build neighbor lists complete before copying back to device
-    timer.reset();
     
     //! [Setting Up The GMLS Object]
-    
-    
-    // Copy data back to device (they were filled on the host)
-    // We could have filled Kokkos Views with memory space on the host
-    // and used these instead, and then the copying of data to the device
-    // would be performed in the GMLS class
-    Kokkos::deep_copy(neighbor_lists_device, neighbor_lists);
-    Kokkos::deep_copy(epsilon_device, epsilon);
     
     // solver name for passing into the GMLS class
     std::string solver_name;
@@ -274,22 +234,6 @@ bool all_passed = true;
     
     // initialize an instance of the GMLS class 
     GMLS my_GMLS(VectorOfScalarClonesTaylorPolynomial, VectorPointSample, order, solver_name.c_str(), 2 /*manifold order*/, dimension);
-    
-    // pass in neighbor lists, source coordinates, target coordinates, and window sizes
-    //
-    // neighbor lists have the format:
-    //      dimensions: (# number of target sites) X (# maximum number of neighbors for any given target + 1)
-    //                  the first column contains the number of neighbors for that rows corresponding target index
-    //
-    // source coordinates have the format:
-    //      dimensions: (# number of source sites) X (dimension)
-    //                  entries in the neighbor lists (integers) correspond to rows of this 2D array
-    //
-    // target coordinates have the format:
-    //      dimensions: (# number of target sites) X (dimension)
-    //                  # of target sites is same as # of rows of neighbor lists
-    //
-    my_GMLS.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
     
     // create a vector of target operations
     std::vector<TargetOperation> lro(5);
@@ -307,90 +251,162 @@ bool all_passed = true;
     
     // power to use in that weighting kernel function
     my_GMLS.setWeightingPower(2);
-    
-    // generate the alphas that to be combined with data for each target operation requested in lro
-    my_GMLS.generateAlphas();
-    
-    
-    //! [Setting Up The GMLS Object]
-    
-    double instantiation_time = timer.seconds();
-    std::cout << "Took " << instantiation_time << "s to complete alphas generation." << std::endl;
-    Kokkos::fence(); // let generateAlphas finish up before using alphas
-    Kokkos::Profiling::pushRegion("Apply Alphas to Data");
-    
-    //! [Apply GMLS Alphas To Data]
-    
-    // it is important to note that if you expect to use the data as a 1D view, then you should use double*
-    // however, if you know that the target operation will result in a 2D view (vector or matrix output),
-    // then you should template with double** as this is something that can not be infered from the input data
-    // or the target operator at compile time. Additionally, a template argument is required indicating either
-    // Kokkos::HostSpace or Kokkos::DefaultExecutionSpace::memory_space() 
-    
-    // The Evaluator class takes care of handling input data views as well as the output data views.
-    // It uses information from the GMLS class to determine how many components are in the input 
-    // as well as output for any choice of target functionals and then performs the contactions
-    // on the data using the alpha coefficients generated by the GMLS class, all on the device.
-    Evaluator gmls_evaluator(&my_GMLS);
-    
-    auto output_value = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (sampling_data_device, ScalarPointEvaluation);
-    
-    auto output_laplacian = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (sampling_data_device, LaplacianOfScalarPointEvaluation);
-    
-    auto output_gradient = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (sampling_data_device, GradientOfScalarPointEvaluation);
-    
-    auto output_divergence = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (gradient_sampling_data_device, DivergenceOfVectorPointEvaluation, VectorPointSample);
-    
-    auto output_curl = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (divergence_sampling_data_device, CurlOfVectorPointEvaluation);
-    
-    // retrieves polynomial coefficients instead of remapped field
-    auto scalar_coefficients = gmls_evaluator.applyFullPolynomialCoefficientsBasisToDataAllComponents<double**, Kokkos::HostSpace>
-            (sampling_data_device, VectorPointSample);
-    
-    //! [Apply GMLS Alphas To Data]
-    
-    Kokkos::fence(); // let application of alphas to data finish before using results
-    Kokkos::Profiling::popRegion();
-    // times the Comparison in Kokkos
-    Kokkos::Profiling::pushRegion("Comparison");
-    
-    //! [Check That Solutions Are Correct]
-    
-    
+
+    // set source sites once for all targets
+    my_GMLS.setSourceSites(source_coords_device);
+
+        
+    // Point cloud construction for neighbor search
+    // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
+    auto point_cloud_search(CreatePointCloudSearch(source_coords));
+
+    auto kd_tree = point_cloud_search.generateKDTree(dimension);
+
     // loop through the target sites
     for (int i=0; i<number_target_coords; i++) {
+        timer.reset();
+        // pass in neighbor lists, source coordinates, target coordinates, and window sizes
+        //
+        // single neighbor lists have the format:
+        //      dimensions: (1 single neighbor list for one target) X (# maximum number of neighbors for any given target + 1)
+        //                  the first column contains the number of neighbors for that rows corresponding target index
+        //
+        // source coordinates have the format:
+        //      dimensions: (# number of source sites) X (dimension)
+        //                  entries in the neighbor lists (integers) correspond to rows of this 2D array
+        //
+        // single target coordinates have the format:
+        //      dimensions: (1 single target site) X (dimension)
+        //                  # of target sites is same as # of rows of neighbor lists
+        //
+        
+        
+        // coordinates of single target sites
+        Kokkos::View<double**, Kokkos::DefaultExecutionSpace> single_target_coords_device ("single target coordinates", 1, 3);
+        Kokkos::View<double**>::HostMirror single_target_coords = Kokkos::create_mirror_view(single_target_coords_device);
+        for (int j=0; j<3; ++j) {
+            single_target_coords(0,j) = target_coords(i,j);
+        }
+        // target coordinates copied next, because it is a convenient time to send them to device
+        Kokkos::deep_copy(single_target_coords_device, single_target_coords);
+        Kokkos::fence();
+    
+        //! [Performing Neighbor Search]
+
+        // each row is a neighbor list for a target site, with the first column of each row containing
+        // the number of neighbors for that rows corresponding target site
+        double epsilon_multiplier = 1.5;
+        int estimated_upper_bound_number_neighbors = 
+            point_cloud_search.getEstimatedNumberNeighborsUpperBound(min_neighbors, dimension, epsilon_multiplier);
+
+        Kokkos::View<int**, Kokkos::DefaultExecutionSpace> single_neighbor_lists_device("neighbor lists", 
+                1, estimated_upper_bound_number_neighbors); // first column is # of neighbors
+        Kokkos::View<int**>::HostMirror single_neighbor_lists = Kokkos::create_mirror_view(single_neighbor_lists_device);
+        
+        // each target site has a window size
+        Kokkos::View<double*, Kokkos::DefaultExecutionSpace> single_epsilon_device("h supports", 1);
+        Kokkos::View<double*>::HostMirror single_epsilon = Kokkos::create_mirror_view(single_epsilon_device);
+        
+        // query the point cloud to generate the neighbor lists using a kdtree to produce the n nearest neighbor
+        // to each target site, adding (epsilon_multiplier-1)*100% to whatever the distance away the further neighbor used is from
+        // each target to the view for epsilon
+        point_cloud_search.generateNeighborListsFromKNNSearch(single_target_coords, single_neighbor_lists, single_epsilon, min_neighbors, dimension, 
+                epsilon_multiplier, kd_tree);
+        
+        //! [Performing Neighbor Search]
+        
+        
+        // Copy data back to device (they were filled on the host)
+        // We could have filled Kokkos Views with memory space on the host
+        // and used these instead, and then the copying of data to the device
+        // would be performed in the GMLS class
+        Kokkos::deep_copy(single_neighbor_lists_device, single_neighbor_lists);
+        Kokkos::deep_copy(single_epsilon_device, single_epsilon);
+        Kokkos::fence(); // let call to build neighbor lists complete before copying back to device
+        
+        // Create temporary small views to hold just one target's information at a time
+        my_GMLS.setNeighborLists(single_neighbor_lists_device);
+        my_GMLS.setTargetSites(single_target_coords_device);
+        my_GMLS.setWindowSizes(single_epsilon_device);
+        
+        
+        // generate the alphas that to be combined with data for each target operation requested in lro
+        my_GMLS.generateAlphas();
+        
+        
+        //! [Setting Up The GMLS Object]
+        
+        double instantiation_time = timer.seconds();
+        std::cout << "Took " << instantiation_time << "s to complete alphas generation." << std::endl;
+        Kokkos::fence(); // let generateAlphas finish up before using alphas
+
+        
+        //! [Apply GMLS Alphas To Data]
+        
+        // it is important to note that if you expect to use the data as a 1D view, then you should use double*
+        // however, if you know that the target operation will result in a 2D view (vector or matrix output),
+        // then you should template with double** as this is something that can not be infered from the input data
+        // or the target operator at compile time. Additionally, a template argument is required indicating either
+        // Kokkos::HostSpace or Kokkos::DefaultExecutionSpace::memory_space() 
+        
+        // The Evaluator class takes care of handling input data views as well as the output data views.
+        // It uses information from the GMLS class to determine how many components are in the input 
+        // as well as output for any choice of target functionals and then performs the contactions
+        // on the data using the alpha coefficients generated by the GMLS class, all on the device.
+        Evaluator gmls_evaluator(&my_GMLS);
+        
+        auto output_value = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+                (sampling_data_device, ScalarPointEvaluation);
+        
+        auto output_laplacian = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+                (sampling_data_device, LaplacianOfScalarPointEvaluation);
+        
+        auto output_gradient = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+                (sampling_data_device, GradientOfScalarPointEvaluation);
+        
+        auto output_divergence = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+                (gradient_sampling_data_device, DivergenceOfVectorPointEvaluation, VectorPointSample);
+        
+        auto output_curl = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+                (divergence_sampling_data_device, CurlOfVectorPointEvaluation);
+        
+        // retrieves polynomial coefficients instead of remapped field
+        auto scalar_coefficients = gmls_evaluator.applyFullPolynomialCoefficientsBasisToDataAllComponents<double**, Kokkos::HostSpace>
+                (sampling_data_device, VectorPointSample);
+        
+        //! [Apply GMLS Alphas To Data]
+        
+        Kokkos::fence(); // let application of alphas to data finish before using results
+        // times the Comparison in Kokkos
+        
+        //! [Check That Solutions Are Correct]
     
         // load value from output
-        double GMLS_value = output_value(i);
+        double GMLS_value = output_value(0);
     
         // load laplacian from output
-        double GMLS_Laplacian = output_laplacian(i);
+        double GMLS_Laplacian = output_laplacian(0);
     
         // load partial x from gradient
         // this is a test that the scalar_coefficients 2d array returned hold valid entries
         // scalar_coefficients(i,1)*1./epsilon(i) is equivalent to the target operation acting 
         // on the polynomials applied to the polynomial coefficients
-        double GMLS_GradX = scalar_coefficients(i,1)*1./epsilon(i);
+        double GMLS_GradX = scalar_coefficients(0,1)*1./single_epsilon(0);
                             //output_gradient(i,0);
     
         // load partial y from gradient
-        double GMLS_GradY = (dimension>1) ? output_gradient(i,1) : 0;
+        double GMLS_GradY = (dimension>1) ? output_gradient(0,1) : 0;
     
         // load partial z from gradient
-        double GMLS_GradZ = (dimension>2) ? output_gradient(i,2) : 0;
+        double GMLS_GradZ = (dimension>2) ? output_gradient(0,2) : 0;
     
         // load divergence from output
-        double GMLS_Divergence = output_divergence(i);
+        double GMLS_Divergence = output_divergence(0);
     
         // load curl from output
-        double GMLS_CurlX = (dimension>1) ? output_curl(i,0) : 0;
-        double GMLS_CurlY = (dimension>1) ? output_curl(i,1) : 0;
-        double GMLS_CurlZ = (dimension>2) ? output_curl(i,2) : 0;
+        double GMLS_CurlX = (dimension>1) ? output_curl(0,0) : 0;
+        double GMLS_CurlY = (dimension>1) ? output_curl(0,1) : 0;
+        double GMLS_CurlZ = (dimension>2) ? output_curl(0,2) : 0;
     
     
         // target site i's coordinate
@@ -470,9 +486,7 @@ bool all_passed = true;
     
     
     //! [Check That Solutions Are Correct] 
-    // popRegion hidden from tutorial
     // stop timing comparison loop
-    Kokkos::Profiling::popRegion();
     //! [Finalize Program]
 
 

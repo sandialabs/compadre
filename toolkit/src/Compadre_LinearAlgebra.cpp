@@ -12,8 +12,8 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
     // get pointers to device data
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,num_matrices), KOKKOS_LAMBDA(const int i) {
-        array_P_RHS(i               ) = reinterpret_cast<size_t>(P   + i*lda*nda);
-        array_P_RHS(i + num_matrices) = reinterpret_cast<size_t>(RHS + i*ldb*ndb);
+        array_P_RHS(i               ) = reinterpret_cast<size_t>(P   + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda));
+        array_P_RHS(i + num_matrices) = reinterpret_cast<size_t>(RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb));
     });
 
     int *devInfo; cudaMalloc(&devInfo, num_matrices*sizeof(int));
@@ -39,7 +39,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
     cublas_stat=cublasDgelsBatched(cublas_handle, CUBLAS_OP_N, 
                                    M, N, M,
                                    reinterpret_cast<double**>(array_P_RHS.ptr_on_device()), lda,
-                                   reinterpret_cast<double**>(array_P_RHS.ptr_on_device() + num_matrices), ldb,
+                                   reinterpret_cast<double**>(array_P_RHS.ptr_on_device() + TO_GLOBAL(num_matrices)), ldb,
                                    &info, devInfo, num_matrices );
 
     if (cublas_stat != CUBLAS_STATUS_SUCCESS)
@@ -84,8 +84,8 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
         
             const int i = teamMember.league_rank();
 
-            double * p_offset = P + i*lda*nda;
-            double * rhs_offset = RHS + i*ldb*ndb;
+            double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
+            double * rhs_offset = RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb);
 
             // use a custom # of neighbors for each problem, if possible
             const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
@@ -111,8 +111,8 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
             int i_info = 0;
         
-            double * p_offset = P + i*lda*nda;
-            double * rhs_offset = RHS + i*ldb*ndb;
+            double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
+            double * rhs_offset = RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb);
 
             // use a custom # of neighbors for each problem, if possible
             const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
@@ -152,9 +152,9 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
       int min_mn = (M<N) ? M : N;
       int max_mn = (M>N) ? M : N;
       // local U, S, and V must be allocated
-      Kokkos::View<double*> U("U", num_matrices*ldu*M);
-      Kokkos::View<double*> V("V", num_matrices*ldv*N);
-      Kokkos::View<double*> S("S", num_matrices*min_mn);
+      Kokkos::View<double*> U("U", TO_GLOBAL(num_matrices)*TO_GLOBAL(ldu)*TO_GLOBAL(M));
+      Kokkos::View<double*> V("V", TO_GLOBAL(num_matrices)*TO_GLOBAL(ldv)*TO_GLOBAL(N));
+      Kokkos::View<double*> S("S", TO_GLOBAL(num_matrices)*TO_GLOBAL(min_mn));
       Kokkos::View<int*> devInfo("device info", num_matrices);
 
     Kokkos::Profiling::popRegion();
@@ -275,12 +275,12 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
               cusolverDnDgesvdj(
                   cusolver_handles[my_stream], jobz, econ,
                   M, N,
-                  P + i*lda*nda, lda,
-                  S.ptr_on_device() + i*min_mn,
-                  U.ptr_on_device() + i*ldu*M, ldu,
-                  V.ptr_on_device() + i*ldv*N, ldv,
-                  work.ptr_on_device() + i*lwork, lwork,
-                  devInfo.ptr_on_device() + i, gesvdj_params
+                  P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda), lda,
+                  S.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(min_mn),
+                  U.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(ldu)*TO_GLOBAL(M), ldu,
+                  V.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(ldv)*TO_GLOBAL(N), ldv,
+                  work.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(lwork), lwork,
+                  devInfo.ptr_on_device() + TO_GLOBAL(i), gesvdj_params
               );
   
 //              cusolverDnDgesvd (
@@ -289,17 +289,17 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
 //                  jobv,
 //                  M,
 //                  N,
-//                  P + i*lda*nda,
+//                  P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda),
 //                  lda,
-//                  S.ptr_on_device() + i*min_mn,
-//                  U.ptr_on_device() + i*ldu*M,
+//                  S.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(min_mn),
+//                  U.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(ldu)*TO_GLOBAL(M),
 //                  ldu,
-//                  V.ptr_on_device() + i*ldv*N,
+//                  V.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(ldv)*TO_GLOBAL(N),
 //                  ldv,
-//                  work.ptr_on_device() + i*lwork,
+//                  work.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(lwork),
 //                  lwork,
-//                  rwork.ptr_on_device() + i*(min_mn-1),
-//                  devInfo.ptr_on_device() + i );
+//                  rwork.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL((min_mn-1)),
+//                  devInfo.ptr_on_device() + TO_GLOBAL(i) );
   
           });
         Kokkos::Profiling::popRegion();
@@ -338,10 +338,14 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
         //int my_num_rows = d_neighbor_list_sizes(target_index)*multiplier : M;
 
     scratch_vector_type s(teamMember.team_scratch(0), min_mn ); // shared memory
-        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > RHS_(RHS + target_index*ldb*ndb, ldb, ldb);
-        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > U_(U.data() + target_index*ldu*M, ldu, M);
-        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > V_(V.data() + target_index*ldv*N, ldv, N);
-        Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > S_(S.data() + target_index*min_mn, min_mn);
+        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
+            RHS_(RHS + TO_GLOBAL(target_index)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb), ldb, ldb);
+        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
+            U_(U.data() + TO_GLOBAL(target_index)*TO_GLOBAL(ldu)*TO_GLOBAL(M), ldu, M);
+        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
+            V_(V.data() + TO_GLOBAL(target_index)*TO_GLOBAL(ldv)*TO_GLOBAL(N), ldv, N);
+        Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
+            S_(S.data() + TO_GLOBAL(target_index)*TO_GLOBAL(min_mn), min_mn);
 
         // threshold for dropping singular values
         double S0 = S_(0);
@@ -424,8 +428,8 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
         
                 const int i = teamMember.league_rank();
 
-                double * p_offset = P + i*lda*nda;
-                double * rhs_offset = RHS + i*ldb*ndb;
+                double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
+                double * rhs_offset = RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb);
 
                 // use a custom # of neighbors for each problem, if possible
                 const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
@@ -455,8 +459,8 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
                 int i_rank = 0;
                 int i_info = 0;
         
-                double * p_offset = P + i*lda*nda;
-                double * rhs_offset = RHS + i*ldb*ndb;
+                double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
+                double * rhs_offset = RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb);
 
                 // use a custom # of neighbors for each problem, if possible
                 const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
