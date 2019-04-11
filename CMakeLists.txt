@@ -537,6 +537,7 @@ set(CompadreHarness_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
 set(CompadreHarness_KEY_BOOLS
     CompadreHarness_USE_LAPACK
+    CompadreHarness_USE_Compose
     CompadreHarness_USE_OPENBLAS
     CompadreHarness_USE_MPI
     CompadreHarness_USE_Nanoflann
@@ -629,7 +630,8 @@ if (CompadreHarness_USE_CUDA OR CompadreHarness_USE_LAPACK)
   #    GIT_REPOSITORY "git+ssh://software.sandia.gov/git/compadre-dev"
   #    GIT_TAG "e590e1bba62823"
   
-  if(CompadreHarness_USE_Trilinos AND CompadreHarness_USE_Harness)
+  bob_option(CompadreHarness_USE_Compose "Build compose for shape preservation and conservation post-processing" OFF)
+  if(CompadreHarness_USE_Trilinos AND CompadreHarness_USE_Harness AND CompadreHarness_USE_Compose)
 
     ##########
     #
@@ -667,8 +669,9 @@ if (CompadreHarness_USE_CUDA OR CompadreHarness_USE_LAPACK)
         TEST_AFTER_INSTALL OFF
     )
     add_definitions (-DCOMPOSE_CONFIG_IS_CMAKE)
+  endif()
 
-
+  if(CompadreHarness_USE_Trilinos AND CompadreHarness_USE_Harness)
     add_subdirectory(src)
   endif()
   

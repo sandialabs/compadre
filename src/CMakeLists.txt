@@ -50,12 +50,14 @@ if(CompadreHarness_USE_Netcdf_MPI)
   target_include_directories(compadreharness PUBLIC "${Netcdf_MPI_INCLUDE_DIR}")
 endif()
 
-add_dependencies(compadreharness Compose) # compadreharness relies on Compose
-target_link_libraries(compadreharness PUBLIC "${Compose_PREFIX}/lib/libcompose${CMAKE_SHARED_LIBRARY_SUFFIX}")
-target_include_directories(compadreharness PUBLIC  
-  $<BUILD_INTERFACE:${Compose_PREFIX}/include/compose>  
-  $<INSTALL_INTERFACE:include> 
-)
+if(CompadreHarness_USE_Compose)
+  add_dependencies(compadreharness Compose) # compadreharness relies on Compose
+  target_link_libraries(compadreharness PUBLIC "${Compose_PREFIX}/lib/libcompose${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  target_include_directories(compadreharness PUBLIC  
+    $<BUILD_INTERFACE:${Compose_PREFIX}/include/compose>  
+    $<INSTALL_INTERFACE:include> 
+  )
+endif()
 
 add_dependencies(compadreharness Toolkit) # compadreharness relies on Toolkit
 target_link_libraries(compadreharness PUBLIC "${Toolkit_PREFIX}/lib/libcompadre${CMAKE_SHARED_LIBRARY_SUFFIX}")
