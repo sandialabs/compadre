@@ -200,6 +200,14 @@ void GMLS::generatePolynomialCoefficients() {
             Kokkos::deep_copy(_host_T, _T);
         }
 
+        // if the user provided the reference outward normal direction, then orient the computed or user provided
+        // outward normal directions in the tangent bundle
+        if (_reference_outward_normal_direction_provided && _use_reference_outward_normal_direction_provided_to_orient_surface) {
+            // use the reference outward normal direction provided by the user to orient
+            // the tangent bundle
+            this->CallFunctorWithTeamThreads<FixTangentDirectionOrdering>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+        }
+
         // this time assembling curvature PsqrtW matrix is using a highly accurate approximation of the tangent, previously calculated
         // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity for curvature
         this->CallFunctorWithTeamThreads<AssembleCurvaturePsqrtW>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
@@ -641,6 +649,51 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
         norm_t_normal = std::sqrt(norm_t_normal);
         for (int i=0; i<_dimensions-1; ++i) {
             T(_dimensions-1,i) /= norm_t_normal;
+        }
+    });
+    teamMember.team_barrier();
+}
+
+KOKKOS_INLINE_FUNCTION
+void GMLS::operator()(const FixTangentDirectionOrdering&, const member_type& teamMember) const {
+
+    /*
+     *    Dimensions
+     */
+
+    const int target_index = teamMember.league_rank();
+
+    /*
+     *    Data
+     */
+
+    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
+    Kokkos::View<double*, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > N(_ref_N.data() + target_index*_dimensions, _dimensions);
+
+    // take the dot product of the calculated normal in the tangent bundle with a given reference outward normal 
+    // direction provided by the user. if the dot product is negative, flip the tangent vector ordering 
+    // and flip the sign on the normal direction.
+    Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+        compadre_kernel_assert_debug(_dimensions > 1 && "FixTangentDirectionOrder called on manifold with a dimension of 0.");
+        double dot_product;
+        for (int i=0; i<_dimensions; ++i) {
+            dot_product += T(_dimensions-1,i) * N(i);
+
+        }
+        if (dot_product < 0) {
+            if (_dimensions==3) {
+                for (int i=0; i<_dimensions; ++i) {
+                    // swap tangent directions
+                    double tmp = T(0,i);
+                    T(0,i) = T(1,i);
+                    T(1,i) = tmp;
+                }
+            }
+            for (int i=0; i<_dimensions; ++i) {
+                // flip the sign of the normal vector
+                T(_dimensions-1,i) *= -1;
+
+            }
         }
     });
     teamMember.team_barrier();
