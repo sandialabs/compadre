@@ -292,6 +292,11 @@ Kokkos::initialize(argc, args);
     //                  # of target sites is same as # of rows of neighbor lists
     //
     my_GMLS_scalar.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+
+    // set a reference outward normal direction, causing a surface orientation after
+    // the GMLS instance computes an approximate tangent bundle
+    // on a sphere, the ambient coordinates are the outward normal direction
+    my_GMLS_scalar.setReferenceOutwardNormalDirection(target_coords_device, true /* use to orient surface */);
     
     // create a vector of target operations
     std::vector<TargetOperation> lro_scalar(3);
