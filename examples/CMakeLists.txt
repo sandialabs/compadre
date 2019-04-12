@@ -214,6 +214,7 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
         # This test uses OBFET, so it is limited to 2nd order asymptotically
         ADD_TEST(NAME CangaConvergenceTestWObfet COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/sphere_convergence.py" "2" "2" "1") # 2nd polynomial order, 2 successive meshes, 1 for obfet
         SET_TESTS_PROPERTIES(CangaConvergenceTestWObfet PROPERTIES LABELS "manifold;interpolation;canga;obfet")
+        SET_TESTS_PROPERTIES(CangaConvergenceTestWObfet PROPERTIES SKIP_RETURN_CODE 77)
 
         ADD_TEST(NAME CangaIntercomparison COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/cangaIntercomparison.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_lower_compare.xml" "--kokkos-threads=1" ":" "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/cangaIntercomparison.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_upper_compare.xml" "--kokkos-threads=1")
         SET_TESTS_PROPERTIES(CangaIntercomparison PROPERTIES LABELS "Canga;canga;comparison;compare")

@@ -61,6 +61,14 @@ int main (int argc, char* args[]) {
 	// requires more of an increment than "cutoff multiplier" to achieve the required threshold (the other staying the same)
 	//*********
 
+#ifndef COMPADREHARNESS_USE_COMPOSE
+    if (parameters->get<Teuchos::ParameterList>("remap").get<bool>("obfet")) {
+        printf("\n\n\n\n\n\n\n\nCompose package called but not built. Enable with '-D Compadre_USE_Compose:BOOL=ON'.\n\n\n\n\n\n\n\n");
+        // special return code for testing
+        return 77;
+    }
+#endif
+
 	const LO my_coloring = parameters->get<LO>("my coloring");
 	const LO peer_coloring = parameters->get<LO>("peer coloring");
 
