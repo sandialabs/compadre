@@ -93,10 +93,17 @@ for key1, porder in enumerate(porders):
         tree = ET.ElementTree(e)
         tree.write(open('../test_data/parameter_lists/canga/parameters_upper_1.xml', 'wb'))
         
-        if (use_obfet):
-            output = subprocess.check_output(["mpirun", "-np", "1", "./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","1","./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_upper_1.xml","--kokkos-threads=1"]).decode()
-        else:
-            output = subprocess.check_output(["mpirun", "-np", "5", "./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","3","./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_upper_1.xml","--kokkos-threads=1"]).decode()
+        try:
+            if (use_obfet):
+                output = subprocess.check_output(["mpirun", "-np", "1", "./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","1","./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_upper_1.xml","--kokkos-threads=1"]).decode()
+            else:
+                output = subprocess.check_output(["mpirun", "-np", "5", "./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","3","./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_upper_1.xml","--kokkos-threads=1"]).decode()
+        except subprocess.CalledProcessError as exc:
+            print("error code", exc.returncode)
+            for line in exc.output.decode().split('\n'):
+                print(line)
+            sys.exit(exc.returncode)
+
         #output = subprocess.check_output(["mpirun", "-np", "2", "../bin/cangaRemoteRemap.exe","--i=canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","3","../bin/cangaRemoteRemap.exe","--i=canga/parameters_upper_1.xml","--kokkos-threads=1"])
         #print output
         m = re.search('(?<=Global Norm of Shallow Water Test Case 2: )[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?', output)
