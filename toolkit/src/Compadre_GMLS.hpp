@@ -41,12 +41,15 @@ protected:
     //! are tangent, _dimensions is the normal, and the third is for the spatial dimension (_dimensions)
     Kokkos::View<double*> _T;
 
+    //! Rank 2 tensor for high order approximation of tangent vectors for all problems. First rank is
+    //! for the target index, the second is for the spatial dimension (_dimensions)
+    Kokkos::View<double*> _ref_N;
+
     //! tangent vectors information (host)
     Kokkos::View<double*>::HostMirror _host_T;
 
-    //! _dimensions columns contains high order approximation of normal vector for all problems. This
-    //! can be set by the user or calculated automatically in the case of manifold problems.
-    Kokkos::View<double**> _N;
+    //! reference outward normal vectors information (host)
+    Kokkos::View<double*>::HostMirror _host_ref_N;
 
     //! metric tensor inverse for all problems
     Kokkos::View<double*> _manifold_metric_tensor_inverse;
@@ -198,6 +201,12 @@ protected:
     //! then for the case of calculations on manifolds, a GMLS approximation of the tangent space will
     //! be made and stored for use.
     bool _orthonormal_tangent_space_provided; 
+
+    //! whether or not the reference outward normal directions were provided by the user. 
+    bool _reference_outward_normal_direction_provided;
+
+    //! whether or not to use reference outward normal directions to orient the surface in a manifold problem. 
+    bool _use_reference_outward_normal_direction_provided_to_orient_surface;
 
 
 
@@ -657,6 +666,8 @@ public:
 
         _nontrivial_nullspace = false;
         _orthonormal_tangent_space_provided = false; 
+        _reference_outward_normal_direction_provided = false;
+        _use_reference_outward_normal_direction_provided_to_orient_surface = false;
 
         _global_dimensions = dimensions;
         if (_dense_solver_type == DenseSolverType::MANIFOLD) {
@@ -737,6 +748,9 @@ public:
     //! Tag for functor to evaluate curvature targets and construct accurate tangent direction approximation for manifolds
     struct GetAccurateTangentDirections{};
 
+    //! Tag for functor to determine if tangent directions need reordered, and to reorder them if needed
+    struct FixTangentDirectionOrdering{};
+
     //! Tag for functor to evaluate curvature targets and apply to coefficients of curvature reconstruction
     struct ApplyCurvatureTargets{};
 
@@ -770,6 +784,11 @@ public:
     //! Functor to evaluate curvature targets and construct accurate tangent direction approximation for manifolds
     KOKKOS_INLINE_FUNCTION
     void operator() (const GetAccurateTangentDirections&, const member_type& teamMember) const;
+
+    //! Functor to determine if tangent directions need reordered, and to reorder them if needed
+    //! We require that the normal is consistent with a right hand rule on the tangent vectors
+    KOKKOS_INLINE_FUNCTION
+    void operator() (const FixTangentDirectionOrdering&, const member_type& teamMember) const;
 
     //! Functor to evaluate curvature targets and apply to coefficients of curvature reconstruction
     KOKKOS_INLINE_FUNCTION
@@ -867,12 +886,25 @@ public:
     //! Get a view (device) of all tangent direction bundles.
     decltype(_T) getTangentDirections() const { return _T; }
 
+    //! Get a view (device) of all reference outward normal directions.
+    decltype(_T) getReferenceNormalDirections() const { return _ref_N; }
+
     //! Get component of tangent or normal directions for manifold problems
     double getTangentBundle(const int target_index, const int direction, const int component) const {
         // Component index 0.._dimensions-2 will return tangent direction
         // Component index _dimensions-1 will return the normal direction
-        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> >::HostMirror T(_host_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
+        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> >::HostMirror 
+                T(_host_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
         return T(direction, component);
+    }
+
+    //! Get component of tangent or normal directions for manifold problems
+    double getReferenceNormalDirection(const int target_index, const int component) const {
+        compadre_assert_debug(_reference_outward_normal_direction_provided && 
+                "getRefenceNormalDirection called, but reference outwrad normal directions were never provided.");
+        Kokkos::View<double*, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> >::HostMirror 
+                ref_N(_host_ref_N.data() + target_index*_dimensions, _dimensions);
+        return ref_N(component);
     }
 
     //! Get the local index (internal) to GMLS for a particular TargetOperation
@@ -1245,6 +1277,31 @@ public:
         // copy data from device back to host in rearranged format
         _host_T = Kokkos::create_mirror_view(_T);
         Kokkos::deep_copy(_host_T, _T);
+        this->resetCoefficientData();
+    }
+
+    //! (OPTIONAL)
+    //! Sets outward normal direction. For manifolds this may be used for orienting surface. It is also accessible
+    //! for sampling operators that require a normal direction.
+    template<typename view_type>
+    void setReferenceOutwardNormalDirection(view_type outward_normal_directions, bool use_to_orient_surface = true) {
+        // accept input from user as a rank 2 tensor
+        
+        // allocate memory on device
+        _ref_N = Kokkos::View<double*>("device normal directions", _target_coordinates.dimension_0()*_dimensions);
+
+        // rearrange data on device from data given on host
+        Kokkos::parallel_for("copy normal vectors", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, _target_coordinates.dimension_0()), KOKKOS_LAMBDA(const int i) {
+            for (int j=0; j<_dimensions; ++j) {
+                _ref_N(i*_dimensions + j) = outward_normal_directions(i, j);
+            }
+        });
+        _reference_outward_normal_direction_provided = true;
+        _use_reference_outward_normal_direction_provided_to_orient_surface = use_to_orient_surface;
+
+        // copy data from device back to host in rearranged format
+        _host_ref_N = Kokkos::create_mirror_view(_ref_N);
+        Kokkos::deep_copy(_host_ref_N, _ref_N);
         this->resetCoefficientData();
     }
 
