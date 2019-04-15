@@ -27,6 +27,7 @@ struct RemapObject {
 		SamplingFunctional _data_sampling_functional;
 
 		std::string _operator_coefficients_fieldname;
+		std::string _reference_normal_directions_fieldname;
 
 		bool _obfet;
 
@@ -81,6 +82,14 @@ struct RemapObject {
 			return _operator_coefficients_fieldname;
 		}
 
+		void setNormalDirections(std::string reference_normal_directions_fieldname) {
+			_reference_normal_directions_fieldname = reference_normal_directions_fieldname;
+		}
+
+		std::string& getNormalDirections() {
+			return _reference_normal_directions_fieldname;
+		}
+
 };
 
 /*!
@@ -132,6 +141,8 @@ class RemapManager {
 			}
 			return output;
 		}
+
+        bool isCompatible(const RemapObject obj_1, const RemapObject obj_2) const;
 };
 
 }
