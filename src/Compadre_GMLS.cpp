@@ -184,6 +184,14 @@ void GMLS::generatePolynomialCoefficients() {
             // coarse tangent plane approximation construction of P^T*P
             this->CallFunctorWithTeamThreads<ComputeCoarseTangentPlane>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
 
+            // if the user provided the reference outward normal direction, then orient the computed or user provided
+            // outward normal directions in the tangent bundle
+            if (_reference_outward_normal_direction_provided && _use_reference_outward_normal_direction_provided_to_orient_surface) {
+                // use the reference outward normal direction provided by the user to orient
+                // the tangent bundle
+                this->CallFunctorWithTeamThreads<FixTangentDirectionOrdering>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+            }
+
             // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity for curvature
             this->CallFunctorWithTeamThreads<AssembleCurvaturePsqrtW>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
 
@@ -198,14 +206,6 @@ void GMLS::generatePolynomialCoefficients() {
             // copy tangent bundle from device back to host
             _host_T = Kokkos::create_mirror_view(_T);
             Kokkos::deep_copy(_host_T, _T);
-        }
-
-        // if the user provided the reference outward normal direction, then orient the computed or user provided
-        // outward normal directions in the tangent bundle
-        if (_reference_outward_normal_direction_provided && _use_reference_outward_normal_direction_provided_to_orient_surface) {
-            // use the reference outward normal direction provided by the user to orient
-            // the tangent bundle
-            this->CallFunctorWithTeamThreads<FixTangentDirectionOrdering>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
         }
 
         // this time assembling curvature PsqrtW matrix is using a highly accurate approximation of the tangent, previously calculated
@@ -675,7 +675,7 @@ void GMLS::operator()(const FixTangentDirectionOrdering&, const member_type& tea
     // and flip the sign on the normal direction.
     Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
         compadre_kernel_assert_debug(_dimensions > 1 && "FixTangentDirectionOrder called on manifold with a dimension of 0.");
-        double dot_product;
+        double dot_product = 0;
         for (int i=0; i<_dimensions; ++i) {
             dot_product += T(_dimensions-1,i) * N(i);
 
