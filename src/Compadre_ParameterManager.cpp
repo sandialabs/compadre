@@ -89,6 +89,7 @@ void ParameterManager::setDefaultParameters() {
 	Teuchos::RCP<Teuchos::ParameterList> coordinatesList = Teuchos::rcp(new Teuchos::ParameterList("coordinates"));
 	coordinatesList->set("type", "euclidean");
 	coordinatesList->set("units", "cm");
+	coordinatesList->set("normals", "");
 
 	// Remap Details
 	Teuchos::RCP<Teuchos::ParameterList> remapList = Teuchos::rcp(new Teuchos::ParameterList("remap"));
