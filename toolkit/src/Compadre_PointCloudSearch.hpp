@@ -78,7 +78,7 @@ class RadiusResultSet {
         if (count > 0) {
 
             DistanceType best_distance = std::numeric_limits<DistanceType>::max();
-            IndexType best_distance_index = -1;
+            IndexType best_distance_index = 0;
             int best_index = -1;
             for (int i=0; i<count; ++i) {
                 if (r_dist[i] < best_distance) {
