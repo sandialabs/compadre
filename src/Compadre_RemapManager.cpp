@@ -130,19 +130,18 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
     
     
         // loop over all of the fields and use the stored coefficients
+        bool gmls_problem_compatible_with_previous_object = false;
         for (local_index_type i=0; i<_queue.size(); i++) {
     
             // if first time through or sampling strategy changes
             // conditions for resetting GMLS object
             bool first_in_queue = (i==0);
-            bool reconstruction_space_changed, polynomial_sampling_changed, data_sampling_changed, operator_coefficients_field_changed;
             if (!first_in_queue) {
-                reconstruction_space_changed = _queue[i]._reconstruction_space != _queue[i-1]._reconstruction_space;
-                polynomial_sampling_changed  = _queue[i]._polynomial_sampling_functional != _queue[i-1]._polynomial_sampling_functional;
-                data_sampling_changed  = _queue[i]._data_sampling_functional != _queue[i-1]._data_sampling_functional;
-                operator_coefficients_field_changed = _queue[i]._operator_coefficients_fieldname != _queue[i-1]._operator_coefficients_fieldname;
+                gmls_problem_compatible_with_previous_object = this->isCompatible(_queue[i], _queue[i-1]);
             }
-            if (first_in_queue || reconstruction_space_changed || polynomial_sampling_changed || data_sampling_changed || operator_coefficients_field_changed) {
+
+            if (!gmls_problem_compatible_with_previous_object) {
+
                 _GMLS = Teuchos::rcp(new GMLS(_queue[i]._reconstruction_space,
                         _queue[i]._polynomial_sampling_functional,
                         _queue[i]._data_sampling_functional,
@@ -160,13 +159,21 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
                 _GMLS->setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
                 _GMLS->setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
                 _GMLS->setNumberOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature points"));
+
+                if (_queue[i]._reference_normal_directions_fieldname != "") {
+                    auto reference_normal_directions = 
+                        _trg_particles->getFieldManager()->getFieldByName(_queue[i]._reference_normal_directions_fieldname)->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                    _GMLS->setReferenceOutwardNormalDirection(reference_normal_directions, true /*use_to_orient_surface*/);
+                }
     
     
                 std::vector<TargetOperation> lro;
                 for (local_index_type j=i; j<_queue.size(); j++) {
-                    // only add targets with same sampling strategy and reconstruction space
-                    if ((_queue[j]._reconstruction_space == _queue[i]._reconstruction_space) && (_queue[j]._polynomial_sampling_functional == _queue[i]._polynomial_sampling_functional) && (_queue[j]._data_sampling_functional == _queue[i]._data_sampling_functional))
+                    // only add targets with all other remap object properties matching
+                    gmls_problem_compatible_with_previous_object = this->isCompatible(_queue[i], _queue[j]);
+                    if (gmls_problem_compatible_with_previous_object) {
                         lro.push_back(_queue[j]._target_operation);
+                    }
                 }
     
                 _GMLS->addTargets(lro);
@@ -403,7 +410,18 @@ void RemapManager::add(RemapObject obj) {
         _queue.push_back(obj);
         return;
     }
-    // loop through remap objects until we find one with the same samplings and reconstruction space, then add to the end of it
+
+    // Loop through remap objects until we find one with the same samplings and reconstruction space, then add to the end of it.
+    // We do not sort for additional properties, such as normal directions field which means that more reconstructions may be 
+    // being called than are expected.
+    //
+    // As an example, consider three remap objects with the same sampling functional and space,
+    // and three target operations. If the second one names a normal directions field, then looping over the list of
+    // remap objects in the queue will indicate that a new problem setup is needed between the first and second 
+    // remap object, as well as between the second and third. The results is three separate problems solved, whereas
+    // if a normal directions field had not been given, all three target operations would have been calculated on
+    // the same problem. This is an efficiency issue, but not an issue of correctness.
+ 
     bool obj_inserted = false;
     local_index_type index_with_last_match = -1;
 
@@ -420,4 +438,19 @@ void RemapManager::add(RemapObject obj) {
     if (!obj_inserted) _queue.push_back(obj); // also takes care of case where you match up to the last item in the queue, but never found one that differed
 }
 
+bool RemapManager::isCompatible(const RemapObject obj_1, const RemapObject obj_2) const {
+
+    bool are_same = true;
+
+    // check various properties for ability to reuse a GMLS problem setup
+    are_same &= obj_2._reconstruction_space == obj_1._reconstruction_space;
+    are_same &= obj_2._polynomial_sampling_functional == obj_1._polynomial_sampling_functional;
+    are_same &= obj_2._data_sampling_functional == obj_1._data_sampling_functional;
+    are_same &= obj_2._operator_coefficients_fieldname == obj_1._operator_coefficients_fieldname;
+    are_same &= obj_2._reference_normal_directions_fieldname == obj_1._reference_normal_directions_fieldname;
+
+    return are_same;
+
 }
+
+} // Compadre
