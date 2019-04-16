@@ -78,13 +78,15 @@ int main (int argc, char* args[]) {
 				Teuchos::rcp( new Compadre::ParticlesT(parameters, comm));
 	 	CT* coords = (CT*)particles->getCoords();
 
-		//Read in data file.
-		FirstReadTime->start();
-		Compadre::FileManager fm;
-		std::string testfilename(parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file"));
-		fm.setReader(testfilename, particles);
-		fm.read();
-		FirstReadTime->stop();
+        {
+		    //Read in data file.
+		    FirstReadTime->start();
+		    Compadre::FileManager fm;
+		    std::string testfilename(parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file"));
+		    fm.setReader(testfilename, particles);
+		    fm.read();
+		    FirstReadTime->stop();
+        }
 
 		ST halo_size;
 		{
@@ -109,15 +111,46 @@ int main (int argc, char* args[]) {
 		 		Teuchos::rcp( new Compadre::ParticlesT(parameters, comm));
 		 	CT* new_coords = (CT*)new_particles->getCoords();
 
+            {
+			    //Read in data file.
+			    SecondReadTime->start();
+			    Compadre::FileManager fm2;
+			    std::string testfilename(parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file"));
+			    fm2.setReader(testfilename, new_particles);
+			    fm2.read();
+			    SecondReadTime->stop();
+            }
+
 			const ST h_support = parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size");
 
 			//Remap
 			Teuchos::RCP<Compadre::RemapManager> rm = Teuchos::rcp(new Compadre::RemapManager(parameters, particles.getRawPtr(), new_particles.getRawPtr(), halo_size));
 
-			new_particles->getFieldManager()->createField(1, "computedSphereHarmonic", "m/s");
-			new_particles->getFieldManager()->createField(1, "exact_solution", "m/s");
+			new_particles->getFieldManager()->createField(2, "velocity", "m/s");
+			new_particles->getFieldManager()->createField(3, "exact_solution", "m/s");
 
-			Compadre::RemapObject ro("u", "computedSphereHarmonic", TargetOperation::LaplacianOfScalarPointEvaluation);
+			particles->getFieldManager()->createField(6, "combined_extra_data", "none"); // 2 endpts * 2 dimensions for coordinatess + normal direction in 2D
+
+            auto related_coordinates_view = particles->getFieldManager()->getFieldByName("related_coordinates")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+            auto unit_normals_view = particles->getFieldManager()->getFieldByName("unit_normals")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+            auto combined_extra_data_view = particles->getFieldManager()->getFieldByName("combined_extra_data")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+
+			for(int j=0; j<coords->nLocal(); j++){
+			    for(int k=0; k<4; k++){
+				    combined_extra_data_view(j,k) = related_coordinates_view(j,k);
+                }
+			    for(int k=0; k<2; k++){
+				    combined_extra_data_view(j,4 + k) = unit_normals_view(j,k);
+                }
+			}
+
+			particles->getFieldManager()->updateFieldsHaloData();
+	 		particles->getFieldManager()->listFields(std::cout);
+
+			Compadre::RemapObject ro("u", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::FaceNormalIntegralSample, SamplingFunctional::FaceNormalIntegralSampleData);
+			// Compadre::RemapObject ro("u", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, SamplingFunctional::FaceNormalIntegralSample, SamplingFunctional::FaceNormalIntegralSampleData); // shouldn't work. Test added for this case to GMLS_Targets.
+
+            ro.setExtraData("combined_extra_data");
 			rm->add(ro);
 			rm->execute();
 
@@ -127,27 +160,27 @@ int main (int argc, char* args[]) {
 			NormTime->start();
 
 			Teuchos::RCP<Compadre::AnalyticFunction> function;
-			function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SphereTestVelocity()));
+			function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2)));
 
 			ST physical_coordinate_weighted_l2_norm = 0;
 		 	ST exact_coordinate_weighted_l2_norm = 0;
 
 			Compadre::host_view_type solution_field;
-			solution_field = new_particles->getFieldManager()->getFieldByName("computedGradSphereHarmonic")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+			solution_field = new_particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
 			Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 
 			for(int j=0; j<coords->nLocal(); j++){
 				xyz_type xyz = coords->getLocalCoords(j);
-				xyz_type vector_exact = function->evalScalarDerivative(xyz);
+				xyz_type vector_exact = function->evalVector(xyz);
 
 				exact_solution_field(j,0) = vector_exact.x;
 				exact_solution_field(j,1) = vector_exact.y;
-				exact_solution_field(j,2) = vector_exact.z;
+				//exact_solution_field(j,2) = vector_exact.z;
 			}
 
 			WriteTime->start();
 			{
-				std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
+				std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
 				Compadre::FileManager fm;
 				fm.setWriter(output_filename, new_particles);
 				fm.write();
@@ -161,10 +194,10 @@ int main (int argc, char* args[]) {
 			for(int j=0; j<coords->nLocal(); j++){
 				if 	(particles->getFlag(j)==0) {
 					xyz_type xyz = coords->getLocalCoords(j);
-					exact = function->evalScalarDerivative(xyz).x;
+					exact = function->evalVector(xyz).x;
 					physical_coordinate_weighted_l2_norm += (solution_field(j,0) - exact)*(solution_field(j,0) - exact);//*grid_area_field(j,0);
-					physical_coordinate_weighted_l2_norm += (solution_field(j,1) - function->evalScalarDerivative(xyz).y)*(solution_field(j,1) - function->evalScalarDerivative(xyz).y);
-					physical_coordinate_weighted_l2_norm += (solution_field(j,2) - function->evalScalarDerivative(xyz).z)*(solution_field(j,2) - function->evalScalarDerivative(xyz).z);
+					physical_coordinate_weighted_l2_norm += (solution_field(j,1) - function->evalVector(xyz).y)*(solution_field(j,1) - function->evalVector(xyz).y);
+					//physical_coordinate_weighted_l2_norm += (solution_field(j,2) - function->evalScalarDerivative(xyz).z)*(solution_field(j,2) - function->evalScalarDerivative(xyz).z);
 
 					exact_coordinate_weighted_l2_norm += exact*exact;//*grid_area_field(j,0);
 					num_solved_for++;

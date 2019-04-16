@@ -28,6 +28,7 @@ struct RemapObject {
 
 		std::string _operator_coefficients_fieldname;
 		std::string _reference_normal_directions_fieldname;
+		std::string _extra_data_fieldname;
 
 		bool _obfet;
 
@@ -88,6 +89,14 @@ struct RemapObject {
 
 		std::string& getNormalDirections() {
 			return _reference_normal_directions_fieldname;
+		}
+
+		void setExtraData(std::string extra_data_fieldname) {
+			_extra_data_fieldname = extra_data_fieldname;
+		}
+
+		std::string& getExtraData() {
+			return _extra_data_fieldname;
 		}
 
 };
