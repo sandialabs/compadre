@@ -93,6 +93,7 @@ void ParameterManager::setDefaultParameters() {
 
 	// Remap Details
 	Teuchos::RCP<Teuchos::ParameterList> remapList = Teuchos::rcp(new Teuchos::ParameterList("remap"));
+	remapList->set("dimensions", 3);
 	remapList->set("porder", 2);
 	remapList->set("curvature porder", 0); // order to reconstruct manifold with when requested
 	remapList->set("neighbors needed multiplier", 1.2);
