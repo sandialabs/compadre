@@ -60,6 +60,9 @@ protected:
     //! _dimension-1 gradient values for curvature for all problems
     Kokkos::View<double*> _manifold_curvature_gradient;
 
+    //! Extra data available to basis functions and target operations (optional)
+    Kokkos::View<double**> _extra_data;
+
     
     //! contains local IDs of neighbors to get coordinates from _source_coordinates (device)
     Kokkos::View<int**, layout_type> _neighbor_lists; 
@@ -1302,6 +1305,30 @@ public:
         // copy data from device back to host in rearranged format
         _host_ref_N = Kokkos::create_mirror_view(_ref_N);
         Kokkos::deep_copy(_host_ref_N, _ref_N);
+        this->resetCoefficientData();
+    }
+
+    //! (OPTIONAL)
+    //! Sets extra data to be used by sampling functionals and target operations in certain instances.
+    template<typename view_type>
+    void setExtraData(view_type extra_data) {
+
+        // allocate memory on device
+        _extra_data = Kokkos::View<double**>("device extra data", extra_data.extent(0), extra_data.extent(1));
+
+        auto host_extra_data = Kokkos::create_mirror_view(_extra_data);
+        Kokkos::deep_copy(host_extra_data, extra_data);
+        // copy data from host to device
+        Kokkos::deep_copy(_extra_data, host_extra_data);
+        this->resetCoefficientData();
+    }
+
+    //! (OPTIONAL)
+    //! Sets extra data to be used by sampling functionals and target operations in certain instances. (device)
+    template<typename view_type>
+    void setExtraData(Kokkos::View<double**, Kokkos::DefaultExecutionSpace> extra_data) {
+        // allocate memory on device
+        _extra_data = extra_data;
         this->resetCoefficientData();
     }
 
