@@ -7,8 +7,12 @@ from scipy.integrate import quad
 
 # helper functions
 
+def get_scalar(coordinate):
+    return np.sin(coordinate[0])*np.sin(coordinate[1])
+
 def get_velocity(coordinate):
-    return np.array((np.sin(coordinate[0]), np.cos(coordinate[1])))
+    #return np.array((np.sin(coordinate[0]), np.cos(coordinate[1])))
+    return np.array((get_scalar(coordinate), -get_scalar(coordinate)))
 
 def get_unit_normal_vector(line_coordinates):
     # (x0,y0,x1,y1) are given
@@ -71,8 +75,8 @@ width  = 1.0
 
 # random transformations of the original mesh
 random.seed(1234)
-blowup_ratio = 2 # 1 does nothing, identity
-random_rotation = True
+blowup_ratio = 1 # 1 does nothing, identity
+random_rotation = False
 rotation_max = 180 # in degrees (either clockwise or counterclockwise, 180 should be highest needed)
 variation = .00 # as a decimal for a percent
 
@@ -215,6 +219,7 @@ for key, h in enumerate(h_all):
                        persist=False, keepweakref=False, format='NETCDF4')
     dataset.createDimension('num_entities', size=new_line_points.shape[0])
     dataset.createDimension('related_coordinates_size', size=2*2) # 2 is spatial description and a 1d dimension entity has two endpoint to describe
+    dataset.createDimension('entity_dimension', size=1) # 1 is entity dimension
     dataset.createDimension('spatial_dimension', size=2) # 2 is spatial dimension
     dataset.setncattr('entity_dimension',int(1)) # lines are 1d objects
     dataset.setncattr('spatial_dimension',int(2)) # represented in 2D space
@@ -227,8 +232,28 @@ for key, h in enumerate(h_all):
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
+    dataset.createVariable('x', datatype='d', dimensions=('num_entities'), zlib=False, complevel=4,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
+
+    dataset.createVariable('y', datatype='d', dimensions=('num_entities'), zlib=False, complevel=4,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
+
+    dataset.createVariable('z', datatype='d', dimensions=('num_entities'), zlib=False, complevel=4,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
+
+    dataset.createVariable('u', datatype='d', dimensions=('num_entities'), zlib=False, complevel=4,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
+
     dataset.variables['related_coordinates'][:,:]=new_line_points[:,:]
     dataset.variables['unit_normals'][:,:]=unit_normal_vectors[:,:]
+    dataset.variables['x'][:]=0.5*new_line_points[:,0:1] + 0.5*new_line_points[:,2:3]
+    dataset.variables['y'][:]=0.5*new_line_points[:,1:2] + 0.5*new_line_points[:,3:4]
+    dataset.variables['z'][:]=0.0*new_line_points[:,0:1]
+    dataset.variables['u'][:]=solution_on_line[:]
 
     #help(dataset)
     dataset.close()
