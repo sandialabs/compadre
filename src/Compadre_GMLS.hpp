@@ -190,9 +190,14 @@ protected:
     //! e.g. reconstruction of vector on a 2D manifold in 3D would have _basis_multiplier of 2
     int _basis_multiplier;
 
-    //! dimension of the sampling functional
+    //! actual dimension of the sampling functional
     //! e.g. reconstruction of vector on a 2D manifold in 3D would have _basis_multiplier of 2
+    //! e.g. in 3D, a scalar will be 1, a vector will be 3, and a vector of reused scalars will be 1
     int _sampling_multiplier;
+
+    //! effective dimension of the data sampling functional
+    //! e.g. in 3D, a scalar will be 1, a vector will be 3, and a vector of reused scalars will be 3
+    int _data_sampling_multiplier;
 
     //! determined by 1D quadrature rules
     int _number_of_quadrature_points;
@@ -1292,13 +1297,17 @@ public:
         
         // allocate memory on device
         _ref_N = Kokkos::View<double*>("device normal directions", _target_coordinates.dimension_0()*_dimensions);
+        // to assist LAMBDA capture
+        auto this_ref_N = this->_ref_N;
+        auto this_dimensions = this->_dimensions;
 
         // rearrange data on device from data given on host
-        Kokkos::parallel_for("copy normal vectors", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, _target_coordinates.dimension_0()), KOKKOS_LAMBDA(const int i) {
-            for (int j=0; j<_dimensions; ++j) {
-                _ref_N(i*_dimensions + j) = outward_normal_directions(i, j);
+        Kokkos::parallel_for("copy normal vectors", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, _target_coordinates.extent(0)), KOKKOS_LAMBDA(const int i) {
+            for (int j=0; j<this_dimensions; ++j) {
+                this_ref_N(i*this_dimensions + j) = outward_normal_directions(i, j);
             }
         });
+        Kokkos::fence();
         _reference_outward_normal_direction_provided = true;
         _use_reference_outward_normal_direction_provided_to_orient_surface = use_to_orient_surface;
 
