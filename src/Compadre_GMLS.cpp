@@ -69,9 +69,15 @@ void GMLS::generatePolynomialCoefficients() {
     // calculate sampling dimension 
     // this would normally be SamplingOutputTensorRank[_data_sampling_functional], but we also want to handle the
     // case of reconstructions where a scalar basis is reused as a vector, and this handles everything
+
+    // this handles scalars, vectors, and scalars that are reused as vectors
     _sampling_multiplier = std::pow(_local_dimensions, 
             std::min(ActualReconstructionSpaceRank[(int)_reconstruction_space], 
                 SamplingOutputTensorRank[_data_sampling_functional]));
+
+    // effective number of components in the basis
+    _data_sampling_multiplier = std::pow(_local_dimensions, 
+                SamplingOutputTensorRank[_data_sampling_functional]);
 
     // calculate the dimension of the basis (a vector space on a manifold requires two components, for example)
     _basis_multiplier = std::pow(_local_dimensions, ActualReconstructionSpaceRank[(int)_reconstruction_space]);
