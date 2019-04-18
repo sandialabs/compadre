@@ -10,7 +10,6 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
 
     // check if VectorOfScalarClonesTaylorPolynomial is used with a scalar sampling functional other than PointSample
     if (_dimensions > 1) {
-            //printf("ps %d, r %d, b %d, p %d, t0 %d, t1 %d, t2 %d, t3 %d, t4 %d\n",SamplingFunctional::PointSample, _reconstruction_space, _basis_multiplier, _polynomial_sampling_functional, _reconstruction_space!=ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, _basis_multiplier!=1, _reconstruction_space==ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial && _polynomial_sampling_functional==SamplingFunctional::PointSample, _reconstruction_space==ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, _polynomial_sampling_functional==SamplingFunctional::PointSample);
             compadre_kernel_assert_debug(
             (_reconstruction_space!=ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial
                 || _data_sampling_multiplier!=0
@@ -130,9 +129,6 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
             /*
              * Beginning of VectorTaylorPolynomial basis
              */
-
-            printf("VectorTaylorPolynomial\n\n");
-            printf("RR: %d\n", _reconstruction_space_rank);
 
             if (_operations(i) == TargetOperation::ScalarPointEvaluation || (_operations(i) == TargetOperation::VectorPointEvaluation && _dimensions == 1) /* vector is a scalar in 1D */) {
                 // copied from ScalarTaylorPolynomial
