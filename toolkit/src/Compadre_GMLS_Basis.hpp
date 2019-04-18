@@ -271,6 +271,76 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 }
             }
         }
+    } else if (polynomial_sampling_functional == SamplingFunctional::FaceNormalIntegralSample) {
+
+        double cutoff_p = _epsilons(target_index);
+
+        compadre_kernel_assert_debug(_dimensions==2 && "Only written for 2D");
+        compadre_kernel_assert_debug(_extra_data.extent(0)>0 && "Extra data used but not set.");
+
+        int neighbor_index_in_source = getNeighborIndex(target_index, neighbor_index);
+        //printf("%d, %d, %f, %f\n", target_index, neighbor_index_in_source, _extra_data(neighbor_index_in_source,0), _extra_data(neighbor_index_in_source,1));
+
+        /*
+         * requires quadrature points defined on an edge, not a target/source edge (spoke)
+         *
+         * _extra_data will contain the endpoints (2 for 2D, 3 for 3D) and then the unit normals
+         * (e0_x, e0_y, e1_x, e1_y, n_x, n_y)
+         */
+
+        XYZ endpoints_difference;
+        for (int j=0; j<dimension; ++j) {
+            endpoints_difference[j] = _extra_data(neighbor_index_in_source, j) - _extra_data(neighbor_index_in_source, j+2);
+        }
+        double magnitude = EuclideanVectorLength(endpoints_difference, 2);
+        
+        int alphax, alphay;
+        double alphaf;
+        const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
+
+        for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {
+
+            int i = 0;
+
+            XYZ normal_quadrature_coord_2d;
+            XYZ quadrature_coord_2d;
+            for (int j=0; j<dimension; ++j) {
+                
+                // coord site
+                quadrature_coord_2d[j] = _parameterized_quadrature_sites[quadrature]*_extra_data(neighbor_index_in_source, j);
+                quadrature_coord_2d[j] += (1-_parameterized_quadrature_sites[quadrature])*_extra_data(neighbor_index_in_source, j+2);
+                quadrature_coord_2d[j] -= getTargetCoordinate(target_index, j);
+
+                // normal direction
+                normal_quadrature_coord_2d[j] = _extra_data(neighbor_index_in_source, 4 + j);
+
+            }
+            for (int j=0; j<_basis_multiplier; ++j) {
+                for (int n = start_index; n <= poly_order; n++){
+                    for (alphay = 0; alphay <= n; alphay++){
+                        alphax = n - alphay;
+                        alphaf = factorial[alphax]*factorial[alphay];
+
+                        // local evaluation of vector [0,p] or [p,0]
+                        double v0, v1;
+                        v0 = (j==0) ? std::pow(quadrature_coord_2d.x/cutoff_p,alphax)
+                            *std::pow(quadrature_coord_2d.y/cutoff_p,alphay)/alphaf : 0;
+                        v1 = (j==0) ? 0 : std::pow(quadrature_coord_2d.x/cutoff_p,alphax)
+                            *std::pow(quadrature_coord_2d.y/cutoff_p,alphay)/alphaf;
+
+                        double dot_product = normal_quadrature_coord_2d[0]*v0 + normal_quadrature_coord_2d[1]*v1;
+
+                        // multiply by quadrature weight
+                        if (quadrature==0) {
+                            *(delta+i) = dot_product * _quadrature_weights[quadrature] * magnitude;
+                        } else {
+                            *(delta+i) += dot_product * _quadrature_weights[quadrature] * magnitude;
+                        }
+                        i++;
+                    }
+                }
+            }
+        }
     } else {
         compadre_kernel_assert_release((false) && "Sampling and basis space combination not defined.");
     }
