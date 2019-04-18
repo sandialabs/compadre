@@ -242,6 +242,9 @@ void GMLS::generatePolynomialCoefficients() {
          *    STANDARD GMLS Problems
          */
 
+        // generate quadrature for face normal approach
+        this->generate1DQuadrature();
+
         // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity
         this->CallFunctorWithTeamThreads<AssembleStandardPsqrtW>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
         Kokkos::fence();
