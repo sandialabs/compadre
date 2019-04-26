@@ -216,6 +216,8 @@ protected:
     //! whether or not to use reference outward normal directions to orient the surface in a manifold problem. 
     bool _use_reference_outward_normal_direction_provided_to_orient_surface;
 
+    //! maximum number of neighbors over all target sites
+    int _max_num_neighbors;
 
 
     //! vector of user requested target operations
@@ -475,6 +477,12 @@ protected:
         return _neighbor_lists(target_index, neighbor_list_num+1);
     }
 
+    //! Returns the maximum neighbor lists size over all target sites
+    KOKKOS_INLINE_FUNCTION
+    int getMaxNNeighbors() const {
+        return _max_num_neighbors;
+    }
+
     //! (OPTIONAL)
     //! Returns number of additional evaluation sites for a particular target
     KOKKOS_INLINE_FUNCTION
@@ -677,6 +685,8 @@ public:
         _reference_outward_normal_direction_provided = false;
         _use_reference_outward_normal_direction_provided_to_orient_surface = false;
 
+        _max_num_neighbors = 0;
+
         _global_dimensions = dimensions;
         if (_dense_solver_type == DenseSolverType::MANIFOLD) {
             _local_dimensions = dimensions-1;
@@ -853,7 +863,7 @@ public:
     int getPolynomialCoefficientsSize() const { return _basis_multiplier*_NP; }
 
     //! Returns size of the full polynomial coefficients matrix tile sizes
-    int getPolynomialCoefficientsMatrixTileSize() const { return _sampling_multiplier*(_neighbor_lists.dimension_1()-1); }
+    int getPolynomialCoefficientsMatrixTileSize() const { return _sampling_multiplier*getMaxNNeighbors(); }
 
     //! Dimension of the GMLS problem, set only at class instantiation
     int getDimensions() const { return _dimensions; }
@@ -1160,8 +1170,11 @@ public:
         Kokkos::deep_copy(_neighbor_lists, _host_neighbor_lists);
 
         _number_of_neighbors_list = Kokkos::View<int*, Kokkos::HostSpace>("number of neighbors", neighbor_lists.dimension_0());
+
+        _max_num_neighbors = 0;
         for (int i=0; i<_neighbor_lists.dimension_0(); ++i) {
             _number_of_neighbors_list(i) = _host_neighbor_lists(i,0);
+            _max_num_neighbors = (_number_of_neighbors_list(i) > _max_num_neighbors) ? _number_of_neighbors_list(i) : _max_num_neighbors;
         }
         this->resetCoefficientData();
     }
@@ -1178,8 +1191,10 @@ public:
         Kokkos::deep_copy(_host_neighbor_lists, _neighbor_lists);
 
         _number_of_neighbors_list = Kokkos::View<int*, Kokkos::HostSpace>("number of neighbors", neighbor_lists.dimension_0());
+        _max_num_neighbors = 0;
         for (int i=0; i<_neighbor_lists.dimension_0(); ++i) {
             _number_of_neighbors_list(i) = _host_neighbor_lists(i,0);
+            _max_num_neighbors = (_number_of_neighbors_list(i) > _max_num_neighbors) ? _number_of_neighbors_list(i) : _max_num_neighbors;
         }
         this->resetCoefficientData();
     }
