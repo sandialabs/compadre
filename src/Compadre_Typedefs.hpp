@@ -33,6 +33,7 @@ typedef Kokkos::TeamPolicy<>               team_policy;
 typedef Kokkos::TeamPolicy<>::member_type  member_type;
 
 typedef Kokkos::DefaultExecutionSpace::array_layout layout_type;
+typedef Kokkos::LayoutRight layout_right;
 
 // reorders indices for layout of device
 #ifdef COMPADRE_USE_CUDA
@@ -42,6 +43,7 @@ typedef Kokkos::DefaultExecutionSpace::array_layout layout_type;
 #endif
 
 typedef Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_matrix_type;
+typedef Kokkos::View<double**, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_matrix_right_type;
 typedef Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_vector_type;
 typedef Kokkos::View<int*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_local_index_type;
 

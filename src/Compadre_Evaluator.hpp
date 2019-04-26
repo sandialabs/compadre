@@ -148,7 +148,7 @@ public:
 
         double value = 0;
 
-        const int alpha_column_base_multiplier = _gmls->getAlphaColumnOffset(lro, output_component_axis_1, 
+        const int alpha_input_output_component_index = _gmls->getAlphaColumnOffset(lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
 
         auto sampling_subview_maker = CreateNDSliceOnDeviceView(sampling_input_data, scalar_as_vector_if_needed);
@@ -167,7 +167,7 @@ public:
                 KOKKOS_LAMBDA(const int i, double& t_value) {
 
             t_value += sampling_data_device(neighbor_lists(target_index, i+1))
-                *alphas(ORDER_INDICES(target_index, alpha_column_base_multiplier*neighbor_lists(target_index, 0) + i));
+                *alphas(target_index, alpha_input_output_component_index, i);
 
         }, value );
         Kokkos::fence();
@@ -204,9 +204,9 @@ public:
     template <typename view_type_data_out, typename view_type_data_in>
     void applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(view_type_data_out output_data_single_column, view_type_data_in sampling_data_single_column, TargetOperation lro, SamplingFunctional sro, const int evaluation_site_local_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1, bool transform_output_ambient = false, bool vary_on_target = false, bool vary_on_neighbor = false) const {
 
-        const int alpha_column_base_multiplier = _gmls->getAlphaColumnOffset(lro, output_component_axis_1, 
+        const int alpha_input_output_component_index = _gmls->getAlphaColumnOffset(lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
-        const int alpha_column_base_multiplier2 = alpha_column_base_multiplier;
+        const int alpha_input_output_component_index2 = alpha_input_output_component_index;
 
         auto global_dimensions = _gmls->getGlobalDimensions();
 
@@ -250,7 +250,7 @@ public:
                     : 1.0;
 
                 t_value += neighbor_varying_pre_T * sampling_data_single_column(neighbor_lists(target_index, i+1))
-                    *alphas(ORDER_INDICES(target_index, alpha_column_base_multiplier*neighbor_lists(target_index,0) +i));
+                    *alphas(target_index, alpha_input_output_component_index, i);
 
             }, gmls_value );
 
@@ -276,7 +276,7 @@ public:
                         : 1.0;
 
                     t_value += neighbor_varying_pre_T_staggered * sampling_data_single_column(neighbor_lists(target_index, 1))
-                        *alphas(ORDER_INDICES(target_index, alpha_column_base_multiplier2*neighbor_lists(target_index,0) +i));
+                        *alphas(target_index, alpha_input_output_component_index2, i);
 
                 }, staggered_value_from_targets );
 
