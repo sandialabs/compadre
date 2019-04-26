@@ -92,10 +92,10 @@ protected:
     Kokkos::View<double*>::HostMirror _host_epsilons; 
 
     //! generated alpha coefficients (device)
-    Kokkos::View<double**, layout_type> _alphas; 
+    Kokkos::View<double***, layout_right> _alphas; 
 
     //! generated alpha coefficients (host)
-    Kokkos::View<const double**, layout_type>::HostMirror _host_alphas;
+    Kokkos::View<const double***, layout_right>::HostMirror _host_alphas;
     
     //! generated weights for nontraditional samples required to transform data into expected sampling 
     //! functional form (device). 
@@ -261,8 +261,6 @@ protected:
     int _total_alpha_values;
 
 
-
-
     //! lowest level memory for Kokkos::parallel_for for team access memory
     int _scratch_team_level_a;
     int _team_scratch_size_a;
@@ -417,7 +415,7 @@ protected:
         \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
     */
     KOKKOS_INLINE_FUNCTION
-    void computeTargetFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_vector_type P_target_row) const;
+    void computeTargetFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row) const;
 
     /*! \brief Evaluates a polynomial basis for the curvature with a gradient target functional applied
 
@@ -430,7 +428,7 @@ protected:
         \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
     */
     KOKKOS_INLINE_FUNCTION
-    void computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_vector_type P_target_row, scratch_matrix_type* V) const;
+    void computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, scratch_matrix_type* V) const;
 
     /*! \brief Evaluates a polynomial basis with a target functional applied, using information from the manifold curvature
 
@@ -446,11 +444,11 @@ protected:
         \param curvature_gradients          [in] - approximation of gradient of curvature, Kokkos View of size (_dimensions-1)
     */
     KOKKOS_INLINE_FUNCTION
-    void computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_vector_type P_target_row, scratch_matrix_type V, scratch_matrix_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients) const;
+    void computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, scratch_matrix_type V, scratch_matrix_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients) const;
 
     //! Helper function for applying the evaluations from a target functional to the polynomial coefficients
     KOKKOS_INLINE_FUNCTION
-    void applyTargetsToCoefficients(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_type Q, scratch_matrix_type R, scratch_vector_type w, scratch_vector_type P_target_row, const int target_NP) const;
+    void applyTargetsToCoefficients(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type Q, scratch_matrix_type R, scratch_vector_type w, scratch_matrix_right_type P_target_row, const int target_NP) const;
 
     //! Generates quadrature for staggered approach
     void generate1DQuadrature();
@@ -603,7 +601,7 @@ protected:
         return val;
     }
 
-    //! Get offset depending on 
+    //! Handles offset from operation input/output + extra evaluation sites
     int getTargetOffsetIndexHost(const int lro_num, const int input_component, const int output_component, const int additional_evaluation_local_index = 0) const {
         return ( _total_alpha_values*additional_evaluation_local_index 
                 + _host_lro_total_offsets[lro_num] 
@@ -611,7 +609,7 @@ protected:
                 + output_component );
     }
 
-    //! Get offset depending on 
+    //! Handles offset from operation input/output + extra evaluation sites
     KOKKOS_INLINE_FUNCTION
     int getTargetOffsetIndexDevice(const int lro_num, const int input_component, const int output_component, const int additional_evaluation_local_index = 0) const {
         return ( _total_alpha_values*additional_evaluation_local_index 
@@ -958,7 +956,7 @@ public:
             const int input_component_axis_2, const int additional_evaluation_local_index = 0) const {
 
         const int lro_number = _lro_lookup[(int)lro];
-        compadre_assert_debug((lro_number >= 0) && "getAlphasColumnOffset called for a TargetOperation that was not registered.");
+        compadre_assert_debug((lro_number >= 0) && "getAlphaColumnOffset called for a TargetOperation that was not registered.");
 
         // the target functional input indexing is sized based on the output rank of the sampling
         // functional used, which can not be inferred unless a specification of target functional,
@@ -1057,7 +1055,7 @@ public:
         const int alpha_column_offset = this->getAlphaColumnOffset( lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2);
 
-        return _host_alphas(ORDER_INDICES(target_index, alpha_column_offset*_number_of_neighbors_list(target_index) + neighbor_index));
+        return _host_alphas(target_index, (int)lro, alpha_column_offset, 0 /* additional evaluation site */, neighbor_index);
     }
 
     //! Returns a stencil to transform data from its existing state into the input expected 
