@@ -104,8 +104,8 @@ void PinnedGraphLaplacianPhysics::computeMatrix(local_index_type field_one, loca
 
 	// get maximum number of neighbors * fields[field_two]->nDim()
 	const local_index_type max_num_neighbors = neighborhood->getMaxNumNeighbors();
-	int team_scratch_size = host_scratch_vector_type::shmem_size(max_num_neighbors * fields[field_two]->nDim()); // values
-	team_scratch_size += host_scratch_local_index_type::shmem_size(max_num_neighbors * fields[field_two]->nDim()); // local column indices
+	int team_scratch_size = host_scratch_vector_scalar_type::shmem_size(max_num_neighbors * fields[field_two]->nDim()); // values
+	team_scratch_size += host_scratch_vector_local_index_type::shmem_size(max_num_neighbors * fields[field_two]->nDim()); // local column indices
 	const local_index_type host_scratch_team_level = 0; // not used in Kokkos currently
 
 	//#pragma omp parallel for
@@ -114,8 +114,8 @@ void PinnedGraphLaplacianPhysics::computeMatrix(local_index_type field_one, loca
 	Kokkos::parallel_for(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
 		const int i = teamMember.league_rank();
 
-		host_scratch_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
-		host_scratch_vector_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+		host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+		host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
 
 		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
 

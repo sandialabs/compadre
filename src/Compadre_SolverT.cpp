@@ -68,7 +68,7 @@ SolverT::SolverT( const Teuchos::RCP<const Teuchos::Comm<int> > comm, std::vecto
     _b_tpetra.resize(b.size());
     for (local_index_type i=0; i<b.size(); i++) {
         Teuchos::RCP<const Thyra::TpetraVectorSpace<scalar_type,local_index_type,global_index_type,node_type> > range = Thyra::tpetraVectorSpace<scalar_type>(_A_tpetra[i][i]->getRangeMap());
-        _b[i] = Thyra::tpetraVector(range, Teuchos::rcp_static_cast<vec_type>(b[i]));
+        _b[i] = Thyra::tpetraVector(range, Teuchos::rcp_static_cast<vec_scalar_type>(b[i]));
         _b_tpetra[i] = b[i];
     }
 }
@@ -87,14 +87,14 @@ void SolverT::solve() {
             TEUCHOS_TEST_FOR_EXCEPT_MSG(_A_tpetra[i][i]->getDomainMap()==Teuchos::null, "Domain map null.");
 
             Teuchos::RCP<const Thyra::TpetraVectorSpace<scalar_type,local_index_type,global_index_type,node_type> > domain = Thyra::tpetraVectorSpace<scalar_type>(_A_tpetra[i][i]->getDomainMap());
-            x[i] = Thyra::tpetraVector(domain, Teuchos::rcp_static_cast<vec_type>(_x[i]));
+            x[i] = Thyra::tpetraVector(domain, Teuchos::rcp_static_cast<vec_scalar_type>(_x[i]));
 
             TEUCHOS_TEST_FOR_EXCEPT_MSG(x[i].is_null(), "Cast failed.");
         }
     } else {
         _x[0] = Teuchos::rcp(new mvec_type(_A_tpetra[0][0]->getDomainMap(),1,setToZero));
         Teuchos::RCP<const Thyra::TpetraVectorSpace<scalar_type,local_index_type,global_index_type,node_type> > domain = Thyra::tpetraVectorSpace<scalar_type>(_A_tpetra[0][0]->getDomainMap());
-        x[0] = Thyra::tpetraVector(domain, Teuchos::rcp_static_cast<vec_type>(_x[0]));
+        x[0] = Thyra::tpetraVector(domain, Teuchos::rcp_static_cast<vec_scalar_type>(_x[0]));
 
         TEUCHOS_TEST_FOR_EXCEPT_MSG(x[0].is_null(), "Cast failed.");
     }
