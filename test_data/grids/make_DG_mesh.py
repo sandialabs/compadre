@@ -142,6 +142,18 @@ def get_unit_normal_vector(line_coordinates):
         unit_normal_vector = -unit_normal_vector[0:2]
     return unit_normal_vector
 
+def get_boundary_type(edge_adjacency):
+    # 0 is interior edge
+    # 2 is exterior edge
+    output = np.empty([3], dtype='int')
+    for key, val in enumerate(edge_adjacency):
+        if val>=0:
+            # consistent with point->edge iteration
+            output[(key+1)%3] = 0
+        else:
+            output[(key+1)%3] = 2
+    return output
+
 def integrand(x, line_coordinates, unit_normal_vector):
     # convert the x which is a quadrature for the interval
     # need transformation from [0,1] to the line segment from (x0,y0) to (x1,y1)
@@ -230,10 +242,12 @@ for key, h in enumerate(h_all):
     for i in range(tri.simplices.shape[0]): # all triangles
         physical_vertices = np.empty([3,2], dtype='d')
         vertex_indices = np.empty([3], dtype='int')
+        edge_adjacency = np.empty([3], dtype='int')
         for j in range(3): # vertices
             physical_vertices[j,:] = points[tri.simplices[i][j], :]
             vertex_indices[j] = tri.simplices[i][j]
             all_vertices[i,:] += 1./3.*points[tri.simplices[i][j], :]
+            edge_adjacency[j] = tri.neighbors[i][j]
 
         (w_physical_interior, q_physical_interior) = transform_reference_triangle_point(w_interior, q_interior, physical_vertices) 
         for j in range(num_points_interior):
@@ -242,13 +256,15 @@ for key, h in enumerate(h_all):
             all_weights   [i, j    ] = w_physical_interior[j]
 
         (w_physical_exterior, q_physical_exterior, q_normals_exterior) = transform_reference_line_point(w_exterior, q_exterior, physical_vertices, vertex_indices) 
+        e_type = get_boundary_type(edge_adjacency)
         for k in range(3): # edges
             for j in range(num_points_exterior):
                 all_quadrature[i, 2*num_points_interior + 2*k*num_points_exterior + 2*j  ] = q_physical_exterior[k*num_points_exterior + j, 0]
                 all_quadrature[i, 2*num_points_interior + 2*k*num_points_exterior + 2*j+1] = q_physical_exterior[k*num_points_exterior + j, 1]
                 all_normals   [i, 2*num_points_interior + 2*k*num_points_exterior + 2*j  ] = q_normals_exterior[k*num_points_exterior + j, 0]
                 all_normals   [i, 2*num_points_interior + 2*k*num_points_exterior + 2*j+1] = q_normals_exterior[k*num_points_exterior + j, 1]
-                all_interior  [i, num_points_interior + k*num_points_exterior + j] = 0;
+                # put a 1 for interior quadrature point to a cell, 0 for exterior (edge/face), and 2 for exterior (edge/face) but on a Dirichlet boundary
+                all_interior  [i, num_points_interior + k*num_points_exterior + j] = e_type[k];
                 all_weights   [i, num_points_interior + k*num_points_exterior + j] = w_physical_exterior[k*num_points_exterior + j]
 
 
