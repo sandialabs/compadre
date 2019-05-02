@@ -221,8 +221,8 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
 
         //host_scratch_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
         //host_scratch_vector_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
-        host_local_index_type col_data("col data", max_num_neighbors*fields[field_two]->nDim());
-        host_vector_type val_data("val data", max_num_neighbors*fields[field_two]->nDim());
+        host_vector_local_index_type col_data("col data", max_num_neighbors*fields[field_two]->nDim());
+        host_vector_scalar_type val_data("val data", max_num_neighbors*fields[field_two]->nDim());
 
         const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
         const local_index_type num_neighbors = neighbors.size();

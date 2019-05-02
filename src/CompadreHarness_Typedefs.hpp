@@ -42,16 +42,41 @@ namespace Compadre {
     typedef double scalar_type;
 
     typedef Tpetra::Map<local_index_type, global_index_type> map_type;
-    typedef Tpetra::MultiVector<scalar_type, local_index_type, global_index_type> mvec_type; // used almost exclusively
-    typedef Tpetra::Vector<scalar_type, local_index_type, global_index_type> vec_type;
+
+    typedef Tpetra::MultiVector<scalar_type, local_index_type, global_index_type> mvec_scalar_type;
+    typedef Tpetra::MultiVector<local_index_type, local_index_type, global_index_type> mvec_local_index_type;
+    typedef Tpetra::MultiVector<global_index_type, local_index_type, global_index_type> mvec_global_index_type;
+
+    typedef mvec_scalar_type mvec_type; // used almost exclusively
+
+    typedef Tpetra::Vector<scalar_type, local_index_type, global_index_type> vec_scalar_type;
     typedef Tpetra::Import<local_index_type, global_index_type> importer_type;
-    typedef typename mvec_type::dual_view_type dual_view_type;
-    typedef typename mvec_type::node_type node_type;
-    typedef typename dual_view_type::t_dev device_view_type;
-    typedef typename dual_view_type::t_host host_view_type;
+
+    typedef typename mvec_scalar_type::dual_view_type dual_view_scalar_type;
+    typedef typename mvec_local_index_type::dual_view_type dual_view_local_index_type;
+    typedef typename mvec_global_index_type::dual_view_type dual_view_global_index_type;
+    typedef dual_view_scalar_type dual_view_type;
+
+    typedef typename mvec_scalar_type::node_type scalar_node_type;
+    typedef typename mvec_local_index_type::node_type local_index_node_type;
+    typedef typename mvec_global_index_type::node_type global_index_node_type;
+    typedef scalar_node_type node_type;
+
+    typedef typename dual_view_scalar_type::t_dev device_view_scalar_type;
+    typedef typename dual_view_local_index_type::t_dev device_view_local_index_type;
+    typedef typename dual_view_global_index_type::t_dev device_view_global_index_type;
+    typedef device_view_scalar_type device_view_type;
+
+    typedef typename dual_view_scalar_type::t_host host_view_scalar_type;
+    typedef typename dual_view_local_index_type::t_host host_view_local_index_type;
+    typedef typename dual_view_global_index_type::t_host host_view_global_index_type;
+    typedef host_view_scalar_type host_view_type;
+
     typedef typename dual_view_type::host_mirror_space host_execution_space;
+
     typedef Tpetra::Operator<scalar_type, local_index_type,
                                 global_index_type, node_type> op_type;
+
 #ifdef TRILINOS_LINEAR_SOLVES
     typedef Thyra::MultiVectorBase<scalar_type> thyra_mvec_type;
     typedef Thyra::DefaultBlockedLinearOp<scalar_type> thyra_block_op_type;
@@ -63,8 +88,14 @@ namespace Compadre {
 
     typedef Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace>               host_team_policy;
     typedef Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace>::member_type  host_member_type;
-    typedef Kokkos::View<scalar_type*, Kokkos::DefaultHostExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > host_scratch_vector_type;
-    typedef Kokkos::View<local_index_type*, Kokkos::DefaultHostExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > host_scratch_local_index_type;
+
+    typedef Kokkos::View<scalar_type*, Kokkos::DefaultHostExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > host_scratch_vector_scalar_type;
+    typedef Kokkos::View<local_index_type*, Kokkos::DefaultHostExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > host_scratch_vector_local_index_type;
+    typedef Kokkos::View<global_index_type*, Kokkos::DefaultHostExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > host_scratch_vector_global_index_type;
+
+    typedef Kokkos::View<scalar_type*, Kokkos::DefaultHostExecutionSpace > host_vector_scalar_type;
+    typedef Kokkos::View<local_index_type*, Kokkos::DefaultHostExecutionSpace > host_vector_local_index_type;
+    typedef Kokkos::View<global_index_type*, Kokkos::DefaultHostExecutionSpace > host_vector_global_index_type;
 
     typedef Tpetra::CrsGraph<local_index_type, global_index_type> crs_graph_type;
     typedef Tpetra::CrsMatrix<scalar_type, local_index_type, global_index_type> crs_matrix_type;
