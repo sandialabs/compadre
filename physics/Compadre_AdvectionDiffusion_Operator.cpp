@@ -153,6 +153,25 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
         kokkos_epsilons_host(i) = epsilons(i,0);
     });
 
+    auto quadrature_points = _particles->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
+    auto quadrature_weights = _particles->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
+    auto quadrature_type = _particles->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
+    auto unit_normals = _particles->getFieldManager()->getFieldByName("unit_normal")->getMultiVectorPtr()->getLocalView<host_view_type>();
+
+    //// evaluation point index list
+    //Kokkos::View<int**> kokkos_eval_lists("eval lists", target_coords->nLocal(), max_num_neighbors+1);
+    //Kokkos::View<int**>::HostMirror kokkos_neighbor_lists_host = Kokkos::create_mirror_view(kokkos_neighbor_lists);
+
+    //// fill in the neighbor lists into a kokkos view. First entry is # of neighbors for that target
+    //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
+    //    const int num_i_neighbors = all_neighbors[i].size();
+    //    for (int j=1; j<num_i_neighbors+1; ++j) {
+    //        kokkos_neighbor_lists_host(i,j) = all_neighbors[i][j-1].first;
+    //    }
+    //    kokkos_neighbor_lists_host(i,0) = num_i_neighbors;
+    //});
+
+
     //****************
     //
     // End of data copying
@@ -160,7 +179,6 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
     //****************
 
     // GMLS operator
-
     GMLS my_GMLS (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), "QR", 2 /* manifold porder */, 2 /*dimension*/);
     my_GMLS.setProblemData(kokkos_neighbor_lists_host,
                     kokkos_augmented_source_coordinates_host,
@@ -172,21 +190,39 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
     my_GMLS.addTargets(TargetOperation::LaplacianOfScalarPointEvaluation);
     my_GMLS.generateAlphas(); // just point evaluations
 
+
     Teuchos::RCP<Teuchos::Time> GMLSTime = Teuchos::TimeMonitor::getNewCounter ("GMLS");
 
     // get maximum number of neighbors * fields[field_two]->nDim()
-    int team_scratch_size = host_scratch_vector_type::shmem_size(max_num_neighbors * fields[field_two]->nDim()); // values
-    team_scratch_size += host_scratch_local_index_type::shmem_size(max_num_neighbors * fields[field_two]->nDim()); // local column indices
-    const local_index_type host_scratch_team_level = 0; // not used in Kokkos currently
+    //int team_scratch_size = host_scratch_vector_type::shmem_size(max_num_neighbors * fields[field_two]->nDim()); // values
+    //team_scratch_size += host_scratch_local_index_type::shmem_size(max_num_neighbors * fields[field_two]->nDim()); // local column indices
+    //const local_index_type host_scratch_team_level = 0; // not used in Kokkos currently
 
     //#pragma omp parallel for
 //  for(local_index_type i = 0; i < nlocal; i++) {
 //  Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal), KOKKOS_LAMBDA(const int i) {
-    Kokkos::parallel_for(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
-        const int i = teamMember.league_rank();
+    //Kokkos::parallel_for(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
 
-        host_scratch_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
-        host_scratch_vector_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+
+
+    for (int i=0; i<nlocal; ++i) {
+        // diagnostic
+        //for (int j=0; j<quadrature_points.extent(1); ++j) printf(" qp: %f", quadrature_points(i,j));
+        //printf("\n");
+        //for (int j=0; j<quadrature_weights.extent(1); ++j) printf(" qw: %f", quadrature_weights(i,j));
+        //printf("\n");
+        //for (int j=0; j<quadrature_type.extent(1); ++j) printf(" qt: %f", quadrature_type(i,j));
+        //printf("\n");
+        //for (int j=0; j<unit_normals.extent(1); ++j) printf(" un: %f", unit_normals(i,j));
+        //printf("\n");
+        // loop over cell midpoints
+    //Kokkos::parallel_for(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
+    //    const int i = teamMember.league_rank();
+
+        //host_scratch_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+        //host_scratch_vector_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+        host_local_index_type col_data("col data", max_num_neighbors*fields[field_two]->nDim());
+        host_vector_type val_data("val data", max_num_neighbors*fields[field_two]->nDim());
 
         const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
         const local_index_type num_neighbors = neighbors.size();
@@ -203,6 +239,13 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                 for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
                     col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][n];
                     if (n==k) { // same field, same component
+
+                        // have interaction between two basis functions
+
+
+
+
+
                         // implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
                         // and checking its boundary condition
                         local_index_type corresponding_particle_id = blocked_matrix ? row/fields[field_one]->nDim() : row/ntotalfielddimensions;
@@ -231,7 +274,7 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
             }
         }
 //  }
-    });
+    }
 
 	TEUCHOS_ASSERT(!this->_A.is_null());
 //	this->_A->print(std::cout);

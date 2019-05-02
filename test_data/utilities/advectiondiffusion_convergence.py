@@ -55,9 +55,16 @@ for key1, porder in enumerate(porders):
         tree.write(open('../test_data/parameter_lists/advectiondiffusion/parameters.xml', 'wb'))
         
         with open(os.devnull, 'w') as devnull:
+
             commands = ["mpirun", "-np", "2", "./advectionDiffusion.exe","--i=../test_data/parameter_lists/advectiondiffusion/parameters.xml","--kokkos-threads=4"]
             print(" ".join(commands))
-            output = subprocess.check_output(commands, stderr=devnull).decode()
+            try:
+                output = subprocess.check_output(commands, stderr=devnull).decode()
+            except subprocess.CalledProcessError as exc:
+                print("error code", exc.returncode)
+                for line in exc.output.decode().split('\n'):
+                    print(line)
+                sys.exit(exc.returncode)
             #print output
             m = re.search('(?<=compare len: )[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?', output)
             errors.append(float(m.group(0)))

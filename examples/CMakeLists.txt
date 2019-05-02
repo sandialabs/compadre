@@ -40,6 +40,7 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
   add_exe_w_compadre(simpleCoordsTest.exe Compadre_SimpleCoordsUnitTest.cpp)
   add_exe_w_compadre(simpleMPITest.exe Compadre_SimpleMPIUnitTest.cpp)
   add_exe_w_compadre(remapTest.exe Compadre_RemapTest.cpp)
+  add_exe_w_compadre(basisFunctionTest.exe Compadre_BasisFunction.cpp)
   add_exe_w_compadre(lagrangianTest.exe Compadre_LagrangianTest.cpp)
   add_exe_w_compadre(remoteRemapTest.exe Compadre_RemoteRemapTest.cpp)
   add_exe_w_compadre(laplaceBeltrami.exe Compadre_LaplaceBeltrami.cpp)
@@ -146,6 +147,10 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
     ADD_TEST(NAME RemapTestLagrangianNanoflann COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/remapTest.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_remap_lagrangian_nano.xml" "--kokkos-threads=3")
     SET_TESTS_PROPERTIES(RemapTestLagrangianNanoflann PROPERTIES LABELS "Regression;regression;Remap;remap;lagrangian;Lagrangian" TIMEOUT 180)
    
+    # BASIS FUNCTION TEST
+
+    ADD_TEST(NAME BasisFunction COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${CMAKE_CURRENT_BINARY_DIR}/basisFunctionTest.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_basis.xml" "--kokkos-threads=3")
+    SET_TESTS_PROPERTIES(BasisFunction PROPERTIES LABELS "basis;Regression;regression;Remap;remap;eulerian;Eulerian" TIMEOUT 180)
     
     # LAGRANGIAN POINT INSERTION REMAP TEST
     
