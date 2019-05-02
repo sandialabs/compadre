@@ -31,7 +31,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
 
     const int target_NP = this->getNP(_poly_order, _dimensions);
     const int num_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
-                ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
+                ? static_cast<int>(getNAdditionalEvaluationCoordinates(target_index)+1) : 1;
 
     for (int i=0; i<_operations.size(); ++i) {
 
