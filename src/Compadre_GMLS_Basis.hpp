@@ -450,7 +450,7 @@ void GMLS::calcGradientPij(double* delta, const int target_index, const int neig
 
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p, scratch_matrix_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional) const {
+void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_right_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p, scratch_matrix_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional) const {
     /*
      * Creates sqrt(W)*P
      */
@@ -524,7 +524,7 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_type P, scratch_vector_type w, const int dimension, bool only_specific_order, scratch_matrix_type* V) const {
+void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_right_type P, scratch_vector_type w, const int dimension, bool only_specific_order, scratch_matrix_type* V) const {
 /*
  * This function has two purposes
  * 1.) Used to calculate specifically for 1st order polynomials, from which we can reconstruct a tangent plane
