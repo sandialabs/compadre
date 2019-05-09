@@ -7,13 +7,13 @@ namespace Compadre {
 namespace GMLS_LinearAlgebra {
 
 KOKKOS_INLINE_FUNCTION
-void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_matrix_right_type weighted_P, const int columns, const int rows) {
+void createM(const member_type& teamMember, scratch_matrix_right_type M_data, scratch_matrix_right_type weighted_P, const int columns, const int rows) {
     /*
      * Creates M = P^T * W * P
      */
 
     const int target_index = teamMember.league_rank();
-    double * p_data = weighted_P.data();
+    auto alt_P = scratch_matrix_left_type(weighted_P.data(), weighted_P.extent(0), weighted_P.extent(1));
 
     for (int i=0; i<columns; ++i) {
         // offdiagonal entries
@@ -23,8 +23,8 @@ void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_
 
             Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k, double &entry_val) {
                 // assumes layout left input matrix
-                double val_i = *(p_data + TO_GLOBAL(i)*TO_GLOBAL(weighted_P.dimension_0()) + TO_GLOBAL(k));
-                double val_j = *(p_data + TO_GLOBAL(j)*TO_GLOBAL(weighted_P.dimension_0()) + TO_GLOBAL(k));
+                double val_i = alt_P(k,i);
+                double val_j = alt_P(k,j);
                 entry_val += val_i*val_j;
             }, M_data_entry_i_j );
 
@@ -40,7 +40,7 @@ void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_
 
         Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k, double &entry_val) {
             // assumes layout left input matrix
-            double val = *(p_data + TO_GLOBAL(i)*TO_GLOBAL(weighted_P.dimension_0()) + TO_GLOBAL(k));
+            double val = alt_P(k,i);
             entry_val += val*val;
         }, M_data_entry_i_j );
 
@@ -60,7 +60,7 @@ void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_
 
 
 KOKKOS_INLINE_FUNCTION
-void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, scratch_matrix_type V, scratch_matrix_type PtP, const int dimensions, pool_type& random_number_pool) {
+void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, scratch_matrix_right_type V, scratch_matrix_right_type PtP, const int dimensions, pool_type& random_number_pool) {
 
     Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
 

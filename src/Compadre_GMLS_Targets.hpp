@@ -538,7 +538,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, scratch_matrix_type* V) const {
+void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, scratch_matrix_right_type* V) const {
 
     const int target_index = teamMember.league_rank();
 
@@ -584,7 +584,7 @@ void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_ve
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, scratch_matrix_type V, scratch_matrix_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients) const {
+void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, scratch_matrix_right_type V, scratch_matrix_right_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients) const {
 
     // only designed for 2D manifold embedded in 3D space
     const int target_index = teamMember.league_rank();

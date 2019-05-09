@@ -95,11 +95,11 @@ struct SubviewND<T, T2, enable_if_t<(T::rank<2)> >
 //! Handles either 2D or 1D views as input, and they can be on the host or the device.
 template <typename T>
 auto CreateNDSliceOnDeviceView(T sampling_input_data_host_or_device, bool scalar_as_vector_if_needed) -> SubviewND<decltype(Kokkos::create_mirror_view(
-                    Kokkos::DefaultExecutionSpace::memory_space(), sampling_input_data_host_or_device)), T> {
+                    device_execution_space::memory_space(), sampling_input_data_host_or_device)), T> {
 
     // makes view on the device (does nothing if already on the device)
     auto sampling_input_data_device = Kokkos::create_mirror_view(
-        Kokkos::DefaultExecutionSpace::memory_space(), sampling_input_data_host_or_device);
+        device_execution_space::memory_space(), sampling_input_data_host_or_device);
     Kokkos::deep_copy(sampling_input_data_device, sampling_input_data_host_or_device);
     Kokkos::fence();
 
@@ -163,7 +163,7 @@ public:
         // loop through neighbor list for this target_index
         // grabbing data from that entry of data
         Kokkos::parallel_reduce("applyAlphasToData::Device", 
-                Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,neighbor_lists_lengths(target_index)), 
+                Kokkos::RangePolicy<device_execution_space>(0,neighbor_lists_lengths(target_index)), 
                 KOKKOS_LAMBDA(const int i, double& t_value) {
 
             t_value += sampling_data_device(neighbor_lists(target_index, i+1))
@@ -184,7 +184,7 @@ public:
     //! components in order to fill a vector target or matrix target.
     //! 
     //! Assumptions on input data:
-    //! \param output_data_single_column       [out] - 1D Kokkos View (memory space must be Kokkos::DefaultExecutionSpace::memory_space())
+    //! \param output_data_single_column       [out] - 1D Kokkos View (memory space must be device_execution_space::memory_space())
     //! \param sampling_data_single_column      [in] - 1D Kokkos View (memory space must match output_data_single_column)
     //! \param lro                              [in] - Target operation from the TargetOperation enum
     //! \param sro                              [in] - Sampling functional from the SamplingFunctional enum
@@ -225,16 +225,13 @@ public:
         bool weight_with_pre_T = (pre_transform_local_index>=0 && pre_transform_global_index>=0) ? true : false;
         bool target_plus_neighbor_staggered_schema = SamplingTensorForTargetSite[(int)sro];
 
-        typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> alpha_policy;
-        typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type alpha_member_type;
-
         // loops over target indices
-        Kokkos::parallel_for(alpha_policy(num_targets, Kokkos::AUTO),
-                KOKKOS_LAMBDA(const alpha_member_type& teamMember) {
+        Kokkos::parallel_for(team_policy(num_targets, Kokkos::AUTO),
+                KOKKOS_LAMBDA(const member_type& teamMember) {
 
             const int target_index = teamMember.league_rank();
 
-            Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T
+            scratch_matrix_right_type T
                     (tangent_directions.data() + TO_GLOBAL(target_index)*TO_GLOBAL(global_dimensions)*TO_GLOBAL(global_dimensions), 
                      global_dimensions, global_dimensions);
             teamMember.team_barrier();
@@ -450,7 +447,7 @@ public:
     //! components in order to fill a vector target or matrix target.
     //! 
     //! Assumptions on input data:
-    //! \param output_data_block_column       [out] - 2D Kokkos View (memory space must be Kokkos::DefaultExecutionSpace::memory_space())
+    //! \param output_data_block_column       [out] - 2D Kokkos View (memory space must be device_execution_space::memory_space())
     //! \param sampling_data_single_column      [in] - 1D Kokkos View (memory space must match output_data_single_column)
     //! \param lro                              [in] - Target operation from the TargetOperation enum
     //! \param sro                              [in] - Sampling functional from the SamplingFunctional enum
@@ -495,27 +492,21 @@ public:
         bool weight_with_pre_T = (pre_transform_local_index>=0 && pre_transform_global_index>=0) ? true : false;
         bool target_plus_neighbor_staggered_schema = SamplingTensorForTargetSite[(int)sro];
 
-        typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> coefficient_policy;
-        typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type coefficient_member_type;
-
-
         // loops over target indices
         for (int j=0; j<_gmls->getPolynomialCoefficientsSize(); ++j) {
-            Kokkos::parallel_for(coefficient_policy(num_targets, Kokkos::AUTO),
-                    KOKKOS_LAMBDA(const coefficient_member_type& teamMember) {
+            Kokkos::parallel_for(team_policy(num_targets, Kokkos::AUTO),
+                    KOKKOS_LAMBDA(const member_type& teamMember) {
 
                 const int target_index = teamMember.league_rank();
 
-                Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T
-                        (tangent_directions.data() 
+                scratch_matrix_right_type T (tangent_directions.data() 
                             + TO_GLOBAL(target_index)*TO_GLOBAL(global_dimensions)*TO_GLOBAL(global_dimensions), 
                          global_dimensions, global_dimensions);
 
-                Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > Coeffs
-                        (coeffs.data() 
+                scratch_matrix_right_type Coeffs(coeffs.data() 
                             + TO_GLOBAL(target_index)*TO_GLOBAL(coefficient_matrix_tile_size)
                                 *TO_GLOBAL(coefficient_matrix_tile_size), 
-                         coefficient_matrix_tile_size, coefficient_matrix_tile_size);
+                            coefficient_matrix_tile_size, coefficient_matrix_tile_size);
                 teamMember.team_barrier();
 
 
@@ -529,7 +520,7 @@ public:
                         : 1.0;
 
                     t_value += neighbor_varying_pre_T * sampling_data_single_column(neighbor_lists(target_index, i+1))
-                        *Coeffs(ORDER_INDICES(i, j));
+                        *Coeffs(i, j);
                         //*Coeffs(ORDER_INDICES(i+input_component_axis_1*neighbor_lists(target_index,0), j));
 
                 }, gmls_value );
@@ -556,7 +547,7 @@ public:
                             : 1.0;
 
                         t_value += neighbor_varying_pre_T_staggered * sampling_data_single_column(neighbor_lists(target_index, 1))
-                            *Coeffs(ORDER_INDICES(i, j));
+                            *Coeffs(i, j);
                             //*Coeffs(ORDER_INDICES(i+input_component_axis_1*neighbor_lists(target_index,0), j));
 
                     }, staggered_value_from_targets );
