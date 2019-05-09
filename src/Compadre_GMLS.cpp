@@ -346,9 +346,9 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
     // the threads in a team work on these local copies that only the team sees
     // thread_scratch has a copy per thread
 
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() 
+    Kokkos::View<double**, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > RHS(_RHS.data() 
+    Kokkos::View<double**, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> > RHS(_RHS.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
     Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > w(_w.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows), max_num_rows);
@@ -393,7 +393,7 @@ void GMLS::operator()(const ApplyStandardTargets&, const member_type& teamMember
      *    Data
      */
 
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() 
+    Kokkos::View<double**, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
     // Coefficients for polynomial basis have overwritten _RHS
     Kokkos::View<double**, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> > Coeffs(_RHS.data() 
@@ -437,7 +437,7 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
      *    Data
      */
 
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() 
+    Kokkos::View<double**, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
     Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > w(_w.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows), max_num_rows);
@@ -487,7 +487,7 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
      *    Data
      */
 
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > CurvaturePsqrtW(_P.data() 
+    Kokkos::View<double**, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> > CurvaturePsqrtW(_P.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
     Kokkos::View<double**, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> > RHS(_RHS.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
@@ -856,7 +856,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
      *    Data
      */
 
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() 
+    Kokkos::View<double**, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
     Kokkos::View<double**, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> > Q(_RHS.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
@@ -908,7 +908,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
      *    Data
      */
 
-    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() 
+    Kokkos::View<double**, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> > PsqrtW(_P.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
     Kokkos::View<double**, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> > Coeffs(_RHS.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);

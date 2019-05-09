@@ -33,6 +33,7 @@ typedef Kokkos::TeamPolicy<>               team_policy;
 typedef Kokkos::TeamPolicy<>::member_type  member_type;
 
 typedef Kokkos::DefaultExecutionSpace::array_layout layout_type;
+//typedef Kokkos::LayoutRight layout_type;
 typedef Kokkos::LayoutRight layout_right;
 
 // reorders indices for layout of device

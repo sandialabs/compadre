@@ -7,7 +7,7 @@ namespace Compadre {
 namespace GMLS_LinearAlgebra {
 
 KOKKOS_INLINE_FUNCTION
-void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_matrix_type weighted_P, const int columns, const int rows) {
+void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_matrix_right_type weighted_P, const int columns, const int rows) {
     /*
      * Creates M = P^T * W * P
      */
