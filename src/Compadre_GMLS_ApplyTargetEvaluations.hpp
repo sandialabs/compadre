@@ -26,9 +26,9 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
                         Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
                             _basis_multiplier*target_NP), [=] (const int l, double &talpha_ij) {
                             if (_sampling_multiplier>1 && m<_sampling_multiplier) {
-                                talpha_ij += P_target_row(offset_index_jmke, l)*Q(ORDER_INDICES(i + m*this->getNNeighbors(target_index),l));
+                                talpha_ij += P_target_row(offset_index_jmke, l)*Q(i + m*this->getNNeighbors(target_index),l);
                             } else if (_sampling_multiplier == 1) {
-                                talpha_ij += P_target_row(offset_index_jmke, l)*Q(ORDER_INDICES(i,l));
+                                talpha_ij += P_target_row(offset_index_jmke, l)*Q(i,l);
                             } else {
                                 talpha_ij += 0;
                             }

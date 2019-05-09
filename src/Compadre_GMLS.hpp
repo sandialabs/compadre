@@ -61,23 +61,23 @@ protected:
     Kokkos::View<double*> _manifold_curvature_gradient;
 
     //! Extra data available to basis functions and target operations (optional)
-    Kokkos::View<double**> _extra_data;
+    Kokkos::View<double**, layout_right> _extra_data;
 
     
     //! contains local IDs of neighbors to get coordinates from _source_coordinates (device)
-    Kokkos::View<int**, layout_type> _neighbor_lists; 
+    Kokkos::View<int**, layout_right> _neighbor_lists; 
 
     //! contains local IDs of neighbors to get coordinates from _source_coordinates (host)
-    Kokkos::View<int**, layout_type>::HostMirror _host_neighbor_lists;
+    Kokkos::View<int**, layout_right>::HostMirror _host_neighbor_lists;
 
     //! contains the # of neighbors for each target (host)
     Kokkos::View<int*, Kokkos::HostSpace> _number_of_neighbors_list; 
 
     //! all coordinates for the source for which _neighbor_lists refers (device)
-    Kokkos::View<double**, layout_type> _source_coordinates; 
+    Kokkos::View<double**, layout_right> _source_coordinates; 
 
     //! coordinates for target sites for reconstruction same number of rows as _neighbor_lists (device)
-    Kokkos::View<double**, layout_type> _target_coordinates; 
+    Kokkos::View<double**, layout_right> _target_coordinates; 
 
     //! h supports determined through neighbor search, same number of rows as _neighbor_lists (device)
     Kokkos::View<double*> _epsilons; 
@@ -93,20 +93,20 @@ protected:
     
     //! generated weights for nontraditional samples required to transform data into expected sampling 
     //! functional form (device). 
-    Kokkos::View<double*****, layout_type> _prestencil_weights; 
+    Kokkos::View<double*****, layout_right> _prestencil_weights; 
 
     //! generated weights for nontraditional samples required to transform data into expected sampling 
     //! functional form (host)
-    Kokkos::View<const double*****, layout_type>::HostMirror _host_prestencil_weights;
+    Kokkos::View<const double*****, layout_right>::HostMirror _host_prestencil_weights;
 
     //! (OPTIONAL) user provided additional coordinates for target operation evaluation (device)
-    Kokkos::View<double**, layout_type> _additional_evaluation_coordinates; 
+    Kokkos::View<double**, layout_right> _additional_evaluation_coordinates; 
 
     //! (OPTIONAL) contains indices of entries in the _additional_evaluation_coordinates view (device)
-    Kokkos::View<int**, layout_type> _additional_evaluation_indices; 
+    Kokkos::View<int**, layout_right> _additional_evaluation_indices; 
 
     //! (OPTIONAL) contains indices of entries in the _additional_evaluation_coordinates view (host)
-    Kokkos::View<int**, layout_type>::HostMirror _host_additional_evaluation_indices;
+    Kokkos::View<int**, layout_right>::HostMirror _host_additional_evaluation_indices;
 
     //! (OPTIONAL) contains the # of additional coordinate indices for each target (host)
     Kokkos::View<int*, Kokkos::HostSpace> _number_of_additional_evaluation_indices; 
@@ -158,10 +158,10 @@ protected:
 
 
     //! 1D quadrature weights for staggered approaches
-    Kokkos::View<double*, layout_type> _quadrature_weights;
+    Kokkos::View<double*, layout_right> _quadrature_weights;
 
     //! 1D quadrature sites (reference [0,1]) for staggered approaches
-    Kokkos::View<double*, layout_type> _parameterized_quadrature_sites;
+    Kokkos::View<double*, layout_right> _parameterized_quadrature_sites;
 
 
 
@@ -222,34 +222,34 @@ protected:
     std::vector<int> _lro_lookup; 
 
     //! index for where this operation begins the for _alpha coefficients (device)
-    Kokkos::View<int*, layout_type> _lro_total_offsets; 
+    Kokkos::View<int*> _lro_total_offsets; 
 
     //! index for where this operation begins the for _alpha coefficients (host)
-    Kokkos::View<int*, layout_type>::HostMirror _host_lro_total_offsets; 
+    Kokkos::View<int*>::HostMirror _host_lro_total_offsets; 
 
     //! dimensions ^ rank of tensor of output for each target functional (device)
-    Kokkos::View<int*, layout_type> _lro_output_tile_size; 
+    Kokkos::View<int*> _lro_output_tile_size; 
 
     //! dimensions ^ rank of tensor of output for each target functional (host)
-    Kokkos::View<int*, layout_type>::HostMirror _host_lro_output_tile_size; 
+    Kokkos::View<int*>::HostMirror _host_lro_output_tile_size; 
 
     //! dimensions ^ rank of tensor of output for each sampling functional (device)
-    Kokkos::View<int*, layout_type> _lro_input_tile_size; 
+    Kokkos::View<int*> _lro_input_tile_size; 
 
     //! dimensions ^ rank of tensor of output for each sampling functional (host)
-    Kokkos::View<int*, layout_type>::HostMirror _host_lro_input_tile_size; 
+    Kokkos::View<int*>::HostMirror _host_lro_input_tile_size; 
 
     //! tensor rank of target functional (device)
-    Kokkos::View<int*, layout_type> _lro_output_tensor_rank;
+    Kokkos::View<int*> _lro_output_tensor_rank;
 
     //! tensor rank of target functional (host)
-    Kokkos::View<int*, layout_type>::HostMirror _host_lro_output_tensor_rank;
+    Kokkos::View<int*>::HostMirror _host_lro_output_tensor_rank;
 
     //! tensor rank of sampling functional (device)
-    Kokkos::View<int*, layout_type> _lro_input_tensor_rank;
+    Kokkos::View<int*> _lro_input_tensor_rank;
 
     //! tensor rank of sampling functional (host)
-    Kokkos::View<int*, layout_type>::HostMirror _host_lro_input_tensor_rank;
+    Kokkos::View<int*>::HostMirror _host_lro_input_tensor_rank;
 
     //! used for sizing P_target_row and the _alphas view
     int _total_alpha_values;
@@ -344,7 +344,7 @@ protected:
         \param additional_evaluation_local_index [in] - local index for evaluation sites 
     */
     KOKKOS_INLINE_FUNCTION
-    void calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, scratch_matrix_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample, const int additional_evaluation_local_index = 0) const;
+    void calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, scratch_matrix_right_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample, const int additional_evaluation_local_index = 0) const;
 
     /*! \brief Evaluates the gradient of a polynomial basis under the Dirac Delta (pointwise) sampling function.
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -361,7 +361,7 @@ protected:
         \param additional_evaluation_local_index [in] - local index for evaluation sites 
     */
     KOKKOS_INLINE_FUNCTION
-    void calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int additional_evaluation_local_index = 0) const;
+    void calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int additional_evaluation_local_index = 0) const;
 
     /*! \brief Evaluates the weighting kernel
         \param r                [in] - Euclidean distance of relative vector. Euclidean distance of (target - neighbor) in some basis.
@@ -385,7 +385,7 @@ protected:
         \param sampling_strategy    [in] - sampling functional specification
     */
     KOKKOS_INLINE_FUNCTION
-    void createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_right_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p = false, scratch_matrix_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample) const;
+    void createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_right_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p = false, scratch_matrix_right_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample) const;
 
     /*! \brief Fills the _P matrix with P*sqrt(w) for use in solving for curvature
 
@@ -400,7 +400,7 @@ protected:
         \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
     */
     KOKKOS_INLINE_FUNCTION
-    void createWeightsAndPForCurvature(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_right_type P, scratch_vector_type w, const int dimension, bool only_specific_order, scratch_matrix_type* V = NULL) const;
+    void createWeightsAndPForCurvature(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_right_type P, scratch_vector_type w, const int dimension, bool only_specific_order, scratch_matrix_right_type* V = NULL) const;
 
     /*! \brief Evaluates a polynomial basis with a target functional applied to each member of the basis
         \param teamMember                   [in] - Kokkos::TeamPolicy member type (created by parallel_for)
@@ -422,7 +422,7 @@ protected:
         \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
     */
     KOKKOS_INLINE_FUNCTION
-    void computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, scratch_matrix_type* V) const;
+    void computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, scratch_matrix_right_type* V) const;
 
     /*! \brief Evaluates a polynomial basis with a target functional applied, using information from the manifold curvature
 
@@ -438,7 +438,7 @@ protected:
         \param curvature_gradients          [in] - approximation of gradient of curvature, Kokkos View of size (_dimensions-1)
     */
     KOKKOS_INLINE_FUNCTION
-    void computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, scratch_matrix_type V, scratch_matrix_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients) const;
+    void computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, scratch_matrix_right_type V, scratch_matrix_right_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients) const;
 
     //! Helper function for applying the evaluations from a target functional to the polynomial coefficients
     KOKKOS_INLINE_FUNCTION
@@ -514,7 +514,7 @@ protected:
     //! Returns one component of the target coordinate for a particular target. Whether global or local coordinates 
     //! depends upon V being specified
     KOKKOS_INLINE_FUNCTION
-    double getTargetCoordinate(const int target_index, const int dim, const scratch_matrix_type* V = NULL) const {
+    double getTargetCoordinate(const int target_index, const int dim, const scratch_matrix_right_type* V = NULL) const {
         compadre_kernel_assert_debug((_target_coordinates.extent(0) >= target_index) && "Target index is out of range for _target_coordinates.");
         if (V==NULL) {
             return _target_coordinates(target_index, dim);
@@ -530,7 +530,7 @@ protected:
     //! Returns one component of the additional evaluation coordinates. Whether global or local coordinates 
     //! depends upon V being specified
     KOKKOS_INLINE_FUNCTION
-    double getTargetAuxiliaryCoordinate(const int target_index, const int additional_list_num, const int dim, const scratch_matrix_type* V = NULL) const {
+    double getTargetAuxiliaryCoordinate(const int target_index, const int additional_list_num, const int dim, const scratch_matrix_right_type* V = NULL) const {
         auto additional_evaluation_index = getAdditionalEvaluationIndex(target_index, additional_list_num);
         compadre_kernel_assert_debug((_additional_evaluation_coordinates.extent(0) >= additional_evaluation_index) && "Additional evaluation index is out of range for _additional_evaluation_coordinates.");
         if (V==NULL) {
@@ -546,7 +546,7 @@ protected:
     //! Returns one component of the neighbor coordinate for a particular target. Whether global or local coordinates 
     //! depends upon V being specified
     KOKKOS_INLINE_FUNCTION
-    double getNeighborCoordinate(const int target_index, const int neighbor_list_num, const int dim, const scratch_matrix_type* V = NULL) const {
+    double getNeighborCoordinate(const int target_index, const int neighbor_list_num, const int dim, const scratch_matrix_right_type* V = NULL) const {
         compadre_kernel_assert_debug((_source_coordinates.extent(0) >= this->getNeighborIndex(target_index, neighbor_list_num)) && "Source index is out of range for _source_coordinates.");
         if (V==NULL) {
             return _source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), dim);
@@ -559,7 +559,7 @@ protected:
     //! Returns the relative coordinate as a vector between the target site and the neighbor site. 
     //! Whether global or local coordinates depends upon V being specified
     KOKKOS_INLINE_FUNCTION
-    XYZ getRelativeCoord(const int target_index, const int neighbor_list_num, const int dimension, const scratch_matrix_type* V = NULL) const {
+    XYZ getRelativeCoord(const int target_index, const int neighbor_list_num, const int dimension, const scratch_matrix_right_type* V = NULL) const {
         XYZ coordinate_delta;
 
         coordinate_delta.x = this->getNeighborCoordinate(target_index, neighbor_list_num, 0, V) - this->getTargetCoordinate(target_index, 0, V);
@@ -571,7 +571,7 @@ protected:
 
     //! Returns a component of the local coordinate after transformation from global to local under the orthonormal basis V.
     KOKKOS_INLINE_FUNCTION
-    double convertGlobalToLocalCoordinate(const XYZ global_coord, const int dim, const scratch_matrix_type* V) const {
+    double convertGlobalToLocalCoordinate(const XYZ global_coord, const int dim, const scratch_matrix_right_type* V) const {
         // only written for 2d manifold in 3d space
         double val = 0;
         val += global_coord.x * (*V)(dim, 0);
@@ -582,7 +582,7 @@ protected:
 
     //! Returns a component of the global coordinate after transformation from local to global under the orthonormal basis V^T.
     KOKKOS_INLINE_FUNCTION
-    double convertLocalToGlobalCoordinate(const XYZ local_coord, const int dim, const scratch_matrix_type* V) const {
+    double convertLocalToGlobalCoordinate(const XYZ local_coord, const int dim, const scratch_matrix_right_type* V) const {
         // only written for 2d manifold in 3d space
         double val;
         if (dim == 0 && _dimensions==2) { // 2D problem with 1D manifold
@@ -903,7 +903,7 @@ public:
     double getTangentBundle(const int target_index, const int direction, const int component) const {
         // Component index 0.._dimensions-2 will return tangent direction
         // Component index _dimensions-1 will return the normal direction
-        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> >::HostMirror 
+        scratch_matrix_right_type::HostMirror 
                 T(_host_T.data() + target_index*_dimensions*_dimensions, _dimensions, _dimensions);
         return T(direction, component);
     }
@@ -912,7 +912,7 @@ public:
     double getReferenceNormalDirection(const int target_index, const int component) const {
         compadre_assert_debug(_reference_outward_normal_direction_provided && 
                 "getRefenceNormalDirection called, but reference outwrad normal directions were never provided.");
-        Kokkos::View<double*, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> >::HostMirror 
+        scratch_vector_type::HostMirror 
                 ref_N(_host_ref_N.data() + target_index*_dimensions, _dimensions);
         return ref_N(component);
     }
@@ -1151,14 +1151,13 @@ public:
     //! first entry in ever row should be the number of neighbors for the corresponding target.
     template <typename view_type>
     void setNeighborLists(view_type neighbor_lists) {
-        // Catches Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace
         // allocate memory on device
-        _neighbor_lists = Kokkos::View<int**, layout_type>("device neighbor lists",
+        _neighbor_lists = decltype(_neighbor_lists)("device neighbor lists",
             neighbor_lists.dimension_0(), neighbor_lists.dimension_1());
         _host_neighbor_lists = Kokkos::create_mirror_view(_neighbor_lists);
 
         typedef typename view_type::memory_space input_array_memory_space;
-        if (std::is_same<input_array_memory_space, Kokkos::DefaultExecutionSpace::memory_space>::value) {
+        if (std::is_same<input_array_memory_space, device_execution_space::memory_space>::value) {
             // check if on the device, then copy directly
             // if it is, then it doesn't match the internal layout we use
             // then copy to the host mirror
@@ -1188,7 +1187,7 @@ public:
     //! Sets neighbor list information. 2D array should be # targets x maximum number of neighbors for any target + 1.
     //! first entry in ever row should be the number of neighbors for the corresponding target.
     template <typename view_type>
-    void setNeighborLists(Kokkos::View<int**, layout_right, Kokkos::DefaultExecutionSpace> neighbor_lists) {
+    void setNeighborLists(decltype(_neighbor_lists) neighbor_lists) {
         _neighbor_lists = neighbor_lists;
 
         _host_neighbor_lists = Kokkos::create_mirror_view(_neighbor_lists);
@@ -1210,11 +1209,11 @@ public:
     void setSourceSites(view_type source_coordinates) {
 
         // allocate memory on device
-        _source_coordinates = Kokkos::View<double**, layout_type>("device neighbor coordinates",
+        _source_coordinates = decltype(_source_coordinates)("device neighbor coordinates",
                 source_coordinates.dimension_0(), source_coordinates.dimension_1());
 
         typedef typename view_type::memory_space input_array_memory_space;
-        if (std::is_same<input_array_memory_space, Kokkos::DefaultExecutionSpace::memory_space>::value) {
+        if (std::is_same<input_array_memory_space, device_execution_space::memory_space>::value) {
             // check if on the device, then copy directly
             // if it is, then it doesn't match the internal layout we use
             // then copy to the host mirror
@@ -1235,7 +1234,7 @@ public:
     //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries
     //! of the neighbor lists 2D array.
     template<typename view_type>
-    void setSourceSites(Kokkos::View<double**, layout_right, Kokkos::DefaultExecutionSpace> source_coordinates) {
+    void setSourceSites(decltype(_source_coordinates) source_coordinates) {
         // allocate memory on device
         _source_coordinates = source_coordinates;
         this->resetCoefficientData();
@@ -1245,11 +1244,11 @@ public:
     template<typename view_type>
     void setTargetSites(view_type target_coordinates) {
         // allocate memory on device
-        _target_coordinates = Kokkos::View<double**, layout_type>("device target coordinates",
+        _target_coordinates = decltype(_target_coordinates)("device target coordinates",
                 target_coordinates.dimension_0(), target_coordinates.dimension_1());
 
         typedef typename view_type::memory_space input_array_memory_space;
-        if (std::is_same<input_array_memory_space, Kokkos::DefaultExecutionSpace::memory_space>::value) {
+        if (std::is_same<input_array_memory_space, device_execution_space::memory_space>::value) {
             // check if on the device, then copy directly
             // if it is, then it doesn't match the internal layout we use
             // then copy to the host mirror
@@ -1269,7 +1268,7 @@ public:
 
     //! Sets target coordinate information. Rows of this 2D-array should correspond to rows of the neighbor lists.
     template<typename view_type>
-    void setTargetSites(Kokkos::View<double**, layout_right, Kokkos::DefaultExecutionSpace> target_coordinates) {
+    void setTargetSites(decltype(_target_coordinates) target_coordinates) {
         // allocate memory on device
         _target_coordinates = target_coordinates;
         this->resetCoefficientData();
@@ -1280,7 +1279,7 @@ public:
     void setWindowSizes(view_type epsilons) {
 
         // allocate memory on device
-        _epsilons = Kokkos::View<double*>("device epsilons",
+        _epsilons = decltype(_epsilons)("device epsilons",
                         epsilons.dimension_0(), epsilons.dimension_1());
 
         _host_epsilons = Kokkos::create_mirror_view(_epsilons);
@@ -1292,7 +1291,7 @@ public:
 
     //! Sets window sizes, also called the support of the kernel (device)
     template<typename view_type>
-    void setWindowSizes(Kokkos::View<double*, Kokkos::DefaultExecutionSpace> epsilons) {
+    void setWindowSizes(decltype(_epsilons) epsilons) {
         // allocate memory on device
         _epsilons = epsilons;
         this->resetCoefficientData();
@@ -1313,11 +1312,11 @@ public:
         // (_dense_solver_type == DenseSolverType::MANIFOLD) {
 
         // allocate memory on device
-        _T = Kokkos::View<double*>("device tangent directions", _target_coordinates.dimension_0()*_dimensions*_dimensions);
+        _T = decltype(_T)("device tangent directions", _target_coordinates.dimension_0()*_dimensions*_dimensions);
 
         // rearrange data on device from data given on host
-        Kokkos::parallel_for("copy tangent vectors", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, _target_coordinates.dimension_0()), KOKKOS_LAMBDA(const int i) {
-            Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > T(_T.data() + i*_dimensions*_dimensions, _dimensions, _dimensions);
+        Kokkos::parallel_for("copy tangent vectors", Kokkos::RangePolicy<device_execution_space>(0, _target_coordinates.dimension_0()), KOKKOS_LAMBDA(const int i) {
+            scratch_matrix_right_type T(_T.data() + i*_dimensions*_dimensions, _dimensions, _dimensions);
             for (int j=0; j<_dimensions; ++j) {
                 for (int k=0; k<_dimensions; ++k) {
                     T(j,k) = tangent_directions(i, j, k);
@@ -1340,13 +1339,13 @@ public:
         // accept input from user as a rank 2 tensor
         
         // allocate memory on device
-        _ref_N = Kokkos::View<double*>("device normal directions", _target_coordinates.dimension_0()*_dimensions);
+        _ref_N = decltype(_ref_N)("device normal directions", _target_coordinates.dimension_0()*_dimensions);
         // to assist LAMBDA capture
         auto this_ref_N = this->_ref_N;
         auto this_dimensions = this->_dimensions;
 
         // rearrange data on device from data given on host
-        Kokkos::parallel_for("copy normal vectors", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, _target_coordinates.extent(0)), KOKKOS_LAMBDA(const int i) {
+        Kokkos::parallel_for("copy normal vectors", Kokkos::RangePolicy<device_execution_space>(0, _target_coordinates.extent(0)), KOKKOS_LAMBDA(const int i) {
             for (int j=0; j<this_dimensions; ++j) {
                 this_ref_N(i*this_dimensions + j) = outward_normal_directions(i, j);
             }
@@ -1367,7 +1366,7 @@ public:
     void setExtraData(view_type extra_data) {
 
         // allocate memory on device
-        _extra_data = Kokkos::View<double**>("device extra data", extra_data.extent(0), extra_data.extent(1));
+        _extra_data = decltype(_extra_data)("device extra data", extra_data.extent(0), extra_data.extent(1));
 
         auto host_extra_data = Kokkos::create_mirror_view(_extra_data);
         Kokkos::deep_copy(host_extra_data, extra_data);
@@ -1379,7 +1378,7 @@ public:
     //! (OPTIONAL)
     //! Sets extra data to be used by sampling functionals and target operations in certain instances. (device)
     template<typename view_type>
-    void setExtraData(Kokkos::View<double**, layout_right, Kokkos::DefaultExecutionSpace> extra_data) {
+    void setExtraData(decltype(_extra_data) extra_data) {
         // allocate memory on device
         _extra_data = extra_data;
         this->resetCoefficientData();
@@ -1391,13 +1390,12 @@ public:
     //! operations will be evaluated and applied to polynomial reconstructions.
     template <typename view_type>
     void setAuxiliaryEvaluationCoordinates(view_type evaluation_coordinates) {
-        // Catches Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace
         // allocate memory on device
-        _additional_evaluation_coordinates = Kokkos::View<double**, layout_type>("device additional evaluation coordinates",
+        _additional_evaluation_coordinates = decltype(_additional_evaluation_coordinates)("device additional evaluation coordinates",
             evaluation_coordinates.dimension_0(), evaluation_coordinates.dimension_1());
 
         typedef typename view_type::memory_space input_array_memory_space;
-        if (std::is_same<input_array_memory_space, Kokkos::DefaultExecutionSpace::memory_space>::value) {
+        if (std::is_same<input_array_memory_space, device_execution_space::memory_space>::value) {
             // check if on the device, then copy directly
             // if it is, then it doesn't match the internal layout we use
             // then copy to the host mirror
@@ -1420,7 +1418,7 @@ public:
     //! If this is never called, then the target sites are the only locations where the target
     //! operations will be evaluated and applied to polynomial reconstructions. (device)
     template <typename view_type>
-    void setAuxiliaryEvaluationCoordinates(Kokkos::View<double**, layout_right, Kokkos::DefaultExecutionSpace> evaluation_coordinates) {
+    void setAuxiliaryEvaluationCoordinates(decltype(_additional_evaluation_coordinates) evaluation_coordinates) {
         _additional_evaluation_coordinates = evaluation_coordinates;
         this->resetCoefficientData();
     }
@@ -1430,15 +1428,14 @@ public:
     //! evaluation indices for any target + 1. first entry in every row should be the number of indices for the corresponding target.
     template <typename view_type>
     void setAuxiliaryEvaluationIndicesLists(view_type indices_lists) {
-        // Catches Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace
         // allocate memory on device
-        _additional_evaluation_indices = Kokkos::View<int**, layout_type>("device additional evaluation indices",
+        _additional_evaluation_indices = decltype(_additional_evaluation_indices)("device additional evaluation indices",
             indices_lists.dimension_0(), indices_lists.dimension_1());
 
         _host_additional_evaluation_indices = Kokkos::create_mirror_view(_additional_evaluation_indices);
 
         typedef typename view_type::memory_space input_array_memory_space;
-        if (std::is_same<input_array_memory_space, Kokkos::DefaultExecutionSpace::memory_space>::value) {
+        if (std::is_same<input_array_memory_space, device_execution_space::memory_space>::value) {
             // check if on the device, then copy directly
             // if it is, then it doesn't match the internal layout we use
             // then copy to the host mirror
@@ -1467,7 +1464,7 @@ public:
     //! Sets the additional target evaluation coordinate indices list information. Should be # targets x maximum number of indices
     //! evaluation indices for any target + 1. first entry in every row should be the number of indices for the corresponding target.
     template <typename view_type>
-    void setAuxiliaryEvaluationIndicesLists(Kokkos::View<int**, layout_right, Kokkos::DefaultExecutionSpace> indices_lists) {
+    void setAuxiliaryEvaluationIndicesLists(decltype(_additional_evaluation_indices) indices_lists) {
         // allocate memory on device
         _additional_evaluation_indices = indices_lists;
 
@@ -1607,11 +1604,11 @@ public:
             }
         }
 
-        _lro_total_offsets = Kokkos::View<int*, layout_type>("total offsets for alphas", _lro.size());
-        _lro_output_tile_size = Kokkos::View<int*, layout_type>("output tile size for each operation", _lro.size());
-        _lro_input_tile_size = Kokkos::View<int*, layout_type>("output tile size for each operation", _lro.size());
-        _lro_output_tensor_rank = Kokkos::View<int*, layout_type>("output tensor rank", _lro.size());
-        _lro_input_tensor_rank = Kokkos::View<int*, layout_type>("input tensor rank", _lro.size());
+        _lro_total_offsets = Kokkos::View<int*>("total offsets for alphas", _lro.size());
+        _lro_output_tile_size = Kokkos::View<int*>("output tile size for each operation", _lro.size());
+        _lro_input_tile_size = Kokkos::View<int*>("output tile size for each operation", _lro.size());
+        _lro_output_tensor_rank = Kokkos::View<int*>("output tensor rank", _lro.size());
+        _lro_input_tensor_rank = Kokkos::View<int*>("input tensor rank", _lro.size());
 
         _host_lro_total_offsets = create_mirror(_lro_total_offsets);
         _host_lro_output_tile_size = create_mirror(_lro_output_tile_size);

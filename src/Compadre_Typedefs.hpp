@@ -29,25 +29,33 @@ typedef std::size_t global_index_type;
 
 // KOKKOS TYPEDEFS
 
-typedef Kokkos::TeamPolicy<>               team_policy;
-typedef Kokkos::TeamPolicy<>::member_type  member_type;
-
-typedef Kokkos::DefaultExecutionSpace::array_layout layout_type;
-//typedef Kokkos::LayoutRight layout_type;
-typedef Kokkos::LayoutRight layout_right;
-
-// reorders indices for layout of device
+// execution spaces
+typedef Kokkos::DefaultHostExecutionSpace host_execution_space;
 #ifdef COMPADRE_USE_CUDA
-#define ORDER_INDICES(i,j) j,i
+  typedef Kokkos::DefaultExecutionSpace device_execution_space;
 #else
-#define ORDER_INDICES(i,j) i,j
+  typedef Kokkos::DefaultHostExecutionSpace device_execution_space;
 #endif
 
-typedef Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_matrix_type;
+// team policies
+typedef typename Kokkos::TeamPolicy<device_execution_space> team_policy;
+typedef typename team_policy::member_type  member_type;
+
+typedef typename Kokkos::TeamPolicy<host_execution_space> host_team_policy;
+typedef typename host_team_policy::member_type  host_member_type;
+
+// layout types
+typedef Kokkos::LayoutRight layout_right;
+typedef Kokkos::LayoutLeft layout_left;
+
+// unmanaged data wrappers
 typedef Kokkos::View<double**, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_matrix_right_type;
+typedef Kokkos::View<double**, layout_left, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_matrix_left_type;
+
 typedef Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_vector_type;
 typedef Kokkos::View<int*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_local_index_type;
 
+// random number generator
 typedef Kokkos::Random_XorShift64_Pool<> pool_type;
 typedef typename pool_type::generator_type generator_type;
 
