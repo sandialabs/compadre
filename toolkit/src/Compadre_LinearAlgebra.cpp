@@ -11,7 +11,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
     Kokkos::View<size_t*> array_P_RHS("P and RHS matrix pointers on device", 2*num_matrices);
 
     // get pointers to device data
-    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,num_matrices), KOKKOS_LAMBDA(const int i) {
+    Kokkos::parallel_for(Kokkos::RangePolicy<device_execution_space>(0,num_matrices), KOKKOS_LAMBDA(const int i) {
         array_P_RHS(i               ) = reinterpret_cast<size_t>(P   + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda));
         array_P_RHS(i + num_matrices) = reinterpret_cast<size_t>(RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb));
     });
@@ -269,7 +269,7 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
         //signed char jobv = 'A';
   
         Kokkos::Profiling::pushRegion("SVD::Execution");
-          Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_matrices), KOKKOS_LAMBDA(const int i) {
+          Kokkos::parallel_for(Kokkos::RangePolicy<host_execution_space>(0,num_matrices), KOKKOS_LAMBDA(const int i) {
               const int my_stream = i%NUM_STREAMS;
 
               cusolverDnDgesvdj(
@@ -337,14 +337,16 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
         int my_num_rows = d_neighbor_list_sizes(target_index)*multiplier;
         //int my_num_rows = d_neighbor_list_sizes(target_index)*multiplier : M;
 
-    scratch_vector_type s(teamMember.team_scratch(0), min_mn ); // shared memory
-        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
+        scratch_vector_type s(teamMember.team_scratch(0), min_mn ); // shared memory
+
+        // data is actually layout left
+        scratch_matrix_left_type
             RHS_(RHS + TO_GLOBAL(target_index)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb), ldb, ldb);
-        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
+        scratch_matrix_left_type
             U_(U.data() + TO_GLOBAL(target_index)*TO_GLOBAL(ldu)*TO_GLOBAL(M), ldu, M);
-        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
+        scratch_matrix_left_type
             V_(V.data() + TO_GLOBAL(target_index)*TO_GLOBAL(ldv)*TO_GLOBAL(N), ldv, N);
-        Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
+        scratch_vector_type
             S_(S.data() + TO_GLOBAL(target_index)*TO_GLOBAL(min_mn), min_mn);
 
         // threshold for dropping singular values
