@@ -299,7 +299,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 
             // local view of tangent directions
-            Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > td
+            scratch_matrix_right_type td
                     (tangent_directions.data() + i*3*3, 3, 3);
 
 
@@ -627,7 +627,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 //			if (bc_id(i, 0) == 0) {
 
                 // local view of tangent directions
-                Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > td
+                scratch_matrix_right_type td
                         (tangent_directions.data() + i*3*3, 3, 3);
 
 				local_index_type row = local_to_dof_map[i][field_one][0];
@@ -673,7 +673,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 				    	}
 
                         // local view of tangent directions
-                        Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > td
+                        scratch_matrix_right_type td
                                 (tangent_directions.data() + i*3*3, 3, 3);
 
                         // convert to ambient from local
@@ -799,7 +799,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 					}
 
                     // local view of tangent directions
-                    Kokkos::View<double**, layout_type, Kokkos::MemoryTraits<Kokkos::Unmanaged> > td
+                    scratch_matrix_right_type td
                             (tangent_directions.data() + i*3*3, 3, 3);
 
                     // convert to ambient from local

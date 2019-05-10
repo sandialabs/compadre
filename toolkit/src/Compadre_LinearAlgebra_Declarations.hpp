@@ -35,7 +35,7 @@ namespace GMLS_LinearAlgebra {
         \param rows          [in] - number of rows in weighted_P
     */
     KOKKOS_INLINE_FUNCTION
-    void createM(const member_type& teamMember, scratch_matrix_type M_data, scratch_matrix_type weighted_P, const int columns, const int rows);
+    void createM(const member_type& teamMember, scratch_matrix_right_type M_data, scratch_matrix_right_type weighted_P, const int columns, const int rows);
 
     /*! \brief Calculates two eigenvectors corresponding to two dominant eigenvalues
         \param teamMember    [in] - Kokkos::TeamPolicy member type (created by parallel_for)
@@ -44,7 +44,7 @@ namespace GMLS_LinearAlgebra {
         \param dimensions    [in] - dimension of PtP
     */
     KOKKOS_INLINE_FUNCTION
-    void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, scratch_matrix_type V, scratch_matrix_type PtP, const int dimensions, pool_type& random_number_pool);
+    void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, scratch_matrix_right_type V, scratch_matrix_right_type PtP, const int dimensions, pool_type& random_number_pool);
 
     /*! \brief Calls LAPACK or CUBLAS to solve a batch of QR problems
 
