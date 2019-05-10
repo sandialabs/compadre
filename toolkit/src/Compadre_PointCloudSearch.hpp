@@ -200,9 +200,6 @@ class PointCloudSearch {
             typedef Kokkos::View<size_t*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
                     scratch_int_view;
 
-            typedef Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace> loop_policy;
-            typedef Kokkos::TeamPolicy<Kokkos::DefaultHostExecutionSpace>::member_type loop_member_type;
-
             // determine scratch space size needed
             int team_scratch_size = 0;
             team_scratch_size += scratch_double_view::shmem_size(neighbor_lists.dimension_1()); // distances
@@ -212,9 +209,9 @@ class PointCloudSearch {
 
             // part 1. do knn search for neighbors needed for unisolvency
             // each row of neighbor lists is a neighbor list for the target site corresponding to that row
-            Kokkos::parallel_for("knn search", loop_policy(num_target_sites, Kokkos::AUTO)
+            Kokkos::parallel_for("knn search", host_team_policy(num_target_sites, Kokkos::AUTO)
                     .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)), 
-                    KOKKOS_LAMBDA(const loop_member_type& teamMember) {
+                    KOKKOS_LAMBDA(const host_member_type& teamMember) {
 
                 // make unmanaged scratch views
                 scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.dimension_1());
@@ -262,9 +259,9 @@ class PointCloudSearch {
 
             // part 2. do radius search using window size from knn search
             // each row of neighbor lists is a neighbor list for the target site corresponding to that row
-            Kokkos::parallel_for("radius search", loop_policy(num_target_sites, Kokkos::AUTO)
+            Kokkos::parallel_for("radius search", host_team_policy(num_target_sites, Kokkos::AUTO)
                     .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)), 
-                    KOKKOS_LAMBDA(const loop_member_type& teamMember) {
+                    KOKKOS_LAMBDA(const host_member_type& teamMember) {
 
                 // make unmanaged scratch views
                 scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.dimension_1());

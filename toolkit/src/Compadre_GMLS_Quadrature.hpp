@@ -7,11 +7,11 @@ namespace Compadre {
 
 void GMLS::generate1DQuadrature() {
 
-    _quadrature_weights = Kokkos::View<double*, layout_type>("1d quadrature weights", _number_of_quadrature_points);
-    _parameterized_quadrature_sites = Kokkos::View<double*, layout_type>("1d quadrature sites", _number_of_quadrature_points);
+    _quadrature_weights = decltype(_quadrature_weights)("1d quadrature weights", _number_of_quadrature_points);
+    _parameterized_quadrature_sites = decltype(_parameterized_quadrature_sites)("1d quadrature sites", _number_of_quadrature_points);
 
-    Kokkos::View<double*, layout_type>::HostMirror quadrature_weights = create_mirror(_quadrature_weights);
-    Kokkos::View<double*, layout_type>::HostMirror parameterized_quadrature_sites = create_mirror(_parameterized_quadrature_sites);
+    decltype(_quadrature_weights)::HostMirror quadrature_weights = create_mirror(_quadrature_weights);
+    decltype(_parameterized_quadrature_sites)::HostMirror parameterized_quadrature_sites = create_mirror(_parameterized_quadrature_sites);
 
     switch (_number_of_quadrature_points) {
     case 1:
