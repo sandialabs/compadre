@@ -1047,9 +1047,9 @@ public:
         //
 
         const int alpha_column_offset = this->getAlphaColumnOffset( lro, output_component_axis_1, 
-                output_component_axis_2, input_component_axis_1, input_component_axis_2);
+                output_component_axis_2, input_component_axis_1, input_component_axis_2, 0 /* additional evaluation site */);
 
-        return _host_alphas(target_index, (int)lro, alpha_column_offset, 0 /* additional evaluation site */, neighbor_index);
+        return _host_alphas(target_index, alpha_column_offset, neighbor_index);
     }
 
     //! Returns a stencil to transform data from its existing state into the input expected 
