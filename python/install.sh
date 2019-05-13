@@ -1,5 +1,5 @@
 #!/bin/bash
-DEFAULT_VERSION="1.0.21"
+DEFAULT_VERSION="1.0.23"
 
 #
 # This file handles installation and packaging of the python interface for the Compadre Toolkit
