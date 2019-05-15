@@ -303,9 +303,9 @@ Kokkos::initialize(argc, args);
     my_GMLS_scalar.setReferenceOutwardNormalDirection(target_coords_device, true /* use to orient surface */);
     
     // create a vector of target operations
-    std::vector<TargetOperation> lro_scalar(3);
+    std::vector<TargetOperation> lro_scalar(1);
     lro_scalar[0] = ScalarPointEvaluation;
-    lro_scalar[1] = GenCurlOfScalarPointEvaluation;
+    //lro_scalar[1] = GenCurlOfScalarPointEvaluation;
     //lro_scalar[2] = GradientOfScalarPointEvaluation;
 
     // and then pass them to the GMLS class
@@ -411,9 +411,9 @@ Kokkos::initialize(argc, args);
             (sampling_data_device, ScalarPointEvaluation, SamplingFunctional::PointSample, 
              true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
 
-    auto output_curl = scalar_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (sampling_data_device, GenCurlOfScalarPointEvaluation, SamplingFunctional::PointSample, 
-             true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
+    //auto output_curl = scalar_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+    //        (sampling_data_device, GenCurlOfScalarPointEvaluation, SamplingFunctional::PointSample, 
+    //         true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
     
     //auto output_laplacian = scalar_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
     //        (sampling_data_device, LaplacianOfScalarPointEvaluation, SamplingFunctional::PointSample, 
@@ -544,10 +544,10 @@ Kokkos::initialize(argc, args);
         values_error += (GMLS_value - actual_value)*(GMLS_value - actual_value);
         values_norm  += actual_value*actual_value;
 
-        for (int j=0; j<dimension; ++j) {
-            curl_ambient_error += (output_curl(i,j) - actual_Curl_ambient[j])*(output_curl(i,j) - actual_Curl_ambient[j]);
-            curl_ambient_norm += actual_Curl_ambient[j]*actual_Curl_ambient[j];
-        }
+        //for (int j=0; j<dimension; ++j) {
+        //    curl_ambient_error += (output_curl(i,j) - actual_Curl_ambient[j])*(output_curl(i,j) - actual_Curl_ambient[j]);
+        //    curl_ambient_norm += actual_Curl_ambient[j]*actual_Curl_ambient[j];
+        //}
     
     //    laplacian_error += (GMLS_Laplacian - actual_Laplacian)*(GMLS_Laplacian - actual_Laplacian);
     //    laplacian_norm += actual_Laplacian*actual_Laplacian;
@@ -600,10 +600,10 @@ Kokkos::initialize(argc, args);
     values_norm /= number_target_coords;
     values_norm = std::sqrt(values_norm);
 
-    curl_ambient_error /= number_target_coords;
-    curl_ambient_error = std::sqrt(curl_ambient_error);
-    curl_ambient_norm /= number_target_coords;
-    curl_ambient_norm = std::sqrt(curl_ambient_norm);
+    //curl_ambient_error /= number_target_coords;
+    //curl_ambient_error = std::sqrt(curl_ambient_error);
+    //curl_ambient_norm /= number_target_coords;
+    //curl_ambient_norm = std::sqrt(curl_ambient_norm);
 
     //laplacian_error /= number_target_coords;
     //laplacian_error = std::sqrt(laplacian_error);
@@ -637,7 +637,7 @@ Kokkos::initialize(argc, args);
 
     printf("Tangent Bundle Error: %g\n", tangent_bundle_error / tangent_bundle_norm);  
     printf("Point Value Error: %g\n", values_error / values_norm);  
-    printf("Surface Curl (Ambient) Error: %g\n", curl_ambient_error / curl_ambient_norm);  
+    //printf("Surface Curl (Ambient) Error: %g\n", curl_ambient_error / curl_ambient_norm);  
     //printf("Laplace-Beltrami Error: %g\n", laplacian_error / laplacian_norm);  
     //printf("Surface Gradient (Ambient) Error: %g\n", gradient_ambient_error / gradient_ambient_norm);  
     printf("Surface Vector (VectorBasis) Error: %g\n", vector_ambient_error / vector_ambient_norm);  

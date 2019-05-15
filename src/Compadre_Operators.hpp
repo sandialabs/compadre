@@ -90,6 +90,9 @@ namespace Compadre {
         FaceNormalIntegralSample,
         //! Samples consist of scalar representing a vector field dotted with an edge's normal direction and integrated
         FaceNormalIntegralSampleData,
+        //! Point evaluations of the entire vector source function 
+        //! (but on a manifold, so it includes a transform into local coordinates)
+        VaryingManifoldVectorPointSample,
     };
 
     //! Rank of sampling functional input for each SamplingFunctional
@@ -101,6 +104,7 @@ namespace Compadre {
         1, ///< StaggeredEdgeIntegralSample
         1, ///< FaceNormalIntegralSample
         0, ///< FaceNormalIntegralSampleData
+        1, ///< VaryingManifoldVectorPointSample
     };
 
     //! Rank of sampling functional output for each SamplingFunctional
@@ -112,6 +116,7 @@ namespace Compadre {
         0, ///< StaggeredEdgeIntegralSample
         0, ///< FaceNormalIntegralSample
         0, ///< FaceNormalIntegralSampleData
+        1, ///< VaryingManifoldVectorPointSample
     };
 
     //! Describes the SamplingFunction relationship to targets, neighbors
@@ -131,6 +136,7 @@ namespace Compadre {
         (int)DifferentEachNeighbor, ///< StaggeredEdgeIntegralSample
         (int)DifferentEachNeighbor, ///< FaceNormalIntegralSample
         (int)Identity,              ///< FaceNormalIntegralSampleData
+        (int)DifferentEachNeighbor, ///< VaryingManifoldVectorPointSample
     };
 
     //! Whether or not the SamplingTensor acts on the target site as well as the neighbors.
@@ -143,6 +149,7 @@ namespace Compadre {
         1, ///< StaggeredEdgeIntegralSample
         0, ///< FaceNormalIntegralSample
         0, ///< FaceNormalIntegralSampleData
+        0, ///< VaryingManifoldVectorPointSample
     };
 
     //! Whether the SamplingFunctional + ReconstructionSpace results in a nontrivial nullspace requiring SVD
@@ -156,6 +163,7 @@ namespace Compadre {
         1, ///< StaggeredEdgeIntegralSample
         0, ///< FaceNormalIntegralSample
         0, ///< FaceNormalIntegralSampleData
+        0, ///< VaryingManifoldVectorPointSample
     };
 
     //! Dense solver type, that optionally can also handle manifolds

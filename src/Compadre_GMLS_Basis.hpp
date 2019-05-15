@@ -54,7 +54,8 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
     // basis ActualReconstructionSpaceRank is 0 (evaluated like a scalar) and sampling functional is traditional
     if ((polynomial_sampling_functional == SamplingFunctional::PointSample ||
             polynomial_sampling_functional == SamplingFunctional::VectorPointSample ||
-            polynomial_sampling_functional == SamplingFunctional::ManifoldVectorPointSample) &&
+            polynomial_sampling_functional == SamplingFunctional::ManifoldVectorPointSample ||
+            polynomial_sampling_functional == SamplingFunctional::VaryingManifoldVectorPointSample)&&
             (reconstruction_space == ScalarTaylorPolynomial || reconstruction_space == VectorOfScalarClonesTaylorPolynomial)) {
 
         double cutoff_p = _epsilons(target_index);
@@ -94,7 +95,8 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
 
     // basis ActualReconstructionSpaceRank is 1 (is a true vector basis) and sampling functional is traditional
     } else if ((polynomial_sampling_functional == SamplingFunctional::VectorPointSample ||
-                polynomial_sampling_functional == SamplingFunctional::ManifoldVectorPointSample) &&
+                polynomial_sampling_functional == SamplingFunctional::ManifoldVectorPointSample ||
+                polynomial_sampling_functional == SamplingFunctional::VaryingManifoldVectorPointSample) &&
                     (reconstruction_space == VectorTaylorPolynomial)) {
 
         const int dimension_offset = this->getNP(_poly_order, dimension);
@@ -380,7 +382,8 @@ void GMLS::calcGradientPij(double* delta, const int target_index, const int neig
 
     if ((polynomial_sampling_functional == SamplingFunctional::PointSample ||
             polynomial_sampling_functional == SamplingFunctional::VectorPointSample ||
-            polynomial_sampling_functional == SamplingFunctional::ManifoldVectorPointSample) &&
+            polynomial_sampling_functional == SamplingFunctional::ManifoldVectorPointSample ||
+            polynomial_sampling_functional == SamplingFunctional::VaryingManifoldVectorPointSample) &&
             (reconstruction_space == ScalarTaylorPolynomial || reconstruction_space == VectorOfScalarClonesTaylorPolynomial)) {
 
         int alphax, alphay, alphaz;
