@@ -422,7 +422,7 @@ protected:
         \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
     */
     KOKKOS_INLINE_FUNCTION
-    void computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, scratch_matrix_right_type* V) const;
+    void computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, scratch_matrix_right_type* V, const local_index_type local_neighbor_index = -1) const;
 
     /*! \brief Evaluates a polynomial basis with a target functional applied, using information from the manifold curvature
 
@@ -897,7 +897,7 @@ public:
     decltype(_T) getTangentDirections() const { return _T; }
 
     //! Get a view (device) of all reference outward normal directions.
-    decltype(_T) getReferenceNormalDirections() const { return _ref_N; }
+    decltype(_ref_N) getReferenceNormalDirections() const { return _ref_N; }
 
     //! Get component of tangent or normal directions for manifold problems
     double getTangentBundle(const int target_index, const int direction, const int component) const {
@@ -1307,9 +1307,6 @@ public:
         // accept input from user as a rank 3 tensor
         // but convert data to a rank 2 tensor with the last rank of dimension = _dimensions x _dimensions
         // this allows for nonstrided views on the device later
-        
-        // add assert for manifold
-        // (_dense_solver_type == DenseSolverType::MANIFOLD) {
 
         // allocate memory on device
         _T = decltype(_T)("device tangent directions", _target_coordinates.dimension_0()*_dimensions*_dimensions);

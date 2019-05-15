@@ -29,7 +29,7 @@ if (len(sys.argv) > 2):
 
 errors = []
 
-target_operators=("Tangent Bundle", "Point Value", "Surface Curl \(Ambient\)", "Surface Vector \(VectorBasis\)", "Surface Vector \(ScalarClones\)")#, "Surface Gradient (Manifold)", 
+target_operators=("Tangent Bundle", "Point Value", "Surface Vector \(VectorBasis\)", "Surface Vector \(ScalarClones\)")#, "Surface Curl \(Ambient\)","Surface Gradient (Manifold)", 
 for operator in target_operators:
     errors.append([])
 
