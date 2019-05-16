@@ -538,7 +538,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, scratch_matrix_right_type* V, const local_index_type local_neighbor_index) const {
+void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, const scratch_matrix_right_type* V, const local_index_type local_neighbor_index) const {
 
     const int target_index = teamMember.league_rank();
 
@@ -687,6 +687,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                             }
                         }
                     });
+                    additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
                 }
 
             } else if (_operations(i) == TargetOperation::LaplacianOfScalarPointEvaluation) {
@@ -1132,6 +1133,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                 compadre_kernel_assert_release((false) && "Functionality not yet available.");
             }
         }
+        compadre_kernel_assert_release(((additional_evaluation_sites_need_handled && additional_evaluation_sites_handled) || (!additional_evaluation_sites_need_handled)) && "Auxiliary evaluation coordinates are specified by user, but are calling a target operation that can not handle evaluating additional sites.");
         } // !operation_handled
     }
 }
