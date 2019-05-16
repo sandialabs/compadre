@@ -172,8 +172,8 @@ void GMLS::generatePolynomialCoefficients() {
 
 
 #ifdef COMPADRE_USE_CUDA
-    _threads_per_team = 32;
-    if (_basis_multiplier*_NP > 96) _threads_per_team += 32;
+    _threads_per_team = 128;
+    if (_basis_multiplier*_NP > 96) _threads_per_team += 128;
 #else
     _threads_per_team = 1;
 #endif
@@ -233,7 +233,13 @@ void GMLS::generatePolynomialCoefficients() {
         // precedes polynomial reconstruction from data (replaces contents of _RHS) 
         // follows reconstruction of geometry
         // calculate prestencil weights
-        this->CallFunctorWithTeamThreads<ComputePrestencilWeights>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+#ifdef COMPADRE_USE_CUDA
+        int nv=8;
+#else
+        int nv=1;
+#endif
+        int nt=_threads_per_team/nv;
+        this->CallFunctorWithTeamThreadsAndVectors<ComputePrestencilWeights>(nt, nv, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
 
         // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity
         this->CallFunctorWithTeamThreads<AssembleManifoldPsqrtW>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
@@ -990,33 +996,43 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
      */
 
     if (_data_sampling_functional == SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
-        _prestencil_weights(0,0,0,0,0) = -1;
-        _prestencil_weights(1,0,0,0,0) = 1;
+        Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+            Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+                _prestencil_weights(0,0,0,0,0) = -1;
+                _prestencil_weights(1,0,0,0,0) = 1;
+            });
+        });
     } else if (_data_sampling_functional == SamplingFunctional::ManifoldVectorPointSample) {
-        for (int j=0; j<_dimensions; ++j) {
-            for (int k=0; k<_dimensions-1; ++k) {
-                _prestencil_weights(0,target_index,0,k,j) =  T(k,j);
-            }
-        }
+        Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+            Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+                for (int j=0; j<_dimensions; ++j) {
+                    for (int k=0; k<_dimensions-1; ++k) {
+                        _prestencil_weights(0,target_index,0,k,j) =  T(k,j);
+                    }
+                }
+            });
+        });
     } else if (_data_sampling_functional == SamplingFunctional::StaggeredEdgeIntegralSample) {
         const int neighbor_offset = _neighbor_lists.dimension_1()-1;
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)), [=] (const int m) {
-            for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {
-                XYZ tangent_quadrature_coord_2d;
-                for (int j=0; j<_dimensions-1; ++j) {
-                    tangent_quadrature_coord_2d[j] = getTargetCoordinate(target_index, j, &T);
-                    tangent_quadrature_coord_2d[j] -= getNeighborCoordinate(target_index, m, j, &T);
-                }
-                double tangent_vector[3];
-                tangent_vector[0] = tangent_quadrature_coord_2d[0]*T(0,0) + tangent_quadrature_coord_2d[1]*T(1,0);
-                tangent_vector[1] = tangent_quadrature_coord_2d[0]*T(0,1) + tangent_quadrature_coord_2d[1]*T(1,1);
-                tangent_vector[2] = tangent_quadrature_coord_2d[0]*T(0,2) + tangent_quadrature_coord_2d[1]*T(1,2);
+            Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+                for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {
+                    XYZ tangent_quadrature_coord_2d;
+                    for (int j=0; j<_dimensions-1; ++j) {
+                        tangent_quadrature_coord_2d[j] = getTargetCoordinate(target_index, j, &T);
+                        tangent_quadrature_coord_2d[j] -= getNeighborCoordinate(target_index, m, j, &T);
+                    }
+                    double tangent_vector[3];
+                    tangent_vector[0] = tangent_quadrature_coord_2d[0]*T(0,0) + tangent_quadrature_coord_2d[1]*T(1,0);
+                    tangent_vector[1] = tangent_quadrature_coord_2d[0]*T(0,1) + tangent_quadrature_coord_2d[1]*T(1,1);
+                    tangent_vector[2] = tangent_quadrature_coord_2d[0]*T(0,2) + tangent_quadrature_coord_2d[1]*T(1,2);
 
-                for (int j=0; j<_dimensions; ++j) {
-                    _prestencil_weights(0,target_index,m,0,j) +=  (1-_parameterized_quadrature_sites[quadrature])*tangent_vector[j]*_quadrature_weights[quadrature];
-                    _prestencil_weights(1,target_index,m,0,j) +=  _parameterized_quadrature_sites[quadrature]*tangent_vector[j]*_quadrature_weights[quadrature];
+                    for (int j=0; j<_dimensions; ++j) {
+                        _prestencil_weights(0,target_index,m,0,j) +=  (1-_parameterized_quadrature_sites[quadrature])*tangent_vector[j]*_quadrature_weights[quadrature];
+                        _prestencil_weights(1,target_index,m,0,j) +=  _parameterized_quadrature_sites[quadrature]*tangent_vector[j]*_quadrature_weights[quadrature];
+                    }
                 }
-            }
+            });
         });
     } else if (_data_sampling_functional == SamplingFunctional::VaryingManifoldVectorPointSample) {
 
