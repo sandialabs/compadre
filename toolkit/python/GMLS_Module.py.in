@@ -161,8 +161,8 @@ class GMLS_Python(_object):
     def generateKDTree(self, pyObjectArray_in):
         return _GMLS_Module.GMLS_Python_generateKDTree(self, pyObjectArray_in)
 
-    def generateNeighborListsFromKNNSearchAndSet(self, pyObjectArray_in, poly_order, dimension=3, epsilon_multiplier=1.6, max_search_radius=False):
-        return _GMLS_Module.GMLS_Python_generateNeighborListsFromKNNSearchAndSet(self, pyObjectArray_in, poly_order, dimension, epsilon_multiplier, max_search_radius)
+    def generateNeighborListsFromKNNSearchAndSet(self, pyObjectArray_in, poly_order, dimension=3, epsilon_multiplier=1.6, maximum_neighbors_storage_multiplier=1.0, max_search_radius=False):
+        return _GMLS_Module.GMLS_Python_generateNeighborListsFromKNNSearchAndSet(self, pyObjectArray_in, poly_order, dimension, epsilon_multiplier, maximum_neighbors_storage_multiplier, max_search_radius)
 GMLS_Python_swigregister = _GMLS_Module.GMLS_Python_swigregister
 GMLS_Python_swigregister(GMLS_Python)
 

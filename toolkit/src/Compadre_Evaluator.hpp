@@ -189,7 +189,6 @@ public:
     //! \param lro                              [in] - Target operation from the TargetOperation enum
     //! \param sro                              [in] - Sampling functional from the SamplingFunctional enum
     //! \param evaluation_site_location         [in] - local column index of site from additional evaluation sites list or 0 for the target site
-    //! \param target_index                     [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
     //! \param output_component_axis_1          [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
     //! \param output_component_axis_2          [in] - Columns for a rank 2 tensor, 0 for rank less than 2 output tensor
     //! \param input_component_axis_1           [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input
@@ -202,7 +201,7 @@ public:
     //! \param vary_on_target                   [in] - Whether the sampling functional has a tensor to act on sampling data that varies with each target site
     //! \param vary_on_neighbor                 [in] - Whether the sampling functional has a tensor to act on sampling data that varies with each neighbor site in addition to varying wit each target site
     template <typename view_type_data_out, typename view_type_data_in>
-    void applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(view_type_data_out output_data_single_column, view_type_data_in sampling_data_single_column, TargetOperation lro, SamplingFunctional sro, const int evaluation_site_local_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1, bool transform_output_ambient = false, bool vary_on_target = false, bool vary_on_neighbor = false) const {
+    void applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(view_type_data_out output_data_single_column, view_type_data_in sampling_data_single_column, TargetOperation lro, SamplingFunctional sro, const int evaluation_site_local_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1, bool vary_on_target = false, bool vary_on_neighbor = false) const {
 
         const int alpha_input_output_component_index = _gmls->getAlphaColumnOffset(lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
@@ -213,7 +212,6 @@ public:
         // gather needed information for evaluation
         auto neighbor_lists = _gmls->getNeighborLists();
         auto alphas         = _gmls->getAlphas();
-        auto tangent_directions = _gmls->getTangentDirections();
         auto prestencil_weights = _gmls->getPrestencilWeights();
 
         const int num_targets = neighbor_lists.dimension_0(); // one row for each target
@@ -230,10 +228,6 @@ public:
                 KOKKOS_LAMBDA(const member_type& teamMember) {
 
             const int target_index = teamMember.league_rank();
-
-            scratch_matrix_right_type T
-                    (tangent_directions.data() + TO_GLOBAL(target_index)*TO_GLOBAL(global_dimensions)*TO_GLOBAL(global_dimensions), 
-                     global_dimensions, global_dimensions);
             teamMember.team_barrier();
 
 
@@ -289,8 +283,56 @@ public:
                 }
             }
 
-            double post_T = (transform_output_ambient) ? T(post_transform_local_index, post_transform_global_index) : 1.0;
-            double added_value = post_T*(pre_T*gmls_value + pre_T_staggered*staggered_value_from_targets);
+            double added_value = pre_T*gmls_value + pre_T_staggered*staggered_value_from_targets;
+            Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
+                output_data_single_column(target_index) = previous_value + added_value;
+            });
+        });
+        Kokkos::fence();
+    }
+
+    //! Postprocessing for manifolds. Maps local chart vector solutions to ambient space.
+    //! THE SAMPLING DATA and OUTPUT VIEW MUST BE ON THE DEVICE!
+    //! 
+    //! Only supports one output component / input component at a time. The user will need to loop over the output 
+    //! components in order to transform a vector target.
+    //! 
+    //! Assumptions on input data:
+    //! \param output_data_single_column       [out] - 1D Kokkos View (memory space must be device_execution_space::memory_space())
+    //! \param sampling_data_single_column      [in] - 1D Kokkos View (memory space must match output_data_single_column)
+    //! \param local_dim_index                  [in] - For manifold problems, this is the local coordinate direction that sampling data may need to be transformed to before the application of GMLS
+    //! \param global_dim_index                 [in] - For manifold problems, this is the global coordinate direction that sampling data can be represented in
+    template <typename view_type_data_out, typename view_type_data_in>
+    void applyLocalChartToAmbientSpaceTransform(view_type_data_out output_data_single_column, view_type_data_in sampling_data_single_column, const int local_dim_index, const int global_dim_index) const {
+
+		// Does T transpose times a vector
+        auto global_dimensions = _gmls->getGlobalDimensions();
+
+        // gather needed information for evaluation
+        auto neighbor_lists = _gmls->getNeighborLists();
+        const int num_targets = neighbor_lists.dimension_0(); // one row for each target
+
+        auto tangent_directions = _gmls->getTangentDirections();
+
+        // make sure input and output views have same memory space
+        compadre_assert_debug((std::is_same<typename view_type_data_out::memory_space, typename view_type_data_in::memory_space>::value) && 
+                "output_data_single_column view and input_data_single_column view have difference memory spaces.");
+
+        // loops over target indices
+        Kokkos::parallel_for(team_policy(num_targets, Kokkos::AUTO),
+                KOKKOS_LAMBDA(const member_type& teamMember) {
+
+            const int target_index = teamMember.league_rank();
+
+            scratch_matrix_right_type T
+                    (tangent_directions.data() + TO_GLOBAL(target_index)*TO_GLOBAL(global_dimensions)*TO_GLOBAL(global_dimensions), 
+                     global_dimensions, global_dimensions);
+            teamMember.team_barrier();
+
+
+            const double previous_value = output_data_single_column(target_index);
+
+            double added_value = T(local_dim_index, global_dim_index)*sampling_data_single_column(target_index);
             Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
                 output_data_single_column(target_index) = previous_value + added_value;
             });
@@ -332,12 +374,7 @@ public:
         auto neighbor_lists = _gmls->getNeighborLists();
 
         // determines the number of columns needed for output after action of the target functional
-        int output_dimensions;
-        if (problem_type==MANIFOLD && TargetOutputTensorRank[(int)lro]==1) {
-            output_dimensions = global_dimensions;
-        } else {
-            output_dimensions = output_dimension_of_operator;
-        }
+        int output_dimensions = output_dimension_of_operator;
 
         // special case for VectorPointSample, because if it is on a manifold it includes data transform to local charts
         if (problem_type==MANIFOLD && sro==VectorPointSample) {
@@ -345,7 +382,7 @@ public:
         }
 
         // create view on whatever memory space the user specified with their template argument when calling this function
-        output_view_type target_output("output of target", neighbor_lists.dimension_0() /* number of targets */, 
+        output_view_type target_output("output of target operation", neighbor_lists.dimension_0() /* number of targets */, 
                 output_dimensions);
 
         // make sure input and output columns make sense under the target operation
@@ -378,9 +415,6 @@ public:
         }
 
 
-        bool transform_gmls_output_to_ambient = (problem_type==MANIFOLD && TargetOutputTensorRank[(int)lro]==1);
-
-
         // only written for up to rank 1 to rank 1 (in / out)
         // loop over components of output of the target operation
         for (int i=0; i<output_dimension_of_operator; ++i) {
@@ -391,30 +425,12 @@ public:
                 const int input_component_axis_1 = j;
                 const int input_component_axis_2 = 0;
 
-                if (loop_global_dimensions && transform_gmls_output_to_ambient) {
-                    for (int k=0; k<global_dimensions; ++k) { // loop for handling sampling functional
-                        for (int l=0; l<global_dimensions; ++l) { // loop for transforming output of GMLS to ambient
-                            this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
-                                    output_subview_maker.get1DView(k), sampling_subview_maker.get1DView(l), 
-                                    lro, sro, evaluation_site_local_index, output_component_axis_1, output_component_axis_2, 
-                                    input_component_axis_1, input_component_axis_2, j, k, i, l,
-                                    transform_gmls_output_to_ambient, vary_on_target, vary_on_neighbor);
-                        }
-                    }
-                } else if (transform_gmls_output_to_ambient) {
-                    for (int k=0; k<global_dimensions; ++k) { // loop for transforming output of GMLS to ambient
-                        this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
-                                output_subview_maker.get1DView(k), sampling_subview_maker.get1DView(j), lro, sro, 
-                                evaluation_site_local_index, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
-                                input_component_axis_2, -1, -1, i, k,
-                                transform_gmls_output_to_ambient, vary_on_target, vary_on_neighbor);
-                    }
-                } else if (loop_global_dimensions) {
+                if (loop_global_dimensions) {
                     for (int k=0; k<global_dimensions; ++k) { // loop for handling sampling functional
                         this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
                                 output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(k), lro, sro, 
                                 evaluation_site_local_index, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
-                                input_component_axis_2, j, k, -1, -1, transform_gmls_output_to_ambient,
+                                input_component_axis_2, j, k, -1, -1,
                                 vary_on_target, vary_on_neighbor);
                     }
                 } else if (sro_style != Identity) {
@@ -422,7 +438,7 @@ public:
                             output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(j), lro, sro, 
                             evaluation_site_local_index, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
                             input_component_axis_2, 0, 0, -1, -1,
-                            transform_gmls_output_to_ambient, vary_on_target, vary_on_neighbor);
+                            vary_on_target, vary_on_neighbor);
                 } else { // standard
                     this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
                             output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(j), lro, sro, 
@@ -430,6 +446,26 @@ public:
                             input_component_axis_2);
                 }
             }
+        }
+
+        bool transform_gmls_output_to_ambient = (problem_type==MANIFOLD && TargetOutputTensorRank[(int)lro]==1);
+        if (transform_gmls_output_to_ambient) {
+            Kokkos::fence();
+
+            // create view on whatever memory space the user specified with their template argument when calling this function
+            output_view_type ambient_target_output("output of transform to ambient space", 
+                    neighbor_lists.dimension_0() /* number of targets */, global_dimensions);
+            auto transformed_output_subview_maker = CreateNDSliceOnDeviceView(ambient_target_output, false); 
+            // output will always be the correct dimension
+            for (int i=0; i<global_dimensions; ++i) {
+                for (int j=0; j<output_dimension_of_operator; ++j) {
+                    this->applyLocalChartToAmbientSpaceTransform(
+                            transformed_output_subview_maker.get1DView(i), output_subview_maker.get1DView(j), j, i);
+                }
+            }
+            // copy back to whatever memory space the user requester through templating from the device
+            Kokkos::deep_copy(ambient_target_output, transformed_output_subview_maker.copyToAndReturnOriginalView());
+            return ambient_target_output;
         }
 
         // copy back to whatever memory space the user requester through templating from the device

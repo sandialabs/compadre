@@ -126,10 +126,13 @@ void GMLS::generatePolynomialCoefficients() {
 
         _team_scratch_size_b += scratch_vector_type::shmem_size(max_P_row_size); // row of P matrix, one for each operator
         _thread_scratch_size_b += scratch_vector_type::shmem_size(max_manifold_NP*_basis_multiplier); // delta, used for each thread
+        if (_data_sampling_functional == SamplingFunctional::VaryingManifoldVectorPointSample) {
+            _thread_scratch_size_b += scratch_vector_type::shmem_size(_dimensions*_dimensions); // temporary tangent calculations, used for each thread
+        }
 
 
         // allocate data on the device (initialized to zero)
-        _T = Kokkos::View<double*>("T",_target_coordinates.dimension_0()*_dimensions*_dimensions);
+        _T = Kokkos::View<double*>("tangent approximation",_target_coordinates.dimension_0()*_dimensions*_dimensions);
         _manifold_metric_tensor_inverse = Kokkos::View<double*>("manifold metric tensor inverse",_target_coordinates.dimension_0()*(_dimensions-1)*(_dimensions-1));
         _manifold_curvature_coefficients = Kokkos::View<double*>("manifold curvature coefficients",_target_coordinates.dimension_0()*manifold_NP);
         _manifold_curvature_gradient = Kokkos::View<double*>("manifold curvature gradient",_target_coordinates.dimension_0()*(_dimensions-1));
@@ -169,8 +172,8 @@ void GMLS::generatePolynomialCoefficients() {
 
 
 #ifdef COMPADRE_USE_CUDA
-    _threads_per_team = 32;
-    if (_basis_multiplier*_NP > 96) _threads_per_team += 32;
+    _threads_per_team = 128;
+    if (_basis_multiplier*_NP > 96) _threads_per_team += 128;
 #else
     _threads_per_team = 1;
 #endif
@@ -224,6 +227,19 @@ void GMLS::generatePolynomialCoefficients() {
 
         // evaluates targets, applies target evaluation to polynomial coefficients for curvature
         this->CallFunctorWithTeamThreads<ApplyCurvatureTargets>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+        Kokkos::fence();
+
+        // prestencil weights calculated here. appropriate because:
+        // precedes polynomial reconstruction from data (replaces contents of _RHS) 
+        // follows reconstruction of geometry
+        // calculate prestencil weights
+#ifdef COMPADRE_USE_CUDA
+        int nv=8;
+#else
+        int nv=1;
+#endif
+        int nt=_threads_per_team/nv;
+        this->CallFunctorWithTeamThreadsAndVectors<ComputePrestencilWeights>(nt, nv, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
 
         // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity
         this->CallFunctorWithTeamThreads<AssembleManifoldPsqrtW>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
@@ -292,9 +308,6 @@ void GMLS::generateAlphas() {
 
         // evaluates targets, applies target evaluation to polynomial coefficients to store in _alphas
         this->CallFunctorWithTeamThreads<ApplyManifoldTargets>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
-
-        // calculate prestencil weights
-        this->CallFunctorWithTeamThreads<ComputePrestencilWeights>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
 
     } else {
 
@@ -951,47 +964,165 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
      */
 
     const int target_index = teamMember.league_rank();
+
+    const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
+    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
+    const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
+    const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
+                ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
 
     /*
      *    Data
      */
 
+
+    scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_b), _max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
+    scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_b), _max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
+
+
+    // holds polynomial coefficients for curvature reconstruction
+    scratch_matrix_right_type Q(_RHS.data() 
+            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+
     scratch_matrix_right_type T(_T.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
+
+    scratch_vector_type manifold_gradient(teamMember.team_scratch(_scratch_team_level_b), (_dimensions-1)*_max_num_neighbors);
+    scratch_matrix_right_type P_target_row(teamMember.team_scratch(_scratch_team_level_b), _total_alpha_values*max_evaluation_sites, max_manifold_NP*_basis_multiplier);
 
     /*
      *    Prestencil Weight Calculations
      */
 
     if (_data_sampling_functional == SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
-        _prestencil_weights(0,0,0,0,0) = -1;
-        _prestencil_weights(1,0,0,0,0) = 1;
+        Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+            Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+                _prestencil_weights(0,0,0,0,0) = -1;
+                _prestencil_weights(1,0,0,0,0) = 1;
+            });
+        });
     } else if (_data_sampling_functional == SamplingFunctional::ManifoldVectorPointSample) {
-        for (int j=0; j<_dimensions; ++j) {
-            for (int k=0; k<_dimensions-1; ++k) {
-                _prestencil_weights(0,target_index,0,k,j) =  T(k,j);
-            }
-        }
+        Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+            Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+                for (int j=0; j<_dimensions; ++j) {
+                    for (int k=0; k<_dimensions-1; ++k) {
+                        _prestencil_weights(0,target_index,0,k,j) =  T(k,j);
+                    }
+                }
+            });
+        });
     } else if (_data_sampling_functional == SamplingFunctional::StaggeredEdgeIntegralSample) {
         const int neighbor_offset = _neighbor_lists.dimension_1()-1;
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)), [=] (const int m) {
-            for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {
-                XYZ tangent_quadrature_coord_2d;
-                for (int j=0; j<_dimensions-1; ++j) {
-                    tangent_quadrature_coord_2d[j] = getTargetCoordinate(target_index, j, &T);
-                    tangent_quadrature_coord_2d[j] -= getNeighborCoordinate(target_index, m, j, &T);
-                }
-                double tangent_vector[3];
-                tangent_vector[0] = tangent_quadrature_coord_2d[0]*T(0,0) + tangent_quadrature_coord_2d[1]*T(1,0);
-                tangent_vector[1] = tangent_quadrature_coord_2d[0]*T(0,1) + tangent_quadrature_coord_2d[1]*T(1,1);
-                tangent_vector[2] = tangent_quadrature_coord_2d[0]*T(0,2) + tangent_quadrature_coord_2d[1]*T(1,2);
+            Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+                for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {
+                    XYZ tangent_quadrature_coord_2d;
+                    for (int j=0; j<_dimensions-1; ++j) {
+                        tangent_quadrature_coord_2d[j] = getTargetCoordinate(target_index, j, &T);
+                        tangent_quadrature_coord_2d[j] -= getNeighborCoordinate(target_index, m, j, &T);
+                    }
+                    double tangent_vector[3];
+                    tangent_vector[0] = tangent_quadrature_coord_2d[0]*T(0,0) + tangent_quadrature_coord_2d[1]*T(1,0);
+                    tangent_vector[1] = tangent_quadrature_coord_2d[0]*T(0,1) + tangent_quadrature_coord_2d[1]*T(1,1);
+                    tangent_vector[2] = tangent_quadrature_coord_2d[0]*T(0,2) + tangent_quadrature_coord_2d[1]*T(1,2);
 
-                for (int j=0; j<_dimensions; ++j) {
-                    _prestencil_weights(0,target_index,m,0,j) +=  (1-_parameterized_quadrature_sites[quadrature])*tangent_vector[j]*_quadrature_weights[quadrature];
-                    _prestencil_weights(1,target_index,m,0,j) +=  _parameterized_quadrature_sites[quadrature]*tangent_vector[j]*_quadrature_weights[quadrature];
+                    for (int j=0; j<_dimensions; ++j) {
+                        _prestencil_weights(0,target_index,m,0,j) +=  (1-_parameterized_quadrature_sites[quadrature])*tangent_vector[j]*_quadrature_weights[quadrature];
+                        _prestencil_weights(1,target_index,m,0,j) +=  _parameterized_quadrature_sites[quadrature]*tangent_vector[j]*_quadrature_weights[quadrature];
+                    }
                 }
-            }
+            });
+        });
+    } else if (_data_sampling_functional == SamplingFunctional::VaryingManifoldVectorPointSample) {
+
+        scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), manifold_NP);
+
+        Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)), [&] (const int m) {
+            
+            Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+                this->calcGradientPij(delta.data(), target_index, m, 0 /*alpha*/, 0 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, &T, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
+            });
+            // reconstructs gradient at local neighbor index m
+            double grad_xi1 = 0, grad_xi2 = 0;
+            Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember,this->getNNeighbors(target_index)), [=] (const int i, double &t_grad_xi1) {
+                double alpha_ij = 0;
+                for (int l=0; l<manifold_NP; ++l) {
+                    alpha_ij += delta(l)*Q(i,l);
+                }
+                XYZ rel_coord = getRelativeCoord(target_index, i, _dimensions, &T);
+                double normal_coordinate = rel_coord[_dimensions-1];
+
+                // apply coefficients to sample data
+                t_grad_xi1 += alpha_ij * normal_coordinate;
+            }, grad_xi1);
+            t1(m) = grad_xi1;
+
+            Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+                this->calcGradientPij(delta.data(), target_index, m, 0 /*alpha*/, 1 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, &T, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
+            });
+            Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember,this->getNNeighbors(target_index)), [=] (const int i, double &t_grad_xi2) {
+                double alpha_ij = 0;
+                for (int l=0; l<manifold_NP; ++l) {
+                    alpha_ij += delta(l)*Q(i,l);
+                }
+                XYZ rel_coord = getRelativeCoord(target_index, i, _dimensions, &T);
+                double normal_coordinate = rel_coord[_dimensions-1];
+
+                // apply coefficients to sample data
+                if (_dimensions>2) t_grad_xi2 += alpha_ij * normal_coordinate;
+            }, grad_xi2);
+            t2(m) = grad_xi2;
+        });
+
+        teamMember.team_barrier();
+
+        scratch_matrix_right_type tangent(teamMember.thread_scratch(_scratch_thread_level_b), _dimensions-1, _dimensions);
+
+        Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)), [=] (const int m) {
+            // constructs tangent vector at neighbor site
+            Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+                for (int j=0; j<_dimensions; ++j) {
+                    tangent(0,j) = t1(m)*T(_dimensions-1,j) + T(0,j);
+                    tangent(1,j) = t2(m)*T(_dimensions-1,j) + T(1,j);
+                }
+
+                // calculate norm
+                double norm = 0;
+                for (int j=0; j<_dimensions; ++j) {
+                    norm += tangent(0,j)*tangent(0,j);
+                }
+
+                // normalize first vector
+                norm = std::sqrt(norm);
+                for (int j=0; j<_dimensions; ++j) {
+                    tangent(0,j) /= norm;
+                }
+
+                // orthonormalize next vector
+                if (_dimensions-1 == 2) { // 2d manifold
+                    double dot_product = tangent(0,0)*tangent(1,0) + tangent(0,1)*tangent(1,1) + tangent(0,2)*tangent(1,2);
+                    for (int j=0; j<_dimensions; ++j) {
+                        tangent(1,j) -= dot_product*tangent(0,j);
+                    }
+                    // normalize second vector
+                    norm = 0;
+                    for (int j=0; j<_dimensions; ++j) {
+                        norm += tangent(1,j)*tangent(1,j);
+                    }
+                    norm = std::sqrt(norm);
+                    for (int j=0; j<_dimensions; ++j) {
+                        tangent(1,j) /= norm;
+                    }
+                }
+
+                // stores matrix of tangent and normal directions as a prestencil weight
+                for (int j=0; j<_dimensions; ++j) {
+                    for (int k=0; k<_dimensions-1; ++k) {
+                        _prestencil_weights(0,target_index,m,k,j) =  tangent(k,j);
+                    }
+                }
+            });
         });
     }
     teamMember.team_barrier();
