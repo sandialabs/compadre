@@ -49,11 +49,24 @@ typedef Kokkos::LayoutRight layout_right;
 typedef Kokkos::LayoutLeft layout_left;
 
 // unmanaged data wrappers
-typedef Kokkos::View<double**, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_matrix_right_type;
-typedef Kokkos::View<double**, layout_left, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_matrix_left_type;
+typedef Kokkos::View<double**, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
+            scratch_matrix_right_type;
+typedef Kokkos::View<double**, layout_left, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
+            scratch_matrix_left_type;
+typedef Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
+            scratch_vector_type;
+typedef Kokkos::View<int*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
+            scratch_local_index_type;
 
-typedef Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_vector_type;
-typedef Kokkos::View<int*, Kokkos::MemoryTraits<Kokkos::Unmanaged> > scratch_local_index_type;
+// host equivalents
+typedef Kokkos::View<double**, layout_right, host_execution_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
+            host_scratch_matrix_right_type;
+typedef Kokkos::View<double**, layout_left, host_execution_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
+            host_scratch_matrix_left_type;
+typedef Kokkos::View<double*, host_execution_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
+            host_scratch_vector_type;
+typedef Kokkos::View<int*, host_execution_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
+            host_scratch_local_index_type;
 
 // random number generator
 typedef Kokkos::Random_XorShift64_Pool<> pool_type;

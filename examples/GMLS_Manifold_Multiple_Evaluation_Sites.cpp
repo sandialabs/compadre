@@ -34,8 +34,8 @@ void AmbientLocalAmbient(XYZ& u, double* T_data, double* P_data) {
     //  using the tangent vector calculated at the extra site (P).
     
 
-    scratch_matrix_right_type T(T_data, 3, 3);
-    scratch_matrix_right_type P(P_data, 3, 3);
+    host_scratch_matrix_right_type T(T_data, 3, 3);
+    host_scratch_matrix_right_type P(P_data, 3, 3);
 
     // first get back to local chart
     double local_vec[3] = {0,0};
@@ -536,14 +536,19 @@ Kokkos::initialize(argc, args);
     //double divergence_of_scalar_clones_ambient_norm = 0;
  
     // tangent vectors for each source coordinate are stored here
-    auto prestencil_weights = my_GMLS_vector_of_scalar_clones.getPrestencilWeights();
+    auto d_prestencil_weights = my_GMLS_vector_of_scalar_clones.getPrestencilWeights();
+    auto prestencil_weights = Kokkos::create_mirror(d_prestencil_weights);
+    Kokkos::deep_copy(prestencil_weights, d_prestencil_weights);
+
     // tangent vector at target sites are stored here
-    auto tangent_directions = my_GMLS_vector_of_scalar_clones.getTangentDirections();
+    auto d_tangent_directions = my_GMLS_vector_of_scalar_clones.getTangentDirections();
+    auto tangent_directions = Kokkos::create_mirror(d_tangent_directions);
+    Kokkos::deep_copy(tangent_directions, d_tangent_directions);
 
     // loop through the target sites
     for (int i=0; i<number_target_coords; i++) {
 
-        scratch_matrix_right_type T
+        host_scratch_matrix_right_type T
                 (tangent_directions.data() + TO_GLOBAL(i)*TO_GLOBAL(3)*TO_GLOBAL(3), 3, 3);
         XYZ u;
 
