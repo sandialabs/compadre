@@ -4247,7 +4247,8 @@ SWIGINTERN PyObject *_wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet_
   int arg3 ;
   int arg4 ;
   double arg5 ;
-  bool arg6 ;
+  double arg6 ;
+  bool arg7 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   int val3 ;
@@ -4256,7 +4257,83 @@ SWIGINTERN PyObject *_wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet_
   int ecode4 = 0 ;
   double val5 ;
   int ecode5 = 0 ;
-  bool val6 ;
+  double val6 ;
+  int ecode6 = 0 ;
+  bool val7 ;
+  int ecode7 = 0 ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  PyObject * obj2 = 0 ;
+  PyObject * obj3 = 0 ;
+  PyObject * obj4 = 0 ;
+  PyObject * obj5 = 0 ;
+  PyObject * obj6 = 0 ;
+  
+  if (!PyArg_ParseTuple(args,(char *)"OOOOOOO:GMLS_Python_generateNeighborListsFromKNNSearchAndSet",&obj0,&obj1,&obj2,&obj3,&obj4,&obj5,&obj6)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_GMLS_Python, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "GMLS_Python_generateNeighborListsFromKNNSearchAndSet" "', argument " "1"" of type '" "GMLS_Python *""'"); 
+  }
+  arg1 = reinterpret_cast< GMLS_Python * >(argp1);
+  arg2 = obj1;
+  ecode3 = SWIG_AsVal_int(obj2, &val3);
+  if (!SWIG_IsOK(ecode3)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "GMLS_Python_generateNeighborListsFromKNNSearchAndSet" "', argument " "3"" of type '" "int""'");
+  } 
+  arg3 = static_cast< int >(val3);
+  ecode4 = SWIG_AsVal_int(obj3, &val4);
+  if (!SWIG_IsOK(ecode4)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "GMLS_Python_generateNeighborListsFromKNNSearchAndSet" "', argument " "4"" of type '" "int""'");
+  } 
+  arg4 = static_cast< int >(val4);
+  ecode5 = SWIG_AsVal_double(obj4, &val5);
+  if (!SWIG_IsOK(ecode5)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "GMLS_Python_generateNeighborListsFromKNNSearchAndSet" "', argument " "5"" of type '" "double""'");
+  } 
+  arg5 = static_cast< double >(val5);
+  ecode6 = SWIG_AsVal_double(obj5, &val6);
+  if (!SWIG_IsOK(ecode6)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "GMLS_Python_generateNeighborListsFromKNNSearchAndSet" "', argument " "6"" of type '" "double""'");
+  } 
+  arg6 = static_cast< double >(val6);
+  ecode7 = SWIG_AsVal_bool(obj6, &val7);
+  if (!SWIG_IsOK(ecode7)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "GMLS_Python_generateNeighborListsFromKNNSearchAndSet" "', argument " "7"" of type '" "bool""'");
+  } 
+  arg7 = static_cast< bool >(val7);
+  {
+    try {
+      (arg1)->generateNeighborListsFromKNNSearchAndSet(arg2,arg3,arg4,arg5,arg6,arg7);
+    } catch(std::exception &_e) {
+      SWIG_exception_fail(SWIG_SystemError, (&_e)->what());
+    } catch (...) {
+      SWIG_exception(SWIG_RuntimeError, "unknown exception");
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet__SWIG_1(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  GMLS_Python *arg1 = (GMLS_Python *) 0 ;
+  PyObject *arg2 = (PyObject *) 0 ;
+  int arg3 ;
+  int arg4 ;
+  double arg5 ;
+  double arg6 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  int val3 ;
+  int ecode3 = 0 ;
+  int val4 ;
+  int ecode4 = 0 ;
+  double val5 ;
+  int ecode5 = 0 ;
+  double val6 ;
   int ecode6 = 0 ;
   PyObject * obj0 = 0 ;
   PyObject * obj1 = 0 ;
@@ -4287,11 +4364,11 @@ SWIGINTERN PyObject *_wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet_
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "GMLS_Python_generateNeighborListsFromKNNSearchAndSet" "', argument " "5"" of type '" "double""'");
   } 
   arg5 = static_cast< double >(val5);
-  ecode6 = SWIG_AsVal_bool(obj5, &val6);
+  ecode6 = SWIG_AsVal_double(obj5, &val6);
   if (!SWIG_IsOK(ecode6)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "GMLS_Python_generateNeighborListsFromKNNSearchAndSet" "', argument " "6"" of type '" "bool""'");
+    SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "GMLS_Python_generateNeighborListsFromKNNSearchAndSet" "', argument " "6"" of type '" "double""'");
   } 
-  arg6 = static_cast< bool >(val6);
+  arg6 = static_cast< double >(val6);
   {
     try {
       (arg1)->generateNeighborListsFromKNNSearchAndSet(arg2,arg3,arg4,arg5,arg6);
@@ -4308,7 +4385,7 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet__SWIG_1(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet__SWIG_2(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   GMLS_Python *arg1 = (GMLS_Python *) 0 ;
   PyObject *arg2 = (PyObject *) 0 ;
@@ -4367,7 +4444,7 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet__SWIG_2(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet__SWIG_3(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   GMLS_Python *arg1 = (GMLS_Python *) 0 ;
   PyObject *arg2 = (PyObject *) 0 ;
@@ -4417,7 +4494,7 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet__SWIG_3(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet__SWIG_4(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   GMLS_Python *arg1 = (GMLS_Python *) 0 ;
   PyObject *arg2 = (PyObject *) 0 ;
@@ -4460,14 +4537,14 @@ fail:
 
 SWIGINTERN PyObject *_wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet(PyObject *self, PyObject *args) {
   Py_ssize_t argc;
-  PyObject *argv[7] = {
+  PyObject *argv[8] = {
     0
   };
   Py_ssize_t ii;
   
   if (!PyTuple_Check(args)) SWIG_fail;
   argc = args ? PyObject_Length(args) : 0;
-  for (ii = 0; (ii < 6) && (ii < argc); ii++) {
+  for (ii = 0; (ii < 7) && (ii < argc); ii++) {
     argv[ii] = PyTuple_GET_ITEM(args,ii);
   }
   if (argc == 3) {
@@ -4483,7 +4560,7 @@ SWIGINTERN PyObject *_wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet(
           _v = SWIG_CheckState(res);
         }
         if (_v) {
-          return _wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet__SWIG_3(self, args);
+          return _wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet__SWIG_4(self, args);
         }
       }
     }
@@ -4506,7 +4583,7 @@ SWIGINTERN PyObject *_wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet(
             _v = SWIG_CheckState(res);
           }
           if (_v) {
-            return _wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet__SWIG_2(self, args);
+            return _wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet__SWIG_3(self, args);
           }
         }
       }
@@ -4535,7 +4612,7 @@ SWIGINTERN PyObject *_wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet(
               _v = SWIG_CheckState(res);
             }
             if (_v) {
-              return _wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet__SWIG_1(self, args);
+              return _wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet__SWIG_2(self, args);
             }
           }
         }
@@ -4566,11 +4643,53 @@ SWIGINTERN PyObject *_wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet(
             }
             if (_v) {
               {
-                int res = SWIG_AsVal_bool(argv[5], NULL);
+                int res = SWIG_AsVal_double(argv[5], NULL);
                 _v = SWIG_CheckState(res);
               }
               if (_v) {
-                return _wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet__SWIG_0(self, args);
+                return _wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet__SWIG_1(self, args);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  if (argc == 7) {
+    int _v;
+    void *vptr = 0;
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_GMLS_Python, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      _v = (argv[1] != 0);
+      if (_v) {
+        {
+          int res = SWIG_AsVal_int(argv[2], NULL);
+          _v = SWIG_CheckState(res);
+        }
+        if (_v) {
+          {
+            int res = SWIG_AsVal_int(argv[3], NULL);
+            _v = SWIG_CheckState(res);
+          }
+          if (_v) {
+            {
+              int res = SWIG_AsVal_double(argv[4], NULL);
+              _v = SWIG_CheckState(res);
+            }
+            if (_v) {
+              {
+                int res = SWIG_AsVal_double(argv[5], NULL);
+                _v = SWIG_CheckState(res);
+              }
+              if (_v) {
+                {
+                  int res = SWIG_AsVal_bool(argv[6], NULL);
+                  _v = SWIG_CheckState(res);
+                }
+                if (_v) {
+                  return _wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet__SWIG_0(self, args);
+                }
               }
             }
           }
@@ -4582,7 +4701,8 @@ SWIGINTERN PyObject *_wrap_GMLS_Python_generateNeighborListsFromKNNSearchAndSet(
 fail:
   SWIG_SetErrorMsg(PyExc_NotImplementedError,"Wrong number or type of arguments for overloaded function 'GMLS_Python_generateNeighborListsFromKNNSearchAndSet'.\n"
     "  Possible C/C++ prototypes are:\n"
-    "    GMLS_Python::generateNeighborListsFromKNNSearchAndSet(PyObject *,int,int,double,bool)\n"
+    "    GMLS_Python::generateNeighborListsFromKNNSearchAndSet(PyObject *,int,int,double,double,bool)\n"
+    "    GMLS_Python::generateNeighborListsFromKNNSearchAndSet(PyObject *,int,int,double,double)\n"
     "    GMLS_Python::generateNeighborListsFromKNNSearchAndSet(PyObject *,int,int,double)\n"
     "    GMLS_Python::generateNeighborListsFromKNNSearchAndSet(PyObject *,int,int)\n"
     "    GMLS_Python::generateNeighborListsFromKNNSearchAndSet(PyObject *,int)\n");

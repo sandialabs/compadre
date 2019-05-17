@@ -31,8 +31,10 @@ namespace Compadre {
         //! Point evaluation of the chained staggered Laplacian acting on VectorTaylorPolynomial 
         //! basis + StaggeredEdgeIntegralSample sampling functional
         ChainedStaggeredLaplacianOfScalarPointEvaluation,
+        //! Point evaluation of Gaussian curvature
+        GaussianCurvaturePointEvaluation,
         //! Should be the total count of all available target functionals
-        COUNT=12,
+        COUNT=13,
     };
 
     //! Rank of target functional output for each TargetOperation 
@@ -51,6 +53,7 @@ namespace Compadre {
         0, ///< PartialYOfScalarPointEvaluation
         0, ///< PartialZOfScalarPointEvaluation
         0, ///< ChainedStaggeredLaplacianOfScalarPointEvaluation
+        0, ///< GaussianCurvaturePointEvaluation
     };
 
     //! Space in which to reconstruct polynomial
@@ -90,6 +93,9 @@ namespace Compadre {
         FaceNormalIntegralSample,
         //! Samples consist of scalar representing a vector field dotted with an edge's normal direction and integrated
         FaceNormalIntegralSampleData,
+        //! Point evaluations of the entire vector source function 
+        //! (but on a manifold, so it includes a transform into local coordinates)
+        VaryingManifoldVectorPointSample,
     };
 
     //! Rank of sampling functional input for each SamplingFunctional
@@ -101,6 +107,7 @@ namespace Compadre {
         1, ///< StaggeredEdgeIntegralSample
         1, ///< FaceNormalIntegralSample
         0, ///< FaceNormalIntegralSampleData
+        1, ///< VaryingManifoldVectorPointSample
     };
 
     //! Rank of sampling functional output for each SamplingFunctional
@@ -112,6 +119,7 @@ namespace Compadre {
         0, ///< StaggeredEdgeIntegralSample
         0, ///< FaceNormalIntegralSample
         0, ///< FaceNormalIntegralSampleData
+        1, ///< VaryingManifoldVectorPointSample
     };
 
     //! Describes the SamplingFunction relationship to targets, neighbors
@@ -131,6 +139,7 @@ namespace Compadre {
         (int)DifferentEachNeighbor, ///< StaggeredEdgeIntegralSample
         (int)DifferentEachNeighbor, ///< FaceNormalIntegralSample
         (int)Identity,              ///< FaceNormalIntegralSampleData
+        (int)DifferentEachNeighbor, ///< VaryingManifoldVectorPointSample
     };
 
     //! Whether or not the SamplingTensor acts on the target site as well as the neighbors.
@@ -143,6 +152,7 @@ namespace Compadre {
         1, ///< StaggeredEdgeIntegralSample
         0, ///< FaceNormalIntegralSample
         0, ///< FaceNormalIntegralSampleData
+        0, ///< VaryingManifoldVectorPointSample
     };
 
     //! Whether the SamplingFunctional + ReconstructionSpace results in a nontrivial nullspace requiring SVD
@@ -156,6 +166,7 @@ namespace Compadre {
         1, ///< StaggeredEdgeIntegralSample
         0, ///< FaceNormalIntegralSample
         0, ///< FaceNormalIntegralSampleData
+        0, ///< VaryingManifoldVectorPointSample
     };
 
     //! Dense solver type, that optionally can also handle manifolds
