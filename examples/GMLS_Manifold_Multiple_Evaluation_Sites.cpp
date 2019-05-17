@@ -21,8 +21,38 @@
 #include <Kokkos_Core.hpp>
 
 using namespace Compadre;
+//! [Ambient to Local Back To Ambient Helper Function]
+void AmbientLocalAmbient(XYZ& u, double* T_data, double* P_data) {
+    //  reconstructions with vector output on a manifold are defined
+    //  in their local chart (2D). Next, they are mapped to 3D using
+    //  the tangent vector calculated at the target site.
+    //
+    //  We are interested in a mapping using the tangent vector at 
+    //  additional evaluation site instead, so we map back to the 
+    //  local chart using the tangent vector defined at the target 
+    //  site (T), then mapping from the local chart to ambient space
+    //  using the tangent vector calculated at the extra site (P).
+    
 
-//! [Parse Command Line Arguments]
+    host_scratch_matrix_right_type T(T_data, 3, 3);
+    host_scratch_matrix_right_type P(P_data, 3, 3);
+
+    // first get back to local chart
+    double local_vec[3] = {0,0};
+    for (int j=0; j<3; ++j) {
+        local_vec[0] += T(0,j) * u[j];
+        local_vec[1] += T(1,j) * u[j];
+    }
+    // second go to ambient space using tangent for first neighbor
+    for (int j=0; j<3; ++j) u[j] = 0;
+    for (int j=0; j<3; ++j) {
+        u[j] += P(0, j) * local_vec[0];
+        u[j] += P(1, j) * local_vec[1];
+    }
+    
+}
+
+//! [Ambient to Local Back To Ambient Helper Function]
 
 // called from command line
 int main (int argc, char* args[]) {
@@ -197,7 +227,6 @@ Kokkos::initialize(argc, args);
     // need Kokkos View storing true solution (for samples)
     Kokkos::View<double*, Kokkos::DefaultExecutionSpace> sampling_data_device("samples of true solution", 
             source_coords_device.dimension_0());
-
     Kokkos::View<double*, Kokkos::DefaultExecutionSpace> ones_data_device("samples of ones", 
             source_coords_device.dimension_0());
     Kokkos::deep_copy(ones_data_device, 1.0);
@@ -239,7 +268,7 @@ Kokkos::initialize(argc, args);
 
     // each row is a neighbor list for a target site, with the first column of each row containing
     // the number of neighbors for that rows corresponding target site
-    double epsilon_multiplier = 1.9;
+    double epsilon_multiplier = 1.7;
     int estimated_upper_bound_number_neighbors = 
         point_cloud_search.getEstimatedNumberNeighborsUpperBound(min_neighbors, dimension, epsilon_multiplier);
 
@@ -297,17 +326,20 @@ Kokkos::initialize(argc, args);
     //
     my_GMLS_scalar.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
 
+    // set up additional sites to evaluate target operators
+    // these sites will be the neighbors of the target site
+    my_GMLS_scalar.setAdditionalEvaluationSitesData(neighbor_lists_device, source_coords_device);
+
     // set a reference outward normal direction, causing a surface orientation after
     // the GMLS instance computes an approximate tangent bundle
     // on a sphere, the ambient coordinates are the outward normal direction
     my_GMLS_scalar.setReferenceOutwardNormalDirection(target_coords_device, true /* use to orient surface */);
     
     // create a vector of target operations
-    std::vector<TargetOperation> lro_scalar(4);
+    std::vector<TargetOperation> lro_scalar(3);
     lro_scalar[0] = ScalarPointEvaluation;
-    lro_scalar[1] = LaplacianOfScalarPointEvaluation;
-    lro_scalar[2] = GradientOfScalarPointEvaluation;
-    lro_scalar[3] = GaussianCurvaturePointEvaluation;
+    lro_scalar[1] = GaussianCurvaturePointEvaluation;
+    lro_scalar[2] = CurlOfVectorPointEvaluation;
 
     // and then pass them to the GMLS class
     my_GMLS_scalar.addTargets(lro_scalar);
@@ -332,11 +364,12 @@ Kokkos::initialize(argc, args);
     // evaluation of that vector as the sampling functional
     // VectorTaylorPolynomial indicates that the basis will be a polynomial with as many components as the
     // dimension of the manifold. This differs from another possibility, which follows this class.
-    GMLS my_GMLS_vector(ReconstructionSpace::VectorTaylorPolynomial,SamplingFunctional::ManifoldVectorPointSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
+    GMLS my_GMLS_vector(ReconstructionSpace::VectorTaylorPolynomial,SamplingFunctional::VaryingManifoldVectorPointSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
     my_GMLS_vector.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    my_GMLS_vector.setAdditionalEvaluationSitesData(neighbor_lists_device, source_coords_device);
     std::vector<TargetOperation> lro_vector(2);
     lro_vector[0] = VectorPointEvaluation;
-    lro_vector[1] = DivergenceOfVectorPointEvaluation;
+    //lro_vector[1] = DivergenceOfVectorPointEvaluation;
     my_GMLS_vector.addTargets(lro_vector);
     my_GMLS_vector.setCurvatureWeightingType(WeightingFunctionType::Power);
     my_GMLS_vector.setCurvatureWeightingPower(2);
@@ -368,11 +401,12 @@ Kokkos::initialize(argc, args);
     //  In the print-out for this program, we include the timings and errors on this and VectorTaylorPolynomial
     //  in order to demonstrate that they produce exactly the same answer, but that one is much more efficient.
     //
-    GMLS my_GMLS_vector_of_scalar_clones(ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial,SamplingFunctional::ManifoldVectorPointSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
+    GMLS my_GMLS_vector_of_scalar_clones(ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial,SamplingFunctional::VaryingManifoldVectorPointSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
     my_GMLS_vector_of_scalar_clones.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    my_GMLS_vector_of_scalar_clones.setAdditionalEvaluationSitesData(neighbor_lists_device, source_coords_device);
     std::vector<TargetOperation> lro_vector_of_scalar_clones(2);
     lro_vector_of_scalar_clones[0] = VectorPointEvaluation;
-    lro_vector_of_scalar_clones[1] = DivergenceOfVectorPointEvaluation;
+    //lro_vector_of_scalar_clones[1] = DivergenceOfVectorPointEvaluation;
     my_GMLS_vector_of_scalar_clones.addTargets(lro_vector_of_scalar_clones);
     my_GMLS_vector_of_scalar_clones.setCurvatureWeightingType(WeightingFunctionType::Power);
     my_GMLS_vector_of_scalar_clones.setCurvatureWeightingPower(2);
@@ -407,30 +441,42 @@ Kokkos::initialize(argc, args);
     Evaluator vector_gmls_evaluator_of_scalar_clones(&my_GMLS_vector_of_scalar_clones);
     
     auto output_value = scalar_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (sampling_data_device, ScalarPointEvaluation);
+            (sampling_data_device, ScalarPointEvaluation, SamplingFunctional::PointSample, 
+             true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
+
+    auto output_gaussian_curvature = scalar_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+            (ones_data_device, GaussianCurvaturePointEvaluation, SamplingFunctional::PointSample, 
+             true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
+
+    auto output_curl = scalar_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+            (sampling_data_device, CurlOfVectorPointEvaluation, SamplingFunctional::PointSample, 
+             true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
     
-    auto output_laplacian = scalar_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (sampling_data_device, LaplacianOfScalarPointEvaluation);
+    //auto output_laplacian = scalar_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+    //        (sampling_data_device, LaplacianOfScalarPointEvaluation, SamplingFunctional::PointSample, 
+    //         true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
 
-    auto output_gradient = scalar_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (sampling_data_device, GradientOfScalarPointEvaluation);
-
-    auto output_gc = scalar_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (ones_data_device, GaussianCurvaturePointEvaluation);
+    //auto output_gradient = scalar_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+    //        (sampling_data_device, GradientOfScalarPointEvaluation, SamplingFunctional::PointSample, 
+    //         true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
 
     auto output_vector = vector_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (sampling_vector_data_device, VectorPointEvaluation, ManifoldVectorPointSample);
+            (sampling_vector_data_device, VectorPointEvaluation, VaryingManifoldVectorPointSample,
+             true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
     
-    auto output_divergence = vector_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (sampling_vector_data_device, DivergenceOfVectorPointEvaluation, ManifoldVectorPointSample);
+    //auto output_divergence = vector_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+    //        (sampling_vector_data_device, DivergenceOfVectorPointEvaluation, ManifoldVectorPointSample,
+    //         true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
 
     auto output_vector_of_scalar_clones = 
         vector_gmls_evaluator_of_scalar_clones.applyAlphasToDataAllComponentsAllTargetSites<double**, 
-        Kokkos::HostSpace>(sampling_vector_data_device, VectorPointEvaluation, ManifoldVectorPointSample);
+        Kokkos::HostSpace>(sampling_vector_data_device, VectorPointEvaluation, VaryingManifoldVectorPointSample,
+             true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
     
-    auto output_divergence_of_scalar_clones = 
-        vector_gmls_evaluator_of_scalar_clones.applyAlphasToDataAllComponentsAllTargetSites<double*, 
-        Kokkos::HostSpace>(sampling_vector_data_device, DivergenceOfVectorPointEvaluation, ManifoldVectorPointSample);
+    //auto output_divergence_of_scalar_clones = 
+    //    vector_gmls_evaluator_of_scalar_clones.applyAlphasToDataAllComponentsAllTargetSites<double*, 
+    //    Kokkos::HostSpace>(sampling_vector_data_device, DivergenceOfVectorPointEvaluation, ManifoldVectorPointSample,
+    //         true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
 
 
     //    Kokkos::fence(); // let application of alphas to data finish before using results
@@ -472,43 +518,65 @@ Kokkos::initialize(argc, args);
     double tangent_bundle_norm = 0;
     double values_error = 0;
     double values_norm = 0;
-    double laplacian_error = 0;
-    double laplacian_norm = 0;
-    double gradient_ambient_error = 0;
-    double gradient_ambient_norm = 0;
     double gc_error = 0;
     double gc_norm = 0;
+    double curl_ambient_error = 0;
+    double curl_ambient_norm = 0;
+    //double laplacian_error = 0;
+    //double laplacian_norm = 0;
+    //double gradient_ambient_error = 0;
+    //double gradient_ambient_norm = 0;
     double vector_ambient_error = 0;
     double vector_ambient_norm = 0;
-    double divergence_ambient_error = 0;
-    double divergence_ambient_norm = 0;
+    //double divergence_ambient_error = 0;
+    //double divergence_ambient_norm = 0;
     double vector_of_scalar_clones_ambient_error = 0;
     double vector_of_scalar_clones_ambient_norm = 0;
-    double divergence_of_scalar_clones_ambient_error = 0;
-    double divergence_of_scalar_clones_ambient_norm = 0;
-    
+    //double divergence_of_scalar_clones_ambient_error = 0;
+    //double divergence_of_scalar_clones_ambient_norm = 0;
+ 
+    // tangent vectors for each source coordinate are stored here
+    auto d_prestencil_weights = my_GMLS_vector_of_scalar_clones.getPrestencilWeights();
+    auto prestencil_weights = Kokkos::create_mirror(d_prestencil_weights);
+    Kokkos::deep_copy(prestencil_weights, d_prestencil_weights);
+
+    // tangent vector at target sites are stored here
+    auto d_tangent_directions = my_GMLS_vector_of_scalar_clones.getTangentDirections();
+    auto tangent_directions = Kokkos::create_mirror(d_tangent_directions);
+    Kokkos::deep_copy(tangent_directions, d_tangent_directions);
+
     // loop through the target sites
     for (int i=0; i<number_target_coords; i++) {
+
+        host_scratch_matrix_right_type T
+                (tangent_directions.data() + TO_GLOBAL(i)*TO_GLOBAL(3)*TO_GLOBAL(3), 3, 3);
+        XYZ u;
+
     
         // load value from output
         double GMLS_value = output_value(i);
-        double GMLS_gc = output_gc(i);
-        printf("GMLS_gc: %f\n", GMLS_gc);
+        //printf("GMLS val: %f, %d\n", GMLS_value, i);
     
-        // load laplacian from output
-        double GMLS_Laplacian = output_laplacian(i);
+        double GMLS_gc = output_gaussian_curvature(i);
+        //printf("GMLS gc: %f, %d\n", GMLS_gc, i);
+
+    //    // load laplacian from output
+    //    double GMLS_Laplacian = output_laplacian(i);
     
         // target site i's coordinate
-        double xval = target_coords(i,0);
-        double yval = (dimension>1) ? target_coords(i,1) : 0;
-        double zval = (dimension>2) ? target_coords(i,2) : 0;
+        //double xval = target_coords(i,0);
+        //double yval = (dimension>1) ? target_coords(i,1) : 0;
+        //double zval = (dimension>2) ? target_coords(i,2) : 0;
+        double xval = source_coords(neighbor_lists(i,1),0);
+        double yval = (dimension>1) ? source_coords(neighbor_lists(i,1),1) : 0;
+        double zval = (dimension>2) ? source_coords(neighbor_lists(i,1),2) : 0;
         double coord[3] = {xval, yval, zval};
 
         // get tangent vector and see if orthgonal to coordinate (it should be on a sphere)
         for (int j=0; j<dimension-1; ++j) {
             double tangent_inner_prod = 0;
             for (int k=0; k<dimension; ++k) {
-                tangent_inner_prod += coord[k] * my_GMLS_scalar.getTangentBundle(i, j, k);
+                tangent_inner_prod += coord[k] * prestencil_weights(0, i, 0 /* local neighbor index */, j, k);
             }
             tangent_bundle_error += tangent_inner_prod * tangent_inner_prod;
         }
@@ -523,41 +591,74 @@ Kokkos::initialize(argc, args);
     
         // evaluation of various exact solutions
         double actual_value = sphere_harmonic54(xval, yval, zval);
-        double actual_Laplacian = laplace_beltrami_sphere_harmonic54(xval, yval, zval);
+        double actual_gc = 1.0; // Gaussian curvature is constant
+    //    double actual_Laplacian = laplace_beltrami_sphere_harmonic54(xval, yval, zval);
         double actual_Gradient_ambient[3] = {0,0,0}; // initialized for 3, but only filled up to dimension
         gradient_sphereHarmonic54_ambient(actual_Gradient_ambient, xval, yval, zval);
-        //velocity_sphereHarmonic54_ambient(actual_Gradient_ambient, xval, yval, zval);
+    //    //velocity_sphereHarmonic54_ambient(actual_Gradient_ambient, xval, yval, zval);
+        double actual_Curl_ambient[3] = {0,0,0};
+        curl_sphere_harmonic54(actual_Curl_ambient, xval, yval, zval);
 
         values_error += (GMLS_value - actual_value)*(GMLS_value - actual_value);
         values_norm  += actual_value*actual_value;
-    
-        laplacian_error += (GMLS_Laplacian - actual_Laplacian)*(GMLS_Laplacian - actual_Laplacian);
-        laplacian_norm += actual_Laplacian*actual_Laplacian;
 
-        double actual_gc = 1.0;
         gc_error += (GMLS_gc - actual_gc)*(GMLS_gc - actual_gc);
-        gc_norm += actual_gc*actual_gc;
+        gc_norm  += 1;
+
+        for (int j=0; j<dimension; ++j) u[j] = output_curl(i,j);
+        AmbientLocalAmbient(u, T.data(), &prestencil_weights(0, i, 0 /* local neighbor index */, 0, 0));
+        for (int j=0; j<dimension; ++j) output_curl(i,j) = u[j];
 
         for (int j=0; j<dimension; ++j) {
-            gradient_ambient_error += (output_gradient(i,j) - actual_Gradient_ambient[j])*(output_gradient(i,j) - actual_Gradient_ambient[j]);
-            gradient_ambient_norm += actual_Gradient_ambient[j]*actual_Gradient_ambient[j];
+            curl_ambient_error += (output_curl(i,j) - actual_Curl_ambient[j])*(output_curl(i,j) - actual_Curl_ambient[j]);
+            curl_ambient_norm += actual_Curl_ambient[j]*actual_Curl_ambient[j];
         }
+    
+    //    laplacian_error += (GMLS_Laplacian - actual_Laplacian)*(GMLS_Laplacian - actual_Laplacian);
+    //    laplacian_norm += actual_Laplacian*actual_Laplacian;
+
+    //    for (int j=0; j<dimension; ++j) {
+    //        gradient_ambient_error += (output_gradient(i,j) - actual_Gradient_ambient[j])*(output_gradient(i,j) - actual_Gradient_ambient[j]);
+    //        gradient_ambient_norm += actual_Gradient_ambient[j]*actual_Gradient_ambient[j];
+    //    }
+
+        for (int j=0; j<dimension; ++j) u[j] = output_vector(i,j);
+        AmbientLocalAmbient(u, T.data(), &prestencil_weights(0, i, 0 /* local neighbor index */, 0, 0));
+        for (int j=0; j<dimension; ++j) output_vector(i,j) = u[j];
 
         for (int j=0; j<dimension; ++j) {
             vector_ambient_error += (output_vector(i,j) - actual_Gradient_ambient[j])*(output_vector(i,j) - actual_Gradient_ambient[j]);
             vector_ambient_norm += actual_Gradient_ambient[j]*actual_Gradient_ambient[j];
         }
 
-        divergence_ambient_error += (output_divergence(i) - actual_Laplacian)*(output_divergence(i) - actual_Laplacian);
-        divergence_ambient_norm += actual_Laplacian*actual_Laplacian;
+    //    divergence_ambient_error += (output_divergence(i) - actual_Laplacian)*(output_divergence(i) - actual_Laplacian);
+    //    divergence_ambient_norm += actual_Laplacian*actual_Laplacian;
+  
+        
+        for (int j=0; j<dimension; ++j) u[j] = output_vector_of_scalar_clones(i,j);
+        AmbientLocalAmbient(u, T.data(), &prestencil_weights(0, i, 0 /* local neighbor index */, 0, 0));
+        for (int j=0; j<dimension; ++j) output_vector_of_scalar_clones(i,j) = u[j];
+        //// first get back to local chart
+        //double local_vec[3] = {0,0};
+        //for (int j=0; j<dimension; ++j) {
+        //    local_vec[0] += T(0,j) * output_vector_of_scalar_clones(i,j);
+        //    local_vec[1] += T(1,j) * output_vector_of_scalar_clones(i,j);
+        //}
+        //// second go to ambient space using tangent for first neighbor
+        //for (int j=0; j<dimension; ++j) output_vector_of_scalar_clones(i,j) = 0;
+        //for (int j=0; j<dimension; ++j) {
+        //    output_vector_of_scalar_clones(i,j) += prestencil_weights(0, i, 0 /* local neighbor index */, 0, j) * local_vec[0];
+        //    output_vector_of_scalar_clones(i,j) += prestencil_weights(0, i, 0 /* local neighbor index */, 1, j) * local_vec[1];
+        //}
+
 
         for (int j=0; j<dimension; ++j) {
             vector_of_scalar_clones_ambient_error += (output_vector_of_scalar_clones(i,j) - actual_Gradient_ambient[j])*(output_vector_of_scalar_clones(i,j) - actual_Gradient_ambient[j]);
             vector_of_scalar_clones_ambient_norm += actual_Gradient_ambient[j]*actual_Gradient_ambient[j];
         }
 
-        divergence_of_scalar_clones_ambient_error += (output_divergence_of_scalar_clones(i) - actual_Laplacian)*(output_divergence_of_scalar_clones(i) - actual_Laplacian);
-        divergence_of_scalar_clones_ambient_norm += actual_Laplacian*actual_Laplacian;
+    //    divergence_of_scalar_clones_ambient_error += (output_divergence_of_scalar_clones(i) - actual_Laplacian)*(output_divergence_of_scalar_clones(i) - actual_Laplacian);
+    //    divergence_of_scalar_clones_ambient_norm += actual_Laplacian*actual_Laplacian;
 
     }
 
@@ -571,52 +672,58 @@ Kokkos::initialize(argc, args);
     values_norm /= number_target_coords;
     values_norm = std::sqrt(values_norm);
 
-    laplacian_error /= number_target_coords;
-    laplacian_error = std::sqrt(laplacian_error);
-    laplacian_norm /= number_target_coords;
-    laplacian_norm = std::sqrt(laplacian_norm);
-
-    gradient_ambient_error /= number_target_coords;
-    gradient_ambient_error = std::sqrt(gradient_ambient_error);
-    gradient_ambient_norm /= number_target_coords;
-    gradient_ambient_norm = std::sqrt(gradient_ambient_norm);
-
     gc_error /= number_target_coords;
     gc_error = std::sqrt(gc_error);
     gc_norm /= number_target_coords;
     gc_norm = std::sqrt(gc_norm);
+
+    curl_ambient_error /= number_target_coords;
+    curl_ambient_error = std::sqrt(curl_ambient_error);
+    curl_ambient_norm /= number_target_coords;
+    curl_ambient_norm = std::sqrt(curl_ambient_norm);
+
+    //laplacian_error /= number_target_coords;
+    //laplacian_error = std::sqrt(laplacian_error);
+    //laplacian_norm /= number_target_coords;
+    //laplacian_norm = std::sqrt(laplacian_norm);
+
+    //gradient_ambient_error /= number_target_coords;
+    //gradient_ambient_error = std::sqrt(gradient_ambient_error);
+    //gradient_ambient_norm /= number_target_coords;
+    //gradient_ambient_norm = std::sqrt(gradient_ambient_norm);
    
     vector_ambient_error /= number_target_coords;
     vector_ambient_error = std::sqrt(vector_ambient_error);
     vector_ambient_norm /= number_target_coords;
     vector_ambient_norm = std::sqrt(vector_ambient_norm);
 
-    divergence_ambient_error /= number_target_coords;
-    divergence_ambient_error = std::sqrt(divergence_ambient_error);
-    divergence_ambient_norm /= number_target_coords;
-    divergence_ambient_norm = std::sqrt(divergence_ambient_norm);
+    //divergence_ambient_error /= number_target_coords;
+    //divergence_ambient_error = std::sqrt(divergence_ambient_error);
+    //divergence_ambient_norm /= number_target_coords;
+    //divergence_ambient_norm = std::sqrt(divergence_ambient_norm);
 
     vector_of_scalar_clones_ambient_error /= number_target_coords;
     vector_of_scalar_clones_ambient_error = std::sqrt(vector_of_scalar_clones_ambient_error);
     vector_of_scalar_clones_ambient_norm /= number_target_coords;
     vector_of_scalar_clones_ambient_norm = std::sqrt(vector_of_scalar_clones_ambient_norm);
 
-    divergence_of_scalar_clones_ambient_error /= number_target_coords;
-    divergence_of_scalar_clones_ambient_error = std::sqrt(divergence_of_scalar_clones_ambient_error);
-    divergence_of_scalar_clones_ambient_norm /= number_target_coords;
-    divergence_of_scalar_clones_ambient_norm = std::sqrt(divergence_of_scalar_clones_ambient_norm);
+    //divergence_of_scalar_clones_ambient_error /= number_target_coords;
+    //divergence_of_scalar_clones_ambient_error = std::sqrt(divergence_of_scalar_clones_ambient_error);
+    //divergence_of_scalar_clones_ambient_norm /= number_target_coords;
+    //divergence_of_scalar_clones_ambient_norm = std::sqrt(divergence_of_scalar_clones_ambient_norm);
 
     printf("Tangent Bundle Error: %g\n", tangent_bundle_error / tangent_bundle_norm);  
     printf("Point Value Error: %g\n", values_error / values_norm);  
-    printf("Laplace-Beltrami Error: %g\n", laplacian_error / laplacian_norm);  
     printf("Gaussian Curvature Error: %g\n", gc_error / gc_norm);  
-    printf("Surface Gradient (Ambient) Error: %g\n", gradient_ambient_error / gradient_ambient_norm);  
+    printf("Surface Curl (Ambient) Error: %g\n", curl_ambient_error / curl_ambient_norm);  
+    //printf("Laplace-Beltrami Error: %g\n", laplacian_error / laplacian_norm);  
+    //printf("Surface Gradient (Ambient) Error: %g\n", gradient_ambient_error / gradient_ambient_norm);  
     printf("Surface Vector (VectorBasis) Error: %g\n", vector_ambient_error / vector_ambient_norm);  
-    printf("Surface Divergence (VectorBasis) Error: %g\n", divergence_ambient_error / divergence_ambient_norm);  
+    //printf("Surface Divergence (VectorBasis) Error: %g\n", divergence_ambient_error / divergence_ambient_norm);  
     printf("Surface Vector (ScalarClones) Error: %g\n", 
             vector_of_scalar_clones_ambient_error / vector_of_scalar_clones_ambient_norm);  
-    printf("Surface Divergence (ScalarClones) Error: %g\n", 
-            divergence_of_scalar_clones_ambient_error / divergence_of_scalar_clones_ambient_norm);  
+    //printf("Surface Divergence (ScalarClones) Error: %g\n", 
+    //        divergence_of_scalar_clones_ambient_error / divergence_of_scalar_clones_ambient_norm);  
     //! [Check That Solutions Are Correct] 
     // popRegion hidden from tutorial
     // stop timing comparison loop
