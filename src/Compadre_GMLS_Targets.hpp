@@ -2,6 +2,7 @@
 #define _COMPADRE_GMLS_TARGETS_HPP_
 
 #include "Compadre_GMLS.hpp"
+#include "Compadre_Manifold_Functions.hpp"
 
 namespace Compadre {
 
@@ -1113,6 +1114,64 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                 } else {
                     compadre_kernel_assert_release((false) && "Functionality not yet available.");
                 }
+            } else if (_operations(i) == TargetOperation::GaussianCurvaturePointEvaluation) {
+                double h = _epsilons(target_index);
+                
+                Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+                    for (int k=0; k<num_evaluation_sites; ++k) { 
+                        XYZ relative_coord;
+                        if (k > 0) {
+                            for (int d=0; d<_dimensions-1; ++d) {
+                                relative_coord[d] = getTargetAuxiliaryCoordinate(target_index, k, d, &V);
+                                relative_coord[d] -= getTargetCoordinate(target_index, d, &V);
+                            }
+                        } else {
+                            for (int i=0; i<3; ++i) relative_coord[i] = 0;
+                        }
+
+                        int offset = getTargetOffsetIndexDevice(i, 0, 0, k);
+                        P_target_row(offset, 0) = GaussianCurvature(curvature_coefficients, h, relative_coord.x, relative_coord.y);
+                    }
+                });
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+            } else if (_operations(i) == TargetOperation::CurlOfVectorPointEvaluation) {
+                double h = _epsilons(target_index);
+                int alphax, alphay;
+                
+                Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+                    for (int k=0; k<num_evaluation_sites; ++k) { 
+                        XYZ relative_coord;
+                        if (k > 0) {
+                            for (int d=0; d<_dimensions-1; ++d) {
+                                relative_coord[d] = getTargetAuxiliaryCoordinate(target_index, k, d, &V);
+                                relative_coord[d] -= getTargetCoordinate(target_index, d, &V);
+                            }
+                        } else {
+                            for (int i=0; i<3; ++i) relative_coord[i] = 0;
+                        }
+
+                        int offset = getTargetOffsetIndexDevice(i, 0, 0, k);
+                        int index = 0;
+                        for (int n = 0; n <= _poly_order; n++){
+                            for (alphay = 0; alphay <= n; alphay++){
+                                alphax = n - alphay;
+                                P_target_row(offset, index) = SurfaceCurlOfScalar(curvature_coefficients, h, relative_coord.x, relative_coord.y, alphax, alphay, 0);
+                                index++;
+                            }
+                        }
+
+                        offset = getTargetOffsetIndexDevice(i, 0, 1, k);
+                        index = 0;
+                        for (int n = 0; n <= _poly_order; n++){
+                            for (alphay = 0; alphay <= n; alphay++){
+                                alphax = n - alphay;
+                                P_target_row(offset, index) = SurfaceCurlOfScalar(curvature_coefficients, h, relative_coord.x, relative_coord.y, alphax, alphay, 1);
+                                index++;
+                            }
+                        }
+                    }
+                });
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else {
                 compadre_kernel_assert_release((false) && "Functionality not yet available.");
             }

@@ -198,6 +198,10 @@ Kokkos::initialize(argc, args);
     Kokkos::View<double*, Kokkos::DefaultExecutionSpace> sampling_data_device("samples of true solution", 
             source_coords_device.dimension_0());
 
+    Kokkos::View<double*, Kokkos::DefaultExecutionSpace> ones_data_device("samples of ones", 
+            source_coords_device.dimension_0());
+    Kokkos::deep_copy(ones_data_device, 1.0);
+
     // need Kokkos View storing true vector solution (for samples)
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> sampling_vector_data_device("samples of vector true solution", 
             source_coords_device.dimension_0(), 3);
@@ -299,10 +303,11 @@ Kokkos::initialize(argc, args);
     my_GMLS_scalar.setReferenceOutwardNormalDirection(target_coords_device, true /* use to orient surface */);
     
     // create a vector of target operations
-    std::vector<TargetOperation> lro_scalar(3);
+    std::vector<TargetOperation> lro_scalar(4);
     lro_scalar[0] = ScalarPointEvaluation;
     lro_scalar[1] = LaplacianOfScalarPointEvaluation;
     lro_scalar[2] = GradientOfScalarPointEvaluation;
+    lro_scalar[3] = GaussianCurvaturePointEvaluation;
 
     // and then pass them to the GMLS class
     my_GMLS_scalar.addTargets(lro_scalar);
@@ -410,6 +415,9 @@ Kokkos::initialize(argc, args);
     auto output_gradient = scalar_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
             (sampling_data_device, GradientOfScalarPointEvaluation);
 
+    auto output_gc = scalar_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+            (ones_data_device, GaussianCurvaturePointEvaluation);
+
     auto output_vector = vector_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
             (sampling_vector_data_device, VectorPointEvaluation, ManifoldVectorPointSample);
     
@@ -468,6 +476,8 @@ Kokkos::initialize(argc, args);
     double laplacian_norm = 0;
     double gradient_ambient_error = 0;
     double gradient_ambient_norm = 0;
+    double gc_error = 0;
+    double gc_norm = 0;
     double vector_ambient_error = 0;
     double vector_ambient_norm = 0;
     double divergence_ambient_error = 0;
@@ -482,6 +492,8 @@ Kokkos::initialize(argc, args);
     
         // load value from output
         double GMLS_value = output_value(i);
+        double GMLS_gc = output_gc(i);
+        printf("GMLS_gc: %f\n", GMLS_gc);
     
         // load laplacian from output
         double GMLS_Laplacian = output_laplacian(i);
@@ -521,6 +533,10 @@ Kokkos::initialize(argc, args);
     
         laplacian_error += (GMLS_Laplacian - actual_Laplacian)*(GMLS_Laplacian - actual_Laplacian);
         laplacian_norm += actual_Laplacian*actual_Laplacian;
+
+        double actual_gc = 1.0;
+        gc_error += (GMLS_gc - actual_gc)*(GMLS_gc - actual_gc);
+        gc_norm += actual_gc*actual_gc;
 
         for (int j=0; j<dimension; ++j) {
             gradient_ambient_error += (output_gradient(i,j) - actual_Gradient_ambient[j])*(output_gradient(i,j) - actual_Gradient_ambient[j]);
@@ -564,6 +580,11 @@ Kokkos::initialize(argc, args);
     gradient_ambient_error = std::sqrt(gradient_ambient_error);
     gradient_ambient_norm /= number_target_coords;
     gradient_ambient_norm = std::sqrt(gradient_ambient_norm);
+
+    gc_error /= number_target_coords;
+    gc_error = std::sqrt(gc_error);
+    gc_norm /= number_target_coords;
+    gc_norm = std::sqrt(gc_norm);
    
     vector_ambient_error /= number_target_coords;
     vector_ambient_error = std::sqrt(vector_ambient_error);
@@ -588,6 +609,7 @@ Kokkos::initialize(argc, args);
     printf("Tangent Bundle Error: %g\n", tangent_bundle_error / tangent_bundle_norm);  
     printf("Point Value Error: %g\n", values_error / values_norm);  
     printf("Laplace-Beltrami Error: %g\n", laplacian_error / laplacian_norm);  
+    printf("Gaussian Curvature Error: %g\n", gc_error / gc_norm);  
     printf("Surface Gradient (Ambient) Error: %g\n", gradient_ambient_error / gradient_ambient_norm);  
     printf("Surface Vector (VectorBasis) Error: %g\n", vector_ambient_error / vector_ambient_norm);  
     printf("Surface Divergence (VectorBasis) Error: %g\n", divergence_ambient_error / divergence_ambient_norm);  

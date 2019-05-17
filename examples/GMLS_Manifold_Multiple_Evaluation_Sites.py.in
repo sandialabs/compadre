@@ -12,7 +12,7 @@ def check_bounds(porder, rate):
         else:
             return False
     else:
-        if rate>float(porder)-1.2:
+        if rate>float(porder)-2.3:
             return True
         else:
             return False
@@ -29,7 +29,7 @@ if (len(sys.argv) > 2):
 
 errors = []
 
-target_operators=("Tangent Bundle", "Point Value", "Surface Vector \(VectorBasis\)", "Surface Vector \(ScalarClones\)")#, "Surface Curl \(Ambient\)","Surface Gradient (Manifold)", 
+target_operators=("Tangent Bundle", "Point Value", "Gaussian Curvature", "Surface Vector \(VectorBasis\)", "Surface Vector \(ScalarClones\)", "Surface Curl \(Ambient\)")#, "","Surface Gradient (Manifold)", 
 for operator in target_operators:
     errors.append([])
 

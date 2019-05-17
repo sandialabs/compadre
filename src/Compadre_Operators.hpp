@@ -31,8 +31,10 @@ namespace Compadre {
         //! Point evaluation of the chained staggered Laplacian acting on VectorTaylorPolynomial 
         //! basis + StaggeredEdgeIntegralSample sampling functional
         ChainedStaggeredLaplacianOfScalarPointEvaluation,
+        //! Point evaluation of Gaussian curvature
+        GaussianCurvaturePointEvaluation,
         //! Should be the total count of all available target functionals
-        COUNT=12,
+        COUNT=13,
     };
 
     //! Rank of target functional output for each TargetOperation 
@@ -51,6 +53,7 @@ namespace Compadre {
         0, ///< PartialYOfScalarPointEvaluation
         0, ///< PartialZOfScalarPointEvaluation
         0, ///< ChainedStaggeredLaplacianOfScalarPointEvaluation
+        0, ///< GaussianCurvaturePointEvaluation
     };
 
     //! Space in which to reconstruct polynomial
