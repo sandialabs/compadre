@@ -2,8 +2,8 @@
 
 #include <Teuchos_CommandLineProcessor.hpp>
 #include <Teuchos_XMLParameterListCoreHelpers.hpp>
-
-//#include <Teuchos_YamlParameterListCoreHelpers.hpp>
+#include <Teuchos_YamlParameterListCoreHelpers.hpp>
+#include <Teuchos_ParameterList.hpp>
 
 namespace Compadre {
 
@@ -184,24 +184,12 @@ void ParameterManager::setDefaultParameters() {
 
 Teuchos::RCP<Teuchos::ParameterList> ParameterManager::readInXML(const std::string & filename) {
 	Teuchos::RCP<Teuchos::ParameterList> file_parameter_list = Teuchos::getParametersFromXmlFile(filename);
-	//file_parameter_list->print();
 	return file_parameter_list;
-
-//	std::ostringstream msg;
-//	msg << "Not yet implemented." << std::endl;
-//	TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.str());
-//	return Teuchos::RCP<Teuchos::ParameterList>();
 }
 
 Teuchos::RCP<Teuchos::ParameterList> ParameterManager::readInYAML(std::string const & filename) {
-//	Teuchos::RCP<Teuchos::ParameterList> file_parameter_list = Teuchos::getParametersFromYamlFile(filename);
-//	//file_parameter_list->print();
-//	return file_parameter_list;
-
-	std::ostringstream msg;
-	msg << "Not yet implemented." << std::endl;
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.str());
-	return Teuchos::RCP<Teuchos::ParameterList>();
+	Teuchos::RCP<Teuchos::ParameterList> file_parameter_list = Teuchos::getParametersFromYamlFile(filename);
+	return file_parameter_list;
 }
 
 }

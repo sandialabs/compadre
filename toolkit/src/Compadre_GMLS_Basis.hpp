@@ -273,7 +273,10 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 }
             }
         }
-    } else if (polynomial_sampling_functional == SamplingFunctional::FaceNormalIntegralSample) {
+    } else if (polynomial_sampling_functional == SamplingFunctional::FaceNormalIntegralSample ||
+                polynomial_sampling_functional == SamplingFunctional::FaceTangentIntegralSample ||
+                polynomial_sampling_functional == SamplingFunctional::FaceNormalPointSample ||
+                polynomial_sampling_functional == SamplingFunctional::FaceTangentPointSample) {
 
         double cutoff_p = _epsilons(target_index);
 
@@ -287,9 +290,15 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
          * requires quadrature points defined on an edge, not a target/source edge (spoke)
          *
          * _extra_data will contain the endpoints (2 for 2D, 3 for 3D) and then the unit normals
-         * (e0_x, e0_y, e1_x, e1_y, n_x, n_y)
+         * (e0_x, e0_y, e1_x, e1_y, n_x, n_y, t_x, t_y)
          */
 
+        // if not integrating, set to 1
+        int quadrature_point_loop = (polynomial_sampling_functional == SamplingFunctional::FaceNormalIntegralSample 
+                || polynomial_sampling_functional == SamplingFunctional::FaceTangentIntegralSample) ?
+                                    _number_of_quadrature_points : 1;
+
+        // only used for integrated quantities
         XYZ endpoints_difference;
         for (int j=0; j<dimension; ++j) {
             endpoints_difference[j] = _extra_data(neighbor_index_in_source, j) - _extra_data(neighbor_index_in_source, j+2);
@@ -300,23 +309,38 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
         double alphaf;
         const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
 
-        for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {
+        // loop 
+        for (int quadrature = 0; quadrature<quadrature_point_loop; ++quadrature) {
 
             int i = 0;
 
-            XYZ normal_quadrature_coord_2d;
+            XYZ direction_2d;
             XYZ quadrature_coord_2d;
             for (int j=0; j<dimension; ++j) {
                 
-                // coord site
-                quadrature_coord_2d[j] = _parameterized_quadrature_sites[quadrature]*_extra_data(neighbor_index_in_source, j);
-                quadrature_coord_2d[j] += (1-_parameterized_quadrature_sites[quadrature])*_extra_data(neighbor_index_in_source, j+2);
-                quadrature_coord_2d[j] -= getTargetCoordinate(target_index, j);
+                if (polynomial_sampling_functional == SamplingFunctional::FaceNormalIntegralSample 
+                        || polynomial_sampling_functional == SamplingFunctional::FaceTangentIntegralSample) {
+                    // quadrature coord site
+                    quadrature_coord_2d[j] = _parameterized_quadrature_sites[quadrature]*_extra_data(neighbor_index_in_source, j);
+                    quadrature_coord_2d[j] += (1-_parameterized_quadrature_sites[quadrature])*_extra_data(neighbor_index_in_source, j+2);
+                    quadrature_coord_2d[j] -= getTargetCoordinate(target_index, j);
+                } else {
+                    // traditional coord
+                    quadrature_coord_2d[j] = relative_coord[j];
+                }
 
-                // normal direction
-                normal_quadrature_coord_2d[j] = _extra_data(neighbor_index_in_source, 4 + j);
+                // normal direction or tangent direction
+                if (polynomial_sampling_functional == SamplingFunctional::FaceNormalIntegralSample 
+                        || polynomial_sampling_functional == SamplingFunctional::FaceNormalPointSample) {
+                    // normal direction
+                    direction_2d[j] = _extra_data(neighbor_index_in_source, 4 + j);
+                } else {
+                    // tangent direction
+                    direction_2d[j] = _extra_data(neighbor_index_in_source, 6 + j);
+                }
 
             }
+
             for (int j=0; j<_basis_multiplier; ++j) {
                 for (int n = start_index; n <= poly_order; n++){
                     for (alphay = 0; alphay <= n; alphay++){
@@ -330,12 +354,21 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                         v1 = (j==0) ? 0 : std::pow(quadrature_coord_2d.x/cutoff_p,alphax)
                             *std::pow(quadrature_coord_2d.y/cutoff_p,alphay)/alphaf;
 
-                        double dot_product = normal_quadrature_coord_2d[0]*v0 + normal_quadrature_coord_2d[1]*v1;
+                        // either n*v or t*v
+                        double dot_product = direction_2d[0]*v0 + direction_2d[1]*v1;
 
                         // multiply by quadrature weight
                         if (quadrature==0) {
-                            *(delta+i) = dot_product * _quadrature_weights[quadrature] * magnitude;
+                            if (polynomial_sampling_functional == SamplingFunctional::FaceNormalIntegralSample 
+                                    || polynomial_sampling_functional == SamplingFunctional::FaceTangentIntegralSample) {
+                                // integral
+                                *(delta+i) = dot_product * _quadrature_weights[quadrature] * magnitude;
+                            } else {
+                                // point
+                                *(delta+i) = dot_product;
+                            }
                         } else {
+                            // non-integrated quantities never satisfy this condition
                             *(delta+i) += dot_product * _quadrature_weights[quadrature] * magnitude;
                         }
                         i++;
