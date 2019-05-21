@@ -236,7 +236,7 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
 
 
     ## RT0 REMAP TO VECTOR TEST
-    #ADD_TEST(NAME RT0Remap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/RT0Remap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_RT0.xml" "--kokkos-threads=2")
+    #ADD_TEST(NAME RT0Remap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/RT0Remap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_RT0.yml" "--kokkos-threads=2")
     #SET_TESTS_PROPERTIES(RT0Remap PROPERTIES LABELS "rt0")
 
     # SET FLAGS FOR TESTS NOT RUN

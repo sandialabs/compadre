@@ -129,10 +129,11 @@ int main (int argc, char* args[]) {
             new_particles->getFieldManager()->createField(2, "velocity", "m/s");
             new_particles->getFieldManager()->createField(3, "exact_solution", "m/s");
 
-            particles->getFieldManager()->createField(6, "combined_extra_data", "none"); // 2 endpts * 2 dimensions for coordinatess + normal direction in 2D
+            particles->getFieldManager()->createField(8, "combined_extra_data", "none"); // 2 endpts * 2 dimensions for coordinatess + normal direction in 2D
 
             auto related_coordinates_view = particles->getFieldManager()->getFieldByName("related_coordinates")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
             auto unit_normals_view = particles->getFieldManager()->getFieldByName("unit_normals")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+            auto unit_tangents_view = particles->getFieldManager()->getFieldByName("unit_tangents")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
             auto combined_extra_data_view = particles->getFieldManager()->getFieldByName("combined_extra_data")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
 
             for(int j=0; j<coords->nLocal(); j++){
@@ -142,16 +143,34 @@ int main (int argc, char* args[]) {
                 for(int k=0; k<2; k++){
                     combined_extra_data_view(j,4 + k) = unit_normals_view(j,k);
                 }
+                for(int k=0; k<2; k++){
+                    combined_extra_data_view(j,6 + k) = unit_tangents_view(j,k);
+                }
             }
 
             particles->getFieldManager()->updateFieldsHaloData();
             particles->getFieldManager()->listFields(std::cout);
 
-            Compadre::RemapObject ro("u", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::FaceNormalIntegralSample, SamplingFunctional::FaceNormalIntegralSampleData);
-            // Compadre::RemapObject ro("u", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, SamplingFunctional::FaceNormalIntegralSample, SamplingFunctional::FaceNormalIntegralSampleData); // shouldn't work. Test added for this case to GMLS_Targets.
+            std::string remap_type = parameters->get<std::string>("remap type");
 
-            ro.setExtraData("combined_extra_data");
-            rm->add(ro);
+            if (remap_type == "face normal integrated") {
+                Compadre::RemapObject ro("u_integrated_normal", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::FaceNormalIntegralSample, SamplingFunctional::PointSample);
+                ro.setExtraData("combined_extra_data");
+                rm->add(ro);
+            } else if (remap_type == "face normal point") {
+                Compadre::RemapObject ro("u_point_normal", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::FaceNormalPointSample, SamplingFunctional::PointSample);
+                ro.setExtraData("combined_extra_data");
+                rm->add(ro);
+            } else if (remap_type == "face tangent integrated") {
+                Compadre::RemapObject ro("u_integrated_tangent", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::FaceTangentIntegralSample, SamplingFunctional::PointSample);
+                ro.setExtraData("combined_extra_data");
+                rm->add(ro);
+            } else if (remap_type == "face tangent point") {
+                Compadre::RemapObject ro("u_point_tangent", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::FaceTangentPointSample, SamplingFunctional::PointSample);
+                ro.setExtraData("combined_extra_data");
+                rm->add(ro);
+            }
+
             rm->execute();
 
              // point by point check to see how far off from correct value

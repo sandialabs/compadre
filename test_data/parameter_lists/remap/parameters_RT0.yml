@@ -1,0 +1,32 @@
+%YAML 1.1
+---
+Compadre:
+  'remap type': 'face normal integrated'
+  #'remap type': 'face normal point'
+  #'remap type': 'face tangent integrated'
+  #'remap type': 'face tangent point'
+  'io':
+    'input file prefix': '../test_data/grids/'
+    'input file': 'native_1.nc'
+    'output file prefix': '../test_data/'
+    'output file': 'vector_out.pvtp'
+    'vtk produce mesh': true
+  'remap':
+    'porder': 3
+    'curvature porder': 3
+    'neighbors needed multiplier': 1.0
+    'weighting power': 12
+    'curvature weighting power': 12
+    'quadrature points': 4
+    'dimensions': 2
+  'neighborhood':
+    'method': nanoflann
+    'dynamic radius': true
+    'spatially varying radius': true
+    'multiplier': 2.10
+    'size': 0.25
+    'cutoff multiplier': 2.5
+  'halo':
+    'dynamic': true
+    'multiplier': 4.0
+...

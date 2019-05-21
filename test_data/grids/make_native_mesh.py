@@ -1,3 +1,4 @@
+import sys
 import math
 import random
 import numpy as np
@@ -30,13 +31,15 @@ def get_unit_normal_vector(line_coordinates):
     unit_normal_vector = np.concatenate((unit_normal_vector, np.zeros([1])), axis=0) 
     unit_tangent_vector = np.concatenate((unit_tangent_vector, np.zeros([1])), axis=0) 
     
+    #print(unit_normal_vector)
+    #print(unit_tangent_vector)
     # take cross product of normal as calculated and tangent and check the sign in the z component
     cross_product = np.cross(unit_normal_vector, unit_tangent_vector)
     if (cross_product[2] > 0):
         unit_normal_vector = unit_normal_vector[0:2]
     else:
         unit_normal_vector = -unit_normal_vector[0:2]
-    return unit_normal_vector
+    return (unit_normal_vector, unit_tangent_vector[0:2])
 
 def integrand(x, line_coordinates, unit_normal_vector):
     # convert the x which is a quadrature for the interval
@@ -62,10 +65,20 @@ def integrand(x, line_coordinates, unit_normal_vector):
 def integrate_along_line(line_coordinates):
     # (x0,y0,x1,y1) are given
 
-    unit_normal_vector = get_unit_normal_vector(line_coordinates)
+    (unit_normal_vector, unit_tangent_vector) = get_unit_normal_vector(line_coordinates)
 
     # return the integral
-    return quad(integrand, 0, 1, args=(line_coordinates, unit_normal_vector))[0]
+    return (quad(integrand, 0, 1, args=(line_coordinates, unit_normal_vector))[0], quad(integrand, 0, 1, args=(line_coordinates, unit_tangent_vector))[0])
+
+def dot_with_normal_vector(unit_normal_vector, unit_tangent_vector, line_coordinates):
+    # calculate v*n or v*t
+
+    # calculate quadrature_coordinate
+    midpoint_coordinate = 0.5*line_coordinates[0:2] + 0.5*line_coordinates[2:4]
+    
+    velocity = get_velocity(midpoint_coordinate)
+ 
+    return (np.dot(unit_normal_vector, velocity), np.dot(unit_tangent_vector, velocity))
 
 vis = True
 
@@ -78,11 +91,14 @@ random.seed(1234)
 blowup_ratio = 1 # 1 does nothing, identity
 random_rotation = False
 rotation_max = 180 # in degrees (either clockwise or counterclockwise, 180 should be highest needed)
-variation = .00 # as a decimal for a percent
+variation = .20 # as a decimal for a percent
 
 
-h_all=[0.2]#,0.1,0.05,0.025,0.0125,0.00625]
+h_all=[0.2,0.1]#,0.05,0.025,0.0125,0.00625]
 
+base_filename = "native"
+if (len(sys.argv) > 1):
+    base_filename = str(sys.argv[1])
 
 for key, h in enumerate(h_all):
     
@@ -159,7 +175,11 @@ for key, h in enumerate(h_all):
     #now transform by their midpoint
     new_line_points = np.concatenate((points[lines[:,0],:],points[lines[:,1],:]),axis=1)
     unit_normal_vectors = np.zeros([new_line_points.shape[0],lines.shape[1]])
-    solution_on_line = np.zeros(new_line_points.shape[0])
+    unit_tangent_vectors = np.zeros([new_line_points.shape[0],lines.shape[1]])
+    normal_integrate_solution_on_line = np.zeros(new_line_points.shape[0])
+    tangent_integrate_solution_on_line = np.zeros(new_line_points.shape[0])
+    normal_point_solution_on_line = np.zeros(new_line_points.shape[0])
+    tangent_point_solution_on_line = np.zeros(new_line_points.shape[0])
     for i, row in enumerate(new_line_points):
 
         midpoint = 0.5*row[0:2] + 0.5*row[2:4]
@@ -184,8 +204,9 @@ for key, h in enumerate(h_all):
         new_line_points[i,2:4] += scaled_midpoint
         
         # integrate v against normal along this line
-        solution_on_line[i] = integrate_along_line(new_line_points[i,:])
-        unit_normal_vectors[i] = get_unit_normal_vector(new_line_points[i,:])
+        (normal_integrate_solution_on_line[i], tangent_integrate_solution_on_line[i]) = integrate_along_line(new_line_points[i,:])
+        (unit_normal_vectors[i], unit_tangent_vectors[i]) = get_unit_normal_vector(new_line_points[i,:])
+        (normal_point_solution_on_line[i], tangent_point_solution_on_line[i]) = dot_with_normal_vector(unit_normal_vectors[i], unit_tangent_vectors[i], new_line_points[i,:])
 
     if (vis):
         # visualization of directed edges
@@ -215,7 +236,7 @@ for key, h in enumerate(h_all):
         plt.show()
 
     # write solution to netcdf
-    dataset = Dataset('rt0_%d.nc'%key, mode="w", clobber=True, diskless=False,\
+    dataset = Dataset('%s_%d.nc'%(base_filename,key), mode="w", clobber=True, diskless=False,\
                        persist=False, keepweakref=False, format='NETCDF4')
     dataset.createDimension('num_entities', size=new_line_points.shape[0])
     dataset.createDimension('related_coordinates_size', size=2*2) # 2 is spatial description and a 1d dimension entity has two endpoint to describe
@@ -232,6 +253,10 @@ for key, h in enumerate(h_all):
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
+    dataset.createVariable('unit_tangents', datatype='d', dimensions=('num_entities','spatial_dimension'), zlib=False, complevel=4,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
+
     dataset.createVariable('x', datatype='d', dimensions=('num_entities'), zlib=False, complevel=4,\
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
@@ -244,16 +269,32 @@ for key, h in enumerate(h_all):
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
-    dataset.createVariable('u', datatype='d', dimensions=('num_entities'), zlib=False, complevel=4,\
+    dataset.createVariable('u_integrated_normal', datatype='d', dimensions=('num_entities'), zlib=False, complevel=4,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
+
+    dataset.createVariable('u_integrated_tangent', datatype='d', dimensions=('num_entities'), zlib=False, complevel=4,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
+
+    dataset.createVariable('u_point_normal', datatype='d', dimensions=('num_entities'), zlib=False, complevel=4,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
+
+    dataset.createVariable('u_point_tangent', datatype='d', dimensions=('num_entities'), zlib=False, complevel=4,\
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
     dataset.variables['related_coordinates'][:,:]=new_line_points[:,:]
     dataset.variables['unit_normals'][:,:]=unit_normal_vectors[:,:]
+    dataset.variables['unit_tangents'][:,:]=unit_tangent_vectors[:,:]
     dataset.variables['x'][:]=0.5*new_line_points[:,0:1] + 0.5*new_line_points[:,2:3]
     dataset.variables['y'][:]=0.5*new_line_points[:,1:2] + 0.5*new_line_points[:,3:4]
     dataset.variables['z'][:]=0.0*new_line_points[:,0:1]
-    dataset.variables['u'][:]=solution_on_line[:]
+    dataset.variables['u_integrated_normal'][:]=normal_integrate_solution_on_line[:]
+    dataset.variables['u_integrated_tangent'][:]=tangent_integrate_solution_on_line[:]
+    dataset.variables['u_point_normal'][:]=normal_point_solution_on_line[:]
+    dataset.variables['u_point_tangent'][:]=tangent_point_solution_on_line[:]
 
     #help(dataset)
     dataset.close()

@@ -89,10 +89,14 @@ namespace Compadre {
         StaggeredEdgeAnalyticGradientIntegralSample,
         //! Samples consist of the result of integrals of a vector dotted with the tangent along edges between neighbor and target
         StaggeredEdgeIntegralSample,
-        //! Only used for integrating polynomial dotted with normal over an edge, not for constracting on data
+        //! For integrating polynomial dotted with normal over an edge
         FaceNormalIntegralSample,
-        //! Samples consist of scalar representing a vector field dotted with an edge's normal direction and integrated
-        FaceNormalIntegralSampleData,
+        //! For polynomial dotted with normal on edge
+        FaceNormalPointSample,
+        //! For integrating polynomial dotted with tangent over an edge
+        FaceTangentIntegralSample,
+        //! For polynomial dotted with tangent
+        FaceTangentPointSample,
         //! Point evaluations of the entire vector source function 
         //! (but on a manifold, so it includes a transform into local coordinates)
         VaryingManifoldVectorPointSample,
@@ -105,8 +109,10 @@ namespace Compadre {
         1, ///< ManifoldVectorPointSample
         0, ///< StaggeredEdgeAnalyticGradientIntegralSample,
         1, ///< StaggeredEdgeIntegralSample
-        1, ///< FaceNormalIntegralSample
-        0, ///< FaceNormalIntegralSampleData
+        1, ///< FaceNormalIntegralSample,
+        1, ///< FaceNormalPointSample,
+        1, ///< FaceTangentIntegralSample,
+        1, ///< FaceTangentPointSample,
         1, ///< VaryingManifoldVectorPointSample
     };
 
@@ -117,8 +123,10 @@ namespace Compadre {
         1, ///< ManifoldVectorPointSample
         0, ///< StaggeredEdgeAnalyticGradientIntegralSample,
         0, ///< StaggeredEdgeIntegralSample
-        0, ///< FaceNormalIntegralSample
-        0, ///< FaceNormalIntegralSampleData
+        0, ///< FaceNormalIntegralSample,
+        0, ///< FaceNormalPointSample,
+        0, ///< FaceTangentIntegralSample,
+        0, ///< FaceTangentPointSample,
         1, ///< VaryingManifoldVectorPointSample
     };
 
@@ -150,8 +158,10 @@ namespace Compadre {
         0, ///< ManifoldVectorPointSample
         1, ///< StaggeredEdgeAnalyticGradientIntegralSample,
         1, ///< StaggeredEdgeIntegralSample
-        0, ///< FaceNormalIntegralSample
-        0, ///< FaceNormalIntegralSampleData
+        0, ///< FaceNormalIntegralSample,
+        0, ///< FaceNormalPointSample,
+        0, ///< FaceTangentIntegralSample,
+        0, ///< FaceTangentPointSample,
         0, ///< VaryingManifoldVectorPointSample
     };
 
@@ -164,8 +174,10 @@ namespace Compadre {
         0, ///< ManifoldVectorPointSample
         1, ///< StaggeredEdgeAnalyticGradientIntegralSample,
         1, ///< StaggeredEdgeIntegralSample
-        0, ///< FaceNormalIntegralSample
-        0, ///< FaceNormalIntegralSampleData
+        0, ///< FaceNormalIntegralSample,
+        0, ///< FaceNormalPointSample,
+        0, ///< FaceTangentIntegralSample,
+        0, ///< FaceTangentPointSample,
         0, ///< VaryingManifoldVectorPointSample
     };
 
