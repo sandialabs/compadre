@@ -191,7 +191,7 @@ int main (int argc, char* args[]) {
 			} else if (my_coloring == 33) {
 				Compadre::RemapObject r1("source_constant", "peer_constant");
 				Compadre::RemapObject r2("source_sinx", "peer");
-				Compadre::RemapObject r3("source_sphere_harmonics", "peer_harmonics", ScalarPointEvaluation, ScalarTaylorPolynomial, SamplingFunctional::PointSample, parameters->get<Teuchos::ParameterList>("remap").get<bool>("obfet"));
+				Compadre::RemapObject r3("source_sphere_harmonics", "peer_harmonics", ScalarPointEvaluation, ScalarTaylorPolynomial, PointSample, parameters->get<Teuchos::ParameterList>("remap").get<bool>("obfet"));
 				remap_vec.push_back(r1);
 				remap_vec.push_back(r2);
 				remap_vec.push_back(r3);
