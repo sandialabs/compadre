@@ -90,16 +90,16 @@ namespace Compadre {
         //! hash of name, for uniqueness
         size_t id;
         //! Rank of sampling functional input for each SamplingFunctional
-        const int input_rank;
+        int input_rank;
         //! Rank of sampling functional output for each SamplingFunctional
-        const int output_rank;
+        int output_rank;
         //! Whether or not the SamplingTensor acts on the target site as well as the neighbors.
         //! This makes sense only in staggered schemes, when each target site is also a source site
-        const bool use_target_site_weights;
+        bool use_target_site_weights;
         //! Whether the SamplingFunctional + ReconstructionSpace results in a nontrivial nullspace requiring SVD
-        const bool nontrivial_nullspace;
+        bool nontrivial_nullspace;
         //! Describes the SamplingFunction relationship to targets, neighbors
-        const int transform_type;
+        int transform_type;
 
         SamplingFunctional(std::string name, const int input_rank_, const int output_rank_,
                 const bool use_target_site_weights_, const bool nontrivial_nullspace_,
@@ -118,10 +118,12 @@ namespace Compadre {
         inline bool operator != (const SamplingFunctional &sf) const {
             return id != sf.id;
         }
+
     };
 
-    ////! Available sampling functionals
-    extern const SamplingFunctional 
+
+    //! Available sampling functionals
+    static const SamplingFunctional 
 
         //! Point evaluations of the scalar source function
         PointSample = SamplingFunctional("PointSample",0,0,false,false,(int)Identity),
