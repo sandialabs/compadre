@@ -139,12 +139,15 @@ protected:
     //! actual rank of reconstruction basis
     int _reconstruction_space_rank;
 
+    //! solver type for GMLS problem, can also be set to MANIFOLD for manifold problems
+    DenseSolverType _dense_solver_type;
+
     //! polynomial sampling functional used to construct P matrix, set at GMLS class instantiation
-    SamplingFunctional _polynomial_sampling_functional;
+    const SamplingFunctional _polynomial_sampling_functional;
 
     //! generally the same as _polynomial_sampling_functional, but can differ if specified at 
     //! GMLS class instantiation
-    SamplingFunctional _data_sampling_functional;
+    const SamplingFunctional _data_sampling_functional;
 
     //! vector containing target functionals to be applied for curvature
     Kokkos::View<TargetOperation*> _curvature_support_operations;
@@ -164,9 +167,6 @@ protected:
     Kokkos::View<double*, layout_right> _parameterized_quadrature_sites;
 
 
-
-    //! solver type for GMLS problem, can also be set to MANIFOLD for manifold problems
-    DenseSolverType _dense_solver_type;
 
     //! weighting kernel type for GMLS
     WeightingFunctionType _weighting_type;
@@ -344,7 +344,7 @@ protected:
         \param additional_evaluation_local_index [in] - local index for evaluation sites 
     */
     KOKKOS_INLINE_FUNCTION
-    void calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, const scratch_matrix_right_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample, const int additional_evaluation_local_index = 0) const;
+    void calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, const scratch_matrix_right_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = PointSample, const int additional_evaluation_local_index = 0) const;
 
     /*! \brief Evaluates the gradient of a polynomial basis under the Dirac Delta (pointwise) sampling function.
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -385,7 +385,7 @@ protected:
         \param sampling_strategy    [in] - sampling functional specification
     */
     KOKKOS_INLINE_FUNCTION
-    void createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_right_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p = false, scratch_matrix_right_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = SamplingFunctional::PointSample) const;
+    void createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_right_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p = false, scratch_matrix_right_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = PointSample) const;
 
     /*! \brief Fills the _P matrix with P*sqrt(w) for use in solving for curvature
 
@@ -614,6 +614,26 @@ protected:
 
 ///@}
 
+/** @name Private Utility
+ *  
+ */
+///@{
+
+    //! Parses a string to determine solver type
+    static DenseSolverType parseSolverType(const std::string& dense_solver_type) {
+        std::string solver_type_to_lower = dense_solver_type;
+        transform(solver_type_to_lower.begin(), solver_type_to_lower.end(), solver_type_to_lower.begin(), ::tolower);
+        if (solver_type_to_lower == "svd") {
+            return DenseSolverType::SVD;
+        } else if (solver_type_to_lower == "manifold") {
+            return DenseSolverType::MANIFOLD;
+        } else {
+            return DenseSolverType::QR;
+        }
+    }
+
+///@}
+
 public:
 
 /** @name Instantiation / Destruction
@@ -622,10 +642,22 @@ public:
 ///@{
 
     //! Minimal constructor providing no data (neighbor lists, source sites, target sites) 
-    GMLS(const int poly_order,
-            const std::string dense_solver_type = std::string("QR"),
-            const int manifold_curvature_poly_order = 2,
-            const int dimensions = 3) : _poly_order(poly_order), _curvature_poly_order(manifold_curvature_poly_order), _dimensions(dimensions) {
+    GMLS(ReconstructionSpace reconstruction_space,
+        const SamplingFunctional polynomial_sampling_strategy,
+        const SamplingFunctional data_sampling_strategy,
+        const int poly_order,
+        const std::string dense_solver_type = std::string("QR"),
+        const int manifold_curvature_poly_order = 2,
+        const int dimensions = 3) : 
+            _reconstruction_space(reconstruction_space),
+            _dense_solver_type(parseSolverType(dense_solver_type)),
+            _polynomial_sampling_functional(((_dense_solver_type == DenseSolverType::MANIFOLD) 
+                        && (polynomial_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : polynomial_sampling_strategy),
+            _data_sampling_functional(((_dense_solver_type == DenseSolverType::MANIFOLD) 
+                        && (data_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : data_sampling_strategy),
+            _poly_order(poly_order),
+            _curvature_poly_order(manifold_curvature_poly_order),
+            _dimensions(dimensions) {
 
         // seed random number generator pool
         _random_number_pool = pool_type(1);
@@ -646,10 +678,16 @@ public:
 #endif
         _threads_per_team = 0;
 
-        // temporary, just to avoid warning
-        _dense_solver_type = DenseSolverType::QR;
-        // set based on input
-        this->setSolverType(dense_solver_type);
+        // register curvature operations for manifold problems
+        if (_dense_solver_type == DenseSolverType::MANIFOLD) {
+            _curvature_support_operations = Kokkos::View<TargetOperation*>
+                ("operations needed for manifold gradient reconstruction", 1);
+            auto curvature_support_operations_mirror = 
+                Kokkos::create_mirror(_curvature_support_operations);
+            curvature_support_operations_mirror(0) = 
+                TargetOperation::GradientOfScalarPointEvaluation;
+            Kokkos::deep_copy(_curvature_support_operations, curvature_support_operations_mirror);
+        }
 
         _lro_lookup = std::vector<int>(TargetOperation::COUNT,-1); // hard coded against number of operations defined
         _lro = std::vector<TargetOperation>();
@@ -663,9 +701,6 @@ public:
         _weighting_power = 2;
         _curvature_weighting_power = 2;
 
-        _reconstruction_space = ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial;
-        _polynomial_sampling_functional = SamplingFunctional::VectorPointSample;
-        _data_sampling_functional = SamplingFunctional::VectorPointSample;
         _reconstruction_space_rank = ActualReconstructionSpaceRank[_reconstruction_space];
 
         _basis_multiplier = 1;
@@ -682,12 +717,6 @@ public:
         _global_dimensions = dimensions;
         if (_dense_solver_type == DenseSolverType::MANIFOLD) {
             _local_dimensions = dimensions-1;
-            // VectorPointSample is dealt with differently on a manifold since it includes a coordinate
-            // transform to a manifold's local chart
-            if (_polynomial_sampling_functional == SamplingFunctional::VectorPointSample)
-                _polynomial_sampling_functional = SamplingFunctional::ManifoldVectorPointSample;
-            if (_data_sampling_functional == SamplingFunctional::VectorPointSample)
-                _data_sampling_functional = SamplingFunctional::ManifoldVectorPointSample;
         } else {
             _local_dimensions = dimensions;
         }
@@ -695,31 +724,10 @@ public:
 
     //! Constructor for the case when the data sampling functional does not match the polynomial
     //! sampling functional. Only case anticipated is staggered Laplacian.
-    GMLS(ReconstructionSpace reconstruction_space,
-        SamplingFunctional polynomial_sampling_strategy,
-        SamplingFunctional data_sampling_strategy,
-        const int poly_order,
-        const std::string dense_solver_type = std::string("QR"),
-        const int manifold_curvature_poly_order = 2,
-        const int dimensions = 3)
-            : GMLS(poly_order, dense_solver_type, manifold_curvature_poly_order, dimensions) {
-
-        _reconstruction_space = reconstruction_space;
-        _polynomial_sampling_functional = polynomial_sampling_strategy;
-        _data_sampling_functional = data_sampling_strategy;
-        _reconstruction_space_rank = ActualReconstructionSpaceRank[_reconstruction_space];
-        if (_dense_solver_type == DenseSolverType::MANIFOLD) {
-            // VectorPointSample is dealt with differently on a manifold since it includes a coordinate
-            // transform to a manifold's local chart
-            if (_polynomial_sampling_functional == SamplingFunctional::VectorPointSample)
-                _polynomial_sampling_functional = SamplingFunctional::ManifoldVectorPointSample;
-            if (_data_sampling_functional == SamplingFunctional::VectorPointSample)
-                _data_sampling_functional = SamplingFunctional::ManifoldVectorPointSample;
-        }
-        compadre_assert_release((SamplingOutputTensorRank[(int)_polynomial_sampling_functional] 
-                    == SamplingOutputTensorRank[(int)_polynomial_sampling_functional]) 
-                && "Output rank of polynomial and data sampling functionals must match.");
-    };
+    GMLS(const int poly_order,
+         const std::string dense_solver_type = std::string("QR"),
+         const int manifold_curvature_poly_order = 2,
+         const int dimensions = 3) : GMLS(ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, VectorPointSample, VectorPointSample, poly_order, dense_solver_type, manifold_curvature_poly_order, dimensions) {}
 
     //! Constructor for the case when nonstandard sampling functionals or reconstruction spaces
     //! are to be used. Reconstruction space and sampling strategy can only be set at instantiation.
@@ -818,6 +826,10 @@ public:
 
 ///@}
 
+/** @name Public Utility
+ *  
+ */
+///@{
 
     //! Returns size of the basis for a given polynomial order and dimension
     //! General to dimension 1..3 and polynomial order m
@@ -845,6 +857,8 @@ public:
         }
         return nn;
     }
+
+///@}
 
 /** @name Accessors
  *  Retrieve member variables through public member functions
@@ -956,7 +970,7 @@ public:
         // functional used, which can not be inferred unless a specification of target functional,
         // reconstruction space, and sampling functional are all known (as was the case at the
         // construction of this class)
-        const int input_index = getSamplingOutputIndex((int)_polynomial_sampling_functional, input_component_axis_1, input_component_axis_2);
+        const int input_index = getSamplingOutputIndex(_polynomial_sampling_functional, input_component_axis_1, input_component_axis_2);
         const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
 
         return getTargetOffsetIndexHost(lro_number, input_index, output_index, additional_evaluation_local_index);
@@ -1057,7 +1071,7 @@ public:
     double getPreStencilWeight(SamplingFunctional sro, const int target_index, const int neighbor_index, bool for_target, const int output_component = 0, const int input_component = 0) const {
         // for certain sampling strategies, linear combinations of the neighbor and target value are needed
         // for the traditional PointSample, this value is 1 for the neighbor and 0 for the target
-        if (sro == SamplingFunctional::PointSample ) {
+        if (sro == PointSample ) {
             if (for_target) return 0; else return 1;
         }
 
@@ -1065,11 +1079,11 @@ public:
         // in order to reuse information, such as if the same data transformation is used, regardless
         // of target site or neighbor site
         const int target_index_in_weights = 
-            (SamplingTensorStyle[(int)sro]==DifferentEachTarget 
-                    || SamplingTensorStyle[(int)sro]==DifferentEachNeighbor) ?
+            (sro.transform_type==DifferentEachTarget 
+                    || sro.transform_type==DifferentEachNeighbor) ?
                 target_index : 0;
         const int neighbor_index_in_weights = 
-            (SamplingTensorStyle[(int)sro]==DifferentEachNeighbor) ?
+            (sro.transform_type==DifferentEachNeighbor) ?
                 neighbor_index : 0;
 
         return _host_prestencil_weights((int)for_target, target_index_in_weights, neighbor_index_in_weights, 
@@ -1093,23 +1107,23 @@ public:
     //! Dimensions ^ output rank for sampling operation 
     //! (always in local chart if on a manifold, never ambient space)
     int getOutputDimensionOfSampling(SamplingFunctional sro) const {
-        return std::pow(_local_dimensions, SamplingOutputTensorRank[(int)sro]);
+        return std::pow(_local_dimensions, sro.output_rank);
     }
 
     //! Dimensions ^ output rank for sampling operation 
     //! (always in ambient space, never local chart on a manifold)
     int getInputDimensionOfSampling(SamplingFunctional sro) const {
-        return std::pow(_global_dimensions, SamplingInputTensorRank[(int)sro]);
+        return std::pow(_global_dimensions, sro.input_rank);
     }
 
     //! Output rank for sampling operation
     int getOutputRankOfSampling(SamplingFunctional sro) const {
-        return SamplingOutputTensorRank[(int)sro];
+        return sro.output_rank;
     }
 
     //! Input rank for sampling operation
     int getInputRankOfSampling(SamplingFunctional sro) const {
-        return SamplingInputTensorRank[(int)sro];
+        return sro.input_rank;
     }
 
 ///@}
@@ -1542,27 +1556,6 @@ public:
         this->resetCoefficientData();
     }
 
-    //! Parses a string to determine solver type
-    void setSolverType(const std::string& dense_solver_type) {
-        std::string solver_type_to_lower = dense_solver_type;
-        transform(solver_type_to_lower.begin(), solver_type_to_lower.end(), solver_type_to_lower.begin(), ::tolower);
-        if (solver_type_to_lower == "svd") {
-            _dense_solver_type = DenseSolverType::SVD;
-        } else if (solver_type_to_lower == "manifold") {
-            _dense_solver_type = DenseSolverType::MANIFOLD;
-            _curvature_support_operations = Kokkos::View<TargetOperation*>
-                ("operations needed for manifold gradient reconstruction", 1);
-            auto curvature_support_operations_mirror = 
-                Kokkos::create_mirror(_curvature_support_operations);
-            curvature_support_operations_mirror(0) = 
-                TargetOperation::GradientOfScalarPointEvaluation;
-            Kokkos::deep_copy(_curvature_support_operations, curvature_support_operations_mirror);
-        } else {
-            _dense_solver_type = DenseSolverType::QR;
-        }
-        this->resetCoefficientData();
-    }
-
     //! Adds a target to the vector of target functional to be applied to the reconstruction
     void addTargets(TargetOperation lro) {
         std::vector<TargetOperation> temporary_lro_vector(1, lro);
@@ -1634,7 +1627,7 @@ public:
 
             // the target functional output rank is based on the output rank of the sampling
             // functional used
-            _host_lro_input_tensor_rank(i) = SamplingOutputTensorRank[(int)_polynomial_sampling_functional];
+            _host_lro_input_tensor_rank(i) = _polynomial_sampling_functional.output_rank;
             _host_lro_output_tensor_rank(i) = TargetOutputTensorRank[(int)_lro[i]];
         }
 
