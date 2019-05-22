@@ -425,7 +425,7 @@ void RemapManager::add(RemapObject obj) {
         obj._target_operation = TargetOperation::VectorPointEvaluation;
         //obj._reconstruction_space = ReconstructionSpace::VectorTaylorPolynomial;
         obj._reconstruction_space = ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial;
-        obj._polynomial_sampling_functional = SamplingFunctional::VectorPointSample;
+        obj._polynomial_sampling_functional = VectorPointSample;
         obj._data_sampling_functional = obj._polynomial_sampling_functional;
     } 
 
