@@ -52,10 +52,10 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
     }
 
     // basis ActualReconstructionSpaceRank is 0 (evaluated like a scalar) and sampling functional is traditional
-    if ((polynomial_sampling_functional == SamplingFunctional::PointSample ||
-            polynomial_sampling_functional == SamplingFunctional::VectorPointSample ||
-            polynomial_sampling_functional == SamplingFunctional::ManifoldVectorPointSample ||
-            polynomial_sampling_functional == SamplingFunctional::VaryingManifoldVectorPointSample)&&
+    if ((polynomial_sampling_functional == PointSample ||
+            polynomial_sampling_functional == VectorPointSample ||
+            polynomial_sampling_functional == ManifoldVectorPointSample ||
+            polynomial_sampling_functional == VaryingManifoldVectorPointSample)&&
             (reconstruction_space == ScalarTaylorPolynomial || reconstruction_space == VectorOfScalarClonesTaylorPolynomial)) {
 
         double cutoff_p = _epsilons(target_index);
@@ -94,9 +94,9 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
         }
 
     // basis ActualReconstructionSpaceRank is 1 (is a true vector basis) and sampling functional is traditional
-    } else if ((polynomial_sampling_functional == SamplingFunctional::VectorPointSample ||
-                polynomial_sampling_functional == SamplingFunctional::ManifoldVectorPointSample ||
-                polynomial_sampling_functional == SamplingFunctional::VaryingManifoldVectorPointSample) &&
+    } else if ((polynomial_sampling_functional == VectorPointSample ||
+                polynomial_sampling_functional == ManifoldVectorPointSample ||
+                polynomial_sampling_functional == VaryingManifoldVectorPointSample) &&
                     (reconstruction_space == VectorTaylorPolynomial)) {
 
         const int dimension_offset = this->getNP(_poly_order, dimension);
@@ -146,7 +146,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
 
 
     // basis is actually scalar with staggered sampling functional
-    } else if ((polynomial_sampling_functional == SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) &&
+    } else if ((polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) &&
             (reconstruction_space == ScalarTaylorPolynomial)) {
 
         {
@@ -226,7 +226,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 }
             }
         }
-    } else if (polynomial_sampling_functional == SamplingFunctional::StaggeredEdgeIntegralSample) {
+    } else if (polynomial_sampling_functional == StaggeredEdgeIntegralSample) {
 
         double cutoff_p = _epsilons(target_index);
 
@@ -273,10 +273,10 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 }
             }
         }
-    } else if (polynomial_sampling_functional == SamplingFunctional::FaceNormalIntegralSample ||
-                polynomial_sampling_functional == SamplingFunctional::FaceTangentIntegralSample ||
-                polynomial_sampling_functional == SamplingFunctional::FaceNormalPointSample ||
-                polynomial_sampling_functional == SamplingFunctional::FaceTangentPointSample) {
+    } else if (polynomial_sampling_functional == FaceNormalIntegralSample ||
+                polynomial_sampling_functional == FaceTangentIntegralSample ||
+                polynomial_sampling_functional == FaceNormalPointSample ||
+                polynomial_sampling_functional == FaceTangentPointSample) {
 
         double cutoff_p = _epsilons(target_index);
 
@@ -294,8 +294,8 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
          */
 
         // if not integrating, set to 1
-        int quadrature_point_loop = (polynomial_sampling_functional == SamplingFunctional::FaceNormalIntegralSample 
-                || polynomial_sampling_functional == SamplingFunctional::FaceTangentIntegralSample) ?
+        int quadrature_point_loop = (polynomial_sampling_functional == FaceNormalIntegralSample 
+                || polynomial_sampling_functional == FaceTangentIntegralSample) ?
                                     _number_of_quadrature_points : 1;
 
         // only used for integrated quantities
@@ -318,8 +318,8 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
             XYZ quadrature_coord_2d;
             for (int j=0; j<dimension; ++j) {
                 
-                if (polynomial_sampling_functional == SamplingFunctional::FaceNormalIntegralSample 
-                        || polynomial_sampling_functional == SamplingFunctional::FaceTangentIntegralSample) {
+                if (polynomial_sampling_functional == FaceNormalIntegralSample 
+                        || polynomial_sampling_functional == FaceTangentIntegralSample) {
                     // quadrature coord site
                     quadrature_coord_2d[j] = _parameterized_quadrature_sites[quadrature]*_extra_data(neighbor_index_in_source, j);
                     quadrature_coord_2d[j] += (1-_parameterized_quadrature_sites[quadrature])*_extra_data(neighbor_index_in_source, j+2);
@@ -330,8 +330,8 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 }
 
                 // normal direction or tangent direction
-                if (polynomial_sampling_functional == SamplingFunctional::FaceNormalIntegralSample 
-                        || polynomial_sampling_functional == SamplingFunctional::FaceNormalPointSample) {
+                if (polynomial_sampling_functional == FaceNormalIntegralSample 
+                        || polynomial_sampling_functional == FaceNormalPointSample) {
                     // normal direction
                     direction_2d[j] = _extra_data(neighbor_index_in_source, 4 + j);
                 } else {
@@ -359,8 +359,8 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
 
                         // multiply by quadrature weight
                         if (quadrature==0) {
-                            if (polynomial_sampling_functional == SamplingFunctional::FaceNormalIntegralSample 
-                                    || polynomial_sampling_functional == SamplingFunctional::FaceTangentIntegralSample) {
+                            if (polynomial_sampling_functional == FaceNormalIntegralSample 
+                                    || polynomial_sampling_functional == FaceTangentIntegralSample) {
                                 // integral
                                 *(delta+i) = dot_product * _quadrature_weights[quadrature] * magnitude;
                             } else {
@@ -413,10 +413,10 @@ void GMLS::calcGradientPij(double* delta, const int target_index, const int neig
 
     double cutoff_p = _epsilons(target_index);
 
-    if ((polynomial_sampling_functional == SamplingFunctional::PointSample ||
-            polynomial_sampling_functional == SamplingFunctional::VectorPointSample ||
-            polynomial_sampling_functional == SamplingFunctional::ManifoldVectorPointSample ||
-            polynomial_sampling_functional == SamplingFunctional::VaryingManifoldVectorPointSample) &&
+    if ((polynomial_sampling_functional == PointSample ||
+            polynomial_sampling_functional == VectorPointSample ||
+            polynomial_sampling_functional == ManifoldVectorPointSample ||
+            polynomial_sampling_functional == VaryingManifoldVectorPointSample) &&
             (reconstruction_space == ScalarTaylorPolynomial || reconstruction_space == VectorOfScalarClonesTaylorPolynomial)) {
 
         int alphax, alphay, alphaz;
@@ -514,8 +514,8 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 
             // coefficient muliplied by relative distance (allows for mid-edge weighting if applicable)
             double alpha_weight = 1;
-            if (_polynomial_sampling_functional==SamplingFunctional::StaggeredEdgeIntegralSample
-                    || _polynomial_sampling_functional==SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
+            if (_polynomial_sampling_functional==StaggeredEdgeIntegralSample
+                    || _polynomial_sampling_functional==StaggeredEdgeAnalyticGradientIntegralSample) {
                 alpha_weight = 0.5;
             }
 
