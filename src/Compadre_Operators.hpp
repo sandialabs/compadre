@@ -145,8 +145,10 @@ namespace Compadre {
         (int)DifferentEachTarget,   ///< ManifoldVectorPointSample
         (int)SameForAll,            ///< StaggeredEdgeAnalyticGradientIntegralSample,
         (int)DifferentEachNeighbor, ///< StaggeredEdgeIntegralSample
-        (int)DifferentEachNeighbor, ///< FaceNormalIntegralSample
-        (int)Identity,              ///< FaceNormalIntegralSampleData
+        (int)Identity,              ///< FaceNormalIntegralSample,
+        (int)Identity,              ///< FaceNormalPointSample,
+        (int)Identity,              ///< FaceTangentIntegralSample,
+        (int)Identity,              ///< FaceTangentPointSample,
         (int)DifferentEachNeighbor, ///< VaryingManifoldVectorPointSample
     };
 
