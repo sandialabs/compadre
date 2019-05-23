@@ -7,9 +7,15 @@ Compadre:
   #'remap type': 'face tangent point'
   'io':
     'input file prefix': '../test_data/grids/'
-    'input file': 'native_1.nc'
+    # source sites
+    'input file': 'native_0.nc'
+    # target sites
+    'input file2': 'native_1.nc'
     'output file prefix': '../test_data/'
-    'output file': 'vector_out.pvtp'
+    # data reconstructed on target
+    'output file': 'vector_out.pvtu'
+    # source data as pvtu
+    'output file2': 'vector_in.pvtu'
     'vtk produce mesh': true
   'remap':
     'porder': 3
