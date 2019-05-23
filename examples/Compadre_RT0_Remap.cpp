@@ -115,7 +115,7 @@ int main (int argc, char* args[]) {
                 //Read in data file.
                 SecondReadTime->start();
                 Compadre::FileManager fm2;
-                std::string testfilename(parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file"));
+                std::string testfilename(parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file2"));
                 fm2.setReader(testfilename, new_particles);
                 fm2.read();
                 SecondReadTime->stop();
@@ -205,14 +205,21 @@ int main (int argc, char* args[]) {
                 fm.write();
 
             }
+            {
+                std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file2");
+                Compadre::FileManager fm;
+                fm.setWriter(output_filename, particles);
+                fm.write();
+
+            }
             WriteTime->stop();
 
 
             double exact = 0;
             GO num_solved_for = 0;
-            for(int j=0; j<coords->nLocal(); j++){
-                if (particles->getFlag(j)==0) {
-                    xyz_type xyz = coords->getLocalCoords(j);
+            for(int j=0; j<new_coords->nLocal(); j++){
+                if (new_particles->getFlag(j)==0) {
+                    xyz_type xyz = new_coords->getLocalCoords(j);
                     exact = function->evalVector(xyz).x;
                     physical_coordinate_weighted_l2_norm += (solution_field(j,0) - exact)*(solution_field(j,0) - exact);//*grid_area_field(j,0);
                     physical_coordinate_weighted_l2_norm += (solution_field(j,1) - function->evalVector(xyz).y)*(solution_field(j,1) - function->evalVector(xyz).y);
