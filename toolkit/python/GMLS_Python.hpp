@@ -278,6 +278,9 @@ public:
         if (gmls_object->getGlobalDimensions() > 1) {
             gmls_object->addTargets(Compadre::TargetOperation::PartialYOfScalarPointEvaluation);
         }
+        if (gmls_object->getGlobalDimensions() > 2) {
+            gmls_object->addTargets(Compadre::TargetOperation::PartialZOfScalarPointEvaluation);
+        }
         gmls_object->generateAlphas();
     }
 
@@ -418,8 +421,11 @@ public:
         } else if (target_operation == "grad_x") {
             requested_operation = Compadre::TargetOperation::PartialXOfScalarPointEvaluation;
         } else if (target_operation == "grad_y") {
-            compadre_assert_release((gmls_object->getGlobalDimensions() > 1) && "Partial derivative w.r.t. y requested, but only a 1D problem.");
+            compadre_assert_release((gmls_object->getGlobalDimensions() > 1) && "Partial derivative w.r.t. y requested, but only a 2D problem.");
             requested_operation = Compadre::TargetOperation::PartialYOfScalarPointEvaluation;
+        } else if (target_operation == "grad_z") {
+            compadre_assert_release((gmls_object->getGlobalDimensions() > 2) && "Partial derivative w.r.t. z requested, but less than 3D problem.");
+            requested_operation = Compadre::TargetOperation::PartialZOfScalarPointEvaluation;
         }
         auto output_values = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
             (source_data, requested_operation);
@@ -534,8 +540,10 @@ public:
         // how many target sites
         int number_target_coords = target_coords.extent(0);
 
-        int estimated_upper_bound_number_neighbors = 
-            (int)(maximum_neighbors_storage_multiplier*point_cloud_search->getEstimatedNumberNeighborsUpperBound(neighbors_needed, dimension, epsilon_multiplier));
+        // estimate storage requirements, but if storage_multiplier <= 0, then allocate as many entries as there are neighbors
+        int estimated_upper_bound_number_neighbors = (maximum_neighbors_storage_multiplier > 0) ?
+            (int)(maximum_neighbors_storage_multiplier*point_cloud_search->getEstimatedNumberNeighborsUpperBound(neighbors_needed, dimension, epsilon_multiplier))
+            : _source_coords.extent(0)+1; // +1 for # of neighbors value
         
         // make neighbor list kokkos view
         int_2d_view_type neighbor_lists("neighbor lists", 
