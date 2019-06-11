@@ -3,6 +3,8 @@
 
 #include "Compadre_Typedefs.hpp"
 
+#define make_sampling_functional(input, output, targets, nontrivial, transform) SamplingFunctional(input, output, targets, nontrivial, transform, __COUNTER__)
+
 namespace Compadre {
 
     //! Available target functionals
@@ -42,7 +44,7 @@ namespace Compadre {
     //! Rank of target functional output for each TargetOperation 
     //! Rank of target functional input for each TargetOperation is based on the output
     //! rank of the SamplingFunctional used on the polynomial basis
-    const int TargetOutputTensorRank[] {
+    constexpr int TargetOutputTensorRank[] {
         0, ///< PointEvaluation
         1, ///< VectorPointEvaluation
         0, ///< LaplacianOfScalarPointEvaluation
@@ -72,7 +74,7 @@ namespace Compadre {
     };
 
     //! Number of actual components in the ReconstructionSpace
-    const int ActualReconstructionSpaceRank[] = {
+    constexpr int ActualReconstructionSpaceRank[] = {
         0, ///< ScalarTaylorPolynomial
         1, ///< VectorTaylorPolynomial
         0, ///< VectorOfScalarClonesTaylorPolynomial
@@ -86,8 +88,10 @@ namespace Compadre {
         DifferentEachNeighbor, ///< Each target applies a different transform for each neighbor
     };
 
+    enum SamplingName { nPointSample, nVectorPointSample, nManifoldVectorPointSample, nStaggeredEdgeAnalyticGradientIntegralSample, nStaggeredEdgeIntegralSample, nVaryingManifoldVectorPointSample, nFaceNormalIntegralSample, nFaceNormalPointSample, nFaceTangentIntegralSample, nFaceTangentPointSample};
+
     struct SamplingFunctional {
-        //! hash of name, for uniqueness
+        //! for uniqueness
         size_t id;
         //! Rank of sampling functional input for each SamplingFunctional
         int input_rank;
@@ -101,61 +105,60 @@ namespace Compadre {
         //! Describes the SamplingFunction relationship to targets, neighbors
         int transform_type;
 
-        SamplingFunctional(std::string name, const int input_rank_, const int output_rank_,
+        //SamplingFunctional(std::string name, const int input_rank_, const int output_rank_,
+        KOKKOS_INLINE_FUNCTION
+        constexpr SamplingFunctional(const int input_rank_, const int output_rank_,
                 const bool use_target_site_weights_, const bool nontrivial_nullspace_,
-                const int transform_type_) : input_rank(input_rank_), output_rank(output_rank_),
+                const int transform_type_, const int id_) : 
+                id(id_), input_rank(input_rank_), output_rank(output_rank_),
                 use_target_site_weights(use_target_site_weights_), nontrivial_nullspace(nontrivial_nullspace_),
-                transform_type(transform_type_) {
+                transform_type(transform_type_) {}
 
-            std::hash<std::string> str_hash;
-            id = str_hash(name);
-        }
-
-        inline bool operator == (const SamplingFunctional &sf) const {
+        KOKKOS_INLINE_FUNCTION
+        constexpr bool operator == (const SamplingFunctional sf) const {
             return id == sf.id;
         }
 
-        inline bool operator != (const SamplingFunctional &sf) const {
+        KOKKOS_INLINE_FUNCTION
+        constexpr bool operator != (const SamplingFunctional sf) const {
             return id != sf.id;
         }
 
     };
 
-
     //! Available sampling functionals
-    static const SamplingFunctional 
+    constexpr SamplingFunctional 
 
         //! Point evaluations of the scalar source function
-        PointSample = SamplingFunctional("PointSample",0,0,false,false,(int)Identity),
+        PointSample = make_sampling_functional(0,0,false,false,(int)Identity),
 
         //! Point evaluations of the entire vector source function
-        VectorPointSample = SamplingFunctional("VectorPointSample",1,1,false,false,(int)Identity),
+        VectorPointSample = make_sampling_functional(1,1,false,false,(int)Identity),
 
         //! Point evaluations of the entire vector source function 
         //! (but on a manifold, so it includes a transform into local coordinates)
-        ManifoldVectorPointSample = SamplingFunctional("ManifoldVectorPointSample",1,1,false,false,(int)DifferentEachTarget),
+        ManifoldVectorPointSample = make_sampling_functional(1,1,false,false,(int)DifferentEachTarget),
 
         //! Analytical integral of a gradient source vector is just a difference of the scalar source at neighbor and target
-        StaggeredEdgeAnalyticGradientIntegralSample = SamplingFunctional("StaggeredEdgeAnalyticGradientIntegralSample",0,0,true,true,(int)SameForAll),
+        StaggeredEdgeAnalyticGradientIntegralSample = make_sampling_functional(0,0,true,true,(int)SameForAll),
 
         //! Samples consist of the result of integrals of a vector dotted with the tangent along edges between neighbor and target
-        StaggeredEdgeIntegralSample = SamplingFunctional("StaggeredEdgeIntegralSample",1,0,true,true,(int)DifferentEachNeighbor),
+        StaggeredEdgeIntegralSample = make_sampling_functional(1,0,true,true,(int)DifferentEachNeighbor),
 
         //! For integrating polynomial dotted with normal over an edge
-        VaryingManifoldVectorPointSample = SamplingFunctional("VaryingManifoldVectorPointSample",1,1,false,false,(int)DifferentEachNeighbor),
+        VaryingManifoldVectorPointSample = make_sampling_functional(1,1,false,false,(int)DifferentEachNeighbor),
 
         //! For integrating polynomial dotted with normal over an edge
-        FaceNormalIntegralSample = SamplingFunctional("FaceNormalIntegralSample",1,0,false,false,(int)Identity),
+        FaceNormalIntegralSample = make_sampling_functional(1,0,false,false,(int)Identity),
 
         //! For polynomial dotted with normal on edge
-        FaceNormalPointSample = SamplingFunctional("FaceNormalPointSample",1,0,false,false,(int)Identity),
+        FaceNormalPointSample = make_sampling_functional(1,0,false,false,(int)Identity),
 
         //! For integrating polynomial dotted with tangent over an edge
-        FaceTangentIntegralSample = SamplingFunctional("FaceTangentIntegralSample",1,0,false,false,(int)Identity),
+        FaceTangentIntegralSample = make_sampling_functional(1,0,false,false,(int)Identity),
 
         //! For polynomial dotted with tangent
-        FaceTangentPointSample = SamplingFunctional("FaceTangentPointSample",1,0,false,false,(int)Identity);
-
+        FaceTangentPointSample = make_sampling_functional(1,0,false,false,(int)Identity);
 
     //! Dense solver type, that optionally can also handle manifolds
     enum DenseSolverType {
