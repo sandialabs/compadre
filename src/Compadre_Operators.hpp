@@ -88,8 +88,6 @@ namespace Compadre {
         DifferentEachNeighbor, ///< Each target applies a different transform for each neighbor
     };
 
-    enum SamplingName { nPointSample, nVectorPointSample, nManifoldVectorPointSample, nStaggeredEdgeAnalyticGradientIntegralSample, nStaggeredEdgeIntegralSample, nVaryingManifoldVectorPointSample, nFaceNormalIntegralSample, nFaceNormalPointSample, nFaceTangentIntegralSample, nFaceTangentPointSample};
-
     struct SamplingFunctional {
         //! for uniqueness
         size_t id;
