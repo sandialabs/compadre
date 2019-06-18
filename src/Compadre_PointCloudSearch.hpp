@@ -169,13 +169,15 @@ class PointCloudSearch {
         }
 
         //! Generates neighbor lists
-        template <typename neighbor_lists_view_type, typename epsilons_view_type>
-        void generateNeighborListsFromKNNSearch(view_type trg_pts_view, neighbor_lists_view_type neighbor_lists,
+        template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
+        void generateNeighborListsFromKNNSearch(trg_view_type trg_pts_view, neighbor_lists_view_type neighbor_lists,
                 epsilons_view_type epsilons, const int neighbors_needed, 
                 const int dimension = 3, const double epsilon_multiplier = 1.6, std::shared_ptr<tree_type> kd_tree = NULL, bool max_search_radius = 0.0) {
 
+            compadre_assert_release((std::is_same<typename trg_view_type::memory_space, Kokkos::HostSpace>::value) &&
+                    "Target coordinates view passed to generateNeighborListsFromKNNSearch should reside on the host.");
             compadre_assert_release(trg_pts_view.dimension_1()==3 &&
-                    "Views passed to PointCloudSearch at construction must have second dimension of 3.");
+                    "Target coordinates view passed to generateNeighborListsFromKNNSearch must have second dimension of 3.");
             compadre_assert_release((std::is_same<typename neighbor_lists_view_type::memory_space, Kokkos::HostSpace>::value) &&
                     "Views passed to generateNeighborListsFromKNNSearch should reside on the host.");
             compadre_assert_release((std::is_same<typename epsilons_view_type::memory_space, Kokkos::HostSpace>::value) &&
@@ -313,12 +315,6 @@ class PointCloudSearch {
         }
 
 }; // PointCloudSearch
-
-//! CreatePointCloudSearch allows for the construction of an object of type PointCloudSearch with template deduction
-template <typename view_type>
-PointCloudSearch<view_type> CreatePointCloudSearch(view_type src_view, view_type trg_view) { 
-    return PointCloudSearch<view_type>(src_view, trg_view);
-}
 
 //! CreatePointCloudSearch allows for the construction of an object of type PointCloudSearch with template deduction
 template <typename view_type>
