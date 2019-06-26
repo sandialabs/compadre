@@ -40,15 +40,15 @@ void GMLS::generatePolynomialCoefficients() {
     // that the GMLS operator will be able to operate on
     auto sro = _data_sampling_functional;
     _prestencil_weights = decltype(_prestencil_weights)("Prestencil weights",
-            std::pow(2,SamplingTensorForTargetSite[(int)sro]), 
-            (SamplingTensorStyle[(int)sro]==DifferentEachTarget 
-                    || SamplingTensorStyle[(int)sro]==DifferentEachNeighbor) ?
+            std::pow(2,sro.use_target_site_weights), 
+            (sro.transform_type==DifferentEachTarget 
+                    || sro.transform_type==DifferentEachNeighbor) ?
                 _neighbor_lists.dimension_0() : 1,
-            (SamplingTensorStyle[(int)sro]==DifferentEachNeighbor) ?
+            (sro.transform_type==DifferentEachNeighbor) ?
                 _max_num_neighbors : 1,
-            (SamplingOutputTensorRank[(int)sro]>0) ?
+            (sro.output_rank>0) ?
                 _local_dimensions : 1,
-            (SamplingInputTensorRank[(int)sro]>0) ?
+            (sro.input_rank>0) ?
                 _global_dimensions : 1);
 
     /*
@@ -57,9 +57,7 @@ void GMLS::generatePolynomialCoefficients() {
 
     // check whether the sampling function acting on the basis will induce a nontrivial nullspace
     // an example would be reconstructing from gradient information, which would annihilate constants
-    if (SamplingNontrivialNullspace[_polynomial_sampling_functional]==1) {
-        _nontrivial_nullspace = true;
-    }
+    _nontrivial_nullspace = _polynomial_sampling_functional.nontrivial_nullspace;
 
     /*
      *    Determine if Nonstandard Sampling Dimension or Basis Component Dimension
@@ -72,17 +70,17 @@ void GMLS::generatePolynomialCoefficients() {
     // this handles scalars, vectors, and scalars that are reused as vectors
     _sampling_multiplier = std::pow(_local_dimensions, 
             std::min(ActualReconstructionSpaceRank[(int)_reconstruction_space], 
-                SamplingOutputTensorRank[_data_sampling_functional]));
+                _data_sampling_functional.output_rank));
 
     // effective number of components in the basis
     _data_sampling_multiplier = std::pow(_local_dimensions, 
-                SamplingOutputTensorRank[_data_sampling_functional]);
+                _data_sampling_functional.output_rank);
 
     // calculate the dimension of the basis (a vector space on a manifold requires two components, for example)
     _basis_multiplier = std::pow(_local_dimensions, ActualReconstructionSpaceRank[(int)_reconstruction_space]);
 
     // special case for using a higher order for sampling from a polynomial space that are gradients of a scalar polynomial
-    if (_polynomial_sampling_functional == SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
+    if (_polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) {
         // if the reconstruction is being made with a gradient of a basis, then we want that basis to be one order higher so that
         // the gradient is consistent with the convergence order expected.
         _poly_order += 1;
@@ -126,7 +124,7 @@ void GMLS::generatePolynomialCoefficients() {
 
         _team_scratch_size_b += scratch_vector_type::shmem_size(max_P_row_size); // row of P matrix, one for each operator
         _thread_scratch_size_b += scratch_vector_type::shmem_size(max_manifold_NP*_basis_multiplier); // delta, used for each thread
-        if (_data_sampling_functional == SamplingFunctional::VaryingManifoldVectorPointSample) {
+        if (_data_sampling_functional == VaryingManifoldVectorPointSample) {
             _thread_scratch_size_b += scratch_vector_type::shmem_size(_dimensions*_dimensions); // temporary tangent calculations, used for each thread
         }
 
@@ -333,7 +331,7 @@ void GMLS::generateAlphas() {
 
     // copy computed alphas back to the host
     _host_alphas = Kokkos::create_mirror_view(_alphas);
-    if (_data_sampling_functional != SamplingFunctional::PointSample) {
+    if (_data_sampling_functional != PointSample) {
         _host_prestencil_weights = Kokkos::create_mirror_view(_prestencil_weights);
         Kokkos::deep_copy(_host_prestencil_weights, _prestencil_weights);
     }
@@ -995,14 +993,14 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
      *    Prestencil Weight Calculations
      */
 
-    if (_data_sampling_functional == SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample) {
+    if (_data_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) {
         Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                 _prestencil_weights(0,0,0,0,0) = -1;
                 _prestencil_weights(1,0,0,0,0) = 1;
             });
         });
-    } else if (_data_sampling_functional == SamplingFunctional::ManifoldVectorPointSample) {
+    } else if (_data_sampling_functional == ManifoldVectorPointSample) {
         Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                 for (int j=0; j<_dimensions; ++j) {
@@ -1012,7 +1010,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
                 }
             });
         });
-    } else if (_data_sampling_functional == SamplingFunctional::StaggeredEdgeIntegralSample) {
+    } else if (_data_sampling_functional == StaggeredEdgeIntegralSample) {
         const int neighbor_offset = _neighbor_lists.dimension_1()-1;
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)), [=] (const int m) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
@@ -1034,14 +1032,14 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
                 }
             });
         });
-    } else if (_data_sampling_functional == SamplingFunctional::VaryingManifoldVectorPointSample) {
+    } else if (_data_sampling_functional == VaryingManifoldVectorPointSample) {
 
         scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), manifold_NP);
 
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)), [&] (const int m) {
             
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                this->calcGradientPij(delta.data(), target_index, m, 0 /*alpha*/, 0 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, &T, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
+                this->calcGradientPij(delta.data(), target_index, m, 0 /*alpha*/, 0 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, &T, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
             });
             // reconstructs gradient at local neighbor index m
             double grad_xi1 = 0, grad_xi2 = 0;
@@ -1059,7 +1057,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
             t1(m) = grad_xi1;
 
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                this->calcGradientPij(delta.data(), target_index, m, 0 /*alpha*/, 1 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, &T, ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional::PointSample);
+                this->calcGradientPij(delta.data(), target_index, m, 0 /*alpha*/, 1 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, &T, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
             });
             Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember,this->getNNeighbors(target_index)), [=] (const int i, double &t_grad_xi2) {
                 double alpha_ij = 0;

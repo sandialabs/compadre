@@ -9,6 +9,8 @@
 #include <vector>
 #include <sstream>
 #include <cstddef>
+#include <functional>
+#include <string>
 
 /*!
  
