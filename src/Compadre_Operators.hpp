@@ -1,6 +1,10 @@
 #ifndef _COMPADRE_OPERATORS_HPP_
 #define _COMPADRE_OPERATORS_HPP_
 
+#include "Compadre_Typedefs.hpp"
+
+#define make_sampling_functional(input, output, targets, nontrivial, transform) SamplingFunctional(input, output, targets, nontrivial, transform, __COUNTER__)
+
 namespace Compadre {
 
     //! Available target functionals
@@ -40,7 +44,7 @@ namespace Compadre {
     //! Rank of target functional output for each TargetOperation 
     //! Rank of target functional input for each TargetOperation is based on the output
     //! rank of the SamplingFunctional used on the polynomial basis
-    const int TargetOutputTensorRank[] {
+    constexpr int TargetOutputTensorRank[] {
         0, ///< PointEvaluation
         1, ///< VectorPointEvaluation
         0, ///< LaplacianOfScalarPointEvaluation
@@ -70,64 +74,10 @@ namespace Compadre {
     };
 
     //! Number of actual components in the ReconstructionSpace
-    const int ActualReconstructionSpaceRank[] = {
+    constexpr int ActualReconstructionSpaceRank[] = {
         0, ///< ScalarTaylorPolynomial
         1, ///< VectorTaylorPolynomial
         0, ///< VectorOfScalarClonesTaylorPolynomial
-    };
-
-    //! Available sampling functionals
-    enum SamplingFunctional {
-        //! Point evaluations of the scalar source function
-        PointSample,
-        //! Point evaluations of the entire vector source function
-        VectorPointSample,
-        //! Point evaluations of the entire vector source function 
-        //! (but on a manifold, so it includes a transform into local coordinates)
-        ManifoldVectorPointSample,
-        //! Analytical integral of a gradient source vector is just a difference of the scalar source at neighbor and target
-        StaggeredEdgeAnalyticGradientIntegralSample,
-        //! Samples consist of the result of integrals of a vector dotted with the tangent along edges between neighbor and target
-        StaggeredEdgeIntegralSample,
-        //! For integrating polynomial dotted with normal over an edge
-        FaceNormalIntegralSample,
-        //! For polynomial dotted with normal on edge
-        FaceNormalPointSample,
-        //! For integrating polynomial dotted with tangent over an edge
-        FaceTangentIntegralSample,
-        //! For polynomial dotted with tangent
-        FaceTangentPointSample,
-        //! Point evaluations of the entire vector source function 
-        //! (but on a manifold, so it includes a transform into local coordinates)
-        VaryingManifoldVectorPointSample,
-    };
-
-    //! Rank of sampling functional input for each SamplingFunctional
-    const int SamplingInputTensorRank[] = {
-        0, ///< PointSample
-        1, ///< VectorPointSample
-        1, ///< ManifoldVectorPointSample
-        0, ///< StaggeredEdgeAnalyticGradientIntegralSample,
-        1, ///< StaggeredEdgeIntegralSample
-        1, ///< FaceNormalIntegralSample,
-        1, ///< FaceNormalPointSample,
-        1, ///< FaceTangentIntegralSample,
-        1, ///< FaceTangentPointSample,
-        1, ///< VaryingManifoldVectorPointSample
-    };
-
-    //! Rank of sampling functional output for each SamplingFunctional
-    const int SamplingOutputTensorRank[] {
-        0, ///< PointSample
-        1, ///< VectorPointSample
-        1, ///< ManifoldVectorPointSample
-        0, ///< StaggeredEdgeAnalyticGradientIntegralSample,
-        0, ///< StaggeredEdgeIntegralSample
-        0, ///< FaceNormalIntegralSample,
-        0, ///< FaceNormalPointSample,
-        0, ///< FaceTangentIntegralSample,
-        0, ///< FaceTangentPointSample,
-        1, ///< VaryingManifoldVectorPointSample
     };
 
     //! Describes the SamplingFunction relationship to targets, neighbors
@@ -138,50 +88,75 @@ namespace Compadre {
         DifferentEachNeighbor, ///< Each target applies a different transform for each neighbor
     };
 
-    //! Rank of sampling functional output for each SamplingFunctional
-    const int SamplingTensorStyle[] {
-        (int)Identity,              ///< PointSample
-        (int)Identity,              ///< VectorPointSample
-        (int)DifferentEachTarget,   ///< ManifoldVectorPointSample
-        (int)SameForAll,            ///< StaggeredEdgeAnalyticGradientIntegralSample,
-        (int)DifferentEachNeighbor, ///< StaggeredEdgeIntegralSample
-        (int)Identity,              ///< FaceNormalIntegralSample,
-        (int)Identity,              ///< FaceNormalPointSample,
-        (int)Identity,              ///< FaceTangentIntegralSample,
-        (int)Identity,              ///< FaceTangentPointSample,
-        (int)DifferentEachNeighbor, ///< VaryingManifoldVectorPointSample
+    struct SamplingFunctional {
+        //! for uniqueness
+        size_t id;
+        //! Rank of sampling functional input for each SamplingFunctional
+        int input_rank;
+        //! Rank of sampling functional output for each SamplingFunctional
+        int output_rank;
+        //! Whether or not the SamplingTensor acts on the target site as well as the neighbors.
+        //! This makes sense only in staggered schemes, when each target site is also a source site
+        bool use_target_site_weights;
+        //! Whether the SamplingFunctional + ReconstructionSpace results in a nontrivial nullspace requiring SVD
+        bool nontrivial_nullspace;
+        //! Describes the SamplingFunction relationship to targets, neighbors
+        int transform_type;
+
+        //SamplingFunctional(std::string name, const int input_rank_, const int output_rank_,
+        KOKKOS_INLINE_FUNCTION
+        constexpr SamplingFunctional(const int input_rank_, const int output_rank_,
+                const bool use_target_site_weights_, const bool nontrivial_nullspace_,
+                const int transform_type_, const int id_) : 
+                id(id_), input_rank(input_rank_), output_rank(output_rank_),
+                use_target_site_weights(use_target_site_weights_), nontrivial_nullspace(nontrivial_nullspace_),
+                transform_type(transform_type_) {}
+
+        KOKKOS_INLINE_FUNCTION
+        constexpr bool operator == (const SamplingFunctional sf) const {
+            return id == sf.id;
+        }
+
+        KOKKOS_INLINE_FUNCTION
+        constexpr bool operator != (const SamplingFunctional sf) const {
+            return id != sf.id;
+        }
+
     };
 
-    //! Whether or not the SamplingTensor acts on the target site as well as the neighbors.
-    //! This makes sense only in staggered schemes, when each target site is also a source site
-    const int SamplingTensorForTargetSite[] {
-        0, ///< PointSample
-        0, ///< VectorPointSample
-        0, ///< ManifoldVectorPointSample
-        1, ///< StaggeredEdgeAnalyticGradientIntegralSample,
-        1, ///< StaggeredEdgeIntegralSample
-        0, ///< FaceNormalIntegralSample,
-        0, ///< FaceNormalPointSample,
-        0, ///< FaceTangentIntegralSample,
-        0, ///< FaceTangentPointSample,
-        0, ///< VaryingManifoldVectorPointSample
-    };
+    //! Available sampling functionals
+    constexpr SamplingFunctional 
 
-    //! Whether the SamplingFunctional + ReconstructionSpace results in a nontrivial nullspace requiring SVD
-    const int SamplingNontrivialNullspace[] {
-        // does the sample over polynomials result in an operator
-        // with a nontrivial nullspace requiring SVD
-        0, ///< PointSample
-        0, ///< VectorPointSample
-        0, ///< ManifoldVectorPointSample
-        1, ///< StaggeredEdgeAnalyticGradientIntegralSample,
-        1, ///< StaggeredEdgeIntegralSample
-        0, ///< FaceNormalIntegralSample,
-        0, ///< FaceNormalPointSample,
-        0, ///< FaceTangentIntegralSample,
-        0, ///< FaceTangentPointSample,
-        0, ///< VaryingManifoldVectorPointSample
-    };
+        //! Point evaluations of the scalar source function
+        PointSample = make_sampling_functional(0,0,false,false,(int)Identity),
+
+        //! Point evaluations of the entire vector source function
+        VectorPointSample = make_sampling_functional(1,1,false,false,(int)Identity),
+
+        //! Point evaluations of the entire vector source function 
+        //! (but on a manifold, so it includes a transform into local coordinates)
+        ManifoldVectorPointSample = make_sampling_functional(1,1,false,false,(int)DifferentEachTarget),
+
+        //! Analytical integral of a gradient source vector is just a difference of the scalar source at neighbor and target
+        StaggeredEdgeAnalyticGradientIntegralSample = make_sampling_functional(0,0,true,true,(int)SameForAll),
+
+        //! Samples consist of the result of integrals of a vector dotted with the tangent along edges between neighbor and target
+        StaggeredEdgeIntegralSample = make_sampling_functional(1,0,true,true,(int)DifferentEachNeighbor),
+
+        //! For integrating polynomial dotted with normal over an edge
+        VaryingManifoldVectorPointSample = make_sampling_functional(1,1,false,false,(int)DifferentEachNeighbor),
+
+        //! For integrating polynomial dotted with normal over an edge
+        FaceNormalIntegralSample = make_sampling_functional(1,0,false,false,(int)Identity),
+
+        //! For polynomial dotted with normal on edge
+        FaceNormalPointSample = make_sampling_functional(1,0,false,false,(int)Identity),
+
+        //! For integrating polynomial dotted with tangent over an edge
+        FaceTangentIntegralSample = make_sampling_functional(1,0,false,false,(int)Identity),
+
+        //! For polynomial dotted with tangent
+        FaceTangentPointSample = make_sampling_functional(1,0,false,false,(int)Identity);
 
     //! Dense solver type, that optionally can also handle manifolds
     enum DenseSolverType {
@@ -213,14 +188,9 @@ namespace Compadre {
         return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
     }
 
-    //static int getSamplingInputIndex(const int operation_num, const int input_component_axis_1, const int input_component_axis_2) {
-    //    const int axis_1_size = (SamplingInputTensorRank[operation_num] > 1) ? SamplingInputTensorRank[operation_num] : 1;
-    //    return axis_1_size*input_component_axis_1 + input_component_axis_2; // 0 for scalar, 0 for vector;
-    //}
-
     //! Helper function for finding alpha coefficients
-    static int getSamplingOutputIndex(const int operation_num, const int output_component_axis_1, const int output_component_axis_2) {
-        const int axis_1_size = (SamplingOutputTensorRank[operation_num] > 1) ? SamplingOutputTensorRank[operation_num] : 1;
+    static int getSamplingOutputIndex(const SamplingFunctional sf, const int output_component_axis_1, const int output_component_axis_2) {
+        const int axis_1_size = (sf.output_rank > 1) ? sf.output_rank : 1;
         return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
     }
 

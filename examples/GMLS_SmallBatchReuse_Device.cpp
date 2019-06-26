@@ -372,7 +372,7 @@ bool all_passed = true;
         
         // retrieves polynomial coefficients instead of remapped field
         auto scalar_coefficients = gmls_evaluator.applyFullPolynomialCoefficientsBasisToDataAllComponents<double**, Kokkos::HostSpace>
-                (sampling_data_device, VectorPointSample);
+                (sampling_data_device);
         
         //! [Apply GMLS Alphas To Data]
         

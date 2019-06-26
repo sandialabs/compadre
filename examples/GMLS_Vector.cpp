@@ -106,14 +106,27 @@ bool all_passed = true;
     // number of source coordinate sites that will fill a box of [-1,1]x[-1,1]x[-1,1] with a spacing approximately h
     const int number_source_coords = std::pow(n_neg1_to_1, dimension);
     
+    // Coordinates for source and target sites are allocated through memory managed views just
+    // to allocate space for the data and from which to provide a pointer to raw data on the device.
+    // An unmanaged view is then created and pointed at this raw pointer in order to test the GMLS class
+    // setSourceSites and setTargetSites interface.
+
     // coordinates of source sites
-    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> source_coords_device("source coordinates", 
+    // data allocated on device memory space
+    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> source_coords_data("source coordinates", 
             number_source_coords, 3);
-    Kokkos::View<double**>::HostMirror source_coords = Kokkos::create_mirror_view(source_coords_device);
+    // later accessed through unmanaged memory view
+    scratch_matrix_left_type source_coords_device(source_coords_data.data(), 
+            number_source_coords, 3);
+    scratch_matrix_left_type::HostMirror source_coords = Kokkos::create_mirror_view(source_coords_device);
     
     // coordinates of target sites
-    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> target_coords_device ("target coordinates", number_target_coords, 3);
-    Kokkos::View<double**>::HostMirror target_coords = Kokkos::create_mirror_view(target_coords_device);
+    // data allocated on device memory space
+    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> target_coords_data("target coordinates", 
+            number_target_coords, 3);
+    // later accessed through unmanaged memory view
+    scratch_matrix_right_type target_coords_device (target_coords_data.data(), number_target_coords, 3);
+    scratch_matrix_right_type::HostMirror target_coords = Kokkos::create_mirror_view(target_coords_device);
     
     
     // fill source coordinates with a uniform grid
@@ -346,7 +359,7 @@ bool all_passed = true;
     
     // retrieves polynomial coefficients instead of remapped field
     auto scalar_coefficients = gmls_evaluator.applyFullPolynomialCoefficientsBasisToDataAllComponents<double**, Kokkos::HostSpace>
-            (sampling_data_device, VectorPointSample);
+            (sampling_data_device);
     
     //! [Apply GMLS Alphas To Data]
     

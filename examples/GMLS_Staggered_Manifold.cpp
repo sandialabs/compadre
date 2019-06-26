@@ -253,7 +253,7 @@ Kokkos::initialize(argc, args);
     
     // initialize an instance of the GMLS class
     GMLS my_GMLS_vector_1(ReconstructionSpace::VectorTaylorPolynomial, 
-            SamplingFunctional::StaggeredEdgeIntegralSample, 
+            StaggeredEdgeIntegralSample, 
             order, solver_name.c_str(), order /*manifold order*/, dimension);
     
     // pass in neighbor lists, source coordinates, target coordinates, and window sizes
@@ -296,8 +296,8 @@ Kokkos::initialize(argc, args);
     
     // initialize another instance of the GMLS class
     GMLS my_GMLS_vector_2(ReconstructionSpace::VectorTaylorPolynomial, 
-            SamplingFunctional::StaggeredEdgeIntegralSample, 
-            SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, 
+            StaggeredEdgeIntegralSample, 
+            StaggeredEdgeAnalyticGradientIntegralSample, 
             order, solver_name.c_str(), order /*manifold order*/, dimension);
     my_GMLS_vector_2.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
     std::vector<TargetOperation> lro_vector_2(2);
@@ -313,7 +313,7 @@ Kokkos::initialize(argc, args);
 
     // initialize another instance of the GMLS class
     GMLS my_GMLS_scalar(ReconstructionSpace::ScalarTaylorPolynomial, 
-            SamplingFunctional::StaggeredEdgeAnalyticGradientIntegralSample, 
+            StaggeredEdgeAnalyticGradientIntegralSample, 
             order, solver_name.c_str(), order /*manifold order*/, dimension);
     my_GMLS_scalar.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
 
