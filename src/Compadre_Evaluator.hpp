@@ -201,7 +201,7 @@ public:
     //! \param vary_on_target                   [in] - Whether the sampling functional has a tensor to act on sampling data that varies with each target site
     //! \param vary_on_neighbor                 [in] - Whether the sampling functional has a tensor to act on sampling data that varies with each neighbor site in addition to varying wit each target site
     template <typename view_type_data_out, typename view_type_data_in>
-    void applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(view_type_data_out output_data_single_column, view_type_data_in sampling_data_single_column, TargetOperation lro, SamplingFunctional sro, const int evaluation_site_local_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1, bool vary_on_target = false, bool vary_on_neighbor = false) const {
+    void applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(view_type_data_out output_data_single_column, view_type_data_in sampling_data_single_column, TargetOperation lro, const SamplingFunctional sro, const int evaluation_site_local_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1, bool vary_on_target = false, bool vary_on_neighbor = false) const {
 
         const int alpha_input_output_component_index = _gmls->getAlphaColumnOffset(lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
@@ -221,7 +221,7 @@ public:
                 "output_data_single_column view and input_data_single_column view have difference memory spaces.");
 
         bool weight_with_pre_T = (pre_transform_local_index>=0 && pre_transform_global_index>=0) ? true : false;
-        bool target_plus_neighbor_staggered_schema = SamplingTensorForTargetSite[(int)sro];
+        bool target_plus_neighbor_staggered_schema = sro.use_target_site_weights;
 
         // loops over target indices
         Kokkos::parallel_for(team_policy(num_targets, Kokkos::AUTO),
@@ -351,12 +351,12 @@ public:
     //! Assumptions on input data:
     //! \param sampling_data              [in] - 1D or 2D Kokkos View that has the layout #targets * columns of data. Memory space for data can be host or device. 
     //! \param lro                        [in] - Target operation from the TargetOperation enum
-    //! \param sro                        [in] - Sampling functional from the SamplingFunctional enum
+    //! \param sro_in                     [in] - Sampling functional from the SamplingFunctional enum
     //! \param scalar_as_vector_if_needed [in] - If a 1D view is given, where a 2D view is expected (scalar values given where a vector was expected), then the scalar will be repeated for as many components as the vector has
     //! \param evaluation_site_local_index [in] - 0 corresponds to evaluating at the target site itself, while a number larger than 0 indicates evaluation at a site other than the target, and specified by calling setAdditionalEvaluationSitesData on the GMLS class
     template <typename output_data_type = double**, typename output_memory_space, typename view_type_input_data, typename output_array_layout = typename view_type_input_data::array_layout>
     Kokkos::View<output_data_type, output_array_layout, output_memory_space>  // shares layout of input by default
-            applyAlphasToDataAllComponentsAllTargetSites(view_type_input_data sampling_data, TargetOperation lro, SamplingFunctional sro = SamplingFunctional::PointSample, bool scalar_as_vector_if_needed = true, const int evaluation_site_local_index = 0) const {
+            applyAlphasToDataAllComponentsAllTargetSites(view_type_input_data sampling_data, TargetOperation lro, const SamplingFunctional sro_in = PointSample, bool scalar_as_vector_if_needed = true, const int evaluation_site_local_index = 0) const {
 
 
         // output can be device or host
@@ -377,9 +377,7 @@ public:
         int output_dimensions = output_dimension_of_operator;
 
         // special case for VectorPointSample, because if it is on a manifold it includes data transform to local charts
-        if (problem_type==MANIFOLD && sro==VectorPointSample) {
-            sro = ManifoldVectorPointSample;
-        }
+        auto sro = (problem_type==MANIFOLD && sro_in==VectorPointSample) ? ManifoldVectorPointSample : sro_in;
 
         // create view on whatever memory space the user specified with their template argument when calling this function
         output_view_type target_output("output of target operation", neighbor_lists.dimension_0() /* number of targets */, 
@@ -399,17 +397,17 @@ public:
         // all loop logic based on transforming data under a sampling functional
         // into something that is valid input for GMLS
         bool vary_on_target, vary_on_neighbor;
-        auto sro_style = SamplingTensorStyle[(int)sro];
-        bool loop_global_dimensions = SamplingInputTensorRank[(int)sro]>0 && sro_style!=Identity; 
+        auto sro_style = sro.transform_type;
+        bool loop_global_dimensions = sro.input_rank>0 && sro_style!=Identity; 
 
 
-        if (SamplingTensorStyle[(int)sro] == Identity || SamplingTensorStyle[(int)sro] == SameForAll) {
+        if (sro.transform_type == Identity || sro.transform_type == SameForAll) {
             vary_on_target = false;
             vary_on_neighbor = false;
-        } else if (SamplingTensorStyle[(int)sro] == DifferentEachTarget) {
+        } else if (sro.transform_type == DifferentEachTarget) {
             vary_on_target = true;
             vary_on_neighbor = false;
-        } else if (SamplingTensorStyle[(int)sro] == DifferentEachNeighbor) {
+        } else if (sro.transform_type == DifferentEachNeighbor) {
             vary_on_target = true;
             vary_on_neighbor = true;
         }
@@ -500,7 +498,7 @@ public:
     //! \param vary_on_target                   [in] - Whether the sampling functional has a tensor to act on sampling data that varies with each target site
     //! \param vary_on_neighbor                 [in] - Whether the sampling functional has a tensor to act on sampling data that varies with each neighbor site in addition to varying wit each target site
     template <typename view_type_data_out, typename view_type_data_in>
-    void applyFullPolynomialCoefficientsBasisToDataSingleComponent(view_type_data_out output_data_block_column, view_type_data_in sampling_data_single_column, TargetOperation lro, SamplingFunctional sro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1, bool transform_output_ambient = false, bool vary_on_target = false, bool vary_on_neighbor = false) const {
+    void applyFullPolynomialCoefficientsBasisToDataSingleComponent(view_type_data_out output_data_block_column, view_type_data_in sampling_data_single_column, TargetOperation lro, const SamplingFunctional sro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1, bool transform_output_ambient = false, bool vary_on_target = false, bool vary_on_neighbor = false) const {
 
         auto neighbor_lists = _gmls->getNeighborLists();
         const int coefficient_matrix_tile_size = _gmls->getPolynomialCoefficientsMatrixTileSize();
@@ -526,7 +524,7 @@ public:
                 "output_data_block_column view and input_data_single_column view have difference memory spaces.");
 
         bool weight_with_pre_T = (pre_transform_local_index>=0 && pre_transform_global_index>=0) ? true : false;
-        bool target_plus_neighbor_staggered_schema = SamplingTensorForTargetSite[(int)sro];
+        bool target_plus_neighbor_staggered_schema = sro.use_target_site_weights;
 
         // loops over target indices
         for (int j=0; j<_gmls->getPolynomialCoefficientsSize(); ++j) {
@@ -632,7 +630,6 @@ public:
         // that will index input tile sizes correctly in the GMLS object.
 
         TargetOperation lro = TargetOperation::ScalarPointEvaluation;
-        SamplingFunctional sro = _gmls->getDataSamplingFunctional();
 
         // we do a quick check that the user specified ScalarPointEvaluation as one of the target operations they wanted to have
         // performed when they created the GMLS class. If they didn't, then we have no valid index into the input and output
@@ -663,10 +660,8 @@ public:
             output_dimensions = output_dimension_of_operator;
         }
 
-        // special case for VectorPointSample, because if it is on a manifold it includes data transform to local charts
-        if (problem_type==MANIFOLD && sro==VectorPointSample) {
-            sro = ManifoldVectorPointSample;
-        }
+        // don't need to check for VectorPointSample and problem_type==MANIFOLD because _gmls already handled this
+        const SamplingFunctional sro = _gmls->getDataSamplingFunctional();
 
         // create view on whatever memory space the user specified with their template argument when calling this function
         output_view_type coefficient_output("output coefficients", neighbor_lists.dimension_0() /* number of targets */, 
@@ -686,17 +681,17 @@ public:
         // all loop logic based on transforming data under a sampling functional
         // into something that is valid input for GMLS
         bool vary_on_target, vary_on_neighbor;
-        auto sro_style = SamplingTensorStyle[(int)sro];
-        bool loop_global_dimensions = SamplingInputTensorRank[(int)sro]>0 && sro_style!=Identity; 
+        auto sro_style = sro.transform_type;
+        bool loop_global_dimensions = sro.input_rank>0 && sro_style!=Identity; 
 
 
-        if (SamplingTensorStyle[(int)sro] == Identity || SamplingTensorStyle[(int)sro] == SameForAll) {
+        if (sro.transform_type == Identity || sro.transform_type == SameForAll) {
             vary_on_target = false;
             vary_on_neighbor = false;
-        } else if (SamplingTensorStyle[(int)sro] == DifferentEachTarget) {
+        } else if (sro.transform_type == DifferentEachTarget) {
             vary_on_target = true;
             vary_on_neighbor = false;
-        } else if (SamplingTensorStyle[(int)sro] == DifferentEachNeighbor) {
+        } else if (sro.transform_type == DifferentEachNeighbor) {
             vary_on_target = true;
             vary_on_neighbor = true;
         }
