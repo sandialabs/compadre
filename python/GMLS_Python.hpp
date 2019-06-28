@@ -51,9 +51,9 @@ public:
 
     ~GMLS_Python() { 
 
-		delete gmls_object; 
+        delete gmls_object;
 
-	}
+    }
 
     void setWeightingOrder(int regular_weight, int curvature_weight = -1) {
         if (curvature_weight < 0) curvature_weight = regular_weight;
