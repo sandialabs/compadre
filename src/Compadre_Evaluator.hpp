@@ -305,7 +305,7 @@ public:
     template <typename view_type_data_out, typename view_type_data_in>
     void applyLocalChartToAmbientSpaceTransform(view_type_data_out output_data_single_column, view_type_data_in sampling_data_single_column, const int local_dim_index, const int global_dim_index) const {
 
-		// Does T transpose times a vector
+        // Does T transpose times a vector
         auto global_dimensions = _gmls->getGlobalDimensions();
 
         // gather needed information for evaluation

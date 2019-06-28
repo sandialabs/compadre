@@ -163,7 +163,7 @@ bool all_passed = true;
     
     // need Kokkos View storing true solution
     Kokkos::View<double*, Kokkos::HostSpace> sampling_data("samples of true solution", source_coords.dimension_0());
-	Kokkos::View<double**, Kokkos::HostSpace> gradient_sampling_data("samples of true gradient", source_coords.dimension_0(), dimension);
+    Kokkos::View<double**, Kokkos::HostSpace> gradient_sampling_data("samples of true gradient", source_coords.dimension_0(), dimension);
     Kokkos::View<double**, Kokkos::LayoutLeft, Kokkos::HostSpace> divergence_sampling_data("samples of true solution for divergence test", source_coords.dimension_0(), dimension);
     Kokkos::parallel_for("Sampling Manufactured Solutions", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,source_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
         double xval = source_coords(i,0);
