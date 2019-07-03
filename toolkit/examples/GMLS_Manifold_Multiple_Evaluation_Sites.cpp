@@ -364,7 +364,7 @@ Kokkos::initialize(argc, args);
     // evaluation of that vector as the sampling functional
     // VectorTaylorPolynomial indicates that the basis will be a polynomial with as many components as the
     // dimension of the manifold. This differs from another possibility, which follows this class.
-    GMLS my_GMLS_vector(ReconstructionSpace::VectorTaylorPolynomial,SamplingFunctional::VaryingManifoldVectorPointSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
+    GMLS my_GMLS_vector(ReconstructionSpace::VectorTaylorPolynomial,VaryingManifoldVectorPointSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
     my_GMLS_vector.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
     my_GMLS_vector.setAdditionalEvaluationSitesData(neighbor_lists_device, source_coords_device);
     std::vector<TargetOperation> lro_vector(2);
@@ -401,7 +401,7 @@ Kokkos::initialize(argc, args);
     //  In the print-out for this program, we include the timings and errors on this and VectorTaylorPolynomial
     //  in order to demonstrate that they produce exactly the same answer, but that one is much more efficient.
     //
-    GMLS my_GMLS_vector_of_scalar_clones(ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial,SamplingFunctional::VaryingManifoldVectorPointSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
+    GMLS my_GMLS_vector_of_scalar_clones(ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial,VaryingManifoldVectorPointSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
     my_GMLS_vector_of_scalar_clones.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
     my_GMLS_vector_of_scalar_clones.setAdditionalEvaluationSitesData(neighbor_lists_device, source_coords_device);
     std::vector<TargetOperation> lro_vector_of_scalar_clones(2);
@@ -441,23 +441,23 @@ Kokkos::initialize(argc, args);
     Evaluator vector_gmls_evaluator_of_scalar_clones(&my_GMLS_vector_of_scalar_clones);
     
     auto output_value = scalar_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (sampling_data_device, ScalarPointEvaluation, SamplingFunctional::PointSample, 
+            (sampling_data_device, ScalarPointEvaluation, PointSample, 
              true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
 
     auto output_gaussian_curvature = scalar_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (ones_data_device, GaussianCurvaturePointEvaluation, SamplingFunctional::PointSample, 
+            (ones_data_device, GaussianCurvaturePointEvaluation, PointSample, 
              true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
 
     auto output_curl = scalar_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (sampling_data_device, CurlOfVectorPointEvaluation, SamplingFunctional::PointSample, 
+            (sampling_data_device, CurlOfVectorPointEvaluation, PointSample, 
              true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
     
     //auto output_laplacian = scalar_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-    //        (sampling_data_device, LaplacianOfScalarPointEvaluation, SamplingFunctional::PointSample, 
+    //        (sampling_data_device, LaplacianOfScalarPointEvaluation, PointSample, 
     //         true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
 
     //auto output_gradient = scalar_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-    //        (sampling_data_device, GradientOfScalarPointEvaluation, SamplingFunctional::PointSample, 
+    //        (sampling_data_device, GradientOfScalarPointEvaluation, PointSample, 
     //         true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
 
     auto output_vector = vector_gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>

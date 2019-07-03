@@ -8,12 +8,15 @@ from scipy.integrate import quad
 
 # helper functions
 
-def get_scalar(coordinate):
+def sinx_siny(coordinate):
     return np.sin(coordinate[0])*np.sin(coordinate[1])
+
+def x2my(coordinate):
+    return pow(coordinate[0],2)-coordinate[1]
 
 def get_velocity(coordinate):
     #return np.array((np.sin(coordinate[0]), np.cos(coordinate[1])))
-    return np.array((get_scalar(coordinate), -get_scalar(coordinate)))
+    return np.array((sinx_siny(coordinate), -sinx_siny(coordinate))) # make sure same solution used in remap
 
 def get_unit_normal_vector(line_coordinates):
     # (x0,y0,x1,y1) are given
@@ -80,7 +83,7 @@ def dot_with_normal_vector(unit_normal_vector, unit_tangent_vector, line_coordin
  
     return (np.dot(unit_normal_vector, velocity), np.dot(unit_tangent_vector, velocity))
 
-vis = True
+vis = False
 
 # geometry
 height = 1.0
@@ -94,7 +97,7 @@ rotation_max = 180 # in degrees (either clockwise or counterclockwise, 180 shoul
 variation = .20 # as a decimal for a percent
 
 
-h_all=[0.2,0.1]#,0.05,0.025,0.0125,0.00625]
+h_all=[0.2,0.1,0.05,0.025,0.0125]#,0.00625]
 
 base_filename = "native"
 if (len(sys.argv) > 1):

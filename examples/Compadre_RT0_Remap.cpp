@@ -1,7 +1,6 @@
 #include <Teuchos_oblackholestream.hpp>
 #include <Teuchos_GlobalMPISession.hpp>
 #include <Teuchos_RCP.hpp>
-#include <Tpetra_Core.hpp>
 
 #include <Kokkos_Core.hpp>
 
@@ -154,19 +153,19 @@ int main (int argc, char* args[]) {
             std::string remap_type = parameters->get<std::string>("remap type");
 
             if (remap_type == "face normal integrated") {
-                Compadre::RemapObject ro("u_integrated_normal", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::FaceNormalIntegralSample, SamplingFunctional::PointSample);
+                Compadre::RemapObject ro("u_integrated_normal", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, FaceNormalIntegralSample, PointSample);
                 ro.setExtraData("combined_extra_data");
                 rm->add(ro);
             } else if (remap_type == "face normal point") {
-                Compadre::RemapObject ro("u_point_normal", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::FaceNormalPointSample, SamplingFunctional::PointSample);
+                Compadre::RemapObject ro("u_point_normal", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, FaceNormalPointSample, PointSample);
                 ro.setExtraData("combined_extra_data");
                 rm->add(ro);
             } else if (remap_type == "face tangent integrated") {
-                Compadre::RemapObject ro("u_integrated_tangent", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::FaceTangentIntegralSample, SamplingFunctional::PointSample);
+                Compadre::RemapObject ro("u_integrated_tangent", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, FaceTangentIntegralSample, PointSample);
                 ro.setExtraData("combined_extra_data");
                 rm->add(ro);
             } else if (remap_type == "face tangent point") {
-                Compadre::RemapObject ro("u_point_tangent", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, SamplingFunctional::FaceTangentPointSample, SamplingFunctional::PointSample);
+                Compadre::RemapObject ro("u_point_tangent", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, FaceTangentPointSample, PointSample);
                 ro.setExtraData("combined_extra_data");
                 rm->add(ro);
             }
