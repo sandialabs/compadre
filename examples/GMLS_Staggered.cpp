@@ -277,7 +277,7 @@ bool all_passed = true;
                  StaggeredEdgeAnalyticGradientIntegralSample,
                  order,
                  solver_name.c_str(),
-                 2 /*manifold order*/,
+                 NULL /*manifold order*/,
                  dimension);
 
     // pass in neighbor lists, source coordinates, target coordinates, and window sizes
