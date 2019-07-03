@@ -334,10 +334,12 @@ void ProblemT::buildGraphs(local_index_type field_one, local_index_type field_tw
         if (A_graph[row_block][col_block].is_null()) {
             local_index_type field_one_dim = _particles->getFieldManagerConst()->getFieldByID(field_one)->nDim();
             local_index_type field_two_dim = _particles->getFieldManagerConst()->getFieldByID(field_two)->nDim();
-            A_graph[row_block][col_block] = Teuchos::rcp(new crs_graph_type (row_map[row_block], col_map[col_block], _particles->getNeighborhood()->getMaxNumNeighbors()*_particles->getNeighborhood()->getMaxNumNeighbors()*field_one_dim*field_two_dim));
+            A_graph[row_block][col_block] = Teuchos::rcp(new crs_graph_type (row_map[row_block], col_map[col_block], _particles->getNeighborhood()->getMaxNumNeighbors()*field_one_dim*field_two_dim, Tpetra::StaticProfile));
         }
         // _OP sets the initial graph and may change it
         _OP->setGraph(A_graph[row_block][col_block]);
+        _OP->setRowMap(row_map[row_block]);
+        _OP->setColMap(col_map[col_block]);
         // the resulting, potentially changed graph, is now returned
         A_graph[row_block][col_block] = _OP->computeGraph(field_one, field_two);
     } else {
@@ -346,10 +348,12 @@ void ProblemT::buildGraphs(local_index_type field_one, local_index_type field_tw
         }
         if (A_graph[0][0].is_null()) {
             local_index_type sum_num_field_dim = _particles->getFieldManagerConst()->getTotalFieldDimensions();
-            A_graph[0][0] = Teuchos::rcp(new crs_graph_type (row_map[0], col_map[0], _particles->getNeighborhood()->getMaxNumNeighbors()*_particles->getNeighborhood()->getMaxNumNeighbors()*sum_num_field_dim*sum_num_field_dim));
+            A_graph[0][0] = Teuchos::rcp(new crs_graph_type (row_map[0], col_map[0], _particles->getNeighborhood()->getMaxNumNeighbors()*_particles->getNeighborhood()->getMaxNumNeighbors()*sum_num_field_dim*sum_num_field_dim, Tpetra::StaticProfile));
         }
         // _OP sets the initial graph and may change it
         _OP->setGraph(A_graph[0][0]);
+        _OP->setRowMap(row_map[row_block]);
+        _OP->setColMap(col_map[col_block]);
         // the resulting, potentially changed graph, is now returned
         A_graph[0][0] = _OP->computeGraph(field_one, field_two);
     }
