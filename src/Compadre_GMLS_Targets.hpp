@@ -124,7 +124,14 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     }
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
-            } else {
+            }
+            // staggered gradient w/ edge integrals known analytically, using a basis
+            // of potentials
+            else if (_operations(i) == TargetOperation::DivergenceOfVectorPointEvaluation
+                     && _polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) {
+                compadre_kernel_assert_release((false) && "Functionality is currently being implemented");
+            }
+            else {
                 compadre_kernel_assert_release((false) && "Functionality not yet available.");
             }
 
