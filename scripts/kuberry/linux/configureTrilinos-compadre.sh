@@ -11,7 +11,6 @@ HDF_DIR=$HOME/releases/hdf5
 NETCDF_DIR=$HOME/releases/netcdf
 
 rm -rf CMakeFiles/ CMakeCache.txt
-
 cmake \
 -D CMAKE_C_COMPILER:FILEPATH=$MPI_DIR/bin/mpicc \
 -D CMAKE_CXX_COMPILER:FILEPATH=$MPI_DIR/bin/mpicxx \
@@ -37,8 +36,6 @@ cmake \
 -D Trilinos_ENABLE_ALL_OPTIONAL_PACKAGES:BOOL=OFF \
 \
 -D Trilinos_ENABLE_Teuchos:BOOL=ON \
--D Teuchos_ENABLE_LONG_LONG_INT:BOOL=ON \
-\
 -D Trilinos_ENABLE_Tpetra:BOOL=ON \
 \
 -D Trilinos_ENABLE_Kokkos:BOOL=ON \
@@ -52,6 +49,10 @@ cmake \
 -D Zoltan2_ENABLE_Experimental:BOOL=ON\
 -D Zoltan2_ENABLE_TESTS:BOOL=ON \
 \
+-D Trilinos_ENABLE_Xpetra:BOOL=ON \
+-D Trilinos_ENABLE_Anasazi:BOOL=ON \
+-D Trilinos_ENABLE_Epetra:BOOL=ON \
+-D Trilinos_ENABLE_Stratimikos:BOOL=ON \
 -D Trilinos_ENABLE_Belos:BOOL=ON \
 -D Belos_ENABLE_TESTS:BOOL=ON \
 -D Trilinos_ENABLE_Ifpack2:BOOL=ON \
@@ -62,14 +63,16 @@ cmake \
 -D Trilinos_ENABLE_MueLu:BOOL=ON \
 -D MueLu_ENABLE_TESTS:BOOL=OFF \
 -D MueLu_ENABLE_EXAMPLES:STRING=OFF \
+-D MueLu_ENABLE_Epetra:BOOL=OFF \
 -D Trilinos_ENABLE_Thyra:BOOL=ON \
 -D Trilinos_ENABLE_ThyraTpetraAdapters:BOOL=ON \
 -D Trilinos_ENABLE_Teko:BOOL=ON \
 -D Teko_ENABLE_TESTS:BOOL=ON \
 \
+-D Xpetra_Epetra_NO_32BIT_GLOBAL_INDICES=ON \
 -D Trilinos_ENABLE_EXPLICIT_INSTANTIATION:BOOL=ON \
 -D Tpetra_INST_INT_LONG_LONG:BOOL=ON \
--D Tpetra_INST_INT_INT:BOOL=ON \
+-D Tpetra_INST_INT_INT:BOOL=OFF \
 -D Tpetra_INST_DOUBLE:BOOL=ON \
 -D Tpetra_INST_FLOAT:BOOL=OFF \
 -D Tpetra_INST_COMPLEX_FLOAT:BOOL=OFF \
@@ -77,6 +80,7 @@ cmake \
 -D Tpetra_INST_INT_LONG:BOOL=OFF \
 -D Tpetra_INST_INT_UNSIGNED:BOOL=OFF \
 -D Tpetra_INST_SERIAL:BOOL=ON \
+-D Tpetra_ENABLE_DEPRECATED_CODE=OFF \
 \
 \
 $SRC_DIR

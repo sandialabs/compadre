@@ -22,6 +22,8 @@ class PhysicsT {
 		Teuchos::RCP<const Teuchos::Comm<local_index_type> > _comm;
 		const coords_type* _coords;
 		Teuchos::RCP<particle_type> _particles;
+		Teuchos::RCP<const map_type> _row_map;
+		Teuchos::RCP<const map_type> _col_map;
 		Teuchos::RCP<crs_graph_type> _A_graph;
 		Teuchos::RCP<crs_matrix_type> _A;
 		Teuchos::RCP<mvec_type> _b;
@@ -36,6 +38,14 @@ class PhysicsT {
 		virtual ~PhysicsT() {};
 
 		void setParameters(Teuchos::ParameterList& parameters) { _parameters = Teuchos::rcp(&parameters, false); }
+
+		void setRowMap(Teuchos::RCP<const map_type> row_map) {
+			_row_map = row_map;
+		}
+
+		void setColMap(Teuchos::RCP<const map_type> col_map) {
+			_col_map = col_map;
+		}
 
 		void setGraph(Teuchos::RCP<crs_graph_type> A_graph) {
 			_A_graph = A_graph;

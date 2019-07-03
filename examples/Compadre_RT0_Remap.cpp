@@ -1,7 +1,6 @@
 #include <Teuchos_oblackholestream.hpp>
 #include <Teuchos_GlobalMPISession.hpp>
 #include <Teuchos_RCP.hpp>
-#include <Tpetra_Core.hpp>
 
 #include <Kokkos_Core.hpp>
 

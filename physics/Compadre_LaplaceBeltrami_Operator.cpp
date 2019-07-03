@@ -37,60 +37,60 @@ typedef Compadre::XyzVector xyz_type;
  */ 
 
 
-
-Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
-	if (field_two == -1) {
-		field_two = field_one;
-	}
-
-    // check that the solver is in 'blocked' mode
-    TEUCHOS_TEST_FOR_EXCEPT_MSG(_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==false, 
-            "Non-blocked matrix system incompatible with Lagrange multiplier based Laplace-Beltrami solve.");
-
-	Teuchos::RCP<Teuchos::Time> ComputeGraphTime = Teuchos::TimeMonitor::getNewCounter ("Compute Graph Time");
-	ComputeGraphTime->start();
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_A_graph.is_null(), "Tpetra CrsGraph for Physics not yet specified.");
+Kokkos::View<size_t*, Kokkos::HostSpace> LaplaceBeltramiPhysics::getMaxEntriesPerRow(local_index_type field_one, local_index_type field_two) {
 
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
-	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
-	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
-	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
-			_dof_data->getDOFMap();
-	size_t max_num_neighbors = neighborhood->getMaxNumNeighbors();
+    Kokkos::View<size_t*, Kokkos::HostSpace> maxEntriesPerRow("max entries per row", nlocal);
 
     auto solution_field_id = _particles->getFieldManagerConst()->getIDOfFieldFromName("solution");
     auto lm_field_id = _particles->getFieldManagerConst()->getIDOfFieldFromName("lagrange multiplier");
 
+	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
+	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
+	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
+			_dof_data->getDOFMap();
 
     if (field_one == solution_field_id && field_two == solution_field_id) {
-		//#pragma omp parallel for
-		for(local_index_type i = 0; i < nlocal; i++) {
-			local_index_type num_neighbors = neighborhood->getNeighbors(i).size();
-			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-				local_index_type row = local_to_dof_map[i][field_one][k];
-
-				Teuchos::Array<local_index_type> col_data(num_neighbors * fields[field_two]->nDim());
-				Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
-				std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
-
-				for (local_index_type l = 0; l < num_neighbors; l++) {
-					for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-						cols[l*fields[field_two]->nDim() + n] = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][n];
-					}
-				}
-				//#pragma omp critical
-				{
-					this->_A_graph->insertLocalIndices(row, cols);
-				}
-			}
-		}
+        for(local_index_type i = 0; i < nlocal; i++) {
+            maxEntriesPerRow(i) = fields[field_one]->nDim()*fields[field_two]->nDim()*neighborhood->getNeighbors(i).size();
+        }
     } else if (field_one == lm_field_id && field_two == solution_field_id) {
+        auto row_map_entries = _row_map->getMyGlobalIndices();
+        Kokkos::resize(maxEntriesPerRow, row_map_entries.extent(0));
+        maxEntriesPerRow(0) = nlocal*fields[field_two]->nDim();
+        // the rest are 0
+    } else if (field_one == solution_field_id && field_two == lm_field_id) {
+        for(local_index_type i = 0; i < nlocal; i++) {
+            maxEntriesPerRow(i) = fields[field_two]->nDim();
+        }
+    } else {
+        for(local_index_type i = 0; i < nlocal; i++) {
+            maxEntriesPerRow(i) = fields[field_two]->nDim();
+        }
+    }
+
+    return maxEntriesPerRow;
+}
+
+Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
+
+	if (field_two == -1) {
+		field_two = field_one;
+	}
+
+    auto solution_field_id = _particles->getFieldManagerConst()->getIDOfFieldFromName("solution");
+    auto lm_field_id = _particles->getFieldManagerConst()->getIDOfFieldFromName("lagrange multiplier");
+
+    TEUCHOS_TEST_FOR_EXCEPT_MSG(_row_map.is_null(), "Row map used for construction of CrsGraph before being initialized.");
+    TEUCHOS_TEST_FOR_EXCEPT_MSG(_col_map.is_null(), "Column map used for construction of CrsGraph before being initialized.");
+
+    if (field_one == lm_field_id && field_two == solution_field_id) {
         // row all DOFs for solution against Lagrange Multiplier
 
         // create a new graph from the existing one, but with an updated row map augmented by a single global dof
         // for the lagrange multiplier
-        auto existing_row_map = this->_A_graph->getRowMap();
-        auto existing_col_map = this->_A_graph->getColMap();
+        auto existing_row_map = _row_map;
+        auto existing_col_map = _col_map;
 
         size_t max_entries_per_row;
         Teuchos::ArrayRCP<const size_t> empty_array;
@@ -130,8 +130,70 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
                 										row_map_index_base,
                 										this->_particles->getCoordsConst()->getComm()));
 
-        this->_A_graph = Teuchos::rcp(new crs_graph_type (new_row_map, existing_col_map, max_entries_per_row));
+        this->setRowMap(new_row_map);
 
+        auto entries = this->getMaxEntriesPerRow(field_one, field_two);
+        auto dual_view_entries = Kokkos::DualView<size_t*>("dual view", entries.extent(0));
+        auto host_view_entries = dual_view_entries.h_view;
+        Kokkos::deep_copy(host_view_entries, entries);
+        dual_view_entries.modify<Kokkos::DefaultHostExecutionSpace>();
+        dual_view_entries.sync<Kokkos::DefaultExecutionSpace>();
+        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries, Tpetra::StaticProfile));
+    }
+
+    if (_A_graph.is_null()) {
+        auto entries = this->getMaxEntriesPerRow(field_one, field_two);
+        auto dual_view_entries = Kokkos::DualView<size_t*>("dual view", entries.extent(0));
+        auto host_view_entries = dual_view_entries.h_view;
+        Kokkos::deep_copy(host_view_entries, entries);
+        dual_view_entries.modify<Kokkos::DefaultHostExecutionSpace>();
+        dual_view_entries.sync<Kokkos::DefaultExecutionSpace>();
+        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries, Tpetra::StaticProfile));
+    }
+
+
+    if (!_A_graph->isFillActive()) _A_graph->resumeFill();
+
+
+    // check that the solver is in 'blocked' mode
+    TEUCHOS_TEST_FOR_EXCEPT_MSG(_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==false, 
+            "Non-blocked matrix system incompatible with Lagrange multiplier based Laplace-Beltrami solve.");
+
+	Teuchos::RCP<Teuchos::Time> ComputeGraphTime = Teuchos::TimeMonitor::getNewCounter ("Compute Graph Time");
+	ComputeGraphTime->start();
+	//TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_A_graph.is_null(), "Tpetra CrsGraph for Physics not yet specified.");
+
+	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
+	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
+	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
+	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
+			_dof_data->getDOFMap();
+	size_t max_num_neighbors = neighborhood->getMaxNumNeighbors();
+
+
+    if (field_one == solution_field_id && field_two == solution_field_id) {
+		//#pragma omp parallel for
+		for(local_index_type i = 0; i < nlocal; i++) {
+			local_index_type num_neighbors = neighborhood->getNeighbors(i).size();
+			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+				local_index_type row = local_to_dof_map[i][field_one][k];
+
+				Teuchos::Array<local_index_type> col_data(num_neighbors * fields[field_two]->nDim());
+				Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+				std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
+
+				for (local_index_type l = 0; l < num_neighbors; l++) {
+					for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+						cols[l*fields[field_two]->nDim() + n] = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][n];
+					}
+				}
+				//#pragma omp critical
+				{
+					this->_A_graph->insertLocalIndices(row, cols);
+				}
+			}
+		}
+    } else if (field_one == lm_field_id && field_two == solution_field_id) {
         // row all DOFs for solution against Lagrange Multiplier
 		Teuchos::Array<local_index_type> col_data(nlocal * fields[field_two]->nDim());
 		Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
