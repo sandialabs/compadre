@@ -34,17 +34,15 @@ struct RemapObject {
 
 
 		// basic instantiation with differing polynomial and data sampling functionals
-		RemapObject(TargetOperation target_operation, ReconstructionSpace reconstruction_space, SamplingFunctional polynomial_sampling_functional, SamplingFunctional data_sampling_functional, bool obfet = false) {
+		RemapObject(TargetOperation target_operation, ReconstructionSpace reconstruction_space, SamplingFunctional polynomial_sampling_functional, SamplingFunctional data_sampling_functional, bool obfet = false) : _polynomial_sampling_functional(polynomial_sampling_functional), _data_sampling_functional(data_sampling_functional) {
 			src_fieldnum = -1;
 			trg_fieldnum = -1;
 			_target_operation = target_operation;
 			_reconstruction_space = reconstruction_space;
-			_polynomial_sampling_functional = polynomial_sampling_functional;
-			_data_sampling_functional = data_sampling_functional;
 			_obfet = obfet;
 		}
 		// basic instantiation with SAME polynomial and data sampling functionals
-		RemapObject(TargetOperation target_operation = TargetOperation::ScalarPointEvaluation, ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional sampling_functional = SamplingFunctional::PointSample, bool obfet = false)
+		RemapObject(TargetOperation target_operation = TargetOperation::ScalarPointEvaluation, ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional sampling_functional = PointSample, bool obfet = false)
 			: RemapObject(target_operation, reconstruction_space, sampling_functional, sampling_functional, obfet) {}
 
 
@@ -54,7 +52,7 @@ struct RemapObject {
 			if (target_name.empty()) trg_fieldname = source_name;
 			else trg_fieldname = target_name;
 		}
-		RemapObject(const std::string& source_name, const std::string& target_name = std::string(), TargetOperation target_operation = TargetOperation::ScalarPointEvaluation, ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional sampling_functional = SamplingFunctional::PointSample, bool obfet = false)
+		RemapObject(const std::string& source_name, const std::string& target_name = std::string(), TargetOperation target_operation = TargetOperation::ScalarPointEvaluation, ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional sampling_functional = PointSample, bool obfet = false)
 			: RemapObject(source_name, target_name, target_operation, reconstruction_space, sampling_functional, sampling_functional, obfet) {}
 
 
@@ -63,7 +61,7 @@ struct RemapObject {
 			src_fieldnum = source_num;
 			if (target_num < 0) trg_fieldnum = source_num;
 		}
-		RemapObject(const local_index_type source_num, const local_index_type target_num = -1, TargetOperation target_operation = TargetOperation::ScalarPointEvaluation, ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional sampling_functional = SamplingFunctional::PointSample, bool obfet = false)
+		RemapObject(const local_index_type source_num, const local_index_type target_num = -1, TargetOperation target_operation = TargetOperation::ScalarPointEvaluation, ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional sampling_functional = PointSample, bool obfet = false)
 			: RemapObject(source_num, target_num, target_operation, reconstruction_space, sampling_functional, sampling_functional, obfet) {}
 
 
@@ -146,7 +144,7 @@ class RemapManager {
 		std::string queueToString() {
 			std::string output;
 			for (auto obj: this->_queue) {
-				output += "source field#: " + std::to_string(obj.src_fieldnum) +  ", target field#: " + std::to_string(obj.trg_fieldnum) + ", target_operation#: " + std::to_string(obj._target_operation) + ", reconstruction_space#: " + std::to_string(obj._reconstruction_space) + ", polynomial_source_sample#: " + std::to_string(obj._polynomial_sampling_functional)+ ", data_source_sample#: " + std::to_string(obj._data_sampling_functional) + "\n";
+				output += "source field#: " + std::to_string(obj.src_fieldnum) +  ", target field#: " + std::to_string(obj.trg_fieldnum) + ", target_operation#: " + std::to_string(obj._target_operation) + ", reconstruction_space#: " + std::to_string(obj._reconstruction_space) + ", polynomial_source_sample#: " + std::to_string(obj._polynomial_sampling_functional.id) + ", data_source_sample#: " + std::to_string(obj._data_sampling_functional.id) + "\n";
 			}
 			return output;
 		}

@@ -72,6 +72,7 @@
 
         <ParameterList name="GS">
           <Parameter name="Type" type="string" value="Ifpack2"/>
+          <Parameter name="Prec Type" type="string" value="RELAXATION"/>
           <Parameter name="Overlap" type="int" value="1"/>
           <ParameterList name="Ifpack2 Settings">
             <Parameter name="relaxation: type" type="string" value="Gauss-Seidel"/>
@@ -81,6 +82,7 @@
 
         <ParameterList name="ILUT">
           <Parameter name="Type" type="string" value="Ifpack2"/>
+          <Parameter name="Prec Type" type="string" value="ILUT"/>
           <Parameter name="Overlap" type="int" value="1"/>
           <ParameterList name="Ifpack2 Settings">
             <Parameter name="relaxation: type" type="string" value="ILUT"/>
@@ -88,7 +90,7 @@
             <Parameter name="fact: drop tolerance" type="double" value="0.0"/>
           </ParameterList>
         </ParameterList>
-        <!-- end IFPACK2/GS -->
+        <!-- end IFPACK2/ILUT -->
 
         <ParameterList name="DIRECT">
           <Parameter name="Type" type="string" value="Ifpack2"/>

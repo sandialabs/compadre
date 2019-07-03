@@ -296,7 +296,7 @@ int main (int argc, char* args[]) {
 
 
         auto _GMLS = Teuchos::rcp(new GMLS(ReconstructionSpace::ScalarTaylorPolynomial,
-                SamplingFunctional::PointSample,
+                PointSample,
                 parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
                 parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
                 parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"),
@@ -396,7 +396,7 @@ int main (int argc, char* args[]) {
 
         for (int j=0; j<num_per_triangle; ++j) {
             auto output_vector = remap_agent.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-                (kokkos_source_values, TargetOperation::ScalarPointEvaluation, SamplingFunctional::PointSample, true, j+1);
+                (kokkos_source_values, TargetOperation::ScalarPointEvaluation, PointSample, true, j+1);
             for (int i=0; i<num_triangles; ++i) {
                 target_values(j + i*num_per_triangle,0) = output_vector(i,0);
             }
@@ -404,7 +404,7 @@ int main (int argc, char* args[]) {
 
         //for (int j=0; j<kokkos_eval_lists_host(index_manipulated,0); ++j) {
         //    auto output_vector = remap_agent.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-        //        (kokkos_source_values, TargetOperation::ScalarPointEvaluation, SamplingFunctional::PointSample, true, j+1);
+        //        (kokkos_source_values, TargetOperation::ScalarPointEvaluation, PointSample, true, j+1);
         //    // copy remapped solution back into field
         //    //target_values(kokkos_eval_lists_host(index_manipulated,j+1),0) = output_vector(index_manipulated,0);
         //}

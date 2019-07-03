@@ -35,6 +35,8 @@ class LaplaceBeltramiPhysics : public PhysicsT {
 		virtual const std::vector<InteractingFields> gatherFieldInteractions();
 
 		void setPhysicsType(const local_index_type physics_type) { _physics_type = physics_type; }
+
+        Kokkos::View<size_t*, Kokkos::HostSpace> getMaxEntriesPerRow(local_index_type field_one, local_index_type field_two);
     
 };
 

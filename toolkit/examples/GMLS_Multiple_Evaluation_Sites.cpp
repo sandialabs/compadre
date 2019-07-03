@@ -366,27 +366,27 @@ bool all_passed = true;
     Evaluator gmls_evaluator(&my_GMLS);
     
     auto output_value1 = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (sampling_data_device, ScalarPointEvaluation, SamplingFunctional::PointSample, 
+            (sampling_data_device, ScalarPointEvaluation, PointSample, 
              true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
     
     auto output_gradient1 = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (sampling_data_device, GradientOfScalarPointEvaluation, SamplingFunctional::PointSample, 
+            (sampling_data_device, GradientOfScalarPointEvaluation, PointSample, 
              true /*scalar_as_vector_if_needed*/, 1 /*evaluation site index*/);
 
     auto output_value2 = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (sampling_data_device, ScalarPointEvaluation, SamplingFunctional::PointSample, 
+            (sampling_data_device, ScalarPointEvaluation, PointSample, 
              true /*scalar_as_vector_if_needed*/, 2 /*evaluation site index*/);
     
     auto output_gradient2 = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (sampling_data_device, GradientOfScalarPointEvaluation, SamplingFunctional::PointSample, 
+            (sampling_data_device, GradientOfScalarPointEvaluation, PointSample, 
              true /*scalar_as_vector_if_needed*/, 2 /*evaluation site index*/);
 
     auto output_value3 = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (sampling_data_device, ScalarPointEvaluation, SamplingFunctional::PointSample, 
+            (sampling_data_device, ScalarPointEvaluation, PointSample, 
              true /*scalar_as_vector_if_needed*/, 3 /*evaluation site index*/);
     
     auto output_gradient3 = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (sampling_data_device, GradientOfScalarPointEvaluation, SamplingFunctional::PointSample, 
+            (sampling_data_device, GradientOfScalarPointEvaluation, PointSample, 
              true /*scalar_as_vector_if_needed*/, 3 /*evaluation site index*/);
     
     //! [Apply GMLS Alphas To Data]
