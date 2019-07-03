@@ -129,7 +129,22 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
             // of potentials
             else if (_operations(i) == TargetOperation::DivergenceOfVectorPointEvaluation
                      && _polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) {
-                compadre_kernel_assert_release((false) && "Functionality is currently being implemented");
+              Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                  int offset = getTargetOffsetIndexDevice(i, 0, 0, 0);
+                  switch (_dimensions) {
+                  case 3:
+                      P_target_row(offset, 4) = std::pow(_epsilons(target_index), -2);
+                      P_target_row(offset, 6) = std::pow(_epsilons(target_index), -2);
+                      P_target_row(offset, 9) = std::pow(_epsilons(target_index), -2);
+                      break;
+                  case 2:
+                      P_target_row(offset, 3) = std::pow(_epsilons(target_index), -2);
+                      P_target_row(offset, 5) = std::pow(_epsilons(target_index), -2);
+                      break;
+                  default:
+                      P_target_row(offset, 2) = std::pow(_epsilons(target_index), -2);
+                  }
+              });
             }
             else {
                 compadre_kernel_assert_release((false) && "Functionality not yet available.");

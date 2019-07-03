@@ -280,6 +280,14 @@ void GMLS::generatePolynomialCoefficients() {
             GMLS_LinearAlgebra::batchQRFactorize(_P.ptr_on_device(), max_num_rows, this_num_columns, _RHS.ptr_on_device(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.dimension_0(), _max_num_neighbors, _number_of_neighbors_list.data());
             Kokkos::Profiling::popRegion();
         }
+
+#ifdef COMPADRE_USE_CUDA
+        int nv=8;
+#else
+        int nv=1;
+#endif
+        int nt=_threads_per_team/nv;
+        this->CallFunctorWithTeamThreadsAndVectors<ComputePrestencilWeights>(nt, nv, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
         Kokkos::fence();
     }
 
