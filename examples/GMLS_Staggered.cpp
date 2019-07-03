@@ -147,24 +147,17 @@ bool all_passed = true;
         }
     }
 
-    // fill target coords somewhere inside of [-0.5,0.5]x[-0.5,0.5]x[-0.5,0.5]
-    for(int i=0; i<number_target_coords; i++){
-
-        // first, we get a uniformly random distributed direction
-        double rand_dir[3] = {0,0,0};
-
-        for (int j=0; j<dimension; ++j) {
-            // rand_dir[j] is in [-0.5, 0.5]
-            rand_dir[j] = ((double)rand() / (double) RAND_MAX) - 0.5;
+    // seed random number generator
+    std::mt19937 rng(50);
+    // generate random integers in [0..number_source_coords-1] (used to pick target sites)
+    std::uniform_int_distribution<int> gen_num_neighbours(0, source_index);
+    // fill target sites with random selections from source sites
+    for (int i=0; i<number_target_coords; ++i) {
+        const int source_site_to_copy = gen_num_neighbours(rng);
+        for (int j=0; j<3; j++) {
+            target_coords(i, j) = source_coords(source_site_to_copy, j);
         }
-
-        // then we get a uniformly random radius
-        for (int j=0; j<dimension; ++j) {
-            target_coords(i,j) = rand_dir[j];
-        }
-
     }
-
 
     //! [Setting Up The Point Cloud]
 
@@ -229,7 +222,7 @@ bool all_passed = true;
 
     // each row is a neighbor list for a target site, with the first column of each row containing
     // the number of neighbors for that rows corresponding target site
-    double epsilon_multiplier = 1.5;
+    double epsilon_multiplier = 2.2;
     int estimated_upper_bound_number_neighbors =
         point_cloud_search.getEstimatedNumberNeighborsUpperBound(min_neighbors, dimension, epsilon_multiplier);
 
@@ -363,6 +356,10 @@ bool all_passed = true;
         if(std::abs(actual_Divergence - GMLS_Divergence) > failure_tolerance) {
             all_passed = false;
             std::cout << i << " Failed Divergence by: " << std::abs(actual_Divergence - GMLS_Divergence) << std::endl;
+            std::cout << i << " GMLS " << GMLS_Divergence << " actual " << actual_Divergence << std::endl;
+        } else {
+            std::cout << i << " Passed Divergence by: " << std::abs(actual_Divergence - GMLS_Divergence) << std::endl;
+            std::cout << i << " GMLS " << GMLS_Divergence << " actual " << actual_Divergence << std::endl;
         }
     }
 
