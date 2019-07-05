@@ -147,6 +147,9 @@ bool all_passed = true;
         }
     }
 
+    // Generate target points - these are random permutation from available source points
+    // Note that this is assuming that the number of targets in this test will not exceed
+    // the number of source coords, which is 41^3 = 68921
     // seed random number generator
     std::mt19937 rng(50);
     // generate random integers in [0..number_source_coords-1] (used to pick target sites)
@@ -222,6 +225,7 @@ bool all_passed = true;
 
     // each row is a neighbor list for a target site, with the first column of each row containing
     // the number of neighbors for that rows corresponding target site
+    // for the default values in this test, the multiplier is suggested to be 2.2
     double epsilon_multiplier = 2.2;
     int estimated_upper_bound_number_neighbors =
         point_cloud_search.getEstimatedNumberNeighborsUpperBound(min_neighbors, dimension, epsilon_multiplier);
@@ -266,12 +270,9 @@ bool all_passed = true;
     }
     
     // initialize an instance of the GMLS class
-    GMLS my_GMLS(ScalarTaylorPolynomial,
-                 StaggeredEdgeAnalyticGradientIntegralSample,
-                 order,
-                 solver_name.c_str(),
-                 NULL /*manifold order*/,
-                 dimension);
+    // NULL in manifold order indicates non-manifold case
+    GMLS my_GMLS(ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample, order, solver_name.c_str(),
+                 NULL /*manifold order*/ , dimension);
 
     // pass in neighbor lists, source coordinates, target coordinates, and window sizes
     //
@@ -356,9 +357,6 @@ bool all_passed = true;
         if(std::abs(actual_Divergence - GMLS_Divergence) > failure_tolerance) {
             all_passed = false;
             std::cout << i << " Failed Divergence by: " << std::abs(actual_Divergence - GMLS_Divergence) << std::endl;
-            std::cout << i << " GMLS " << GMLS_Divergence << " actual " << actual_Divergence << std::endl;
-        } else {
-            std::cout << i << " Passed Divergence by: " << std::abs(actual_Divergence - GMLS_Divergence) << std::endl;
             std::cout << i << " GMLS " << GMLS_Divergence << " actual " << actual_Divergence << std::endl;
         }
     }
