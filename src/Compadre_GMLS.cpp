@@ -1020,27 +1020,60 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
             });
         });
     } else if (_data_sampling_functional == StaggeredEdgeIntegralSample) {
-        const int neighbor_offset = _neighbor_lists.dimension_1()-1;
-        Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)), [=] (const int m) {
-            Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {
-                    XYZ tangent_quadrature_coord_2d;
-                    for (int j=0; j<_dimensions-1; ++j) {
-                        tangent_quadrature_coord_2d[j] = getTargetCoordinate(target_index, j, &T);
-                        tangent_quadrature_coord_2d[j] -= getNeighborCoordinate(target_index, m, j, &T);
-                    }
-                    double tangent_vector[3];
-                    tangent_vector[0] = tangent_quadrature_coord_2d[0]*T(0,0) + tangent_quadrature_coord_2d[1]*T(1,0);
-                    tangent_vector[1] = tangent_quadrature_coord_2d[0]*T(0,1) + tangent_quadrature_coord_2d[1]*T(1,1);
-                    tangent_vector[2] = tangent_quadrature_coord_2d[0]*T(0,2) + tangent_quadrature_coord_2d[1]*T(1,2);
+          if (_dense_solver_type == DenseSolverType::MANIFOLD) {
+              // data sampling on a manifold
+              const int neighbor_offset = _neighbor_lists.dimension_1()-1;
+              Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)), [=] (const int m) {
+                Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+                  for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {
+                      XYZ tangent_quadrature_coord_2d;
+                      for (int j=0; j<_dimensions-1; ++j) {
+                          tangent_quadrature_coord_2d[j] = getTargetCoordinate(target_index, j, &T);
+                          tangent_quadrature_coord_2d[j] -= getNeighborCoordinate(target_index, m, j, &T);
+                      }
+                      double tangent_vector[3];
+                      tangent_vector[0] = tangent_quadrature_coord_2d[0]*T(0,0) + tangent_quadrature_coord_2d[1]*T(1,0);
+                      tangent_vector[1] = tangent_quadrature_coord_2d[0]*T(0,1) + tangent_quadrature_coord_2d[1]*T(1,1);
+                      tangent_vector[2] = tangent_quadrature_coord_2d[0]*T(0,2) + tangent_quadrature_coord_2d[1]*T(1,2);
 
-                    for (int j=0; j<_dimensions; ++j) {
-                        _prestencil_weights(0,target_index,m,0,j) +=  (1-_parameterized_quadrature_sites[quadrature])*tangent_vector[j]*_quadrature_weights[quadrature];
-                        _prestencil_weights(1,target_index,m,0,j) +=  _parameterized_quadrature_sites[quadrature]*tangent_vector[j]*_quadrature_weights[quadrature];
-                    }
-                }
-            });
-        });
+                      for (int j=0; j<_dimensions; ++j) {
+                          _prestencil_weights(0,target_index,m,0,j) +=  (1-_parameterized_quadrature_sites[quadrature])*tangent_vector[j]*_quadrature_weights[quadrature];
+                          _prestencil_weights(1,target_index,m,0,j) +=  _parameterized_quadrature_sites[quadrature]*tangent_vector[j]*_quadrature_weights[quadrature];
+                      }
+                  }
+                });
+              });
+          } else {
+              Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                  Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+                      _prestencil_weights(0,0,0,0,0) = -1;
+                      _prestencil_weights(1,0,0,0,0) = 1;
+                 });
+              });
+              // data sampling NOT on a manifold
+              // compadre_kernel_assert_release((false) && "Functionality not yet available.");
+              // const int neighbor_offset = _neighbor_lists.dimension_1()-1;
+              // Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)), [=] (const int m) {
+              //   Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+              //     for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {
+              //         XYZ relative_distance;
+              //         for (int j=0; j<_dimensions; ++j) {
+              //             relative_distance[j] = getTargetCoordinate(target_index, j, NULL);
+              //             relative_distance[j] -= getNeighborCoordinate(target_index, m, j, NULL);
+              //         }
+                      // double tangent_vector[3];
+                      // tangent_vector[0] = tangent_quadrature_coord_2d[0]*T(0,0) + tangent_quadrature_coord_2d[1]*T(1,0);
+                      // tangent_vector[1] = tangent_quadrature_coord_2d[0]*T(0,1) + tangent_quadrature_coord_2d[1]*T(1,1);
+                      // tangent_vector[2] = tangent_quadrature_coord_2d[0]*T(0,2) + tangent_quadrature_coord_2d[1]*T(1,2);
+
+                      // for (int j=0; j<_dimensions; ++j) {
+                      //     _prestencil_weights(0,target_index,m,0,j) +=  (1-_parameterized_quadrature_sites[quadrature])*relative_distance[j]*_quadrature_weights[quadrature];
+                      //     _prestencil_weights(1,target_index,m,0,j) +=  _parameterized_quadrature_sites[quadrature]*relative_distance[j]*_quadrature_weights[quadrature];
+                      // }
+              //     }
+              //   });
+              // });
+          } // StaggeredEdgeIntegralSample
     } else if (_data_sampling_functional == VaryingManifoldVectorPointSample) {
 
         scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), manifold_NP);
