@@ -190,46 +190,46 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 }
             }
         }
-        {
-            relative_coord.x = 0;
-            relative_coord.y = 0;
-            relative_coord.z = 0;
+        // {
+        //     relative_coord.x = 0;
+        //     relative_coord.y = 0;
+        //     relative_coord.z = 0;
 
-            double cutoff_p = _epsilons(target_index);
-            int alphax, alphay, alphaz;
-            double alphaf;
-            int i = 0;
-            const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
-            for (int n = start_index; n <= poly_order; n++){
-                if (dimension == 3) {
-                    for (alphaz = 0; alphaz <= n; alphaz++){
+        //     double cutoff_p = _epsilons(target_index);
+        //     int alphax, alphay, alphaz;
+        //     double alphaf;
+        //     int i = 0;
+        //     const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
+        //     for (int n = start_index; n <= poly_order; n++){
+        //         if (dimension == 3) {
+        //             for (alphaz = 0; alphaz <= n; alphaz++){
 
-                        int s = n - alphaz;
-                        for (alphay = 0; alphay <= s; alphay++){
-                            alphax = s - alphay;
-                            alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
-                            *(delta+i) += std::pow(relative_coord.x/cutoff_p,alphax)
-                                        *std::pow(relative_coord.y/cutoff_p,alphay)
-                                        *std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf;
-                            i++;
-                        }
-                    }
-                } else if (dimension == 2) {
-                    for (alphay = 0; alphay <= n; alphay++){
-                        alphax = n - alphay;
-                        alphaf = factorial[alphax]*factorial[alphay];
-                        *(delta+i) += std::pow(relative_coord.x/cutoff_p,alphax)
-                                    *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf;
-                        i++;
-                    }
-                } else { // dimension == 1
-                        alphax = n;
-                        alphaf = factorial[alphax];
-                        *(delta+i) += std::pow(relative_coord.x/cutoff_p,alphax)/alphaf;
-                        i++;
-                }
-            }
-        }
+        //                 int s = n - alphaz;
+        //                 for (alphay = 0; alphay <= s; alphay++){
+        //                     alphax = s - alphay;
+        //                     alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
+        //                     *(delta+i) += std::pow(relative_coord.x/cutoff_p,alphax)
+        //                                 *std::pow(relative_coord.y/cutoff_p,alphay)
+        //                                 *std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf;
+        //                     i++;
+        //                 }
+        //             }
+        //         } else if (dimension == 2) {
+        //             for (alphay = 0; alphay <= n; alphay++){
+        //                 alphax = n - alphay;
+        //                 alphaf = factorial[alphax]*factorial[alphay];
+        //                 *(delta+i) += std::pow(relative_coord.x/cutoff_p,alphax)
+        //                             *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf;
+        //                 i++;
+        //             }
+        //         } else { // dimension == 1
+        //                 alphax = n;
+        //                 alphaf = factorial[alphax];
+        //                 *(delta+i) += std::pow(relative_coord.x/cutoff_p,alphax)/alphaf;
+        //                 i++;
+        //         }
+        //     }
+        // }
     } else if (polynomial_sampling_functional == StaggeredEdgeIntegralSample) {
           if (_dense_solver_type == DenseSolverType::MANIFOLD) {
               double cutoff_p = _epsilons(target_index);
