@@ -196,18 +196,18 @@ Kokkos::initialize(argc, args);
     
     // need Kokkos View storing true solution (for samples)
     Kokkos::View<double*, Kokkos::DefaultExecutionSpace> sampling_data_device("samples of true solution", 
-            source_coords_device.dimension_0());
+            source_coords_device.extent(0));
 
     Kokkos::View<double*, Kokkos::DefaultExecutionSpace> ones_data_device("samples of ones", 
-            source_coords_device.dimension_0());
+            source_coords_device.extent(0));
     Kokkos::deep_copy(ones_data_device, 1.0);
 
     // need Kokkos View storing true vector solution (for samples)
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> sampling_vector_data_device("samples of vector true solution", 
-            source_coords_device.dimension_0(), 3);
+            source_coords_device.extent(0), 3);
     
     Kokkos::parallel_for("Sampling Manufactured Solutions", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>
-            (0,source_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
+            (0,source_coords.extent(0)), KOKKOS_LAMBDA(const int i) {
     
         // coordinates of source site i
         double xval = source_coords_device(i,0);
@@ -439,7 +439,7 @@ Kokkos::initialize(argc, args);
     //auto output_gradient_device_mirror = Kokkos::create_mirror(Kokkos::DefaultExecutionSpace::memory_space(), output_gradient);
     //Kokkos::deep_copy(output_gradient_device_mirror, output_gradient);
     //Kokkos::parallel_for("Create Velocity From Surface Gradient", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>
-    //        (0,target_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
+    //        (0,target_coords.extent(0)), KOKKOS_LAMBDA(const int i) {
     //
     //    // coordinates of target site i
     //    double xval = target_coords_device(i,0);
