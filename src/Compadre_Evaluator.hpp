@@ -25,9 +25,9 @@ struct SubviewND {
 
     auto get1DView(const int column_num) -> decltype(Kokkos::subview(_data_in, Kokkos::ALL, column_num)) {
         if (!_scalar_as_vector_if_needed) {
-            compadre_assert_debug((column_num<_data_in.dimension_1()) && "Subview asked for column > second dimension of input data.");
+            compadre_assert_debug((column_num<_data_in.extent(1)) && "Subview asked for column > second dimension of input data.");
         }
-        if (column_num<_data_in.dimension_1())
+        if (column_num<_data_in.extent(1))
             return Kokkos::subview(_data_in, Kokkos::ALL, column_num);
         else // scalar treated as a vector (being reused for each component of the vector input that was expected)
             return Kokkos::subview(_data_in, Kokkos::ALL, 0);
@@ -36,12 +36,12 @@ struct SubviewND {
     auto get2DView(const int column_num, const int block_size) -> decltype(Kokkos::subview(_data_in, Kokkos::ALL, 
                 Kokkos::make_pair(column_num*block_size, (column_num+1)*block_size))) {
         if (!_scalar_as_vector_if_needed) {
-            compadre_assert_debug((((column_num+1)*block_size-1)<_data_in.dimension_1()) && "Subview asked for column > second dimension of input data.");
+            compadre_assert_debug((((column_num+1)*block_size-1)<_data_in.extent(1)) && "Subview asked for column > second dimension of input data.");
         }
-        if (((column_num+1)*block_size-1)<_data_in.dimension_1())
+        if (((column_num+1)*block_size-1)<_data_in.extent(1))
             return Kokkos::subview(_data_in, Kokkos::ALL, Kokkos::make_pair(column_num*block_size, (column_num+1)*block_size));
         else
-            compadre_assert_debug(((block_size-1)<_data_in.dimension_1()) && "Subview asked for column > second dimension of input data.");
+            compadre_assert_debug(((block_size-1)<_data_in.extent(1)) && "Subview asked for column > second dimension of input data.");
             return Kokkos::subview(_data_in, Kokkos::ALL, Kokkos::make_pair(0,block_size));
     }
 
@@ -214,7 +214,7 @@ public:
         auto alphas         = _gmls->getAlphas();
         auto prestencil_weights = _gmls->getPrestencilWeights();
 
-        const int num_targets = neighbor_lists.dimension_0(); // one row for each target
+        const int num_targets = neighbor_lists.extent(0); // one row for each target
 
         // make sure input and output views have same memory space
         compadre_assert_debug((std::is_same<typename view_type_data_out::memory_space, typename view_type_data_in::memory_space>::value) && 
@@ -310,7 +310,7 @@ public:
 
         // gather needed information for evaluation
         auto neighbor_lists = _gmls->getNeighborLists();
-        const int num_targets = neighbor_lists.dimension_0(); // one row for each target
+        const int num_targets = neighbor_lists.extent(0); // one row for each target
 
         auto tangent_directions = _gmls->getTangentDirections();
 
@@ -380,7 +380,7 @@ public:
         auto sro = (problem_type==MANIFOLD && sro_in==VectorPointSample) ? ManifoldVectorPointSample : sro_in;
 
         // create view on whatever memory space the user specified with their template argument when calling this function
-        output_view_type target_output("output of target operation", neighbor_lists.dimension_0() /* number of targets */, 
+        output_view_type target_output("output of target operation", neighbor_lists.extent(0) /* number of targets */, 
                 output_dimensions);
 
         // make sure input and output columns make sense under the target operation
@@ -452,7 +452,7 @@ public:
 
             // create view on whatever memory space the user specified with their template argument when calling this function
             output_view_type ambient_target_output("output of transform to ambient space", 
-                    neighbor_lists.dimension_0() /* number of targets */, global_dimensions);
+                    neighbor_lists.extent(0) /* number of targets */, global_dimensions);
             auto transformed_output_subview_maker = CreateNDSliceOnDeviceView(ambient_target_output, false); 
             // output will always be the correct dimension
             for (int i=0; i<global_dimensions; ++i) {
@@ -507,7 +507,7 @@ public:
         // hold a 0 when the input index is greater than 0
         // this can be detected for the polynomial coefficients by noticing that the input_component_axis_1 is greater than 0,
         // but the offset this would produce into the coefficients matrix is larger than its dimensions
-        auto max_num_neighbors = (neighbor_lists.dimension_1() - 1);
+        auto max_num_neighbors = (neighbor_lists.extent(1) - 1);
         if (input_component_axis_1*max_num_neighbors >= coefficient_matrix_tile_size) return;
 
         auto global_dimensions = _gmls->getGlobalDimensions();
@@ -517,7 +517,7 @@ public:
         auto tangent_directions = _gmls->getTangentDirections();
         auto prestencil_weights = _gmls->getPrestencilWeights();
 
-        const int num_targets = neighbor_lists.dimension_0(); // one row for each target
+        const int num_targets = neighbor_lists.extent(0); // one row for each target
 
         // make sure input and output views have same memory space
         compadre_assert_debug((std::is_same<typename view_type_data_out::memory_space, typename view_type_data_in::memory_space>::value) && 
@@ -664,7 +664,7 @@ public:
         const SamplingFunctional sro = _gmls->getDataSamplingFunctional();
 
         // create view on whatever memory space the user specified with their template argument when calling this function
-        output_view_type coefficient_output("output coefficients", neighbor_lists.dimension_0() /* number of targets */, 
+        output_view_type coefficient_output("output coefficients", neighbor_lists.extent(0) /* number of targets */, 
                 output_dimensions*_gmls->getPolynomialCoefficientsSize() /* number of coefficients */);
 
         // make sure input and output columns make sense under the target operation
