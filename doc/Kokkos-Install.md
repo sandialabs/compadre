@@ -1,4 +1,15 @@
 # Installing Kokkos
+
+There are two paths for providing a Kokkos installation, needed by the toolkit:
+
+# A.) Let Compadre Toolkit configure and build Kokkos
+
+Since the source code for Kokkos is now bundled with the Compadre Toolkit, users can simply leave the CMake variable KokkosCore_PREFIX="" and optionally provide a few configuration details via KokkosCore_FLAGS and KokkosCore_ARCH. 
+
+Valid choices for KokkosCore_ARCH can be found in kokkos/cmake/kokkos_options.cmake and should be semicolon separated.
+
+# or B.) Installing Kokkos from source and providing the location to the toolkit
+
 1.) Download Kokkos from github via:
 
 ```
