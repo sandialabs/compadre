@@ -25,7 +25,7 @@ p^{*}& =& \underset{p \in V}{\text{arg min}}\;\frac{1}{2}\sum_{j=1}^N (\lambda_j
 [Recent Changes](doc/Changelog.md)
 
 ## Installation
-[Installation of Kokkos](doc/Kokkos-Install.md)
+[Installation of Kokkos](doc/Kokkos-Install.md) [Either automatically configured and built, or user installation location provided]
 
 [Installation of Compadre](doc/Compadre-Install.md)
 
