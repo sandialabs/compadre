@@ -37,17 +37,20 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
 
     XYZ relative_coord;
     if (neighbor_index > -1) {
+      // Evaluate at neighbor site
         for (int i=0; i<dimension; ++i) {
             // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
             relative_coord[i] = (alpha-1)*getTargetCoordinate(target_index, i, V);
             relative_coord[i] += (1-alpha)*getNeighborCoordinate(target_index, neighbor_index, i, V);
         }
     } else if (additional_evaluation_local_index > 0) {
+      // Extra evaluation site
         for (int i=0; i<dimension; ++i) {
             relative_coord[i] = getTargetAuxiliaryCoordinate(target_index, additional_evaluation_local_index, i, V);
             relative_coord[i] -= getTargetCoordinate(target_index, i, V);
         }
     } else {
+      // Evaluate at the target site
         for (int i=0; i<3; ++i) relative_coord[i] = 0;
     }
 
