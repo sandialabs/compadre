@@ -41,6 +41,30 @@ class CMakeExtension(Extension):
         Extension.__init__(self, name, sources=[], **kwa)
         self.cmake_lists_dir = os.path.abspath(cmake_lists_dir)
 
+class InstallCommand(install):
+    # https://stackoverflow.com/questions/18725137/how-to-obtain-arguments-passed-to-setup-py-from-pip-with-install-option
+    user_options = install.user_options + [
+        ('use-gpu', None, None),
+        ('kokkos-arch=', None, None)
+    ]
+
+    def initialize_options(self):
+        install.initialize_options(self)
+        self.use_gpu = None
+        self.kokkos_arch = None
+
+    def finalize_options(self):
+        print("--use-gpu:", self.use_gpu)
+        print("--kokkos-arch:", self.kokkos_arch)
+        install.finalize_options(self)
+
+    def run(self):
+        global use_gpu
+        global kokkos_arch
+        use_gpu = self.use_gpu
+        kokkos_arch = self.kokkos_arch
+        install.run(self)
+
 class build_ext(build_ext_orig):
 
     def run(self):
@@ -50,7 +74,6 @@ class build_ext(build_ext_orig):
 
 
     def build_cmake(self, ext):
-        print("someopt needed")
         try:
             import pathlib2
         except ImportError:
@@ -68,6 +91,20 @@ class build_ext(build_ext_orig):
         except:
             pass # already exists
 
+        use_gpu_string = "OFF"
+        if use_gpu != None:
+            use_gpu_string = "ON"
+            print("Compadre_USE_CUDA set to ON")
+        else:
+            print("Compadre_USE_CUDA set to OFF")
+
+        kokkos_arch_string = ""
+        if kokkos_arch != None:
+            kokkos_arch_string = str(kokkos_arch)
+            print("KokkosCore_ARCH set to: %s"%(kokkos_arch_string,))
+        else:
+            print("KokkosCore_ARCH not set.")
+
         config = 'Debug' if self.debug else 'Release'
         cmake_args = [
             '-DGMLS_Module_DEST=' + str(extdir.parent.absolute()),
@@ -81,6 +118,8 @@ class build_ext(build_ext_orig):
             '-DCompadre_USE_MATLAB:BOOL=ON',
             '-DCompadre_EXAMPLES:BOOL=OFF',
             '-DPYTHON_CALLING_BUILD:BOOL=ON',
+            '-DCompadre_USE_CUDA:BOOL=%s'%(use_gpu_string,),
+            '-DKokkosCore_ARCH:STRING=%s'%(kokkos_arch_string,),
             '-DCMAKE_BUILD_TYPE=' + config
         ]
 
@@ -120,27 +159,6 @@ class build_ext(build_ext_orig):
 
         os.chdir(str(cwd))
 
-class InstallCommand(install):
-    user_options = install.user_options + [
-        ('someopt', None, None), # a 'flag' option
-        #('someval=', None, None) # an option that takes a value
-    ]
-
-    def initialize_options(self):
-        install.initialize_options(self)
-        self.someopt = None
-        #self.someval = None
-
-    def finalize_options(self):
-        #print("value of someopt is", self.someopt)
-        install.finalize_options(self)
-
-    def run(self):
-        global someopt
-        print("someopt set")
-        someopt = self.someopt # will be 1 or None
-        install.run(self)
-
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
@@ -150,12 +168,14 @@ setup(
     setup_requires=[
           "wheel>=0.33.1",
           "pathlib2",
+          "scikit-build",
           "cmake>=3.0.0",
           "numpy>=1.16.0",
     ],
     install_requires=[
           "wheel>=0.33.1",
           "pathlib2",
+          "scikit-build",
           "cmake>=3.0.0",
           "numpy>=1.16.0",
     ],
