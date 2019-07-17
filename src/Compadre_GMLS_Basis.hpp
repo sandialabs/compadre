@@ -36,7 +36,6 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
     }
 
     XYZ relative_coord;
-    // TODO: Add some comments
     if (neighbor_index > -1) {
       // Evaluate at neighbor site
         for (int i=0; i<dimension; ++i) {
