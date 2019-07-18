@@ -4,6 +4,51 @@ import distutils
 
 import subprocess 
 import shutil
+import pkg_resources
+
+# rather than deal with --no-build-isolation flags and other various flags to get a decent CMake build,
+# we do not use build and install requirements in pyproject.toml
+
+min_numpy_version = ['1','16','0']
+min_wheel_version = ['0','33','1']
+min_cmake_version = ['3','0','0']
+
+is_error = False
+error_msg = ""
+
+try:
+    import pathlib2
+except ImportError:
+    is_error = True
+    error_msg = error_msg + """You need the Python 'pathlib2' package!
+        install it by running 'pip install pathlib2'""" + "\n"
+
+try:
+    import wheel
+    wheel_version = pkg_resources.get_distribution("wheel").version.split('.')
+    assert wheel_version >= min_wheel_version
+except ImportError:
+    is_error = True
+    error_msg = error_msg + """You need the Python 'wheel' package >= 0.33.1!
+        install it by running 'pip install wheel'""" + "\n"
+
+try:
+    import numpy
+    numpy_version = pkg_resources.get_distribution("numpy").version.split('.')
+    assert numpy_version >= min_numpy_version
+except ImportError:
+    is_error = True
+    error_msg = error_msg + """You need the Python 'numpy' package >= 1.16.0!
+        install it by running 'pip install numpy'""" + "\n"
+
+#try:
+#    import cmake
+#    cmake_version = pkg_resources.get_distribution("cmake").version.split('.')
+#    assert cmake_version >= min_cmake_version
+#except ImportError:
+#    is_error = True
+#    error_msg = error_msg + """You need the Python 'cmake' package >= 3.0.0!
+#        install it by running 'pip install cmake'""" + "\n"
 
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext as build_ext_orig
@@ -13,6 +58,7 @@ from setuptools.command.install import install
 #https://stackoverflow.com/questions/42585210/extending-setuptools-extension-to-use-cmake-in-setup-py
 #https://martinopilia.com/posts/2018/09/15/building-python-extension.html
 #https://stackoverflow.com/questions/20288711/post-install-script-with-python-setuptools
+#https://stackoverflow.com/questions/18725137/how-to-obtain-arguments-passed-to-setup-py-from-pip-with-install-option
 
 def is_osx():
     name = distutils.util.get_platform()
@@ -42,7 +88,6 @@ class CMakeExtension(Extension):
         self.cmake_lists_dir = os.path.abspath(cmake_lists_dir)
 
 class InstallCommand(install):
-    # https://stackoverflow.com/questions/18725137/how-to-obtain-arguments-passed-to-setup-py-from-pip-with-install-option
     user_options = install.user_options + [
         ('use-gpu', None, None),
         ('kokkos-arch=', None, None)
@@ -92,17 +137,24 @@ class build_ext(build_ext_orig):
             pass # already exists
 
         use_gpu_string = "OFF"
-        if use_gpu != None:
-            use_gpu_string = "ON"
-            print("Compadre_USE_CUDA set to ON")
-        else:
+        try:
+            if use_gpu != None:
+                use_gpu_string = "ON"
+                print("Compadre_USE_CUDA set to ON")
+            else:
+                print("Compadre_USE_CUDA set to OFF")
+        except:
             print("Compadre_USE_CUDA set to OFF")
 
+
         kokkos_arch_string = ""
-        if kokkos_arch != None:
-            kokkos_arch_string = str(kokkos_arch)
-            print("KokkosCore_ARCH set to: %s"%(kokkos_arch_string,))
-        else:
+        try:
+            if kokkos_arch != None:
+                kokkos_arch_string = str(kokkos_arch)
+                print("KokkosCore_ARCH set to: %s"%(kokkos_arch_string,))
+            else:
+                print("KokkosCore_ARCH not set.")
+        except:
             print("KokkosCore_ARCH not set.")
 
         config = 'Debug' if self.debug else 'Release'
@@ -168,14 +220,11 @@ setup(
     setup_requires=[
           "wheel>=0.33.1",
           "pathlib2",
-          "scikit-build",
-          "cmake>=3.0.0",
           "numpy>=1.16.0",
     ],
     install_requires=[
           "wheel>=0.33.1",
           "pathlib2",
-          "scikit-build",
           "cmake>=3.0.0",
           "numpy>=1.16.0",
     ],
