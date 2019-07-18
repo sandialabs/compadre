@@ -57,7 +57,7 @@ if [ "$CLEAN" == "YES" ]; then
     rm -r ../dist
     rm -r ../compadre.egg-info
     rm ../setup.py
-    rm ../pyproject.toml
+    #rm ../pyproject.toml
     exit 0
 fi
 
@@ -99,7 +99,7 @@ if [ "$INSTALL" == "YES" ]; then
     echo "version $VERSION inserted into setup file."
 
     rm -rf ../dist
-    cp pyproject.toml ..
+    #cp pyproject.toml ..
 
     cd ..
     $EXECUTABLE setup.py install --force
@@ -117,7 +117,7 @@ if [ "$PACKAGE" == "YES" ]; then
     echo "version $VERSION inserted into setup file."
 
     rm -rf ../dist
-    cp pyproject.toml ..
+    #cp pyproject.toml ..
 
     cd ..
 
