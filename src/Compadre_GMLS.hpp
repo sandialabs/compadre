@@ -290,7 +290,7 @@ protected:
     if ( (_scratch_team_level_a != _scratch_team_level_b) && (_scratch_thread_level_a != _scratch_thread_level_b) ) {
             // all levels of each type need specified separately
             Kokkos::parallel_for(
-                Kokkos::TeamPolicy<Tag>(_target_coordinates.dimension_0(), threads_per_team, vector_lanes_per_thread)
+                Kokkos::TeamPolicy<Tag>(_target_coordinates.extent(0), threads_per_team, vector_lanes_per_thread)
                 .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a))
                 .set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(team_scratch_size_b))
                 .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a))
@@ -299,7 +299,7 @@ protected:
         } else if (_scratch_team_level_a != _scratch_team_level_b) {
             // scratch thread levels are the same
             Kokkos::parallel_for(
-                Kokkos::TeamPolicy<Tag>(_target_coordinates.dimension_0(), threads_per_team, vector_lanes_per_thread)
+                Kokkos::TeamPolicy<Tag>(_target_coordinates.extent(0), threads_per_team, vector_lanes_per_thread)
                 .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a))
                 .set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(team_scratch_size_b))
                 .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a + thread_scratch_size_b)),
@@ -307,7 +307,7 @@ protected:
         } else if (_scratch_thread_level_a != _scratch_thread_level_b) {
             // scratch team levels are the same
             Kokkos::parallel_for(
-                Kokkos::TeamPolicy<Tag>(_target_coordinates.dimension_0(), threads_per_team, vector_lanes_per_thread)
+                Kokkos::TeamPolicy<Tag>(_target_coordinates.extent(0), threads_per_team, vector_lanes_per_thread)
                 .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a + team_scratch_size_b))
                 .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a))
                 .set_scratch_size(_scratch_thread_level_b, Kokkos::PerThread(thread_scratch_size_b)),
@@ -315,7 +315,7 @@ protected:
         } else {
             // scratch team levels and thread levels are the same
             Kokkos::parallel_for(
-                Kokkos::TeamPolicy<Tag>(_target_coordinates.dimension_0(), threads_per_team, vector_lanes_per_thread)
+                Kokkos::TeamPolicy<Tag>(_target_coordinates.extent(0), threads_per_team, vector_lanes_per_thread)
                 .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a + team_scratch_size_b))
                 .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a + thread_scratch_size_b)),
                 *this, typeid(Tag).name());
@@ -1167,7 +1167,7 @@ public:
     void setNeighborLists(view_type neighbor_lists) {
         // allocate memory on device
         _neighbor_lists = decltype(_neighbor_lists)("device neighbor lists",
-            neighbor_lists.dimension_0(), neighbor_lists.dimension_1());
+            neighbor_lists.extent(0), neighbor_lists.extent(1));
         _host_neighbor_lists = Kokkos::create_mirror_view(_neighbor_lists);
 
         typedef typename view_type::memory_space input_array_memory_space;
@@ -1188,10 +1188,10 @@ public:
             Kokkos::deep_copy(_neighbor_lists, _host_neighbor_lists);
         }
 
-        _number_of_neighbors_list = Kokkos::View<int*, Kokkos::HostSpace>("number of neighbors", neighbor_lists.dimension_0());
+        _number_of_neighbors_list = Kokkos::View<int*, Kokkos::HostSpace>("number of neighbors", neighbor_lists.extent(0));
 
         _max_num_neighbors = 0;
-        for (int i=0; i<_neighbor_lists.dimension_0(); ++i) {
+        for (int i=0; i<_neighbor_lists.extent(0); ++i) {
             _number_of_neighbors_list(i) = _host_neighbor_lists(i,0);
             _max_num_neighbors = (_number_of_neighbors_list(i) > _max_num_neighbors) ? _number_of_neighbors_list(i) : _max_num_neighbors;
         }
@@ -1208,9 +1208,9 @@ public:
         // copy data from host to device
         Kokkos::deep_copy(_host_neighbor_lists, _neighbor_lists);
 
-        _number_of_neighbors_list = Kokkos::View<int*, Kokkos::HostSpace>("number of neighbors", neighbor_lists.dimension_0());
+        _number_of_neighbors_list = Kokkos::View<int*, Kokkos::HostSpace>("number of neighbors", neighbor_lists.extent(0));
         _max_num_neighbors = 0;
-        for (int i=0; i<_neighbor_lists.dimension_0(); ++i) {
+        for (int i=0; i<_neighbor_lists.extent(0); ++i) {
             _number_of_neighbors_list(i) = _host_neighbor_lists(i,0);
             _max_num_neighbors = (_number_of_neighbors_list(i) > _max_num_neighbors) ? _number_of_neighbors_list(i) : _max_num_neighbors;
         }
@@ -1224,7 +1224,7 @@ public:
 
         // allocate memory on device
         _source_coordinates = decltype(_source_coordinates)("device neighbor coordinates",
-                source_coordinates.dimension_0(), source_coordinates.dimension_1());
+                source_coordinates.extent(0), source_coordinates.extent(1));
 
         typedef typename view_type::memory_space input_array_memory_space;
         if (std::is_same<input_array_memory_space, device_execution_space::memory_space>::value) {
@@ -1259,7 +1259,7 @@ public:
     void setTargetSites(view_type target_coordinates) {
         // allocate memory on device
         _target_coordinates = decltype(_target_coordinates)("device target coordinates",
-                target_coordinates.dimension_0(), target_coordinates.dimension_1());
+                target_coordinates.extent(0), target_coordinates.extent(1));
 
         typedef typename view_type::memory_space input_array_memory_space;
         if (std::is_same<input_array_memory_space, device_execution_space::memory_space>::value) {
@@ -1294,7 +1294,7 @@ public:
 
         // allocate memory on device
         _epsilons = decltype(_epsilons)("device epsilons",
-                        epsilons.dimension_0(), epsilons.dimension_1());
+                        epsilons.extent(0), epsilons.extent(1));
 
         _host_epsilons = Kokkos::create_mirror_view(_epsilons);
         Kokkos::deep_copy(_host_epsilons, epsilons);
@@ -1323,10 +1323,10 @@ public:
         // this allows for nonstrided views on the device later
 
         // allocate memory on device
-        _T = decltype(_T)("device tangent directions", _target_coordinates.dimension_0()*_dimensions*_dimensions);
+        _T = decltype(_T)("device tangent directions", _target_coordinates.extent(0)*_dimensions*_dimensions);
 
         // rearrange data on device from data given on host
-        Kokkos::parallel_for("copy tangent vectors", Kokkos::RangePolicy<device_execution_space>(0, _target_coordinates.dimension_0()), KOKKOS_LAMBDA(const int i) {
+        Kokkos::parallel_for("copy tangent vectors", Kokkos::RangePolicy<device_execution_space>(0, _target_coordinates.extent(0)), KOKKOS_LAMBDA(const int i) {
             scratch_matrix_right_type T(_T.data() + i*_dimensions*_dimensions, _dimensions, _dimensions);
             for (int j=0; j<_dimensions; ++j) {
                 for (int k=0; k<_dimensions; ++k) {
@@ -1350,7 +1350,7 @@ public:
         // accept input from user as a rank 2 tensor
         
         // allocate memory on device
-        _ref_N = decltype(_ref_N)("device normal directions", _target_coordinates.dimension_0()*_dimensions);
+        _ref_N = decltype(_ref_N)("device normal directions", _target_coordinates.extent(0)*_dimensions);
         // to assist LAMBDA capture
         auto this_ref_N = this->_ref_N;
         auto this_dimensions = this->_dimensions;
@@ -1403,7 +1403,7 @@ public:
     void setAuxiliaryEvaluationCoordinates(view_type evaluation_coordinates) {
         // allocate memory on device
         _additional_evaluation_coordinates = decltype(_additional_evaluation_coordinates)("device additional evaluation coordinates",
-            evaluation_coordinates.dimension_0(), evaluation_coordinates.dimension_1());
+            evaluation_coordinates.extent(0), evaluation_coordinates.extent(1));
 
         typedef typename view_type::memory_space input_array_memory_space;
         if (std::is_same<input_array_memory_space, device_execution_space::memory_space>::value) {
@@ -1441,7 +1441,7 @@ public:
     void setAuxiliaryEvaluationIndicesLists(view_type indices_lists) {
         // allocate memory on device
         _additional_evaluation_indices = decltype(_additional_evaluation_indices)("device additional evaluation indices",
-            indices_lists.dimension_0(), indices_lists.dimension_1());
+            indices_lists.extent(0), indices_lists.extent(1));
 
         _host_additional_evaluation_indices = Kokkos::create_mirror_view(_additional_evaluation_indices);
 
@@ -1463,9 +1463,9 @@ public:
         }
 
         _number_of_additional_evaluation_indices 
-            = Kokkos::View<int*, Kokkos::HostSpace>("number of additional evaluation indices", indices_lists.dimension_0());
+            = Kokkos::View<int*, Kokkos::HostSpace>("number of additional evaluation indices", indices_lists.extent(0));
 
-        for (int i=0; i<_additional_evaluation_indices.dimension_0(); ++i) {
+        for (int i=0; i<_additional_evaluation_indices.extent(0); ++i) {
             _number_of_additional_evaluation_indices(i) = _host_additional_evaluation_indices(i,0);
         }
         this->resetCoefficientData();
@@ -1484,9 +1484,9 @@ public:
         Kokkos::deep_copy(_host_additional_evaluation_indices, _additional_evaluation_indices);
 
         _number_of_additional_evaluation_indices 
-            = Kokkos::View<int*, Kokkos::HostSpace>("number of additional evaluation indices", indices_lists.dimension_0());
+            = Kokkos::View<int*, Kokkos::HostSpace>("number of additional evaluation indices", indices_lists.extent(0));
 
-        for (int i=0; i<_additional_evaluation_indices.dimension_0(); ++i) {
+        for (int i=0; i<_additional_evaluation_indices.extent(0); ++i) {
             _number_of_additional_evaluation_indices(i) = _host_additional_evaluation_indices(i,0);
         }
         this->resetCoefficientData();

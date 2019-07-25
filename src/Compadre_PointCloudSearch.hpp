@@ -118,7 +118,7 @@ class PointCloudSearch {
                 : _src_pts_view(src_pts_view) {
             compadre_assert_release((std::is_same<typename view_type::memory_space, Kokkos::HostSpace>::value) &&
                     "Views passed to PointCloudSearch at construction should reside on the host.");
-            compadre_assert_release(src_pts_view.dimension_1()==3 &&
+            compadre_assert_release(src_pts_view.extent(1)==3 &&
                     "Views passed to PointCloudSearch at construction must have second dimension of 3.");
         };
     
@@ -137,7 +137,7 @@ class PointCloudSearch {
         template <class BBOX> bool kdtree_get_bbox(BBOX& bb) const {return false;}
 
         //! Returns the number of source sites
-        inline int kdtree_get_point_count() const {return _src_pts_view.dimension_0();}
+        inline int kdtree_get_point_count() const {return _src_pts_view.extent(0);}
 
         //! Returns the coordinate value of a point
         inline double kdtree_get_pt(const int idx, int dim) const {return _src_pts_view(idx,dim);}
@@ -176,7 +176,7 @@ class PointCloudSearch {
 
             compadre_assert_release((std::is_same<typename trg_view_type::memory_space, Kokkos::HostSpace>::value) &&
                     "Target coordinates view passed to generateNeighborListsFromKNNSearch should reside on the host.");
-            compadre_assert_release(trg_pts_view.dimension_1()==3 &&
+            compadre_assert_release(trg_pts_view.extent(1)==3 &&
                     "Target coordinates view passed to generateNeighborListsFromKNNSearch must have second dimension of 3.");
             compadre_assert_release((std::is_same<typename neighbor_lists_view_type::memory_space, Kokkos::HostSpace>::value) &&
                     "Views passed to generateNeighborListsFromKNNSearch should reside on the host.");
@@ -184,16 +184,16 @@ class PointCloudSearch {
                     "Views passed to generateNeighborListsFromKNNSearch should reside on the host.");
 
             // loop size
-            const int num_target_sites = trg_pts_view.dimension_0();
+            const int num_target_sites = trg_pts_view.extent(0);
 
             if (!kd_tree)
                 kd_tree = this->generateKDTree(dimension);
 
             // allocate neighbor lists and epsilons
-            compadre_assert_release((neighbor_lists.dimension_0()==num_target_sites 
-                        && neighbor_lists.dimension_1()>=neighbors_needed+1) 
+            compadre_assert_release((neighbor_lists.extent(0)==num_target_sites 
+                        && neighbor_lists.extent(1)>=neighbors_needed+1) 
                         && "neighbor lists View does not have large enough dimensions");
-            compadre_assert_release((epsilons.dimension_0()==num_target_sites)
+            compadre_assert_release((epsilons.extent(0)==num_target_sites)
                         && "epsilons View does not have the correct dimension");
 
             typedef Kokkos::View<double*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
@@ -204,8 +204,8 @@ class PointCloudSearch {
 
             // determine scratch space size needed
             int team_scratch_size = 0;
-            team_scratch_size += scratch_double_view::shmem_size(neighbor_lists.dimension_1()); // distances
-            team_scratch_size += scratch_int_view::shmem_size(neighbor_lists.dimension_1()); // indices
+            team_scratch_size += scratch_double_view::shmem_size(neighbor_lists.extent(1)); // distances
+            team_scratch_size += scratch_int_view::shmem_size(neighbor_lists.extent(1)); // indices
             team_scratch_size += scratch_double_view::shmem_size(3); // target coordinate
             team_scratch_size += scratch_int_view::shmem_size(1); // neighbors found
 
@@ -216,14 +216,14 @@ class PointCloudSearch {
                     KOKKOS_LAMBDA(const host_member_type& teamMember) {
 
                 // make unmanaged scratch views
-                scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.dimension_1());
-                scratch_int_view neighbor_indices(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.dimension_1());
+                scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
+                scratch_int_view neighbor_indices(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
                 scratch_double_view this_target_coord(teamMember.team_scratch(0 /*shared memory*/), 3);
                 scratch_int_view neighbors_found(teamMember.team_scratch(0 /*shared memory*/), 1);
 
                 const int i = teamMember.league_rank();
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.dimension_1()), [=](const int j) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.extent(1)), [=](const int j) {
                     neighbor_indices(j) = 0;
                     neighbor_distances(j) = 0;
                 });
@@ -254,8 +254,8 @@ class PointCloudSearch {
 
             // determine scratch space size needed
             team_scratch_size = 0;
-            team_scratch_size += scratch_double_view::shmem_size(neighbor_lists.dimension_1()); // distances
-            team_scratch_size += scratch_int_view::shmem_size(neighbor_lists.dimension_1()); // indices
+            team_scratch_size += scratch_double_view::shmem_size(neighbor_lists.extent(1)); // distances
+            team_scratch_size += scratch_int_view::shmem_size(neighbor_lists.extent(1)); // indices
             team_scratch_size += scratch_double_view::shmem_size(3); // target coordinate
             team_scratch_size += scratch_int_view::shmem_size(1); // neighbors found
 
@@ -266,14 +266,14 @@ class PointCloudSearch {
                     KOKKOS_LAMBDA(const host_member_type& teamMember) {
 
                 // make unmanaged scratch views
-                scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.dimension_1());
-                scratch_int_view neighbor_indices(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.dimension_1());
+                scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
+                scratch_int_view neighbor_indices(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
                 scratch_double_view this_target_coord(teamMember.team_scratch(0 /*shared memory*/), 3);
                 scratch_int_view neighbors_found(teamMember.team_scratch(0 /*shared memory*/), 1);
 
                 const int i = teamMember.league_rank();
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.dimension_1()), [=](const int j) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.extent(1)), [=](const int j) {
                     neighbor_indices(j) = 0;
                     neighbor_distances(j) = 0;
                 });
@@ -289,7 +289,7 @@ class PointCloudSearch {
                     for (int j=0; j<3; ++j) this_target_coord(j) = trg_pts_view(i,j);
 
                     nanoflann::SearchParams sp; // default parameters
-                    Compadre::RadiusResultSet<double> rrs(epsilons(i)*epsilons(i), neighbor_distances.data(), neighbor_indices.data(), neighbor_lists.dimension_1());
+                    Compadre::RadiusResultSet<double> rrs(epsilons(i)*epsilons(i), neighbor_distances.data(), neighbor_indices.data(), neighbor_lists.extent(1));
                     neighbors_found(0) = kd_tree->template radiusSearchCustomCallback<Compadre::RadiusResultSet<double> >(this_target_coord.data(), rrs, sp) ;
             
                     // the number of neighbors is stored in column zero of the neighbor lists 2D array
@@ -300,7 +300,7 @@ class PointCloudSearch {
 
                 // this is a check to make sure we have enough room to store all of the neighbors found
                 // strictly less than in assertion because we need 1 entry for the total number of neighbors found in addition to their indices
-                compadre_kernel_assert_release((neighbors_found(0)<neighbor_lists.dimension_1()) && "neighbor_lists given to PointCloudSearch has too few columns (second dimension) to hold all neighbors found.");
+                compadre_kernel_assert_release((neighbors_found(0)<neighbor_lists.extent(1)) && "neighbor_lists given to PointCloudSearch has too few columns (second dimension) to hold all neighbors found.");
 
                 teamMember.team_barrier();
 
