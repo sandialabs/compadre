@@ -1293,8 +1293,7 @@ public:
     void setWindowSizes(view_type epsilons) {
 
         // allocate memory on device
-        _epsilons = decltype(_epsilons)("device epsilons",
-                        epsilons.extent(0), epsilons.extent(1));
+        _epsilons = decltype(_epsilons)("device epsilons", epsilons.extent(0));
 
         _host_epsilons = Kokkos::create_mirror_view(_epsilons);
         Kokkos::deep_copy(_host_epsilons, epsilons);
