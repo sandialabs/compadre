@@ -28,6 +28,13 @@ except ImportError:
         install it by running 'pip install pathlib2'""" + "\n"
 
 try:
+    import skbuild
+except ImportError:
+    is_error = True
+    error_msg = error_msg + """You need the Python 'scikit-build' package!
+        install it by running 'pip install scikit-build'""" + "\n"
+
+try:
     import wheel
     wheel_version = pkg_resources.get_distribution("wheel").version.split('.')
     assert wheel_version >= min_wheel_version
@@ -375,6 +382,7 @@ setup(
           "pathlib2",
           "wheel>=%s"%(min_wheel_version_str,),
           "numpy>=%s"%(min_numpy_version_str,),
+          "scikit-build",
           "cmake>=%s"%(min_cmake_version_str,),
     ],
     install_requires=[
