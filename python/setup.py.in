@@ -34,7 +34,14 @@ try:
 except ImportError:
     is_error = True
     error_msg = error_msg + """You need the Python 'wheel' package >= %s!
-        install it by running 'pip install wheel'"""%(min_wheel_version_str,) + "\n"
+        Install it by running 'pip install wheel'"""%(min_wheel_version_str,) + "\n"
+except AssertionError:
+    is_error = True
+    import wheel
+    wheel_version = pkg_resources.get_distribution("wheel").version.split('.')
+    wheel_version_str = '.'.join(wheel_version)
+    error_msg = error_msg + """Python 'wheel' package is too old. [%s < %s]!
+        Upgrade it by running 'pip install wheel --upgrade'"""%(wheel_version_str,min_wheel_version_str,) + "\n"
 
 try:
     import numpy
@@ -43,7 +50,14 @@ try:
 except ImportError:
     is_error = True
     error_msg = error_msg + """You need the Python 'numpy' package >= %s!
-        install it by running 'pip install numpy'"""%(min_numpy_version_str,) + "\n"
+        Install it by running 'pip install numpy'"""%(min_numpy_version_str,) + "\n"
+except AssertionError:
+    is_error = True
+    import numpy
+    numpy_version = pkg_resources.get_distribution("numpy").version.split('.')
+    numpy_version_str = '.'.join(numpy_version)
+    error_msg = error_msg + """Python 'numpy' package is too old. [%s < %s]!
+        Upgrade it by running 'pip install numpy --upgrade'"""%(numpy_version_str,min_numpy_version_str,) + "\n"
 
 try:
     import cmake
@@ -53,6 +67,13 @@ except ImportError:
     is_error = True
     error_msg = error_msg + """You need the Python 'cmake' package >= %s!
         install it by running 'pip install cmake'"""%(min_cmake_version_str,) + "\n"
+except AssertionError:
+    is_error = True
+    import cmake
+    cmake_version = pkg_resources.get_distribution("cmake").version.split('.')
+    cmake_version_str = '.'.join(cmake_version)
+    error_msg = error_msg + """Python 'cmake' package is too old. [%s < %s]!
+        Upgrade it by running 'pip install cmake --upgrade'"""%(cmake_version_str,min_cmake_version_str,) + "\n"
 
 if is_error:
     sys.exit(error_msg)
@@ -95,6 +116,7 @@ class InstallCommand(install):
         ('kokkos-arch=', None, None),
         ('trilinos-prefix=', None, None),
         ('kokkos-prefix=', None, None),
+        ('cuda-prefix=', None, None),
     ]
 
     def initialize_options(self):
@@ -107,6 +129,7 @@ class InstallCommand(install):
         self.kokkos_arch = None
         self.trilinos_prefix = None
         self.kokkos_prefix = None
+        self.cuda_prefix = None
 
     def finalize_options(self):
         print("--use-gpu:", self.use_gpu)
@@ -115,8 +138,9 @@ class InstallCommand(install):
         print("--use-pthread:", self.use_pthread)
         print("--disable-pthread:", self.disable_pthread)
         print("--kokkos-arch:", self.kokkos_arch)
-        print("--trilinos-prefix:", self.kokkos_arch)
-        print("--kokkos-prefix:", self.kokkos_arch)
+        print("--trilinos-prefix:", self.trilinos_prefix)
+        print("--kokkos-prefix:", self.kokkos_prefix)
+        print("--cuda-prefix:", self.cuda_prefix)
         install.finalize_options(self)
 
     def run(self):
@@ -129,6 +153,7 @@ class InstallCommand(install):
         global kokkos_arch
         global trilinos_prefix
         global kokkos_prefix
+        global cuda_prefix
 
         use_gpu = self.use_gpu
         use_openmp = self.use_openmp
@@ -138,6 +163,8 @@ class InstallCommand(install):
         kokkos_arch = self.kokkos_arch
         trilinos_prefix = self.trilinos_prefix
         kokkos_prefix = self.kokkos_prefix
+        cuda_prefix = self.cuda_prefix
+
         install.run(self)
 
 class build_ext(build_ext_orig):
@@ -261,6 +288,17 @@ class build_ext(build_ext_orig):
         except:
             print("KokkosCore_PREFIX not set in Python.")
 
+        # Parse string for CUDA prefix
+        cuda_prefix_string = ""
+        try:
+            if cuda_prefix != None:
+                cuda_prefix_string = str(cuda_prefix)
+                print("CUDA_PREFIX set to: %s"%(cuda_prefix_string,))
+            else:
+                print("CUDA_PREFIX not set in Python.")
+        except:
+            print("CUDA_PREFIX not set in Python.")
+
 
         # Configure CMake
         config = 'Debug' if self.debug else 'Release'
@@ -276,13 +314,18 @@ class build_ext(build_ext_orig):
             '-DCompadre_USE_MATLAB:BOOL=ON',
             '-DCompadre_EXAMPLES:BOOL=OFF',
             '-DPYTHON_CALLING_BUILD:BOOL=ON',
-            '-DCompadre_USE_CUDA:BOOL=%s'%(use_gpu_string,),
-            '-DCompadre_USE_OpenMP:BOOL=%s'%(use_openmp_string,),
-            '-DCompadre_USE_Pthread:BOOL=%s'%(use_pthread_string,),
             '-DKokkosCore_ARCH:STRING=%s'%(kokkos_arch_string,),
         ]
+        if use_gpu_string != "":
+            cmake_args.append('-DCompadre_USE_CUDA:BOOL=%s'%(use_gpu_string,),)
+        if use_openmp_string != "":
+            cmake_args.append('-DCompadre_USE_OpenMP:BOOL=%s'%(use_openmp_string,),)
+        if use_pthread_string != "":
+            cmake_args.append('-DCompadre_USE_Pthread:BOOL=%s'%(use_pthread_string,),)
         if kokkos_prefix_string != "":
             cmake_args.append('-DKokkosCore_PREFIX:STRING=%s'%(kokkos_prefix_string,))
+        if cuda_prefix_string != "":
+            cmake_args.append('-DCUDA_PREFIX:STRING=%s'%(cuda_prefix_string,))
         if trilinos_prefix_string != "":
             cmake_args.append('-DTrilinos_PREFIX:STRING=%s'%(trilinos_prefix_string,))
         else:
