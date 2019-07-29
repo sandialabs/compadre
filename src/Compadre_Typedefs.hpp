@@ -74,6 +74,17 @@ typedef Kokkos::View<int*, host_execution_space, Kokkos::MemoryTraits<Kokkos::Un
 typedef Kokkos::Random_XorShift64_Pool<> pool_type;
 typedef typename pool_type::generator_type generator_type;
 
+template< bool B, class T = void >
+using enable_if_t = typename std::enable_if<B,T>::type;
+
+template<typename T>
+typename std::enable_if<1==T::rank,T>::type createView(std::string str, int dim_0, int dim_1)
+{ return T(str, dim_0); }
+
+template<typename T>
+typename std::enable_if<2==T::rank,T>::type createView(std::string str, int dim_0, int dim_1)
+{ return T(str, dim_0, dim_1); }
+
 //! compadre_assert_release is used for assertions that should always be checked, but generally 
 //! are not expensive to verify or are not called frequently. 
 # define compadre_assert_release(condition) do {                                \
