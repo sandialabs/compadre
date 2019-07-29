@@ -217,6 +217,7 @@ else()
         "-DKokkos_ENABLE_Cuda=${Compadre_USE_CUDA}"
         "-DKOKKOS_ARCH=${KokkosCore_ARCH}"
         "-DKOKKOS_CUDA_DIR=${CUDA_PREFIX}"
+        "-DKOKKOS_ENABLE_DEPRECATED_CODE=${KOKKOS_ENABLE_DEPRECATED_CODE}"
         "-DKokkos_ENABLE_Cuda_Lambda=ON"
         "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}"
       )

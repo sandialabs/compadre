@@ -4,9 +4,6 @@
 #include "Compadre_Typedefs.hpp"
 #include "Compadre_GMLS.hpp"
 
-template< bool B, class T = void >
-using enable_if_t = typename std::enable_if<B,T>::type;
-
 namespace Compadre {
 
 //! Creates 1D subviews of data from a 2D view, generally constructed with CreateNDSliceOnDeviceView
@@ -380,8 +377,8 @@ public:
         auto sro = (problem_type==MANIFOLD && sro_in==VectorPointSample) ? ManifoldVectorPointSample : sro_in;
 
         // create view on whatever memory space the user specified with their template argument when calling this function
-        output_view_type target_output("output of target operation", neighbor_lists.extent(0) /* number of targets */, 
-                output_dimensions);
+        output_view_type target_output = createView<output_view_type>("output of target operation", 
+                neighbor_lists.extent(0) /* number of targets */, output_dimensions);
 
         // make sure input and output columns make sense under the target operation
         compadre_assert_debug(((output_dimension_of_operator==1 && output_view_type::rank==1) || output_view_type::rank!=1) && 
@@ -451,8 +448,9 @@ public:
             Kokkos::fence();
 
             // create view on whatever memory space the user specified with their template argument when calling this function
-            output_view_type ambient_target_output("output of transform to ambient space", 
-                    neighbor_lists.extent(0) /* number of targets */, global_dimensions);
+            output_view_type ambient_target_output = createView<output_view_type>(
+                    "output of transform to ambient space", neighbor_lists.extent(0) /* number of targets */,
+                    global_dimensions);
             auto transformed_output_subview_maker = CreateNDSliceOnDeviceView(ambient_target_output, false); 
             // output will always be the correct dimension
             for (int i=0; i<global_dimensions; ++i) {
