@@ -1020,6 +1020,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
             });
         });
     } else if (_data_sampling_functional == StaggeredEdgeIntegralSample) {
+        compadre_kernel_assert_debug(_dense_solver_type==DenseSolverType::MANIFOLD && "StaggeredEdgeIntegralSample prestencil weight only written for manifolds.");
         const int neighbor_offset = _neighbor_lists.extent(1)-1;
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)), [=] (const int m) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {

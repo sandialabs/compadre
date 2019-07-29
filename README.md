@@ -29,6 +29,10 @@ p^{*}& =& \underset{p \in V}{\text{arg min}}\;\frac{1}{2}\sum_{j=1}^N (\lambda_j
 
 [Installation of Compadre](doc/Compadre-Install.md)
 
+## Documentation and Tutorials
+The toolkit is documented by Doxygen. <b>[Documentation is available online](https://snlcomputation.github.io/compadre/doc/html/index.html)</b> or can be compiled from source.
+To compile from source: 1.) install doxygen software on your computer, 2.) execute '>> make Doxygen' after having installed the Compadre Toolkit. HTML and Latex documentation will be generated in the <b>doc/</b> folder, in-source. 
+
 ## Citing the Software
 
 If you write a paper using results obtained with the help of the Compadre Toolkit, please cite the following reference:
