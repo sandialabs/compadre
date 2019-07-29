@@ -683,13 +683,11 @@ endif ()
 ##########
 bob_option(Compadre_BUILD_Doxygen "Compile Doxygen documentation" ON)
 if(Compadre_BUILD_Doxygen)
-  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in" "${CMAKE_CURRENT_BINARY_DIR}/doc/Doxyfile"
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in" "${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile"
                  @ONLY)
-  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/doc/DoxygenLayout.xml" "${CMAKE_CURRENT_BINARY_DIR}/doc/DoxygenLayout.xml"
-                 COPYONLY)
   add_custom_target(Doxygen
                     COMMAND doxygen
-                    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/doc )
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doc )
   # still must be called manually with "make Doxygen"
 endif(Compadre_BUILD_Doxygen)
 
