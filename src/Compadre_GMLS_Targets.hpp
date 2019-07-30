@@ -195,11 +195,14 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                 if (_polynomial_sampling_functional == StaggeredEdgeIntegralSample) {
                     // compadre_kernel_assert_release((false) && "Functionality not yet available.");
                     Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                        int offset = getTargetOffsetIndexDevice(i, 0, 0, 0);
+                        int offset;
                         switch (_dimensions) {
                         case 3:
+                            offset = getTargetOffsetIndexDevice(i, 0, 0, 0);
                             P_target_row(offset, 1) = std::pow(_epsilons(target_index), -1);
+                            // offset = getTargetOffsetIndexDevice(i, 1, 0, 0);
                             P_target_row(offset, target_NP + 2) = std::pow(_epsilons(target_index), -1);
+                            // offset = getTargetOffsetIndexDevice(i, 2, 0, 0);
                             P_target_row(offset, 2*target_NP + 3) = std::pow(_epsilons(target_index), -1);
                             break;
                         case 2:
