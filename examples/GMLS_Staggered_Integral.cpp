@@ -66,7 +66,7 @@ bool all_passed = true;
 
     // check if 3 arguments are given from the command line
     //  set the number of target sites where we will reconstruct the target functionals at
-    int number_target_coords = 10; // 200 target sites by default
+    int number_target_coords = 50; // 200 target sites by default
     if (argc >= 3) {
         int arg3toi = atoi(args[2]);
         if (arg3toi > 0) {
@@ -337,7 +337,7 @@ bool all_passed = true;
     // auto output_divergence = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
     //   (sampling_data_device, DivergenceOfVectorPointEvaluation, StaggeredEdgeAnalyticGradientIntegralSample);
     auto output_divergence = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-      (sampling_data_device, DivergenceOfVectorPointEvaluation, StaggeredEdgeIntegralSample);
+      (sampling_data_device, DivergenceOfVectorPointEvaluation, StaggeredEdgeAnalyticGradientIntegralSample);
 
     //! [Apply GMLS Alphas To Data]
 
@@ -367,8 +367,8 @@ bool all_passed = true;
         // check divergence
         if(std::abs(actual_Divergence - GMLS_Divergence) > failure_tolerance) {
             all_passed = false;
+            std::cout << "FAAAAAAAIIIIILLLL!!!" << std::endl;
             std::cout << i << " Failed Divergence by: " << std::abs(actual_Divergence - GMLS_Divergence) << std::endl;
-            std::cout << i << " GMLS " << GMLS_Divergence << " actual " << actual_Divergence << std::endl;
         }
     }
 
