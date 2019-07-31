@@ -66,7 +66,7 @@ bool all_passed = true;
 
     // check if 3 arguments are given from the command line
     //  set the number of target sites where we will reconstruct the target functionals at
-    int number_target_coords = 50; // 200 target sites by default
+    int number_target_coords = 200; // 200 target sites by default
     if (argc >= 3) {
         int arg3toi = atoi(args[2]);
         if (arg3toi > 0) {
@@ -227,7 +227,7 @@ bool all_passed = true;
     // each row is a neighbor list for a target site, with the first column of each row containing
     // the number of neighbors for that rows corresponding target site
     // for the default values in this test, the multiplier is suggested to be 2.2
-    double epsilon_multiplier = 2.0;
+    double epsilon_multiplier = 2.2;
     int estimated_upper_bound_number_neighbors =
         point_cloud_search.getEstimatedNumberNeighborsUpperBound(min_neighbors, dimension, epsilon_multiplier);
 
