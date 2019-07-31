@@ -252,14 +252,14 @@ bool all_passed = true;
     GMLS scalar_basis_gmls(ScalarTaylorPolynomial,
                  StaggeredEdgeAnalyticGradientIntegralSample,
                  order, solver_name.c_str(),
-                 NULL /*manifold order*/ , dimension);
+                 0 /*manifold order*/ , dimension);
 
     // Another class performing Gaussian quadrature integration on vector polynomial basis
     GMLS vector_basis_gmls(VectorTaylorPolynomial,
                            StaggeredEdgeIntegralSample,
                            StaggeredEdgeAnalyticGradientIntegralSample,
                            order, solver_name.c_str(),
-                           NULL /*manifold order*/ , dimension);
+                           0 /*manifold order*/ , dimension);
 
     // pass in neighbor lists, source coordinates, target coordinates, and window sizes
     //
