@@ -397,6 +397,8 @@ public:
         auto sro_style = sro.transform_type;
         bool loop_global_dimensions = sro.input_rank>0 && sro_style!=Identity; 
 
+        compadre_assert_release(_gmls->getDataSamplingFunctional()==sro || sro_style==Identity 
+                && "SamplingFunctional requested for Evaluator does not match GMLS data sampling functional or is not of type 'Identity'.");
 
         if (sro.transform_type == Identity || sro.transform_type == SameForAll) {
             vary_on_target = false;
