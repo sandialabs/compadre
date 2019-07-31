@@ -1632,6 +1632,13 @@ public:
 
         _total_alpha_values = total_offset;
 
+        if (_dense_solver_type == DenseSolverType::MANIFOLD) {
+            // if on a manifold, the total alphas values must be large enough to hold the gradient
+            // of the geometry reconstruction
+            _total_alpha_values = (_total_alpha_values > std::pow(_local_dimensions, 1)) ? 
+                _total_alpha_values : std::pow(_local_dimensions, 1);
+        }
+
         Kokkos::deep_copy(_lro_total_offsets, _host_lro_total_offsets);
         Kokkos::deep_copy(_lro_output_tile_size, _host_lro_output_tile_size);
         Kokkos::deep_copy(_lro_input_tile_size, _host_lro_input_tile_size);
