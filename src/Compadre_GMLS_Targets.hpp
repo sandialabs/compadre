@@ -193,7 +193,6 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (_operations(i) == TargetOperation::DivergenceOfVectorPointEvaluation) {
                 if (_polynomial_sampling_functional == StaggeredEdgeIntegralSample) {
-                    // compadre_kernel_assert_release((false) && "Functionality not yet available.");
                     Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                         int offset = getTargetOffsetIndexDevice(i, 0, 0, 0);;
                         switch (_dimensions) {
@@ -222,7 +221,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                           }
                       }
                     });
-                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+                    additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
                 }
             } else if (_operations(i) == TargetOperation::CurlOfVectorPointEvaluation) {
                 if (_dimensions==3) { 
