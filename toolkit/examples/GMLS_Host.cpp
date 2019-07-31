@@ -108,7 +108,7 @@ bool all_passed = true;
     // randomly fill neighbor lists
     for (int i=0; i<number_target_coords; i++) {
 //        int r = gen_num_neighbors(rng);
-//        assert(r<source_coords.dimension_0()-offset);
+//        assert(r<source_coords.extent(0)-offset);
         int r = max_neighbors;
         neighbor_lists(i,0) = r; // number of neighbors is random between max and min
 
@@ -162,10 +162,10 @@ bool all_passed = true;
 
     
     // need Kokkos View storing true solution
-    Kokkos::View<double*, Kokkos::HostSpace> sampling_data("samples of true solution", source_coords.dimension_0());
-	Kokkos::View<double**, Kokkos::HostSpace> gradient_sampling_data("samples of true gradient", source_coords.dimension_0(), dimension);
-    Kokkos::View<double**, Kokkos::LayoutLeft, Kokkos::HostSpace> divergence_sampling_data("samples of true solution for divergence test", source_coords.dimension_0(), dimension);
-    Kokkos::parallel_for("Sampling Manufactured Solutions", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,source_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
+    Kokkos::View<double*, Kokkos::HostSpace> sampling_data("samples of true solution", source_coords.extent(0));
+    Kokkos::View<double**, Kokkos::HostSpace> gradient_sampling_data("samples of true gradient", source_coords.extent(0), dimension);
+    Kokkos::View<double**, Kokkos::LayoutLeft, Kokkos::HostSpace> divergence_sampling_data("samples of true solution for divergence test", source_coords.extent(0), dimension);
+    Kokkos::parallel_for("Sampling Manufactured Solutions", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,source_coords.extent(0)), KOKKOS_LAMBDA(const int i) {
         double xval = source_coords(i,0);
         double yval = (dimension>1) ? source_coords(i,1) : 0;
         double zval = (dimension>2) ? source_coords(i,2) : 0;

@@ -52,7 +52,12 @@ endif()
 
 # link to LAPACK
 if (Compadre_USE_LAPACK)
-  target_link_libraries(compadre PUBLIC "${LAPACK_LIB}")
+  if (LAPACK_LIB)
+    target_link_libraries(compadre PUBLIC "${LAPACK_LIB}")
+  endif()
+  if (BLAS_LIB)
+    target_link_libraries(compadre PUBLIC "${BLAS_LIB}")
+  endif()
 endif()
 
 # link to MPI

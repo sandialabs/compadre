@@ -51,9 +51,9 @@ public:
 
     ~GMLS_Python() { 
 
-		delete gmls_object; 
+        delete gmls_object;
 
-	}
+    }
 
     void setWeightingOrder(int regular_weight, int curvature_weight = -1) {
         if (curvature_weight < 0) curvature_weight = regular_weight;
@@ -319,7 +319,7 @@ public:
         // get polynomial coefficient size
         const int NP = gmls_object->getPolynomialCoefficientsSize();
         // get number of target sites
-        const int NT = gmls_object->getNeighborLists().dimension_0();
+        const int NT = gmls_object->getNeighborLists().extent(0);
 
         // copy data into Kokkos View
         // set dimensions
@@ -430,8 +430,8 @@ public:
         auto output_values = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
             (source_data, requested_operation);
 
-        auto dim_out_0 = output_values.dimension_0();
-        auto dim_out_1 = output_values.dimension_1();
+        auto dim_out_0 = output_values.extent(0);
+        auto dim_out_1 = output_values.extent(1);
 
         if (dim_out_1 == 1) {
 

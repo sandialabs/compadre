@@ -25,28 +25,32 @@ p^{*}& =& \underset{p \in V}{\text{arg min}}\;\frac{1}{2}\sum_{j=1}^N (\lambda_j
 [Recent Changes](doc/Changelog.md)
 
 ## Installation
-[Installation of Kokkos](doc/Kokkos-Install.md)
+[Installation of Kokkos](doc/Kokkos-Install.md) [Either automatically configured and built, or user installation location provided]
 
 [Installation of Compadre](doc/Compadre-Install.md)
+
+## Documentation and Tutorials
+The toolkit is documented by Doxygen. <b>[Documentation is available online](https://snlcomputation.github.io/compadre/doc/html/index.html)</b> or can be compiled from source.
+To compile from source: 1.) install doxygen software on your computer, 2.) execute '>> make Doxygen' after having installed the Compadre Toolkit. HTML and Latex documentation will be generated in the <b>doc/</b> folder, in-source. 
 
 ## Citing the Software
 
 If you write a paper using results obtained with the help of the Compadre Toolkit, please cite the following reference:
 
 ```
-@misc{paul_kuberry_2019_2560287,
+@misc{paul_kuberry_2019_3338664,
   author       = {Paul Kuberry and
                   Peter Bosler and
                   Nathaniel Trask},
   title        = {Compadre Toolkit},
-  month        = feb,
+  month        = jul,
   year         = 2019,
-  doi          = {10.5281/zenodo.2560287},
-  url          = {https://doi.org/10.5281/zenodo.2560287}
+  doi          = {10.5281/zenodo.3338664},
+  url          = {https://doi.org/10.5281/zenodo.3338664}
 }
 ```
 
 If you would like to export the reference information to either CSL, DataCite, Dublin, Core, JSON, JSON-LD, MARCXML, or Mendeley, please find the export section at the bottom-right corner once you follow the link below:
 
-<a href="https://doi.org/10.5281/zenodo.2557929" target="_blank"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.2557929.svg"></a>
+<a href="https://doi.org/10.5281/zenodo.3338664" target="_blank"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.3338664.svg"></a>
 
