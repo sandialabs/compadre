@@ -192,18 +192,37 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (_operations(i) == TargetOperation::DivergenceOfVectorPointEvaluation) {
-                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                    for (int e=0; e<num_evaluation_sites; ++e) {
-                        for (int m=0; m<_sampling_multiplier; ++m) {
-                            this->calcGradientPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, m /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
-                            int offset = getTargetOffsetIndexDevice(i, m /*in*/, 0 /*out*/, e/*additional*/);
-                            for (int j=0; j<target_NP; ++j) {
-                                P_target_row(offset, m*target_NP + j) = t1(j);
-                            }
+                if (_polynomial_sampling_functional == StaggeredEdgeIntegralSample) {
+                    Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                        int offset = getTargetOffsetIndexDevice(i, 0, 0, 0);;
+                        switch (_dimensions) {
+                        case 3:
+                            P_target_row(offset, 1) = std::pow(_epsilons(target_index), -1);
+                            P_target_row(offset, target_NP + 2) = std::pow(_epsilons(target_index), -1);
+                            P_target_row(offset, 2*target_NP + 3) = std::pow(_epsilons(target_index), -1);
+                            break;
+                        case 2:
+                            P_target_row(offset, 1) = std::pow(_epsilons(target_index), -1);
+                            P_target_row(offset, target_NP + 2) = std::pow(_epsilons(target_index), -1);
+                            break;
+                        default:
+                            P_target_row(offset, 1) = std::pow(_epsilons(target_index), -1);
                         }
-                    }
-                });
-                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+                    });
+                } else {
+                    Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                      for (int e=0; e<num_evaluation_sites; ++e) {
+                          for (int m=0; m<_sampling_multiplier; ++m) {
+                              this->calcGradientPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, m /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
+                              int offset = getTargetOffsetIndexDevice(i, m /*in*/, 0 /*out*/, e/*additional*/);
+                              for (int j=0; j<target_NP; ++j) {
+                                  P_target_row(offset, m*target_NP + j) = t1(j);
+                              }
+                          }
+                      }
+                    });
+                    additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+                }
             } else if (_operations(i) == TargetOperation::CurlOfVectorPointEvaluation) {
                 if (_dimensions==3) { 
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {

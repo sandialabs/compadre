@@ -88,9 +88,6 @@ bool all_passed = true;
     // of the reconstruction space we choose for GMLS, so the error should be very small
     const double failure_tolerance = 1e-9;
 
-    // Laplacian is a second order differential operator, which we expect to be slightly less accurate
-    const double laplacian_failure_tolerance = 1e-9;
-
     // minimum neighbors for unisolvency is the same as the size of the polynomial basis
     const int min_neighbors = Compadre::GMLS::getNP(order, dimension);
 
@@ -180,15 +177,8 @@ bool all_passed = true;
     Kokkos::View<double*, Kokkos::DefaultExecutionSpace> sampling_data_device("samples of true solution",
             source_coords_device.extent(0));
 
-    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> gradient_sampling_data_device("samples of true gradient",
-            source_coords_device.extent(0), dimension);
-
-    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> divergence_sampling_data_device
-            ("samples of true solution for divergence test", source_coords_device.extent(0), dimension);
-
     Kokkos::parallel_for("Sampling Manufactured Solutions", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>
             (0,source_coords.extent(0)), KOKKOS_LAMBDA(const int i) {
-
         // coordinates of source site i
         double xval = source_coords_device(i,0);
         double yval = (dimension>1) ? source_coords_device(i,1) : 0;
@@ -196,18 +186,6 @@ bool all_passed = true;
 
         // data for targets with scalar input
         sampling_data_device(i) = trueSolution(xval, yval, zval, order, dimension);
-
-        // data for targets with vector input (divergence)
-        double true_grad[3] = {0,0,0};
-        trueGradient(true_grad, xval, yval,zval, order, dimension);
-
-        for (int j=0; j<dimension; ++j) {
-            gradient_sampling_data_device(i,j) = true_grad[j];
-
-            // data for target with vector input (curl)
-            divergence_sampling_data_device(i,j) = divergenceTestSamples(xval, yval, zval, j, dimension);
-        }
-
     });
 
 
@@ -244,7 +222,6 @@ bool all_passed = true;
     point_cloud_search.generateNeighborListsFromKNNSearch(target_coords, neighbor_lists, epsilon, min_neighbors, dimension,
             epsilon_multiplier);
 
-
     //! [Performing Neighbor Search]
 
     Kokkos::Profiling::popRegion();
@@ -271,8 +248,18 @@ bool all_passed = true;
     
     // initialize an instance of the GMLS class
     // NULL in manifold order indicates non-manifold case
-    GMLS my_GMLS(ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample, order, solver_name.c_str(),
-                 2 /*manifold order*/ , dimension);
+    // First, analytica gradient on scalar polynomial basis
+    GMLS scalar_basis_gmls(ScalarTaylorPolynomial,
+                 StaggeredEdgeAnalyticGradientIntegralSample,
+                 order, solver_name.c_str(),
+                 NULL /*manifold order*/ , dimension);
+
+    // Another class performing Gaussian quadrature integration on vector polynomial basis
+    GMLS vector_basis_gmls(VectorTaylorPolynomial,
+                           StaggeredEdgeIntegralSample,
+                           StaggeredEdgeAnalyticGradientIntegralSample,
+                           order, solver_name.c_str(),
+                           NULL /*manifold order*/ , dimension);
 
     // pass in neighbor lists, source coordinates, target coordinates, and window sizes
     //
@@ -288,23 +275,27 @@ bool all_passed = true;
     //      dimensions: (# number of target sites) X (dimension)
     //                  # of target sites is same as # of rows of neighbor lists
     //
-    my_GMLS.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    scalar_basis_gmls.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    vector_basis_gmls.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
 
     // create a vector of target operations
     TargetOperation lro = DivergenceOfVectorPointEvaluation;
 
     // and then pass them to the GMLS class
-    my_GMLS.addTargets(lro);
+    scalar_basis_gmls.addTargets(lro);
+    vector_basis_gmls.addTargets(lro);
 
     // sets the weighting kernel function from WeightingFunctionType
-    my_GMLS.setWeightingType(WeightingFunctionType::Power);
+    scalar_basis_gmls.setWeightingType(WeightingFunctionType::Power);
+    vector_basis_gmls.setWeightingType(WeightingFunctionType::Power);
 
     // power to use in that weighting kernel function
-    my_GMLS.setWeightingPower(2);
+    scalar_basis_gmls.setWeightingPower(2);
+    vector_basis_gmls.setWeightingPower(2);
 
     // generate the alphas that to be combined with data for each target operation requested in lro
-    my_GMLS.generateAlphas();
-
+    scalar_basis_gmls.generateAlphas();
+    vector_basis_gmls.generateAlphas();
 
     //! [Setting Up The GMLS Object]
 
@@ -325,10 +316,15 @@ bool all_passed = true;
     // It uses information from the GMLS class to determine how many components are in the input
     // as well as output for any choice of target functionals and then performs the contactions
     // on the data using the alpha coefficients generated by the GMLS class, all on the device.
-    Evaluator gmls_evaluator(&my_GMLS);
+    Evaluator gmls_evaluator_scalar(&scalar_basis_gmls);
+    Evaluator gmls_evaluator_vector(&vector_basis_gmls);
 
-    auto output_divergence = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+    auto output_divergence_scalar = gmls_evaluator_scalar.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
       (sampling_data_device, DivergenceOfVectorPointEvaluation, StaggeredEdgeAnalyticGradientIntegralSample);
+
+    auto output_divergence_vector = gmls_evaluator_vector.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+      (sampling_data_device, DivergenceOfVectorPointEvaluation, StaggeredEdgeAnalyticGradientIntegralSample);
+
 
     //! [Apply GMLS Alphas To Data]
 
@@ -342,7 +338,8 @@ bool all_passed = true;
     // loop through the target sites
     for (int i=0; i<number_target_coords; i++) {
         // load divergence from output
-        double GMLS_Divergence = output_divergence(i);
+        double GMLS_Divergence_Scalar = output_divergence_scalar(i);
+        double GMLS_Divergence_Vector = output_divergence_vector(i);
 
         // target site i's coordinate
         double xval = target_coords(i,0);
@@ -354,10 +351,16 @@ bool all_passed = true;
         actual_Divergence = trueLaplacian(xval, yval, zval, order, dimension);
 
         // check divergence
-        if(std::abs(actual_Divergence - GMLS_Divergence) > failure_tolerance) {
+        if(std::abs(actual_Divergence - GMLS_Divergence_Scalar) > failure_tolerance) {
             all_passed = false;
-            std::cout << i << " Failed Divergence by: " << std::abs(actual_Divergence - GMLS_Divergence) << std::endl;
-            std::cout << i << " GMLS " << GMLS_Divergence << " actual " << actual_Divergence << std::endl;
+            std::cout << i << " Failed Divergence on SCALAR basis by: " << std::abs(actual_Divergence - GMLS_Divergence_Scalar) << std::endl;
+            std::cout << i << " GMLS " << GMLS_Divergence_Scalar << " actual " << actual_Divergence << std::endl;
+        }
+
+        if(std::abs(actual_Divergence - GMLS_Divergence_Vector) > failure_tolerance) {
+            all_passed = false;
+            std::cout << i << " Failed Divergence on VECTOR basis by: " << std::abs(actual_Divergence - GMLS_Divergence_Vector) << std::endl;
+            std::cout << i << " GMLS " << GMLS_Divergence_Vector << " actual " << actual_Divergence << std::endl;
         }
     }
 
