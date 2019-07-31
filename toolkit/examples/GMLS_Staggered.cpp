@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <stdlib.h> 
+#include <stdlib.h>
 #include <cstdio>
 #include <random>
 
@@ -41,7 +41,7 @@ bool all_passed = true;
 // code block to reduce scope for all Kokkos View allocations
 // otherwise, Views may be deallocating when we call Kokkos::finalize() later
 {
-    
+
     // check if 5 arguments are given from the command line, the first being the program name
     //  solver_type used for factorization in solving each GMLS problem:
     //      0 - SVD used for factorization in solving each GMLS problem
@@ -53,7 +53,7 @@ bool all_passed = true;
             solver_type = arg5toi;
         }
     }
-    
+
     // check if 4 arguments are given from the command line
     //  dimension for the coordinates and the solution
     int dimension = 3; // dimension 3 by default
@@ -63,7 +63,7 @@ bool all_passed = true;
             dimension = arg4toi;
         }
     }
-    
+
     // check if 3 arguments are given from the command line
     //  set the number of target sites where we will reconstruct the target functionals at
     int number_target_coords = 200; // 200 target sites by default
@@ -73,7 +73,7 @@ bool all_passed = true;
             number_target_coords = arg3toi;
         }
     }
-    
+
     // check if 2 arguments are given from the command line
     //  set the number of target sites where we will reconstruct the target functionals at
     int order = 3; // 3rd degree polynomial basis by default
@@ -83,52 +83,39 @@ bool all_passed = true;
             order = arg2toi;
         }
     }
-    
+
     // the functions we will be seeking to reconstruct are in the span of the basis
     // of the reconstruction space we choose for GMLS, so the error should be very small
     const double failure_tolerance = 1e-9;
-    
+
     // Laplacian is a second order differential operator, which we expect to be slightly less accurate
     const double laplacian_failure_tolerance = 1e-9;
-    
-    // minimum neighbors for unisolvency is the same as the size of the polynomial basis 
+
+    // minimum neighbors for unisolvency is the same as the size of the polynomial basis
     const int min_neighbors = Compadre::GMLS::getNP(order, dimension);
-    
+
     //! [Parse Command Line Arguments]
     Kokkos::Timer timer;
     Kokkos::Profiling::pushRegion("Setup Point Data");
     //! [Setting Up The Point Cloud]
-    
+
     // approximate spacing of source sites
     double h_spacing = 0.05;
     int n_neg1_to_1 = 2*(1/h_spacing) + 1; // always odd
-    
+
     // number of source coordinate sites that will fill a box of [-1,1]x[-1,1]x[-1,1] with a spacing approximately h
     const int number_source_coords = std::pow(n_neg1_to_1, dimension);
-    
-    // Coordinates for source and target sites are allocated through memory managed views just
-    // to allocate space for the data and from which to provide a pointer to raw data on the device.
-    // An unmanaged view is then created and pointed at this raw pointer in order to test the GMLS class
-    // setSourceSites and setTargetSites interface.
 
     // coordinates of source sites
-    // data allocated on device memory space
-    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> source_coords_data("source coordinates", 
+    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> source_coords_device("source coordinates",
             number_source_coords, 3);
-    // later accessed through unmanaged memory view
-    scratch_matrix_left_type source_coords_device(source_coords_data.data(), 
-            number_source_coords, 3);
-    scratch_matrix_left_type::HostMirror source_coords = Kokkos::create_mirror_view(source_coords_device);
-    
+    Kokkos::View<double**>::HostMirror source_coords = Kokkos::create_mirror_view(source_coords_device);
+
     // coordinates of target sites
-    // data allocated on device memory space
-    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> target_coords_data("target coordinates", 
-            number_target_coords, 3);
-    // later accessed through unmanaged memory view
-    scratch_matrix_right_type target_coords_device (target_coords_data.data(), number_target_coords, 3);
-    scratch_matrix_right_type::HostMirror target_coords = Kokkos::create_mirror_view(target_coords_device);
-    
-    
+    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> target_coords_device ("target coordinates", number_target_coords, 3);
+    Kokkos::View<double**>::HostMirror target_coords = Kokkos::create_mirror_view(target_coords_device);
+
+
     // fill source coordinates with a uniform grid
     int source_index = 0;
     double this_coord[3] = {0,0,0};
@@ -139,144 +126,141 @@ bool all_passed = true;
             for (int k=-n_neg1_to_1/2; k<n_neg1_to_1/2+1; ++k) {
                 this_coord[2] = k*h_spacing;
                 if (dimension==3) {
-                    source_coords(source_index,0) = this_coord[0]; 
-                    source_coords(source_index,1) = this_coord[1]; 
-                    source_coords(source_index,2) = this_coord[2]; 
+                    source_coords(source_index,0) = this_coord[0];
+                    source_coords(source_index,1) = this_coord[1];
+                    source_coords(source_index,2) = this_coord[2];
                     source_index++;
                 }
             }
             if (dimension==2) {
-                source_coords(source_index,0) = this_coord[0]; 
-                source_coords(source_index,1) = this_coord[1]; 
+                source_coords(source_index,0) = this_coord[0];
+                source_coords(source_index,1) = this_coord[1];
                 source_coords(source_index,2) = 0;
                 source_index++;
             }
         }
         if (dimension==1) {
-            source_coords(source_index,0) = this_coord[0]; 
+            source_coords(source_index,0) = this_coord[0];
             source_coords(source_index,1) = 0;
             source_coords(source_index,2) = 0;
             source_index++;
         }
     }
-    
-    // fill target coords somewhere inside of [-0.5,0.5]x[-0.5,0.5]x[-0.5,0.5]
-    for(int i=0; i<number_target_coords; i++){
-    
-        // first, we get a uniformly random distributed direction
-        double rand_dir[3] = {0,0,0};
-    
-        for (int j=0; j<dimension; ++j) {
-            // rand_dir[j] is in [-0.5, 0.5]
-            rand_dir[j] = ((double)rand() / (double) RAND_MAX) - 0.5;
+
+    // Generate target points - these are random permutation from available source points
+    // Note that this is assuming that the number of targets in this test will not exceed
+    // the number of source coords, which is 41^3 = 68921
+    // seed random number generator
+    std::mt19937 rng(50);
+    // generate random integers in [0..number_source_coords-1] (used to pick target sites)
+    std::uniform_int_distribution<int> gen_num_neighbours(0, source_index);
+    // fill target sites with random selections from source sites
+    for (int i=0; i<number_target_coords; ++i) {
+        const int source_site_to_copy = gen_num_neighbours(rng);
+        for (int j=0; j<3; j++) {
+            target_coords(i, j) = source_coords(source_site_to_copy, j);
         }
-    
-        // then we get a uniformly random radius
-        for (int j=0; j<dimension; ++j) {
-            target_coords(i,j) = rand_dir[j];
-        }
-    
     }
-    
-    
+
     //! [Setting Up The Point Cloud]
-    
+
     Kokkos::Profiling::popRegion();
     Kokkos::Profiling::pushRegion("Creating Data");
-    
+
     //! [Creating The Data]
-    
-    
+
+
     // source coordinates need copied to device before using to construct sampling data
     Kokkos::deep_copy(source_coords_device, source_coords);
-    
+
     // target coordinates copied next, because it is a convenient time to send them to device
     Kokkos::deep_copy(target_coords_device, target_coords);
-    
+
     // need Kokkos View storing true solution
-    Kokkos::View<double*, Kokkos::DefaultExecutionSpace> sampling_data_device("samples of true solution", 
+    Kokkos::View<double*, Kokkos::DefaultExecutionSpace> sampling_data_device("samples of true solution",
             source_coords_device.extent(0));
-    
-    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> gradient_sampling_data_device("samples of true gradient", 
+
+    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> gradient_sampling_data_device("samples of true gradient",
             source_coords_device.extent(0), dimension);
-    
+
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> divergence_sampling_data_device
             ("samples of true solution for divergence test", source_coords_device.extent(0), dimension);
-    
+
     Kokkos::parallel_for("Sampling Manufactured Solutions", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>
             (0,source_coords.extent(0)), KOKKOS_LAMBDA(const int i) {
-    
+
         // coordinates of source site i
         double xval = source_coords_device(i,0);
         double yval = (dimension>1) ? source_coords_device(i,1) : 0;
         double zval = (dimension>2) ? source_coords_device(i,2) : 0;
-    
+
         // data for targets with scalar input
         sampling_data_device(i) = trueSolution(xval, yval, zval, order, dimension);
-    
+
         // data for targets with vector input (divergence)
         double true_grad[3] = {0,0,0};
         trueGradient(true_grad, xval, yval,zval, order, dimension);
-    
+
         for (int j=0; j<dimension; ++j) {
             gradient_sampling_data_device(i,j) = true_grad[j];
-    
+
             // data for target with vector input (curl)
             divergence_sampling_data_device(i,j) = divergenceTestSamples(xval, yval, zval, j, dimension);
         }
-    
+
     });
-    
-    
+
+
     //! [Creating The Data]
-    
+
     Kokkos::Profiling::popRegion();
     Kokkos::Profiling::pushRegion("Neighbor Search");
-    
+
     //! [Performing Neighbor Search]
-    
-    
+
+
     // Point cloud construction for neighbor search
     // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
     auto point_cloud_search(CreatePointCloudSearch(source_coords));
 
     // each row is a neighbor list for a target site, with the first column of each row containing
     // the number of neighbors for that rows corresponding target site
-    double epsilon_multiplier = 1.5;
-    int estimated_upper_bound_number_neighbors = 
+    // for the default values in this test, the multiplier is suggested to be 2.2
+    double epsilon_multiplier = 2.2;
+    int estimated_upper_bound_number_neighbors =
         point_cloud_search.getEstimatedNumberNeighborsUpperBound(min_neighbors, dimension, epsilon_multiplier);
 
-    Kokkos::View<int**, Kokkos::DefaultExecutionSpace> neighbor_lists_device("neighbor lists", 
+    Kokkos::View<int**, Kokkos::DefaultExecutionSpace> neighbor_lists_device("neighbor lists",
             number_target_coords, estimated_upper_bound_number_neighbors); // first column is # of neighbors
     Kokkos::View<int**>::HostMirror neighbor_lists = Kokkos::create_mirror_view(neighbor_lists_device);
-    
+
     // each target site has a window size
     Kokkos::View<double*, Kokkos::DefaultExecutionSpace> epsilon_device("h supports", number_target_coords);
     Kokkos::View<double*>::HostMirror epsilon = Kokkos::create_mirror_view(epsilon_device);
-    
+
     // query the point cloud to generate the neighbor lists using a kdtree to produce the n nearest neighbor
     // to each target site, adding (epsilon_multiplier-1)*100% to whatever the distance away the further neighbor used is from
     // each target to the view for epsilon
-    point_cloud_search.generateNeighborListsFromKNNSearch(target_coords, neighbor_lists, epsilon, min_neighbors, dimension, 
+    point_cloud_search.generateNeighborListsFromKNNSearch(target_coords, neighbor_lists, epsilon, min_neighbors, dimension,
             epsilon_multiplier);
-    
-    
+
+
     //! [Performing Neighbor Search]
-    
+
     Kokkos::Profiling::popRegion();
     Kokkos::fence(); // let call to build neighbor lists complete before copying back to device
     timer.reset();
-    
+
     //! [Setting Up The GMLS Object]
-    
-    
+
+
     // Copy data back to device (they were filled on the host)
     // We could have filled Kokkos Views with memory space on the host
     // and used these instead, and then the copying of data to the device
     // would be performed in the GMLS class
     Kokkos::deep_copy(neighbor_lists_device, neighbor_lists);
     Kokkos::deep_copy(epsilon_device, epsilon);
-    
+
     // solver name for passing into the GMLS class
     std::string solver_name;
     if (solver_type == 0) { // SVD
@@ -285,9 +269,11 @@ bool all_passed = true;
         solver_name = "QR";
     }
     
-    // initialize an instance of the GMLS class 
-    GMLS my_GMLS(VectorTaylorPolynomial, VectorPointSample, order, solver_name.c_str(), 2 /*manifold order*/, dimension);
-    
+    // initialize an instance of the GMLS class
+    // NULL in manifold order indicates non-manifold case
+    GMLS my_GMLS(ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample, order, solver_name.c_str(),
+                 2 /*manifold order*/ , dimension);
+
     // pass in neighbor lists, source coordinates, target coordinates, and window sizes
     //
     // neighbor lists have the format:
@@ -303,171 +289,80 @@ bool all_passed = true;
     //                  # of target sites is same as # of rows of neighbor lists
     //
     my_GMLS.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
-    
+
     // create a vector of target operations
-    std::vector<TargetOperation> lro(4);
-    lro[0] = ScalarPointEvaluation;
-    lro[1] = DivergenceOfVectorPointEvaluation;
-    lro[2] = CurlOfVectorPointEvaluation;
-    lro[3] = VectorPointEvaluation;
-    
+    TargetOperation lro = DivergenceOfVectorPointEvaluation;
+
     // and then pass them to the GMLS class
     my_GMLS.addTargets(lro);
-    
+
     // sets the weighting kernel function from WeightingFunctionType
     my_GMLS.setWeightingType(WeightingFunctionType::Power);
-    
+
     // power to use in that weighting kernel function
     my_GMLS.setWeightingPower(2);
-    
+
     // generate the alphas that to be combined with data for each target operation requested in lro
     my_GMLS.generateAlphas();
-    
-    
+
+
     //! [Setting Up The GMLS Object]
-    
+
     double instantiation_time = timer.seconds();
     std::cout << "Took " << instantiation_time << "s to complete alphas generation." << std::endl;
     Kokkos::fence(); // let generateAlphas finish up before using alphas
     Kokkos::Profiling::pushRegion("Apply Alphas to Data");
-    
+
     //! [Apply GMLS Alphas To Data]
-    
+
     // it is important to note that if you expect to use the data as a 1D view, then you should use double*
     // however, if you know that the target operation will result in a 2D view (vector or matrix output),
     // then you should template with double** as this is something that can not be infered from the input data
     // or the target operator at compile time. Additionally, a template argument is required indicating either
-    // Kokkos::HostSpace or Kokkos::DefaultExecutionSpace::memory_space() 
-    
+    // Kokkos::HostSpace or Kokkos::DefaultExecutionSpace::memory_space()
+
     // The Evaluator class takes care of handling input data views as well as the output data views.
-    // It uses information from the GMLS class to determine how many components are in the input 
+    // It uses information from the GMLS class to determine how many components are in the input
     // as well as output for any choice of target functionals and then performs the contactions
     // on the data using the alpha coefficients generated by the GMLS class, all on the device.
     Evaluator gmls_evaluator(&my_GMLS);
-    
-    auto output_value = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (sampling_data_device, ScalarPointEvaluation);
-    
-    auto output_divergence = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (gradient_sampling_data_device, DivergenceOfVectorPointEvaluation, VectorPointSample);
-    
-    auto output_curl = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (divergence_sampling_data_device, CurlOfVectorPointEvaluation);
 
-    auto output_gradient = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (gradient_sampling_data_device, VectorPointEvaluation);
-    
-    // retrieves polynomial coefficients instead of remapped field
-    auto scalar_coefficients = gmls_evaluator.applyFullPolynomialCoefficientsBasisToDataAllComponents<double**, Kokkos::HostSpace>
-            (sampling_data_device);
-    
+    auto output_divergence = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
+      (sampling_data_device, DivergenceOfVectorPointEvaluation, StaggeredEdgeAnalyticGradientIntegralSample);
+
     //! [Apply GMLS Alphas To Data]
-    
+
     Kokkos::fence(); // let application of alphas to data finish before using results
     Kokkos::Profiling::popRegion();
     // times the Comparison in Kokkos
     Kokkos::Profiling::pushRegion("Comparison");
-    
+
     //! [Check That Solutions Are Correct]
-    
-    
+
     // loop through the target sites
     for (int i=0; i<number_target_coords; i++) {
-    
-        // load value from output
-        double GMLS_value = output_value(i);
-    
-        // load partial x from gradient
-        // this is a test that the scalar_coefficients 2d array returned hold valid entries
-        // scalar_coefficients(i,1)*1./epsilon(i) is equivalent to the target operation acting 
-        // on the polynomials applied to the polynomial coefficients
-        double GMLS_GradX = output_gradient(i,0);
-    
-        // load partial y from gradient
-        double GMLS_GradY = (dimension>1) ? output_gradient(i,1) : 0;
-    
-        // load partial z from gradient
-        double GMLS_GradZ = (dimension>2) ? output_gradient(i,2) : 0;
-    
         // load divergence from output
         double GMLS_Divergence = output_divergence(i);
-    
-        // load curl from output
-        double GMLS_CurlX = (dimension>1) ? output_curl(i,0) : 0;
-        double GMLS_CurlY = (dimension>1) ? output_curl(i,1) : 0;
-        double GMLS_CurlZ = (dimension>2) ? output_curl(i,2) : 0;
-    
-    
+
         // target site i's coordinate
         double xval = target_coords(i,0);
         double yval = (dimension>1) ? target_coords(i,1) : 0;
         double zval = (dimension>2) ? target_coords(i,2) : 0;
-    
+
         // evaluation of various exact solutions
-        double actual_value = trueSolution(xval, yval, zval, order, dimension);
-    
-        double actual_Gradient[3] = {0,0,0}; // initialized for 3, but only filled up to dimension
-        trueGradient(actual_Gradient, xval, yval, zval, order, dimension);
-    
         double actual_Divergence;
         actual_Divergence = trueLaplacian(xval, yval, zval, order, dimension);
-    
-        double actual_Curl[3] = {0,0,0}; // initialized for 3, but only filled up to dimension 
-        // (and not at all for dimimension = 1)
-        if (dimension>1) {
-            actual_Curl[0] = curlTestSolution(xval, yval, zval, 0, dimension);
-            actual_Curl[1] = curlTestSolution(xval, yval, zval, 1, dimension);
-            if (dimension>2) {
-                actual_Curl[2] = curlTestSolution(xval, yval, zval, 2, dimension);
-            }
-        }
-    
-        // check actual function value
-        if(GMLS_value!=GMLS_value || std::abs(actual_value - GMLS_value) > failure_tolerance) {
-            all_passed = false;
-            std::cout << i << " Failed Actual by: " << std::abs(actual_value - GMLS_value) << std::endl;
-        }
-    
-        // check vector (which is the gradient)
-        if(std::abs(actual_Gradient[0] - GMLS_GradX) > failure_tolerance) {
-            all_passed = false;
-            std::cout << i << " Failed GradX by: " << std::abs(actual_Gradient[0] - GMLS_GradX) << std::endl;
-            if (dimension>1) {
-                if(std::abs(actual_Gradient[1] - GMLS_GradY) > failure_tolerance) {
-                    all_passed = false;
-                    std::cout << i << " Failed GradY by: " << std::abs(actual_Gradient[1] - GMLS_GradY) << std::endl;
-                }
-            }
-            if (dimension>2) {
-                if(std::abs(actual_Gradient[2] - GMLS_GradZ) > failure_tolerance) {
-                    all_passed = false;
-                    std::cout << i << " Failed GradZ by: " << std::abs(actual_Gradient[2] - GMLS_GradZ) << std::endl;
-                }
-            }
-        }
-    
+
         // check divergence
         if(std::abs(actual_Divergence - GMLS_Divergence) > failure_tolerance) {
             all_passed = false;
             std::cout << i << " Failed Divergence by: " << std::abs(actual_Divergence - GMLS_Divergence) << std::endl;
-        }
-    
-        // check curl
-        if (order > 2) { // reconstructed solution not in basis unless order greater than 2 used
-            double tmp_diff = 0;
-            if (dimension>1)
-                tmp_diff += std::abs(actual_Curl[0] - GMLS_CurlX) + std::abs(actual_Curl[1] - GMLS_CurlY);
-            if (dimension>2)
-                tmp_diff += std::abs(actual_Curl[2] - GMLS_CurlZ);
-            if(std::abs(tmp_diff) > failure_tolerance) {
-                all_passed = false;
-                std::cout << i << " Failed Curl by: " << std::abs(tmp_diff) << std::endl;
-            }
+            std::cout << i << " GMLS " << GMLS_Divergence << " actual " << actual_Divergence << std::endl;
         }
     }
-    
-    
-    //! [Check That Solutions Are Correct] 
+
+
+    //! [Check That Solutions Are Correct]
     // popRegion hidden from tutorial
     // stop timing comparison loop
     Kokkos::Profiling::popRegion();

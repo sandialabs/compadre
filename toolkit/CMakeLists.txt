@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.0.0)
 #   Compadre Details
 #
 ########## 
-PROJECT(Compadre VERSION 1.0.1 LANGUAGES CXX)
+PROJECT(Compadre VERSION 1.0.2 LANGUAGES CXX)
 
 # cmake helper functions
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/bob.cmake)
@@ -217,6 +217,7 @@ else()
         "-DKokkos_ENABLE_Cuda=${Compadre_USE_CUDA}"
         "-DKOKKOS_ARCH=${KokkosCore_ARCH}"
         "-DKOKKOS_CUDA_DIR=${CUDA_PREFIX}"
+        "-DKOKKOS_ENABLE_DEPRECATED_CODE=${KOKKOS_ENABLE_DEPRECATED_CODE}"
         "-DKokkos_ENABLE_Cuda_Lambda=ON"
         "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}"
       )
@@ -310,7 +311,7 @@ if (MPI_CXX_FOUND)
     MESSAGE(STATUS "MPI_CXX_LIBRARIES: ${MPI_CXX_LIBRARIES}")
 endif()
 
-#LAPACK
+#LAPACK and BLAS
 set(Compadre_USE_LAPACK ON)
 if (Compadre_USE_CUDA)
   set(Compadre_USE_LAPACK OFF)
@@ -322,7 +323,12 @@ bob_input(LAPACK_PREFIX "" PATH "Path to LAPACK install")
 if (LAPACK_PREFIX)
   set(CMAKE_PREFIX_PATH ${LAPACK_PREFIX} ${CMAKE_PREFIX_PATH})
 endif()
+bob_input(BLAS_PREFIX "" PATH "Path to BLAS install") # often not needed, and can be inferred from lapack library
+if (BLAS_PREFIX)
+    set(CMAKE_PREFIX_PATH ${BLAS_PREFIX} ${CMAKE_PREFIX_PATH})
+endif()
 bob_input(LAPACK_LOCATION "" PATH "Optional explicit path to exact location of LAPACK")
+bob_input(BLAS_LOCATION "" PATH "Optional explicit path to exact location of BLAS")
 bob_option(LAPACK_DECLARED_THREADSAFE "Is LAPACK threadsafe? If not, default to serial calls for solves." ON)
 if (Compadre_USE_LAPACK)
   if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
@@ -334,6 +340,17 @@ if (Compadre_USE_LAPACK)
       SET(LAPACK_LIB "${LAPACK_LOCATION}")
     endif()
     MESSAGE(STATUS "LAPACK_LIB: ${LAPACK_LIB}")
+
+    if (BLAS_PREFIX)
+      FIND_LIBRARY(BLAS_LIB blas)
+    endif()
+    if (BLAS_LOCATION)
+      SET(BLAS_LIB "${BLAS_LOCATION}")
+    endif()
+    if (BLAS_LIB)
+      MESSAGE(STATUS "BLAS_LIB: ${BLAS_LIB}")
+    endif()
+
     IF (NOT(LAPACK_LIB))
       MESSAGE(FATAL_ERROR "Compadre_USE_LAPACK is ON, but LAPACK_PREFIX was set incorrectly.")
     ELSE()
@@ -462,21 +479,21 @@ if (Compadre_USE_CUDA)
     if (CUDA_PREFIX STREQUAL "")
       # Find Cuda using hints from kokkos generate makefile
       set(CMAKE_PREFIX_PATH "${KOKKOS_GMAKE_TPL_LIBRARY_DIRS}/.." ${CMAKE_PREFIX_PATH})
-      find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINT "${KOKKOS_GMAKE_TPL_LIBRARY_DIRS}/..")
+      find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINTS "${KOKKOS_GMAKE_TPL_LIBRARY_DIRS}/..")
       MESSAGE(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
       set(CMAKE_PREFIX_PATH ${KOKKOS_GMAKE_TPL_LIBRARY_DIRS} ${CMAKE_PREFIX_PATH})
-      find_library(CUDA_CUBLAS_LIBRARIES cublas HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-      find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-      find_library(CUDA_CUDART_LIBRARIES cudart HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+      find_library(CUDA_CUBLAS_LIBRARIES cublas HINTS "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+      find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINTS "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+      find_library(CUDA_CUDART_LIBRARIES cudart HINTS "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
       if ((NOT CUDA_CUBLAS_LIBRARIES) OR (NOT CUDA_CUSOLVER_LIBRARIES) OR (NOT CUDA_CUDART_LIBRARIES))
         message(FATAL_ERROR "CUDA_PREFIX not specified and not able to be determined from Kokkos configuration.")
       endif()
       MESSAGE(STATUS "CUDA_LIBRARIES: ${CUDA_INCLUDE_DIRS}/../lib64")
     else()
-      find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINT "${CUDA_PREFIX}/include")
-      find_library(CUDA_CUBLAS_LIBRARIES cublas HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-      find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-      find_library(CUDA_CUDART_LIBRARIES cudart HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+      find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINTS "${CUDA_PREFIX}/include")
+      find_library(CUDA_CUBLAS_LIBRARIES cublas HINTS "${CUDA_PREFIX}/lib64" "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+      find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINTS "${CUDA_PREFIX}/lib64" "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+      find_library(CUDA_CUDART_LIBRARIES cudart HINTS "${CUDA_PREFIX}/lib64" "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
       if ((NOT CUDA_CUBLAS_LIBRARIES) OR (NOT CUDA_CUSOLVER_LIBRARIES) OR (NOT CUDA_CUDART_LIBRARIES))
         message(FATAL_ERROR "CUDA_PREFIX specified but Cuda was not found at that location.")
       endif()
@@ -491,10 +508,10 @@ if (Compadre_USE_CUDA)
       )	
       MESSAGE(STATUS "CUDA_PREFIX automatically determined: ${CUDA_PREFIX}")
     endif()
-    find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINT "${CUDA_PREFIX}/include")
-    find_library(CUDA_CUBLAS_LIBRARIES cublas HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-    find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-    find_library(CUDA_CUDART_LIBRARIES cudart HINT "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+    find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINTS "${CUDA_PREFIX}/include")
+    find_library(CUDA_CUBLAS_LIBRARIES cublas HINTS "${CUDA_PREFIX}/lib64" "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+    find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINTS "${CUDA_PREFIX}/lib64" "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
+    find_library(CUDA_CUDART_LIBRARIES cudart HINTS "${CUDA_PREFIX}/lib64" "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
     if ((NOT CUDA_CUBLAS_LIBRARIES) OR (NOT CUDA_CUSOLVER_LIBRARIES) OR (NOT CUDA_CUDART_LIBRARIES))
       message(FATAL_ERROR "CUDA_PREFIX specified but Cuda was not found at that location.")
     endif()
@@ -667,13 +684,11 @@ endif ()
 ##########
 bob_option(Compadre_BUILD_Doxygen "Compile Doxygen documentation" ON)
 if(Compadre_BUILD_Doxygen)
-  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in" "${CMAKE_CURRENT_BINARY_DIR}/doc/Doxyfile"
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in" "${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile"
                  @ONLY)
-  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/doc/DoxygenLayout.xml" "${CMAKE_CURRENT_BINARY_DIR}/doc/DoxygenLayout.xml"
-                 COPYONLY)
   add_custom_target(Doxygen
                     COMMAND doxygen
-                    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/doc )
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doc )
   # still must be called manually with "make Doxygen"
 endif(Compadre_BUILD_Doxygen)
 

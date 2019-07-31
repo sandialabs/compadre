@@ -43,7 +43,7 @@ void GMLS::generatePolynomialCoefficients() {
             std::pow(2,sro.use_target_site_weights), 
             (sro.transform_type==DifferentEachTarget 
                     || sro.transform_type==DifferentEachNeighbor) ?
-                _neighbor_lists.dimension_0() : 1,
+                _neighbor_lists.extent(0) : 1,
             (sro.transform_type==DifferentEachNeighbor) ?
                 _max_num_neighbors : 1,
             (sro.output_rank>0) ?
@@ -84,6 +84,7 @@ void GMLS::generatePolynomialCoefficients() {
         // if the reconstruction is being made with a gradient of a basis, then we want that basis to be one order higher so that
         // the gradient is consistent with the convergence order expected.
         _poly_order += 1;
+        _NP = this->getNP(_poly_order, _dimensions);
     }
 
     /*
@@ -130,10 +131,10 @@ void GMLS::generatePolynomialCoefficients() {
 
 
         // allocate data on the device (initialized to zero)
-        _T = Kokkos::View<double*>("tangent approximation",_target_coordinates.dimension_0()*_dimensions*_dimensions);
-        _manifold_metric_tensor_inverse = Kokkos::View<double*>("manifold metric tensor inverse",_target_coordinates.dimension_0()*(_dimensions-1)*(_dimensions-1));
-        _manifold_curvature_coefficients = Kokkos::View<double*>("manifold curvature coefficients",_target_coordinates.dimension_0()*manifold_NP);
-        _manifold_curvature_gradient = Kokkos::View<double*>("manifold curvature gradient",_target_coordinates.dimension_0()*(_dimensions-1));
+        _T = Kokkos::View<double*>("tangent approximation",_target_coordinates.extent(0)*_dimensions*_dimensions);
+        _manifold_metric_tensor_inverse = Kokkos::View<double*>("manifold metric tensor inverse",_target_coordinates.extent(0)*(_dimensions-1)*(_dimensions-1));
+        _manifold_curvature_coefficients = Kokkos::View<double*>("manifold curvature coefficients",_target_coordinates.extent(0)*manifold_NP);
+        _manifold_curvature_gradient = Kokkos::View<double*>("manifold curvature gradient",_target_coordinates.extent(0)*(_dimensions-1));
 
     } else  { // Standard GMLS
 
@@ -157,11 +158,11 @@ void GMLS::generatePolynomialCoefficients() {
 
     // allocate data on the device (initialized to zero)
     _P = Kokkos::View<double*>("P", 
-            TO_GLOBAL(_target_coordinates.dimension_0())*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns));
+            TO_GLOBAL(_target_coordinates.extent(0))*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns));
     _RHS = Kokkos::View<double*>("RHS", 
-            TO_GLOBAL(_target_coordinates.dimension_0())*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows));
+            TO_GLOBAL(_target_coordinates.extent(0))*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows));
     _w = Kokkos::View<double*>("w", 
-            TO_GLOBAL(_target_coordinates.dimension_0())*TO_GLOBAL(max_num_rows));
+            TO_GLOBAL(_target_coordinates.extent(0))*TO_GLOBAL(max_num_rows));
     Kokkos::fence();
     
     /*
@@ -203,7 +204,7 @@ void GMLS::generatePolynomialCoefficients() {
 
             // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
             Kokkos::Profiling::pushRegion("Curvature QR Factorization");
-            GMLS_LinearAlgebra::batchQRFactorize(_P.ptr_on_device(), max_num_rows, this_num_columns, _RHS.ptr_on_device(), max_num_rows, max_num_rows, _max_num_neighbors, manifold_NP, _target_coordinates.dimension_0(), _max_num_neighbors, _number_of_neighbors_list.data());
+            GMLS_LinearAlgebra::batchQRFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, _max_num_neighbors, manifold_NP, _target_coordinates.extent(0), _max_num_neighbors, _number_of_neighbors_list.data());
             Kokkos::Profiling::popRegion();
 
             // evaluates targets, applies target evaluation to polynomial coefficients for curvature
@@ -220,7 +221,7 @@ void GMLS::generatePolynomialCoefficients() {
 
         // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
         Kokkos::Profiling::pushRegion("Curvature QR Factorization");
-        GMLS_LinearAlgebra::batchQRFactorize(_P.ptr_on_device(), max_num_rows, this_num_columns, _RHS.ptr_on_device(), max_num_rows, max_num_rows, _max_num_neighbors, manifold_NP, _target_coordinates.dimension_0(), _max_num_neighbors, _number_of_neighbors_list.data());
+        GMLS_LinearAlgebra::batchQRFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, _max_num_neighbors, manifold_NP, _target_coordinates.extent(0), _max_num_neighbors, _number_of_neighbors_list.data());
         Kokkos::Profiling::popRegion();
 
         // evaluates targets, applies target evaluation to polynomial coefficients for curvature
@@ -246,11 +247,11 @@ void GMLS::generatePolynomialCoefficients() {
         // uses SVD if necessary or if explicitly asked to do so (much slower than QR)
         if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
             Kokkos::Profiling::pushRegion("Manifold SVD Factorization");
-            GMLS_LinearAlgebra::batchSVDFactorize(_P.ptr_on_device(), max_num_rows, this_num_columns, _RHS.ptr_on_device(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.dimension_0(), _max_num_neighbors, _number_of_neighbors_list.data());
+            GMLS_LinearAlgebra::batchSVDFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.extent(0), _max_num_neighbors, _number_of_neighbors_list.data());
             Kokkos::Profiling::popRegion();
         } else {
             Kokkos::Profiling::pushRegion("Manifold QR Factorization");
-            GMLS_LinearAlgebra::batchQRFactorize(_P.ptr_on_device(), max_num_rows, this_num_columns, _RHS.ptr_on_device(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.dimension_0(), _max_num_neighbors, _number_of_neighbors_list.data());
+            GMLS_LinearAlgebra::batchQRFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.extent(0), _max_num_neighbors, _number_of_neighbors_list.data());
             Kokkos::Profiling::popRegion();
         }
         Kokkos::fence();
@@ -272,13 +273,21 @@ void GMLS::generatePolynomialCoefficients() {
         // uses SVD if necessary or if explicitly asked to do so (much slower than QR)
         if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
             Kokkos::Profiling::pushRegion("SVD Factorization");
-            GMLS_LinearAlgebra::batchSVDFactorize(_P.ptr_on_device(), max_num_rows, this_num_columns, _RHS.ptr_on_device(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.dimension_0(), _max_num_neighbors, _number_of_neighbors_list.data());
+            GMLS_LinearAlgebra::batchSVDFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.extent(0), _max_num_neighbors, _number_of_neighbors_list.data());
             Kokkos::Profiling::popRegion();
         } else {
             Kokkos::Profiling::pushRegion("QR Factorization");
-            GMLS_LinearAlgebra::batchQRFactorize(_P.ptr_on_device(), max_num_rows, this_num_columns, _RHS.ptr_on_device(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.dimension_0(), _max_num_neighbors, _number_of_neighbors_list.data());
+            GMLS_LinearAlgebra::batchQRFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.extent(0), _max_num_neighbors, _number_of_neighbors_list.data());
             Kokkos::Profiling::popRegion();
         }
+
+#ifdef COMPADRE_USE_CUDA
+        int nv=8;
+#else
+        int nv=1;
+#endif
+        int nt=_threads_per_team/nv;
+        this->CallFunctorWithTeamThreadsAndVectors<ComputePrestencilWeights>(nt, nv, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
         Kokkos::fence();
     }
 
@@ -291,7 +300,7 @@ void GMLS::generatePolynomialCoefficients() {
 void GMLS::generateAlphas() {
 
     // check if polynomial coefficients for reconstruction are already generated
-    if (_RHS.dimension_0() <= 0) this->generatePolynomialCoefficients();
+    if (_RHS.extent(0) <= 0) this->generatePolynomialCoefficients();
 
     /*
      *    Calculate Optimal Threads Based On Levels of Parallelism
@@ -1011,7 +1020,8 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
             });
         });
     } else if (_data_sampling_functional == StaggeredEdgeIntegralSample) {
-        const int neighbor_offset = _neighbor_lists.dimension_1()-1;
+        compadre_kernel_assert_debug(_dense_solver_type==DenseSolverType::MANIFOLD && "StaggeredEdgeIntegralSample prestencil weight only written for manifolds.");
+        const int neighbor_offset = _neighbor_lists.extent(1)-1;
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)), [=] (const int m) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                 for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {
