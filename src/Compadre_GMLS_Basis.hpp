@@ -230,52 +230,120 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
             }
         }
     } else if (polynomial_sampling_functional == StaggeredEdgeIntegralSample) {
+          if (_dense_solver_type == DenseSolverType::MANIFOLD) {
+              double cutoff_p = _epsilons(target_index);
+              int alphax, alphay;
+              double alphaf;
+              const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
 
-        double cutoff_p = _epsilons(target_index);
+              for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {
 
-        int alphax, alphay;
-        double alphaf;
-        const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
+                  int i = 0;
 
-        for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {
+                  XYZ tangent_quadrature_coord_2d;
+                  XYZ quadrature_coord_2d;
+                  for (int j=0; j<dimension; ++j) {
+                      // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
+                    quadrature_coord_2d[j] = (_parameterized_quadrature_sites[quadrature]-1)*getTargetCoordinate(target_index, j, V);
+                    quadrature_coord_2d[j] += (1-_parameterized_quadrature_sites[quadrature])*getNeighborCoordinate(target_index, neighbor_index, j, V);
+                    tangent_quadrature_coord_2d[j] = getTargetCoordinate(target_index, j, V);
+                    tangent_quadrature_coord_2d[j] += -getNeighborCoordinate(target_index, neighbor_index, j, V);
+                  }
+                  for (int j=0; j<_basis_multiplier; ++j) {
+                      for (int n = start_index; n <= poly_order; n++){
+                          for (alphay = 0; alphay <= n; alphay++){
+                            alphax = n - alphay;
+                            alphaf = factorial[alphax]*factorial[alphay];
 
-            int i = 0;
+                            // local evaluation of vector [0,p] or [p,0]
+                            double v0, v1;
+                            v0 = (j==0) ? std::pow(quadrature_coord_2d.x/cutoff_p,alphax)
+                              *std::pow(quadrature_coord_2d.y/cutoff_p,alphay)/alphaf : 0;
+                            v1 = (j==0) ? 0 : std::pow(quadrature_coord_2d.x/cutoff_p,alphax)
+                              *std::pow(quadrature_coord_2d.y/cutoff_p,alphay)/alphaf;
 
-            XYZ tangent_quadrature_coord_2d;
-            XYZ quadrature_coord_2d;
-            for (int j=0; j<dimension; ++j) {
-                // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
-                quadrature_coord_2d[j] = (_parameterized_quadrature_sites[quadrature]-1)*getTargetCoordinate(target_index, j, V);
-                quadrature_coord_2d[j] += (1-_parameterized_quadrature_sites[quadrature])*getNeighborCoordinate(target_index, neighbor_index, j, V);
-                tangent_quadrature_coord_2d[j] = getTargetCoordinate(target_index, j, V);
-                tangent_quadrature_coord_2d[j] += -getNeighborCoordinate(target_index, neighbor_index, j, V);
-            }
-            for (int j=0; j<_basis_multiplier; ++j) {
-                for (int n = start_index; n <= poly_order; n++){
-                    for (alphay = 0; alphay <= n; alphay++){
-                        alphax = n - alphay;
-                        alphaf = factorial[alphax]*factorial[alphay];
+                            double dot_product = tangent_quadrature_coord_2d[0]*v0 + tangent_quadrature_coord_2d[1]*v1;
 
-                        // local evaluation of vector [0,p] or [p,0]
-                        double v0, v1;
-                        v0 = (j==0) ? std::pow(quadrature_coord_2d.x/cutoff_p,alphax)
-                            *std::pow(quadrature_coord_2d.y/cutoff_p,alphay)/alphaf : 0;
-                        v1 = (j==0) ? 0 : std::pow(quadrature_coord_2d.x/cutoff_p,alphax)
-                            *std::pow(quadrature_coord_2d.y/cutoff_p,alphay)/alphaf;
+                            // multiply by quadrature weight
+                            if (quadrature==0) {
+                              *(delta+i) = dot_product * _quadrature_weights[quadrature];
+                            } else {
+                              *(delta+i) += dot_product * _quadrature_weights[quadrature];
+                            }
+                            i++;
+                          }
+                      }
+                  }
+              }
+          } else {
+              // Calculate basis matrix for NON MANIFOLD problems
+              double cutoff_p = _epsilons(target_index);
+              int alphax, alphay, alphaz;
+              double alphaf;
+              const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
 
-                        double dot_product = tangent_quadrature_coord_2d[0]*v0 + tangent_quadrature_coord_2d[1]*v1;
+              for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {
 
-                        // multiply by quadrature weight
-                        if (quadrature==0) {
-                            *(delta+i) = dot_product * _quadrature_weights[quadrature];
-                        } else {
-                            *(delta+i) += dot_product * _quadrature_weights[quadrature];
-                        }
-                        i++;
-                    }
-                }
-            }
-        }
+                  int i = 0;
+
+                  XYZ quadrature_coord_3d;
+                  XYZ tangent_quadrature_coord_3d;
+                  for (int j=0; j<dimension; ++j) {
+                      // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
+                    quadrature_coord_3d[j] = (_parameterized_quadrature_sites[quadrature]-1)*getTargetCoordinate(target_index, j, NULL);
+                    quadrature_coord_3d[j] += (1-_parameterized_quadrature_sites[quadrature])*getNeighborCoordinate(target_index, neighbor_index, j, NULL);
+                    tangent_quadrature_coord_3d[j] = getTargetCoordinate(target_index, j, NULL);
+                    tangent_quadrature_coord_3d[j] += -getNeighborCoordinate(target_index, neighbor_index, j, NULL);
+                  }
+                  for (int j=0; j<_basis_multiplier; ++j) {
+                      for (int n = start_index; n <= poly_order; n++) {
+                          for (alphaz = 0; alphaz <= n; alphaz++){
+                              int s = n - alphaz;
+                              for (alphay = 0; alphay <= s; alphay++){
+                                  alphax = s - alphay;
+                                  alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
+
+                                  // local evaluation of vector [p, 0, 0], [0, p, 0] or [0, 0, p]
+                                  double v0, v1, v2;
+                                  switch(j) {
+                                      case 1:
+                                          v0 = 0.0;
+                                          v1 = std::pow(quadrature_coord_3d.x/cutoff_p,alphax)
+                                            *std::pow(quadrature_coord_3d.y/cutoff_p,alphay)
+                                            *std::pow(quadrature_coord_3d.z/cutoff_p,alphaz)/alphaf;
+                                          v2 = 0.0;
+                                          break;
+                                      case 2:
+                                          v0 = 0.0;
+                                          v1 = 0.0;
+                                          v2 = std::pow(quadrature_coord_3d.x/cutoff_p,alphax)
+                                            *std::pow(quadrature_coord_3d.y/cutoff_p,alphay)
+                                            *std::pow(quadrature_coord_3d.z/cutoff_p,alphaz)/alphaf;
+                                          break;
+                                      default:
+                                          v0 = std::pow(quadrature_coord_3d.x/cutoff_p,alphax)
+                                            *std::pow(quadrature_coord_3d.y/cutoff_p,alphay)
+                                            *std::pow(quadrature_coord_3d.z/cutoff_p,alphaz)/alphaf;
+                                          v1 = 0.0;
+                                          v2 = 0.0;
+                                          break;
+                                  }
+
+                                  double dot_product = tangent_quadrature_coord_3d[0]*v0 + tangent_quadrature_coord_3d[1]*v1 + tangent_quadrature_coord_3d[2]*v2;
+
+                                  // multiply by quadrature weight
+                                  if (quadrature == 0) {
+                                      *(delta+i) = dot_product * _quadrature_weights[quadrature];
+                                  } else {
+                                      *(delta+i) += dot_product * _quadrature_weights[quadrature];
+                                  }
+                                  i++;
+                              }
+                          }
+                      }
+                  }
+              }
+          } // NON MANIFOLD PROBLEMS
     } else if (polynomial_sampling_functional == FaceNormalIntegralSample ||
                 polynomial_sampling_functional == FaceTangentIntegralSample ||
                 polynomial_sampling_functional == FaceNormalPointSample ||
