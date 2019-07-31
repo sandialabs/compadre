@@ -205,6 +205,8 @@ else()
       set(KokkosCore_PREFIX "${PROJECT_BINARY_DIR}/KokkosCore-install")
       find_package(Kokkos PATHS "${KokkosCore_PREFIX}/lib/CMake/Kokkos" NO_DEFAULT_PATH QUIET)
 
+      bob_input(KOKKOS_ENABLE_DEBUG "${Compadre_DEBUG}" PATH "Debugging mode on or off for KokkosCore install")
+
       # fPIC flag is needed to link against Kokkos library when our library we are creating is shared
       set(KokkosCore_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
       set(KokkosCore_ARGS
@@ -219,6 +221,7 @@ else()
         "-DKOKKOS_CUDA_DIR=${CUDA_PREFIX}"
         "-DKOKKOS_ENABLE_DEPRECATED_CODE=${KOKKOS_ENABLE_DEPRECATED_CODE}"
         "-DKokkos_ENABLE_Cuda_Lambda=ON"
+        "-DKOKKOS_ENABLE_DEBUG=${KOKKOS_ENABLE_DEBUG}"
         "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}"
       )
       
