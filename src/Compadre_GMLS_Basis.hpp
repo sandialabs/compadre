@@ -146,14 +146,15 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 }
             }
         }
+    } else if ((polynomial_sampling_functional == VectorPointSample) &&
+               (reconstruction_space == DivergenceFreeVectorTaylorPolynomial)) {
+        // Divergence free vector polynomial basi
+        compadre_kernel_assert_release((false) && "Work in progress.");
 
-
-    // basis is actually scalar with staggered sampling functional
     } else if ((polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) &&
             (reconstruction_space == ScalarTaylorPolynomial)) {
-
+        // basis is actually scalar with staggered sampling functional
         {
-
             double cutoff_p = _epsilons(target_index);
             int alphax, alphay, alphaz;
             double alphaf;
