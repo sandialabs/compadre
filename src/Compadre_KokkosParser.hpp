@@ -28,7 +28,12 @@ public:
   KokkosParser(int num_threads = 1, int numa = 1, int device = 0, int ngpu = 1, bool print_status = false);
 
   // destructor
-  ~KokkosParser() {};
+  ~KokkosParser() {
+      // clean-up Kokkos
+      if (_called_initialize) {
+          this->finalize();
+      } 
+  };
 
   // initialize Kokkos if not already initialized using
   // arguments provided at object construction
@@ -37,6 +42,9 @@ public:
   // finalize Kokkos if this object initialized it
   // or if hard_finalize is true
   int finalize(bool hard_finalize = false);
+
+  // retrieve arguments from a previous initialized Kokkos state
+  void retrievePreviouslyInstantiatedKokkosInitArguments();
 
   // use this object's state to create a Kokkos object used
   // later for initialization
