@@ -7,6 +7,7 @@ set(COMPADRE_HEADERS
   Compadre_GMLS_Basis.hpp
   Compadre_GMLS_Quadrature.hpp
   Compadre_GMLS_Targets.hpp
+  Compadre_KokkosParser.hpp
   Compadre_LinearAlgebra_Declarations.hpp
   Compadre_LinearAlgebra_Definitions.hpp
   Compadre_Misc.hpp
@@ -21,6 +22,7 @@ set(COMPADRE_HEADERS
 
 set(COMPADRE_SOURCES
   Compadre_GMLS.cpp
+  Compadre_KokkosParser.cpp
   Compadre_LinearAlgebra.cpp
   )
 
