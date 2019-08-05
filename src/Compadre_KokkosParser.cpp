@@ -10,25 +10,24 @@ KokkosParser::KokkosParser(int narg, char **arg, bool print_status) :
     // if it has been, get the parameters needed from it
     bool preinitialized = Kokkos::is_initialized();
 
-    if (print_status && preinitialized) {
-        printf("Kokkos already initialized.");
-        // could be improved by retrieving the parameters Kokkos was initialized with
-        // get parameters
-        // set parameters
-        // call status
-    }
-
     if (!preinitialized) {
         Kokkos::initialize(narg, arg);
         _called_initialize = true;
-        // get parameters
-        // set parameters
-        if (print_status) {
-            // call status
-            this->status();
-        }
     }
-  
+
+    // get parameters
+    // set parameters
+    retrievePreviouslyInstantiatedKokkosInitArguments();
+
+    if (print_status && preinitialized) {
+        printf("Kokkos already initialized.");
+    }
+
+    if (print_status) {
+        // call status
+        this->status();
+    }
+
     // MPI 
     //char *str;
     //if ((str = getenv("SLURM_LOCALID"))) {
@@ -66,12 +65,16 @@ KokkosParser::KokkosParser(int num_threads, int numa, int device, int ngpu, bool
   
     if (print_status && _called_initialize==1) {
         this->status();
-    } else if (print_status && _called_initialize==0) {
-        printf("Kokkos already initialized.");
+    } else if (_called_initialize==0) {
         // could be improved by retrieving the parameters Kokkos was initialized with
         // get parameters
         // set parameters
-        // call status
+        retrievePreviouslyInstantiatedKokkosInitArguments();
+
+        if (print_status) {
+            printf("Kokkos already initialized.");
+            this->status();
+        }
     } else if (print_status) {
         printf("Kokkos failed to initialize.");
     }
@@ -84,6 +87,29 @@ Kokkos::InitArguments KokkosParser::createInitArguments() const {
   args.num_numa = _numa;
   args.device_id = _device;
   return args;
+}
+
+void KokkosParser::retrievePreviouslyInstantiatedKokkosInitArguments() {
+// NUMA parts are not tested, and only work for 1 numa region
+#ifdef KOKKOS_HAVE_CUDA
+    _device = Kokkos::Cuda::cuda_device();
+    _ngpu = 1;
+    _numa = 0;
+    _num_threads = 1;
+#else
+    _device = 0;
+    _ngpu = 0;
+#endif
+
+#ifdef KOKKOS_ENABLE_THREADS
+    //_num_threads = Kokkos::HostSpace::execution_space::get_current_max_threads();
+    _numa = 1;
+    _num_threads = Kokkos::HostSpace::execution_space::concurrency();//impl_get_current_max_threads();
+#endif
+#ifdef KOKKOS_ENABLE_OPENMP
+    _numa = 1;
+    _num_threads = Kokkos::HostSpace::execution_space::get_current_max_threads();
+#endif
 }
 
 int KokkosParser::initialize() {
@@ -114,6 +140,7 @@ int KokkosParser::finalize(bool hard_finalize) {
     if (hard_finalize || _called_initialize) {
         try {
             Kokkos::finalize();
+            _called_initialize = 0; // reset since we finalized
             return 1;
         } catch (...) {
             return 0;
