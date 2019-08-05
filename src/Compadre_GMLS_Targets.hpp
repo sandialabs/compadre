@@ -571,7 +571,37 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
             } else {
                 compadre_kernel_assert_release((false) && "Functionality not yet available.");
             }
+
+            /*
+             * End of VectorOfScalarClonesTaylorPolynomial basis
+             */
+
+        } else if (_reconstruction_space == ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial) {
+
+            /*
+             * Beginning of DivergenceFreeVectorTaylorPolynomial basis
+             */
+
+            if (_operations(i) == TargetOperation::VectorPointEvaluation) {
+                // copied from ScalarTaylorPolynomial
+                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                    for (int j=0; j<num_evaluation_sites; ++j) {
+                        this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                        int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
+                        for (int k=0; k<target_NP; ++k) {
+                            P_target_row(offset, k) = t1(k);
+                        }
+                    }
+                });
+            }
+            additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+        } else {
+          compadre_kernel_assert_release((false) && "Functionality not yet available.");
         }
+
+        /*
+         * End of VectorOfScalarClonesTaylorPolynomial basis
+         */
 
         compadre_kernel_assert_release(((additional_evaluation_sites_need_handled && additional_evaluation_sites_handled) || (!additional_evaluation_sites_need_handled)) && "Auxiliary evaluation coordinates are specified by user, but are calling a target operation that can not handle evaluating additional sites.");
         } // !operation_handled
