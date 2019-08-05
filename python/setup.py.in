@@ -124,6 +124,9 @@ class InstallCommand(install):
         ('trilinos-prefix=', None, None),
         ('kokkos-prefix=', None, None),
         ('cuda-prefix=', None, None),
+        ('cuda-cublas-prefix=', None, None),
+        ('blas-prefix=', None, None),
+        ('lapack-prefix=', None, None),
     ]
 
     def initialize_options(self):
@@ -137,6 +140,9 @@ class InstallCommand(install):
         self.trilinos_prefix = None
         self.kokkos_prefix = None
         self.cuda_prefix = None
+        self.cuda_cublas_prefix = None
+        self.blas_prefix = None
+        self.lapack_prefix = None
 
     def finalize_options(self):
         print("--use-gpu:", self.use_gpu)
@@ -148,6 +154,9 @@ class InstallCommand(install):
         print("--trilinos-prefix:", self.trilinos_prefix)
         print("--kokkos-prefix:", self.kokkos_prefix)
         print("--cuda-prefix:", self.cuda_prefix)
+        print("--cuda-cublas-prefix:", self.cuda_cublas_prefix)
+        print("--blas-prefix:", self.blas_prefix)
+        print("--lapack-prefix:", self.lapack_prefix)
         install.finalize_options(self)
 
     def run(self):
@@ -161,6 +170,9 @@ class InstallCommand(install):
         global trilinos_prefix
         global kokkos_prefix
         global cuda_prefix
+        global cuda_cublas_prefix
+        global blas_prefix
+        global lapack_prefix
 
         use_gpu = self.use_gpu
         use_openmp = self.use_openmp
@@ -171,6 +183,9 @@ class InstallCommand(install):
         trilinos_prefix = self.trilinos_prefix
         kokkos_prefix = self.kokkos_prefix
         cuda_prefix = self.cuda_prefix
+        cuda_cublas_prefix = self.cuda_cublas_prefix
+        blas_prefix = self.blas_prefix
+        lapack_prefix = self.lapack_prefix
 
         install.run(self)
 
@@ -306,6 +321,38 @@ class build_ext(build_ext_orig):
         except:
             print("CUDA_PREFIX not set in Python.")
 
+        # Parse string for CUDA CUBLAS prefix
+        cuda_cublas_prefix_string = ""
+        try:
+            if cuda_cublas_prefix != None:
+                cuda_cublas_prefix_string = str(cuda_cublas_prefix)
+                print("CUDA_CUBLAS_PREFIX set to: %s"%(cuda_cublas_prefix_string,))
+            else:
+                print("CUDA_CUBLAS_PREFIX not set in Python.")
+        except:
+            print("CUDA_CUBLAS_PREFIX not set in Python.")
+
+        # Parse string for BLAS prefix
+        blas_prefix_string = ""
+        try:
+            if blas_prefix != None:
+                blas_prefix_string = str(blas_prefix)
+                print("BLAS_PREFIX set to: %s"%(blas_prefix_string,))
+            else:
+                print("BLAS_PREFIX not set in Python.")
+        except:
+            print("BLAS_PREFIX not set in Python.")
+
+        # Parse string for LAPACK prefix
+        lapack_prefix_string = ""
+        try:
+            if lapack_prefix != None:
+                lapack_prefix_string = str(lapack_prefix)
+                print("LAPACK_PREFIX set to: %s"%(lapack_prefix_string,))
+            else:
+                print("LAPACK_PREFIX not set in Python.")
+        except:
+            print("LAPACK_PREFIX not set in Python.")
 
         # Configure CMake
         config = 'Debug' if self.debug else 'Release'
@@ -333,6 +380,12 @@ class build_ext(build_ext_orig):
             cmake_args.append('-DKokkosCore_PREFIX:STRING=%s'%(kokkos_prefix_string,))
         if cuda_prefix_string != "":
             cmake_args.append('-DCUDA_PREFIX:STRING=%s'%(cuda_prefix_string,))
+        if cuda_cublas_prefix_string != "":
+            cmake_args.append('-DCUDA_CUBLAS_PREFIX:STRING=%s'%(cuda_cublas_prefix_string,))
+        if blas_prefix_string != "":
+            cmake_args.append('-DBLAS_PREFIX:STRING=%s'%(blas_prefix_string,))
+        if lapack_prefix_string != "":
+            cmake_args.append('-DLAPACK_PREFIX:STRING=%s'%(lapack_prefix_string,))
         if trilinos_prefix_string != "":
             cmake_args.append('-DTrilinos_PREFIX:STRING=%s'%(trilinos_prefix_string,))
         else:
