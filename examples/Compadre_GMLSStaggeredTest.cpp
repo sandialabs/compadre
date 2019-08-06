@@ -177,10 +177,6 @@ int main (int argc, char* args[]) {
                             SolvingTime->start();
                             problem->solve();
                             SolvingTime->stop();
-
-                            // write matrix and rhs to files
-                            //				Tpetra::MatrixMarket::Writer<Compadre::mvec_type>::writeDenseFile("b"+std::to_string(i), *problem->getb(), "rhs", "description");
-                            //				Tpetra::MatrixMarket::Writer<Compadre::crs_matrix_type>::writeSparseFile("A"+std::to_string(i), problem->getA(), "A", "description");
 			}
 
 
@@ -201,7 +197,7 @@ int main (int argc, char* args[]) {
                           xyz_type xyz = coords->getLocalCoords(j);
                           const ST val = particles->getFieldManagerConst()->getFieldByID(0)->getLocalScalarVal(j);
                           exact = function->evalScalar(xyz);
-                          norm += (exact - val)*(exact-val);
+                          norm += (exact - val)*(exact - val);
 			}
 			norm /= (double)(coords->nGlobalMax());
 
@@ -246,11 +242,11 @@ int main (int argc, char* args[]) {
 
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i]!=errors[i], "NaN found in error norm.");
                         std::cout << "ERRRORRRRRRR : " << errors[i] << std::endl;
-			// if (parameters->get<std::string>("solution type")=="sine") {
-			// 	 if (i>0) TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i-1]/errors[i] < 2.5, "Second order not achieved for sine solution (should be 2).");
-			// } else {
-			// 	TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i] > 1e-13, "Second order solution not recovered exactly.");
-			// }
+			if (parameters->get<std::string>("solution type")=="sine") {
+				 if (i>0) TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i-1]/errors[i] < 3.5, "Second order not achieved for sine solution (should be 4).");
+			} else {
+				TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i] > 1e-13, "Second order solution not recovered exactly.");
+			}
 		}
 		if (comm->getRank()==0) parameters->print();
 	}
