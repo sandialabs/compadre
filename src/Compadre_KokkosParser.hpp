@@ -25,7 +25,7 @@ public:
   KokkosParser(int argc, char* args[], bool print_status = false);
 
   // call with integer arguments
-  KokkosParser(int num_threads = 1, int numa = 1, int device = 0, int ngpu = 1, bool print_status = false);
+  KokkosParser(int num_threads = -1, int numa = -1, int device = -1, int ngpu = -1, bool print_status = false);
 
   // destructor
   ~KokkosParser() {
