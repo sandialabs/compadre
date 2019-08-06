@@ -58,8 +58,9 @@ public:
   // prints status
   void status() const;
 
-//private:
-//  KokkosParser(const KokkosParser &) {};     // prohibit using the copy constructor
+  // prohibit using the assignment constructor
+  KokkosParser& operator=( const KokkosParser& ) = delete;
+  //KokkosParser( const KokkosParser& ) = delete;
 
 };
 
