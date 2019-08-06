@@ -16,6 +16,7 @@ set(COMPADRE_HEADERS
   Compadre_Evaluator.hpp
   USER_StandardTargetFunctionals.hpp
   USER_ManifoldTargetFunctionals.hpp
+  DivergenceFree3D.hpp
   )
 
 
