@@ -61,7 +61,7 @@ KokkosParser::KokkosParser(int num_threads, int numa, int device, int ngpu, bool
 //#endif
 
     // returns 1 if we initialized
-    int _called_initialize = this->initialize();
+    _called_initialize = this->initialize();
   
     if (print_status && _called_initialize==1) {
         this->status();
@@ -138,7 +138,7 @@ int KokkosParser::initialize() {
 }
 
 int KokkosParser::finalize(bool hard_finalize) {
-    if (hard_finalize || _called_initialize) {
+    if (hard_finalize || _called_initialize==1) {
         try {
             Kokkos::finalize();
             _called_initialize = 0; // reset since we finalized

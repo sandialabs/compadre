@@ -24,16 +24,12 @@ private:
 public:
 
     Kokkos_Python(int num_threads = 1, int numa = 1, int device = 0, int ngpu = 1, bool print_status = false) {
-
         kokkos_parser = new Compadre::KokkosParser(num_threads, numa, device, ngpu, print_status);
-
     }
 
     ~Kokkos_Python() { 
-
-        kokkos_parser->finalize();
+        kokkos_parser->finalize(false);
         delete kokkos_parser;
-
     }
 
 };
