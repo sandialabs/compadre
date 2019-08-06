@@ -840,6 +840,26 @@ public:
         else return m+1;
     }
 
+    //! Return the size of the divergence free basis for a given polynomial order
+    //! We only work on 3D for now
+    KOKKOS_INLINE_FUNCTION
+    static int getNPdivfree(const int m) {
+        switch (m) {
+            case 0:
+                return 3;
+            case 1:
+                return 11;
+            case 2:
+                return 26;
+            case 3:
+                return 50;
+            case 4:
+                return 85;
+            default:
+                compadre_kernel_assert_release((false) && "Divergence-free basis only support up to 4th-order polynomials for now.");
+        }
+    }
+
     //! Returns number of neighbors needed for unisolvency for a given basis order and dimension
     KOKKOS_INLINE_FUNCTION
     static int getNN(const int m, const int dimension = 3) {
