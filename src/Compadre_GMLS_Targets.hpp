@@ -3,6 +3,7 @@
 
 #include "Compadre_GMLS.hpp"
 #include "Compadre_Manifold_Functions.hpp"
+#include "DivergenceFree3D.hpp"
 
 namespace Compadre {
 
@@ -583,18 +584,20 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
              */
 
             if (_operations(i) == TargetOperation::VectorPointEvaluation) {
+                std::cout << "Also HERE! " << std::endl;
                 // copied from ScalarTaylorPolynomial
                 Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                     for (int j=0; j<num_evaluation_sites; ++j) {
-                        this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                        this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, j);
                         int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
-                        for (int k=0; k<target_NP; ++k) {
+                        int divfree_NP = this->getNPdivfree(_poly_order);
+                        for (int k=0; k<divfree_NP; ++k) {
                             P_target_row(offset, k) = t1(k);
                         }
                     }
                 });
             }
-            additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+            additional_evaluation_sites_handled = false; // additional non-target site evaluations handled
         } else {
           compadre_kernel_assert_release((false) && "Functionality not yet available.");
         }
