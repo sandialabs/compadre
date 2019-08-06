@@ -131,6 +131,9 @@ int KokkosParser::initialize() {
             auto our_args = this->createInitArguments();
             Kokkos::initialize(our_args);
             return 1;
+        } catch (const std::exception& e) {
+            std::cout << e.what() << std::endl;
+            throw e;
         } catch (...) {
             return -1;
         }
