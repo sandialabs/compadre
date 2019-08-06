@@ -92,10 +92,11 @@ Kokkos::InitArguments KokkosParser::createInitArguments() const {
 void KokkosParser::retrievePreviouslyInstantiatedKokkosInitArguments() {
 // NUMA parts are not tested, and only work for 1 numa region
 #ifdef KOKKOS_HAVE_CUDA
-    _device = Kokkos::Cuda::cuda_device();
+    //auto cuda_space = Kokkos::DefaultExecutionSpace;
+    _device = 0;//cuda_space.cuda_device();
     _ngpu = 1;
     _numa = 0;
-    _num_threads = 1;
+    _num_threads = 0;
 #else
     _device = 0;
     _ngpu = 0;
