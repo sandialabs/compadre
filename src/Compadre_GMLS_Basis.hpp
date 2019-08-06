@@ -2,6 +2,7 @@
 #define _COMPADRE_GMLS_BASIS_HPP_
 
 #include "Compadre_GMLS.hpp"
+#include "DivergenceFree3D.hpp"
 
 namespace Compadre {
 
@@ -149,8 +150,24 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
     } else if ((polynomial_sampling_functional == VectorPointSample) &&
                (reconstruction_space == DivergenceFreeVectorTaylorPolynomial)) {
         // Divergence free vector polynomial basi
-        compadre_kernel_assert_release((false) && "Work in progress.");
+        const int dimension_offset = this->getNPdivfree(_poly_order);
+        double cutoff_p = _epsilons(target_index);
+        int i = 0;
 
+        double xs = relative_coord.x/cutoff_p;
+        double ys = relative_coord.y/cutoff_p;
+        double zs = relative_coord.z/cutoff_p;
+        XYZ Pn;
+
+        for (int n = 0; n <= dimension_offset; n++) {
+            // Obtain the vector for the basis
+            Pn = calDivFreeBasis(n, xs, ys, zs);
+            // Then assign it to the input
+            *(delta + i) = Pn.x;
+            *(delta + n*dimension_offset + i) = Pn.y;
+            *(delta + 2*n*dimension_offset + i) = Pn.z;
+            i++;
+        }
     } else if ((polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) &&
             (reconstruction_space == ScalarTaylorPolynomial)) {
         // basis is actually scalar with staggered sampling functional
