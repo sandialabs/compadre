@@ -216,8 +216,8 @@ void GMLS_Staggered_LaplacianPhysics::computeMatrix(local_index_type field_one, 
 								val_data(l*fields[field_two]->nDim() + n) = 0.0;
 							}
 						} else {
-                                                    val_data(l*fields[field_two]->nDim() + n) = my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0, 0);
-                                                    val_data(0) += my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0, 0);
+                                                    val_data(l*fields[field_two]->nDim() + n) = my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0, 0); // adding to the neighbour index
+                                                    val_data(0) += my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0, 0); // adding to target index
                                                 }
 					} else {
                                             val_data(l*fields[field_two]->nDim() + n) = 0.0;
