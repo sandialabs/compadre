@@ -64,6 +64,10 @@ KokkosParser::KokkosParser(int num_threads, int numa, int device, int ngpu, bool
     _called_initialize = this->initialize();
   
     if (print_status && _called_initialize==1) {
+        printf("KOKKOS attempted initialization using settings:\n");
+        this->status();
+        retrievePreviouslyInstantiatedKokkosInitArguments();
+        printf("KOKKOS recalculated and initiatized using settings:\n");
         this->status();
     } else if (_called_initialize==0) {
         // could be improved by retrieving the parameters Kokkos was initialized with
