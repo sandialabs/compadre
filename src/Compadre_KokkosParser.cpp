@@ -50,12 +50,12 @@ KokkosParser::KokkosParser(int narg, char **arg, bool print_status) :
 KokkosParser::KokkosParser(int num_threads, int numa, int device, int ngpu, bool print_status) :
         _num_threads(num_threads), _numa(numa), _device(device), _ngpu(ngpu) {
 
-#ifdef KOKKOS_HAVE_CUDA
-  // only written for handling one gpu
-  compadre_assert_release((ngpu == 1) && "Only one GPU supported at this time.");
-#else
-  ngpu = 0;
-#endif
+//#ifdef KOKKOS_HAVE_CUDA
+//  // only written for handling one gpu
+//  compadre_assert_release((ngpu == 1) && "Only one GPU supported at this time.");
+//#else
+//  ngpu = 0;
+//#endif
 //#ifdef KOKKOS_HAVE_CUDA
 //  compadre_assert_release((ngpu > 0) && "Kokkos has been compiled for CUDA but no GPUs are requested"); 
 //#endif
