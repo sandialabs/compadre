@@ -87,6 +87,31 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
     ADD_TEST(NAME MeshWritePVTP COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_mesh_pvtp.xml" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(MeshWritePVTP PROPERTIES LABELS "UnitTest;unit;mesh;pvtp")
 
+    # GMLS STAGGERED ANALYTIC LAPLACIAN
+
+    ADD_TEST(NAME GMLSStaggeredAnalyticTest2x2PatchTest COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStaggeredAnalyticTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_patch.xml" "--kokkos-threads=3")
+    SET_TESTS_PROPERTIES(GMLSStaggeredAnalyticTest2x2PatchTest PROPERTIES LABELS "Regression;regression;GMLS;gmls;Exact;exact;Patch;patch" TIMEOUT 180)
+
+    ADD_TEST(NAME GMLSStaggeredAnalyticTest2x2LagrangianPatchTest COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStaggeredAnalyticTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_lagrangian_patch.xml" "--kokkos-threads=3")
+    SET_TESTS_PROPERTIES(GMLSStaggeredAnalyticTest2x2LagrangianPatchTest PROPERTIES LABELS "Regression;regression;GMLS;gmls;Exact;exact;Patch;patch;lagrangian;Lagrangian" TIMEOUT 180)
+
+    ADD_TEST(NAME GMLSStaggeredAnalyticTest2x2amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStaggeredAnalyticTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_amg.xml" "--kokkos-threads=3")
+    SET_TESTS_PROPERTIES(GMLSStaggeredAnalyticTest2x2amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;amg" TIMEOUT 180)
+
+    ADD_TEST(NAME GMLSStaggeredAnalyticTest2x2direct COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStaggeredAnalyticTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_direct.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLSStaggeredAnalyticTest2x2direct PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;direct")
+
+    ADD_TEST(NAME GMLSStaggeredAnalyticTest2x2ifpackRelaxation COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStaggeredAnalyticTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_ifpack_relaxation.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLSStaggeredAnalyticTest2x2ifpackRelaxation PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;ifpack;relaxation;unb")
+
+    ADD_TEST(NAME GMLSStaggeredAnalyticTest2x2ifpackRelaxationBlock1x1 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStaggeredAnalyticTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_ifpack_relaxation_block1x1.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLSStaggeredAnalyticTest2x2ifpackRelaxationBlock1x1 PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;ifpack;relaxation;block")
+
+    ADD_TEST(NAME GMLSStaggeredAnalyticTest2x2ifpackILUT COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStaggeredAnalyticTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_ifpack_ilut.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLSStaggeredAnalyticTest2x2ifpackILUT PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;ifpack;ilut")
+
+    ADD_TEST(NAME GMLSStaggeredAnalyticTest4x1amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStaggeredAnalyticTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_amg.xml" "--kokkos-threads=1")
+    SET_TESTS_PROPERTIES(GMLSStaggeredAnalyticTest4x1amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;four")
 
     # GRAPH LAPLACIAN
 
@@ -253,6 +278,16 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
       SET_TESTS_PROPERTIES(GMLSTest2x2ifpackRelaxationBlock1x1 PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
       SET_TESTS_PROPERTIES(GMLSTest2x2ifpackILUT PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
       SET_TESTS_PROPERTIES(GMLSTest4x1amg PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+
+      SET_TESTS_PROPERTIES(GMLSStaggeredAnalyticTest2x2PatchTest PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(GMLSStaggeredAnalyticTest2x2LagrangianPatchTest PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(GMLSStaggeredAnalyticTest2x2amg PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(GMLSStaggeredAnalyticTest2x2direct PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(GMLSStaggeredAnalyticTest2x2ifpackRelaxation PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(GMLSStaggeredAnalyticTest2x2ifpackRelaxationBlock1x1 PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(GMLSStaggeredAnalyticTest2x2ifpackILUT PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+      SET_TESTS_PROPERTIES(GMLSStaggeredAnalyticTest4x1amg PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
+
       SET_TESTS_PROPERTIES(MeshWritePVTU PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
       SET_TESTS_PROPERTIES(MeshWritePVTP PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
       SET_TESTS_PROPERTIES(LaplaceBeltramiTest PROPERTIES REQUIRED_FILES ${SOLVER_SUPPORT_ISSUE})
