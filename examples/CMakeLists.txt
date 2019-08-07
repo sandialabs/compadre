@@ -32,6 +32,7 @@ endif()
 
 if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
   add_exe_w_compadre(CompadreGMLSStaggeredAnalyticTest Compadre_GMLSStaggeredAnalyticTest.cpp)
+  add_exe_w_compadre(CompadreGMLSStaggeredIntegralTest Compadre_GMLSStaggeredIntegralTest.cpp)
   add_exe_w_compadre(CompadreGMLSTest Compadre_GMLSTest.cpp)
   add_exe_w_compadre(tpetraCoordsTest.exe Compadre_TrilinosTest.cpp)
   #add_exe_w_compadre(spherePoisson.exe Compadre_SpherePoissonTest.cpp)
