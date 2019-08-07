@@ -19,7 +19,7 @@
 
 #include <Compadre_GMLS_PinnedLaplacian_Sources.hpp>
 #include <Compadre_GMLS_PinnedLaplacian_BoundaryConditions.hpp>
-#include <Compadre_GMLS_StaggeredAnalytic_PinnedLaplacian_Operator.hpp>
+#include <Compadre_GMLS_StaggeredIntegral_PinnedLaplacian_Operator.hpp>
 
 
 typedef int LO;
@@ -136,8 +136,8 @@ int main (int argc, char* args[]) {
                             Teuchos::RCP<Compadre::ProblemT> problem = Teuchos::rcp( new Compadre::ProblemT(particles));
 
                             // construct physics, sources, and boundary conditions
-                            Teuchos::RCP<Compadre::GMLS_StaggeredAnalytic_LaplacianPhysics> physics =
-                                Teuchos::rcp( new Compadre::GMLS_StaggeredAnalytic_LaplacianPhysics(particles, Porder));
+                            Teuchos::RCP<Compadre::GMLS_StaggeredIntegral_LaplacianPhysics> physics =
+                                Teuchos::rcp( new Compadre::GMLS_StaggeredIntegral_LaplacianPhysics(particles, Porder));
                             Teuchos::RCP<Compadre::GMLS_PinnedLaplacianSources> source =
                                 Teuchos::rcp( new Compadre::GMLS_PinnedLaplacianSources(particles));
                             Teuchos::RCP<Compadre::GMLS_PinnedLaplacianBoundaryConditions> bcs =
