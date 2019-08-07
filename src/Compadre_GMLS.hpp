@@ -833,30 +833,28 @@ public:
 
     //! Returns size of the basis for a given polynomial order and dimension
     //! General to dimension 1..3 and polynomial order m
+    //! The divfree options will return the divergence-free basis if true
     KOKKOS_INLINE_FUNCTION
-    static int getNP(const int m, const int dimension = 3) {
-        if (dimension == 3) return (m+1)*(m+2)*(m+3)/6;
-        else if (dimension == 2) return (m+1)*(m+2)/2;
-        else return m+1;
-    }
-
-    //! Return the size of the divergence free basis for a given polynomial order
-    //! We only work on 3D for now
-    KOKKOS_INLINE_FUNCTION
-    static int getNPdivfree(const int m) {
-        switch (m) {
-            case 0:
-                return 3;
-            case 1:
-                return 11;
-            case 2:
-                return 26;
-            case 3:
-                return 50;
-            case 4:
-                return 85;
-            default:
-                compadre_kernel_assert_release((false) && "Divergence-free basis only support up to 4th-order polynomials for now.");
+    static int getNP(const int m, const int dimension = 3, const bool divfree = false) {
+        if (!divfree) {
+            if (dimension == 3) return (m+1)*(m+2)*(m+3)/6;
+            else if (dimension == 2) return (m+1)*(m+2)/2;
+            else return m+1;
+        } else {
+          switch (m) {
+              case 0:
+                  return 3;
+              case 1:
+                  return 11;
+              case 2:
+                  return 26;
+              case 3:
+                  return 50;
+              case 4:
+                  return 85;
+              default:
+                  compadre_kernel_assert_release((false) && "Divergence-free basis only support up to 4th-order polynomials for now.");
+          }
         }
     }
 

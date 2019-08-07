@@ -590,8 +590,8 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     for (int j=0; j<num_evaluation_sites; ++j) {
                         this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, j);
                         int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
-                        int divfree_NP = this->getNPdivfree(_poly_order);
-                        for (int k=0; k<divfree_NP; ++k) {
+                        int target_NP = this->getNP(_poly_order, 3 /* dimension */, true /* request div-free basis */);
+                        for (int k=0; k<target_NP; ++k) {
                             P_target_row(offset, k) = t1(k);
                         }
                     }
@@ -603,7 +603,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
         }
 
         /*
-         * End of VectorOfScalarClonesTaylorPolynomial basis
+         * End of DivergenceFreeVectorTaylorPolynomial basis
          */
 
         compadre_kernel_assert_release(((additional_evaluation_sites_need_handled && additional_evaluation_sites_handled) || (!additional_evaluation_sites_need_handled)) && "Auxiliary evaluation coordinates are specified by user, but are calling a target operation that can not handle evaluating additional sites.");
