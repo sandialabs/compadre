@@ -42,8 +42,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
                                    reinterpret_cast<double**>(array_P_RHS.ptr_on_device() + TO_GLOBAL(num_matrices)), ldb,
                                    &info, devInfo, num_matrices );
 
-    if (cublas_stat != CUBLAS_STATUS_SUCCESS)
-      printf("\n cublasDgeqrfBatched failed");
+    compadre_assert_release(cublas_stat==CUBLAS_STATUS_SUCCESS && "cublasDgeqrfBatched failed");
     cudaDeviceSynchronize();
     Kokkos::Profiling::popRegion();
 
@@ -99,8 +98,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
                     scratch_work.data(), const_cast<int*>(&lwork), &i_info);
             });
 
-            if (i_info != 0)
-              printf("\n dgels failed on index %d.", i);
+            compadre_assert_release(i_info==0 && "dgels failed");
 
         }, "QR Execution");
 
@@ -124,8 +122,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
                     rhs_offset, const_cast<int*>(&ldb), 
                     scratch_work, const_cast<int*>(&lwork), &i_info);
 
-            if (i_info != 0)
-              printf("\n dgels failed on index %d.", i);
+            compadre_assert_release(i_info==0 && "dgels failed");
         }
         free(scratch_work);
 
@@ -445,8 +442,7 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
                          scratch_work.data(), const_cast<int*>(&lwork), scratch_iwork.data(), &i_info);
                 });
 
-                if (i_info != 0)
-                  printf("\n dgelsd failed on index %d.", i);
+                compadre_assert_release(i_info==0 && "dgelsd failed");
 
         }, "SVD Execution");
 
@@ -474,8 +470,7 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
                          scratch_s, const_cast<double*>(&rcond), &i_rank,
                          scratch_work, const_cast<int*>(&lwork), scratch_iwork, &i_info);
 
-                if (i_info != 0)
-                  printf("\n dgelsd failed on index %d.", i);
+                compadre_assert_release(i_info==0 && "dgelsd failed");
 
         }
 
