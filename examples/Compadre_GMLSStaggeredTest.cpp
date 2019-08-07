@@ -48,24 +48,6 @@ int main (int argc, char* args[]) {
 	Teuchos::oblackholestream bstream;
 	Teuchos::RCP<const Teuchos::Comm<int> > comm = Teuchos::DefaultComm<int>::getComm();
 
-//    std::stringstream ss;
-//    ss << "--kokkos-ndevices=" << 2;
-//    std::stringstream ss3;
-//    ss3 << "--kokkos-threads=" << 3;
-//    int length = ss.str().length();
-//    char args2[length+1];
-//    for( int i = 0; i < length; i++ )
-//      args2[i] = ss.str().c_str()[i];
-//
-//    int length3 = ss3.str().length();
-//    char args3[length3+1];
-//    for( int i = 0; i < length3; i++ )
-//      args3[i] = ss3.str().c_str()[i];
-//    args3[length3] = '\0';
-//
-//    char* argv2[] = { args2, args3, NULL };
-//    int argc2 = 2;
-
 	Kokkos::initialize(argc, args);
 
 	const int procRank = comm->getRank();
