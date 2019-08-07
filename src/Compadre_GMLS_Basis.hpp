@@ -150,7 +150,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
     } else if ((polynomial_sampling_functional == VectorPointSample) &&
                (reconstruction_space == DivergenceFreeVectorTaylorPolynomial)) {
         // Divergence free vector polynomial basi
-        const int dimension_offset = this->getNPdivfree(_poly_order);
+        const int dimension_offset = this->getNP(_poly_order, 3 /* dimension */, true /* request div-free basis */);
         double cutoff_p = _epsilons(target_index);
         int i = 0;
 
@@ -164,8 +164,8 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
             Pn = calDivFreeBasis(n, xs, ys, zs);
             // Then assign it to the input
             *(delta + i) = Pn.x;
-            *(delta + n*dimension_offset + i) = Pn.y;
-            *(delta + 2*n*dimension_offset + i) = Pn.z;
+            *(delta + dimension_offset + i) = Pn.y;
+            *(delta + 2*dimension_offset + i) = Pn.z;
             i++;
         }
     } else if ((polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) &&
