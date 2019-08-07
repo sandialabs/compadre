@@ -1,5 +1,6 @@
 set(Physics_HEADERS
   Compadre_GMLS_StaggeredAnalytic_PinnedLaplacian_Operator.hpp
+  Compadre_GMLS_StaggeredIntegral_PinnedLaplacian_Operator.hpp
   Compadre_GMLS_PinnedLaplacian_BoundaryConditions.hpp
   Compadre_GMLS_PinnedLaplacian_Operator.hpp
   Compadre_GMLS_PinnedLaplacian_Sources.hpp
@@ -20,6 +21,7 @@ set(Physics_HEADERS
 
 set(Physics_SOURCES
   Compadre_GMLS_StaggeredAnalytic_PinnedLaplacian_Operator.cpp
+  Compadre_GMLS_StaggeredIntegral_PinnedLaplacian_Operator.cpp
   Compadre_GMLS_PinnedLaplacian_BoundaryConditions.cpp
   Compadre_GMLS_PinnedLaplacian_Operator.cpp
   Compadre_GMLS_PinnedLaplacian_Sources.cpp
