@@ -1,4 +1,4 @@
-#include <Compadre_GMLS_Staggered_PinnedLaplacian_Operator.hpp>
+#include <Compadre_GMLS_StaggeredAnalytic_PinnedLaplacian_Operator.hpp>
 
 #include <Compadre_CoordsT.hpp>
 #include <Compadre_ParticlesT.hpp>
@@ -28,7 +28,7 @@ typedef Compadre::XyzVector xyz_type;
 
 
 
-Teuchos::RCP<crs_graph_type> GMLS_Staggered_LaplacianPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
+Teuchos::RCP<crs_graph_type> GMLS_StaggeredAnalytic_LaplacianPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
 	if (field_two == -1) {
 		field_two = field_one;
 	}
@@ -68,7 +68,7 @@ Teuchos::RCP<crs_graph_type> GMLS_Staggered_LaplacianPhysics::computeGraph(local
     return this->_A_graph;
 }
 
-void GMLS_Staggered_LaplacianPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
+void GMLS_StaggeredAnalytic_LaplacianPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
 	Teuchos::RCP<Teuchos::Time> ComputeMatrixTime = Teuchos::TimeMonitor::getNewCounter ("Compute Matrix Time");
 	ComputeMatrixTime->start();
 
@@ -239,7 +239,7 @@ void GMLS_Staggered_LaplacianPhysics::computeMatrix(local_index_type field_one, 
 
 }
 
-const std::vector<InteractingFields> GMLS_Staggered_LaplacianPhysics::gatherFieldInteractions() {
+const std::vector<InteractingFields> GMLS_StaggeredAnalytic_LaplacianPhysics::gatherFieldInteractions() {
 	std::vector<InteractingFields> field_interactions;
 	field_interactions.push_back(InteractingFields(op_needing_interaction::physics, 0));
 	return field_interactions;
