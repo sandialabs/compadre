@@ -662,7 +662,7 @@ public:
         // seed random number generator pool
         _random_number_pool = pool_type(1);
 
-        _NP = this->getNP(_poly_order, dimensions);
+        _NP = this->getNP(_poly_order, dimensions, _reconstruction_space == ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial);
         Kokkos::fence();
 
 #ifdef COMPADRE_USE_CUDA
@@ -861,6 +861,7 @@ public:
     //! Returns number of neighbors needed for unisolvency for a given basis order and dimension
     KOKKOS_INLINE_FUNCTION
     static int getNN(const int m, const int dimension = 3) {
+        // may need div-free argument in the future
         const int np = getNP(m, dimension);
         int nn = np;
         switch (dimension) {
@@ -1545,7 +1546,7 @@ public:
     //! Sets basis order to be used when reoncstructing any function
     void setPolynomialOrder(const int poly_order) {
         _poly_order = poly_order;
-        _NP = this->getNP(_poly_order, _dimensions);
+        _NP = this->getNP(_poly_order, _dimensions, _reconstruction_space == ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial);
         this->resetCoefficientData();
     }
 
