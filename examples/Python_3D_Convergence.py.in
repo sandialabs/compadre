@@ -12,6 +12,14 @@ import math
 import random
 import scipy.spatial.kdtree as kdtree
 
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("--kokkos-threads", help="number of threads to use", default=-1)
+parser.add_argument("--kokkos-numa", help="numa region to use", default=-1)
+parser.add_argument("--kokkos-device", help="number of device to use", default=-1)
+parser.add_argument("--kokkos-ngpus", help="number of total devices available", default=-1)
+args = parser.parse_args()
+
 # just for formatting
 class colors:
     HEADER = '\033[95m'
@@ -121,7 +129,9 @@ def test1(ND):
     
     return (l2_error, h1_seminorm_error)
 
-GMLS_Module.initializeKokkos()
+kokkos_obj=GMLS_Module.Kokkos_Python(int(args.kokkos_threads), int(args.kokkos_numa),
+                                     int(args.kokkos_device), int(args.kokkos_ngpus),
+                                     True) # print state after initializing
 
 # of points in each dimension to run the test over
 ND = [5, 10, 20, 40]
@@ -147,4 +157,3 @@ print("\n" + colors.HEADER + "(h1-seminorm) Rates:" + colors.ENDC)
 for i in range(len(ND)-1):
     print(str(math.log(errors[i+1][1]/errors[i][1])/math.log(0.5)))
 print("\n")
-GMLS_Module.finalizeKokkos()
