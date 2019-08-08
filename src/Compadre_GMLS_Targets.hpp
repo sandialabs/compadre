@@ -34,7 +34,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
     });
     teamMember.team_barrier();
 
-    const int target_NP = this->getNP(_poly_order, _dimensions);
+    const int target_NP = this->getNP(_poly_order, _dimensions, _reconstruction_space == ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial);
     const int num_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(getNAdditionalEvaluationCoordinates(target_index)+1) : 1;
 
@@ -584,15 +584,21 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
              */
 
             if (_operations(i) == TargetOperation::VectorPointEvaluation) {
-                std::cout << "Also HERE! " << std::endl;
-                // copied from ScalarTaylorPolynomial
+                // copied from VectorTaylorPolynomial
                 Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                    for (int j=0; j<num_evaluation_sites; ++j) {
-                        this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, j);
-                        int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
-                        int target_NP = this->getNP(_poly_order, 3 /* dimension */, true /* request div-free basis */);
-                        for (int k=0; k<target_NP; ++k) {
-                            P_target_row(offset, k) = t1(k);
+                    for (int e=0; e<num_evaluation_sites; ++e) {
+                        for (int m=0; m<_sampling_multiplier; ++m) {
+                            this->calcPij(t1.data(), target_index, -(m+1) /* target is neighbor, but also which component */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                            int output_components = _basis_multiplier;
+                            for (int c=0; c<output_components; ++c) {
+                                int offset = getTargetOffsetIndexDevice(i, m /*in*/, c /*out*/, e/*additional*/);
+                                // for the case where _sampling_multiplier is > 1,
+                                // this approach relies on c*target_NP being equivalent to P_target_row(offset, j) where offset is
+                                // getTargetOffsetIndexDevice(i, m /*in*/, c /*out*/, e/*additional*/)*_basis_multiplier*target_NP;
+                                for (int j=0; j<target_NP; ++j) {
+                                    P_target_row(offset, m*target_NP + j) = t1(c*target_NP + j);
+                                }
+                            }
                         }
                     }
                 });
