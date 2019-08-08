@@ -84,7 +84,8 @@ void GMLS::generatePolynomialCoefficients() {
         // if the reconstruction is being made with a gradient of a basis, then we want that basis to be one order higher so that
         // the gradient is consistent with the convergence order expected.
         _poly_order += 1;
-        _NP = this->getNP(_poly_order, _dimensions);
+        // number of polynomial basis needs to be changed for div-free case
+        _NP = this->getNP(_poly_order, _dimensions, _reconstruction_space == ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial);
     }
 
     /*
