@@ -34,6 +34,11 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
     if (neighbor_index >= my_num_neighbors) {
         component = neighbor_index / my_num_neighbors;
         neighbor_index = neighbor_index % my_num_neighbors;
+    } else if (neighbor_index < 0) {
+        // -1 maps to 0 component
+        // -2 maps to 1 component
+        // -3 maps to 2 component
+        component = -(neighbor_index+1);
     }
 
     XYZ relative_coord;
@@ -149,7 +154,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
         }
     } else if ((polynomial_sampling_functional == VectorPointSample) &&
                (reconstruction_space == DivergenceFreeVectorTaylorPolynomial)) {
-        // Divergence free vector polynomial basi
+        // Divergence free vector polynomial basis
         const int dimension_offset = this->getNP(_poly_order, 3 /* dimension */, true /* request div-free basis */);
         double cutoff_p = _epsilons(target_index);
         int i = 0;
@@ -620,7 +625,8 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 
             this->calcPij(delta.data(), target_index, i + d*my_num_neighbors, 0 /*alpha*/, dimension, polynomial_order, false /*bool on only specific order*/, V, reconstruction_space, polynomial_sampling_functional);
 
-            int storage_size = this->getNP(polynomial_order, dimension);
+            // storage_size needs to change based on the size of the basis
+            int storage_size = this->getNP(polynomial_order, dimension, _reconstruction_space == ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial);
             storage_size *= _basis_multiplier;
 
             if (weight_p) {
