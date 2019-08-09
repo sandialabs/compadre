@@ -69,7 +69,7 @@ void GMLS::generatePolynomialCoefficients() {
 
     // this handles scalars, vectors, and scalars that are reused as vectors
     _sampling_multiplier = std::pow(_local_dimensions, 
-            std::min(ActualReconstructionSpaceRank[(int)_reconstruction_space], 
+            std::min(EffectiveReconstructionSpaceRank[(int)_reconstruction_space],
                 _data_sampling_functional.output_rank));
 
     // effective number of components in the basis
