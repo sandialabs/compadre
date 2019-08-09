@@ -4,6 +4,7 @@
 #include <Compadre_GMLS.hpp>
 #include <Compadre_Evaluator.hpp>
 #include <Compadre_PointCloudSearch.hpp>
+#include <Compadre_KokkosParser.hpp>
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Random.hpp>
 #include <Python.h>
@@ -13,6 +14,25 @@
 #ifdef COMPADRE_USE_MPI
     #include <mpi.h>
 #endif
+
+class Kokkos_Python {
+
+private:
+
+    Compadre::KokkosParser* kokkos_parser;
+
+public:
+
+    Kokkos_Python(int num_threads = 1, int numa = 1, int device = 0, int ngpu = 1, bool print_status = false) {
+        kokkos_parser = new Compadre::KokkosParser(num_threads, numa, device, ngpu, print_status);
+    }
+
+    ~Kokkos_Python() { 
+        kokkos_parser->finalize(false);
+        delete kokkos_parser;
+    }
+
+};
 
 void initializeKokkos() {
     Kokkos::initialize();
