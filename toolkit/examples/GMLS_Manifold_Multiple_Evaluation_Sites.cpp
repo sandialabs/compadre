@@ -537,12 +537,12 @@ Kokkos::initialize(argc, args);
  
     // tangent vectors for each source coordinate are stored here
     auto d_prestencil_weights = my_GMLS_vector_of_scalar_clones.getPrestencilWeights();
-    auto prestencil_weights = Kokkos::create_mirror(d_prestencil_weights);
+    auto prestencil_weights = Kokkos::create_mirror_view(d_prestencil_weights);
     Kokkos::deep_copy(prestencil_weights, d_prestencil_weights);
 
     // tangent vector at target sites are stored here
     auto d_tangent_directions = my_GMLS_vector_of_scalar_clones.getTangentDirections();
-    auto tangent_directions = Kokkos::create_mirror(d_tangent_directions);
+    auto tangent_directions = Kokkos::create_mirror_view(d_tangent_directions);
     Kokkos::deep_copy(tangent_directions, d_tangent_directions);
 
     // loop through the target sites
