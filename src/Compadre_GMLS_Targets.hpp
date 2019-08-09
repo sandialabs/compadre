@@ -587,17 +587,16 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                 // copied from VectorTaylorPolynomial
                 Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                     for (int e=0; e<num_evaluation_sites; ++e) {
-                        for (int m=0; m<_sampling_multiplier; ++m) {
-                            this->calcPij(t1.data(), target_index, -(m+1) /* target is neighbor, but also which component */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
-                            int output_components = _basis_multiplier;
-                            for (int c=0; c<output_components; ++c) {
-                                int offset = getTargetOffsetIndexDevice(i, m /*in*/, c /*out*/, e/*additional*/);
-                                // for the case where _sampling_multiplier is > 1,
-                                // this approach relies on c*target_NP being equivalent to P_target_row(offset, j) where offset is
-                                // getTargetOffsetIndexDevice(i, m /*in*/, c /*out*/, e/*additional*/)*_basis_multiplier*target_NP;
-                                for (int j=0; j<target_NP; ++j) {
-                                    P_target_row(offset, m*target_NP + j) = t1(c*target_NP + j);
-                                }
+                        for (int m0=0; m0<_sampling_multiplier; ++m0) {
+                            for (int m1=0; m1<_sampling_multiplier; ++m1) {
+
+                              this->calcPij(t1.data(), target_index, -(m1+1) /* target is neighbor, but also which component */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+
+                              int output_components = _basis_multiplier;
+                              int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, e/*additional*/);
+                              for (int j=0; j<target_NP; ++j) {
+                                  P_target_row(offset, j) = t1(j);
+                              }
                             }
                         }
                     }
