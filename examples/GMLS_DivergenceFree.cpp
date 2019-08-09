@@ -66,7 +66,7 @@ bool all_passed = true;
 
     // check if 3 arguments are given from the command line
     //  set the number of target sites where we will reconstruct the target functionals at
-    int number_target_coords = 10; // 200 target sites by default
+    int number_target_coords = 200; // 200 target sites by default
     if (argc >= 3) {
         int arg3toi = atoi(args[2]);
         if (arg3toi > 0) {
@@ -344,28 +344,23 @@ bool all_passed = true;
             }
         }
 
-        std::cout << "INDEX " << i << " x " << xval << " y " << yval << " z " << zval << std::endl;
-        std::cout << "X " << actual_vector[0] << " " <<GMLS_DivFree_VectorX << std::endl;
-        std::cout << "Y " << actual_vector[1] << " " <<GMLS_DivFree_VectorY << std::endl;
-        std::cout << "Z " << actual_vector[2] << " " <<GMLS_DivFree_VectorZ << std::endl;
-
-        // // check vector evaluation
-        // if(std::abs(actual_vector[0] - GMLS_DivFree_VectorX) > failure_tolerance) {
-        //     all_passed = false;
-        //     std::cout << i << " Failed VectorX by: " << std::abs(actual_vector[0] - GMLS_DivFree_VectorX) << std::endl;
-        //     if (dimension>1) {
-        //         if(std::abs(actual_vector[1] - GMLS_DivFree_VectorY) > failure_tolerance) {
-        //             all_passed = false;
-        //             std::cout << i << " Failed VectorY by: " << std::abs(actual_vector[1] - GMLS_DivFree_VectorY) << std::endl;
-        //         }
-        //     }
-        //     if (dimension>2) {
-        //         if(std::abs(actual_vector[2] - GMLS_DivFree_VectorZ) > failure_tolerance) {
-        //             all_passed = false;
-        //             std::cout << i << " Failed VectorZ by: " << std::abs(actual_vector[2] - GMLS_DivFree_VectorZ) << std::endl;
-        //         }
-        //     }
-        // }
+        // check vector evaluation
+        if(std::abs(actual_vector[0] - GMLS_DivFree_VectorX) > failure_tolerance) {
+            all_passed = false;
+            std::cout << i << " Failed VectorX by: " << std::abs(actual_vector[0] - GMLS_DivFree_VectorX) << std::endl;
+            if (dimension>1) {
+                if(std::abs(actual_vector[1] - GMLS_DivFree_VectorY) > failure_tolerance) {
+                    all_passed = false;
+                    std::cout << i << " Failed VectorY by: " << std::abs(actual_vector[1] - GMLS_DivFree_VectorY) << std::endl;
+                }
+            }
+            if (dimension>2) {
+                if(std::abs(actual_vector[2] - GMLS_DivFree_VectorZ) > failure_tolerance) {
+                    all_passed = false;
+                    std::cout << i << " Failed VectorZ by: " << std::abs(actual_vector[2] - GMLS_DivFree_VectorZ) << std::endl;
+                }
+            }
+        }
     }
 
 
