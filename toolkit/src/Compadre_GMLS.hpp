@@ -683,7 +683,7 @@ public:
             _curvature_support_operations = Kokkos::View<TargetOperation*>
                 ("operations needed for manifold gradient reconstruction", 1);
             auto curvature_support_operations_mirror = 
-                Kokkos::create_mirror(_curvature_support_operations);
+                Kokkos::create_mirror_view(_curvature_support_operations);
             curvature_support_operations_mirror(0) = 
                 TargetOperation::GradientOfScalarPointEvaluation;
             Kokkos::deep_copy(_curvature_support_operations, curvature_support_operations_mirror);
@@ -1599,11 +1599,11 @@ public:
         _lro_output_tensor_rank = Kokkos::View<int*>("output tensor rank", _lro.size());
         _lro_input_tensor_rank = Kokkos::View<int*>("input tensor rank", _lro.size());
 
-        _host_lro_total_offsets = create_mirror(_lro_total_offsets);
-        _host_lro_output_tile_size = create_mirror(_lro_output_tile_size);
-        _host_lro_input_tile_size = create_mirror(_lro_input_tile_size);
-        _host_lro_output_tensor_rank = create_mirror(_lro_output_tensor_rank);
-        _host_lro_input_tensor_rank = create_mirror(_lro_input_tensor_rank);
+        _host_lro_total_offsets = create_mirror_view(_lro_total_offsets);
+        _host_lro_output_tile_size = create_mirror_view(_lro_output_tile_size);
+        _host_lro_input_tile_size = create_mirror_view(_lro_input_tile_size);
+        _host_lro_output_tensor_rank = create_mirror_view(_lro_output_tensor_rank);
+        _host_lro_input_tensor_rank = create_mirror_view(_lro_input_tensor_rank);
 
         int total_offset = 0; // need total offset
         int output_offset = 0;
