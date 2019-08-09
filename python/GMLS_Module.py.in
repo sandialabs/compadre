@@ -95,6 +95,24 @@ except __builtin__.Exception:
         pass
     _newclass = 0
 
+class Kokkos_Python(_object):
+    __swig_setmethods__ = {}
+    __setattr__ = lambda self, name, value: _swig_setattr(self, Kokkos_Python, name, value)
+    __swig_getmethods__ = {}
+    __getattr__ = lambda self, name: _swig_getattr(self, Kokkos_Python, name)
+    __repr__ = _swig_repr
+
+    def __init__(self, num_threads=1, numa=1, device=0, ngpu=1, print_status=False):
+        this = _GMLS_Module.new_Kokkos_Python(num_threads, numa, device, ngpu, print_status)
+        try:
+            self.this.append(this)
+        except __builtin__.Exception:
+            self.this = this
+    __swig_destroy__ = _GMLS_Module.delete_Kokkos_Python
+    __del__ = lambda self: None
+Kokkos_Python_swigregister = _GMLS_Module.Kokkos_Python_swigregister
+Kokkos_Python_swigregister(Kokkos_Python)
+
 
 def initializeKokkos():
     return _GMLS_Module.initializeKokkos()

@@ -107,6 +107,17 @@ if (Compadre_EXAMPLES)
     ADD_TEST(NAME GMLS_Manifold_MultiSite_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py" "3" "4")
     SET_TESTS_PROPERTIES(GMLS_Manifold_MultiSite_Refinement_Study PROPERTIES LABELS "ConvergenceTest;convergence;manifold" TIMEOUT 20)
 
+    if (NOT Compadre_DEBUG)
+      # This test is too slow in DEBUG (3x longer than all other tests combined)
+      # Multisite manifold test for GMLS
+      #ADD_TEST(NAME GMLS_Manifold_MultiSite COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_MultiSite_Test "3" "4" "--kokkos-threads=2")
+      #SET_TESTS_PROPERTIES(GMLS_Manifold_MultiSite PROPERTIES LABELS "UnitTest;unit;kokkos;multi;manifold" TIMEOUT 10)
+      # Python driven test of a C++ executable (Python changes command line arguments given to executable)
+      CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py" @ONLY)
+      ADD_TEST(NAME GMLS_Manifold_MultiSite_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py" "3" "3")
+      SET_TESTS_PROPERTIES(GMLS_Manifold_MultiSite_Refinement_Study PROPERTIES LABELS "ConvergenceTest;convergence;manifold" TIMEOUT 60)
+    endif()
+
     #    # Manifold tests for GMLS
     #    ADD_TEST(NAME GMLS_Manifold_Dim3 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Test "4" "200" "3" "1" "--kokkos-threads=2")
     #    SET_TESTS_PROPERTIES(GMLS_Manifold_Dim3 PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
@@ -124,7 +135,7 @@ if (Compadre_EXAMPLES)
     # WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH} )
     if (Compadre_USE_PYTHON)
       CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/Python_3D_Convergence.py.in" "${CMAKE_CURRENT_BINARY_DIR}/Python_3D_Convergence.py" @ONLY)
-      ADD_TEST(NAME GMLS_Python_Convergence_Test_3d_Point_Reconstruction COMMAND "${PYTHON_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}/Python_3D_Convergence.py")
+      ADD_TEST(NAME GMLS_Python_Convergence_Test_3d_Point_Reconstruction COMMAND "${PYTHON_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}/Python_3D_Convergence.py" "--kokkos-threads=4")
       SET_TESTS_PROPERTIES(GMLS_Python_Convergence_Test_3d_Point_Reconstruction PROPERTIES LABELS "UnitTest;unit;python;kokkos" TIMEOUT 10)
 
       if (Compadre_USE_MATLAB)

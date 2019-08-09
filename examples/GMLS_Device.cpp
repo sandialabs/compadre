@@ -10,6 +10,7 @@
 #include <Compadre_GMLS.hpp>
 #include <Compadre_Evaluator.hpp>
 #include <Compadre_PointCloudSearch.hpp>
+#include <Compadre_KokkosParser.hpp>
 
 #include "GMLS_Tutorial.hpp"
 
@@ -33,13 +34,13 @@ MPI_Init(&argc, &args);
 #endif
 
 // initializes Kokkos with command line arguments given
-Kokkos::initialize(argc, args);
+auto kp = KokkosParser(argc, args, true);
 
 // becomes false if the computed solution not within the failure_threshold of the actual solution
 bool all_passed = true;
 
 // code block to reduce scope for all Kokkos View allocations
-// otherwise, Views may be deallocating when we call Kokkos::finalize() later
+// otherwise, Views may be deallocating when we call Kokkos finalize() later
 {
     
     // check if 5 arguments are given from the command line, the first being the program name
@@ -477,10 +478,10 @@ bool all_passed = true;
 
 
 } // end of code block to reduce scope, causing Kokkos View de-allocations
-// otherwise, Views may be deallocating when we call Kokkos::finalize() later
+// otherwise, Views may be deallocating when we call Kokkos finalize() later
 
 // finalize Kokkos and MPI (if available)
-Kokkos::finalize();
+kp.finalize();
 #ifdef COMPADRE_USE_MPI
 MPI_Finalize();
 #endif
