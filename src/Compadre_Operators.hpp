@@ -80,6 +80,14 @@ namespace Compadre {
         0, ///< ScalarTaylorPolynomial
         1, ///< VectorTaylorPolynomial
         0, ///< VectorOfScalarClonesTaylorPolynomial
+        0, ///< DivergenceFreeVectorTaylorPolynomial
+    };
+
+    //! Number of actual components in the ReconstructionSpace
+    constexpr int EffectiveReconstructionSpaceRank[] = {
+        0, ///< ScalarTaylorPolynomial
+        1, ///< VectorTaylorPolynomial
+        0, ///< VectorOfScalarClonesTaylorPolynomial
         1, ///< DivergenceFreeVectorTaylorPolynomial
     };
 
