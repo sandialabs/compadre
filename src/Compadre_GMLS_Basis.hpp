@@ -157,21 +157,17 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
         // Divergence free vector polynomial basis
         const int dimension_offset = this->getNP(_poly_order, 3 /* dimension */, true /* request div-free basis */);
         double cutoff_p = _epsilons(target_index);
-        int i = 0;
 
         double xs = relative_coord.x/cutoff_p;
         double ys = relative_coord.y/cutoff_p;
         double zs = relative_coord.z/cutoff_p;
         XYZ Pn;
 
-        for (int n = 0; n <= dimension_offset; n++) {
+        for (int n = 0; n < dimension_offset; n++) {
             // Obtain the vector for the basis
             Pn = calDivFreeBasis(n, xs, ys, zs);
             // Then assign it to the input
-            *(delta + i) = Pn.x;
-            *(delta + dimension_offset + i) = Pn.y;
-            *(delta + 2*dimension_offset + i) = Pn.z;
-            i++;
+            *(delta + n) = Pn[component];
         }
     } else if ((polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) &&
             (reconstruction_space == ScalarTaylorPolynomial)) {
