@@ -583,6 +583,7 @@ bob_get_semver()
 
 # check that either CUDA or LAPACK were turned on (needed for any computation to be performed)
 
+bob_option(Toolkit_DEBUG "Debug Mode" ON)
 if (CompadreHarness_USE_CUDA OR CompadreHarness_USE_LAPACK)
   set(Toolkit_PREFIX "${PROJECT_BINARY_DIR}/Toolkit-install")
   set(Toolkit_ARGS
@@ -601,6 +602,7 @@ if (CompadreHarness_USE_CUDA OR CompadreHarness_USE_LAPACK)
     "-DTrilinos_PREFIX=${Trilinos_PREFIX}"
     "-DCompadre_USE_Trilinos:BOOL=${CompadreHarness_USE_Trilinos}"
     "-DCompadre_TESTS:BOOL=${Toolkit_TESTS}"
+    "-DCompadre_DEBUG:BOOL=${Toolkit_DEBUG}"
   )
   
       #GIT_REPOSITORY "/ascldap/users/pakuber/Desktop/ProjectStubs/Particles/barebone_toolkit"
