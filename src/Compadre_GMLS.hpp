@@ -989,7 +989,7 @@ public:
         // functional used, which can not be inferred unless a specification of target functional,
         // reconstruction space, and sampling functional are all known (as was the case at the
         // construction of this class)
-        const int input_index = getSamplingOutputIndex(_polynomial_sampling_functional, input_component_axis_1, input_component_axis_2);
+        const int input_index = getSamplingOutputIndex(_data_sampling_functional, input_component_axis_1, input_component_axis_2);
         const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
 
         return getTargetOffsetIndexHost(lro_number, input_index, output_index, additional_evaluation_local_index);
@@ -1635,7 +1635,7 @@ public:
 
             // the target functional input indexing is sized based on the output rank of the sampling
             // functional used
-            int input_tile_size = getOutputDimensionOfSampling(_polynomial_sampling_functional);
+            int input_tile_size = getOutputDimensionOfSampling(_data_sampling_functional);
             _host_lro_output_tile_size(i) = output_tile_size;
             _host_lro_input_tile_size(i) = input_tile_size;
 
@@ -1645,7 +1645,7 @@ public:
 
             // the target functional output rank is based on the output rank of the sampling
             // functional used
-            _host_lro_input_tensor_rank(i) = _polynomial_sampling_functional.output_rank;
+            _host_lro_input_tensor_rank(i) = _data_sampling_functional.output_rank;
             _host_lro_output_tensor_rank(i) = TargetOutputTensorRank[(int)_lro[i]];
         }
 
