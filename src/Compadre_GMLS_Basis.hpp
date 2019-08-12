@@ -2,7 +2,7 @@
 #define _COMPADRE_GMLS_BASIS_HPP_
 
 #include "Compadre_GMLS.hpp"
-#include "DivergenceFree3D.hpp"
+#include "basis/DivergenceFree3D.hpp"
 
 namespace Compadre {
 
