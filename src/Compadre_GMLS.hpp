@@ -662,7 +662,7 @@ public:
         // seed random number generator pool
         _random_number_pool = pool_type(1);
 
-        _NP = this->getNP(_poly_order, dimensions, _reconstruction_space == ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial);
+        _NP = this->getNP(_poly_order, dimensions, _reconstruction_space);
         Kokkos::fence();
 
 #ifdef COMPADRE_USE_CUDA
@@ -835,8 +835,8 @@ public:
     //! General to dimension 1..3 and polynomial order m
     //! The divfree options will return the divergence-free basis if true
     KOKKOS_INLINE_FUNCTION
-    static int getNP(const int m, const int dimension = 3, const bool divfree = false) {
-        if (!divfree) {
+    static int getNP(const int m, const int dimension = 3, const ReconstructionSpace r_space = ReconstructionSpace::ScalarTaylorPolynomial) {
+        if (r_space != ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial) {
             if (dimension == 3) return (m+1)*(m+2)*(m+3)/6;
             else if (dimension == 2) return (m+1)*(m+2)/2;
             else return m+1;
@@ -853,16 +853,16 @@ public:
               case 4:
                   return 85;
               default:
-                  compadre_kernel_assert_release((false) && "Divergence-free basis only support up to 4th-order polynomials for now.");
+                  compadre_kernel_assert_release((false) && "Divergence-free basis only supports up to 4th-order polynomials.");
           }
         }
     }
 
     //! Returns number of neighbors needed for unisolvency for a given basis order and dimension
     KOKKOS_INLINE_FUNCTION
-    static int getNN(const int m, const int dimension = 3) {
+    static int getNN(const int m, const int dimension = 3, const ReconstructionSpace r_space = ReconstructionSpace::ScalarTaylorPolynomial) {
         // may need div-free argument in the future
-        const int np = getNP(m, dimension);
+        const int np = getNP(m, dimension, r_space);
         int nn = np;
         switch (dimension) {
             case 3:
@@ -1546,7 +1546,7 @@ public:
     //! Sets basis order to be used when reoncstructing any function
     void setPolynomialOrder(const int poly_order) {
         _poly_order = poly_order;
-        _NP = this->getNP(_poly_order, _dimensions, _reconstruction_space == ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial);
+        _NP = this->getNP(_poly_order, _dimensions, _reconstruction_space);
         this->resetCoefficientData();
     }
 

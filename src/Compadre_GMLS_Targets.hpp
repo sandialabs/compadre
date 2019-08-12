@@ -34,7 +34,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
     });
     teamMember.team_barrier();
 
-    const int target_NP = this->getNP(_poly_order, _dimensions, _reconstruction_space == ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial);
+    const int target_NP = this->getNP(_poly_order, _dimensions, _reconstruction_space);
     const int num_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(getNAdditionalEvaluationCoordinates(target_index)+1) : 1;
 
@@ -630,7 +630,7 @@ void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_ve
     });
     teamMember.team_barrier();
 
-    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
+    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     for (int i=0; i<_curvature_support_operations.size(); ++i) {
         if (_curvature_support_operations(i) == TargetOperation::ScalarPointEvaluation) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
@@ -668,7 +668,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
 
     // only designed for 2D manifold embedded in 3D space
     const int target_index = teamMember.league_rank();
-    const int target_NP = this->getNP(_poly_order, _dimensions-1);
+    const int target_NP = this->getNP(_poly_order, _dimensions-1, _reconstruction_space);
 
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, P_target_row.extent(0)), [&] (const int j) {
         Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, P_target_row.extent(1)),

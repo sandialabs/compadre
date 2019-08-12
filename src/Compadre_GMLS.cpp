@@ -84,8 +84,7 @@ void GMLS::generatePolynomialCoefficients() {
         // if the reconstruction is being made with a gradient of a basis, then we want that basis to be one order higher so that
         // the gradient is consistent with the convergence order expected.
         _poly_order += 1;
-        // number of polynomial basis needs to be changed for div-free case
-        _NP = this->getNP(_poly_order, _dimensions, _reconstruction_space == ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial);
+        _NP = this->getNP(_poly_order, _dimensions, _reconstruction_space);
     }
 
     /*
@@ -107,8 +106,8 @@ void GMLS::generatePolynomialCoefficients() {
 
     if (_dense_solver_type == DenseSolverType::MANIFOLD) {
         // these dimensions already calculated differ in the case of manifolds
-        manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
-        _NP = this->getNP(_poly_order, _dimensions-1);
+        manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
+        _NP = this->getNP(_poly_order, _dimensions-1, _reconstruction_space);
         const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
         this_num_columns = _basis_multiplier*max_manifold_NP;
         const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_manifold_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_manifold_NP*_total_alpha_values*_basis_multiplier*max_evaluation_sites;
@@ -453,7 +452,7 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
     const int target_index = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
-    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
+    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
@@ -502,7 +501,7 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
     const int target_index = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
-    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
+    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_neighbors = this->getNNeighbors(target_index);
@@ -556,7 +555,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
     const int target_index = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
-    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
+    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_neighbors = this->getNNeighbors(target_index);
@@ -741,7 +740,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
     const int target_index = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
-    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
+    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_neighbors = this->getNNeighbors(target_index);
@@ -871,7 +870,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
     const int target_index = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
-    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
+    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
@@ -922,7 +921,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
     const int target_index = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
-    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
+    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
@@ -974,7 +973,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
     const int target_index = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
-    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
+    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 

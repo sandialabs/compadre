@@ -108,7 +108,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 polynomial_sampling_functional == VaryingManifoldVectorPointSample) &&
                     (reconstruction_space == VectorTaylorPolynomial)) {
 
-        const int dimension_offset = this->getNP(_poly_order, dimension);
+        const int dimension_offset = this->getNP(_poly_order, dimension, reconstruction_space);
         double cutoff_p = _epsilons(target_index);
         int alphax, alphay, alphaz;
         double alphaf;
@@ -155,7 +155,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
     } else if ((polynomial_sampling_functional == VectorPointSample) &&
                (reconstruction_space == DivergenceFreeVectorTaylorPolynomial)) {
         // Divergence free vector polynomial basis
-        const int dimension_offset = this->getNP(_poly_order, 3 /* dimension */, true /* request div-free basis */);
+        const int dimension_offset = this->getNP(_poly_order, 3 /* dimension */, reconstruction_space);
         double cutoff_p = _epsilons(target_index);
 
         double xs = relative_coord.x/cutoff_p;
@@ -622,7 +622,7 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
             this->calcPij(delta.data(), target_index, i + d*my_num_neighbors, 0 /*alpha*/, dimension, polynomial_order, false /*bool on only specific order*/, V, reconstruction_space, polynomial_sampling_functional);
 
             // storage_size needs to change based on the size of the basis
-            int storage_size = this->getNP(polynomial_order, dimension, _reconstruction_space == ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial);
+            int storage_size = this->getNP(polynomial_order, dimension, reconstruction_space);
             storage_size *= _basis_multiplier;
 
             if (weight_p) {
