@@ -16,7 +16,7 @@ set(CompadreHarness_SOURCES
   Compadre_nanoflannInformation.cpp  
   Compadre_nanoflannPointCloudT.cpp  
   Compadre_NeighborhoodT.cpp         
-  Compadre_OBFET.cpp
+  Compadre_OptimizationManager.cpp
   Compadre_ParameterManager.cpp
   Compadre_ParticlesT.cpp
   Compadre_PhysicsT.cpp
@@ -86,7 +86,7 @@ set(CompadreHarness_HEADERS
   Compadre_nanoflannInformation.hpp  
   Compadre_nanoflannPointCloudT.hpp  
   Compadre_NeighborhoodT.hpp         
-  Compadre_OBFET.hpp                 
+  Compadre_OptimizationManager.hpp                 
   Compadre_ParameterManager.hpp      
   Compadre_ParticlesT.hpp
   Compadre_PhysicsT.hpp

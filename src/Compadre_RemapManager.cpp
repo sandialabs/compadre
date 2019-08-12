@@ -6,7 +6,7 @@
 #include "Compadre_FieldManager.hpp"
 #include "Compadre_FieldT.hpp"
 
-#include "Compadre_OBFET.hpp"
+#include "Compadre_OptimizationManager.hpp"
 
 #include "Compadre_nanoflannInformation.hpp"
 #include "Compadre_nanoflannPointCloudT.hpp"
@@ -316,9 +316,9 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
     
     
                 // optional OBFET
-                if (_queue[i]._obfet) {
-                    Compadre::OBFET obfet_object(_src_particles, _trg_particles, source_field_num, target_field_num, _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("source weighting field name"), _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("target weighting field name"), _neighborhoodInfo.getRawPtr());
-                    obfet_object.solveAndUpdate();
+                if (_queue[i]._optimization_object._optimization_algorithm!=OptimizationAlgorithm::NONE) {
+                    Compadre::OptimizationManager optimization_manager(_src_particles, _trg_particles, source_field_num, target_field_num, _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("source weighting field name"), _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("target weighting field name"), _neighborhoodInfo.getRawPtr(), _queue[i]._optimization_object);
+                    optimization_manager.solveAndUpdate();
                 }
     
             } else { // coordinate remap
