@@ -83,14 +83,6 @@ namespace Compadre {
         0, ///< DivergenceFreeVectorTaylorPolynomial
     };
 
-    //! Number of actual components in the ReconstructionSpace
-    constexpr int EffectiveReconstructionSpaceRank[] = {
-        0, ///< ScalarTaylorPolynomial
-        1, ///< VectorTaylorPolynomial
-        0, ///< VectorOfScalarClonesTaylorPolynomial
-        1, ///< DivergenceFreeVectorTaylorPolynomial
-    };
-
     //! Describes the SamplingFunction relationship to targets, neighbors
     enum SamplingTransformType {
         Identity,           ///< No action performed on data before GMLS target operation
