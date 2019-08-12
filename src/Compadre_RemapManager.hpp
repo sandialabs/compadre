@@ -3,6 +3,7 @@
 
 #include "CompadreHarness_Config.h"
 #include "CompadreHarness_Typedefs.hpp"
+#include "Compadre_OptimizationManager.hpp"
 
 #include <Compadre_GMLS.hpp>
 
@@ -30,47 +31,47 @@ struct RemapObject {
 		std::string _reference_normal_directions_fieldname;
 		std::string _extra_data_fieldname;
 
-		bool _obfet;
+		OptimizationObject _optimization_object;
 
 
 		// basic instantiation with differing polynomial and data sampling functionals
-		RemapObject(TargetOperation target_operation, ReconstructionSpace reconstruction_space, SamplingFunctional polynomial_sampling_functional, SamplingFunctional data_sampling_functional, bool obfet = false) : _polynomial_sampling_functional(polynomial_sampling_functional), _data_sampling_functional(data_sampling_functional) {
+		RemapObject(TargetOperation target_operation, ReconstructionSpace reconstruction_space, SamplingFunctional polynomial_sampling_functional, SamplingFunctional data_sampling_functional, OptimizationObject optimization_object = OptimizationObject()) : _polynomial_sampling_functional(polynomial_sampling_functional), _data_sampling_functional(data_sampling_functional) {
 			src_fieldnum = -1;
 			trg_fieldnum = -1;
 			_target_operation = target_operation;
 			_reconstruction_space = reconstruction_space;
-			_obfet = obfet;
+			_optimization_object = optimization_object;
 		}
 		// basic instantiation with SAME polynomial and data sampling functionals
-		RemapObject(TargetOperation target_operation = TargetOperation::ScalarPointEvaluation, ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional sampling_functional = PointSample, bool obfet = false)
-			: RemapObject(target_operation, reconstruction_space, sampling_functional, sampling_functional, obfet) {}
+		RemapObject(TargetOperation target_operation = TargetOperation::ScalarPointEvaluation, ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional sampling_functional = PointSample, OptimizationObject optimization_object = OptimizationObject())
+			: RemapObject(target_operation, reconstruction_space, sampling_functional, sampling_functional, optimization_object) {}
 
 
-		RemapObject(const std::string& source_name, const std::string& target_name, TargetOperation target_operation, ReconstructionSpace reconstruction_space, SamplingFunctional polynomial_sampling_functional, SamplingFunctional data_sampling_functional, bool obfet = false)
-			: RemapObject(target_operation, reconstruction_space, polynomial_sampling_functional, data_sampling_functional, obfet) {
+		RemapObject(const std::string& source_name, const std::string& target_name, TargetOperation target_operation, ReconstructionSpace reconstruction_space, SamplingFunctional polynomial_sampling_functional, SamplingFunctional data_sampling_functional, OptimizationObject optimization_object = OptimizationObject())
+			: RemapObject(target_operation, reconstruction_space, polynomial_sampling_functional, data_sampling_functional, optimization_object) {
 			src_fieldname = source_name;
 			if (target_name.empty()) trg_fieldname = source_name;
 			else trg_fieldname = target_name;
 		}
-		RemapObject(const std::string& source_name, const std::string& target_name = std::string(), TargetOperation target_operation = TargetOperation::ScalarPointEvaluation, ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional sampling_functional = PointSample, bool obfet = false)
-			: RemapObject(source_name, target_name, target_operation, reconstruction_space, sampling_functional, sampling_functional, obfet) {}
+		RemapObject(const std::string& source_name, const std::string& target_name = std::string(), TargetOperation target_operation = TargetOperation::ScalarPointEvaluation, ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional sampling_functional = PointSample, OptimizationObject optimization_object = OptimizationObject())
+			: RemapObject(source_name, target_name, target_operation, reconstruction_space, sampling_functional, sampling_functional, optimization_object) {}
 
 
-		RemapObject(const local_index_type source_num, const local_index_type target_num, TargetOperation target_operation, ReconstructionSpace reconstruction_space, SamplingFunctional polynomial_sampling_functional, SamplingFunctional data_sampling_functional, bool obfet = false)
-			: RemapObject(target_operation, reconstruction_space, polynomial_sampling_functional, data_sampling_functional, obfet) {
+		RemapObject(const local_index_type source_num, const local_index_type target_num, TargetOperation target_operation, ReconstructionSpace reconstruction_space, SamplingFunctional polynomial_sampling_functional, SamplingFunctional data_sampling_functional, OptimizationObject optimization_object = OptimizationObject())
+			: RemapObject(target_operation, reconstruction_space, polynomial_sampling_functional, data_sampling_functional, optimization_object) {
 			src_fieldnum = source_num;
 			if (target_num < 0) trg_fieldnum = source_num;
 		}
-		RemapObject(const local_index_type source_num, const local_index_type target_num = -1, TargetOperation target_operation = TargetOperation::ScalarPointEvaluation, ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional sampling_functional = PointSample, bool obfet = false)
-			: RemapObject(source_num, target_num, target_operation, reconstruction_space, sampling_functional, sampling_functional, obfet) {}
+		RemapObject(const local_index_type source_num, const local_index_type target_num = -1, TargetOperation target_operation = TargetOperation::ScalarPointEvaluation, ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, SamplingFunctional sampling_functional = PointSample, OptimizationObject optimization_object = OptimizationObject())
+			: RemapObject(source_num, target_num, target_operation, reconstruction_space, sampling_functional, sampling_functional, optimization_object) {}
 
 
-		void setOBFET(bool value) {
-			_obfet = value;
+		void setOptimizationObject(OptimizationObject optimization_object) {
+			_optimization_object = optimization_object;
 		}
 
-		bool getOBFET() {
-			return _obfet;
+		OptimizationObject getOptimizationObject() {
+			return _optimization_object;
 		}
 
 		void setOperatorCoefficients(std::string operator_coefficients_fieldname) {

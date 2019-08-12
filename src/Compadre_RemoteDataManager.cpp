@@ -886,29 +886,59 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 		}
 	}
 
-	// exchange information about using OBFET in reconstruction
-    std::vector<int> peer_use_obfet(peer_num_fields_for_swap,0);
-	for (local_index_type i=0; i<std::max((local_index_type)(peer_use_obfet.size()), my_num_fields_for_swap); ++i) {
+	// exchange information about using Optimization in reconstruction
+    std::vector<int> peer_optimization_algorithm(peer_num_fields_for_swap,0);
+    std::vector<int> peer_single_linear_bound_constraint(peer_num_fields_for_swap,0);
+    std::vector<int> peer_bounds_preservation(peer_num_fields_for_swap,0);
+    std::vector<double> peer_global_lower_bound(peer_num_fields_for_swap,0);
+    std::vector<double> peer_global_upper_bound(peer_num_fields_for_swap,0);
+	for (local_index_type i=0; i<std::max((local_index_type)(peer_optimization_algorithm.size()), my_num_fields_for_swap); ++i) {
 
 		// send and receive whether to use obfet 0-no, 1-yes
 		if (_amLower) {
 			if (i < my_num_fields_for_swap && _local_comm->getRank()==0) {
-				int use_obfet = remap_vector[i]._obfet;
-				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &use_obfet);
+				int optimization_algorithm = (int)(remap_vector[i]._optimization_object._optimization_algorithm);
+				int single_linear_bound_constraint = (int)(remap_vector[i]._optimization_object._single_linear_bound_constraint);
+				int bounds_preservation = (int)(remap_vector[i]._optimization_object._bounds_preservation);
+				double global_lower_bound = (double)(remap_vector[i]._optimization_object._global_lower_bound);
+				double global_upper_bound = (double)(remap_vector[i]._optimization_object._global_upper_bound);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &optimization_algorithm);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &single_linear_bound_constraint);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &bounds_preservation);
+				Teuchos::broadcast<local_index_type, double>(*_lower_root_plus_upper_all_comm, 0, 1, &global_lower_bound);
+				Teuchos::broadcast<local_index_type, double>(*_lower_root_plus_upper_all_comm, 0, 1, &global_upper_bound);
 			}
 		} else {
 			if (i < peer_field_names.size()) {
-				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_use_obfet[i]);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_optimization_algorithm[i]);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_single_linear_bound_constraint[i]);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_bounds_preservation[i]);
+				Teuchos::broadcast<local_index_type, double>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_global_lower_bound[i]);
+				Teuchos::broadcast<local_index_type, double>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_global_upper_bound[i]);
 			}
 		}
 		if (_amLower) {
 			if (i < peer_field_names.size()) {
-				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_use_obfet[i]);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_optimization_algorithm[i]);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_single_linear_bound_constraint[i]);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_bounds_preservation[i]);
+				Teuchos::broadcast<local_index_type, double>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_global_lower_bound[i]);
+				Teuchos::broadcast<local_index_type, double>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_global_upper_bound[i]);
 			}
 		} else {
 			if (i < my_num_fields_for_swap && _local_comm->getRank()==0) {
-				int use_obfet = remap_vector[i]._obfet;
-				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &use_obfet);
+				//int optimization_algorithm = (int)(remap_vector[i]._optimization_object._optimization_algorithm);
+				int optimization_algorithm = (int)(remap_vector[i]._optimization_object._optimization_algorithm);
+				int single_linear_bound_constraint = (int)(remap_vector[i]._optimization_object._single_linear_bound_constraint);
+				int bounds_preservation = (int)(remap_vector[i]._optimization_object._bounds_preservation);
+				double global_lower_bound = (double)(remap_vector[i]._optimization_object._global_lower_bound);
+				double global_upper_bound = (double)(remap_vector[i]._optimization_object._global_upper_bound);
+				//Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &optimization_algorithm);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &optimization_algorithm);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &single_linear_bound_constraint);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &bounds_preservation);
+				Teuchos::broadcast<local_index_type, double>(*_upper_root_plus_lower_all_comm, 0, 1, &global_lower_bound);
+				Teuchos::broadcast<local_index_type, double>(*_upper_root_plus_lower_all_comm, 0, 1, &global_upper_bound);
 			}
 		}
 	}
@@ -929,7 +959,10 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 	Teuchos::RCP<Compadre::RemapManager> rm = Teuchos::rcp(new Compadre::RemapManager(parameters, source_particles, particles_to_overwrite, max_halo_size));
     for (local_index_type i=0; i<peer_num_fields_for_swap; ++i) {
     	RemapObject ro(peer_field_names[i]);
-    	ro.setOBFET(peer_use_obfet[i]);
+        if (peer_optimization_algorithm[i] > 0) {
+            OptimizationObject optimization_object((OptimizationAlgorithm)peer_optimization_algorithm[i],(bool)peer_single_linear_bound_constraint[i],(bool)peer_bounds_preservation[i],peer_global_lower_bound[i],peer_global_upper_bound[i]);
+    	    ro.setOptimizationObject(optimization_object);
+        }
     	rm->add(ro);
     }
     rm->execute(false /* keep neighborhoods */, use_physical_coords);

@@ -62,7 +62,7 @@ int main (int argc, char* args[]) {
 	//*********
 
 #ifndef COMPADREHARNESS_USE_COMPOSE
-    if (parameters->get<Teuchos::ParameterList>("remap").get<bool>("obfet")) {
+    if (parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm")=="CAAS") {
         printf("\n\n\n\n\n\n\n\nCompose package called but not built. Enable with '-D Compadre_USE_Compose:BOOL=ON'.\n\n\n\n\n\n\n\n");
         // special return code for testing
         return 77;
@@ -175,7 +175,7 @@ int main (int argc, char* args[]) {
 
 		 	remoteDataManager->putRemoteCoordinatesInParticleSet(peer_processors_particles.getRawPtr());
 
-            if (parameters->get<Teuchos::ParameterList>("remap").get<bool>("obfet")) {
+            if (parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm")!="NONE") {
                 std::string target_weights_name = parameters->get<Teuchos::ParameterList>("remap").get<std::string>("target weighting field name");
                 std::string source_weights_name = parameters->get<Teuchos::ParameterList>("remap").get<std::string>("source weighting field name");
                 TEUCHOS_TEST_FOR_EXCEPT_MSG(target_weights_name=="", "\"target weighting field name\" not specified in parameter list.");
@@ -187,13 +187,16 @@ int main (int argc, char* args[]) {
 			if (my_coloring == 25) {
 //				Compadre::RemapObject r1("source_x2", "peer_x2");
 				Compadre::RemapObject r1("source_x2", "peer", VectorPointEvaluation, VectorOfScalarClonesTaylorPolynomial, ManifoldVectorPointSample);
+                Compadre::OptimizationObject opt_obj = Compadre::OptimizationObject(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm"), true /*single linear bound*/, true /*bounds preservation*/, parameters->get<Teuchos::ParameterList>("remap").get<double>("global lower bound")/*global lower bound*/, parameters->get<Teuchos::ParameterList>("remap").get<double>("global upper bound")/*global upper bound*/); 
+                r1.setOptimizationObject(opt_obj);
 				remap_vec.push_back(r1);
 			} else if (my_coloring == 33) {
 				Compadre::RemapObject r1("source_constant", "peer_constant");
 				Compadre::RemapObject r2("source_sinx", "peer");
-				Compadre::RemapObject r3("source_sphere_harmonics", "peer_harmonics", ScalarPointEvaluation, ScalarTaylorPolynomial, PointSample, parameters->get<Teuchos::ParameterList>("remap").get<bool>("obfet"));
 				remap_vec.push_back(r1);
 				remap_vec.push_back(r2);
+                Compadre::OptimizationObject opt_obj = Compadre::OptimizationObject(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm"), true /*single linear bound*/, true /*bounds preservation*/, parameters->get<Teuchos::ParameterList>("remap").get<double>("global lower bound")/*global lower bound*/, parameters->get<Teuchos::ParameterList>("remap").get<double>("global upper bound")/*global upper bound*/); 
+				Compadre::RemapObject r3("source_sphere_harmonics", "peer_harmonics", ScalarPointEvaluation, ScalarTaylorPolynomial, PointSample);
 				remap_vec.push_back(r3);
 			}
 		 	remoteDataManager->remapData(remap_vec, parameters, particles.getRawPtr(), peer_processors_particles.getRawPtr(), halo_size);
