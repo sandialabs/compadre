@@ -63,21 +63,24 @@ void GMLS::generatePolynomialCoefficients() {
      *    Determine if Nonstandard Sampling Dimension or Basis Component Dimension
      */
 
+
+    // calculate the dimension of the basis (a vector space on a manifold requires two components, for example)
+    _basis_multiplier = std::pow(_local_dimensions, ActualReconstructionSpaceRank[(int)_reconstruction_space]);
+
     // calculate sampling dimension 
     // this would normally be SamplingOutputTensorRank[_data_sampling_functional], but we also want to handle the
     // case of reconstructions where a scalar basis is reused as a vector, and this handles everything
-
     // this handles scalars, vectors, and scalars that are reused as vectors
-    _sampling_multiplier = std::pow(_local_dimensions, 
-            std::min(EffectiveReconstructionSpaceRank[(int)_reconstruction_space],
-                _data_sampling_functional.output_rank));
+    _sampling_multiplier = std::pow(_local_dimensions, _data_sampling_functional.output_rank);
+    if (_reconstruction_space == ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial) {
+        // storage and computational efficiency by reusing solution to scalar problem for 
+        // a vector problem (in 3d, 27x cheaper computation, 9x cheaper storage)
+        _sampling_multiplier = std::min(_sampling_multiplier, _basis_multiplier);
+    }
 
     // effective number of components in the basis
     _data_sampling_multiplier = std::pow(_local_dimensions, 
                 _data_sampling_functional.output_rank);
-
-    // calculate the dimension of the basis (a vector space on a manifold requires two components, for example)
-    _basis_multiplier = std::pow(_local_dimensions, ActualReconstructionSpaceRank[(int)_reconstruction_space]);
 
     // special case for using a higher order for sampling from a polynomial space that are gradients of a scalar polynomial
     if (_polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) {
