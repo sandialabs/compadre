@@ -254,7 +254,7 @@ bool all_passed = true;
     GMLS vector_divfree_basis_gmls(DivergenceFreeVectorTaylorPolynomial,
                                    VectorPointSample,
                                    order, solver_name.c_str(),
-                                   NULL /*manifold order*/ , dimension);
+                                   0 /*manifold order*/ , dimension);
 
     // pass in neighbor lists, source coordinates, target coordinates, and window sizes
     //

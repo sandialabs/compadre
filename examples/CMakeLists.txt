@@ -99,14 +99,6 @@ if (Compadre_EXAMPLES)
     ADD_TEST(NAME GMLS_DivergenceFree_Dim3_SVD COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "3" "200" "3" "0" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos;divergencefree;svd" TIMEOUT 10)
 
-    # Multisite manifold test for GMLS
-    #ADD_TEST(NAME GMLS_Manifold_MultiSite COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_MultiSite_Test "3" "4" "--kokkos-threads=2")
-    #SET_TESTS_PROPERTIES(GMLS_Manifold_MultiSite PROPERTIES LABELS "UnitTest;unit;kokkos;multi;manifold" TIMEOUT 10)
-    # Python driven test of a C++ executable (Python changes command line arguments given to executable)
-    CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py" @ONLY)
-    ADD_TEST(NAME GMLS_Manifold_MultiSite_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py" "3" "4")
-    SET_TESTS_PROPERTIES(GMLS_Manifold_MultiSite_Refinement_Study PROPERTIES LABELS "ConvergenceTest;convergence;manifold" TIMEOUT 20)
-
     if (NOT Compadre_DEBUG)
       # This test is too slow in DEBUG (3x longer than all other tests combined)
       # Multisite manifold test for GMLS
