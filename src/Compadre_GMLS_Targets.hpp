@@ -3,7 +3,7 @@
 
 #include "Compadre_GMLS.hpp"
 #include "Compadre_Manifold_Functions.hpp"
-#include "DivergenceFree3D.hpp"
+#include "basis/DivergenceFree3D.hpp"
 
 namespace Compadre {
 
