@@ -1,4 +1,4 @@
-#include "Compadre_OBFET.hpp"
+#include "Compadre_OptimizationManager.hpp"
 
 #include "Compadre_FieldManager.hpp"
 #include "Compadre_FieldT.hpp"
@@ -24,12 +24,12 @@ namespace Compadre {
 //                   std::ostream_iterator<double>(std::cout, " "));
 //}
 
-void OBFET::solveAndUpdate() {
+void OptimizationManager::solveAndUpdate() {
+if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE) {
 
-
-    // boolean determines whether slbqp is run or caas
-    // not yet converted to run from parameter list
-    bool slbqp = false;
+    // current algorithms are written for a single linear bound and with bounds preservation
+    TEUCHOS_TEST_FOR_EXCEPT_MSG(_optimization_object._single_linear_bound_constraint==false, "Only algorithms with single linear bound constraint == true are supported.");
+    TEUCHOS_TEST_FOR_EXCEPT_MSG(_optimization_object._bounds_preservation==false, "Only algorithms with bounds preservation are supported.");
 
     // verify weighting field name specified
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_source_weighting_name.length()==0, "Source weighting field name not specified.");
@@ -68,6 +68,18 @@ void OBFET::solveAndUpdate() {
         std::vector<scalar_type> source_mins(target_solution_data.dimension_0(), 1e+15);//std::numeric_limits<scalar_type>::max());
         std::vector<scalar_type> source_maxs(target_solution_data.dimension_0(), -1e+15);//std::numeric_limits<scalar_type>::lowest());
 
+        bool use_global_lower_bound = false;
+        bool use_global_upper_bound = false;
+
+        if (std::numeric_limits<scalar_type>::lowest() != _optimization_object._global_lower_bound) {
+            use_global_lower_bound = true;
+            std::cout << "Global minimum enforced of " << _optimization_object._global_lower_bound << "." << std::endl;
+        }
+        if (std::numeric_limits<scalar_type>::max() != _optimization_object._global_upper_bound) {
+            use_global_upper_bound = true;
+            std::cout << "Global maximum enforced of " << _optimization_object._global_upper_bound << "." << std::endl;
+        }
+
         for (local_index_type j=0; j<target_nlocal; ++j) {
 
             target_values[j] = target_solution_data(j,i);
@@ -82,10 +94,17 @@ void OBFET::solveAndUpdate() {
                 source_mins[j] = (neighbor_value < source_mins[j]) ? neighbor_value : source_mins[j];
                 source_maxs[j] = (neighbor_value > source_maxs[j]) ? neighbor_value : source_maxs[j];
             }
+
+            if (use_global_lower_bound) {
+                source_mins[j] = std::max(source_mins[j], _optimization_object._global_lower_bound);
+            }
+            if (use_global_upper_bound) {
+                source_maxs[j] = std::min(source_maxs[j], _optimization_object._global_upper_bound);
+            }
         }
 
 
-        if (slbqp) {
+        if (_optimization_object._optimization_algorithm==OptimizationAlgorithm::OBFET) {
 
             // written for serial
             TEUCHOS_TEST_FOR_EXCEPT_MSG(_source_particles->getCoordsConst()->getComm()->getSize()>1, "OBFET only written for serial.");
@@ -109,7 +128,9 @@ void OBFET::solveAndUpdate() {
             std::cout << "Lambda     ... " << astatus.lambda << "\n";
             std::cout << "Residual   ... " << astatus.residual << "\n";
 
-        } else {
+            TEUCHOS_TEST_FOR_EXCEPT_MSG(astatus.converged==0, "OBFET failed to converge.");
+
+        } else if (_optimization_object._optimization_algorithm==OptimizationAlgorithm::CAAS) {
 #ifdef COMPADREHARNESS_USE_COMPOSE
             MPI_Comm comm = *(Teuchos::rcp_dynamic_cast<const Teuchos::MpiComm<int>>(this->_target_particles->getCoordsConst()->getComm(), true /*throw on fail*/)->getRawMpiComm());
             auto parallel = cedr::mpi::make_parallel(comm);
@@ -165,6 +186,7 @@ void OBFET::solveAndUpdate() {
         }
     }
 
+}
 }
 
 }

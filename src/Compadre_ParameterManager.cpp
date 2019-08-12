@@ -104,7 +104,9 @@ void ParameterManager::setDefaultParameters() {
 	remapList->set("curvature weighting power", (local_index_type)8);
 	// weighting power for covariance matrix from which a tangent plane to the manifold is derived
 	remapList->set("curvature weighting type", "power");
-	remapList->set("obfet", (bool)false);
+	remapList->set("optimization algorithm", "NONE");
+	remapList->set("global lower bound", (scalar_type)std::numeric_limits<scalar_type>::lowest());
+	remapList->set("global upper bound", (scalar_type)std::numeric_limits<scalar_type>::max());
 	remapList->set("source weighting field name", "");
 	remapList->set("target weighting field name", "");
 	remapList->set("quadrature points", (local_index_type)2); // number of quadrature points for integral sampling

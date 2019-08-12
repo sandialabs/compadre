@@ -27,13 +27,15 @@ def check_bounds(porder, rate):
 # second argument sets maximum meshes to check
 max_porder = 10
 max_fname = 10 
-use_obfet = 1
+opt_num = 1
 if (len(sys.argv) > 1):
     max_porder = int(sys.argv[1])
 if (len(sys.argv) > 2):
     max_fname = int(sys.argv[2])
 if (len(sys.argv) > 3):
-    use_obfet = int(sys.argv[3])
+    opt_num = int(sys.argv[3])
+opt_types = ['NONE', 'OBFET', 'CAAS']
+opt_name = opt_types[opt_num]
 
 porders = ["1","2","3","4","5"]
 #porders = ["2",]
@@ -67,12 +69,8 @@ for key1, porder in enumerate(porders):
                 item.attrib['value']=porder;
             if (item.attrib['name']=="curvature porder"):
                 item.attrib['value']=porder;
-            if (item.attrib['name']=="obfet"):
-                if (use_obfet):
-                    item.attrib['value']="true";
-                else:
-                    item.attrib['value']="false";
-
+            if (item.attrib['name']=="optimization algorithm"):
+                item.attrib['value']=opt_name;
 
         # have io now
         for item in h.getchildren():
@@ -94,7 +92,7 @@ for key1, porder in enumerate(porders):
         tree.write(open('../test_data/parameter_lists/canga/parameters_upper_1.xml', 'wb'))
         
         try:
-            if (use_obfet):
+            if (opt_name=="OBFET"): # OBFET only works in serial
                 output = subprocess.check_output(["mpirun", "-np", "1", "./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","1","./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_upper_1.xml","--kokkos-threads=1"]).decode()
             else:
                 output = subprocess.check_output(["mpirun", "-np", "5", "./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","3","./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_upper_1.xml","--kokkos-threads=1"]).decode()
