@@ -3,6 +3,7 @@
 
 #include "Compadre_GMLS.hpp"
 #include "Compadre_Manifold_Functions.hpp"
+#include "basis/DivergenceFree3D.hpp"
 
 namespace Compadre {
 
@@ -33,7 +34,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
     });
     teamMember.team_barrier();
 
-    const int target_NP = this->getNP(_poly_order, _dimensions);
+    const int target_NP = this->getNP(_poly_order, _dimensions, _reconstruction_space);
     const int num_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(getNAdditionalEvaluationCoordinates(target_index)+1) : 1;
 
@@ -571,7 +572,44 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
             } else {
                 compadre_kernel_assert_release((false) && "Functionality not yet available.");
             }
+
+            /*
+             * End of VectorOfScalarClonesTaylorPolynomial basis
+             */
+
+        } else if (_reconstruction_space == ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial) {
+
+            /*
+             * Beginning of DivergenceFreeVectorTaylorPolynomial basis
+             */
+
+            if (_operations(i) == TargetOperation::VectorPointEvaluation) {
+                // copied from VectorTaylorPolynomial
+                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                    for (int e=0; e<num_evaluation_sites; ++e) {
+                        for (int m0=0; m0<_sampling_multiplier; ++m0) {
+                            for (int m1=0; m1<_sampling_multiplier; ++m1) {
+
+                              this->calcPij(t1.data(), target_index, -(m1+1) /* target is neighbor, but also which component */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+
+                              int output_components = _basis_multiplier;
+                              int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, e/*additional*/);
+                              for (int j=0; j<target_NP; ++j) {
+                                  P_target_row(offset, j) = t1(j);
+                              }
+                            }
+                        }
+                    }
+                });
+            }
+            additional_evaluation_sites_handled = false; // additional non-target site evaluations handled
+        } else {
+          compadre_kernel_assert_release((false) && "Functionality not yet available.");
         }
+
+        /*
+         * End of DivergenceFreeVectorTaylorPolynomial basis
+         */
 
         compadre_kernel_assert_release(((additional_evaluation_sites_need_handled && additional_evaluation_sites_handled) || (!additional_evaluation_sites_need_handled)) && "Auxiliary evaluation coordinates are specified by user, but are calling a target operation that can not handle evaluating additional sites.");
         } // !operation_handled
@@ -592,7 +630,7 @@ void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_ve
     });
     teamMember.team_barrier();
 
-    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
+    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     for (int i=0; i<_curvature_support_operations.size(); ++i) {
         if (_curvature_support_operations(i) == TargetOperation::ScalarPointEvaluation) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
@@ -630,7 +668,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
 
     // only designed for 2D manifold embedded in 3D space
     const int target_index = teamMember.league_rank();
-    const int target_NP = this->getNP(_poly_order, _dimensions-1);
+    const int target_NP = this->getNP(_poly_order, _dimensions-1, _reconstruction_space);
 
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, P_target_row.extent(0)), [&] (const int j) {
         Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, P_target_row.extent(1)),

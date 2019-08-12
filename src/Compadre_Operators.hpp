@@ -71,6 +71,8 @@ namespace Compadre {
         //! Scalar basis reused as many times as there are components in the vector
         //! resulting in a much cheaper polynomial reconstruction
         VectorOfScalarClonesTaylorPolynomial,
+        //! Divergence-free vector polynomial basis
+        DivergenceFreeVectorTaylorPolynomial,
     };
 
     //! Number of actual components in the ReconstructionSpace
@@ -78,6 +80,7 @@ namespace Compadre {
         0, ///< ScalarTaylorPolynomial
         1, ///< VectorTaylorPolynomial
         0, ///< VectorOfScalarClonesTaylorPolynomial
+        0, ///< DivergenceFreeVectorTaylorPolynomial
     };
 
     //! Describes the SamplingFunction relationship to targets, neighbors
