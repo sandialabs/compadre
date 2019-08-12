@@ -854,6 +854,7 @@ public:
                   return 85;
               default:
                   compadre_kernel_assert_release((false) && "Divergence-free basis only supports up to 4th-order polynomials.");
+                  return 0; // avoids warning about no return
           }
         }
     }
