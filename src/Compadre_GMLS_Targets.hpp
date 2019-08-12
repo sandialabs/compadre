@@ -592,7 +592,6 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
 
                               this->calcPij(t1.data(), target_index, -(m1+1) /* target is neighbor, but also which component */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
 
-                              int output_components = _basis_multiplier;
                               int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, e/*additional*/);
                               for (int j=0; j<target_NP; ++j) {
                                   P_target_row(offset, j) = t1(j);

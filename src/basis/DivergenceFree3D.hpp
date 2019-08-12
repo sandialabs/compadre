@@ -113,6 +113,7 @@ namespace Compadre {
             // default
             default: compadre_kernel_assert_release((false) && "Divergence-free basis only sup\
 ports up to 4th-order polynomials for now.");
+                     return XYZ(0,0,0); // avoid warning about no return
         }
     }
 }
