@@ -623,7 +623,36 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                             }
                         }
                     }
-              });
+                });
+            } else if (_operations(i) == TargetOperation::CurlCurlOfVectorPointEvaluation) {
+                Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+                    for (int m0=0; m0<_sampling_multiplier; ++m0) { // input components
+                        for (int m1=0; m1<_sampling_multiplier; ++m1) { // output components
+                            int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, 0 /*no additional*/);
+                            switch (m1) {
+                                // manually compute the output components
+                                case 0:
+                                    // output component 0
+                                    P_target_row(offset, 11) = -2.0*std::pow(_epsilons(target_index), -2);
+                                    P_target_row(offset, 12) = -2.0*std::pow(_epsilons(target_index), -2);
+                                    P_target_row(offset, 20) = -2.0*std::pow(_epsilons(target_index), -2);
+                                    break;
+                                case 1:
+                                    // output component 1
+                                    P_target_row(offset, 14) = -2.0*std::pow(_epsilons(target_index), -2);
+                                    P_target_row(offset, 15) = -2.0*std::pow(_epsilons(target_index), -2);
+                                    P_target_row(offset, 23) = -2.0*std::pow(_epsilons(target_index), -2);
+                                    break;
+                                default:
+                                    // output component 2
+                                    P_target_row(offset, 17) = -2.0*std::pow(_epsilons(target_index), -2);
+                                    P_target_row(offset, 18) = -2.0*std::pow(_epsilons(target_index), -2);
+                                    P_target_row(offset, 25) = -2.0*std::pow(_epsilons(target_index), -2);
+                                    break;
+                            }
+                        }
+                    }
+                });
             }
             additional_evaluation_sites_handled = false; // additional non-target site evaluations handled
         } else {
