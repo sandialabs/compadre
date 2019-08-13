@@ -197,6 +197,22 @@ double curlTestSolution(double x, double y, double z, int component, int dimensi
     }
 }
 
+KOKKOS_INLINE_FUNCTION
+double curlcurlTestSolution(double x, double y, double z, int component, int dimension) {
+    if (dimension==3) {
+        // returns curl of divergenceTestSamples
+        switch (component) {
+        case 0:
+            return 3.0*y;
+        case 1:
+            return 3.0*x;
+        default:
+            return 0.0;
+        }
+    } else {
+        return 0;
+    }
+}
 
 /** Standard GMLS Example 
  *
