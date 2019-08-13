@@ -15,6 +15,9 @@
     <Parameter name="output file prefix" type="string" value="../test_data/"/>
     <Parameter name="output file" type="string" value="lb.pvtp"/>
     <Parameter name="vtk produce mesh" type="bool" value="true"/>
+    <Parameter name="coordinates layout" type="string" value="lat_lon_separate"/>
+    <Parameter name="coordinate 0 name" type="string" value="grid_center_lat"/>
+    <Parameter name="coordinate 1 name" type="string" value="grid_center_lon"/>
   </ParameterList>
   <ParameterList name="solver">
     <Parameter name="type" type="string" value="iterative"/>

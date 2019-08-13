@@ -169,7 +169,22 @@ void ParameterManager::setDefaultParameters() {
 	inoutFileList->set("vtk produce mesh", (bool)false);
 
 	inoutFileList->set("write every", (local_index_type)-1); // if negative, do not write to file, 0 means write the last time step, and n means every n time steps
+
+    // xyz_separate -> 3 separate fields containing x, y, and z data
+    // xyz_joint -> 1 array containg xyz data together
+    // lat_lon_separate -> 2 separate fields containg lat, and lon data
+	inoutFileList->set("coordinates layout", "xyz_separate"); // coordinates read in from field called "x", field called "y", field called "z"
+    // as long as 'coordinate 0 name' is found among the list of fields, if 'coordinates layout' is set to 'xyz_separate' or 'lat_lon_separate', then 'particles number dimension name' can be inferred
+    // for most files with fields named 'x', 'y', and 'z', this isn't an issue.
+    // however, if there is a choice between nodes or element centers on a mesh, it may be necessary to specify this dimension name
+    // then all fields using that dimension name can be used 
+	inoutFileList->set("particles number dimension name", ""); // num_entities, etc... if using xyz_separate or lat_lon_separate then not needed as it can be inferred
+	inoutFileList->set("coordinate 0 name", "x"); // could be changed to lat, or lon, for instance 
+	inoutFileList->set("coordinate 1 name", "y"); // not used for xyz_joint
+	inoutFileList->set("coordinate 2 name", "z"); // not used for xyz_joint  or lat_lon_separate
+
 	inoutFileList->set("keep original lat lon", (bool)false); // keep original as fields when reading in HOMME/MPAS files
+	inoutFileList->set("lat lon units", "none"); // unit convention for reading/transforming lat-lon coordinates
 
 	_parameter_list->set("solver", *solverList);
 	_parameter_list->set("coordinates", *coordinatesList);
