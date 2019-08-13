@@ -586,20 +586,44 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
             if (_operations(i) == TargetOperation::VectorPointEvaluation) {
                 // copied from VectorTaylorPolynomial
                 Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                    for (int e=0; e<num_evaluation_sites; ++e) {
-                        for (int m0=0; m0<_sampling_multiplier; ++m0) {
-                            for (int m1=0; m1<_sampling_multiplier; ++m1) {
+                    for (int m0=0; m0<_sampling_multiplier; ++m0) {
+                        for (int m1=0; m1<_sampling_multiplier; ++m1) {
 
-                              this->calcPij(t1.data(), target_index, -(m1+1) /* target is neighbor, but also which component */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                          this->calcPij(t1.data(), target_index, -(m1+1) /* target is neighbor, but also which component */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 0 /* evaluate at target */);
 
-                              int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, e/*additional*/);
-                              for (int j=0; j<target_NP; ++j) {
-                                  P_target_row(offset, j) = t1(j);
-                              }
-                            }
+                          int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, 0 /*no additional*/);
+                          for (int j=0; j<target_NP; ++j) {
+                              P_target_row(offset, j) = t1(j);
+                          }
                         }
                     }
                 });
+            } else if (_operations(i) == TargetOperation::CurlOfVectorPointEvaluation) {
+                Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+                    for (int m0=0; m0<_sampling_multiplier; ++m0) { // input components
+                        for (int m1=0; m1<_sampling_multiplier; ++m1) { // output components
+                            int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, 0 /*no additional*/);
+                            switch (m1) {
+                                // manually compute the output components
+                                case 0:
+                                    // output component 0
+                                    P_target_row(offset, 6) = -std::pow(_epsilons(target_index), -1);
+                                    P_target_row(offset, 8) = std::pow(_epsilons(target_index), -1);
+                                    break;
+                                case 1:
+                                    // output component 1
+                                    P_target_row(offset, 7) = -std::pow(_epsilons(target_index), -1);
+                                    P_target_row(offset, 4) = std::pow(_epsilons(target_index), -1);
+                                    break;
+                                default:
+                                    // output component 2
+                                    P_target_row(offset, 3) = -std::pow(_epsilons(target_index), -1);
+                                    P_target_row(offset, 5) = std::pow(_epsilons(target_index), -1);
+                                    break;
+                            }
+                        }
+                    }
+              });
             }
             additional_evaluation_sites_handled = false; // additional non-target site evaluations handled
         } else {
@@ -609,7 +633,6 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
         /*
          * End of DivergenceFreeVectorTaylorPolynomial basis
          */
-
         compadre_kernel_assert_release(((additional_evaluation_sites_need_handled && additional_evaluation_sites_handled) || (!additional_evaluation_sites_need_handled)) && "Auxiliary evaluation coordinates are specified by user, but are calling a target operation that can not handle evaluating additional sites.");
         } // !operation_handled
         teamMember.team_barrier();
