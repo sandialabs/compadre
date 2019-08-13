@@ -188,8 +188,8 @@ bool all_passed = true;
 
         // data for targets with vector input
         for (int j=0; j<dimension; ++j) {
-            vector_sampling_data_device(i, j) = curlTestSolution(xval, yval, zval, j, dimension);
-            curl_vector_sampling_data_device(i, j) = curlcurlTestSolution(xval, yval, zval, j, dimension);
+            vector_sampling_data_device(i, j) = divfreeTestSolution(xval, yval, zval, j, dimension);
+            curl_vector_sampling_data_device(i, j) = curldivfreeTestSolution(xval, yval, zval, j, dimension);
         }
     });
 
@@ -347,11 +347,11 @@ bool all_passed = true;
         // evaluation of vector exact solutions
         double actual_vector[3] = {0, 0, 0};
         if (dimension>=1) {
-            actual_vector[0] = curlTestSolution(xval, yval, zval, 0, dimension);
+            actual_vector[0] = divfreeTestSolution(xval, yval, zval, 0, dimension);
             if (dimension>=2) {
-                actual_vector[1] = curlTestSolution(xval, yval, zval, 1, dimension);
+                actual_vector[1] = divfreeTestSolution(xval, yval, zval, 1, dimension);
                 if (dimension==3) {
-                    actual_vector[2] = curlTestSolution(xval, yval, zval, 2, dimension);
+                    actual_vector[2] = divfreeTestSolution(xval, yval, zval, 2, dimension);
                 }
             }
         }
@@ -359,11 +359,11 @@ bool all_passed = true;
         // evaluation of vector exact solutions
         double actual_curl_vector[3] = {0, 0, 0};
         if (dimension>=1) {
-            actual_curl_vector[0] = curlcurlTestSolution(xval, yval, zval, 0, dimension);
+            actual_curl_vector[0] = curldivfreeTestSolution(xval, yval, zval, 0, dimension);
             if (dimension>=2) {
-                actual_curl_vector[1] = curlcurlTestSolution(xval, yval, zval, 1, dimension);
+                actual_curl_vector[1] = curldivfreeTestSolution(xval, yval, zval, 1, dimension);
                 if (dimension==3) {
-                    actual_curl_vector[2] = curlcurlTestSolution(xval, yval, zval, 2, dimension);
+                    actual_curl_vector[2] = curldivfreeTestSolution(xval, yval, zval, 2, dimension);
                 }
             }
         }
