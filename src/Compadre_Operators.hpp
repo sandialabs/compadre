@@ -26,6 +26,8 @@ namespace Compadre {
         DivergenceOfVectorPointEvaluation,
         //! Point evaluation of the curl of a vector (results in a vector)
         CurlOfVectorPointEvaluation,
+        //! Point evaluation of the curl of a curl of a vector (results in a vector)
+        CurlCurlOfVectorPointEvaluation,
         //! Point evaluation of the partial with respect to x of a scalar
         PartialXOfScalarPointEvaluation,
         //! Point evaluation of the partial with respect to y of a scalar
@@ -38,7 +40,7 @@ namespace Compadre {
         //! Point evaluation of Gaussian curvature
         GaussianCurvaturePointEvaluation,
         //! Should be the total count of all available target functionals
-        COUNT=13,
+        COUNT=14,
     };
 
     //! Rank of target functional output for each TargetOperation 
@@ -53,6 +55,7 @@ namespace Compadre {
         2, ///< GradientOfVectorPointEvaluation
         0, ///< DivergenceOfVectorPointEvaluation
         1, ///< CurlOfVectorPointEvaluation
+        1, ///< CurlCurlOfVectorPointEvaluation
         0, ///< PartialXOfScalarPointEvaluation
         0, ///< PartialYOfScalarPointEvaluation
         0, ///< PartialZOfScalarPointEvaluation
