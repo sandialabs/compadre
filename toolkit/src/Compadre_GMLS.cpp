@@ -63,28 +63,31 @@ void GMLS::generatePolynomialCoefficients() {
      *    Determine if Nonstandard Sampling Dimension or Basis Component Dimension
      */
 
+
+    // calculate the dimension of the basis (a vector space on a manifold requires two components, for example)
+    _basis_multiplier = std::pow(_local_dimensions, ActualReconstructionSpaceRank[(int)_reconstruction_space]);
+
     // calculate sampling dimension 
     // this would normally be SamplingOutputTensorRank[_data_sampling_functional], but we also want to handle the
     // case of reconstructions where a scalar basis is reused as a vector, and this handles everything
-
     // this handles scalars, vectors, and scalars that are reused as vectors
-    _sampling_multiplier = std::pow(_local_dimensions, 
-            std::min(ActualReconstructionSpaceRank[(int)_reconstruction_space], 
-                _data_sampling_functional.output_rank));
+    _sampling_multiplier = std::pow(_local_dimensions, _data_sampling_functional.output_rank);
+    if (_reconstruction_space == ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial) {
+        // storage and computational efficiency by reusing solution to scalar problem for 
+        // a vector problem (in 3d, 27x cheaper computation, 9x cheaper storage)
+        _sampling_multiplier = std::min(_sampling_multiplier, _basis_multiplier);
+    }
 
     // effective number of components in the basis
     _data_sampling_multiplier = std::pow(_local_dimensions, 
                 _data_sampling_functional.output_rank);
-
-    // calculate the dimension of the basis (a vector space on a manifold requires two components, for example)
-    _basis_multiplier = std::pow(_local_dimensions, ActualReconstructionSpaceRank[(int)_reconstruction_space]);
 
     // special case for using a higher order for sampling from a polynomial space that are gradients of a scalar polynomial
     if (_polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) {
         // if the reconstruction is being made with a gradient of a basis, then we want that basis to be one order higher so that
         // the gradient is consistent with the convergence order expected.
         _poly_order += 1;
-        _NP = this->getNP(_poly_order, _dimensions);
+        _NP = this->getNP(_poly_order, _dimensions, _reconstruction_space);
     }
 
     /*
@@ -106,8 +109,8 @@ void GMLS::generatePolynomialCoefficients() {
 
     if (_dense_solver_type == DenseSolverType::MANIFOLD) {
         // these dimensions already calculated differ in the case of manifolds
-        manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
-        _NP = this->getNP(_poly_order, _dimensions-1);
+        manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
+        _NP = this->getNP(_poly_order, _dimensions-1, _reconstruction_space);
         const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
         this_num_columns = _basis_multiplier*max_manifold_NP;
         const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_manifold_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_manifold_NP*_total_alpha_values*_basis_multiplier*max_evaluation_sites;
@@ -452,7 +455,7 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
     const int target_index = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
-    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
+    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
@@ -501,7 +504,7 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
     const int target_index = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
-    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
+    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_neighbors = this->getNNeighbors(target_index);
@@ -555,7 +558,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
     const int target_index = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
-    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
+    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_neighbors = this->getNNeighbors(target_index);
@@ -740,7 +743,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
     const int target_index = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
-    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
+    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_neighbors = this->getNNeighbors(target_index);
@@ -870,7 +873,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
     const int target_index = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
-    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
+    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
@@ -921,7 +924,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
     const int target_index = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
-    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
+    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
@@ -973,7 +976,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
     const int target_index = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
-    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1);
+    const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 

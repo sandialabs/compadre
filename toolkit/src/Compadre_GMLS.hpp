@@ -662,7 +662,7 @@ public:
         // seed random number generator pool
         _random_number_pool = pool_type(1);
 
-        _NP = this->getNP(_poly_order, dimensions);
+        _NP = this->getNP(_poly_order, dimensions, _reconstruction_space);
         Kokkos::fence();
 
 #ifdef COMPADRE_USE_CUDA
@@ -833,17 +833,37 @@ public:
 
     //! Returns size of the basis for a given polynomial order and dimension
     //! General to dimension 1..3 and polynomial order m
+    //! The divfree options will return the divergence-free basis if true
     KOKKOS_INLINE_FUNCTION
-    static int getNP(const int m, const int dimension = 3) {
-        if (dimension == 3) return (m+1)*(m+2)*(m+3)/6;
-        else if (dimension == 2) return (m+1)*(m+2)/2;
-        else return m+1;
+    static int getNP(const int m, const int dimension = 3, const ReconstructionSpace r_space = ReconstructionSpace::ScalarTaylorPolynomial) {
+        if (r_space != ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial) {
+            if (dimension == 3) return (m+1)*(m+2)*(m+3)/6;
+            else if (dimension == 2) return (m+1)*(m+2)/2;
+            else return m+1;
+        } else {
+          switch (m) {
+              case 0:
+                  return 3;
+              case 1:
+                  return 11;
+              case 2:
+                  return 26;
+              case 3:
+                  return 50;
+              case 4:
+                  return 85;
+              default:
+                  compadre_kernel_assert_release((false) && "Divergence-free basis only supports up to 4th-order polynomials.");
+                  return 0; // avoids warning about no return
+          }
+        }
     }
 
     //! Returns number of neighbors needed for unisolvency for a given basis order and dimension
     KOKKOS_INLINE_FUNCTION
-    static int getNN(const int m, const int dimension = 3) {
-        const int np = getNP(m, dimension);
+    static int getNN(const int m, const int dimension = 3, const ReconstructionSpace r_space = ReconstructionSpace::ScalarTaylorPolynomial) {
+        // may need div-free argument in the future
+        const int np = getNP(m, dimension, r_space);
         int nn = np;
         switch (dimension) {
             case 3:
@@ -970,7 +990,7 @@ public:
         // functional used, which can not be inferred unless a specification of target functional,
         // reconstruction space, and sampling functional are all known (as was the case at the
         // construction of this class)
-        const int input_index = getSamplingOutputIndex(_polynomial_sampling_functional, input_component_axis_1, input_component_axis_2);
+        const int input_index = getSamplingOutputIndex(_data_sampling_functional, input_component_axis_1, input_component_axis_2);
         const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
 
         return getTargetOffsetIndexHost(lro_number, input_index, output_index, additional_evaluation_local_index);
@@ -1527,7 +1547,7 @@ public:
     //! Sets basis order to be used when reoncstructing any function
     void setPolynomialOrder(const int poly_order) {
         _poly_order = poly_order;
-        _NP = this->getNP(_poly_order, _dimensions);
+        _NP = this->getNP(_poly_order, _dimensions, _reconstruction_space);
         this->resetCoefficientData();
     }
 
@@ -1616,7 +1636,7 @@ public:
 
             // the target functional input indexing is sized based on the output rank of the sampling
             // functional used
-            int input_tile_size = getOutputDimensionOfSampling(_polynomial_sampling_functional);
+            int input_tile_size = getOutputDimensionOfSampling(_data_sampling_functional);
             _host_lro_output_tile_size(i) = output_tile_size;
             _host_lro_input_tile_size(i) = input_tile_size;
 
@@ -1626,7 +1646,7 @@ public:
 
             // the target functional output rank is based on the output rank of the sampling
             // functional used
-            _host_lro_input_tensor_rank(i) = _polynomial_sampling_functional.output_rank;
+            _host_lro_input_tensor_rank(i) = _data_sampling_functional.output_rank;
             _host_lro_output_tensor_rank(i) = TargetOutputTensorRank[(int)_lro[i]];
         }
 

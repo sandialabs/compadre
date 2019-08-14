@@ -2,6 +2,7 @@
 #define _COMPADRE_GMLS_BASIS_HPP_
 
 #include "Compadre_GMLS.hpp"
+#include "basis/DivergenceFree3D.hpp"
 
 namespace Compadre {
 
@@ -33,6 +34,11 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
     if (neighbor_index >= my_num_neighbors) {
         component = neighbor_index / my_num_neighbors;
         neighbor_index = neighbor_index % my_num_neighbors;
+    } else if (neighbor_index < 0) {
+        // -1 maps to 0 component
+        // -2 maps to 1 component
+        // -3 maps to 2 component
+        component = -(neighbor_index+1);
     }
 
     XYZ relative_coord;
@@ -102,7 +108,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 polynomial_sampling_functional == VaryingManifoldVectorPointSample) &&
                     (reconstruction_space == VectorTaylorPolynomial)) {
 
-        const int dimension_offset = this->getNP(_poly_order, dimension);
+        const int dimension_offset = this->getNP(_poly_order, dimension, reconstruction_space);
         double cutoff_p = _epsilons(target_index);
         int alphax, alphay, alphaz;
         double alphaf;
@@ -146,14 +152,27 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 }
             }
         }
+    } else if ((polynomial_sampling_functional == VectorPointSample) &&
+               (reconstruction_space == DivergenceFreeVectorTaylorPolynomial)) {
+        // Divergence free vector polynomial basis
+        const int dimension_offset = this->getNP(_poly_order, 3 /* dimension */, reconstruction_space);
+        double cutoff_p = _epsilons(target_index);
 
+        double xs = relative_coord.x/cutoff_p;
+        double ys = relative_coord.y/cutoff_p;
+        double zs = relative_coord.z/cutoff_p;
+        XYZ Pn;
 
-    // basis is actually scalar with staggered sampling functional
+        for (int n = 0; n < dimension_offset; n++) {
+            // Obtain the vector for the basis
+            Pn = calDivFreeBasis(n, xs, ys, zs);
+            // Then assign it to the input
+            *(delta + n) = Pn[component];
+        }
     } else if ((polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) &&
             (reconstruction_space == ScalarTaylorPolynomial)) {
-
+        // basis is actually scalar with staggered sampling functional
         {
-
             double cutoff_p = _epsilons(target_index);
             int alphax, alphay, alphaz;
             double alphaf;
@@ -602,7 +621,8 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 
             this->calcPij(delta.data(), target_index, i + d*my_num_neighbors, 0 /*alpha*/, dimension, polynomial_order, false /*bool on only specific order*/, V, reconstruction_space, polynomial_sampling_functional);
 
-            int storage_size = this->getNP(polynomial_order, dimension);
+            // storage_size needs to change based on the size of the basis
+            int storage_size = this->getNP(polynomial_order, dimension, reconstruction_space);
             storage_size *= _basis_multiplier;
 
             if (weight_p) {
