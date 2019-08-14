@@ -178,7 +178,7 @@ bool all_passed = true;
             source_coords_device.extent(0), dimension);
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> curl_vector_sampling_data_device("samples of curl of true vector solution",
             source_coords_device.extent(0), dimension);
-    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> curlcurl_vector_sampling_data_device("samples of curl of true vector solution",
+    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> curlcurl_vector_sampling_data_device("samples of curl curl of true vector solution",
             source_coords_device.extent(0), dimension);
 
     Kokkos::parallel_for("Sampling Manufactured Solutions", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>
@@ -412,17 +412,17 @@ bool all_passed = true;
         // check curl of vector evaluation
         if(std::abs(actual_curl_vector[0] - GMLS_Curl_DivFree_VectorX) > failure_tolerance) {
             all_passed = false;
-            std::cout << i << " Failed VectorX by: " << std::abs(actual_curl_vector[0] - GMLS_Curl_DivFree_VectorX) << std::endl;
+            std::cout << i << " Failed curl VectorX by: " << std::abs(actual_curl_vector[0] - GMLS_Curl_DivFree_VectorX) << std::endl;
             if (dimension>1) {
                 if(std::abs(actual_curl_vector[1] - GMLS_Curl_DivFree_VectorY) > failure_tolerance) {
                     all_passed = false;
-                    std::cout << i << " Failed VectorY by: " << std::abs(actual_curl_vector[1] - GMLS_Curl_DivFree_VectorY) << std::endl;
+                    std::cout << i << " Failed curl VectorY by: " << std::abs(actual_curl_vector[1] - GMLS_Curl_DivFree_VectorY) << std::endl;
                 }
             }
             if (dimension>2) {
                 if(std::abs(actual_curl_vector[2] - GMLS_Curl_DivFree_VectorZ) > failure_tolerance) {
                     all_passed = false;
-                    std::cout << i << " Failed VectorZ by: " << std::abs(actual_curl_vector[2] - GMLS_Curl_DivFree_VectorZ) << std::endl;
+                    std::cout << i << " Failed curl VectorZ by: " << std::abs(actual_curl_vector[2] - GMLS_Curl_DivFree_VectorZ) << std::endl;
                 }
             }
         }
@@ -430,11 +430,11 @@ bool all_passed = true;
         // check curlcurl curlcurl of vector evaluation
         if(std::abs(actual_curlcurl_vector[0] - GMLS_CurlCurl_DivFree_VectorX) > failure_tolerance) {
             all_passed = false;
-            std::cout << i << " Failed VectorX by: " << std::abs(actual_curlcurl_vector[0] - GMLS_CurlCurl_DivFree_VectorX) << std::endl;
+            std::cout << i << " Failed curl curl VectorX by: " << std::abs(actual_curlcurl_vector[0] - GMLS_CurlCurl_DivFree_VectorX) << std::endl;
             if (dimension>1) {
                 if(std::abs(actual_curlcurl_vector[1] - GMLS_CurlCurl_DivFree_VectorY) > failure_tolerance) {
                     all_passed = false;
-                    std::cout << i << " Failed VectorY by: " << std::abs(actual_curlcurl_vector[1] - GMLS_CurlCurl_DivFree_VectorY) << std::endl;
+                    std::cout << i << " Failed curl curl VectorY by: " << std::abs(actual_curlcurl_vector[1] - GMLS_CurlCurl_DivFree_VectorY) << std::endl;
                 }
             }
             if (dimension>2) {
