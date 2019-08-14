@@ -197,6 +197,56 @@ double curlTestSolution(double x, double y, double z, int component, int dimensi
     }
 }
 
+KOKKOS_INLINE_FUNCTION
+double divfreeTestSolution(double x, double y, double z, int component, int dimension) {
+    if (dimension==3) {
+        // returns curl of divergenceTestSamples
+        switch (component) {
+        case 0:
+            return 6.0*x*x*y - 9.0*x*y + 7.0*x*z*z + 6.0*y*y*z;
+        case 1:
+            return 10.0*x*x*z - 7.0*y*z*z - 6.0*x*y*y;
+        default:
+            return -2.0*x*x*x + 9.0*x*y*y + 9.0*y*z;
+        }
+    } else {
+        return 0;
+    }
+}
+
+KOKKOS_INLINE_FUNCTION
+double curldivfreeTestSolution(double x, double y, double z, int component, int dimension) {
+    if (dimension==3) {
+        // returns curl of divergenceTestSamples
+        switch (component) {
+        case 0:
+            return -10.0*x*x + 18.0*x*y + 14.0*y*z + 9.0*z;
+        case 1:
+            return 6.0*x*x + 14.0*x*z - 3.0*y*y;
+        default:
+            return -6.0*x*x + 20.0*x*z + 9.0*x - 6.0*y*y + 12.0*y*z;
+        }
+    } else {
+        return 0;
+    }
+}
+
+KOKKOS_INLINE_FUNCTION
+double curlcurldivfreeTestSolution(double x, double y, double z, int component, int dimension) {
+    if (dimension==3) {
+        // returns curl of divergenceTestSamples
+        switch (component) {
+        case 0:
+            return -14.0*x - 12.0*y - 12.0*z;
+        case 1:
+            return 12.0*x + 14.0*y - 20.0*z;
+        default:
+            return -6.0*x;
+        }
+    } else {
+        return 0;
+    }
+}
 
 /** Standard GMLS Example 
  *

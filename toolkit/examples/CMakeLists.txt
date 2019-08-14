@@ -31,6 +31,7 @@ if (Compadre_EXAMPLES)
   add_exe_w_compadre(GMLS_Host_Test GMLS_Host.cpp)
   add_exe_w_compadre(GMLS_Device_Test GMLS_Device.cpp)
   add_exe_w_compadre(GMLS_Vector_Test GMLS_Vector.cpp)
+  add_exe_w_compadre(GMLS_Divergence_Test GMLS_DivergenceFree.cpp)
   add_exe_w_compadre(GMLS_SmallBatchReuse_Device_Test GMLS_SmallBatchReuse_Device.cpp)
   add_exe_w_compadre(GMLS_Manifold_Test GMLS_Manifold.cpp)
   add_exe_w_compadre(GMLS_Staggered GMLS_Staggered.cpp)
@@ -92,6 +93,11 @@ if (Compadre_EXAMPLES)
     # Note: Using even polynomial order may cause this test to fail
     ADD_TEST(NAME GMLS_Staggered_Dim3_QR COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Staggered "3" "200" "3" "1" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_Staggered_Dim3_QR PROPERTIES LABELS "UnitTest;unit;kokkos;staggered" TIMEOUT 10)
+
+    # Divergence-free basis test for GMLS on non-manifold
+    # Note: SVD is needed to be used here due to the null space introduced
+    ADD_TEST(NAME GMLS_DivergenceFree_Dim3_SVD COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "3" "200" "3" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos;divergencefree;svd" TIMEOUT 10)
 
     if (NOT Compadre_DEBUG)
       # This test is too slow in DEBUG (3x longer than all other tests combined)
