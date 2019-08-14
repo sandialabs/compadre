@@ -440,7 +440,7 @@ bool all_passed = true;
             if (dimension>2) {
                 if(std::abs(actual_curlcurl_vector[2] - GMLS_CurlCurl_DivFree_VectorZ) > failure_tolerance) {
                     all_passed = false;
-                    std::cout << i << " Failed VectorZ by: " << std::abs(actual_curlcurl_vector[2] - GMLS_CurlCurl_DivFree_VectorZ) << std::endl;
+                    std::cout << i << " Failed curl curl VectorZ by: " << std::abs(actual_curlcurl_vector[2] - GMLS_CurlCurl_DivFree_VectorZ) << std::endl;
                 }
             }
         }
