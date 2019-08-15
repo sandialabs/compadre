@@ -29,11 +29,7 @@ void GMLS_CurlCurlBoundaryConditions::flagBoundaries() {
 
 void GMLS_CurlCurlBoundaryConditions::applyBoundaries(local_index_type field_one, local_index_type field_two, scalar_type time) {
 	Teuchos::RCP<Compadre::AnalyticFunction> function;
-	if (_parameters->get<std::string>("solution type")=="sine") {
-		function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts));
-	} else {
-		function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis));
-	}
+        function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::CurlCurlTest));
 
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_b.is_null(), "Tpetra Multivector for BCS not yet specified.");
 	if (field_two == -1) {
