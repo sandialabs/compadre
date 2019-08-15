@@ -240,7 +240,7 @@ void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index
 
 const std::vector<InteractingFields> GMLS_CurlCurlPhysics::gatherFieldInteractions() {
 	std::vector<InteractingFields> field_interactions;
-	field_interactions.push_back(InteractingFields(op_needing_interaction::physics, 0));
+	field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _particles->getFieldManagerConst()->getIDOfFieldFromName("vector solution")));
 	return field_interactions;
 }
 
