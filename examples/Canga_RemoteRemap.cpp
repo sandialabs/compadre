@@ -114,6 +114,13 @@ int main (int argc, char* args[]) {
 			Compadre::FileManager fm;
 			std::string testfilename(parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file"));
 			fm.setReader(testfilename, particles, parameters->get<Teuchos::ParameterList>("io").get<std::string>("nc type"));
+            fm.getReader()->setCoordinateLayout(parameters->get<Teuchos::ParameterList>("io").get<std::string>("particles number dimension name"),
+                                                parameters->get<Teuchos::ParameterList>("io").get<std::string>("coordinates layout"),
+                                                parameters->get<Teuchos::ParameterList>("io").get<std::string>("coordinate 0 name"),
+                                                parameters->get<Teuchos::ParameterList>("io").get<std::string>("coordinate 1 name"),
+                                                parameters->get<Teuchos::ParameterList>("io").get<std::string>("coordinate 2 name"));
+            fm.getReader()->setCoordinateUnitStyle(parameters->get<Teuchos::ParameterList>("io").get<std::string>("lat lon units"));
+            fm.getReader()->setKeepOriginalCoordinates(parameters->get<Teuchos::ParameterList>("io").get<bool>("keep original lat lon"));
 			fm.read();
 			ReadTime->stop();
 
