@@ -12,6 +12,9 @@
     <Parameter name="output file prefix" type="string" value="../test_data/"/>
     <Parameter name="output file" type="string" value="canga_output_lower.pvtp"/>
     <Parameter name="nc type" type="string" value="HOMME"/>
+    <Parameter name="coordinates layout" type="string" value="lat_lon_separate" />
+    <Parameter name="coordinate 0 name" type="string" value="grid_center_lat" />
+    <Parameter name="coordinate 1 name" type="string" value="grid_center_lon" />
   </ParameterList>
   <ParameterList name="remap">
     <Parameter name="porder" type="int" value="3"/>
