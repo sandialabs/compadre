@@ -220,7 +220,8 @@ scalar_type SineProducts::evalScalar(const xyz_type& xyzIn) const {
 xyz_type SineProducts::evalVector(const xyz_type& xyzIn) const {
     if (_dim==3) {
         return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn),2*evalScalar(xyzIn));
-    } else {
+    } else
+      {
         return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn),0);
     }
 }
@@ -265,6 +266,18 @@ xyz_type CangaSphereTransform::evalVector(const xyz_type& latLonIn) const {
 	const double lat = (_in_degrees) ? latLonIn.x * _gc.Pi() / 180.0 : latLonIn.x;
 	const double lon = (_in_degrees) ? latLonIn.y * _gc.Pi() / 180.0 : latLonIn.y;
     return xyz_type(cos(lon)*cos(lat), sin(lon)*cos(lat), sin(lat));
+}
+
+xyz_type CurlCurlTestRHS::evalVector(const xyz_type& xyzIn) const {
+  return xyz_type(-14.0*xyzIn.x - 12.0*xyzIn.z,
+                  14.0*xyzIn.y,
+                  12.0*xyzIn.x);
+}
+
+xyz_type CurlCurlTest::evalVector(const xyz_type& xyzIn) const {
+  return xyz_type(7.0*xyzIn.x*xyzIn.z*xyzIn.z + 6.0*xyzIn.y*xyzIn.y*xyzIn.z,
+                  -7.0*xyzIn.y*xyzIn.z*xyzIn.z,
+                  -2.0*xyzIn.x*xyzIn.x*xyzIn.x);
 }
 
 }
