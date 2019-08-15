@@ -59,12 +59,12 @@ int main (int argc, char* args[]) {
 	Teuchos::RCP<Teuchos::Time> WriteTime = Teuchos::TimeMonitor::getNewCounter ("Write Time");
 	Teuchos::RCP<Teuchos::Time> SecondReadTime = Teuchos::TimeMonitor::getNewCounter ("2nd Read Time");
 
-	// this proceeds setting up the problem so that the parameters will be propagated down into the physics and bcs
-	try {
-		parameters->get<std::string>("solution type");
-	} catch (Teuchos::Exceptions::InvalidParameter & exception) {
-		parameters->set<std::string>("solution type","sine");
-	}
+	// // this proceeds setting up the problem so that the parameters will be propagated down into the physics and bcs
+	// try {
+	// 	parameters->get<std::string>("solution type");
+	// } catch (Teuchos::Exceptions::InvalidParameter & exception) {
+	// 	parameters->set<std::string>("solution type","sine");
+	// }
 
 	{
 		std::vector<std::string> fnames(5);
@@ -104,6 +104,7 @@ int main (int argc, char* args[]) {
 			FirstReadTime->stop();
 
 			particles->zoltan2Initialize();
+                        particles->getFieldManager()->createField(3, "vector solution");
 			//particles->printAllFields(std::cout);
 
 
@@ -162,24 +163,24 @@ int main (int argc, char* args[]) {
 			}
 
 
-			Teuchos::RCP< Compadre::FieldT > PField = particles->getFieldManagerConst()->getFieldByID(0);
+			Teuchos::RCP< Compadre::FieldT > PField = particles->getFieldManagerConst()->getFieldByName("vector solution");
 
 			// check solution
 			double norm = 0.0;
 			double exact = 0.0;
 
 			Teuchos::RCP<Compadre::AnalyticFunction> function;
-			if (parameters->get<std::string>("solution type")=="sine") {
-                          function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts));
-			} else {
-                          function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis));
-			}
+                        function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::CurlCurlTest));
 
 			for( int j =0; j<coords->nLocal(); j++){
                           xyz_type xyz = coords->getLocalCoords(j);
-                          const ST val = particles->getFieldManagerConst()->getFieldByID(0)->getLocalScalarVal(j);
-                          exact = function->evalScalar(xyz);
-                          norm += (exact - val)*(exact - val);
+                          std::vector<ST> computed_curlcurl = particles->getFieldManagerConst()->getFieldByName("vector solution")->getLocalVectorVal(j);
+                          Compadre::XyzVector exact_curlcurl_xyz = function->evalVector(xyz);
+                          std::vector<ST> exact_curlcurl(3);
+                          exact_curlcurl_xyz.convertToStdVector(exact_curlcurl);
+                          for (LO i=0; i<3; i++) {
+                            norm += (computed_curlcurl[i] - exact_curlcurl[i])*(computed_curlcurl[i] - exact_curlcurl[i]);
+                          }
 			}
 			norm /= (double)(coords->nGlobalMax());
 
@@ -223,6 +224,7 @@ int main (int argc, char* args[]) {
                             Teuchos::TimeMonitor::summarize();
 
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i]!=errors[i], "NaN found in error norm.");
+                        std::cout << "ERRRRRRORRRRRRRRRRRR: " << errors[i] << std::endl;
 			if (parameters->get<std::string>("solution type")=="sine") {
 				 if (i>0) TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i-1]/errors[i] < 3.5, "Second order not achieved for sine solution (should be 4).");
 			} else {
