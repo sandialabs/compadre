@@ -200,37 +200,39 @@ void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index
 
 		//Put the values of alpha in the proper place in the global matrix
 		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-			local_index_type row = local_to_dof_map[i][field_one][k];
+                    local_index_type row = local_to_dof_map[i][field_one][k];
 
-			for (local_index_type l = 0; l < num_neighbors; l++) {
-				for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-					col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][n];
-                                        // implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
-                                        // and checking its boundary condition
-                                        local_index_type corresponding_particle_id = blocked_matrix ? row/fields[field_one]->nDim() : row/ntotalfielddimensions;
-                                        if (bc_id(corresponding_particle_id, 0) != 0) {
-                                            if (i==static_cast<local_index_type>(neighbors[l].first)) {
-                                                if (n==k) {
-                                                  val_data(l*fields[field_two]->nDim() + n) = 1.0;
-                                                } else {
-                                                  val_data(l*fields[field_two]->nDim() + n) = 0.0;
-                                                }
-                                            } else {
-                                                val_data(l*fields[field_two]->nDim() + n) = 0.0;
-                                            }
-                                        } else {
-                                            val_data(l*fields[field_two]->nDim() + n) = my_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::CurlCurlOfVectorPointEvaluation, i, n /* input component */, l, k /* output component */); // adding to neighbour index
-					}
-				}
-			}
-			//#pragma omp critical
-			{
-				//this->_A->insertLocalValues(row, cols, values);
-				this->_A->sumIntoLocalValues(row, num_neighbors * fields[field_two]->nDim(), val_data.data(), col_data.data());//, /*atomics*/false);
-			}
-		}
-//	}
-	});
+                    for (local_index_type l = 0; l < num_neighbors; l++) {
+                        for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+                            col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][n];
+                            // implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
+                            // and checking its boundary condition
+                            local_index_type corresponding_particle_id = blocked_matrix ? row/fields[field_one]->nDim() : row/ntotalfielddimensions;
+                            if (bc_id(corresponding_particle_id, 0) == 1) {
+                                // for points on the boundary
+                                if (i==static_cast<local_index_type>(neighbors[l].first)) {
+                                    if (n==k) {
+                                        val_data(l*fields[field_two]->nDim() + n) = 1.0;
+                                    } else {
+                                        val_data(l*fields[field_two]->nDim() + n) = 0.0;
+                                    }
+                                } else {
+                                    val_data(l*fields[field_two]->nDim() + n) = 0.0;
+                                }
+                            } else {
+                              // for others, evaluate the coefficient and fill the row
+                              val_data(l*fields[field_two]->nDim() + n) += my_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::CurlCurlOfVectorPointEvaluation, i, n /* input component */, l, k /* output component */); // adding to neighbour index
+                            }
+                        }
+                    }
+                    //#pragma omp critical
+                    {
+                      //this->_A->insertLocalValues(row, cols, values);
+                      this->_A->sumIntoLocalValues(row, num_neighbors * fields[field_two]->nDim(), val_data.data(), col_data.data());//, /*atomics*/false);
+                    }
+                }
+                //	}
+          });
 
 	TEUCHOS_ASSERT(!this->_A.is_null());
 //	this->_A->print(std::cout);
