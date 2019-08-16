@@ -110,18 +110,16 @@ void FileManager::readerIOChoice(std::string& extension, const bool enforce_seri
 #else
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Not built with VTK.");
 #endif
-	} else if (extension == "nc") {
+	} else if (extension == "nc" || extension == "g" || extension == "exo") {
 #ifdef COMPADREHARNESS_USE_NETCDF
 	#ifdef COMPADREHARNESS_USE_NETCDF_MPI
 		// TODO: be careful that parallel reader can actually handle the .nc file. Unless written in netcdf-4 format, it can not.
         // can check style with 'ncdump -k filename'
         // can convert with 'nccopy -k netCDF-4 old_filename new_filename'
         if (enforce_serial) {
-            printf("second try.\n");
 			new_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::SerialNetCDFFileIO(_particles)));
         }
         else {
-            printf("first try.\n");
 			new_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::ParallelHDF5NetCDFFileIO(_particles)));
         }
 	#else
@@ -197,7 +195,7 @@ void FileManager::read() {
     try {
 	    _io->read(_reader_fn);
     } catch (int e) {
-        if (e==-51) {
+        if (e==-51 || e==-115) {
             // set the reader again, but this time to use the serial reader
             std::string extension = getFilenameExtension(_reader_fn);
             this->readerIOChoice(extension, true /*enforce serial*/);
@@ -522,8 +520,8 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 //		TEUCHOS_TEST_FOR_EXCEPT_MSG(comm_size > 1, "SerialNetCDFFileIO::read called with more than one processor.");
 
 	int ncid, retval;
-	if ((retval = nc_open(fn.c_str(), NC_NOWRITE, &ncid)))
-		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "File not opened successfully.");
+	retval = nc_open(fn.c_str(), NC_NOWRITE, &ncid);
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "File not opened successfully.");
 
 	/* We will learn about the data file and store results in these
 	       program variables. */
@@ -533,9 +531,8 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 	       many netCDF variables, dimensions, and global attributes are in
 	       the file; also the dimension id of the unlimited dimension, if
 	       there is one. */
-	if ((retval = nc_inq(ncid, &ndims_in, &nvars_in, &ngatts_in,
-			 &unlimdimid_in)))
-		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "File not read from successfully.");
+	retval = nc_inq(ncid, &ndims_in, &nvars_in, &ngatts_in, &unlimdimid_in);
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "File not read from successfully.");
 	// TEUCHOS_TEST_FOR_EXCEPT_MSG(unlimdimid_in > 0, "Variables with unlimited dimension not currently supported.");
 
 	std::vector<scalar_type> coords_x;
@@ -734,7 +731,7 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
    	TEUCHOS_TEST_FOR_EXCEPT_MSG(particle_num_dimension_id < 0, "_particle_num_name: " + _particle_num_name + " value not found, or coordinates variable: " + _coordinate_names[0] + " name not found.");
 
     if (_coordinate_layout==CoordinateLayout::XYZ_joint || _coordinate_layout==CoordinateLayout::XYZ_separate) {
-	    TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_x.size()!=coords_y.size() || coords_y.size()!=coords_z.size(), "Different number of x, y, and z coordinates.");
+	    TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_x.size()!=coords_y.size() || coords_y.size()!=coords_z.size(), "Different number of " + _coordinate_names[0] + ": " + std::to_string(coords_x.size()) + ", " + _coordinate_names[1] + ": " + std::to_string(coords_y.size()) + ", " + _coordinate_names[2] + ": " + std::to_string(coords_z.size()) + "\n");
     } else if (_coordinate_layout==CoordinateLayout::LAT_LON_separate) {
         TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_lat.size() != coords_lon.size(), _coordinate_names[0] + " size does not match " + _coordinate_names[1] + " size. "
 			+ std::to_string(coords_lat.size()) + " vs. " + std::to_string(coords_lon.size()) );
@@ -970,6 +967,8 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
         std::cout << "File not opened successfully: ERROR:" + std::to_string(retval) + " FILE: " + fn + ". If you are positive that the file exists, check its\ntype with 'ncdump -k yourfile.nc' and verify that it is of type 'netcdf4' and not 'classic'. If it is 'classic', \nrun 'nccopy -k netCDF-4 your_file your_new_file' to convert the style to netCDF-4." << std::endl;
         std::cout << "Switching to serial reader capable of handling classic netCDF files." << std::endl;
         throw -51;
+    } else if (retval == -115) {
+        throw -115;
     } else {
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "File not opened successfully: ERROR:" + std::to_string(retval) + " FILE: " + fn + ".");
     }
@@ -1134,7 +1133,7 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 	}
 
     if (_coordinate_layout==CoordinateLayout::XYZ_joint || _coordinate_layout==CoordinateLayout::XYZ_separate) {
-	    TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_x_size!=coords_y_size || coords_y_size!=coords_z_size, "Different number of x, y, and z coordinates.");
+	    TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_x_size!=coords_y_size || coords_y_size!=coords_z_size, "Different number of " + _coordinate_names[0] + ": " + std::to_string(coords_x_size) + ", " + _coordinate_names[1] + ": " + std::to_string(coords_y_size) + ", " + _coordinate_names[2] + ": " + std::to_string(coords_z_size) + "\n");
     } else if (_coordinate_layout==CoordinateLayout::LAT_LON_separate) {
         TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_lat_size != coords_lon_size, _coordinate_names[0] + " size does not match " + _coordinate_names[1] + " size. "
 			+ std::to_string(coords_lat_size) + " vs. " + std::to_string(coords_lon_size) );
