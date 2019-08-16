@@ -60,7 +60,7 @@ void GMLS_CurlCurlBoundaryConditions::applyBoundaries(local_index_type field_one
 
 std::vector<InteractingFields> GMLS_CurlCurlBoundaryConditions::gatherFieldInteractions() {
 	std::vector<InteractingFields> field_interactions;
-	field_interactions.push_back(InteractingFields(op_needing_interaction::bc,0));
+        field_interactions.push_back(InteractingFields(op_needing_interaction::bc, _particles->getFieldManagerConst()->getIDOfFieldFromName("vector_solution")));
 	return field_interactions;
 }
 
