@@ -112,8 +112,9 @@ void KokkosParser::retrievePreviouslyInstantiatedKokkosInitArguments() {
     _num_threads = Kokkos::HostSpace::execution_space::concurrency();//impl_get_current_max_threads();
 #endif
 #ifdef KOKKOS_ENABLE_OPENMP
+    //_num_threads = Kokkos::HostSpace::execution_space::get_current_max_threads();
     _numa = 1;
-    _num_threads = Kokkos::HostSpace::execution_space::get_current_max_threads();
+    _num_threads = Kokkos::HostSpace::execution_space::concurrency();//impl_get_current_max_threads();
 #endif
 }
 
