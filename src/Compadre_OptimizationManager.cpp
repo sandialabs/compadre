@@ -177,8 +177,8 @@ if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE)
             }
             TEUCHOS_TEST_FOR_EXCEPT_MSG(out_of_bounds!=0, "At least one constructed value out of bounds after bounds preservation enforced.");
 #else
-            TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Compose package called but not built. Enable with '-D Compadre_USE_Compose:BOOL=ON'.");
-#endif // COMPADRE_USE_COMPOSE
+            TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Compose package called but not built. Enable with '-D CompadreHarness_USE_Compose:BOOL=ON'.");
+#endif // COMPADREHARNESS_USE_COMPOSE
         }
         // replace data on target with this
         for (local_index_type j=0; j<_target_particles->getCoordsConst()->nLocal(); ++j) {
