@@ -182,9 +182,6 @@ void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index
 	team_scratch_size += host_scratch_vector_local_index_type::shmem_size(max_num_neighbors * fields[field_two]->nDim()); // local column indices
 	const local_index_type host_scratch_team_level = 0; // not used in Kokkos currently
 
-	//#pragma omp parallel for
-//	for(local_index_type i = 0; i < nlocal; i++) {
-//	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal), KOKKOS_LAMBDA(const int i) {
 	Kokkos::parallel_for(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
 		const int i = teamMember.league_rank();
 
@@ -221,17 +218,16 @@ void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index
                                 }
                             } else {
                               // for others, evaluate the coefficient and fill the row
-                              val_data(l*fields[field_two]->nDim() + n) += my_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::CurlCurlOfVectorPointEvaluation, i, n /* input component */, l, k /* output component */); // adding to neighbour index
+                              val_data(l*fields[field_two]->nDim() + n) = my_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::CurlCurlOfVectorPointEvaluation, i, n /* input component */, l, k /* output component */); // adding to neighbour index
                             }
                         }
                     }
-                    //#pragma omp critical
+
                     {
                       //this->_A->insertLocalValues(row, cols, values);
-                      this->_A->sumIntoLocalValues(row, num_neighbors * fields[field_two]->nDim(), val_data.data(), col_data.data());//, /*atomics*/false);
+                      this->_A->sumIntoLocalValues(row, num_neighbors * fields[field_two]->nDim(), val_data.data(), col_data.data());//, /*atomics*/ false);
                     }
                 }
-                //	}
           });
 
 	TEUCHOS_ASSERT(!this->_A.is_null());
