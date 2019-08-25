@@ -45,7 +45,7 @@ void GMLS_CurlCurlSources::evaluateRHS(local_index_type field_one, local_index_t
 
 std::vector<InteractingFields> GMLS_CurlCurlSources::gatherFieldInteractions() {
 	std::vector<InteractingFields> field_interactions;
-        field_interactions.push_back(InteractingFields(op_needing_interaction::source, _particles->getFieldManagerConst()->getIDOfFieldFromName("vector_solution")));
+        field_interactions.push_back(InteractingFields(op_needing_interaction::source, _particles->getFieldManagerConst()->getIDOfFieldFromName("vector solution")));
 	return field_interactions;
 }
 
