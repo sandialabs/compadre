@@ -224,8 +224,8 @@ void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index
                     }
 
                     {
-                      //this->_A->insertLocalValues(row, cols, values);
-                      this->_A->sumIntoLocalValues(row, num_neighbors * fields[field_two]->nDim(), val_data.data(), col_data.data());//, /*atomics*/ false);
+                      // this->_A->insertLocalValues(row, cols, values);
+                      this->_A->sumIntoLocalValues(row, num_neighbors * fields[field_two]->nDim(), val_data.data(), col_data.data()); //, /*atomics*/ false);
                     }
                 }
           });
