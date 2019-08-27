@@ -291,10 +291,8 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 	for (InteractingFields field_interaction : _field_interactions) {
 
 		local_index_type field_one = field_interaction.src_fieldnum;
-		local_index_type field_two = field_interaction.trg_fieldnum;
 
 		local_index_type row_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_row_map[field_one] : 0;
-		local_index_type col_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_col_map[field_two] : 0;
 
 		// this allows us to overwrite the fields in _particles for each RK step and use
 		// existing tools to distribute halo data
@@ -312,7 +310,7 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 				host_view_type updated_data = updated_solution[row_block]->getLocalView<host_view_type>();
 				host_view_type reference_data = reference_solution[row_block]->getLocalView<host_view_type>();
 				host_view_type rk_offsets_data = rk_offsets[row_block]->getLocalView<host_view_type>();
-				for (local_index_type j=0; j<updated_data.dimension_0(); j++) {
+				for (size_t j=0; j<updated_data.extent(0); j++) {
 					updated_data(j,0) = reference_data(j,0);
 					rk_offsets_data(j,0) = reference_data(j,0);
 				}
@@ -329,7 +327,7 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 			host_view_type updated_data = updated_solution[0]->getLocalView<host_view_type>();
 			host_view_type reference_data = reference_solution[0]->getLocalView<host_view_type>();
 			host_view_type rk_offsets_data = rk_offsets[0]->getLocalView<host_view_type>();
-			for (local_index_type j=0; j<updated_data.dimension_0(); j++) {
+			for (size_t j=0; j<updated_data.extent(0); j++) {
 				updated_data(j,0) = reference_data(j,0);
 				rk_offsets_data(j,0) = reference_data(j,0);
 			}
@@ -419,10 +417,8 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 			// build the rk_offsets vector and put it in _particles
 			for (InteractingFields field_interaction : _field_interactions) {
 				local_index_type field_one = field_interaction.src_fieldnum;
-				local_index_type field_two = field_interaction.trg_fieldnum;
 
 				local_index_type row_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_row_map[field_one] : 0;
-				local_index_type col_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_col_map[field_two] : 0;
 
 				// update _particles with reference data plus RK addition
 				if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
@@ -454,9 +450,6 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 
 				local_index_type field_one = field_interaction.src_fieldnum;
 				local_index_type field_two = field_interaction.trg_fieldnum;
-
-				local_index_type row_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_row_map[field_one] : 0;
-				local_index_type col_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_col_map[field_two] : 0;
 
 				for (op_needing_interaction op : field_interaction.ops_needing) {
 					// (all store into _b), so _b holds stage solution
@@ -506,10 +499,8 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 			for (InteractingFields field_interaction : _field_interactions) {
 
 				local_index_type field_one = field_interaction.src_fieldnum;
-				local_index_type field_two = field_interaction.trg_fieldnum;
 
 				local_index_type row_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_row_map[field_one] : 0;
-				local_index_type col_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_col_map[field_two] : 0;
 
 				// update _particles with reference data plus RK addition
 				if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
@@ -520,7 +511,7 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 					host_view_type updated_data = updated_solution[row_block]->getLocalView<host_view_type>();
 					host_view_type step_data = _b[row_block]->getLocalView<host_view_type>();
 
-					for (local_index_type k=0; k<rk_offsets_data.dimension_0(); ++k) {
+					for (size_t k=0; k<rk_offsets_data.extent(0); ++k) {
 						rk_offsets_data(k,0) = reference_data(k,0);
 						if (j<(rk_order-1))
 							rk_offsets_data(k,0) += internal_dt * a[j+1][j] * step_data(k,0); // previous steps contribution
@@ -535,7 +526,7 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 					host_view_type updated_data = updated_solution[0]->getLocalView<host_view_type>();
 					host_view_type step_data = _b[0]->getLocalView<host_view_type>();
 
-					for (local_index_type k=0; k<rk_offsets_data.dimension_0(); ++k) {
+					for (size_t k=0; k<rk_offsets_data.extent(0); ++k) {
 						rk_offsets_data(k,0) = reference_data(k,0);
 						if (j<(rk_order-1))
 							rk_offsets_data(k,0) += internal_dt * a[j+1][j] * step_data(k,0); // previous steps contribution
@@ -553,10 +544,8 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 		for (InteractingFields field_interaction : _field_interactions) {
 
 			local_index_type field_one = field_interaction.src_fieldnum;
-			local_index_type field_two = field_interaction.trg_fieldnum;
 
 			local_index_type row_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_row_map[field_one] : 0;
-			local_index_type col_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_col_map[field_two] : 0;
 
 //			if (_particles->getCoordsConst()->getComm()->getRank()==0)
 //				printf("field one: %d at timestep %d\n", field_one, timestep_count);
@@ -565,7 +554,7 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 				host_view_type updated_data = updated_solution[row_block]->getLocalView<host_view_type>();
 				host_view_type reference_data = reference_solution[row_block]->getLocalView<host_view_type>();
 				host_view_type rk_offsets_data = rk_offsets[row_block]->getLocalView<host_view_type>();
-				for (local_index_type k=0; k<updated_data.dimension_0(); ++k) {
+				for (size_t k=0; k<updated_data.extent(0); ++k) {
 					reference_data(k,0) = updated_data(k,0);
 					rk_offsets_data(k,0) = updated_data(k,0);
 				}
@@ -621,7 +610,7 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 				host_view_type updated_data = updated_solution[0]->getLocalView<host_view_type>();
 				host_view_type reference_data = reference_solution[0]->getLocalView<host_view_type>();
 				host_view_type rk_offsets_data = rk_offsets[0]->getLocalView<host_view_type>();
-				for (local_index_type k=0; k<updated_data.dimension_0(); ++k) {
+				for (size_t k=0; k<updated_data.extent(0); ++k) {
 					reference_data(k,0) = updated_data(k,0);
 					rk_offsets_data(k,0) = updated_data(k,0);
 				}
@@ -653,10 +642,8 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 				for (InteractingFields field_interaction : _field_interactions) {
 
 					local_index_type field_one = field_interaction.src_fieldnum;
-					local_index_type field_two = field_interaction.trg_fieldnum;
 
 					local_index_type row_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_row_map[field_one] : 0;
-					local_index_type col_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_col_map[field_two] : 0;
 
 					if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
 						_particles->getFieldManager()->updateFieldsFromVector(reference_solution[row_block], field_one);
@@ -677,13 +664,11 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 			for (InteractingFields field_interaction : _field_interactions) {
 
 				local_index_type field_one = field_interaction.src_fieldnum;
-				local_index_type field_two = field_interaction.trg_fieldnum;
 
 				// only update displacements from the rk solution
 				if (field_one == _particles->getFieldManager()->getIDOfFieldFromName("displacement")) {
 
 					local_index_type row_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_row_map[field_one] : 0;
-					local_index_type col_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_col_map[field_two] : 0;
 
 					if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
 						_particles->getFieldManager()->updateFieldsFromVector(reference_solution[row_block], field_one);
@@ -799,13 +784,11 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 						for (InteractingFields field_interaction : _field_interactions) {
 			
 							local_index_type field_one = field_interaction.src_fieldnum;
-							local_index_type field_two = field_interaction.trg_fieldnum;
 			
 							// only update displacements from the rk solution
 							if (field_one == _particles->getFieldManager()->getIDOfFieldFromName("displacement")) {
 			
 								local_index_type row_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_row_map[field_one] : 0;
-								local_index_type col_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_col_map[field_two] : 0;
 			
 								if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
 									reference_solution[row_block]->scale(0);
@@ -900,10 +883,8 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 	for (InteractingFields field_interaction : _field_interactions) {
 
 		local_index_type field_one = field_interaction.src_fieldnum;
-		local_index_type field_two = field_interaction.trg_fieldnum;
 
 		local_index_type row_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_row_map[field_one] : 0;
-		local_index_type col_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_col_map[field_two] : 0;
 
 		if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
 			_particles->getFieldManager()->updateFieldsFromVector(reference_solution[row_block], field_one);
@@ -1024,7 +1005,6 @@ void ProblemExplicitTransientT::buildMaps(local_index_type field_one, local_inde
 void ProblemExplicitTransientT::assembleOperatorToVector(local_index_type field_one, local_index_type field_two, scalar_type simulation_time, scalar_type delta_time) {
 	if (field_two<0) field_two = field_one;
 	local_index_type row_block = _field_to_block_row_map[field_one];
-	local_index_type col_block = _field_to_block_col_map[field_two];
 
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(_OP.is_null(), "Physics not set before assembleOperator() called.");
 	_OP->setParameters(*_parameters);
@@ -1048,7 +1028,6 @@ void ProblemExplicitTransientT::assembleOperatorToVector(local_index_type field_
 void ProblemExplicitTransientT::assembleRHS(local_index_type field_one, local_index_type field_two, scalar_type simulation_time, scalar_type delta_time) {
 	if (field_two<0) field_two = field_one;
 	local_index_type row_block = _field_to_block_row_map[field_one];
-	local_index_type col_block = _field_to_block_col_map[field_two];
 
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(_RHS.is_null(), "Sources not set before assembleRHS() called.");
 
@@ -1074,7 +1053,6 @@ void ProblemExplicitTransientT::assembleRHS(local_index_type field_one, local_in
 void ProblemExplicitTransientT::assembleBCS(local_index_type field_one, local_index_type field_two, scalar_type simulation_time, scalar_type delta_time) {
 	if (field_two<0) field_two = field_one;
 	local_index_type row_block = _field_to_block_row_map[field_one];
-	local_index_type col_block = _field_to_block_col_map[field_two];
 
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(_BCS.is_null(), "Boundary conditions not set before assembleBCS() called.");
 

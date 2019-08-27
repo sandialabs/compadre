@@ -91,7 +91,6 @@ LagCoordsT::xyz_type LagCoordsT::getGlobalCoords(const global_index_type idx) co
 LagCoordsT::xyz_type LagCoordsT::getCoordsPointToPoint(const global_index_type idx, const int destRank) const {
     xyz_type result;
     const std::pair<int, local_index_type> remoteIds = _physCoords->getLocalIdFromGlobalId(idx);
-    const int sendRank = remoteIds.first;
     if (_physCoords->globalIndexIsLocal(idx)) 
         result = getLocalCoords(remoteIds.second);
     else {
@@ -102,7 +101,7 @@ LagCoordsT::xyz_type LagCoordsT::getCoordsPointToPoint(const global_index_type i
             Teuchos::send<int,scalar_type>(*(_physCoords->comm), 3, arry, destRank);
         }
         else if (_physCoords->comm->getRank() == destRank) {
-            const int srcRank = Teuchos::receive<int, scalar_type>(*(_physCoords->comm), remoteIds.first, 3, arry);
+            Teuchos::receive<int, scalar_type>(*(_physCoords->comm), remoteIds.first, 3, arry);
             result = xyz_type(arry);
         }
     }
@@ -167,7 +166,7 @@ void LagCoordsT::writeHaloToMatlab(std::ostream& fs, const std::string coordsNam
     device_view_type haloPtsView = lagHaloPts->getLocalView<host_view_type>();
     if (lagHaloPts->getLocalLength() > 0 ) {
         fs << coordsName << "Xyz" << procRank << " = ["; 
-        for (local_index_type i = 0; i < lagHaloPts->getLocalLength() - 1; ++i)
+        for (size_t i = 0; i < lagHaloPts->getLocalLength() - 1; ++i)
             fs << haloPtsView(i, 0) << ", " << haloPtsView(i, 1) << ", " << haloPtsView(i, 2) << "; ..." << std::endl;
         fs << haloPtsView(lagHaloPts->getLocalLength() - 1, 0) << ", " << 
         haloPtsView(lagHaloPts->getLocalLength() - 1, 1) << ", " << 

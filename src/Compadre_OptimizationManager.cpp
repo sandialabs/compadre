@@ -54,7 +54,7 @@ if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE)
     const local_index_type target_nlocal = _target_particles->getCoordsConst()->nLocal();
 
     // loop over field's dimensions
-    for (local_index_type i=0; i<target_solution_data.dimension_1(); ++i) {
+    for (size_t i=0; i<target_solution_data.dimension_1(); ++i) {
 
         scalar_type local_conserved_quantity = 0, global_conserved_quantity = 0;
         for (local_index_type j=0; j<_source_particles->getCoordsConst()->nLocal(); ++j) {
@@ -89,7 +89,7 @@ if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE)
             const local_index_type num_neighbors = neighbors.size();
 
             for (local_index_type k=0; k<num_neighbors; ++k) {
-                scalar_type neighbor_value = (neighbors[k].first < source_nlocal) ? source_solution_data(neighbors[k].first, i) : source_halo_solution_data(neighbors[k].first-source_nlocal, i);
+                scalar_type neighbor_value = (neighbors[k].first < (size_t)source_nlocal) ? source_solution_data(neighbors[k].first, i) : source_halo_solution_data(neighbors[k].first-source_nlocal, i);
 
                 source_mins[j] = (neighbor_value < source_mins[j]) ? neighbor_value : source_mins[j];
                 source_maxs[j] = (neighbor_value > source_maxs[j]) ? neighbor_value : source_maxs[j];

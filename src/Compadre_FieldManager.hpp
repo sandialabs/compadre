@@ -98,7 +98,7 @@ class FieldManager {
 
 		const std::vector<Teuchos::RCP<field_type> >& getVectorOfFields () const;
 		
-		const local_index_type getIDOfFieldFromName (const std::string& name) const;
+		local_index_type getIDOfFieldFromName (const std::string& name) const;
 
 		Teuchos::RCP<field_type> getFieldByID (const local_index_type field_num) const;
 

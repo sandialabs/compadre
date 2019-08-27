@@ -55,8 +55,6 @@ ParticlesT::ParticlesT (Teuchos::RCP<Teuchos::ParameterList> parameters,
 void ParticlesT::insertParticles(const std::vector<xyz_type>& new_pts_vector, const scalar_type rebuilt_halo_size,
 		bool repartition, bool inserting_physical_coords, bool repartition_using_physical_coords, bool verify_coords_on_processor) {
 
-	const local_index_type num_added_coords = (local_index_type)new_pts_vector.size();
-
 	/*
 	 * A few important details on this function.
 	 *
@@ -111,7 +109,7 @@ void ParticlesT::insertParticles(const std::vector<xyz_type>& new_pts_vector, co
 
 	// re-register all fields from the current particles
 	const std::vector<Teuchos::RCP<field_type> >& existing_fields = this->getFieldManagerConst()->getVectorOfFields();
-	for (local_index_type i=0; i<existing_fields.size(); i++) {
+	for (size_t i=0; i<existing_fields.size(); i++) {
 		temp_particles->getFieldManager()->createField(existing_fields[i]->nDim(), existing_fields[i]->getName(), existing_fields[i]->getUnits());
 		Compadre::RemapObject remapObject(i);
 		remapManager->add(remapObject);
@@ -197,7 +195,7 @@ void ParticlesT::mergeWith(const particles_type* other_particles) {
 	host_view_type other_pts_vals;
 	host_view_type other_pts_physical_vals;
 	local_index_type other_pts_num;
-	local_index_type other_pts_physical_num;
+	local_index_type other_pts_physical_num=0;
 	if (other_particles->getCoordsConst()->isLagrangian()) {
 		other_pts_vals = other_particles->getCoordsConst()->getPts(false /*halo*/, false)->getLocalView<host_view_type>();
 		other_pts_physical_vals = other_particles->getCoordsConst()->getPts()->getLocalView<host_view_type>();
@@ -307,7 +305,7 @@ void ParticlesT::zoltan2Initialize(bool use_physical_coords) {
 	_coords->zoltan2Partition();
 	_coords->applyZoltan2Partition(this->flag);
 	_fieldManager->applyZoltan2PartitionToAll();
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(_coords->nLocal()!=this->flag->getLocalLength(), "After applyZoltan2Partition(), size of flag differs from coordinates.");
+	TEUCHOS_TEST_FOR_EXCEPT_MSG((size_t)(_coords->nLocal())!=this->flag->getLocalLength(), "After applyZoltan2Partition(), size of flag differs from coordinates.");
 }
 
 

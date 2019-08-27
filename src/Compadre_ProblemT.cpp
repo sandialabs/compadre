@@ -282,10 +282,8 @@ void ProblemT::solve() {
 
     for (InteractingFields field_interaction : _field_interactions) {
         local_index_type field_one = field_interaction.src_fieldnum;
-        local_index_type field_two = field_interaction.trg_fieldnum;
 
         local_index_type row_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_row_map[field_one] : 0;
-        local_index_type col_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_col_map[field_two] : 0;
 
         if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
             _particles->getFieldManager()->updateFieldsFromVector(_solver->getSolution(row_block), field_one, _problem_dof_data);
@@ -401,7 +399,6 @@ void ProblemT::assembleOperator(local_index_type field_one, local_index_type fie
 void ProblemT::assembleRHS(local_index_type field_one, local_index_type field_two, scalar_type simulation_time, scalar_type delta_time) {
     if (field_two<0) field_two = field_one;
     local_index_type row_block = _field_to_block_row_map[field_one];
-    local_index_type col_block = _field_to_block_col_map[field_two];
 
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_RHS.is_null(), "Sources not set before assembleRHS() called.");
 
@@ -427,7 +424,6 @@ void ProblemT::assembleRHS(local_index_type field_one, local_index_type field_tw
 void ProblemT::assembleBCS(local_index_type field_one, local_index_type field_two, scalar_type simulation_time, scalar_type delta_time) {
     if (field_two<0) field_two = field_one;
     local_index_type row_block = _field_to_block_row_map[field_one];
-    local_index_type col_block = _field_to_block_col_map[field_two];
 
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_BCS.is_null(), "Boundary conditions not set before assembleBCS() called.");
 

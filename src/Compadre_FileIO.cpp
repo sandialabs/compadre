@@ -195,7 +195,7 @@ void FileManager::writerIOChoice(std::string& extension, const bool enforce_seri
 void FileManager::read() {
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(_io.is_null(), "read() called before setReader(...)")
     try {
-	    int retval = _io->read(_reader_fn);
+	    _io->read(_reader_fn);
     } catch (int e) {
         if (e==-51) {
             // set the reader again, but this time to use the serial reader
@@ -295,7 +295,7 @@ void VTKData::generateDataSet(bool include_halo, bool for_writing_output, bool u
 
 	const std::vector<Teuchos::RCP<field_type> > fields = _particles->getFieldManagerConst()->getVectorOfFields();
 
-	for (local_index_type i=0; i<fields.size(); i++){
+	for (size_t i=0; i<fields.size(); i++){
 		vtkSmartPointer<vtkDoubleArray> field_data =
 			vtkSmartPointer<vtkDoubleArray>::New();
 		vtkSmartPointer<vtkDoubleArray> ghost_field_data;
@@ -437,7 +437,6 @@ void VTKFileIO::populateParticles() {
 //						std::cout << "initializing map ...\n";
 
 	_particles->resize(nPtsLocal, true /*local number known resize*/);
-	auto nPtsGlobal = coords->getMapConst()->getGlobalNumElements();
 
 	// Now check for point data
 	vtkPointData *pd = _dataSet->GetPointData();
@@ -631,7 +630,7 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 		    	retval = nc_inq_vardimid(ncid, i, &dims_for_var[0]);
 
                 // search for particle num dimension name among the registered dimensions
-                int local_particle_num_dimension_id;
+                int local_particle_num_dimension_id = -1;
                 for (int d_id=0; d_id<num_dims; ++d_id) {
                     // get the name of the dimension
 		            char dim_name[256];
@@ -663,7 +662,7 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 		    	retval = nc_get_var_double(ncid, i, &coords_xyz[0]);
                 if (local_particle_num_dimension_id==0) {
                     // ordered so particle num dimension is first
-                    for (int p_num=0; p_num<num_entries; ++p_num) {
+                    for (size_t p_num=0; p_num<num_entries; ++p_num) {
                         // copying from (x,y,z,x,y,z,....)
                         coords_x[p_num] = coords_xyz[dim_2*p_num + 0];
                         coords_y[p_num] = coords_xyz[dim_2*p_num + 1];
@@ -671,7 +670,7 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
                     }
                 } else {
                     // ordered so spatial dimension is first
-                    for (int p_num=0; p_num<num_entries; ++p_num) {
+                    for (size_t p_num=0; p_num<num_entries; ++p_num) {
                         // copying from (x,x,x,x,x,x,....,y,y,y,y,y,y,.....,z,z,z,z,z,z...)
                         coords_x[p_num] = coords_xyz[0*num_entries + p_num];
                         coords_y[p_num] = coords_xyz[1*num_entries + p_num];
@@ -745,7 +744,7 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
     }
 
 	flags.resize(coords_x.size());
-	local_index_type flags_var_id = -1, ids_var_id = -1;
+	local_index_type flags_var_id = -1;
 
 	ids.resize(coords_x.size());
 	for (local_index_type i=0; i<nvars_in; i++) {
@@ -756,12 +755,10 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 		if (var_string_lower=="flag") {
 			retval = nc_get_var_int(ncid, i, &flags[0]);
 			identified_fields[i] = true;
-			flags_var_id = i;
 		}
 		else if (var_string_lower=="id") {
 			retval = nc_get_var(ncid, i, &ids[0]);
 			identified_fields[i] = true;
-			ids_var_id = i;
 		}
 	}
 
@@ -786,7 +783,6 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 				std::vector<local_index_type> dims_for_var(num_dims,0);
 				retval = nc_inq_vardimid(ncid, i, &dims_for_var[0]);
 
-                bool skipped = false;
                 if (dims_for_var[0]==particle_num_dimension_id)
                     field_dim_flipped[count] = false;
                 else if (num_dims>1 && dims_for_var[1]==particle_num_dimension_id)
@@ -795,7 +791,6 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 				    char var_name[256];
 				    retval = nc_inq_varname(ncid, i, var_name);
                     std::cout << "Skipped reading in field: " + std::string(var_name) + " because it has no dimension matching particle_num_dimension_id." << std::endl;
-                    skipped = true;
                 }
 
 				// hard coded only read in two dimensional data
@@ -862,7 +857,6 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 
 	// first fill the coordinates
 	host_view_type host_coords = coords->getPts()->getLocalView<host_view_type>(); // assumes we are reading in physical coords in a lagrangian simulation
-	const local_index_type ndim = coords->nDim();
 
     if (_coordinate_layout==CoordinateLayout::XYZ_separate || _coordinate_layout==CoordinateLayout::XYZ_joint) {
 	    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(minInd,maxInd+1), KOKKOS_LAMBDA(const int i) {
@@ -1069,7 +1063,7 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 		    	retval = nc_inq_vardimid(ncid, i, &dims_for_var[0]);
 
                 // search for particle num dimension name among the registered dimensions
-                int local_particle_num_dimension_id;
+                int local_particle_num_dimension_id = -1;
                 for (int d_id=0; d_id<num_dims; ++d_id) {
                     // get the name of the dimension
 		            char dim_name[256];
@@ -1174,7 +1168,7 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 	std::vector<local_index_type> flags(local_coords_size);
 	std::vector<global_index_type> ids(local_coords_size);
 
-	local_index_type flags_var_id = -1, ids_var_id = -1;
+	local_index_type flags_var_id = -1;
 
 	for (local_index_type i=0; i<nvars_in; i++) {
 		char var_name[256];
@@ -1272,7 +1266,6 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 			unsigned long countDiff = (unsigned long)(local_coords_size);
 			retval = nc_get_vara(ncid, i, &start, &countDiff, &ids[0]);
 			identified_fields[i] = true;
-			ids_var_id = i;
 		}
 	}
 
@@ -1298,7 +1291,6 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 				std::vector<local_index_type> dims_for_var(num_dims,0);
 				retval = nc_inq_vardimid(ncid, i, &dims_for_var[0]);
 
-                bool skipped = false;
                 if (dims_for_var[0]==particle_num_dimension_id)
                     field_dim_flipped[count] = false;
                 else if (num_dims>1 && dims_for_var[1]==particle_num_dimension_id)
@@ -1307,7 +1299,6 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 				    char var_name[256];
 				    retval = nc_inq_varname(ncid, i, var_name);
                     std::cout << "Skipped reading in field: " + std::string(var_name) + " because it has no dimension matching particle_num_dimension_id." << std::endl;
-                    skipped = true;
                 }
 
 				// hard coded only read in two dimensional data
@@ -1370,7 +1361,6 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 
 	// first fill the coordinates
 	host_view_type host_coords = coords->getPts()->getLocalView<host_view_type>(); // assumes we are reading in physical coords in a lagrangian simulation
-	const local_index_type ndim = coords->nDim();
     if (_coordinate_layout==CoordinateLayout::XYZ_separate || _coordinate_layout==CoordinateLayout::XYZ_joint) {
 	    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,local_coords_size), 
                 KOKKOS_LAMBDA(const int i) {
@@ -1578,8 +1568,6 @@ int LegacyVTKFileIO::read(const std::string& fn) {
 
 
 int XMLVTUFileIO::read(const std::string& fn) {
-	local_index_type comm_size = _particles->getCoordsConst()->getComm()->getSize();
-	local_index_type my_rank = _particles->getCoordsConst()->getComm()->getRank();
 
 	MPI_Comm comm = *(Teuchos::rcp_dynamic_cast<const Teuchos::MpiComm<int>>(this->_particles->getCoordsConst()->getComm(), true /*throw on fail*/)->getRawMpiComm());
 	vtkMPICommunicatorOpaqueComm mpi_comm(&comm);
@@ -1636,8 +1624,6 @@ int XMLVTUFileIO::read(const std::string& fn) {
 
 
 int XMLVTPFileIO::read(const std::string& fn) {
-	local_index_type comm_size = _particles->getCoordsConst()->getComm()->getSize();
-	local_index_type my_rank = _particles->getCoordsConst()->getComm()->getRank();
 
 	MPI_Comm comm = *(Teuchos::rcp_dynamic_cast<const Teuchos::MpiComm<int>>(this->_particles->getCoordsConst()->getComm(), true /*throw on fail*/)->getRawMpiComm());
 	vtkMPICommunicatorOpaqueComm mpi_comm(&comm);
@@ -1721,7 +1707,6 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	// only when both are true do we want the value to be false
 	host_view_type host_coords = coords->getPts(false /*halo*/, get_physical_coords)->getLocalView<host_view_type>();
 	const local_index_type coords_size = host_coords.dimension_0();
-	const local_index_type ndim = coords->nDim();
 
 	// define the dimensions
 	if ((retval = nc_def_dim(ncid, "particle", coords_size, &particle_dim_id)))
@@ -1740,7 +1725,7 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	const std::vector<Teuchos::RCP<field_type> > fields = _particles->getFieldManagerConst()->getVectorOfFields();
 	std::vector<local_index_type> field_dim_ids(fields.size());
 	std::vector<local_index_type> field_var_ids(fields.size());
-	for (local_index_type i=0; i<fields.size(); i++){
+	for (size_t i=0; i<fields.size(); i++){
 		size_t comp_size = fields[i]->nDim();
 		retval = nc_def_dim(ncid, fields[i]->getName().c_str(), comp_size, &field_dim_ids[i]);
 
@@ -1778,7 +1763,7 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	retval = nc_put_var(ncid, y_var_id, &coords_y[0]);
 	retval = nc_put_var(ncid, z_var_id, &coords_z[0]);
 
-	for (local_index_type i=0; i<fields.size(); i++){
+	for (size_t i=0; i<fields.size(); i++){
 
 		std::vector<scalar_type> host_field_data_vec(coords_size*fields[i]->nDim());
 
@@ -1862,7 +1847,6 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	// only when both are true do we want the value to be false
 	host_view_type host_coords = coords->getPts(false /*halo*/, get_physical_coords)->getLocalView<host_view_type>();
 	const local_index_type coords_size = host_coords.dimension_0();
-	const local_index_type ndim = coords->nDim();
 
 	// define the dimensions
 	if ((retval = nc_def_dim(ncid, "particle", global_coords_size, &particle_dim_id)))
@@ -1881,7 +1865,7 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	const std::vector<Teuchos::RCP<field_type> > fields = _particles->getFieldManagerConst()->getVectorOfFields();
 	std::vector<local_index_type> field_dim_ids(fields.size());
 	std::vector<local_index_type> field_var_ids(fields.size());
-	for (local_index_type i=0; i<fields.size(); i++){
+	for (size_t i=0; i<fields.size(); i++){
 		size_t comp_size = fields[i]->nDim();
 		retval = nc_def_dim(ncid, fields[i]->getName().c_str(), comp_size, &field_dim_ids[i]);
 
@@ -1941,7 +1925,7 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	}
 
 
-	for (local_index_type i=0; i<fields.size(); i++){
+	for (size_t i=0; i<fields.size(); i++){
 		std::vector<scalar_type> host_field_data_vec(coords_size*fields[i]->nDim());
 
 		host_view_type host_field_data = fields[i]->getLocalVectorVals()->getLocalView<host_view_type>();

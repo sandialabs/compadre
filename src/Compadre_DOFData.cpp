@@ -41,14 +41,14 @@ const std::vector<std::vector<std::vector<local_index_type> > >& DOFData::getDOF
 }
 
 void DOFData::setRowMap(Teuchos::RCP<map_type> map, local_index_type idx) { // of all DOFS
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(idx >= _dof_row_map.size() && idx!=-1, "Invalid index requested.");
+	TEUCHOS_TEST_FOR_EXCEPT_MSG((size_t)idx >= _dof_row_map.size() && idx!=-1, "Invalid index requested.");
 	if (idx==-1)
 		_dof_row_map[0] = map;
 	else _dof_row_map[idx] = map;
 }
 
 void DOFData::setColMap(Teuchos::RCP<map_type> map, local_index_type idx) { // of all DOFS
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(idx >= _dof_col_map.size() && idx!=-1, "Invalid index requested.");
+	TEUCHOS_TEST_FOR_EXCEPT_MSG((size_t)idx >= _dof_col_map.size() && idx!=-1, "Invalid index requested.");
 	if (idx==-1)
 		_dof_col_map[0] = map;
 	else _dof_col_map[idx] = map;

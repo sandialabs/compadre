@@ -286,7 +286,7 @@ bool slbqp(AlgoStatus<Scalar> & astatus,
   // Set some algorithm-specific constants and temporaries.
   Scalar eta      = 1e-12;
   int maxiter     = 30;
-  bool ignoremass = false;
+  //bool ignoremass = false;
   int nclip       = 0;
   Scalar l        = 0;
   Scalar llow     = 0;
@@ -456,7 +456,7 @@ public:
               const std::vector<double> & low,
               const std::vector<double> & upp) {;
 
-    for (int i=0; i<med.size(); i++) {
+    for (size_t i=0; i<med.size(); i++) {
       // med >= low and med <= upp OR med <= low and med >= upp
       if ( (med[i] - low[i]) * (upp[i] - med[i]) >= 0 )
                        ;  // med[i] is already the median, i.e., med[i] = med[i]
@@ -477,7 +477,7 @@ public:
 
     double sum = 0;
 
-    for (int i=0; i<x.size(); i++) {
+    for (size_t i=0; i<x.size(); i++) {
       sum += x[i]*y[i];
     }
 
@@ -491,7 +491,7 @@ public:
              const std::vector<double> & x,
              const std::vector<double> & y) {
 
-    for (int i=0; i<z.size(); i++) {
+    for (size_t i=0; i<z.size(); i++) {
       z[i] = a*x[i]+y[i];
     }
 

@@ -72,9 +72,9 @@ class NeighborhoodT {
 			return neighbor_list.at(idx);
 		}
 
-		const local_index_type getMaxNumNeighbors() const;
+		local_index_type getMaxNumNeighbors() const;
 
-		const scalar_type getMinimumHSupportSize() const;
+		scalar_type getMinimumHSupportSize() const;
 
 		void constructAllNeighborList(const scalar_type max_radius, const local_index_type desired_num_neighbors = NeighborhoodT::DEFAULT_DESIRED_NUM_NEIGHBORS,
 			const scalar_type initial_radius = NeighborhoodT::DEFAULT_RADIUS, const local_index_type maxLeaf = NeighborhoodT::DEFAULT_MAXLEAF, bool use_physical_coords = true);

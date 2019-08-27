@@ -7,8 +7,8 @@ namespace Compadre {
 struct generate_random_sphere {
 
 	device_view_type vals;
-	scalar_type sphRadius;
 	pool_type pool;
+	scalar_type sphRadius;
 
 	generate_random_sphere(device_view_type vals_, const scalar_type sphRadius_ = 1.0, const int seedPlus = 0) :
 		vals(vals_), pool(1234+seedPlus), sphRadius(sphRadius_) {};

@@ -247,7 +247,7 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 	// peer processor
 
 	gid_view_type local_to_global_id_found("found", our_coords->nLocal(), 0);
-    for (local_index_type i=0; i<peer_processors_i_overlap.size(); i++) {
+    for (size_t i=0; i<peer_processors_i_overlap.size(); i++) {
 
 			count_type count_gids_found("GID_Count");
 
@@ -308,7 +308,7 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 
     			void operator()(const int j) const {
     				bool this_index_used = false;
-    				for (int i=0; i<flags_to_transfer.size(); ++i) {
+    				for (size_t i=0; i<flags_to_transfer.size(); ++i) {
     					if (flags(j,0) == flags_to_transfer[i]) this_index_used = true;
     					break;
     				}
@@ -401,7 +401,7 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
     }
 
 	std::vector<local_index_type> peer_processor_i_destined(peer_processors_i_overlap.size());
-	for (local_index_type i=0; i<coords_to_send.size(); i++) {
+	for (size_t i=0; i<coords_to_send.size(); i++) {
 		peer_processor_i_destined[i] = coords_to_send[i]->size();
 	}
 
@@ -415,7 +415,7 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 		Teuchos::Array<Teuchos::RCP<Teuchos::CommRequest<local_index_type> > > requests(2*peer_processors_i_overlap.size());
 
 		Teuchos::ArrayRCP<local_index_type> recv_counts(peer_processors_i_overlap.size());
-		for (local_index_type i = 0; i<peer_processors_i_overlap.size(); i++) {
+		for (size_t i = 0; i<peer_processors_i_overlap.size(); i++) {
 			Teuchos::ArrayRCP<local_index_type> single_recv_value(&recv_counts[i], 0, 1, false);
 			// + peer_root offsets to get the processor number for global communicator
 			requests[i] = Teuchos::ireceive<local_index_type,local_index_type>(*global_comm, single_recv_value, peer_processors_i_overlap[i] + peer_root);
@@ -425,7 +425,7 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 		// go through my neighbor list
 		// non-blocking sends
 		Teuchos::ArrayRCP<local_index_type> send_counts(&peer_processor_i_destined[0], 0, peer_processor_i_destined.size(), false);
-		for (local_index_type i = 0; i<peer_processor_i_destined.size(); i++) {
+		for (size_t i = 0; i<peer_processor_i_destined.size(); i++) {
 			Teuchos::ArrayRCP<local_index_type> single_send_value(&send_counts[i], 0, 1, false);
 			requests[peer_processor_i_destined.size()+i] = Teuchos::isend<local_index_type,local_index_type>(*global_comm, single_send_value, peer_processors_i_overlap[i] + peer_root);
 		}
@@ -433,7 +433,7 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 
 		local_index_type sum=0;
 		std::vector<local_index_type> sending_processor_offsets(peer_processors_i_overlap.size());
-		for (local_index_type i=0; i<peer_processors_i_overlap.size(); i++) {
+		for (size_t i=0; i<peer_processors_i_overlap.size(); i++) {
 			sending_processor_offsets[i] += sum;
 			sum += recv_counts[i];
 		}
@@ -446,7 +446,7 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 		// put out a receive for all processors of a N integers
 		// go through my neighbor list
 		Teuchos::ArrayRCP<global_index_type> indices_received(&indices_i_need[0], 0, sum, false);
-		for (local_index_type i = 0; i<peer_processors_i_overlap.size(); i++) {
+		for (size_t i = 0; i<peer_processors_i_overlap.size(); i++) {
 			Teuchos::ArrayRCP<global_index_type> single_indices_recv;
 			if (recv_counts[i] > 0) {
 				single_indices_recv = Teuchos::ArrayRCP<global_index_type>(&indices_received[sending_processor_offsets[i]], 0, recv_counts[i], false);
@@ -459,7 +459,7 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 
 		// put out a send for all processors of N integers
 		// go through my neighbor list
-		for (local_index_type i = 0; i<peer_processors_i_overlap.size(); i++) {
+		for (size_t i = 0; i<peer_processors_i_overlap.size(); i++) {
 			Teuchos::ArrayRCP<global_index_type> indices_to_send;
                         if (coords_to_send[i]->size() > 0) {
 				indices_to_send = Teuchos::ArrayRCP<global_index_type>(&(*coords_to_send[i])(0), 0, coords_to_send[i]->dimension(0), false);
@@ -475,7 +475,7 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 	// each set of processes (lower & upper), both have their own global ids that are now stored in indices_i_need
 	// we need to set up the importers and exporters such that we can move data
 	std::vector<global_index_type> indices_i_have(gids.dimension_0());
-	for (local_index_type i=0; i<gids.dimension_0(); i++) {
+	for (size_t i=0; i<gids.dimension_0(); i++) {
 		indices_i_have[i] = gids(i);
 //		std::cout << global_comm->getRank() << " have " << indices_i_have.size() << " " << gids(i) << std::endl;
 	}
@@ -618,14 +618,14 @@ void RemoteDataManager::putRemoteCoordinatesInParticleSet(particles_type* partic
 	host_view_type duplicated_pt_vals;
 	if (_amLower) {
 		duplicated_pt_vals = lower_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
-		for (local_index_type i=0; i<duplicated_pt_vals.dimension_0(); i++) {
+		for (size_t i=0; i<duplicated_pt_vals.dimension_0(); i++) {
 			for (local_index_type j=0; j<_ndim; j++) {
 				duplicated_pt_vals(i,j) = original_pt_vals(i,j);
 			}
 		}
 	} else {
 		duplicated_pt_vals = upper_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
-		for (local_index_type i=0; i<duplicated_pt_vals.dimension_0(); i++) {
+		for (size_t i=0; i<duplicated_pt_vals.dimension_0(); i++) {
 			for (local_index_type j=0; j<_ndim; j++) {
 				duplicated_pt_vals(i,j) = original_pt_vals(i,j);
 			}
@@ -646,7 +646,7 @@ void RemoteDataManager::putRemoteCoordinatesInParticleSet(particles_type* partic
 		coordinates_to_move_into_particles = upper_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
 	}
 
-	for (local_index_type i=0; i<coordinates_to_move_into_particles.dimension_0(); i++) {
+	for (size_t i=0; i<coordinates_to_move_into_particles.dimension_0(); i++) {
 		coords_of_particles_to_overwrite->replaceLocalCoords(i,
 															coordinates_to_move_into_particles(i,0),
 															coordinates_to_move_into_particles(i,1),
@@ -756,12 +756,12 @@ void RemoteDataManager::putRemoteWeightsInParticleSet(const particles_type* sour
 
 	if (_amLower) {
 		duplicated_weighting_vals = lower_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
-		for (local_index_type i=0; i<duplicated_weighting_vals.dimension_0(); i++) {
+		for (size_t i=0; i<duplicated_weighting_vals.dimension_0(); i++) {
 			duplicated_weighting_vals(i,0) = original_weighting_vals(i,0);
 		}
 	} else {
 		duplicated_weighting_vals = upper_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
-		for (local_index_type i=0; i<duplicated_weighting_vals.dimension_0(); i++) {
+		for (size_t i=0; i<duplicated_weighting_vals.dimension_0(); i++) {
 			duplicated_weighting_vals(i,0) = original_weighting_vals(i,0);
 		}
 	}
@@ -790,7 +790,7 @@ void RemoteDataManager::putRemoteWeightsInParticleSet(const particles_type* sour
 		weights_inside_particles = particles_to_overwrite->getFieldManager()->getFieldByName(weighting_field_name)->getMultiVectorPtr()->getLocalView<host_view_type>();
 	}
 
-	for (local_index_type i=0; i<weights_to_move_into_particles.dimension_0(); i++) {
+	for (size_t i=0; i<weights_to_move_into_particles.dimension_0(); i++) {
 		weights_inside_particles(i,0) = weights_to_move_into_particles(i,0);
 	}
 
@@ -821,7 +821,7 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 
 	// make a vector of our source field name sizes
 	std::vector<local_index_type> my_field_name_sizes(remap_vector.size());
-	for (local_index_type i=0; i<remap_vector.size(); ++i) {
+	for (size_t i=0; i<remap_vector.size(); ++i) {
 		my_field_name_sizes[i] = remap_vector[i].src_fieldname.size();
 	}
 
@@ -862,7 +862,7 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
     std::vector<std::string> peer_field_names(peer_num_fields_for_swap);
 	for (local_index_type i=0; i<std::max((local_index_type)(peer_field_names.size()), my_num_fields_for_swap); ++i) {
 
-		if (i < peer_field_names.size())
+		if ((size_t)i < peer_field_names.size())
 			peer_field_names[i] = std::string(peer_field_name_sizes[i], 'a'); // placeholder
 
 		// send and receive each field name
@@ -871,12 +871,12 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 				Teuchos::broadcast<local_index_type, char>(*_lower_root_plus_upper_all_comm, 0, my_field_name_sizes[i], &remap_vector[i].src_fieldname[0]);
 			}
 		} else {
-			if (i < peer_field_names.size()) {
+			if ((size_t)i < peer_field_names.size()) {
 				Teuchos::broadcast<local_index_type, char>(*_lower_root_plus_upper_all_comm, 0, peer_field_name_sizes[i], &peer_field_names[i][0]);
 			}
 		}
 		if (_amLower) {
-			if (i < peer_field_names.size()) {
+			if ((size_t)i < peer_field_names.size()) {
 				Teuchos::broadcast<local_index_type, char>(*_upper_root_plus_lower_all_comm, 0, peer_field_name_sizes[i], &peer_field_names[i][0]);
 			}
 		} else {
@@ -909,7 +909,7 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 				Teuchos::broadcast<local_index_type, double>(*_lower_root_plus_upper_all_comm, 0, 1, &global_upper_bound);
 			}
 		} else {
-			if (i < peer_field_names.size()) {
+			if ((size_t)i < peer_field_names.size()) {
 				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_optimization_algorithm[i]);
 				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_single_linear_bound_constraint[i]);
 				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_bounds_preservation[i]);
@@ -918,7 +918,7 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 			}
 		}
 		if (_amLower) {
-			if (i < peer_field_names.size()) {
+			if ((size_t)i < peer_field_names.size()) {
 				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_optimization_algorithm[i]);
 				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_single_linear_bound_constraint[i]);
 				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_bounds_preservation[i]);
@@ -1087,7 +1087,7 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 		} else {
 			field_vals_to_send = upper_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
 		}
-		for (local_index_type j=0; j<field_vals_to_send.dimension_0(); j++) {
+		for (size_t j=0; j<field_vals_to_send.dimension_0(); j++) {
 			for (local_index_type k=0; k<each_peer_field_dim[i]; k++) {
 				field_vals_to_send(j,k+offset) = this_peer_fields_values(j,k);
 			}
@@ -1138,7 +1138,7 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 		} else {
 			field_vals_sent_from_peer = upper_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
 		}
-		for (local_index_type j=0; j<field_vals_sent_from_peer.dimension_0(); j++) {
+		for (size_t j=0; j<field_vals_sent_from_peer.dimension_0(); j++) {
 			for (local_index_type k=0; k<received_field_dim[i]; k++) {
 				my_fields_values(j,k) = field_vals_sent_from_peer(j,k+offset);
 			}

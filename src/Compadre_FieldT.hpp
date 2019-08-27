@@ -45,7 +45,7 @@ class FieldT {
 		
 		device_view_type getDeviceView();
 		
-		const FieldSparsityType getFieldSparsityType() { return _field_sparsity; }
+		FieldSparsityType getFieldSparsityType() { return _field_sparsity; }
 
 		void resize();
 

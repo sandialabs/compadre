@@ -50,7 +50,7 @@ void NeighborhoodT::setAllHSupportSizes(const scalar_type val) {
 	});
 }
 
-const local_index_type NeighborhoodT::getMaxNumNeighbors() const {
+local_index_type NeighborhoodT::getMaxNumNeighbors() const {
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(_max_num_neighbors==0, "getMaxNumNeighbors() called before computeMaxNumNeighbors() in Neighborhood.");
 	return _max_num_neighbors;
 }
@@ -80,7 +80,7 @@ local_index_type NeighborhoodT::computeMaxNumNeighbors() {
 	return _max_num_neighbors;
 }
 
-const scalar_type NeighborhoodT::getMinimumHSupportSize() const {
+scalar_type NeighborhoodT::getMinimumHSupportSize() const {
 
 	host_view_type hsupportView = h_support_size->getLocalView<host_view_type>();
 
@@ -187,7 +187,7 @@ void NeighborhoodT::constructAllNeighborList(const scalar_type max_radius, const
 			if (desired_num_neighbors != 0) {
 				// we prune the neighbor list once we have a sufficient number of neighbors
 //				if (search_complete(i)==0) {
-				if (neighbor_list[i].size() >= desired_num_neighbors) {
+				if (neighbor_list[i].size() >= (size_t)desired_num_neighbors) {
 					// farthest coordinate from point in question is atleast "cutoff multiplier" times as far away as the radius
 					// for the cutoff point of what is required
 					/*

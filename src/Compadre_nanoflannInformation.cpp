@@ -12,7 +12,7 @@ namespace Compadre {
 
 NanoFlannInformation::NanoFlannInformation( const particles_type * source_particles, Teuchos::RCP<Teuchos::ParameterList> parameters
 		, local_index_type maxLeaf, const particles_type * target_particles, bool use_physical_coords) :
-				_maxLeaf(maxLeaf), NeighborhoodT(source_particles, parameters, target_particles)
+				NeighborhoodT(source_particles, parameters, target_particles), _maxLeaf(maxLeaf)
 {
 	if (source_particles->getCoordsConst()->getComm()->getSize()>1) {
 		// user Zoltan2 processor boundaries for neighbor search
