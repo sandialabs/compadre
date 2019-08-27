@@ -18,7 +18,7 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
     // CPU
     for (int e=0; e<num_evaluation_sites; ++e) {
         for (int i=0; i<this->getNNeighbors(target_index); ++i) {
-            for (int j=0; j<_operations.size(); ++j) {
+            for (size_t j=0; j<_operations.size(); ++j) {
                 for (int k=0; k<_lro_output_tile_size[j]; ++k) {
                     for (int m=0; m<_lro_input_tile_size[j]; ++m) {
                         double alpha_ij = 0;
