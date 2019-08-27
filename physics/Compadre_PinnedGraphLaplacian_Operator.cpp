@@ -127,7 +127,7 @@ void PinnedGraphLaplacianPhysics::computeMatrix(local_index_type field_one, loca
 
 			//std::cout << "size(N) : " << neighbors.size() << std::endl;
 			if (neighborhood->getNeighbors(i).size() == 0) std::cout << neighborhood->getNeighbors(i).size() << std::endl;
-			for (local_index_type l = 0; l < neighbors.size(); l++) { // loop over neighbors
+			for (size_t l = 0; l < neighbors.size(); l++) { // loop over neighbors
 				// std::cout << l << " first : " << neighbors[l].first << " second : " << neighbors[l].second << std::endl;
 				for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) { // loop over comp#'s
 					//std::cout << n << " of " << this->_particles->getFieldByID(j)->nDim() << " is " << this->_particles->getDOFFromLID(static_cast<local_index_type>(neighbors[l].first),j,n) << std::endl;

@@ -24,7 +24,7 @@
 namespace Compadre {
 
 static const GlobalConstants consts;
-static const scalar_type PI = consts.Pi();
+//static const scalar_type PI = consts.Pi();
 
 typedef Compadre::CoordsT coords_type;
 typedef Compadre::FieldT fields_type;
@@ -94,10 +94,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 	}
 
 
-	const local_index_type neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
-
 	bool include_halo = true;
-	bool no_halo = false;
 
 	bool use_physical_coords = true; // can be set on the operator in the future
 
@@ -266,9 +263,6 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 			xyz_type xyz = _particles->getCoordsConst()->getLocalCoords(i, include_halo, use_physical_coords);
 			xyz_type normal_direction = xyz / xyz.magnitude();
 //			xyz_type normal_direction = xyz / swtc->getRadius();
-
-			const scalar_type lat = xyz.latitude(); // phi
-			const scalar_type lon = xyz.longitude(); // lambda
 
 			double coriolis_force = cf->evalScalar(xyz);
 
@@ -452,7 +446,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 //				advective_force[2] -= advective_dot_product * normal_direction.z;
 
 
-				double artificial_diffusion_force[3];
+				double artificial_diffusion_force[3] = {0, 0, 0};
 
 				if (artificial_viscosity_coeff > 0) {
 
@@ -765,8 +759,8 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal), KOKKOS_LAMBDA(const int i) {
 
-			xyz_type xyz = _particles->getCoordsConst()->getLocalCoords(i, include_halo, use_physical_coords);
-			xyz_type normal_direction = xyz / xyz.magnitude();
+			//xyz_type xyz = _particles->getCoordsConst()->getLocalCoords(i, include_halo, use_physical_coords);
+			//xyz_type normal_direction = xyz / xyz.magnitude();
 
 			const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
 			const local_index_type num_neighbors = neighbors.size();
