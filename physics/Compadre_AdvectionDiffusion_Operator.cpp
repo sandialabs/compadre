@@ -74,9 +74,6 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
 
     const local_index_type neighbors_needed = GMLS::getNP(Porder);
 
-    bool include_halo = true;
-    bool no_halo = false;
-
     bool use_physical_coords = true; // can be set on the operator in the future
 
     TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_A.is_null(), "Tpetra CrsMatrix for Physics not yet specified.");

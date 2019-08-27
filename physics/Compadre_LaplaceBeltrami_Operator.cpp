@@ -47,8 +47,6 @@ Kokkos::View<size_t*, Kokkos::HostSpace> LaplaceBeltramiPhysics::getMaxEntriesPe
 
 	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
-	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
-			_dof_data->getDOFMap();
 
     if (field_one == solution_field_id && field_two == solution_field_id) {
         for(local_index_type i = 0; i < nlocal; i++) {
@@ -98,14 +96,13 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
         this->_A_graph->getNumEntriesPerLocalRowUpperBound(empty_array, max_entries_per_row, bound_same_for_all_local_rows);
 
         auto row_map_index_base = existing_row_map->getIndexBase();
-        auto row_map_global_num_elements = existing_row_map->getGlobalNumElements();
         auto row_map_entries = existing_row_map->getMyGlobalIndices();
 
         auto comm = this->_particles->getCoordsConst()->getComm();
         const int offset_size = (comm->getRank() == 0) ? 0 : 1;
         Kokkos::View<global_index_type*> new_row_map_entries("", row_map_entries.extent(0)+offset_size);
 
-        for (local_index_type i=0; i<row_map_entries.extent(0); ++i) {
+        for (size_t i=0; i<row_map_entries.extent(0); ++i) {
             new_row_map_entries(i+offset_size) = row_map_entries(i);
         }
 
@@ -168,7 +165,6 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
 	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
 	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
 			_dof_data->getDOFMap();
-	size_t max_num_neighbors = neighborhood->getMaxNumNeighbors();
 
 
     if (field_one == solution_field_id && field_two == solution_field_id) {
@@ -225,7 +221,6 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
     } else {
         // identity on all DOFs for Lagrange Multiplier (even DOFs not really used, since we only use first LM dof for now)
 		for(local_index_type i = 0; i < nlocal; i++) {
-			local_index_type num_neighbors = neighborhood->getNeighbors(i).size();
 			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
 				local_index_type row = local_to_dof_map[i][field_one][k];
 
@@ -249,20 +244,14 @@ void LaplaceBeltramiPhysics::computeMatrix(local_index_type field_one, local_ind
 	Teuchos::RCP<Teuchos::Time> ComputeMatrixTime = Teuchos::TimeMonitor::getNewCounter ("Compute Matrix Time");
 	ComputeMatrixTime->start();
 
-	bool include_halo = true;
-	bool no_halo = false;
-
 	bool use_physical_coords = true; // can be set on the operator in the future
 
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_A.is_null(), "Tpetra CrsMatrix for Physics not yet specified.");
-
-	bool blocked_matrix = _parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked");
 
 	//Loop over all particles, convert to GMLS data types, solve problem, and insert into matrix:
 
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
 	const global_index_type nglobal = this->_coords->nGlobal();
-	const local_index_type ntotalfielddimensions = this->_particles->getFieldManagerConst()->getTotalFieldDimensions();
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
 	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
 	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
@@ -869,7 +858,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal), KOKKOS_LAMBDA(const int i) {
 
-			scalar_type target_coeff = fsos->evalDiffusionCoefficient(target_coords->getLocalCoords(i, false));
+			//scalar_type target_coeff = fsos->evalDiffusionCoefficient(target_coords->getLocalCoords(i, false));
 
 			const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
 			const local_index_type num_neighbors = neighbors.size();
@@ -1057,7 +1046,6 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
     //scalar_type eps_penalty = 1e-5;
 
 	for(local_index_type i = 0; i < nlocal; i++) {
-		local_index_type num_neighbors = neighborhood->getNeighbors(i).size();
 		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
 			local_index_type row = local_to_dof_map[i][field_one][k];
 

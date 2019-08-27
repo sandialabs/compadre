@@ -36,7 +36,6 @@ void LaplaceBeltramiSources::evaluateRHS(local_index_type field_one, local_index
 	host_view_type pts = this->_coords->getPts()->getLocalView<host_view_type>();
 
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
-	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
 	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
 			_dof_data->getDOFMap();
 
