@@ -21,7 +21,7 @@ class SimpleCoords {
     public:
         view_type points;
         
-        SimpleCoords(const local_index_type nMax, const std::string id) : points(id, nMax), _nMax(nMax), _nUsed(0) {};
+        SimpleCoords(const local_index_type nMax, const std::string id) : _nMax(nMax), _nUsed(0), points(id, nMax)  {};
         
         virtual ~SimpleCoords() {};
         

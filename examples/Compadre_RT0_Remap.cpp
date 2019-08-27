@@ -53,9 +53,6 @@ int main (int argc, char* args[]) {
     Teuchos::RCP<const Teuchos::Comm<int> > comm = Teuchos::DefaultComm<int>::getComm();
 
     Kokkos::initialize(argc, args);
-    
-    const int procRank = comm->getRank();
-    const int nProcs = comm->getSize();
 
     Teuchos::RCP<Teuchos::Time> SphericalParticleTime = Teuchos::TimeMonitor::getNewCounter ("Spherical Particle Time");
     Teuchos::RCP<Teuchos::Time> FirstReadTime = Teuchos::TimeMonitor::getNewCounter ("1st Read Time");
@@ -117,8 +114,6 @@ int main (int argc, char* args[]) {
                 fm2.read();
                 SecondReadTime->stop();
             }
-
-            const ST h_support = parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size");
 
             //Remap
             Teuchos::RCP<Compadre::RemapManager> rm = Teuchos::rcp(new Compadre::RemapManager(parameters, particles.getRawPtr(), new_particles.getRawPtr(), halo_size));

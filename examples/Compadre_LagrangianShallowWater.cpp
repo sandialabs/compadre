@@ -54,9 +54,6 @@ int main (int argc, char* args[]) {
 	Teuchos::RCP<const Teuchos::Comm<int> > comm = Teuchos::DefaultComm<int>::getComm();
 	
 	Kokkos::initialize(argc, args);
-	
-	const int procRank = comm->getRank();
-	const int nProcs = comm->getSize();
 
 	Teuchos::RCP<Teuchos::Time> SphericalParticleTime = Teuchos::TimeMonitor::getNewCounter ("Spherical Particle Time");
 	Teuchos::RCP<Teuchos::Time> NeighborSearchTime = Teuchos::TimeMonitor::getNewCounter ("Neighbor Search Time");
@@ -336,7 +333,7 @@ int main (int argc, char* args[]) {
 		 	ST exact_height_weighted_l2_norm = 0;
 
 		 	CT* coords = (CT*)particles->getCoords();
-		 	double end_time = parameters->get<Teuchos::ParameterList>("time").get<double>("t_end");
+//		 	double end_time = parameters->get<Teuchos::ParameterList>("time").get<double>("t_end");
 
 
 

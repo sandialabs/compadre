@@ -22,8 +22,6 @@ int main (int argc, char* args[]) {
 	Teuchos::GlobalMPISession mpi(&argc, &args);
 	Teuchos::oblackholestream bstream;
 	Teuchos::RCP<const Teuchos::Comm<int> > comm = Teuchos::DefaultComm<int>::getComm();
-	const int procRank = comm->getRank();
-	const int nProcs = comm->getSize();
 	Kokkos::initialize(argc, args);
 	//*********
 

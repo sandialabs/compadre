@@ -11,8 +11,8 @@ struct generate_random_3d {
     typedef pool_type::generator_type generator_type;
     
     view_type vals;
-    scalar_type maxRange;
     pool_type pool;
+    scalar_type maxRange;
     
     generate_random_3d(view_type vals_, const scalar_type range, const int seedPlus) :
         vals(vals_), pool(5374857+seedPlus), maxRange(range) {}
@@ -54,7 +54,7 @@ class SimpleEuclideanCoords : public SimpleCoords
         }
         xyz_type centroid(const std::vector<local_index_type>& inds) const {
             std::vector<xyz_type> vecs;
-            for (local_index_type i = 0; i < inds.size(); ++i)
+            for (size_t i = 0; i < inds.size(); ++i)
                 vecs.push_back(this->xyz(inds[i]));
             return euclideanCentroid(vecs);
         }

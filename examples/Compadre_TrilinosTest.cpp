@@ -61,7 +61,6 @@ int main (int argc, char* args[]) {
 	Kokkos::initialize(argc, args);
 	
 	const int procRank = comm->getRank();
-	const int nProcs = comm->getSize();
 
 	Teuchos::RCP<Teuchos::Time> SphericalParticleTime = Teuchos::TimeMonitor::getNewCounter ("Spherical Particle Time");
 	Teuchos::RCP<Teuchos::Time> NeighborSearchTime = Teuchos::TimeMonitor::getNewCounter ("Trilinos Test - Neighbor Search Time");

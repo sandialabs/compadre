@@ -393,7 +393,7 @@ public:
 
         // all loop logic based on transforming data under a sampling functional
         // into something that is valid input for GMLS
-        bool vary_on_target, vary_on_neighbor;
+        bool vary_on_target = false, vary_on_neighbor = false;
         auto sro_style = sro.transform_type;
         bool loop_global_dimensions = sro.input_rank>0 && sro_style!=Identity; 
 

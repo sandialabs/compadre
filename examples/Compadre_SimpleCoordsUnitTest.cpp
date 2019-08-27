@@ -16,7 +16,6 @@ int main(int argc, char* argv[]) {
     Teuchos::RCP<const Teuchos::Comm<int> > comm =  Teuchos::DefaultComm<int>::getComm();
     Teuchos::oblackholestream blackHole;
     const int procRank = comm->getRank();
-    const int numProcs = comm->getSize();
     
     std::ostream& out = (procRank == 0) ? std::cout : blackHole;
     
