@@ -67,7 +67,6 @@ int main (int argc, char* args[]) {
 //	}
 	{
 		const int procRank = comm->getRank();
-		const int nProcs = comm->getSize();
 
 		std::string testfilename(args[1]);
 
@@ -115,9 +114,6 @@ int main (int argc, char* args[]) {
 
 	// NETCDF reader test
 	{
-		const int procRank = comm->getRank();
-		const int nProcs = comm->getSize();
-
 		std::string testfilename("out.nc");
 
 		Teuchos::RCP<Compadre::ParameterManager> parameter_manager = Teuchos::rcp(new Compadre::ParameterManager());

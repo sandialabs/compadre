@@ -43,9 +43,6 @@ int main (int argc, char* args[]) {
 	Kokkos::initialize(argc, args);
 	
     {
-	const int procRank = comm->getRank();
-	const int nProcs = comm->getSize();
-
 	Teuchos::RCP<Teuchos::Time> ParameterTime = Teuchos::TimeMonitor::getNewCounter ("Parameter Initialization");
 	Teuchos::RCP<Teuchos::Time> MiscTime = Teuchos::TimeMonitor::getNewCounter ("Miscellaneous");
 	Teuchos::RCP<Teuchos::Time> NormTime = Teuchos::TimeMonitor::getNewCounter ("Norm calculation");
@@ -72,7 +69,6 @@ int main (int argc, char* args[]) {
 	// requires more of an increment than "cutoff multiplier" to achieve the required threshold (the other staying the same)
 	//*********
     
-    typedef Compadre::EuclideanCoordsT CT;
     Teuchos::RCP<Compadre::ParticlesT> particles =
     		Teuchos::rcp( new Compadre::ParticlesT(parameters, comm));
 

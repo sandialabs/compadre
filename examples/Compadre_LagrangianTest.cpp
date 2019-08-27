@@ -31,8 +31,6 @@ int main (int argc, char* args[]) {
 
 	Kokkos::initialize(argc, args);
 	
-	const int procRank = comm->getRank();
-	const int nProcs = comm->getSize();
 //	Teuchos::RCP<Teuchos::Time> Part = Teuchos::TimeMonitor::getNewCounter ("PartTime");
 
 	Teuchos::RCP<Teuchos::Time> ParameterTime = Teuchos::TimeMonitor::getNewCounter ("Parameter Initialization");

@@ -18,8 +18,8 @@ class SimpleMPI {
 
     public:
         SimpleMPI(const local_index_type nTotal, const local_index_type nProcs) :
-            _nTotal(nTotal), _nProcs(nProcs), _procStartIndex(nProcs, -1), _procEndIndex(nProcs, -1),
-            _procMsgSize(nProcs,0) {
+            _procStartIndex(nProcs, -1), _procEndIndex(nProcs, -1), _procMsgSize(nProcs,0),
+            _nTotal(nTotal), _nProcs(nProcs) {
             if (nTotal > 0)
                 loadBalance(nTotal, nProcs);
         }

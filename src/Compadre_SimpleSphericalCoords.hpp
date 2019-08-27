@@ -62,7 +62,7 @@ class SimpleSphericalCoords : public SimpleCoords {
         }
         xyz_type centroid(const std::vector<local_index_type>& inds) const {
             std::vector<xyz_type> vecs;
-            for (local_index_type i = 0; i < inds.size(); ++i)
+            for (size_t i = 0; i < inds.size(); ++i)
                 vecs.push_back(this->xyz(inds[i]));
             return sphereCentroid(vecs, sphRadius);
         }

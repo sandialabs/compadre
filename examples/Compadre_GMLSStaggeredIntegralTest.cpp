@@ -50,9 +50,6 @@ int main (int argc, char* args[]) {
 
 	Kokkos::initialize(argc, args);
 
-	const int procRank = comm->getRank();
-	const int nProcs = comm->getSize();
-
 	Teuchos::RCP<Teuchos::Time> FirstReadTime = Teuchos::TimeMonitor::getNewCounter ("1st Read Time");
 	Teuchos::RCP<Teuchos::Time> AssemblyTime = Teuchos::TimeMonitor::getNewCounter ("Assembly Time");
 	Teuchos::RCP<Teuchos::Time> SolvingTime = Teuchos::TimeMonitor::getNewCounter ("Solving Time");

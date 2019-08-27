@@ -73,9 +73,6 @@ int main (int argc, char* args[]) {
 	Teuchos::RCP<const Teuchos::Comm<int> > comm = Teuchos::DefaultComm<int>::getComm();
 
 	Kokkos::initialize(argc, args);
-	
-	const int procRank = comm->getRank();
-	const int nProcs = comm->getSize();
 
 	Teuchos::RCP<Teuchos::Time> SphericalParticleTime = Teuchos::TimeMonitor::getNewCounter ("Spherical Particle Time");
 	Teuchos::RCP<Teuchos::Time> NeighborSearchTime = Teuchos::TimeMonitor::getNewCounter ("Laplace Beltrami - Neighbor Search Time");
@@ -718,11 +715,11 @@ int main (int argc, char* args[]) {
 			}
 			WriteTime->stop();
 
-			bool use_grid_area_for_L2 = false;
+			//bool use_grid_area_for_L2 = false;
 			Compadre::host_view_type grid_area_field;
 		    try {
 		        grid_area_field = particles->getFieldManager()->getFieldByName("grid_area")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-		        use_grid_area_for_L2 = true;
+		    //    use_grid_area_for_L2 = true;
 		    } catch (...) {
 		    }
 		    // if a weighted L2 is desire, use_grid_area_for_L2 can be checked before-hand
