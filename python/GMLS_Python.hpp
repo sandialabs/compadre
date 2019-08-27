@@ -392,7 +392,6 @@ public:
         PyArrayObject *np_arr_out = reinterpret_cast<PyArrayObject*>(pyObjectArray_out);
 
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,*loop_size), [=](int i) {
-            int* neighbor_id = (int*)PyArray_GETPTR2(np_arr_neighborlist, target_num, i+1); // first index is size in neighborlist
             double alpha_evaluation = gmls_object->getAlpha0TensorTo0Tensor(Compadre::TargetOperation::ScalarPointEvaluation, target_num, i);
             double* val = (double*)PyArray_GETPTR1(np_arr_out, i);
             *val = alpha_evaluation;
@@ -487,7 +486,7 @@ public:
             PyArrayObject *np_arr_out = reinterpret_cast<PyArrayObject*>(pyObjectArray_out);
 
             Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [=](int i) {
-                for (int j=0; j<dim_out_1; ++j) {
+                for (size_t j=0; j<dim_out_1; ++j) {
                     double* val = (double*)PyArray_GETPTR2(np_arr_out, i, j);
                     *val = output_values(i,j);
                 }
