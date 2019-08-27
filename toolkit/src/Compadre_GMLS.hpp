@@ -515,7 +515,7 @@ protected:
     //! depends upon V being specified
     KOKKOS_INLINE_FUNCTION
     double getTargetCoordinate(const int target_index, const int dim, const scratch_matrix_right_type* V = NULL) const {
-        compadre_kernel_assert_debug((_target_coordinates.extent(0) >= target_index) && "Target index is out of range for _target_coordinates.");
+        compadre_kernel_assert_debug((_target_coordinates.extent(0) >= (size_t)target_index) && "Target index is out of range for _target_coordinates.");
         if (V==NULL) {
             return _target_coordinates(target_index, dim);
         } else {
@@ -532,7 +532,7 @@ protected:
     KOKKOS_INLINE_FUNCTION
     double getTargetAuxiliaryCoordinate(const int target_index, const int additional_list_num, const int dim, const scratch_matrix_right_type* V = NULL) const {
         auto additional_evaluation_index = getAdditionalEvaluationIndex(target_index, additional_list_num);
-        compadre_kernel_assert_debug((_additional_evaluation_coordinates.extent(0) >= additional_evaluation_index) && "Additional evaluation index is out of range for _additional_evaluation_coordinates.");
+        compadre_kernel_assert_debug((_additional_evaluation_coordinates.extent(0) >= (size_t)additional_evaluation_index) && "Additional evaluation index is out of range for _additional_evaluation_coordinates.");
         if (V==NULL) {
             return _additional_evaluation_coordinates(additional_evaluation_index, dim);
         } else {
@@ -547,7 +547,7 @@ protected:
     //! depends upon V being specified
     KOKKOS_INLINE_FUNCTION
     double getNeighborCoordinate(const int target_index, const int neighbor_list_num, const int dim, const scratch_matrix_right_type* V = NULL) const {
-        compadre_kernel_assert_debug((_source_coordinates.extent(0) >= this->getNeighborIndex(target_index, neighbor_list_num)) && "Source index is out of range for _source_coordinates.");
+        compadre_kernel_assert_debug((_source_coordinates.extent(0) >= (size_t)(this->getNeighborIndex(target_index, neighbor_list_num))) && "Source index is out of range for _source_coordinates.");
         if (V==NULL) {
             return _source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), dim);
         } else {
@@ -649,15 +649,16 @@ public:
         const std::string dense_solver_type = std::string("QR"),
         const int manifold_curvature_poly_order = 2,
         const int dimensions = 3) : 
+            _poly_order(poly_order),
+            _curvature_poly_order(manifold_curvature_poly_order),
+            _dimensions(dimensions),
             _reconstruction_space(reconstruction_space),
             _dense_solver_type(parseSolverType(dense_solver_type)),
             _polynomial_sampling_functional(((_dense_solver_type == DenseSolverType::MANIFOLD) 
                         && (polynomial_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : polynomial_sampling_strategy),
             _data_sampling_functional(((_dense_solver_type == DenseSolverType::MANIFOLD) 
-                        && (data_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : data_sampling_strategy),
-            _poly_order(poly_order),
-            _curvature_poly_order(manifold_curvature_poly_order),
-            _dimensions(dimensions) {
+                        && (data_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : data_sampling_strategy)
+            {
 
         // seed random number generator pool
         _random_number_pool = pool_type(1);
@@ -1211,7 +1212,7 @@ public:
         _number_of_neighbors_list = Kokkos::View<int*, Kokkos::HostSpace>("number of neighbors", neighbor_lists.extent(0));
 
         _max_num_neighbors = 0;
-        for (int i=0; i<_neighbor_lists.extent(0); ++i) {
+        for (size_t i=0; i<_neighbor_lists.extent(0); ++i) {
             _number_of_neighbors_list(i) = _host_neighbor_lists(i,0);
             _max_num_neighbors = (_number_of_neighbors_list(i) > _max_num_neighbors) ? _number_of_neighbors_list(i) : _max_num_neighbors;
         }
@@ -1484,7 +1485,7 @@ public:
         _number_of_additional_evaluation_indices 
             = Kokkos::View<int*, Kokkos::HostSpace>("number of additional evaluation indices", indices_lists.extent(0));
 
-        for (int i=0; i<_additional_evaluation_indices.extent(0); ++i) {
+        for (size_t i=0; i<_additional_evaluation_indices.extent(0); ++i) {
             _number_of_additional_evaluation_indices(i) = _host_additional_evaluation_indices(i,0);
         }
         this->resetCoefficientData();
@@ -1588,11 +1589,11 @@ public:
         // dimension called with is used for all
 
         // loop over requested targets
-        for (int i=0; i<lro.size(); ++i) {
+        for (size_t i=0; i<lro.size(); ++i) {
 
             bool operation_found = false;
             // loop over existing targets registered
-            for (int j=0; j<_lro.size(); ++j) {
+            for (size_t j=0; j<_lro.size(); ++j) {
 
                 // if found
                 if (_lro[j]==lro[i]) {
@@ -1628,7 +1629,7 @@ public:
         int total_offset = 0; // need total offset
         int output_offset = 0;
         int input_offset = 0;
-        for (int i=0; i<_lro.size(); ++i) {
+        for (size_t i=0; i<_lro.size(); ++i) {
             _host_lro_total_offsets(i) = total_offset;
 
             // allows for a tile of the product of dimension^input_tensor_rank * dimension^output_tensor_rank * the number of neighbors

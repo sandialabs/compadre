@@ -674,8 +674,6 @@ void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)),
             [=] (const int i) {
 
-        const int my_num_neighbors = this->getNNeighbors(target_index);
-
         // ignores V when calculating weights from a point, i.e. uses actual point values
         double r;
 

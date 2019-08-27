@@ -94,11 +94,6 @@ if (Compadre_EXAMPLES)
     ADD_TEST(NAME GMLS_Staggered_Dim3_QR COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Staggered "3" "200" "3" "1" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_Staggered_Dim3_QR PROPERTIES LABELS "UnitTest;unit;kokkos;staggered" TIMEOUT 10)
 
-    # Divergence-free basis test for GMLS on non-manifold
-    # Note: SVD is needed to be used here due to the null space introduced
-    ADD_TEST(NAME GMLS_DivergenceFree_Dim3_SVD COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "3" "200" "3" "0" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos;divergencefree;svd" TIMEOUT 10)
-
     if (NOT Compadre_DEBUG)
       # This test is too slow in DEBUG (3x longer than all other tests combined)
       # Multisite manifold test for GMLS
@@ -108,6 +103,11 @@ if (Compadre_EXAMPLES)
       CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py" @ONLY)
       ADD_TEST(NAME GMLS_Manifold_MultiSite_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py" "3" "3")
       SET_TESTS_PROPERTIES(GMLS_Manifold_MultiSite_Refinement_Study PROPERTIES LABELS "ConvergenceTest;convergence;manifold" TIMEOUT 60)
+
+      # Divergence-free basis test for GMLS on non-manifold
+      # Note: SVD is needed to be used here due to the null space introduced
+      ADD_TEST(NAME GMLS_DivergenceFree_Dim3_SVD COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "3" "200" "3" "0" "--kokkos-threads=2")
+      SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos;divergencefree;svd" TIMEOUT 60)
     endif()
 
     #    # Manifold tests for GMLS

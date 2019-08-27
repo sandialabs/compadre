@@ -21,7 +21,7 @@ void GMLS::generatePolynomialCoefficients() {
     compadre_assert_release((_max_num_neighbors >= 0) && "Neighbor lists not set in GMLS class before calling generateAlphas");
     
     // loop through list of linear reconstruction operations to be performed and set them on the host
-    for (int i=0; i<_lro.size(); ++i) _host_operations(i) = _lro[i];
+    for (size_t i=0; i<_lro.size(); ++i) _host_operations(i) = _lro[i];
 
     // get copy of operations on the device
     Kokkos::deep_copy(_operations, _host_operations);
@@ -411,7 +411,6 @@ void GMLS::operator()(const ApplyStandardTargets&, const member_type& teamMember
     const int target_index = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
-    const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*_NP;
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
@@ -457,7 +456,6 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
-    const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
 
     /*
@@ -506,7 +504,6 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
-    const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_neighbors = this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
 
@@ -560,8 +557,6 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
-    const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
-    const int this_num_neighbors = this->getNNeighbors(target_index);
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
 
@@ -745,8 +740,6 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
-    const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
-    const int this_num_neighbors = this->getNNeighbors(target_index);
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
 
@@ -877,7 +870,6 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
-    const int this_num_neighbors = this->getNNeighbors(target_index);
 
     /*
      *    Data
@@ -926,7 +918,6 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
-    const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_columns = _basis_multiplier*max_manifold_NP;
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
@@ -978,7 +969,6 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
-    const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
 
@@ -1024,7 +1014,6 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
         });
     } else if (_data_sampling_functional == StaggeredEdgeIntegralSample) {
         compadre_kernel_assert_debug(_dense_solver_type==DenseSolverType::MANIFOLD && "StaggeredEdgeIntegralSample prestencil weight only written for manifolds.");
-        const int neighbor_offset = _neighbor_lists.extent(1)-1;
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)), [=] (const int m) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                 for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {

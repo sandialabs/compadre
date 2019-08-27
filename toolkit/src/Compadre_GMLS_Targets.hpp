@@ -38,7 +38,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
     const int num_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(getNAdditionalEvaluationCoordinates(target_index)+1) : 1;
 
-    for (int i=0; i<_operations.size(); ++i) {
+    for (size_t i=0; i<_operations.size(); ++i) {
 
         bool additional_evaluation_sites_handled = false; // target operations that can handle these sites should flip this flag
 
@@ -682,7 +682,7 @@ void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_ve
     teamMember.team_barrier();
 
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
-    for (int i=0; i<_curvature_support_operations.size(); ++i) {
+    for (size_t i=0; i<_curvature_support_operations.size(); ++i) {
         if (_curvature_support_operations(i) == TargetOperation::ScalarPointEvaluation) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                 int offset = getTargetOffsetIndexDevice(i, 0, 0, 0);
@@ -736,7 +736,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
     const int num_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(getNAdditionalEvaluationCoordinates(target_index)+1) : 1;
 
-    for (int i=0; i<_operations.size(); ++i) {
+    for (size_t i=0; i<_operations.size(); ++i) {
 
         bool additional_evaluation_sites_handled = false; // target operations that can handle these sites should flip this flag
 
@@ -935,8 +935,6 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                 if (_reconstruction_space_rank == 1) {
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 
-                        double epsilons_target_index = _epsilons(target_index);
-
                         double h = _epsilons(target_index);
                         double a1, a2, a3, a4, a5;
                         if (_curvature_poly_order > 0) {
@@ -993,8 +991,6 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                 // scalar basis times number of components in the vector
                 } else if (_reconstruction_space_rank == 0) {
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-
-                        double epsilons_target_index = _epsilons(target_index);
 
                         double h = _epsilons(target_index);
                         double a1, a2, a3, a4, a5;

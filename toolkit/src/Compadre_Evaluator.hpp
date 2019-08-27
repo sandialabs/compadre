@@ -22,9 +22,10 @@ struct SubviewND {
 
     auto get1DView(const int column_num) -> decltype(Kokkos::subview(_data_in, Kokkos::ALL, column_num)) {
         if (!_scalar_as_vector_if_needed) {
-            compadre_assert_debug((column_num<_data_in.extent(1)) && "Subview asked for column > second dimension of input data.");
+            compadre_assert_debug(((size_t)column_num<_data_in.extent(1)) 
+                    && "Subview asked for column > second dimension of input data.");
         }
-        if (column_num<_data_in.extent(1))
+        if ((size_t)column_num<_data_in.extent(1))
             return Kokkos::subview(_data_in, Kokkos::ALL, column_num);
         else // scalar treated as a vector (being reused for each component of the vector input that was expected)
             return Kokkos::subview(_data_in, Kokkos::ALL, 0);
@@ -33,12 +34,13 @@ struct SubviewND {
     auto get2DView(const int column_num, const int block_size) -> decltype(Kokkos::subview(_data_in, Kokkos::ALL, 
                 Kokkos::make_pair(column_num*block_size, (column_num+1)*block_size))) {
         if (!_scalar_as_vector_if_needed) {
-            compadre_assert_debug((((column_num+1)*block_size-1)<_data_in.extent(1)) && "Subview asked for column > second dimension of input data.");
+            compadre_assert_debug(((size_t)((column_num+1)*block_size-1)<_data_in.extent(1)) 
+                    && "Subview asked for column > second dimension of input data.");
         }
-        if (((column_num+1)*block_size-1)<_data_in.extent(1))
+        if ((size_t)((column_num+1)*block_size-1)<_data_in.extent(1))
             return Kokkos::subview(_data_in, Kokkos::ALL, Kokkos::make_pair(column_num*block_size, (column_num+1)*block_size));
         else
-            compadre_assert_debug(((block_size-1)<_data_in.extent(1)) && "Subview asked for column > second dimension of input data.");
+            compadre_assert_debug(((size_t)(block_size-1)<_data_in.extent(1)) && "Subview asked for column > second dimension of input data.");
             return Kokkos::subview(_data_in, Kokkos::ALL, Kokkos::make_pair(0,block_size));
     }
 
@@ -203,8 +205,6 @@ public:
         const int alpha_input_output_component_index = _gmls->getAlphaColumnOffset(lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
         const int alpha_input_output_component_index2 = alpha_input_output_component_index;
-
-        auto global_dimensions = _gmls->getGlobalDimensions();
 
         // gather needed information for evaluation
         auto neighbor_lists = _gmls->getNeighborLists();
@@ -397,7 +397,7 @@ public:
         auto sro_style = sro.transform_type;
         bool loop_global_dimensions = sro.input_rank>0 && sro_style!=Identity; 
 
-        compadre_assert_release(_gmls->getDataSamplingFunctional()==sro || sro_style==Identity 
+        compadre_assert_release((_gmls->getDataSamplingFunctional()==sro || sro_style==Identity)
                 && "SamplingFunctional requested for Evaluator does not match GMLS data sampling functional or is not of type 'Identity'.");
 
         if (sro.transform_type == Identity || sro.transform_type == SameForAll) {
@@ -508,7 +508,7 @@ public:
         // this can be detected for the polynomial coefficients by noticing that the input_component_axis_1 is greater than 0,
         // but the offset this would produce into the coefficients matrix is larger than its dimensions
         auto max_num_neighbors = (neighbor_lists.extent(1) - 1);
-        if (input_component_axis_1*max_num_neighbors >= coefficient_matrix_tile_size) return;
+        if (input_component_axis_1*max_num_neighbors >= (size_t)coefficient_matrix_tile_size) return;
 
         auto global_dimensions = _gmls->getGlobalDimensions();
 
