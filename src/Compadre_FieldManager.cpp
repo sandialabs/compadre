@@ -55,7 +55,7 @@ void FieldManager::updateMaxNumFieldDimensions() {
 	max_num_field_dim_updated = true;
 
 	max_num_field_dimensions = _fields[0]->nDim();
-	for (local_index_type i=1; i<_fields.size(); i++) {
+	for (size_t i=1; i<_fields.size(); i++) {
 		max_num_field_dimensions = std::max(max_num_field_dimensions, _fields[i]->nDim());
 	}
 }
@@ -64,7 +64,7 @@ void FieldManager::updateTotalFieldDimensions() {
 	total_field_dimension_updated = true;
 
 	total_field_offsets = _fields[0]->nDim();
-	for (local_index_type i=1; i<_fields.size(); i++) {
+	for (size_t i=1; i<_fields.size(); i++) {
 		total_field_offsets += (_fields[i])->nDim();
 	}
 }
@@ -75,7 +75,7 @@ void FieldManager::updateFieldOffsets() {
 	field_offsets.resize(_fields.size());
 	field_offsets[0] = 0;
 
-	for (local_index_type i=1; i<_fields.size(); i++) {
+	for (size_t i=1; i<_fields.size(); i++) {
 		field_offsets[i] = field_offsets[i-1] + (_fields[i-1])->nDim();
 	}
 }
@@ -121,7 +121,7 @@ Teuchos::RCP<FieldManager::field_type> FieldManager::createField(const local_ind
 
 void FieldManager::updateFieldsHaloData(local_index_type field_num) {
 	if (field_num==-1) {
-		for (local_index_type i=0; i<_fields.size(); i++) {
+		for (size_t i=0; i<_fields.size(); i++) {
 			_fields[i]->updateHalo();
 			_fields[i]->updateHaloData();
 		}
@@ -135,7 +135,6 @@ void FieldManager::updateFieldsFromVector(Teuchos::RCP<mvec_type> source, local_
 
 	// first copy data out of source into field values, then perform an import from data to halo_data on that field
 
-	typedef Kokkos::View<global_index_type*> gid_view_type;
 	typedef Kokkos::View<const global_index_type*> const_gid_view_type;
 
 	// copy data to build column map
@@ -158,7 +157,7 @@ void FieldManager::updateFieldsFromVector(Teuchos::RCP<mvec_type> source, local_
 		// copy data from source to field_vals
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_fields.size()), KOKKOS_LAMBDA(const int i) {
 			host_view_type field_vals = _fields[i]->getLocalVectorVals()->getLocalView<host_view_type>(); // just this field's old info
-			for (local_index_type j=0; j<particle_gids_locally_owned.dimension_0(); j++) {
+			for (size_t j=0; j<particle_gids_locally_owned.extent(0); j++) {
 				for (local_index_type k=0; k<_fields[i]->nDim(); k++) {
 					// assumes dofs from every field are on this vector
 					field_vals(j,k) = source_data(j*this->getTotalFieldDimensions() + this->getFieldOffset(i) + k,0);
@@ -181,7 +180,7 @@ void FieldManager::updateFieldsFromVector(Teuchos::RCP<mvec_type> source, local_
 				vector_dof_data->getDOFMap();
 
 		// copy data from source to field_vals
-		for (local_index_type i=0; i<particle_gids_locally_owned.dimension_0(); ++i) {
+		for (size_t i=0; i<particle_gids_locally_owned.extent(0); ++i) {
 			for (local_index_type j=0; j<_fields[field_num]->nDim(); j++) {
 				const local_index_type dof = local_to_dof_map[i][field_num][j]; // index of first entry for this field
 				field_vals(i,j) = source_data(dof,0);
@@ -221,7 +220,6 @@ void FieldManager::updateVectorFromFields(Teuchos::RCP<mvec_type> target, local_
 	// first copy data out of field values into target
 	// halo_data does not get transferred
 
-	typedef Kokkos::View<global_index_type*> gid_view_type;
 	typedef Kokkos::View<const global_index_type*> const_gid_view_type;
 
 	// copy data to build column map
@@ -244,7 +242,7 @@ void FieldManager::updateVectorFromFields(Teuchos::RCP<mvec_type> target, local_
 		// copy data from source to field_vals
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_fields.size()), KOKKOS_LAMBDA(const int i) {
 			host_view_type field_vals = _fields[i]->getLocalVectorVals()->getLocalView<host_view_type>(); // just this field's old info
-			for (local_index_type j=0; j<particle_gids_locally_owned.dimension_0(); j++) {
+			for (size_t j=0; j<particle_gids_locally_owned.dimension_0(); j++) {
 				for (local_index_type k=0; k<_fields[i]->nDim(); k++) {
 					// assumes dofs from every field are on this vector
 					target_data(j*this->getTotalFieldDimensions() + this->getFieldOffset(i) + k,0) = field_vals(j,k);
@@ -296,7 +294,7 @@ const std::vector<Teuchos::RCP<FieldManager::field_type> >& FieldManager::getVec
 	return _fields;
 }
 
-const local_index_type FieldManager::getIDOfFieldFromName(const std::string& name) const {;
+local_index_type FieldManager::getIDOfFieldFromName(const std::string& name) const {;
 	std::map<const std::string, const local_index_type>::const_iterator it = _field_map.find(name);
 	if (it==_field_map.end()) {
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Field " + name + " not found. Possibilities listed. ");
@@ -320,12 +318,12 @@ void FieldManager::listFields(std::ostream& os) const {
 	if (_particles->getCoordsConst()->getComm()->getRank()==0) {
 		os << "Fields registered:\n";
 		os << "==================\n";
-		for (local_index_type i=0; i<_fields.size(); i++) os << (_fields[i])->getName() << std::endl;
+		for (size_t i=0; i<_fields.size(); i++) os << (_fields[i])->getName() << std::endl;
 	}
 }
 
 void FieldManager::printAllFields(std::ostream& os) const {
-	for (local_index_type i=0; i<_fields.size(); i++) {
+	for (size_t i=0; i<_fields.size(); i++) {
 		os << "Proc#: " << _particles->getCoordsConst()->getComm()->getRank() << std::endl;
 		os << (_fields[i])->getName() << std::endl;
 		(_fields[i])->print(os);

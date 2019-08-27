@@ -7,8 +7,8 @@ namespace Compadre {
 struct generate_random_3d {
 
 	device_view_type vals;
-	scalar_type maxRange;
 	pool_type pool;
+	scalar_type maxRange;
 
 	generate_random_3d(device_view_type vals_, const scalar_type range, const int seedPlus ) :
 		vals(vals_), pool(5374857+seedPlus), maxRange(range) {};

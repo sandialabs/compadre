@@ -89,7 +89,7 @@ XyzVector euclideanMidpoint( const XyzVector& vecA, const XyzVector& vecB ) {
 
 XyzVector euclideanCentroid( const std::vector<XyzVector > vecs ) {
 	XyzVector cntd(0.0, 0.0, 0.0);
-	for ( int i = 0; i < vecs.size(); ++i)
+	for (size_t i = 0; i < vecs.size(); ++i)
 		cntd += vecs[i];
 	cntd.scale( 1.0 / vecs.size() );
 	return cntd;
@@ -142,7 +142,7 @@ scalar_type sphereTriArea( const XyzVector& vecA,
 XyzVector sphereCentroid( const std::vector<XyzVector > vecs,
 	const scalar_type radius) {
 	XyzVector cntd(0.0, 0.0, 0.0);
-	for ( int i = 0; i < vecs.size(); ++i)
+	for (size_t i = 0; i < vecs.size(); ++i)
 		cntd += vecs[i];
 	cntd.scale( 1.0 / vecs.size() );
 	cntd.normalize();

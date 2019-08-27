@@ -79,7 +79,7 @@ xyz_type SphereRigidRotationVelocity::evalVector(const xyz_type& xIn) const {
 }
 
 double ShallowWaterTestCases::evalScalar(const xyz_type& xIn) const {
-	double return_val;
+	double return_val = 0;
 	if (_test_case == 2) {
 		// gh
 		const scalar_type lat = xIn.latitude(); // phi
@@ -149,7 +149,6 @@ double CoriolisForce::evalScalar(const xyz_type& xIn) const {
 }
 
 double DiscontinuousOnSphere::evalScalar(const xyz_type& xIn) const {
-	const scalar_type lat = xIn.latitude(); // phi
 	const scalar_type lon = xIn.longitude(); // lambda
 	const scalar_type eps = 0;
 
@@ -157,7 +156,6 @@ double DiscontinuousOnSphere::evalScalar(const xyz_type& xIn) const {
 }
 
 scalar_type FiveStripOnSphere::evalScalar(const xyz_type& xIn) const {
-	const scalar_type lat = xIn.latitude(); // phi
 	xyz_type temp_xyz(xIn.x, xIn.y, 0);
 	const scalar_type lon = temp_xyz.longitude(); // lambda
 	return lon;
@@ -178,7 +176,6 @@ scalar_type FiveStripOnSphere::evalDiffusionCoefficient(const xyz_type& xIn) con
 }
 
 xyz_type  FiveStripOnSphere::evalVector(const xyz_type& xIn) const {
-	const scalar_type lat = xIn.latitude(); // phi
 	const scalar_type lon = xIn.longitude(); // lambda
 	double kappa = 0;
 	if (xIn.z < .4) { // 1st slice

@@ -24,12 +24,12 @@ void FieldT::resetCoords(const coords_type* coords) {
 
 void FieldT::applyZoltan2Partition() {
 	_coords->applyZoltan2Partition(this->_vals);
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(_coords->nLocal()!=this->_vals->getLocalLength(), "After applyZoltan2Partition(), size of field differs from coordinates.");
+	TEUCHOS_TEST_FOR_EXCEPT_MSG((size_t)(_coords->nLocal())!=this->_vals->getLocalLength(), "After applyZoltan2Partition(), size of field differs from coordinates.");
 }
 
 void FieldT::insertParticles(const coords_type * coords, const std::vector<xyz_type>& new_pts_vector, const host_view_type& inserted_field_values) {
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(inserted_field_values.dimension_0()!=new_pts_vector.size(), "Mismatch between field data generated in FieldManager and the number of points inserted.");
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(inserted_field_values.dimension_1()!=_nDim, "Mismatch between field data dimension in FieldManager and the field being inserted into.");
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(inserted_field_values.extent(0)!=new_pts_vector.size(), "Mismatch between field data generated in FieldManager and the number of points inserted.");
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(inserted_field_values.extent(1)!=(size_t)_nDim, "Mismatch between field data dimension in FieldManager and the field being inserted into.");
 	const local_index_type num_added_coords = (local_index_type)new_pts_vector.size();
 
 	const bool setToZero = false;

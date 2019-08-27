@@ -32,7 +32,7 @@ class DOFData {
 
 		const std::vector<std::vector<std::vector<local_index_type> > >& getDOFMap() const;
 
-		const local_index_type getNumberOfFields() const {
+		local_index_type getNumberOfFields() const {
 			return _dof_row_map.size();
 		}
 

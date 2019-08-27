@@ -32,9 +32,9 @@ SolverT::SolverT( const Teuchos::RCP<const Teuchos::Comm<int> > comm, std::vecto
     _A_tpetra = std::vector<std::vector<Teuchos::RCP<crs_matrix_type> > > (A.size(), std::vector<Teuchos::RCP<crs_matrix_type> >(A[0].size(), Teuchos::null));
     _A = Thyra::defaultBlockedLinearOp<scalar_type>();
     _A->beginBlockFill(A.size(), A[0].size());
-    for (local_index_type i=0; i<A.size(); i++) {
+    for (size_t i=0; i<A.size(); i++) {
         _A_tpetra.resize(A[i].size());
-        for (local_index_type j=0; j<A[0].size(); j++) {
+        for (size_t j=0; j<A[0].size(); j++) {
             if (!(A[i][j].is_null())) {
 
                 auto range_space = Thyra::tpetraVectorSpace<scalar_type>( A[i][j]->getRangeMap() );
@@ -66,7 +66,7 @@ SolverT::SolverT( const Teuchos::RCP<const Teuchos::Comm<int> > comm, std::vecto
 
     _b.resize(b.size());
     _b_tpetra.resize(b.size());
-    for (local_index_type i=0; i<b.size(); i++) {
+    for (size_t i=0; i<b.size(); i++) {
         Teuchos::RCP<const Thyra::TpetraVectorSpace<scalar_type,local_index_type,global_index_type,node_type> > range = Thyra::tpetraVectorSpace<scalar_type>(_A_tpetra[i][i]->getRangeMap());
         _b[i] = Thyra::tpetraVector(range, Teuchos::rcp_static_cast<vec_scalar_type>(b[i]));
         _b_tpetra[i] = b[i];
@@ -82,7 +82,7 @@ void SolverT::solve() {
 
     const bool setToZero = true;
     if (_parameters->get<bool>("blocked")) {
-        for (local_index_type i=0; i<_b.size(); i++) {
+        for (size_t i=0; i<_b.size(); i++) {
             _x[i] = Teuchos::rcp(new mvec_type(_A_tpetra[i][i]->getDomainMap(),1,setToZero));
             TEUCHOS_TEST_FOR_EXCEPT_MSG(_A_tpetra[i][i]->getDomainMap()==Teuchos::null, "Domain map null.");
 

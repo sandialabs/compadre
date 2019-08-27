@@ -131,7 +131,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
     
         // loop over all of the fields and use the stored coefficients
         bool gmls_problem_compatible_with_previous_object = false;
-        for (local_index_type i=0; i<_queue.size(); i++) {
+        for (size_t i=0; i<_queue.size(); i++) {
     
             // if first time through or sampling strategy changes
             // conditions for resetting GMLS object
@@ -179,7 +179,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
                     auto nlocal = source_coords->nLocal(false); // locally owned #
                     auto ncols = combined_extra_data.extent(1);
                     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,source_coords->nLocal(true /* include halo in count*/)), KOKKOS_LAMBDA(const int j) {
-                        for (local_index_type k=0; k<ncols; ++k) {
+                        for (size_t k=0; k<ncols; ++k) {
                             if (j < nlocal) {
                                 combined_extra_data(j,k) = extra_data_local(j,k);
                             } else {
@@ -193,7 +193,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
     
     
                 std::vector<TargetOperation> lro;
-                for (local_index_type j=i; j<_queue.size(); j++) {
+                for (size_t j=i; j<_queue.size(); j++) {
                     // only add targets with all other remap object properties matching
                     gmls_problem_compatible_with_previous_object = this->isCompatible(_queue[i], _queue[j]);
                     if (gmls_problem_compatible_with_previous_object) {
@@ -450,7 +450,7 @@ void RemapManager::add(RemapObject obj) {
     bool obj_inserted = false;
     local_index_type index_with_last_match = -1;
 
-    for (local_index_type i=0; i<_queue.size(); ++i) {
+    for (size_t i=0; i<_queue.size(); ++i) {
         if ((_queue[i]._reconstruction_space == obj._reconstruction_space) && (_queue[i]._polynomial_sampling_functional == obj._polynomial_sampling_functional) && (_queue[i]._data_sampling_functional == obj._data_sampling_functional)) {
             index_with_last_match = i;
         } else if (index_with_last_match > -1) { // first time they differ in strategies after finding the sampling / space match

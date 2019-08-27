@@ -195,11 +195,11 @@ class CoordsT {
 
 		Teuchos::RCP<const importer_type> getHaloImporterConst() const;
 
-		const scalar_type getHaloSize() const;
+		scalar_type getHaloSize() const;
 		
-		const bool isLagrangian() const { return _is_lagrangian; }
+		bool isLagrangian() const { return _is_lagrangian; }
 
-		const std::string getUnits() const { return _units; }
+		std::string getUnits() const { return _units; }
 
 		// returns whether partitioning was done w.r.t. material or physical coordinates
 		// (true = physical)
@@ -232,9 +232,9 @@ class CoordsT {
 
 		void verifyCoordsOnProcessor(const std::vector<xyz_type>& new_pts_vector, bool use_physical_coords = true) const;
 
-		const std::vector<scalar_type> boundingBoxMinOnProcessor(const local_index_type processor_num = -1) const;
+		std::vector<scalar_type> boundingBoxMinOnProcessor(const local_index_type processor_num = -1) const;
 
-		const std::vector<scalar_type> boundingBoxMaxOnProcessor(const local_index_type processor_num = -1) const;
+		std::vector<scalar_type> boundingBoxMaxOnProcessor(const local_index_type processor_num = -1) const;
 
 		void writeToMatlab(std::ostream& fs, const std::string coordsName = "", const int procRank = 0, bool use_physical_coords = true) const;
 

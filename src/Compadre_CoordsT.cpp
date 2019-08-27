@@ -405,7 +405,6 @@ CoordsT::xyz_type CoordsT::getGlobalCoords(const global_index_type idx, bool use
 CoordsT::xyz_type CoordsT::getCoordsPointToPoint(const global_index_type idx, const int destRank, bool use_physical_coords) const {
 	CoordsT::xyz_type return_vec;
 	const std::pair<int, local_index_type> remoteIds = getLocalIdFromGlobalId(idx);
-	const int sendRank = remoteIds.first;
 	if (globalIndexIsLocal(idx)) {
 		return_vec = getLocalCoords(remoteIds.second, false /*halo*/, use_physical_coords);
 	}
@@ -417,7 +416,7 @@ CoordsT::xyz_type CoordsT::getCoordsPointToPoint(const global_index_type idx, co
 			Teuchos::send<int, scalar_type>(*comm, 3, arry, destRank);
 		}
 		else if (comm->getRank() == destRank) {
-			const int srcRank = Teuchos::receive<int, scalar_type>(*comm, remoteIds.first, 3, arry);
+			Teuchos::receive<int, scalar_type>(*comm, remoteIds.first, 3, arry);
 			return_vec = CoordsT::xyz_type(arry);
 		}
 	}
@@ -515,8 +514,6 @@ void CoordsT::verifyCoordsOnProcessor(const std::vector<xyz_type>& new_pts_vecto
 
 	const local_index_type new_pts_vector_size = new_pts_vector.size();
 	const z2_box_type box = z2problem->getSolution().getPartBoxesView()[comm->getRank()];
-	const scalar_type* mins = box.getlmins();
-	const scalar_type* maxs = box.getlmaxs();
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,new_pts_vector_size), KOKKOS_LAMBDA(const int i) {
 		scalar_type coordinates[3];
 		new_pts_vector[i].convertToArray(coordinates);
@@ -528,7 +525,7 @@ void CoordsT::verifyCoordsOnProcessor(const std::vector<xyz_type>& new_pts_vecto
 
 // boxes are related to either physical or material coordinates
 // user should verify that this makes sense with the coordinates they are comparing against these boxes
-const std::vector<scalar_type> CoordsT::boundingBoxMinOnProcessor(const local_index_type processor_num) const {
+std::vector<scalar_type> CoordsT::boundingBoxMinOnProcessor(const local_index_type processor_num) const {
 	const local_index_type proc_num_to_query = (processor_num > -1) ? processor_num : comm->getRank();
 	const z2_box_type box = z2problem->getSolution().getPartBoxesView()[proc_num_to_query];
 	const scalar_type* mins = box.getlmins();
@@ -536,7 +533,7 @@ const std::vector<scalar_type> CoordsT::boundingBoxMinOnProcessor(const local_in
 	return min_bound;
 }
 
-const std::vector<scalar_type> CoordsT::boundingBoxMaxOnProcessor(const local_index_type processor_num) const {
+std::vector<scalar_type> CoordsT::boundingBoxMaxOnProcessor(const local_index_type processor_num) const {
 	const local_index_type proc_num_to_query = (processor_num > -1) ? processor_num : comm->getRank();
 	const z2_box_type box = z2problem->getSolution().getPartBoxesView()[proc_num_to_query];
 	const scalar_type* maxs = box.getlmaxs();
@@ -559,7 +556,7 @@ void CoordsT::writeHaloToMatlab(std::ostream& fs, const std::string coordsName, 
 	host_view_type haloPtsHostView = halo_pt_vec->getLocalView<host_view_type>();
 	if (halo_pt_vec->getLocalLength() > 0) {
 		fs << coordsName << "Xyz" << procRank << " = [";
-		for (local_index_type i = 0; i < halo_pt_vec->getLocalLength() - 1; ++i){
+		for (size_t i = 0; i < halo_pt_vec->getLocalLength() - 1; ++i){
 			fs << haloPtsHostView(i,0) << ", " << haloPtsHostView(i,1) << ", " << haloPtsHostView(i,2) << "; ..." << std::endl;
 		}
 		fs << haloPtsHostView(halo_pt_vec->getLocalLength()-1, 0) << ", " << haloPtsHostView(halo_pt_vec->getLocalLength()-1,1) << ", " << haloPtsHostView(halo_pt_vec->getLocalLength()-1,2) << "];" << std::endl;
@@ -718,7 +715,7 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
 	haloSearchTime->stop();
 
 	std::vector<local_index_type> processor_i_destined(num_sending_processors);
-	for (local_index_type i=0; i<coords_to_send.size(); i++) {
+	for (size_t i=0; i<coords_to_send.size(); i++) {
 		processor_i_destined[i] = coords_to_send[i]->size();
 	}
 
@@ -806,7 +803,7 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
 	_halo_size = h_size;
 }
 
-const scalar_type CoordsT::getHaloSize() const {
+scalar_type CoordsT::getHaloSize() const {
 	// returns size of last computed halo
 	return _halo_size;
 }
