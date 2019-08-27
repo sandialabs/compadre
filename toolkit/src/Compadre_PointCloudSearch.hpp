@@ -16,10 +16,10 @@ class RadiusResultSet {
     typedef _IndexType IndexType;
 
     const DistanceType radius;
-    const IndexType max_size;
     IndexType count;
     DistanceType* r_dist;
     IndexType* i_dist;
+    const IndexType max_size;
 
     inline RadiusResultSet(
         DistanceType radius_,
@@ -80,7 +80,7 @@ class RadiusResultSet {
             DistanceType best_distance = std::numeric_limits<DistanceType>::max();
             IndexType best_distance_index = 0;
             int best_index = -1;
-            for (int i=0; i<count; ++i) {
+            for (IndexType i=0; i<count; ++i) {
                 if (r_dist[i] < best_distance) {
                     best_distance = r_dist[i];
                     best_distance_index = i_dist[i];
@@ -190,10 +190,10 @@ class PointCloudSearch {
                 kd_tree = this->generateKDTree(dimension);
 
             // allocate neighbor lists and epsilons
-            compadre_assert_release((neighbor_lists.extent(0)==num_target_sites 
-                        && neighbor_lists.extent(1)>=neighbors_needed+1) 
+            compadre_assert_release((neighbor_lists.extent(0)==(size_t)num_target_sites 
+                        && neighbor_lists.extent(1)>=(size_t)(neighbors_needed+1)) 
                         && "neighbor lists View does not have large enough dimensions");
-            compadre_assert_release((epsilons.extent(0)==num_target_sites)
+            compadre_assert_release((epsilons.extent(0)==(size_t)num_target_sites)
                         && "epsilons View does not have the correct dimension");
 
             typedef Kokkos::View<double*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
@@ -300,7 +300,7 @@ class PointCloudSearch {
 
                 // this is a check to make sure we have enough room to store all of the neighbors found
                 // strictly less than in assertion because we need 1 entry for the total number of neighbors found in addition to their indices
-                compadre_kernel_assert_release((neighbors_found(0)<neighbor_lists.extent(1)) && "neighbor_lists given to PointCloudSearch has too few columns (second dimension) to hold all neighbors found.");
+                compadre_kernel_assert_release(((size_t)(neighbors_found(0))<neighbor_lists.extent(1)) && "neighbor_lists given to PointCloudSearch has too few columns (second dimension) to hold all neighbors found.");
 
                 teamMember.team_barrier();
 

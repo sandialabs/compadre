@@ -12,7 +12,6 @@ void createM(const member_type& teamMember, scratch_matrix_right_type M_data, sc
      * Creates M = P^T * W * P
      */
 
-    const int target_index = teamMember.league_rank();
     auto alt_P = scratch_matrix_left_type(weighted_P.data(), weighted_P.extent(0), weighted_P.extent(1));
 
     for (int i=0; i<columns; ++i) {

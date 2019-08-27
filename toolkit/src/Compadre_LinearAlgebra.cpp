@@ -54,7 +54,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
     Kokkos::Profiling::pushRegion("QR::Setup(Create)");
 
     // find optimal blocksize when using LAPACK in order to allocate workspace needed
-    int ipsec = 1, unused = -1, lwork = -1, info = 0; double wkopt = 0;
+    int lwork = -1, info = 0; double wkopt = 0;
 
     dgels_( (char *)"N", &M, &N, &M, 
             (double *)NULL, &lda, 
