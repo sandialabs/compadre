@@ -56,10 +56,12 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
     // find optimal blocksize when using LAPACK in order to allocate workspace needed
     int lwork = -1, info = 0; double wkopt = 0;
 
-    dgels_( (char *)"N", &M, &N, &M, 
-            (double *)NULL, &lda, 
-            (double *)NULL, &ldb, 
-            &wkopt, &lwork, &info );
+    if (num_matrices > 0) {
+        dgels_( (char *)"N", &M, &N, &M, 
+                (double *)NULL, &lda, 
+                (double *)NULL, &ldb, 
+                &wkopt, &lwork, &info );
+    }
 
     // size needed to malloc for each problem
     lwork = (int)wkopt;
@@ -397,11 +399,13 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
     int rank = 0;
     int info = 0;
 
-    dgelsd_( &M, &N, &M, 
-             P, &lda, 
-             RHS, &ldb, 
-             s, &rcond, &rank,
-             &wkopt, &lwork, iwork, &info);
+    if (num_matrices > 0) {
+        dgelsd_( &M, &N, &M, 
+                 P, &lda, 
+                 RHS, &ldb, 
+                 s, &rcond, &rank,
+                 &wkopt, &lwork, iwork, &info);
+    }
     lwork = (int)wkopt;
 
     Kokkos::Profiling::popRegion();
