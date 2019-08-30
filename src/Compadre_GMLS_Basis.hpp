@@ -631,7 +631,7 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
                     // no need to convert offsets to global indices because the sum will never be large
                     alt_P(i+my_num_neighbors*d, j) = delta[j] * std::sqrt(w(i+my_num_neighbors*d));
 
-                    compadre_kernel_assert_debug(delta[j]==delta[j] && "NaN in sqrt(W)*P matrix.");
+                    compadre_kernel_assert_extreme_debug(delta[j]==delta[j] && "NaN in sqrt(W)*P matrix.");
                 }
 
             } else {
@@ -640,7 +640,7 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
                     // no need to convert offsets to global indices because the sum will never be large
                     alt_P(i+my_num_neighbors*d, j) = delta[j];
 
-                    compadre_kernel_assert_debug(delta[j]==delta[j] && "NaN in P matrix.");
+                    compadre_kernel_assert_extreme_debug(delta[j]==delta[j] && "NaN in P matrix.");
                 }
             }
         }

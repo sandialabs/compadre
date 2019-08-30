@@ -29,18 +29,18 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
 
                                 talpha_ij += P_target_row(offset_index_jmke, l)*Q(i+m*this->getNNeighbors(target_index), l);
 
-                                compadre_kernel_assert_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l) 
+                                compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l) 
                                         && "NaN in P_target_row matrix.");
-                                compadre_kernel_assert_debug(Q(i+m*this->getNNeighbors(target_index), l)==Q(i+m*this->getNNeighbors(target_index), l)
+                                compadre_kernel_assert_extreme_debug(Q(i+m*this->getNNeighbors(target_index), l)==Q(i+m*this->getNNeighbors(target_index), l)
                                         && "NaN in Q coefficient matrix.");
 
                             } else if (_sampling_multiplier == 1) {
 
                                 talpha_ij += P_target_row(offset_index_jmke, l)*Q(i, l);
 
-                                compadre_kernel_assert_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l) 
+                                compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l) 
                                         && "NaN in P_target_row matrix.");
-                                compadre_kernel_assert_debug(Q(i,l)==Q(i,l) 
+                                compadre_kernel_assert_extreme_debug(Q(i,l)==Q(i,l) 
                                         && "NaN in Q coefficient matrix.");
 
                             } else {
@@ -49,7 +49,7 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
                         }, alpha_ij);
                         Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                             _alphas(target_index, offset_index_jmke, i) = alpha_ij;
-                            compadre_kernel_assert_debug(alpha_ij==alpha_ij && "NaN in alphas.");
+                            compadre_kernel_assert_extreme_debug(alpha_ij==alpha_ij && "NaN in alphas.");
                         });
                     }
                 }
@@ -111,9 +111,9 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
                               [=] (int& l, double& t_alpha_ij) {
                                 t_alpha_ij += P_target_row(offset_index_jmke, l)*Q(m_neighbor_offset, l);
 
-                                compadre_kernel_assert_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l) 
+                                compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l) 
                                         && "NaN in P_target_row matrix.");
-                                compadre_kernel_assert_debug(Q(m_neighbor_offset, l)==Q(m_neighbor_offset, l) 
+                                compadre_kernel_assert_extreme_debug(Q(m_neighbor_offset, l)==Q(m_neighbor_offset, l) 
                                         && "NaN in Q coefficient matrix.");
 
                             }, alpha_ij);
@@ -122,16 +122,16 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
                               [=] (int& l, double& t_alpha_ij) {
                                 t_alpha_ij += P_target_row(offset_index_jmke, l)*Q(i,l);
 
-                                compadre_kernel_assert_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l) 
+                                compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l) 
                                         && "NaN in P_target_row matrix.");
-                                compadre_kernel_assert_debug(Q(i,l)==Q(i,l) 
+                                compadre_kernel_assert_extreme_debug(Q(i,l)==Q(i,l) 
                                         && "NaN in Q coefficient matrix.");
 
                             }, alpha_ij);
                         } 
                         Kokkos::single(Kokkos::PerThread(teamMember), [=] () {
                             _alphas(target_index, offset_index_jmke, i) = alpha_ij;
-                            compadre_kernel_assert_debug(alpha_ij==alpha_ij && "NaN in alphas.");
+                            compadre_kernel_assert_extreme_debug(alpha_ij==alpha_ij && "NaN in alphas.");
                         });
                     });
 
