@@ -59,6 +59,12 @@ int main (int argc, char* args[]) {
 	Teuchos::RCP<Teuchos::Time> WriteTime = Teuchos::TimeMonitor::getNewCounter ("Write Time");
 	Teuchos::RCP<Teuchos::Time> SecondReadTime = Teuchos::TimeMonitor::getNewCounter ("2nd Read Time");
 
+	try {
+		parameters->get<std::string>("solution type");
+	} catch (Teuchos::Exceptions::InvalidParameter & exception) {
+		parameters->set<std::string>("solution type","sine");
+	}
+
 	{
 		std::vector<std::string> fnames(5);
 		std::vector<double> hsize(5);
@@ -98,10 +104,11 @@ int main (int argc, char* args[]) {
 
 			particles->zoltan2Initialize();
                         particles->getFieldManager()->createField(3, "vector solution");
-                        particles->getFieldManager()->createField(3, "exact solution");
-                        auto function1 = Compadre::CurlCurlTest();
-                        particles->getFieldManager()->getFieldByName("exact solution")->
-                          localInitFromVectorFunction(&function1);
+                        // create a field to obtain the exact solution, for debugging purpose
+                        // particles->getFieldManager()->createField(3, "exact solution");
+                        // auto function1 = Compadre::CurlCurlTest();
+                        // particles->getFieldManager()->getFieldByName("exact solution")->
+                        //   localInitFromVectorFunction(&function1);
 
 			// particles->getFieldManagerConst()->printAllFields(std::cout);
 
@@ -163,7 +170,11 @@ int main (int argc, char* args[]) {
 			double norm = 0.0;
 
 			Teuchos::RCP<Compadre::AnalyticFunction> function;
-                        function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::CurlCurlTest));
+			if (parameters->get<std::string>("solution type")=="sine") {
+				function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::CurlCurlSineTest));
+			} else {
+				function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::CurlCurlPolyTest));
+			}
 
 			for(int j =0; j<coords->nLocal(); j++){
                           xyz_type xyz = coords->getLocalCoords(j);
@@ -218,8 +229,12 @@ int main (int argc, char* args[]) {
 
                         // Check NaN in norm
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i]!=errors[i], "NaN found in error norm.");
-                        // Check convergence rate in solution
-                        if (i>0) TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i-1]/errors[i] < 3.5, "Second order not achieved for sine solution (should be 4).");
+                        // Check convergence in solution
+			if (parameters->get<std::string>("solution type")=="sine") {
+				 if (i>0) TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i-1]/errors[i] < 3.5, "Second order not achieved for sine solution (should be 4).");
+			} else {
+				TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i] > 1e-10, "Second order solution not recovered exactly.");
+			}
 		}
 		if (comm->getRank()==0) parameters->print();
 	}
