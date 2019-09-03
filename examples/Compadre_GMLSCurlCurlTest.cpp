@@ -172,8 +172,6 @@ int main (int argc, char* args[]) {
                           std::vector<ST> exact_curlcurl(3);
                           exact_curlcurl_xyz.convertToStdVector(exact_curlcurl);
                           for (LO id=0; id<3; id++) {
-                            // std::cout << "AAAAAAAAAAAAAAAAAAAAA " << std::endl;
-                            // std::cout << "OUTPUT " << j << " " << " x " << xyz.z << " y " << xyz.y << " z " << xyz.z << " " << computed_curlcurl[id] << " " << exact_curlcurl[id] << " " << particles->getFlag(j) << std::endl;
                             norm += (computed_curlcurl[id] - exact_curlcurl[id])*(computed_curlcurl[id] - exact_curlcurl[id]);
                           }
 			}
@@ -218,9 +216,10 @@ int main (int argc, char* args[]) {
 			if (parameters->get<Teuchos::ParameterList>("solver").get<std::string>("type")=="direct")
                             Teuchos::TimeMonitor::summarize();
 
+                        // Check NaN in norm
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i]!=errors[i], "NaN found in error norm.");
-                        // std::cout << "ERRRRRRORRRRRRRRRRRR: " << errors[i] << std::endl;
-                        // TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i] > 1e-13, "Second order solution not recovered exactly.");
+                        // Check convergence rate in solution
+                        if (i>0) TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i-1]/errors[i] < 3.5, "Second order not achieved for sine solution (should be 4).");
 		}
 		if (comm->getRank()==0) parameters->print();
 	}
