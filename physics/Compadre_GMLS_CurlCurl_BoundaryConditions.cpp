@@ -19,9 +19,10 @@ void GMLS_CurlCurlBoundaryConditions::flagBoundaries() {
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,bc_id_size), KOKKOS_LAMBDA(const int i) {
 		scalar_type epsilon_ball = 1e-6;
 		if (std::abs(pts(i,0)-1.0)<epsilon_ball || std::abs(pts(i,0)+1.0)<epsilon_ball || std::abs(pts(i,1)-1.0)<epsilon_ball || std::abs(pts(i,1)+1.0)<epsilon_ball || std::abs(pts(i,2)-1.0)<epsilon_ball || std::abs(pts(i,2)+1.0)<epsilon_ball) {
-			this->_particles->setFlag(i, 1);
+                    // std::cout << "BC particles " << i << " x " << pts(i, 0) << " y " << pts(i, 1) << " z " << pts(i, 2) << std::endl;
+                    this->_particles->setFlag(i, 1);
 		} else {
-			this->_particles->setFlag(i, 0);
+                    this->_particles->setFlag(i, 0);
 		}
 	});
 
