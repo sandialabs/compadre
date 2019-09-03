@@ -204,12 +204,13 @@ void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index
                             col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][n];
                             // implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
                             // and checking its boundary condition
-                            local_index_type corresponding_particle_id = blocked_matrix ? row/fields[field_one]->nDim() : row/ntotalfielddimensions;
-                            if (bc_id(corresponding_particle_id, 0) == 1) {
+                            if (bc_id(i, 0) == 1) {
                                 // for points on the boundary
                                 if (i==static_cast<local_index_type>(neighbors[l].first)) {
                                     if (n==k) {
                                         val_data(l*fields[field_two]->nDim() + n) = 1.0;
+                                        // xyz_type coordinate = source_coords->getLocalCoords(i, true /*include halo*/, use_physical_coords);
+                                        // printf("particle %d bc_id %d coords x %f y %f z %f put 1 at: %d,%d\n", i, bc_id(i, 0), coordinate.x, coordinate.y, coordinate.z, row, l*fields[field_two]->nDim() + n);
                                     } else {
                                         val_data(l*fields[field_two]->nDim() + n) = 0.0;
                                     }
