@@ -373,7 +373,7 @@ class CangaSphereTransform : public AnalyticFunction {
 		virtual xyz_type evalVector(const xyz_type& latLonIn) const;
 };
 
-class CurlCurlTestRHS : public AnalyticFunction {
+class CurlCurlSineTestRHS : public AnalyticFunction {
 
 	typedef XyzVector xyz_type;
 
@@ -382,7 +382,25 @@ class CurlCurlTestRHS : public AnalyticFunction {
 		virtual xyz_type evalVector(const xyz_type& xyzIn) const;
 };
 
-class CurlCurlTest : public AnalyticFunction {
+class CurlCurlSineTest : public AnalyticFunction {
+
+	typedef XyzVector xyz_type;
+
+	public :
+
+		virtual xyz_type evalVector(const xyz_type& xyzIn) const;
+};
+
+class CurlCurlPolyTestRHS : public AnalyticFunction {
+
+	typedef XyzVector xyz_type;
+
+	public :
+
+		virtual xyz_type evalVector(const xyz_type& xyzIn) const;
+};
+
+class CurlCurlPolyTest : public AnalyticFunction {
 
 	typedef XyzVector xyz_type;
 
