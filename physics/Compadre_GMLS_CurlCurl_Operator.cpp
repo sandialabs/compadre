@@ -215,8 +215,6 @@ void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index
                                 if (i==static_cast<local_index_type>(neighbors[l].first)) {
                                     if (n==k) {
                                         val_data(l*fields[field_two]->nDim() + n) = 1.0;
-                                        // xyz_type coordinate = source_coords->getLocalCoords(i, true /*include halo*/, use_physical_coords);
-                                        // printf("particle %d bc_id %d coords x %f y %f z %f put 1 at: %d,%d\n", i, bc_id(i, 0), coordinate.x, coordinate.y, coordinate.z, row, l*fields[field_two]->nDim() + n);
                                     } else {
                                         val_data(l*fields[field_two]->nDim() + n) = 0.0;
                                     }
