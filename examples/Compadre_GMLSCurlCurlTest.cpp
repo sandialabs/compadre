@@ -59,19 +59,12 @@ int main (int argc, char* args[]) {
 	Teuchos::RCP<Teuchos::Time> WriteTime = Teuchos::TimeMonitor::getNewCounter ("Write Time");
 	Teuchos::RCP<Teuchos::Time> SecondReadTime = Teuchos::TimeMonitor::getNewCounter ("2nd Read Time");
 
-	// // this proceeds setting up the problem so that the parameters will be propagated down into the physics and bcs
-	// try {
-	// 	parameters->get<std::string>("solution type");
-	// } catch (Teuchos::Exceptions::InvalidParameter & exception) {
-	// 	parameters->set<std::string>("solution type","sine");
-	// }
-
 	{
 		std::vector<std::string> fnames(5);
 		std::vector<double> hsize(5);
 		std::vector<double> errors(5);
 		const std::string filename_prefix = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix");
-		fnames[0]=filename_prefix + "4.vtk";
+		fnames[0]=filename_prefix + "6.vtk";
 		fnames[1]=filename_prefix + "12.vtk";
 		fnames[2]=filename_prefix + "24.vtk";
 		fnames[3]=filename_prefix + "48.vtk";
@@ -222,16 +215,12 @@ int main (int argc, char* args[]) {
 
 			}
 
-		// 	if (parameters->get<Teuchos::ParameterList>("solver").get<std::string>("type")=="direct")
-                //             Teuchos::TimeMonitor::summarize();
+			if (parameters->get<Teuchos::ParameterList>("solver").get<std::string>("type")=="direct")
+                            Teuchos::TimeMonitor::summarize();
 
-		// 	TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i]!=errors[i], "NaN found in error norm.");
-                //         std::cout << "ERRRRRRORRRRRRRRRRRR: " << errors[i] << std::endl;
-		// 	// if (parameters->get<std::string>("solution type")=="sine") {
-		// 	// 	 if (i>0) TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i-1]/errors[i] < 3.5, "Second order not achieved for sine solution (should be 4).");
-		// 	// } else {
-		// 	// 	TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i] > 1e-13, "Second order solution not recovered exactly.");
-		// 	// }
+			TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i]!=errors[i], "NaN found in error norm.");
+                        // std::cout << "ERRRRRRORRRRRRRRRRRR: " << errors[i] << std::endl;
+                        // TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i] > 1e-13, "Second order solution not recovered exactly.");
 		}
 		if (comm->getRank()==0) parameters->print();
 	}
