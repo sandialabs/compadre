@@ -15,7 +15,12 @@ typedef Compadre::XyzVector xyz_type;
 
 void GMLS_CurlCurlSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time) {
 	Teuchos::RCP<Compadre::AnalyticFunction> function;
-        function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::CurlCurlTestRHS));
+	if (_parameters->get<std::string>("solution type")=="sine") {
+		function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::CurlCurlSineTestRHS));
+	} else {
+		function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::CurlCurlPolyTestRHS));
+	}
+
 
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_b.is_null(), "Tpetra Multivector for RHS not yet specified.");
 	if (field_two == -1) {
