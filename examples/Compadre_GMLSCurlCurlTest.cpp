@@ -71,7 +71,7 @@ int main (int argc, char* args[]) {
 		std::vector<double> hsize(5);
 		std::vector<double> errors(5);
 		const std::string filename_prefix = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix");
-		fnames[0]=filename_prefix + "6.vtk"; // this case won't work except with very low Porder
+		fnames[0]=filename_prefix + "4.vtk";
 		fnames[1]=filename_prefix + "12.vtk";
 		fnames[2]=filename_prefix + "24.vtk";
 		fnames[3]=filename_prefix + "48.vtk";
@@ -105,6 +105,11 @@ int main (int argc, char* args[]) {
 
 			particles->zoltan2Initialize();
                         particles->getFieldManager()->createField(3, "vector solution");
+                        particles->getFieldManager()->createField(3, "exact solution");
+                        auto function1 = Compadre::CurlCurlTest();
+                        particles->getFieldManager()->getFieldByName("exact solution")->
+                          localInitFromVectorFunction(&function1);
+
 			// particles->getFieldManagerConst()->printAllFields(std::cout);
 
 			ST halo_size;
@@ -167,55 +172,55 @@ int main (int argc, char* args[]) {
 			Teuchos::RCP<Compadre::AnalyticFunction> function;
                         function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::CurlCurlTest));
 
-			for( int j =0; j<coords->nLocal(); j++){
+			for(int j =0; j<coords->nLocal(); j++){
                           xyz_type xyz = coords->getLocalCoords(j);
                           std::vector<ST> computed_curlcurl = particles->getFieldManagerConst()->getFieldByName("vector solution")->getLocalVectorVal(j);
                           Compadre::XyzVector exact_curlcurl_xyz = function->evalVector(xyz);
                           std::vector<ST> exact_curlcurl(3);
                           exact_curlcurl_xyz.convertToStdVector(exact_curlcurl);
                           for (LO id=0; id<3; id++) {
-                            std::cout << "AAAAAAAAAAAAAAAAAAAAA " << std::endl;
-                            std::cout << computed_curlcurl[id] << " " << exact_curlcurl[id] << " " << particles->getFlag(j) << std::endl;
+                            // std::cout << "AAAAAAAAAAAAAAAAAAAAA " << std::endl;
+                            // std::cout << "OUTPUT " << j << " " << " x " << xyz.z << " y " << xyz.y << " z " << xyz.z << " " << computed_curlcurl[id] << " " << exact_curlcurl[id] << " " << particles->getFlag(j) << std::endl;
                             norm += (computed_curlcurl[id] - exact_curlcurl[id])*(computed_curlcurl[id] - exact_curlcurl[id]);
                           }
 			}
 			norm /= (double)(coords->nGlobalMax());
 
-			// ST global_norm;
-			// Teuchos::Ptr<ST> global_norm_ptr(&global_norm);
-			// Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, norm, global_norm_ptr);
-			// global_norm = sqrt(global_norm);
-			// if (comm->getRank()==0) std::cout << "Global Norm: " << global_norm << "\n";
-			// errors[i] = global_norm;
+			ST global_norm;
+			Teuchos::Ptr<ST> global_norm_ptr(&global_norm);
+			Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, norm, global_norm_ptr);
+			global_norm = sqrt(global_norm);
+			if (comm->getRank()==0) std::cout << "Global Norm: " << global_norm << "\n";
+			errors[i] = global_norm;
 
-		// 	WriteTime->start();
-		// 	std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + std::to_string(i) /* loop # */ + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
-		// 	std::string writetest_output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "writetest" + std::to_string(i) /* loop # */ + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
-		// 	fm.setWriter(output_filename, particles);
-		// 	if (parameters->get<Teuchos::ParameterList>("io").get<bool>("vtk produce mesh")) fm.generateWriteMesh();
-		// 	fm.write();
-		// 	WriteTime->stop();
-		// 	{
-                //             //
-                //             // VTK File Reader Test and Parallel VTK File Re-Reader
-                //             //
+			WriteTime->start();
+			std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + std::to_string(i) /* loop # */ + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
+			std::string writetest_output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "writetest" + std::to_string(i) /* loop # */ + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
+			fm.setWriter(output_filename, particles);
+			if (parameters->get<Teuchos::ParameterList>("io").get<bool>("vtk produce mesh")) fm.generateWriteMesh();
+			fm.write();
+			WriteTime->stop();
+			{
+                            //
+                            // VTK File Reader Test and Parallel VTK File Re-Reader
+                            //
 
-                //             // read solution back in which should also reset flags
+                            // read solution back in which should also reset flags
 
-                //             SecondReadTime->start();
-                //             Teuchos::RCP<Compadre::ParticlesT> test_particles =
-                //                 Teuchos::rcp( new Compadre::ParticlesT(parameters, comm));
+                            SecondReadTime->start();
+                            Teuchos::RCP<Compadre::ParticlesT> test_particles =
+                                Teuchos::rcp( new Compadre::ParticlesT(parameters, comm));
 
-                //             fm.setReader(output_filename, test_particles);
-                //             fm.read();
+                            fm.setReader(output_filename, test_particles);
+                            fm.read();
 
-                //             fm.setWriter(writetest_output_filename, test_particles);
-                //             fm.write();
-                //             SecondReadTime->stop();
+                            fm.setWriter(writetest_output_filename, test_particles);
+                            fm.write();
+                            SecondReadTime->stop();
 
-                //             test_particles->getFieldManagerConst()->listFields(std::cout);
+                            test_particles->getFieldManagerConst()->listFields(std::cout);
 
-		// 	}
+			}
 
 		// 	if (parameters->get<Teuchos::ParameterList>("solver").get<std::string>("type")=="direct")
                 //             Teuchos::TimeMonitor::summarize();
