@@ -43,13 +43,25 @@ Teuchos::RCP<crs_graph_type> GMLS_CurlCurlPhysics::computeGraph(local_index_type
 	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
 			_dof_data->getDOFMap();
 
+	// generate the interpolation operator and call the coefficients needed (storing them)
+	const coords_type* target_coords = this->_coords;
+	const coords_type* source_coords = this->_coords;
+
+	const std::vector<std::vector<std::pair<size_t, scalar_type> > >& all_neighbors = neighborhood->getAllNeighbors();
+
+	size_t max_num_neighbors = 0;
+	Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()),
+			KOKKOS_LAMBDA (const int i, size_t &myVal) {
+		myVal = (all_neighbors[i].size() > myVal) ? all_neighbors[i].size() : myVal;
+	}, Kokkos::Experimental::Max<size_t>(max_num_neighbors));
+
 	//#pragma omp parallel for
 	for(local_index_type i = 0; i < nlocal; i++) {
 		local_index_type num_neighbors = neighborhood->getNeighbors(i).size();
 		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
 			local_index_type row = local_to_dof_map[i][field_one][k];
 
-			Teuchos::Array<local_index_type> col_data(num_neighbors * fields[field_two]->nDim());
+			Teuchos::Array<local_index_type> col_data(max_num_neighbors * fields[field_two]->nDim());
 			Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
 			std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
 
@@ -71,8 +83,6 @@ Teuchos::RCP<crs_graph_type> GMLS_CurlCurlPhysics::computeGraph(local_index_type
 void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
 	Teuchos::RCP<Teuchos::Time> ComputeMatrixTime = Teuchos::TimeMonitor::getNewCounter ("Compute Matrix Time");
 	ComputeMatrixTime->start();
-
-	const local_index_type neighbors_needed = GMLS::getNP(Porder);
 
 	bool include_halo = true;
 	bool no_halo = false;
@@ -191,10 +201,6 @@ void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index
 		const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
 		const local_index_type num_neighbors = neighbors.size();
 
-		//Print error if there's not enough neighbors:
-		TEUCHOS_TEST_FOR_EXCEPT_MSG(num_neighbors < neighbors_needed,
-				"ERROR: Number of neighbors: " + std::to_string(num_neighbors) << " Neighbors needed: " << std::to_string(neighbors_needed) );
-
 		//Put the values of alpha in the proper place in the global matrix
 		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
                     local_index_type row = local_to_dof_map[i][field_one][k];
@@ -219,7 +225,7 @@ void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index
                                 }
                             } else {
                               // for others, evaluate the coefficient and fill the row
-                              val_data(l*fields[field_two]->nDim() + n) = my_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::CurlCurlOfVectorPointEvaluation, i, k /* input component */, l, n /* output component */); // adding to neighbour index
+                              val_data(l*fields[field_two]->nDim() + n) = my_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::CurlCurlOfVectorPointEvaluation, i, k /* output component */, l, n /* input component */); // adding to neighbour index
                             }
                         }
                     }
