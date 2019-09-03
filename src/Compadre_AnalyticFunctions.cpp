@@ -268,16 +268,28 @@ xyz_type CangaSphereTransform::evalVector(const xyz_type& latLonIn) const {
     return xyz_type(cos(lon)*cos(lat), sin(lon)*cos(lat), sin(lat));
 }
 
-xyz_type CurlCurlTestRHS::evalVector(const xyz_type& xyzIn) const {
-  return xyz_type(2.0*sin(xyzIn.y)*sin(xyzIn.z),
-                  2.0*sin(xyzIn.x)*sin(xyzIn.z),
-                  2.0*sin(xyzIn.x)*sin(xyzIn.y));
+xyz_type CurlCurlSineTestRHS::evalVector(const xyz_type& xyzIn) const {
+    return xyz_type(2.0*sin(xyzIn.y)*sin(xyzIn.z),
+                    2.0*sin(xyzIn.x)*sin(xyzIn.z),
+                    2.0*sin(xyzIn.x)*sin(xyzIn.y));
 }
 
-xyz_type CurlCurlTest::evalVector(const xyz_type& xyzIn) const {
-  return xyz_type(sin(xyzIn.y)*sin(xyzIn.z),
-                  sin(xyzIn.x)*sin(xyzIn.z),
-                  sin(xyzIn.x)*sin(xyzIn.y));
+xyz_type CurlCurlSineTest::evalVector(const xyz_type& xyzIn) const {
+    return xyz_type(sin(xyzIn.y)*sin(xyzIn.z),
+                    sin(xyzIn.x)*sin(xyzIn.z),
+                    sin(xyzIn.x)*sin(xyzIn.y));
+}
+
+xyz_type CurlCurlPolyTestRHS::evalVector(const xyz_type& xyzIn) const {
+    return xyz_type(-14.0*xyzIn.x - 12.0*xyzIn.z,
+                    14.0*xyzIn.y,
+                    12.0*xyzIn.x);
+}
+
+xyz_type CurlCurlPolyTest::evalVector(const xyz_type& xyzIn) const {
+    return xyz_type(7.0*xyzIn.x*xyzIn.z*xyzIn.z + 6.0*xyzIn.y*xyzIn.y*xyzIn.z,
+                    -7.0*xyzIn.y*xyzIn.z*xyzIn.z,
+                    -2.0*xyzIn.x*xyzIn.x*xyzIn.x);
 }
 
 }
