@@ -219,7 +219,7 @@ void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index
                                 }
                             } else {
                               // for others, evaluate the coefficient and fill the row
-                              val_data(l*fields[field_two]->nDim() + n) = my_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::CurlCurlOfVectorPointEvaluation, i, n /* input component */, l, k /* output component */); // adding to neighbour index
+                              val_data(l*fields[field_two]->nDim() + n) = my_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::CurlCurlOfVectorPointEvaluation, i, k /* input component */, l, n /* output component */); // adding to neighbour index
                             }
                         }
                     }
