@@ -160,24 +160,75 @@ void GMLS::generatePolynomialCoefficients() {
      */
 
     // allocate data on the device (initialized to zero)
-    int number_of_folds = 1;
+    int number_of_batches = 1;
     global_index_type max_batch_size = _target_coordinates.extent(0);
+
+    double* P_data;
+    double* RHS_data;
+    double* w_data;
+
     while (true) {
         try {
+
+            // P, RHS, and W require more storage than all other parts of this class
+            // by orders of magnitude. This loop probes how large of a batch can be allocated
+            // to run at once. If it will not fit, then the number of batches is increased, and
+            // the batch_size(s) decrease until they can be allocated on the device.
+
             // get size for each fold
             // d = (x + y - 1)/y is equivalent to ceil(float(x)/float(y))
-            max_batch_size = (_target_coordinates.extent(0) + TO_GLOBAL(number_of_folds) - 1) / TO_GLOBAL(number_of_folds);
-            _P = Kokkos::View<double*>("P", 
-                    max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns));
-            _RHS = Kokkos::View<double*>("RHS", 
-                    max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows));
-            _w = Kokkos::View<double*>("w", 
-                    max_batch_size*TO_GLOBAL(max_num_rows));
+            max_batch_size = (_target_coordinates.extent(0) + TO_GLOBAL(number_of_batches) - 1) / TO_GLOBAL(number_of_batches);
+
+            // allocate RHS
+#ifdef COMPADRE_USE_CUDA
+            cudaMalloc(&RHS_data, sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows));
+#else
+            RHS_data = new double[TO_GLOBAL(sizeof(double))*TO_GLOBAL(max_batch_size)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows)];
+#endif
+            printf("RHS pre: %p\n",RHS_data);
+            compadre_assert_release(RHS_data && "RHS array could not be allocated on heap.");
+            _RHS = Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged> >(RHS_data, max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows));
+            Kokkos::deep_copy(_RHS, 0.0);
+            Kokkos::parallel_for(Kokkos::RangePolicy<device_execution_space>(0,_RHS.extent(0)), KOKKOS_LAMBDA(const int i) {
+                _RHS(i) = 0;
+            });
+            printf("RHS post: %p\n",RHS_data);
+
+            // allocate P
+#ifdef COMPADRE_USE_CUDA
+            cudaMalloc(&P_data, sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns));
+#else
+            P_data = new double[TO_GLOBAL(sizeof(double))*TO_GLOBAL(max_batch_size)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns)];
+#endif
+            compadre_assert_release(P_data && "P array could not be allocated on heap.");
+            _P = Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged> >(P_data, max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns));
+            Kokkos::deep_copy(_P, 0.0);
+            Kokkos::parallel_for(Kokkos::RangePolicy<device_execution_space>(0,_P.extent(0)), KOKKOS_LAMBDA(const int i) {
+                _P(i) = 0;
+            });
+            printf("P p: %p\n",P_data);
+
+            // allocate W
+#ifdef COMPADRE_USE_CUDA
+            cudaMalloc(&w_data, sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows));
+#else
+            w_data = (double *)malloc(sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows));
+#endif
+            compadre_assert_release(w_data && "w array could not be allocated on heap.");
+            _w = Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged> >(w_data, max_batch_size*TO_GLOBAL(max_num_rows));
+            Kokkos::deep_copy(_w, 0.0);
+            printf("w p: %p\n",w_data);
+
             break;
         } catch(...) {
-            // failed to allocate views for these sizes, so we need to switch to smaller packages
-            number_of_folds++;
+            // failed to allocate views for these sizes, so we need to switch to smaller batches
+            number_of_batches++;
         }
+    }
+    if (number_of_batches > 1) {
+        _entire_batch_computed_at_once = false;
+        printf("Allocation for W, P, and RHS too large for device. Breaking execution into %d smaller batches.\n",
+                number_of_batches);
     }
     Kokkos::fence();
     
@@ -195,7 +246,7 @@ void GMLS::generatePolynomialCoefficients() {
 
 
     _initial_index_for_batch = 0;
-    for (int fold_num=0; fold_num<number_of_folds; ++fold_num) {
+    for (int batch_num=0; batch_num<number_of_batches; ++batch_num) {
 
         auto this_batch_size = std::min(_target_coordinates.extent(0)-_initial_index_for_batch, max_batch_size);
         
@@ -206,7 +257,7 @@ void GMLS::generatePolynomialCoefficients() {
              */
 
             // generate quadrature for staggered approach
-            if (fold_num==0)
+            if (batch_num==0)
                 this->generate1DQuadrature();
 
             if (!_orthonormal_tangent_space_provided) { // user did not specify orthonormal tangent directions, so we approximate them first
@@ -232,7 +283,7 @@ void GMLS::generatePolynomialCoefficients() {
                 // evaluates targets, applies target evaluation to polynomial coefficients for curvature
                 this->CallFunctorWithTeamThreads<GetAccurateTangentDirections>(this_batch_size, _threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
 
-                if (fold_num==number_of_folds-1) {
+                if (batch_num==number_of_batches-1) {
                     // copy tangent bundle from device back to host
                     _host_T = Kokkos::create_mirror_view(_T);
                     Kokkos::deep_copy(_host_T, _T);
@@ -287,7 +338,7 @@ void GMLS::generatePolynomialCoefficients() {
              */
 
             // generate quadrature for face normal approach
-            if (fold_num==0)
+            if (batch_num==0)
                 this->generate1DQuadrature();
 
             // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity
@@ -353,10 +404,24 @@ void GMLS::generatePolynomialCoefficients() {
     } // end of fold loops
 
     // deallocate _P and _w
-    _P = Kokkos::View<double*>("P",0);
-    _w = Kokkos::View<double*>("w",0);
-    if (number_of_folds > 1) // no reason to keep coefficients if they aren't all in memory
-        _RHS = Kokkos::View<double*>("RHS",0);
+#ifdef COMPADRE_USE_CUDA
+    cudaSetDevice(1); // get device from kokkos, also set in LinearAlgebra
+    cudaFree(_P.data());
+    cudaFree(_w.data());
+#else
+    delete P_data;
+    delete w_data;
+#endif
+    //_P = Kokkos::View<double*>("P",0);
+    //_w = Kokkos::View<double*>("w",0);
+    if (number_of_batches > 1) { // no reason to keep coefficients if they aren't all in memory
+#ifdef COMPADRE_USE_CUDA
+        cudaFree(_RHS.data());
+#else
+        delete RHS_data;
+#endif
+    }
+    //_RHS = Kokkos::View<double*>("RHS",0);
 
     /*
      *    Device to Host Copy Of Solution
