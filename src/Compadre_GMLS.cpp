@@ -4,8 +4,6 @@
 #include "Compadre_GMLS_Quadrature.hpp"
 #include "Compadre_GMLS_Targets.hpp"
 
-#include <float.h> // for DBL_MAX
-
 namespace Compadre {
 
 void GMLS::generatePolynomialCoefficients() {
@@ -163,9 +161,9 @@ void GMLS::generatePolynomialCoefficients() {
     int number_of_batches = 1;
     global_index_type max_batch_size = _target_coordinates.extent(0);
 
-    double* P_data;
-    double* RHS_data;
-    double* w_data;
+    double* P_data = NULL;
+    double* RHS_data = NULL;
+    double* w_data = NULL;
 
     while (true) {
         try {
@@ -179,45 +177,28 @@ void GMLS::generatePolynomialCoefficients() {
             // d = (x + y - 1)/y is equivalent to ceil(float(x)/float(y))
             max_batch_size = (_target_coordinates.extent(0) + TO_GLOBAL(number_of_batches) - 1) / TO_GLOBAL(number_of_batches);
 
-            // allocate RHS
+            // allocate RHS, P, and w
 #ifdef COMPADRE_USE_CUDA
-            cudaMalloc(&RHS_data, sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows));
+            auto cuda_ret = cudaMalloc(&RHS_data, sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows));
+            compadre_assert_release(cuda_ret==cudaSuccess && "RHS array could not be allocated on heap.");
+            cuda_ret = cudaMalloc(&P_data, sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns));
+            compadre_assert_release(cuda_ret==cudaSuccess && "P array could not be allocated on heap.");
+            cuda_ret = cudaMalloc(&w_data, sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows));
+            compadre_assert_release(cuda_ret==cudaSuccess && "w array could not be allocated on heap.");
+            Kokkos::fence();
 #else
-            RHS_data = new double[TO_GLOBAL(sizeof(double))*TO_GLOBAL(max_batch_size)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows)];
-#endif
-            printf("RHS pre: %p\n",RHS_data);
+            RHS_data = new double[sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows)];
             compadre_assert_release(RHS_data && "RHS array could not be allocated on heap.");
-            _RHS = Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged> >(RHS_data, max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows));
-            Kokkos::deep_copy(_RHS, 0.0);
-            Kokkos::parallel_for(Kokkos::RangePolicy<device_execution_space>(0,_RHS.extent(0)), KOKKOS_LAMBDA(const int i) {
-                _RHS(i) = 0;
-            });
-            printf("RHS post: %p\n",RHS_data);
-
-            // allocate P
-#ifdef COMPADRE_USE_CUDA
-            cudaMalloc(&P_data, sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns));
-#else
-            P_data = new double[TO_GLOBAL(sizeof(double))*TO_GLOBAL(max_batch_size)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns)];
-#endif
+            P_data = new double[sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns)];
             compadre_assert_release(P_data && "P array could not be allocated on heap.");
-            _P = Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged> >(P_data, max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns));
-            Kokkos::deep_copy(_P, 0.0);
-            Kokkos::parallel_for(Kokkos::RangePolicy<device_execution_space>(0,_P.extent(0)), KOKKOS_LAMBDA(const int i) {
-                _P(i) = 0;
-            });
-            printf("P p: %p\n",P_data);
-
-            // allocate W
-#ifdef COMPADRE_USE_CUDA
-            cudaMalloc(&w_data, sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows));
-#else
-            w_data = (double *)malloc(sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows));
-#endif
+            w_data = new double[sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)];
             compadre_assert_release(w_data && "w array could not be allocated on heap.");
+#endif
+
+            // wrap RHS, P, and w with Kokkos unmanaged views and zero-out
+            _RHS = Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged> >(RHS_data, max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows));
+            _P = Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged> >(P_data, max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns));
             _w = Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged> >(w_data, max_batch_size*TO_GLOBAL(max_num_rows));
-            Kokkos::deep_copy(_w, 0.0);
-            printf("w p: %p\n",w_data);
 
             break;
         } catch(...) {
@@ -249,6 +230,12 @@ void GMLS::generatePolynomialCoefficients() {
     for (int batch_num=0; batch_num<number_of_batches; ++batch_num) {
 
         auto this_batch_size = std::min(_target_coordinates.extent(0)-_initial_index_for_batch, max_batch_size);
+        printf("This batch size: %lu\n", this_batch_size);
+        printf("first index: %lu\n", _initial_index_for_batch);
+        Kokkos::deep_copy(_RHS, 0.0);
+        Kokkos::deep_copy(_P, 0.0);
+        Kokkos::deep_copy(_w, 0.0);
+        Kokkos::fence();
         
         if (_dense_solver_type == DenseSolverType::MANIFOLD) {
 
@@ -399,13 +386,12 @@ void GMLS::generatePolynomialCoefficients() {
             this->CallFunctorWithTeamThreadsAndVectors<ApplyStandardTargets>(this_batch_size, nt, nv, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
 
         }
-        Kokkos::fence();
         _initial_index_for_batch += max_batch_size;
     } // end of fold loops
 
     // deallocate _P and _w
 #ifdef COMPADRE_USE_CUDA
-    cudaSetDevice(1); // get device from kokkos, also set in LinearAlgebra
+    Kokkos::fence();
     cudaFree(_P.data());
     cudaFree(_w.data());
 #else
