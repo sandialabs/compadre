@@ -210,9 +210,16 @@ protected:
     //! whether or not to use reference outward normal directions to orient the surface in a manifold problem. 
     bool _use_reference_outward_normal_direction_provided_to_orient_surface;
 
+    //! whether entire calculation was computed at once
+    //! the alternative is that it was broken up over many smaller groups, in which case
+    //! this is false, and so the _RHS matrix can not be stored or requested
+    bool _entire_batch_computed_at_once;
+
+    //! initial index for current batch
+    int _initial_index_for_batch;
+
     //! maximum number of neighbors over all target sites
     int _max_num_neighbors;
-
 
     //! vector of user requested target operations
     std::vector<TargetOperation> _lro; 
@@ -286,11 +293,11 @@ protected:
     //! Calls a parallel_for using the tag given as the first argument.
     //! parallel_for will break out over loops over teams with each vector lane executing code be default
     template<class Tag>
-    void CallFunctorWithTeamThreadsAndVectors(const int threads_per_team, const int vector_lanes_per_thread, const int team_scratch_size_a, const int team_scratch_size_b, const int thread_scratch_size_a, const int thread_scratch_size_b) {
+    void CallFunctorWithTeamThreadsAndVectors(const global_index_type batch_size, const int threads_per_team, const int vector_lanes_per_thread, const int team_scratch_size_a, const int team_scratch_size_b, const int thread_scratch_size_a, const int thread_scratch_size_b) {
     if ( (_scratch_team_level_a != _scratch_team_level_b) && (_scratch_thread_level_a != _scratch_thread_level_b) ) {
             // all levels of each type need specified separately
             Kokkos::parallel_for(
-                Kokkos::TeamPolicy<Tag>(_target_coordinates.extent(0), threads_per_team, vector_lanes_per_thread)
+                Kokkos::TeamPolicy<Tag>(batch_size, threads_per_team, vector_lanes_per_thread)
                 .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a))
                 .set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(team_scratch_size_b))
                 .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a))
@@ -299,7 +306,7 @@ protected:
         } else if (_scratch_team_level_a != _scratch_team_level_b) {
             // scratch thread levels are the same
             Kokkos::parallel_for(
-                Kokkos::TeamPolicy<Tag>(_target_coordinates.extent(0), threads_per_team, vector_lanes_per_thread)
+                Kokkos::TeamPolicy<Tag>(batch_size, threads_per_team, vector_lanes_per_thread)
                 .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a))
                 .set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(team_scratch_size_b))
                 .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a + thread_scratch_size_b)),
@@ -307,7 +314,7 @@ protected:
         } else if (_scratch_thread_level_a != _scratch_thread_level_b) {
             // scratch team levels are the same
             Kokkos::parallel_for(
-                Kokkos::TeamPolicy<Tag>(_target_coordinates.extent(0), threads_per_team, vector_lanes_per_thread)
+                Kokkos::TeamPolicy<Tag>(batch_size, threads_per_team, vector_lanes_per_thread)
                 .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a + team_scratch_size_b))
                 .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a))
                 .set_scratch_size(_scratch_thread_level_b, Kokkos::PerThread(thread_scratch_size_b)),
@@ -315,7 +322,7 @@ protected:
         } else {
             // scratch team levels and thread levels are the same
             Kokkos::parallel_for(
-                Kokkos::TeamPolicy<Tag>(_target_coordinates.extent(0), threads_per_team, vector_lanes_per_thread)
+                Kokkos::TeamPolicy<Tag>(batch_size, threads_per_team, vector_lanes_per_thread)
                 .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a + team_scratch_size_b))
                 .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a + thread_scratch_size_b)),
                 *this, typeid(Tag).name());
@@ -325,9 +332,9 @@ protected:
     //! Calls a parallel for using the tag given as the first argument. 
     //! parallel_for will break out over loops over teams with each thread executing code be default
     template<class Tag>
-    void CallFunctorWithTeamThreads(const int threads_per_team, const int team_scratch_size_a, const int team_scratch_size_b, const int thread_scratch_size_a, const int thread_scratch_size_b) {
+    void CallFunctorWithTeamThreads(const global_index_type batch_size, const int threads_per_team, const int team_scratch_size_a, const int team_scratch_size_b, const int thread_scratch_size_a, const int thread_scratch_size_b) {
         // calls breakout over vector lanes with vector lane size of 1
-        CallFunctorWithTeamThreadsAndVectors<Tag>(threads_per_team, 1, team_scratch_size_a, team_scratch_size_b, thread_scratch_size_a, thread_scratch_size_b);
+        CallFunctorWithTeamThreadsAndVectors<Tag>(batch_size, threads_per_team, 1, team_scratch_size_a, team_scratch_size_b, thread_scratch_size_a, thread_scratch_size_b);
     }
 
     /*! \brief Evaluates the polynomial basis under a particular sampling function. Generally used to fill a row of P.
@@ -712,6 +719,9 @@ public:
         _orthonormal_tangent_space_provided = false; 
         _reference_outward_normal_direction_provided = false;
         _use_reference_outward_normal_direction_provided_to_orient_surface = false;
+        _entire_batch_computed_at_once = true;
+
+        _initial_index_for_batch = 0;
 
         _max_num_neighbors = 0;
 
@@ -1001,7 +1011,11 @@ public:
     decltype(_alphas) getAlphas() const { return _alphas; }
 
     //! Get a view (device) of all polynomial coefficients basis
-    decltype(_RHS) getFullPolynomialCoefficientsBasis() const { return _RHS; }
+    decltype(_RHS) getFullPolynomialCoefficientsBasis() const { 
+        compadre_assert_release(_entire_batch_computed_at_once 
+                && "Entire batch not computed at once, so getFullPolynomialCoefficientsBasis() can not be called.");
+        return _RHS; 
+    }
 
     //! Get the polynomial sampling functional specified at instantiation
     SamplingFunctional getPolynomialSamplingFunctional() const { return _polynomial_sampling_functional; }

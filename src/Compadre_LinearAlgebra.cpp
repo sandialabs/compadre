@@ -3,7 +3,7 @@
 namespace Compadre{
 namespace GMLS_LinearAlgebra {
 
-void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors, int * neighbor_list_sizes) {
+void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
 
 #ifdef COMPADRE_USE_CUDA
 
@@ -90,7 +90,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
             // use a custom # of neighbors for each problem, if possible
             const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
-            int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
+            int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i + initial_index_of_batch))*multiplier : M;
 
             Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
             dgels_( const_cast<char *>(transpose_or_no.c_str()), 
@@ -116,7 +116,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
             // use a custom # of neighbors for each problem, if possible
             const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
-            int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
+            int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i + initial_index_of_batch))*multiplier : M;
 
             dgels_( const_cast<char *>(transpose_or_no.c_str()), 
                     const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rows), 
@@ -134,7 +134,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
 }
 
-void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors, int * neighbor_list_sizes) {
+void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
 
 // _U, _S, and _V are stored globally so that they can be used to apply targets in applySVD
 // they are not needed on the CPU, only with CUDA because there is no dgelsd equivalent
@@ -316,7 +316,7 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
 
     Kokkos::Profiling::pushRegion("SVD::S Copy");
       // deep copy neighbor list sizes over to gpu
-      Kokkos::View<int*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > h_neighbor_list_sizes(neighbor_list_sizes, num_matrices);
+      Kokkos::View<int*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > h_neighbor_list_sizes(neighbor_list_sizes + initial_index_of_batch, num_matrices);
       Kokkos::View<int*> d_neighbor_list_sizes("neighbor list sizes on device", num_matrices);
       Kokkos::deep_copy(d_neighbor_list_sizes, h_neighbor_list_sizes);
 
@@ -466,7 +466,7 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
 
                 // use a custom # of neighbors for each problem, if possible
                 const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
-                int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
+                int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i + initial_index_of_batch))*multiplier : M;
 
                 dgelsd_( const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rows), 
                          p_offset, const_cast<int*>(&lda), 

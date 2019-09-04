@@ -580,7 +580,7 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
     /*
      * Creates sqrt(W)*P
      */
-    const int target_index = teamMember.league_rank();
+    const int target_index = _initial_index_for_batch + teamMember.league_rank();
 //    printf("specific order: %d\n", specific_order);
 //    {
 //        const int storage_size = (specific_order > 0) ? this->getNP(specific_order, dimension)-this->getNP(specific_order-1, dimension) : this->getNP(_poly_order, dimension);
@@ -664,7 +664,7 @@ void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_
  * 2.) Used to calculate a polynomial of _curvature_poly_order, which we use to calculate curvature of the manifold
  */
 
-    const int target_index = teamMember.league_rank();
+    const int target_index = _initial_index_for_batch + teamMember.league_rank();
 
     // P is stored layout left, because that is what CUDA and LAPACK expect, and storing it
     // this way prevents copying data later
