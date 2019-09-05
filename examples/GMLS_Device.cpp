@@ -42,6 +42,15 @@ bool all_passed = true;
 // code block to reduce scope for all Kokkos View allocations
 // otherwise, Views may be deallocating when we call Kokkos finalize() later
 {
+
+    // check if 6 arguments are given from the command line, the first being the program name
+    int number_of_batches = 1; // QR by default
+    if (argc >= 6) {
+        int arg6toi = atoi(args[5]);
+        if (arg6toi > 0) {
+            number_of_batches = arg6toi;
+        }
+    }
     
     // check if 5 arguments are given from the command line, the first being the program name
     //  solver_type used for factorization in solving each GMLS problem:
@@ -310,7 +319,7 @@ bool all_passed = true;
     my_GMLS.setWeightingPower(2);
     
     // generate the alphas that to be combined with data for each target operation requested in lro
-    my_GMLS.generateAlphas();
+    my_GMLS.generateAlphas(number_of_batches);
     
     
     //! [Setting Up The GMLS Object]
@@ -350,8 +359,11 @@ bool all_passed = true;
             (divergence_sampling_data_device, CurlOfVectorPointEvaluation);
     
     // retrieves polynomial coefficients instead of remapped field
-    //auto scalar_coefficients = gmls_evaluator.applyFullPolynomialCoefficientsBasisToDataAllComponents<double**, Kokkos::HostSpace>
-            (sampling_data_device);
+    decltype(output_curl) scalar_coefficients;
+    if (number_of_batches==1)
+        scalar_coefficients = 
+            gmls_evaluator.applyFullPolynomialCoefficientsBasisToDataAllComponents<double**, Kokkos::HostSpace>
+                (sampling_data_device);
     
     //! [Apply GMLS Alphas To Data]
     
@@ -376,8 +388,7 @@ bool all_passed = true;
         // this is a test that the scalar_coefficients 2d array returned hold valid entries
         // scalar_coefficients(i,1)*1./epsilon(i) is equivalent to the target operation acting 
         // on the polynomials applied to the polynomial coefficients
-        double GMLS_GradX = //scalar_coefficients(i,1)*1./epsilon(i);
-                            output_gradient(i,0);
+        double GMLS_GradX = (number_of_batches==1) ? scalar_coefficients(i,1)*1./epsilon(i) : output_gradient(i,0);
     
         // load partial y from gradient
         double GMLS_GradY = (dimension>1) ? output_gradient(i,1) : 0;

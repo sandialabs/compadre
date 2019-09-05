@@ -85,6 +85,10 @@ template<typename T>
 typename std::enable_if<2==T::rank,T>::type createView(std::string str, int dim_0, int dim_1)
 { return T(str, dim_0, dim_1); }
 
+//void compadre_rethrow_exception(std::exception &e, const std::string &extra_message) {
+//    std::cout << extra_message + "\n\n" + e.what() << std::endl;
+//}
+
 //! compadre_assert_release is used for assertions that should always be checked, but generally 
 //! are not expensive to verify or are not called frequently. 
 # define compadre_assert_release(condition) do {                                \
