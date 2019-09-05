@@ -24,7 +24,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
     bool additional_evaluation_sites_need_handled = 
         (_additional_evaluation_coordinates.extent(0) > 0) ? true : false; // additional evaluation sites are specified
 
-    const int target_index = teamMember.league_rank();
+    const int target_index = _initial_index_for_batch + teamMember.league_rank();
 
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, P_target_row.extent(0)), [&] (const int j) {
         Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, P_target_row.extent(1)),
@@ -671,7 +671,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
 KOKKOS_INLINE_FUNCTION
 void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, const scratch_matrix_right_type* V, const local_index_type local_neighbor_index) const {
 
-    const int target_index = teamMember.league_rank();
+    const int target_index = _initial_index_for_batch + teamMember.league_rank();
 
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, P_target_row.extent(0)), [&] (const int j) {
         Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, P_target_row.extent(1)),
@@ -718,7 +718,7 @@ KOKKOS_INLINE_FUNCTION
 void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, scratch_matrix_right_type V, scratch_matrix_right_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients) const {
 
     // only designed for 2D manifold embedded in 3D space
-    const int target_index = teamMember.league_rank();
+    const int target_index = _initial_index_for_batch + teamMember.league_rank();
     const int target_NP = this->getNP(_poly_order, _dimensions-1, _reconstruction_space);
 
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, P_target_row.extent(0)), [&] (const int j) {

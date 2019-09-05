@@ -8,7 +8,7 @@ namespace Compadre {
 KOKKOS_INLINE_FUNCTION
 void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type Q, scratch_matrix_right_type R, scratch_vector_type w, scratch_matrix_right_type P_target_row, const int target_NP) const {
 
-    const int target_index = teamMember.league_rank();
+    const int target_index = _initial_index_for_batch + teamMember.league_rank();
         
     const int num_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
             ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
