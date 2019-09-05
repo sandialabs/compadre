@@ -1,6 +1,6 @@
 <ParameterList name="Compadre">
   <Parameter name="solution type" type="string" value="poly"/>
-  <Parameter name="loop size" type="int" value="2"/>
+  <Parameter name="loop size" type="int" value="1"/>
   <ParameterList name="io">
     <Parameter name="input file prefix" type="string" value="../test_data/grids/output_"/>
     <Parameter name="input file" type="string" value=""/>

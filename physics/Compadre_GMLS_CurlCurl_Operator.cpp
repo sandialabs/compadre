@@ -45,7 +45,6 @@ Teuchos::RCP<crs_graph_type> GMLS_CurlCurlPhysics::computeGraph(local_index_type
 
 	// generate the interpolation operator and call the coefficients needed (storing them)
 	const coords_type* target_coords = this->_coords;
-	const coords_type* source_coords = this->_coords;
 
 	const std::vector<std::vector<std::pair<size_t, scalar_type> > >& all_neighbors = neighborhood->getAllNeighbors();
 
@@ -84,19 +83,13 @@ void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index
 	Teuchos::RCP<Teuchos::Time> ComputeMatrixTime = Teuchos::TimeMonitor::getNewCounter ("Compute Matrix Time");
 	ComputeMatrixTime->start();
 
-	bool include_halo = true;
-	bool no_halo = false;
-
 	bool use_physical_coords = true; // can be set on the operator in the future
 
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_A.is_null(), "Tpetra CrsMatrix for Physics not yet specified.");
 
-	bool blocked_matrix = _parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked");
-
 	//Loop over all particles, convert to GMLS data types, solve problem, and insert into matrix:
 
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
-	const local_index_type ntotalfielddimensions = this->_particles->getFieldManagerConst()->getTotalFieldDimensions();
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
 	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
 	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
