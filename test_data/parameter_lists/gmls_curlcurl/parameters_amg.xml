@@ -1,0 +1,34 @@
+<ParameterList name="Compadre">
+  <Parameter name="solution type" type="string" value="poly"/>
+  <Parameter name="loop size" type="int" value="1"/>
+  <ParameterList name="io">
+    <Parameter name="input file prefix" type="string" value="../test_data/grids/output_"/>
+    <Parameter name="input file" type="string" value=""/>
+    <Parameter name="output file prefix" type="string" value="../test_data/amg_"/>
+    <Parameter name="output file" type="string" value=".pvtp"/>
+    <Parameter name="vtk produce mesh" type="bool" value="false"/>
+  </ParameterList>
+  <ParameterList name="solver">
+    <Parameter name="type" type="string" value="iterative"/>
+    <Parameter name="file" type="string" value="../test_data/parameter_lists/gmls_laplacian/solver_amg.xml"/>
+    <Parameter name="blocked" type="bool" value="false"/>
+    <!--<Parameter name="save residual over solution" type="bool" value="true"/>-->
+  </ParameterList>
+  <ParameterList name="remap">
+    <Parameter name="weighting power" type="int" value="10"/>
+    <Parameter name="porder" type="int" value="4"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
+  </ParameterList>
+  <ParameterList name="neighborhood">
+    <Parameter name="method" type="string" value="nanoflann"/>
+    <Parameter name="dynamic radius" type="bool" value="true"/>
+    <Parameter name="spatially varying radius" type="bool" value="true"/>
+    <Parameter name="multiplier" type="double" value="1.5"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.05"/>
+    <Parameter name="size" type="double" value="0.5"/>
+  </ParameterList>
+  <ParameterList name="halo">
+    <Parameter name="dynamic" type="bool" value="true"/>
+    <Parameter name="multiplier" type="double" value="12.0"/>
+  </ParameterList>
+</ParameterList>
