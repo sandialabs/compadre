@@ -1,7 +1,8 @@
 #ifndef _COMPADRE_KOKKOSPARSER_HPP_
 #define _COMPADRE_KOKKOSPARSER_HPP_
 
-#include <Compadre_Typedefs.hpp>
+#include "Compadre_Config.h"
+#include "Compadre_Typedefs.hpp"
 
 namespace Compadre {
 

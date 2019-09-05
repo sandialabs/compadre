@@ -4,11 +4,9 @@
 #include "Compadre_GMLS_Quadrature.hpp"
 #include "Compadre_GMLS_Targets.hpp"
 
-#include <float.h> // for DBL_MAX
-
 namespace Compadre {
 
-void GMLS::generatePolynomialCoefficients() {
+void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
 
     /*
      *    Operations to Device
@@ -18,7 +16,7 @@ void GMLS::generatePolynomialCoefficients() {
     _operations = decltype(_operations)("operations", _lro.size());
     _host_operations = Kokkos::create_mirror_view(_operations);
     
-    compadre_assert_release((_max_num_neighbors >= 0) && "Neighbor lists not set in GMLS class before calling generateAlphas");
+    compadre_assert_release((_max_num_neighbors >= 0) && "Neighbor lists not set in GMLS class before calling generatePolynomialCoefficients");
     
     // loop through list of linear reconstruction operations to be performed and set them on the host
     for (size_t i=0; i<_lro.size(); ++i) _host_operations(i) = _lro[i];
@@ -34,22 +32,33 @@ void GMLS::generatePolynomialCoefficients() {
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
     // would have to store for the max case (potentially number
-    _alphas = decltype(_alphas)("coefficients", _neighbor_lists.extent(0), _total_alpha_values*max_evaluation_sites, _max_num_neighbors);
+    try {
+        _alphas = decltype(_alphas)("coefficients", _neighbor_lists.extent(0), _total_alpha_values*max_evaluation_sites, _max_num_neighbors);
+    } catch(std::exception &e) {
+       printf("Insufficient memory to store alphas: \n\n%s", e.what()); 
+       throw e;
+    }
 
     // initialize the prestencil weights that are applied to sampling data to put it into a form 
     // that the GMLS operator will be able to operate on
     auto sro = _data_sampling_functional;
-    _prestencil_weights = decltype(_prestencil_weights)("Prestencil weights",
-            std::pow(2,sro.use_target_site_weights), 
-            (sro.transform_type==DifferentEachTarget 
-                    || sro.transform_type==DifferentEachNeighbor) ?
-                _neighbor_lists.extent(0) : 1,
-            (sro.transform_type==DifferentEachNeighbor) ?
-                _max_num_neighbors : 1,
-            (sro.output_rank>0) ?
-                _local_dimensions : 1,
-            (sro.input_rank>0) ?
-                _global_dimensions : 1);
+    try {
+        _prestencil_weights = decltype(_prestencil_weights)("Prestencil weights",
+                std::pow(2,sro.use_target_site_weights), 
+                (sro.transform_type==DifferentEachTarget 
+                        || sro.transform_type==DifferentEachNeighbor) ?
+                    _neighbor_lists.extent(0) : 1,
+                (sro.transform_type==DifferentEachNeighbor) ?
+                    _max_num_neighbors : 1,
+                (sro.output_rank>0) ?
+                    _local_dimensions : 1,
+                (sro.input_rank>0) ?
+                    _global_dimensions : 1);
+    } catch(std::exception &e) {
+       printf("Insufficient memory to store prestencil weights: \n\n%s", e.what()); 
+       throw e;
+    }
+    Kokkos::fence();
 
     /*
      *    Determine if Nontrivial Null Space in Solution
@@ -159,13 +168,15 @@ void GMLS::generatePolynomialCoefficients() {
      *    Allocate Global Device Storage of Data Needed Over Multiple Calls
      */
 
-    // allocate data on the device (initialized to zero)
-    _P = Kokkos::View<double*>("P", 
-            TO_GLOBAL(_target_coordinates.extent(0))*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns));
-    _RHS = Kokkos::View<double*>("RHS", 
-            TO_GLOBAL(_target_coordinates.extent(0))*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows));
-    _w = Kokkos::View<double*>("w", 
-            TO_GLOBAL(_target_coordinates.extent(0))*TO_GLOBAL(max_num_rows));
+    global_index_type max_batch_size = (_target_coordinates.extent(0) + TO_GLOBAL(number_of_batches) - 1) / TO_GLOBAL(number_of_batches);
+    try {
+        _RHS = Kokkos::View<double*>("RHS", max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows));
+        _P = Kokkos::View<double*>("P", max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns));
+        _w = Kokkos::View<double*>("w", max_batch_size*TO_GLOBAL(max_num_rows));
+    } catch (std::exception &e) {
+        printf("Failed to allocate space for RHS, P, and w. Consider increasing number_of_batches: \n\n%s", e.what());
+        throw e;
+    }
     Kokkos::fence();
     
     /*
@@ -181,161 +192,172 @@ void GMLS::generatePolynomialCoefficients() {
 #endif
 
 
-    if (_dense_solver_type == DenseSolverType::MANIFOLD) {
+    _initial_index_for_batch = 0;
+    for (int batch_num=0; batch_num<number_of_batches; ++batch_num) {
 
-        /*
-         *    MANIFOLD Problems
-         */
+        auto this_batch_size = std::min(_target_coordinates.extent(0)-_initial_index_for_batch, max_batch_size);
+        Kokkos::deep_copy(_RHS, 0.0);
+        Kokkos::deep_copy(_P, 0.0);
+        Kokkos::deep_copy(_w, 0.0);
+        
+        if (_dense_solver_type == DenseSolverType::MANIFOLD) {
 
-        // generate quadrature for staggered approach
-        this->generate1DQuadrature();
+            /*
+             *    MANIFOLD Problems
+             */
 
-        if (!_orthonormal_tangent_space_provided) { // user did not specify orthonormal tangent directions, so we approximate them first
-            // coarse tangent plane approximation construction of P^T*P
-            this->CallFunctorWithTeamThreads<ComputeCoarseTangentPlane>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+            // generate quadrature for staggered approach
+            if (batch_num==0)
+                this->generate1DQuadrature();
 
-            // if the user provided the reference outward normal direction, then orient the computed or user provided
-            // outward normal directions in the tangent bundle
-            if (_reference_outward_normal_direction_provided && _use_reference_outward_normal_direction_provided_to_orient_surface) {
-                // use the reference outward normal direction provided by the user to orient
-                // the tangent bundle
-                this->CallFunctorWithTeamThreads<FixTangentDirectionOrdering>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+            if (!_orthonormal_tangent_space_provided) { // user did not specify orthonormal tangent directions, so we approximate them first
+                // coarse tangent plane approximation construction of P^T*P
+                this->CallFunctorWithTeamThreads<ComputeCoarseTangentPlane>(this_batch_size, _threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+
+                // if the user provided the reference outward normal direction, then orient the computed or user provided
+                // outward normal directions in the tangent bundle
+                if (_reference_outward_normal_direction_provided && _use_reference_outward_normal_direction_provided_to_orient_surface) {
+                    // use the reference outward normal direction provided by the user to orient
+                    // the tangent bundle
+                    this->CallFunctorWithTeamThreads<FixTangentDirectionOrdering>(this_batch_size, _threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+                }
+
+                // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity for curvature
+                this->CallFunctorWithTeamThreads<AssembleCurvaturePsqrtW>(this_batch_size, _threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+
+                // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
+                Kokkos::Profiling::pushRegion("Curvature QR Factorization");
+                GMLS_LinearAlgebra::batchQRFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, _max_num_neighbors, manifold_NP, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                Kokkos::Profiling::popRegion();
+
+                // evaluates targets, applies target evaluation to polynomial coefficients for curvature
+                this->CallFunctorWithTeamThreads<GetAccurateTangentDirections>(this_batch_size, _threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+
+                if (batch_num==number_of_batches-1) {
+                    // copy tangent bundle from device back to host
+                    _host_T = Kokkos::create_mirror_view(_T);
+                    Kokkos::deep_copy(_host_T, _T);
+                }
             }
 
+            // this time assembling curvature PsqrtW matrix is using a highly accurate approximation of the tangent, previously calculated
             // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity for curvature
-            this->CallFunctorWithTeamThreads<AssembleCurvaturePsqrtW>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+            this->CallFunctorWithTeamThreads<AssembleCurvaturePsqrtW>(this_batch_size, _threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
 
             // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
             Kokkos::Profiling::pushRegion("Curvature QR Factorization");
-            GMLS_LinearAlgebra::batchQRFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, _max_num_neighbors, manifold_NP, _target_coordinates.extent(0), _max_num_neighbors, _number_of_neighbors_list.data());
+            GMLS_LinearAlgebra::batchQRFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, _max_num_neighbors, manifold_NP, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
             Kokkos::Profiling::popRegion();
 
             // evaluates targets, applies target evaluation to polynomial coefficients for curvature
-            this->CallFunctorWithTeamThreads<GetAccurateTangentDirections>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+            this->CallFunctorWithTeamThreads<ApplyCurvatureTargets>(this_batch_size, _threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+            Kokkos::fence();
 
-            // copy tangent bundle from device back to host
-            _host_T = Kokkos::create_mirror_view(_T);
-            Kokkos::deep_copy(_host_T, _T);
-        }
-
-        // this time assembling curvature PsqrtW matrix is using a highly accurate approximation of the tangent, previously calculated
-        // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity for curvature
-        this->CallFunctorWithTeamThreads<AssembleCurvaturePsqrtW>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
-
-        // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
-        Kokkos::Profiling::pushRegion("Curvature QR Factorization");
-        GMLS_LinearAlgebra::batchQRFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, _max_num_neighbors, manifold_NP, _target_coordinates.extent(0), _max_num_neighbors, _number_of_neighbors_list.data());
-        Kokkos::Profiling::popRegion();
-
-        // evaluates targets, applies target evaluation to polynomial coefficients for curvature
-        this->CallFunctorWithTeamThreads<ApplyCurvatureTargets>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
-        Kokkos::fence();
-
-        // prestencil weights calculated here. appropriate because:
-        // precedes polynomial reconstruction from data (replaces contents of _RHS) 
-        // follows reconstruction of geometry
-        // calculate prestencil weights
+            // prestencil weights calculated here. appropriate because:
+            // precedes polynomial reconstruction from data (replaces contents of _RHS) 
+            // follows reconstruction of geometry
+            // calculate prestencil weights
 #ifdef COMPADRE_USE_CUDA
-        int nv=8;
+            int nv=8;
 #else
-        int nv=1;
+            int nv=1;
 #endif
-        int nt=_threads_per_team/nv;
-        this->CallFunctorWithTeamThreadsAndVectors<ComputePrestencilWeights>(nt, nv, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+            int nt=_threads_per_team/nv;
+            this->CallFunctorWithTeamThreadsAndVectors<ComputePrestencilWeights>(this_batch_size, nt, nv, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
 
-        // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity
-        this->CallFunctorWithTeamThreads<AssembleManifoldPsqrtW>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+            // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity
+            this->CallFunctorWithTeamThreads<AssembleManifoldPsqrtW>(this_batch_size, _threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
 
-        // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
-        // uses SVD if necessary or if explicitly asked to do so (much slower than QR)
-        if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
-            Kokkos::Profiling::pushRegion("Manifold SVD Factorization");
-            GMLS_LinearAlgebra::batchSVDFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.extent(0), _max_num_neighbors, _number_of_neighbors_list.data());
-            Kokkos::Profiling::popRegion();
+            // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
+            // uses SVD if necessary or if explicitly asked to do so (much slower than QR)
+            if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
+                Kokkos::Profiling::pushRegion("Manifold SVD Factorization");
+                GMLS_LinearAlgebra::batchSVDFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                Kokkos::Profiling::popRegion();
+            } else {
+                Kokkos::Profiling::pushRegion("Manifold QR Factorization");
+                GMLS_LinearAlgebra::batchQRFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                Kokkos::Profiling::popRegion();
+            }
+            Kokkos::fence();
+
         } else {
-            Kokkos::Profiling::pushRegion("Manifold QR Factorization");
-            GMLS_LinearAlgebra::batchQRFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.extent(0), _max_num_neighbors, _number_of_neighbors_list.data());
-            Kokkos::Profiling::popRegion();
-        }
-        Kokkos::fence();
 
-    } else {
+            /*
+             *    STANDARD GMLS Problems
+             */
+
+            // generate quadrature for face normal approach
+            if (batch_num==0)
+                this->generate1DQuadrature();
+
+            // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity
+            this->CallFunctorWithTeamThreads<AssembleStandardPsqrtW>(this_batch_size, _threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+            Kokkos::fence();
+
+            // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
+            // uses SVD if necessary or if explicitly asked to do so (much slower than QR)
+            if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
+                Kokkos::Profiling::pushRegion("SVD Factorization");
+                //GMLS_LinearAlgebra::batchSVDFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.extent(0), _max_num_neighbors, _number_of_neighbors_list.data());
+                GMLS_LinearAlgebra::batchSVDFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                Kokkos::Profiling::popRegion();
+            } else {
+                Kokkos::Profiling::pushRegion("QR Factorization");
+                //GMLS_LinearAlgebra::batchQRFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.extent(0), _max_num_neighbors, _number_of_neighbors_list.data());
+                GMLS_LinearAlgebra::batchQRFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                Kokkos::Profiling::popRegion();
+            }
+
+#ifdef COMPADRE_USE_CUDA
+            int nv=8;
+#else
+            int nv=1;
+#endif
+            int nt=_threads_per_team/nv;
+            this->CallFunctorWithTeamThreadsAndVectors<ComputePrestencilWeights>(this_batch_size, nt, nv, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+            Kokkos::fence();
+        }
 
         /*
-         *    STANDARD GMLS Problems
+         *    Calculate Optimal Threads Based On Levels of Parallelism
          */
 
-        // generate quadrature for face normal approach
-        this->generate1DQuadrature();
 
-        // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity
-        this->CallFunctorWithTeamThreads<AssembleStandardPsqrtW>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
-        Kokkos::fence();
+        if (_dense_solver_type == DenseSolverType::MANIFOLD) {
 
-        // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
-        // uses SVD if necessary or if explicitly asked to do so (much slower than QR)
-        if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
-            Kokkos::Profiling::pushRegion("SVD Factorization");
-            GMLS_LinearAlgebra::batchSVDFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.extent(0), _max_num_neighbors, _number_of_neighbors_list.data());
-            Kokkos::Profiling::popRegion();
+            /*
+             *    MANIFOLD Problems
+             */
+
+            // evaluates targets, applies target evaluation to polynomial coefficients to store in _alphas
+            this->CallFunctorWithTeamThreads<ApplyManifoldTargets>(this_batch_size, _threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+
         } else {
-            Kokkos::Profiling::pushRegion("QR Factorization");
-            GMLS_LinearAlgebra::batchQRFactorize(_P.data(), max_num_rows, this_num_columns, _RHS.data(), max_num_rows, max_num_rows, max_num_rows, this_num_columns, _target_coordinates.extent(0), _max_num_neighbors, _number_of_neighbors_list.data());
-            Kokkos::Profiling::popRegion();
-        }
 
+            /*
+             *    STANDARD GMLS Problems
+             */
+
+            // evaluates targets, applies target evaluation to polynomial coefficients to store in _alphas
 #ifdef COMPADRE_USE_CUDA
-        int nv=8;
+            int nv=8;
 #else
-        int nv=1;
+            int nv=1;
 #endif
-        int nt=_threads_per_team/nv;
-        this->CallFunctorWithTeamThreadsAndVectors<ComputePrestencilWeights>(nt, nv, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
-        Kokkos::fence();
-    }
+            int nt=_threads_per_team/nv;
+            this->CallFunctorWithTeamThreadsAndVectors<ApplyStandardTargets>(this_batch_size, nt, nv, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+
+        }
+        _initial_index_for_batch += max_batch_size;
+    } // end of batch loops
 
     // deallocate _P and _w
     _P = Kokkos::View<double*>("P",0);
     _w = Kokkos::View<double*>("w",0);
-
-}
-
-void GMLS::generateAlphas() {
-
-    // check if polynomial coefficients for reconstruction are already generated
-    if (_RHS.extent(0) <= 0) this->generatePolynomialCoefficients();
-
-    /*
-     *    Calculate Optimal Threads Based On Levels of Parallelism
-     */
-
-
-    if (_dense_solver_type == DenseSolverType::MANIFOLD) {
-
-        /*
-         *    MANIFOLD Problems
-         */
-
-        // evaluates targets, applies target evaluation to polynomial coefficients to store in _alphas
-        this->CallFunctorWithTeamThreads<ApplyManifoldTargets>(_threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
-
-    } else {
-
-        /*
-         *    STANDARD GMLS Problems
-         */
-
-        // evaluates targets, applies target evaluation to polynomial coefficients to store in _alphas
-#ifdef COMPADRE_USE_CUDA
-        int nv=8;
-#else
-        int nv=1;
-#endif
-        int nt=_threads_per_team/nv;
-        this->CallFunctorWithTeamThreadsAndVectors<ApplyStandardTargets>(nt, nv, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
-
+    if (number_of_batches > 1) { // no reason to keep coefficients if they aren't all in memory
+        _RHS = Kokkos::View<double*>("RHS",0);
     }
-    Kokkos::fence();
 
     /*
      *    Device to Host Copy Of Solution
@@ -349,6 +371,14 @@ void GMLS::generateAlphas() {
     }
     Kokkos::deep_copy(_host_alphas, _alphas);
     Kokkos::fence();
+
+
+}
+
+void GMLS::generateAlphas(const int number_of_batches) {
+
+    this->generatePolynomialCoefficients(number_of_batches);
+
 }
 
 
@@ -359,7 +389,8 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
      *    Dimensions
      */
 
-    const int target_index = teamMember.league_rank();
+    const int target_index = _initial_index_for_batch + teamMember.league_rank();
+    const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
@@ -374,11 +405,11 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
     // thread_scratch has a copy per thread
 
     scratch_matrix_right_type PsqrtW(_P.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
     scratch_matrix_right_type RHS(_RHS.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
     scratch_vector_type w(_w.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows), max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
 
     // delta, used for each thread
     scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), this_num_columns);
@@ -408,7 +439,8 @@ void GMLS::operator()(const ApplyStandardTargets&, const member_type& teamMember
      *    Dimensions
      */
 
-    const int target_index = teamMember.league_rank();
+    const int target_index = _initial_index_for_batch + teamMember.league_rank();
+    const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int this_num_columns = _basis_multiplier*_NP;
@@ -420,12 +452,12 @@ void GMLS::operator()(const ApplyStandardTargets&, const member_type& teamMember
      */
 
     scratch_matrix_right_type PsqrtW(_P.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
     // Coefficients for polynomial basis have overwritten _RHS
     scratch_matrix_right_type Coeffs(_RHS.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
     scratch_vector_type w(_w.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows), max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
 
     scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_a), max_num_rows);
     scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_a), max_num_rows);
@@ -451,7 +483,8 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
      *    Dimensions
      */
 
-    const int target_index = teamMember.league_rank();
+    const int target_index = _initial_index_for_batch + teamMember.league_rank();
+    const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
@@ -463,9 +496,9 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
      */
 
     scratch_matrix_right_type PsqrtW(_P.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
     scratch_vector_type w(_w.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows), max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
     scratch_matrix_right_type T(_T.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
 
@@ -499,7 +532,8 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
      *    Dimensions
      */
 
-    const int target_index = teamMember.league_rank();
+    const int target_index = _initial_index_for_batch + teamMember.league_rank();
+    const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
@@ -512,11 +546,11 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
      */
 
     scratch_matrix_right_type CurvaturePsqrtW(_P.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
     scratch_matrix_right_type RHS(_RHS.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
     scratch_vector_type w(_w.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows), max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
     scratch_matrix_right_type T(_T.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
 
@@ -552,7 +586,8 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
      *    Dimensions
      */
 
-    const int target_index = teamMember.league_rank();
+    const int target_index = _initial_index_for_batch + teamMember.league_rank();
+    const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
@@ -565,7 +600,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
      */
 
     scratch_matrix_right_type Q(_RHS.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
     scratch_matrix_right_type T(_T.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
 
@@ -690,7 +725,7 @@ void GMLS::operator()(const FixTangentDirectionOrdering&, const member_type& tea
      *    Dimensions
      */
 
-    const int target_index = teamMember.league_rank();
+    const int target_index = _initial_index_for_batch + teamMember.league_rank();
 
     /*
      *    Data
@@ -735,7 +770,8 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
      *    Dimensions
      */
 
-    const int target_index = teamMember.league_rank();
+    const int target_index = _initial_index_for_batch + teamMember.league_rank();
+    const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
@@ -748,7 +784,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
      */
 
     scratch_matrix_right_type Q(_RHS.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
     scratch_matrix_right_type T(_T.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
 
@@ -863,7 +899,8 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
      *    Dimensions
      */
 
-    const int target_index = teamMember.league_rank();
+    const int target_index = _initial_index_for_batch + teamMember.league_rank();
+    const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
@@ -876,11 +913,11 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
      */
 
     scratch_matrix_right_type PsqrtW(_P.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
     scratch_matrix_right_type Q(_RHS.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
     scratch_vector_type w(_w.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows), max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
     scratch_matrix_right_type T(_T.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
 
@@ -913,7 +950,8 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
      *    Dimensions
      */
 
-    const int target_index = teamMember.league_rank();
+    const int target_index = _initial_index_for_batch + teamMember.league_rank();
+    const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
@@ -927,11 +965,11 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
      */
 
     scratch_matrix_right_type PsqrtW(_P.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
     scratch_matrix_right_type Coeffs(_RHS.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
     scratch_vector_type w(_w.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows), max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
     scratch_matrix_right_type T(_T.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
 
@@ -964,7 +1002,8 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
      *    Dimensions
      */
 
-    const int target_index = teamMember.league_rank();
+    const int target_index = _initial_index_for_batch + teamMember.league_rank();
+    const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
@@ -983,7 +1022,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
 
     // holds polynomial coefficients for curvature reconstruction
     scratch_matrix_right_type Q(_RHS.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
 
     scratch_matrix_right_type T(_T.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);

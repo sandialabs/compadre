@@ -22,9 +22,11 @@ import_array();
     try {
         $action
     } catch(std::exception &_e) {
-        SWIG_exception_fail(SWIG_SystemError, (&_e)->what());
+        PyErr_SetString(PyExc_RuntimeError,(&_e)->what());
+        SWIG_fail;
     } catch (...) {
-        SWIG_exception(SWIG_RuntimeError, "unknown exception");
+        PyErr_SetString(PyExc_RuntimeError, "unknown exception");
+        SWIG_fail;
     }
 }
 
