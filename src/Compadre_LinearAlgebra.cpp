@@ -44,6 +44,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
     compadre_assert_release(cublas_stat==CUBLAS_STATUS_SUCCESS && "cublasDgeqrfBatched failed");
     cudaDeviceSynchronize();
+    cudaFree(devInfo);
     Kokkos::Profiling::popRegion();
 
 

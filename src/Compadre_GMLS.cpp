@@ -32,22 +32,33 @@ void GMLS::generatePolynomialCoefficients() {
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
     // would have to store for the max case (potentially number
-    _alphas = decltype(_alphas)("coefficients", _neighbor_lists.extent(0), _total_alpha_values*max_evaluation_sites, _max_num_neighbors);
+    try {
+        _alphas = decltype(_alphas)("coefficients", _neighbor_lists.extent(0), _total_alpha_values*max_evaluation_sites, _max_num_neighbors);
+    } catch(std::exception &e) {
+       printf("Insufficient memory to store alphas: %s", e.what()); 
+       throw e;
+    }
 
     // initialize the prestencil weights that are applied to sampling data to put it into a form 
     // that the GMLS operator will be able to operate on
     auto sro = _data_sampling_functional;
-    _prestencil_weights = decltype(_prestencil_weights)("Prestencil weights",
-            std::pow(2,sro.use_target_site_weights), 
-            (sro.transform_type==DifferentEachTarget 
-                    || sro.transform_type==DifferentEachNeighbor) ?
-                _neighbor_lists.extent(0) : 1,
-            (sro.transform_type==DifferentEachNeighbor) ?
-                _max_num_neighbors : 1,
-            (sro.output_rank>0) ?
-                _local_dimensions : 1,
-            (sro.input_rank>0) ?
-                _global_dimensions : 1);
+    try {
+        _prestencil_weights = decltype(_prestencil_weights)("Prestencil weights",
+                std::pow(2,sro.use_target_site_weights), 
+                (sro.transform_type==DifferentEachTarget 
+                        || sro.transform_type==DifferentEachNeighbor) ?
+                    _neighbor_lists.extent(0) : 1,
+                (sro.transform_type==DifferentEachNeighbor) ?
+                    _max_num_neighbors : 1,
+                (sro.output_rank>0) ?
+                    _local_dimensions : 1,
+                (sro.input_rank>0) ?
+                    _global_dimensions : 1);
+    } catch(std::exception &e) {
+       printf("Insufficient memory to store prestencil weights: %s", e.what()); 
+       throw e;
+    }
+    Kokkos::fence();
 
     /*
      *    Determine if Nontrivial Null Space in Solution
@@ -165,6 +176,32 @@ void GMLS::generatePolynomialCoefficients() {
     double* RHS_data = NULL;
     double* w_data = NULL;
 
+#ifdef COMPADRE_USE_CUDA
+    // iteration not necessary on GPU because we can query how much memory is available
+    // +1+3 is for allocation for solves
+    size_t allocation_size_needed_per_problem = sizeof(double)*TO_GLOBAL(max_num_rows)*(TO_GLOBAL(max_num_rows)+TO_GLOBAL(this_num_columns)+TO_GLOBAL(4));
+
+    size_t mem_free, mem_tot;
+    cudaMemGetInfo(&mem_free, &mem_tot);
+    // fill only 95% of device at most
+    compadre_assert_release(float(mem_free)/float(mem_tot)>=0.05 && ">95% of GPU already in use before attempting to allocate space for RHS, P, and w.");
+
+    size_t largest_num_problems = (mem_free - TO_GLOBAL(0.05*mem_tot)) / allocation_size_needed_per_problem;
+    number_of_batches = (_target_coordinates.extent(0) + TO_GLOBAL(largest_num_problems) - 1) / TO_GLOBAL(largest_num_problems);
+    max_batch_size = (_target_coordinates.extent(0) + TO_GLOBAL(number_of_batches) - 1) / TO_GLOBAL(number_of_batches);
+
+    auto cuda_ret = cudaMalloc(&RHS_data, sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows));
+    compadre_assert_release(cuda_ret==cudaSuccess && "RHS array could not be allocated on heap.");
+
+    cuda_ret = cudaMalloc(&P_data, sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns));
+    compadre_assert_release(cuda_ret==cudaSuccess && "P array could not be allocated on heap.");
+
+    cuda_ret = cudaMalloc(&w_data, sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows));
+    compadre_assert_release(cuda_ret==cudaSuccess && "w array could not be allocated on heap.");
+
+    Kokkos::fence();
+
+#else
     while (true) {
         try {
 
@@ -177,28 +214,12 @@ void GMLS::generatePolynomialCoefficients() {
             // d = (x + y - 1)/y is equivalent to ceil(float(x)/float(y))
             max_batch_size = (_target_coordinates.extent(0) + TO_GLOBAL(number_of_batches) - 1) / TO_GLOBAL(number_of_batches);
 
-            // allocate RHS, P, and w
-#ifdef COMPADRE_USE_CUDA
-            auto cuda_ret = cudaMalloc(&RHS_data, sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows));
-            compadre_assert_release(cuda_ret==cudaSuccess && "RHS array could not be allocated on heap.");
-            cuda_ret = cudaMalloc(&P_data, sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns));
-            compadre_assert_release(cuda_ret==cudaSuccess && "P array could not be allocated on heap.");
-            cuda_ret = cudaMalloc(&w_data, sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows));
-            compadre_assert_release(cuda_ret==cudaSuccess && "w array could not be allocated on heap.");
-            Kokkos::fence();
-#else
             RHS_data = new double[sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows)];
             compadre_assert_release(RHS_data && "RHS array could not be allocated on heap.");
             P_data = new double[sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns)];
             compadre_assert_release(P_data && "P array could not be allocated on heap.");
             w_data = new double[sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)];
             compadre_assert_release(w_data && "w array could not be allocated on heap.");
-#endif
-
-            // wrap RHS, P, and w with Kokkos unmanaged views and zero-out
-            _RHS = Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged> >(RHS_data, max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows));
-            _P = Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged> >(P_data, max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns));
-            _w = Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged> >(w_data, max_batch_size*TO_GLOBAL(max_num_rows));
 
             break;
         } catch(...) {
@@ -211,6 +232,11 @@ void GMLS::generatePolynomialCoefficients() {
         printf("Allocation for W, P, and RHS too large for device. Breaking execution into %d smaller batches.\n",
                 number_of_batches);
     }
+#endif
+    // wrap RHS, P, and w with Kokkos unmanaged views and zero-out
+    _RHS = Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged> >(RHS_data, max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows));
+    _P = Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged> >(P_data, max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns));
+    _w = Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged> >(w_data, max_batch_size*TO_GLOBAL(max_num_rows));
     Kokkos::fence();
     
     /*
@@ -442,6 +468,7 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
      */
 
     const int target_index = _initial_index_for_batch + teamMember.league_rank();
+    const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
@@ -456,11 +483,11 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
     // thread_scratch has a copy per thread
 
     scratch_matrix_right_type PsqrtW(_P.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
     scratch_matrix_right_type RHS(_RHS.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
     scratch_vector_type w(_w.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows), max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
 
     // delta, used for each thread
     scratch_vector_type delta(teamMember.thread_scratch(_scratch_thread_level_b), this_num_columns);
@@ -491,6 +518,7 @@ void GMLS::operator()(const ApplyStandardTargets&, const member_type& teamMember
      */
 
     const int target_index = _initial_index_for_batch + teamMember.league_rank();
+    const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int this_num_columns = _basis_multiplier*_NP;
@@ -502,12 +530,12 @@ void GMLS::operator()(const ApplyStandardTargets&, const member_type& teamMember
      */
 
     scratch_matrix_right_type PsqrtW(_P.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
     // Coefficients for polynomial basis have overwritten _RHS
     scratch_matrix_right_type Coeffs(_RHS.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
     scratch_vector_type w(_w.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows), max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
 
     scratch_vector_type t1(teamMember.team_scratch(_scratch_team_level_a), max_num_rows);
     scratch_vector_type t2(teamMember.team_scratch(_scratch_team_level_a), max_num_rows);
@@ -534,6 +562,7 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
      */
 
     const int target_index = _initial_index_for_batch + teamMember.league_rank();
+    const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
@@ -545,9 +574,9 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
      */
 
     scratch_matrix_right_type PsqrtW(_P.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
     scratch_vector_type w(_w.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows), max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
     scratch_matrix_right_type T(_T.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
 
@@ -582,6 +611,7 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
      */
 
     const int target_index = _initial_index_for_batch + teamMember.league_rank();
+    const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
@@ -594,11 +624,11 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
      */
 
     scratch_matrix_right_type CurvaturePsqrtW(_P.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
     scratch_matrix_right_type RHS(_RHS.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
     scratch_vector_type w(_w.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows), max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
     scratch_matrix_right_type T(_T.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
 
@@ -635,6 +665,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
      */
 
     const int target_index = _initial_index_for_batch + teamMember.league_rank();
+    const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
@@ -647,7 +678,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
      */
 
     scratch_matrix_right_type Q(_RHS.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
     scratch_matrix_right_type T(_T.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
 
@@ -818,6 +849,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
      */
 
     const int target_index = _initial_index_for_batch + teamMember.league_rank();
+    const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
@@ -830,7 +862,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
      */
 
     scratch_matrix_right_type Q(_RHS.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
     scratch_matrix_right_type T(_T.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
 
@@ -946,6 +978,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
      */
 
     const int target_index = _initial_index_for_batch + teamMember.league_rank();
+    const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
@@ -958,11 +991,11 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
      */
 
     scratch_matrix_right_type PsqrtW(_P.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
     scratch_matrix_right_type Q(_RHS.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
     scratch_vector_type w(_w.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows), max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
     scratch_matrix_right_type T(_T.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
 
@@ -996,6 +1029,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
      */
 
     const int target_index = _initial_index_for_batch + teamMember.league_rank();
+    const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
@@ -1009,11 +1043,11 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
      */
 
     scratch_matrix_right_type PsqrtW(_P.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns), max_num_rows, this_num_columns);
     scratch_matrix_right_type Coeffs(_RHS.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
     scratch_vector_type w(_w.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows), max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
     scratch_matrix_right_type T(_T.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
 
@@ -1047,6 +1081,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
      */
 
     const int target_index = _initial_index_for_batch + teamMember.league_rank();
+    const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
@@ -1065,7 +1100,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
 
     // holds polynomial coefficients for curvature reconstruction
     scratch_matrix_right_type Q(_RHS.data() 
-            + TO_GLOBAL(target_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
 
     scratch_matrix_right_type T(_T.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
