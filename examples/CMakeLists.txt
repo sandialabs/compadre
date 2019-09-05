@@ -33,6 +33,7 @@ endif()
 if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
   add_exe_w_compadre(CompadreGMLSStaggeredAnalyticTest Compadre_GMLSStaggeredAnalyticTest.cpp)
   add_exe_w_compadre(CompadreGMLSStaggeredIntegralTest Compadre_GMLSStaggeredIntegralTest.cpp)
+  add_exe_w_compadre(CompadreGMLSCurlCurlTest Compadre_GMLSCurlCurlTest.cpp)
   add_exe_w_compadre(CompadreGMLSTest Compadre_GMLSTest.cpp)
   add_exe_w_compadre(tpetraCoordsTest.exe Compadre_TrilinosTest.cpp)
   #add_exe_w_compadre(spherePoisson.exe Compadre_SpherePoissonTest.cpp)
@@ -97,6 +98,14 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
 
     ADD_TEST(NAME GMLSStaggeredIntegralTest4x1amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStaggeredIntegralTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_amg.xml" "--kokkos-threads=1")
     SET_TESTS_PROPERTIES(GMLSStaggeredIntegralTest4x1amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;four;staggered")
+
+    # GMLS CURL CURL TEST
+
+    ADD_TEST(NAME CompadreGMLSCurlCurlPolyTest4x1amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSCurlCurlTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_curlcurl/parameters_amg.xml" "--kokkos-threads=1")
+    SET_TESTS_PROPERTIES(CompadreGMLSCurlCurlPolyTest4x1amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;four")
+
+    ADD_TEST(NAME CompadreGMLSCurlCurlSineTest4x1amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSCurlCurlTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_curlcurl/parameters_amg_sine.xml" "--kokkos-threads=1")
+    SET_TESTS_PROPERTIES(CompadreGMLSCurlCurlSineTest4x1amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;four")
 
     # GRAPH LAPLACIAN
 

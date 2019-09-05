@@ -103,10 +103,10 @@ void SolverT::solve() {
     Teko::MultiVector Thyra_x = Teko::buildBlockedMultiVector(x);
 
     // Diagnostics:
-//    auto out = Teuchos::getFancyOStream(Teuchos::rcpFromRef(std::cout));
-//    x->describe(*out, Teuchos::VERB_EXTREME);
-//    _b->describe(*out, Teuchos::VERB_EXTREME);
-//    _A->describe(*out, Teuchos::VERB_EXTREME);
+   // auto out = Teuchos::getFancyOStream(Teuchos::rcpFromRef(std::cout));
+   // Thyra_x->describe(*out, Teuchos::VERB_EXTREME);
+   // Thyra_b->describe(*out, Teuchos::VERB_EXTREME);
+   // _A->describe(*out, Teuchos::VERB_EXTREME);
 
     Thyra::SolveStatus<scalar_type> status;
 
