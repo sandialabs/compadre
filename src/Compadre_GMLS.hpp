@@ -1691,16 +1691,20 @@ public:
         this->resetCoefficientData();
     }
 
+    /*! \brief Generates polynomial coefficients by setting up and solving least squares problems
     //! Sets up the batch of GMLS problems to be solved for. Provides alpha values
     //! that can later be contracted against data or degrees of freedom to form a
     //! global linear system.
-    void generatePolynomialCoefficients();
+    //! \param number_of_batches    [in] - how many batches to break up the total workload into (for storage)
+    */
+    void generatePolynomialCoefficients(const int number_of_batches = 1);
 
-    //! Calculates target operations and applies the evaluations to the previously 
-    //! constructed polynomial coefficients. If polynomial coefficients were not
-    //! already calculated, then generatePolynomialCoefficients() will also be
-    //! called.
-    void generateAlphas();
+    /*! \brief Meant to calculate target operations and apply the evaluations to the previously 
+    //! constructed polynomial coefficients. But now that is inside of generatePolynomialCoefficients because
+    //! it must be to handle number_of_batches>1. Effectively, this just calls generatePolynomialCoefficients.
+    //! \param number_of_batches    [in] - how many batches to break up the total workload into (for storage)
+    */
+    void generateAlphas(const int number_of_batches = 1);
 
 ///@}
 

@@ -6,7 +6,7 @@
 
 namespace Compadre {
 
-void GMLS::generatePolynomialCoefficients() {
+void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
 
     /*
      *    Operations to Device
@@ -16,7 +16,7 @@ void GMLS::generatePolynomialCoefficients() {
     _operations = decltype(_operations)("operations", _lro.size());
     _host_operations = Kokkos::create_mirror_view(_operations);
     
-    compadre_assert_release((_max_num_neighbors >= 0) && "Neighbor lists not set in GMLS class before calling generateAlphas");
+    compadre_assert_release((_max_num_neighbors >= 0) && "Neighbor lists not set in GMLS class before calling generatePolynomialCoefficients");
     
     // loop through list of linear reconstruction operations to be performed and set them on the host
     for (size_t i=0; i<_lro.size(); ++i) _host_operations(i) = _lro[i];
@@ -35,7 +35,7 @@ void GMLS::generatePolynomialCoefficients() {
     try {
         _alphas = decltype(_alphas)("coefficients", _neighbor_lists.extent(0), _total_alpha_values*max_evaluation_sites, _max_num_neighbors);
     } catch(std::exception &e) {
-       printf("Insufficient memory to store alphas: %s", e.what()); 
+       printf("Insufficient memory to store alphas: \n\n%s", e.what()); 
        throw e;
     }
 
@@ -55,7 +55,7 @@ void GMLS::generatePolynomialCoefficients() {
                 (sro.input_rank>0) ?
                     _global_dimensions : 1);
     } catch(std::exception &e) {
-       printf("Insufficient memory to store prestencil weights: %s", e.what()); 
+       printf("Insufficient memory to store prestencil weights: \n\n%s", e.what()); 
        throw e;
     }
     Kokkos::fence();
@@ -168,75 +168,15 @@ void GMLS::generatePolynomialCoefficients() {
      *    Allocate Global Device Storage of Data Needed Over Multiple Calls
      */
 
-    // allocate data on the device (initialized to zero)
-    int number_of_batches = 1;
-    global_index_type max_batch_size = _target_coordinates.extent(0);
-
-    double* P_data = NULL;
-    double* RHS_data = NULL;
-    double* w_data = NULL;
-
-#ifdef COMPADRE_USE_CUDA
-    // iteration not necessary on GPU because we can query how much memory is available
-    // +1+3 is for allocation for solves
-    size_t allocation_size_needed_per_problem = sizeof(double)*TO_GLOBAL(max_num_rows)*(TO_GLOBAL(max_num_rows)+TO_GLOBAL(this_num_columns)+TO_GLOBAL(4));
-
-    size_t mem_free, mem_tot;
-    cudaMemGetInfo(&mem_free, &mem_tot);
-    // fill only 95% of device at most
-    compadre_assert_release(float(mem_free)/float(mem_tot)>=0.05 && ">95% of GPU already in use before attempting to allocate space for RHS, P, and w.");
-
-    size_t largest_num_problems = (mem_free - TO_GLOBAL(0.05*mem_tot)) / allocation_size_needed_per_problem;
-    number_of_batches = (_target_coordinates.extent(0) + TO_GLOBAL(largest_num_problems) - 1) / TO_GLOBAL(largest_num_problems);
-    max_batch_size = (_target_coordinates.extent(0) + TO_GLOBAL(number_of_batches) - 1) / TO_GLOBAL(number_of_batches);
-
-    auto cuda_ret = cudaMalloc(&RHS_data, sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows));
-    compadre_assert_release(cuda_ret==cudaSuccess && "RHS array could not be allocated on heap.");
-
-    cuda_ret = cudaMalloc(&P_data, sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns));
-    compadre_assert_release(cuda_ret==cudaSuccess && "P array could not be allocated on heap.");
-
-    cuda_ret = cudaMalloc(&w_data, sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows));
-    compadre_assert_release(cuda_ret==cudaSuccess && "w array could not be allocated on heap.");
-
-    Kokkos::fence();
-
-#else
-    while (true) {
-        try {
-
-            // P, RHS, and W require more storage than all other parts of this class
-            // by orders of magnitude. This loop probes how large of a batch can be allocated
-            // to run at once. If it will not fit, then the number of batches is increased, and
-            // the batch_size(s) decrease until they can be allocated on the device.
-
-            // get size for each fold
-            // d = (x + y - 1)/y is equivalent to ceil(float(x)/float(y))
-            max_batch_size = (_target_coordinates.extent(0) + TO_GLOBAL(number_of_batches) - 1) / TO_GLOBAL(number_of_batches);
-
-            RHS_data = new double[sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows)];
-            compadre_assert_release(RHS_data && "RHS array could not be allocated on heap.");
-            P_data = new double[sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns)];
-            compadre_assert_release(P_data && "P array could not be allocated on heap.");
-            w_data = new double[sizeof(double)*max_batch_size*TO_GLOBAL(max_num_rows)];
-            compadre_assert_release(w_data && "w array could not be allocated on heap.");
-
-            break;
-        } catch(...) {
-            // failed to allocate views for these sizes, so we need to switch to smaller batches
-            number_of_batches++;
-        }
+    global_index_type max_batch_size = (_target_coordinates.extent(0) + TO_GLOBAL(number_of_batches) - 1) / TO_GLOBAL(number_of_batches);
+    try {
+        _RHS = Kokkos::View<double*>("RHS", max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows));
+        _P = Kokkos::View<double*>("P", max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns));
+        _w = Kokkos::View<double*>("w", max_batch_size*TO_GLOBAL(max_num_rows));
+    } catch (std::exception &e) {
+        printf("Failed to allocate space for RHS, P, and w. Consider increasing number_of_batches: \n\n%s", e.what());
+        throw e;
     }
-    if (number_of_batches > 1) {
-        _entire_batch_computed_at_once = false;
-        printf("Allocation for W, P, and RHS too large for device. Breaking execution into %d smaller batches.\n",
-                number_of_batches);
-    }
-#endif
-    // wrap RHS, P, and w with Kokkos unmanaged views and zero-out
-    _RHS = Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged> >(RHS_data, max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows));
-    _P = Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged> >(P_data, max_batch_size*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_columns));
-    _w = Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged> >(w_data, max_batch_size*TO_GLOBAL(max_num_rows));
     Kokkos::fence();
     
     /*
@@ -256,12 +196,9 @@ void GMLS::generatePolynomialCoefficients() {
     for (int batch_num=0; batch_num<number_of_batches; ++batch_num) {
 
         auto this_batch_size = std::min(_target_coordinates.extent(0)-_initial_index_for_batch, max_batch_size);
-        printf("This batch size: %lu\n", this_batch_size);
-        printf("first index: %lu\n", _initial_index_for_batch);
         Kokkos::deep_copy(_RHS, 0.0);
         Kokkos::deep_copy(_P, 0.0);
         Kokkos::deep_copy(_w, 0.0);
-        Kokkos::fence();
         
         if (_dense_solver_type == DenseSolverType::MANIFOLD) {
 
@@ -413,27 +350,14 @@ void GMLS::generatePolynomialCoefficients() {
 
         }
         _initial_index_for_batch += max_batch_size;
-    } // end of fold loops
+    } // end of batch loops
 
     // deallocate _P and _w
-#ifdef COMPADRE_USE_CUDA
-    Kokkos::fence();
-    cudaFree(_P.data());
-    cudaFree(_w.data());
-#else
-    delete P_data;
-    delete w_data;
-#endif
-    //_P = Kokkos::View<double*>("P",0);
-    //_w = Kokkos::View<double*>("w",0);
+    _P = Kokkos::View<double*>("P",0);
+    _w = Kokkos::View<double*>("w",0);
     if (number_of_batches > 1) { // no reason to keep coefficients if they aren't all in memory
-#ifdef COMPADRE_USE_CUDA
-        cudaFree(_RHS.data());
-#else
-        delete RHS_data;
-#endif
+        _RHS = Kokkos::View<double*>("RHS",0);
     }
-    //_RHS = Kokkos::View<double*>("RHS",0);
 
     /*
      *    Device to Host Copy Of Solution
@@ -451,11 +375,9 @@ void GMLS::generatePolynomialCoefficients() {
 
 }
 
-void GMLS::generateAlphas() {
+void GMLS::generateAlphas(const int number_of_batches) {
 
-    // check if polynomial coefficients for reconstruction are already generated
-    //if (_RHS.extent(0) <= 0) this->generatePolynomialCoefficients();
-    this->generatePolynomialCoefficients();
+    this->generatePolynomialCoefficients(number_of_batches);
 
 }
 
