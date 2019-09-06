@@ -6,11 +6,18 @@ from scipy.spatial import Delaunay
 from scipy.integrate import quad
 
 import sys
+import time
+from numba import jit
 
+@jit(nopython=True,parallel=True)
 def getArea(x,y,z):
     diff_1 = y-x;
     diff_2 = z-x;
-    return 0.5*np.linalg.norm(np.cross(diff_1,diff_2))
+    t0 = diff_1[1]*diff_2[2]-diff_2[1]*diff_1[2]
+    t1 = -(diff_1[0]*diff_2[2]-diff_2[0]*diff_1[2])
+    t2 = diff_1[0]*diff_2[1]-diff_2[0]*diff_1[1]
+    return 0.5*np.sqrt(t0*t0+t1*t1+t2*t2)
+#    return 0.5*np.linalg.norm(np.cross(diff_1,diff_2))
 
 assert len(sys.argv)>2, "Not enough arguments"
 if (len(sys.argv) > 1):
@@ -24,23 +31,60 @@ variables = dataset.variables
 old_coords = variables['coord']
 connect = variables['connect1']
 
-new_midpoint_coords = np.zeros(shape=(dimensions['num_el_in_blk1'].size, 3),dtype='d')
-for i in range(dimensions['num_el_in_blk1'].size):
-    for j in range(dimensions['num_nod_per_el1'].size):
-        for k in range(3):
-            new_midpoint_coords[i][k] += old_coords[k][connect[i][j]-1] / float(dimensions['num_nod_per_el1'].size)
-#print(new_midpoint_coords)
+t0 = time.time()
 
-new_area = np.zeros(shape=(dimensions['num_el_in_blk1'].size,),dtype='d')
-for i in range(dimensions['num_el_in_blk1'].size):
-    for j in range(dimensions['num_nod_per_el1'].size):
-        midpoint = np.reshape(np.array(new_midpoint_coords[i][:]),(3,))
-        p1 = np.zeros(shape=(3,),dtype='d')
-        p2 = np.zeros(shape=(3,),dtype='d')
+@jit(nopython=True,parallel=True)
+def getNewMidpoints(i, new_data, old_coords, connect, el_size, nod_size):
+    #new_midpoint_coords = np.zeros(shape=(el_size, 3),dtype='d')
+    #for i in range(el_size):
+    #new_midpoint_coords = np.zeros(3)
+    for j in range(nod_size):
         for k in range(3):
-            p1[k] = old_coords[k][connect[i][j]-1]
-            p2[k] = old_coords[k][connect[i][(j+1)%int(dimensions['num_nod_per_el1'].size)]-1]
-        new_area[i] += getArea(midpoint, p1, p2)
+            #new_midpoint_coords[i,k] += old_coords[k,connect[i,j]-1] / float(nod_size)
+            #new_midpoint_coords[i][k] += old_coords[k][connect[i][j]-1] / float(nod_size)
+            new_data[k] += old_coords[k][connect[i][j]-1] / float(nod_size)
+    #return new_midpoint_coords
+
+el_size = dimensions['num_el_in_blk1'].size
+nod_size = dimensions['num_nod_per_el1'].size
+new_midpoint_coords = np.zeros(shape=(el_size, 3),dtype='d')
+np_old_coords = np.array(old_coords)
+np_connect = np.array(connect)
+print(np_old_coords)
+for i in range(el_size):
+    this_new_midpoint_coords = np.zeros(3)
+    getNewMidpoints(i, this_new_midpoint_coords, np_old_coords, np_connect, el_size, nod_size)
+    new_midpoint_coords[i,:] = this_new_midpoint_coords
+
+#print(new_midpoint_coords)
+t1 = time.time()
+total = t1-t0
+print(str(total)+"coords")
+new_area = np.zeros(shape=(el_size,),dtype='d')
+temp_p1 = np.zeros(shape=(el_size,3),dtype='d')
+temp_p2 = np.zeros(shape=(el_size,3),dtype='d')
+
+@jit(nopython=True,parallel=True)
+def getNewArea(i, p1, p2, new_midpoint_coords, old_coords, connect):
+    this_new_area = 0
+    for j in range(nod_size):
+        #midpoint = np.reshape(np.array(new_midpoint_coords[i][:]),(3,))
+        #p1 = np.zeros(shape=(3,),dtype='d')
+        #p2 = np.zeros(shape=(3,),dtype='d')
+        for k in range(3):
+            p1[i,k] = old_coords[k][connect[i][j]-1]
+            p2[i,k] = old_coords[k][connect[i][(j+1)%int(nod_size)]-1]
+        #this_new_area += getArea(midpoint, p1[:,k], p2[:,k])
+        this_new_area += getArea(new_midpoint_coords[i,:], p1[i,:], p2[i,:])
+    return this_new_area
+
+for i in range(el_size):
+    this_new_area = getNewArea(i, temp_p1, temp_p2, new_midpoint_coords, np_old_coords, np_connect)
+    new_area[i] = this_new_area
+
+t2 = time.time()
+total = t2-t1
+print(str(total)+"areas")
 
 f=dataset
 dataset2 = Dataset(new_filename, "w", format="NETCDF4")

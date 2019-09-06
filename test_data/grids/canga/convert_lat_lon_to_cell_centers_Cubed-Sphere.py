@@ -22,8 +22,8 @@ def transformLatLon(old_lat, old_lon, in_degrees=True):
     lon = float(old_lon * np.pi) / 180.0
     #print(lat)
     #print(lon)
-    return(np.array((np.cos(lon)*np.cos(lat), np.sin(lon)*np.cos(lat), np.sin(lat)), dtype='d')) # correct formula
-    #return(np.array((np.sin(lon)*np.cos(lat), np.cos(lon)*np.cos(lat), np.sin(lat)), dtype='d')) # reversed formula because of reverse xyz
+    #return(np.array((np.cos(lon)*np.cos(lat), np.sin(lon)*np.cos(lat), np.sin(lat)), dtype='d')) # correct formula
+    return(np.array((np.sin(lon)*np.cos(lat), np.cos(lon)*np.cos(lat), np.sin(lat)), dtype='d')) # reversed formula because of reverse xyz
 
 assert len(sys.argv)>2, "Not enough arguments"
 if (len(sys.argv) > 1):
@@ -40,8 +40,8 @@ old_lon = variables['lon']
 read_coords = variables['coord'] # with reversed xy
 old_coords = np.zeros(shape=read_coords.shape, dtype='d')
 for i in range(dimensions['num_nodes'].size):
-    old_coords[0][i] = read_coords[1][i]
-    old_coords[1][i] = read_coords[0][i]
+    old_coords[0][i] = read_coords[0][i]
+    old_coords[1][i] = read_coords[1][i]
     old_coords[2][i] = read_coords[2][i]
 
 connect = variables['connect1']
