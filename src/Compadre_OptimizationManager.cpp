@@ -152,6 +152,7 @@ if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE)
                 updated_target_values[j] = caas.get_Qm(j, 0)/weights[j];
             }
 
+#ifdef COMPADREHARNESS_DEBUG
             // diagnostic
             scalar_type local_quantity = 0, global_quantity = 0;
             for (local_index_type j=0; j<_target_particles->getCoordsConst()->nLocal(); ++j) {
@@ -163,7 +164,7 @@ if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE)
             scalar_type residual = global_quantity - global_conserved_quantity;
             local_index_type out_of_bounds = 0;
             for (int j=0; j<target_num_local; ++j) {
-                if (updated_target_values[j] > source_maxs[j] || updated_target_values[j] < source_mins[j]) {
+                if (updated_target_values[j] > source_maxs[j]+std::abs(residual) || updated_target_values[j] < source_mins[j]-std::abs(residual)) {
                     out_of_bounds++;
                 }
             }
@@ -176,6 +177,7 @@ if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE)
                 std::cout << "Residual        ... " << residual << "\n";
             }
             TEUCHOS_TEST_FOR_EXCEPT_MSG(out_of_bounds!=0, "At least one constructed value out of bounds after bounds preservation enforced.");
+#endif // DEBUG
 #else
             TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Compose package called but not built. Enable with '-D CompadreHarness_USE_Compose:BOOL=ON'.");
 #endif // COMPADREHARNESS_USE_COMPOSE

@@ -6,6 +6,8 @@
     <Parameter name="target file" type="string" value="outICODMesh_ne16.g"/>
     <Parameter name="output file prefix" type="string" value="../test_data/"/>
     <Parameter name="output file" type="string" value="canga_output.pvtp"/>
+    <Parameter name="alt output file prefix" type="string" value="../test_data/"/>
+    <Parameter name="alt output file" type="string" value="canga_output.pvtp"/>
     <Parameter name="vtk produce mesh" type="bool" value="false"/>
     <Parameter name="coordinates layout" type="string" value="xyz_separate"/>
     <Parameter name="coordinate 0 name" type="string" value="x"/>
@@ -13,7 +15,7 @@
     <Parameter name="coordinate 2 name" type="string" value="z"/>
   </ParameterList>
   <ParameterList name="remap">
-    <Parameter name="porder" type="int" value="4"/>
+    <Parameter name="porder" type="int" value="2"/>
     <Parameter name="curvature porder" type="int" value="3"/>
     <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
     <Parameter name="dense linear solver" type="string" value="MANIFOLD"/>
@@ -30,10 +32,10 @@
     <Parameter name="spatially varying radius" type="bool" value="true"/>
     <Parameter name="multiplier" type="double" value="2.10"/>
     <Parameter name="size" type="double" value="0.25"/>
-    <Parameter name="cutoff multiplier" type="double" value="1.8"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.5"/>
   </ParameterList>
   <ParameterList name="halo">
     <Parameter name="dynamic" type="bool" value="true"/>
-    <Parameter name="multiplier" type="double" value="64.0"/>
+    <Parameter name="multiplier" type="double" value="8.0"/>
   </ParameterList>
 </ParameterList>
