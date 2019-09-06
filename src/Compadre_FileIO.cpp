@@ -149,6 +149,8 @@ void FileManager::setWriter(const std::string& _fn, Teuchos::RCP<ParticlesT>& pa
 void FileManager::writerIOChoice(std::string& extension, const bool enforce_serial) {
 	transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
 
+    printf("%s extension.\n", extension.c_str());
+
     Teuchos::RCP<Compadre::FileIO> new_io; 
 	if (extension == "pvtp") {
 #ifdef COMPADREHARNESS_USE_VTK
@@ -168,13 +170,13 @@ void FileManager::writerIOChoice(std::string& extension, const bool enforce_seri
 #else
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Not built with VTK.");
 #endif
-	} else if (extension == "nc") {
+	} else if (extension == "nc" || extension == "g" || extension == "exo") {
 #ifdef COMPADREHARNESS_USE_NETCDF
 	#ifdef COMPADREHARNESS_USE_NETCDF_MPI
-        if (enforce_serial)
+        //if (enforce_serial)
 		    new_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::SerialNetCDFFileIO(_particles)));
-        else
-	  	    new_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::ParallelHDF5NetCDFFileIO(_particles)));
+        //else
+	  	//    new_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::ParallelHDF5NetCDFFileIO(_particles)));
 	#else
 		new_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::SerialNetCDFFileIO(_particles)));
 	#endif
@@ -1713,7 +1715,9 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
 	// define the spatial coordinate variables
 	retval = nc_def_var(ncid, "x", NC_DOUBLE, 1, &particle_dim_id, &x_var_id);
+    printf("retval on x: %d\n", retval);
 	retval = nc_def_var(ncid, "y", NC_DOUBLE, 1, &particle_dim_id, &y_var_id);
+    printf("retval on y: %d\n", retval);
 	retval = nc_def_var(ncid, "z", NC_DOUBLE, 1, &particle_dim_id, &z_var_id);
 	std::string units = this->_particles->getParameters()->get<Teuchos::ParameterList>("coordinates").get<std::string>("units");
 	retval = nc_put_att_text(ncid, x_var_id, "units", units.length(), units.c_str());
@@ -1754,13 +1758,17 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	std::vector<scalar_type> coords_z(coords_size);
 	for (int i=0; i<coords_size; i++) {
 		coords_x[i] = host_coords(i,0);
+        //printf("x: %d: %f\n", i, coords_x[i]);
 		coords_y[i] = host_coords(i,1);
 		coords_z[i] = host_coords(i,2);
 	}
 
 	retval = nc_put_var(ncid, x_var_id, &coords_x[0]);
+    //sleep(1);
 	retval = nc_put_var(ncid, y_var_id, &coords_y[0]);
+    //sleep(1);
 	retval = nc_put_var(ncid, z_var_id, &coords_z[0]);
+    //sleep(1);
 
 	for (size_t i=0; i<fields.size(); i++){
 
@@ -1813,6 +1821,8 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	#define NC_INDEPENDENT 0
 	#define NC_COLLECTIVE 1
+
+    printf("WRITING TO PARALLEL!\n");
 
 	MPI_Comm comm = *(Teuchos::rcp_dynamic_cast<const Teuchos::MpiComm<int>>(this->_particles->getCoordsConst()->getComm(), true /*throw on fail*/)->getRawMpiComm());
 	MPI_Info info = MPI_INFO_NULL;
@@ -1896,16 +1906,17 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	std::vector<scalar_type> coords_z(coords_size);
 	for (int i=0; i<coords_size; i++) {
 		coords_x[i] = host_coords(i,0);
+        printf("%f...\n", coords_x[i]);
 		coords_y[i] = host_coords(i,1);
 		coords_z[i] = host_coords(i,2);
 	}
 
-	if ((retval = nc_var_par_access(ncid, x_var_id, NC_COLLECTIVE)))
-		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "x write permission not changed.");
-	if ((retval = nc_var_par_access(ncid, y_var_id, NC_COLLECTIVE)))
-		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "y write permission not changed.");
-	if ((retval = nc_var_par_access(ncid, z_var_id, NC_COLLECTIVE)))
-		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "z write permission not changed.");
+	//if ((retval = nc_var_par_access(ncid, x_var_id, NC_COLLECTIVE)))
+	//	TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "x write permission not changed.");
+	//if ((retval = nc_var_par_access(ncid, y_var_id, NC_COLLECTIVE)))
+	//	TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "y write permission not changed.");
+	//if ((retval = nc_var_par_access(ncid, z_var_id, NC_COLLECTIVE)))
+	//	TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "z write permission not changed.");
 
 	// this mapping temporarily gives the min and max elements which is equivalent to an offset
 	Teuchos::RCP<map_type> temporary_map = Teuchos::rcp(new map_type(
@@ -1914,12 +1925,16 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	{
 		unsigned long start = (unsigned long)(temporary_map->getMinGlobalIndex());
 		unsigned long countDiff = (unsigned long)(coords_size);
+        printf("start %d, diff %d\n", start, countDiff);
 
-		if ((retval = nc_put_vara(ncid, x_var_id, &start, &countDiff, &coords_x[0])))
+        printf("%d...\n", x_var_id);
+        printf("%d...\n", y_var_id);
+        printf("%d...\n", z_var_id);
+		if ((retval = nc_put_vara_double(ncid, x_var_id, &start, &countDiff, &coords_x[0])))
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "x not written.");
-		if ((retval = nc_put_vara(ncid, y_var_id, &start, &countDiff, &coords_y[0])))
+		if ((retval = nc_put_vara_double(ncid, y_var_id, &start, &countDiff, &coords_y[0])))
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "y not written.");
-		if ((retval = nc_put_vara(ncid, z_var_id, &start, &countDiff, &coords_z[0])))
+		if ((retval = nc_put_vara_double(ncid, z_var_id, &start, &countDiff, &coords_z[0])))
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "z not written.");
 	}
 

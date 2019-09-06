@@ -138,9 +138,11 @@ class RemapManager {
 
 		void clear() {
 			_queue = std::vector<RemapObject>();
+            // changing the queue invalidates reusing GMLS object
+            this->_GMLS = Teuchos::null;
 		}
 
-		void execute(bool keep_neighborhoods = false, bool use_physical_coords = true);
+		void execute(bool keep_neighborhoods = true, bool keep_GMLS = false, bool reuse_neighborhoods = true, bool reuse_GMLS = false, bool use_physical_coords = true);
 
 		std::string queueToString() {
 			std::string output;

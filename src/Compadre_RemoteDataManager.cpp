@@ -801,7 +801,8 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 		particles_type* source_particles,
 		particles_type* particles_to_overwrite,
 		double max_halo_size,
-		bool use_physical_coords) {
+		bool use_physical_coords,
+        bool reuse_remap_solution) {
 
 	RemoteDataRemapTime = Teuchos::TimeMonitor::getNewCounter ("Remote Data Remap Time");
 	RemoteDataRemapTime->start();
@@ -956,16 +957,30 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 	//***************
 
 	// create a remap manager
-	Teuchos::RCP<Compadre::RemapManager> rm = Teuchos::rcp(new Compadre::RemapManager(parameters, source_particles, particles_to_overwrite, max_halo_size));
-    for (local_index_type i=0; i<peer_num_fields_for_swap; ++i) {
-    	RemapObject ro(peer_field_names[i]);
-        if (peer_optimization_algorithm[i] > 0) {
-            OptimizationObject optimization_object((OptimizationAlgorithm)peer_optimization_algorithm[i],(bool)peer_single_linear_bound_constraint[i],(bool)peer_bounds_preservation[i],peer_global_lower_bound[i],peer_global_upper_bound[i]);
-    	    ro.setOptimizationObject(optimization_object);
+    if (peer_num_fields_for_swap > 0) {
+        Teuchos::RCP<Compadre::RemapManager> rm;
+        if (!reuse_remap_solution) {
+            _rm = Teuchos::null;
         }
-    	rm->add(ro);
+        if (_rm.is_null()) {
+	        rm = Teuchos::rcp(new Compadre::RemapManager(parameters, source_particles, particles_to_overwrite, max_halo_size));
+            if (reuse_remap_solution) {
+                _rm = rm;
+            }
+            for (local_index_type i=0; i<peer_num_fields_for_swap; ++i) {
+            	RemapObject ro(peer_field_names[i]);
+                if (peer_optimization_algorithm[i] > 0) {
+                    OptimizationObject optimization_object((OptimizationAlgorithm)peer_optimization_algorithm[i],(bool)peer_single_linear_bound_constraint[i],(bool)peer_bounds_preservation[i],peer_global_lower_bound[i],peer_global_upper_bound[i]);
+            	    ro.setOptimizationObject(optimization_object);
+                }
+            	rm->add(ro);
+            }
+        } else {
+            // reusing old remap solution
+            rm = _rm;
+        }
+        rm->execute(true /* keep neighborhoods */, true /* keep GMLS */, reuse_remap_solution /* reuse neighborhoods */, reuse_remap_solution /* reuse GMLS */, use_physical_coords);
     }
-    rm->execute(false /* keep neighborhoods */, use_physical_coords);
 
     // send and receive size of each field name
     std::vector<local_index_type> each_peer_field_units_name_sizes(peer_num_fields_for_swap);
