@@ -116,7 +116,7 @@ void ParticlesT::insertParticles(const std::vector<xyz_type>& new_pts_vector, co
 	}
 
 
-	remapManager->execute(false /*keep neighborhoods*/, inserting_physical_coords);
+	remapManager->execute(false /*keep neighborhoods*/, false /*keep GMLS*/, false /*reuse neighborhoods*/, false /*reuse GMLS*/, inserting_physical_coords);
 
 	// call this->mergeWith(temp particles) to combine data into one particle set
 	this->mergeWith(temp_particles.getRawPtr());

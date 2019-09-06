@@ -3,6 +3,7 @@
 
 #include "CompadreHarness_Config.h"
 #include "CompadreHarness_Typedefs.hpp"
+#include "Compadre_RemapManager.hpp"
 
 namespace Compadre {
 
@@ -40,9 +41,12 @@ class RemoteDataManager {
 
 		bool _amLower;
 
+        Teuchos::RCP<Compadre::RemapManager> _rm;
+
 		Teuchos::RCP<Teuchos::Time> RemoteDataMapConstructionTime;
 		Teuchos::RCP<Teuchos::Time> RemoteDataCoordinatesTime;
 		Teuchos::RCP<Teuchos::Time> RemoteDataRemapTime;
+
 
 	public:
 
@@ -76,7 +80,8 @@ class RemoteDataManager {
 				particles_type* source_particles,
 				particles_type* particles_to_overwrite,
 				double max_halo_size,
-				bool use_physical_coords = true);
+				bool use_physical_coords = true,
+				bool reuse_remap_solution = false);
 
 };
 
