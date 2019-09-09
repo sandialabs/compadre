@@ -341,8 +341,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     for (int e=0; e<num_evaluation_sites; ++e) {
                         this->calcPij(t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
                         for (int m=0; m<_sampling_multiplier; ++m) {
-                            auto output_components = std::pow(_local_dimensions, _data_sampling_multiplier);
-                            for (int c=0; c<output_components; ++c) {
+                            for (int c=0; c<_data_sampling_multiplier; ++c) {
                                 int offset = getTargetOffsetIndexDevice(i, c /*in*/, c /*out*/, e/*additional*/);
                                 for (int j=0; j<target_NP; ++j) {
                                     P_target_row(offset, j) = t1(j);
