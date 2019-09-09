@@ -420,6 +420,8 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
      *    Assemble P*sqrt(W) and sqrt(w)*Identity
      */
 
+`   // Quang swap matrix dimension here
+
     // creates the matrix sqrt(W)*P
     this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions, _poly_order, true /*weight_p*/, NULL /*&V*/, _reconstruction_space, _polynomial_sampling_functional);
 
