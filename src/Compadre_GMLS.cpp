@@ -160,6 +160,10 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
         // row of P matrix, one for each operator
         // +1 is for the original target site which always gets evaluated
         _team_scratch_size_b += scratch_vector_type::shmem_size(this_num_cols*_total_alpha_values*max_evaluation_sites); 
+        if (_dense_solver_type == DenseSolverType::LU) {
+            // Allocated extra memories for LU - since we need to transpose PsqrtW
+            _team_scratch_size_b += scratch_matrix_right_type::shmem_size(this_num_cols, max_num_rows);
+        }
 
         _thread_scratch_size_b += scratch_vector_type::shmem_size(this_num_cols); // delta, used for each thread
     }
@@ -420,8 +424,6 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
      *    Assemble P*sqrt(W) and sqrt(w)*Identity
      */
 
-`   // Quang swap matrix dimension here
-
     // creates the matrix sqrt(W)*P
     this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions, _poly_order, true /*weight_p*/, NULL /*&V*/, _reconstruction_space, _polynomial_sampling_functional);
 
@@ -433,6 +435,33 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
             }
         });
     } else {
+        // Need to transpose the PsqrtW for LU solver
+        // create layout left matrix to allow for (i, j) indexing
+        // LAPACK and CUDA requires layout left matrix
+        scratch_matrix_left_type PsqrtW_LL(PsqrtW.data(), max_num_rows, this_num_cols);
+
+        // create layout left matrix
+        // this memory only lives on team scratch memory - will be deleted out of this scope
+        scratch_matrix_left_type PsqrtW_LL_Transpose(teamMember.team_scratch(_scratch_team_level_b),
+                                                     this_num_cols, max_num_rows);
+
+        // Indexed as 1D array style
+        // 1D global memory
+        scratch_vector_type PsqrtW_LL_flat(PsqrtW_LL.data(), this_num_cols*max_num_rows);
+        // 1D scratch memory for transpose - only lives on team
+        scratch_vector_type PsqrtW_LL_Transpose_flat(PsqrtW_LL_Transpose.data(), this_num_cols*max_num_rows);
+
+        // scratch_matrix_right_type PsqrtW_transpose("A", this_num_cols, max_num_rows);
+        // no copy from Psqrt to PsqrtW_LL since they point to the same memory (already existed)
+        // they just stride differently (or viewed differently in layout)
+        // copy from PsqrtW_LL -> PsqrtW_LL_Transpose
+        for (int i =0; i < this_num_cols; i++) {
+            for (int j=0; j < max_num_rows; j++) {
+                // Transpose the matrix
+                PsqrtW_LL_Transpose(i, j) = PsqrtW_LL(j, i);
+            }
+        }
+
         // Quang will build M into RHS (from weighted_P)
         // modify weighted_P to have extra sqrt(w) weighting and store as P
     }
