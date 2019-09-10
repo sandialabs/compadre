@@ -307,7 +307,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
                 Kokkos::Profiling::popRegion();
             } else if (_dense_solver_type == DenseSolverType::LU) {
                 Kokkos::Profiling::pushRegion("LU Factorization");
-                GMLS_LinearAlgebra::batchQRFactorize(_RHS.data(), this_num_cols, this_num_cols, _P.data(), max_num_rows, this_num_cols, this_num_cols, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                GMLS_LinearAlgebra::batchLUFactorize(_RHS.data(), max_num_rows, max_num_rows, _P.data(), this_num_cols, max_num_rows, this_num_cols, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
                 Kokkos::Profiling::popRegion();
             } else {
                 Kokkos::Profiling::pushRegion("QR Factorization");
@@ -442,25 +442,31 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
 
         // create layout left matrix
         // this memory only lives on team scratch memory - will be deleted out of this scope
-        scratch_matrix_left_type PsqrtW_LL_Transpose(teamMember.team_scratch(_scratch_team_level_b),
-                                                     this_num_cols, max_num_rows);
+        scratch_matrix_left_type WP_Transpose_LL(teamMember.team_scratch(_scratch_team_level_b),
+                                                 this_num_cols, max_num_rows);
 
         // Indexed as 1D array style
         // 1D global memory
         scratch_vector_type PsqrtW_LL_flat(PsqrtW_LL.data(), this_num_cols*max_num_rows);
         // 1D scratch memory for transpose - only lives on team
-        scratch_vector_type PsqrtW_LL_Transpose_flat(PsqrtW_LL_Transpose.data(), this_num_cols*max_num_rows);
+        scratch_vector_type WP_Transpose_LL_flat(WP_Transpose_LL.data(), this_num_cols*max_num_rows);
 
         // scratch_matrix_right_type PsqrtW_transpose("A", this_num_cols, max_num_rows);
         // no copy from Psqrt to PsqrtW_LL since they point to the same memory (already existed)
         // they just stride differently (or viewed differently in layout)
-        // copy from PsqrtW_LL -> PsqrtW_LL_Transpose
+        // copy and row-scale from PsqrtW_LL -> PTW_LL_Transpose
         for (int i =0; i < this_num_cols; i++) {
             for (int j=0; j < max_num_rows; j++) {
-                // Transpose the matrix
-                PsqrtW_LL_Transpose(i, j) = PsqrtW_LL(j, i);
+                // Transpose the matrix and multiply by sqrt(w) to have PTW
+                WP_Transpose_LL(i, j) = PsqrtW_LL(j, i)*std::sqrt(w(j));
             }
         }
+
+        // create global memory for matrix M = PsqrtW^T*PsqrtW
+        // don't need to cast into scratch_matrix_left_type since the matrix is symmetric
+        scratch_matrix_right_type M(_RHS.data()
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), this_num_cols, this_num_cols);
+        GMLS_LinearAlgebra::createM(teamMember, M, PsqrtW, _dimensions /* # of columns */, this->getNNeighbors(target_index));
 
         // Quang will build M into RHS (from weighted_P)
         // modify weighted_P to have extra sqrt(w) weighting and store as P
