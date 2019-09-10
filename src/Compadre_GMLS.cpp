@@ -441,9 +441,12 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
         scratch_matrix_left_type PsqrtW_LL(PsqrtW.data(), max_num_rows, this_num_cols);
 
         // create layout left matrix
-        // this memory only lives on team scratch memory - will be deleted out of this scope
-        scratch_matrix_left_type WP_Transpose_LL(teamMember.team_scratch(_scratch_team_level_b),
+        // using the allocated data of PsqrtW
+        scratch_matrix_left_type WP_Transpose_LL(PsqrtW.data(),
                                                  this_num_cols, max_num_rows);
+        // this memory only lives on team scratch memory - will be deleted out of this scope
+        // scratch_matrix_left_type WP_Transpose_LL(teamMember.team_scratch(_scratch_team_level_b),
+        //                                          this_num_cols, max_num_rows);
 
         // Indexed as 1D array style
         // 1D global memory
