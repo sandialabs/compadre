@@ -442,27 +442,30 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
 
         // create layout left matrix
         // using the allocated data of PsqrtW
-        scratch_matrix_left_type WP_Transpose_LL(PsqrtW.data(),
-                                                 this_num_cols, max_num_rows);
         // this memory only lives on team scratch memory - will be deleted out of this scope
-        // scratch_matrix_left_type WP_Transpose_LL(teamMember.team_scratch(_scratch_team_level_b),
-        //                                          this_num_cols, max_num_rows);
+        scratch_matrix_left_type PW_Transpose_LL(teamMember.team_scratch(_scratch_team_level_b),
+                                                 this_num_cols, max_num_rows);
 
         // Indexed as 1D array style
         // 1D global memory
         scratch_vector_type PsqrtW_LL_flat(PsqrtW_LL.data(), this_num_cols*max_num_rows);
         // 1D scratch memory for transpose - only lives on team
-        scratch_vector_type WP_Transpose_LL_flat(WP_Transpose_LL.data(), this_num_cols*max_num_rows);
+        scratch_vector_type PW_Transpose_LL_flat(PW_Transpose_LL.data(), this_num_cols*max_num_rows);
 
         // scratch_matrix_right_type PsqrtW_transpose("A", this_num_cols, max_num_rows);
         // no copy from Psqrt to PsqrtW_LL since they point to the same memory (already existed)
         // they just stride differently (or viewed differently in layout)
         // copy and row-scale from PsqrtW_LL -> PTW_LL_Transpose
-        for (int i =0; i < this_num_cols; i++) {
+        for (int i=0; i < this_num_cols; i++) {
             for (int j=0; j < max_num_rows; j++) {
                 // Transpose the matrix and multiply by sqrt(w) to have PTW
-                WP_Transpose_LL(i, j) = PsqrtW_LL(j, i)*std::sqrt(w(j));
+                PW_Transpose_LL(i, j) = PsqrtW_LL(j, i)*std::sqrt(w(j));
             }
+        }
+
+        // Now copy the flat 1D memory over
+        for (int i=0; i < this_num_cols*max_num_rows; i++) {
+            PsqrtW_LL_flat(i) = PW_Transpose_LL_flat(i);
         }
 
         // create global memory for matrix M = PsqrtW^T*PsqrtW
@@ -470,9 +473,6 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
         scratch_matrix_right_type M(_RHS.data()
             + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), this_num_cols, this_num_cols);
         GMLS_LinearAlgebra::createM(teamMember, M, PsqrtW, _dimensions /* # of columns */, this->getNNeighbors(target_index));
-
-        // Quang will build M into RHS (from weighted_P)
-        // modify weighted_P to have extra sqrt(w) weighting and store as P
     }
 
     teamMember.team_barrier();
