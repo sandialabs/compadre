@@ -490,6 +490,116 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
 
 void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
     // Quang will add this
+
+#ifdef COMPADRE_USE_LAPACK
+
+    // later improvement could be to send in an optional view with the neighbor list size for each target to reduce work
+
+    Kokkos::Profiling::pushRegion("LU::Setup(Create)");
+
+    const int smlsiz = 25;
+    const int nlvl = std::max(0, int( std::log2( std::min(M,N) / (smlsiz+1) ) + 1));
+    const int liwork = 3*std::min(M,N)*nlvl + 11*std::min(M,N);
+
+    int iwork[liwork];
+    double s[std::max(M,N)];
+
+    int lwork = -1;
+    double wkopt = 0;
+    int rank = 0;
+    int info = 0;
+    int *ipiv = new int[N+1];
+
+    if (num_matrices > 0) {
+        // LU decomposition of matrix P
+        dgetrf_(&M, &N, P,
+                &lda, ipiv, &info);
+    }
+    lwork = (int)wkopt;
+
+    Kokkos::Profiling::popRegion();
+
+    std::string transpose_or_no = "N";
+
+    #ifdef LAPACK_DECLARED_THREADSAFE
+        std::cout << "WHY HHEEERRREEEE " << std::endl;
+
+        int scratch_space_size = 0;
+        scratch_space_size += scratch_vector_type::shmem_size( lwork );  // work space
+        scratch_space_size += scratch_vector_type::shmem_size( std::max(M,N) );  // s
+        scratch_space_size += scratch_local_index_type::shmem_size( liwork ); // iwork space
+
+        Kokkos::parallel_for(
+            team_policy(num_matrices, Kokkos::AUTO)
+            .set_scratch_size(0, Kokkos::PerTeam(scratch_space_size)),
+            KOKKOS_LAMBDA (const member_type& teamMember) {
+
+                scratch_vector_type scratch_work(teamMember.team_scratch(0), lwork);
+                scratch_vector_type scratch_s(teamMember.team_scratch(0), std::max(M,N) );
+                scratch_local_index_type scratch_iwork(teamMember.team_scratch(0), liwork);
+
+                int i_rank = 0;
+                int i_info = 0;
+
+                const int i = teamMember.league_rank();
+
+                double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
+                double * rhs_offset = RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb);
+
+                // use a custom # of neighbors for each problem, if possible
+                const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
+                int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
+
+                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                dgetrs_( const_cast<char *>(transpose_or_no.c_str()),
+                         const_cast<int*>(&N), const_cast<int*>(&my_num_rows),
+                         p_offset, const_cast<int*>(&lda),
+                         ipiv,
+                         rhs_offset, const_cast<int*>(&ldb),
+                         &i_info);
+                });
+
+                compadre_assert_release(i_info==0 && "dgetrs failed");
+
+        }, "LU Execution");
+
+    #else
+
+        std::cout << "HHEEERRREEEE " << std::endl;
+        double * scratch_work = (double *)malloc(sizeof(double)*lwork);
+        double * scratch_s = (double *)malloc(sizeof(double)*std::max(M,N));
+        int * scratch_iwork = (int *)malloc(sizeof(int)*liwork);
+
+        for (int i=0; i<num_matrices; ++i) {
+
+                int i_rank = 0;
+                int i_info = 0;
+
+                double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
+                double * rhs_offset = RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb);
+
+                // use a custom # of neighbors for each problem, if possible
+                const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
+                int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i + initial_index_of_batch))*multiplier : M;
+
+                dgetrs_( const_cast<char *>(transpose_or_no.c_str()),
+                         const_cast<int*>(&N), const_cast<int*>(&my_num_rows),
+                         p_offset, const_cast<int*>(&lda),
+                         ipiv,
+                         rhs_offset, const_cast<int*>(&ldb),
+                         &i_info);
+
+                compadre_assert_release(i_info==0 && "dgetrs failed");
+
+        }
+
+        free(scratch_work);
+        free(scratch_s);
+        free(scratch_iwork);
+
+    #endif // LAPACK is not threadsafe
+
+#endif
 }
 
 }; // GMLS_LinearAlgebra
