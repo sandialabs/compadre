@@ -18,6 +18,15 @@
   extern "C" void dgelsd_( int* m, int* n, int* nrhs, double* a, int* lda,
               double* b, int* ldb, double* s, double* rcond, int* rank,
               double* work, int* lwork, int* iwork, int* info );
+
+  // LU decomposition of a general matrix
+  extern "C" void dgetrf_( int* m, int* n, double* a,
+                           int* lda, int* ipiv, int* info);
+
+  // Solve a system of linear equations from LU decomposed matrix
+  extern "C" void dgetrs_( char* trans, int* n, int* nrhs, double* a, int* lda,
+                           int* ipiv, double* b, int* ldb, int* info );
+
 #ifdef COMPADRE_USE_OPENBLAS
   void openblas_set_num_threads(int num_threads);
 #endif
