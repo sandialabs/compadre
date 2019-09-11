@@ -593,6 +593,7 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
         }
 
+        delete[] ipiv;
         free(scratch_work);
         free(scratch_s);
         free(scratch_iwork);
