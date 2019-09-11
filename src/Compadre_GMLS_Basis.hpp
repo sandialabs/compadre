@@ -10,7 +10,7 @@ KOKKOS_INLINE_FUNCTION
 double GMLS::Wab(const double r, const double h, const WeightingFunctionType& weighting_type, const int power) const {
 
     if (weighting_type == WeightingFunctionType::Power) {
-        return std::pow(1.0-std::abs(r/(3*h)), power) * double(1.0-std::abs(r/(3*h))>0.0);
+        return std::pow(1.0-std::abs(r/(3*h)), power); // * double(1.0-std::abs(r/(3*h))>0.0);
     } else { // Gaussian
         // 2.5066282746310002416124 = sqrt(2*pi)
         double h_over_3 = h/3.0;
@@ -630,6 +630,9 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
                     // stores layout left for CUDA or LAPACK calls later
                     // no need to convert offsets to global indices because the sum will never be large
                     alt_P(i+my_num_neighbors*d, j) = delta[j] * std::sqrt(w(i+my_num_neighbors*d));
+                    if (target_index == 0) {
+                      std::cout << " i " << i << " WWWWW(i) " << std::sqrt(w(i+my_num_neighbors*d)) << std::endl;
+                    }
 
                     compadre_kernel_assert_extreme_debug(delta[j]==delta[j] && "NaN in sqrt(W)*P matrix.");
                 }
