@@ -307,6 +307,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
                 Kokkos::Profiling::popRegion();
             } else if (_dense_solver_type == DenseSolverType::LU) {
                 Kokkos::Profiling::pushRegion("LU Factorization");
+                std::cout << "THIS NUM COLS " << this_num_cols << " MAX NUM ROWS " << max_num_rows << std::endl;
                 GMLS_LinearAlgebra::batchLUFactorize(_RHS.data(), max_num_rows, max_num_rows, _P.data(), this_num_cols, max_num_rows, this_num_cols, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
                 Kokkos::Profiling::popRegion();
             } else {
@@ -435,10 +436,24 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
             }
         });
     } else {
+
+        // create global memory for matrix M = PsqrtW^T*PsqrtW
+        // don't need to cast into scratch_matrix_left_type since the matrix is symmetric
+        scratch_matrix_right_type M(_RHS.data()
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+        GMLS_LinearAlgebra::createM(teamMember, M, PsqrtW, this_num_cols /* # of columns */, this->getNNeighbors(target_index));
+
         // Need to transpose the PsqrtW for LU solver
         // create layout left matrix to allow for (i, j) indexing
         // LAPACK and CUDA requires layout left matrix
         scratch_matrix_left_type PsqrtW_LL(PsqrtW.data(), max_num_rows, this_num_cols);
+        // if (target_index == 0) {
+        //   for (int i=0; i<max_num_rows; i++) {
+        //     for (int j=0; j<this_num_cols; j++) {
+        //       printf("P %d %d %f\n", i, j, PsqrtW_LL(i,j));
+        //     }
+        //   }
+        // }
 
         // create layout left matrix
         // using the allocated data of PsqrtW
@@ -467,12 +482,6 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
         for (int i=0; i < this_num_cols*max_num_rows; i++) {
             PsqrtW_LL_flat(i) = PW_Transpose_LL_flat(i);
         }
-
-        // create global memory for matrix M = PsqrtW^T*PsqrtW
-        // don't need to cast into scratch_matrix_left_type since the matrix is symmetric
-        scratch_matrix_right_type M(_RHS.data()
-            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), this_num_cols, this_num_cols);
-        GMLS_LinearAlgebra::createM(teamMember, M, PsqrtW, _dimensions /* # of columns */, this->getNNeighbors(target_index));
     }
 
     teamMember.team_barrier();

@@ -497,25 +497,16 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
     Kokkos::Profiling::pushRegion("LU::Setup(Create)");
 
-    const int smlsiz = 25;
-    const int nlvl = std::max(0, int( std::log2( std::min(M,N) / (smlsiz+1) ) + 1));
-    const int liwork = 3*std::min(M,N)*nlvl + 11*std::min(M,N);
+    std::cout << "MMMMMMM " << M << " NNNNNN " << N << std::endl;
 
-    int iwork[liwork];
-    double s[std::max(M,N)];
+    // const int smlsiz = 25;
 
-    int lwork = -1;
-    double wkopt = 0;
-    int rank = 0;
-    int info = 0;
-    int *ipiv = new int[N+1];
+    // int ipiv[std::min(M, N)];
+    // int info = 0;
 
-    if (num_matrices > 0) {
-        // LU decomposition of matrix P
-        dgetrf_(&M, &N, P,
-                &lda, ipiv, &info);
-    }
-    lwork = (int)wkopt;
+    // LU decomposition of matrix P
+    // dgetrf_(&M, &N, P,
+    //         &lda, ipiv, &info);
 
     Kokkos::Profiling::popRegion();
 
@@ -525,36 +516,47 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
         std::cout << "WHY HHEEERRREEEE " << std::endl;
 
         int scratch_space_size = 0;
-        scratch_space_size += scratch_vector_type::shmem_size( lwork );  // work space
-        scratch_space_size += scratch_vector_type::shmem_size( std::max(M,N) );  // s
-        scratch_space_size += scratch_local_index_type::shmem_size( liwork ); // iwork space
+        scratch_space_size += scratch_local_index_type::shmem_size( std::min(M, N) );  // ipiv
 
         Kokkos::parallel_for(
             team_policy(num_matrices, Kokkos::AUTO)
             .set_scratch_size(0, Kokkos::PerTeam(scratch_space_size)),
             KOKKOS_LAMBDA (const member_type& teamMember) {
 
-                scratch_vector_type scratch_work(teamMember.team_scratch(0), lwork);
-                scratch_vector_type scratch_s(teamMember.team_scratch(0), std::max(M,N) );
-                scratch_local_index_type scratch_iwork(teamMember.team_scratch(0), liwork);
-
-                int i_rank = 0;
+                scratch_local_index_type scratch_ipiv(teamMember.team_scratch(0), std::min(M, N));
                 int i_info = 0;
 
                 const int i = teamMember.league_rank();
-
                 double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
                 double * rhs_offset = RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb);
 
                 // use a custom # of neighbors for each problem, if possible
-                const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
-                int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
+                // const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
+                // int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
+
+                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                // dgetrf_(&M, &N, P,
+                //         &lda, NULL, &info);
+                for (int ii = 0; ii < N; ii++) {
+                  for (int jj=0; jj < M; jj++) {
+                    std::cout << "BBBBB " << ii << " " << jj << " "<< p_offset[jj*lda + ii] << std::endl;
+                  }
+                }
+                dgetrf_( const_cast<int*>(&M), const_cast<int*>(&N),
+                         p_offset, const_cast<int*>(&lda),
+                         scratch_ipiv.data(),
+                         &i_info);
+                });
+
+                teamMember.team_barrier();
+                std::cout << "AAAAAA " << i << " " << i_info << std::endl;
+                compadre_assert_release(i_info==0 && "dgetrf failed");
 
                 Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                 dgetrs_( const_cast<char *>(transpose_or_no.c_str()),
-                         const_cast<int*>(&N), const_cast<int*>(&my_num_rows),
+                         const_cast<int*>(&N), const_cast<int*>(&NRHS),
                          p_offset, const_cast<int*>(&lda),
-                         ipiv,
+                         scratch_ipiv.data(),
                          rhs_offset, const_cast<int*>(&ldb),
                          &i_info);
                 });
@@ -566,13 +568,11 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
     #else
 
         std::cout << "HHEEERRREEEE " << std::endl;
-        double * scratch_work = (double *)malloc(sizeof(double)*lwork);
-        double * scratch_s = (double *)malloc(sizeof(double)*std::max(M,N));
-        int * scratch_iwork = (int *)malloc(sizeof(int)*liwork);
+
+        int* scratch_ipvi = (int*)malloc(sizeof(int)*(std::min(M, N)));
 
         for (int i=0; i<num_matrices; ++i) {
 
-                int i_rank = 0;
                 int i_info = 0;
 
                 double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
@@ -585,7 +585,7 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
                 dgetrs_( const_cast<char *>(transpose_or_no.c_str()),
                          const_cast<int*>(&N), const_cast<int*>(&my_num_rows),
                          p_offset, const_cast<int*>(&lda),
-                         ipiv,
+                         scratch_ipiv,
                          rhs_offset, const_cast<int*>(&ldb),
                          &i_info);
 
@@ -594,9 +594,6 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
         }
 
         delete[] ipiv;
-        free(scratch_work);
-        free(scratch_s);
-        free(scratch_iwork);
 
     #endif // LAPACK is not threadsafe
 
