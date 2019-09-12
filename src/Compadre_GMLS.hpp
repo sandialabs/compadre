@@ -449,7 +449,7 @@ protected:
 
     //! Helper function for applying the evaluations from a target functional to the polynomial coefficients
     KOKKOS_INLINE_FUNCTION
-    void applyTargetsToCoefficients(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type Q, scratch_matrix_right_type R, scratch_vector_type w, scratch_matrix_right_type P_target_row, const int target_NP) const;
+    void applyTargetsToCoefficients(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type Q, scratch_vector_type w, scratch_matrix_right_type P_target_row, const int target_NP) const;
 
     //! Generates quadrature for staggered approach
     void generate1DQuadrature();
@@ -634,6 +634,8 @@ protected:
             return DenseSolverType::SVD;
         } else if (solver_type_to_lower == "manifold") {
             return DenseSolverType::MANIFOLD;
+        } else if (solver_type_to_lower == "lu") {
+            return DenseSolverType::LU;
         } else {
             return DenseSolverType::QR;
         }
@@ -912,7 +914,7 @@ public:
     int getLocalDimensions() const { return _local_dimensions; }
 
     //! Get type of problem for GMLS
-    DenseSolverType getProblemType() { return _dense_solver_type; }
+    DenseSolverType getDenseSolverType() { return _dense_solver_type; }
 
     //! Type for weighting kernel for GMLS problem
     WeightingFunctionType getWeightingType() const { return _weighting_type; }
@@ -1014,7 +1016,11 @@ public:
     decltype(_RHS) getFullPolynomialCoefficientsBasis() const { 
         compadre_assert_release(_entire_batch_computed_at_once 
                 && "Entire batch not computed at once, so getFullPolynomialCoefficientsBasis() can not be called.");
-        return _RHS; 
+        if (_dense_solver_type != DenseSolverType::LU) {
+            return _RHS; 
+        } else {
+            return _P; 
+        }
     }
 
     //! Get the polynomial sampling functional specified at instantiation

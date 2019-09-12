@@ -3,7 +3,7 @@
 namespace Compadre{
 namespace GMLS_LinearAlgebra {
 
-void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
+void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
 
 #ifdef COMPADRE_USE_CUDA
 
@@ -37,7 +37,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
     // call batched QR
     cublas_stat=cublasDgelsBatched(cublas_handle, CUBLAS_OP_N, 
-                                   M, N, M,
+                                   M, N, NRHS,
                                    reinterpret_cast<double**>(array_P_RHS.ptr_on_device()), lda,
                                    reinterpret_cast<double**>(array_P_RHS.ptr_on_device() + TO_GLOBAL(num_matrices)), ldb,
                                    &info, devInfo, num_matrices );
@@ -58,7 +58,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
     int lwork = -1, info = 0; double wkopt = 0;
 
     if (num_matrices > 0) {
-        dgels_( (char *)"N", &M, &N, &M, 
+        dgels_( (char *)"N", &M, &N, &NRHS, 
                 (double *)NULL, &lda, 
                 (double *)NULL, &ldb, 
                 &wkopt, &lwork, &info );
@@ -135,7 +135,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
 }
 
-void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
+void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
 
 // _U, _S, and _V are stored globally so that they can be used to apply targets in applySVD
 // they are not needed on the CPU, only with CUDA because there is no dgelsd equivalent
@@ -341,7 +341,7 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
 
         // data is actually layout left
         scratch_matrix_left_type
-            RHS_(RHS + TO_GLOBAL(target_index)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb), ldb, ldb);
+            RHS_(RHS + TO_GLOBAL(target_index)*TO_GLOBAL(ldb)*TO_GLOBAL(NRHS), ldb, NRHS);
         scratch_matrix_left_type
             U_(U.data() + TO_GLOBAL(target_index)*TO_GLOBAL(ldu)*TO_GLOBAL(M), ldu, M);
         scratch_matrix_left_type
@@ -401,7 +401,7 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
     int info = 0;
 
     if (num_matrices > 0) {
-        dgelsd_( &M, &N, &M, 
+        dgelsd_( &M, &N, &NRHS, 
                  P, &lda, 
                  RHS, &ldb, 
                  s, &rcond, &rank,
@@ -482,6 +482,85 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
         free(scratch_work);
         free(scratch_s);
         free(scratch_iwork);
+
+    #endif // LAPACK is not threadsafe
+
+#endif
+}
+
+void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
+
+#ifdef COMPADRE_USE_LAPACK
+
+    // later improvement could be to send in an optional view with the neighbor list size for each target to reduce work
+
+    Kokkos::Profiling::pushRegion("LU::Setup(Create)");
+    Kokkos::Profiling::popRegion();
+
+    std::string transpose_or_no = "N";
+
+    #ifdef LAPACK_DECLARED_THREADSAFE
+        int scratch_space_size = 0;
+        scratch_space_size += scratch_local_index_type::shmem_size( std::min(M, N) );  // ipiv
+
+        Kokkos::parallel_for(
+            team_policy(num_matrices, Kokkos::AUTO)
+            .set_scratch_size(0, Kokkos::PerTeam(scratch_space_size)),
+            KOKKOS_LAMBDA (const member_type& teamMember) {
+
+                scratch_local_index_type scratch_ipiv(teamMember.team_scratch(0), std::min(M, N));
+                int i_info = 0;
+
+                const int i = teamMember.league_rank();
+                double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
+                double * rhs_offset = RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb);
+
+                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                dgetrf_( const_cast<int*>(&M), const_cast<int*>(&N),
+                         p_offset, const_cast<int*>(&lda),
+                         scratch_ipiv.data(),
+                         &i_info);
+                });
+                teamMember.team_barrier();
+
+                compadre_assert_release(i_info==0 && "dgetrf failed");
+
+                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                dgetrs_( const_cast<char *>(transpose_or_no.c_str()),
+                         const_cast<int*>(&N), const_cast<int*>(&NRHS),
+                         p_offset, const_cast<int*>(&lda),
+                         scratch_ipiv.data(),
+                         rhs_offset, const_cast<int*>(&ldb),
+                         &i_info);
+                });
+
+                compadre_assert_release(i_info==0 && "dgetrs failed");
+
+        }, "LU Execution");
+
+    #else
+
+        int* scratch_ipvi = (int*)malloc(sizeof(int)*(std::min(M, N)));
+
+        for (int i=0; i<num_matrices; ++i) {
+
+                int i_info = 0;
+
+                double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
+                double * rhs_offset = RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb);
+
+                dgetrs_( const_cast<char *>(transpose_or_no.c_str()),
+                         const_cast<int*>(&N), const_cast<int*>(&NRHS),
+                         p_offset, const_cast<int*>(&lda),
+                         scratch_ipiv,
+                         rhs_offset, const_cast<int*>(&ldb),
+                         &i_info);
+
+                compadre_assert_release(i_info==0 && "dgetrs failed");
+
+        }
+
+        delete[] ipiv;
 
     #endif // LAPACK is not threadsafe
 
