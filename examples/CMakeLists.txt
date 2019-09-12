@@ -69,7 +69,7 @@ if (Compadre_EXAMPLES)
     SET_TESTS_PROPERTIES(GMLS_Device_Dim1_QR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
 
     # Device views tests for GMLS - LU solver
-    ADD_TEST(NAME GMLS_Device_Dim3_LU COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "4" "200" "3" "3" "--kokkos-threads=2")
+    ADD_TEST(NAME GMLS_Device_Dim3_LU COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "4" "200" "3" "2" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_Device_Dim3_LU PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
 
     # Device views tests for GMLS (vector basis)
