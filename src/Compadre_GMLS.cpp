@@ -307,7 +307,6 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
                 Kokkos::Profiling::popRegion();
             } else if (_dense_solver_type == DenseSolverType::LU) {
                 Kokkos::Profiling::pushRegion("LU Factorization");
-                // std::cout << "THIS NUM COLS " << this_num_cols << " MAX NUM ROWS " << max_num_rows << std::endl;
                 GMLS_LinearAlgebra::batchLUFactorize(_RHS.data(), max_num_rows, max_num_rows, _P.data(), this_num_cols, max_num_rows, this_num_cols, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
                 Kokkos::Profiling::popRegion();
             } else {
@@ -453,13 +452,6 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
         // create layout left matrix to allow for (i, j) indexing
         // LAPACK and CUDA requires layout left matrix
         scratch_matrix_left_type PsqrtW_LL(PsqrtW.data(), max_num_rows, this_num_cols);
-        // if (target_index == 0) {
-        //   for (int i=0; i<max_num_rows; i++) {
-        //     for (int j=0; j<this_num_cols; j++) {
-        //       printf("P %d %d %f\n", i, j, PsqrtW_LL(i,j));
-        //     }
-        //   }
-        // }
 
         // create layout left matrix
         // using the allocated data of PsqrtW

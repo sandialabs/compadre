@@ -489,32 +489,17 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
 }
 
 void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
-    // Quang will add this
 
 #ifdef COMPADRE_USE_LAPACK
 
     // later improvement could be to send in an optional view with the neighbor list size for each target to reduce work
 
     Kokkos::Profiling::pushRegion("LU::Setup(Create)");
-
-    // std::cout << "MMMMMMM " << M << " NNNNNN " << N << std::endl;
-
-    // const int smlsiz = 25;
-
-    // int ipiv[std::min(M, N)];
-    // int info = 0;
-
-    // LU decomposition of matrix P
-    // dgetrf_(&M, &N, P,
-    //         &lda, ipiv, &info);
-
     Kokkos::Profiling::popRegion();
 
     std::string transpose_or_no = "N";
 
     #ifdef LAPACK_DECLARED_THREADSAFE
-        // std::cout << "WHY HHEEERRREEEE " << std::endl;
-
         int scratch_space_size = 0;
         scratch_space_size += scratch_local_index_type::shmem_size( std::min(M, N) );  // ipiv
 
@@ -530,26 +515,14 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
                 double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
                 double * rhs_offset = RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb);
 
-                // use a custom # of neighbors for each problem, if possible
-                // const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
-                // int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
-
                 Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                // dgetrf_(&M, &N, P,
-                //         &lda, NULL, &info);
-                // for (int ii = 0; ii < N; ii++) {
-                //   for (int jj=0; jj < M; jj++) {
-                //     std::cout << "BBBBB " << ii << " " << jj << " "<< p_offset[jj*lda + ii] << std::endl;
-                //   }
-                // }
                 dgetrf_( const_cast<int*>(&M), const_cast<int*>(&N),
                          p_offset, const_cast<int*>(&lda),
                          scratch_ipiv.data(),
                          &i_info);
                 });
-
                 teamMember.team_barrier();
-                // std::cout << "AAAAAA " << i << " " << i_info << std::endl;
+
                 compadre_assert_release(i_info==0 && "dgetrf failed");
 
                 Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
@@ -567,8 +540,6 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
     #else
 
-        // std::cout << "HHEEERRREEEE " << std::endl;
-
         int* scratch_ipvi = (int*)malloc(sizeof(int)*(std::min(M, N)));
 
         for (int i=0; i<num_matrices; ++i) {
@@ -578,12 +549,8 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
                 double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
                 double * rhs_offset = RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb);
 
-                // use a custom # of neighbors for each problem, if possible
-                const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
-                int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i + initial_index_of_batch))*multiplier : M;
-
                 dgetrs_( const_cast<char *>(transpose_or_no.c_str()),
-                         const_cast<int*>(&N), const_cast<int*>(&my_num_rows),
+                         const_cast<int*>(&N), const_cast<int*>(&NRHS),
                          p_offset, const_cast<int*>(&lda),
                          scratch_ipiv,
                          rhs_offset, const_cast<int*>(&ldb),

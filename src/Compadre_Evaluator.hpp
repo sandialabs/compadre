@@ -504,9 +504,6 @@ public:
         const int coefficient_matrix_tile_size = _gmls->getPolynomialCoefficientsMatrixTileSize();
         const int coefficient_size = _gmls->getPolynomialCoefficientsSize();
 
-        // std::cout << "COEFFF SIZEEE " << coefficient_size << std::endl;
-        // std::cout << "COEFFF MATRIX TILE SIZEEE " << coefficient_matrix_tile_size << std::endl;
-
         // alphas gracefully handle a scalar basis used repeatedly (VectorOfScalarClones) because the alphas
         // hold a 0 when the input index is greater than 0
         // this can be detected for the polynomial coefficients by noticing that the input_component_axis_1 is greater than 0,
@@ -542,7 +539,6 @@ public:
                          global_dimensions, global_dimensions);
 
                 scratch_matrix_left_type Coeffs;
-                // printf("COEFFSS DATA %p \n", coeffs.data());
                 if (_gmls->getDenseSolverType() != DenseSolverType::LU) {
                     Coeffs = scratch_matrix_left_type(coeffs.data() + TO_GLOBAL(target_index)*TO_GLOBAL(coefficient_matrix_tile_size)*TO_GLOBAL(coefficient_matrix_tile_size),
                                                       coefficient_matrix_tile_size, coefficient_matrix_tile_size);
@@ -562,8 +558,7 @@ public:
                     const double neighbor_varying_pre_T =  (weight_with_pre_T && vary_on_neighbor) ?
                         prestencil_weights(0, target_index, i, pre_transform_local_index, pre_transform_global_index)
                         : 1.0;
-                    // This is where it seg fault
-                    // std::cout << "i " << i << " j " << j << std::endl;
+
                     t_value += neighbor_varying_pre_T * sampling_data_single_column(neighbor_lists(target_index, i+1))*Coeffs(j, i);
                         // *Coeffs(ORDER_INDICES(i+input_component_axis_1*neighbor_lists(target_index,0), j));
 
