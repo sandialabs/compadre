@@ -224,8 +224,8 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
 
     # ADVECTION DIFFUSION TESTS
     
-    ADD_TEST(NAME AdvectionDiffusionTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/advectiondiffusion_convergence.py" "4" "2") # 4 polynomial order, 2 successive meshes
-    SET_TESTS_PROPERTIES(AdvectionDiffusionTest PROPERTIES LABELS "advection;diffusion;dg;variational;weakform")
+    #ADD_TEST(NAME AdvectionDiffusionTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/advectiondiffusion_convergence.py" "4" "2") # 4 polynomial order, 2 successive meshes
+    #SET_TESTS_PROPERTIES(AdvectionDiffusionTest PROPERTIES LABELS "advection;diffusion;dg;variational;weakform")
     
     # CANGA TESTS
     
