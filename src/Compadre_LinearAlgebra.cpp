@@ -3,7 +3,7 @@
 namespace Compadre{
 namespace GMLS_LinearAlgebra {
 
-void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
+void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
 
 #ifdef COMPADRE_USE_CUDA
 
@@ -16,7 +16,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
         array_P_RHS(i + num_matrices) = reinterpret_cast<size_t>(RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb));
     });
 
-    int *devInfo; cudaMalloc(&devInfo, num_matrices*sizeof(int));
+    Kokkos::View<int*> devInfo("devInfo", num_matrices);
     cudaDeviceSynchronize();
     Kokkos::Profiling::popRegion();
 
@@ -37,14 +37,13 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
     // call batched QR
     cublas_stat=cublasDgelsBatched(cublas_handle, CUBLAS_OP_N, 
-                                   M, N, M,
-                                   reinterpret_cast<double**>(array_P_RHS.ptr_on_device()), lda,
-                                   reinterpret_cast<double**>(array_P_RHS.ptr_on_device() + TO_GLOBAL(num_matrices)), ldb,
-                                   &info, devInfo, num_matrices );
+                                   M, N, NRHS,
+                                   reinterpret_cast<double**>(array_P_RHS.data()), lda,
+                                   reinterpret_cast<double**>(array_P_RHS.data() + TO_GLOBAL(num_matrices)), ldb,
+                                   &info, devInfo.data(), num_matrices );
 
     compadre_assert_release(cublas_stat==CUBLAS_STATUS_SUCCESS && "cublasDgeqrfBatched failed");
     cudaDeviceSynchronize();
-    cudaFree(devInfo);
     Kokkos::Profiling::popRegion();
 
 
@@ -58,7 +57,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
     int lwork = -1, info = 0; double wkopt = 0;
 
     if (num_matrices > 0) {
-        dgels_( (char *)"N", &M, &N, &M, 
+        dgels_( (char *)"N", &M, &N, &NRHS, 
                 (double *)NULL, &lda, 
                 (double *)NULL, &ldb, 
                 &wkopt, &lwork, &info );
@@ -107,7 +106,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
     #else
 
-        double * scratch_work = (double *)malloc(sizeof(double)*lwork);
+        Kokkos::View<double*> scratch_work("scratch_work", lwork);
         for (int i=0; i<num_matrices; ++i) {
 
             int i_info = 0;
@@ -123,11 +122,10 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
                     const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rows), 
                     p_offset, const_cast<int*>(&lda), 
                     rhs_offset, const_cast<int*>(&ldb), 
-                    scratch_work, const_cast<int*>(&lwork), &i_info);
+                    scratch_work.data(), const_cast<int*>(&lwork), &i_info);
 
             compadre_assert_release(i_info==0 && "dgels failed");
         }
-        free(scratch_work);
 
     #endif // LAPACK is not threadsafe
 
@@ -135,7 +133,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
 }
 
-void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
+void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
 
 // _U, _S, and _V are stored globally so that they can be used to apply targets in applySVD
 // they are not needed on the CPU, only with CUDA because there is no dgelsd equivalent
@@ -209,9 +207,9 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
               cusolver_handles[0], jobz,
               M, N,
               P, lda, // P
-              S.ptr_on_device(), // S
-              U.ptr_on_device(), ldu, // U
-              V.ptr_on_device(), ldv, // V
+              S.data(), // S
+              U.data(), ldu, // U
+              V.data(), ldv, // V
               &lwork, gesvdj_params, num_matrices
           );
           compadre_assert_release(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Get Work Size");
@@ -226,11 +224,11 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
               cusolver_handles[0], jobz,
               M, N,
               P, lda,
-              S.ptr_on_device(),
-              U.ptr_on_device(), ldu,
-              V.ptr_on_device(), ldv,
-              work.ptr_on_device(), lwork,
-              devInfo.ptr_on_device(), gesvdj_params, num_matrices
+              S.data(),
+              U.data(), ldu,
+              V.data(), ldv,
+              work.data(), lwork,
+              devInfo.data(), gesvdj_params, num_matrices
           );
           cudaStat1 = cudaDeviceSynchronize();
           compadre_assert_release(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Solver Didn't Succeed");
@@ -253,9 +251,9 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
               cusolver_handles[0], jobz, econ,
               M, N,
               P, lda, // P
-              S.ptr_on_device(), // S
-              U.ptr_on_device(), ldu, // U
-              V.ptr_on_device(), ldv, // V
+              S.data(), // S
+              U.data(), ldu, // U
+              V.data(), ldv, // V
               &lwork, gesvdj_params
           );
           compadre_assert_release(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Get Work Size");
@@ -276,11 +274,11 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
                   cusolver_handles[my_stream], jobz, econ,
                   M, N,
                   P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda), lda,
-                  S.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(min_mn),
-                  U.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(ldu)*TO_GLOBAL(M), ldu,
-                  V.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(ldv)*TO_GLOBAL(N), ldv,
-                  work.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(lwork), lwork,
-                  devInfo.ptr_on_device() + TO_GLOBAL(i), gesvdj_params
+                  S.data() + TO_GLOBAL(i)*TO_GLOBAL(min_mn),
+                  U.data() + TO_GLOBAL(i)*TO_GLOBAL(ldu)*TO_GLOBAL(M), ldu,
+                  V.data() + TO_GLOBAL(i)*TO_GLOBAL(ldv)*TO_GLOBAL(N), ldv,
+                  work.data() + TO_GLOBAL(i)*TO_GLOBAL(lwork), lwork,
+                  devInfo.data() + TO_GLOBAL(i), gesvdj_params
               );
   
 //              cusolverDnDgesvd (
@@ -291,15 +289,15 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
 //                  N,
 //                  P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda),
 //                  lda,
-//                  S.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(min_mn),
-//                  U.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(ldu)*TO_GLOBAL(M),
+//                  S.data() + TO_GLOBAL(i)*TO_GLOBAL(min_mn),
+//                  U.data() + TO_GLOBAL(i)*TO_GLOBAL(ldu)*TO_GLOBAL(M),
 //                  ldu,
-//                  V.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(ldv)*TO_GLOBAL(N),
+//                  V.data() + TO_GLOBAL(i)*TO_GLOBAL(ldv)*TO_GLOBAL(N),
 //                  ldv,
-//                  work.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(lwork),
+//                  work.data() + TO_GLOBAL(i)*TO_GLOBAL(lwork),
 //                  lwork,
-//                  rwork.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL((min_mn-1)),
-//                  devInfo.ptr_on_device() + TO_GLOBAL(i) );
+//                  rwork.data() + TO_GLOBAL(i)*TO_GLOBAL((min_mn-1)),
+//                  devInfo.data() + TO_GLOBAL(i) );
   
           });
         Kokkos::Profiling::popRegion();
@@ -341,7 +339,7 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
 
         // data is actually layout left
         scratch_matrix_left_type
-            RHS_(RHS + TO_GLOBAL(target_index)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb), ldb, ldb);
+            RHS_(RHS + TO_GLOBAL(target_index)*TO_GLOBAL(ldb)*TO_GLOBAL(NRHS), ldb, NRHS);
         scratch_matrix_left_type
             U_(U.data() + TO_GLOBAL(target_index)*TO_GLOBAL(ldu)*TO_GLOBAL(M), ldu, M);
         scratch_matrix_left_type
@@ -401,7 +399,7 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
     int info = 0;
 
     if (num_matrices > 0) {
-        dgelsd_( &M, &N, &M, 
+        dgelsd_( &M, &N, &NRHS, 
                  P, &lda, 
                  RHS, &ldb, 
                  s, &rcond, &rank,
@@ -482,6 +480,141 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
         free(scratch_work);
         free(scratch_s);
         free(scratch_iwork);
+
+    #endif // LAPACK is not threadsafe
+
+#endif
+}
+
+void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
+
+#ifdef COMPADRE_USE_CUDA
+
+    Kokkos::Profiling::pushRegion("LU::Setup(Pointers)");
+    Kokkos::View<size_t*> array_P_RHS("P and RHS matrix pointers on device", 2*num_matrices);
+    Kokkos::View<int*> ipiv_device("ipiv space on device", num_matrices*M);
+
+    // get pointers to device data
+    Kokkos::parallel_for(Kokkos::RangePolicy<device_execution_space>(0,num_matrices), KOKKOS_LAMBDA(const int i) {
+        array_P_RHS(i               ) = reinterpret_cast<size_t>(P   + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda));
+        array_P_RHS(i + num_matrices) = reinterpret_cast<size_t>(RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb));
+    });
+
+    Kokkos::View<int*> devInfo("devInfo", num_matrices);
+    cudaDeviceSynchronize();
+    Kokkos::Profiling::popRegion();
+
+    Kokkos::Profiling::pushRegion("LU::Setup(Handle)");
+    // Create cublas instance
+    cublasHandle_t cublas_handle;
+    cublasStatus_t cublas_stat;
+    cudaDeviceSynchronize();
+    Kokkos::Profiling::popRegion();
+
+    Kokkos::Profiling::pushRegion("LU::Setup(Create)");
+    cublasCreate(&cublas_handle);
+    cudaDeviceSynchronize();
+    Kokkos::Profiling::popRegion();
+
+    int info = 0;
+
+    Kokkos::Profiling::pushRegion("LU::Execution");
+
+    // call batched LU factorization
+    cublas_stat=cublasDgetrfBatched(cublas_handle, 
+                                   M,
+                                   reinterpret_cast<double**>(array_P_RHS.data()), lda,
+                                   reinterpret_cast<int*>(ipiv_device.data()),
+                                   devInfo.data(), num_matrices );
+    compadre_assert_release(cublas_stat==CUBLAS_STATUS_SUCCESS && "cublasDgetrfBatched failed");
+
+    // call batched LU application
+    cublas_stat=cublasDgetrsBatched(cublas_handle, CUBLAS_OP_N,
+                                   M, NRHS,
+                                   reinterpret_cast<double**>(array_P_RHS.data()), lda,
+                                   reinterpret_cast<int*>(ipiv_device.data()),
+                                   reinterpret_cast<double**>(array_P_RHS.data() + TO_GLOBAL(num_matrices)), ldb,
+                                   &info, num_matrices );
+    compadre_assert_release(cublas_stat==CUBLAS_STATUS_SUCCESS && "cublasDgetrsBatched failed");
+
+    cudaDeviceSynchronize();
+    Kokkos::Profiling::popRegion();
+
+
+#elif defined(COMPADRE_USE_LAPACK)
+
+    // later improvement could be to send in an optional view with the neighbor list size for each target to reduce work
+
+    Kokkos::Profiling::pushRegion("LU::Setup(Create)");
+    Kokkos::Profiling::popRegion();
+
+    std::string transpose_or_no = "N";
+
+    #ifdef LAPACK_DECLARED_THREADSAFE
+        int scratch_space_size = 0;
+        scratch_space_size += scratch_local_index_type::shmem_size( std::min(M, N) );  // ipiv
+
+        Kokkos::parallel_for(
+            team_policy(num_matrices, Kokkos::AUTO)
+            .set_scratch_size(0, Kokkos::PerTeam(scratch_space_size)),
+            KOKKOS_LAMBDA (const member_type& teamMember) {
+
+                scratch_local_index_type scratch_ipiv(teamMember.team_scratch(0), std::min(M, N));
+                int i_info = 0;
+
+                const int i = teamMember.league_rank();
+                double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
+                double * rhs_offset = RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb);
+
+                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                dgetrf_( const_cast<int*>(&M), const_cast<int*>(&N),
+                         p_offset, const_cast<int*>(&lda),
+                         scratch_ipiv.data(),
+                         &i_info);
+                });
+                teamMember.team_barrier();
+
+                compadre_assert_release(i_info==0 && "dgetrf failed");
+
+                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                dgetrs_( const_cast<char *>(transpose_or_no.c_str()),
+                         const_cast<int*>(&N), const_cast<int*>(&NRHS),
+                         p_offset, const_cast<int*>(&lda),
+                         scratch_ipiv.data(),
+                         rhs_offset, const_cast<int*>(&ldb),
+                         &i_info);
+                });
+
+                compadre_assert_release(i_info==0 && "dgetrs failed");
+
+        }, "LU Execution");
+
+    #else
+
+        Kokkos::View<int*> scratch_ipiv("scratch_ipiv", std::min(M, N));
+
+        for (int i=0; i<num_matrices; ++i) {
+
+                int i_info = 0;
+
+                double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
+                double * rhs_offset = RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb);
+
+                dgetrf_( const_cast<int*>(&M), const_cast<int*>(&N),
+                         p_offset, const_cast<int*>(&lda),
+                         scratch_ipiv.data(),
+                         &i_info);
+
+                dgetrs_( const_cast<char *>(transpose_or_no.c_str()),
+                         const_cast<int*>(&N), const_cast<int*>(&NRHS),
+                         p_offset, const_cast<int*>(&lda),
+                         scratch_ipiv.data(),
+                         rhs_offset, const_cast<int*>(&ldb),
+                         &i_info);
+
+                compadre_assert_release(i_info==0 && "dgetrs failed");
+
+        }
 
     #endif // LAPACK is not threadsafe
 
