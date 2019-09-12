@@ -517,6 +517,7 @@ public:
         auto coeffs         = _gmls->getFullPolynomialCoefficientsBasis();
         auto tangent_directions = _gmls->getTangentDirections();
         auto prestencil_weights = _gmls->getPrestencilWeights();
+        auto dense_solver_type = _gmls->getDenseSolverType();
 
         const int num_targets = neighbor_lists.extent(0); // one row for each target
 
@@ -539,12 +540,14 @@ public:
                          global_dimensions, global_dimensions);
 
                 scratch_matrix_left_type Coeffs;
-                if (_gmls->getDenseSolverType() != DenseSolverType::LU) {
-                    Coeffs = scratch_matrix_left_type(coeffs.data() + TO_GLOBAL(target_index)*TO_GLOBAL(coefficient_matrix_tile_size)*TO_GLOBAL(coefficient_matrix_tile_size),
-                                                      coefficient_matrix_tile_size, coefficient_matrix_tile_size);
+                if (dense_solver_type != DenseSolverType::LU) {
+                    Coeffs = scratch_matrix_left_type(coeffs.data() 
+                        + TO_GLOBAL(target_index)*TO_GLOBAL(coefficient_matrix_tile_size)*TO_GLOBAL(coefficient_matrix_tile_size),
+                        coefficient_matrix_tile_size, coefficient_matrix_tile_size);
                 } else {
-                    Coeffs = scratch_matrix_left_type(coeffs.data() + TO_GLOBAL(target_index)*TO_GLOBAL(coefficient_matrix_tile_size)*TO_GLOBAL(coefficient_size),
-                                                      coefficient_size, coefficient_matrix_tile_size);
+                    Coeffs = scratch_matrix_left_type(coeffs.data() 
+                        + TO_GLOBAL(target_index)*TO_GLOBAL(coefficient_matrix_tile_size)*TO_GLOBAL(coefficient_size),
+                        coefficient_size, coefficient_matrix_tile_size);
                 }
 
                 teamMember.team_barrier();
