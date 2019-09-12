@@ -497,7 +497,7 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
     Kokkos::Profiling::pushRegion("LU::Setup(Create)");
 
-    std::cout << "MMMMMMM " << M << " NNNNNN " << N << std::endl;
+    // std::cout << "MMMMMMM " << M << " NNNNNN " << N << std::endl;
 
     // const int smlsiz = 25;
 
@@ -513,7 +513,7 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
     std::string transpose_or_no = "N";
 
     #ifdef LAPACK_DECLARED_THREADSAFE
-        std::cout << "WHY HHEEERRREEEE " << std::endl;
+        // std::cout << "WHY HHEEERRREEEE " << std::endl;
 
         int scratch_space_size = 0;
         scratch_space_size += scratch_local_index_type::shmem_size( std::min(M, N) );  // ipiv
@@ -537,11 +537,11 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
                 Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                 // dgetrf_(&M, &N, P,
                 //         &lda, NULL, &info);
-                for (int ii = 0; ii < N; ii++) {
-                  for (int jj=0; jj < M; jj++) {
-                    std::cout << "BBBBB " << ii << " " << jj << " "<< p_offset[jj*lda + ii] << std::endl;
-                  }
-                }
+                // for (int ii = 0; ii < N; ii++) {
+                //   for (int jj=0; jj < M; jj++) {
+                //     std::cout << "BBBBB " << ii << " " << jj << " "<< p_offset[jj*lda + ii] << std::endl;
+                //   }
+                // }
                 dgetrf_( const_cast<int*>(&M), const_cast<int*>(&N),
                          p_offset, const_cast<int*>(&lda),
                          scratch_ipiv.data(),
@@ -549,7 +549,7 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
                 });
 
                 teamMember.team_barrier();
-                std::cout << "AAAAAA " << i << " " << i_info << std::endl;
+                // std::cout << "AAAAAA " << i << " " << i_info << std::endl;
                 compadre_assert_release(i_info==0 && "dgetrf failed");
 
                 Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
@@ -567,7 +567,7 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
     #else
 
-        std::cout << "HHEEERRREEEE " << std::endl;
+        // std::cout << "HHEEERRREEEE " << std::endl;
 
         int* scratch_ipvi = (int*)malloc(sizeof(int)*(std::min(M, N)));
 
