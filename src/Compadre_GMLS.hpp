@@ -914,7 +914,7 @@ public:
     int getLocalDimensions() const { return _local_dimensions; }
 
     //! Get type of problem for GMLS
-    DenseSolverType getProblemType() { return _dense_solver_type; }
+    DenseSolverType getDenseSolverType() { return _dense_solver_type; }
 
     //! Type for weighting kernel for GMLS problem
     WeightingFunctionType getWeightingType() const { return _weighting_type; }
