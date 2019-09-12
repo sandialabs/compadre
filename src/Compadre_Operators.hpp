@@ -173,6 +173,8 @@ namespace Compadre {
         //! Solve GMLS problem on a manifold (will use QR or SVD to solve the resultant GMLS 
         //! problem dependent on SamplingNontrivialNullspace
         MANIFOLD, 
+        //! LU factorization performed on P^T*W*P matrix
+        LU, 
     };
 
     //! Available weighting kernel function types
