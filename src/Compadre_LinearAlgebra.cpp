@@ -38,8 +38,8 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
     // call batched QR
     cublas_stat=cublasDgelsBatched(cublas_handle, CUBLAS_OP_N, 
                                    M, N, NRHS,
-                                   reinterpret_cast<double**>(array_P_RHS.ptr_on_device()), lda,
-                                   reinterpret_cast<double**>(array_P_RHS.ptr_on_device() + TO_GLOBAL(num_matrices)), ldb,
+                                   reinterpret_cast<double**>(array_P_RHS.data()), lda,
+                                   reinterpret_cast<double**>(array_P_RHS.data() + TO_GLOBAL(num_matrices)), ldb,
                                    &info, devInfo.data(), num_matrices );
 
     compadre_assert_release(cublas_stat==CUBLAS_STATUS_SUCCESS && "cublasDgeqrfBatched failed");
@@ -207,9 +207,9 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
               cusolver_handles[0], jobz,
               M, N,
               P, lda, // P
-              S.ptr_on_device(), // S
-              U.ptr_on_device(), ldu, // U
-              V.ptr_on_device(), ldv, // V
+              S.data(), // S
+              U.data(), ldu, // U
+              V.data(), ldv, // V
               &lwork, gesvdj_params, num_matrices
           );
           compadre_assert_release(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Get Work Size");
@@ -224,11 +224,11 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
               cusolver_handles[0], jobz,
               M, N,
               P, lda,
-              S.ptr_on_device(),
-              U.ptr_on_device(), ldu,
-              V.ptr_on_device(), ldv,
-              work.ptr_on_device(), lwork,
-              devInfo.ptr_on_device(), gesvdj_params, num_matrices
+              S.data(),
+              U.data(), ldu,
+              V.data(), ldv,
+              work.data(), lwork,
+              devInfo.data(), gesvdj_params, num_matrices
           );
           cudaStat1 = cudaDeviceSynchronize();
           compadre_assert_release(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Solver Didn't Succeed");
@@ -251,9 +251,9 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
               cusolver_handles[0], jobz, econ,
               M, N,
               P, lda, // P
-              S.ptr_on_device(), // S
-              U.ptr_on_device(), ldu, // U
-              V.ptr_on_device(), ldv, // V
+              S.data(), // S
+              U.data(), ldu, // U
+              V.data(), ldv, // V
               &lwork, gesvdj_params
           );
           compadre_assert_release(CUSOLVER_STATUS_SUCCESS == cusolver_stat && "Get Work Size");
@@ -274,11 +274,11 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
                   cusolver_handles[my_stream], jobz, econ,
                   M, N,
                   P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda), lda,
-                  S.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(min_mn),
-                  U.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(ldu)*TO_GLOBAL(M), ldu,
-                  V.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(ldv)*TO_GLOBAL(N), ldv,
-                  work.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(lwork), lwork,
-                  devInfo.ptr_on_device() + TO_GLOBAL(i), gesvdj_params
+                  S.data() + TO_GLOBAL(i)*TO_GLOBAL(min_mn),
+                  U.data() + TO_GLOBAL(i)*TO_GLOBAL(ldu)*TO_GLOBAL(M), ldu,
+                  V.data() + TO_GLOBAL(i)*TO_GLOBAL(ldv)*TO_GLOBAL(N), ldv,
+                  work.data() + TO_GLOBAL(i)*TO_GLOBAL(lwork), lwork,
+                  devInfo.data() + TO_GLOBAL(i), gesvdj_params
               );
   
 //              cusolverDnDgesvd (
@@ -289,15 +289,15 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
 //                  N,
 //                  P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda),
 //                  lda,
-//                  S.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(min_mn),
-//                  U.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(ldu)*TO_GLOBAL(M),
+//                  S.data() + TO_GLOBAL(i)*TO_GLOBAL(min_mn),
+//                  U.data() + TO_GLOBAL(i)*TO_GLOBAL(ldu)*TO_GLOBAL(M),
 //                  ldu,
-//                  V.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(ldv)*TO_GLOBAL(N),
+//                  V.data() + TO_GLOBAL(i)*TO_GLOBAL(ldv)*TO_GLOBAL(N),
 //                  ldv,
-//                  work.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL(lwork),
+//                  work.data() + TO_GLOBAL(i)*TO_GLOBAL(lwork),
 //                  lwork,
-//                  rwork.ptr_on_device() + TO_GLOBAL(i)*TO_GLOBAL((min_mn-1)),
-//                  devInfo.ptr_on_device() + TO_GLOBAL(i) );
+//                  rwork.data() + TO_GLOBAL(i)*TO_GLOBAL((min_mn-1)),
+//                  devInfo.data() + TO_GLOBAL(i) );
   
           });
         Kokkos::Profiling::popRegion();
@@ -523,7 +523,7 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
     // call batched LU factorization
     cublas_stat=cublasDgetrfBatched(cublas_handle, 
                                    M,
-                                   reinterpret_cast<double**>(array_P_RHS.ptr_on_device()), lda,
+                                   reinterpret_cast<double**>(array_P_RHS.data()), lda,
                                    reinterpret_cast<int*>(ipiv_device.data()),
                                    devInfo.data(), num_matrices );
     compadre_assert_release(cublas_stat==CUBLAS_STATUS_SUCCESS && "cublasDgetrfBatched failed");
@@ -531,9 +531,9 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
     // call batched LU application
     cublas_stat=cublasDgetrsBatched(cublas_handle, CUBLAS_OP_N,
                                    M, NRHS,
-                                   reinterpret_cast<double**>(array_P_RHS.ptr_on_device()), lda,
+                                   reinterpret_cast<double**>(array_P_RHS.data()), lda,
                                    reinterpret_cast<int*>(ipiv_device.data()),
-                                   reinterpret_cast<double**>(array_P_RHS.ptr_on_device() + TO_GLOBAL(num_matrices)), ldb,
+                                   reinterpret_cast<double**>(array_P_RHS.data() + TO_GLOBAL(num_matrices)), ldb,
                                    &info, num_matrices );
     compadre_assert_release(cublas_stat==CUBLAS_STATUS_SUCCESS && "cublasDgetrsBatched failed");
 
@@ -591,7 +591,7 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
     #else
 
-        int* scratch_ipiv = (int*)malloc(sizeof(int)*(std::min(M, N)));
+        Kokkos::View<int*> scratch_ipiv("scratch_ipiv", std::min(M, N));
 
         for (int i=0; i<num_matrices; ++i) {
 
@@ -602,21 +602,19 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
                 dgetrf_( const_cast<int*>(&M), const_cast<int*>(&N),
                          p_offset, const_cast<int*>(&lda),
-                         scratch_ipiv,
+                         scratch_ipiv.data(),
                          &i_info);
 
                 dgetrs_( const_cast<char *>(transpose_or_no.c_str()),
                          const_cast<int*>(&N), const_cast<int*>(&NRHS),
                          p_offset, const_cast<int*>(&lda),
-                         scratch_ipiv,
+                         scratch_ipiv.data(),
                          rhs_offset, const_cast<int*>(&ldb),
                          &i_info);
 
                 compadre_assert_release(i_info==0 && "dgetrs failed");
 
         }
-
-        delete[] scratch_ipiv;
 
     #endif // LAPACK is not threadsafe
 
