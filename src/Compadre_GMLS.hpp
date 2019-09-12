@@ -139,8 +139,11 @@ protected:
     //! actual rank of reconstruction basis
     int _reconstruction_space_rank;
 
-    //! solver type for GMLS problem, can also be set to MANIFOLD for manifold problems
+    //! solver type for GMLS problem
     DenseSolverType _dense_solver_type;
+
+    //! problem type for GMLS problem, can also be set to MANIFOLD for manifold problems
+    DenseSolverType _problem_type;
 
     //! polynomial sampling functional used to construct P matrix, set at GMLS class instantiation
     const SamplingFunctional _polynomial_sampling_functional;
@@ -632,12 +635,23 @@ protected:
         transform(solver_type_to_lower.begin(), solver_type_to_lower.end(), solver_type_to_lower.begin(), ::tolower);
         if (solver_type_to_lower == "svd") {
             return DenseSolverType::SVD;
-        } else if (solver_type_to_lower == "manifold") {
-            return DenseSolverType::MANIFOLD;
         } else if (solver_type_to_lower == "lu") {
             return DenseSolverType::LU;
         } else {
             return DenseSolverType::QR;
+        }
+    }
+
+    //! Parses a string to determine problem type
+    static ProblemType parseProblemType(const std::string& problem_type) {
+        std::string problem_type_to_lower = problem_type;
+        transform(problem_type_to_lower.begin(), problem_type_to_lower.end(), problem_type_to_lower.begin(), ::tolower);
+        if (problem_type_to_lower == "standard") {
+            return ProblemType::STANDARD;
+        } else if (problem_type_to_lower == "manifold") {
+            return ProblemType::MANIFOLD;
+        } else {
+            return ProblemType::STANDARD;
         }
     }
 
@@ -655,17 +669,19 @@ public:
         const SamplingFunctional polynomial_sampling_strategy,
         const SamplingFunctional data_sampling_strategy,
         const int poly_order,
+        const int dimensions = 3,
         const std::string dense_solver_type = std::string("QR"),
-        const int manifold_curvature_poly_order = 2,
-        const int dimensions = 3) : 
+        const std::string problem_type = std::string("STANDARD"),
+        const int manifold_curvature_poly_order = 2) : 
             _poly_order(poly_order),
             _curvature_poly_order(manifold_curvature_poly_order),
             _dimensions(dimensions),
             _reconstruction_space(reconstruction_space),
             _dense_solver_type(parseSolverType(dense_solver_type)),
-            _polynomial_sampling_functional(((_dense_solver_type == DenseSolverType::MANIFOLD) 
+            _problem_type(parseProblemType(problem_type)),
+            _polynomial_sampling_functional(((problem_type == ProblemType::MANIFOLD) 
                         && (polynomial_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : polynomial_sampling_strategy),
-            _data_sampling_functional(((_dense_solver_type == DenseSolverType::MANIFOLD) 
+            _data_sampling_functional(((problem_type == ProblemType::MANIFOLD) 
                         && (data_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : data_sampling_strategy)
             {
 
@@ -689,7 +705,7 @@ public:
         _threads_per_team = 0;
 
         // register curvature operations for manifold problems
-        if (_dense_solver_type == DenseSolverType::MANIFOLD) {
+        if (_problem_type == ProblemType::MANIFOLD) {
             _curvature_support_operations = Kokkos::View<TargetOperation*>
                 ("operations needed for manifold gradient reconstruction", 1);
             auto curvature_support_operations_mirror = 
@@ -728,7 +744,7 @@ public:
         _max_num_neighbors = 0;
 
         _global_dimensions = dimensions;
-        if (_dense_solver_type == DenseSolverType::MANIFOLD) {
+        if (_problem_type == ProblemType::MANIFOLD) {
             _local_dimensions = dimensions-1;
         } else {
             _local_dimensions = dimensions;
@@ -738,19 +754,21 @@ public:
     //! Constructor for the case when the data sampling functional does not match the polynomial
     //! sampling functional. Only case anticipated is staggered Laplacian.
     GMLS(const int poly_order,
+         const int dimensions = 3,
          const std::string dense_solver_type = std::string("QR"),
-         const int manifold_curvature_poly_order = 2,
-         const int dimensions = 3) : GMLS(ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, VectorPointSample, VectorPointSample, poly_order, dense_solver_type, manifold_curvature_poly_order, dimensions) {}
+         const std::string problem_type = std::string("STANDARD"),
+         const int manifold_curvature_poly_order = 2) : GMLS(ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, VectorPointSample, VectorPointSample, poly_order, dimensions, dense_solver_type, problem_type, manifold_curvature_poly_order) {}
 
     //! Constructor for the case when nonstandard sampling functionals or reconstruction spaces
     //! are to be used. Reconstruction space and sampling strategy can only be set at instantiation.
     GMLS(ReconstructionSpace reconstruction_space,
             SamplingFunctional dual_sampling_strategy,
             const int poly_order,
+            const int dimensions = 3,
             const std::string dense_solver_type = std::string("QR"),
-            const int manifold_curvature_poly_order = 2,
-            const int dimensions = 3)
-                : GMLS(reconstruction_space, dual_sampling_strategy, dual_sampling_strategy, poly_order, dense_solver_type, manifold_curvature_poly_order, dimensions) {}
+            const std::string problem_type = std::string("STANDARD"),
+            const int manifold_curvature_poly_order = 2)
+                : GMLS(reconstruction_space, dual_sampling_strategy, dual_sampling_strategy, poly_order, dimensions, dense_solver_type, problem_type, manifold_curvature_poly_order) {}
 
     //! Destructor
     ~GMLS(){
@@ -1673,7 +1691,7 @@ public:
 
         _total_alpha_values = total_offset;
 
-        if (_dense_solver_type == DenseSolverType::MANIFOLD) {
+        if (_problem_type == ProblemType::MANIFOLD) {
             // if on a manifold, the total alphas values must be large enough to hold the gradient
             // of the geometry reconstruction
             _total_alpha_values = (_total_alpha_values > std::pow(_local_dimensions, 1)) ? 

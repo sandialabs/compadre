@@ -116,7 +116,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
     int this_num_cols = _basis_multiplier*_NP;
     int manifold_NP = 0;
 
-    if (_dense_solver_type == DenseSolverType::MANIFOLD) {
+    if (_problem_type == ProblemType::MANIFOLD) {
         // these dimensions already calculated differ in the case of manifolds
         manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
         _NP = this->getNP(_poly_order, _dimensions-1, _reconstruction_space);
@@ -204,7 +204,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
         Kokkos::deep_copy(_P, 0.0);
         Kokkos::deep_copy(_w, 0.0);
         
-        if (_dense_solver_type == DenseSolverType::MANIFOLD) {
+        if (_problem_type == ProblemType::MANIFOLD) {
 
             /*
              *    MANIFOLD Problems
@@ -330,7 +330,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
          */
 
 
-        if (_dense_solver_type == DenseSolverType::MANIFOLD) {
+        if (_problem_type == ProblemType::MANIFOLD) {
 
             /*
              *    MANIFOLD Problems
@@ -1114,7 +1114,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
             });
         });
     } else if (_data_sampling_functional == StaggeredEdgeIntegralSample) {
-        compadre_kernel_assert_debug(_dense_solver_type==DenseSolverType::MANIFOLD && "StaggeredEdgeIntegralSample prestencil weight only written for manifolds.");
+        compadre_kernel_assert_debug(_problem_type==ProblemType::MANIFOLD && "StaggeredEdgeIntegralSample prestencil weight only written for manifolds.");
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)), [=] (const int m) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                 for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {
