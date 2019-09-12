@@ -540,7 +540,7 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
     #else
 
-        int* scratch_ipvi = (int*)malloc(sizeof(int)*(std::min(M, N)));
+        int* scratch_ipiv = (int*)malloc(sizeof(int)*(std::min(M, N)));
 
         for (int i=0; i<num_matrices; ++i) {
 
@@ -548,6 +548,11 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
                 double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
                 double * rhs_offset = RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb);
+
+                dgetrf_( const_cast<int*>(&M), const_cast<int*>(&N),
+                         p_offset, const_cast<int*>(&lda),
+                         scratch_ipiv,
+                         &i_info);
 
                 dgetrs_( const_cast<char *>(transpose_or_no.c_str()),
                          const_cast<int*>(&N), const_cast<int*>(&NRHS),
@@ -560,7 +565,7 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
         }
 
-        delete[] ipiv;
+        delete[] scratch_ipiv;
 
     #endif // LAPACK is not threadsafe
 
