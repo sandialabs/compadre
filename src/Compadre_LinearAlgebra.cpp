@@ -16,7 +16,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
         array_P_RHS(i + num_matrices) = reinterpret_cast<size_t>(RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb));
     });
 
-    int *devInfo; cudaMalloc(&devInfo, num_matrices*sizeof(int));
+    Kokkos::View<int*> devInfo("devInfo", num_matrices);
     cudaDeviceSynchronize();
     Kokkos::Profiling::popRegion();
 
@@ -40,11 +40,10 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
                                    M, N, NRHS,
                                    reinterpret_cast<double**>(array_P_RHS.ptr_on_device()), lda,
                                    reinterpret_cast<double**>(array_P_RHS.ptr_on_device() + TO_GLOBAL(num_matrices)), ldb,
-                                   &info, devInfo, num_matrices );
+                                   &info, devInfo.data(), num_matrices );
 
     compadre_assert_release(cublas_stat==CUBLAS_STATUS_SUCCESS && "cublasDgeqrfBatched failed");
     cudaDeviceSynchronize();
-    cudaFree(devInfo);
     Kokkos::Profiling::popRegion();
 
 
@@ -107,7 +106,7 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
     #else
 
-        double * scratch_work = (double *)malloc(sizeof(double)*lwork);
+        Kokkos::View<double*> scratch_work("scratch_work", lwork);
         for (int i=0; i<num_matrices; ++i) {
 
             int i_info = 0;
@@ -123,11 +122,10 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
                     const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rows), 
                     p_offset, const_cast<int*>(&lda), 
                     rhs_offset, const_cast<int*>(&ldb), 
-                    scratch_work, const_cast<int*>(&lwork), &i_info);
+                    scratch_work.data(), const_cast<int*>(&lwork), &i_info);
 
             compadre_assert_release(i_info==0 && "dgels failed");
         }
-        free(scratch_work);
 
     #endif // LAPACK is not threadsafe
 
@@ -490,7 +488,60 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
 
 void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
 
-#ifdef COMPADRE_USE_LAPACK
+#ifdef COMPADRE_USE_CUDA
+
+    Kokkos::Profiling::pushRegion("LU::Setup(Pointers)");
+    Kokkos::View<size_t*> array_P_RHS("P and RHS matrix pointers on device", 2*num_matrices);
+    Kokkos::View<int*> ipiv_device("ipiv space on device", num_matrices*M);
+
+    // get pointers to device data
+    Kokkos::parallel_for(Kokkos::RangePolicy<device_execution_space>(0,num_matrices), KOKKOS_LAMBDA(const int i) {
+        array_P_RHS(i               ) = reinterpret_cast<size_t>(P   + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda));
+        array_P_RHS(i + num_matrices) = reinterpret_cast<size_t>(RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb));
+    });
+
+    Kokkos::View<int*> devInfo("devInfo", num_matrices);
+    cudaDeviceSynchronize();
+    Kokkos::Profiling::popRegion();
+
+    Kokkos::Profiling::pushRegion("LU::Setup(Handle)");
+    // Create cublas instance
+    cublasHandle_t cublas_handle;
+    cublasStatus_t cublas_stat;
+    cudaDeviceSynchronize();
+    Kokkos::Profiling::popRegion();
+
+    Kokkos::Profiling::pushRegion("LU::Setup(Create)");
+    cublasCreate(&cublas_handle);
+    cudaDeviceSynchronize();
+    Kokkos::Profiling::popRegion();
+
+    int info = 0;
+
+    Kokkos::Profiling::pushRegion("LU::Execution");
+
+    // call batched LU factorization
+    cublas_stat=cublasDgetrfBatched(cublas_handle, 
+                                   M,
+                                   reinterpret_cast<double**>(array_P_RHS.ptr_on_device()), lda,
+                                   reinterpret_cast<int*>(ipiv_device.data()),
+                                   devInfo.data(), num_matrices );
+    compadre_assert_release(cublas_stat==CUBLAS_STATUS_SUCCESS && "cublasDgetrfBatched failed");
+
+    // call batched LU application
+    cublas_stat=cublasDgetrsBatched(cublas_handle, CUBLAS_OP_N,
+                                   M, NRHS,
+                                   reinterpret_cast<double**>(array_P_RHS.ptr_on_device()), lda,
+                                   reinterpret_cast<int*>(ipiv_device.data()),
+                                   reinterpret_cast<double**>(array_P_RHS.ptr_on_device() + TO_GLOBAL(num_matrices)), ldb,
+                                   &info, num_matrices );
+    compadre_assert_release(cublas_stat==CUBLAS_STATUS_SUCCESS && "cublasDgetrsBatched failed");
+
+    cudaDeviceSynchronize();
+    Kokkos::Profiling::popRegion();
+
+
+#elif defined(COMPADRE_USE_LAPACK)
 
     // later improvement could be to send in an optional view with the neighbor list size for each target to reduce work
 
