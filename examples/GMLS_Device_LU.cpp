@@ -500,14 +500,14 @@ int main (int argc, char* args[]) {
   MPI_Finalize();
 #endif
 
-  // // output to user that test passed or failed
-  // if(all_passed) {
-  //     fprintf(stdout, "Passed test \n");
-  //     return 0;
-  // } else {
-  //     fprintf(stdout, "Failed test \n");
-  //     return -1;
-  // }
+  // output to user that test passed or failed
+  if(all_passed) {
+      fprintf(stdout, "Passed test \n");
+      return 0;
+  } else {
+      fprintf(stdout, "Failed test \n");
+      return -1;
+  }
 
 } // main
 
