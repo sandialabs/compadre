@@ -362,7 +362,7 @@ public:
 
         typedef Kokkos::View<output_data_type, output_array_layout, output_memory_space> output_view_type;
 
-        auto problem_type = _gmls->getProblemType();
+        auto problem_type = _gmls->getDenseSolverType();
         auto global_dimensions = _gmls->getGlobalDimensions();
         auto output_dimension_of_operator = _gmls->getOutputDimensionOfOperation(lro);
         auto input_dimension_of_operator = _gmls->getInputDimensionOfOperation(lro);
@@ -502,6 +502,10 @@ public:
 
         auto neighbor_lists = _gmls->getNeighborLists();
         const int coefficient_matrix_tile_size = _gmls->getPolynomialCoefficientsMatrixTileSize();
+        const int coefficient_size = _gmls->getPolynomialCoefficientsSize();
+
+        // std::cout << "COEFFF SIZEEE " << coefficient_size << std::endl;
+        // std::cout << "COEFFF MATRIX TILE SIZEEE " << coefficient_matrix_tile_size << std::endl;
 
         // alphas gracefully handle a scalar basis used repeatedly (VectorOfScalarClones) because the alphas
         // hold a 0 when the input index is greater than 0
@@ -527,7 +531,7 @@ public:
         bool target_plus_neighbor_staggered_schema = sro.use_target_site_weights;
 
         // loops over target indices
-        for (int j=0; j<_gmls->getPolynomialCoefficientsSize(); ++j) {
+        for (int j=0; j<coefficient_size; ++j) {
             Kokkos::parallel_for(team_policy(num_targets, Kokkos::AUTO),
                     KOKKOS_LAMBDA(const member_type& teamMember) {
 
@@ -537,10 +541,16 @@ public:
                             + TO_GLOBAL(target_index)*TO_GLOBAL(global_dimensions)*TO_GLOBAL(global_dimensions), 
                          global_dimensions, global_dimensions);
 
-                scratch_matrix_right_type Coeffs(coeffs.data() 
-                            + TO_GLOBAL(target_index)*TO_GLOBAL(coefficient_matrix_tile_size)
-                                *TO_GLOBAL(coefficient_matrix_tile_size), 
-                            coefficient_matrix_tile_size, coefficient_matrix_tile_size);
+                scratch_matrix_left_type Coeffs;
+                // printf("COEFFSS DATA %p \n", coeffs.data());
+                if (_gmls->getDenseSolverType() != DenseSolverType::LU) {
+                    Coeffs = scratch_matrix_left_type(coeffs.data() + TO_GLOBAL(target_index)*TO_GLOBAL(coefficient_matrix_tile_size)*TO_GLOBAL(coefficient_matrix_tile_size),
+                                                      coefficient_matrix_tile_size, coefficient_matrix_tile_size);
+                } else {
+                    Coeffs = scratch_matrix_left_type(coeffs.data() + TO_GLOBAL(target_index)*TO_GLOBAL(coefficient_matrix_tile_size)*TO_GLOBAL(coefficient_size),
+                                                      coefficient_size, coefficient_matrix_tile_size);
+                }
+
                 teamMember.team_barrier();
 
 
@@ -552,10 +562,10 @@ public:
                     const double neighbor_varying_pre_T =  (weight_with_pre_T && vary_on_neighbor) ?
                         prestencil_weights(0, target_index, i, pre_transform_local_index, pre_transform_global_index)
                         : 1.0;
-
-                    t_value += neighbor_varying_pre_T * sampling_data_single_column(neighbor_lists(target_index, i+1))
-                        *Coeffs(i, j);
-                        //*Coeffs(ORDER_INDICES(i+input_component_axis_1*neighbor_lists(target_index,0), j));
+                    // This is where it seg fault
+                    // std::cout << "i " << i << " j " << j << std::endl;
+                    t_value += neighbor_varying_pre_T * sampling_data_single_column(neighbor_lists(target_index, i+1))*Coeffs(j, i);
+                        // *Coeffs(ORDER_INDICES(i+input_component_axis_1*neighbor_lists(target_index,0), j));
 
                 }, gmls_value );
 
@@ -581,7 +591,7 @@ public:
                             : 1.0;
 
                         t_value += neighbor_varying_pre_T_staggered * sampling_data_single_column(neighbor_lists(target_index, 1))
-                            *Coeffs(i, j);
+                            *Coeffs(j, i);
                             //*Coeffs(ORDER_INDICES(i+input_component_axis_1*neighbor_lists(target_index,0), j));
 
                     }, staggered_value_from_targets );
@@ -644,7 +654,7 @@ public:
 
         typedef Kokkos::View<output_data_type, output_array_layout, output_memory_space> output_view_type;
 
-        auto problem_type = _gmls->getProblemType();
+        auto problem_type = _gmls->getDenseSolverType();
         auto global_dimensions = _gmls->getGlobalDimensions();
         auto output_dimension_of_operator = _gmls->getOutputDimensionOfOperation(lro);
         auto input_dimension_of_operator = _gmls->getInputDimensionOfOperation(lro);
