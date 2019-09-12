@@ -307,7 +307,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
                 Kokkos::Profiling::popRegion();
             } else if (_dense_solver_type == DenseSolverType::LU) {
                 Kokkos::Profiling::pushRegion("LU Factorization");
-                std::cout << "THIS NUM COLS " << this_num_cols << " MAX NUM ROWS " << max_num_rows << std::endl;
+                // std::cout << "THIS NUM COLS " << this_num_cols << " MAX NUM ROWS " << max_num_rows << std::endl;
                 GMLS_LinearAlgebra::batchLUFactorize(_RHS.data(), max_num_rows, max_num_rows, _P.data(), this_num_cols, max_num_rows, this_num_cols, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
                 Kokkos::Profiling::popRegion();
             } else {
@@ -360,10 +360,16 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
     } // end of batch loops
 
     // deallocate _P and _w
-    _P = Kokkos::View<double*>("P",0);
     _w = Kokkos::View<double*>("w",0);
     if (number_of_batches > 1) { // no reason to keep coefficients if they aren't all in memory
         _RHS = Kokkos::View<double*>("RHS",0);
+        _P = Kokkos::View<double*>("P",0);
+    } else {
+        if (_dense_solver_type != DenseSolverType::LU) {
+            _P = Kokkos::View<double*>("P",0);
+        } else {
+            _RHS = Kokkos::View<double*>("RHS",0);
+        }
     }
 
     /*
