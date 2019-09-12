@@ -44,7 +44,7 @@ bool all_passed = true;
 {
 
     // check if 6 arguments are given from the command line, the first being the program name
-    int number_of_batches = 1; // QR by default
+    int number_of_batches = 1; // 1 batch by default
     if (argc >= 6) {
         int arg6toi = atoi(args[5]);
         if (arg6toi > 0) {
@@ -277,9 +277,11 @@ bool all_passed = true;
     // solver name for passing into the GMLS class
     std::string solver_name;
     if (solver_type == 0) { // SVD
-        solver_name = "SVD";
+      solver_name = "SVD";
     } else if (solver_type == 1) { // QR
-        solver_name = "QR";
+      solver_name = "QR";
+    } else if (solver_type == 2) { // LU
+      solver_name = "LU";
     }
     
     // initialize an instance of the GMLS class 
