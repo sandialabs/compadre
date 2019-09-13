@@ -159,18 +159,38 @@ Teuchos::RCP<const DOFManager::dof_data_type> DOFManager::generateDOFMap(std::ve
 
 
 	if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")) {
+
+        global_index_type field_row_offset = 0;
+
 		std::vector<Teuchos::RCP<map_type> > dof_row_map = std::vector<Teuchos::RCP<map_type> >(field_numbers.size());
 		std::vector<Teuchos::RCP<map_type> > dof_col_map = std::vector<Teuchos::RCP<map_type> >(field_numbers.size());
 		for (size_t i=0; i<field_numbers.size(); i++) {
+
+            auto t_row_map_gids = row_map_gids[i];
+            auto t_col_map_gids = col_map_gids[i];
+
+            // increment  row_map_gids and col_map_gids by row offsets
+            Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,t_row_map_gids.extent(0)), 
+                    KOKKOS_LAMBDA(const int j) {
+                t_row_map_gids(j) += field_row_offset;
+            });
+            Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,t_col_map_gids.extent(0)), 
+                    KOKKOS_LAMBDA(const int j) {
+                t_col_map_gids(j) += field_row_offset;
+            });
+
 			dof_row_map[i] = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
 															row_map_gids[i],
-															0,
+															field_row_offset,
 															_particles->getCoordsConst()->getComm()));
 
 			dof_col_map[i] = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
 															col_map_gids[i],
-															0,
+															field_row_offset,
 															_particles->getCoordsConst()->getComm()));
+
+            field_row_offset += dof_row_map[i]->getGlobalNumElements();
+
 			dof_data->setRowMap(dof_row_map[i], i);
 			dof_data->setColMap(dof_col_map[i], i);
 		}

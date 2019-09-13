@@ -25,11 +25,18 @@ class SolverT {
 		Teuchos::RCP<Teuchos::ParameterList> _parameters;
 		std::string _parameter_filename;
 		const Teuchos::RCP<const Teuchos::Comm<int> > _comm;
-		Teuchos::RCP<thyra_block_op_type> _A;
-		std::vector<std::vector<Teuchos::RCP<crs_matrix_type> > > _A_tpetra;
-		std::vector<Teuchos::RCP<thyra_mvec_type> > _b;
+
+		Teuchos::RCP<thyra_block_op_type> _A_thyra;
+        std::vector<std::vector<Teuchos::RCP<crs_matrix_type> > > _A_tpetra;
+        Teuchos::RCP<crs_matrix_type> _A_single_block;
+
+		std::vector<Teuchos::RCP<thyra_mvec_type> > _b_thyra;
 		std::vector<Teuchos::RCP<mvec_type> > _b_tpetra;
-		std::vector<Teuchos::RCP<mvec_type> > _x;
+        Teuchos::RCP<mvec_type> _b_single_block;
+
+		std::vector<Teuchos::RCP<thyra_mvec_type> > _x_thyra;
+		std::vector<Teuchos::RCP<mvec_type> > _x_tpetra;
+        Teuchos::RCP<mvec_type> _x_single_block;
 
 	public:
 
@@ -46,6 +53,10 @@ class SolverT {
 		Teuchos::RCP<mvec_type> getSolution(local_index_type idx = -1) const;
 
 		void solve();
+
+        void packMatricesAndVectors();
+
+        void unpackMatricesAndVectors();
 
 };
 
