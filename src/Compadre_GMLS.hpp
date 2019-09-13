@@ -685,6 +685,8 @@ public:
                         && (data_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : data_sampling_strategy)
             {
 
+        // Quang put the assertion here
+
         // seed random number generator pool
         _random_number_pool = pool_type(1);
 
