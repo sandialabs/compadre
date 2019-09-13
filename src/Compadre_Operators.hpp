@@ -183,6 +183,14 @@ namespace Compadre {
         MANIFOLD, 
     };
 
+    //! Problem type, that optionally can handle manifolds
+    enum BoundaryType {
+        //! Dirichlet BC Type
+        DIRICHLET,
+        //! Neumann BC Type
+        NEUMANN,
+    };
+
     //! Available weighting kernel function types
     enum WeightingFunctionType {
         Power,
