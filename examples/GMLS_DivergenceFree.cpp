@@ -41,12 +41,36 @@ bool all_passed = true;
 // code block to reduce scope for all Kokkos View allocations
 // otherwise, Views may be deallocating when we call Kokkos::finalize() later
 {
+    // check if 7 arguments are given from the command line, the first being the program name
+    //  boundary_type used in solving each GMLS problem:
+    //      0 - Dirichlet used in solving each GMLS problem
+    //      1 - Neumann used in solving each GMLS problem
+    int boundary_type = 0; // Dirichlet by default
+    if (argc >= 7) {
+        int arg7toi = atoi(args[6]);
+        if (arg7toi > 0) {
+            boundary_type = arg7toi;
+        }
+    }
+
+    // check if 6 arguments are given from the command line, the first being the program name
+    // problem_type used in solving each GMLS problem:
+    //      0 - Standard GMLS problem
+    //      1 - Manifold GMLS problem
+    int problem_type = 0; // Standard by default
+    if (argc >= 6) {
+        int arg6toi = atoi(args[5]);
+        if (arg6toi > 0) {
+            problem_type = arg6toi;
+        }
+    }
 
     // check if 5 arguments are given from the command line, the first being the program name
     //  solver_type used for factorization in solving each GMLS problem:
     //      0 - SVD used for factorization in solving each GMLS problem
     //      1 - QR  used for factorization in solving each GMLS problem
-    int solver_type = 1;
+    //      2 - LU  used for factorization in solving each GMLS problem
+    int solver_type = 1; // QR by default
     if (argc >= 5) {
         int arg5toi = atoi(args[4]);
         if (arg5toi > 0) {
@@ -252,6 +276,24 @@ bool all_passed = true;
         solver_name = "SVD";
     } else if (solver_type == 1) { // QR
         solver_name = "QR";
+    } else if (solver_type == 2) { // LU
+        solver_name = "LU";
+    }
+
+    // problem name for passing into the GMLS class
+    std::string problem_name;
+    if (problem_type == 0) { // Standard
+        problem_name = "STANDARD";
+    } else if (problem_type == 1) { // Manifold
+        problem_name = "MANIFOLD";
+    }
+
+    // boundary name for passing into the GMLS class
+    std::string boundary_name;
+    if (boundary_type == 0) { // Dirichlet
+        boundary_name = "DIRICHLET";
+    } else if (boundary_type == 1) { // Neumann
+        boundary_name = "NEUMANN";
     }
 
     // initialize an instance of the GMLS class
@@ -259,8 +301,9 @@ bool all_passed = true;
     // Vector basis to perform GMLS on divergence free basis
     GMLS vector_divfree_basis_gmls(DivergenceFreeVectorTaylorPolynomial,
                                    VectorPointSample,
-                                   order, solver_name.c_str(),
-                                   0 /*manifold order*/ , dimension);
+                                   order, dimension,
+                                   solver_name.c_str(), problem_name.c_str(), boundary_name.c_str(),
+                                   0 /*manifold order*/);
 
     // pass in neighbor lists, source coordinates, target coordinates, and window sizes
     //
