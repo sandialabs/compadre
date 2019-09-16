@@ -703,7 +703,13 @@ public:
                         && (data_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : data_sampling_strategy)
             {
 
-        // Quang put the assertion here
+        // Asserting available problems and solvers
+        if ((_problem_type == ProblemType::MANIFOLD) && (_dense_solver_type == DenseSolverType::LU)) {
+            compadre_kernel_assert_release((false) && "LU solver hasn't been implemented for manifold problems yet.");
+        }
+        if (_boundary_type == BoundaryType::NEUMANN) {
+            compadre_kernel_assert_release((false) && "Neumann boundary type hasn't been implemented yet.");
+        }
 
         // seed random number generator pool
         _random_number_pool = pool_type(1);
