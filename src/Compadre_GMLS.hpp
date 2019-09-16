@@ -778,19 +778,20 @@ public:
          const std::string dense_solver_type = std::string("QR"),
          const std::string problem_type = std::string("STANDARD"),
          const std::string boundary_type = std::string("DIRICHLET"),
-         const int manifold_curvature_poly_order = 2) : GMLS(ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, VectorPointSample, VectorPointSample, poly_order, dimensions, dense_solver_type, problem_type, boundary_type, manifold_curvature_poly_order) {}
+         const int manifold_curvature_poly_order = 2)
+      : GMLS(ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, VectorPointSample, VectorPointSample, poly_order, dimensions, dense_solver_type, problem_type, boundary_type, manifold_curvature_poly_order) {}
 
     //! Constructor for the case when nonstandard sampling functionals or reconstruction spaces
     //! are to be used. Reconstruction space and sampling strategy can only be set at instantiation.
     GMLS(ReconstructionSpace reconstruction_space,
-            SamplingFunctional dual_sampling_strategy,
-            const int poly_order,
-            const int dimensions = 3,
-            const std::string dense_solver_type = std::string("QR"),
-            const std::string problem_type = std::string("STANDARD"),
-            const std::string boundary_type = std::string("DIRICHLET"),
-            const int manifold_curvature_poly_order = 2)
-                : GMLS(reconstruction_space, dual_sampling_strategy, dual_sampling_strategy, poly_order, dimensions, dense_solver_type, problem_type, boundary_type, manifold_curvature_poly_order) {}
+         SamplingFunctional dual_sampling_strategy,
+         const int poly_order,
+         const int dimensions = 3,
+         const std::string dense_solver_type = std::string("QR"),
+         const std::string problem_type = std::string("STANDARD"),
+         const std::string boundary_type = std::string("DIRICHLET"),
+         const int manifold_curvature_poly_order = 2)
+      : GMLS(reconstruction_space, dual_sampling_strategy, dual_sampling_strategy, poly_order, dimensions, dense_solver_type, problem_type, boundary_type, manifold_curvature_poly_order) {}
 
     //! Destructor
     ~GMLS(){
