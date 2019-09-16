@@ -183,7 +183,7 @@ namespace Compadre {
         MANIFOLD, 
     };
 
-    //! Problem type, that optionally can handle manifolds
+    //! Boundary type, to determine whether it's Dirichlet or Neumann
     enum BoundaryType {
         //! Dirichlet BC Type
         DIRICHLET,
