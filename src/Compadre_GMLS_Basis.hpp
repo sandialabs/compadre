@@ -249,7 +249,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
             }
         }
     } else if (polynomial_sampling_functional == StaggeredEdgeIntegralSample) {
-          if (_dense_solver_type == DenseSolverType::MANIFOLD) {
+          if (_problem_type == ProblemType::MANIFOLD) {
               double cutoff_p = _epsilons(target_index);
               int alphax, alphay;
               double alphaf;
