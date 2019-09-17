@@ -704,9 +704,9 @@ public:
             {
 
         // Asserting available problems and solvers
-        if ((_problem_type == ProblemType::MANIFOLD) && (_dense_solver_type == DenseSolverType::LU)) {
-            compadre_kernel_assert_release((false) && "LU solver hasn't been implemented for manifold problems yet.");
-        }
+        // if ((_problem_type == ProblemType::MANIFOLD) && (_dense_solver_type == DenseSolverType::LU)) {
+        //     compadre_kernel_assert_release((false) && "LU solver hasn't been implemented for manifold problems yet.");
+        // }
         if (_boundary_type == BoundaryType::NEUMANN) {
             compadre_kernel_assert_release((false) && "Neumann boundary type hasn't been implemented yet.");
         }
