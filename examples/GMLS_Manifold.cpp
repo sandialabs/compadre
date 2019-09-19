@@ -562,7 +562,6 @@ Kokkos::initialize(argc, args);
         // load value from output
         double GMLS_value = output_value(i);
         double GMLS_gc = output_gc(i);
-        printf("GMLS_gc: %f\n", GMLS_gc);
     
         // load laplacian from output
         double GMLS_Laplacian = output_laplacian(i);
