@@ -136,6 +136,10 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
         _team_scratch_size_b += scratch_vector_type::shmem_size(_max_num_neighbors*std::max(_sampling_multiplier,_basis_multiplier)); // t2 work vector for qr
 
         _team_scratch_size_b += scratch_vector_type::shmem_size(max_P_row_size); // row of P matrix, one for each operator
+        if (_dense_solver_type == DenseSolverType::LU) {
+            // Allocated extra memories for LU - since we need to transpose PsqrtW
+            _team_scratch_size_b += scratch_matrix_right_type::shmem_size(this_num_cols, max_num_rows);
+        }
         _thread_scratch_size_b += scratch_vector_type::shmem_size(max_manifold_NP*_basis_multiplier); // delta, used for each thread
         if (_data_sampling_functional == VaryingManifoldVectorPointSample) {
             _thread_scratch_size_b += scratch_vector_type::shmem_size(_dimensions*_dimensions); // temporary tangent calculations, used for each thread
@@ -277,6 +281,10 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
             if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
                 Kokkos::Profiling::pushRegion("Manifold SVD Factorization");
                 GMLS_LinearAlgebra::batchSVDFactorize(_P.data(), max_num_rows, this_num_cols, _RHS.data(), max_num_rows, max_num_rows, max_num_rows, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                Kokkos::Profiling::popRegion();
+            } else if (_dense_solver_type == DenseSolverType::LU) {
+                Kokkos::Profiling::pushRegion("Manifold LU Factorization");
+                GMLS_LinearAlgebra::batchLUFactorize(_RHS.data(), max_num_rows, max_num_rows, _P.data(), this_num_cols, max_num_rows, this_num_cols, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
                 Kokkos::Profiling::popRegion();
             } else {
                 Kokkos::Profiling::pushRegion("Manifold QR Factorization");
@@ -446,7 +454,7 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
         // don't need to cast into scratch_matrix_left_type since the matrix is symmetric
         scratch_matrix_right_type M(_RHS.data()
             + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
-        GMLS_LinearAlgebra::createM(teamMember, M, PsqrtW, this_num_cols /* # of columns */, this->getNNeighbors(target_index));
+        GMLS_LinearAlgebra::createM(teamMember, M, PsqrtW, this_num_cols /* # of columns */, max_num_rows);
 
         // Need to transpose the PsqrtW for LU solver
         // create layout left matrix to allow for (i, j) indexing
@@ -987,16 +995,57 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
      *    Manifold
      */
 
-
     this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions-1, _poly_order, true /* weight with W*/, &T, _reconstruction_space, _polynomial_sampling_functional);
     teamMember.team_barrier();
-    
-    // fill in RHS with Identity * sqrt(weights)
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_rows), [=] (const int i) {
-        for(int j = 0; j < this_num_rows; ++j) {
-            Q(j,i) = (i==j) ? std::sqrt(w(i)) : 0;
+
+    if (_dense_solver_type != DenseSolverType::LU) {
+        // fill in RHS with Identity * sqrt(weights)
+        Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_rows), [=] (const int i) {
+            for(int j = 0; j < this_num_rows; ++j) {
+                Q(j,i) = (i==j) ? std::sqrt(w(i)) : 0;
+            }
+        });
+    } else {
+
+        // create global memory for matrix M = PsqrtW^T*PsqrtW
+        // don't need to cast into scratch_matrix_left_type since the matrix is symmetric
+        scratch_matrix_right_type M(_RHS.data()
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
+        GMLS_LinearAlgebra::createM(teamMember, M, PsqrtW, this_num_cols /* # of columns */, max_num_rows);
+
+        // Need to transpose the PsqrtW for LU solver
+        // create layout left matrix to allow for (i, j) indexing
+        // LAPACK and CUDA requires layout left matrix
+        scratch_matrix_left_type PsqrtW_LL(PsqrtW.data(), max_num_rows, this_num_cols);
+
+        // create layout left matrix
+        // using the allocated data of PsqrtW
+        // this memory only lives on team scratch memory - will be deleted out of this scope
+        scratch_matrix_left_type PW_Transpose_LL(teamMember.team_scratch(_scratch_team_level_b),
+                                                 this_num_cols, max_num_rows);
+
+        // Indexed as 1D array style
+        // 1D global memory
+        scratch_vector_type PsqrtW_LL_flat(PsqrtW_LL.data(), this_num_cols*max_num_rows);
+        // 1D scratch memory for transpose - only lives on team
+        scratch_vector_type PW_Transpose_LL_flat(PW_Transpose_LL.data(), this_num_cols*max_num_rows);
+
+        // scratch_matrix_right_type PsqrtW_transpose("A", this_num_cols, max_num_rows);
+        // no copy from Psqrt to PsqrtW_LL since they point to the same memory (already existed)
+        // they just stride differently (or viewed differently in layout)
+        // copy and row-scale from PsqrtW_LL -> PTW_LL_Transpose
+        for (int i=0; i < this_num_cols; i++) {
+            for (int j=0; j < max_num_rows; j++) {
+                // Transpose the matrix and multiply by sqrt(w) to have PTW
+                PW_Transpose_LL(i, j) = PsqrtW_LL(j, i)*std::sqrt(w(j));
+            }
         }
-    });
+
+        // Now copy the flat 1D memory over
+        for (int i=0; i < this_num_cols*max_num_rows; i++) {
+            PsqrtW_LL_flat(i) = PW_Transpose_LL_flat(i);
+        }
+    }
 
     // Quang will put LU here
     // Q will need conditionally set like Coeffs was
