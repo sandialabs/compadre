@@ -34,7 +34,6 @@ if (Compadre_EXAMPLES)
   add_exe_w_compadre(GMLS_Divergence_Test GMLS_DivergenceFree.cpp)
   add_exe_w_compadre(GMLS_SmallBatchReuse_Device_Test GMLS_SmallBatchReuse_Device.cpp)
   add_exe_w_compadre(GMLS_Manifold_Test GMLS_Manifold.cpp)
-  add_exe_w_compadre(GMLS_LU_Manifold_Test GMLS_LU_Manifold.cpp)
   add_exe_w_compadre(GMLS_Staggered GMLS_Staggered.cpp)
   add_exe_w_compadre(GMLS_Staggered_Manifold_Test GMLS_Staggered_Manifold.cpp)
   add_exe_w_compadre(GMLS_MultiSite_Test GMLS_Multiple_Evaluation_Sites.cpp)
@@ -82,6 +81,14 @@ if (Compadre_EXAMPLES)
     
     ADD_TEST(NAME GMLS_Vector_Dim1_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "3" "20" "1" "1" "0" "0" "1" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_Vector_Dim1_QR PROPERTIES LABELS "UnitTest;unit;kokkos;vector" TIMEOUT 10)
+
+    # Device views tests for GMLS vector basis with QR
+    ADD_TEST(NAME GMLS_Vector_Basis_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Vector_Test "3" "200" "3" "1" "0" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_Vector_Basis_Dim3_QR PROPERTIES LABELS "UnitTest;unit;kokkos;vector" TIMEOUT 10)
+
+    # Device views tests for GMLS vector basis with LU
+    ADD_TEST(NAME GMLS_Vector_Basis_Dim3_LU COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Vector_Test "3" "200" "3" "2" "0" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_Vector_Basis_Dim3_LU PROPERTIES LABELS "UnitTest;unit;kokkos;vector" TIMEOUT 10)
 
     # Device views tests for small batch GMLS, reusing GMLS class object
     ADD_TEST(NAME GMLS_SmallBatchReuse_Device_Dim2_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_SmallBatchReuse_Device_Test "4" "200" "2" "1" "0" "0" "--kokkos-threads=2")
