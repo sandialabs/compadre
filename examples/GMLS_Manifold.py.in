@@ -27,6 +27,10 @@ grids = 2
 if (len(sys.argv) > 2):
     grids = int(sys.argv[2])
 
+solver_type = "1"
+if (len(sys.argv) > 3):
+    solver_type = int(sys.argv[3])
+
 errors = []
 
 target_operators=("Tangent Bundle", "Point Value", "Laplace-Beltrami", "Gaussian Curvature", "Surface Gradient \(Ambient\)", "Surface Vector \(VectorBasis\)", "Surface Divergence \(VectorBasis\)", "Surface Vector \(ScalarClones\)", "Surface Divergence \(ScalarClones\)")#, "Surface Gradient (Manifold)", 
@@ -35,7 +39,7 @@ for operator in target_operators:
 
 for grid_num in range(grids):
     with open(os.devnull, 'w') as devnull:
-        output_commands = ["@CMAKE_CURRENT_BINARY_DIR@/GMLS_Manifold_Test","%d"%porder,"%d"%num_target_sites,"3","%d"%(20*num_target_sites*pow(4,grid_num)),"1","0","0"]
+        output_commands = ["@CMAKE_CURRENT_BINARY_DIR@/GMLS_Manifold_Test","%d"%porder,"%d"%num_target_sites,"3","%d"%(20*num_target_sites*pow(4,grid_num)),str(solver_type),"0","0"]
         print(output_commands)
         output = subprocess.check_output(output_commands, stderr=devnull)
         #print(output)
