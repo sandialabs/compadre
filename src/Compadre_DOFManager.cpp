@@ -85,12 +85,13 @@ Teuchos::RCP<const DOFManager::dof_data_type> DOFManager::generateDOFMap(std::ve
 	if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")) {
 		// copy data to build column map
 //		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,particle_gids_locally_owned.dimension_0()), KOKKOS_LAMBDA(const int i) {
+        auto global_num_pts = _particles->getCoordsConst()->nGlobal();
 		for (size_t i=0; i<particle_gids_locally_owned.dimension_0(); ++i) {
 			local_index_type field_j_offset = 0;
 			for (size_t j=0; j<field_numbers.size(); j++) {
 				particle_field_component_to_dof_map[i][field_numbers[j]].resize(_fields[field_numbers[j]]->nDim());
 				for (local_index_type k=0; k<_fields[field_numbers[j]]->nDim(); k++) {
-					global_index_type global_value = particle_gids_locally_owned(i)*field_dimensions_total_size + field_j_offset + k;
+					global_index_type global_value = global_num_pts*field_j_offset + particle_gids_locally_owned(i)*_fields[field_numbers[j]]->nDim() + k;
 					local_index_type local_value   = i*_fields[field_numbers[j]]->nDim() + k;
 
 					particle_field_component_to_dof_map[i][field_numbers[j]][k] = local_value;
@@ -108,7 +109,7 @@ Teuchos::RCP<const DOFManager::dof_data_type> DOFManager::generateDOFMap(std::ve
 			for (size_t j=0; j<field_numbers.size(); j++) {
 				particle_field_component_to_dof_map[i+offset][field_numbers[j]].resize(_fields[field_numbers[j]]->nDim());
 				for (local_index_type k=0; k<_fields[field_numbers[j]]->nDim(); k++) {
-					global_index_type global_value = halo_particle_gids_locally_owned(i)*field_dimensions_total_size + field_j_offset + k;
+					global_index_type global_value = global_num_pts*field_j_offset + halo_particle_gids_locally_owned(i)*_fields[field_numbers[j]]->nDim() + k;
 					local_index_type local_value   = (i+offset)*_fields[field_numbers[j]]->nDim() + k;
 
 					particle_field_component_to_dof_map[i+offset][field_numbers[j]][k] = local_value;
@@ -166,18 +167,18 @@ Teuchos::RCP<const DOFManager::dof_data_type> DOFManager::generateDOFMap(std::ve
 		std::vector<Teuchos::RCP<map_type> > dof_col_map = std::vector<Teuchos::RCP<map_type> >(field_numbers.size());
 		for (size_t i=0; i<field_numbers.size(); i++) {
 
-            auto t_row_map_gids = row_map_gids[i];
-            auto t_col_map_gids = col_map_gids[i];
+            //auto t_row_map_gids = row_map_gids[i];
+            //auto t_col_map_gids = col_map_gids[i];
 
-            // increment  row_map_gids and col_map_gids by row offsets
-            Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,t_row_map_gids.extent(0)), 
-                    KOKKOS_LAMBDA(const int j) {
-                t_row_map_gids(j) += field_row_offset;
-            });
-            Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,t_col_map_gids.extent(0)), 
-                    KOKKOS_LAMBDA(const int j) {
-                t_col_map_gids(j) += field_row_offset;
-            });
+            //// increment  row_map_gids and col_map_gids by row offsets
+            //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,t_row_map_gids.extent(0)), 
+            //        KOKKOS_LAMBDA(const int j) {
+            //    t_row_map_gids(j) += field_row_offset;
+            //});
+            //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,t_col_map_gids.extent(0)), 
+            //        KOKKOS_LAMBDA(const int j) {
+            //    t_col_map_gids(j) += field_row_offset;
+            //});
 
 			dof_row_map[i] = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
 															row_map_gids[i],
@@ -189,7 +190,9 @@ Teuchos::RCP<const DOFManager::dof_data_type> DOFManager::generateDOFMap(std::ve
 															field_row_offset,
 															_particles->getCoordsConst()->getComm()));
 
-            field_row_offset += dof_row_map[i]->getGlobalNumElements();
+            //field_row_offset += dof_row_map[i]->getGlobalNumElements();//MaxAllGlobalIndex()+1;
+            //field_row_offset = dof_row_map[i]->getMaxAllGlobalIndex()+1;
+            //printf("i: %d, r: %d, offset: %lu, size: %lu\n", i, _particles->getCoordsConst()->getComm()->getRank(), field_row_offset, t_row_map_gids.extent(0));
 
 			dof_data->setRowMap(dof_row_map[i], i);
 			dof_data->setColMap(dof_col_map[i], i);
