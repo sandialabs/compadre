@@ -956,13 +956,13 @@ public:
     //! Local dimension of the GMLS problem (less than global dimension if on a manifold), set only at class instantiation
     int getLocalDimensions() const { return _local_dimensions; }
 
-    //! Get dense solver type of problem for GMLS
+    //! Get dense solver type
     DenseSolverType getDenseSolverType() { return _dense_solver_type; }
 
-    //! Get dense solver type of problem for GMLS
+    //! Get problem type
     ProblemType getProblemType() { return _problem_type; }
 
-    //! Get dense solver type of problem for GMLS
+    //! Get boundary type
     BoundaryType getBoundaryType() { return _boundary_type; }
 
     //! Type for weighting kernel for GMLS problem
