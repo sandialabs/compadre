@@ -158,10 +158,12 @@ void GMLS_StaggeredAnalytic_LaplacianPhysics::computeMatrix(local_index_type fie
 
 	// GMLS operator
 
-	GMLS my_GMLS (ReconstructionSpace::ScalarTaylorPolynomial,
-                      StaggeredEdgeAnalyticGradientIntegralSample,
-                      _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-                      "QR", 0 /* manifold order */, 3 /* dimension */);
+	GMLS my_GMLS(ReconstructionSpace::ScalarTaylorPolynomial,
+                     StaggeredEdgeAnalyticGradientIntegralSample,
+                     _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+                     3 /* dimension */,
+                     "QR", "STANDARD", "DIRICHLET",
+                     0 /* manifold order */);
 	my_GMLS.setProblemData(kokkos_neighbor_lists_host,
                                kokkos_augmented_source_coordinates_host,
                                kokkos_target_coordinates,

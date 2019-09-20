@@ -173,9 +173,12 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 	// GMLS operator
 
-	GMLS my_scalar_GMLS ( _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-			_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-			_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
+        GMLS my_scalar_GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+                            target_coords->nDim(),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense sovler type"),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 	my_scalar_GMLS.setProblemData(
 			kokkos_neighbor_lists_host,
 			kokkos_augmented_source_coordinates_host,
@@ -186,11 +189,15 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 	my_scalar_GMLS.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
 	my_scalar_GMLS.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
 
-	GMLS my_vector_GMLS (ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial,
-			ManifoldVectorPointSample,
-			_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-			_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-			_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
+        GMLS my_vector_GMLS(ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial,
+                            ManifoldVectorPointSample,
+                            _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+                            target_coords->nDim(),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense sovler type"),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
+
 	my_vector_GMLS.setProblemData(
 			kokkos_neighbor_lists_host,
 			kokkos_augmented_source_coordinates_host,
