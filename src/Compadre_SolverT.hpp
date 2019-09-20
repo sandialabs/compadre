@@ -38,6 +38,11 @@ class SolverT {
 		std::vector<Teuchos::RCP<mvec_type> > _x_tpetra;
         Teuchos::RCP<mvec_type> _x_single_block;
 
+        std::vector<std::vector<Teuchos::RCP<exporter_type> > > _row_exporters;
+        std::vector<std::vector<Teuchos::RCP<exporter_type> > > _range_exporters;
+        std::vector<std::vector<Teuchos::RCP<exporter_type> > > _col_exporters;
+        std::vector<std::vector<Teuchos::RCP<exporter_type> > > _domain_exporters;
+
 	public:
 
 		SolverT( const Teuchos::RCP<const Teuchos::Comm<int> > comm, std::vector<std::vector<Teuchos::RCP<crs_matrix_type> > > A,
@@ -57,6 +62,9 @@ class SolverT {
         void packMatricesAndVectors();
 
         void unpackMatricesAndVectors();
+
+        void amalgamateBlockMatrices(std::vector<std::vector<Teuchos::RCP<crs_matrix_type> > > A, 
+                                        std::vector<Teuchos::RCP<mvec_type> > b);
 
 };
 

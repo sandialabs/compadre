@@ -55,6 +55,7 @@ Kokkos::View<size_t*, Kokkos::HostSpace> LaplaceBeltramiPhysics::getMaxEntriesPe
     } else if (field_one == lm_field_id && field_two == solution_field_id) {
         auto row_map_entries = _row_map->getMyGlobalIndices();
         Kokkos::resize(maxEntriesPerRow, row_map_entries.extent(0));
+        Kokkos::deep_copy(maxEntriesPerRow, 0);
         maxEntriesPerRow(0) = nlocal*fields[field_two]->nDim();
         // the rest are 0
     } else if (field_one == solution_field_id && field_two == lm_field_id) {
@@ -136,7 +137,63 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
         dual_view_entries.modify<Kokkos::DefaultHostExecutionSpace>();
         dual_view_entries.sync<Kokkos::DefaultExecutionSpace>();
         _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries, Tpetra::StaticProfile));
+    } else if (field_one == solution_field_id && field_two == lm_field_id) {
+
+        // create a new graph from the existing one, but with an updated col map augmented by a single global dof
+        // for the lagrange multiplier
+        auto existing_row_map = _row_map;
+        auto existing_col_map = _col_map;
+
+        size_t max_entries_per_row;
+        Teuchos::ArrayRCP<const size_t> empty_array;
+        bool bound_same_for_all_local_rows = true;
+        this->_A_graph->getNumEntriesPerLocalRowUpperBound(empty_array, max_entries_per_row, bound_same_for_all_local_rows);
+
+        auto col_map_index_base = existing_col_map->getIndexBase();
+        auto col_map_entries = existing_col_map->getMyGlobalIndices();
+        auto row_map_entries = existing_row_map->getMyGlobalIndices();
+
+        auto comm = this->_particles->getCoordsConst()->getComm();
+        const int offset_size = (comm->getRank() == 0) ? 0 : 1;
+        Kokkos::View<global_index_type*> new_col_map_entries("", col_map_entries.extent(0)+offset_size);
+
+        for (size_t i=0; i<col_map_entries.extent(0); ++i) {
+            new_col_map_entries(i+offset_size) = col_map_entries(i);
+        }
+
+        {
+            // exchange information between processors to get first index on processor 0
+            global_index_type global_index_proc_0_element_0;
+            if (comm->getRank()==0) {
+                global_index_proc_0_element_0 = col_map_entries(0);
+            }
+
+            // broadcast from processor 0 to other ranks
+            Teuchos::broadcast<local_index_type, global_index_type>(*comm, 0 /*processor broadcasting*/, 
+                    1 /*size*/, &global_index_proc_0_element_0);
+
+            // now the first entry in the map is to the shared gid for the LM
+            new_col_map_entries(0) = global_index_proc_0_element_0;
+
+        }
+
+        auto new_col_map = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
+                										new_col_map_entries,
+                										col_map_index_base,
+                										this->_particles->getCoordsConst()->getComm()));
+
+        this->setColMap(new_col_map);
+
+        auto entries = this->getMaxEntriesPerRow(field_one, field_two);
+        auto dual_view_entries = Kokkos::DualView<size_t*>("dual view", entries.extent(0));
+        auto host_view_entries = dual_view_entries.h_view;
+        Kokkos::deep_copy(host_view_entries, entries);
+        dual_view_entries.modify<Kokkos::DefaultHostExecutionSpace>();
+        dual_view_entries.sync<Kokkos::DefaultExecutionSpace>();
+        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries, Tpetra::StaticProfile));
+
     }
+ 
 
     if (_A_graph.is_null()) {
         auto entries = this->getMaxEntriesPerRow(field_one, field_two);
@@ -205,8 +262,8 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
 
     } else if (field_one == solution_field_id && field_two == lm_field_id) {
         // col all DOFs for solution against Lagrange Multiplier
-        auto comm = this->_particles->getCoordsConst()->getComm();
-        if (comm->getRank() == 0) {
+        //auto comm = this->_particles->getCoordsConst()->getComm();
+        //if (comm->getRank() == 0) {
 		    for(local_index_type i = 0; i < nlocal; i++) {
 		    	for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
 		    		local_index_type row = local_to_dof_map[i][field_one][k];
@@ -217,7 +274,7 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
 		    		this->_A_graph->insertLocalIndices(row, cols);
 		    	}
 		    }
-        }
+        //}
     } else {
         // identity on all DOFs for Lagrange Multiplier (even DOFs not really used, since we only use first LM dof for now)
 		for(local_index_type i = 0; i < nlocal; i++) {
@@ -1023,8 +1080,8 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 } else if (field_one == solution_field_id && field_two == lm_field_id) {
 
     // col all DOFs for solution against Lagrange Multiplier
-    auto comm = this->_particles->getCoordsConst()->getComm();
-    if (comm->getRank() == 0) {
+    //auto comm = this->_particles->getCoordsConst()->getComm();
+    //if (comm->getRank() == 0) {
 	    for(local_index_type i = 0; i < nlocal; i++) {
 	    	for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
 	    		local_index_type row = local_to_dof_map[i][field_one][k];
@@ -1039,12 +1096,13 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 	    	    this->_A->sumIntoLocalValues(row, cols, vals);
 	    	}
 	    }
-    }
+    //}
 } else {
     // identity on all DOFs for Lagrange Multiplier (even DOFs not really used, since we only use first LM dof for now)
     scalar_type eps_penalty = nglobal;
     //scalar_type eps_penalty = 1e-5;
 
+    auto comm = this->_particles->getCoordsConst()->getComm();
 	for(local_index_type i = 0; i < nlocal; i++) {
 		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
 			local_index_type row = local_to_dof_map[i][field_one][k];
@@ -1054,7 +1112,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 			Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
 			Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
 			for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-                if (i==0) {
+                if (i==0 && comm->getRank()==0) {
 				    cols[n] = local_to_dof_map[i][field_two][n];
 				    vals[n] = eps_penalty;
                 } else {
