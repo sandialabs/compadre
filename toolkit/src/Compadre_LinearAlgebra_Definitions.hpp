@@ -50,11 +50,6 @@ void createM(const member_type& teamMember, scratch_matrix_right_type M_data, sc
     }
     teamMember.team_barrier();
 
-//    for (int i=0; i<columns; ++i) {
-//        for (int j=0; j<columns; ++j) {
-//            std::cout << "(" << i << "," << j << "):" << M_data(i,j) << std::endl;
-//        }
-//    }
 }
 
 

@@ -164,15 +164,31 @@ namespace Compadre {
         //! For polynomial dotted with tangent
         FaceTangentPointSample = make_sampling_functional(1,0,false,false,(int)Identity);
 
-    //! Dense solver type, that optionally can also handle manifolds
+    //! Dense solver type
     enum DenseSolverType {
         //! QR factorization performed on P*sqrt(w) matrix
         QR, 
         //! SVD factorization performed on P*sqrt(w) matrix
         SVD, 
+        //! LU factorization performed on P^T*W*P matrix
+        LU, 
+    };
+
+    //! Problem type, that optionally can handle manifolds
+    enum ProblemType {
+        //! Standard GMLS problem type
+        STANDARD, 
         //! Solve GMLS problem on a manifold (will use QR or SVD to solve the resultant GMLS 
         //! problem dependent on SamplingNontrivialNullspace
         MANIFOLD, 
+    };
+
+    //! Boundary type, to determine whether it's Dirichlet or Neumann
+    enum BoundaryType {
+        //! Dirichlet BC Type
+        DIRICHLET,
+        //! Neumann BC Type
+        NEUMANN,
     };
 
     //! Available weighting kernel function types
