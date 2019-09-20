@@ -362,7 +362,7 @@ public:
 
         typedef Kokkos::View<output_data_type, output_array_layout, output_memory_space> output_view_type;
 
-        auto problem_type = _gmls->getDenseSolverType();
+        auto problem_type = _gmls->getProblemType();
         auto global_dimensions = _gmls->getGlobalDimensions();
         auto output_dimension_of_operator = _gmls->getOutputDimensionOfOperation(lro);
         auto input_dimension_of_operator = _gmls->getInputDimensionOfOperation(lro);
@@ -652,7 +652,7 @@ public:
 
         typedef Kokkos::View<output_data_type, output_array_layout, output_memory_space> output_view_type;
 
-        auto problem_type = _gmls->getDenseSolverType();
+        auto problem_type = _gmls->getProblemType();
         auto global_dimensions = _gmls->getGlobalDimensions();
         auto output_dimension_of_operator = _gmls->getOutputDimensionOfOperation(lro);
         auto input_dimension_of_operator = _gmls->getInputDimensionOfOperation(lro);
