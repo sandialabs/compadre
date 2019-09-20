@@ -158,11 +158,15 @@ void GMLS_LaplacianPhysics::computeMatrix(local_index_type field_one, local_inde
 
 	// GMLS operator
 
-	GMLS my_GMLS (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"));
+        GMLS my_GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+                     3 /* dimension */,
+                     "QR" /* dense sovler type */,
+                     "STANDARD" /* problem type */,
+                     "DIRICHLET");
 	my_GMLS.setProblemData(kokkos_neighbor_lists_host,
-					kokkos_augmented_source_coordinates_host,
-					kokkos_target_coordinates,
-					kokkos_epsilons_host);
+			       kokkos_augmented_source_coordinates_host,
+			       kokkos_target_coordinates,
+			       kokkos_epsilons_host);
 	my_GMLS.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
 	my_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 

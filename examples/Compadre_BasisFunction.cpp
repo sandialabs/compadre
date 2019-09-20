@@ -294,9 +294,11 @@ int main (int argc, char* args[]) {
         auto _GMLS = Teuchos::rcp(new GMLS(ReconstructionSpace::ScalarTaylorPolynomial,
                 PointSample,
                 parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-                parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-                parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"),
-                dim));
+                dim,
+                parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
+                parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
+                parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder")));
     
         _GMLS->setProblemData(kokkos_neighbor_lists_host,
                 kokkos_augmented_source_coordinates_host,
