@@ -419,7 +419,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
                              StaggeredEdgeAnalyticGradientIntegralSample,
                              StaggeredEdgeAnalyticGradientIntegralSample,
                              _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-                             target_coords->nDims();
+                             target_coords->nDim();
                              _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
                              _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
                              _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
@@ -515,7 +515,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
                              StaggeredEdgeAnalyticGradientIntegralSample,
                              StaggeredEdgeAnalyticGradientIntegralSample,
                              _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-                             target_coords->nDims();
+                             target_coords->nDim();
                              _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
                              _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
                              _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
