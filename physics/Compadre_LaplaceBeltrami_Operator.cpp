@@ -419,7 +419,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
                              StaggeredEdgeAnalyticGradientIntegralSample,
                              StaggeredEdgeAnalyticGradientIntegralSample,
                              _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-                             target_coords->nDim();
+                             target_coords->nDim(),
                              _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
                              _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
                              _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
@@ -515,7 +515,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
                              StaggeredEdgeAnalyticGradientIntegralSample,
                              StaggeredEdgeAnalyticGradientIntegralSample,
                              _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-                             target_coords->nDim();
+                             target_coords->nDim(),
                              _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
                              _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
                              _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
@@ -627,9 +627,12 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 		GMLS my_GMLS_staggered_grad (ReconstructionSpace::ScalarTaylorPolynomial,
 				StaggeredEdgeAnalyticGradientIntegralSample,
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
+                                _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+                                target_coords->nDim(),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 		my_GMLS_staggered_grad.setProblemData(
 				kokkos_neighbor_lists_host,
 				kokkos_augmented_source_coordinates_host,
@@ -646,9 +649,12 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 		GMLS my_GMLS_staggered_div (ReconstructionSpace::VectorTaylorPolynomial,
 				StaggeredEdgeIntegralSample,
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
+	                        _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+                                target_coords->nDim(),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 		my_GMLS_staggered_div.setProblemData(
 				kokkos_neighbor_lists_host,
 				kokkos_augmented_source_coordinates_host,
@@ -822,9 +828,12 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 		GMLS my_GMLS_staggered_grad (ReconstructionSpace::ScalarTaylorPolynomial,
 				PointSample,
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
+			        _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+                                target_coords->nDim(),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 		my_GMLS_staggered_grad.setProblemData(
 				kokkos_neighbor_lists_host,
 				kokkos_augmented_source_coordinates_host,
@@ -841,9 +850,12 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 		GMLS my_GMLS_staggered_div (ReconstructionSpace::VectorTaylorPolynomial,
 				ManifoldVectorPointSample,
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
+			        _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+                                target_coords->nDim(),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 		my_GMLS_staggered_div.setProblemData(
 				kokkos_neighbor_lists_host,
 				kokkos_augmented_source_coordinates_host,

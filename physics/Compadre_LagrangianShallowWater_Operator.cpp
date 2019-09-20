@@ -218,10 +218,14 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 	if (_particles->getFieldManager()->getIDOfFieldFromName("velocity") == field_one) {
 
 		GMLS my_GMLS_staggered_grad (ReconstructionSpace::ScalarTaylorPolynomial,
-				StaggeredEdgeAnalyticGradientIntegralSample,
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
+                            StaggeredEdgeAnalyticGradientIntegralSample,
+                            _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+                            target_coords->nDim(),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense sovler type"),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
+
 		my_GMLS_staggered_grad.setProblemData(
 			kokkos_neighbor_lists_host,
 			kokkos_augmented_source_coordinates_host,
@@ -559,9 +563,12 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 		GMLS my_GMLS_staggered_div (ReconstructionSpace::VectorTaylorPolynomial,
 				StaggeredEdgeIntegralSample,
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver"),
-				_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
+                                _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+                                target_coords->nDim(),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense sovler type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 		my_GMLS_staggered_div.setProblemData(
 			kokkos_neighbor_lists_host,
 			kokkos_augmented_source_coordinates_host,
