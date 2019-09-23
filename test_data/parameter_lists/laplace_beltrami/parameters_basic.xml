@@ -44,6 +44,6 @@
   </ParameterList>
   <ParameterList name="halo">
     <Parameter name="dynamic" type="bool" value="true"/>
-    <Parameter name="multiplier" type="double" value="4.0"/>
+    <Parameter name="multiplier" type="double" value="16.0"/>
   </ParameterList>
 </ParameterList>
