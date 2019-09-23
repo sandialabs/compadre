@@ -97,7 +97,9 @@ void ParameterManager::setDefaultParameters() {
 	remapList->set("porder", 2);
 	remapList->set("curvature porder", 0); // order to reconstruct manifold with when requested
 	remapList->set("neighbors needed multiplier", 1.2);
-	remapList->set("dense linear solver", "QR");
+	remapList->set("dense solver type", "QR");
+	remapList->set("problem type", "STANDARD");
+	remapList->set("boundary type", "DIRICHLET");
 	remapList->set("weighting power", (local_index_type)8);
 	remapList->set("weighting type", "power");
 	// weighting type for covariance matrix from which a tangent plane to the manifold is derived

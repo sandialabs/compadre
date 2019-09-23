@@ -164,10 +164,11 @@ void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index
 
 	// GMLS operator
 
-	GMLS my_GMLS(ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial,
+        GMLS my_GMLS(ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial,
                      VectorPointSample,
                      _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-                     "SVD", 0 /* manifold order */, 3 /* dimension */);
+                     3 /* dimension */,
+                     "SVD", "STANDARD", "DIRICHLET");
 	my_GMLS.setProblemData(kokkos_neighbor_lists_host,
 					kokkos_augmented_source_coordinates_host,
 					kokkos_target_coordinates,

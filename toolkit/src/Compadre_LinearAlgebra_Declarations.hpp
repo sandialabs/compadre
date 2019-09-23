@@ -18,6 +18,15 @@
   extern "C" void dgelsd_( int* m, int* n, int* nrhs, double* a, int* lda,
               double* b, int* ldb, double* s, double* rcond, int* rank,
               double* work, int* lwork, int* iwork, int* info );
+
+  // LU decomposition of a general matrix
+  extern "C" void dgetrf_( int* m, int* n, double* a,
+                           int* lda, int* ipiv, int* info);
+
+  // Solve a system of linear equations from LU decomposed matrix
+  extern "C" void dgetrs_( char* trans, int* n, int* nrhs, double* a, int* lda,
+                           int* ipiv, double* b, int* ldb, int* info );
+
 #ifdef COMPADRE_USE_OPENBLAS
   void openblas_set_num_threads(int num_threads);
 #endif
@@ -63,7 +72,7 @@ namespace GMLS_LinearAlgebra {
         \param max_neighbors        [in] - integer for maximum neighbor over all targets
         \param neighbor_list_sizes  [in] - pointer to all neighbor list sizes for each target
     */
-    void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors = 0, const int initial_index_of_batch = 0, int * neighbor_list_sizes = NULL);
+    void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors = 0, const int initial_index_of_batch = 0, int * neighbor_list_sizes = NULL);
 
     /*! \brief Calls LAPACK or CUBLAS to solve a batch of SVD problems
 
@@ -82,7 +91,26 @@ namespace GMLS_LinearAlgebra {
         \param max_neighbors        [in] - integer for maximum neighbor over all targets
         \param neighbor_list_sizes  [in] - pointer to all neighbor list sizes for each target
     */
-    void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, const int num_matrices, const size_t max_neighbors = 0, const int initial_index_of_batch = 0, int * neighbor_list_sizes = NULL);
+    void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors = 0, const int initial_index_of_batch = 0, int * neighbor_list_sizes = NULL);
+
+    /*! \brief Calls LAPACK or CUBLAS to solve a batch of LU problems
+
+         P contains num_matrices * lda * ndb data which is num_matrices different matrices, and
+         RHS contains num_matrices * ldn * ndb data which is num_matrices different matrix right hand sides.
+
+        \param P                [in/out] - evaluation of sampling functional on polynomial basis (in), meaningless workspace output (out)
+        \param lda                  [in] - row dimension of each matrix in P
+        \param nda                  [in] - columns dimension of each matrix in P
+        \param RHS              [in/out] - basis to invert P against (in), polynomial coefficients (out)
+        \param ldb                  [in] - row dimension of each matrix in RHS
+        \param ndb                  [in] - column dimension of each matrix in RHS
+        \param M                    [in] - number of rows containing data (maximum rows over everything in batch)
+        \param N                    [in] - number of columns containing data
+        \param num_matrices         [in] - number of target (GMLS problems to be solved)
+        \param max_neighbors        [in] - integer for maximum neighbor over all targets
+        \param neighbor_list_sizes  [in] - pointer to all neighbor list sizes for each target
+    */
+    void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors = 0, const int initial_index_of_batch = 0, int * neighbor_list_sizes = NULL);
 
 }; // GMLS_LinearAlgebra
 }; // Compadre

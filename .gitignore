@@ -1,0 +1,6 @@
+toolkit/doc/Doxyfile
+toolkit/examples/GMLS_Vector.cpp.new
+toolkit/kokkos/bin/nvcc_wrapper
+toolkit/kokkos/doc/Kokkos_PG.pdf
+toolkit/kokkos/doc/SAND2017-10464-Kokkos-Task-DAG.pdf
+build/*

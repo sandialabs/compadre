@@ -38,13 +38,50 @@ Kokkos::initialize(argc, args);
 // code block to reduce scope for all Kokkos View allocations
 // otherwise, Views may be deallocating when we call Kokkos::finalize() later
 {
+    // check if 8 arguments are given from the command line, the first being the program name
+    //  boundary_type used in solving each GMLS problem:
+    //      0 - Dirichlet used in solving each GMLS problem
+    //      1 - Neumann used in solving each GMLS problem
+    int boundary_type = 0; // Dirichlet by default
+    if (argc >= 8) {
+        int arg8toi = atoi(args[7]);
+        if (arg8toi > 0) {
+            boundary_type = arg8toi;
+        }
+    }
+
+    // check if 7 arguments are given from the command line, the first being the program name
+    // problem_type used in solving each GMLS problem:
+    //      0 - Standard GMLS problem
+    //      1 - Manifold GMLS problem
+    int problem_type = 1; // Manifold for this example
+    if (argc >= 7) {
+        int arg7toi = atoi(args[6]);
+        if (arg7toi > 0) {
+            problem_type = arg7toi;
+        }
+    }
+
     // check if 6 arguments are given from the command line, the first being the program name
-    //  N_pts_on_sphere used to determine spatial resolution
-    int N_pts_on_sphere = 1000; // QR by default
+    //  solver_type used for factorization in solving each GMLS problem:
+    //      0 - SVD used for factorization in solving each GMLS problem
+    //      1 - QR  used for factorization in solving each GMLS problem
+    //      2 - LU  used for factorization in solving each GMLS problem
+    int solver_type = 1; // QR by default
     if (argc >= 6) {
         int arg6toi = atoi(args[5]);
         if (arg6toi > 0) {
-            N_pts_on_sphere = arg6toi;
+            solver_type = arg6toi;
+        }
+    }
+
+    // check if 5 arguments are given from the command line, the first being the program name
+    //  N_pts_on_sphere used to determine spatial resolution
+    int N_pts_on_sphere = 1000; // 1000 points by default
+    if (argc >= 5) {
+        int arg5toi = atoi(args[4]);
+        if (arg5toi > 0) {
+            N_pts_on_sphere = arg5toi;
         }
     }
     
@@ -275,11 +312,35 @@ Kokkos::initialize(argc, args);
     
     // solver name for passing into the GMLS class
     std::string solver_name;
-    solver_name = "MANIFOLD";
+    if (solver_type == 0) { // SVD
+        solver_name = "SVD";
+    } else if (solver_type == 1) { // QR
+        solver_name = "QR";
+    } else if (solver_type == 2) { // LU
+        solver_name = "LU";
+    }
+
+    // problem name for passing into the GMLS class
+    std::string problem_name;
+    if (problem_type == 0) { // Standard
+        problem_name = "STANDARD";
+    } else if (problem_type == 1) { // Manifold
+        problem_name = "MANIFOLD";
+    }
+
+    // boundary name for passing into the GMLS class
+    std::string boundary_name;
+    if (boundary_type == 0) { // Dirichlet
+        boundary_name = "DIRICHLET";
+    } else if (boundary_type == 1) { // Neumann
+        boundary_name = "NEUMANN";
+    }
     
     // initialize an instance of the GMLS class for problems with a scalar basis and 
     // traditional point sampling as the sampling functional
-    GMLS my_GMLS_scalar(order, solver_name.c_str(), order /*manifold order*/, dimension);
+    GMLS my_GMLS_scalar(order, dimension,
+                        solver_name.c_str(), problem_name.c_str(), boundary_name.c_str(),
+                        order /*manifold order*/);
     
     // pass in neighbor lists, source coordinates, target coordinates, and window sizes
     //
@@ -332,7 +393,11 @@ Kokkos::initialize(argc, args);
     // evaluation of that vector as the sampling functional
     // VectorTaylorPolynomial indicates that the basis will be a polynomial with as many components as the
     // dimension of the manifold. This differs from another possibility, which follows this class.
-    GMLS my_GMLS_vector(ReconstructionSpace::VectorTaylorPolynomial, ManifoldVectorPointSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
+    GMLS my_GMLS_vector(ReconstructionSpace::VectorTaylorPolynomial, ManifoldVectorPointSample,
+                        order, dimension,
+                        solver_name.c_str(), problem_name.c_str(), boundary_name.c_str(),
+                        order /*manifold order*/);
+
     my_GMLS_vector.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
     std::vector<TargetOperation> lro_vector(2);
     lro_vector[0] = VectorPointEvaluation;
@@ -368,7 +433,11 @@ Kokkos::initialize(argc, args);
     //  In the print-out for this program, we include the timings and errors on this and VectorTaylorPolynomial
     //  in order to demonstrate that they produce exactly the same answer, but that one is much more efficient.
     //
-    GMLS my_GMLS_vector_of_scalar_clones(ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial,ManifoldVectorPointSample, order, solver_name.c_str(), order /*manifold order*/, dimension);
+    GMLS my_GMLS_vector_of_scalar_clones(ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, ManifoldVectorPointSample,
+                                         order, dimension,
+                                         solver_name.c_str(), problem_name.c_str(), boundary_name.c_str(),
+                                         order /*manifold order*/);
+
     my_GMLS_vector_of_scalar_clones.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
     std::vector<TargetOperation> lro_vector_of_scalar_clones(2);
     lro_vector_of_scalar_clones[0] = VectorPointEvaluation;
@@ -493,7 +562,6 @@ Kokkos::initialize(argc, args);
         // load value from output
         double GMLS_value = output_value(i);
         double GMLS_gc = output_gc(i);
-        printf("GMLS_gc: %f\n", GMLS_gc);
     
         // load laplacian from output
         double GMLS_Laplacian = output_laplacian(i);
