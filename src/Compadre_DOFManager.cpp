@@ -198,13 +198,15 @@ Teuchos::RCP<const DOFManager::dof_data_type> DOFManager::generateDOFMap(std::ve
 
             //auto row_max_id = dof_row_map[i]->getGlobalNumElements();//getMaxAllGlobalIndex();//GlobalNumElements();//MaxAllGlobalIndex()+1;
             //auto col_max_id = dof_col_map[i]->getGlobalNumElements();//getMaxAllGlobalIndex();//GlobalNumElements();//MaxAllGlobalIndex()+1;
-            auto row_max_id = dof_row_map[i]->getMaxAllGlobalIndex();//GlobalNumElements();//MaxAllGlobalIndex()+1;
-            auto col_max_id = dof_col_map[i]->getMaxAllGlobalIndex();//GlobalNumElements();//MaxAllGlobalIndex()+1;
+            auto row_max_id = dof_row_map[i]->getMaxAllGlobalIndex()+1;//GlobalNumElements();//MaxAllGlobalIndex()+1;
+            auto col_max_id = dof_col_map[i]->getMaxAllGlobalIndex()+1;//GlobalNumElements();//MaxAllGlobalIndex()+1;
             //field_offset += std::max(row_max_id, col_max_id);
             field_offset = std::max(row_max_id, col_max_id);
             //field_row_offset += dof_row_map[i]->getGlobalNumElements();//MaxAllGlobalIndex()+1;
             //field_row_offset = dof_row_map[i]->getMaxAllGlobalIndex()+1;
             //printf("i: %d, r: %d, offset: %lu, size: %lu\n", i, _particles->getCoordsConst()->getComm()->getRank(), field_row_offset, t_row_map_gids.extent(0));
+            printf("i: %d, r: %d, rmin: %lu, rmax: %lu\n", i, _particles->getCoordsConst()->getComm()->getRank(), dof_row_map[i]->getMinAllGlobalIndex(), dof_row_map[i]->getMaxAllGlobalIndex());
+            printf("i: %d, r: %d, cmin: %lu, cmax: %lu\n", i, _particles->getCoordsConst()->getComm()->getRank(), dof_col_map[i]->getMinAllGlobalIndex(), dof_col_map[i]->getMaxAllGlobalIndex());
 
 			dof_data->setRowMap(dof_row_map[i], i);
 			dof_data->setColMap(dof_col_map[i], i);
