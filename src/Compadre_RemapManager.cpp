@@ -46,7 +46,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
     
         local_index_type neighbors_needed;
     
-        std::string solver_type_to_lower = _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense linear solver");
+        std::string solver_type_to_lower = _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type");
         transform(solver_type_to_lower.begin(), solver_type_to_lower.end(), solver_type_to_lower.begin(), ::tolower);
     
         if (solver_type_to_lower == "manifold") {
