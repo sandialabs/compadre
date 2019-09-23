@@ -168,8 +168,7 @@ void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index
                      VectorPointSample,
                      _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
                      3 /* dimension */,
-                     "SVD", "STANDARD", "DIRICHLET",
-                     0 /* manifold order */);
+                     "SVD", "STANDARD", "DIRICHLET");
 	my_GMLS.setProblemData(kokkos_neighbor_lists_host,
 					kokkos_augmented_source_coordinates_host,
 					kokkos_target_coordinates,
