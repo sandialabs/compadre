@@ -176,7 +176,9 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
     //****************
 
     // GMLS operator
-    GMLS my_GMLS (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), "QR", 2 /* manifold porder */, 2 /*dimension*/);
+    GMLS my_GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+                 2 /* dimension */,
+                 "QR", "STANDARD", "DIRICHLET");
     my_GMLS.setProblemData(kokkos_neighbor_lists_host,
                     kokkos_augmented_source_coordinates_host,
                     kokkos_target_coordinates,

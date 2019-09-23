@@ -249,7 +249,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
             }
         }
     } else if (polynomial_sampling_functional == StaggeredEdgeIntegralSample) {
-          if (_dense_solver_type == DenseSolverType::MANIFOLD) {
+          if (_problem_type == ProblemType::MANIFOLD) {
               double cutoff_p = _epsilons(target_index);
               int alphax, alphay;
               double alphaf;
@@ -374,7 +374,6 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
         compadre_kernel_assert_debug(_extra_data.extent(0)>0 && "Extra data used but not set.");
 
         int neighbor_index_in_source = getNeighborIndex(target_index, neighbor_index);
-        //printf("%d, %d, %f, %f\n", target_index, neighbor_index_in_source, _extra_data(neighbor_index_in_source,0), _extra_data(neighbor_index_in_source,1));
 
         /*
          * requires quadrature points defined on an edge, not a target/source edge (spoke)
@@ -630,7 +629,6 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
                     // stores layout left for CUDA or LAPACK calls later
                     // no need to convert offsets to global indices because the sum will never be large
                     alt_P(i+my_num_neighbors*d, j) = delta[j] * std::sqrt(w(i+my_num_neighbors*d));
-
                     compadre_kernel_assert_extreme_debug(delta[j]==delta[j] && "NaN in sqrt(W)*P matrix.");
                 }
 
