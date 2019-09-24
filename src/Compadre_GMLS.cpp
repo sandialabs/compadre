@@ -483,6 +483,7 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
                 PW_Transpose_LL(i, j) = PsqrtW_LL(j, i)*std::sqrt(w(j));
             }
         });
+        teamMember.team_barrier();
 
         // Now copy the flat 1D memory over
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_cols*max_num_rows), [=] (const int i) {
@@ -1040,6 +1041,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
                 PW_Transpose_LL(i, j) = PsqrtW_LL(j, i)*std::sqrt(w(j));
             }
         });
+        teamMember.team_barrier();
 
         // Now copy the flat 1D memory over
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_cols*max_num_rows), [=] (const int i) {
