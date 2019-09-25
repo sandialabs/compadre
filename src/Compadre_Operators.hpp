@@ -186,7 +186,7 @@ namespace Compadre {
     //! Boundary type, to determine whether it's Dirichlet or Neumann
     enum ConstraintType {
         //! No constraint
-        NONE,
+        NO_CONSTRAINT,
         //! Neumann Gradient Scalar Type
         NEUMANN_GRAD_SCALAR,
     };

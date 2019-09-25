@@ -145,7 +145,7 @@ protected:
     //! problem type for GMLS problem, can also be set to STANDARD for normal or MANIFOLD for manifold problems
     ProblemType _problem_type;
 
-    //! boundary type for GMLS problem, can also be set to NONE or NEUMANN_GRAD_SCALAR
+    //! boundary type for GMLS problem, can also be set to NO_CONSTRAINT or NEUMANN_GRAD_SCALAR
     ConstraintType _constraint_type;
 
     //! polynomial sampling functional used to construct P matrix, set at GMLS class instantiation
@@ -663,11 +663,11 @@ protected:
         std::string constraint_type_to_lower = constraint_type;
         transform(constraint_type_to_lower.begin(), constraint_type_to_lower.end(), constraint_type_to_lower.begin(), ::tolower);
         if (constraint_type_to_lower == "none") {
-            return ConstraintType::NONE;
+            return ConstraintType::NO_CONSTRAINT;
         } else if (constraint_type_to_lower == "neumann_grad_scalar") {
             return ConstraintType::NEUMANN_GRAD_SCALAR;
         } else {
-            return ConstraintType::NONE;
+            return ConstraintType::NO_CONSTRAINT;
         }
     }
 
@@ -688,7 +688,7 @@ public:
         const int dimensions = 3,
         const std::string dense_solver_type = std::string("QR"),
         const std::string problem_type = std::string("STANDARD"),
-        const std::string constraint_type = std::string("NONE"),
+        const std::string constraint_type = std::string("NO_CONSTRAINT"),
         const int manifold_curvature_poly_order = 2) : 
             _poly_order(poly_order),
             _curvature_poly_order(manifold_curvature_poly_order),
@@ -704,7 +704,7 @@ public:
             {
 
         // Asserting available problems and solvers
-        compadre_kernel_assert_release((_constraint_type == ConstraintType::NONE) &&
+        compadre_kernel_assert_release((_constraint_type == ConstraintType::NO_CONSTRAINT) &&
                                        "Neumann boundary type hasn't been implemented yet.");
 
         // seed random number generator pool
@@ -779,7 +779,7 @@ public:
          const int dimensions = 3,
          const std::string dense_solver_type = std::string("QR"),
          const std::string problem_type = std::string("STANDARD"),
-         const std::string constraint_type = std::string("NONE"),
+         const std::string constraint_type = std::string("NO_CONSTRAINT"),
          const int manifold_curvature_poly_order = 2)
       : GMLS(ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, VectorPointSample, VectorPointSample, poly_order, dimensions, dense_solver_type, problem_type, constraint_type, manifold_curvature_poly_order) {}
 
@@ -791,7 +791,7 @@ public:
          const int dimensions = 3,
          const std::string dense_solver_type = std::string("QR"),
          const std::string problem_type = std::string("STANDARD"),
-         const std::string constraint_type = std::string("NONE"),
+         const std::string constraint_type = std::string("NO_CONSTRAINT"),
          const int manifold_curvature_poly_order = 2)
       : GMLS(reconstruction_space, dual_sampling_strategy, dual_sampling_strategy, poly_order, dimensions, dense_solver_type, problem_type, constraint_type, manifold_curvature_poly_order) {}
 
