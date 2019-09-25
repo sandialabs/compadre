@@ -26,7 +26,7 @@
     <Parameter name="neighbors needed multiplier" type="double" value="2.4"/>
     <Parameter name="dense solver type" type="string" value="QR"/>
     <Parameter name="problem type" type="string" value="MANIFOLD"/>
-    <Parameter name="boundary type" type="string" value="DIRICHLET"/>
+    <Parameter name="constraint type" type="string" value="NONE"/>
     <Parameter name="optimization algorithm" type="string" value="NONE"/>
     <Parameter name="source weighting field name" type="string" value="grid_area"/>
     <Parameter name="target weighting field name" type="string" value="grid_area"/>
