@@ -149,8 +149,6 @@ void FileManager::setWriter(const std::string& _fn, Teuchos::RCP<ParticlesT>& pa
 void FileManager::writerIOChoice(std::string& extension, const bool enforce_serial) {
 	transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
 
-    printf("%s extension.\n", extension.c_str());
-
     Teuchos::RCP<Compadre::FileIO> new_io; 
 	if (extension == "pvtp") {
 #ifdef COMPADREHARNESS_USE_VTK
@@ -174,9 +172,9 @@ void FileManager::writerIOChoice(std::string& extension, const bool enforce_seri
 #ifdef COMPADREHARNESS_USE_NETCDF
 	#ifdef COMPADREHARNESS_USE_NETCDF_MPI
         //if (enforce_serial)
-		    new_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::SerialNetCDFFileIO(_particles)));
+		//    new_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::SerialNetCDFFileIO(_particles)));
         //else
-	  	//    new_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::ParallelHDF5NetCDFFileIO(_particles)));
+	  	    new_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::ParallelHDF5NetCDFFileIO(_particles)));
 	#else
 		new_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::SerialNetCDFFileIO(_particles)));
 	#endif
@@ -1265,7 +1263,7 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 		else if (var_string_lower=="id") {
 			unsigned long start = minInd;
 			unsigned long countDiff = (unsigned long)(local_coords_size);
-			retval = nc_get_vara(ncid, i, &start, &countDiff, &ids[0]);
+			retval = nc_get_vara_longlong(ncid, i, &start, &countDiff, &ids[0]);
 			identified_fields[i] = true;
 		}
 	}
@@ -1822,8 +1820,6 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	#define NC_INDEPENDENT 0
 	#define NC_COLLECTIVE 1
 
-    printf("WRITING TO PARALLEL!\n");
-
 	MPI_Comm comm = *(Teuchos::rcp_dynamic_cast<const Teuchos::MpiComm<int>>(this->_particles->getCoordsConst()->getComm(), true /*throw on fail*/)->getRawMpiComm());
 	MPI_Info info = MPI_INFO_NULL;
 
@@ -1876,25 +1872,39 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	std::vector<local_index_type> field_var_ids(fields.size());
 	for (size_t i=0; i<fields.size(); i++){
 		size_t comp_size = fields[i]->nDim();
-		retval = nc_def_dim(ncid, fields[i]->getName().c_str(), comp_size, &field_dim_ids[i]);
+        if (comp_size > 1) {
+		    retval = nc_def_dim(ncid, fields[i]->getName().c_str(), comp_size, &field_dim_ids[i]);
 
-		local_index_type dim_ids[2];
-		dim_ids[0] = particle_dim_id;
-		dim_ids[1] = field_dim_ids[i];
+		    local_index_type dim_ids[2];
+		    dim_ids[0] = particle_dim_id;
+		    dim_ids[1] = field_dim_ids[i];
 
-		retval = nc_def_var(ncid, fields[i]->getName().c_str(), NC_DOUBLE, 2, &dim_ids[0], &field_var_ids[i]);
-		retval = nc_put_att_text(ncid, field_var_ids[i], "units", fields[i]->getUnits().length(), fields[i]->getUnits().c_str());
+		    retval = nc_def_var(ncid, fields[i]->getName().c_str(), NC_DOUBLE, 2, &dim_ids[0], &field_var_ids[i]);
+		    retval = nc_put_att_text(ncid, field_var_ids[i], "units", fields[i]->getUnits().length(), fields[i]->getUnits().c_str());
+        } else if (comp_size==1) {
+		    local_index_type dim_id = particle_dim_id;
+		    retval = nc_def_var(ncid, fields[i]->getName().c_str(), NC_DOUBLE, 1, &dim_id, &field_var_ids[i]);
+		    retval = nc_put_att_text(ncid, field_var_ids[i], "units", fields[i]->getUnits().length(), fields[i]->getUnits().c_str());
+        }
 	}
 
 	// fill portion of vector corresponding to global ids that are located on this processor
 	local_index_type bc_var_id;
 	retval = nc_def_var(ncid, "FLAG", NC_INT, 1, &particle_dim_id, &bc_var_id);
-	retval = nc_put_att_text(ncid, bc_var_id, "units", 4, "none");
+	if ((retval = nc_put_att_text(ncid, bc_var_id, "units", 4, "none")))
+		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "flag units didn't finish.");
 
 	local_index_type ids_var_id;
 	retval = nc_def_var(ncid, "ID", NC_INT64, 1, &particle_dim_id, &ids_var_id);
-	if ((retval = nc_put_att_text(ncid, ids_var_id, "units", 4, "none")))
-		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "id units didn't finish.");
+    if (!retval) {
+	    retval = nc_put_att_text(ncid, ids_var_id, "units", 4, "none");
+    } else if (retval==-42) { // name already in use
+	    retval = nc_inq_varid(ncid, "ID", &ids_var_id);
+	    retval = nc_put_att_text(ncid, ids_var_id, "units", 4, "none");
+    }
+    //printf("retval: %d\n", retval);
+	//if ((retval = nc_put_att_text(ncid, ids_var_id, "units", 4, "none")))
+	//	TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "id units didn't finish.");
 
 	// end of defining dimensions and variables
 	if ((retval = nc_enddef(ncid)))
@@ -1906,7 +1916,6 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	std::vector<scalar_type> coords_z(coords_size);
 	for (int i=0; i<coords_size; i++) {
 		coords_x[i] = host_coords(i,0);
-        printf("%f...\n", coords_x[i]);
 		coords_y[i] = host_coords(i,1);
 		coords_z[i] = host_coords(i,2);
 	}
@@ -1925,11 +1934,7 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	{
 		unsigned long start = (unsigned long)(temporary_map->getMinGlobalIndex());
 		unsigned long countDiff = (unsigned long)(coords_size);
-        printf("start %d, diff %d\n", start, countDiff);
 
-        printf("%d...\n", x_var_id);
-        printf("%d...\n", y_var_id);
-        printf("%d...\n", z_var_id);
 		if ((retval = nc_put_vara_double(ncid, x_var_id, &start, &countDiff, &coords_x[0])))
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "x not written.");
 		if ((retval = nc_put_vara_double(ncid, y_var_id, &start, &countDiff, &coords_y[0])))
@@ -1981,7 +1986,7 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 		for (int k=0; k<coords_size; k++) {
 			gids_vec[k] = gids(k,0);
 		}
-		retval = nc_put_vara(ncid, ids_var_id, &start, &countDiff, &gids_vec[0]);
+		retval = nc_put_vara_longlong(ncid, ids_var_id, &start, &countDiff, &gids_vec[0]);
 	}
 
 	// Close the file

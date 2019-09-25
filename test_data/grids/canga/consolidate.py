@@ -26,11 +26,16 @@ def copy_variables_from_source_except_data(filename_source, dataset, new_fields)
             var = dataset.createVariable(varname,ncvar.dtype,ncvar.dimensions)
             var[:] = ncvar[:]
         else:
-            dataset.createVariable(varname, datatype='d', dimensions=('num_el_in_blk1','time_step',), zlib=False, complevel=4,\
-                                   shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
-                                   endian='native', least_significant_digit=None, fill_value=None)
-            #print(new_fields[varname].shape)
-            #print(dataset.variables[varname][:].shape)
+            if (varname != "ID"):
+                dataset.createVariable(varname, datatype='d', dimensions=('num_el_in_blk1','time_step',), zlib=False, complevel=4,\
+                                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                                       endian='native', least_significant_digit=None, fill_value=None)
+                #print(new_fields[varname].shape)
+                #print(dataset.variables[varname][:].shape)
+            else:
+                dataset.createVariable(varname, datatype='i8', dimensions=('num_el_in_blk1',), zlib=False, complevel=4,\
+                                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                                       endian='native', least_significant_digit=None, fill_value=None)
             dataset.variables[varname][:]=new_fields[varname]
 
     f.close()
@@ -44,11 +49,17 @@ def get_data_from_file_sequence(iters, file_prefix, fields):
         f = Dataset(file_prefix+str(i+1)+".pvtp.g", "r", format="NETCDF4")
         for varname,ncvar in f.variables.items():
             if (varname in fields):
-                if (concatenated_data[varname].shape[0]==0):
-                    concatenated_data[varname]=np.zeros(shape=(ncvar.shape[0],iters), dtype='d')
-                    concatenated_data[varname][:,0]=ncvar[:].flatten()
-                else:
-                    concatenated_data[varname][:,i] = ncvar[:].flatten()
+                if (varname != "ID"):
+                    if (concatenated_data[varname].shape[0]==0):
+                        concatenated_data[varname]=np.zeros(shape=(ncvar.shape[0],iters), dtype='d')
+                        concatenated_data[varname][:,0]=ncvar[:].flatten()
+                    else:
+                        concatenated_data[varname][:,i] = ncvar[:].flatten()
+                elif (varname=="ID" and i==1):
+                    # take care of ID here on first step
+                    concatenated_data[varname]=np.zeros(shape=(ncvar.shape[0],), dtype='d')
+                    concatenated_data[varname][:]=ncvar[:].flatten()
+
     return concatenated_data
 
 def consolidate(iters, file1, file2):
@@ -63,7 +74,7 @@ def consolidate(iters, file1, file2):
     new_filename = file1_short + "-" + file2_short
 
     # get data from various data files
-    field_dictionary = get_data_from_file_sequence(iters, "backward_", ["TotalPrecipWater","CloudFraction","Topography"])
+    field_dictionary = get_data_from_file_sequence(iters, "backward_", ["ID","TotalPrecipWater","CloudFraction","Topography"])
 
     # create an empty dataset
     dataset = Dataset(new_filename, "w", format="NETCDF4")
@@ -86,7 +97,7 @@ def consolidate(iters, file1, file2):
     new_filename = file2_short + "-" + file1_short
 
     # get data from various data files
-    field_dictionary = get_data_from_file_sequence(iters, "forward_", ["TotalPrecipWater","CloudFraction","Topography"])
+    field_dictionary = get_data_from_file_sequence(iters, "forward_", ["ID","TotalPrecipWater","CloudFraction","Topography"])
 
     # create an empty dataset
     dataset = Dataset(new_filename, "w", format="NETCDF4")

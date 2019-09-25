@@ -13,6 +13,7 @@ opt_num = 1
 mesh_1 = 0
 mesh_2 = 0
 start_step = 1
+porder = 4
 
 if (len(sys.argv) > 1):
     total_iterations = int(sys.argv[1])
@@ -28,6 +29,9 @@ if (len(sys.argv) > 4):
 
 if (len(sys.argv) > 5):
     start_step = int(sys.argv[5])
+
+if (len(sys.argv) > 6):
+    porder = int(sys.argv[6])
 
 opt_types = ['NONE', 'OBFET', 'CAAS']
 opt_name = opt_types[opt_num]
@@ -79,6 +83,10 @@ def create_XML(file1, file2, total_steps):
     for item in g.getchildren():
         if (item.attrib['name']=="optimization algorithm"):
             item.attrib['value']=opt_name;
+        if (item.attrib['name']=="porder"):
+            item.attrib['value']=str(porder);
+        if (item.attrib['name']=="curvature porder"):
+            item.attrib['value']=str(porder);
     tree.write(open('../test_data/parameter_lists/canga/parameters_comparison_25.xml', 'wb'))
 
     tree = ET.ElementTree(e)
@@ -111,6 +119,10 @@ def create_XML(file1, file2, total_steps):
     for item in g.getchildren():
         if (item.attrib['name']=="optimization algorithm"):
             item.attrib['value']=opt_name;
+        if (item.attrib['name']=="porder"):
+            item.attrib['value']=str(porder);
+        if (item.attrib['name']=="curvature porder"):
+            item.attrib['value']=str(porder);
     tree.write(open('../test_data/parameter_lists/canga/parameters_comparison_33.xml', 'wb'))
 
 def run_transfer(opt_name):
@@ -120,12 +132,11 @@ def run_transfer(opt_name):
             output = subprocess.check_output(["mpirun", "-np", "1", "./cangaIntercomparisonActual.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml",":","-np", "1", "./cangaIntercomparisonActual.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=32"], env=my_env).decode()
         else:
             my_env=dict(os.environ)
-            my_env['OMP_PROC_BIND']='spread'
-            my_env['OMP_PLACES']='threads'
-            my_env['OMP_NUM_THREADS']='1'
-            output = subprocess.check_output(["mpirun", "-np", "1", "./cangaIntercomparisonActual.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml",":","-np", "1", "./cangaIntercomparisonActual.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=32"], env=my_env).decode()
-            #output = subprocess.check_output(["./realCangaIntercomparison.exe","--i=../test_data/parameter_lists/canga/parameters_current.xml","--kokkos-threads=32"], env=my_env).decode()
-            #output = subprocess.check_output(["mpirun", "-np", "1", "./realCangaIntercomparison.exe","--i=../test_data/parameter_lists/canga/parameters_current.xml","--kokkos-threads=32"], env=os.environ{"OMP_PROC_BIND": "spread", "OMP_PLACES": "threads"}, shell=True).decode()
+            #my_env['OMP_PROC_BIND']='spread'
+            #my_env['OMP_PLACES']='threads'
+            #my_env['OMP_NUM_THREADS']='1'
+            #output = subprocess.check_output(["mpirun", "--bind-to", "socket", "-np", "1", "./cangaIntercomparisonActual.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml","--kokkos-threads=32",":","-np", "1", "./cangaIntercomparisonActual.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=32"], env=my_env).decode()
+            output = subprocess.check_output(["mpirun", "--bind-to", "socket", "-np", "4", "./cangaIntercomparisonActual.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml","--kokkos-threads=4",":","-np", "4", "./cangaIntercomparisonActual.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=4"], env=my_env).decode()
     except subprocess.CalledProcessError as exc:
         print("error code", exc.returncode)
         for line in exc.output.decode().split('\n'):
