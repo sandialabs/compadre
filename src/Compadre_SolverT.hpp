@@ -43,6 +43,8 @@ class SolverT {
         std::vector<std::vector<Teuchos::RCP<exporter_type> > > _col_exporters;
         std::vector<std::vector<Teuchos::RCP<exporter_type> > > _domain_exporters;
 
+        bool _consolidate_blocks;
+
 	public:
 
 		SolverT( const Teuchos::RCP<const Teuchos::Comm<int> > comm, std::vector<std::vector<Teuchos::RCP<crs_matrix_type> > > A,
@@ -53,18 +55,21 @@ class SolverT {
 		void setParameters(Teuchos::ParameterList& parameters) {
 			_parameters = Teuchos::rcp(&parameters, false);
 			_parameter_filename = _parameters->get<std::string>("file");
+            this->prepareMatrices();
 		}
 
 		Teuchos::RCP<mvec_type> getSolution(local_index_type idx = -1) const;
 
 		void solve();
 
-        void packMatricesAndVectors();
-
-        void unpackMatricesAndVectors();
+    protected:
 
         void amalgamateBlockMatrices(std::vector<std::vector<Teuchos::RCP<crs_matrix_type> > > A, 
                                         std::vector<Teuchos::RCP<mvec_type> > b);
+
+        // called by setParameters, requires knowledge of solution method
+        void prepareMatrices();
+
 
 };
 
