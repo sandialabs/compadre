@@ -69,14 +69,14 @@ Kokkos::initialize(argc, args);
 // otherwise, Views may be deallocating when we call Kokkos::finalize() later
 {
     // check if 8 arguments are given from the command line, the first being the program name
-    //  boundary_type used in solving each GMLS problem:
-    //      0 - Dirichlet used in solving each GMLS problem
-    //      1 - Neumann used in solving each GMLS problem
-    int boundary_type = 0; // Dirichlet by default
+    //  constraint_type used in solving each GMLS problem:
+    //      0 - No constraints used in solving each GMLS problem
+    //      1 - Neumann Gradient Scalar used in solving each GMLS problem
+    int constraint_type = 0; // No constraints by default
     if (argc >= 8) {
         int arg8toi = atoi(args[7]);
         if (arg8toi > 0) {
-            boundary_type = arg8toi;
+            constraint_type = arg8toi;
         }
     }
 
@@ -358,17 +358,17 @@ Kokkos::initialize(argc, args);
     }
 
     // boundary name for passing into the GMLS class
-    std::string boundary_name;
-    if (boundary_type == 0) { // Dirichlet
-        boundary_name = "DIRICHLET";
-    } else if (boundary_type == 1) { // Neumann
-        boundary_name = "NEUMANN";
+    std::string constraint_name;
+    if (constraint_type == 0) { // No constraints
+        constraint_name = "NONE";
+    } else if (constraint_type == 1) { // Neumann Gradient Scalar
+        constraint_name = "NEUMANN_GRAD_SCALAR";
     }
     
     // initialize an instance of the GMLS class for problems with a scalar basis and 
     // traditional point sampling as the sampling functional
     GMLS my_GMLS_scalar(order, dimension,
-                        solver_name.c_str(), problem_name.c_str(), boundary_name.c_str(),
+                        solver_name.c_str(), problem_name.c_str(), constraint_name.c_str(),
                         order /*manifold order*/);
     
     // pass in neighbor lists, source coordinates, target coordinates, and window sizes
@@ -427,7 +427,7 @@ Kokkos::initialize(argc, args);
     // dimension of the manifold. This differs from another possibility, which follows this class.
     GMLS my_GMLS_vector(ReconstructionSpace::VectorTaylorPolynomial, VaryingManifoldVectorPointSample,
                           order, dimension,
-                          solver_name.c_str(), problem_name.c_str(), boundary_name.c_str(),
+                          solver_name.c_str(), problem_name.c_str(), constraint_name.c_str(),
                           order /*manifold order*/);
 
     my_GMLS_vector.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
@@ -468,7 +468,7 @@ Kokkos::initialize(argc, args);
     //
     GMLS my_GMLS_vector_of_scalar_clones(ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, VaryingManifoldVectorPointSample,
                                          order, dimension,
-                                         solver_name.c_str(), problem_name.c_str(), boundary_name.c_str(),
+                                         solver_name.c_str(), problem_name.c_str(), constraint_name.c_str(),
                                          order /*manifold order*/);
 
     my_GMLS_vector_of_scalar_clones.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
