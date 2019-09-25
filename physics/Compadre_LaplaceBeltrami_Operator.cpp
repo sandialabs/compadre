@@ -422,7 +422,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
                              target_coords->nDim(),
                              _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
                              _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
-                             _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                             _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("constraint type"),
                              _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 
 //		GMLS my_GMLS (ReconstructionSpace::VectorTaylorPolynomial,
@@ -518,7 +518,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
                              target_coords->nDim(),
                              _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
                              _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
-                             _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                             _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("constraint type"),
                              _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 
 //		GMLS my_GMLS (ReconstructionSpace::VectorTaylorPolynomial,
@@ -631,7 +631,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
                                 target_coords->nDim(),
                                 _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
                                 _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
-                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("constraint type"),
                                 _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 		my_GMLS_staggered_grad.setProblemData(
 				kokkos_neighbor_lists_host,
@@ -653,7 +653,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
                                 target_coords->nDim(),
                                 _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
                                 _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
-                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("constraint type"),
                                 _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 		my_GMLS_staggered_div.setProblemData(
 				kokkos_neighbor_lists_host,
@@ -832,7 +832,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
                                 target_coords->nDim(),
                                 _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
                                 _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
-                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("constraint type"),
                                 _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 		my_GMLS_staggered_grad.setProblemData(
 				kokkos_neighbor_lists_host,
@@ -854,7 +854,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
                                 target_coords->nDim(),
                                 _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
                                 _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
-                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("constraint type"),
                                 _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 		my_GMLS_staggered_div.setProblemData(
 				kokkos_neighbor_lists_host,

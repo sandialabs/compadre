@@ -30,7 +30,7 @@ struct OptimizationObject {
     scalar_type _global_lower_bound;
     scalar_type _global_upper_bound;
 
-    OptimizationObject(OptimizationAlgorithm optimization_algorithm = NONE, bool single_linear_bound_constraint = true, 
+    OptimizationObject(OptimizationAlgorithm optimization_algorithm = NONE, bool single_linear_bound_constraint = true,
             bool bounds_preservation = true, scalar_type global_lower_bound = std::numeric_limits<scalar_type>::lowest(), 
             scalar_type global_upper_bound = std::numeric_limits<scalar_type>::max()) :
         _optimization_algorithm(optimization_algorithm), _single_linear_bound_constraint(single_linear_bound_constraint),
