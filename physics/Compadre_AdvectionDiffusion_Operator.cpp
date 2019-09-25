@@ -78,8 +78,6 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
 
     TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_A.is_null(), "Tpetra CrsMatrix for Physics not yet specified.");
 
-    bool blocked_matrix = _parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked");
-
     //Loop over all particles, convert to GMLS data types, solve problem, and insert into matrix:
 
     const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
@@ -245,7 +243,7 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
 
                         // implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
                         // and checking its boundary condition
-                        local_index_type corresponding_particle_id = blocked_matrix ? row/fields[field_one]->nDim() : row/ntotalfielddimensions;
+                        local_index_type corresponding_particle_id = row/fields[field_one]->nDim();
                         if (bc_id(corresponding_particle_id, 0) != 0) {
                             if (i==static_cast<local_index_type>(neighbors[l].first)) {
                                 val_data(l*fields[field_two]->nDim() + n) = 1.0;

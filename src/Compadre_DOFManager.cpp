@@ -27,11 +27,11 @@ Teuchos::RCP<const DOFManager::dof_data_type> DOFManager::generateDOFMap(std::ve
 
 	Teuchos::RCP<DOFManager::dof_data_type> dof_data;
 	if (field_numbers.size()==0) {
-		if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")) {
+		//if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")) {
 			dof_data = Teuchos::rcp<DOFManager::dof_data_type>(new DOFManager::dof_data_type(_parameters, _fields.size()));
-		} else {
-			dof_data = Teuchos::rcp<DOFManager::dof_data_type>(new DOFManager::dof_data_type(_parameters));
-		}
+		//} else {
+		//	dof_data = Teuchos::rcp<DOFManager::dof_data_type>(new DOFManager::dof_data_type(_parameters));
+		//}
 	} else {
 		dof_data = Teuchos::rcp<DOFManager::dof_data_type>(new DOFManager::dof_data_type(_parameters, field_numbers.size()));
 	}
@@ -70,19 +70,19 @@ Teuchos::RCP<const DOFManager::dof_data_type> DOFManager::generateDOFMap(std::ve
 		field_dimensions_total_size += _fields[field_numbers[i]]->nDim();
 	}
 
-	if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")) {
+	//if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")) {
 		for (size_t i=0; i<field_numbers.size(); i++) {
             // check field type here to determine if particle_gids_locally_owned is appropriate
 			row_map_gids[i] = gid_view_type("row gids", _fields[field_numbers[i]]->nDim() * particle_gids_locally_owned.dimension_0());
 			col_map_gids[i] = gid_view_type("col gids", _fields[field_numbers[i]]->nDim() * (particle_gids_locally_owned.dimension_0() + num_halo_particle_gids) );
 		}
-	} else {
-        //    check field type here to determine if particle_gids_locally_owned is appropriate
-		row_map_gids[0] = gid_view_type("row gids", field_dimensions_total_size * particle_gids_locally_owned.dimension_0());
-		col_map_gids[0] = gid_view_type("col gids", field_dimensions_total_size * (particle_gids_locally_owned.dimension_0() + num_halo_particle_gids) );
-	}
+	//} else {
+    //    //    check field type here to determine if particle_gids_locally_owned is appropriate
+	//	row_map_gids[0] = gid_view_type("row gids", field_dimensions_total_size * particle_gids_locally_owned.dimension_0());
+	//	col_map_gids[0] = gid_view_type("col gids", field_dimensions_total_size * (particle_gids_locally_owned.dimension_0() + num_halo_particle_gids) );
+	//}
 
-	if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")) {
+	//if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")) {
 		// copy data to build column map
 //		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,particle_gids_locally_owned.dimension_0()), KOKKOS_LAMBDA(const int i) {
         auto global_num_pts = _particles->getCoordsConst()->nGlobal();
@@ -121,47 +121,47 @@ Teuchos::RCP<const DOFManager::dof_data_type> DOFManager::generateDOFMap(std::ve
 			}
 //		});
 		}
-	} else {
-		// copy data to build column map
-//		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,particle_gids_locally_owned.dimension_0()), KOKKOS_LAMBDA(const int i) {
-		for (size_t i=0; i<particle_gids_locally_owned.extent(0); ++i) {
-			local_index_type field_j_offset = 0;
-			for (size_t j=0; j<field_numbers.size(); j++) {
-				particle_field_component_to_dof_map[i][field_numbers[j]].resize(_fields[field_numbers[j]]->nDim()); // global over fields
-				for (local_index_type k=0; k<_fields[field_numbers[j]]->nDim(); k++) {
-					global_index_type global_value = particle_gids_locally_owned(i)*field_dimensions_total_size + field_j_offset + k;
-					local_index_type local_value   = i*field_dimensions_total_size + field_j_offset + k;
+	//} else {
+	//	// copy data to build column map
+//	//	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,particle_gids_locally_owned.dimension_0()), KOKKOS_LAMBDA(const int i) {
+	//	for (size_t i=0; i<particle_gids_locally_owned.extent(0); ++i) {
+	//		local_index_type field_j_offset = 0;
+	//		for (size_t j=0; j<field_numbers.size(); j++) {
+	//			particle_field_component_to_dof_map[i][field_numbers[j]].resize(_fields[field_numbers[j]]->nDim()); // global over fields
+	//			for (local_index_type k=0; k<_fields[field_numbers[j]]->nDim(); k++) {
+	//				global_index_type global_value = particle_gids_locally_owned(i)*field_dimensions_total_size + field_j_offset + k;
+	//				local_index_type local_value   = i*field_dimensions_total_size + field_j_offset + k;
 
-					particle_field_component_to_dof_map[i][field_numbers[j]][k] = local_value;
-					row_map_gids[0](local_value) = global_value;
-					col_map_gids[0](local_value) = global_value;
-				}
-				field_j_offset += _fields[field_numbers[j]]->nDim();
-			}
-//		});
-		}
-		local_index_type offset = particle_gids_locally_owned.extent(0);
-//		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_halo_particle_gids), KOKKOS_LAMBDA(const int i) {
-		for (local_index_type i=0; i<num_halo_particle_gids; ++i) {
-			local_index_type field_j_offset = 0;
-			for (size_t j=0; j<field_numbers.size(); j++) {
-				particle_field_component_to_dof_map[i+offset][field_numbers[j]].resize(_fields[field_numbers[j]]->nDim()); // global over fields
-				for (local_index_type k=0; k<_fields[field_numbers[j]]->nDim(); k++) {
-					global_index_type global_value = halo_particle_gids_locally_owned(i)*field_dimensions_total_size + field_j_offset + k;
-					local_index_type local_value   = (i+offset)*field_dimensions_total_size + field_j_offset + k;
+	//				particle_field_component_to_dof_map[i][field_numbers[j]][k] = local_value;
+	//				row_map_gids[0](local_value) = global_value;
+	//				col_map_gids[0](local_value) = global_value;
+	//			}
+	//			field_j_offset += _fields[field_numbers[j]]->nDim();
+	//		}
+//	//	});
+	//	}
+	//	local_index_type offset = particle_gids_locally_owned.extent(0);
+//	//	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_halo_particle_gids), KOKKOS_LAMBDA(const int i) {
+	//	for (local_index_type i=0; i<num_halo_particle_gids; ++i) {
+	//		local_index_type field_j_offset = 0;
+	//		for (size_t j=0; j<field_numbers.size(); j++) {
+	//			particle_field_component_to_dof_map[i+offset][field_numbers[j]].resize(_fields[field_numbers[j]]->nDim()); // global over fields
+	//			for (local_index_type k=0; k<_fields[field_numbers[j]]->nDim(); k++) {
+	//				global_index_type global_value = halo_particle_gids_locally_owned(i)*field_dimensions_total_size + field_j_offset + k;
+	//				local_index_type local_value   = (i+offset)*field_dimensions_total_size + field_j_offset + k;
 
-					particle_field_component_to_dof_map[i+offset][field_numbers[j]][k] = local_value;
-					col_map_gids[0](local_value) = global_value;
-				}
-				field_j_offset += _fields[field_numbers[j]]->nDim();
-			}
-//		});
-		}
-	}
+	//				particle_field_component_to_dof_map[i+offset][field_numbers[j]][k] = local_value;
+	//				col_map_gids[0](local_value) = global_value;
+	//			}
+	//			field_j_offset += _fields[field_numbers[j]]->nDim();
+	//		}
+//	//	});
+	//	}
+	//}
 
 
 
-	if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")) {
+	//if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")) {
 
         global_index_type field_offset = 0;
 
@@ -211,22 +211,22 @@ Teuchos::RCP<const DOFManager::dof_data_type> DOFManager::generateDOFMap(std::ve
 			dof_data->setRowMap(dof_row_map[i], i);
 			dof_data->setColMap(dof_col_map[i], i);
 		}
-	} else {
-		std::vector<Teuchos::RCP<map_type> > dof_row_map = std::vector<Teuchos::RCP<map_type> >(1);
-		std::vector<Teuchos::RCP<map_type> > dof_col_map = std::vector<Teuchos::RCP<map_type> >(1);
-		dof_row_map[0] = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
-														row_map_gids[0],
-														0,
-														_particles->getCoordsConst()->getComm()));
+	//} else {
+	//	std::vector<Teuchos::RCP<map_type> > dof_row_map = std::vector<Teuchos::RCP<map_type> >(1);
+	//	std::vector<Teuchos::RCP<map_type> > dof_col_map = std::vector<Teuchos::RCP<map_type> >(1);
+	//	dof_row_map[0] = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
+	//													row_map_gids[0],
+	//													0,
+	//													_particles->getCoordsConst()->getComm()));
 
-		dof_col_map[0] = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
-														col_map_gids[0],
-														0,
-														_particles->getCoordsConst()->getComm()));
+	//	dof_col_map[0] = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
+	//													col_map_gids[0],
+	//													0,
+	//													_particles->getCoordsConst()->getComm()));
 
-		dof_data->setRowMap(dof_row_map[0]);
-		dof_data->setColMap(dof_col_map[0]);
-	}
+	//	dof_data->setRowMap(dof_row_map[0]);
+	//	dof_data->setColMap(dof_col_map[0]);
+	//}
 
 	dof_data->setDOFMap(particle_field_component_to_dof_map);
 
