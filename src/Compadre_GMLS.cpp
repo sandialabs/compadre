@@ -1049,9 +1049,6 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
         });
     }
 
-    // Quang will put LU here
-    // Q will need conditionally set like Coeffs was
-
     teamMember.team_barrier();
 }
 
