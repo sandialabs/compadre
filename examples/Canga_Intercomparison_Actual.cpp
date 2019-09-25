@@ -169,7 +169,7 @@ int main (int argc, char* args[]) {
 			        Compadre::FileManager fm2;
 			        fm2.setWriter(output_filename, particles);
 			        fm2.write();
-			        output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "forward_" + std::to_string(i) + "pvtp.g";
+			        output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "forward_" + std::to_string(i) + ".pvtp.g";
 			        fm2.setWriter(output_filename, particles);
 			        fm2.write();
                     WriteTime->stop();

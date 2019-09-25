@@ -945,10 +945,10 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 	}
 
 	// diagnostic
-    std::cout << "num peer fields: " << peer_num_fields_for_swap << std::endl;
-    for (int i=0; i<peer_num_fields_for_swap; ++i) {
-    	std::cout << "size for " << i << " is " << peer_field_name_sizes[i] << " and name is: " << peer_field_names[i] << std::endl;
-    }
+    //std::cout << "num peer fields: " << peer_num_fields_for_swap << std::endl;
+    //for (int i=0; i<peer_num_fields_for_swap; ++i) {
+    //	std::cout << "size for " << i << " is " << peer_field_name_sizes[i] << " and name is: " << peer_field_names[i] << std::endl;
+    //}
 
 	//***************
 	//
@@ -1032,9 +1032,9 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 	}
 
 	// diagnostic
-    for (int i=0; i<my_num_fields_for_swap; ++i) {
-    	std::cout << "name is: " << remap_vector[i].trg_fieldname << ", unit is: " << received_field_unit_names[i] << std::endl;
-    }
+    //for (int i=0; i<my_num_fields_for_swap; ++i) {
+    //	std::cout << "name is: " << remap_vector[i].trg_fieldname << ", unit is: " << received_field_unit_names[i] << std::endl;
+    //}
 
 
     // from reconstructed fields, we get the field dimensions and transfer these back to the peer program
@@ -1061,9 +1061,9 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 	}
 
 	// diagnostic
-    for (int i=0; i<my_num_fields_for_swap; ++i) {
-    	std::cout << "name is: " << remap_vector[i].trg_fieldname << ", dim is: " << received_field_dim[i] << std::endl;
-    }
+    //for (int i=0; i<my_num_fields_for_swap; ++i) {
+    //	std::cout << "name is: " << remap_vector[i].trg_fieldname << ", dim is: " << received_field_dim[i] << std::endl;
+    //}
 
     // get maximum size between total field dimensions from our program and peer program
     local_index_type my_total_field_dimensions = 0;

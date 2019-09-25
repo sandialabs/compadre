@@ -73,11 +73,11 @@ if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE)
 
         if (std::numeric_limits<scalar_type>::lowest() != _optimization_object._global_lower_bound) {
             use_global_lower_bound = true;
-            std::cout << "Global minimum enforced of " << _optimization_object._global_lower_bound << "." << std::endl;
+            //std::cout << "Global minimum enforced of " << _optimization_object._global_lower_bound << "." << std::endl;
         }
         if (std::numeric_limits<scalar_type>::max() != _optimization_object._global_upper_bound) {
             use_global_upper_bound = true;
-            std::cout << "Global maximum enforced of " << _optimization_object._global_upper_bound << "." << std::endl;
+            //std::cout << "Global maximum enforced of " << _optimization_object._global_upper_bound << "." << std::endl;
         }
 
         for (local_index_type j=0; j<target_nlocal; ++j) {
