@@ -177,7 +177,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
                             target_coords->nDim(),
                             _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense sovler type"),
                             _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
-                            _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("constraint type"),
                             _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 	my_scalar_GMLS.setProblemData(
 			kokkos_neighbor_lists_host,
@@ -195,7 +195,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
                             target_coords->nDim(),
                             _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense sovler type"),
                             _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
-                            _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("constraint type"),
                             _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 
 	my_vector_GMLS.setProblemData(
@@ -223,7 +223,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
                             target_coords->nDim(),
                             _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense sovler type"),
                             _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
-                            _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("constraint type"),
                             _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 
 		my_GMLS_staggered_grad.setProblemData(
@@ -567,7 +567,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
                                 target_coords->nDim(),
                                 _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense sovler type"),
                                 _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
-                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                                _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("constraint type"),
                                 _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
 		my_GMLS_staggered_div.setProblemData(
 			kokkos_neighbor_lists_host,
