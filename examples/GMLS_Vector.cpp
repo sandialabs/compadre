@@ -319,7 +319,7 @@ bool all_passed = true;
     // boundary name for passing into the GMLS class
     std::string constraint_name;
     if (constraint_type == 0) { // No constraints
-        constraint_name = "NONE";
+        constraint_name = "NO_CONSTRAINT";
     } else if (constraint_type == 1) { // Neumann Gradient Scalar
         constraint_name = "NEUMANN_GRAD_SCALAR";
     }
