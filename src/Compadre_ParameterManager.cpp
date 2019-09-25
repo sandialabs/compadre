@@ -99,14 +99,14 @@ void ParameterManager::setDefaultParameters() {
 	remapList->set("neighbors needed multiplier", 1.2);
 	remapList->set("dense solver type", "QR");
 	remapList->set("problem type", "STANDARD");
-	remapList->set("constraint type", "NONE");
+	remapList->set("constraint type", "NO_CONSTRAINT");
 	remapList->set("weighting power", (local_index_type)8);
 	remapList->set("weighting type", "power");
 	// weighting type for covariance matrix from which a tangent plane to the manifold is derived
 	remapList->set("curvature weighting power", (local_index_type)8);
 	// weighting power for covariance matrix from which a tangent plane to the manifold is derived
 	remapList->set("curvature weighting type", "power");
-	remapList->set("optimization algorithm", "NONE");
+	remapList->set("optimization algorithm", "NO_CONSTRAINT");
 	remapList->set("global lower bound", (scalar_type)std::numeric_limits<scalar_type>::lowest());
 	remapList->set("global upper bound", (scalar_type)std::numeric_limits<scalar_type>::max());
 	remapList->set("source weighting field name", "");
