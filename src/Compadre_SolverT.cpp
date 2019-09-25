@@ -673,11 +673,11 @@ Teuchos::RCP<mvec_type> SolverT::getSolution(local_index_type idx) const {
 
     Teuchos::RCP<mvec_type> return_ptr;
 
-    if (_parameters->get<bool>("blocked")) {
+    //if (_parameters->get<bool>("blocked")) {
         return_ptr = _x_tpetra[idx];
-    } else {
-        return_ptr = _x_tpetra[0];
-    }
+    //} else {
+    //    return_ptr = _x_tpetra[0];
+    //}
 
     return return_ptr;
 

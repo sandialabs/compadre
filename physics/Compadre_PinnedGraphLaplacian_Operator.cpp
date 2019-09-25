@@ -67,8 +67,6 @@ void PinnedGraphLaplacianPhysics::computeMatrix(local_index_type field_one, loca
 		field_two = field_one;
 	}
 
-	bool blocked_matrix = _parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked");
-
 //			IDENTITY MATRIX
 	// Fill the sparse matrix, one row at a time.
 //			for (local_index_type row = 0; row < static_cast<local_index_type>(_coords->nLocal())*_particles->getTotalFieldDimensions(); ++row) {
@@ -138,7 +136,7 @@ void PinnedGraphLaplacianPhysics::computeMatrix(local_index_type field_one, loca
 					if (n==k) { // same field, same component
 						// implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
 						// and checking its boundary condition
-						local_index_type corresponding_particle_id = blocked_matrix ? row/fields[field_one]->nDim() : row/ntotalfielddimensions;
+						local_index_type corresponding_particle_id = row/fields[field_one]->nDim();
 						if (bc_id(corresponding_particle_id,0) != 0) {
 							if (i==static_cast<local_index_type>(neighbors[l].first)) {
 								val_data(l*fields[field_two]->nDim() + n) = 1.0;
