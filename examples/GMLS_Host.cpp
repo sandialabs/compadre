@@ -31,14 +31,14 @@ bool all_passed = true;
 
 {
     // check if 7 arguments are given from the command line, the first being the program name
-    //  boundary_type used in solving each GMLS problem:
-    //      0 - Dirichlet used in solving each GMLS problem
-    //      1 - Neumann used in solving each GMLS problem
-    int boundary_type = 0; // Dirichlet by default
+    //  constraint_type used in solving each GMLS problem:
+    //      0 - No constraints used in solving each GMLS problem
+    //      1 - Neumann Gradient Scalar used in solving each GMLS problem
+    int constraint_type = 0; // No constraints by default
     if (argc >= 7) {
         int arg7toi = atoi(args[6]);
         if (arg7toi > 0) {
-            boundary_type = arg7toi;
+            constraint_type = arg7toi;
         }
     }
 
@@ -183,15 +183,15 @@ bool all_passed = true;
     }
 
     // boundary name for passing into the GMLS class
-    std::string boundary_name;
-    if (boundary_type == 0) { // Dirichlet
-        boundary_name = "DIRICHLET";
-    } else if (boundary_type == 1) { // Neumann
-        boundary_name = "NEUMANN";
+    std::string constraint_name;
+    if (constraint_type == 0) { // No constraints
+        constraint_name = "NONE";
+    } else if (constraint_type == 1) { // Neumann Gradient Scalar
+        constraint_name = "NEUMANN_GRAD_SCALAR";
     }
 
     GMLS my_GMLS(order, dimension,
-                 solver_name.c_str(), problem_name.c_str(), boundary_name.c_str(),
+                 solver_name.c_str(), problem_name.c_str(), constraint_name.c_str(),
                  2 /*manifold order*/);
     my_GMLS.setProblemData(neighbor_lists, source_coords, target_coords, epsilon);
     my_GMLS.setWeightingPower(10);
