@@ -112,9 +112,6 @@ protected:
     Kokkos::View<int*, Kokkos::HostSpace> _number_of_additional_evaluation_indices; 
 
 
-    //! reconstruction type
-    int _type; 
-
     //! order of basis for polynomial reconstruction
     int _poly_order; 
 
@@ -741,7 +738,6 @@ public:
         _lro = std::vector<TargetOperation>();
 
         // various initializations
-        _type = 1;
         _total_alpha_values = 0;
 
         _weighting_type = WeightingFunctionType::Power;
