@@ -65,14 +65,14 @@ public:
 
     GMLS_Python(const int poly_order, std::string dense_solver_type, const int curvature_poly_order, const int dimensions) {
 
-        gmls_object = new Compadre::GMLS(poly_order, dimensions, dense_solver_type, "STANDARD", "DIRICHLET", curvature_poly_order);
+        gmls_object = new Compadre::GMLS(poly_order, dimensions, dense_solver_type, "STANDARD", "NO_CONSTRAINT", curvature_poly_order);
 
     }
 
     GMLS_Python(const int poly_order, const int dimensions, std::string dense_solver_type = "QR", 
-            std::string problem_type = "STANDARD", std::string boundary_type = "DIRICHLET", const int curvature_poly_order = 2) {
+            std::string problem_type = "STANDARD", std::string constraint_type = "NO_CONSTRAINT", const int curvature_poly_order = 2) {
 
-        gmls_object = new Compadre::GMLS(poly_order, dimensions, dense_solver_type, problem_type, boundary_type, curvature_poly_order);
+        gmls_object = new Compadre::GMLS(poly_order, dimensions, dense_solver_type, problem_type, constraint_type, curvature_poly_order);
 
     }
 

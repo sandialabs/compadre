@@ -297,7 +297,7 @@ int main (int argc, char* args[]) {
                 dim,
                 parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
                 parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
-                parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                parameters->get<Teuchos::ParameterList>("remap").get<std::string>("constraint type"),
                 parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder")));
     
         _GMLS->setProblemData(kokkos_neighbor_lists_host,

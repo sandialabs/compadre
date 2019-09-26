@@ -22,7 +22,7 @@
     <Parameter name="neighbors needed multiplier" type="double" value="1.0" />
     <Parameter name="dense solver type" type="string" value="QR"/>
     <Parameter name="problem type" type="string" value="MANIFOLD"/>
-    <Parameter name="boundary type" type="string" value="DIRICHLET"/>
+    <Parameter name="constraint type" type="string" value="NONE"/>
     <Parameter name="weighting power" type="int" value="12" />
     <Parameter name="curvature weighting power" type="int" value="12" />
     <Parameter name="quadrature points" type="int" value="3" />
