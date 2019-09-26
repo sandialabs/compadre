@@ -114,7 +114,6 @@ void ProblemT::initialize(scalar_type initial_simulation_time) {
     // shared between multiple processors, which breaks Amesos2, Ifpack2, etc...
     for (InteractingFields interaction:_field_interactions) {
         auto src_sparsity_type = _particles->getFieldManager()->getFieldByID(interaction.src_fieldnum)->getFieldSparsityType();
-        auto trg_sparsity_type = _particles->getFieldManager()->getFieldByID(interaction.trg_fieldnum)->getFieldSparsityType();
         TEUCHOS_TEST_FOR_EXCEPT_MSG(_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==false && (src_sparsity_type == FieldSparsityType::Global), "Non-blocked matrix system incompatible with global FieldSparsityType.");
     }
 

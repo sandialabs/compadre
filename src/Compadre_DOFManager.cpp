@@ -75,7 +75,6 @@ Teuchos::RCP<const DOFManager::dof_data_type> DOFManager::generateDOFMap(std::ve
 	}
 
 	// copy data to build column map
-    auto global_num_pts = _particles->getCoordsConst()->nGlobal();
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,particle_gids_locally_owned.dimension_0()), KOKKOS_LAMBDA(const int i) {
 	//for (size_t i=0; i<particle_gids_locally_owned.dimension_0(); ++i) {
 		for (size_t j=0; j<field_numbers.size(); j++) {
