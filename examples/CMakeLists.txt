@@ -186,7 +186,7 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
 
     # MANIFOLD OPERATOR CONVERGENCE TESTS
 
-    ADD_TEST(NAME ManifoldTest COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${CMAKE_CURRENT_BINARY_DIR}/laplaceBeltrami.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/laplace_beltrami/parameters_basic.xml" "--kokkos-threads=1") # tests whatever is specified in parameters_basic
+    ADD_TEST(NAME ManifoldTest COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/laplaceBeltrami.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/laplace_beltrami/parameters_basic.xml" "--kokkos-threads=1") # tests whatever is specified in parameters_basic
     SET_TESTS_PROPERTIES(ManifoldTest PROPERTIES LABELS "lapbel")
     
     ADD_TEST(NAME ManifoldScalarTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "0") # 4 polynomial order, 2 successive meshes, 0-scalar interpolation
