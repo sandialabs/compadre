@@ -10,7 +10,7 @@
     <Parameter name="neighbors needed multiplier" type="double" value="2.8"/>
     <Parameter name="dense solver type" type="string" value="QR"/>
     <Parameter name="problem type" type="string" value="MANIFOLD"/>
-    <Parameter name="boundary type" type="string" value="DIRICHLET"/>
+    <Parameter name="constraint type" type="string" value="NONE"/>
     <Parameter name="weighting power" type="int" value="10"/>
   </ParameterList>
   <ParameterList name="neighborhood">

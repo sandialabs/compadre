@@ -33,7 +33,7 @@ void AdvectionDiffusionBoundaryConditions::flagBoundaries() {
 
 void AdvectionDiffusionBoundaryConditions::applyBoundaries(local_index_type field_one, local_index_type field_two, scalar_type time) {
 
-    // DIRICHLET boundaries dealt with through SIP
+    // NO_CONSTRAINT boundaries dealt with through SIP
 
 
 	//Teuchos::RCP<Compadre::AnalyticFunction> function;

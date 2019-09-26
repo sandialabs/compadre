@@ -163,7 +163,7 @@ void GMLS_StaggeredIntegral_LaplacianPhysics::computeMatrix(local_index_type fie
                      StaggeredEdgeAnalyticGradientIntegralSample,
                      _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
                      3 /* dimension */,
-                     "QR", "STANDARD", "DIRICHLET");
+                     "QR", "STANDARD", "NO_CONSTRAINT");
 	my_GMLS.setProblemData(kokkos_neighbor_lists_host,
                                kokkos_augmented_source_coordinates_host,
                                kokkos_target_coordinates,

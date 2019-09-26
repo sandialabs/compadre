@@ -162,7 +162,7 @@ void GMLS_LaplacianPhysics::computeMatrix(local_index_type field_one, local_inde
                      3 /* dimension */,
                      "QR" /* dense sovler type */,
                      "STANDARD" /* problem type */,
-                     "DIRICHLET");
+                     "NO_CONSTRAINT");
 	my_GMLS.setProblemData(kokkos_neighbor_lists_host,
 			       kokkos_augmented_source_coordinates_host,
 			       kokkos_target_coordinates,

@@ -23,7 +23,7 @@
     <Parameter name="optimization algorithm" type="string" value="NONE"/>
     <Parameter name="dense solver type" type="string" value="QR"/>
     <Parameter name="problem type" type="string" value="MANIFOLD"/>
-    <Parameter name="boundary type" type="string" value="DIRICHLET"/>
+    <Parameter name="constraint type" type="string" value="NONE"/>
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>

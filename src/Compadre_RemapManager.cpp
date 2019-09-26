@@ -149,7 +149,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
                         _parameters->get<Teuchos::ParameterList>("remap").get<int>("dimensions"),
                         _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
                         _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
-                        _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("boundary type"),
+                        _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("constraint type"),
                         _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder")));
     
                 _GMLS->setProblemData(kokkos_neighbor_lists_host,

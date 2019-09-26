@@ -145,8 +145,8 @@ protected:
     //! problem type for GMLS problem, can also be set to STANDARD for normal or MANIFOLD for manifold problems
     ProblemType _problem_type;
 
-    //! boundary type for GMLS problem, can also be set to DIRICHLET or NEUMANN
-    BoundaryType _boundary_type;
+    //! boundary type for GMLS problem, can also be set to NO_CONSTRAINT or NEUMANN_GRAD_SCALAR
+    ConstraintType _constraint_type;
 
     //! polynomial sampling functional used to construct P matrix, set at GMLS class instantiation
     const SamplingFunctional _polynomial_sampling_functional;
@@ -659,15 +659,15 @@ protected:
     }
 
     //! Parses a string to determine boundary type
-    static BoundaryType parseBoundaryType(const std::string& boundary_type) {
-        std::string boundary_type_to_lower = boundary_type;
-        transform(boundary_type_to_lower.begin(), boundary_type_to_lower.end(), boundary_type_to_lower.begin(), ::tolower);
-        if (boundary_type_to_lower == "dirichlet") {
-            return BoundaryType::DIRICHLET;
-        } else if (boundary_type_to_lower == "neumann") {
-            return BoundaryType::NEUMANN;
+    static ConstraintType parseConstraintType(const std::string& constraint_type) {
+        std::string constraint_type_to_lower = constraint_type;
+        transform(constraint_type_to_lower.begin(), constraint_type_to_lower.end(), constraint_type_to_lower.begin(), ::tolower);
+        if (constraint_type_to_lower == "none") {
+            return ConstraintType::NO_CONSTRAINT;
+        } else if (constraint_type_to_lower == "neumann_grad_scalar") {
+            return ConstraintType::NEUMANN_GRAD_SCALAR;
         } else {
-            return BoundaryType::DIRICHLET;
+            return ConstraintType::NO_CONSTRAINT;
         }
     }
 
@@ -688,7 +688,7 @@ public:
         const int dimensions = 3,
         const std::string dense_solver_type = std::string("QR"),
         const std::string problem_type = std::string("STANDARD"),
-        const std::string boundary_type = std::string("DIRICHLET"),
+        const std::string constraint_type = std::string("NO_CONSTRAINT"),
         const int manifold_curvature_poly_order = 2) : 
             _poly_order(poly_order),
             _curvature_poly_order(manifold_curvature_poly_order),
@@ -696,7 +696,7 @@ public:
             _reconstruction_space(reconstruction_space),
             _dense_solver_type(parseSolverType(dense_solver_type)),
             _problem_type(parseProblemType(problem_type)),
-            _boundary_type(parseBoundaryType(boundary_type)),
+            _constraint_type(parseConstraintType(constraint_type)),
             _polynomial_sampling_functional(((_problem_type == ProblemType::MANIFOLD) 
                         && (polynomial_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : polynomial_sampling_strategy),
             _data_sampling_functional(((_problem_type == ProblemType::MANIFOLD) 
@@ -704,7 +704,7 @@ public:
             {
 
         // Asserting available problems and solvers
-        compadre_kernel_assert_release((_boundary_type != BoundaryType::NEUMANN) &&
+        compadre_kernel_assert_release((_constraint_type == ConstraintType::NO_CONSTRAINT) &&
                                        "Neumann boundary type hasn't been implemented yet.");
 
         // seed random number generator pool
@@ -779,9 +779,9 @@ public:
          const int dimensions = 3,
          const std::string dense_solver_type = std::string("QR"),
          const std::string problem_type = std::string("STANDARD"),
-         const std::string boundary_type = std::string("DIRICHLET"),
+         const std::string constraint_type = std::string("NO_CONSTRAINT"),
          const int manifold_curvature_poly_order = 2)
-      : GMLS(ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, VectorPointSample, VectorPointSample, poly_order, dimensions, dense_solver_type, problem_type, boundary_type, manifold_curvature_poly_order) {}
+      : GMLS(ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial, VectorPointSample, VectorPointSample, poly_order, dimensions, dense_solver_type, problem_type, constraint_type, manifold_curvature_poly_order) {}
 
     //! Constructor for the case when nonstandard sampling functionals or reconstruction spaces
     //! are to be used. Reconstruction space and sampling strategy can only be set at instantiation.
@@ -791,9 +791,9 @@ public:
          const int dimensions = 3,
          const std::string dense_solver_type = std::string("QR"),
          const std::string problem_type = std::string("STANDARD"),
-         const std::string boundary_type = std::string("DIRICHLET"),
+         const std::string constraint_type = std::string("NO_CONSTRAINT"),
          const int manifold_curvature_poly_order = 2)
-      : GMLS(reconstruction_space, dual_sampling_strategy, dual_sampling_strategy, poly_order, dimensions, dense_solver_type, problem_type, boundary_type, manifold_curvature_poly_order) {}
+      : GMLS(reconstruction_space, dual_sampling_strategy, dual_sampling_strategy, poly_order, dimensions, dense_solver_type, problem_type, constraint_type, manifold_curvature_poly_order) {}
 
     //! Destructor
     ~GMLS(){
@@ -963,7 +963,7 @@ public:
     ProblemType getProblemType() { return _problem_type; }
 
     //! Get boundary type
-    BoundaryType getBoundaryType() { return _boundary_type; }
+    ConstraintType getConstraintType() { return _constraint_type; }
 
     //! Type for weighting kernel for GMLS problem
     WeightingFunctionType getWeightingType() const { return _weighting_type; }

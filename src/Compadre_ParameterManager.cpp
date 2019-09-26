@@ -99,7 +99,7 @@ void ParameterManager::setDefaultParameters() {
 	remapList->set("neighbors needed multiplier", 1.2);
 	remapList->set("dense solver type", "QR");
 	remapList->set("problem type", "STANDARD");
-	remapList->set("boundary type", "DIRICHLET");
+	remapList->set("constraint type", "NO_CONSTRAINT");
 	remapList->set("weighting power", (local_index_type)8);
 	remapList->set("weighting type", "power");
 	// weighting type for covariance matrix from which a tangent plane to the manifold is derived

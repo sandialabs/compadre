@@ -477,17 +477,18 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
         // no copy from Psqrt to PsqrtW_LL since they point to the same memory (already existed)
         // they just stride differently (or viewed differently in layout)
         // copy and row-scale from PsqrtW_LL -> PTW_LL_Transpose
-        for (int i=0; i < this_num_cols; i++) {
+        Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_cols), [=] (const int i) {
             for (int j=0; j < max_num_rows; j++) {
                 // Transpose the matrix and multiply by sqrt(w) to have PTW
                 PW_Transpose_LL(i, j) = PsqrtW_LL(j, i)*std::sqrt(w(j));
             }
-        }
+        });
+        teamMember.team_barrier();
 
         // Now copy the flat 1D memory over
-        for (int i=0; i < this_num_cols*max_num_rows; i++) {
+        Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_cols*max_num_rows), [=] (const int i) {
             PsqrtW_LL_flat(i) = PW_Transpose_LL_flat(i);
-        }
+        });
     }
 
     teamMember.team_barrier();
@@ -1034,17 +1035,18 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
         // no copy from Psqrt to PsqrtW_LL since they point to the same memory (already existed)
         // they just stride differently (or viewed differently in layout)
         // copy and row-scale from PsqrtW_LL -> PTW_LL_Transpose
-        for (int i=0; i < this_num_cols; i++) {
+        Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_cols), [=] (const int i) {
             for (int j=0; j < max_num_rows; j++) {
                 // Transpose the matrix and multiply by sqrt(w) to have PTW
                 PW_Transpose_LL(i, j) = PsqrtW_LL(j, i)*std::sqrt(w(j));
             }
-        }
+        });
+        teamMember.team_barrier();
 
         // Now copy the flat 1D memory over
-        for (int i=0; i < this_num_cols*max_num_rows; i++) {
+        Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_cols*max_num_rows), [=] (const int i) {
             PsqrtW_LL_flat(i) = PW_Transpose_LL_flat(i);
-        }
+        });
     }
 
     // Quang will put LU here
