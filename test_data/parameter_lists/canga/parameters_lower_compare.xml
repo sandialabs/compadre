@@ -30,7 +30,7 @@
     <Parameter name="optimization algorithm" type="string" value="NONE"/>
     <Parameter name="source weighting field name" type="string" value="grid_area"/>
     <Parameter name="target weighting field name" type="string" value="grid_area"/>
-    <!--Parameter name="dense linear solver" type="string" value="SVD"/-->
+    <!--Parameter name="dense solver type" type="string" value="SVD"/-->
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>

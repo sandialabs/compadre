@@ -164,10 +164,10 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                             _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("constraint type"),
                             _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder")));
     
-                    _GMLS->setProblemData(kokkos_neighbor_lists_host,
-                            kokkos_augmented_source_coordinates_host,
+                    _GMLS->setProblemData(kokkos_neighbor_lists,
+                            kokkos_augmented_source_coordinates,
                             kokkos_target_coordinates,
-                            kokkos_epsilons_host);
+                            kokkos_epsilons);
     
                     _GMLS->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
                     _GMLS->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
