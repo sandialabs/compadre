@@ -470,92 +470,6 @@ void SolverT::solve() {
         _x_tpetra[i] = Teuchos::rcp(new mvec_type(_A_tpetra[i][i]->getDomainMap(),1,setToZero));
     }
 
-    //// ASSUMES SQUARE (col and row #blocks have same cardinality)
-    //_x_tpetra.resize(_b_tpetra.size());
-    ////std::vector<Teko::MultiVector> x_teko(_b_tpetra.size()); // if this has to be size 1 for nonblocked, then it must be for b also
-
-    //for (size_t i=0; i<_b_tpetra.size(); i++) {
-    //    TEUCHOS_TEST_FOR_EXCEPT_MSG(_A_tpetra[i][i]->getDomainMap()==Teuchos::null, "Domain map null.");
-    //    _x_tpetra[i] = Teuchos::rcp(new mvec_type(_A_tpetra[i][i]->getDomainMap(),1,setToZero));
-    //    //Teuchos::RCP<const Thyra::TpetraVectorSpace<scalar_type,local_index_type,global_index_type,node_type> > domain = Thyra::tpetraVectorSpace<scalar_type>(_A_tpetra[i][i]->getDomainMap());
-    //    //x_teko[i] = Thyra::tpetraVector(domain, Teuchos::rcp_static_cast<vec_scalar_type>(_x_tpetra[i]));
-    //    //TEUCHOS_TEST_FOR_EXCEPT_MSG(x_teko[i].is_null(), "Cast failed.");
-    //}
-
-
-    // import _x_tpetra to _x_single_block
-
-    // COPIED, DELETE LATER, but for now all solve directly
-    //{
-    //    //_x_single_block = Teuchos::rcp(new mvec_type(_A_single_block->getDomainMap(),1,setToZero));
-    //    // Ensure that you do not configure for a direct solve and then call an iterative solver
-    //    // Constructor from Factory
-    //    Teuchos::RCP<Amesos2::Solver<crs_matrix_type,mvec_type> > solver;
-    //    try{
-    //        solver = Amesos2::create<crs_matrix_type,mvec_type>("KLU", _A_single_block, _x_single_block, _b_single_block);
-    //    } catch (std::invalid_argument e){
-    //        std::cout << e.what() << std::endl;
-    //    }
-    //    solver->solve();
-    //    auto out = Teuchos::getFancyOStream(Teuchos::rcpFromRef(std::cout));
-    //    solver->printTiming(*out, Teuchos::VERB_LOW);
-    //    //if (_parameters->get<bool>("blocked")) {
-    //        for (size_t i=0; i<_x_tpetra.size(); i++) {
-    //            _x_tpetra[i]->doImport(*_x_single_block, *(_domain_exporters[i][i]), Tpetra::REPLACE);
-    //            //_x_tpetra[i]->describe(*out, Teuchos::VERB_EXTREME);
-    //        }
-   ////auto out = Teuchos::getFancyOStream(Teuchos::rcpFromRef(std::cout));
-   ////_x_single_block->describe(*out, Teuchos::VERB_EXTREME);
-    //    //} else {
-    //    //    _x_tpetra[i]->doExport(*_x_single_block, *(_row_exporters[i]), Tpetra::REPLACE);
-    //    //}
-    //}
-
-
-    //// BEGINNING OF COMMENTING OUT
-    ////// export from _x_single_block to _x_tpetra
-
-
-   // //_x_tpetra.resize(_b_tpetra.size());
-   // std::vector<Teko::MultiVector> x_teko(_b_thyra.size()); // if this has to be size 1 for nonblocked, then it must be for b also
-   // //std::vector<Teko::MultiVector> x_teko(_b_tpetra.size()); // if this has to be size 1 for nonblocked, then it must be for b also
-
-   // // TEMPORARILY we overwrite "blocked" to put it into one matrix (like in unblocked, but not using _A_tpetra)
-   // // solve the matrix
-   // // then unpack back into blocks
-   // // once it works, make that the "unblocked" behavior in cases of a.) direct solve b.) unblocked is requested
-
-   // const bool setToZero = true;
-   // //if (_parameters->get<bool>("blocked")) {
-   //     for (size_t i=0; i<_b_thyra.size(); i++) {
-   //         Teuchos::RCP<const Thyra::TpetraVectorSpace<scalar_type,local_index_type,global_index_type,node_type> > domain = Thyra::tpetraVectorSpace<scalar_type>(_A_single_block->getDomainMap());
-   //         x_teko[0] = Thyra::tpetraVector(domain, Teuchos::rcp_static_cast<vec_scalar_type>(_x_single_block));
-   //         //_x_tpetra[i] = Teuchos::rcp(new mvec_type(_A_tpetra[i][i]->getDomainMap(),1,setToZero));
-   //         //TEUCHOS_TEST_FOR_EXCEPT_MSG(_A_tpetra[i][i]->getDomainMap()==Teuchos::null, "Domain map null.");
-
-   //         //Teuchos::RCP<const Thyra::TpetraVectorSpace<scalar_type,local_index_type,global_index_type,node_type> > domain = Thyra::tpetraVectorSpace<scalar_type>(_A_tpetra[i][i]->getDomainMap());
-   //         //x_teko[i] = Thyra::tpetraVector(domain, Teuchos::rcp_static_cast<vec_scalar_type>(_x_tpetra[i]));
-
-   //         //TEUCHOS_TEST_FOR_EXCEPT_MSG(x_teko[i].is_null(), "Cast failed.");
-   //     }
-   // //} else {
-   // //    _x_tpetra[0] = Teuchos::rcp(new mvec_type(_A_tpetra[0][0]->getDomainMap(),1,setToZero));
-   // //    Teuchos::RCP<const Thyra::TpetraVectorSpace<scalar_type,local_index_type,global_index_type,node_type> > domain = Thyra::tpetraVectorSpace<scalar_type>(_A_tpetra[0][0]->getDomainMap());
-   // //    x_teko[0] = Thyra::tpetraVector(domain, Teuchos::rcp_static_cast<vec_scalar_type>(_x_tpetra[0]));
-
-   // //    TEUCHOS_TEST_FOR_EXCEPT_MSG(x_teko[0].is_null(), "Cast failed.");
-   // //}
-
-   // //Teko::MultiVector Thyra_x = Teko::buildBlockedMultiVector(x_teko);
-
-   // // Diagnostics:
-   ////auto out = Teuchos::getFancyOStream(Teuchos::rcpFromRef(std::cout));
-   //// Thyra_x->describe(*out, Teuchos::VERB_EXTREME);
-   //// Thyra_b->describe(*out, Teuchos::VERB_EXTREME);
-   ////_A_thyra->describe(*out, Teuchos::VERB_EXTREME);
-
-
-
     if (_parameters->get<std::string>("type")=="direct") {
 
         // Constructor from Factory
@@ -672,12 +586,7 @@ void SolverT::solve() {
 Teuchos::RCP<mvec_type> SolverT::getSolution(local_index_type idx) const {
 
     Teuchos::RCP<mvec_type> return_ptr;
-
-    //if (_parameters->get<bool>("blocked")) {
-        return_ptr = _x_tpetra[idx];
-    //} else {
-    //    return_ptr = _x_tpetra[0];
-    //}
+    return_ptr = _x_tpetra[idx];
 
     return return_ptr;
 

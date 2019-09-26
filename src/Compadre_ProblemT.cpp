@@ -110,8 +110,8 @@ void ProblemT::initialize(scalar_type initial_simulation_time) {
     // has type "Global" rather than "Banded", then it is not supported
     // for the nonblocked style (because nonblocked assumes all
     // field are of the "Banded" style)
-    // In the future, could export a blocked matrix to a single matrix 
-    // block as a way of enforcing the unblocked approach
+    // Putting this in a single matrix implies having a row DOF that is
+    // shared between multiple processors, which breaks Amesos2, Ifpack2, etc...
     for (InteractingFields interaction:_field_interactions) {
         auto src_sparsity_type = _particles->getFieldManager()->getFieldByID(interaction.src_fieldnum)->getFieldSparsityType();
         auto trg_sparsity_type = _particles->getFieldManager()->getFieldByID(interaction.trg_fieldnum)->getFieldSparsityType();
@@ -175,71 +175,48 @@ void ProblemT::initialize(scalar_type initial_simulation_time) {
     _problem_dof_data = _particles->getDOFManager()->generateDOFMap(_block_row_to_field_map);
 
     // now that we know actual # of blocks, we can set up the graphs, and row and column maps
-    //if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
-        row_map.resize(row_count);
-        col_map.resize(col_count);
-        _b.resize(row_count);
-        _A = std::vector<std::vector<Teuchos::RCP<crs_matrix_type> > > (row_count, std::vector<Teuchos::RCP<crs_matrix_type> > (col_count, Teuchos::null));
-        A_graph = std::vector<std::vector<Teuchos::RCP<crs_graph_type> > > (row_count, std::vector<Teuchos::RCP<crs_graph_type> > (col_count, Teuchos::null));
-        row_map = std::vector<Teuchos::RCP<const map_type> > (row_count, Teuchos::null);
-        col_map = std::vector<Teuchos::RCP<const map_type> > (col_count, Teuchos::null);
+    row_map.resize(row_count);
+    col_map.resize(col_count);
+    _b.resize(row_count);
+    _A = std::vector<std::vector<Teuchos::RCP<crs_matrix_type> > > (row_count, std::vector<Teuchos::RCP<crs_matrix_type> > (col_count, Teuchos::null));
+    A_graph = std::vector<std::vector<Teuchos::RCP<crs_graph_type> > > (row_count, std::vector<Teuchos::RCP<crs_graph_type> > (col_count, Teuchos::null));
+    row_map = std::vector<Teuchos::RCP<const map_type> > (row_count, Teuchos::null);
+    col_map = std::vector<Teuchos::RCP<const map_type> > (col_count, Teuchos::null);
 
-        for (InteractingFields field_interaction : _field_interactions) {
-            buildMaps(field_interaction.src_fieldnum, field_interaction.trg_fieldnum);
-        }
-    //} else {
-    //    row_map.resize(1);
-    //    col_map.resize(1);
-    //    _b.resize(1);
-    //    _A = std::vector<std::vector<Teuchos::RCP<crs_matrix_type> > > (1, std::vector<Teuchos::RCP<crs_matrix_type> > (1, Teuchos::null));
-    //    A_graph = std::vector<std::vector<Teuchos::RCP<crs_graph_type> > > (1, std::vector<Teuchos::RCP<crs_graph_type> > (1, Teuchos::null));
-    //    row_map = std::vector<Teuchos::RCP<const map_type> > (1, Teuchos::null);
-    //    col_map = std::vector<Teuchos::RCP<const map_type> > (1, Teuchos::null);
-
-    //    buildMaps();
-    //}
+    for (InteractingFields field_interaction : _field_interactions) {
+        buildMaps(field_interaction.src_fieldnum, field_interaction.trg_fieldnum);
+    }
 
     // first is graph construction
     for (InteractingFields field_interaction : _field_interactions) {
         local_index_type field_one = field_interaction.src_fieldnum;
         local_index_type field_two = field_interaction.trg_fieldnum;
 
-        local_index_type row_block = _field_to_block_row_map[field_one];//(_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_row_map[field_one] : 0;
-        local_index_type col_block = _field_to_block_col_map[field_two];//(_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_col_map[field_two] : 0;
+        local_index_type row_block = _field_to_block_row_map[field_one];
+        local_index_type col_block = _field_to_block_col_map[field_two];
 
         // build the graph
 
         this->buildGraphs(field_one, field_two);
 
         // complete each block after graph computed
-        //if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
-            A_graph[row_block][col_block]->fillComplete(_problem_dof_data->getRowMap(col_block), _problem_dof_data->getRowMap(row_block));
-        //}
+        A_graph[row_block][col_block]->fillComplete(_problem_dof_data->getRowMap(col_block), _problem_dof_data->getRowMap(row_block));
     }
-    //if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==false) {
-    //    A_graph[0][0]->fillComplete();
-    //}
 
     for (InteractingFields field_interaction : _field_interactions) {
         local_index_type field_one = field_interaction.src_fieldnum;
         local_index_type field_two = field_interaction.trg_fieldnum;
 
-        local_index_type row_block = _field_to_block_row_map[field_one]; //(_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_row_map[field_one] : 0;
-        local_index_type col_block = _field_to_block_col_map[field_two]; //(_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_col_map[field_two] : 0;
+        local_index_type row_block = _field_to_block_row_map[field_one];
+        local_index_type col_block = _field_to_block_col_map[field_two];
 
         assembleBCS(field_one, field_two);
         assembleRHS(field_one, field_two);
         assembleOperator(field_one, field_two);
-        //if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
-            if (_A[row_block][col_block]->isFillActive())
-                _A[row_block][col_block]->fillComplete(_problem_dof_data->getRowMap(col_block), _problem_dof_data->getRowMap(row_block));
-        //}
+        if (_A[row_block][col_block]->isFillActive()) {
+            _A[row_block][col_block]->fillComplete(_problem_dof_data->getRowMap(col_block), _problem_dof_data->getRowMap(row_block));
+        }
     }
-    //if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==false) {
-    //    if (_A[0][0]->isFillActive())
-    //        _A[0][0]->fillComplete();
-    //}
-
 }
 
 void ProblemT::solve() {
@@ -277,13 +254,9 @@ void ProblemT::solve() {
     for (InteractingFields field_interaction : _field_interactions) {
         local_index_type field_one = field_interaction.src_fieldnum;
 
-        local_index_type row_block = _field_to_block_row_map[field_one]; //(_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_row_map[field_one] : 0;
+        local_index_type row_block = _field_to_block_row_map[field_one];
 
-        //if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
-            _particles->getFieldManager()->updateFieldsFromVector(_solver->getSolution(row_block), field_one, _problem_dof_data);
-        //} else {
-        //    _particles->getFieldManager()->updateFieldsFromVector(_solver->getSolution(), field_one, _problem_dof_data);
-        //}
+        _particles->getFieldManager()->updateFieldsFromVector(_solver->getSolution(row_block), field_one, _problem_dof_data);
     }
 }
 
@@ -292,63 +265,38 @@ void ProblemT::buildMaps(local_index_type field_one, local_index_type field_two)
     local_index_type row_block = _field_to_block_row_map[field_one];
     local_index_type col_block = _field_to_block_col_map[field_two];
 
-    //if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
-        if (row_map[row_block].is_null()) {
-            row_map[row_block] = _problem_dof_data->getRowMap(row_block);
-        }
-        if (col_map[col_block].is_null()) {
-            col_map[col_block] = _problem_dof_data->getColMap(col_block);
-        }
-    //} else {
-    //    if (row_map[0].is_null()) {
-    //        row_map[0] = _problem_dof_data->getRowMap(); // get all dofs
-    //    }
-    //    if (col_map[0].is_null()) {
-    //        col_map[0] = _problem_dof_data->getColMap();
-    //    }
-    //}
+    if (row_map[row_block].is_null()) {
+        row_map[row_block] = _problem_dof_data->getRowMap(row_block);
+    }
+    if (col_map[col_block].is_null()) {
+        col_map[col_block] = _problem_dof_data->getColMap(col_block);
+    }
 }
 
 void ProblemT::buildGraphs(local_index_type field_one, local_index_type field_two) {
     if (field_two<0) field_two = field_one;
-    local_index_type row_block = _field_to_block_row_map[field_one]; //(_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_row_map[field_one] : 0;
-    local_index_type col_block = _field_to_block_col_map[field_two]; //(_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_col_map[field_two] : 0;
+    local_index_type row_block = _field_to_block_row_map[field_one];
+    local_index_type col_block = _field_to_block_col_map[field_two];
 
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_OP.is_null(), "Physics not set before assembleOperator() called.");
     _OP->setParameters(*_parameters);
 
     _OP->setDOFData(_problem_dof_data);
 
-    //if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")) {
-        if (row_map[row_block].is_null()) {
-            buildMaps(field_one, field_two);
-        }
-        if (A_graph[row_block][col_block].is_null()) {
-            local_index_type field_one_dim = _particles->getFieldManagerConst()->getFieldByID(field_one)->nDim();
-            local_index_type field_two_dim = _particles->getFieldManagerConst()->getFieldByID(field_two)->nDim();
-            A_graph[row_block][col_block] = Teuchos::rcp(new crs_graph_type (row_map[row_block], col_map[col_block], _particles->getNeighborhood()->getMaxNumNeighbors()*field_one_dim*field_two_dim, Tpetra::StaticProfile));
-        }
-        // _OP sets the initial graph and may change it
-        _OP->setGraph(A_graph[row_block][col_block]);
-        _OP->setRowMap(row_map[row_block]);
-        _OP->setColMap(col_map[col_block]);
-        // the resulting, potentially changed graph, is now returned
-        A_graph[row_block][col_block] = _OP->computeGraph(field_one, field_two);
-    //} else {
-    //    if (row_map[0].is_null()) {
-    //        buildMaps();
-    //    }
-    //    if (A_graph[0][0].is_null()) {
-    //        local_index_type sum_num_field_dim = _particles->getFieldManagerConst()->getTotalFieldDimensions();
-    //        A_graph[0][0] = Teuchos::rcp(new crs_graph_type (row_map[0], col_map[0], _particles->getNeighborhood()->getMaxNumNeighbors()*sum_num_field_dim*sum_num_field_dim, Tpetra::StaticProfile));
-    //    }
-    //    // _OP sets the initial graph and may change it
-    //    _OP->setGraph(A_graph[0][0]);
-    //    _OP->setRowMap(row_map[row_block]);
-    //    _OP->setColMap(col_map[col_block]);
-    //    // the resulting, potentially changed graph, is now returned
-    //    A_graph[0][0] = _OP->computeGraph(field_one, field_two);
-    //}
+    if (row_map[row_block].is_null()) {
+        buildMaps(field_one, field_two);
+    }
+    if (A_graph[row_block][col_block].is_null()) {
+        local_index_type field_one_dim = _particles->getFieldManagerConst()->getFieldByID(field_one)->nDim();
+        local_index_type field_two_dim = _particles->getFieldManagerConst()->getFieldByID(field_two)->nDim();
+        A_graph[row_block][col_block] = Teuchos::rcp(new crs_graph_type (row_map[row_block], col_map[col_block], _particles->getNeighborhood()->getMaxNumNeighbors()*field_one_dim*field_two_dim, Tpetra::StaticProfile));
+    }
+    // _OP sets the initial graph and may change it
+    _OP->setGraph(A_graph[row_block][col_block]);
+    _OP->setRowMap(row_map[row_block]);
+    _OP->setColMap(col_map[col_block]);
+    // the resulting, potentially changed graph, is now returned
+    A_graph[row_block][col_block] = _OP->computeGraph(field_one, field_two);
 }
 
 void ProblemT::buildSolver() {
@@ -370,23 +318,13 @@ void ProblemT::assembleOperator(local_index_type field_one, local_index_type fie
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_OP.is_null(), "Physics not set before assembleOperator() called.");
     _OP->setParameters(*_parameters);
 
-    //if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
-        if (_A[row_block][col_block].is_null()) {
-            _A[row_block][col_block] = Teuchos::rcp(new crs_matrix_type (A_graph[row_block][col_block]));
+    if (_A[row_block][col_block].is_null()) {
+        _A[row_block][col_block] = Teuchos::rcp(new crs_matrix_type (A_graph[row_block][col_block]));
 //            local_index_type field_one_dim = _particles->getFieldManagerConst()->getFieldByID(field_one)->nDim();
 //            local_index_type field_two_dim = _particles->getFieldManagerConst()->getFieldByID(field_two)->nDim();
 //            _A[row_block][col_block] = Teuchos::rcp(new crs_matrix_type (row_map[row_block], col_map[col_block], _particles->getNeighborhood()->getMaxNumNeighbors()*field_one_dim*field_two_dim));
-        }
-        _OP->setMatrix(_A[row_block][col_block]);
-    //} else {
-    //    if (_A[0][0].is_null()) {
-    //        _A[0][0] = Teuchos::rcp(new crs_matrix_type (A_graph[0][0]));
-//  //          local_index_type field_one_dim = _particles->getFieldManagerConst()->getFieldByID(field_one)->nDim();
-//  //          local_index_type field_two_dim = _particles->getFieldManagerConst()->getFieldByID(field_two)->nDim();
-//  //          _A[0][0] = Teuchos::rcp(new crs_matrix_type (row_map[0], col_map[0], _particles->getNeighborhood()->getMaxNumNeighbors()*field_one_dim*field_two_dim));
-    //        _OP->setMatrix(_A[0][0]);
-    //    }
-    //}
+    }
+    _OP->setMatrix(_A[row_block][col_block]);
     _OP->computeMatrix(field_one, field_two);
 }
 
@@ -398,19 +336,11 @@ void ProblemT::assembleRHS(local_index_type field_one, local_index_type field_tw
 
     _RHS->setParameters(*_parameters);
 
-    //if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
-        if (_b[row_block].is_null()) {
-            bool setToZero = true;
-            _b[row_block] = Teuchos::rcp(new mvec_type(row_map[row_block], 1, setToZero));
-        }
-        _RHS->setMultiVector(_b[row_block]);
-    //} else {
-    //    if (_b[0].is_null()) {
-    //        bool setToZero = true;
-    //        _b[0] = Teuchos::rcp(new mvec_type(row_map[0], 1, setToZero));
-    //    }
-    //    _RHS->setMultiVector(_b[0]);
-    //}
+    if (_b[row_block].is_null()) {
+        bool setToZero = true;
+        _b[row_block] = Teuchos::rcp(new mvec_type(row_map[row_block], 1, setToZero));
+    }
+    _RHS->setMultiVector(_b[row_block]);
     _RHS->setDOFData(_problem_dof_data);
     _RHS->evaluateRHS(field_one, field_two, 0.0);
 }
@@ -423,21 +353,12 @@ void ProblemT::assembleBCS(local_index_type field_one, local_index_type field_tw
 
     _BCS->setParameters(*_parameters);
 
-    //if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
-        // fill out this row block of b
-        if (_b[row_block].is_null()) {
-            bool setToZero = true;
-            _b[row_block] = Teuchos::rcp(new mvec_type(row_map[row_block], 1, setToZero));
-        }
-        _BCS->setMultiVector(_b[row_block]);
-    //} else {
-    //    // generate b if in the zero, zero block
-    //    if (_b[0].is_null()) {
-    //        bool setToZero = true;
-    //        _b[0] = Teuchos::rcp(new mvec_type(row_map[0], 1, setToZero));
-    //    }
-    //    _BCS->setMultiVector(_b[0]);
-    //}
+    // fill out this row block of b
+    if (_b[row_block].is_null()) {
+        bool setToZero = true;
+        _b[row_block] = Teuchos::rcp(new mvec_type(row_map[row_block], 1, setToZero));
+    }
+    _BCS->setMultiVector(_b[row_block]);
     _BCS->setDOFData(_problem_dof_data);
     _BCS->flagBoundaries();
     _BCS->applyBoundaries(field_one, field_two, 0.0);
