@@ -78,6 +78,8 @@ namespace Compadre {
     typedef Tpetra::Operator<scalar_type, local_index_type,
                                 global_index_type, node_type> op_type;
 
+    typedef Kokkos::View<local_index_type***, Kokkos::DefaultHostExecutionSpace> local_dof_map_view_type;
+
 #ifdef TRILINOS_LINEAR_SOLVES
     typedef Thyra::MultiVectorBase<scalar_type> thyra_mvec_type;
     typedef Thyra::DefaultBlockedLinearOp<scalar_type> thyra_block_op_type;

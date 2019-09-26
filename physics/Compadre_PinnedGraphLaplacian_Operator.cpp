@@ -29,15 +29,14 @@ Teuchos::RCP<crs_graph_type> PinnedGraphLaplacianPhysics::computeGraph(local_ind
 
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
 	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
-	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
-			_dof_data->getDOFMap();
+    const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
 
 	//#pragma omp parallel for
 	for(local_index_type i = 0; i < nlocal; i++) {
 
 		local_index_type num_neighbors = neighborhood->getNeighbors(i).size();
 		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-			local_index_type row = local_to_dof_map[i][field_one][k];
+			local_index_type row = local_to_dof_map(i, field_one, k);
 
 			Teuchos::Array<local_index_type> col_data(num_neighbors * fields[field_two]->nDim());
 			Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
@@ -45,7 +44,7 @@ Teuchos::RCP<crs_graph_type> PinnedGraphLaplacianPhysics::computeGraph(local_ind
 
 			for (local_index_type l = 0; l < num_neighbors; l++) {
 				for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-					cols[l*fields[field_two]->nDim() + n] = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][n];
+					cols[l*fields[field_two]->nDim() + n] = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
 				}
 			}
 			//#pragma omp critical
@@ -96,8 +95,7 @@ void PinnedGraphLaplacianPhysics::computeMatrix(local_index_type field_one, loca
 	const local_index_type ntotalfielddimensions = this->_particles->getFieldManagerConst()->getTotalFieldDimensions();
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
 	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
-	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
-			_dof_data->getDOFMap();
+    const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
 	const host_view_type bc_id = this->_particles->getFlags()->getLocalView<host_view_type>();
 
 	// get maximum number of neighbors * fields[field_two]->nDim()
@@ -117,7 +115,7 @@ void PinnedGraphLaplacianPhysics::computeMatrix(local_index_type field_one, loca
 
 		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
 
-			local_index_type row = local_to_dof_map[i][field_one][k]; // get dof#
+			local_index_type row = local_to_dof_map(i, field_one, k); // get dof#
 			//std::cout << "insert row : " << row << " for field " << j << " with dim " << k << " of " << this->_particles->getFieldByID(j)->nDim() << std::endl;
 			//std::cout << "diagnostic: "<< this->_particles->getNeighborhood()->getNeighbors(i).size() << " " << this->_particles->getFieldByID(j)->nDim() << std::endl;
 
@@ -130,7 +128,7 @@ void PinnedGraphLaplacianPhysics::computeMatrix(local_index_type field_one, loca
 				for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) { // loop over comp#'s
 					//std::cout << n << " of " << this->_particles->getFieldByID(j)->nDim() << " is " << this->_particles->getDOFFromLID(static_cast<local_index_type>(neighbors[l].first),j,n) << std::endl;
 						  // local offset, size_t to local_index_type conversion of neighbor number, j is for the same field, component number is n
-					col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][n];
+					col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
 					//std::cout << "neighbor: " << static_cast<local_index_type>(neighbors[l].first) << std::endl;
 
 					if (n==k) { // same field, same component
