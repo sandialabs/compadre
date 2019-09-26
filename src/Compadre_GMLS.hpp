@@ -145,7 +145,7 @@ protected:
     //! problem type for GMLS problem, can also be set to STANDARD for normal or MANIFOLD for manifold problems
     ProblemType _problem_type;
 
-    //! boundary type for GMLS problem, can also be set to NO_CONSTRAINT or NEUMANN_GRAD_SCALAR
+    //! constraint type for GMLS problem
     ConstraintType _constraint_type;
 
     //! polynomial sampling functional used to construct P matrix, set at GMLS class instantiation
@@ -658,7 +658,7 @@ protected:
         }
     }
 
-    //! Parses a string to determine boundary type
+    //! Parses a string to determine constraint type
     static ConstraintType parseConstraintType(const std::string& constraint_type) {
         std::string constraint_type_to_lower = constraint_type;
         transform(constraint_type_to_lower.begin(), constraint_type_to_lower.end(), constraint_type_to_lower.begin(), ::tolower);
@@ -705,7 +705,7 @@ public:
 
         // Asserting available problems and solvers
         compadre_kernel_assert_release((_constraint_type == ConstraintType::NO_CONSTRAINT) &&
-                                       "Neumann boundary type hasn't been implemented yet.");
+                                       "Neumann constraint type hasn't been implemented yet.");
 
         // seed random number generator pool
         _random_number_pool = pool_type(1);
@@ -962,7 +962,7 @@ public:
     //! Get problem type
     ProblemType getProblemType() { return _problem_type; }
 
-    //! Get boundary type
+    //! Get constraint type
     ConstraintType getConstraintType() { return _constraint_type; }
 
     //! Type for weighting kernel for GMLS problem
