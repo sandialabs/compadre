@@ -184,11 +184,11 @@ namespace Compadre {
     };
 
     //! Boundary type, to determine whether it's Dirichlet or Neumann
-    enum BoundaryType {
-        //! Dirichlet BC Type
-        DIRICHLET,
-        //! Neumann BC Type
-        NEUMANN,
+    enum ConstraintType {
+        //! No constraint
+        NO_CONSTRAINT,
+        //! Neumann Gradient Scalar Type
+        NEUMANN_GRAD_SCALAR,
     };
 
     //! Available weighting kernel function types
