@@ -36,8 +36,7 @@ void LaplaceBeltramiSources::evaluateRHS(local_index_type field_one, local_index
 	host_view_type pts = this->_coords->getPts()->getLocalView<host_view_type>();
 
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
-	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
-			_dof_data->getDOFMap();
+    const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
 
 	if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("solution") && field_two == _particles->getFieldManagerConst()->getIDOfFieldFromName("solution")) {
 
@@ -45,7 +44,7 @@ void LaplaceBeltramiSources::evaluateRHS(local_index_type field_one, local_index
 		// get dof corresponding to field
 		const local_index_type components_of_field_for_rhs = 1;
 		for (local_index_type k = 0; k < components_of_field_for_rhs; ++k) {
-			const local_index_type dof = local_to_dof_map[i][field_one][k];
+			const local_index_type dof = local_to_dof_map(i, field_one, k);
 			xyz_type pt(pts(i, 0), pts(i, 1), pts(i, 2));
 
 //			if (std::abs((1.0-pts(i,0))*(1.0-pts(i,0)))+std::abs((0.0-pts(i,1))*(0.0+pts(i,1)))+std::abs((0.0-pts(i,2))*(0.0+pts(i,2)))<1.0e-1) {

@@ -32,11 +32,11 @@ local_index_type DOFData::getDOFFromLID(const local_index_type particle_num,
 		const local_index_type field_num, const local_index_type component_num) const {
 	// access to LOCAL dof# from particle x field x component
 	// includes dofs for halo particles
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(&_particle_field_component_to_dof_map==NULL, "generateDOFMap() never called");
-	return _particle_field_component_to_dof_map[particle_num][field_num][component_num];
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(_particle_field_component_to_dof_map.data()==NULL, "generateDOFMap() never called");
+	return _particle_field_component_to_dof_map(particle_num, field_num, component_num);
 }
 
-const std::vector<std::vector<std::vector<local_index_type> > >& DOFData::getDOFMap() const {
+local_dof_map_view_type DOFData::getDOFMap() const {
 	return _particle_field_component_to_dof_map;
 }
 
@@ -54,7 +54,7 @@ void DOFData::setColMap(Teuchos::RCP<map_type> map, local_index_type idx) { // o
 	else _dof_col_map[idx] = map;
 }
 
-void DOFData::setDOFMap(std::vector<std::vector<std::vector<local_index_type> > > particle_field_component_to_dof_map) {
+void DOFData::setDOFMap(local_dof_map_view_type particle_field_component_to_dof_map) {
 	_particle_field_component_to_dof_map = particle_field_component_to_dof_map;
 }
 

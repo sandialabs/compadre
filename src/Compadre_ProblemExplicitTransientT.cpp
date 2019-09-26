@@ -800,12 +800,12 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 									host_view_type rk_offsets_data = rk_offsets[0]->getLocalView<host_view_type>();
 									host_view_type updated_data = updated_solution[0]->getLocalView<host_view_type>();
 
-									const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
+									const local_dof_map_view_type local_to_dof_map =
 											this->_particles->getDOFManagerConst()->getDOFMap();
 
 									for (local_index_type k=0; k<_particles->getCoordsConst()->nLocal(); ++k) {
 										for (local_index_type l=0; l<3; ++l) {
-											local_index_type vdof = local_to_dof_map[k][field_one][l];
+											local_index_type vdof = local_to_dof_map(k, field_one, l);
 											reference_data(vdof,0) = 0;
 											rk_offsets_data(vdof,0) = 0;
 											updated_data(vdof,0) = 0;

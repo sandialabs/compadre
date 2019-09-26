@@ -27,11 +27,7 @@ Teuchos::RCP<const DOFManager::dof_data_type> DOFManager::generateDOFMap(std::ve
 
 	Teuchos::RCP<DOFManager::dof_data_type> dof_data;
 	if (field_numbers.size()==0) {
-		if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")) {
-			dof_data = Teuchos::rcp<DOFManager::dof_data_type>(new DOFManager::dof_data_type(_parameters, _fields.size()));
-		} else {
-			dof_data = Teuchos::rcp<DOFManager::dof_data_type>(new DOFManager::dof_data_type(_parameters));
-		}
+		dof_data = Teuchos::rcp<DOFManager::dof_data_type>(new DOFManager::dof_data_type(_parameters, _fields.size()));
 	} else {
 		dof_data = Teuchos::rcp<DOFManager::dof_data_type>(new DOFManager::dof_data_type(_parameters, field_numbers.size()));
 	}
@@ -60,135 +56,92 @@ Teuchos::RCP<const DOFManager::dof_data_type> DOFManager::generateDOFMap(std::ve
 		}
 	}
 
-	std::vector<std::vector<std::vector<local_index_type> > > particle_field_component_to_dof_map = std::vector<std::vector<std::vector<local_index_type> > >(particle_gids_locally_owned.dimension_0() + num_halo_particle_gids, std::vector<std::vector<local_index_type> >(_fields.size()));
-
 	std::vector<gid_view_type> row_map_gids(field_numbers.size());
 	std::vector<gid_view_type> col_map_gids(field_numbers.size());
 
 	local_index_type field_dimensions_total_size = 0;
+	local_index_type field_dimensions_max_size = 0; // need max dimension of fields we are interested in
 	for (size_t i=0; i<field_numbers.size(); i++) {
 		field_dimensions_total_size += _fields[field_numbers[i]]->nDim();
+		field_dimensions_max_size = std::max(field_dimensions_max_size, _fields[field_numbers[i]]->nDim());
 	}
 
-	if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")) {
-		for (size_t i=0; i<field_numbers.size(); i++) {
-            // check field type here to determine if particle_gids_locally_owned is appropriate
-			row_map_gids[i] = gid_view_type("row gids", _fields[field_numbers[i]]->nDim() * particle_gids_locally_owned.dimension_0());
-			col_map_gids[i] = gid_view_type("col gids", _fields[field_numbers[i]]->nDim() * (particle_gids_locally_owned.dimension_0() + num_halo_particle_gids) );
-		}
-	} else {
-        //    check field type here to determine if particle_gids_locally_owned is appropriate
-		row_map_gids[0] = gid_view_type("row gids", field_dimensions_total_size * particle_gids_locally_owned.dimension_0());
-		col_map_gids[0] = gid_view_type("col gids", field_dimensions_total_size * (particle_gids_locally_owned.dimension_0() + num_halo_particle_gids) );
+    local_dof_map_view_type particle_field_component_to_dof_map = local_dof_map_view_type("particle field components to local DOF", particle_gids_locally_owned.dimension_0() + num_halo_particle_gids, _fields.size(), field_dimensions_max_size);
+
+	for (size_t i=0; i<field_numbers.size(); i++) {
+        // check field type here to determine if particle_gids_locally_owned is appropriate
+		row_map_gids[i] = gid_view_type("row gids", _fields[field_numbers[i]]->nDim() * particle_gids_locally_owned.dimension_0());
+		col_map_gids[i] = gid_view_type("col gids", _fields[field_numbers[i]]->nDim() * (particle_gids_locally_owned.dimension_0() + num_halo_particle_gids) );
 	}
 
-	if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")) {
-		// copy data to build column map
-//		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,particle_gids_locally_owned.dimension_0()), KOKKOS_LAMBDA(const int i) {
-		for (size_t i=0; i<particle_gids_locally_owned.dimension_0(); ++i) {
-			local_index_type field_j_offset = 0;
-			for (size_t j=0; j<field_numbers.size(); j++) {
-				particle_field_component_to_dof_map[i][field_numbers[j]].resize(_fields[field_numbers[j]]->nDim());
-				for (local_index_type k=0; k<_fields[field_numbers[j]]->nDim(); k++) {
-					global_index_type global_value = particle_gids_locally_owned(i)*field_dimensions_total_size + field_j_offset + k;
-					local_index_type local_value   = i*_fields[field_numbers[j]]->nDim() + k;
+	// copy data to build column map
+    auto global_num_pts = _particles->getCoordsConst()->nGlobal();
+	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,particle_gids_locally_owned.dimension_0()), KOKKOS_LAMBDA(const int i) {
+	//for (size_t i=0; i<particle_gids_locally_owned.dimension_0(); ++i) {
+		for (size_t j=0; j<field_numbers.size(); j++) {
+			for (local_index_type k=0; k<_fields[field_numbers[j]]->nDim(); k++) {
+				global_index_type global_value = particle_gids_locally_owned(i)*_fields[field_numbers[j]]->nDim() + k;
+				local_index_type local_value   = i*_fields[field_numbers[j]]->nDim() + k;
 
-					particle_field_component_to_dof_map[i][field_numbers[j]][k] = local_value;
-					row_map_gids[j](local_value) = global_value;
-					col_map_gids[j](local_value) = global_value;
-				}
-				field_j_offset += _fields[field_numbers[j]]->nDim();
+				particle_field_component_to_dof_map(i,field_numbers[j],k) = local_value;
+				row_map_gids[j](local_value) = global_value;
+				col_map_gids[j](local_value) = global_value;
 			}
-//		});
 		}
-		local_index_type offset = particle_gids_locally_owned.dimension_0();
-//		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_halo_particle_gids), KOKKOS_LAMBDA(const int i) {
-		for (local_index_type i=0; i<num_halo_particle_gids; ++i) {
-			local_index_type field_j_offset = 0;
-			for (size_t j=0; j<field_numbers.size(); j++) {
-				particle_field_component_to_dof_map[i+offset][field_numbers[j]].resize(_fields[field_numbers[j]]->nDim());
-				for (local_index_type k=0; k<_fields[field_numbers[j]]->nDim(); k++) {
-					global_index_type global_value = halo_particle_gids_locally_owned(i)*field_dimensions_total_size + field_j_offset + k;
-					local_index_type local_value   = (i+offset)*_fields[field_numbers[j]]->nDim() + k;
+	//}
+	});
+	local_index_type offset = particle_gids_locally_owned.dimension_0();
+	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_halo_particle_gids), KOKKOS_LAMBDA(const int i) {
+	//for (local_index_type i=0; i<num_halo_particle_gids; ++i) {
+		for (size_t j=0; j<field_numbers.size(); j++) {
+			for (local_index_type k=0; k<_fields[field_numbers[j]]->nDim(); k++) {
+				global_index_type global_value = halo_particle_gids_locally_owned(i)*_fields[field_numbers[j]]->nDim() + k;
+				local_index_type local_value   = (i+offset)*_fields[field_numbers[j]]->nDim() + k;
 
-					particle_field_component_to_dof_map[i+offset][field_numbers[j]][k] = local_value;
-					col_map_gids[j](local_value) = global_value;
-				}
-				field_j_offset += _fields[field_numbers[j]]->nDim();
+				particle_field_component_to_dof_map(i+offset,field_numbers[j],k) = local_value;
+				col_map_gids[j](local_value) = global_value;
 			}
-//		});
 		}
-	} else {
-		// copy data to build column map
-//		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,particle_gids_locally_owned.dimension_0()), KOKKOS_LAMBDA(const int i) {
-		for (size_t i=0; i<particle_gids_locally_owned.extent(0); ++i) {
-			local_index_type field_j_offset = 0;
-			for (size_t j=0; j<field_numbers.size(); j++) {
-				particle_field_component_to_dof_map[i][field_numbers[j]].resize(_fields[field_numbers[j]]->nDim()); // global over fields
-				for (local_index_type k=0; k<_fields[field_numbers[j]]->nDim(); k++) {
-					global_index_type global_value = particle_gids_locally_owned(i)*field_dimensions_total_size + field_j_offset + k;
-					local_index_type local_value   = i*field_dimensions_total_size + field_j_offset + k;
-
-					particle_field_component_to_dof_map[i][field_numbers[j]][k] = local_value;
-					row_map_gids[0](local_value) = global_value;
-					col_map_gids[0](local_value) = global_value;
-				}
-				field_j_offset += _fields[field_numbers[j]]->nDim();
-			}
-//		});
-		}
-		local_index_type offset = particle_gids_locally_owned.extent(0);
-//		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_halo_particle_gids), KOKKOS_LAMBDA(const int i) {
-		for (local_index_type i=0; i<num_halo_particle_gids; ++i) {
-			local_index_type field_j_offset = 0;
-			for (size_t j=0; j<field_numbers.size(); j++) {
-				particle_field_component_to_dof_map[i+offset][field_numbers[j]].resize(_fields[field_numbers[j]]->nDim()); // global over fields
-				for (local_index_type k=0; k<_fields[field_numbers[j]]->nDim(); k++) {
-					global_index_type global_value = halo_particle_gids_locally_owned(i)*field_dimensions_total_size + field_j_offset + k;
-					local_index_type local_value   = (i+offset)*field_dimensions_total_size + field_j_offset + k;
-
-					particle_field_component_to_dof_map[i+offset][field_numbers[j]][k] = local_value;
-					col_map_gids[0](local_value) = global_value;
-				}
-				field_j_offset += _fields[field_numbers[j]]->nDim();
-			}
-//		});
-		}
-	}
+	//}
+	});
 
 
 
-	if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")) {
-		std::vector<Teuchos::RCP<map_type> > dof_row_map = std::vector<Teuchos::RCP<map_type> >(field_numbers.size());
-		std::vector<Teuchos::RCP<map_type> > dof_col_map = std::vector<Teuchos::RCP<map_type> >(field_numbers.size());
-		for (size_t i=0; i<field_numbers.size(); i++) {
-			dof_row_map[i] = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
-															row_map_gids[i],
-															0,
-															_particles->getCoordsConst()->getComm()));
 
-			dof_col_map[i] = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
-															col_map_gids[i],
-															0,
-															_particles->getCoordsConst()->getComm()));
-			dof_data->setRowMap(dof_row_map[i], i);
-			dof_data->setColMap(dof_col_map[i], i);
-		}
-	} else {
-		std::vector<Teuchos::RCP<map_type> > dof_row_map = std::vector<Teuchos::RCP<map_type> >(1);
-		std::vector<Teuchos::RCP<map_type> > dof_col_map = std::vector<Teuchos::RCP<map_type> >(1);
-		dof_row_map[0] = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
-														row_map_gids[0],
-														0,
+    global_index_type field_offset = 0;
+
+	std::vector<Teuchos::RCP<map_type> > dof_row_map = std::vector<Teuchos::RCP<map_type> >(field_numbers.size());
+	std::vector<Teuchos::RCP<map_type> > dof_col_map = std::vector<Teuchos::RCP<map_type> >(field_numbers.size());
+	for (size_t i=0; i<field_numbers.size(); i++) {
+
+        auto t_row_map_gids = row_map_gids[i];
+        auto t_col_map_gids = col_map_gids[i];
+
+        // increment  row_map_gids and col_map_gids by row offsets
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,t_row_map_gids.extent(0)), 
+                KOKKOS_LAMBDA(const int j) {
+            t_row_map_gids(j) += field_offset;
+        });
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,t_col_map_gids.extent(0)), 
+                KOKKOS_LAMBDA(const int j) {
+            t_col_map_gids(j) += field_offset;
+        });
+
+		dof_row_map[i] = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
+														row_map_gids[i],
+														0 /*field_offset*/,
 														_particles->getCoordsConst()->getComm()));
 
-		dof_col_map[0] = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
-														col_map_gids[0],
-														0,
+		dof_col_map[i] = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
+														col_map_gids[i],
+														0 /*field_offset*/,
 														_particles->getCoordsConst()->getComm()));
 
-		dof_data->setRowMap(dof_row_map[0]);
-		dof_data->setColMap(dof_col_map[0]);
+        auto row_max_id = dof_row_map[i]->getMaxAllGlobalIndex()+1;
+        auto col_max_id = dof_col_map[i]->getMaxAllGlobalIndex()+1;
+        field_offset = std::max(row_max_id, col_max_id);
+		dof_data->setRowMap(dof_row_map[i], i);
+		dof_data->setColMap(dof_col_map[i], i);
 	}
 
 	dof_data->setDOFMap(particle_field_component_to_dof_map);
