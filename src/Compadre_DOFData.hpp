@@ -13,7 +13,7 @@ class DOFData {
 		Teuchos::RCP<Teuchos::ParameterList> _parameters;
 		std::vector<Teuchos::RCP<map_type> > _dof_row_map; // contains only dofs local to this processor
 		std::vector<Teuchos::RCP<map_type> > _dof_col_map; // contains only dofs local to this processor and in the halo
-		std::vector<std::vector<std::vector<local_index_type> > > _particle_field_component_to_dof_map;
+        local_dof_map_view_type _particle_field_component_to_dof_map;
 
 	public:
 
@@ -30,7 +30,7 @@ class DOFData {
 
 		local_index_type getDOFFromLID(const local_index_type particle_num, const local_index_type field_num, const local_index_type component_num) const;
 
-		const std::vector<std::vector<std::vector<local_index_type> > >& getDOFMap() const;
+		local_dof_map_view_type getDOFMap() const;
 
 		local_index_type getNumberOfFields() const {
 			return _dof_row_map.size();
@@ -40,7 +40,7 @@ class DOFData {
 
 		void setColMap(Teuchos::RCP<map_type> map, local_index_type idx=-1);
 
-		void setDOFMap(std::vector<std::vector<std::vector<local_index_type> > > particle_field_component_to_dof_map);
+		void setDOFMap(local_dof_map_view_type  particle_field_component_to_dof_map);
 
 };
 

@@ -101,8 +101,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_b.is_null(), "Tpetra multivector for Physics not yet specified.");
 
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
-	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
-			this->_particles->getDOFManagerConst()->getDOFMap();
+    const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
 	const host_view_type bc_id = this->_particles->getFlags()->getLocalView<host_view_type>();
 	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
@@ -487,7 +486,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 
 				for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-					local_index_type row = local_to_dof_map[i][field_one][k];
+					local_index_type row = local_to_dof_map(i, field_one, k);
 
 					b_data(row,0) = 0;
 
@@ -624,7 +623,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
                 scratch_matrix_right_type td
                         (tangent_directions.data() + i*3*3, 3, 3);
 
-				local_index_type row = local_to_dof_map[i][field_one][0];
+				local_index_type row = local_to_dof_map(i, field_one, 0);
 
 				double reconstructed_h = 0;
 				double reconstructed_div_v = 0;
@@ -841,7 +840,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 //				force[2] -= dot_product * normal_direction.z;
 
 				for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-					local_index_type row = local_to_dof_map[i][field_one][k];
+					local_index_type row = local_to_dof_map(i, field_one, k);
 					if (k==0) {
 						b_data(row, 0) = force[0];
 					} else if (k==1) {

@@ -141,58 +141,6 @@ void FieldManager::updateFieldsFromVector(Teuchos::RCP<mvec_type> source, local_
 	Teuchos::RCP<const map_type> particle_map = _particles->getCoordsConst()->getMapConst(false /* no halo */);
 	const_gid_view_type particle_gids_locally_owned = particle_map->getMyGlobalIndices();
 
-	//if (field_num == -1 && !(_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked"))) { // update everything in the normal way from this vector
-	//	// update all fields from vector
-
-	//	// If field_num not given, then the implication is that all fields should
-	//	// be copied, which requires that the dof_data for the particle set
-	//	// and the vector be the same. Here, we check that this is true:
-
-	//	const local_index_type vector_row_map_entries = source->getMap()->getNodeNumElements();
-	//	const local_index_type field_row_map_entries = _particles->getDOFManagerConst()->getRowMap(0)->getNodeNumElements();
-	//	TEUCHOS_TEST_FOR_EXCEPT_MSG(vector_row_map_entries != field_row_map_entries, "For unblocked DOFs, DOF data for fields do not match the vector provided.");
-
-	//	host_view_type source_data = source->getLocalView<host_view_type>();
-
-	//	// copy data from source to field_vals
-	//	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_fields.size()), KOKKOS_LAMBDA(const int i) {
-	//		host_view_type field_vals = _fields[i]->getLocalVectorVals()->getLocalView<host_view_type>(); // just this field's old info
-	//		for (size_t j=0; j<particle_gids_locally_owned.extent(0); j++) {
-	//			for (local_index_type k=0; k<_fields[i]->nDim(); k++) {
-	//				// assumes dofs from every field are on this vector
-	//				field_vals(j,k) = source_data(j*this->getTotalFieldDimensions() + this->getFieldOffset(i) + k,0);
-	//			}
-	//		}
-	//		_fields[i]->syncMemory();
-	//	});
-
-	//	this->updateFieldsHaloData();
-
-	//} else if (field_num!=-1 && !(_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked"))) {
-
-	//	// all info available in this vector, but choosing to only update one field
-
-	//	host_view_type field_vals = _fields[field_num]->getLocalVectorVals()->getLocalView<host_view_type>(); // just this field's old info
-
-	//	host_view_type source_data = source->getLocalView<host_view_type>(); // contains all fields' new info
-
-	//	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
-	//			vector_dof_data->getDOFMap();
-
-	//	// copy data from source to field_vals
-	//	for (size_t i=0; i<particle_gids_locally_owned.extent(0); ++i) {
-	//		for (local_index_type j=0; j<_fields[field_num]->nDim(); j++) {
-	//			const local_index_type dof = local_to_dof_map[i][field_num][j]; // index of first entry for this field
-	//			field_vals(i,j) = source_data(dof,0);
-	//		}
-	//	}
-
-	//	_fields[field_num]->syncMemory();
-
-	//	this->updateFieldsHaloData(field_num);
-
-	//} else if (field_num!=-1) { // specific field from a blocked DOF data
-    
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(field_num==-1, "field_num must be specified for updateFieldsFromVector.");
 
 	// Determine if the vector given to fill the field is larger than the # of entries in the field, in
@@ -227,54 +175,6 @@ void FieldManager::updateVectorFromFields(Teuchos::RCP<mvec_type> target, local_
 	Teuchos::RCP<const map_type> particle_map = _particles->getCoordsConst()->getMapConst(false /* no halo */);
 	const_gid_view_type particle_gids_locally_owned = particle_map->getMyGlobalIndices();
 
-	//if (field_num == -1 && !(_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked"))) { // update everything in the normal way from this vector
-	//	// update all fields from vector
-
-	//	// If field_num not given, then the implication is that all fields should
-	//	// be copied, which requires that the dof_data for the particle set
-	//	// and the vector be the same. Here, we check that this is true:
-
-	//	const local_index_type vector_row_map_entries = target->getMap()->getNodeNumElements();
-	//	const local_index_type field_row_map_entries = _particles->getDOFManagerConst()->getRowMap(0)->getNodeNumElements();
-	//	TEUCHOS_TEST_FOR_EXCEPT_MSG(vector_row_map_entries != field_row_map_entries, "For unblocked DOFs, DOF data for fields do not match the vector provided.");
-
-	//	host_view_type target_data = target->getLocalView<host_view_type>();
-
-	//	// copy data from source to field_vals
-	//	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_fields.size()), KOKKOS_LAMBDA(const int i) {
-	//		host_view_type field_vals = _fields[i]->getLocalVectorVals()->getLocalView<host_view_type>(); // just this field's old info
-	//		for (size_t j=0; j<particle_gids_locally_owned.dimension_0(); j++) {
-	//			for (local_index_type k=0; k<_fields[i]->nDim(); k++) {
-	//				// assumes dofs from every field are on this vector
-	//				target_data(j*this->getTotalFieldDimensions() + this->getFieldOffset(i) + k,0) = field_vals(j,k);
-	//			}
-	//		}
-	//	});
-
-
-	//} else if (field_num!=-1 && !(_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked"))) {
-	//	// TODO: create test for this capability
-
-	//	// all info available in this vector, but choosing to only update one field
-
-	//	host_view_type field_vals = _fields[field_num]->getLocalVectorVals()->getLocalView<host_view_type>(); // just this field's old info
-
-	//	host_view_type target_data = target->getLocalView<host_view_type>(); // contains all fields' new info
-
-	//	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
-	//			vector_dof_data->getDOFMap();
-
-	//	// copy data from source to field_vals
-	//	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,particle_gids_locally_owned.dimension_0()), KOKKOS_LAMBDA(const int i) {
-	//		host_view_type field_vals = _fields[field_num]->getLocalVectorVals()->getLocalView<host_view_type>();
-	//		for (local_index_type j=0; j<_fields[field_num]->nDim(); j++) {
-	//			const local_index_type dof = local_to_dof_map[i][field_num][j];
-	//			target_data(dof,0) = field_vals(i,j);
-	//		}
-	//	});
-
-	//} else {
-    //
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(field_num==-1, "field_num must be specified for updateVectorFromFields.");
 
 	// blocked update (vector used to update only contains this field)
@@ -289,8 +189,6 @@ void FieldManager::updateVectorFromFields(Teuchos::RCP<mvec_type> target, local_
 			target_data(i*this->_fields[field_num]->nDim() + j,0) = field_vals(i,j);
 		}
 	});
-
-	//}
 }
 
 const std::vector<Teuchos::RCP<FieldManager::field_type> >& FieldManager::getVectorOfFields() const {

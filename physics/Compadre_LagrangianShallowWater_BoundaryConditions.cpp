@@ -44,13 +44,12 @@ void LagrangianShallowWaterBoundaryConditions::applyBoundaries(local_index_type 
 
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
-	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
-			this->_particles->getDOFManagerConst()->getDOFMap();
+    const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
 
 	for (local_index_type i=0; i<nlocal; ++i) { // parallel_for causes cache thrashing
 		// get dof corresponding to field
 		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-			const local_index_type dof = local_to_dof_map[i][field_one][k];
+			const local_index_type dof = local_to_dof_map(i, field_one, k);
 			xyz_type pt(pts(i, 0), pts(i, 1), pts(i, 2));
 			if (bc_id(i,0)==1) rhs_vals(dof,0) = function->evalScalar(pt);
 		}

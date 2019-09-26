@@ -232,8 +232,7 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
 	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
-	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
-			_dof_data->getDOFMap();
+    const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
 
 
     if (field_one == solution_field_id && field_two == solution_field_id) {
@@ -241,7 +240,7 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
 		for(local_index_type i = 0; i < nlocal; i++) {
 			local_index_type num_neighbors = neighborhood->getNeighbors(i).size();
 			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-				local_index_type row = local_to_dof_map[i][field_one][k];
+				local_index_type row = local_to_dof_map(i, field_one, k);
 
 				Teuchos::Array<local_index_type> col_data(num_neighbors * fields[field_two]->nDim());
 				Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
@@ -249,7 +248,7 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
 
 				for (local_index_type l = 0; l < num_neighbors; l++) {
 					for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-						cols[l*fields[field_two]->nDim() + n] = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][n];
+						cols[l*fields[field_two]->nDim() + n] = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
 					}
 				}
 				//#pragma omp critical
@@ -265,7 +264,7 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
 
 		for (local_index_type l = 0; l < nlocal; l++) {
 			for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-				cols[l*fields[field_two]->nDim() + n] = local_to_dof_map[l][field_two][n];
+				cols[l*fields[field_two]->nDim() + n] = local_to_dof_map(l, field_two, n);
 			}
 		}
         // local index 0 is global index shared by all processors
@@ -287,7 +286,7 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
         //if (comm->getRank() == 0) {
 		    for(local_index_type i = 0; i < nlocal; i++) {
 		    	for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-		    		local_index_type row = local_to_dof_map[i][field_one][k];
+		    		local_index_type row = local_to_dof_map(i, field_one, k);
 
 		    		Teuchos::Array<local_index_type> col_data(1);
 		    		Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
@@ -304,12 +303,12 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
         // identity on all DOFs for Lagrange Multiplier (even DOFs not really used, since we only use first LM dof for now)
 		for(local_index_type i = 0; i < nlocal; i++) {
 			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-				local_index_type row = local_to_dof_map[i][field_one][k];
+				local_index_type row = local_to_dof_map(i, field_one, k);
 
 				Teuchos::Array<local_index_type> col_data(fields[field_two]->nDim());
 				Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
 				for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-					cols[n] = local_to_dof_map[i][field_two][n];
+					cols[n] = local_to_dof_map(i, field_two, n);
 				}
 				//#pragma omp critical
 				{
@@ -336,8 +335,7 @@ void LaplaceBeltramiPhysics::computeMatrix(local_index_type field_one, local_ind
 	const global_index_type nglobal = this->_coords->nGlobal();
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
 	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
-	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
-			_dof_data->getDOFMap();
+    const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
 	const host_view_type bc_id = this->_particles->getFlags()->getLocalView<host_view_type>();
 
     auto solution_field_id = _particles->getFieldManagerConst()->getIDOfFieldFromName("solution");
@@ -549,7 +547,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 			//Put the values of alpha in the proper place in the global matrix
 			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-				local_index_type row = local_to_dof_map[i][field_one][k];
+				local_index_type row = local_to_dof_map(i, field_one, k);
 
 				for (local_index_type l = 0; l < num_neighbors; l++) {
 
@@ -560,7 +558,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 					}
 
 					for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-						col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][n];
+						col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
 						if (n==k) { // same field, same component
 							// implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
 							// and checking its boundary condition
@@ -643,7 +641,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 			//Put the values of alpha in the proper place in the global matrix
 			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-				local_index_type row = local_to_dof_map[i][field_one][k];
+				local_index_type row = local_to_dof_map(i, field_one, k);
 
 				for (local_index_type l = 0; l < num_neighbors; l++) {
 
@@ -654,7 +652,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 					}
 
 					for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-						col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][n];
+						col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
 						if (n==k) { // same field, same component
 							// implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
 							// and checking its boundary condition
@@ -755,7 +753,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 			// build gradient operator matrix
 
 			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-				local_index_type row = local_to_dof_map[i][field_one][k];
+				local_index_type row = local_to_dof_map(i, field_one, k);
 
 				Teuchos::Array<local_index_type> col_data(num_neighbors * fields[field_two]->nDim());
 				Teuchos::Array<scalar_type> val_data(num_neighbors * fields[field_two]->nDim());
@@ -770,7 +768,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 						avg_coeff = 0.5*(target_coeff + neighbor_coeff);
 					}
 
-					cols[l*fields[field_two]->nDim()] = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][0];
+					cols[l*fields[field_two]->nDim()] = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, 0);
 					values[l*fields[field_two]->nDim()] = avg_coeff * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l) * my_GMLS_staggered_grad.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
 					values[0*fields[field_two]->nDim()] += avg_coeff * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l) * my_GMLS_staggered_grad.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
 				}
@@ -781,7 +779,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 			// build divergence operator matrix
 			{
-				local_index_type row = local_to_dof_map[i][field_one][0];
+				local_index_type row = local_to_dof_map(i, field_one, 0);
 
 				Teuchos::Array<local_index_type> col_data(num_neighbors * fields[field_two]->nDim());
 				Teuchos::Array<scalar_type> val_data(num_neighbors * fields[field_two]->nDim());
@@ -790,7 +788,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 				for (local_index_type l = 0; l < num_neighbors; l++) {
 					for (local_index_type m = 0; m < fields[field_two]->nDim(); ++m) {
-						cols[l*fields[field_two]->nDim() + m] = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][m];
+						cols[l*fields[field_two]->nDim() + m] = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, m);
 						values[l*fields[field_two]->nDim() + m] = my_GMLS_staggered_div.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, 0) * my_GMLS_staggered_div.getPreStencilWeight(StaggeredEdgeIntegralSample, i, l, false, 0 /*output component*/, m /*input component*/);
 						values[0*fields[field_two]->nDim() + m] += my_GMLS_staggered_div.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, 0) * my_GMLS_staggered_div.getPreStencilWeight(StaggeredEdgeIntegralSample, i, l, true, 0 /*output component*/, m /*input component*/);
 					}
@@ -816,7 +814,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 			//Put the values of alpha in the proper place in the global matrix
 			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-				local_index_type row = local_to_dof_map[i][field_one][k];
+				local_index_type row = local_to_dof_map(i, field_one, k);
 
 				Teuchos::Array<local_index_type> col_data(max_num_neighbors * num_neighbors * fields[field_two]->nDim());
 				Teuchos::Array<scalar_type> val_data(max_num_neighbors * num_neighbors * fields[field_two]->nDim());
@@ -952,7 +950,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 			// build gradient operator matrix
 
 			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-				local_index_type row = local_to_dof_map[i][field_one][k];
+				local_index_type row = local_to_dof_map(i, field_one, k);
 
 				Teuchos::Array<local_index_type> col_data(num_neighbors * fields[field_two]->nDim());
 				Teuchos::Array<scalar_type> val_data(num_neighbors * fields[field_two]->nDim());
@@ -967,7 +965,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 //						avg_coeff = 0.5*(target_coeff + neighbor_coeff);
 //					}
 
-					cols[l*fields[field_two]->nDim()] = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][0];
+					cols[l*fields[field_two]->nDim()] = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, 0);
 					values[l*fields[field_two]->nDim()] = avg_coeff * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l) * my_GMLS_staggered_grad.getPreStencilWeight(PointSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
 					values[0*fields[field_two]->nDim()] += avg_coeff * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l) * my_GMLS_staggered_grad.getPreStencilWeight(PointSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
 				}
@@ -978,7 +976,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 			// build divergence operator matrix
 			{
-				local_index_type row = local_to_dof_map[i][field_one][0];
+				local_index_type row = local_to_dof_map(i, field_one, 0);
 
 				Teuchos::Array<local_index_type> col_data(num_neighbors * fields[field_two]->nDim());
 				Teuchos::Array<scalar_type> val_data(num_neighbors * fields[field_two]->nDim());
@@ -996,7 +994,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 					for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
 						for (local_index_type m = 0; m < fields[field_two]->nDim(); ++m) {
 							// get neighbor l, evaluate coordinate and get latitude from strip
-							cols[l*fields[field_two]->nDim() + m] = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][m];
+							cols[l*fields[field_two]->nDim() + m] = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, m);
 							values[l*fields[field_two]->nDim() + m] = avg_coeff * my_GMLS_staggered_div.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, n) * my_GMLS_staggered_div.getPreStencilWeight(ManifoldVectorPointSample, i, l, false, n /*output component*/, m /*input component*/);
 							values[0*fields[field_two]->nDim() + m] += avg_coeff * my_GMLS_staggered_div.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, n) * my_GMLS_staggered_div.getPreStencilWeight(ManifoldVectorPointSample, i, l, true, n /*output component*/, m /*input component*/);
 						}
@@ -1023,7 +1021,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 			//Put the values of alpha in the proper place in the global matrix
 			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-				local_index_type row = local_to_dof_map[i][field_one][k];
+				local_index_type row = local_to_dof_map(i, field_one, k);
 
 				Teuchos::Array<local_index_type> col_data(max_num_neighbors * num_neighbors * fields[field_two]->nDim());
 				Teuchos::Array<scalar_type> val_data(max_num_neighbors * num_neighbors * fields[field_two]->nDim());
@@ -1096,7 +1094,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 	for (local_index_type l = 0; l < nlocal; l++) {
 		for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-			cols[l*fields[field_two]->nDim() + n] = local_to_dof_map[l][field_two][n];
+			cols[l*fields[field_two]->nDim() + n] = local_to_dof_map(l, field_two, n);
 			vals[l*fields[field_two]->nDim() + n] = 1;
 		}
 	}
@@ -1115,7 +1113,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
     //if (comm->getRank() == 0) {
 	    for(local_index_type i = 0; i < nlocal; i++) {
 	    	for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-	    		local_index_type row = local_to_dof_map[i][field_one][k];
+	    		local_index_type row = local_to_dof_map(i, field_one, k);
 
 	    		Teuchos::Array<local_index_type> col_data(1);
 	    		Teuchos::Array<scalar_type> val_data(1);
@@ -1140,7 +1138,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
     auto comm = this->_particles->getCoordsConst()->getComm();
 	for(local_index_type i = 0; i < nlocal; i++) {
 		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-			local_index_type row = local_to_dof_map[i][field_one][k];
+			local_index_type row = local_to_dof_map(i, field_one, k);
 
 			Teuchos::Array<local_index_type> col_data(fields[field_two]->nDim());
 			Teuchos::Array<scalar_type> val_data(fields[field_two]->nDim());
@@ -1148,10 +1146,10 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 			Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
 			for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
                 if (i==0 && comm->getRank()==0) {
-				    cols[n] = local_to_dof_map[i][field_two][n];
+				    cols[n] = local_to_dof_map(i, field_two, n);
 				    vals[n] = eps_penalty;
                 } else {
-				    cols[n] = local_to_dof_map[i][field_two][n];
+				    cols[n] = local_to_dof_map(i, field_two, n);
 				    vals[n] = 1;
                 }
 			}
