@@ -51,6 +51,7 @@ namespace Compadre {
 
     typedef Tpetra::Vector<scalar_type, local_index_type, global_index_type> vec_scalar_type;
     typedef Tpetra::Import<local_index_type, global_index_type> importer_type;
+    typedef Tpetra::Export<local_index_type, global_index_type> exporter_type;
 
     typedef typename mvec_scalar_type::dual_view_type dual_view_scalar_type;
     typedef typename mvec_local_index_type::dual_view_type dual_view_local_index_type;
@@ -76,6 +77,8 @@ namespace Compadre {
 
     typedef Tpetra::Operator<scalar_type, local_index_type,
                                 global_index_type, node_type> op_type;
+
+    typedef Kokkos::View<local_index_type***, Kokkos::DefaultHostExecutionSpace> local_dof_map_view_type;
 
 #ifdef TRILINOS_LINEAR_SOLVES
     typedef Thyra::MultiVectorBase<scalar_type> thyra_mvec_type;

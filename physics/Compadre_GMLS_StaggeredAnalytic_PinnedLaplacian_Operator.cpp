@@ -40,14 +40,13 @@ Teuchos::RCP<crs_graph_type> GMLS_StaggeredAnalytic_LaplacianPhysics::computeGra
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
 	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
-	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
-			_dof_data->getDOFMap();
+    const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
 
 	//#pragma omp parallel for
 	for(local_index_type i = 0; i < nlocal; i++) {
 		local_index_type num_neighbors = neighborhood->getNeighbors(i).size();
 		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-			local_index_type row = local_to_dof_map[i][field_one][k];
+			local_index_type row = local_to_dof_map(i, field_one, k);
 
 			Teuchos::Array<local_index_type> col_data(num_neighbors * fields[field_two]->nDim());
 			Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
@@ -55,7 +54,7 @@ Teuchos::RCP<crs_graph_type> GMLS_StaggeredAnalytic_LaplacianPhysics::computeGra
 
 			for (local_index_type l = 0; l < num_neighbors; l++) {
 				for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-					col_data[l*fields[field_two]->nDim() + n] = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][n];
+					col_data[l*fields[field_two]->nDim() + n] = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
 				}
 			}
 			//#pragma omp critical
@@ -78,16 +77,12 @@ void GMLS_StaggeredAnalytic_LaplacianPhysics::computeMatrix(local_index_type fie
 
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_A.is_null(), "Tpetra CrsMatrix for Physics not yet specified.");
 
-	bool blocked_matrix = _parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked");
-
 	//Loop over all particles, convert to GMLS data types, solve problem, and insert into matrix:
 
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
-	const local_index_type ntotalfielddimensions = this->_particles->getFieldManagerConst()->getTotalFieldDimensions();
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
 	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
-	const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
-			_dof_data->getDOFMap();
+    const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
 	const host_view_type bc_id = this->_particles->getFlags()->getLocalView<host_view_type>();
 
 
@@ -198,15 +193,15 @@ void GMLS_StaggeredAnalytic_LaplacianPhysics::computeMatrix(local_index_type fie
 
 		//Put the values of alpha in the proper place in the global matrix
 		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-			local_index_type row = local_to_dof_map[i][field_one][k];
+			local_index_type row = local_to_dof_map(i, field_one, k);
 
 			for (local_index_type l = 0; l < num_neighbors; l++) {
 				for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-					col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][n];
+					col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
 					if (n==k) { // same field, same component
 						// implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
 						// and checking its boundary condition
-						local_index_type corresponding_particle_id = blocked_matrix ? row/fields[field_one]->nDim() : row/ntotalfielddimensions;
+						local_index_type corresponding_particle_id = row/fields[field_one]->nDim();
 						if (bc_id(corresponding_particle_id, 0) != 0) {
 							if (i==static_cast<local_index_type>(neighbors[l].first)) {
 								val_data(l*fields[field_two]->nDim() + n) = 1.0;

@@ -50,7 +50,7 @@ class DOFManager {
 			return this->_particle_dof_data->getDOFFromLID(particle_num, field_num, component_num);
 		}
 
-		const std::vector<std::vector<std::vector<local_index_type> > >& getDOFMap() const {
+		local_dof_map_view_type getDOFMap() const {
 			return this->_particle_dof_data->getDOFMap();
 		}
 
