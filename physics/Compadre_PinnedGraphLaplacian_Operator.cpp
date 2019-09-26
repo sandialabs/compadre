@@ -92,7 +92,6 @@ void PinnedGraphLaplacianPhysics::computeMatrix(local_index_type field_one, loca
 //			GRAPH LAPLACIAN, no contribution on components and fields with no interactions
 
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
-	const local_index_type ntotalfielddimensions = this->_particles->getFieldManagerConst()->getTotalFieldDimensions();
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
 	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();

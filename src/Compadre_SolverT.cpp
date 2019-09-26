@@ -28,21 +28,21 @@ namespace Compadre {
 
 void SolverT::amalgamateBlockMatrices(std::vector<std::vector<Teuchos::RCP<crs_matrix_type> > > A, 
         std::vector<Teuchos::RCP<mvec_type> > b) {
-    // ASSUMPTIONS: assumes all columns have the same row map  
-    // now being change to all row maps are a subset of the row map with the largest number of entries 
 
-    // DOFs from blocks should already be disjoint from one another, i.e.
-    // field one has global ID 0...N and field two has global IDs N+1...N+M
+    // This function can handle row map != range map (row dof shared between many processors, 
+    // but owned by only one). However, even though the matrix is correct, it can't be handled
+    // properly by Amesos2, Ifpack2, or MueLu with more than one level of coarsening.
+    
+    // There is an assumption on row and column maps provided from the blocks, namely that 
+    // locally owned DOFs are ordered first, then non-owned DOFs appear afterwards.
 
     Teuchos::RCP<map_type> new_row_map;
     Teuchos::RCP<map_type> new_range_map;
-
     std::vector<local_index_type> valid_j_for_i(A.size());
 
     { // creates new_row_map and new_range_map
 
         // for each row, do a merge over columns
-
         std::set<global_index_type> all_range_indices;
         std::set<global_index_type> all_row_indices;
         std::set<global_index_type> ghost_row_indices;
@@ -70,8 +70,9 @@ void SolverT::amalgamateBlockMatrices(std::vector<std::vector<Teuchos::RCP<crs_m
                 }
             }
         }
+        TEUCHOS_TEST_FOR_EXCEPT_MSG(ghost_row_indices.size()>0, "Row map != Range map will not work with most solvers.");
+
 	    Kokkos::View<global_index_type*, Kokkos::HostSpace> new_row_local_indices("local row indices", all_row_indices.size() + ghost_row_indices.size());
-	    //Kokkos::View<global_index_type*, Kokkos::HostSpace> new_range_local_indices("local range indices", all_range_indices.size());
 	    Kokkos::View<global_index_type*, Kokkos::HostSpace> new_range_local_indices("local range indices", all_row_indices.size());
         auto iter = all_row_indices.begin();
         for (size_t i=0; i<all_row_indices.size(); ++i) {
@@ -88,77 +89,6 @@ void SolverT::amalgamateBlockMatrices(std::vector<std::vector<Teuchos::RCP<crs_m
             new_row_local_indices(all_row_indices.size() + i) = *iter;
             ++iter;
         }
-        for (size_t i=0; i<A.size(); ++i) {
-            for (size_t j=0; j<A[0].size(); ++j) {
-                if (!A[i][j].is_null()) {
-                    printf("i: %d, j: %d, r: %d, row_size: %lu\n", i, j, _comm->getRank(), A[i][j]->getRowMap()->getNodeNumElements());
-                    printf("i: %d, j: %d, r: %d, range_size: %lu\n", i, j, _comm->getRank(), A[i][j]->getRangeMap()->getNodeNumElements());
-                }
-            }
-        }
-
-        //std::vector<global_index_type> local_ids_offsets_row(A.size());
-        //std::vector<global_index_type> local_ids_offsets_range(A.size());
-
-        //local_index_type local_row_count = 0;
-        //local_index_type local_range_count = 0;
-
-	    //// gets local and global offsets
-        //for (size_t i=0; i<A.size(); ++i) {
-	    //	local_ids_offsets_row[i] = local_row_count;
-	    //	local_ids_offsets_range[i] = local_range_count;
-
-        //    // not all columns necessarily have a valid matrix in them
-        //    global_index_type max_row_count = 0;
-        //    global_index_type max_range_count = 0;
-        //    for (size_t j=0; j<A[0].size(); ++j) {
-        //        if (!A[i][j].is_null()) {
-        //            //max_row_count = std::max(max_row_count, A[i][j]->getRowMap()->getNodeNumElements());
-        //            //max_range_count = std::max(max_row_count, A[i][j]->getRangeMap()->getNodeNumElements());
-        //            //printf("i: %d, j: %d, r: %d, size: %lu\n", i, j, _comm->getRank(), A[i][j]->getRowMap()->getNodeNumElements());
-	    //	        //local_row_count += A[i][j]->getRowMap()->getNodeNumElements();
-	    //	        //local_range_count += A[i][j]->getRangeMap()->getNodeNumElements();
-	    //            ////local_row_count += A[i][j]->getRowMap()->getMyGlobalIndices();
-	    //            ////local_range_count += A[i][j]->getRangeMap()->getMyGlobalIndices();
-        //            if (A[i][j]->getRowMap()->getNodeNumElements() > max_row_count) {
-        //                max_row_count = A[i][j]->getRowMap()->getNodeNumElements();
-        //                max_range_count = A[i][j]->getRangeMap()->getNodeNumElements();
-        //                valid_j_for_i[i] = j;
-        //                //printf("i: %d, j: %d, r: %d, row_size: %lu\n", i, j, _comm->getRank(), A[i][j]->getRowMap()->getNodeNumElements());
-        //                //printf("i: %d, j: %d, r: %d, ran_size: %lu\n", i, j, _comm->getRank(), A[i][j]->getRangeMap()->getNodeNumElements());
-        //            }
-        //            //valid_j_for_i[i] = j;
-        //            //break;
-        //        }
-        //    }
-	    //    local_row_count += max_row_count;
-	    //    local_range_count += max_range_count;
-        //    //printf("i: %d, r: %d, lrow: %lu, lrange: %lu\n", i, _comm->getRank(), local_ids_offsets_row[i], local_ids_offsets_range[i]);
-        //}
-
-        ////printf("r: %d, lrow: %lu, lrange: %lu\n", _comm->getRank(), local_row_count, local_range_count);
-	    //Kokkos::View<global_index_type*, Kokkos::HostSpace> new_row_local_indices("local row indices", local_row_count);
-	    //Kokkos::View<global_index_type*, Kokkos::HostSpace> new_range_local_indices("local range indices", local_range_count);
-        //// copy over indices
-        //for (size_t i=0; i<A.size(); ++i) {
-
-        //    auto row_indices = A[i][valid_j_for_i[i]]->getRowMap()->getMyGlobalIndices();
-        //    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,row_indices.extent(0)), 
-        //                KOKKOS_LAMBDA(const int j) {
-        //        new_row_local_indices(local_ids_offsets_row[i] + j) = row_indices(j);
-        //    });
-
-        //    auto range_indices = A[i][valid_j_for_i[i]]->getRangeMap()->getMyGlobalIndices();
-        //    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,range_indices.extent(0)), 
-        //                KOKKOS_LAMBDA(const int j) {
-        //        new_range_local_indices(local_ids_offsets_range[i] + j) = range_indices(j);
-        //    });
-        //    //for (size_t j=0; j<row_indices.extent(0); ++j) {
-        //    //    if (i==0 && _comm->getRank()==0) {
-        //    //        printf("i: %d, r: %d, j: %d, val: %d\n", i, _comm->getRank(), j, row_indices(j));
-        //    //    }
-        //    //}
-        //}
 
         new_row_map = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(), 
                 new_row_local_indices, 0 /*index base*/, _comm));
@@ -169,6 +99,7 @@ void SolverT::amalgamateBlockMatrices(std::vector<std::vector<Teuchos::RCP<crs_m
     Teuchos::RCP<map_type> new_col_map;
     Teuchos::RCP<map_type> new_domain_map;
     std::vector<local_index_type> valid_i_for_j(A[0].size());
+
     { // creates new_col_map and new_domain_map
 
         std::set<global_index_type> all_domain_indices;
@@ -216,83 +147,6 @@ void SolverT::amalgamateBlockMatrices(std::vector<std::vector<Teuchos::RCP<crs_m
             new_col_local_indices(all_col_indices.size() + i) = *iter;
             ++iter;
         }
-        //printf("col s: %lu, dom s: %lu\n", all_col_indices.size(), all_domain_indices.size());
-
-        //std::vector<global_index_type> local_ids_offsets_col(A[0].size());
-        //std::vector<global_index_type> local_ids_offsets_domain(A[0].size());
-
-        //local_index_type local_col_count = 0;
-        //local_index_type local_domain_count = 0;
-
-	    //// gets local and global offsets
-        //for (size_t j=0; j<A[0].size(); ++j) {
-	    //	local_ids_offsets_col[j] = local_col_count;
-	    //	local_ids_offsets_domain[j] = local_domain_count;
-
-        //    // not all columns necessarily have a valid matrix in them
-        //    global_index_type max_col_count = 0;
-        //    global_index_type max_domain_count = 0;
-        //    for (size_t i=0; i<A.size(); ++i) {
-        //        if (!A[i][j].is_null()) {
-        //            //max_row_count = std::max(max_row_count, A[i][j]->getRowMap()->getNodeNumElements());
-        //            //max_range_count = std::max(max_row_count, A[i][j]->getRangeMap()->getNodeNumElements());
-        //            //printf("i: %d, j: %d, r: %d, size: %lu\n", i, j, _comm->getRank(), A[i][j]->getRowMap()->getNodeNumElements());
-	    //	        //local_row_count += A[i][j]->getRowMap()->getNodeNumElements();
-	    //	        //local_range_count += A[i][j]->getRangeMap()->getNodeNumElements();
-	    //            ////local_row_count += A[i][j]->getRowMap()->getMyGlobalIndices();
-	    //            ////local_range_count += A[i][j]->getRangeMap()->getMyGlobalIndices();
-        //            if (A[i][j]->getColMap()->getNodeNumElements() > max_col_count) {
-        //                max_col_count = A[i][j]->getColMap()->getNodeNumElements();
-        //                max_domain_count = A[i][j]->getDomainMap()->getNodeNumElements();
-        //                valid_i_for_j[j] = i;
-        //                printf("i: %d, j: %d, r: %d, col_size: %lu\n", i, j, _comm->getRank(), A[i][j]->getColMap()->getNodeNumElements());
-        //                printf("i: %d, j: %d, r: %d, dom_size: %lu\n", i, j, _comm->getRank(), A[i][j]->getDomainMap()->getNodeNumElements());
-        //                //printf("s1 %lu s2 %lu\n", A[i][j]->getDomainMap()->getNodeNumElements(), A[i][j]->getDomainMap()->getMyGlobalIndices().extent(0));
-        //            }
-        //            //valid_j_for_i[i] = j;
-        //            //break;
-        //        }
-        //    }
-	    //    local_col_count += max_col_count;
-	    //    local_domain_count += max_domain_count;
-        //    printf("j: %d, r: %d, lcol: %lu, ldomain: %lu\n", j, _comm->getRank(), local_ids_offsets_col[j], local_ids_offsets_domain[j]);
-
-        //    //// not all columns necessarily have a valid matrix in them
-        //    //for (size_t i=0; i<A.size(); ++i) {
-        //    //    if (!A[i][j].is_null()) {
-	    //    //        local_col_count += A[i][j]->getColMap()->getNodeNumElements();
-	    //    //        local_domain_count += A[i][j]->getDomainMap()->getNodeNumElements();
-	    //    //        //local_col_count += A[i][j]->getColMap()->getMyGlobalIndices();
-	    //    //        //local_domain_count += A[i][j]->getDomainMap()->getMyGlobalIndices();
-        //    //        valid_i_for_j[j] = i;
-        //    //        break;
-        //    //    }
-        //    //}
-        //    //printf("j: %d, r: %d, lcol: %lu, ldomain: %lu\n", j, _comm->getRank(), local_col_count, local_domain_count);
-        //}
-
-	    //Kokkos::View<global_index_type*, Kokkos::HostSpace> alt_new_col_local_indices("local col indices", local_col_count);
-	    //Kokkos::View<global_index_type*, Kokkos::HostSpace> alt_new_domain_local_indices("local domain indices", local_domain_count);
-        //// copy over indices
-        //for (size_t j=0; j<A[0].size(); ++j) {
-
-        //    auto col_indices = A[valid_i_for_j[j]][j]->getColMap()->getMyGlobalIndices();
-        //    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,col_indices.extent(0)), 
-        //                KOKKOS_LAMBDA(const int i) {
-        //        alt_new_col_local_indices(local_ids_offsets_col[j] + i) = col_indices(i);
-        //    });
-        //    auto domain_indices = A[valid_i_for_j[j]][j]->getDomainMap()->getMyGlobalIndices();
-        //    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,domain_indices.extent(0)), 
-        //                KOKKOS_LAMBDA(const int i) {
-        //        alt_new_domain_local_indices(local_ids_offsets_domain[j] + i) = domain_indices(i);
-        //    });
-
-        //}
-        //printf("col s: %lu, dom s: %lu\n", local_col_count, local_domain_count);
-
-        //for (size_t k=0; k<alt_new_col_local_indices.extent(0); ++k) {
-        //    printf("%d: %lu, %lu, diff: %lu\n", _comm->getRank(), alt_new_col_local_indices(k), new_col_local_indices(k), alt_new_col_local_indices(k)-new_col_local_indices(k));
-        //}
 
         new_col_map = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(), 
                 new_col_local_indices, 0 /*index base*/, _comm));
@@ -307,13 +161,11 @@ void SolverT::amalgamateBlockMatrices(std::vector<std::vector<Teuchos::RCP<crs_m
         for (size_t j=0; j<A[i].size(); ++j) {
             if (!A[i][j].is_null()) {
                 max_entries_this_row += A[i][j]->getCrsGraph()->getGlobalMaxNumRowEntries();
-                printf("max added r:%i i:%lu j:%lu amt:%lu\n", _comm->getRank(), i, j, A[i][j]->getCrsGraph()->getGlobalMaxNumRowEntries());
             }
         }
         //max_entries_per_row_over_all_rows = std::max(max_entries_per_row_over_all_rows, max_entries_this_row);
         max_entries_per_row_over_all_rows += max_entries_this_row;
     }
-    printf("max added %lu\n", max_entries_per_row_over_all_rows);
 
     // create giant graph using new maps
     auto A_single_block_graph = Teuchos::rcp(new crs_graph_type(new_row_map, new_col_map, max_entries_per_row_over_all_rows, Tpetra::StaticProfile));
@@ -344,8 +196,6 @@ void SolverT::amalgamateBlockMatrices(std::vector<std::vector<Teuchos::RCP<crs_m
         }
     }
 
-    //printf("%lu entries dom, %lu entrie col\n", new_domain_map->getGlobalNumElements(), new_col_map->getGlobalNumElements());
-
     for (size_t i=0; i<A.size(); ++i) {
         for (size_t j=0; j<A[0].size(); ++j) {
             if (!A[i][j].is_null()) {
@@ -354,27 +204,20 @@ void SolverT::amalgamateBlockMatrices(std::vector<std::vector<Teuchos::RCP<crs_m
         }
     }
     A_single_block_graph->fillComplete(new_domain_map, new_range_map);
-    //A_single_block_graph->fillComplete();
 
     _A_single_block = Teuchos::rcp(new crs_matrix_type(A_single_block_graph));
     for (size_t i=0; i<A.size(); ++i) {
         for (size_t j=0; j<A[0].size(); ++j) {
             if (!A[i][j].is_null()) {
                 _A_single_block->doExport(*(A[i][j]), *(_row_exporters[i][j]), Tpetra::INSERT);
-                printf("nnz i: %lu, j: %lu, %lu\n", i, j, A[i][j]->getCrsGraph()->getGlobalNumEntries());
             }
         }
     }
-    //_A_single_block->fillComplete();
     _A_single_block->fillComplete(new_domain_map, new_range_map);
-    //auto out = Teuchos::getFancyOStream(Teuchos::rcpFromRef(std::cout));
-    //_A_single_block->describe(*out, Teuchos::VERB_EXTREME);
-    //printf("nnz single: %lu\n", A_single_block_graph->getGlobalNumEntries());
 
     _x_single_block = Teuchos::rcp(new mvec_type(_A_single_block->getDomainMap(),1,true/*set to zero*/));
     _b_single_block = Teuchos::rcp(new mvec_type(_A_single_block->getRangeMap(),1,true/*set to zero*/));
     for (size_t i=0; i<A.size(); ++i) {
-        //_b_single_block->doExport(*(b[i]), *(_range_exporters[i][valid_j_for_i[i]]), Tpetra::INSERT);
         _b_single_block->doExport(*(b[i]), *(_range_exporters[i][i]), Tpetra::INSERT);
     }
 
