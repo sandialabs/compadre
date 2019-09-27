@@ -8,6 +8,16 @@ from consolidate import *
 
 assert len(sys.argv)>0, "Not enough arguments"
 
+'''
+
+Copies solutions from pre_CS_name grids to pre_CVT_name grids and then back
+total_iterations number of times
+
+The executable is only called ONCE. The neighbor searches and GMLS solution is 
+performed once and saved and reused each following iteration.
+
+'''
+
 total_iterations = 10
 opt_num = 1
 mesh_1 = 0

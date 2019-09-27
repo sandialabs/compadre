@@ -6,6 +6,16 @@ import math
 import sys
 from consolidate import *
 
+'''
+
+Copies solutions from pre_CS_name grids to pre_CVT_name grids and then back
+total_iterations number of times
+
+Each iteration, executables are called, neighbor searches are performed in the
+code, and then GMLS solution is recomputed (inefficient)
+
+'''
+
 assert len(sys.argv)>0, "Not enough arguments"
 
 total_iterations = 10
