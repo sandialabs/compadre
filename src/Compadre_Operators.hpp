@@ -183,7 +183,7 @@ namespace Compadre {
         MANIFOLD, 
     };
 
-    //! Boundary type, to determine whether it's Dirichlet or Neumann
+    //! Constraint type
     enum ConstraintType {
         //! No constraint
         NO_CONSTRAINT,
