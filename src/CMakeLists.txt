@@ -2,6 +2,7 @@ bob_config_header("${CMAKE_CURRENT_BINARY_DIR}/Compadre_Config.h")
 
 set(COMPADRE_HEADERS
   "${CMAKE_CURRENT_BINARY_DIR}/Compadre_Config.h"
+  Compadre_Functors.hpp
   Compadre_GMLS.hpp
   Compadre_GMLS_ApplyTargetEvaluations.hpp
   Compadre_GMLS_Basis.hpp
@@ -12,6 +13,7 @@ set(COMPADRE_HEADERS
   Compadre_LinearAlgebra_Definitions.hpp
   Compadre_Misc.hpp
   Compadre_Operators.hpp
+  Compadre_ParallelManager.hpp
   Compadre_PointCloudSearch.hpp
   Compadre_Typedefs.hpp
   Compadre_Evaluator.hpp
