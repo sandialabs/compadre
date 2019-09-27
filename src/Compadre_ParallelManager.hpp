@@ -78,7 +78,6 @@ public:
         _scratch_team_level_b = 1;
         _scratch_thread_level_b = 1;
         _threads_per_team = 128;
-        if (_basis_multiplier*_NP > 96) _threads_per_team += 128;
         _vector_lanes_per_thread = 8;
 #else
         _scratch_team_level_a = 0;
@@ -203,7 +202,8 @@ public:
         CallFunctorWithTeamThreadsAndVectors<C>(batch_size, this->getThreadsPerTeam(), 1, functor, functor_name);
     }
 
-    int getTeamScratchLevel(int level) const {
+    KOKKOS_INLINE_FUNCTION
+    int getTeamScratchLevel(const int level) const {
         if (level == 0) {
             return _scratch_team_level_a;
         } else {
@@ -211,7 +211,8 @@ public:
         }
     }
 
-    int getThreadScratchLevel(int level) const {
+    KOKKOS_INLINE_FUNCTION
+    int getThreadScratchLevel(const int level) const {
         if (level == 0) {
             return _scratch_thread_level_a;
         } else {
@@ -219,7 +220,8 @@ public:
         }
     }
 
-    int getTeamScratchSize(int level) const {
+    KOKKOS_INLINE_FUNCTION
+    int getTeamScratchSize(const int level) const {
         if (level == 0) {
             return _team_scratch_size_a;
         } else {
@@ -227,7 +229,8 @@ public:
         }
     }
 
-    int getThreadScratchSize(int level) const {
+    KOKKOS_INLINE_FUNCTION
+    int getThreadScratchSize(const int level) const {
         if (level == 0) {
             return _thread_scratch_size_a;
         } else {
@@ -235,10 +238,12 @@ public:
         }
     }
     
+    KOKKOS_INLINE_FUNCTION
     int getThreadsPerTeam(const int vector_lanes_per_thread = 1) const {
         return _threads_per_team / vector_lanes_per_thread;
     }
 
+    KOKKOS_INLINE_FUNCTION
     int getVectorLanesPerThread() const {
         return _vector_lanes_per_thread;
     }
@@ -251,7 +256,7 @@ public:
  */
 ///@{
 
-    void setTeamScratchLevel(int level, int value) {
+    void setTeamScratchLevel(const int level, const int value) {
         if (level == 0) {
             _scratch_team_level_a = value;
         } else {
@@ -259,7 +264,7 @@ public:
         }
     }
 
-    void setThreadScratchLevel(int level, int value) {
+    void setThreadScratchLevel(const int level, const int value) {
         if (level == 0) {
             _scratch_thread_level_a = value;
         } else {
@@ -267,7 +272,7 @@ public:
         }
     }
 
-    void setTeamScratchSize(int level, int value) {
+    void setTeamScratchSize(const int level, const int value) {
         if (level == 0) {
             _team_scratch_size_a = value;
         } else {
@@ -275,12 +280,20 @@ public:
         }
     }
 
-    void setThreadScratchSize(int level, int value) {
+    void setThreadScratchSize(const int level, const int value) {
         if (level == 0) {
             _thread_scratch_size_a = value;
         } else {
             _thread_scratch_size_b = value;
         }
+    }
+
+    void setThreadsPerTeam(const int value) {
+        _threads_per_team = value;
+    }
+
+    void setVectorLanesPerThread(const int value) {
+        _vector_lanes_per_thread = value;
     }
 
 ///@}

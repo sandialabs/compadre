@@ -171,6 +171,9 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
 
         thread_scratch_size_b += scratch_vector_type::shmem_size(this_num_cols); // delta, used for each thread
     }
+#ifdef COMPADRE_USE_CUDA
+    if (_basis_multiplier*_NP > 96) _pm.setThreadsPerTeam(_pm.getThreadsPerTeam() + 128);
+#endif
     _pm.setTeamScratchSize(0, team_scratch_size_a);
     _pm.setTeamScratchSize(1, team_scratch_size_b);
     _pm.setThreadScratchSize(0, thread_scratch_size_a);
