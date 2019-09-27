@@ -97,14 +97,14 @@ def run_transfer(opt_name):
     try:
         if (opt_name=="OBFET"): # OBFET only works in serial
             my_env=dict(os.environ)
-            output = subprocess.check_output(["mpirun", "-np", "1", "./realCangaIntercomparison.exe","--i=../test_data/parameter_lists/canga/parameters_current.xml","--kokkos-threads=32"], env=my_env).decode()
+            output = subprocess.check_output(["mpirun", "-np", "1", "./cangaRemoteRemapSinglePass.exe","--i=../test_data/parameter_lists/canga/parameters_current.xml","--kokkos-threads=32"], env=my_env).decode()
         else:
             my_env=dict(os.environ)
             #my_env['OMP_PROC_BIND']='spread'
             #my_env['OMP_PLACES']='threads'
             #my_env['OMP_NUM_THREADS']='1'
             #output = subprocess.check_output(["mpirun", "-np", "1", "./realCangaIntercomparison.exe","--i=../test_data/parameter_lists/canga/parameters_current.xml","--kokkos-threads=32"], env=os.environ{"OMP_PROC_BIND": "spread", "OMP_PLACES": "threads"}, shell=True).decode()
-            output = subprocess.check_output(["mpirun","-np","4","--bind-to","socket","./realCangaIntercomparison.exe","--i=../test_data/parameter_lists/canga/parameters_current.xml","--kokkos-threads=8"], env=my_env).decode()
+            output = subprocess.check_output(["mpirun","-np","4","--bind-to","socket","./cangaRemoteRemapSinglePass.exe","--i=../test_data/parameter_lists/canga/parameters_current.xml","--kokkos-threads=8"], env=my_env).decode()
     except subprocess.CalledProcessError as exc:
         print("error code", exc.returncode)
         for line in exc.output.decode().split('\n'):

@@ -139,14 +139,14 @@ def run_transfer(opt_name):
     try:
         if (opt_name=="OBFET"): # OBFET only works in serial
             my_env=dict(os.environ)
-            output = subprocess.check_output(["mpirun", "-np", "1", "./cangaIntercomparisonActual.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml",":","-np", "1", "./cangaIntercomparisonActual.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=32"], env=my_env).decode()
+            output = subprocess.check_output(["mpirun", "-np", "1", "./cangaRemoteRemapMultiPass.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml",":","-np", "1", "./cangaRemoteRemapMultiPass.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=32"], env=my_env).decode()
         else:
             my_env=dict(os.environ)
             #my_env['OMP_PROC_BIND']='spread'
             #my_env['OMP_PLACES']='threads'
             #my_env['OMP_NUM_THREADS']='1'
             #output = subprocess.check_output(["mpirun", "--bind-to", "socket", "-np", "1", "./cangaIntercomparisonActual.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml","--kokkos-threads=32",":","-np", "1", "./cangaIntercomparisonActual.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=32"], env=my_env).decode()
-            output = subprocess.check_output(["mpirun", "--bind-to", "socket", "-np", "4", "./cangaIntercomparisonActual.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml","--kokkos-threads=4",":","-np", "4", "./cangaIntercomparisonActual.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=4"], env=my_env).decode()
+            output = subprocess.check_output(["mpirun", "--bind-to", "socket", "-np", "4", "./cangaRemoteRemapMultiPass.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml","--kokkos-threads=4",":","-np", "4", "./cangaRemoteRemapMultiPass.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=4"], env=my_env).decode()
     except subprocess.CalledProcessError as exc:
         print("error code", exc.returncode)
         for line in exc.output.decode().split('\n'):

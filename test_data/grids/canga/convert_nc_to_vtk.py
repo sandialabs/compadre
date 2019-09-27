@@ -7,8 +7,9 @@ import sys
 
 assert len(sys.argv)>0, "Not enough arguments"
 
+# call from inside of build/examples
 
-NPTS=[256,]#16,32,64,128,]#256]
+NPTS=[16,32,64,128,256]
 
 pre_CS_name   = "../../test_data/grids/canga/Cubed-Sphere/outCSMesh_ne"
 post1_CS_name  = "_TPW_CFR_TPO"
@@ -44,7 +45,7 @@ def create_XML(pre,post,ext,num):
 
 def run_transfer():
     try:
-        output = subprocess.check_output(["mpirun", "-np", "1", "./FileConverter.exe","--i=../test_data/parameter_lists/canga/parameters_current.xml","--kokkos-threads=1"]).decode()
+        output = subprocess.check_output(["mpirun", "-np", "1", "./cangaFileConverter.exe","--i=../test_data/parameter_lists/canga/parameters_current.xml","--kokkos-threads=1"]).decode()
     except subprocess.CalledProcessError as exc:
         print("error code", exc.returncode)
         for line in exc.output.decode().split('\n'):
@@ -52,8 +53,8 @@ def run_transfer():
         sys.exit(exc.returncode)
 
 for i in NPTS:
-    #create_XML(pre_CS_name, post1_CS_name, post2_CS_name, str(i))
-    #run_transfer()
+    create_XML(pre_CS_name, post1_CS_name, post2_CS_name, str(i))
+    run_transfer()
 
     create_XML(pre_CVT_name, post1_CVT_name, post2_CVT_name, str(i))
     run_transfer()
