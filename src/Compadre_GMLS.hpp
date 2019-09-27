@@ -7,6 +7,7 @@
 #include "Compadre_Misc.hpp"
 #include "Compadre_Operators.hpp"
 #include "Compadre_LinearAlgebra_Definitions.hpp"
+#include "Compadre_ParallelManager.hpp"
 
 
 namespace Compadre {
@@ -112,9 +113,6 @@ protected:
     Kokkos::View<int*, Kokkos::HostSpace> _number_of_additional_evaluation_indices; 
 
 
-    //! reconstruction type
-    int _type; 
-
     //! order of basis for polynomial reconstruction
     int _poly_order; 
 
@@ -145,7 +143,7 @@ protected:
     //! problem type for GMLS problem, can also be set to STANDARD for normal or MANIFOLD for manifold problems
     ProblemType _problem_type;
 
-    //! boundary type for GMLS problem, can also be set to NO_CONSTRAINT or NEUMANN_GRAD_SCALAR
+    //! constraint type for GMLS problem
     ConstraintType _constraint_type;
 
     //! polynomial sampling functional used to construct P matrix, set at GMLS class instantiation
@@ -267,81 +265,14 @@ protected:
     //! used for sizing P_target_row and the _alphas view
     int _total_alpha_values;
 
-
-    //! lowest level memory for Kokkos::parallel_for for team access memory
-    int _scratch_team_level_a;
-    int _team_scratch_size_a;
-
-    //! higher (slower) level memory for Kokkos::parallel_for for team access memory
-    int _scratch_thread_level_a;
-    int _thread_scratch_size_a;
-
-    //! lowest level memory for Kokkos::parallel_for for thread access memory
-    int _scratch_team_level_b;
-    int _team_scratch_size_b;
-
-    //! higher (slower) level memory for Kokkos::parallel_for for thread access memory
-    int _scratch_thread_level_b;
-    int _thread_scratch_size_b;
-
-    //! calculated number of threads per team
-    int _threads_per_team;
-
-
-
+    //! determines scratch level spaces and is used to call kernels
+    ParallelManager _pm;
 
 
 /** @name Private Modifiers
  *  Private function because information lives on the device
  */
 ///@{
-
-    //! Calls a parallel_for using the tag given as the first argument.
-    //! parallel_for will break out over loops over teams with each vector lane executing code be default
-    template<class Tag>
-    void CallFunctorWithTeamThreadsAndVectors(const global_index_type batch_size, const int threads_per_team, const int vector_lanes_per_thread, const int team_scratch_size_a, const int team_scratch_size_b, const int thread_scratch_size_a, const int thread_scratch_size_b) {
-    if ( (_scratch_team_level_a != _scratch_team_level_b) && (_scratch_thread_level_a != _scratch_thread_level_b) ) {
-            // all levels of each type need specified separately
-            Kokkos::parallel_for(
-                Kokkos::TeamPolicy<Tag>(batch_size, threads_per_team, vector_lanes_per_thread)
-                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a))
-                .set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(team_scratch_size_b))
-                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a))
-                .set_scratch_size(_scratch_thread_level_b, Kokkos::PerThread(thread_scratch_size_b)),
-                *this, typeid(Tag).name());
-        } else if (_scratch_team_level_a != _scratch_team_level_b) {
-            // scratch thread levels are the same
-            Kokkos::parallel_for(
-                Kokkos::TeamPolicy<Tag>(batch_size, threads_per_team, vector_lanes_per_thread)
-                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a))
-                .set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(team_scratch_size_b))
-                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a + thread_scratch_size_b)),
-                *this, typeid(Tag).name());
-        } else if (_scratch_thread_level_a != _scratch_thread_level_b) {
-            // scratch team levels are the same
-            Kokkos::parallel_for(
-                Kokkos::TeamPolicy<Tag>(batch_size, threads_per_team, vector_lanes_per_thread)
-                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a + team_scratch_size_b))
-                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a))
-                .set_scratch_size(_scratch_thread_level_b, Kokkos::PerThread(thread_scratch_size_b)),
-                *this, typeid(Tag).name());
-        } else {
-            // scratch team levels and thread levels are the same
-            Kokkos::parallel_for(
-                Kokkos::TeamPolicy<Tag>(batch_size, threads_per_team, vector_lanes_per_thread)
-                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a + team_scratch_size_b))
-                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a + thread_scratch_size_b)),
-                *this, typeid(Tag).name());
-        }
-    }
-
-    //! Calls a parallel for using the tag given as the first argument. 
-    //! parallel_for will break out over loops over teams with each thread executing code be default
-    template<class Tag>
-    void CallFunctorWithTeamThreads(const global_index_type batch_size, const int threads_per_team, const int team_scratch_size_a, const int team_scratch_size_b, const int thread_scratch_size_a, const int thread_scratch_size_b) {
-        // calls breakout over vector lanes with vector lane size of 1
-        CallFunctorWithTeamThreadsAndVectors<Tag>(batch_size, threads_per_team, 1, team_scratch_size_a, team_scratch_size_b, thread_scratch_size_a, thread_scratch_size_b);
-    }
 
     /*! \brief Evaluates the polynomial basis under a particular sampling function. Generally used to fill a row of P.
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -658,7 +589,7 @@ protected:
         }
     }
 
-    //! Parses a string to determine boundary type
+    //! Parses a string to determine constraint type
     static ConstraintType parseConstraintType(const std::string& constraint_type) {
         std::string constraint_type_to_lower = constraint_type;
         transform(constraint_type_to_lower.begin(), constraint_type_to_lower.end(), constraint_type_to_lower.begin(), ::tolower);
@@ -705,26 +636,13 @@ public:
 
         // Asserting available problems and solvers
         compadre_kernel_assert_release((_constraint_type == ConstraintType::NO_CONSTRAINT) &&
-                                       "Neumann boundary type hasn't been implemented yet.");
+                                       "Neumann constraint type hasn't been implemented yet.");
 
         // seed random number generator pool
         _random_number_pool = pool_type(1);
 
         _NP = this->getNP(_poly_order, dimensions, _reconstruction_space);
         Kokkos::fence();
-
-#ifdef COMPADRE_USE_CUDA
-        _scratch_team_level_a = 0;
-        _scratch_thread_level_a = 1;
-        _scratch_team_level_b = 1;
-        _scratch_thread_level_b = 1;
-#else
-        _scratch_team_level_a = 0;
-        _scratch_thread_level_a = 0;
-        _scratch_team_level_b = 0;
-        _scratch_thread_level_b = 0;
-#endif
-        _threads_per_team = 0;
 
         // register curvature operations for manifold problems
         if (_problem_type == ProblemType::MANIFOLD) {
@@ -741,7 +659,6 @@ public:
         _lro = std::vector<TargetOperation>();
 
         // various initializations
-        _type = 1;
         _total_alpha_values = 0;
 
         _weighting_type = WeightingFunctionType::Power;
@@ -962,7 +879,7 @@ public:
     //! Get problem type
     ProblemType getProblemType() { return _problem_type; }
 
-    //! Get boundary type
+    //! Get constraint type
     ConstraintType getConstraintType() { return _constraint_type; }
 
     //! Type for weighting kernel for GMLS problem
