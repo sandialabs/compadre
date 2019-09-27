@@ -49,11 +49,12 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
   add_exe_w_compadre(laplaceBeltrami.exe Compadre_LaplaceBeltrami.cpp)
   add_exe_w_compadre(advectionDiffusion.exe Compadre_AdvectionDiffusion.cpp)
   IF(CompadreHarness_CANGA_ENABLED)
-    add_exe_w_compadre(cangaRemoteRemap.exe Canga_RemoteRemap.cpp)
-    add_exe_w_compadre(cangaIntercomparison.exe Canga_Intercomparison.cpp)
-    add_exe_w_compadre(cangaIntercomparisonActual.exe Canga_Intercomparison_Actual.cpp)
-    add_exe_w_compadre(realCangaIntercomparison.exe Real_Canga_Intercomparison.cpp)
-    add_exe_w_compadre(FileConverter.exe FileConverter.cpp)
+    add_exe_w_compadre(cangaTestRemoteRemap.exe Canga_Test_RemoteRemap.cpp)
+    add_exe_w_compadre(cangaTestIntercomparison.exe Canga_Test_Intercomparison.cpp)
+    # no tests
+    add_exe_w_compadre(cangaRemoteRemapSinglePass.exe Canga_RemoteRemap_SinglePass.cpp)
+    add_exe_w_compadre(cangaRemoteRemapMultiPass.exe Canga_RemoteRemap_MultiPass.cpp)
+    add_exe_w_compadre(cangaFileConverter.exe Canga_FileConverter.cpp)
   ENDIF()
   add_exe_w_compadre(lagrangianShallowWater.exe Compadre_LagrangianShallowWater.cpp)
   add_exe_w_compadre(RT0Remap.exe Compadre_RT0_Remap.cpp)
@@ -233,8 +234,8 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
     # CANGA TESTS
     
     IF (CompadreHarness_CANGA_ENABLED)
-        ADD_TEST(NAME CangaRemoteRemap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/cangaRemoteRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_lower.xml" "--kokkos-threads=1" ":" "-np" 5 ${CMAKE_CURRENT_BINARY_DIR}/cangaRemoteRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_upper.xml" "--kokkos-threads=1")
-        SET_TESTS_PROPERTIES(CangaRemoteRemap PROPERTIES LABELS "Canga;canga;remote")
+        ADD_TEST(NAME CangaTestRemoteRemap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/cangaTestRemoteRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_lower.xml" "--kokkos-threads=1" ":" "-np" 5 ${CMAKE_CURRENT_BINARY_DIR}/cangaTestRemoteRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_upper.xml" "--kokkos-threads=1")
+        SET_TESTS_PROPERTIES(CangaTestRemoteRemap PROPERTIES LABELS "Canga;canga;remote")
         
         ADD_TEST(NAME CangaConvergenceTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/sphere_convergence.py" "2" "2" "0") # 2nd polynomial order, 2 successive meshes, 0 for no obfet
         SET_TESTS_PROPERTIES(CangaConvergenceTest PROPERTIES LABELS "manifold;interpolation;canga")
@@ -244,8 +245,8 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
         SET_TESTS_PROPERTIES(CangaConvergenceTestWObfet PROPERTIES LABELS "manifold;interpolation;canga;obfet")
         SET_TESTS_PROPERTIES(CangaConvergenceTestWObfet PROPERTIES SKIP_RETURN_CODE 77)
 
-        ADD_TEST(NAME CangaIntercomparison COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/cangaIntercomparison.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_lower_compare.xml" "--kokkos-threads=1" ":" "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/cangaIntercomparison.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_upper_compare.xml" "--kokkos-threads=1")
-        SET_TESTS_PROPERTIES(CangaIntercomparison PROPERTIES LABELS "Canga;canga;comparison;compare")
+        ADD_TEST(NAME CangaTestIntercomparison COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/cangaTestIntercomparison.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_lower_compare.xml" "--kokkos-threads=1" ":" "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/cangaTestIntercomparison.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_upper_compare.xml" "--kokkos-threads=1")
+        SET_TESTS_PROPERTIES(CangaTestIntercomparison PROPERTIES LABELS "Canga;canga;comparison;compare")
     ENDIF()
     
     

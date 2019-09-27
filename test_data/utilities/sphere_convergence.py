@@ -93,9 +93,9 @@ for key1, porder in enumerate(porders):
         
         try:
             if (opt_name=="OBFET"): # OBFET only works in serial
-                output = subprocess.check_output(["mpirun", "-np", "1", "./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","1","./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_upper_1.xml","--kokkos-threads=1"]).decode()
+                output = subprocess.check_output(["mpirun", "-np", "1", "./cangaTestRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","1","./cangaTestRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_upper_1.xml","--kokkos-threads=1"]).decode()
             else:
-                output = subprocess.check_output(["mpirun", "-np", "5", "./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","3","./cangaRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_upper_1.xml","--kokkos-threads=1"]).decode()
+                output = subprocess.check_output(["mpirun", "-np", "5", "./cangaTestRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_lower_1.xml","--kokkos-threads=1",":","-np","3","./cangaTestRemoteRemap.exe","--i=../test_data/parameter_lists/canga/parameters_upper_1.xml","--kokkos-threads=1"]).decode()
         except subprocess.CalledProcessError as exc:
             print("error code", exc.returncode)
             for line in exc.output.decode().split('\n'):
