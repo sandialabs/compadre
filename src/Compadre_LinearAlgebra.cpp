@@ -1,4 +1,5 @@
 #include "Compadre_LinearAlgebra_Definitions.hpp"
+#include "Compadre_Functors.hpp"
 
 namespace Compadre{
 namespace GMLS_LinearAlgebra {
@@ -488,8 +489,18 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
 #endif
 }
 
-void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
+void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
 
+    ConvertLayoutLeftToRight clr(pm, ldb, ndb, RHS);
+    int scratch_size = scratch_matrix_right_type::shmem_size(ldb, ndb);
+    pm.setTeamScratchSize(0, 0);
+    pm.setTeamScratchSize(1, scratch_size);
+
+    pm.setThreadScratchSize(0, 0);
+    pm.setThreadScratchSize(1, 0);
+
+    pm.CallFunctorWithTeamThreads(num_matrices, clr);
+    Kokkos::fence();
 #ifdef COMPADRE_USE_CUDA
 
     Kokkos::Profiling::pushRegion("LU::Setup(Pointers)");

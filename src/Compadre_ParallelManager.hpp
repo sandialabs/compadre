@@ -4,9 +4,6 @@
 #include "Compadre_Config.h"
 #include "Compadre_Typedefs.hpp"
 
-#include "Compadre_Functors.hpp"
-
-
 namespace Compadre {
 
 //!  Parallel Manager
