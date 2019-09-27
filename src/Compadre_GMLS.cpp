@@ -3,6 +3,7 @@
 #include "Compadre_GMLS_Basis.hpp"
 #include "Compadre_GMLS_Quadrature.hpp"
 #include "Compadre_GMLS_Targets.hpp"
+#include "Compadre_Functors.hpp"
 
 namespace Compadre {
 
@@ -276,7 +277,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
                 Kokkos::Profiling::popRegion();
             } else if (_dense_solver_type == DenseSolverType::LU) {
                 Kokkos::Profiling::pushRegion("Manifold LU Factorization");
-                GMLS_LinearAlgebra::batchLUFactorize(_RHS.data(), max_num_rows, max_num_rows, _P.data(), this_num_cols, max_num_rows, this_num_cols, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), max_num_rows, max_num_rows, _P.data(), this_num_cols, max_num_rows, this_num_cols, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
                 Kokkos::Profiling::popRegion();
             } else {
                 Kokkos::Profiling::pushRegion("Manifold QR Factorization");
@@ -308,7 +309,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
                 Kokkos::Profiling::popRegion();
             } else if (_dense_solver_type == DenseSolverType::LU) {
                 Kokkos::Profiling::pushRegion("LU Factorization");
-                GMLS_LinearAlgebra::batchLUFactorize(_RHS.data(), max_num_rows, max_num_rows, _P.data(), this_num_cols, max_num_rows, this_num_cols, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), max_num_rows, max_num_rows, _P.data(), this_num_cols, max_num_rows, this_num_cols, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
                 Kokkos::Profiling::popRegion();
             } else {
                 Kokkos::Profiling::pushRegion("QR Factorization");
@@ -437,18 +438,12 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
             + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
         GMLS_LinearAlgebra::createM(teamMember, M, PsqrtW, this_num_cols /* # of columns */, max_num_rows);
 
-        // create layout left matrix
-        // using the allocated data of PsqrtW
-        // this memory only lives on team scratch memory - will be deleted out of this scope
-        scratch_matrix_left_type PW_Transpose_LL(teamMember.team_scratch(_pm.getTeamScratchLevel(1)),
-                                                 this_num_cols, max_num_rows);
-
-        convertMatrixLayoutRightToLeft(PsqrtW, PW_Transpose_LL);
+        scratch_matrix_left_type PW_LL(PsqrtW.data(), max_num_rows, this_num_cols);
 
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,max_num_rows), [=] (const int i) {
             for (int j=0; j < this_num_cols; j++) {
                 // Multiply by sqrt(w) to have PTW
-                PsqrtW(i, j) = PsqrtW(i, j)*std::sqrt(w(i));
+                PW_LL(i, j) = PsqrtW(i, j)*std::sqrt(w(i));
             }
         });
         teamMember.team_barrier();
