@@ -79,14 +79,15 @@ public:
         _scratch_thread_level_b = 1;
         _threads_per_team = 128;
         if (_basis_multiplier*_NP > 96) _threads_per_team += 128;
+        _vector_lanes_per_thread = 8;
 #else
         _scratch_team_level_a = 0;
         _scratch_thread_level_a = 0;
         _scratch_team_level_b = 0;
         _scratch_thread_level_b = 0;
         _threads_per_team = 1;
+        _vector_lanes_per_thread = 1;
 #endif
-        _vector_lanes_per_thread= 1;
     }
 
 ///@}
@@ -191,7 +192,7 @@ public:
     template<typename Tag, class C>
     void CallFunctorWithTeamThreads(const global_index_type batch_size, C functor) const {
         // calls breakout over vector lanes with vector lane size of 1
-        CallFunctorWithTeamThreadsAndVectors<Tag,C>(batch_size, _threads_per_team, _vector_lanes_per_thread, functor);
+        CallFunctorWithTeamThreadsAndVectors<Tag,C>(batch_size, this->getThreadsPerTeam(), 1, functor);
     }
 
     //! Calls a parallel_for
@@ -199,10 +200,26 @@ public:
     template<class C>
     void CallFunctorWithTeamThreads(const global_index_type batch_size, C functor, std::string functor_name = typeid(C).name()) const {
         // calls breakout over vector lanes with vector lane size of 1
-        CallFunctorWithTeamThreadsAndVectors<C>(batch_size, _threads_per_team, _vector_lanes_per_thread, functor, functor_name);
+        CallFunctorWithTeamThreadsAndVectors<C>(batch_size, this->getThreadsPerTeam(), 1, functor, functor_name);
     }
 
-    int getTeamScratchSize(int level) {
+    int getTeamScratchLevel(int level) const {
+        if (level == 0) {
+            return _scratch_team_level_a;
+        } else {
+            return _scratch_team_level_b;
+        }
+    }
+
+    int getThreadScratchLevel(int level) const {
+        if (level == 0) {
+            return _scratch_thread_level_a;
+        } else {
+            return _scratch_thread_level_b;
+        }
+    }
+
+    int getTeamScratchSize(int level) const {
         if (level == 0) {
             return _team_scratch_size_a;
         } else {
@@ -210,12 +227,20 @@ public:
         }
     }
 
-    int getThreadScratchSize(int level) {
+    int getThreadScratchSize(int level) const {
         if (level == 0) {
             return _thread_scratch_size_a;
         } else {
             return _thread_scratch_size_b;
         }
+    }
+    
+    int getThreadsPerTeam(const int vector_lanes_per_thread = 1) const {
+        return _threads_per_team / vector_lanes_per_thread;
+    }
+
+    int getVectorLanesPerThread() const {
+        return _vector_lanes_per_thread;
     }
 
 ///@}
@@ -226,6 +251,21 @@ public:
  */
 ///@{
 
+    void setTeamScratchLevel(int level, int value) {
+        if (level == 0) {
+            _scratch_team_level_a = value;
+        } else {
+            _scratch_team_level_b = value;
+        }
+    }
+
+    void setThreadScratchLevel(int level, int value) {
+        if (level == 0) {
+            _scratch_thread_level_a = value;
+        } else {
+            _scratch_thread_level_b = value;
+        }
+    }
 
     void setTeamScratchSize(int level, int value) {
         if (level == 0) {
