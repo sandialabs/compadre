@@ -5,6 +5,8 @@ namespace GMLS_LinearAlgebra {
 
 void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
 
+    // Do what is necessary so that it can be converted right to left
+
 #ifdef COMPADRE_USE_CUDA
 
     Kokkos::Profiling::pushRegion("QR::Setup(Pointers)");

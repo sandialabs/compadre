@@ -589,6 +589,7 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
     // P is stored layout left, because that is what CUDA and LAPACK expect, and storing it
     // this way prevents copying data later
     auto alt_P = scratch_matrix_left_type(P.data(), P.extent(0), P.extent(1));
+    // TODO: Remove alt_P and just use P
     const int my_num_neighbors = this->getNNeighbors(target_index);
 
     teamMember.team_barrier();

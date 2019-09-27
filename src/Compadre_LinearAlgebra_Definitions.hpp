@@ -13,7 +13,7 @@ void createM(const member_type& teamMember, scratch_matrix_right_type M_data, sc
      */
 
     auto alt_P = scratch_matrix_left_type(weighted_P.data(), weighted_P.extent(0), weighted_P.extent(1));
-
+    // TODO: remove alt_P and change everything to P
     for (int i=0; i<columns; ++i) {
         // offdiagonal entries
         for (int j=0; j<i; ++j) {
