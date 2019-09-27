@@ -15,7 +15,10 @@ namespace Compadre {
 *  ex:
 *  Compadre::ConvertLayoutLeftToRight clr;
 *  Compadre::ParallelManager pm;
-*  pm.CallFunctorWithTeamThreads(clr, 100);
+*  // no tag specified
+*  pm.CallFunctorWithTeamThreads(100, clr, "MyFunctorName");
+*  // some tag specified
+*  pm.CallFunctorWithTeamThreads<DefaultTag>(100, clr);
 */
 class ParallelManager {
 protected:
@@ -99,20 +102,21 @@ public:
  */
 ///@{
 
-    //! Calls a parallel_for using the tag given as the first argument.
+    //! Calls a parallel_for
     //! parallel_for will break out over loops over teams with each vector lane executing code be default
     template<typename Tag, class C>
-    void CallFunctorWithTeamThreadsAndVectors(const global_index_type batch_size, const int threads_per_team, const int vector_lanes_per_thread, C functor) const {
+    void CallFunctorWithTeamThreadsAndVectors(const global_index_type batch_size, const int threads_per_team, 
+            const int vector_lanes_per_thread, C functor) const {
 
-    if ( (_scratch_team_level_a != _scratch_team_level_b) && (_scratch_thread_level_a != _scratch_thread_level_b) ) {
-            // all levels of each type need specified separately
-            Kokkos::parallel_for(
-                Kokkos::TeamPolicy<Tag>(batch_size, threads_per_team, vector_lanes_per_thread)
-                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(_team_scratch_size_a))
-                .set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(_team_scratch_size_b))
-                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(_thread_scratch_size_a))
-                .set_scratch_size(_scratch_thread_level_b, Kokkos::PerThread(_thread_scratch_size_b)),
-                functor, typeid(Tag).name());
+        if ( (_scratch_team_level_a != _scratch_team_level_b) && (_scratch_thread_level_a != _scratch_thread_level_b) ) {
+                // all levels of each type need specified separately
+                Kokkos::parallel_for(
+                    Kokkos::TeamPolicy<Tag>(batch_size, threads_per_team, vector_lanes_per_thread)
+                    .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(_team_scratch_size_a))
+                    .set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(_team_scratch_size_b))
+                    .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(_thread_scratch_size_a))
+                    .set_scratch_size(_scratch_thread_level_b, Kokkos::PerThread(_thread_scratch_size_b)),
+                    functor, typeid(Tag).name());
         } else if (_scratch_team_level_a != _scratch_team_level_b) {
             // scratch thread levels are the same
             Kokkos::parallel_for(
@@ -137,25 +141,65 @@ public:
                 .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(_thread_scratch_size_a + _thread_scratch_size_b)),
                 functor, typeid(Tag).name());
         }
-    }
-    template<class C>
-    void CallFunctorWithTeamThreadsAndVectors(const global_index_type batch_size, const int threads_per_team, const int vector_lanes_per_thread, C functor) const {
-        CallFunctorWithTeamThreadsAndVectors<DefaultTag,C>(batch_size, _threads_per_team, _vector_lanes_per_thread, functor);
+
     }
 
-    //! Calls a parallel for using the tag given as the first argument. 
+    //! Calls a parallel_for
+    //! parallel_for will break out over loops over teams with each vector lane executing code be default
+    template<class C>
+    void CallFunctorWithTeamThreadsAndVectors(const global_index_type batch_size, const int threads_per_team, 
+            const int vector_lanes_per_thread, C functor, std::string functor_name = typeid(C).name()) const {
+
+        if ( (_scratch_team_level_a != _scratch_team_level_b) && (_scratch_thread_level_a != _scratch_thread_level_b) ) {
+            // all levels of each type need specified separately
+            Kokkos::parallel_for(
+                Kokkos::TeamPolicy<>(batch_size, threads_per_team, vector_lanes_per_thread)
+                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(_team_scratch_size_a))
+                .set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(_team_scratch_size_b))
+                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(_thread_scratch_size_a))
+                .set_scratch_size(_scratch_thread_level_b, Kokkos::PerThread(_thread_scratch_size_b)),
+                functor, functor_name);
+        } else if (_scratch_team_level_a != _scratch_team_level_b) {
+            // scratch thread levels are the same
+            Kokkos::parallel_for(
+                Kokkos::TeamPolicy<>(batch_size, threads_per_team, vector_lanes_per_thread)
+                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(_team_scratch_size_a))
+                .set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(_team_scratch_size_b))
+                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(_thread_scratch_size_a + _thread_scratch_size_b)),
+                functor, functor_name);
+        } else if (_scratch_thread_level_a != _scratch_thread_level_b) {
+            // scratch team levels are the same
+            Kokkos::parallel_for(
+                Kokkos::TeamPolicy<>(batch_size, threads_per_team, vector_lanes_per_thread)
+                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(_team_scratch_size_a + _team_scratch_size_b))
+                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(_thread_scratch_size_a))
+                .set_scratch_size(_scratch_thread_level_b, Kokkos::PerThread(_thread_scratch_size_b)),
+                functor, functor_name);
+        } else {
+            // scratch team levels and thread levels are the same
+            Kokkos::parallel_for(
+                Kokkos::TeamPolicy<>(batch_size, threads_per_team, vector_lanes_per_thread)
+                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(_team_scratch_size_a + _team_scratch_size_b))
+                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(_thread_scratch_size_a + _thread_scratch_size_b)),
+                functor, functor_name);
+        }
+
+    }
+
+    //! Calls a parallel_for
     //! parallel_for will break out over loops over teams with each thread executing code be default
-    //template<class C, typename Tag = DefaultTag>
     template<typename Tag, class C>
     void CallFunctorWithTeamThreads(const global_index_type batch_size, C functor) const {
         // calls breakout over vector lanes with vector lane size of 1
         CallFunctorWithTeamThreadsAndVectors<Tag,C>(batch_size, _threads_per_team, _vector_lanes_per_thread, functor);
     }
 
+    //! Calls a parallel_for
+    //! parallel_for will break out over loops over teams with each thread executing code be default
     template<class C>
-    void CallFunctorWithTeamThreads(const global_index_type batch_size, C functor) const {
+    void CallFunctorWithTeamThreads(const global_index_type batch_size, C functor, std::string functor_name = typeid(C).name()) const {
         // calls breakout over vector lanes with vector lane size of 1
-        CallFunctorWithTeamThreadsAndVectors<DefaultTag,C>(batch_size, _threads_per_team, _vector_lanes_per_thread, functor);
+        CallFunctorWithTeamThreadsAndVectors<C>(batch_size, _threads_per_team, _vector_lanes_per_thread, functor, functor_name);
     }
 
     int getTeamScratchSize(int level) {
