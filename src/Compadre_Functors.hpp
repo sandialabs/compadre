@@ -16,6 +16,14 @@ struct ConvertLayoutLeftToRight {
         
         // Quang's code goes here
         int i = teamMember.league_rank();
+        printf("CALLED2!\n");
+
+    }
+    
+    void operator() (const member_type& teamMember) const {
+        
+        // Quang's code goes here
+        int i = teamMember.league_rank();
         printf("CALLED!\n");
 
     }
