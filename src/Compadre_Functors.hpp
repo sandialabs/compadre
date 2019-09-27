@@ -20,6 +20,7 @@ struct ConvertLayoutLeftToRight {
 
     }
     
+    KOKKOS_INLINE_FUNCTION
     void operator() (const member_type& teamMember) const {
         
         // Quang's code goes here
