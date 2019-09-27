@@ -7,6 +7,7 @@
 #include "Compadre_Misc.hpp"
 #include "Compadre_Operators.hpp"
 #include "Compadre_LinearAlgebra_Definitions.hpp"
+#include "Compadre_ParallelManager.hpp"
 
 
 namespace Compadre {
@@ -284,8 +285,8 @@ protected:
     //! calculated number of threads per team
     int _threads_per_team;
 
-
-
+    //! determines scratch level spaces and is used to call kernels
+    ParallelManager _pm;
 
 
 /** @name Private Modifiers

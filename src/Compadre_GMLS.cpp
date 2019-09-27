@@ -171,6 +171,10 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
 
         _thread_scratch_size_b += scratch_vector_type::shmem_size(this_num_cols); // delta, used for each thread
     }
+    _pm.setTeamScratchSize(0, _team_scratch_size_a);
+    _pm.setTeamScratchSize(1, _team_scratch_size_b);
+    _pm.setThreadScratchSize(0, _team_scratch_size_a);
+    _pm.setThreadScratchSize(1, _team_scratch_size_b);
 
     /*
      *    Allocate Global Device Storage of Data Needed Over Multiple Calls
@@ -304,7 +308,8 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
                 this->generate1DQuadrature();
 
             // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity
-            this->CallFunctorWithTeamThreads<AssembleStandardPsqrtW>(this_batch_size, _threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
+            _pm.CallFunctorWithTeamThreads<AssembleStandardPsqrtW>(this_batch_size, *this);
+            //this->CallFunctorWithTeamThreads<AssembleStandardPsqrtW>(this_batch_size, _threads_per_team, _team_scratch_size_a, _team_scratch_size_b, _thread_scratch_size_a, _thread_scratch_size_b);
             Kokkos::fence();
 
             // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
