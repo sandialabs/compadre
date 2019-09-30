@@ -159,6 +159,8 @@ void ParameterManager::setDefaultParameters() {
 	inoutFileList->set("write gids", (bool)true); // write out global IDs
 	inoutFileList->set("gids name", "id"); // name to read in GIDs from / write GIDs to
 
+	inoutFileList->set("flags name", "flag"); // name to read in flags (generally for boundary condition numbering)
+
 	inoutFileList->set("input file prefix", "");
 	inoutFileList->set("input file", "");
 
