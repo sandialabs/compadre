@@ -1,0 +1,46 @@
+<ParameterList name="Compadre">
+  <Parameter name="my coloring" type="int" value="25"/>
+  <Parameter name="peer coloring" type="int" value="33"/>
+  <Parameter name="initial step" type="int" value="1"/>
+  <Parameter name="final step" type="int" value="1000"/>
+  <ParameterList name="io">
+    <Parameter name="input file prefix" type="string" value="../test_data/grids/canga/Cubed-Sphere/"/>
+    <Parameter name="input file" type="string" value="outCSMesh_ne16_TPW_CFR_TPO.g"/>
+    <Parameter name="target file prefix" type="string" value="../test_data/grids/canga/CVT-MPAS/"/>
+    <Parameter name="target file" type="string" value="outICODMesh_ne16.g"/>
+    <Parameter name="output file prefix" type="string" value="../test_data/"/>
+    <Parameter name="output file" type="string" value="canga_output.pvtp"/>
+    <Parameter name="alt output file prefix" type="string" value="../test_data/"/>
+    <Parameter name="alt output file" type="string" value="canga_output.pvtp"/>
+    <Parameter name="vtk produce mesh" type="bool" value="false"/>
+    <Parameter name="coordinates layout" type="string" value="xyz_separate"/>
+    <Parameter name="coordinate 0 name" type="string" value="x"/>
+    <Parameter name="coordinate 1 name" type="string" value="y"/>
+    <Parameter name="coordinate 2 name" type="string" value="z"/>
+  </ParameterList>
+  <ParameterList name="remap">
+    <Parameter name="porder" type="int" value="4"/>
+    <Parameter name="curvature porder" type="int" value="3"/>
+    <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
+    <Parameter name="dense solver type" type="string" value="QR"/>
+    <Parameter name="problem type" type="string" value="MANIFOLD"/>
+    <Parameter name="weighting power" type="int" value="4"/>
+    <Parameter name="curvature weighting power" type="int" value="4"/>
+    <Parameter name="quadrature points" type="int" value="3"/>
+    <Parameter name="optimization algorithm" type="string" value="CAAS"/>
+    <Parameter name="source weighting field name" type="string" value="area"/>
+    <Parameter name="target weighting field name" type="string" value="area"/>
+  </ParameterList>
+  <ParameterList name="neighborhood">
+    <Parameter name="method" type="string" value="nanoflann"/>
+    <Parameter name="dynamic radius" type="bool" value="true"/>
+    <Parameter name="spatially varying radius" type="bool" value="true"/>
+    <Parameter name="multiplier" type="double" value="2.10"/>
+    <Parameter name="size" type="double" value="0.25"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.8"/>
+  </ParameterList>
+  <ParameterList name="halo">
+    <Parameter name="dynamic" type="bool" value="true"/>
+    <Parameter name="multiplier" type="double" value="8.0"/>
+  </ParameterList>
+</ParameterList>

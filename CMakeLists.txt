@@ -537,6 +537,7 @@ set(CompadreHarness_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
 set(CompadreHarness_KEY_BOOLS
     CompadreHarness_USE_LAPACK
+    CompadreHarness_DEBUG
     CompadreHarness_USE_Compose
     CompadreHarness_USE_OPENBLAS
     CompadreHarness_USE_MPI
@@ -583,7 +584,8 @@ bob_get_semver()
 
 # check that either CUDA or LAPACK were turned on (needed for any computation to be performed)
 
-bob_option(Toolkit_DEBUG "Debug Mode" ON)
+bob_option(CompadreHarness_DEBUG "Debug Mode" ON)
+bob_option(Toolkit_DEBUG "Debug Mode" "${CompadreHarness_DEBUG}")
 if (CompadreHarness_USE_CUDA OR CompadreHarness_USE_LAPACK)
   set(Toolkit_PREFIX "${PROJECT_BINARY_DIR}/Toolkit-install")
   set(Toolkit_ARGS

@@ -110,18 +110,16 @@ void FileManager::readerIOChoice(std::string& extension, const bool enforce_seri
 #else
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Not built with VTK.");
 #endif
-	} else if (extension == "nc") {
+	} else if (extension == "nc" || extension == "g" || extension == "exo") {
 #ifdef COMPADREHARNESS_USE_NETCDF
 	#ifdef COMPADREHARNESS_USE_NETCDF_MPI
 		// TODO: be careful that parallel reader can actually handle the .nc file. Unless written in netcdf-4 format, it can not.
         // can check style with 'ncdump -k filename'
         // can convert with 'nccopy -k netCDF-4 old_filename new_filename'
         if (enforce_serial) {
-            printf("second try.\n");
 			new_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::SerialNetCDFFileIO(_particles)));
         }
         else {
-            printf("first try.\n");
 			new_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::ParallelHDF5NetCDFFileIO(_particles)));
         }
 	#else
@@ -170,13 +168,14 @@ void FileManager::writerIOChoice(std::string& extension, const bool enforce_seri
 #else
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Not built with VTK.");
 #endif
-	} else if (extension == "nc") {
+	} else if (extension == "nc" || extension == "g" || extension == "exo") {
 #ifdef COMPADREHARNESS_USE_NETCDF
 	#ifdef COMPADREHARNESS_USE_NETCDF_MPI
-        if (enforce_serial)
+        if (enforce_serial) {
 		    new_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::SerialNetCDFFileIO(_particles)));
-        else
+        } else {
 	  	    new_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::ParallelHDF5NetCDFFileIO(_particles)));
+        }
 	#else
 		new_io = Teuchos::rcp_static_cast<Compadre::FileIO>(Teuchos::rcp(new Compadre::SerialNetCDFFileIO(_particles)));
 	#endif
@@ -197,7 +196,7 @@ void FileManager::read() {
     try {
 	    _io->read(_reader_fn);
     } catch (int e) {
-        if (e==-51) {
+        if (e==-51 || e==-115) {
             // set the reader again, but this time to use the serial reader
             std::string extension = getFilenameExtension(_reader_fn);
             this->readerIOChoice(extension, true /*enforce serial*/);
@@ -522,8 +521,8 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 //		TEUCHOS_TEST_FOR_EXCEPT_MSG(comm_size > 1, "SerialNetCDFFileIO::read called with more than one processor.");
 
 	int ncid, retval;
-	if ((retval = nc_open(fn.c_str(), NC_NOWRITE, &ncid)))
-		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "File not opened successfully.");
+	retval = nc_open(fn.c_str(), NC_NOWRITE, &ncid);
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "File not opened successfully.");
 
 	/* We will learn about the data file and store results in these
 	       program variables. */
@@ -533,9 +532,8 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 	       many netCDF variables, dimensions, and global attributes are in
 	       the file; also the dimension id of the unlimited dimension, if
 	       there is one. */
-	if ((retval = nc_inq(ncid, &ndims_in, &nvars_in, &ngatts_in,
-			 &unlimdimid_in)))
-		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "File not read from successfully.");
+	retval = nc_inq(ncid, &ndims_in, &nvars_in, &ngatts_in, &unlimdimid_in);
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "File not read from successfully.");
 	// TEUCHOS_TEST_FOR_EXCEPT_MSG(unlimdimid_in > 0, "Variables with unlimited dimension not currently supported.");
 
 	std::vector<scalar_type> coords_x;
@@ -734,7 +732,7 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
    	TEUCHOS_TEST_FOR_EXCEPT_MSG(particle_num_dimension_id < 0, "_particle_num_name: " + _particle_num_name + " value not found, or coordinates variable: " + _coordinate_names[0] + " name not found.");
 
     if (_coordinate_layout==CoordinateLayout::XYZ_joint || _coordinate_layout==CoordinateLayout::XYZ_separate) {
-	    TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_x.size()!=coords_y.size() || coords_y.size()!=coords_z.size(), "Different number of x, y, and z coordinates.");
+	    TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_x.size()!=coords_y.size() || coords_y.size()!=coords_z.size(), "Different number of " + _coordinate_names[0] + ": " + std::to_string(coords_x.size()) + ", " + _coordinate_names[1] + ": " + std::to_string(coords_y.size()) + ", " + _coordinate_names[2] + ": " + std::to_string(coords_z.size()) + "\n");
     } else if (_coordinate_layout==CoordinateLayout::LAT_LON_separate) {
         TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_lat.size() != coords_lon.size(), _coordinate_names[0] + " size does not match " + _coordinate_names[1] + " size. "
 			+ std::to_string(coords_lat.size()) + " vs. " + std::to_string(coords_lon.size()) );
@@ -970,6 +968,8 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
         std::cout << "File not opened successfully: ERROR:" + std::to_string(retval) + " FILE: " + fn + ". If you are positive that the file exists, check its\ntype with 'ncdump -k yourfile.nc' and verify that it is of type 'netcdf4' and not 'classic'. If it is 'classic', \nrun 'nccopy -k netCDF-4 your_file your_new_file' to convert the style to netCDF-4." << std::endl;
         std::cout << "Switching to serial reader capable of handling classic netCDF files." << std::endl;
         throw -51;
+    } else if (retval == -115) {
+        throw -115;
     } else {
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "File not opened successfully: ERROR:" + std::to_string(retval) + " FILE: " + fn + ".");
     }
@@ -1134,7 +1134,7 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 	}
 
     if (_coordinate_layout==CoordinateLayout::XYZ_joint || _coordinate_layout==CoordinateLayout::XYZ_separate) {
-	    TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_x_size!=coords_y_size || coords_y_size!=coords_z_size, "Different number of x, y, and z coordinates.");
+	    TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_x_size!=coords_y_size || coords_y_size!=coords_z_size, "Different number of " + _coordinate_names[0] + ": " + std::to_string(coords_x_size) + ", " + _coordinate_names[1] + ": " + std::to_string(coords_y_size) + ", " + _coordinate_names[2] + ": " + std::to_string(coords_z_size) + "\n");
     } else if (_coordinate_layout==CoordinateLayout::LAT_LON_separate) {
         TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_lat_size != coords_lon_size, _coordinate_names[0] + " size does not match " + _coordinate_names[1] + " size. "
 			+ std::to_string(coords_lat_size) + " vs. " + std::to_string(coords_lon_size) );
@@ -1264,7 +1264,7 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 		else if (var_string_lower=="id") {
 			unsigned long start = minInd;
 			unsigned long countDiff = (unsigned long)(local_coords_size);
-			retval = nc_get_vara(ncid, i, &start, &countDiff, &ids[0]);
+			retval = nc_get_vara_longlong(ncid, i, &start, &countDiff, &ids[0]);
 			identified_fields[i] = true;
 		}
 	}
@@ -1867,25 +1867,39 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	std::vector<local_index_type> field_var_ids(fields.size());
 	for (size_t i=0; i<fields.size(); i++){
 		size_t comp_size = fields[i]->nDim();
-		retval = nc_def_dim(ncid, fields[i]->getName().c_str(), comp_size, &field_dim_ids[i]);
+        if (comp_size > 1) {
+		    retval = nc_def_dim(ncid, fields[i]->getName().c_str(), comp_size, &field_dim_ids[i]);
 
-		local_index_type dim_ids[2];
-		dim_ids[0] = particle_dim_id;
-		dim_ids[1] = field_dim_ids[i];
+		    local_index_type dim_ids[2];
+		    dim_ids[0] = particle_dim_id;
+		    dim_ids[1] = field_dim_ids[i];
 
-		retval = nc_def_var(ncid, fields[i]->getName().c_str(), NC_DOUBLE, 2, &dim_ids[0], &field_var_ids[i]);
-		retval = nc_put_att_text(ncid, field_var_ids[i], "units", fields[i]->getUnits().length(), fields[i]->getUnits().c_str());
+		    retval = nc_def_var(ncid, fields[i]->getName().c_str(), NC_DOUBLE, 2, &dim_ids[0], &field_var_ids[i]);
+		    retval = nc_put_att_text(ncid, field_var_ids[i], "units", fields[i]->getUnits().length(), fields[i]->getUnits().c_str());
+        } else if (comp_size==1) {
+		    local_index_type dim_id = particle_dim_id;
+		    retval = nc_def_var(ncid, fields[i]->getName().c_str(), NC_DOUBLE, 1, &dim_id, &field_var_ids[i]);
+		    retval = nc_put_att_text(ncid, field_var_ids[i], "units", fields[i]->getUnits().length(), fields[i]->getUnits().c_str());
+        }
 	}
 
 	// fill portion of vector corresponding to global ids that are located on this processor
 	local_index_type bc_var_id;
 	retval = nc_def_var(ncid, "FLAG", NC_INT, 1, &particle_dim_id, &bc_var_id);
-	retval = nc_put_att_text(ncid, bc_var_id, "units", 4, "none");
+	if ((retval = nc_put_att_text(ncid, bc_var_id, "units", 4, "none")))
+		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "flag units didn't finish.");
 
 	local_index_type ids_var_id;
 	retval = nc_def_var(ncid, "ID", NC_INT64, 1, &particle_dim_id, &ids_var_id);
-	if ((retval = nc_put_att_text(ncid, ids_var_id, "units", 4, "none")))
-		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "id units didn't finish.");
+    if (!retval) {
+	    retval = nc_put_att_text(ncid, ids_var_id, "units", 4, "none");
+    } else if (retval==-42) { // name already in use
+	    retval = nc_inq_varid(ncid, "ID", &ids_var_id);
+	    retval = nc_put_att_text(ncid, ids_var_id, "units", 4, "none");
+    }
+    //printf("retval: %d\n", retval);
+	//if ((retval = nc_put_att_text(ncid, ids_var_id, "units", 4, "none")))
+	//	TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "id units didn't finish.");
 
 	// end of defining dimensions and variables
 	if ((retval = nc_enddef(ncid)))
@@ -1916,11 +1930,11 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 		unsigned long start = (unsigned long)(temporary_map->getMinGlobalIndex());
 		unsigned long countDiff = (unsigned long)(coords_size);
 
-		if ((retval = nc_put_vara(ncid, x_var_id, &start, &countDiff, &coords_x[0])))
+		if ((retval = nc_put_vara_double(ncid, x_var_id, &start, &countDiff, &coords_x[0])))
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "x not written.");
-		if ((retval = nc_put_vara(ncid, y_var_id, &start, &countDiff, &coords_y[0])))
+		if ((retval = nc_put_vara_double(ncid, y_var_id, &start, &countDiff, &coords_y[0])))
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "y not written.");
-		if ((retval = nc_put_vara(ncid, z_var_id, &start, &countDiff, &coords_z[0])))
+		if ((retval = nc_put_vara_double(ncid, z_var_id, &start, &countDiff, &coords_z[0])))
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "z not written.");
 	}
 
@@ -1967,7 +1981,7 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 		for (int k=0; k<coords_size; k++) {
 			gids_vec[k] = gids(k,0);
 		}
-		retval = nc_put_vara(ncid, ids_var_id, &start, &countDiff, &gids_vec[0]);
+		retval = nc_put_vara_longlong(ncid, ids_var_id, &start, &countDiff, &gids_vec[0]);
 	}
 
 	// Close the file

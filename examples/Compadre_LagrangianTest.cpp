@@ -212,7 +212,7 @@ int main (int argc, char* args[]) {
 					rm->add(ro);
 					rm->add(ra);
 
-					rm->execute(false /* don't keep neighborhoods */, false /* use material coords to form neighborhoods */);
+					rm->execute(false /* don't keep neighborhoods */, false /* don't keep GMLS */, false /* don't reuse neighborhoods */, false /* don't reuse GMLS */, false /* use material coords to form neighborhoods */);
 
 					MiscTime->stop();
 					NormTime->start();
@@ -401,7 +401,7 @@ int main (int argc, char* args[]) {
 					rm->add(ro);
 					rm->add(ra);
 
-					rm->execute(false /* don't keep neighborhoods */, true /* use physical coords to form neighborhoods */);
+					rm->execute(false /* don't keep neighborhoods */, false /* don't keep GMLS */, false /* don't reuse neighborhoods */, false /* don't reuse GMLS */, true /* use physical coords to form neighborhoods */);
 
 					std::vector<Compadre::XyzVector> verts_screwed_up;
 					{
