@@ -352,7 +352,7 @@ void VTKData::generateDataSet(bool include_halo, bool for_writing_output, bool u
 		// fill portion of vector corresponding to global ids that are located on this processor
 		bc_id_data->SetNumberOfTuples(_particles->getFlags()->getLocalLength());
 		if (include_halo) ghost_bc_id_data->SetNumberOfTuples(halo_coords_size);
-		host_view_type bc_id = _particles->getFlags()->getLocalView<host_view_type>();
+		host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
 		const local_index_type flag_size = bc_id.dimension_0();
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,flag_size), KOKKOS_LAMBDA(const int j) {
 			double data[comp_size];
@@ -478,7 +478,7 @@ void VTKFileIO::populateParticles() {
 			std::string lowerCaseArrayName = pd->GetArrayName(i);
 			transform(lowerCaseArrayName.begin(), lowerCaseArrayName.end(), lowerCaseArrayName.begin(), ::tolower);
 			if ( std::strcmp(lowerCaseArrayName.c_str(), "bc_id") == 0  || std::strcmp(lowerCaseArrayName.c_str(), "flag") == 0 ) {
-				host_view_type bc_id = _particles->getFlags()->getLocalView<host_view_type>();
+		        host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
 				Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,maxInd+1-minInd), KOKKOS_LAMBDA(const int j) {
 					double data[comp_size];
 					pd->GetArray(i)->GetTuple(j, data);
@@ -755,7 +755,7 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 			identified_fields[i] = true;
 		}
 		else if (var_string_lower=="id") {
-			retval = nc_get_var(ncid, i, &ids[0]);
+			retval = nc_get_var_longlong(ncid, i, &ids[0]);
 			identified_fields[i] = true;
 		}
 	}
@@ -882,7 +882,7 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 
 	if (flags_var_id > 0) { // only read in if it was identified
 		// fill the bc_id
-		host_view_type bc_id = _particles->getFlags()->getLocalView<host_view_type>();
+		host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(minInd,maxInd+1), KOKKOS_LAMBDA(const int i) {
 			bc_id(i-minInd,0) = flags[i];
 		});
@@ -1389,7 +1389,7 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 
 	if (flags_var_id > 0) { // only read in if it was identified
 		// fill the bc_id
-		host_view_type bc_id = _particles->getFlags()->getLocalView<host_view_type>();
+		host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,local_coords_size), KOKKOS_LAMBDA(const int i) {
 			bc_id(i,0) = flags[i];
 		});
@@ -1540,7 +1540,7 @@ int LegacyVTKFileIO::read(const std::string& fn) {
 			std::string lowerCaseArrayName = pd->GetArrayName(i);
 			transform(lowerCaseArrayName.begin(), lowerCaseArrayName.end(), lowerCaseArrayName.begin(), ::tolower);
 			if ( std::strcmp(lowerCaseArrayName.c_str(), "bc_id") == 0  || std::strcmp(lowerCaseArrayName.c_str(), "flag") == 0 ) {
-				host_view_type bc_id = _particles->getFlags()->getLocalView<host_view_type>();
+		        host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
 				Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(minInd,maxInd+1), KOKKOS_LAMBDA(const int j) {
 					double data[comp_size];
 					pd->GetArray(i)->GetTuple(j, data);
@@ -1787,7 +1787,7 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
 
 	{
-		host_view_type bc_id = _particles->getFlags()->getLocalView<host_view_type>();
+		host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
 		std::vector<global_index_type> bc_id_vec(coords_size);
 		for (int k=0; k<coords_size; k++) {
 			bc_id_vec[k] = bc_id(k,0);
@@ -1801,7 +1801,7 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 		for (int k=0; k<coords_size; k++) {
 			gids_vec[k] = gids(k,0);
 		}
-		retval = nc_put_var(ncid, ids_var_id, &gids_vec[0]);
+		retval = nc_put_var_longlong(ncid, ids_var_id, &gids_vec[0]);
 	}
 
 	// Close the file
@@ -1939,7 +1939,9 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	}
 
 
+    //bool IDs_handled = false;
 	for (size_t i=0; i<fields.size(); i++){
+
 		std::vector<scalar_type> host_field_data_vec(coords_size*fields[i]->nDim());
 
 		host_view_type host_field_data = fields[i]->getLocalVectorVals()->getLocalView<host_view_type>();
@@ -1967,21 +1969,23 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 		unsigned long start = (unsigned long)(temporary_map->getMinGlobalIndex());
 		unsigned long countDiff = (unsigned long)(coords_size);
 
-		host_view_type bc_id = _particles->getFlags()->getLocalView<host_view_type>();
+		host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
 		std::vector<global_index_type> bc_id_vec(coords_size);
 		for (int k=0; k<coords_size; k++) {
 			bc_id_vec[k] = bc_id(k,0);
 		}
 		retval = nc_put_vara(ncid, bc_var_id, &start, &countDiff, &bc_id_vec[0]);
 
-		typedef Kokkos::View<const global_index_type*> const_gid_view_type;
-		const_gid_view_type gids = _particles->getCoordsConst()->getMapConst()->getMyGlobalIndices();
+        //if (!IDs_handled) {
+		    typedef Kokkos::View<const global_index_type*> const_gid_view_type;
+		    const_gid_view_type gids = _particles->getCoordsConst()->getMapConst()->getMyGlobalIndices();
 
-		std::vector<global_index_type> gids_vec(coords_size);
-		for (int k=0; k<coords_size; k++) {
-			gids_vec[k] = gids(k,0);
-		}
-		retval = nc_put_vara_longlong(ncid, ids_var_id, &start, &countDiff, &gids_vec[0]);
+		    std::vector<global_index_type> gids_vec(coords_size);
+		    for (int k=0; k<coords_size; k++) {
+		    	gids_vec[k] = gids(k,0);
+		    }
+		    retval = nc_put_vara_longlong(ncid, ids_var_id, &start, &countDiff, &gids_vec[0]);
+        //}
 	}
 
 	// Close the file

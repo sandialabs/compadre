@@ -102,7 +102,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
-	const host_view_type bc_id = this->_particles->getFlags()->getLocalView<host_view_type>();
+	const host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
 	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
 

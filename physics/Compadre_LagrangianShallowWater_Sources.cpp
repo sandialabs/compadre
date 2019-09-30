@@ -24,7 +24,7 @@ void LagrangianShallowWaterSources::evaluateRHS(local_index_type field_one, loca
 //
 //	// temporary this will be a specific function
 //	// in the future, we can pass a Teuchos::ArrayRCP of functors
-//	host_view_type bc_id = this->_particles->getFlags()->getLocalView<host_view_type>();
+//	host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
 //	host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
 //	host_view_type pts = this->_coords->getPts()->getLocalView<host_view_type>();
 //

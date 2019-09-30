@@ -20,15 +20,15 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 		const bool use_physical_coords,
 		const scalar_type bounding_box_relative_tolerance) :
 		RemoteDataManager::RemoteDataManager(global_comm, local_comm, our_coords, my_program_coloring, peer_program_coloring,
-			host_view_type("",0,0), std::vector<int>(0), use_physical_coords, bounding_box_relative_tolerance) {}
+			host_view_local_index_type("",0,0), std::vector<int>(0), use_physical_coords, bounding_box_relative_tolerance) {}
 
 RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_index_type> > global_comm,
 		Teuchos::RCP<const Teuchos::Comm<local_index_type> > local_comm,
 		const coords_type* our_coords,
 		const local_index_type my_program_coloring,
 		const local_index_type peer_program_coloring,
-		host_view_type flags,
-		const std::vector<int> flags_for_transfer,
+		host_view_local_index_type flags,
+		const std::vector<local_index_type> flags_for_transfer,
 		const bool use_physical_coords,
 		const scalar_type bounding_box_relative_tolerance)
 	: _global_comm(global_comm), _local_comm(local_comm), _our_coords(our_coords), _ndim(our_coords->nDim()) {
@@ -297,12 +297,12 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
     			count_type count;
     			scalar_type* peer_box_mins;
     			scalar_type* peer_box_maxs;
-    			host_view_type flags;
+    			host_view_local_index_type flags;
     			const std::vector<int>& flags_to_transfer;
 
     			SearchBoxFunctorConstrained(scalar_type* peer_box_mins_, scalar_type* peer_box_maxs_, gid_view_type gids_found_,
     					host_view_type pts_view_, const_gid_view_type gids_, count_type count_,
-						host_view_type flags_, const std::vector<int>& flags_to_transfer_)
+						host_view_local_index_type flags_, const std::vector<int>& flags_to_transfer_)
     					: gids_found(gids_found_), pts_view(pts_view_), gids(gids_), count(count_)
     			, peer_box_mins(peer_box_mins_), peer_box_maxs(peer_box_maxs_), flags(flags_), flags_to_transfer(flags_to_transfer_) {}
 

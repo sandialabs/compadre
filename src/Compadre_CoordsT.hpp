@@ -62,7 +62,7 @@ class CoordsT {
 		Teuchos::RCP<const map_type> map;
 		Teuchos::RCP<mvec_type> pts;
 		Teuchos::RCP<z2_problem_type> z2problem;
-		Teuchos::RCP<z2_adapter_type> z2adapter;
+		Teuchos::RCP<z2_scalar_adapter_type> z2adapter_scalar;
 		Teuchos::RCP<map_type> halo_map;
 		Teuchos::RCP<mvec_type> halo_pts;
 		Teuchos::RCP<importer_type> halo_importer;
@@ -116,7 +116,8 @@ class CoordsT {
 
 		void zoltan2Partition();
 
-		void applyZoltan2Partition(Teuchos::RCP<mvec_type>& vec) const;
+		void applyZoltan2Partition(Teuchos::RCP<mvec_scalar_type>& vec) const;
+		void applyZoltan2Partition(Teuchos::RCP<mvec_local_index_type>& vec) const;
 
 		void buildHalo(scalar_type h, bool use_physical_coords = true);
 

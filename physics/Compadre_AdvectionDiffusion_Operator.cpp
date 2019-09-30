@@ -83,7 +83,7 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
     const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
     const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
-    const host_view_type bc_id = this->_particles->getFlags()->getLocalView<host_view_type>();
+    const host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
 
 
 

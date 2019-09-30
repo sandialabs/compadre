@@ -49,7 +49,8 @@ class ParticlesT {
 		local_index_type total_field_offsets;
 		std::vector<local_index_type> field_offsets;
 
-		Teuchos::RCP<mvec_type> flag;
+		Teuchos::RCP<mvec_local_index_type> _flag;
+
 		Teuchos::RCP<neighbors_type> _neighborhoodInfo;
 		Teuchos::RCP<fieldmanager_type> _fieldManager;
 		Teuchos::RCP<dofmanager_type> _DOFManager;
@@ -64,7 +65,7 @@ class ParticlesT {
 		virtual ~ParticlesT() {};
 
 		/** @name Coordination
-		 *  Coordination calls that resize all fields and flags to a coordinate changes
+		 *  Coordination calls that resize all fields, flags, and IDs to coordinate changes
 		 */
 		///@{
 		//! creates new maps, vectors, and COPIES existing data
@@ -137,7 +138,7 @@ class ParticlesT {
 
 		double getFlag(const local_index_type idx) const;
 
-		Teuchos::RCP<mvec_type> getFlags() const { return flag; }
+		Teuchos::RCP<mvec_local_index_type> getFlags() const { return _flag; }
 		///@}
 
 

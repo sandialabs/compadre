@@ -155,6 +155,9 @@ void ParameterManager::setDefaultParameters() {
 
 	// Input/Output Details
 	Teuchos::RCP<Teuchos::ParameterList> inoutFileList = Teuchos::rcp(new Teuchos::ParameterList("io"));
+	inoutFileList->set("preserve gids", (bool)true); // preserve global IDs
+	inoutFileList->set("write gids", (bool)true); // write out global IDs
+	inoutFileList->set("gids name", "id"); // name to read in GIDs from / write GIDs to
 
 	inoutFileList->set("input file prefix", "");
 	inoutFileList->set("input file", "");
