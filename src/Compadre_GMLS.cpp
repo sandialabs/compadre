@@ -431,25 +431,61 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
             }
         });
     } else {
-
         // create global memory for matrix M = PsqrtW^T*PsqrtW
         // don't need to cast into scratch_matrix_left_type since the matrix is symmetric
         scratch_matrix_right_type M(_RHS.data()
             + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
         GMLS_LinearAlgebra::createM(teamMember, M, PsqrtW, this_num_cols /* # of columns */, max_num_rows);
 
+//        std::cout << "NON IN FUNCTOR! rows " << max_num_rows << " cols " << this_num_cols << std::endl;
         scratch_matrix_left_type PW_LL(PsqrtW.data(), max_num_rows, this_num_cols);
 
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,max_num_rows), [=] (const int i) {
             for (int j=0; j < this_num_cols; j++) {
-                // Multiply by sqrt(w) to have PTW
-                PW_LL(i, j) = PsqrtW(i, j)*std::sqrt(w(i));
+                 // Multiply by sqrt(w) to have PTW
+                 PW_LL(i, j) = PW_LL(i, j)*std::sqrt(w(i));
             }
         });
         teamMember.team_barrier();
-    }
 
-    teamMember.team_barrier();
+        // // Need to transpose the PsqrtW for LU solver
+        // // create layout left matrix to allow for (i, j) indexing
+        // // LAPACK and CUDA requires layout left matrix
+        // scratch_matrix_left_type PsqrtW_LL(PsqrtW.data(), max_num_rows, this_num_cols);
+
+        // // create layout left matrix
+        // // using the allocated data of PsqrtW
+        // // this memory only lives on team scratch memory - will be deleted out of this scope
+        // scratch_matrix_left_type PW_Transpose_LL(teamMember.team_scratch(_pm.getTeamScratchLevel(1)),
+        //                                          this_num_cols, max_num_rows);
+
+        // // Indexed as 1D array style
+        // // 1D global memory
+        // scratch_vector_type PsqrtW_LL_flat(PsqrtW_LL.data(), this_num_cols*max_num_rows);
+        // // 1D scratch memory for transpose - only lives on team
+        // scratch_vector_type PW_Transpose_LL_flat(PW_Transpose_LL.data(), this_num_cols*max_num_rows);
+
+        // // scratch_matrix_right_type PsqrtW_transpose("A", this_num_cols, max_num_rows);
+        // // no copy from Psqrt to PsqrtW_LL since they point to the same memory (already existed)
+        // // they just stride differently (or viewed differently in layout)
+        // // copy and row-scale from PsqrtW_LL -> PTW_LL_Transpose
+        // Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_cols), [=] (const int i) {
+        //     for (int j=0; j < max_num_rows; j++) {
+        //         // Transpose the matrix and multiply by sqrt(w) to have PTW
+        //         // PW_Transpose_LL(i, j) = PsqrtW_LL(j, i)*std::sqrt(w(j));
+        //         PW_Transpose_LL(i, j) = PsqrtW_LL(j, i);
+        //         // std::cout << "i " << i << " j " << j << " PW_Transpose_LL " << PW_Transpose_LL(i, j) << std::endl;
+        //     }
+        // });
+        // teamMember.team_barrier();
+
+        // // Now copy the flat 1D memory over
+        // Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_cols*max_num_rows), [=] (const int i) {
+        //     PsqrtW_LL_flat(i) = PW_Transpose_LL_flat(i);
+        //     // std::cout << " i " << i << " PsqrtW_LL_flat " << PsqrtW_LL_flat(i) << std::endl;
+        // });
+        // teamMember.team_barrier(); 
+    }
 }
 
 
