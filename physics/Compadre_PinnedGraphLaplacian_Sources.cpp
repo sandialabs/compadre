@@ -20,7 +20,7 @@ void PinnedGraphLaplacianSources::evaluateRHS(local_index_type field_one, local_
 
 	// temporary this will be a specific function
 	// in the future, we can pass a Teuchos::ArrayRCP of functors
-	host_view_type bc_id = this->_particles->getFlags()->getLocalView<host_view_type>();
+	host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
 	host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
 
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());

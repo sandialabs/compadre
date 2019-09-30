@@ -28,7 +28,7 @@ void PinnedGraphLaplacianBoundaryConditions::applyBoundaries(local_index_type fi
 	if (field_two == -1) {
 		field_two = field_one;
 	}
-	host_view_type bc_id = this->_particles->getFlags()->getLocalView<host_view_type>();
+	host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
 	host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
 
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
