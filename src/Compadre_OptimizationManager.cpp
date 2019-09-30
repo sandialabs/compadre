@@ -73,11 +73,15 @@ if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE)
 
         if (std::numeric_limits<scalar_type>::lowest() != _optimization_object._global_lower_bound) {
             use_global_lower_bound = true;
-            //std::cout << "Global minimum enforced of " << _optimization_object._global_lower_bound << "." << std::endl;
+#ifdef COMPADREHARNESS_DEBUG
+            std::cout << "Global minimum enforced of " << _optimization_object._global_lower_bound << "." << std::endl;
+#endif
         }
         if (std::numeric_limits<scalar_type>::max() != _optimization_object._global_upper_bound) {
             use_global_upper_bound = true;
-            //std::cout << "Global maximum enforced of " << _optimization_object._global_upper_bound << "." << std::endl;
+#ifdef COMPADREHARNESS_DEBUG
+            std::cout << "Global maximum enforced of " << _optimization_object._global_upper_bound << "." << std::endl;
+#endif
         }
 
         for (local_index_type j=0; j<target_nlocal; ++j) {
@@ -153,30 +157,30 @@ if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE)
             }
 
 #ifdef COMPADREHARNESS_DEBUG
-//            // diagnostic
-//            scalar_type local_quantity = 0, global_quantity = 0;
-//            for (local_index_type j=0; j<_target_particles->getCoordsConst()->nLocal(); ++j) {
-//                local_quantity += weights[j]*updated_target_values[j];
-//            }
-//            Teuchos::Ptr<scalar_type> global_quantity_ptr(&global_quantity);
-//            Teuchos::reduceAll<local_index_type, scalar_type>(*(_target_particles->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, local_quantity, global_quantity_ptr);
-//
-//            scalar_type residual = global_quantity - global_conserved_quantity;
-//            local_index_type out_of_bounds = 0;
-//            for (int j=0; j<target_num_local; ++j) {
-//                if (updated_target_values[j] > source_maxs[j]+std::abs(residual) || updated_target_values[j] < source_mins[j]-std::abs(residual)) {
-//                    out_of_bounds++;
-//                }
-//            }
-//
-//            // Display algorithm status.
-//            std::cout.precision(15);
-//            std::cout << std::scientific;
-//            if (_target_particles->getCoordsConst()->getComm()->getRank() == 0) {
-//                std::cout << "\nCAAS Algorithm Termination Report:\n";
-//                std::cout << "Residual        ... " << residual << "\n";
-//            }
-//            TEUCHOS_TEST_FOR_EXCEPT_MSG(out_of_bounds!=0, "At least one constructed value out of bounds after bounds preservation enforced.");
+            // diagnostic
+            scalar_type local_quantity = 0, global_quantity = 0;
+            for (local_index_type j=0; j<_target_particles->getCoordsConst()->nLocal(); ++j) {
+                local_quantity += weights[j]*updated_target_values[j];
+            }
+            Teuchos::Ptr<scalar_type> global_quantity_ptr(&global_quantity);
+            Teuchos::reduceAll<local_index_type, scalar_type>(*(_target_particles->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, local_quantity, global_quantity_ptr);
+
+            scalar_type residual = global_quantity - global_conserved_quantity;
+            local_index_type out_of_bounds = 0;
+            for (int j=0; j<target_num_local; ++j) {
+                if (updated_target_values[j] > source_maxs[j]+std::abs(residual) || updated_target_values[j] < source_mins[j]-std::abs(residual)) {
+                    out_of_bounds++;
+                }
+            }
+
+            // Display algorithm status.
+            std::cout.precision(15);
+            std::cout << std::scientific;
+            if (_target_particles->getCoordsConst()->getComm()->getRank() == 0) {
+                std::cout << "\nCAAS Algorithm Termination Report:\n";
+                std::cout << "Residual        ... " << residual << "\n";
+            }
+            TEUCHOS_TEST_FOR_EXCEPT_MSG(out_of_bounds!=0, "At least one constructed value out of bounds after bounds preservation enforced.");
 #endif // DEBUG
 #else
             TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Compose package called but not built. Enable with '-D CompadreHarness_USE_Compose:BOOL=ON'.");

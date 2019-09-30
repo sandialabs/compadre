@@ -18,10 +18,6 @@ pre_CVT_name  = "../../test_data/grids/canga/CVT-MPAS/outICODMesh_ne"
 post1_CVT_name = ""
 post2_CVT_name = ".g"
 
-# initially set to these existing files
-#CS_names = [pre_CS_name+str(i)+post_CS_name for i in NPTS]
-#CVT_names = [pre_CVT_name+str(i)+post_CVT_name for i in NPTS]
-
 def create_XML(pre,post,ext,num):
     e = ET.parse('../test_data/parameter_lists/canga/convert_nc_to_vtk_template.xml').getroot()
     tree = ET.ElementTree(e)
