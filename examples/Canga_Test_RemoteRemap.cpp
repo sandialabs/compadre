@@ -63,7 +63,7 @@ int main (int argc, char* args[]) {
 
 #ifndef COMPADREHARNESS_USE_COMPOSE
     if (parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm")=="CAAS") {
-        printf("\n\n\n\n\n\n\n\nCompose package called but not built. Enable with '-D Compadre_USE_Compose:BOOL=ON'.\n\n\n\n\n\n\n\n");
+        printf("\n\n\n\n\n\n\n\nCompose package called but not built. Enable with '-D CompadreHarness_USE_Compose:BOOL=ON'.\n\n\n\n\n\n\n\n");
         // special return code for testing
         return 77;
     }

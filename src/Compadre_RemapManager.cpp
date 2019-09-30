@@ -24,190 +24,202 @@ typedef Compadre::NeighborhoodT neighbors_type;
 typedef Compadre::CoordsT coords_type;
 typedef Compadre::XyzVector xyz_type;
 
-void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
+void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_neighborhoods, bool reuse_GMLS, bool use_physical_coords) {
+
+    // reuse if requested and GMLS and _neighborhoodInfo is populated
+    bool currently_reusing_GMLS = reuse_GMLS && !(_GMLS.is_null()) && !(_neighborhoodInfo.is_null());
+    bool currently_reusing_neighborhoods = (currently_reusing_GMLS || reuse_neighborhoods) && !(_neighborhoodInfo.is_null());
+    // changing queue will unset _neighborhoodInfo & _GMLS
+    // so we do not need to check if the queue is the same as last time
+    // also we know that every item in queue uses same _GMLS object or it would
+    // not have been saved in the last execute() call
 
     // currently this neighborhood search is always in physical coords for Lagrangian simulation, but it may need to be in Lagrangian
-    
     if (_queue.size()>0) {
     
         std::string method =_parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("method");
         transform(method.begin(), method.end(), method.begin(), ::tolower);
     
-    
-        if (method=="nanoflann") {
+        if (!currently_reusing_neighborhoods) {
             local_index_type maxLeaf = _parameters->get<Teuchos::ParameterList>("neighborhood").get<int>("max leaf");
             _neighborhoodInfo = Teuchos::rcp_static_cast<neighbors_type>(Teuchos::rcp(
                     new nanoflann_neighbors_type(_src_particles, _parameters, maxLeaf, _trg_particles, use_physical_coords)));
+    
+            local_index_type neighbors_needed;
+    
+            std::string problem_type_to_lower = _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type");
+            transform(problem_type_to_lower.begin(), problem_type_to_lower.end(), problem_type_to_lower.begin(), ::tolower);
+    
+            if (problem_type_to_lower == "manifold") {
+                int max_order = std::max(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
+                neighbors_needed = GMLS::getNP(max_order, 2);
+            } else {
+                neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 3);
+            }
+    
+            local_index_type extra_neighbors = _parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
+    
+            _neighborhoodInfo->constructAllNeighborList(_max_radius, extra_neighbors,
+                    _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
+                    _parameters->get<Teuchos::ParameterList>("neighborhood").get<int>("max leaf"),
+                    use_physical_coords);
         }
-        else {
-            TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Selected a search method that is not nanoflann.");
-        }
-    
-    
-        local_index_type neighbors_needed;
-    
-        std::string solver_type_to_lower = _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type");
-        transform(solver_type_to_lower.begin(), solver_type_to_lower.end(), solver_type_to_lower.begin(), ::tolower);
-    
-        if (solver_type_to_lower == "manifold") {
-            int max_order = std::max(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder"));
-            neighbors_needed = GMLS::getNP(max_order, 2);
-        } else {
-            neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 3);
-        }
-    
-        local_index_type extra_neighbors = _parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
-    
-        _neighborhoodInfo->constructAllNeighborList(_max_radius, extra_neighbors,
-                _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
-                _parameters->get<Teuchos::ParameterList>("neighborhood").get<int>("max leaf"),
-                use_physical_coords);
-    
-    
-        //****************
-        //
-        //  Copying data from particles (std::vector's, multivectors, etc....) to views used by local reconstruction class
-        //
-        //****************
-    
+
         const std::vector<std::vector<std::pair<size_t, scalar_type> > >& all_neighbors = _neighborhoodInfo->getAllNeighbors();
-    
-        size_t max_num_neighbors = 0;
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_trg_particles->getCoordsConst()->nLocal()),
-                KOKKOS_LAMBDA (const int i, size_t &myVal) {
-            myVal = (all_neighbors[i].size() > myVal) ? all_neighbors[i].size() : myVal;
-        }, Kokkos::Experimental::Max<size_t>(max_num_neighbors));
-    
+
+        Kokkos::View<int**> kokkos_neighbor_lists;
+        Kokkos::View<double**> kokkos_augmented_source_coordinates;
+        Kokkos::View<double**> kokkos_target_coordinates;
+        Kokkos::View<double*> kokkos_epsilons;
+
         // generate the interpolation operator and call the coefficients needed (storing them)
         const coords_type* target_coords = _trg_particles->getCoordsConst();
         const coords_type* source_coords = _src_particles->getCoordsConst();
+
+        if (!currently_reusing_GMLS) {
     
-        Kokkos::View<int**> kokkos_neighbor_lists("neighbor lists", target_coords->nLocal(), max_num_neighbors+1);
-        Kokkos::View<int**>::HostMirror kokkos_neighbor_lists_host = Kokkos::create_mirror_view(kokkos_neighbor_lists);
+            //****************
+            //
+            //  Copying data from particles (std::vector's, multivectors, etc....) to views used by local reconstruction class
+            //
+            //****************
     
-        // fill in the neighbor lists into a kokkos view. First entry is # of neighbors for that target
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
-            const int num_i_neighbors = all_neighbors[i].size();
-            for (int j=1; j<num_i_neighbors+1; ++j) {
-                kokkos_neighbor_lists_host(i,j) = all_neighbors[i][j-1].first;
-            }
-            kokkos_neighbor_lists_host(i,0) = num_i_neighbors;
-        });
+            size_t max_num_neighbors = 0;
+            Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_trg_particles->getCoordsConst()->nLocal()),
+                    KOKKOS_LAMBDA (const int i, size_t &myVal) {
+                myVal = (all_neighbors[i].size() > myVal) ? all_neighbors[i].size() : myVal;
+            }, Kokkos::Experimental::Max<size_t>(max_num_neighbors));
     
-        Kokkos::View<double**> kokkos_augmented_source_coordinates("source_coordinates", source_coords->nLocal(true /* include halo in count */), source_coords->nDim());
-        Kokkos::View<double**>::HostMirror kokkos_augmented_source_coordinates_host = Kokkos::create_mirror_view(kokkos_augmented_source_coordinates);
+            kokkos_neighbor_lists = Kokkos::View<int**>("neighbor lists", target_coords->nLocal(), max_num_neighbors+1);
+            Kokkos::View<int**>::HostMirror kokkos_neighbor_lists_host = Kokkos::create_mirror_view(kokkos_neighbor_lists);
+            // fill in the neighbor lists into a kokkos view. First entry is # of neighbors for that target
+            Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
+                const int num_i_neighbors = all_neighbors[i].size();
+                for (int j=1; j<num_i_neighbors+1; ++j) {
+                    kokkos_neighbor_lists_host(i,j) = all_neighbors[i][j-1].first;
+                }
+                kokkos_neighbor_lists_host(i,0) = num_i_neighbors;
+            });
+            Kokkos::deep_copy(kokkos_neighbor_lists, kokkos_neighbor_lists_host);
     
-        // fill in the source coords, adding regular with halo coordiantes into a kokkos view
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,source_coords->nLocal(true /* include halo in count*/)), KOKKOS_LAMBDA(const int i) {
-            xyz_type coordinate = source_coords->getLocalCoords(i, true /*include halo*/, use_physical_coords);
-            kokkos_augmented_source_coordinates_host(i,0) = coordinate.x;
-            kokkos_augmented_source_coordinates_host(i,1) = coordinate.y;
-            kokkos_augmented_source_coordinates_host(i,2) = coordinate.z;
-        });
+            kokkos_augmented_source_coordinates = Kokkos::View<double**>("source_coordinates", source_coords->nLocal(true /* include halo in count */), source_coords->nDim());
+            Kokkos::View<double**>::HostMirror kokkos_augmented_source_coordinates_host = Kokkos::create_mirror_view(kokkos_augmented_source_coordinates);
+            // fill in the source coords, adding regular with halo coordiantes into a kokkos view
+            Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,source_coords->nLocal(true /* include halo in count*/)), KOKKOS_LAMBDA(const int i) {
+                xyz_type coordinate = source_coords->getLocalCoords(i, true /*include halo*/, use_physical_coords);
+                kokkos_augmented_source_coordinates_host(i,0) = coordinate.x;
+                kokkos_augmented_source_coordinates_host(i,1) = coordinate.y;
+                kokkos_augmented_source_coordinates_host(i,2) = coordinate.z;
+            });
+            Kokkos::deep_copy(kokkos_augmented_source_coordinates, kokkos_augmented_source_coordinates_host);
     
-        Kokkos::View<double**> kokkos_target_coordinates("target_coordinates", target_coords->nLocal(), target_coords->nDim());
-        Kokkos::View<double**>::HostMirror kokkos_target_coordinates_host = Kokkos::create_mirror_view(kokkos_target_coordinates);
-        // fill in the target, adding regular coordiantes only into a kokkos view
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
-            xyz_type coordinate = target_coords->getLocalCoords(i, false /*include halo*/, use_physical_coords);
-            kokkos_target_coordinates_host(i,0) = coordinate.x;
-            kokkos_target_coordinates_host(i,1) = coordinate.y;
-            kokkos_target_coordinates_host(i,2) = coordinate.z;
-        });
+            kokkos_target_coordinates = Kokkos::View<double**>("target_coordinates", target_coords->nLocal(), target_coords->nDim());
+            Kokkos::View<double**>::HostMirror kokkos_target_coordinates_host = Kokkos::create_mirror_view(kokkos_target_coordinates);
+            // fill in the target, adding regular coordiantes only into a kokkos view
+            Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
+                xyz_type coordinate = target_coords->getLocalCoords(i, false /*include halo*/, use_physical_coords);
+                kokkos_target_coordinates_host(i,0) = coordinate.x;
+                kokkos_target_coordinates_host(i,1) = coordinate.y;
+                kokkos_target_coordinates_host(i,2) = coordinate.z;
+            });
+            Kokkos::deep_copy(kokkos_target_coordinates, kokkos_target_coordinates_host);
     
-        auto epsilons = _neighborhoodInfo->getHSupportSizes()->getLocalView<const host_view_type>();
-        Kokkos::View<double*> kokkos_epsilons("target_coordinates", target_coords->nLocal(), target_coords->nDim());
-        Kokkos::View<double*>::HostMirror kokkos_epsilons_host = Kokkos::create_mirror_view(kokkos_epsilons);
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
-            kokkos_epsilons_host(i) = epsilons(i,0);
-        });
+            auto epsilons = _neighborhoodInfo->getHSupportSizes()->getLocalView<const host_view_type>();
+            kokkos_epsilons = Kokkos::View<double*>("target_coordinates", target_coords->nLocal(), target_coords->nDim());
+            Kokkos::View<double*>::HostMirror kokkos_epsilons_host = Kokkos::create_mirror_view(kokkos_epsilons);
+            Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
+                kokkos_epsilons_host(i) = epsilons(i,0);
+            });
+            Kokkos::deep_copy(kokkos_epsilons, kokkos_epsilons_host);
     
-        //****************
-        //
-        //  End of data copying
-        //
-        //****************
+            //****************
+            //
+            //  End of data copying
+            //
+            //****************
     
+        }
     
         // loop over all of the fields and use the stored coefficients
         bool gmls_problem_compatible_with_previous_object = false;
         for (size_t i=0; i<_queue.size(); i++) {
-    
-            // if first time through or sampling strategy changes
-            // conditions for resetting GMLS object
-            bool first_in_queue = (i==0);
-            if (!first_in_queue) {
-                gmls_problem_compatible_with_previous_object = this->isCompatible(_queue[i], _queue[i-1]);
-            }
 
-            if (!gmls_problem_compatible_with_previous_object) {
-
-                _GMLS = Teuchos::rcp(new GMLS(_queue[i]._reconstruction_space,
-                        _queue[i]._polynomial_sampling_functional,
-                        _queue[i]._data_sampling_functional,
-                        _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-                        _parameters->get<Teuchos::ParameterList>("remap").get<int>("dimensions"),
-                        _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
-                        _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
-                        _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("constraint type"),
-                        _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder")));
-    
-                _GMLS->setProblemData(kokkos_neighbor_lists_host,
-                        kokkos_augmented_source_coordinates_host,
-                        kokkos_target_coordinates,
-                        kokkos_epsilons_host);
-    
-                _GMLS->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-                _GMLS->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
-                _GMLS->setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
-                _GMLS->setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
-                _GMLS->setNumberOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature points"));
-
-                if (_queue[i]._reference_normal_directions_fieldname != "") {
-                    auto reference_normal_directions = 
-                        _trg_particles->getFieldManager()->getFieldByName(_queue[i]._reference_normal_directions_fieldname)->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-                    _GMLS->setReferenceOutwardNormalDirection(reference_normal_directions, true /*use_to_orient_surface*/);
+            if (!currently_reusing_GMLS) {
+                // if first time through or sampling strategy changes
+                // conditions for resetting GMLS object
+                bool first_in_queue = (i==0);
+                if (!first_in_queue) {
+                    gmls_problem_compatible_with_previous_object = this->isCompatible(_queue[i], _queue[i-1]);
                 }
 
-                if (_queue[i]._extra_data_fieldname != "") {
+                if (!gmls_problem_compatible_with_previous_object) {
+    
+                    _GMLS = Teuchos::rcp(new GMLS(_queue[i]._reconstruction_space,
+                            _queue[i]._polynomial_sampling_functional,
+                            _queue[i]._data_sampling_functional,
+                            _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<int>("dimensions"),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type"),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("constraint type"),
+                            _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder")));
+    
+                    _GMLS->setProblemData(kokkos_neighbor_lists,
+                            kokkos_augmented_source_coordinates,
+                            kokkos_target_coordinates,
+                            kokkos_epsilons);
+    
+                    _GMLS->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
+                    _GMLS->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+                    _GMLS->setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
+                    _GMLS->setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
+                    _GMLS->setNumberOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature points"));
 
-                    auto extra_data_local = 
-                        _src_particles->getFieldManagerConst()->getFieldByName(_queue[i]._extra_data_fieldname)->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-                    auto extra_data_halo = 
-                        _src_particles->getFieldManagerConst()->getFieldByName(_queue[i]._extra_data_fieldname)->getHaloMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-                    auto combined_extra_data = host_view_type("combined extra data", extra_data_local.extent(0) + extra_data_halo.extent(0), extra_data_local.extent(1));
-    
-                    // fill in combined data
-                    auto nlocal = source_coords->nLocal(false); // locally owned #
-                    auto ncols = combined_extra_data.extent(1);
-                    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,source_coords->nLocal(true /* include halo in count*/)), KOKKOS_LAMBDA(const int j) {
-                        for (size_t k=0; k<ncols; ++k) {
-                            if (j < nlocal) {
-                                combined_extra_data(j,k) = extra_data_local(j,k);
-                            } else {
-                                combined_extra_data(j,k) = extra_data_halo(j-nlocal,k);
-                            }
-                        }
-                    });
-
-                    _GMLS->setExtraData(combined_extra_data);
-                }
-    
-    
-                std::vector<TargetOperation> lro;
-                for (size_t j=i; j<_queue.size(); j++) {
-                    // only add targets with all other remap object properties matching
-                    gmls_problem_compatible_with_previous_object = this->isCompatible(_queue[i], _queue[j]);
-                    if (gmls_problem_compatible_with_previous_object) {
-                        lro.push_back(_queue[j]._target_operation);
+                    if (_queue[i]._reference_normal_directions_fieldname != "") {
+                        auto reference_normal_directions = 
+                            _trg_particles->getFieldManager()->getFieldByName(_queue[i]._reference_normal_directions_fieldname)->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                        _GMLS->setReferenceOutwardNormalDirection(reference_normal_directions, true /*use_to_orient_surface*/);
                     }
+
+                    if (_queue[i]._extra_data_fieldname != "") {
+
+                        auto extra_data_local = 
+                            _src_particles->getFieldManagerConst()->getFieldByName(_queue[i]._extra_data_fieldname)->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                        auto extra_data_halo = 
+                            _src_particles->getFieldManagerConst()->getFieldByName(_queue[i]._extra_data_fieldname)->getHaloMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                        auto combined_extra_data = host_view_type("combined extra data", extra_data_local.extent(0) + extra_data_halo.extent(0), extra_data_local.extent(1));
+    
+                        // fill in combined data
+                        auto nlocal = source_coords->nLocal(false); // locally owned #
+                        auto ncols = combined_extra_data.extent(1);
+                        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,source_coords->nLocal(true /* include halo in count*/)), KOKKOS_LAMBDA(const int j) {
+                            for (local_index_type k=0; k<ncols; ++k) {
+                                if (j < nlocal) {
+                                    combined_extra_data(j,k) = extra_data_local(j,k);
+                                } else {
+                                    combined_extra_data(j,k) = extra_data_halo(j-nlocal,k);
+                                }
+                            }
+                        });
+
+                        _GMLS->setExtraData(combined_extra_data);
+                    }
+    
+    
+                    std::vector<TargetOperation> lro;
+                    for (local_index_type j=i; j<_queue.size(); j++) {
+                        // only add targets with all other remap object properties matching
+                        gmls_problem_compatible_with_previous_object = this->isCompatible(_queue[i], _queue[j]);
+                        if (gmls_problem_compatible_with_previous_object) {
+                            lro.push_back(_queue[j]._target_operation);
+                        }
+                    }
+    
+                    _GMLS->addTargets(lro);
+                    _GMLS->generateAlphas(); // all operations requested
+    
                 }
-    
-                _GMLS->addTargets(lro);
-                _GMLS->generateAlphas(); // all operations requested
-    
             }
-    
     
     
             // get target and source field numbers
@@ -394,11 +406,25 @@ void RemapManager::execute(bool keep_neighborhoods, bool use_physical_coords) {
             }
         }
     } // _queue.size>0
-    
-    // clear the queue
-    this->clear();
+
     if (!keep_neighborhoods) {
         _neighborhoodInfo = Teuchos::null;
+        if (keep_GMLS) printf("keep_neighborhoods set to false, but keep_GMLS set to true, so keep_GMLS is now set to false.\n");
+        keep_GMLS = false;
+    }
+
+    if (keep_GMLS) {
+        // everything in queue must use the same _GMLS object
+        bool compatible_for_keeping = true;
+        for (size_t i=1; i<_queue.size(); ++i) {
+            compatible_for_keeping = compatible_for_keeping && this->isCompatible(_queue[i], _queue[i-1]);
+            //TEUCHOS_TEST_FOR_EXCEPT_MSG(!(this->isCompatible(_queue[i], _queue[i-1])), "Attempting to reuse neighborhoods and GMLS, but elements in queue are incompatible with previously saved GMLS object.");
+        }
+        if (!compatible_for_keeping) {
+            printf("keep_GMLS set to true, but items in remap queue are not compatible with having only one GMLS object.\n");
+            _GMLS = Teuchos::null;
+        }
+    } else {
         _GMLS = Teuchos::null;
     }
 }
@@ -463,6 +489,9 @@ void RemapManager::add(RemapObject obj) {
         }
     }
     if (!obj_inserted) _queue.push_back(obj); // also takes care of case where you match up to the last item in the queue, but never found one that differed
+
+    // changing the queue invalidates reusing GMLS object
+    this->_GMLS = Teuchos::null;
 }
 
 bool RemapManager::isCompatible(const RemapObject obj_1, const RemapObject obj_2) const {
