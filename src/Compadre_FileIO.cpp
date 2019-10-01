@@ -429,6 +429,12 @@ void VTKData::generateCombinedDataSet() {
 
 void VTKFileIO::populateParticles() {
 
+	std::string flag_string_lower(_particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("flags name"));
+	transform(flag_string_lower.begin(), flag_string_lower.end(), flag_string_lower.begin(), ::tolower);
+
+	std::string gid_string_lower(_particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("gids name"));
+	transform(gid_string_lower.begin(), gid_string_lower.end(), gid_string_lower.begin(), ::tolower);
+
 	coords_type* coords = _particles->getCoords();
 
 	auto nPtsLocal = _dataSet->GetNumberOfPoints();
@@ -442,7 +448,7 @@ void VTKFileIO::populateParticles() {
 	    for (int i = 0; i < pd->GetNumberOfArrays(); i++) {
 	    	std::string lowerCaseArrayName = pd->GetArrayName(i);
 	    	transform(lowerCaseArrayName.begin(), lowerCaseArrayName.end(), lowerCaseArrayName.begin(), ::tolower);
-	    	if (lowerCaseArrayName == _particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("gids name")) {
+	    	if (lowerCaseArrayName == gid_string_lower) {
                 // need to prepare gids here
 		        const vtkIdType comp_size = pd->GetArray(i)->GetNumberOfComponents();
 	            TEUCHOS_TEST_FOR_EXCEPT_MSG(comp_size!=1,
@@ -494,7 +500,7 @@ void VTKFileIO::populateParticles() {
 		const vtkIdType comp_size = pd->GetArray(i)->GetNumberOfComponents();
 		std::string lowerCaseArrayName = pd->GetArrayName(i);
 		transform(lowerCaseArrayName.begin(), lowerCaseArrayName.end(), lowerCaseArrayName.begin(), ::tolower);
-		if (lowerCaseArrayName == _particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("flags name")) {
+		if (lowerCaseArrayName == flag_string_lower) {
 	        host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
 			Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int j) {
 				double data[comp_size];
@@ -1187,14 +1193,12 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 	std::cout << "initializing " << nPtsGlobal << " coordinates...\n";
 	std::cout << "initializing map ...\n";
 
+    // even if preserving GIDs, need the local sizes to fill with GID information
 	_particles->resize(nPtsGlobal);
-
 	auto minInd = coords->getMinGlobalIndex();
 	auto maxInd = coords->getMaxGlobalIndex();
-
-	std::cout << "min: " << minInd << " max: " << maxInd << std::endl;
-	std::cout << "compare len: " << coords->nLocal() << " to " << maxInd-minInd << std::endl;
-
+	//std::cout << "min: " << minInd << " max: " << maxInd << std::endl;
+	//std::cout << "compare len: " << coords->nLocal() << " to " << maxInd-minInd << std::endl;
 	local_index_type local_coords_size = (maxInd - minInd + 1);
 
 
@@ -1204,9 +1208,16 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 	std::vector<scalar_type> coords_lat;
 	std::vector<scalar_type> coords_lon;
 	std::vector<local_index_type> flags(local_coords_size);
-	std::vector<global_index_type> ids(local_coords_size);
+	std::vector<global_index_type> gids(local_coords_size);
 
 	local_index_type flags_var_id = -1;
+	local_index_type gids_var_id = -1;
+
+	std::string flag_string_lower(_particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("flags name"));
+	transform(flag_string_lower.begin(), flag_string_lower.end(), flag_string_lower.begin(), ::tolower);
+
+	std::string gid_string_lower(_particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("gids name"));
+	transform(gid_string_lower.begin(), gid_string_lower.end(), gid_string_lower.begin(), ::tolower);
 
 	for (local_index_type i=0; i<nvars_in; i++) {
 		char var_name[256];
@@ -1292,20 +1303,40 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 		    	retval = nc_get_vara_double(ncid, i, &start, &countDiff, &coords_lon[0]);
 		    }
         }
-		else if (var_string_lower=="flag") {
+    }
+	for (local_index_type i=0; i<nvars_in; i++) {
+		char var_name[256];
+		retval = nc_inq_varname(ncid, i, var_name);
+		std::string var_string_lower(var_name);
+		transform(var_string_lower.begin(), var_string_lower.end(), var_string_lower.begin(), ::tolower);
+		if (var_string_lower==flag_string_lower) {
 			unsigned long start = minInd;
 			unsigned long countDiff = (unsigned long)(local_coords_size);
 			retval = nc_get_vara_int(ncid, i, &start, &countDiff, &flags[0]);
 			identified_fields[i] = true;
 			flags_var_id = i;
 		}
-		else if (var_string_lower=="id") {
+		else if (var_string_lower==gid_string_lower) {
 			unsigned long start = minInd;
 			unsigned long countDiff = (unsigned long)(local_coords_size);
-			retval = nc_get_vara_longlong(ncid, i, &start, &countDiff, &ids[0]);
+			retval = nc_get_vara_longlong(ncid, i, &start, &countDiff, &gids[0]);
 			identified_fields[i] = true;
+			gids_var_id = i;
 		}
 	}
+
+    // to do GID preservation, we first have to get a new coordinate map that breaks up
+    // global points, then we get GIDs read in locally, then create a new map using these gids
+    if (_particles->getParameters()->get<Teuchos::ParameterList>("io").get<bool>("preserve gids")) {
+        // add assert here that gids_var_id >= 0
+		TEUCHOS_TEST_FOR_EXCEPT_MSG(gids_var_id < 0, "'gids name' field not found but 'preserve gids' is set to true.");
+		auto gids_view = host_view_global_index_type("gids", local_coords_size, 1);
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,local_coords_size), KOKKOS_LAMBDA(const int i) {
+            gids_view(i,0) = gids[i];
+        });
+		Kokkos::fence(); 
+    	_particles->resize(gids_view);
+    }
 
 	local_index_type num_fields_identified = 0;
 	for (auto val : identified_fields) { if (val) num_fields_identified++; }
@@ -1777,12 +1808,18 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
 	// fill portion of vector corresponding to global ids that are located on this processor
 	local_index_type bc_var_id;
-	retval = nc_def_var(ncid, "FLAG", NC_INT, 1, &particle_dim_id, &bc_var_id);
+	retval = nc_def_var(ncid, 
+            _particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("flags name").c_str(), 
+            NC_INT, 1, &particle_dim_id, &bc_var_id);
 	retval = nc_put_att_text(ncid, bc_var_id, "units", 4, "none");
 
-	local_index_type ids_var_id;
-	retval = nc_def_var(ncid, "ID", NC_INT64, 1, &particle_dim_id, &ids_var_id);
-	retval = nc_put_att_text(ncid, ids_var_id, "units", 4, "none");
+	local_index_type gids_var_id = -1;
+    if (_particles->getParameters()->get<Teuchos::ParameterList>("io").get<bool>("write gids")) {
+	    retval = nc_def_var(ncid, 
+                _particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("gids name").c_str(), 
+                NC_INT64, 1, &particle_dim_id, &gids_var_id);
+	    retval = nc_put_att_text(ncid, gids_var_id, "units", 4, "none");
+    }
 
 	// end of defining dimensions and variables
 	retval = nc_enddef(ncid);
@@ -1825,6 +1862,7 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
 
 	{
+        // flags
 		host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
 		std::vector<global_index_type> bc_id_vec(coords_size);
 		for (int k=0; k<coords_size; k++) {
@@ -1832,14 +1870,20 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 		}
 		retval = nc_put_var(ncid, bc_var_id, &bc_id_vec[0]);
 
-		typedef Kokkos::View<const global_index_type*> const_gid_view_type;
-		const_gid_view_type gids = _particles->getCoordsConst()->getMapConst()->getMyGlobalIndices();
 
-		std::vector<global_index_type> gids_vec(coords_size);
-		for (int k=0; k<coords_size; k++) {
-			gids_vec[k] = gids(k,0);
-		}
-		retval = nc_put_var_longlong(ncid, ids_var_id, &gids_vec[0]);
+        if (_particles->getParameters()->get<Teuchos::ParameterList>("io").get<bool>("write gids")) {
+            // GIDs
+		    typedef Kokkos::View<const global_index_type*> const_gid_view_type;
+		    const_gid_view_type gids = _particles->getCoordsConst()->getMapConst()->getMyGlobalIndices();
+
+		    std::vector<global_index_type> gids_vec(coords_size);
+		    for (int k=0; k<coords_size; k++) {
+		    	gids_vec[k] = gids(k,0);
+		    }
+
+		    retval = nc_put_var_longlong(ncid, gids_var_id, &gids_vec[0]);
+        }
+
 	}
 
 	// Close the file
@@ -1923,17 +1967,25 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
 	// fill portion of vector corresponding to global ids that are located on this processor
 	local_index_type bc_var_id;
-	retval = nc_def_var(ncid, "FLAG", NC_INT, 1, &particle_dim_id, &bc_var_id);
+	retval = nc_def_var(ncid, 
+            _particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("flags name").c_str(), 
+            NC_INT, 1, &particle_dim_id, &bc_var_id);
 	if ((retval = nc_put_att_text(ncid, bc_var_id, "units", 4, "none")))
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "flag units didn't finish.");
 
-	local_index_type ids_var_id;
-	retval = nc_def_var(ncid, "ID", NC_INT64, 1, &particle_dim_id, &ids_var_id);
-    if (!retval) {
-	    retval = nc_put_att_text(ncid, ids_var_id, "units", 4, "none");
-    } else if (retval==-42) { // name already in use
-	    retval = nc_inq_varid(ncid, "ID", &ids_var_id);
-	    retval = nc_put_att_text(ncid, ids_var_id, "units", 4, "none");
+	local_index_type gids_var_id = -1;
+    if (_particles->getParameters()->get<Teuchos::ParameterList>("io").get<bool>("write gids")) {
+	    retval = nc_def_var(ncid, 
+                _particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("gids name").c_str(), 
+                NC_INT64, 1, &particle_dim_id, &gids_var_id);
+        if (!retval) {
+	        retval = nc_put_att_text(ncid, gids_var_id, "units", 4, "none");
+        } else if (retval==-42) { // name already in use
+	        retval = nc_inq_varid(ncid, 
+                    _particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("gids name").c_str(), 
+                    &gids_var_id);
+	        retval = nc_put_att_text(ncid, gids_var_id, "units", 4, "none");
+        }
     }
     //printf("retval: %d\n", retval);
 	//if ((retval = nc_put_att_text(ncid, ids_var_id, "units", 4, "none")))
@@ -2007,6 +2059,7 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 		unsigned long start = (unsigned long)(temporary_map->getMinGlobalIndex());
 		unsigned long countDiff = (unsigned long)(coords_size);
 
+        // flags
 		host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
 		std::vector<global_index_type> bc_id_vec(coords_size);
 		for (int k=0; k<coords_size; k++) {
@@ -2014,7 +2067,8 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 		}
 		retval = nc_put_vara(ncid, bc_var_id, &start, &countDiff, &bc_id_vec[0]);
 
-        //if (!IDs_handled) {
+        if (_particles->getParameters()->get<Teuchos::ParameterList>("io").get<bool>("write gids")) {
+            // GIDs
 		    typedef Kokkos::View<const global_index_type*> const_gid_view_type;
 		    const_gid_view_type gids = _particles->getCoordsConst()->getMapConst()->getMyGlobalIndices();
 
@@ -2022,8 +2076,8 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 		    for (int k=0; k<coords_size; k++) {
 		    	gids_vec[k] = gids(k,0);
 		    }
-		    retval = nc_put_vara_longlong(ncid, ids_var_id, &start, &countDiff, &gids_vec[0]);
-        //}
+		    retval = nc_put_vara_longlong(ncid, gids_var_id, &start, &countDiff, &gids_vec[0]);
+        }
 	}
 
 	// Close the file
