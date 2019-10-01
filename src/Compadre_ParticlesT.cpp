@@ -299,6 +299,21 @@ void ParticlesT::resize(const global_index_type nn, bool local_resize) {
 	_fieldManager->resetAll(_coords.getRawPtr());
 }
 
+void ParticlesT::resize(host_view_global_index_type gids) {
+	// first resize coordinates, then reinitialize/resize all things depending on coordinates
+	// next, resize data in each field
+
+	// anything initialized off of a constructor of this class should be resized/reinitialized here
+	_coords->localResize(gids);
+
+	const bool setToZero = true;
+	_flag = Teuchos::rcp(new mvec_local_index_type(_coords->getMapConst(), 1, setToZero));
+//			auto out = Teuchos::getFancyOStream(Teuchos::rcpFromRef(std::cout));
+//			flag->describe(*out, Teuchos::VERB_EXTREME);
+
+	_fieldManager->resetAll(_coords.getRawPtr());
+}
+
 void ParticlesT::zoltan2Initialize(bool use_physical_coords) {
 	// if box data not found in VTKs
 	_coords->zoltan2Init(use_physical_coords);

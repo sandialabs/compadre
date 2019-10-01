@@ -95,6 +95,9 @@ class ParticlesT {
 		//! creates new maps, vectors, and RESETS all existing data
 		void resize(const global_index_type nn, bool local_resize = false);
 
+		//! creates new maps, vectors, and RESETS all existing data
+		void resize(host_view_global_index_type gids);
+
 		//! permutes data in coords, flags, and fields
 		void zoltan2Initialize(bool use_physical_coords = true);
 		///@}
