@@ -461,11 +461,7 @@ void VTKFileIO::populateParticles() {
 			    	gids(j,0) = static_cast<global_index_type>(data[0]);
 			    });
 
-	            //for (local_index_type j=0; j<gids.extent(0); j++) {
-                //    printf("%d: %lli\n", j, gids(j,0));    
-                //}
-
-	            _particles->resize(gids);//nPtsLocal, true /*local number known resize*/);
+	            _particles->resize(gids);
                 gids_field_found = true;
                 break;
             }
@@ -1526,6 +1522,12 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 
 int LegacyVTKFileIO::read(const std::string& fn) {
 
+	std::string flag_string_lower(_particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("flags name"));
+	transform(flag_string_lower.begin(), flag_string_lower.end(), flag_string_lower.begin(), ::tolower);
+
+	std::string gid_string_lower(_particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("gids name"));
+	transform(gid_string_lower.begin(), gid_string_lower.end(), gid_string_lower.begin(), ::tolower);
+
 	vtkSmartPointer<vtkDataReader> general_reader =
 		vtkSmartPointer<vtkDataReader>::New();
 	general_reader->SetFileName(fn.c_str());
@@ -1559,76 +1561,88 @@ int LegacyVTKFileIO::read(const std::string& fn) {
 	}
 
 	coords_type* coords = _particles->getCoords();
-
 	auto nPtsGlobal = _dataSet->GetNumberOfPoints();
-
-//			std::cout << "initializing " << nPtsGlobal << " coordinates...\n";
-//						std::cout << "initializing map ...\n";
-
 	_particles->resize(nPtsGlobal);
+	// global indices but are local to this processor
+	auto minInd = coords->getMinGlobalIndex();
+	auto maxInd = coords->getMaxGlobalIndex();
+    auto nPtsLocal = maxInd+1-minInd;
 
 	// Now check for point data
 	vtkPointData *pd = _dataSet->GetPointData();
-	if (pd)
-	{
-//				std::cout << nPtsGlobal << " points contains point data with "
-//					<< pd->GetNumberOfArrays() << " "
-//					<< pd->GetNumberOfComponents()
-//					<< " arrays." << std::endl;
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(pd==NULL, "Error in dataSet.");
 
-		// global indices but are local to this processor
-		auto minInd = coords->getMinGlobalIndex();
-		auto maxInd = coords->getMaxGlobalIndex();
+	if (_particles->getParameters()->get<Teuchos::ParameterList>("io").get<bool>("preserve gids")) {
+        bool gids_field_found = false;
+	    for (int i = 0; i < pd->GetNumberOfArrays(); i++) {
+	    	std::string lowerCaseArrayName = pd->GetArrayName(i);
+	    	transform(lowerCaseArrayName.begin(), lowerCaseArrayName.end(), lowerCaseArrayName.begin(), ::tolower);
+	    	if (lowerCaseArrayName == gid_string_lower) {
+                // need to prepare gids here
+		        const vtkIdType comp_size = pd->GetArray(i)->GetNumberOfComponents();
+	            TEUCHOS_TEST_FOR_EXCEPT_MSG(comp_size!=1,
+                        "Component size for GIDs must be 1.");
 
-		std::cout << "min: " << minInd << " max: " << maxInd << std::endl;
-		std::cout << "compare len: " << coords->nLocal() << " to " << maxInd-minInd << std::endl;
+	            auto gids = host_view_global_index_type("gids", nPtsLocal, 1);
+			    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int j) {
+			    	double data[comp_size];
+			    	pd->GetArray(i)->GetTuple(j+minInd, data);
+			    	gids(j,0) = static_cast<global_index_type>(data[0]);
+			    });
 
-		// first fill the coordinates
-		host_view_type dev_coords = coords->getPts()->getLocalView<host_view_type>(); // assumes we are reading in physical coords in a lagrangian simulation
+	            //for (local_index_type j=0; j<gids.extent(0); j++) {
+                //    printf("%d: %lli\n", j, gids(j,0));    
+                //}
 
-		const local_index_type ndim = coords->nDim();
-		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(minInd,maxInd+1), KOKKOS_LAMBDA(const int i) {
-			double coord[ndim];
-			_dataSet->GetPoint(i, coord);
-			for (local_index_type j=0; j<coords->nDim(); j++) dev_coords(i-minInd,j) = coord[j];
-		});
+	            _particles->resize(gids);
+                gids_field_found = true;
+                break;
+            }
+        }
+	    TEUCHOS_TEST_FOR_EXCEPT_MSG(!gids_field_found, 
+                "'preserve gids' is true, but 'gids name' field was not found in file being read in.");
+    } 
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(nPtsLocal!=coords->nLocal(), 
+            "Coordinates size locally is not the same as the number of points being read in.");
 
-		// sync coords and fields after the fill
-//		coords->syncMemory();
-		//coords->print(std::cout);
 
-		for (int i = 0; i < pd->GetNumberOfArrays(); i++) {
-			_particles->getCoordsConst()->getComm()->barrier();
-		// 	std::cout << "\tArray " << i
-		// 	<< " is named "
-		// 	<< (pd->GetArrayName(i) ? pd->GetArrayName(i) : "NULL")
-		// 	<< " with "
-		// 	<< std::endl;
+	// first fill the coordinates
+	host_view_type dev_coords = coords->getPts()->getLocalView<host_view_type>(); // assumes we are reading in physical coords in a lagrangian simulation
 
-			const vtkIdType comp_size = pd->GetArray(i)->GetNumberOfComponents();
-			std::string lowerCaseArrayName = pd->GetArrayName(i);
-			transform(lowerCaseArrayName.begin(), lowerCaseArrayName.end(), lowerCaseArrayName.begin(), ::tolower);
-			if ( std::strcmp(lowerCaseArrayName.c_str(), "bc_id") == 0  || std::strcmp(lowerCaseArrayName.c_str(), "flag") == 0 ) {
-		        host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
-				Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(minInd,maxInd+1), KOKKOS_LAMBDA(const int j) {
-					double data[comp_size];
-					pd->GetArray(i)->GetTuple(j, data);
-					bc_id(j-minInd,0) = data[0];
-				});
-			} else {
-				Teuchos::RCP<field_type> field = _particles->getFieldManager()->createField(
-						comp_size, (pd->GetArrayName(i) ? pd->GetArrayName(i) : "NULL"), "null");
+	const local_index_type ndim = coords->nDim();
+	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int i) {
+		double coord[ndim];
+		_dataSet->GetPoint(i+minInd, coord);
+		for (local_index_type j=0; j<coords->nDim(); j++) dev_coords(i,j) = coord[j];
+	});
 
-				// fill portion of vector corresponding to global ids that are located on this processor
-				host_view_type dev_data = field->getLocalVectorVals()->getLocalView<host_view_type>();
-				Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(minInd,maxInd+1), KOKKOS_LAMBDA(const int j) {
-					double data[comp_size];
-					pd->GetArray(i)->GetTuple(j, data);
-					for (local_index_type k=0; k<comp_size; k++) dev_data(j-minInd,k) = data[k];
-				});
-				field->syncMemory();
-			}
-		 }
+	for (int i = 0; i < pd->GetNumberOfArrays(); i++) {
+	    // sync coords and fields after the fill
+		_particles->getCoordsConst()->getComm()->barrier();
+
+		const vtkIdType comp_size = pd->GetArray(i)->GetNumberOfComponents();
+		std::string lowerCaseArrayName = pd->GetArrayName(i);
+		transform(lowerCaseArrayName.begin(), lowerCaseArrayName.end(), lowerCaseArrayName.begin(), ::tolower);
+		if (lowerCaseArrayName==flag_string_lower) {
+	        host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
+			Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int j) {
+				double data[comp_size];
+				pd->GetArray(i)->GetTuple(j+minInd, data);
+				bc_id(j,0) = data[0];
+			});
+		} else {
+			Teuchos::RCP<field_type> field = _particles->getFieldManager()->createField(
+					comp_size, (pd->GetArrayName(i) ? pd->GetArrayName(i) : "NULL"), "null");
+
+			// fill portion of vector corresponding to global ids that are located on this processor
+			host_view_type dev_data = field->getLocalVectorVals()->getLocalView<host_view_type>();
+			Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int j) {
+				double data[comp_size];
+				pd->GetArray(i)->GetTuple(j+minInd, data);
+				for (local_index_type k=0; k<comp_size; k++) dev_data(j,k) = data[k];
+			});
+			field->syncMemory();
+		}
 	}
 
 	if (this->_particles->getCoords()->isLagrangian()) this->_particles->snapLagrangianCoordsToPhysicalCoords();
