@@ -558,13 +558,12 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 	std::vector<scalar_type> coords_lat;
 	std::vector<scalar_type> coords_lon;
 	std::vector<local_index_type> flags;
-	std::vector<global_index_type> ids;
+	std::vector<global_index_type> gids;
 
     // records dimensions-id of dimension with particle numbers
     int particle_num_dimension_id = -1;
 
 	std::vector<bool> identified_fields(nvars_in, false);
-
 	for (local_index_type i=0; i<nvars_in; i++) {
 		char var_name[256];
 		retval = nc_inq_varname(ncid, i, var_name);
@@ -758,21 +757,31 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
     }
 
 	flags.resize(coords_x.size());
-	local_index_type flags_var_id = -1;
+	gids.resize(coords_x.size());
 
-	ids.resize(coords_x.size());
+	local_index_type flags_var_id = -1;
+	local_index_type gids_var_id = -1;
+
+	std::string flag_string_lower(_particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("flags name"));
+	transform(flag_string_lower.begin(), flag_string_lower.end(), flag_string_lower.begin(), ::tolower);
+
+	std::string gid_string_lower(_particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("gids name"));
+	transform(gid_string_lower.begin(), gid_string_lower.end(), gid_string_lower.begin(), ::tolower);
+
 	for (local_index_type i=0; i<nvars_in; i++) {
 		char var_name[256];
 		retval = nc_inq_varname(ncid, i, var_name);
 		std::string var_string_lower(var_name);
 		transform(var_string_lower.begin(), var_string_lower.end(), var_string_lower.begin(), ::tolower);
-		if (var_string_lower=="flag") {
+		if (var_string_lower==flag_string_lower) {
 			retval = nc_get_var_int(ncid, i, &flags[0]);
 			identified_fields[i] = true;
+            flags_var_id = i;
 		}
-		else if (var_string_lower=="id") {
-			retval = nc_get_var_longlong(ncid, i, &ids[0]);
+		else if (var_string_lower==gid_string_lower) {
+			retval = nc_get_var_longlong(ncid, i, &gids[0]);
 			identified_fields[i] = true;
+            gids_var_id = i;
 		}
 	}
 
@@ -861,34 +870,47 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 	std::cout << "initializing " << nPtsGlobal << " coordinates...\n";
 	std::cout << "initializing map ...\n";
 
-	_particles->resize(nPtsGlobal);
-
+    _particles->resize(nPtsGlobal);
 	auto minInd = coords->getMinGlobalIndex();
 	auto maxInd = coords->getMaxGlobalIndex();
+	auto nPtsLocal = maxInd+1-minInd;
 
-	std::cout << "min: " << minInd << " max: " << maxInd << std::endl;
-	std::cout << "compare len: " << coords->nLocal() << " to " << maxInd-minInd << std::endl;
+    // to do GID preservation, we first have to get a new coordinate map that breaks up
+    // global points, then we get GIDs read in locally, then create a new map using these gids
+    if (_particles->getParameters()->get<Teuchos::ParameterList>("io").get<bool>("preserve gids")) {
+        // add assert here that gids_var_id >= 0
+		TEUCHOS_TEST_FOR_EXCEPT_MSG(gids_var_id < 0, "'gids name' field not found but 'preserve gids' is set to true.");
+		auto gids_view = host_view_global_index_type("gids", nPtsLocal, 1);
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int i) {
+            gids_view(i,0) = gids[i+minInd];
+        });
+		Kokkos::fence(); 
+    	_particles->resize(gids_view);
+    }
+
+	//std::cout << "min: " << minInd << " max: " << maxInd << std::endl;
+	//std::cout << "compare len: " << coords->nLocal() << " to " << maxInd-minInd << std::endl;
 
 	// first fill the coordinates
 	host_view_type host_coords = coords->getPts()->getLocalView<host_view_type>(); // assumes we are reading in physical coords in a lagrangian simulation
 
     if (_coordinate_layout==CoordinateLayout::XYZ_separate || _coordinate_layout==CoordinateLayout::XYZ_joint) {
-	    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(minInd,maxInd+1), KOKKOS_LAMBDA(const int i) {
-	    	host_coords(i-minInd,0) = coords_x[i];
-	    	host_coords(i-minInd,1) = coords_y[i];
-	    	host_coords(i-minInd,2) = coords_z[i];
+	    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int i) {
+	    	host_coords(i,0) = coords_x[i+minInd];
+	    	host_coords(i,1) = coords_y[i+minInd];
+	    	host_coords(i,2) = coords_z[i+minInd];
 	    });
     } else if (_coordinate_layout==CoordinateLayout::LAT_LON_separate) {
    	    Compadre::CangaSphereTransform sphere_transform(_lat_lon_unit_type=="degrees");
-	    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(minInd,maxInd+1), KOKKOS_LAMBDA(const int i) {
+	    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int i) {
 	    	//transform to the sphere based on lat and lon
-	    	xyz_type lat_lon_in(coords_lat[i], coords_lon[i], 0);
+	    	xyz_type lat_lon_in(coords_lat[i+minInd], coords_lon[i+minInd], 0);
 	    	xyz_type transformed_lat_lon = sphere_transform.evalVector(lat_lon_in);
 
 	    	scalar_type coord_norm = std::sqrt(transformed_lat_lon.x*transformed_lat_lon.x + transformed_lat_lon.y*transformed_lat_lon.y + transformed_lat_lon.z*transformed_lat_lon.z);
-	    	host_coords(i-minInd,0) = transformed_lat_lon.x / coord_norm;
-	    	host_coords(i-minInd,1) = transformed_lat_lon.y / coord_norm;
-	    	host_coords(i-minInd,2) = transformed_lat_lon.z / coord_norm;
+	    	host_coords(i,0) = transformed_lat_lon.x / coord_norm;
+	    	host_coords(i,1) = transformed_lat_lon.y / coord_norm;
+	    	host_coords(i,2) = transformed_lat_lon.z / coord_norm;
 	    });
     }
 
@@ -896,11 +918,11 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 //	coords->syncMemory();
 //	coords->print(std::cout);
 
-	if (flags_var_id > 0) { // only read in if it was identified
+	if (flags_var_id >= 0) { // only read in if it was identified
 		// fill the bc_id
 		host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
-		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(minInd,maxInd+1), KOKKOS_LAMBDA(const int i) {
-			bc_id(i-minInd,0) = flags[i];
+		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int i) {
+			bc_id(i,0) = flags[i+minInd];
 		});
 	}
 
@@ -918,14 +940,14 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 		const local_index_type field_dim_i = field_dims[i];
 
         if (!field_dim_flipped[i]) { // standard dimension ordering (particle numbering first)
-		    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(minInd,maxInd+1), KOKKOS_LAMBDA(const int j) {
+		    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int j) {
                 // add conditional for index ordering
-		    	for (local_index_type k=0; k<field_dim_i; k++) host_data(j-minInd,k) = field_values[i][j*field_dim_i + k];
+		    	for (local_index_type k=0; k<field_dim_i; k++) host_data(j,k) = field_values[i][(j+minInd)*field_dim_i + k];
 		    });
         } else {
-		    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(minInd,maxInd+1), KOKKOS_LAMBDA(const int j) {
+		    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int j) {
                 // add conditional for index ordering
-		    	for (local_index_type k=0; k<field_dim_i; k++) host_data(j-minInd,k) = field_values[i][k*coords_x.size() + j];
+		    	for (local_index_type k=0; k<field_dim_i; k++) host_data(j,k) = field_values[i][k*coords_x.size() + (j+minInd)];
 		    });
         }
 
@@ -945,9 +967,9 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 		host_view_type lat_host_data = old_lat_field->getLocalVectorVals()->getLocalView<host_view_type>();
 		host_view_type lon_host_data = old_lon_field->getLocalVectorVals()->getLocalView<host_view_type>();
 
-		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(minInd,maxInd+1), KOKKOS_LAMBDA(const int j) {
-			lat_host_data(j-minInd,0) = coords_lat[j];
-			lon_host_data(j-minInd,0) = coords_lon[j];
+		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int j) {
+			lat_host_data(j,0) = coords_lat[j+minInd];
+			lon_host_data(j,0) = coords_lon[j+minInd];
 		});
 
 		old_lat_field->syncMemory();
