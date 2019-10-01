@@ -67,6 +67,23 @@ void CoordsT::localResize(const global_index_type nn) {
 // 	_nMaxGlobal = map->getGlobalNumElements();
 }
 
+void CoordsT::localResize(host_view_global_index_type gids) {
+	// this should be called only by the ParticlesT class that owns this CoordsT
+
+    auto gids_subview = Kokkos::subview(gids,Kokkos::ALL(),0);
+	// anything initialized off of a constructor of this class should be resized/reinitialized here
+	map = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
+									 gids_subview,
+									 0,
+									 comm));
+	const bool setToZero = false;
+	pts = Teuchos::rcp(new mvec_type(map, nDim(), setToZero));
+	if (_is_lagrangian) pts_physical = Teuchos::rcp(new mvec_type(map, nDim(), setToZero));
+	setLocalNFromMap();
+	updateAllHostViews();
+// 	_nMaxGlobal = map->getGlobalNumElements();
+}
+
 
 //
 // FIXME: Required for Lagrangian particles

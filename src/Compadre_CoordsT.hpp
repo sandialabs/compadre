@@ -104,6 +104,8 @@ class CoordsT {
 		void globalResize(const global_index_type nn);
 
 		void localResize(const global_index_type nn);
+
+		void localResize(host_view_global_index_type gids);
 		
 		void insertCoords(const std::vector<xyz_type>& new_pts_vector, const std::vector<xyz_type>& new_pts_physical_vector);
 
