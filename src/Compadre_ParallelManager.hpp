@@ -285,6 +285,13 @@ public:
         }
     }
 
+    void clearScratchSize() {
+        _team_scratch_size_a = 0;
+        _team_scratch_size_b = 0;
+        _thread_scratch_size_a = 0;
+        _thread_scratch_size_b = 0;
+    }
+
     void setThreadsPerTeam(const int value) {
         _threads_per_team = value;
     }
