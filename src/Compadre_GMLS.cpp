@@ -956,7 +956,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
         // fill in RHS with Identity * sqrt(weights)
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_rows), [=] (const int i) {
             for(int j = 0; j < this_num_rows; ++j) {
-                Q(j,i) = (i==j) ? std::sqrt(w(i)) : 0;
+                Q(i, j) = (i==j) ? std::sqrt(w(i)) : 0;
             }
         });
     } else {
