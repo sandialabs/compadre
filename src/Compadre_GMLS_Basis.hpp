@@ -586,10 +586,6 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 //        printf("storage size: %d\n", storage_size);
 //    }
 //    printf("weight_p: %d\n", weight_p);
-    // P is stored layout left, because that is what CUDA and LAPACK expect, and storing it
-    // this way prevents copying data later
-    auto alt_P = scratch_matrix_left_type(P.data(), P.extent(0), P.extent(1));
-    // TODO: Remove alt_P and just use P
     const int my_num_neighbors = this->getNNeighbors(target_index);
 
     teamMember.team_barrier();
@@ -629,7 +625,7 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
                 for (int j = 0; j < storage_size; ++j) {
                     // stores layout left for CUDA or LAPACK calls later
                     // no need to convert offsets to global indices because the sum will never be large
-                    alt_P(i+my_num_neighbors*d, j) = delta[j] * std::sqrt(w(i+my_num_neighbors*d));
+                    P(i+my_num_neighbors*d, j) = delta[j] * std::sqrt(w(i+my_num_neighbors*d));
                     compadre_kernel_assert_extreme_debug(delta[j]==delta[j] && "NaN in sqrt(W)*P matrix.");
                 }
 
@@ -637,7 +633,7 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
                 for (int j = 0; j < storage_size; ++j) {
                     // stores layout left for CUDA or LAPACK calls later
                     // no need to convert offsets to global indices because the sum will never be large
-                    alt_P(i+my_num_neighbors*d, j) = delta[j];
+                    P(i+my_num_neighbors*d, j) = delta[j];
 
                     compadre_kernel_assert_extreme_debug(delta[j]==delta[j] && "NaN in P matrix.");
                 }
