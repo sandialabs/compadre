@@ -1,8 +1,6 @@
 #ifndef _COMPADRE_MISC_HPP_
 #define _COMPADRE_MISC_HPP_
 
-#include "Compadre_Operators.hpp"
-
 namespace Compadre {
 
 struct XYZ {
