@@ -29,7 +29,7 @@ ParticlesT::ParticlesT (Teuchos::RCP<Teuchos::ParameterList> parameters,
 	_coords->setUnits(_parameters->get<Teuchos::ParameterList>("coordinates").get<std::string>("units"));
 
 	const bool setToZero = true;
-	flag = Teuchos::rcp(new mvec_type(_coords->getMapConst(), 1, setToZero));
+	_flag = Teuchos::rcp(new mvec_local_index_type(_coords->getMapConst(), 1, setToZero));
 	_fieldManager = Teuchos::rcp(new Compadre::FieldManager(this, _parameters));
 }
 
@@ -44,13 +44,13 @@ ParticlesT::ParticlesT (Teuchos::RCP<Teuchos::ParameterList> parameters,
 	_coords->setUnits(_parameters->get<Teuchos::ParameterList>("coordinates").get<std::string>("units"));
 
 	const bool setToZero = true;
-	flag = Teuchos::rcp(new mvec_type(_coords->getMapConst(), 1, setToZero));
+	_flag = Teuchos::rcp(new mvec_local_index_type(_coords->getMapConst(), 1, setToZero));
 	_fieldManager = Teuchos::rcp(new Compadre::FieldManager(this, _parameters));
 }
 
 
 
-// Coordination calls that resize all fields and flags to a coordinate changes
+// Coordination calls that resize all fields, flags, and IDs to coordinate changes
 
 void ParticlesT::insertParticles(const std::vector<xyz_type>& new_pts_vector, const scalar_type rebuilt_halo_size,
 		bool repartition, bool inserting_physical_coords, bool repartition_using_physical_coords, bool verify_coords_on_processor) {
@@ -152,9 +152,9 @@ void ParticlesT::removeParticles(const std::vector<local_index_type>& coord_ids,
 	_coords->removeCoords(coord_ids_ordered);
 
 	const bool setToZero = false;
-	Teuchos::RCP<mvec_type> new_flag = Teuchos::rcp(new mvec_type(_coords->getMapConst(), 1, setToZero));
-	host_view_type new_bc_id = new_flag->getLocalView<host_view_type>();
-	host_view_type old_bc_id = flag->getLocalView<host_view_type>();
+	Teuchos::RCP<mvec_local_index_type> new_flag = Teuchos::rcp(new mvec_local_index_type(_coords->getMapConst(), 1, setToZero));
+	host_view_local_index_type new_bc_id = new_flag->getLocalView<host_view_local_index_type>();
+	host_view_local_index_type old_bc_id = _flag->getLocalView<host_view_local_index_type>();
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,old_bc_id.dimension_0()), KOKKOS_LAMBDA(const int i) {
 		bool deleted = false;
 		local_index_type offset = num_remove_coords;
@@ -169,7 +169,7 @@ void ParticlesT::removeParticles(const std::vector<local_index_type>& coord_ids,
 		}
 		if (!deleted) new_bc_id(i-offset,0) = old_bc_id(i,0);
 	});
-	flag = new_flag; // assigns new flags and deallocates old tpetra vector
+	_flag = new_flag; // assigns new flags and deallocates old tpetra vector
 
 	// need sophisticated copy of data here
 	_fieldManager->removeParticlesToAll(_coords.getRawPtr(), coord_ids_ordered); // do the same as this function, but for fields
@@ -224,12 +224,12 @@ void ParticlesT::mergeWith(const particles_type* other_particles) {
 	}
 
 
-
+    // flags
 	const bool setToZero = false;
-	Teuchos::RCP<mvec_type> new_flag = Teuchos::rcp(new mvec_type(_coords->getMapConst(), 1, setToZero));
-	host_view_type new_bc_id = new_flag->getLocalView<host_view_type>();
-	host_view_type old_bc_id = flag->getLocalView<host_view_type>();
-	host_view_type other_bc_id = other_particles->getFlags()->getLocalView<host_view_type>();
+	Teuchos::RCP<mvec_local_index_type> new_flag = Teuchos::rcp(new mvec_local_index_type(_coords->getMapConst(), 1, setToZero));
+	host_view_local_index_type new_bc_id = new_flag->getLocalView<host_view_local_index_type>();
+	host_view_local_index_type old_bc_id = _flag->getLocalView<host_view_local_index_type>();
+	host_view_local_index_type other_bc_id = other_particles->getFlags()->getLocalView<host_view_local_index_type>();
 	// copy over old boundary ids
 	const local_index_type old_bc_id_num = (local_index_type)(old_bc_id.dimension_0());
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,old_bc_id_num), KOKKOS_LAMBDA(const int i) {
@@ -241,7 +241,7 @@ void ParticlesT::mergeWith(const particles_type* other_particles) {
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,other_pts_num), KOKKOS_LAMBDA(const int i) {
 		new_bc_id(old_bc_id_num + i,0) = other_bc_id(i,0);
 	});
-	flag = new_flag; // assigns new flags and deallocates old tpetra vector
+	_flag = new_flag; // assigns new flags and deallocates old tpetra vector
 
 
 	_fieldManager->insertParticlesToAll(_coords.getRawPtr(), copied_pts, other_particles); // do the same as this function, but for fields
@@ -254,13 +254,13 @@ void ParticlesT::setCoords(Teuchos::RCP<CoordsT> coords) {
 	_coords->setUnits(_parameters->get<Teuchos::ParameterList>("coordinates").get<std::string>("units"));
 
 	const bool setToZero = true;
-	flag = Teuchos::rcp(new mvec_type(_coords->getMapConst(), 1, setToZero));
+	_flag = Teuchos::rcp(new mvec_local_index_type(_coords->getMapConst(), 1, setToZero));
 	_fieldManager->resetAll(coords.getRawPtr());
 }
 
 void ParticlesT::resetWithSameCoords() {
 	const bool setToZero = true;
-	flag = Teuchos::rcp(new mvec_type(_coords->getMapConst(), 1, setToZero));
+	_flag = Teuchos::rcp(new mvec_local_index_type(_coords->getMapConst(), 1, setToZero));
 	_fieldManager->resetAll(_coords.getRawPtr());
 }
 
@@ -292,7 +292,22 @@ void ParticlesT::resize(const global_index_type nn, bool local_resize) {
 	}
 
 	const bool setToZero = true;
-	flag = Teuchos::rcp(new mvec_type(_coords->getMapConst(), 1, setToZero));
+	_flag = Teuchos::rcp(new mvec_local_index_type(_coords->getMapConst(), 1, setToZero));
+//			auto out = Teuchos::getFancyOStream(Teuchos::rcpFromRef(std::cout));
+//			flag->describe(*out, Teuchos::VERB_EXTREME);
+
+	_fieldManager->resetAll(_coords.getRawPtr());
+}
+
+void ParticlesT::resize(host_view_global_index_type gids) {
+	// first resize coordinates, then reinitialize/resize all things depending on coordinates
+	// next, resize data in each field
+
+	// anything initialized off of a constructor of this class should be resized/reinitialized here
+	_coords->localResize(gids);
+
+	const bool setToZero = true;
+	_flag = Teuchos::rcp(new mvec_local_index_type(_coords->getMapConst(), 1, setToZero));
 //			auto out = Teuchos::getFancyOStream(Teuchos::rcpFromRef(std::cout));
 //			flag->describe(*out, Teuchos::VERB_EXTREME);
 
@@ -303,9 +318,9 @@ void ParticlesT::zoltan2Initialize(bool use_physical_coords) {
 	// if box data not found in VTKs
 	_coords->zoltan2Init(use_physical_coords);
 	_coords->zoltan2Partition();
-	_coords->applyZoltan2Partition(this->flag);
+	_coords->applyZoltan2Partition(this->_flag);
 	_fieldManager->applyZoltan2PartitionToAll();
-	TEUCHOS_TEST_FOR_EXCEPT_MSG((size_t)(_coords->nLocal())!=this->flag->getLocalLength(), "After applyZoltan2Partition(), size of flag differs from coordinates.");
+	TEUCHOS_TEST_FOR_EXCEPT_MSG((size_t)(_coords->nLocal())!=this->_flag->getLocalLength(), "After applyZoltan2Partition(), size of flag differs from coordinates.");
 }
 
 
@@ -373,12 +388,12 @@ void ParticlesT::createNeighborhood() {
 // Flag functions
 
 void ParticlesT::setFlag(const local_index_type idx, const local_index_type val) {
-	host_view_type flagView = flag->getLocalView<host_view_type>();
+	host_view_local_index_type flagView = _flag->getLocalView<host_view_local_index_type>();
 	flagView(idx,0) = val;
 }
 
 double ParticlesT::getFlag(const local_index_type idx) const {
-	host_view_type flagView = flag->getLocalView<host_view_type>();
+	host_view_local_index_type flagView = _flag->getLocalView<host_view_local_index_type>();
 	return flagView(idx,0);
 }
 

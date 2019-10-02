@@ -67,6 +67,23 @@ void CoordsT::localResize(const global_index_type nn) {
 // 	_nMaxGlobal = map->getGlobalNumElements();
 }
 
+void CoordsT::localResize(host_view_global_index_type gids) {
+	// this should be called only by the ParticlesT class that owns this CoordsT
+
+    auto gids_subview = Kokkos::subview(gids,Kokkos::ALL(),0);
+	// anything initialized off of a constructor of this class should be resized/reinitialized here
+	map = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
+									 gids_subview,
+									 0,
+									 comm));
+	const bool setToZero = false;
+	pts = Teuchos::rcp(new mvec_type(map, nDim(), setToZero));
+	if (_is_lagrangian) pts_physical = Teuchos::rcp(new mvec_type(map, nDim(), setToZero));
+	setLocalNFromMap();
+	updateAllHostViews();
+// 	_nMaxGlobal = map->getGlobalNumElements();
+}
+
 
 //
 // FIXME: Required for Lagrangian particles
@@ -471,8 +488,8 @@ void CoordsT::zoltan2Init(bool use_physical_coords) {
 	Teuchos::RCP<const mvec_type> input = Teuchos::rcp_const_cast<const mvec_type>((_is_lagrangian && use_physical_coords) ? this->pts_physical : this->pts);
 	//Tpetra::MatrixMarket::Writer<mvec_type>::writeDenseFile("mj_input.txt", *(this->pts.getRawPtr()), "matrixname", "description");
 
-	z2adapter = Teuchos::rcp(new z2_adapter_type(input));
-	z2problem = Teuchos::rcp(new z2_problem_type(z2adapter.getRawPtr(), &params, comm));
+	z2adapter_scalar = Teuchos::rcp(new z2_scalar_adapter_type(input));
+	z2problem = Teuchos::rcp(new z2_problem_type(z2adapter_scalar.getRawPtr(), &params, comm));
 	_partitioned_using_physical = use_physical_coords;
 }
 
@@ -483,9 +500,8 @@ void CoordsT::zoltan2Partition() { //const Teuchos::RCP<const Teuchos::Comm<int>
 	Teuchos::RCP<const mvec_type> input_pts = Teuchos::rcp_const_cast<const mvec_type>(this->pts);
 	Teuchos::RCP<const mvec_type> input_pts_physical;
 	if (_is_lagrangian) input_pts_physical = Teuchos::rcp_const_cast<const mvec_type>(this->pts_physical);
-
-	z2adapter->applyPartitioningSolution(*input_pts, this->pts, z2problem->getSolution());
-	if (_is_lagrangian) z2adapter->applyPartitioningSolution(*input_pts_physical, this->pts_physical, z2problem->getSolution());
+	z2adapter_scalar->applyPartitioningSolution(*input_pts, this->pts, z2problem->getSolution());
+	if (_is_lagrangian) z2adapter_scalar->applyPartitioningSolution(*input_pts_physical, this->pts_physical, z2problem->getSolution());
 
 	map = this->pts->getMap();
 	this->setLocalNFromMap();
@@ -503,7 +519,12 @@ void CoordsT::zoltan2Partition() { //const Teuchos::RCP<const Teuchos::Comm<int>
 
 void CoordsT::applyZoltan2Partition(Teuchos::RCP<mvec_type>& vec) const {
 	Teuchos::RCP<const mvec_type> input = Teuchos::rcp_const_cast<const mvec_type>(vec);
-	z2adapter->applyPartitioningSolution(*input, vec, z2problem->getSolution());
+	z2adapter_scalar->applyPartitioningSolution(*input, vec, z2problem->getSolution());
+}
+void CoordsT::applyZoltan2Partition(Teuchos::RCP<mvec_local_index_type>& vec) const {
+	auto z2adapter_local_index = Teuchos::rcp(new z2_local_index_adapter_type(vec));
+	Teuchos::RCP<const mvec_local_index_type> input = Teuchos::rcp_const_cast<const mvec_local_index_type>(vec);
+	z2adapter_local_index->applyPartitioningSolution(*input, vec, z2problem->getSolution());
 }
 
 void CoordsT::verifyCoordsOnProcessor(const std::vector<xyz_type>& new_pts_vector, bool use_physical_coords) const {
