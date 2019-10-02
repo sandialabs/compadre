@@ -12,8 +12,6 @@ void createM(const member_type& teamMember, scratch_matrix_right_type M_data, sc
      * Creates M = P^T * W * P
      */
 
-    auto alt_P = scratch_matrix_left_type(weighted_P.data(), weighted_P.extent(0), weighted_P.extent(1));
-    // TODO: remove alt_P and change everything to P
     for (int i=0; i<columns; ++i) {
         // offdiagonal entries
         for (int j=0; j<i; ++j) {
@@ -22,8 +20,8 @@ void createM(const member_type& teamMember, scratch_matrix_right_type M_data, sc
 
             Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k, double &entry_val) {
                 // assumes layout left input matrix
-                double val_i = alt_P(k,i);
-                double val_j = alt_P(k,j);
+                double val_i = weighted_P(k, i);
+                double val_j = weighted_P(k, j);
                 entry_val += val_i*val_j;
             }, M_data_entry_i_j );
 
@@ -39,7 +37,7 @@ void createM(const member_type& teamMember, scratch_matrix_right_type M_data, sc
 
         Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,rows), [=] (const int k, double &entry_val) {
             // assumes layout left input matrix
-            double val = alt_P(k,i);
+            double val = weighted_P(k, i);
             entry_val += val*val;
         }, M_data_entry_i_j );
 
