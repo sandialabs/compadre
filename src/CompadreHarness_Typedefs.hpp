@@ -105,7 +105,6 @@ namespace Compadre {
 
     typedef Zoltan2::XpetraMultiVectorAdapter<mvec_type> z2_scalar_adapter_type;
     typedef Zoltan2::XpetraMultiVectorAdapter<mvec_local_index_type> z2_local_index_adapter_type;
-    typedef Zoltan2::XpetraMultiVectorAdapter<mvec_global_index_type> z2_global_index_adapter_type;
     typedef Zoltan2::PartitioningProblem<z2_scalar_adapter_type> z2_problem_type;
     typedef typename z2_scalar_adapter_type::part_t z2_partition_type;
     typedef std::remove_reference<decltype(std::declval<z2_problem_type>().getSolution().getPartBoxesView()[0])>::type z2_box_type;
