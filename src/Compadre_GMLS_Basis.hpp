@@ -623,7 +623,6 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 
             if (weight_p) {
                 for (int j = 0; j < storage_size; ++j) {
-                    // stores layout left for CUDA or LAPACK calls later
                     // no need to convert offsets to global indices because the sum will never be large
                     P(i+my_num_neighbors*d, j) = delta[j] * std::sqrt(w(i+my_num_neighbors*d));
                     compadre_kernel_assert_extreme_debug(delta[j]==delta[j] && "NaN in sqrt(W)*P matrix.");
@@ -631,7 +630,6 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 
             } else {
                 for (int j = 0; j < storage_size; ++j) {
-                    // stores layout left for CUDA or LAPACK calls later
                     // no need to convert offsets to global indices because the sum will never be large
                     P(i+my_num_neighbors*d, j) = delta[j];
 
