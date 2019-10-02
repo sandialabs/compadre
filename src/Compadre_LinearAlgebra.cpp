@@ -495,11 +495,12 @@ void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *R
      // }
      ConvertLayoutLeftToRight clr(pm, ndb, ldb, RHS);
      int scratch_size = scratch_matrix_left_type::shmem_size(ndb, ldb);
-     pm.setTeamScratchSize(0, 0);
+     pm.clearScratchSize();
+     // pm.setTeamScratchSize(0, 0);
      pm.setTeamScratchSize(1, scratch_size);
  
-     pm.setThreadScratchSize(0, 0);
-     pm.setThreadScratchSize(1, 0);
+     // pm.setThreadScratchSize(0, 0);
+     // pm.setThreadScratchSize(1, 0);
  
      pm.CallFunctorWithTeamThreads(num_matrices, clr);
      Kokkos::fence();
