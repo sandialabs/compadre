@@ -63,8 +63,8 @@ class RemoteDataManager {
 				const coords_type* our_coords,
 				const local_index_type my_program_coloring,
 				const local_index_type peer_program_coloring,
-				host_view_type flags,
-				const std::vector<int> flags_to_transfer,
+				host_view_local_index_type flags,
+				const std::vector<local_index_type> flags_to_transfer,
 				const bool use_physical_coords = true,
 				const scalar_type bounding_box_relative_tolerance = 1e-2);
 

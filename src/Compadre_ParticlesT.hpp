@@ -49,7 +49,8 @@ class ParticlesT {
 		local_index_type total_field_offsets;
 		std::vector<local_index_type> field_offsets;
 
-		Teuchos::RCP<mvec_type> flag;
+		Teuchos::RCP<mvec_local_index_type> _flag;
+
 		Teuchos::RCP<neighbors_type> _neighborhoodInfo;
 		Teuchos::RCP<fieldmanager_type> _fieldManager;
 		Teuchos::RCP<dofmanager_type> _DOFManager;
@@ -64,7 +65,7 @@ class ParticlesT {
 		virtual ~ParticlesT() {};
 
 		/** @name Coordination
-		 *  Coordination calls that resize all fields and flags to a coordinate changes
+		 *  Coordination calls that resize all fields, flags, and IDs to coordinate changes
 		 */
 		///@{
 		//! creates new maps, vectors, and COPIES existing data
@@ -93,6 +94,9 @@ class ParticlesT {
 
 		//! creates new maps, vectors, and RESETS all existing data
 		void resize(const global_index_type nn, bool local_resize = false);
+
+		//! creates new maps, vectors, and RESETS all existing data
+		void resize(host_view_global_index_type gids);
 
 		//! permutes data in coords, flags, and fields
 		void zoltan2Initialize(bool use_physical_coords = true);
@@ -137,7 +141,7 @@ class ParticlesT {
 
 		double getFlag(const local_index_type idx) const;
 
-		Teuchos::RCP<mvec_type> getFlags() const { return flag; }
+		Teuchos::RCP<mvec_local_index_type> getFlags() const { return _flag; }
 		///@}
 
 
