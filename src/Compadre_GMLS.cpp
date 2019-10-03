@@ -592,7 +592,7 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
     // fill in RHS with Identity * sqrt(weights)
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_neighbors), [=] (const int i) {
         for(int j = 0; j < this_num_neighbors; ++j) {
-            RHS(j,i) = (i==j) ? std::sqrt(w(i)) : 0;
+            RHS(i, j) = (i==j) ? std::sqrt(w(i)) : 0;
         }
     });
     teamMember.team_barrier();
