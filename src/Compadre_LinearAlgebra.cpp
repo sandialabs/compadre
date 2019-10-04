@@ -11,7 +11,7 @@ void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *R
     // RHS is symmetric and square, so no conversion is necessary
     ConvertLayoutRightToLeft crl(pm, lda, nda, P);
     int scratch_size = scratch_matrix_left_type::shmem_size(lda, nda);
-    pm.clearScratchSize();
+    pm.clearScratchSizes();
     pm.setTeamScratchSize(1, scratch_size);
     pm.CallFunctorWithTeamThreads(num_matrices, crl);
     Kokkos::fence();
@@ -151,7 +151,7 @@ void batchSVDFactorize(ParallelManager pm, double *P, int lda, int nda, double *
     // RHS is symmetric and square, so no conversion is necessary
     ConvertLayoutRightToLeft crl(pm, lda, nda, P);
     int scratch_size = scratch_matrix_left_type::shmem_size(lda, nda);
-    pm.clearScratchSize();
+    pm.clearScratchSizes();
     pm.setTeamScratchSize(1, scratch_size);
     pm.CallFunctorWithTeamThreads(num_matrices, crl);
     Kokkos::fence();
