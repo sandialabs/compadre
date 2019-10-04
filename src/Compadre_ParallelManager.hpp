@@ -285,7 +285,7 @@ public:
         }
     }
 
-    void clearScratchSize() {
+    void clearScratchSizes() {
         _team_scratch_size_a = 0;
         _team_scratch_size_b = 0;
         _thread_scratch_size_a = 0;
