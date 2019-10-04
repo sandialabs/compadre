@@ -6,8 +6,9 @@ namespace GMLS_LinearAlgebra {
 
 void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
 
-    // Do what is necessary so that it can be converted right to left
-
+    // P was constructed layout right, while LAPACK and CUDA expect layout left
+    // P is not squared and not symmetric, so we must convert it to layout left
+    // RHS is symmetric and square, so no conversion is necessary
     ConvertLayoutRightToLeft crl(pm, lda, nda, P);
     int scratch_size = scratch_matrix_left_type::shmem_size(lda, nda);
     pm.clearScratchSize();
@@ -145,10 +146,9 @@ void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *R
 
 void batchSVDFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
 
-// _U, _S, and _V are stored globally so that they can be used to apply targets in applySVD
-// they are not needed on the CPU, only with CUDA because there is no dgelsd equivalent
-// which is why these arguments are not used on the CPU
-
+    // P was constructed layout right, while LAPACK and CUDA expect layout left
+    // P is not squared and not symmetric, so we must convert it to layout left
+    // RHS is symmetric and square, so no conversion is necessary
     ConvertLayoutRightToLeft crl(pm, lda, nda, P);
     int scratch_size = scratch_matrix_left_type::shmem_size(lda, nda);
     pm.clearScratchSize();
