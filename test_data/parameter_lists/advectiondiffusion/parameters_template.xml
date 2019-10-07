@@ -1,4 +1,7 @@
 <ParameterList name="Compadre">
+  <ParameterList name="physics">
+    <Parameter name="diffusion" type="double" value="1.0"/>
+  </ParameterList>
   <ParameterList name="io">
     <Parameter name="input file prefix" type="string" value="../test_data/grids/"/>
     <Parameter name="input file" type="string" value="dg_0.nc"/>

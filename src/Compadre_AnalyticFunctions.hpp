@@ -298,6 +298,8 @@ class SineProducts : public AnalyticFunction {
 		virtual xyz_type evalVector(const xyz_type& xIn) const;
 
 		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn) const;
+
+		scalar_type evalAdvectionDiffusionRHS(const xyz_type& xyzIn, const scalar_type diffusion, const xyz_type& advection_field) const;
 };
 
 class SecondOrderBasis : public AnalyticFunction {
