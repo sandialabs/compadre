@@ -142,6 +142,14 @@ void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *R
 
 #endif
 
+    // Results are written layout left, so they need converted to layout right
+    ConvertLayoutLeftToRight clr(pm, ldb, ndb, RHS);
+    scratch_size = scratch_matrix_left_type::shmem_size(ldb, ndb);
+    pm.clearScratchSizes();
+    pm.setTeamScratchSize(1, scratch_size);
+    pm.CallFunctorWithTeamThreads(num_matrices, clr);
+    Kokkos::fence();
+
 }
 
 void batchSVDFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
@@ -501,6 +509,15 @@ void batchSVDFactorize(ParallelManager pm, double *P, int lda, int nda, double *
     #endif // LAPACK is not threadsafe
 
 #endif
+
+    // Results are written layout left, so they need converted to layout right
+    ConvertLayoutLeftToRight clr(pm, ldb, ndb, RHS);
+    scratch_size = scratch_matrix_left_type::shmem_size(ldb, ndb);
+    pm.clearScratchSizes();
+    pm.setTeamScratchSize(1, scratch_size);
+    pm.CallFunctorWithTeamThreads(num_matrices, clr);
+    Kokkos::fence();
+
 }
 
 void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
@@ -642,6 +659,15 @@ void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *R
     #endif // LAPACK is not threadsafe
 
 #endif
+
+    // Results are written layout left, so they need converted to layout right
+    ConvertLayoutLeftToRight clr(pm, ldb, ndb, RHS);
+    int scratch_size = scratch_matrix_left_type::shmem_size(ldb, ndb);
+    pm.clearScratchSizes();
+    pm.setTeamScratchSize(1, scratch_size);
+    pm.CallFunctorWithTeamThreads(num_matrices, clr);
+    Kokkos::fence();
+
 }
 
 }; // GMLS_LinearAlgebra
