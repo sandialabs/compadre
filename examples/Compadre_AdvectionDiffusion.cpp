@@ -145,6 +145,9 @@ int main (int argc, char* args[]) {
 
         // set physics, sources, and boundary conditions in the problem
         problem->setPhysics(physics);
+        xyz_type advection_field(1,1,1);
+        source->setAdvectionField(advection_field);
+        source->setDiffusion(parameters->get<Teuchos::ParameterList>("physics").get<double>("diffusion"));
         problem->setSources(source);
         problem->setBCS(bcs);
 
