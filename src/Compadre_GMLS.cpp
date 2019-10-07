@@ -659,6 +659,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
                     talpha_ij += P_target_row(offset,l)*Q(i,l);
                 });
             }, alpha_ij);
+            teamMember.team_barrier();
             Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                 manifold_gradient(i*(_dimensions-1) + k) = alpha_ij; // stored staggered, grad_xi1, grad_xi2, grad_xi1, grad_xi2, ....
             });
@@ -855,6 +856,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
                     talpha_ij += P_target_row(offset,l)*Q(i,l);
                 });
             }, alpha_ij);
+            teamMember.team_barrier();
             Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                 manifold_gradient(i*(_dimensions-1) + k) = alpha_ij; // stored staggered, grad_xi1, grad_xi2, grad_xi1, grad_xi2, ....
             });
