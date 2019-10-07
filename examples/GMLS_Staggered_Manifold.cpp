@@ -70,7 +70,7 @@ Kokkos::initialize(argc, args);
     int solver_type = 1; // QR by default
     if (argc >= 6) {
         int arg6toi = atoi(args[5]);
-        if (arg6toi > 0) {
+        if (arg6toi >= 0) {
             solver_type = arg6toi;
         }
     }

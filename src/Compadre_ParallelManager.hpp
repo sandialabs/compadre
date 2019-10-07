@@ -4,9 +4,6 @@
 #include "Compadre_Config.h"
 #include "Compadre_Typedefs.hpp"
 
-#include "Compadre_Functors.hpp"
-
-
 namespace Compadre {
 
 //!  Parallel Manager
@@ -286,6 +283,13 @@ public:
         } else {
             _thread_scratch_size_b = value;
         }
+    }
+
+    void clearScratchSizes() {
+        _team_scratch_size_a = 0;
+        _team_scratch_size_b = 0;
+        _thread_scratch_size_a = 0;
+        _thread_scratch_size_b = 0;
     }
 
     void setThreadsPerTeam(const int value) {
