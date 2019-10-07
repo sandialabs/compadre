@@ -472,7 +472,7 @@ void GMLS::operator()(const ApplyStandardTargets&, const member_type& teamMember
             + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
     } else {
         Coeffs = scratch_matrix_right_type(_P.data() 
-            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_cols), max_num_rows, this_num_cols);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_cols), this_num_cols, max_num_rows);
     }
     scratch_vector_type w(_w.data() 
             + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
@@ -648,7 +648,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
             Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
                     manifold_NP), [=] (const int l, double &talpha_ij) {
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                    talpha_ij += P_target_row(offset,l)*Q(i,l);
+                    talpha_ij += P_target_row(offset,l)*Q(l,i);
                 });
             }, alpha_ij);
             teamMember.team_barrier();
@@ -845,7 +845,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
             Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
                     manifold_NP), [=] (const int l, double &talpha_ij) {
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                    talpha_ij += P_target_row(offset,l)*Q(i,l);
+                    talpha_ij += P_target_row(offset,l)*Q(l,i);
                 });
             }, alpha_ij);
             teamMember.team_barrier();
@@ -866,7 +866,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
             Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                 // coefficients without a target premultiplied
                 for (int j=0; j<manifold_NP; ++j) {
-                    manifold_coeffs(j) += Q(i,j) * normal_coordinate;
+                    manifold_coeffs(j) += Q(j,i) * normal_coordinate;
                 }
             });
         });
@@ -1006,7 +1006,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
             + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(max_num_rows), max_num_rows, max_num_rows);
     } else {
         Coeffs = scratch_matrix_right_type(_P.data() 
-            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_cols), max_num_rows, this_num_cols);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows)*TO_GLOBAL(this_num_cols), this_num_cols, max_num_rows);
     }
     scratch_vector_type w(_w.data() 
             + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
