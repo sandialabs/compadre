@@ -137,10 +137,6 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
         team_scratch_size_b += scratch_vector_type::shmem_size(_max_num_neighbors*std::max(_sampling_multiplier,_basis_multiplier)); // t2 work vector for qr
 
         team_scratch_size_b += scratch_vector_type::shmem_size(max_P_row_size); // row of P matrix, one for each operator
-        if (_dense_solver_type == DenseSolverType::LU) {
-            // Allocated extra memories for LU - since we need to transpose PsqrtW
-            team_scratch_size_b += scratch_matrix_right_type::shmem_size(this_num_cols, max_num_rows);
-        }
         thread_scratch_size_b += scratch_vector_type::shmem_size(max_manifold_NP*_basis_multiplier); // delta, used for each thread
         if (_data_sampling_functional == VaryingManifoldVectorPointSample) {
             thread_scratch_size_b += scratch_vector_type::shmem_size(_dimensions*_dimensions); // temporary tangent calculations, used for each thread
@@ -165,10 +161,6 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
         // row of P matrix, one for each operator
         // +1 is for the original target site which always gets evaluated
         team_scratch_size_b += scratch_vector_type::shmem_size(this_num_cols*_total_alpha_values*max_evaluation_sites); 
-        if (_dense_solver_type == DenseSolverType::LU) {
-            // Allocated extra memories for LU - since we need to transpose PsqrtW
-            team_scratch_size_b += scratch_matrix_right_type::shmem_size(this_num_cols, max_num_rows);
-        }
 
         thread_scratch_size_b += scratch_vector_type::shmem_size(this_num_cols); // delta, used for each thread
     }
