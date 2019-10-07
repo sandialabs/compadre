@@ -240,6 +240,9 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
                 // evaluates targets, applies target evaluation to polynomial coefficients for curvature
                 _pm.CallFunctorWithTeamThreads<GetAccurateTangentDirections>(this_batch_size, *this);
 
+                // Due to converting layout, entried that are assumed zeros may become non-zeros.
+                Kokkos::deep_copy(_P, 0.0);
+
                 if (batch_num==number_of_batches-1) {
                     // copy tangent bundle from device back to host
                     _host_T = Kokkos::create_mirror_view(_T);
@@ -265,6 +268,9 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
             // follows reconstruction of geometry
             // calculate prestencil weights
             _pm.CallFunctorWithTeamThreadsAndVectors<ComputePrestencilWeights>(this_batch_size, _pm.getThreadsPerTeam(_pm.getVectorLanesPerThread()), _pm.getVectorLanesPerThread(), *this);
+
+            // Due to converting layout, entried that are assumed zeros may become non-zeros.
+            Kokkos::deep_copy(_P, 0.0);
 
             // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity
             _pm.CallFunctorWithTeamThreads<AssembleManifoldPsqrtW>(this_batch_size, *this);
