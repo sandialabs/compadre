@@ -9,7 +9,6 @@
 #include "Compadre_LinearAlgebra_Definitions.hpp"
 #include "Compadre_ParallelManager.hpp"
 
-
 namespace Compadre {
 
 //!  Generalized Moving Least Squares (GMLS)
