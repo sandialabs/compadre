@@ -209,9 +209,9 @@ void ProblemT::initialize(scalar_type initial_simulation_time) {
         local_index_type row_block = _field_to_block_row_map[field_one];
         local_index_type col_block = _field_to_block_col_map[field_two];
 
+        assembleOperator(field_one, field_two);
         assembleBCS(field_one, field_two);
         assembleRHS(field_one, field_two);
-        assembleOperator(field_one, field_two);
         if (_A[row_block][col_block]->isFillActive()) {
             _A[row_block][col_block]->fillComplete(_problem_dof_data->getRowMap(col_block), _problem_dof_data->getRowMap(row_block));
         }
