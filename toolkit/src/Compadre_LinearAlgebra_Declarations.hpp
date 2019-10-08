@@ -3,6 +3,7 @@
 
 #include "Compadre_Config.h"
 #include "Compadre_Typedefs.hpp"
+#include "Compadre_ParallelManager.hpp"
 
 #ifdef COMPADRE_USE_CUDA
   #include <cuda_runtime.h>
@@ -60,6 +61,7 @@ namespace GMLS_LinearAlgebra {
          P contains num_matrices * lda * ndb data which is num_matrices different matrices, and
          RHS contains num_matrices * ldn * ndb data which is num_matrices different matrix right hand sides.
 
+        \param pm                   [in] - manager class for team and thread parallelism
         \param P                [in/out] - evaluation of sampling functional on polynomial basis (in), meaningless workspace output (out)
         \param lda                  [in] - row dimension of each matrix in P
         \param nda                  [in] - columns dimension of each matrix in P
@@ -72,13 +74,14 @@ namespace GMLS_LinearAlgebra {
         \param max_neighbors        [in] - integer for maximum neighbor over all targets
         \param neighbor_list_sizes  [in] - pointer to all neighbor list sizes for each target
     */
-    void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors = 0, const int initial_index_of_batch = 0, int * neighbor_list_sizes = NULL);
+    void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors = 0, const int initial_index_of_batch = 0, int * neighbor_list_sizes = NULL);
 
     /*! \brief Calls LAPACK or CUBLAS to solve a batch of SVD problems
 
          P contains num_matrices * lda * ndb data which is num_matrices different matrices, and
          RHS contains num_matrices * ldn * ndb data which is num_matrices different matrix right hand sides.
 
+        \param pm                   [in] - manager class for team and thread parallelism
         \param P                [in/out] - evaluation of sampling functional on polynomial basis (in), meaningless workspace output (out)
         \param lda                  [in] - row dimension of each matrix in P
         \param nda                  [in] - columns dimension of each matrix in P
@@ -91,13 +94,14 @@ namespace GMLS_LinearAlgebra {
         \param max_neighbors        [in] - integer for maximum neighbor over all targets
         \param neighbor_list_sizes  [in] - pointer to all neighbor list sizes for each target
     */
-    void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors = 0, const int initial_index_of_batch = 0, int * neighbor_list_sizes = NULL);
+    void batchSVDFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors = 0, const int initial_index_of_batch = 0, int * neighbor_list_sizes = NULL);
 
     /*! \brief Calls LAPACK or CUBLAS to solve a batch of LU problems
 
          P contains num_matrices * lda * ndb data which is num_matrices different matrices, and
          RHS contains num_matrices * ldn * ndb data which is num_matrices different matrix right hand sides.
 
+        \param pm                   [in] - manager class for team and thread parallelism
         \param P                [in/out] - evaluation of sampling functional on polynomial basis (in), meaningless workspace output (out)
         \param lda                  [in] - row dimension of each matrix in P
         \param nda                  [in] - columns dimension of each matrix in P
@@ -110,7 +114,7 @@ namespace GMLS_LinearAlgebra {
         \param max_neighbors        [in] - integer for maximum neighbor over all targets
         \param neighbor_list_sizes  [in] - pointer to all neighbor list sizes for each target
     */
-    void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors = 0, const int initial_index_of_batch = 0, int * neighbor_list_sizes = NULL);
+    void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors = 0, const int initial_index_of_batch = 0, int * neighbor_list_sizes = NULL);
 
 }; // GMLS_LinearAlgebra
 }; // Compadre

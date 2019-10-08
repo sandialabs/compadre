@@ -7,7 +7,7 @@
 #include "Compadre_Misc.hpp"
 #include "Compadre_Operators.hpp"
 #include "Compadre_LinearAlgebra_Definitions.hpp"
-
+#include "Compadre_ParallelManager.hpp"
 
 namespace Compadre {
 
@@ -112,9 +112,6 @@ protected:
     Kokkos::View<int*, Kokkos::HostSpace> _number_of_additional_evaluation_indices; 
 
 
-    //! reconstruction type
-    int _type; 
-
     //! order of basis for polynomial reconstruction
     int _poly_order; 
 
@@ -145,7 +142,7 @@ protected:
     //! problem type for GMLS problem, can also be set to STANDARD for normal or MANIFOLD for manifold problems
     ProblemType _problem_type;
 
-    //! boundary type for GMLS problem, can also be set to NO_CONSTRAINT or NEUMANN_GRAD_SCALAR
+    //! constraint type for GMLS problem
     ConstraintType _constraint_type;
 
     //! polynomial sampling functional used to construct P matrix, set at GMLS class instantiation
@@ -267,81 +264,14 @@ protected:
     //! used for sizing P_target_row and the _alphas view
     int _total_alpha_values;
 
-
-    //! lowest level memory for Kokkos::parallel_for for team access memory
-    int _scratch_team_level_a;
-    int _team_scratch_size_a;
-
-    //! higher (slower) level memory for Kokkos::parallel_for for team access memory
-    int _scratch_thread_level_a;
-    int _thread_scratch_size_a;
-
-    //! lowest level memory for Kokkos::parallel_for for thread access memory
-    int _scratch_team_level_b;
-    int _team_scratch_size_b;
-
-    //! higher (slower) level memory for Kokkos::parallel_for for thread access memory
-    int _scratch_thread_level_b;
-    int _thread_scratch_size_b;
-
-    //! calculated number of threads per team
-    int _threads_per_team;
-
-
-
+    //! determines scratch level spaces and is used to call kernels
+    ParallelManager _pm;
 
 
 /** @name Private Modifiers
  *  Private function because information lives on the device
  */
 ///@{
-
-    //! Calls a parallel_for using the tag given as the first argument.
-    //! parallel_for will break out over loops over teams with each vector lane executing code be default
-    template<class Tag>
-    void CallFunctorWithTeamThreadsAndVectors(const global_index_type batch_size, const int threads_per_team, const int vector_lanes_per_thread, const int team_scratch_size_a, const int team_scratch_size_b, const int thread_scratch_size_a, const int thread_scratch_size_b) {
-    if ( (_scratch_team_level_a != _scratch_team_level_b) && (_scratch_thread_level_a != _scratch_thread_level_b) ) {
-            // all levels of each type need specified separately
-            Kokkos::parallel_for(
-                Kokkos::TeamPolicy<Tag>(batch_size, threads_per_team, vector_lanes_per_thread)
-                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a))
-                .set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(team_scratch_size_b))
-                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a))
-                .set_scratch_size(_scratch_thread_level_b, Kokkos::PerThread(thread_scratch_size_b)),
-                *this, typeid(Tag).name());
-        } else if (_scratch_team_level_a != _scratch_team_level_b) {
-            // scratch thread levels are the same
-            Kokkos::parallel_for(
-                Kokkos::TeamPolicy<Tag>(batch_size, threads_per_team, vector_lanes_per_thread)
-                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a))
-                .set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(team_scratch_size_b))
-                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a + thread_scratch_size_b)),
-                *this, typeid(Tag).name());
-        } else if (_scratch_thread_level_a != _scratch_thread_level_b) {
-            // scratch team levels are the same
-            Kokkos::parallel_for(
-                Kokkos::TeamPolicy<Tag>(batch_size, threads_per_team, vector_lanes_per_thread)
-                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a + team_scratch_size_b))
-                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a))
-                .set_scratch_size(_scratch_thread_level_b, Kokkos::PerThread(thread_scratch_size_b)),
-                *this, typeid(Tag).name());
-        } else {
-            // scratch team levels and thread levels are the same
-            Kokkos::parallel_for(
-                Kokkos::TeamPolicy<Tag>(batch_size, threads_per_team, vector_lanes_per_thread)
-                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(team_scratch_size_a + team_scratch_size_b))
-                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(thread_scratch_size_a + thread_scratch_size_b)),
-                *this, typeid(Tag).name());
-        }
-    }
-
-    //! Calls a parallel for using the tag given as the first argument. 
-    //! parallel_for will break out over loops over teams with each thread executing code be default
-    template<class Tag>
-    void CallFunctorWithTeamThreads(const global_index_type batch_size, const int threads_per_team, const int team_scratch_size_a, const int team_scratch_size_b, const int thread_scratch_size_a, const int thread_scratch_size_b) {
-        // calls breakout over vector lanes with vector lane size of 1
-        CallFunctorWithTeamThreadsAndVectors<Tag>(batch_size, threads_per_team, 1, team_scratch_size_a, team_scratch_size_b, thread_scratch_size_a, thread_scratch_size_b);
-    }
 
     /*! \brief Evaluates the polynomial basis under a particular sampling function. Generally used to fill a row of P.
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -376,15 +306,6 @@ protected:
     KOKKOS_INLINE_FUNCTION
     void calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int additional_evaluation_local_index = 0) const;
 
-    /*! \brief Evaluates the weighting kernel
-        \param r                [in] - Euclidean distance of relative vector. Euclidean distance of (target - neighbor) in some basis.
-        \param h                [in] - window size. Kernel is guaranteed to take on a value of zero if it exceeds h.
-        \param weighting_type   [in] - weighting type to be evaluated as the kernel. e,g. power, Gaussian, etc..
-        \param power            [in] - power parameter to be given to the kernel.
-    */
-    KOKKOS_INLINE_FUNCTION
-    double Wab(const double r, const double h, const WeightingFunctionType& weighting_type, const int power) const; 
-    
     /*! \brief Fills the _P matrix with either P or P*sqrt(w)
         \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -503,25 +424,6 @@ protected:
         compadre_kernel_assert_debug((additional_list_num >= 1) 
             && "additional_list_num must be greater than or equal to 1, unlike neighbor lists which begin indexing at 0.");
         return _additional_evaluation_indices(target_index, additional_list_num);
-    }
-
-    //! Returns Euclidean norm of a vector
-    KOKKOS_INLINE_FUNCTION
-    double EuclideanVectorLength(const XYZ& delta_vector, const int dimension) const {
-
-        double inside_val = delta_vector.x*delta_vector.x;
-        switch (dimension) {
-        case 3:
-            inside_val += delta_vector.z*delta_vector.z;
-            // no break is intentional
-        case 2:
-            inside_val += delta_vector.y*delta_vector.y;
-            // no break is intentional
-        default:
-            break;
-        }
-        return std::sqrt(inside_val);
-
     }
 
     //! Returns one component of the target coordinate for a particular target. Whether global or local coordinates 
@@ -658,7 +560,7 @@ protected:
         }
     }
 
-    //! Parses a string to determine boundary type
+    //! Parses a string to determine constraint type
     static ConstraintType parseConstraintType(const std::string& constraint_type) {
         std::string constraint_type_to_lower = constraint_type;
         transform(constraint_type_to_lower.begin(), constraint_type_to_lower.end(), constraint_type_to_lower.begin(), ::tolower);
@@ -705,26 +607,13 @@ public:
 
         // Asserting available problems and solvers
         compadre_kernel_assert_release((_constraint_type == ConstraintType::NO_CONSTRAINT) &&
-                                       "Neumann boundary type hasn't been implemented yet.");
+                                       "Neumann constraint type hasn't been implemented yet.");
 
         // seed random number generator pool
         _random_number_pool = pool_type(1);
 
         _NP = this->getNP(_poly_order, dimensions, _reconstruction_space);
         Kokkos::fence();
-
-#ifdef COMPADRE_USE_CUDA
-        _scratch_team_level_a = 0;
-        _scratch_thread_level_a = 1;
-        _scratch_team_level_b = 1;
-        _scratch_thread_level_b = 1;
-#else
-        _scratch_team_level_a = 0;
-        _scratch_thread_level_a = 0;
-        _scratch_team_level_b = 0;
-        _scratch_thread_level_b = 0;
-#endif
-        _threads_per_team = 0;
 
         // register curvature operations for manifold problems
         if (_problem_type == ProblemType::MANIFOLD) {
@@ -741,7 +630,6 @@ public:
         _lro = std::vector<TargetOperation>();
 
         // various initializations
-        _type = 1;
         _total_alpha_values = 0;
 
         _weighting_type = WeightingFunctionType::Power;
@@ -934,6 +822,42 @@ public:
         return nn;
     }
 
+    /*! \brief Evaluates the weighting kernel
+        \param r                [in] - Euclidean distance of relative vector. Euclidean distance of (target - neighbor) in some basis.
+        \param h                [in] - window size. Kernel is guaranteed to take on a value of zero if it exceeds h.
+        \param weighting_type   [in] - weighting type to be evaluated as the kernel. e,g. power, Gaussian, etc..
+        \param power            [in] - power parameter to be given to the kernel.
+    */
+    KOKKOS_INLINE_FUNCTION
+    static double Wab(const double r, const double h, const WeightingFunctionType& weighting_type, const int power) {
+        if (weighting_type == WeightingFunctionType::Power) {
+            return std::pow(1.0-std::abs(r/(3*h)), power) * double(1.0-std::abs(r/(3*h))>0.0);
+        } else { // Gaussian
+            // 2.5066282746310002416124 = sqrt(2*pi)
+            double h_over_3 = h/3.0;
+            return 1./( h_over_3 * 2.5066282746310002416124 ) * std::exp(-.5*r*r/(h_over_3*h_over_3));
+        }
+    }
+
+    //! Returns Euclidean norm of a vector
+    KOKKOS_INLINE_FUNCTION
+    static double EuclideanVectorLength(const XYZ& delta_vector, const int dimension) {
+        double inside_val = delta_vector.x*delta_vector.x;
+        switch (dimension) {
+        case 3:
+            inside_val += delta_vector.z*delta_vector.z;
+            // no break is intentional
+        case 2:
+            inside_val += delta_vector.y*delta_vector.y;
+            // no break is intentional
+        default:
+            break;
+        }
+        return std::sqrt(inside_val);
+    }
+
+    
+
 ///@}
 
 /** @name Accessors
@@ -962,7 +886,7 @@ public:
     //! Get problem type
     ProblemType getProblemType() { return _problem_type; }
 
-    //! Get boundary type
+    //! Get constraint type
     ConstraintType getConstraintType() { return _constraint_type; }
 
     //! Type for weighting kernel for GMLS problem
@@ -1079,57 +1003,57 @@ public:
     SamplingFunctional getDataSamplingFunctional() const { return _data_sampling_functional; }
 
     //! Helper function for getting alphas for scalar reconstruction from scalar data
-    double getAlpha0TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index) const {
+    double getAlpha0TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int additional_evaluation_site = 0) const {
         // e.g. Dirac Delta target of a scalar field
-        return getAlpha(lro, target_index, 0, 0, neighbor_index, 0, 0);
+        return getAlpha(lro, target_index, 0, 0, neighbor_index, 0, 0, additional_evaluation_site);
     }
 
     //! Helper function for getting alphas for vector reconstruction from scalar data
-    double getAlpha0TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index) const {
+    double getAlpha0TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int additional_evaluation_site = 0) const {
         // e.g. gradient of a scalar field
-        return getAlpha(lro, target_index, output_component, 0, neighbor_index, 0, 0);
+        return getAlpha(lro, target_index, output_component, 0, neighbor_index, 0, 0, additional_evaluation_site);
     }
 
     //! Helper function for getting alphas for matrix reconstruction from scalar data
-    double getAlpha0TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index) const {
-        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, 0, 0);
+    double getAlpha0TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int additional_evaluation_site = 0) const {
+        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, 0, 0, additional_evaluation_site);
     }
 
     //! Helper function for getting alphas for scalar reconstruction from vector data
-    double getAlpha1TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component) const {
+    double getAlpha1TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component, const int additional_evaluation_site = 0) const {
         // e.g. divergence of a vector field
-        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component, 0);
+        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component, 0, additional_evaluation_site);
     }
 
     //! Helper function for getting alphas for vector reconstruction from vector data
-    double getAlpha1TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component) const {
+    double getAlpha1TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component, const int additional_evaluation_site = 0) const {
         // e.g. curl of a vector field
-        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component, 0);
+        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component, 0, additional_evaluation_site);
     }
 
     //! Helper function for getting alphas for matrix reconstruction from vector data
-    double getAlpha1TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component) const {
+    double getAlpha1TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component, const int additional_evaluation_site = 0) const {
         // e.g. gradient of a vector field
-        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component, 0);
+        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component, 0, additional_evaluation_site);
     }
 
     //! Helper function for getting alphas for scalar reconstruction from matrix data
-    double getAlpha2TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2) const {
-        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component_axis_1, input_component_axis_2);
+    double getAlpha2TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int additional_evaluation_site = 0) const {
+        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
     }
 
     //! Helper function for getting alphas for vector reconstruction from matrix data
-    double getAlpha2TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2) const {
-        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component_axis_1, input_component_axis_2);
+    double getAlpha2TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int additional_evaluation_site = 0) const {
+        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
     }
 
     //! Helper function for getting alphas for matrix reconstruction from matrix data
-    double getAlpha2TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2) const {
-        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component_axis_1, input_component_axis_2);
+    double getAlpha2TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int additional_evaluation_site = 0) const {
+        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
     }
 
     //! Underlying function all interface helper functions call to retrieve alpha values
-    double getAlpha(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2) const {
+    double getAlpha(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int additional_evaluation_site = 0) const {
         // lro - the operator from TargetOperations
         // target_index - the # for the target site where information is required
         // neighbor_index - the # for the neighbor of the target
@@ -1151,7 +1075,7 @@ public:
         //
 
         const int alpha_column_offset = this->getAlphaColumnOffset( lro, output_component_axis_1, 
-                output_component_axis_2, input_component_axis_1, input_component_axis_2, 0 /* additional evaluation site */);
+                output_component_axis_2, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
 
         return _host_alphas(target_index, alpha_column_offset, neighbor_index);
     }
