@@ -176,7 +176,6 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
      *    Allocate Global Device Storage of Data Needed Over Multiple Calls
      */
     int RHS_square_dim = getRHSDims(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols);
-    std::cout << "RHS square dim " << RHS_square_dim << " this num cols " << this_num_cols << std::endl;
 
     global_index_type max_batch_size = (_target_coordinates.extent(0) + TO_GLOBAL(number_of_batches) - 1) / TO_GLOBAL(number_of_batches);
     try {
