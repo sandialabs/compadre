@@ -306,15 +306,6 @@ protected:
     KOKKOS_INLINE_FUNCTION
     void calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int additional_evaluation_local_index = 0) const;
 
-    /*! \brief Evaluates the weighting kernel
-        \param r                [in] - Euclidean distance of relative vector. Euclidean distance of (target - neighbor) in some basis.
-        \param h                [in] - window size. Kernel is guaranteed to take on a value of zero if it exceeds h.
-        \param weighting_type   [in] - weighting type to be evaluated as the kernel. e,g. power, Gaussian, etc..
-        \param power            [in] - power parameter to be given to the kernel.
-    */
-    KOKKOS_INLINE_FUNCTION
-    double Wab(const double r, const double h, const WeightingFunctionType& weighting_type, const int power) const; 
-    
     /*! \brief Fills the _P matrix with either P or P*sqrt(w)
         \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -433,25 +424,6 @@ protected:
         compadre_kernel_assert_debug((additional_list_num >= 1) 
             && "additional_list_num must be greater than or equal to 1, unlike neighbor lists which begin indexing at 0.");
         return _additional_evaluation_indices(target_index, additional_list_num);
-    }
-
-    //! Returns Euclidean norm of a vector
-    KOKKOS_INLINE_FUNCTION
-    double EuclideanVectorLength(const XYZ& delta_vector, const int dimension) const {
-
-        double inside_val = delta_vector.x*delta_vector.x;
-        switch (dimension) {
-        case 3:
-            inside_val += delta_vector.z*delta_vector.z;
-            // no break is intentional
-        case 2:
-            inside_val += delta_vector.y*delta_vector.y;
-            // no break is intentional
-        default:
-            break;
-        }
-        return std::sqrt(inside_val);
-
     }
 
     //! Returns one component of the target coordinate for a particular target. Whether global or local coordinates 
@@ -850,6 +822,42 @@ public:
         return nn;
     }
 
+    /*! \brief Evaluates the weighting kernel
+        \param r                [in] - Euclidean distance of relative vector. Euclidean distance of (target - neighbor) in some basis.
+        \param h                [in] - window size. Kernel is guaranteed to take on a value of zero if it exceeds h.
+        \param weighting_type   [in] - weighting type to be evaluated as the kernel. e,g. power, Gaussian, etc..
+        \param power            [in] - power parameter to be given to the kernel.
+    */
+    KOKKOS_INLINE_FUNCTION
+    static double Wab(const double r, const double h, const WeightingFunctionType& weighting_type, const int power) {
+        if (weighting_type == WeightingFunctionType::Power) {
+            return std::pow(1.0-std::abs(r/(3*h)), power) * double(1.0-std::abs(r/(3*h))>0.0);
+        } else { // Gaussian
+            // 2.5066282746310002416124 = sqrt(2*pi)
+            double h_over_3 = h/3.0;
+            return 1./( h_over_3 * 2.5066282746310002416124 ) * std::exp(-.5*r*r/(h_over_3*h_over_3));
+        }
+    }
+
+    //! Returns Euclidean norm of a vector
+    KOKKOS_INLINE_FUNCTION
+    static double EuclideanVectorLength(const XYZ& delta_vector, const int dimension) {
+        double inside_val = delta_vector.x*delta_vector.x;
+        switch (dimension) {
+        case 3:
+            inside_val += delta_vector.z*delta_vector.z;
+            // no break is intentional
+        case 2:
+            inside_val += delta_vector.y*delta_vector.y;
+            // no break is intentional
+        default:
+            break;
+        }
+        return std::sqrt(inside_val);
+    }
+
+    
+
 ///@}
 
 /** @name Accessors
@@ -995,57 +1003,57 @@ public:
     SamplingFunctional getDataSamplingFunctional() const { return _data_sampling_functional; }
 
     //! Helper function for getting alphas for scalar reconstruction from scalar data
-    double getAlpha0TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index) const {
+    double getAlpha0TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int additional_evaluation_site = 0) const {
         // e.g. Dirac Delta target of a scalar field
-        return getAlpha(lro, target_index, 0, 0, neighbor_index, 0, 0);
+        return getAlpha(lro, target_index, 0, 0, neighbor_index, 0, 0, additional_evaluation_site);
     }
 
     //! Helper function for getting alphas for vector reconstruction from scalar data
-    double getAlpha0TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index) const {
+    double getAlpha0TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int additional_evaluation_site = 0) const {
         // e.g. gradient of a scalar field
-        return getAlpha(lro, target_index, output_component, 0, neighbor_index, 0, 0);
+        return getAlpha(lro, target_index, output_component, 0, neighbor_index, 0, 0, additional_evaluation_site);
     }
 
     //! Helper function for getting alphas for matrix reconstruction from scalar data
-    double getAlpha0TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index) const {
-        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, 0, 0);
+    double getAlpha0TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int additional_evaluation_site = 0) const {
+        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, 0, 0, additional_evaluation_site);
     }
 
     //! Helper function for getting alphas for scalar reconstruction from vector data
-    double getAlpha1TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component) const {
+    double getAlpha1TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component, const int additional_evaluation_site = 0) const {
         // e.g. divergence of a vector field
-        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component, 0);
+        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component, 0, additional_evaluation_site);
     }
 
     //! Helper function for getting alphas for vector reconstruction from vector data
-    double getAlpha1TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component) const {
+    double getAlpha1TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component, const int additional_evaluation_site = 0) const {
         // e.g. curl of a vector field
-        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component, 0);
+        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component, 0, additional_evaluation_site);
     }
 
     //! Helper function for getting alphas for matrix reconstruction from vector data
-    double getAlpha1TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component) const {
+    double getAlpha1TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component, const int additional_evaluation_site = 0) const {
         // e.g. gradient of a vector field
-        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component, 0);
+        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component, 0, additional_evaluation_site);
     }
 
     //! Helper function for getting alphas for scalar reconstruction from matrix data
-    double getAlpha2TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2) const {
-        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component_axis_1, input_component_axis_2);
+    double getAlpha2TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int additional_evaluation_site = 0) const {
+        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
     }
 
     //! Helper function for getting alphas for vector reconstruction from matrix data
-    double getAlpha2TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2) const {
-        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component_axis_1, input_component_axis_2);
+    double getAlpha2TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int additional_evaluation_site = 0) const {
+        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
     }
 
     //! Helper function for getting alphas for matrix reconstruction from matrix data
-    double getAlpha2TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2) const {
-        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component_axis_1, input_component_axis_2);
+    double getAlpha2TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int additional_evaluation_site = 0) const {
+        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
     }
 
     //! Underlying function all interface helper functions call to retrieve alpha values
-    double getAlpha(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2) const {
+    double getAlpha(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int additional_evaluation_site = 0) const {
         // lro - the operator from TargetOperations
         // target_index - the # for the target site where information is required
         // neighbor_index - the # for the neighbor of the target
@@ -1067,7 +1075,7 @@ public:
         //
 
         const int alpha_column_offset = this->getAlphaColumnOffset( lro, output_component_axis_1, 
-                output_component_axis_2, input_component_axis_1, input_component_axis_2, 0 /* additional evaluation site */);
+                output_component_axis_2, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
 
         return _host_alphas(target_index, alpha_column_offset, neighbor_index);
     }
