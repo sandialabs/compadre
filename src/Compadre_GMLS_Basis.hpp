@@ -7,19 +7,6 @@
 namespace Compadre {
 
 KOKKOS_INLINE_FUNCTION
-double GMLS::Wab(const double r, const double h, const WeightingFunctionType& weighting_type, const int power) const {
-
-    if (weighting_type == WeightingFunctionType::Power) {
-        return std::pow(1.0-std::abs(r/(3*h)), power) * double(1.0-std::abs(r/(3*h))>0.0);
-    } else { // Gaussian
-        // 2.5066282746310002416124 = sqrt(2*pi)
-        double h_over_3 = h/3.0;
-        return 1./( h_over_3 * 2.5066282746310002416124 ) * std::exp(-.5*r*r/(h_over_3*h_over_3));
-    }
-
-}
-
-KOKKOS_INLINE_FUNCTION
 void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_local_index) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
