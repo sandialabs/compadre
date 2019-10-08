@@ -19,6 +19,9 @@ def copy_variables_from_source_except_data(filename_source, dataset, new_fields)
     for dimname,dim in f.dimensions.items():
         dataset.createDimension(dimname,len(dim))
 
+    # loop new_fields, add a pair with a boolean for whether added
+    new_fields_added = set()
+
     # To copy the variables of the netCDF file
     for varname,ncvar in f.variables.items():
         list_of_keys = list(new_fields.keys())
@@ -26,12 +29,27 @@ def copy_variables_from_source_except_data(filename_source, dataset, new_fields)
             var = dataset.createVariable(varname,ncvar.dtype,ncvar.dimensions)
             var[:] = ncvar[:]
         else:
+            # catches when field already exists, but we change dimension
             if (varname != "ID"):
                 dataset.createVariable(varname, datatype='d', dimensions=('num_el_in_blk1','time_step',), zlib=False, complevel=4,\
                                        shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                                        endian='native', least_significant_digit=None, fill_value=None)
                 #print(new_fields[varname].shape)
                 #print(dataset.variables[varname][:].shape)
+            else:
+                dataset.createVariable(varname, datatype='i8', dimensions=('num_el_in_blk1',), zlib=False, complevel=4,\
+                                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                                       endian='native', least_significant_digit=None, fill_value=None)
+            dataset.variables[varname][:]=new_fields[varname]
+        new_fields_added.add(varname)
+
+    # add all fields not existing in original file
+    for varname in list(new_fields.keys()):
+        if varname not in new_fields_added:
+            if (varname != "ID"):
+                dataset.createVariable(varname, datatype='d', dimensions=('num_el_in_blk1','time_step',), zlib=False, complevel=4,\
+                                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                                       endian='native', least_significant_digit=None, fill_value=None)
             else:
                 dataset.createVariable(varname, datatype='i8', dimensions=('num_el_in_blk1',), zlib=False, complevel=4,\
                                        shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
@@ -50,6 +68,7 @@ def get_data_from_file_sequence(iters, file_prefix, fields):
         for varname,ncvar in f.variables.items():
             if (varname in fields):
                 if (varname != "ID"):
+                    #print("%s, %s time_step: %d"%(file_prefix, varname, i))
                     if (concatenated_data[varname].shape[0]==0):
                         concatenated_data[varname]=np.zeros(shape=(ncvar.shape[0],iters), dtype='d')
                         concatenated_data[varname][:,0]=ncvar[:].flatten()
@@ -77,14 +96,14 @@ def consolidate(iters, file1, file2):
     field_dictionary = get_data_from_file_sequence(iters, "backward_", ["ID","TotalPrecipWater","CloudFraction","Topography"])
 
     # create an empty dataset
-    dataset = Dataset(new_filename, "w", format="NETCDF4")
+    dataset1 = Dataset(new_filename, "w", format="NETCDF4")
 
     # fill in dataset from source file
     # but not copying TotalPrecWater, etc....
-    copy_variables_from_source_except_data(file1, dataset, field_dictionary)
+    copy_variables_from_source_except_data(file1, dataset1, field_dictionary)
 
     # close file we are writing to
-    dataset.close()
+    dataset1.close()
 
     # all steps need duplicated, and called with "forward_" with file1+2 reversed
     head, tail = os.path.split(file1)
@@ -100,14 +119,14 @@ def consolidate(iters, file1, file2):
     field_dictionary = get_data_from_file_sequence(iters, "forward_", ["ID","TotalPrecipWater","CloudFraction","Topography"])
 
     # create an empty dataset
-    dataset = Dataset(new_filename, "w", format="NETCDF4")
+    dataset2 = Dataset(new_filename, "w", format="NETCDF4")
 
     # fill in dataset from source file
     # but not copying TotalPrecWater, etc....
-    copy_variables_from_source_except_data(file2, dataset, field_dictionary)
+    copy_variables_from_source_except_data(file2, dataset2, field_dictionary)
 
     # close file we are writing to
-    dataset.close()
+    dataset2.close()
 
 
 #test_file_1 = "../../test_data/grids/canga/Cubed-Sphere/outCSMesh_ne16_TPW_CFR_TPO.g"
