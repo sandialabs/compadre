@@ -440,8 +440,8 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
 
     if (_dense_solver_type != DenseSolverType::LU) {
         // fill in RHS with Identity * sqrt(weights)
-        Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,RHS_square_dim), [=] (const int i) {
-            for(int j = 0; j < RHS_square_dim; ++j) {
+        Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_rows), [=] (const int i) {
+            for(int j = 0; j < this_num_rows; ++j) {
                 RHS(j,i) = (i==j) ? std::sqrt(w(i)) : 0;
             }
         });
@@ -1014,8 +1014,8 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
 
     if (_dense_solver_type != DenseSolverType::LU) {
         // fill in RHS with Identity * sqrt(weights)
-        Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,RHS_square_dim), [=] (const int i) {
-            for(int j = 0; j < RHS_square_dim; ++j) {
+        Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_rows), [=] (const int i) {
+            for(int j = 0; j < this_num_rows; ++j) {
                 Q(i, j) = (i==j) ? std::sqrt(w(i)) : 0;
             }
         });
