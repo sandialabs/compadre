@@ -7,19 +7,6 @@
 namespace Compadre {
 
 KOKKOS_INLINE_FUNCTION
-double GMLS::Wab(const double r, const double h, const WeightingFunctionType& weighting_type, const int power) const {
-
-    if (weighting_type == WeightingFunctionType::Power) {
-        return std::pow(1.0-std::abs(r/(3*h)), power) * double(1.0-std::abs(r/(3*h))>0.0);
-    } else { // Gaussian
-        // 2.5066282746310002416124 = sqrt(2*pi)
-        double h_over_3 = h/3.0;
-        return 1./( h_over_3 * 2.5066282746310002416124 ) * std::exp(-.5*r*r/(h_over_3*h_over_3));
-    }
-
-}
-
-KOKKOS_INLINE_FUNCTION
 void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_local_index) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
@@ -586,9 +573,6 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 //        printf("storage size: %d\n", storage_size);
 //    }
 //    printf("weight_p: %d\n", weight_p);
-    // P is stored layout left, because that is what CUDA and LAPACK expect, and storing it
-    // this way prevents copying data later
-    auto alt_P = scratch_matrix_left_type(P.data(), P.extent(0), P.extent(1));
     const int my_num_neighbors = this->getNNeighbors(target_index);
 
     teamMember.team_barrier();
@@ -626,17 +610,15 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 
             if (weight_p) {
                 for (int j = 0; j < storage_size; ++j) {
-                    // stores layout left for CUDA or LAPACK calls later
                     // no need to convert offsets to global indices because the sum will never be large
-                    alt_P(i+my_num_neighbors*d, j) = delta[j] * std::sqrt(w(i+my_num_neighbors*d));
+                    P(i+my_num_neighbors*d, j) = delta[j] * std::sqrt(w(i+my_num_neighbors*d));
                     compadre_kernel_assert_extreme_debug(delta[j]==delta[j] && "NaN in sqrt(W)*P matrix.");
                 }
 
             } else {
                 for (int j = 0; j < storage_size; ++j) {
-                    // stores layout left for CUDA or LAPACK calls later
                     // no need to convert offsets to global indices because the sum will never be large
-                    alt_P(i+my_num_neighbors*d, j) = delta[j];
+                    P(i+my_num_neighbors*d, j) = delta[j];
 
                     compadre_kernel_assert_extreme_debug(delta[j]==delta[j] && "NaN in P matrix.");
                 }
@@ -664,10 +646,6 @@ void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_
 
     const int target_index = _initial_index_for_batch + teamMember.league_rank();
 
-    // P is stored layout left, because that is what CUDA and LAPACK expect, and storing it
-    // this way prevents copying data later
-    auto alt_P = scratch_matrix_left_type(P.data(), P.extent(0), P.extent(1));
-
     teamMember.team_barrier();
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)),
             [=] (const int i) {
@@ -694,8 +672,7 @@ void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_
         int storage_size = only_specific_order ? this->getNP(1, dimension)-this->getNP(0, dimension) : this->getNP(_curvature_poly_order, dimension);
 
         for (int j = 0; j < storage_size; ++j) {
-            // stores layout left for CUDA or LAPACK calls later
-            alt_P(i, j) = delta[j] * std::sqrt(w(i));
+            P(i, j) = delta[j] * std::sqrt(w(i));
         }
 
     });

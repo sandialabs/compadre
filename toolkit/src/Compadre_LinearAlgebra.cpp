@@ -1,9 +1,20 @@
 #include "Compadre_LinearAlgebra_Definitions.hpp"
+#include "Compadre_Functors.hpp"
 
 namespace Compadre{
 namespace GMLS_LinearAlgebra {
 
-void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
+void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
+
+    // P was constructed layout right, while LAPACK and CUDA expect layout left
+    // P is not squared and not symmetric, so we must convert it to layout left
+    // RHS is symmetric and square, so no conversion is necessary
+    ConvertLayoutRightToLeft crl(pm, lda, nda, P);
+    int scratch_size = scratch_matrix_left_type::shmem_size(lda, nda);
+    pm.clearScratchSizes();
+    pm.setTeamScratchSize(1, scratch_size);
+    pm.CallFunctorWithTeamThreads(num_matrices, crl);
+    Kokkos::fence();
 
 #ifdef COMPADRE_USE_CUDA
 
@@ -131,13 +142,27 @@ void batchQRFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
 
 #endif
 
+    // Results are written layout left, so they need converted to layout right
+    ConvertLayoutLeftToRight clr(pm, ldb, ndb, RHS);
+    scratch_size = scratch_matrix_left_type::shmem_size(ldb, ndb);
+    pm.clearScratchSizes();
+    pm.setTeamScratchSize(1, scratch_size);
+    pm.CallFunctorWithTeamThreads(num_matrices, clr);
+    Kokkos::fence();
+
 }
 
-void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
+void batchSVDFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
 
-// _U, _S, and _V are stored globally so that they can be used to apply targets in applySVD
-// they are not needed on the CPU, only with CUDA because there is no dgelsd equivalent
-// which is why these arguments are not used on the CPU
+    // P was constructed layout right, while LAPACK and CUDA expect layout left
+    // P is not squared and not symmetric, so we must convert it to layout left
+    // RHS is symmetric and square, so no conversion is necessary
+    ConvertLayoutRightToLeft crl(pm, lda, nda, P);
+    int scratch_size = scratch_matrix_left_type::shmem_size(lda, nda);
+    pm.clearScratchSizes();
+    pm.setTeamScratchSize(1, scratch_size);
+    pm.CallFunctorWithTeamThreads(num_matrices, crl);
+    Kokkos::fence();
 
 #ifdef COMPADRE_USE_CUDA
 
@@ -484,9 +509,24 @@ void batchSVDFactorize(double *P, int lda, int nda, double *RHS, int ldb, int nd
     #endif // LAPACK is not threadsafe
 
 #endif
+
+    // Results are written layout left, so they need converted to layout right
+    ConvertLayoutLeftToRight clr(pm, ldb, ndb, RHS);
+    scratch_size = scratch_matrix_left_type::shmem_size(ldb, ndb);
+    pm.clearScratchSizes();
+    pm.setTeamScratchSize(1, scratch_size);
+    pm.CallFunctorWithTeamThreads(num_matrices, clr);
+    Kokkos::fence();
+
 }
 
-void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
+void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
+
+    // P was constructed layout right, while LAPACK and CUDA expect layout left
+    // P is squared and symmetric so no layout conversion necessary
+    // RHS is not square and not symmetric. However, the implicit cast to layout left
+    // is equivalent to transposing the matrix and being consistent with layout left
+    // Essentially, two operations for free.
 
 #ifdef COMPADRE_USE_CUDA
 
@@ -619,6 +659,15 @@ void batchLUFactorize(double *P, int lda, int nda, double *RHS, int ldb, int ndb
     #endif // LAPACK is not threadsafe
 
 #endif
+
+    // Results are written layout left, so they need converted to layout right
+    ConvertLayoutLeftToRight clr(pm, ldb, ndb, RHS);
+    int scratch_size = scratch_matrix_left_type::shmem_size(ldb, ndb);
+    pm.clearScratchSizes();
+    pm.setTeamScratchSize(1, scratch_size);
+    pm.CallFunctorWithTeamThreads(num_matrices, clr);
+    Kokkos::fence();
+
 }
 
 }; // GMLS_LinearAlgebra

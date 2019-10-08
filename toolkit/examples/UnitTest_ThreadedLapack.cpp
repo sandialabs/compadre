@@ -81,7 +81,8 @@ Kokkos::initialize(argc, args);
 
 
     // call SVD on all num_matrices
-    GMLS_LinearAlgebra::batchSVDFactorize(all_P.data(), P_rows, P_cols, all_RHS.data(), RHS_rows, RHS_rows, P_rows, P_cols, P_rows, num_matrices);
+    ParallelManager pm;
+    GMLS_LinearAlgebra::batchSVDFactorize(pm, all_P.data(), P_rows, P_cols, all_RHS.data(), RHS_rows, RHS_rows, P_rows, P_cols, P_rows, num_matrices);
 
 
     const double tol = 1e-10;

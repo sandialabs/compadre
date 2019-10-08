@@ -539,13 +539,13 @@ public:
                             + TO_GLOBAL(target_index)*TO_GLOBAL(global_dimensions)*TO_GLOBAL(global_dimensions), 
                          global_dimensions, global_dimensions);
 
-                scratch_matrix_left_type Coeffs;
+                scratch_matrix_right_type Coeffs;
                 if (dense_solver_type != DenseSolverType::LU) {
-                    Coeffs = scratch_matrix_left_type(coeffs.data() 
+                    Coeffs = scratch_matrix_right_type(coeffs.data() 
                         + TO_GLOBAL(target_index)*TO_GLOBAL(coefficient_matrix_tile_size)*TO_GLOBAL(coefficient_matrix_tile_size),
                         coefficient_matrix_tile_size, coefficient_matrix_tile_size);
                 } else {
-                    Coeffs = scratch_matrix_left_type(coeffs.data() 
+                    Coeffs = scratch_matrix_right_type(coeffs.data() 
                         + TO_GLOBAL(target_index)*TO_GLOBAL(coefficient_matrix_tile_size)*TO_GLOBAL(coefficient_size),
                         coefficient_size, coefficient_matrix_tile_size);
                 }
@@ -563,7 +563,6 @@ public:
                         : 1.0;
 
                     t_value += neighbor_varying_pre_T * sampling_data_single_column(neighbor_lists(target_index, i+1))*Coeffs(j, i);
-                        // *Coeffs(ORDER_INDICES(i+input_component_axis_1*neighbor_lists(target_index,0), j));
 
                 }, gmls_value );
 
@@ -590,7 +589,6 @@ public:
 
                         t_value += neighbor_varying_pre_T_staggered * sampling_data_single_column(neighbor_lists(target_index, 1))
                             *Coeffs(j, i);
-                            //*Coeffs(ORDER_INDICES(i+input_component_axis_1*neighbor_lists(target_index,0), j));
 
                     }, staggered_value_from_targets );
 

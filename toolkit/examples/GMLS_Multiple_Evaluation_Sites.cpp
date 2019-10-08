@@ -74,7 +74,7 @@ bool all_passed = true;
     int solver_type = 1; // QR by default
     if (argc >= 5) {
         int arg5toi = atoi(args[4]);
-        if (arg5toi > 0) {
+        if (arg5toi >= 0) {
             solver_type = arg5toi;
         }
     }
