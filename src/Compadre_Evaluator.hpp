@@ -501,15 +501,15 @@ public:
     void applyFullPolynomialCoefficientsBasisToDataSingleComponent(view_type_data_out output_data_block_column, view_type_data_in sampling_data_single_column, TargetOperation lro, const SamplingFunctional sro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1, bool transform_output_ambient = false, bool vary_on_target = false, bool vary_on_neighbor = false) const {
 
         auto neighbor_lists = _gmls->getNeighborLists();
-        const int coefficient_matrix_tile_size = _gmls->getPolynomialCoefficientsMatrixTileSize();
-        const int coefficient_size = _gmls->getPolynomialCoefficientsSize();
+        auto coefficient_matrix_dims = _gmls->getPolynomialCoefficientsDomainRangeSize();
+        auto coefficient_memory_layout_dims = _gmls->getPolynomialCoefficientsMemorySize();
 
         // alphas gracefully handle a scalar basis used repeatedly (VectorOfScalarClones) because the alphas
         // hold a 0 when the input index is greater than 0
         // this can be detected for the polynomial coefficients by noticing that the input_component_axis_1 is greater than 0,
         // but the offset this would produce into the coefficients matrix is larger than its dimensions
         auto max_num_neighbors = (neighbor_lists.extent(1) - 1);
-        if (input_component_axis_1*max_num_neighbors >= (size_t)coefficient_matrix_tile_size) return;
+        if (input_component_axis_1*max_num_neighbors >= (size_t)coefficient_matrix_dims[1]) return;
 
         auto global_dimensions = _gmls->getGlobalDimensions();
 
@@ -529,7 +529,7 @@ public:
         bool target_plus_neighbor_staggered_schema = sro.use_target_site_weights;
 
         // loops over target indices
-        for (int j=0; j<coefficient_size; ++j) {
+        for (int j=0; j<coefficient_matrix_dims[0]; ++j) {
             Kokkos::parallel_for(team_policy(num_targets, Kokkos::AUTO),
                     KOKKOS_LAMBDA(const member_type& teamMember) {
 
@@ -540,15 +540,10 @@ public:
                          global_dimensions, global_dimensions);
 
                 scratch_matrix_right_type Coeffs;
-                if (dense_solver_type != DenseSolverType::LU) {
-                    Coeffs = scratch_matrix_right_type(coeffs.data() 
-                        + TO_GLOBAL(target_index)*TO_GLOBAL(coefficient_matrix_tile_size)*TO_GLOBAL(coefficient_matrix_tile_size),
-                        coefficient_matrix_tile_size, coefficient_matrix_tile_size);
-                } else {
-                    Coeffs = scratch_matrix_right_type(coeffs.data() 
-                        + TO_GLOBAL(target_index)*TO_GLOBAL(coefficient_matrix_tile_size)*TO_GLOBAL(coefficient_size),
-                        coefficient_size, coefficient_matrix_tile_size);
-                }
+                Coeffs = scratch_matrix_right_type(coeffs.data() 
+                    + TO_GLOBAL(target_index)*TO_GLOBAL(coefficient_memory_layout_dims[0])
+                        *TO_GLOBAL(coefficient_memory_layout_dims[1]),
+                    coefficient_memory_layout_dims[0], coefficient_memory_layout_dims[1]);
 
                 teamMember.team_barrier();
 
@@ -654,6 +649,7 @@ public:
         auto global_dimensions = _gmls->getGlobalDimensions();
         auto output_dimension_of_operator = _gmls->getOutputDimensionOfOperation(lro);
         auto input_dimension_of_operator = _gmls->getInputDimensionOfOperation(lro);
+        auto coefficient_matrix_dims = _gmls->getPolynomialCoefficientsDomainRangeSize();
 
         // gather needed information for evaluation
         auto neighbor_lists = _gmls->getNeighborLists();
