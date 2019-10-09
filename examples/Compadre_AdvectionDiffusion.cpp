@@ -15,6 +15,7 @@
 #include <Compadre_AnalyticFunctions.hpp>
 #include <Compadre_FileIO.hpp>
 #include <Compadre_ParameterManager.hpp>
+#include <Compadre_RemapManager.hpp>
 
 #include <Compadre_GMLS.hpp> // for getNP()
 
@@ -22,12 +23,15 @@
 #include <Compadre_AdvectionDiffusion_BoundaryConditions.hpp>
 #include <Compadre_AdvectionDiffusion_Operator.hpp>
 
+#define STACK_TRACE(call) try { call; } catch (const std::exception& e ) { TEUCHOS_TRACE(e); }
 
 typedef int LO;
 typedef long GO;
 typedef double ST;
 typedef Compadre::XyzVector xyz_type;
 typedef Compadre::EuclideanCoordsT CT;
+
+using namespace Compadre;
 
 int main (int argc, char* args[]) {
 #ifdef TRILINOS_LINEAR_SOLVES
@@ -183,10 +187,7 @@ int main (int argc, char* args[]) {
 
         physics->setCells(cells);
         problem->setPhysics(physics);
-
-        // set advection and diffusion for RHS
-        source->setAdvectionField(advection_field);
-        source->setDiffusion(parameters->get<Teuchos::ParameterList>("physics").get<double>("diffusion"));
+        source->setPhysics(physics);
 
         problem->setSources(source);
         problem->setBCS(bcs);
@@ -205,6 +206,10 @@ int main (int argc, char* args[]) {
         particles->getFieldManager()->updateFieldsHaloData();
 
 
+		//Teuchos::RCP<Compadre::RemapManager> rm = Teuchos::rcp(new Compadre::RemapManager(parameters, particles.getRawPtr(), cells.getRawPtr(), halo_size));
+		//Compadre::RemapObject ro("solution", "another_solution", TargetOperation::ScalarPointEvaluation);
+		//rm->add(ro);
+		//STACK_TRACE(rm->execute());
 //
 //			// write matrix and rhs to files
 ////				Tpetra::MatrixMarket::Writer<Compadre::mvec_type>::writeDenseFile("b"+std::to_string(i), *problem->getb(), "rhs", "description");
@@ -247,6 +252,14 @@ int main (int argc, char* args[]) {
             fm.write();
             WriteTime->stop();
         }
+        //{
+        //    WriteTime->start();
+        //    std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
+        //    fm.setWriter(output_filename, cells);
+        //    if (parameters->get<Teuchos::ParameterList>("io").get<bool>("vtk produce mesh")) fm.generateWriteMesh();
+        //    fm.write();
+        //    WriteTime->stop();
+        //}
 //		errors[i] = global_norm;
 //
 //		WriteTime->start();

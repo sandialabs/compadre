@@ -1,6 +1,7 @@
 <ParameterList name="Compadre">
   <ParameterList name="physics">
     <Parameter name="diffusion" type="double" value="1.0"/>
+    <Parameter name="penalty" type="double" value="1e-4"/>
   </ParameterList>
   <ParameterList name="io">
     <Parameter name="input file prefix" type="string" value="../test_data/grids/"/>
