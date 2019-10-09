@@ -58,11 +58,11 @@ void getPDims(DenseSolverType dense_solver_type, ConstraintType constraint_type,
     // to be resized to include additional row(s) based on the type of constraint.
     if (dense_solver_type == LU) {
         if (constraint_type == NEUMANN_GRAD_SCALAR) {
-            out_row = N + 1;
-            out_col = M + 1;
+            out_row = M + 1;
+            out_col = N + 1;
         } else {
-            out_row = N;
-            out_col = M;
+            out_row = M;
+            out_col = N;
         }
     } else {
         out_row = M;
