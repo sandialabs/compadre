@@ -1153,7 +1153,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
     } else {
         // Solution from LU comes from P
         Q = scratch_matrix_right_type(_P.data()
-            + TO_GLOBAL(local_index)*TO_GLOBAL(P_dim_0)*TO_GLOBAL(P_dim_1), P_dim_0, P_dim_1);
+            + TO_GLOBAL(local_index)*TO_GLOBAL(P_dim_1)*TO_GLOBAL(P_dim_0), P_dim_1, P_dim_0);
     }
 
     scratch_matrix_right_type T(_T.data() 
