@@ -1219,7 +1219,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
             Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember,this->getNNeighbors(target_index)), [=] (const int i, double &t_grad_xi1) {
                 double alpha_ij = 0;
                 for (int l=0; l<manifold_NP; ++l) {
-                    alpha_ij += delta(l)*Q(i,l);
+                    alpha_ij += delta(l)*Q(l,i);
                 }
                 XYZ rel_coord = getRelativeCoord(target_index, i, _dimensions, &T);
                 double normal_coordinate = rel_coord[_dimensions-1];
@@ -1235,7 +1235,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
             Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember,this->getNNeighbors(target_index)), [=] (const int i, double &t_grad_xi2) {
                 double alpha_ij = 0;
                 for (int l=0; l<manifold_NP; ++l) {
-                    alpha_ij += delta(l)*Q(i,l);
+                    alpha_ij += delta(l)*Q(l,i);
                 }
                 XYZ rel_coord = getRelativeCoord(target_index, i, _dimensions, &T);
                 double normal_coordinate = rel_coord[_dimensions-1];
