@@ -198,7 +198,7 @@ variation = .00 # as a decimal for a percent
 
 
 #h_all=[0.2]#,0.1,0.05,0.025,0.0125,0.00625]
-h_all=[0.1,0.05]#,0.025,0.0125,0.00625]
+h_all=[0.1,0.05,0.025,0.0125,0.00625]
 
 poly_order = 3
 num_points_interior = get_num_points_for_order(poly_order, 2)
@@ -236,6 +236,7 @@ for key, h in enumerate(h_all):
     all_normals = np.zeros([tri.simplices.shape[0], 2*(num_points_interior + 3*num_points_exterior)], dtype='d')
     all_interior = np.ones([tri.simplices.shape[0], num_points_interior + 3*num_points_exterior], dtype='int')
     all_vertices = np.zeros([tri.simplices.shape[0], 2], dtype='d')
+    all_adjacent_elements = np.zeros([tri.simplices.shape[0], 3], dtype='int')
 
     (w_interior, q_interior) = get_quadrature(poly_order, 2)
     (w_exterior, q_exterior) = get_quadrature(poly_order, 1)
@@ -266,6 +267,7 @@ for key, h in enumerate(h_all):
                 # put a 1 for interior quadrature point to a cell, 0 for exterior (edge/face), and 2 for exterior (edge/face) but on a Dirichlet boundary
                 all_interior  [i, num_points_interior + k*num_points_exterior + j] = e_type[k];
                 all_weights   [i, num_points_interior + k*num_points_exterior + j] = w_physical_exterior[k*num_points_exterior + j]
+            all_adjacent_elements [i, k] = edge_adjacency[(k-1)%3] # consistent with point/edge ordering for e_type
 
 
     if (vis):
@@ -301,6 +303,7 @@ for key, h in enumerate(h_all):
     dataset = Dataset('dg_%d.nc'%key, mode="w", clobber=True, diskless=False,\
                        persist=False, keepweakref=False, format='NETCDF4')
     dataset.createDimension('num_entities', size=tri.simplices.shape[0])
+    dataset.createDimension('num_edges', size=3)
     dataset.createDimension('num_interior_quadrature', size=num_points_interior)
     dataset.createDimension('num_exterior_quadrature', size=3*num_points_exterior)
     dataset.createDimension('num_total_quadrature', size=num_points_interior + 3*num_points_exterior)
@@ -337,6 +340,10 @@ for key, h in enumerate(h_all):
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
+    dataset.createVariable('adjacent_elements', datatype='int', dimensions=('num_entities','num_edges'), zlib=False, complevel=4,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
+
 
     dataset.variables['x'][:]=all_vertices[:,0]
     dataset.variables['y'][:]=all_vertices[:,1]
@@ -345,6 +352,7 @@ for key, h in enumerate(h_all):
     dataset.variables['quadrature_points'][:,:]=all_quadrature[:,:]
     dataset.variables['unit_normal'][:,:]=all_normals[:,:]
     dataset.variables['interior'][:,:]=all_interior[:,:]
+    dataset.variables['adjacent_elements'][:,:]=all_adjacent_elements[:,:]
 
 
     #help(dataset)

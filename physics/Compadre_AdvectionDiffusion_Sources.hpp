@@ -6,15 +6,15 @@
 
 namespace Compadre {
 
+class AdvectionDiffusionPhysics;
+
 class AdvectionDiffusionSources : public SourcesT {
 
 	protected:
 
 		typedef Compadre::ParticlesT particle_type;
-        typedef Compadre::XyzVector xyz_type;
 
-        xyz_type _advection_field;
-        scalar_type _diffusion;
+        AdvectionDiffusionPhysics* _physics;
 
 	public:
 
@@ -28,19 +28,8 @@ class AdvectionDiffusionSources : public SourcesT {
 
 		virtual std::vector<InteractingFields> gatherFieldInteractions();
 
-        void setAdvectionField(const xyz_type advection_field) {
-            for (local_index_type i=0; i<3; ++i) {
-                _advection_field[i] = advection_field[i];
-            }
-        }
-        
-        xyz_type getAdvectionField() const { return _advection_field; }
+        void setPhysics(Teuchos::RCP<AdvectionDiffusionPhysics> physics) { _physics = physics.getRawPtr(); }
 
-        void setDiffusion(const scalar_type diffusion) {
-            _diffusion = diffusion;
-        }
-
-        scalar_type getDiffusion() const { return _diffusion; }
 };
 
 }
