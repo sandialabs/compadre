@@ -867,31 +867,31 @@ public:
 
 
     //! Returns (size of the basis used in instance's polynomial reconstruction) x (data input dimension)
-    std::vector<int> getPolynomialCoefficientsDomainRangeSize() const { 
-        std::vector<int> sizes(2);
-        sizes[0] = _basis_multiplier*_NP;
-        sizes[1] = _sampling_multiplier*getMaxNNeighbors();
+    host_managed_local_index_type getPolynomialCoefficientsDomainRangeSize() const { 
+        host_managed_local_index_type sizes("sizes", 2);
+        sizes(0) = _basis_multiplier*_NP;
+        sizes(1) = _sampling_multiplier*getMaxNNeighbors();
         return sizes;
     }
 
     //! Returns size of the basis used in instance's polynomial reconstruction
     int getPolynomialCoefficientsSize() const {
         auto sizes = this->getPolynomialCoefficientsDomainRangeSize();
-        return sizes[0];
+        return sizes(0);
     }
 
     //! Returns 2D array size in memory on which coefficients are stored
-    std::vector<int> getPolynomialCoefficientsMemorySize() const {
+    host_managed_local_index_type getPolynomialCoefficientsMemorySize() const {
         auto M_by_N = this->getPolynomialCoefficientsDomainRangeSize();
         compadre_assert_release(_entire_batch_computed_at_once 
                 && "Entire batch not computed at once, so getFullPolynomialCoefficientsBasis() can not be called.");
-        std::vector<int> sizes(2);
+        host_managed_local_index_type sizes("sizes", 2);
         if (_dense_solver_type != DenseSolverType::LU) {
             int rhsdim = getRHSSquareDim(_dense_solver_type, _constraint_type, M_by_N[1], M_by_N[0]);
-            sizes[0] = rhsdim;
-            sizes[1] = rhsdim;
+            sizes(0) = rhsdim;
+            sizes(1) = rhsdim;
         } else {
-            getPDims(_dense_solver_type, _constraint_type, M_by_N[1], M_by_N[0], sizes[1], sizes[0]);
+            getPDims(_dense_solver_type, _constraint_type, M_by_N[1], M_by_N[0], sizes(1), sizes(0));
         }
         return sizes;
     }
