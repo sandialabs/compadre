@@ -39,6 +39,10 @@ typedef Kokkos::DefaultHostExecutionSpace host_execution_space;
   typedef Kokkos::DefaultHostExecutionSpace device_execution_space;
 #endif
 
+// memory spaces
+typedef typename host_execution_space::memory_space host_memory_space;
+typedef typename device_execution_space::memory_space device_memory_space;
+
 // team policies
 typedef typename Kokkos::TeamPolicy<device_execution_space> team_policy;
 typedef typename team_policy::member_type  member_type;
@@ -69,6 +73,26 @@ typedef Kokkos::View<double*, host_execution_space, Kokkos::MemoryTraits<Kokkos:
             host_scratch_vector_type;
 typedef Kokkos::View<int*, host_execution_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
             host_scratch_local_index_type;
+
+// managed device data views
+typedef Kokkos::View<double**, layout_right, device_execution_space>
+            device_managed_matrix_right_type;
+typedef Kokkos::View<double**, layout_left, device_execution_space>
+            device_managed_matrix_left_type;
+typedef Kokkos::View<double*, device_execution_space>
+            device_managed_vector_type;
+typedef Kokkos::View<int*, device_execution_space>
+            device_managed_local_index_type;
+
+// managed host data views
+typedef Kokkos::View<double**, layout_right, host_execution_space>
+            host_managed_matrix_right_type;
+typedef Kokkos::View<double**, layout_left, host_execution_space>
+            host_managed_matrix_left_type;
+typedef Kokkos::View<double*, host_execution_space>
+            host_managed_vector_type;
+typedef Kokkos::View<int*, host_execution_space>
+            host_managed_local_index_type;
 
 // random number generator
 typedef Kokkos::Random_XorShift64_Pool<> pool_type;
