@@ -5,6 +5,7 @@ import re
 import math
 import sys
 from consolidate import *
+from reorder_file_by_field import *
 
 assert len(sys.argv)>0, "Not enough arguments"
 

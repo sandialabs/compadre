@@ -35,7 +35,17 @@ def reorder_file_by_field(filename_source, suffix):
         # check first dimension
         dimensions = list(ncvar.dimensions[:])
         if (dimensions[0]==filtering_dimension):
-            ncvar[:]=ncvar[reordering_to_apply][:]
+            # assumed column zero has ordered data
+            if (len(dimensions)>1):
+                tmp = ncvar[reordering_to_apply,1:]
+                ncvar[:,1:] = tmp
+            elif (varname==ordering_field+suffix):
+                tmp = ncvar[reordering_to_apply][:]
+                ncvar[:] = tmp
+            else:
+                pass
+                # field is from original data file (that is how consolidate.py works)
+                # and shouldn't be reordered, since it was never mixed up
 
     f.close()
 
