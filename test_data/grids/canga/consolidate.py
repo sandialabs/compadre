@@ -132,7 +132,7 @@ def consolidate(iters, file1, file2):
     file2_short = tail
 
     # new output file name
-    new_filename = file2_short + "-" + file1_short
+    #new_filename = file2_short + "-" + file1_short
 
     # get data from various data files
     field_dictionary = get_data_from_file_sequence(iters, file2, "forward_", ["ID","TotalPrecipWater","CloudFraction","Topography"])
@@ -147,6 +147,19 @@ def consolidate(iters, file1, file2):
     # close file we are writing to
     dataset1.close()
 
+    return new_filename
+
+if __name__ == '__main__':
+    iters=0
+    if (len(sys.argv) > 1):
+        iters = int(sys.argv[1])
+    file1=""
+    if (len(sys.argv) > 2):
+        file1 = str(sys.argv[2])
+    file2=""
+    if (len(sys.argv) > 3):
+        file2 = str(sys.argv[3])
+    consolidate(iters, file1, file2)
 
 #test_file_1 = "../../test_data/grids/canga/Cubed-Sphere/outCSMesh_ne16_TPW_CFR_TPO.g"
 #test_file_2 = "../../test_data/grids/canga/Cubed-Sphere/outCSMesh_ne16_TPW_CFR_TPO.g"
