@@ -168,5 +168,7 @@ run_transfer(opt_name)
 f1_head, f1_tail = os.path.splitext(f1)
 f2_head, f2_tail = os.path.splitext(f2)
 print(f1_head,f2_head)
-consolidate(total_iterations, f1_head+'.g', f2_head+'.g')
+newname=consolidate(total_iterations, f1_head+'.g', f2_head+'.g')
+reorder_file_by_field(newname,'_remap_src')
+reorder_file_by_field(newname,'_remap_tgt')
 
