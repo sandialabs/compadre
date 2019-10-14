@@ -71,7 +71,10 @@ def copy_variables_from_source_except_data(filename_source, dataset, new_fields,
 def get_data_from_file_sequence(iters, reference_file, file_prefix, fields):
     concatenated_data = {}
     for field in fields:
-        concatenated_data[field]=np.zeros(shape=(0,0),dtype='d')
+        if (field=="ID"):
+            concatenated_data[field]=np.zeros(shape=(0,0),dtype='i8')
+        else:
+            concatenated_data[field]=np.zeros(shape=(0,0),dtype='f8')
 
     for i in range(iters):
         f = Dataset(file_prefix+str(i+1)+".pvtp.g", "r", format="NETCDF4")
@@ -80,13 +83,13 @@ def get_data_from_file_sequence(iters, reference_file, file_prefix, fields):
                 if (varname != "ID"):
                     #print("%s, %s time_step: %d"%(file_prefix, varname, i))
                     if (concatenated_data[varname].shape[0]==0):
-                        concatenated_data[varname]=np.zeros(shape=(ncvar.shape[0],iters+1), dtype='d')
+                        concatenated_data[varname]=np.zeros(shape=(ncvar.shape[0],iters+1), dtype='f8')
                         concatenated_data[varname][:,1]=ncvar[:].flatten()
                     else:
                         concatenated_data[varname][:,i+1] = ncvar[:].flatten()
                 elif (varname=="ID" and i==1):
                     # take care of ID here on first step
-                    concatenated_data[varname]=np.zeros(shape=(ncvar.shape[0],), dtype='d')
+                    concatenated_data[varname]=np.zeros(shape=(ncvar.shape[0],), dtype='i8')
                     concatenated_data[varname][:]=ncvar[:].flatten()
         f.close()
 
