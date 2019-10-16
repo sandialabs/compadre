@@ -605,10 +605,6 @@ public:
                         && (data_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : data_sampling_strategy)
             {
 
-        // Asserting available problems and solvers
-        compadre_kernel_assert_release((_constraint_type == ConstraintType::NO_CONSTRAINT) &&
-                                       "Neumann constraint type hasn't been implemented yet.");
-
         // seed random number generator pool
         _random_number_pool = pool_type(1);
 
