@@ -70,6 +70,20 @@ void getPDims(DenseSolverType dense_solver_type, ConstraintType constraint_type,
     }
 }
 
+KOKKOS_INLINE_FUNCTION
+int ConstraintAdditionalSize(DenseSolverType dense_solver_type, ConstraintType constraint_type) {
+    // Return the additional constraint size
+    if (dense_solver_type == LU) {
+        if (constraint_type == NEUMANN_GRAD_SCALAR) {
+            return 1;
+        } else {
+            return 0;
+        }
+    } else {
+        return 0;
+    }
+}
+
 }; // Compadre
 
 #endif
