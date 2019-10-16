@@ -52,26 +52,7 @@ int getRHSSquareDim(DenseSolverType dense_solver_type, ConstraintType constraint
 }
 
 KOKKOS_INLINE_FUNCTION
-void getPDims(DenseSolverType dense_solver_type, ConstraintType constraint_type, const int M, const int N, int &out_row, int &out_col) {
-    // Return the appropriate size for _P.
-    // In the case of solving with LU and additional constraint is used, _P needs
-    // to be resized to include additional row(s) based on the type of constraint.
-    if (dense_solver_type == LU) {
-        if (constraint_type == NEUMANN_GRAD_SCALAR) {
-            out_row = M + 1;
-            out_col = N + 1;
-        } else {
-            out_row = M;
-            out_col = N;
-        }
-    } else {
-        out_row = M;
-        out_col = N;
-    }
-}
-
-KOKKOS_INLINE_FUNCTION
-int ConstraintAdditionalSize(DenseSolverType dense_solver_type, ConstraintType constraint_type) {
+int getAdditionalSizeFromConstraint(DenseSolverType dense_solver_type, ConstraintType constraint_type) {
     // Return the additional constraint size
     if (dense_solver_type == LU) {
         if (constraint_type == NEUMANN_GRAD_SCALAR) {
@@ -81,6 +62,22 @@ int ConstraintAdditionalSize(DenseSolverType dense_solver_type, ConstraintType c
         }
     } else {
         return 0;
+    }
+}
+
+KOKKOS_INLINE_FUNCTION
+void getPDims(DenseSolverType dense_solver_type, ConstraintType constraint_type, const int M, const int N, int &out_row, int &out_col) {
+    // Return the appropriate size for _P.
+    // In the case of solving with LU and additional constraint is used, _P needs
+    // to be resized to include additional row(s) based on the type of constraint.
+    int added_size = getAdditionalSizeFromConstraint(dense_solver_type, constraint_type);
+
+    if (dense_solver_type == LU) {
+        out_row = M + added_size;
+        out_col = N + added_size;
+    } else {
+        out_row = M;
+        out_col = N;
     }
 }
 
