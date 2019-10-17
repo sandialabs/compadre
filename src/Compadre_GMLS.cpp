@@ -321,6 +321,8 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
             //_pm.CallFunctorWithTeamThreads<AssembleStandardPsqrtW>(this_batch_size, *this);
             Kokkos::fence();
 
+            int added_size = getAdditionalSizeFromConstraint(_dense_solver_type, _constraint_type);
+
             // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
             // uses SVD if necessary or if explicitly asked to do so (much slower than QR)
             if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
@@ -329,7 +331,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
                 Kokkos::Profiling::popRegion();
             } else if (_dense_solver_type == DenseSolverType::LU) {
                 Kokkos::Profiling::pushRegion("LU Factorization");
-                GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_square_dim, RHS_square_dim, _P.data(), P_dim_1, P_dim_0, this_num_cols, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_square_dim, RHS_square_dim, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_size, this_num_cols + added_size, max_num_rows + added_size, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
                 Kokkos::Profiling::popRegion();
             } else {
                 Kokkos::Profiling::pushRegion("QR Factorization");
@@ -456,6 +458,11 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
         scratch_matrix_right_type M(_RHS.data()
             + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_square_dim)*TO_GLOBAL(RHS_square_dim), RHS_square_dim, RHS_square_dim);
         GMLS_LinearAlgebra::createM(teamMember, M, PsqrtW, this_num_cols /* # of columns */, max_num_rows);
+
+        // Quick check to constraint type to make sure things work
+        if (_constraint_type == ConstraintType::NEUMANN_GRAD_SCALAR) {
+            M(RHS_square_dim-1, RHS_square_dim-1) = 1.0;
+        }
 
         // Multiply PsqrtW with sqrt(W) to get PW
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, max_num_rows), [=] (const int i) {
