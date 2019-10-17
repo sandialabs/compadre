@@ -459,11 +459,6 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
             + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_square_dim)*TO_GLOBAL(RHS_square_dim), RHS_square_dim, RHS_square_dim);
         GMLS_LinearAlgebra::createM(teamMember, M, PsqrtW, this_num_cols /* # of columns */, max_num_rows);
 
-        // Quick check to constraint type to make sure things work
-        if (_constraint_type == ConstraintType::NEUMANN_GRAD_SCALAR) {
-            M(RHS_square_dim-1, RHS_square_dim-1) = 1.0;
-        }
-
         // Multiply PsqrtW with sqrt(W) to get PW
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, max_num_rows), [=] (const int i) {
             for (int j=0; j < this_num_cols; j++) {
@@ -471,6 +466,14 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
             }
         });
         teamMember.team_barrier();
+
+        // Quick check to constraint type to make sure things work
+        if (_constraint_type == ConstraintType::NEUMANN_GRAD_SCALAR) {
+            M(RHS_square_dim-1, RHS_square_dim-1) = 1.0;
+            for (int j=0; j < RHS_square_dim-2; j++) {
+                M(j, RHS_square_dim-1) = 1.0;
+            }
+        }
     }
 }
 
