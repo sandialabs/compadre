@@ -41,7 +41,7 @@ def copy_variables_from_source_except_data(filename_source, dataset, new_fields,
         else:
             # catches when field already exists, but we change dimension
             if (varname != "ID"):
-                dataset.createVariable(varname+suffix, datatype='d', dimensions=('num_el_in_blk1'+suffix,'time_step',), zlib=False, complevel=4,\
+                dataset.createVariable(varname+suffix, datatype='f8', dimensions=('num_el_in_blk1'+suffix,'time_step',), zlib=False, complevel=4,\
                                        shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                                        endian='native', least_significant_digit=None, fill_value=None)
                 #print(new_fields[varname].shape)
@@ -57,7 +57,7 @@ def copy_variables_from_source_except_data(filename_source, dataset, new_fields,
     for varname in list(new_fields.keys()):
         if varname not in new_fields_added:
             if (varname != "ID"):
-                dataset.createVariable(varname+suffix, datatype='d', dimensions=('num_el_in_blk1'+suffix,'time_step',), zlib=False, complevel=4,\
+                dataset.createVariable(varname+suffix, datatype='f8', dimensions=('num_el_in_blk1'+suffix,'time_step',), zlib=False, complevel=4,\
                                        shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                                        endian='native', least_significant_digit=None, fill_value=None)
             else:
