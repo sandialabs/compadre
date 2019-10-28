@@ -31,8 +31,8 @@
     <Parameter name="curvature weighting power" type="int" value="4"/>
     <Parameter name="quadrature points" type="int" value="3"/>
     <Parameter name="optimization algorithm" type="string" value="CAAS"/>
-    <Parameter name="source weighting field name" type="string" value="area"/>
-    <Parameter name="target weighting field name" type="string" value="area"/>
+    <Parameter name="source weighting field name" type="string" value="cell_area"/>
+    <Parameter name="target weighting field name" type="string" value="cell_area"/>
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>
