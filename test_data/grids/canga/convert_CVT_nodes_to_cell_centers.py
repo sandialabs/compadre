@@ -9,15 +9,15 @@ import sys
 import time
 from numba import jit
 
-@jit(nopython=True,parallel=True)
-def getArea(x,y,z):
-    diff_1 = y-x;
-    diff_2 = z-x;
-    t0 = diff_1[1]*diff_2[2]-diff_2[1]*diff_1[2]
-    t1 = -(diff_1[0]*diff_2[2]-diff_2[0]*diff_1[2])
-    t2 = diff_1[0]*diff_2[1]-diff_2[0]*diff_1[1]
-    return 0.5*np.sqrt(t0*t0+t1*t1+t2*t2)
-#    return 0.5*np.linalg.norm(np.cross(diff_1,diff_2))
+#@jit(nopython=True,parallel=True)
+#def getArea(x,y,z):
+#    diff_1 = y-x;
+#    diff_2 = z-x;
+#    t0 = diff_1[1]*diff_2[2]-diff_2[1]*diff_1[2]
+#    t1 = -(diff_1[0]*diff_2[2]-diff_2[0]*diff_1[2])
+#    t2 = diff_1[0]*diff_2[1]-diff_2[0]*diff_1[1]
+#    return 0.5*np.sqrt(t0*t0+t1*t1+t2*t2)
+##    return 0.5*np.linalg.norm(np.cross(diff_1,diff_2))
 
 assert len(sys.argv)>2, "Not enough arguments"
 if (len(sys.argv) > 1):
@@ -33,7 +33,7 @@ connect = variables['connect1']
 
 t0 = time.time()
 
-@jit(nopython=True,parallel=True)
+@jit(nopython=True,parallel=False)
 def getNewMidpoints(i, new_data, old_coords, connect, el_size, nod_size):
     #new_midpoint_coords = np.zeros(shape=(el_size, 3),dtype='d')
     #for i in range(el_size):
@@ -60,31 +60,33 @@ for i in range(el_size):
 t1 = time.time()
 total = t1-t0
 print(str(total)+"coords")
-new_area = np.zeros(shape=(el_size,),dtype='d')
-temp_p1 = np.zeros(shape=(el_size,3),dtype='d')
-temp_p2 = np.zeros(shape=(el_size,3),dtype='d')
+#new_area = np.zeros(shape=(el_size,),dtype='d')
+#temp_p1 = np.zeros(shape=(el_size,3),dtype='d')
+#temp_p2 = np.zeros(shape=(el_size,3),dtype='d')
+#
+#@jit(nopython=True,parallel=True)
+#def getNewArea(i, p1, p2, new_midpoint_coords, old_coords, connect):
+#    this_new_area = 0
+#    for j in range(nod_size):
+#        #midpoint = np.reshape(np.array(new_midpoint_coords[i][:]),(3,))
+#        #p1 = np.zeros(shape=(3,),dtype='d')
+#        #p2 = np.zeros(shape=(3,),dtype='d')
+#        for k in range(3):
+#            p1[i,k] = old_coords[k][connect[i][j]-1]
+#            p2[i,k] = old_coords[k][connect[i][(j+1)%int(nod_size)]-1]
+#        #this_new_area += getArea(midpoint, p1[:,k], p2[:,k])
+#        this_new_area += getArea(new_midpoint_coords[i,:], p1[i,:], p2[i,:])
+#    return this_new_area
+#
+#for i in range(el_size):
+#    this_new_area = getNewArea(i, temp_p1, temp_p2, new_midpoint_coords, np_old_coords, np_connect)
+#    new_area[i] = this_new_area
+#
+#t2 = time.time()
+#total = t2-t1
+#print(str(total)+"areas")
 
-@jit(nopython=True,parallel=True)
-def getNewArea(i, p1, p2, new_midpoint_coords, old_coords, connect):
-    this_new_area = 0
-    for j in range(nod_size):
-        #midpoint = np.reshape(np.array(new_midpoint_coords[i][:]),(3,))
-        #p1 = np.zeros(shape=(3,),dtype='d')
-        #p2 = np.zeros(shape=(3,),dtype='d')
-        for k in range(3):
-            p1[i,k] = old_coords[k][connect[i][j]-1]
-            p2[i,k] = old_coords[k][connect[i][(j+1)%int(nod_size)]-1]
-        #this_new_area += getArea(midpoint, p1[:,k], p2[:,k])
-        this_new_area += getArea(new_midpoint_coords[i,:], p1[i,:], p2[i,:])
-    return this_new_area
-
-for i in range(el_size):
-    this_new_area = getNewArea(i, temp_p1, temp_p2, new_midpoint_coords, np_old_coords, np_connect)
-    new_area[i] = this_new_area
-
-t2 = time.time()
-total = t2-t1
-print(str(total)+"areas")
+new_ID = np.arange(dimensions['num_el_in_blk1'].size)
 
 f=dataset
 dataset2 = Dataset(new_filename, "w", format="NETCDF4")
@@ -112,24 +114,29 @@ for varname,ncvar in f.variables.items():
 #        #for attname in ncvar.ncattrs():
 #        #   setattr(var,attname,getattr(ncvar,attname))
 #        g.variables['coord'][:]=new_midpoint_coords
-g.createVariable('x', datatype='d', dimensions=('num_el_in_blk1',), zlib=False, complevel=4,\
+g.createVariable('x', datatype='f8', dimensions=('num_el_in_blk1',), zlib=False, complevel=4,\
                        shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                        endian='native', least_significant_digit=None, fill_value=None)
 g.variables['x'][:]=new_midpoint_coords[:,0]
-g.createVariable('y', datatype='d', dimensions=('num_el_in_blk1',), zlib=False, complevel=4,\
+g.createVariable('y', datatype='f8', dimensions=('num_el_in_blk1',), zlib=False, complevel=4,\
                        shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                        endian='native', least_significant_digit=None, fill_value=None)
 g.variables['y'][:]=new_midpoint_coords[:,1]
-g.createVariable('z', datatype='d', dimensions=('num_el_in_blk1',), zlib=False, complevel=4,\
+g.createVariable('z', datatype='f8', dimensions=('num_el_in_blk1',), zlib=False, complevel=4,\
                        shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                        endian='native', least_significant_digit=None, fill_value=None)
 g.variables['z'][:]=new_midpoint_coords[:,2]
 
-g.createVariable('area', datatype='d', dimensions=('num_el_in_blk1',), zlib=False, complevel=4,\
+g.createVariable('ID', datatype='i8', dimensions=('num_el_in_blk1',), zlib=False, complevel=4,\
                        shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                        endian='native', least_significant_digit=None, fill_value=None)
-g.variables['area'][:]=new_area
-print("AREA:" + str(np.sum(new_area)))
+g.variables['ID'][:]=new_ID
+
+#g.createVariable('area', datatype='d', dimensions=('num_el_in_blk1',), zlib=False, complevel=4,\
+#                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+#                       endian='native', least_significant_digit=None, fill_value=None)
+#g.variables['area'][:]=new_area
+#print("AREA:" + str(np.sum(new_area)))
 
 dataset2.close()
 dataset.close()
