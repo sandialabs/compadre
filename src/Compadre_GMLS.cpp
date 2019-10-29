@@ -410,7 +410,9 @@ void GMLS::generateAlphas(const int number_of_batches) {
 KOKKOS_INLINE_FUNCTION
 void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMember) const {
 
-    compadre_assert_release(( (_T.extent(0) > 0) && (_dense_solver_type == DenseSolverType::LU) && (_constraint_type == ConstraintType::NEUMANN_GRAD_SCALAR) ) && "Normal vectors are requires for solving GMLS problem with LU under NEUMANN_GRAD_SCALAR constraint.");
+    if ( (_dense_solver_type == DenseSolverType::LU) && (_constraint_type == ConstraintType::NEUMANN_GRAD_SCALAR) ) {
+    compadre_assert_release( (_T.extent(0) > 0) && "Normal vectors are requires for solving GMLS problem with LU under NEUMANN_GRAD_SCALAR constraint.");
+    }
 
     /*
      *    Dimensions
