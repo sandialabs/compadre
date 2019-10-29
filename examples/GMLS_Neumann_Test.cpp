@@ -101,7 +101,7 @@ bool all_passed = true;
     
     // check if 3 arguments are given from the command line
     //  set the number of target sites where we will reconstruct the target functionals at
-    int number_target_coords = 200; // 200 target sites by default
+    int number_target_coords = 10;
     if (argc >= 3) {
         int arg3toi = atoi(args[2]);
         if (arg3toi > 0) {
@@ -111,7 +111,7 @@ bool all_passed = true;
     
     // check if 2 arguments are given from the command line
     //  set the number of target sites where we will reconstruct the target functionals at
-    int order = 3; // 3rd degree polynomial basis by default
+    int order = 5; // 3rd degree polynomial basis by default
     if (argc >= 2) {
         int arg2toi = atoi(args[1]);
         if (arg2toi > 0) {
@@ -134,13 +134,16 @@ bool all_passed = true;
     Kokkos::Profiling::pushRegion("Setup Point Data");
     //! [Setting Up The Point Cloud]
     
-    // approximate spacing of source sites
-    double h_spacing = 0.05;
-    int n_neg1_to_1 = 2*(1/h_spacing) + 1; // always odd
+    // approximate spherical spacing of source sites
+    double angle_spacing = 0.025;
+    int n_zero_to_pi = round(M_PI/angle_spacing);
+    int n_zero_to_2_pi = 2*n_zero_to_pi;
+    // double h_spacing = 0.05;
+    // int n_neg1_to_1 = 2*(1/h_spacing) + 1; // always odd
     
-    // number of source coordinate sites that will fill a box of [-1,1]x[-1,1]x[-1,1] with a spacing approximately h
-    const int number_source_coords = std::pow(n_neg1_to_1, dimension);
-    
+    // number of source coordinate sites
+    const int number_source_coords = n_zero_to_pi*n_zero_to_2_pi;
+
     // coordinates of source sites
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> source_coords_device("source coordinates", 
             number_source_coords, 3);
@@ -149,55 +152,48 @@ bool all_passed = true;
     // coordinates of target sites
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> target_coords_device ("target coordinates", number_target_coords, 3);
     Kokkos::View<double**>::HostMirror target_coords = Kokkos::create_mirror_view(target_coords_device);
-    
-    
+
+    // tangent bundle for each target sites
+    Kokkos::View<double***, Kokkos::DefaultExecutionSpace> tangent_bundles_device ("tangent bundles", number_target_coords, 3, 3);
+    Kokkos::View<double***>::HostMirror tangent_bundles = Kokkos::create_mirror_view(tangent_bundles_device);
+
     // fill source coordinates with a uniform grid
-    int source_index = 0;
-    double this_coord[3] = {0,0,0};
-    for (int i=-n_neg1_to_1/2; i<n_neg1_to_1/2+1; ++i) {
-        this_coord[0] = i*h_spacing;
-        for (int j=-n_neg1_to_1/2; j<n_neg1_to_1/2+1; ++j) {
-            this_coord[1] = j*h_spacing;
-            for (int k=-n_neg1_to_1/2; k<n_neg1_to_1/2+1; ++k) {
-                this_coord[2] = k*h_spacing;
-                if (dimension==3) {
-                    source_coords(source_index,0) = this_coord[0]; 
-                    source_coords(source_index,1) = this_coord[1]; 
-                    source_coords(source_index,2) = this_coord[2]; 
-                    source_index++;
-                }
-            }
-            if (dimension==2) {
-                source_coords(source_index,0) = this_coord[0]; 
-                source_coords(source_index,1) = this_coord[1]; 
-                source_coords(source_index,2) = 0;
-                source_index++;
-            }
-        }
-        if (dimension==1) {
-            source_coords(source_index,0) = this_coord[0]; 
-            source_coords(source_index,1) = 0;
-            source_coords(source_index,2) = 0;
+    int source_index = 1;
+    double theta, phi;
+    double r = 1.0;
+    source_coords(0, 0) = 0.0;
+    source_coords(0, 1) = 0.0;
+    source_coords(0, 2) = 1.0;
+    for (int i_theta=1; i_theta < n_zero_to_pi; i_theta++) {
+        for (int i_phi=1; i_phi < n_zero_to_2_pi; i_phi++) {
+            theta = i_theta*angle_spacing;
+            phi = i_phi*angle_spacing;
+            source_coords(source_index, 0) = r*sin(theta)*cos(phi);
+            source_coords(source_index, 1) = r*sin(theta)*sin(phi);
+            source_coords(source_index, 2) = r*cos(theta);
+            // std::cout << source_coords(source_index, 0) << " " << source_coords(source_index, 1) << " " << source_coords(source_index, 2) << std::endl;
             source_index++;
         }
     }
     
     // fill target coords somewhere inside of [-0.5,0.5]x[-0.5,0.5]x[-0.5,0.5]
     for(int i=0; i<number_target_coords; i++){
-    
-        // first, we get a uniformly random distributed direction
-        double rand_dir[3] = {0,0,0};
-    
-        for (int j=0; j<dimension; ++j) {
-            // rand_dir[j] is in [-0.5, 0.5]
-            rand_dir[j] = ((double)rand() / (double) RAND_MAX) - 0.5;
-        }
-    
-        // then we get a uniformly random radius
-        for (int j=0; j<dimension; ++j) {
-            target_coords(i,j) = rand_dir[j];
-        }
-    
+        double rand_theta =  ((double)rand() / (double) RAND_MAX)*M_PI;
+        double rand_phi =  ((double)rand() / (double) RAND_MAX)*2.0*M_PI;
+
+        target_coords(i, 0) = r*sin(rand_theta)*cos(rand_phi);
+        target_coords(i, 1) = r*sin(rand_theta)*sin(rand_phi);
+        target_coords(i, 2) = r*cos(rand_theta);
+        // Set tangent bundles
+        tangent_bundles(i, 0, 0) = 0.0;
+        tangent_bundles(i, 0, 1) = 0.0;
+        tangent_bundles(i, 0, 2) = 0.0;
+        tangent_bundles(i, 1, 0) = 0.0;
+        tangent_bundles(i, 1, 1) = 0.0;
+        tangent_bundles(i, 1, 2) = 0.0;
+        tangent_bundles(i, 2, 0) = r*sin(rand_theta)*cos(rand_phi);
+        tangent_bundles(i, 2, 1) = r*sin(rand_theta)*sin(rand_phi);
+        tangent_bundles(i, 2, 2) = r*cos(rand_theta);
     }
     
     
@@ -215,41 +211,9 @@ bool all_passed = true;
     // target coordinates copied next, because it is a convenient time to send them to device
     Kokkos::deep_copy(target_coords_device, target_coords);
     
-    // need Kokkos View storing true solution
-    Kokkos::View<double*, Kokkos::DefaultExecutionSpace> sampling_data_device("samples of true solution", 
-            source_coords_device.extent(0));
-    
-    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> gradient_sampling_data_device("samples of true gradient", 
-            source_coords_device.extent(0), dimension);
-    
-    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> divergence_sampling_data_device
-            ("samples of true solution for divergence test", source_coords_device.extent(0), dimension);
-    
-    Kokkos::parallel_for("Sampling Manufactured Solutions", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>
-            (0,source_coords.extent(0)), KOKKOS_LAMBDA(const int i) {
-    
-        // coordinates of source site i
-        double xval = source_coords_device(i,0);
-        double yval = (dimension>1) ? source_coords_device(i,1) : 0;
-        double zval = (dimension>2) ? source_coords_device(i,2) : 0;
-    
-        // data for targets with scalar input
-        sampling_data_device(i) = trueSolution(xval, yval, zval, order, dimension);
-    
-        // data for targets with vector input (divergence)
-        double true_grad[3] = {0,0,0};
-        trueGradient(true_grad, xval, yval,zval, order, dimension);
-    
-        for (int j=0; j<dimension; ++j) {
-            gradient_sampling_data_device(i,j) = true_grad[j];
-    
-            // data for target with vector input (curl)
-            divergence_sampling_data_device(i,j) = divergenceTestSamples(xval, yval, zval, j, dimension);
-        }
-    
-    });
-    
-    
+    // tangent bundles copied next, because it is a convenient time to send them to device
+    Kokkos::deep_copy(tangent_bundles_device, tangent_bundles);
+
     //! [Creating The Data]
     
     Kokkos::Profiling::popRegion();
@@ -264,7 +228,7 @@ bool all_passed = true;
 
     // each row is a neighbor list for a target site, with the first column of each row containing
     // the number of neighbors for that rows corresponding target site
-    double epsilon_multiplier = 1.5;
+    double epsilon_multiplier = 2.5;
     int estimated_upper_bound_number_neighbors = 
         point_cloud_search.getEstimatedNumberNeighborsUpperBound(min_neighbors, dimension, epsilon_multiplier);
 
@@ -330,7 +294,7 @@ bool all_passed = true;
                  order, dimension,
                  solver_name.c_str(), problem_name.c_str(), constraint_name.c_str(),
                  2 /*manifold order*/);
-    
+
     // pass in neighbor lists, source coordinates, target coordinates, and window sizes
     //
     // neighbor lists have the format:
@@ -346,7 +310,8 @@ bool all_passed = true;
     //                  # of target sites is same as # of rows of neighbor lists
     //
     my_GMLS.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
-    
+    my_GMLS.setTangentBundle(tangent_bundles_device);
+
     // create a vector of target operations
     TargetOperation lro;
     lro = ScalarPointEvaluation;
@@ -363,69 +328,18 @@ bool all_passed = true;
     // generate the alphas that to be combined with data for each target operation requested in lro
     my_GMLS.generateAlphas(number_of_batches);
     
-    
     //! [Setting Up The GMLS Object]
     
     double instantiation_time = timer.seconds();
-    std::cout << "Took " << instantiation_time << "s to complete alphas generation." << std::endl;
-    Kokkos::fence(); // let generateAlphas finish up before using alphas
-    Kokkos::Profiling::pushRegion("Apply Alphas to Data");
-    
-    //! [Apply GMLS Alphas To Data]
-    
-    // it is important to note that if you expect to use the data as a 1D view, then you should use double*
-    // however, if you know that the target operation will result in a 2D view (vector or matrix output),
-    // then you should template with double** as this is something that can not be infered from the input data
-    // or the target operator at compile time. Additionally, a template argument is required indicating either
-    // Kokkos::HostSpace or Kokkos::DefaultExecutionSpace::memory_space() 
-    
-    // The Evaluator class takes care of handling input data views as well as the output data views.
-    // It uses information from the GMLS class to determine how many components are in the input 
-    // as well as output for any choice of target functionals and then performs the contactions
-    // on the data using the alpha coefficients generated by the GMLS class, all on the device.
-    Evaluator gmls_evaluator(&my_GMLS);
-    
-    auto output_value = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (sampling_data_device, ScalarPointEvaluation);
- 
-    //! [Apply GMLS Alphas To Data]
-    
-    Kokkos::fence(); // let application of alphas to data finish before using results
-    Kokkos::Profiling::popRegion();
-    // times the Comparison in Kokkos
-    Kokkos::Profiling::pushRegion("Comparison");
-    
-    //! [Check That Solutions Are Correct]
-    
-    
-    // loop through the target sites
-    for (int i=0; i<number_target_coords; i++) {
-    
-        // load value from output
-        double GMLS_value = output_value(i);
-    
-        // target site i's coordinate
-        double xval = target_coords(i,0);
-        double yval = (dimension>1) ? target_coords(i,1) : 0;
-        double zval = (dimension>2) ? target_coords(i,2) : 0;
-    
-        // evaluation of various exact solutions
-        double actual_value = trueSolution(xval, yval, zval, order, dimension);
+    std::cout << "Took " << instantiation_time << "s to complete normal vectors generation." << std::endl;
+    Kokkos::fence(); // let generateNormalVectors finish up before using alphas
 
-        // check actual function value
-        if(GMLS_value!=GMLS_value || std::abs(actual_value - GMLS_value) > failure_tolerance) {
-            all_passed = false;
-            std::cout << i << " Failed Actual by: " << std::abs(actual_value - GMLS_value) << std::endl;
-        }
-    }
-    
-    
-    //! [Check That Solutions Are Correct] 
-    // popRegion hidden from tutorial
-    // stop timing comparison loop
-    Kokkos::Profiling::popRegion();
-    //! [Finalize Program]
+    // auto output_normal = my_GMLS.getComputedNormalDirections();
 
+    // for (int i=0; i<output_normal.extent(0); i++) {
+    //     std::cout << "0 " << output_normal(i, 0) << " " << output_normal(i, 1) << " " << output_normal(i, 2) << std::endl;
+    //     std::cout << "1 " << target_coords(i, 0) << " " << target_coords(i, 1) << " " << target_coords(i, 2) << std::endl;
+    // }
 
 } // end of code block to reduce scope, causing Kokkos View de-allocations
 // otherwise, Views may be deallocating when we call Kokkos finalize() later
@@ -435,15 +349,6 @@ kp.finalize();
 #ifdef COMPADRE_USE_MPI
 MPI_Finalize();
 #endif
-
-// output to user that test passed or failed
-if(all_passed) {
-    fprintf(stdout, "Passed test \n");
-    return 0;
-} else {
-    fprintf(stdout, "Failed test \n");
-    return -1;
-}
 
 } // main
 
