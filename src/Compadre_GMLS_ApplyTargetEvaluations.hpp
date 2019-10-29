@@ -2,7 +2,6 @@
 #define _COMPADRE_GMLS_APPLY_TARGET_EVALUATIONS_HPP_
 
 #include "Compadre_GMLS.hpp"
-
 namespace Compadre {
 
 KOKKOS_INLINE_FUNCTION
@@ -13,10 +12,13 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
     const int num_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
             ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
 
+    const int added_size = getAdditionalSizeFromConstraint(_dense_solver_type, _constraint_type);
+
 #ifdef COMPADRE_USE_LAPACK
 
     // CPU
     for (int e=0; e<num_evaluation_sites; ++e) {
+        // evaluating alpha_ij
         for (int i=0; i<this->getNNeighbors(target_index); ++i) {
             for (size_t j=0; j<_operations.size(); ++j) {
                 for (int k=0; k<_lro_output_tile_size[j]; ++k) {
@@ -46,6 +48,31 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
                             } else {
                                 talpha_ij += 0;
                             }
+                        }, alpha_ij);
+                        Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                            _alphas(target_index, offset_index_jmke, i) = alpha_ij;
+                            compadre_kernel_assert_extreme_debug(alpha_ij==alpha_ij && "NaN in alphas.");
+                        });
+                    }
+                }
+            }
+        }
+        // evaluating additional b_i which comes from the extra constraints
+        for (int i=this->getNNeighbors(target_index); i<this->getNNeighbors(target_index) + added_size; ++i) {
+            for (size_t j=0; j<_operations.size(); ++j) {
+                for (int k=0; k<_lro_output_tile_size[j]; ++k) {
+                    for (int m=0; m<_lro_input_tile_size[j]; ++m) {
+                        double alpha_ij = 0;
+                        int offset_index_jmke = getTargetOffsetIndexDevice(j,m,k,e);
+                        Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
+                            _basis_multiplier*target_NP), [=] (const int l, double &talpha_ij) {
+                            talpha_ij += P_target_row(offset_index_jmke, l)*Q(l, i);
+
+                            compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l)
+                                    && "NaN in P_target_row matrix.");
+                            compadre_kernel_assert_extreme_debug(Q(l,i)==Q(l,i)
+                                    && "NaN in Q coefficient matrix.");
+
                         }, alpha_ij);
                         Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                             _alphas(target_index, offset_index_jmke, i) = alpha_ij;
