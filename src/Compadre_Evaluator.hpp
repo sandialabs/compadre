@@ -503,13 +503,15 @@ public:
         auto neighbor_lists = _gmls->getNeighborLists();
         auto coefficient_matrix_dims = _gmls->getPolynomialCoefficientsDomainRangeSize();
         auto coefficient_memory_layout_dims = _gmls->getPolynomialCoefficientsMemorySize();
+        auto coefficient_memory_layout_dims_device = 
+            Kokkos::create_mirror_view_and_copy(device_memory_space(), coefficient_memory_layout_dims);
 
         // alphas gracefully handle a scalar basis used repeatedly (VectorOfScalarClones) because the alphas
         // hold a 0 when the input index is greater than 0
         // this can be detected for the polynomial coefficients by noticing that the input_component_axis_1 is greater than 0,
         // but the offset this would produce into the coefficients matrix is larger than its dimensions
         auto max_num_neighbors = (neighbor_lists.extent(1) - 1);
-        if (input_component_axis_1*max_num_neighbors >= (size_t)coefficient_matrix_dims[1]) return;
+        if (input_component_axis_1*max_num_neighbors >= (size_t)coefficient_matrix_dims(1)) return;
 
         auto global_dimensions = _gmls->getGlobalDimensions();
 
@@ -529,7 +531,7 @@ public:
         bool target_plus_neighbor_staggered_schema = sro.use_target_site_weights;
 
         // loops over target indices
-        for (int j=0; j<coefficient_matrix_dims[0]; ++j) {
+        for (int j=0; j<coefficient_matrix_dims(0); ++j) {
             Kokkos::parallel_for(team_policy(num_targets, Kokkos::AUTO),
                     KOKKOS_LAMBDA(const member_type& teamMember) {
 
@@ -538,12 +540,12 @@ public:
                 scratch_matrix_right_type T (tangent_directions.data() 
                             + TO_GLOBAL(target_index)*TO_GLOBAL(global_dimensions)*TO_GLOBAL(global_dimensions), 
                          global_dimensions, global_dimensions);
-
+                
                 scratch_matrix_right_type Coeffs;
                 Coeffs = scratch_matrix_right_type(coeffs.data() 
-                    + TO_GLOBAL(target_index)*TO_GLOBAL(coefficient_memory_layout_dims[0])
-                        *TO_GLOBAL(coefficient_memory_layout_dims[1]),
-                    coefficient_memory_layout_dims[0], coefficient_memory_layout_dims[1]);
+                    + TO_GLOBAL(target_index)*TO_GLOBAL(coefficient_memory_layout_dims_device(0))
+                        *TO_GLOBAL(coefficient_memory_layout_dims_device(1)),
+                    coefficient_memory_layout_dims_device(0), coefficient_memory_layout_dims_device(1));
 
                 teamMember.team_barrier();
 
