@@ -66,13 +66,27 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
                         int offset_index_jmke = getTargetOffsetIndexDevice(j,m,k,e);
                         Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
                             _basis_multiplier*target_NP), [=] (const int l, double &talpha_ij) {
-                            talpha_ij += P_target_row(offset_index_jmke, l)*Q(l, i);
+                            if (_sampling_multiplier>1 && m<_sampling_multiplier) {
 
-                            compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l)
-                                    && "NaN in P_target_row matrix.");
-                            compadre_kernel_assert_extreme_debug(Q(l,i)==Q(l,i)
-                                    && "NaN in Q coefficient matrix.");
+                                talpha_ij += P_target_row(offset_index_jmke, l)*Q(l, i+m*this->getNNeighbors(target_index));
 
+                                compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l)
+                                        && "NaN in P_target_row matrix.");
+                                compadre_kernel_assert_extreme_debug(Q(l, i+m*this->getNNeighbors(target_index))==Q(l, i+m*this->getNNeighbors(target_index))
+                                        && "NaN in Q coefficient matrix.");
+
+                            } else if (_sampling_multiplier == 1) {
+
+                                talpha_ij += P_target_row(offset_index_jmke, l)*Q(l, i);
+
+                                compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l)
+                                        && "NaN in P_target_row matrix.");
+                                compadre_kernel_assert_extreme_debug(Q(l,i)==Q(l,i)
+                                        && "NaN in Q coefficient matrix.");
+
+                            } else {
+                                talpha_ij += 0;
+                            }
                         }, alpha_ij);
                         Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                             _alphas(target_index, offset_index_jmke, i) = alpha_ij;
