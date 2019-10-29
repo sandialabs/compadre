@@ -29,12 +29,15 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
      *    Initialize Alphas and Prestencil Weights
      */
 
+    // calculate the additional size for different constraint problems
+    int added_size = getAdditionalSizeFromConstraint(_dense_solver_type, _constraint_type);
+
     // initialize all alpha values to be used for taking the dot product with data to get a reconstruction 
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
     // would have to store for the max case (potentially number
     try {
-        _alphas = decltype(_alphas)("coefficients", _neighbor_lists.extent(0), _total_alpha_values*max_evaluation_sites, _max_num_neighbors);
+        _alphas = decltype(_alphas)("coefficients", _neighbor_lists.extent(0), _total_alpha_values*max_evaluation_sites, _max_num_neighbors + added_size);
     } catch(std::exception &e) {
        printf("Insufficient memory to store alphas: \n\n%s", e.what()); 
        throw e;
@@ -320,8 +323,6 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
             _pm.CallFunctorWithTeamThreads<AssembleStandardPsqrtW>(this_batch_size, *this);
             //_pm.CallFunctorWithTeamThreads<AssembleStandardPsqrtW>(this_batch_size, *this);
             Kokkos::fence();
-
-            int added_size = getAdditionalSizeFromConstraint(_dense_solver_type, _constraint_type);
 
             // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
             // uses SVD if necessary or if explicitly asked to do so (much slower than QR)
