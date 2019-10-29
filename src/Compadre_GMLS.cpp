@@ -30,7 +30,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
      */
 
     // calculate the additional size for different constraint problems
-    int added_size = getAdditionalSizeFromConstraint(_dense_solver_type, _constraint_type);
+    const int added_size = getAdditionalSizeFromConstraint(_dense_solver_type, _constraint_type);
 
     // initialize all alpha values to be used for taking the dot product with data to get a reconstruction 
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
