@@ -19,7 +19,7 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
     // CPU
     for (int e=0; e<num_evaluation_sites; ++e) {
         // evaluating alpha_ij
-        for (int i=0; i<this->getNNeighbors(target_index); ++i) {
+        for (int i=0; i<this->getNNeighbors(target_index) + added_size; ++i) {
             for (size_t j=0; j<_operations.size(); ++j) {
                 for (int k=0; k<_lro_output_tile_size[j]; ++k) {
                     for (int m=0; m<_lro_input_tile_size[j]; ++m) {
@@ -43,45 +43,6 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
                                 compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l) 
                                         && "NaN in P_target_row matrix.");
                                 compadre_kernel_assert_extreme_debug(Q(l,i)==Q(l,i) 
-                                        && "NaN in Q coefficient matrix.");
-
-                            } else {
-                                talpha_ij += 0;
-                            }
-                        }, alpha_ij);
-                        Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                            _alphas(target_index, offset_index_jmke, i) = alpha_ij;
-                            compadre_kernel_assert_extreme_debug(alpha_ij==alpha_ij && "NaN in alphas.");
-                        });
-                    }
-                }
-            }
-        }
-        // evaluating additional b_i which comes from the extra constraints
-        for (int i=this->getNNeighbors(target_index); i<this->getNNeighbors(target_index) + added_size; ++i) {
-            for (size_t j=0; j<_operations.size(); ++j) {
-                for (int k=0; k<_lro_output_tile_size[j]; ++k) {
-                    for (int m=0; m<_lro_input_tile_size[j]; ++m) {
-                        double alpha_ij = 0;
-                        int offset_index_jmke = getTargetOffsetIndexDevice(j,m,k,e);
-                        Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-                            _basis_multiplier*target_NP), [=] (const int l, double &talpha_ij) {
-                            if (_sampling_multiplier>1 && m<_sampling_multiplier) {
-
-                                talpha_ij += P_target_row(offset_index_jmke, l)*Q(l, i+m*this->getNNeighbors(target_index));
-
-                                compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l)
-                                        && "NaN in P_target_row matrix.");
-                                compadre_kernel_assert_extreme_debug(Q(l, i+m*this->getNNeighbors(target_index))==Q(l, i+m*this->getNNeighbors(target_index))
-                                        && "NaN in Q coefficient matrix.");
-
-                            } else if (_sampling_multiplier == 1) {
-
-                                talpha_ij += P_target_row(offset_index_jmke, l)*Q(l, i);
-
-                                compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l)
-                                        && "NaN in P_target_row matrix.");
-                                compadre_kernel_assert_extreme_debug(Q(l,i)==Q(l,i)
                                         && "NaN in Q coefficient matrix.");
 
                             } else {
