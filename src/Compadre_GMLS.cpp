@@ -474,10 +474,30 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
 
         // Quick check to constraint type to make sure things work
         if (_constraint_type == ConstraintType::NEUMANN_GRAD_SCALAR) {
-            M(RHS_square_dim-1, RHS_square_dim-1) = 1.0;
-            for (int j=0; j < RHS_square_dim-2; j++) {
-                M(j, RHS_square_dim-1) = 1.0;
-            }
+            // TO DO: CALL A FUNCTOR FOR IT
+
+            // obtain the normal vectors
+            scratch_matrix_right_type T(_T.data()
+                + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
+
+            // Fill in the bottom right entry for PsqrtW
+            PsqrtW(P_dim_0-1, P_dim_1-1) = 1.0;
+
+            // Fill in the last column and row of M
+            M(RHS_square_dim-1, RHS_square_dim-1) = 0.0;
+
+            double cutoff_p = _epsilons(target_index);
+
+            M(RHS_square_dim-1, 1) = (1.0/cutoff_p)*T(2,0);
+            M(1, RHS_square_dim-1) = (1.0/cutoff_p)*T(2,0);
+
+            M(RHS_square_dim-1, 2) = (1.0/cutoff_p)*T(2,1);
+            M(2, RHS_square_dim-1) = (1.0/cutoff_p)*T(2,1);
+
+            M(RHS_square_dim-1, 3) = (1.0/cutoff_p)*T(2,2);
+            M(3, RHS_square_dim-1) = (1.0/cutoff_p)*T(2,2);
+
+            // std::cout << "TEST VALUES " << (1.0/cutoff_p)*T(2,0) << " " << (1.0/cutoff_p)*T(2,1) << " " << (1.0/cutoff_p)*T(2,2) << std::endl;
         }
     }
 }
