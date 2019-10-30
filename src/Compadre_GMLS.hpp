@@ -831,7 +831,7 @@ public:
     KOKKOS_INLINE_FUNCTION
     static double Wab(const double r, const double h, const WeightingFunctionType& weighting_type, const int power) {
         if (weighting_type == WeightingFunctionType::Power) {
-            return std::pow(1.0-std::abs(r/(3*h)), power) * double(1.0-std::abs(r/(3*h))>0.0);
+            return std::pow(1.0-std::abs(r/h), power) * double(1.0-std::abs(r/h)>0.0);
         } else { // Gaussian
             // 2.5066282746310002416124 = sqrt(2*pi)
             double h_over_3 = h/3.0;
