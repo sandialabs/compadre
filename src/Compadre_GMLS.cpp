@@ -474,20 +474,31 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
 
         // Quick check to constraint type to make sure things work
         if (_constraint_type == ConstraintType::NEUMANN_GRAD_SCALAR) {
-            // TO DO: CALL A FUNCTOR FOR IT
+            // TO DO: MAKE A KOKKOS_INLINE_FUNCTION FOR IT
 
             // obtain the normal vectors
             scratch_matrix_right_type T(_T.data()
                 + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
 
+            // Get the number of neighbors for target index
+            int num_neigh_target = this->getNNeighbors(target_index);
+
             // Fill in the bottom right entry for PsqrtW
-            PsqrtW(P_dim_0-1, P_dim_1-1) = 1.0;
+            PsqrtW(num_neigh_target, P_dim_1-1) = 1.0;
+
+            // std::cout << "CHECKING P ";
+            // for (int i=0; i<=this_num_cols; i++) {
+            //     std::cout << PsqrtW(num_neigh_target, i) << " ";
+            // }
+            // for (int i=0; i<=num_neigh_target; i++) {
+            //     std::cout << PsqrtW(i, P_dim_1-1) << " ";
+            // }
+            // std::cout << std::endl;
 
             // Fill in the last column and row of M
             M(RHS_square_dim-1, RHS_square_dim-1) = 0.0;
 
             double cutoff_p = _epsilons(target_index);
-
             M(RHS_square_dim-1, 1) = (1.0/cutoff_p)*T(2,0);
             M(1, RHS_square_dim-1) = (1.0/cutoff_p)*T(2,0);
 
@@ -497,7 +508,11 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
             M(RHS_square_dim-1, 3) = (1.0/cutoff_p)*T(2,2);
             M(3, RHS_square_dim-1) = (1.0/cutoff_p)*T(2,2);
 
-            // std::cout << "TEST VALUES " << (1.0/cutoff_p)*T(2,0) << " " << (1.0/cutoff_p)*T(2,1) << " " << (1.0/cutoff_p)*T(2,2) << std::endl;
+            // std::cout << "TESTING VALUES M ";
+            // for (int i=0; i<RHS_square_dim-1; i++) {
+            //     std::cout << M(i, RHS_square_dim-2) << " ";
+            // }
+            // std::cout << std::endl;
         }
     }
 }
