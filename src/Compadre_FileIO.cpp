@@ -17,6 +17,8 @@
 	#include <vtkInformation.h>
 	#include <vtkPointData.h>
 	#include <vtkDoubleArray.h>
+	#include <vtkIntArray.h>
+	#include <vtkLongLongArray.h>
 	#include <vtkPolyData.h>
 	#include <vtkUnstructuredGrid.h>
 
@@ -237,6 +239,7 @@ void VTKData::generateDataSet(bool include_halo, bool for_writing_output, bool u
 
 	vtkSmartPointer<vtkPoints> points =
 		vtkSmartPointer<vtkPoints>::New();
+	points->SetDataTypeToDouble();
 	vtkSmartPointer<vtkPolyData> polydata =
 		vtkSmartPointer<vtkPolyData>::New();
 
@@ -245,6 +248,7 @@ void VTKData::generateDataSet(bool include_halo, bool for_writing_output, bool u
 
 	if (include_halo) {
 		ghost_points = vtkSmartPointer<vtkPoints>::New();
+		ghost_points->SetDataTypeToDouble();
 		ghost_polydata = vtkSmartPointer<vtkPolyData>::New();
 	}
 
@@ -334,10 +338,10 @@ void VTKData::generateDataSet(bool include_halo, bool for_writing_output, bool u
 		polydata->GetPointData()->AddArray(field_data);
 	}
 	{
-		vtkSmartPointer<vtkDoubleArray> bc_id_data =
-			vtkSmartPointer<vtkDoubleArray>::New();
-		vtkSmartPointer<vtkDoubleArray> ghost_bc_id_data;
-		if (include_halo) ghost_bc_id_data = vtkSmartPointer<vtkDoubleArray>::New();
+		vtkSmartPointer<vtkIntArray> bc_id_data =
+			vtkSmartPointer<vtkIntArray>::New();
+		vtkSmartPointer<vtkIntArray> ghost_bc_id_data;
+		if (include_halo) ghost_bc_id_data = vtkSmartPointer<vtkIntArray>::New();
 
 		const vtkIdType comp_size = 1;
 		bc_id_data->SetNumberOfComponents(comp_size);
@@ -372,10 +376,10 @@ void VTKData::generateDataSet(bool include_halo, bool for_writing_output, bool u
 	}
 
     if (_parameters->get<Teuchos::ParameterList>("io").get<bool>("write gids")) {
-		vtkSmartPointer<vtkDoubleArray> ids =
-			vtkSmartPointer<vtkDoubleArray>::New();
-		vtkSmartPointer<vtkDoubleArray> ghost_ids;
-		if (include_halo) ghost_ids = vtkSmartPointer<vtkDoubleArray>::New();
+		vtkSmartPointer<vtkLongLongArray> ids =
+			vtkSmartPointer<vtkLongLongArray>::New();
+		vtkSmartPointer<vtkLongLongArray> ghost_ids;
+		if (include_halo) ghost_ids = vtkSmartPointer<vtkLongLongArray>::New();
 
 		ids->SetNumberOfComponents(1);
 		ids->SetName(_parameters->get<Teuchos::ParameterList>("io").get<std::string>("gids name").c_str());
