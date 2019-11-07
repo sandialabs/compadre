@@ -43,11 +43,19 @@ def getNewMidpoints(i, new_data, old_coords, connect, el_size, nod_size):
             #new_midpoint_coords[i,k] += old_coords[k,connect[i,j]-1] / float(nod_size)
             #new_midpoint_coords[i][k] += old_coords[k][connect[i][j]-1] / float(nod_size)
             new_data[k] += old_coords[k][connect[i][j]-1] / float(nod_size)
+
+    # norm 1 puts the point on the sphere
+    norm = 0
+    for k in range(3):
+        norm += new_data[k]*new_data[k]
+    norm = math.sqrt(norm)
+    new_data = new_data / norm
+
     #return new_midpoint_coords
 
 el_size = dimensions['num_el_in_blk1'].size
 nod_size = dimensions['num_nod_per_el1'].size
-new_midpoint_coords = np.zeros(shape=(el_size, 3),dtype='d')
+new_midpoint_coords = np.zeros(shape=(el_size, 3),dtype='f8')
 np_old_coords = np.array(old_coords)
 np_connect = np.array(connect)
 print(np_old_coords)
