@@ -30,6 +30,8 @@ variables = dataset.variables
 
 old_coords = variables['coord']
 connect = variables['connect1']
+old_lat = variables['lat']
+old_lon = variables['lon']
 
 @jit(nopython=True,parallel=False)
 def getNewMidpoints(i, new_data, old_coords, connect, el_size, nod_size):
@@ -37,16 +39,54 @@ def getNewMidpoints(i, new_data, old_coords, connect, el_size, nod_size):
         for k in range(3):
             new_data[k] += old_coords[k][connect[i][j]-1] / float(nod_size)
 
+@jit(nopython=True,parallel=False)
+def transformLatLon(new_data, old_lat, old_lon, in_degrees=True):
+    lat = float(old_lat * np.pi) / 180.0
+    lon = float(old_lon * np.pi) / 180.0
+    new_data[0] = np.sin(lon)*np.cos(lat)
+    new_data[1] = np.cos(lon)*np.cos(lat)
+    new_data[2] = np.sin(lat)
+    # reversed formula because of reverse xyz
+
+@jit(nopython=True,parallel=False)
+def getSmoothVal(i, new_data, old_coords):
+    x = old_coords[i,0]
+    y = old_coords[i,1]
+    z = old_coords[i,2]
+    new_data[0] = np.sin(x)*np.sin(y)*np.sin(z)
+
 el_size = dimensions['num_el_in_blk1'].size
 nod_size = dimensions['num_nod_per_el1'].size
-new_midpoint_coords = np.zeros(shape=(el_size, 3),dtype='d')
+new_midpoint_coords = np.zeros(shape=(el_size, 3),dtype='f8')
 np_old_coords = np.array(old_coords)
 np_connect = np.array(connect)
 
 for i in range(el_size):
-    this_new_midpoint_coords = np.zeros(3)
+    this_new_midpoint_coords = np.zeros(3, dtype='f8')
     getNewMidpoints(i, this_new_midpoint_coords, np_old_coords, np_connect, el_size, nod_size)
     new_midpoint_coords[i,:] = this_new_midpoint_coords
+
+alt_new_midpoint_coords = np.zeros(shape=(el_size, 3),dtype='f8')
+for i in range(el_size):
+    this_new_midpoint_coords = np.zeros(3, dtype='f8')
+    transformLatLon(this_new_midpoint_coords, old_lat[i], old_lon[i])
+    alt_new_midpoint_coords[i,:] = this_new_midpoint_coords
+
+# check differences 
+#tol = 1e-1
+#for i in range(el_size):
+#    diff = 0
+#    for k in range(3):
+#        diff += new_midpoint_coords[i,k] - alt_new_midpoint_coords[i,k]
+#    diff = math.sqrt(abs(diff))
+#    if (diff > tol):
+#        print("DIFF>TOL %d: %f, %f" % (i, diff, tol))
+
+smooth = np.zeros(shape=(el_size, 1),dtype='f8')
+for i in range(el_size):
+    this_smooth_val = np.zeros(1, dtype='f8')
+    getSmoothVal(i, this_smooth_val, alt_new_midpoint_coords)
+    smooth[i,0] = this_smooth_val[0]
 
 #new_midpoint_coords = np.zeros(shape=(dimensions['num_el_in_blk1'].size, 3),dtype='d')
 #for i in range(dimensions['num_el_in_blk1'].size):
@@ -86,20 +126,25 @@ for varname,ncvar in f.variables.items():
 g.createVariable('x', datatype='f8', dimensions=('num_el_in_blk1',), zlib=False, complevel=4,\
                        shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                        endian='native', least_significant_digit=None, fill_value=None)
-g.variables['x'][:]=new_midpoint_coords[:,0]
+g.variables['x'][:]=alt_new_midpoint_coords[:,0]
 g.createVariable('y', datatype='f8', dimensions=('num_el_in_blk1',), zlib=False, complevel=4,\
                        shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                        endian='native', least_significant_digit=None, fill_value=None)
-g.variables['y'][:]=new_midpoint_coords[:,1]
+g.variables['y'][:]=alt_new_midpoint_coords[:,1]
 g.createVariable('z', datatype='f8', dimensions=('num_el_in_blk1',), zlib=False, complevel=4,\
                        shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                        endian='native', least_significant_digit=None, fill_value=None)
-g.variables['z'][:]=new_midpoint_coords[:,2]
+g.variables['z'][:]=alt_new_midpoint_coords[:,2]
 
 g.createVariable('ID', datatype='i8', dimensions=('num_el_in_blk1',), zlib=False, complevel=4,\
                        shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                        endian='native', least_significant_digit=None, fill_value=None)
 g.variables['ID'][:]=new_ID
+
+g.createVariable('Smooth', datatype='f8', dimensions=('num_el_in_blk1',), zlib=False, complevel=4,\
+                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                       endian='native', least_significant_digit=None, fill_value=None)
+g.variables['Smooth'][:]=smooth
 
 dataset2.close()
 dataset.close()
