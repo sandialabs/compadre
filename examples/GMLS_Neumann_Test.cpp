@@ -111,7 +111,7 @@ bool all_passed = true;
     
     // check if 2 arguments are given from the command line
     //  set the number of target sites where we will reconstruct the target functionals at
-    int order = 3;
+    int order = 2;
     if (argc >= 2) {
         int arg2toi = atoi(args[1]);
         if (arg2toi > 0) {
@@ -123,9 +123,6 @@ bool all_passed = true;
     // of the reconstruction space we choose for GMLS, so the error should be very small
     const double failure_tolerance = 1e-9;
     
-    // Laplacian is a second order differential operator, which we expect to be slightly less accurate
-    const double laplacian_failure_tolerance = 1e-9;
-    
     // minimum neighbors for unisolvency is the same as the size of the polynomial basis 
     const int min_neighbors = Compadre::GMLS::getNP(order, dimension);
     
@@ -134,12 +131,12 @@ bool all_passed = true;
     Kokkos::Profiling::pushRegion("Setup Point Data");
     //! [Setting Up The Point Cloud]
     
-    // approximate spherical spacing of source sites
+    // approximate spacing of source sites
     double h_spacing = 0.05;
     int n_neg1_to_1 = 2*(1/h_spacing) + 1; // always odd
-    
-    // number of source coordinate sites
-    const int number_source_coords = std::pow(n_neg1_to_1, dimension-1);
+
+    // number of source coordinate sites that will fill a box of [-1,1]x[-1,1]x[-1,1] with a spacing approximately h
+    const int number_source_coords = std::pow(n_neg1_to_1, dimension);
 
     // coordinates of source sites
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> source_coords_device("source coordinates", 
@@ -161,29 +158,46 @@ bool all_passed = true;
         this_coord[0] = i*h_spacing;
         for (int j=-n_neg1_to_1/2; j<n_neg1_to_1/2+1; ++j) {
             this_coord[1] = j*h_spacing;
+            for (int k=-n_neg1_to_1/2; k<n_neg1_to_1/2+1; ++k) {
+                this_coord[2] = k*h_spacing;
+                if (dimension==3) {
+                    source_coords(source_index,0) = this_coord[0];
+                    source_coords(source_index,1) = this_coord[1];
+                    source_coords(source_index,2) = this_coord[2];
+                    source_index++;
+                }
+            }
+            if (dimension==2) {
+                source_coords(source_index,0) = this_coord[0];
+                source_coords(source_index,1) = this_coord[1];
+                source_coords(source_index,2) = 0;
+                source_index++;
+            }
+        }
+        if (dimension==1) {
             source_coords(source_index,0) = this_coord[0];
-            source_coords(source_index,1) = this_coord[1];
-            source_coords(source_index,2) = 1.0 - (this_coord[0] + this_coord[1]);
+            source_coords(source_index,1) = 0;
+            source_coords(source_index,2) = 0;
             source_index++;
         }
     }
-    
-    // fill target coords somewhere inside of [-0.5,0.5]x[-0.5,0.5]x0.0
+
+    // fill target coords somewhere inside of [-0.5,0.5]x[-0.5,0.5]x[-0.5,0.5]
     for(int i=0; i<number_target_coords; i++){
 
         // first, we get a uniformly random distributed direction
         double rand_dir[3] = {0,0,0};
 
-        for (int j=0; j<dimension-1; ++j) {
+        for (int j=0; j<dimension; ++j) {
             // rand_dir[j] is in [-0.5, 0.5]
             rand_dir[j] = ((double)rand() / (double) RAND_MAX) - 0.5;
         }
 
         // then we get a uniformly random radius
-        for (int j=0; j<dimension-1; ++j) {
+        for (int j=0; j<dimension; ++j) {
             target_coords(i,j) = rand_dir[j];
         }
-        target_coords(i, 2) = 1.0 - (rand_dir[0] + rand_dir[1]);
+        target_coords(i, 2) = 1.0;
 
         // Set tangent bundles
         tangent_bundles(i, 0, 0) = 0.0;
@@ -192,8 +206,8 @@ bool all_passed = true;
         tangent_bundles(i, 1, 0) = 0.0;
         tangent_bundles(i, 1, 1) = 0.0;
         tangent_bundles(i, 1, 2) = 0.0;
-        tangent_bundles(i, 2, 0) = 1.0;
-        tangent_bundles(i, 2, 1) = 1.0;
+        tangent_bundles(i, 2, 0) = 0.0;
+        tangent_bundles(i, 2, 1) = 0.0;
         tangent_bundles(i, 2, 2) = 1.0;
     }
 
@@ -228,7 +242,6 @@ bool all_passed = true;
 
         // data for targets with scalar input
         sampling_data_device(i) = trueSolution(xval, yval, zval, order, dimension);
-
     });
 
     //! [Creating The Data]
@@ -245,7 +258,7 @@ bool all_passed = true;
 
     // each row is a neighbor list for a target site, with the first column of each row containing
     // the number of neighbors for that rows corresponding target site
-    double epsilon_multiplier = 2.0;
+    double epsilon_multiplier = 1.8;
     int estimated_upper_bound_number_neighbors = 
         point_cloud_search.getEstimatedNumberNeighborsUpperBound(min_neighbors, dimension, epsilon_multiplier);
 
@@ -307,10 +320,11 @@ bool all_passed = true;
     }
     
     // initialize an instance of the GMLS class 
-    GMLS my_GMLS(VectorOfScalarClonesTaylorPolynomial, VectorPointSample,
+    GMLS my_GMLS(ScalarTaylorPolynomial,
+                 PointSample,
                  order, dimension,
                  solver_name.c_str(), problem_name.c_str(), constraint_name.c_str(),
-                 2 /*manifold order*/);
+                 0 /*manifold order*/);
 
     // pass in neighbor lists, source coordinates, target coordinates, and window sizes
     //
@@ -331,7 +345,7 @@ bool all_passed = true;
 
     // create a vector of target operations
     TargetOperation lro;
-    lro = ScalarPointEvaluation;
+    lro = LaplacianOfScalarPointEvaluation;
     
     // and then pass them to the GMLS class
     my_GMLS.addTargets(lro);
@@ -367,7 +381,7 @@ bool all_passed = true;
     Evaluator gmls_evaluator(&my_GMLS);
 
     auto output_value = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double*, Kokkos::HostSpace>
-            (sampling_data_device, ScalarPointEvaluation);
+            (sampling_data_device, LaplacianOfScalarPointEvaluation);
 
     Kokkos::fence(); // let application of alphas to data finish before using results
     Kokkos::Profiling::popRegion();
@@ -378,28 +392,33 @@ bool all_passed = true;
 
     // loop through the target sites
     for (int i=0; i<number_target_coords; i++) {
-        int num_neigh_j = neighbor_lists_device(i, 0);
-
-        double b_j = my_GMLS.getAlpha0TensorTo0Tensor(lro, i, num_neigh_j);
-
-        // std::cout << "TEST VALUES " << b_j << std::endl;
-
-        // load value from output
-        double GMLS_value = output_value(i);
-
         // target site i's coordinate
         double xval = target_coords(i,0);
         double yval = (dimension>1) ? target_coords(i,1) : 0;
         double zval = (dimension>2) ? target_coords(i,2) : 0;
 
-        // evaluation of various exact solutions
-        double actual_value = trueSolution(xval, yval, zval, order, dimension);
+        int num_neigh_i = neighbor_lists_device(i, 0);
+        double b_i = my_GMLS.getAlpha0TensorTo0Tensor(lro, i, num_neigh_i);
 
-        // check actual function value
-        if(GMLS_value!=GMLS_value || std::abs(actual_value - GMLS_value) > failure_tolerance) {
-            all_passed = false;
-            std::cout << i << " Failed Actual by: " << std::abs(actual_value - GMLS_value) << std::endl;
-        }
+        // load value from output
+        double GMLS_value = output_value(i);
+
+        // calculate value of g
+        double actual_Gradient[3] = {0,0,0}; // initialized for 3, but only filled up to dimension
+        trueGradient(actual_Gradient, xval, yval, zval, order, dimension);
+        double actual_Laplacian = trueLaplacian(xval, yval, zval, order, dimension);
+        double g = 1.0*actual_Gradient[2];
+
+        std::cout << xval << " " << yval << " " << zval << " ";
+        std::cout << " NON ADJUSTED VALUES " << GMLS_value << " ";
+        std::cout << " ADJUSTED VALUES " << GMLS_value + b_i*g << " ";
+        std::cout << " REAL LAPLACIAN " << actual_Laplacian << std::endl;
+
+        // // check actual function value
+        // if(GMLS_value!=GMLS_value || std::abs(value - GMLS_value) > failure_tolerance) {
+        //     all_passed = false;
+        //     std::cout << i << " Failed Actual by: " << std::abs(value - GMLS_value) << std::endl;
+        // }
     }
 
     //! [Check That Solutions Are Correct]
@@ -416,7 +435,7 @@ kp.finalize();
 MPI_Finalize();
 #endif
 
-// output to user that test passed or failed
+// // output to user that test passed or failed
 // if(all_passed) {
 //     fprintf(stdout, "Passed test \n");
 //     return 0;
