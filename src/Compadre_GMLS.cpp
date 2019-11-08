@@ -4,6 +4,7 @@
 #include "Compadre_GMLS_Quadrature.hpp"
 #include "Compadre_GMLS_Targets.hpp"
 #include "Compadre_Functors.hpp"
+#include "basis/CreateConstraints.hpp"
 
 namespace Compadre {
 
@@ -482,23 +483,9 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
 
             // Get the number of neighbors for target index
             int num_neigh_target = this->getNNeighbors(target_index);
-
-            // Fill in the bottom right entry for PsqrtW
-            PsqrtW(num_neigh_target, P_dim_1-1) = 1.0;
-
-            // Fill in the last column and row of M
-            M(RHS_square_dim-1, RHS_square_dim-1) = 0.0;
-
             double cutoff_p = _epsilons(target_index);
 
-            M(RHS_square_dim-1, 1) = (1.0/cutoff_p)*T(2,0);
-            M(1, RHS_square_dim-1) = (1.0/cutoff_p)*T(2,0);
-
-            M(RHS_square_dim-1, 2) = (1.0/cutoff_p)*T(2,1);
-            M(2, RHS_square_dim-1) = (1.0/cutoff_p)*T(2,1);
-
-            M(RHS_square_dim-1, 3) = (1.0/cutoff_p)*T(2,2);
-            M(3, RHS_square_dim-1) = (1.0/cutoff_p)*T(2,2);
+            evaluateConstraints(M, PsqrtW, _constraint_type, cutoff_p, num_neigh_target, &T);
         }
     }
 }
