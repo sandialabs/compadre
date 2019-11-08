@@ -2,7 +2,6 @@
 #define _COMPADRE_GMLS_APPLY_TARGET_EVALUATIONS_HPP_
 
 #include "Compadre_GMLS.hpp"
-
 namespace Compadre {
 
 KOKKOS_INLINE_FUNCTION
@@ -13,11 +12,14 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
     const int num_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
             ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
 
+    const int added_size = getAdditionalSizeFromConstraint(_dense_solver_type, _constraint_type);
+
 #ifdef COMPADRE_USE_LAPACK
 
     // CPU
     for (int e=0; e<num_evaluation_sites; ++e) {
-        for (int i=0; i<this->getNNeighbors(target_index); ++i) {
+        // evaluating alpha_ij
+        for (int i=0; i<this->getNNeighbors(target_index) + added_size; ++i) {
             for (size_t j=0; j<_operations.size(); ++j) {
                 for (int k=0; k<_lro_output_tile_size[j]; ++k) {
                     for (int m=0; m<_lro_input_tile_size[j]; ++m) {
