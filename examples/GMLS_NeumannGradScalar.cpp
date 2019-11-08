@@ -397,7 +397,8 @@ bool all_passed = true;
         double yval = (dimension>1) ? target_coords(i,1) : 0;
         double zval = (dimension>2) ? target_coords(i,2) : 0;
 
-        int num_neigh_i = neighbor_lists_device(i, 0);
+        // 0th entry is # of neighbors, which is the index beyond the last neighbor
+        int num_neigh_i = neighbor_lists(i, 0);
         double b_i = my_GMLS.getAlpha0TensorTo0Tensor(lro, i, num_neigh_i);
 
         // load value from output
