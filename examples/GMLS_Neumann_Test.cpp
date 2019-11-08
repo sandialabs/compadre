@@ -101,7 +101,7 @@ bool all_passed = true;
     
     // check if 3 arguments are given from the command line
     //  set the number of target sites where we will reconstruct the target functionals at
-    int number_target_coords = 50;
+    int number_target_coords = 200;
     if (argc >= 3) {
         int arg3toi = atoi(args[2]);
         if (arg3toi > 0) {
@@ -111,7 +111,7 @@ bool all_passed = true;
     
     // check if 2 arguments are given from the command line
     //  set the number of target sites where we will reconstruct the target functionals at
-    int order = 2;
+    int order = 3;
     if (argc >= 2) {
         int arg2toi = atoi(args[1]);
         if (arg2toi > 0) {
@@ -403,22 +403,25 @@ bool all_passed = true;
         // load value from output
         double GMLS_value = output_value(i);
 
-        // calculate value of g
+        // obtain the real Laplacian
+        double actual_Laplacian = trueLaplacian(xval, yval, zval, order, dimension);
+
+        // calculate value of g to reconstruct the computed Laplacian
         double actual_Gradient[3] = {0,0,0}; // initialized for 3, but only filled up to dimension
         trueGradient(actual_Gradient, xval, yval, zval, order, dimension);
-        double actual_Laplacian = trueLaplacian(xval, yval, zval, order, dimension);
         double g = 1.0*actual_Gradient[2];
+        double adjusted_value = GMLS_value + b_i*g;
 
         std::cout << xval << " " << yval << " " << zval << " ";
         std::cout << " NON ADJUSTED VALUES " << GMLS_value << " ";
-        std::cout << " ADJUSTED VALUES " << GMLS_value + b_i*g << " ";
+        std::cout << " ADJUSTED VALUES " << adjusted_value << " ";
         std::cout << " REAL LAPLACIAN " << actual_Laplacian << std::endl;
 
-        // // check actual function value
-        // if(GMLS_value!=GMLS_value || std::abs(value - GMLS_value) > failure_tolerance) {
-        //     all_passed = false;
-        //     std::cout << i << " Failed Actual by: " << std::abs(value - GMLS_value) << std::endl;
-        // }
+        // check actual function value
+        if(GMLS_value!=GMLS_value || std::abs(actual_Laplacian - adjusted_value) > failure_tolerance) {
+            all_passed = false;
+            std::cout << i << " Failed Actual by: " << std::abs(actual_Laplacian - adjusted_value) << std::endl;
+        }
     }
 
     //! [Check That Solutions Are Correct]
@@ -435,14 +438,14 @@ kp.finalize();
 MPI_Finalize();
 #endif
 
-// // output to user that test passed or failed
-// if(all_passed) {
-//     fprintf(stdout, "Passed test \n");
-//     return 0;
-// } else {
-//     fprintf(stdout, "Failed test \n");
-//     return -1;
-// }
+// output to user that test passed or failed
+if(all_passed) {
+    fprintf(stdout, "Passed test \n");
+    return 0;
+} else {
+    fprintf(stdout, "Failed test \n");
+    return -1;
+}
 
 } // main
 
