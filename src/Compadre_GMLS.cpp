@@ -4,6 +4,7 @@
 #include "Compadre_GMLS_Quadrature.hpp"
 #include "Compadre_GMLS_Targets.hpp"
 #include "Compadre_Functors.hpp"
+#include "basis/CreateConstraints.hpp"
 
 namespace Compadre {
 
@@ -29,12 +30,15 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
      *    Initialize Alphas and Prestencil Weights
      */
 
+    // calculate the additional size for different constraint problems
+    const int added_size = getAdditionalSizeFromConstraint(_dense_solver_type, _constraint_type);
+
     // initialize all alpha values to be used for taking the dot product with data to get a reconstruction 
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
     // would have to store for the max case (potentially number
     try {
-        _alphas = decltype(_alphas)("coefficients", _neighbor_lists.extent(0), _total_alpha_values*max_evaluation_sites, _max_num_neighbors);
+        _alphas = decltype(_alphas)("coefficients", _neighbor_lists.extent(0), _total_alpha_values*max_evaluation_sites, _max_num_neighbors + added_size);
     } catch(std::exception &e) {
        printf("Insufficient memory to store alphas: \n\n%s", e.what()); 
        throw e;
@@ -329,7 +333,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
                 Kokkos::Profiling::popRegion();
             } else if (_dense_solver_type == DenseSolverType::LU) {
                 Kokkos::Profiling::pushRegion("LU Factorization");
-                GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_square_dim, RHS_square_dim, _P.data(), P_dim_1, P_dim_0, this_num_cols, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_square_dim, RHS_square_dim, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_size, this_num_cols + added_size, max_num_rows + added_size, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
                 Kokkos::Profiling::popRegion();
             } else {
                 Kokkos::Profiling::pushRegion("QR Factorization");
@@ -407,6 +411,10 @@ void GMLS::generateAlphas(const int number_of_batches) {
 KOKKOS_INLINE_FUNCTION
 void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMember) const {
 
+    if ( (_dense_solver_type == DenseSolverType::LU) && (_constraint_type == ConstraintType::NEUMANN_GRAD_SCALAR) ) {
+        compadre_assert_release( (_T.extent(0) > 0) && "Normal vectors are requires for solving GMLS problem with LU under NEUMANN_GRAD_SCALAR constraint.");
+    }
+
     /*
      *    Dimensions
      */
@@ -464,6 +472,21 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
             }
         });
         teamMember.team_barrier();
+
+        // Quick check to constraint type to make sure things work
+        if (_constraint_type == ConstraintType::NEUMANN_GRAD_SCALAR) {
+            // TO DO: MAKE A KOKKOS_INLINE_FUNCTION FOR IT
+
+            // obtain the normal vectors
+            scratch_matrix_right_type T(_T.data()
+                + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
+
+            // Get the number of neighbors for target index
+            int num_neigh_target = this->getNNeighbors(target_index);
+            double cutoff_p = _epsilons(target_index);
+
+            evaluateConstraints(M, PsqrtW, _constraint_type, cutoff_p, num_neigh_target, &T);
+        }
     }
 }
 

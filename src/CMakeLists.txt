@@ -20,6 +20,7 @@ set(COMPADRE_HEADERS
   USER_StandardTargetFunctionals.hpp
   USER_ManifoldTargetFunctionals.hpp
   basis/DivergenceFree3D.hpp
+  basis/CreateConstraints.hpp
   )
 
 
