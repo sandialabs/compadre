@@ -197,7 +197,7 @@ bool all_passed = true;
         for (int j=0; j<dimension; ++j) {
             target_coords(i,j) = rand_dir[j];
         }
-        target_coords(i, 2) = 1.0;
+        // target_coords(i, 2) = 1.0;
 
         // Set tangent bundles
         tangent_bundles(i, 0, 0) = 0.0;
@@ -206,9 +206,9 @@ bool all_passed = true;
         tangent_bundles(i, 1, 0) = 0.0;
         tangent_bundles(i, 1, 1) = 0.0;
         tangent_bundles(i, 1, 2) = 0.0;
-        tangent_bundles(i, 2, 0) = 0.0;
-        tangent_bundles(i, 2, 1) = 0.0;
-        tangent_bundles(i, 2, 2) = 1.0;
+        tangent_bundles(i, 2, 0) = 1.0/(sqrt(3.0));
+        tangent_bundles(i, 2, 1) = 1.0/(sqrt(3.0));
+        tangent_bundles(i, 2, 2) = 1.0/(sqrt(3.0));
     }
 
     //! [Setting Up The Point Cloud]
@@ -409,13 +409,8 @@ bool all_passed = true;
         // calculate value of g to reconstruct the computed Laplacian
         double actual_Gradient[3] = {0,0,0}; // initialized for 3, but only filled up to dimension
         trueGradient(actual_Gradient, xval, yval, zval, order, dimension);
-        double g = 1.0*actual_Gradient[2];
+        double g = (1.0/sqrt(3.0))*(actual_Gradient[0] + actual_Gradient[1] + actual_Gradient[2]);
         double adjusted_value = GMLS_value + b_i*g;
-
-        std::cout << xval << " " << yval << " " << zval << " ";
-        std::cout << " NON ADJUSTED VALUES " << GMLS_value << " ";
-        std::cout << " ADJUSTED VALUES " << adjusted_value << " ";
-        std::cout << " REAL LAPLACIAN " << actual_Laplacian << std::endl;
 
         // check actual function value
         if(GMLS_value!=GMLS_value || std::abs(actual_Laplacian - adjusted_value) > failure_tolerance) {
