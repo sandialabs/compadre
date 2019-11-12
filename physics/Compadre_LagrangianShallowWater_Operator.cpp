@@ -577,7 +577,9 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 		my_GMLS_staggered_div.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 		my_GMLS_staggered_div.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
 		my_GMLS_staggered_div.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
-		my_GMLS_staggered_div.setNumberOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature points"));
+		my_GMLS_staggered_div.setOrderOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
+		my_GMLS_staggered_div.setDimensionOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature dimension"));
+		my_GMLS_staggered_div.setQuadratureType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));
 
 		my_scalar_GMLS.addTargets(TargetOperation::ScalarPointEvaluation);
 		// for Eulerian

@@ -245,7 +245,7 @@ int main (int argc, char* args[]) {
 
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i]!=errors[i], "NaN found in error norm.");
 			if (parameters->get<std::string>("solution type")=="sine") {
-				 if (i>0) TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i-1]/errors[i] < 3.5, "Second order not achieved for sine solution (should be 4).");
+				 if (i>0) TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i-1]/errors[i] < 3.5, std::string("Second order not achieved for sine solution (should be 4). Is: ") + std::to_string(errors[i-1]/errors[i]));
 			} else {
 				TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i] > 1e-13, "Second order solution not recovered exactly.");
 			}

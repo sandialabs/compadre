@@ -15,9 +15,12 @@
     <!--<Parameter name="save residual over solution" type="bool" value="true"/>-->
   </ParameterList>
   <ParameterList name="remap">
-    <Parameter name="weighting power" type="int" value="10"/>
+    <Parameter name="weighting power" type="int" value="5"/>
     <Parameter name="porder" type="int" value="2"/>
     <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
+    <Parameter name="quadrature order" type="int" value="2"/>
+    <Parameter name="quadrature dimension" type="int" value="1"/>
+    <Parameter name="quadrature type" type="string" value="line"/>
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>
