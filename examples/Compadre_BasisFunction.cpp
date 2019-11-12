@@ -313,7 +313,9 @@ int main (int argc, char* args[]) {
         _GMLS->setWeightingPower(parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
         _GMLS->setCurvatureWeightingType(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
         _GMLS->setCurvatureWeightingPower(parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
-        _GMLS->setNumberOfQuadraturePoints(parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature points"));
+		_GMLS->setOrderOfQuadraturePoints(parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
+		_GMLS->setDimensionOfQuadraturePoints(parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature dimension"));
+		_GMLS->setQuadratureType(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));
 
         std::vector<TargetOperation> lro(1);
         lro[0]=TargetOperation::ScalarPointEvaluation;
