@@ -1452,6 +1452,8 @@ protected:
 //  }
     
 
+        Kokkos::deep_copy(_quadrature_weights, quadrature_weights);
+        Kokkos::deep_copy(_parameterized_quadrature_sites, parameterized_quadrature_sites);
     }
 ///@}
 
