@@ -475,11 +475,9 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
         });
         teamMember.team_barrier();
 
-        // Quick check to constraint type to make sure things work
+        // conditionally fill in rows determined by constraint type
         if (_constraint_type == ConstraintType::NEUMANN_GRAD_SCALAR) {
-            // TO DO: MAKE A KOKKOS_INLINE_FUNCTION FOR IT
-
-            // obtain the normal vectors
+            // normal vector is contained in last row of T
             scratch_matrix_right_type T(_T.data()
                 + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
 
