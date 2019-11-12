@@ -6,7 +6,6 @@ set(COMPADRE_HEADERS
   Compadre_GMLS.hpp
   Compadre_GMLS_ApplyTargetEvaluations.hpp
   Compadre_GMLS_Basis.hpp
-  Compadre_GMLS_Quadrature.hpp
   Compadre_GMLS_Targets.hpp
   Compadre_KokkosParser.hpp
   Compadre_LinearAlgebra_Declarations.hpp
@@ -15,11 +14,13 @@ set(COMPADRE_HEADERS
   Compadre_Operators.hpp
   Compadre_ParallelManager.hpp
   Compadre_PointCloudSearch.hpp
+  Compadre_Quadrature.hpp
   Compadre_Typedefs.hpp
   Compadre_Evaluator.hpp
   USER_StandardTargetFunctionals.hpp
   USER_ManifoldTargetFunctionals.hpp
   basis/DivergenceFree3D.hpp
+  basis/CreateConstraints.hpp
   )
 
 

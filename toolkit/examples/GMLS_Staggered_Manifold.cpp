@@ -351,6 +351,11 @@ Kokkos::initialize(argc, args);
     
     // power to use in that weighting kernel function
     my_GMLS_vector_1.setWeightingPower(2);
+
+    // setup quadrature for StaggeredEdgeIntegralSample
+    my_GMLS_vector_1.setOrderOfQuadraturePoints(2);
+    my_GMLS_vector_1.setDimensionOfQuadraturePoints(1);
+    my_GMLS_vector_1.setQuadratureType("LINE");
     
     // generate the alphas that to be combined with data for each target operation requested in lro
     my_GMLS_vector_1.generateAlphas();
@@ -373,6 +378,9 @@ Kokkos::initialize(argc, args);
     my_GMLS_vector_2.setCurvatureWeightingPower(2);
     my_GMLS_vector_2.setWeightingType(WeightingFunctionType::Power);
     my_GMLS_vector_2.setWeightingPower(2);
+    my_GMLS_vector_2.setOrderOfQuadraturePoints(2);
+    my_GMLS_vector_2.setDimensionOfQuadraturePoints(1);
+    my_GMLS_vector_2.setQuadratureType("LINE");
     my_GMLS_vector_2.generateAlphas();
 
     // initialize another instance of the GMLS class
