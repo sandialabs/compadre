@@ -242,7 +242,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
               double alphaf;
               const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
 
-              for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {
+              for (int quadrature = 0; quadrature<_qm.getNumberOfQuadraturePoints(); ++quadrature) {
 
                   int i = 0;
 
@@ -250,8 +250,8 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                   XYZ quadrature_coord_2d;
                   for (int j=0; j<dimension; ++j) {
                       // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
-                    quadrature_coord_2d[j] = (_parameterized_quadrature_sites[quadrature]-1)*getTargetCoordinate(target_index, j, V);
-                    quadrature_coord_2d[j] += (1-_parameterized_quadrature_sites[quadrature])*getNeighborCoordinate(target_index, neighbor_index, j, V);
+                    quadrature_coord_2d[j] = (_qm.getSite(quadrature,0)-1)*getTargetCoordinate(target_index, j, V);
+                    quadrature_coord_2d[j] += (1-_qm.getSite(quadrature,0))*getNeighborCoordinate(target_index, neighbor_index, j, V);
                     tangent_quadrature_coord_2d[j] = getTargetCoordinate(target_index, j, V);
                     tangent_quadrature_coord_2d[j] += -getNeighborCoordinate(target_index, neighbor_index, j, V);
                   }
@@ -272,9 +272,9 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
 
                             // multiply by quadrature weight
                             if (quadrature==0) {
-                              *(delta+i) = dot_product * _quadrature_weights[quadrature];
+                              *(delta+i) = dot_product * _qm.getWeight(quadrature);
                             } else {
-                              *(delta+i) += dot_product * _quadrature_weights[quadrature];
+                              *(delta+i) += dot_product * _qm.getWeight(quadrature);
                             }
                             i++;
                           }
@@ -288,7 +288,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
               double alphaf;
               const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
 
-              for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {
+              for (int quadrature = 0; quadrature<_qm.getNumberOfQuadraturePoints(); ++quadrature) {
 
                   int i = 0;
 
@@ -296,8 +296,8 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                   XYZ tangent_quadrature_coord_3d;
                   for (int j=0; j<dimension; ++j) {
                       // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
-                    quadrature_coord_3d[j] = (_parameterized_quadrature_sites[quadrature]-1)*getTargetCoordinate(target_index, j, NULL);
-                    quadrature_coord_3d[j] += (1-_parameterized_quadrature_sites[quadrature])*getNeighborCoordinate(target_index, neighbor_index, j, NULL);
+                    quadrature_coord_3d[j] = (_qm.getSite(quadrature,0)-1)*getTargetCoordinate(target_index, j, NULL);
+                    quadrature_coord_3d[j] += (1-_qm.getSite(quadrature,0))*getNeighborCoordinate(target_index, neighbor_index, j, NULL);
                     tangent_quadrature_coord_3d[j] = getTargetCoordinate(target_index, j, NULL);
                     tangent_quadrature_coord_3d[j] += -getNeighborCoordinate(target_index, neighbor_index, j, NULL);
                   }
@@ -339,9 +339,9 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
 
                                   // multiply by quadrature weight
                                   if (quadrature == 0) {
-                                      *(delta+i) = dot_product * _quadrature_weights[quadrature];
+                                      *(delta+i) = dot_product * _qm.getWeight(quadrature);
                                   } else {
-                                      *(delta+i) += dot_product * _quadrature_weights[quadrature];
+                                      *(delta+i) += dot_product * _qm.getWeight(quadrature);
                                   }
                                   i++;
                               }
@@ -372,7 +372,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
         // if not integrating, set to 1
         int quadrature_point_loop = (polynomial_sampling_functional == FaceNormalIntegralSample 
                 || polynomial_sampling_functional == FaceTangentIntegralSample) ?
-                                    _number_of_quadrature_points : 1;
+                                    _qm.getNumberOfQuadraturePoints() : 1;
 
         // only used for integrated quantities
         XYZ endpoints_difference;
@@ -397,8 +397,8 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 if (polynomial_sampling_functional == FaceNormalIntegralSample 
                         || polynomial_sampling_functional == FaceTangentIntegralSample) {
                     // quadrature coord site
-                    quadrature_coord_2d[j] = _parameterized_quadrature_sites[quadrature]*_extra_data(neighbor_index_in_source, j);
-                    quadrature_coord_2d[j] += (1-_parameterized_quadrature_sites[quadrature])*_extra_data(neighbor_index_in_source, j+2);
+                    quadrature_coord_2d[j] = _qm.getSite(quadrature,0)*_extra_data(neighbor_index_in_source, j);
+                    quadrature_coord_2d[j] += (1-_qm.getSite(quadrature,0))*_extra_data(neighbor_index_in_source, j+2);
                     quadrature_coord_2d[j] -= getTargetCoordinate(target_index, j);
                 } else {
                     // traditional coord
@@ -438,14 +438,14 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                             if (polynomial_sampling_functional == FaceNormalIntegralSample 
                                     || polynomial_sampling_functional == FaceTangentIntegralSample) {
                                 // integral
-                                *(delta+i) = dot_product * _quadrature_weights[quadrature] * magnitude;
+                                *(delta+i) = dot_product * _qm.getWeight(quadrature) * magnitude;
                             } else {
                                 // point
                                 *(delta+i) = dot_product;
                             }
                         } else {
                             // non-integrated quantities never satisfy this condition
-                            *(delta+i) += dot_product * _quadrature_weights[quadrature] * magnitude;
+                            *(delta+i) += dot_product * _qm.getWeight(quadrature) * magnitude;
                         }
                         i++;
                     }

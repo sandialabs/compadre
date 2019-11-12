@@ -8,6 +8,7 @@
 #include "Compadre_Operators.hpp"
 #include "Compadre_LinearAlgebra_Definitions.hpp"
 #include "Compadre_ParallelManager.hpp"
+#include "Compadre_Quadrature.hpp"
 
 namespace Compadre {
 
@@ -163,14 +164,6 @@ protected:
 
 
 
-    //! 1D quadrature weights for staggered approaches
-    Kokkos::View<double*, layout_right> _quadrature_weights;
-
-    //! 1D quadrature sites (reference [0,1]) for staggered approaches
-    Kokkos::View<double*, layout_right> _parameterized_quadrature_sites;
-
-
-
     //! weighting kernel type for GMLS
     WeightingFunctionType _weighting_type;
 
@@ -195,9 +188,6 @@ protected:
     //! effective dimension of the data sampling functional
     //! e.g. in 3D, a scalar will be 1, a vector will be 3, and a vector of reused scalars will be 3
     int _data_sampling_multiplier;
-
-    //! determined by 1D quadrature rules
-    int _number_of_quadrature_points;
 
     //! whether or not operator to be inverted for GMLS problem has a nontrivial nullspace (requiring SVD)
     bool _nontrivial_nullspace;
@@ -266,6 +256,18 @@ protected:
 
     //! determines scratch level spaces and is used to call kernels
     ParallelManager _pm;
+
+    //! order of exact polynomial integration for quadrature rule
+    int _order_of_quadrature_points;
+
+    //! dimension of quadrature rule
+    int _dimension_of_quadrature_points;
+
+    //! quadrature rule type 
+    std::string _quadrature_type;
+
+    //! manages and calculates quadrature
+    Quadrature _qm;
 
 
 /** @name Private Modifiers
@@ -377,9 +379,6 @@ protected:
     //! Helper function for applying the evaluations from a target functional to the polynomial coefficients
     KOKKOS_INLINE_FUNCTION
     void applyTargetsToCoefficients(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type Q, scratch_vector_type w, scratch_matrix_right_type P_target_row, const int target_NP) const;
-
-    //! Generates quadrature for staggered approach
-    void generate1DQuadrature();
 
 ///@}
 
@@ -637,7 +636,6 @@ public:
 
         _basis_multiplier = 1;
         _sampling_multiplier = 1;
-        _number_of_quadrature_points = 2;
 
         _nontrivial_nullspace = false;
         _orthonormal_tangent_space_provided = false; 
@@ -655,6 +653,9 @@ public:
         } else {
             _local_dimensions = dimensions;
         }
+
+        _order_of_quadrature_points = 0;
+        _dimension_of_quadrature_points = 0;
     }
 
     //! Constructor for the case when the data sampling functional does not match the polynomial
@@ -922,8 +923,17 @@ public:
     //! Power for weighting kernel for curvature
     int getManifoldWeightingPower() const { return _curvature_weighting_power; }
 
-    //! Number of 1D quadrature points to use for staggered approach
-    int getNumberOfQuadraturePoints() const { return _number_of_quadrature_points; }
+    //! Number of quadrature points
+    int getNumberOfQuadraturePoints() const { return _qm.getNumberOfQuadraturePoints(); }
+
+    //! Order of quadrature points
+    int getOrderOfQuadraturePoints() const { return _order_of_quadrature_points; }
+
+    //! Dimensions of quadrature points
+    int getDimensionOfQuadraturePoints() const { return _dimension_of_quadrature_points; }
+
+    //! Type of quadrature points
+    std::string getQuadratureType() const { return _quadrature_type; }
 
     //! Get a view (host) of the length of each neighbor list. 
     //! Each entry corresponds to a row of _neighbor_lists.
@@ -1589,9 +1599,21 @@ public:
         this->resetCoefficientData();
     }
 
-    //! Number of 1D quadrature points to use for staggered approach
-    void setNumberOfQuadraturePoints(int np) { 
-        _number_of_quadrature_points = np;
+    //! Number quadrature points to use
+    void setOrderOfQuadraturePoints(int order) { 
+        _order_of_quadrature_points = order;
+        this->resetCoefficientData();
+    }
+
+    //! Dimensions of quadrature points to use
+    void setDimensionOfQuadraturePoints(int dim) { 
+        _dimension_of_quadrature_points = dim;
+        this->resetCoefficientData();
+    }
+
+    //! Type of quadrature points
+    void setQuadratureType(std::string quadrature_type) { 
+        _quadrature_type = quadrature_type;
         this->resetCoefficientData();
     }
 

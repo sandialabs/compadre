@@ -337,6 +337,11 @@ bool all_passed = true;
     scalar_basis_gmls.setWeightingPower(2);
     vector_basis_gmls.setWeightingPower(2);
 
+    // setup quadrature for StaggeredEdgeIntegralSample
+    vector_basis_gmls.setOrderOfQuadraturePoints(2);
+    vector_basis_gmls.setDimensionOfQuadraturePoints(1);
+    vector_basis_gmls.setQuadratureType("LINE");
+
     // generate the alphas that to be combined with data for each target operation requested in lro
     scalar_basis_gmls.generateAlphas();
     vector_basis_gmls.generateAlphas();
