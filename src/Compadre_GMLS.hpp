@@ -164,14 +164,6 @@ protected:
 
 
 
-    ////! 1D quadrature weights for staggered approaches
-    //Kokkos::View<double*, layout_right> _quadrature_weights;
-
-    ////! 1D quadrature sites (reference [0,1]) for staggered approaches
-    //Kokkos::View<double*, layout_right> _parameterized_quadrature_sites;
-
-
-
     //! weighting kernel type for GMLS
     WeightingFunctionType _weighting_type;
 
