@@ -1,7 +1,7 @@
 #include "Compadre_GMLS.hpp"
 #include "Compadre_GMLS_ApplyTargetEvaluations.hpp"
 #include "Compadre_GMLS_Basis.hpp"
-#include "Compadre_GMLS_Quadrature.hpp"
+#include "Compadre_Quadrature.hpp"
 #include "Compadre_GMLS_Targets.hpp"
 #include "Compadre_Functors.hpp"
 #include "basis/CreateConstraints.hpp"
@@ -9,6 +9,11 @@
 namespace Compadre {
 
 void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
+
+    /*
+     *    Generate Quadrature
+     */
+    this->_qm = Quadrature(_order_of_quadrature_points, _dimension_of_quadrature_points, _quadrature_type);
 
     /*
      *    Operations to Device
@@ -223,10 +228,6 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
              *    MANIFOLD Problems
              */
 
-            // generate quadrature for staggered approach
-            if (batch_num==0)
-                this->generate1DQuadrature();
-
             if (!_orthonormal_tangent_space_provided) { // user did not specify orthonormal tangent directions, so we approximate them first
                 // coarse tangent plane approximation construction of P^T*P
                 _pm.CallFunctorWithTeamThreads<ComputeCoarseTangentPlane>(this_batch_size, *this);
@@ -321,10 +322,6 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
             /*
              *    STANDARD GMLS Problems
              */
-
-            // generate quadrature for face normal approach
-            if (batch_num==0)
-                this->generate1DQuadrature();
 
             // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity
             _pm.CallFunctorWithTeamThreads<AssembleStandardPsqrtW>(this_batch_size, *this);
@@ -1210,7 +1207,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
         compadre_kernel_assert_debug(_problem_type==ProblemType::MANIFOLD && "StaggeredEdgeIntegralSample prestencil weight only written for manifolds.");
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)), [=] (const int m) {
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                for (int quadrature = 0; quadrature<_number_of_quadrature_points; ++quadrature) {
+                for (int quadrature = 0; quadrature<_qm.getNumberOfQuadraturePoints(); ++quadrature) {
                     XYZ tangent_quadrature_coord_2d;
                     for (int j=0; j<_dimensions-1; ++j) {
                         tangent_quadrature_coord_2d[j] = getTargetCoordinate(target_index, j, &T);
@@ -1222,8 +1219,8 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
                     tangent_vector[2] = tangent_quadrature_coord_2d[0]*T(0,2) + tangent_quadrature_coord_2d[1]*T(1,2);
 
                     for (int j=0; j<_dimensions; ++j) {
-                        _prestencil_weights(0,target_index,m,0,j) +=  (1-_parameterized_quadrature_sites[quadrature])*tangent_vector[j]*_quadrature_weights[quadrature];
-                        _prestencil_weights(1,target_index,m,0,j) +=  _parameterized_quadrature_sites[quadrature]*tangent_vector[j]*_quadrature_weights[quadrature];
+                        _prestencil_weights(0,target_index,m,0,j) +=  (1-_qm.getSite(quadrature,0))*tangent_vector[j]*_qm.getWeight(quadrature);
+                        _prestencil_weights(1,target_index,m,0,j) +=  _qm.getSite(quadrature,0)*tangent_vector[j]*_qm.getWeight(quadrature);
                     }
                 }
             });
