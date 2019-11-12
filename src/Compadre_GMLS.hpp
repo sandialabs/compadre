@@ -605,10 +605,6 @@ public:
                         && (data_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : data_sampling_strategy)
             {
 
-        // Asserting available problems and solvers
-        compadre_kernel_assert_release((_constraint_type == ConstraintType::NO_CONSTRAINT) &&
-                                       "Neumann constraint type hasn't been implemented yet.");
-
         // seed random number generator pool
         _random_number_pool = pool_type(1);
 
@@ -1363,11 +1359,16 @@ public:
         // allocate memory on device
         _T = decltype(_T)("device tangent directions", _target_coordinates.extent(0)*_dimensions*_dimensions);
 
+        compadre_assert_release( (std::is_same<decltype(_T)::memory_space, typename view_type::memory_space>::value) &&
+                "Memory space does not match between _T and tangent_directions");
+
+        auto this_dimensions = _dimensions;
+        auto this_T = _T;
         // rearrange data on device from data given on host
         Kokkos::parallel_for("copy tangent vectors", Kokkos::RangePolicy<device_execution_space>(0, _target_coordinates.extent(0)), KOKKOS_LAMBDA(const int i) {
-            scratch_matrix_right_type T(_T.data() + i*_dimensions*_dimensions, _dimensions, _dimensions);
-            for (int j=0; j<_dimensions; ++j) {
-                for (int k=0; k<_dimensions; ++k) {
+            scratch_matrix_right_type T(this_T.data() + i*this_dimensions*this_dimensions, this_dimensions, this_dimensions);
+            for (int j=0; j<this_dimensions; ++j) {
+                for (int k=0; k<this_dimensions; ++k) {
                     T(j,k) = tangent_directions(i, j, k);
                 }
             }

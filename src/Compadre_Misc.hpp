@@ -40,14 +40,31 @@ struct XYZ {
 }; // XYZ
 
 KOKKOS_INLINE_FUNCTION
+int getAdditionalSizeFromConstraint(DenseSolverType dense_solver_type, ConstraintType constraint_type) {
+    // Return the additional constraint size
+    if (dense_solver_type == LU) {
+        if (constraint_type == NEUMANN_GRAD_SCALAR) {
+            return 1;
+        } else {
+            return 0;
+        }
+    } else {
+        return 0;
+    }
+}
+
+KOKKOS_INLINE_FUNCTION
 int getRHSSquareDim(DenseSolverType dense_solver_type, ConstraintType constraint_type, const int M, const int N) {
     // Return the appropriate size for _RHS. Since in LU, the system solves P^T*P against P^T*W.
     // We store P^T*P in the RHS space, which means RHS can be much smaller compared to the
     // case for QR/SVD where the system solves PsqrtW against sqrtW*Identity
+
+    int added_size = getAdditionalSizeFromConstraint(dense_solver_type, constraint_type);
+
     if (dense_solver_type != LU) {
         return M;
     } else {
-        return N;
+        return N + added_size;
     }
 }
 
@@ -56,14 +73,12 @@ void getPDims(DenseSolverType dense_solver_type, ConstraintType constraint_type,
     // Return the appropriate size for _P.
     // In the case of solving with LU and additional constraint is used, _P needs
     // to be resized to include additional row(s) based on the type of constraint.
+
+    int added_size = getAdditionalSizeFromConstraint(dense_solver_type, constraint_type);
+
     if (dense_solver_type == LU) {
-        if (constraint_type == NEUMANN_GRAD_SCALAR) {
-            out_row = M + 1;
-            out_col = N + 1;
-        } else {
-            out_row = M;
-            out_col = N;
-        }
+        out_row = M + added_size;
+        out_col = N + added_size;
     } else {
         out_row = M;
         out_col = N;
