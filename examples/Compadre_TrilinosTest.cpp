@@ -378,17 +378,25 @@ int main (int argc, char* args[]) {
 	 		// vector u is left intact from solution, rho is left intact as a scalar from solution
 
 			std::vector<Compadre::XyzVector> verts_to_insert;
-			if (comm->getRank()==3) {
-				verts_to_insert.push_back(Compadre::XyzVector(1,0,0));
-				verts_to_insert.push_back(Compadre::XyzVector(1,1,0));
-				verts_to_insert.push_back(Compadre::XyzVector(1,1,1));
-				verts_to_insert.push_back(Compadre::XyzVector(.1,.1,.1));
-				verts_to_insert.push_back(Compadre::XyzVector(0.75,1,0.5));
-				verts_to_insert.push_back(Compadre::XyzVector(0.0,.75,0.5));
-			}
+            auto proc_mins = particles->getCoords()->boundingBoxMinOnProcessor(comm->getRank());
+            auto proc_maxs = particles->getCoords()->boundingBoxMinOnProcessor(comm->getRank());
+            std::vector<Compadre::XyzVector> points = {
+                Compadre::XyzVector(.9,0,0),
+                Compadre::XyzVector(.9,.9,0),
+                Compadre::XyzVector(.9,.9,.9),
+                Compadre::XyzVector(.1,.1,.1),
+                Compadre::XyzVector(0.75,.9,0.5),
+                Compadre::XyzVector(0.0,.75,0.5)
+            };
+
+            for (auto point=points.begin(); point!=points.end(); ++point) {
+                if (particles->getCoords()->verifyCoordsOnProcessor(std::vector<Compadre::XyzVector>(1,*point))) {
+                    verts_to_insert.push_back(*point);
+                    printf("Point added: (%f,%f,%f) on %d\n", (*point)[0], (*point)[1], (*point)[2], comm->getRank());
+                }
+            }
 			particles->insertParticles(verts_to_insert);
 
-	 		// TODO: currently a problem with inserting .1,.1,.1 for sin(x)
 		 	// Temporary, writer out additional particle data fields to view
 			fm.setWriter(parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "test_for_addition" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file"), particles);
 			fm.write();

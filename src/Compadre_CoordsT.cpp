@@ -527,7 +527,7 @@ void CoordsT::applyZoltan2Partition(Teuchos::RCP<mvec_local_index_type>& vec) co
 	z2adapter_local_index->applyPartitioningSolution(*input, vec, z2problem->getSolution());
 }
 
-void CoordsT::verifyCoordsOnProcessor(const std::vector<xyz_type>& new_pts_vector, bool use_physical_coords) const {
+bool CoordsT::verifyCoordsOnProcessor(const std::vector<xyz_type>& new_pts_vector, bool use_physical_coords, bool throw_exception) const {
 	// check if use_physical_coords matches how the partitioning of the coordinates was performed
 	// if it doesn't, then it isn't logical to compare the coordinates to the processor partitions
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(_is_lagrangian && use_physical_coords && (_partitioned_using_physical != use_physical_coords), "Coordinates being verified are in the physical frame, but processor partitioning was performed in Lagrangian frame.");
@@ -535,13 +535,16 @@ void CoordsT::verifyCoordsOnProcessor(const std::vector<xyz_type>& new_pts_vecto
 
 	const local_index_type new_pts_vector_size = new_pts_vector.size();
 	const z2_box_type box = z2problem->getSolution().getPartBoxesView()[comm->getRank()];
-	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,new_pts_vector_size), KOKKOS_LAMBDA(const int i) {
+    int number_off_processor = 0; // should remain zero
+	Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,new_pts_vector_size), KOKKOS_LAMBDA(const int i, int& t_number_off_processor) {
 		scalar_type coordinates[3];
 		new_pts_vector[i].convertToArray(coordinates);
-		TEUCHOS_TEST_FOR_EXCEPT_MSG(!box.pointInBox(3, coordinates),"On processor# " + std::to_string(comm->getRank())
+        t_number_off_processor = std::max(t_number_off_processor, static_cast<int>(!box.pointInBox(3, coordinates)));
+		TEUCHOS_TEST_FOR_EXCEPT_MSG((throw_exception && !box.pointInBox(3, coordinates)),"On processor# " + std::to_string(comm->getRank())
 		+ ", Point inserted (" + std::to_string(coordinates[0]) + "," + std::to_string(coordinates[1]) +  ","
 		+ std::to_string(coordinates[2]) + ") not within bounding box of this processor.");
-	});
+	}, Kokkos::Max<int>(number_off_processor));
+    return (number_off_processor == 0) ? true : false;
 }
 
 // boxes are related to either physical or material coordinates
