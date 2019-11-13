@@ -53,6 +53,12 @@ def getNewMidpoints(i, new_data, old_coords, connect, el_size, nod_size):
 
     #return new_midpoint_coords
 
+@jit(nopython=True,parallel=False)
+def getFlattenCellVertices(i, new_data, old_coords, connect, el_size, nod_size):
+    for j in range(nod_size):
+        for k in range(3):
+            new_data[3*j+k] = old_coords[k][connect[i][j]-1]
+
 el_size = dimensions['num_el_in_blk1'].size
 nod_size = dimensions['num_nod_per_el1'].size
 new_midpoint_coords = np.zeros(shape=(el_size, 3),dtype='f8')
@@ -63,6 +69,12 @@ for i in range(el_size):
     this_new_midpoint_coords = np.zeros(3)
     getNewMidpoints(i, this_new_midpoint_coords, np_old_coords, np_connect, el_size, nod_size)
     new_midpoint_coords[i,:] = this_new_midpoint_coords
+
+extra_data = np.zeros(shape=(el_size, 3*nod_size),dtype='f8')
+for i in range(el_size):
+    this_extra_data = np.zeros(3*nod_size)
+    getFlattenCellVertices(i, this_extra_data, np_old_coords, np_connect, el_size, nod_size)
+    extra_data[i,:] = this_extra_data
 
 #print(new_midpoint_coords)
 t1 = time.time()
@@ -106,6 +118,7 @@ for attname in f.ncattrs():
 # To copy the dimension of the netCDF file
 for dimname,dim in f.dimensions.items():
     g.createDimension(dimname,len(dim))
+g.createDimension("extra_data_dim",3*nod_size)
 
 # To copy the variables of the netCDF file
 for varname,ncvar in f.variables.items():
@@ -139,6 +152,11 @@ g.createVariable('ID', datatype='i8', dimensions=('num_el_in_blk1',), zlib=False
                        shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                        endian='native', least_significant_digit=None, fill_value=None)
 g.variables['ID'][:]=new_ID
+
+g.createVariable('extra_data', datatype='f8', dimensions=('num_el_in_blk1','extra_data_dim'), zlib=False, complevel=4,\
+                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                       endian='native', least_significant_digit=None, fill_value=None)
+g.variables['extra_data'][:]=extra_data
 
 #g.createVariable('area', datatype='d', dimensions=('num_el_in_blk1',), zlib=False, complevel=4,\
 #                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
