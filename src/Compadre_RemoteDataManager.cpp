@@ -796,6 +796,102 @@ void RemoteDataManager::putRemoteWeightsInParticleSet(const particles_type* sour
 
 }
 
+void RemoteDataManager::putExtraRemapDataInParticleSet(const particles_type* source_particles, particles_type* particles_to_overwrite, std::string extra_data_for_remap_field_name) {
+
+    _extra_data_for_remap_field_name = extra_data_for_remap_field_name;
+
+	host_view_type original_extra_data_vals = source_particles->getFieldManagerConst()->getFieldByName(extra_data_for_remap_field_name)->getMultiVectorPtrConst()->getLocalView<host_view_type>();
+    local_index_type original_num_components = static_cast<local_index_type>(original_extra_data_vals.extent(1));
+    local_index_type peer_num_components = 0;
+
+    // need exchange of number of points
+	// send and receive # of components from peer
+    if (_amLower) {
+    	if (_local_comm->getRank()==0) {
+    		Teuchos::broadcast<local_index_type, local_index_type>(*_lower_root_plus_upper_all_comm, 0, 1, &original_num_components);
+    	}
+	} else {
+    	Teuchos::broadcast<local_index_type, local_index_type>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_num_components);
+    }
+    if (_amLower) {
+    	Teuchos::broadcast<local_index_type, local_index_type>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_num_components);
+    } else {
+    	if (_local_comm->getRank()==0) {
+    		Teuchos::broadcast<local_index_type, local_index_type>(*_upper_root_plus_lower_all_comm, 0, 1, &original_num_components);
+    	}
+	}
+
+	Teuchos::RCP<mvec_type>	lower_processors_view_of_lower_processors_data;
+	Teuchos::RCP<mvec_type>	upper_processors_view_of_upper_processors_data;
+    if (_amLower) {
+	    lower_processors_view_of_lower_processors_data = Teuchos::rcp(new mvec_type(_lower_map_for_lower_data, original_num_components, true /* set to zero*/ ));
+	    upper_processors_view_of_upper_processors_data = Teuchos::rcp(new mvec_type(_upper_map_for_upper_data, peer_num_components, true /* set to zero*/ ));
+    } else {
+	    lower_processors_view_of_lower_processors_data = Teuchos::rcp(new mvec_type(_lower_map_for_lower_data, peer_num_components, true /* set to zero*/ ));
+	    upper_processors_view_of_upper_processors_data = Teuchos::rcp(new mvec_type(_upper_map_for_upper_data, original_num_components, true /* set to zero*/ ));
+    }
+
+	host_view_type original_extra_vals = source_particles->getFieldManagerConst()->getFieldByName(extra_data_for_remap_field_name)->getMultiVectorPtrConst()->getLocalView<host_view_type>();
+	host_view_type duplicated_extra_vals;
+
+	if (_amLower) {
+		duplicated_extra_vals = lower_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
+		for (size_t i=0; i<duplicated_extra_vals.extent(0); i++) {
+	        for (size_t j=0; j<duplicated_extra_vals.extent(1); j++) {
+			    duplicated_extra_vals(i,j) = original_extra_vals(i,j);
+            }
+		}
+	} else {
+		duplicated_extra_vals = upper_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
+		for (size_t i=0; i<duplicated_extra_vals.extent(0); i++) {
+	        for (size_t j=0; j<duplicated_extra_vals.extent(1); j++) {
+			    duplicated_extra_vals(i,j) = original_extra_vals(i,j);
+            }
+		}
+	}
+
+	Teuchos::RCP<mvec_type>	lower_processors_view_of_upper_processors_data;
+	Teuchos::RCP<mvec_type>	upper_processors_view_of_lower_processors_data;
+    if (_amLower) {
+		lower_processors_view_of_upper_processors_data = Teuchos::rcp(new mvec_type(_lower_map_for_upper_data, peer_num_components, true /* set to zero*/ ));
+	    upper_processors_view_of_lower_processors_data = Teuchos::rcp(new mvec_type(_upper_map_for_lower_data, original_num_components, true /* set to zero*/ ));
+    } else {
+		lower_processors_view_of_upper_processors_data = Teuchos::rcp(new mvec_type(_lower_map_for_upper_data, original_num_components, true /* set to zero*/ ));
+	    upper_processors_view_of_lower_processors_data = Teuchos::rcp(new mvec_type(_upper_map_for_lower_data, peer_num_components, true /* set to zero*/ ));
+    }
+
+	// swap extra data for remap
+	lower_processors_view_of_upper_processors_data->doExport(*upper_processors_view_of_upper_processors_data, *_upper_importer, Tpetra::CombineMode::REPLACE);
+	upper_processors_view_of_lower_processors_data->doExport(*lower_processors_view_of_lower_processors_data, *_lower_importer, Tpetra::CombineMode::REPLACE);
+
+
+	// now it is time to move this data from the vector used for transfer to the vector for in the particle set
+	host_view_type extra_remap_data_to_move_into_particles;
+	if (_amLower) {
+		extra_remap_data_to_move_into_particles = lower_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
+	} else {
+		extra_remap_data_to_move_into_particles = upper_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
+	}
+
+	// get access to the field
+	host_view_type extra_remap_data_inside_particles;
+	// check if field is already registered (verify it is not)
+	try {
+		extra_remap_data_inside_particles = particles_to_overwrite->getFieldManager()->getFieldByName(extra_data_for_remap_field_name)->getMultiVectorPtr()->getLocalView<host_view_type>();
+	} catch (...) {
+		// register it
+		particles_to_overwrite->getFieldManager()->createField(peer_num_components, extra_data_for_remap_field_name, "na");
+		extra_remap_data_inside_particles = particles_to_overwrite->getFieldManager()->getFieldByName(extra_data_for_remap_field_name)->getMultiVectorPtr()->getLocalView<host_view_type>();
+	}
+
+	for (size_t i=0; i<extra_remap_data_to_move_into_particles.extent(0); i++) {
+	    for (size_t j=0; j<extra_remap_data_to_move_into_particles.extent(1); j++) {
+		    extra_remap_data_inside_particles(i,j) = extra_remap_data_to_move_into_particles(i,j);
+        }
+	}
+
+}
+
 void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 		Teuchos::RCP<Teuchos::ParameterList> parameters,
 		particles_type* source_particles,
@@ -887,6 +983,65 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 		}
 	}
 
+
+
+    std::vector<std::string> requested_named_source_extra_data_field;
+    { 
+        // only for when source extra data needs set, this is how one code tells the other the field it needs 
+        // to set as the source extra data
+
+        // extra data for sources (sampling functionals), this is the name of the source field that the peer should have
+	    std::vector<local_index_type> named_source_extra_data_field_sizes(remap_vector.size());
+	    for (size_t i=0; i<remap_vector.size(); ++i) {
+	    	named_source_extra_data_field_sizes[i] = remap_vector[i]._source_extra_data_fieldname.size();
+	    }
+
+        // send and receive size of each source extra data field requested by peer
+        std::vector<local_index_type> requested_named_source_extra_data_field_sizes(peer_num_fields_for_swap);
+        if (_amLower) {
+        	if (_local_comm->getRank()==0) {
+        		Teuchos::broadcast<local_index_type, local_index_type>(*_lower_root_plus_upper_all_comm, 0, my_num_fields_for_swap, &named_source_extra_data_field_sizes[0]);
+        	}
+	    } else {
+        	Teuchos::broadcast<local_index_type, local_index_type>(*_lower_root_plus_upper_all_comm, 0, peer_num_fields_for_swap, &requested_named_source_extra_data_field_sizes[0]);
+        }
+        if (_amLower) {
+        	Teuchos::broadcast<local_index_type, local_index_type>(*_upper_root_plus_lower_all_comm, 0, peer_num_fields_for_swap, &requested_named_source_extra_data_field_sizes[0]);
+        } else {
+        	if (_local_comm->getRank()==0) {
+        		Teuchos::broadcast<local_index_type, local_index_type>(*_upper_root_plus_lower_all_comm, 0, my_num_fields_for_swap, &named_source_extra_data_field_sizes[0]);
+        	}
+	    }
+
+        // create placeholder for receiving requested source extra data field names
+        requested_named_source_extra_data_field.resize(peer_num_fields_for_swap);
+	    for (local_index_type i=0; i<std::max((local_index_type)(peer_field_names.size()), my_num_fields_for_swap); ++i) {
+
+	    	if ((size_t)i < peer_field_names.size())
+	    		requested_named_source_extra_data_field[i] = std::string(requested_named_source_extra_data_field_sizes[i], 'a'); // placeholder
+
+	    	// send and receive each field name
+	    	if (_amLower) {
+	    		if (i < my_num_fields_for_swap && _local_comm->getRank()==0) {
+	    			Teuchos::broadcast<local_index_type, char>(*_lower_root_plus_upper_all_comm, 0, named_source_extra_data_field_sizes[i], &remap_vector[i]._source_extra_data_fieldname[0]);
+	    		}
+	    	} else {
+	    		if ((size_t)i < peer_field_names.size()) {
+	    			Teuchos::broadcast<local_index_type, char>(*_lower_root_plus_upper_all_comm, 0, requested_named_source_extra_data_field_sizes[i], &requested_named_source_extra_data_field[i][0]);
+	    		}
+	    	}
+	    	if (_amLower) {
+	    		if ((size_t)i < peer_field_names.size()) {
+	    			Teuchos::broadcast<local_index_type, char>(*_upper_root_plus_lower_all_comm, 0, requested_named_source_extra_data_field_sizes[i], &requested_named_source_extra_data_field[i][0]);
+	    		}
+	    	} else {
+	    		if (i < my_num_fields_for_swap && _local_comm->getRank()==0) {
+	    			Teuchos::broadcast<local_index_type, char>(*_upper_root_plus_lower_all_comm, 0, named_source_extra_data_field_sizes[i], &remap_vector[i]._source_extra_data_fieldname[0]);
+	    		}
+	    	}
+	    }
+    }
+
 	// exchange information about using Optimization in reconstruction
     std::vector<int> peer_optimization_algorithm(peer_num_fields_for_swap,0);
     std::vector<int> peer_single_linear_bound_constraint(peer_num_fields_for_swap,0);
@@ -974,6 +1129,12 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
                 if (peer_optimization_algorithm[i] > 0) {
                     OptimizationObject optimization_object((OptimizationAlgorithm)peer_optimization_algorithm[i],(bool)peer_single_linear_bound_constraint[i],(bool)peer_bounds_preservation[i],peer_global_lower_bound[i],peer_global_upper_bound[i]);
             	    ro.setOptimizationObject(optimization_object);
+                }
+                if (_extra_data_for_remap_field_name != "") {
+                    ro.setTargetExtraData(_extra_data_for_remap_field_name);
+                }
+                if (requested_named_source_extra_data_field[i]!="") {
+                    ro.setSourceExtraData(requested_named_source_extra_data_field[i]);
                 }
             	rm->add(ro);
             }
@@ -1173,6 +1334,7 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 	source_particles->getFieldManager()->updateFieldsHaloData();
 
 	RemoteDataRemapTime->stop();
+    _global_comm->barrier();
 }
 
 }
