@@ -358,7 +358,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
         double cutoff_p = _epsilons(target_index);
 
         compadre_kernel_assert_debug(_dimensions==2 && "Only written for 2D");
-        compadre_kernel_assert_debug(_extra_data.extent(0)>0 && "Extra data used but not set.");
+        compadre_kernel_assert_debug(_source_extra_data.extent(0)>0 && "Extra data used but not set.");
 
         int neighbor_index_in_source = getNeighborIndex(target_index, neighbor_index);
 
@@ -377,7 +377,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
         // only used for integrated quantities
         XYZ endpoints_difference;
         for (int j=0; j<dimension; ++j) {
-            endpoints_difference[j] = _extra_data(neighbor_index_in_source, j) - _extra_data(neighbor_index_in_source, j+2);
+            endpoints_difference[j] = _source_extra_data(neighbor_index_in_source, j) - _source_extra_data(neighbor_index_in_source, j+2);
         }
         double magnitude = EuclideanVectorLength(endpoints_difference, 2);
         
@@ -397,8 +397,8 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 if (polynomial_sampling_functional == FaceNormalIntegralSample 
                         || polynomial_sampling_functional == FaceTangentIntegralSample) {
                     // quadrature coord site
-                    quadrature_coord_2d[j] = _qm.getSite(quadrature,0)*_extra_data(neighbor_index_in_source, j);
-                    quadrature_coord_2d[j] += (1-_qm.getSite(quadrature,0))*_extra_data(neighbor_index_in_source, j+2);
+                    quadrature_coord_2d[j] = _qm.getSite(quadrature,0)*_source_extra_data(neighbor_index_in_source, j);
+                    quadrature_coord_2d[j] += (1-_qm.getSite(quadrature,0))*_source_extra_data(neighbor_index_in_source, j+2);
                     quadrature_coord_2d[j] -= getTargetCoordinate(target_index, j);
                 } else {
                     // traditional coord
@@ -409,10 +409,10 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 if (polynomial_sampling_functional == FaceNormalIntegralSample 
                         || polynomial_sampling_functional == FaceNormalPointSample) {
                     // normal direction
-                    direction_2d[j] = _extra_data(neighbor_index_in_source, 4 + j);
+                    direction_2d[j] = _source_extra_data(neighbor_index_in_source, 4 + j);
                 } else {
                     // tangent direction
-                    direction_2d[j] = _extra_data(neighbor_index_in_source, 6 + j);
+                    direction_2d[j] = _source_extra_data(neighbor_index_in_source, 6 + j);
                 }
 
             }
