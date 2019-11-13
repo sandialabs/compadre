@@ -19,6 +19,8 @@ XX, YY, ZZ = np.meshgrid(X, Y, Z)
 x, y, z = XX.ravel(), YY.ravel(), ZZ.ravel()
 # Create arrays to store the normal vectors
 nx, ny, nz = 0.0*x, 0.0*y, 0.0*z
+# Create arrays to store the flags
+flag = np.zeros(len(x)).astype(int)
 # Loop through and set the normal vectors for each point
 for i in range(len(x)):
     # Set the components for the normals
@@ -32,6 +34,16 @@ for i in range(len(x)):
         nx[i] = xtemp / np.sqrt(xtemp**2 + ytemp**2 + ztemp**2)
         ny[i] = ytemp / np.sqrt(xtemp**2 + ytemp**2 + ztemp**2)
         nz[i] = ztemp / np.sqrt(xtemp**2 + ytemp**2 + ztemp**2)
+    # Set up flags
+    bc_check = 0 + (abs(x[i]) == 1.0) + (abs(y[i]) == 1.0) + (abs(z[i]) == 1.0)
+    # Set values for flags, 1 being Dirichlet points, 2 being Neumann points
+    # and the rest are flagged as 0
+    if (bc_check > 1):
+        flag[i] = 1
+    elif (bc_check == 1):
+        flag[i] = 2
+    else:
+        flag[i] = 0
 
 # Write into file
 dataset = Dataset('cube_normal_%d.nc'%N, mode='w', clobber=True, diskless=False,
@@ -60,6 +72,9 @@ dataset.createVariable('ny', datatype='d', dimensions=('num_points'), zlib=False
 dataset.createVariable('nz', datatype='d', dimensions=('num_points'), zlib=False, complevel=4,
         shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,
         endian='native', least_significant_digit=None, fill_value=None)
+dataset.createVariable('flag', datatype='i', dimensions=('num_points'), zlib=False, complevel=4,
+        shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,
+        endian='native', least_significant_digit=None, fill_value=None)
 
 # Copy from numpy array into netCDF4 variables
 dataset.variables['x'][:] = x[:]
@@ -68,6 +83,7 @@ dataset.variables['z'][:] = z[:]
 dataset.variables['nx'][:] = nx[:]
 dataset.variables['ny'][:] = ny[:]
 dataset.variables['nz'][:] = nz[:]
+dataset.variables['flag'][:] = flag[:]
 
 # Close the file to complete writing
 dataset.close()
