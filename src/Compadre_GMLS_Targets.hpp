@@ -735,6 +735,21 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
     const int num_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(getNAdditionalEvaluationCoordinates(target_index)+1) : 1;
 
+    //auto blah = _target_extra_data;
+    //if (target_index==1) {
+    //    printf("TARGET INDEX 1!!!!!!!!!!!!!!\n");
+    //    for (size_t j=0; j<blah.extent(1); ++j) {
+    //        printf("TARGET VAL AT 1: %d: %f\n", j, blah(target_index,j));
+    //    }
+    //}
+    //blah = _source_extra_data;
+    //if (target_index==1) {
+    //    printf("SOURCE INDEX 1!!!!!!!!!!!!!!\n");
+    //    for (size_t j=0; j<blah.extent(1); ++j) {
+    //        printf("SOURCE VAL AT 1: %d: %f\n", j, blah(target_index,j));
+    //    }
+    //}
+
     for (size_t i=0; i<_operations.size(); ++i) {
 
         bool additional_evaluation_sites_handled = false; // target operations that can handle these sites should flip this flag
