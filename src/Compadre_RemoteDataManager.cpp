@@ -793,7 +793,7 @@ void RemoteDataManager::putRemoteWeightsInParticleSet(const particles_type* sour
 	for (size_t i=0; i<weights_to_move_into_particles.dimension_0(); i++) {
 		weights_inside_particles(i,0) = weights_to_move_into_particles(i,0);
 	}
-
+    // no halo field updating is intentional
 }
 
 void RemoteDataManager::putExtraRemapDataInParticleSet(const particles_type* source_particles, particles_type* particles_to_overwrite, std::string extra_data_for_remap_field_name) {
@@ -875,7 +875,6 @@ void RemoteDataManager::putExtraRemapDataInParticleSet(const particles_type* sou
 
 	// get access to the field
 	host_view_type extra_remap_data_inside_particles;
-	// check if field is already registered (verify it is not)
 	try {
 		extra_remap_data_inside_particles = particles_to_overwrite->getFieldManager()->getFieldByName(extra_data_for_remap_field_name)->getMultiVectorPtr()->getLocalView<host_view_type>();
 	} catch (...) {
@@ -889,7 +888,7 @@ void RemoteDataManager::putExtraRemapDataInParticleSet(const particles_type* sou
 		    extra_remap_data_inside_particles(i,j) = extra_remap_data_to_move_into_particles(i,j);
         }
 	}
-
+    // no halo field updating is intentional
 }
 
 void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,

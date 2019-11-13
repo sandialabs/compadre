@@ -206,26 +206,10 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                         _GMLS->setSourceExtraData(combined_extra_data);
                     }
                     if (_queue[i]._target_extra_data_fieldname != "") {
+                        // no halo information needed (or available)
                         auto extra_data_local = 
                             _trg_particles->getFieldManagerConst()->getFieldByName(_queue[i]._target_extra_data_fieldname)->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-                        auto extra_data_halo = 
-                            _trg_particles->getFieldManagerConst()->getFieldByName(_queue[i]._target_extra_data_fieldname)->getHaloMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-                        auto combined_extra_data = host_view_type("combined extra data", extra_data_local.extent(0) + extra_data_halo.extent(0), extra_data_local.extent(1));
-    
-                        // fill in combined data
-                        auto nlocal = target_coords->nLocal(false); // locally owned #
-                        auto ncols = combined_extra_data.extent(1);
-                        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal(true /* include halo in count*/)), KOKKOS_LAMBDA(const int j) {
-                            for (local_index_type k=0; k<ncols; ++k) {
-                                if (j < nlocal) {
-                                    combined_extra_data(j,k) = extra_data_local(j,k);
-                                } else {
-                                    combined_extra_data(j,k) = extra_data_halo(j-nlocal,k);
-                                }
-                            }
-                        });
-
-                        _GMLS->setTargetExtraData(combined_extra_data);
+                        _GMLS->setTargetExtraData(extra_data_local);
                     }
     
     
