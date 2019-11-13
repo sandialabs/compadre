@@ -34,7 +34,7 @@
     <Parameter name="source weighting field name" type="string" value="cell_area"/>
     <Parameter name="target weighting field name" type="string" value="cell_area"/>
     <Parameter name="cell averaged" type="bool" value="true"/>
-    <Parameter name="extra data field name" type="string" value="extra data"/>
+    <Parameter name="extra data field name" type="string" value="extra_data"/>
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>
