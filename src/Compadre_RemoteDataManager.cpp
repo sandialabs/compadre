@@ -962,14 +962,14 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
  	std::vector<size_t> peer_polynomial_sampling_functional_id                      (peer_num_fields_for_swap, 0);
  	std::vector<int>    peer_polynomial_sampling_functional_input_rank              (peer_num_fields_for_swap, 0);
  	std::vector<int>    peer_polynomial_sampling_functional_output_rank             (peer_num_fields_for_swap, 0);
- 	std::vector<int>   peer_polynomial_sampling_functional_use_target_site_weights (peer_num_fields_for_swap, 0);
- 	std::vector<int>   peer_polynomial_sampling_functional_nontrivial_nullspace    (peer_num_fields_for_swap, 0);
+ 	std::vector<int>    peer_polynomial_sampling_functional_use_target_site_weights (peer_num_fields_for_swap, 0);
+ 	std::vector<int>    peer_polynomial_sampling_functional_nontrivial_nullspace    (peer_num_fields_for_swap, 0);
  	std::vector<int>    peer_polynomial_sampling_functional_transform_type          (peer_num_fields_for_swap, 0);
  	std::vector<size_t> peer_data_sampling_functional_id                      (peer_num_fields_for_swap, 0);
  	std::vector<int>    peer_data_sampling_functional_input_rank              (peer_num_fields_for_swap, 0);
  	std::vector<int>    peer_data_sampling_functional_output_rank             (peer_num_fields_for_swap, 0);
- 	std::vector<int>   peer_data_sampling_functional_use_target_site_weights (peer_num_fields_for_swap, 0);
- 	std::vector<int>   peer_data_sampling_functional_nontrivial_nullspace    (peer_num_fields_for_swap, 0);
+ 	std::vector<int>    peer_data_sampling_functional_use_target_site_weights (peer_num_fields_for_swap, 0);
+ 	std::vector<int>    peer_data_sampling_functional_nontrivial_nullspace    (peer_num_fields_for_swap, 0);
  	std::vector<int>    peer_data_sampling_functional_transform_type          (peer_num_fields_for_swap, 0);
 	for (local_index_type i=0; i<std::max((local_index_type)(peer_field_names.size()), my_num_fields_for_swap); ++i) {
 
