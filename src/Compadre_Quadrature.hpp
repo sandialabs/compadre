@@ -3,6 +3,7 @@
 
 #include "Compadre_Config.h"
 #include "Compadre_Typedefs.hpp"
+#include "Compadre_Utilities.hpp"
 
 namespace Compadre {
 

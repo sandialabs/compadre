@@ -1232,7 +1232,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)), [&] (const int m) {
             
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                this->calcGradientPij(delta.data(), target_index, m, 0 /*alpha*/, 0 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, &T, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
+                this->calcGradientPij(teamMember, delta.data(), target_index, m, 0 /*alpha*/, 0 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, &T, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
             });
             // reconstructs gradient at local neighbor index m
             double grad_xi1 = 0, grad_xi2 = 0;
@@ -1250,7 +1250,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
             t1(m) = grad_xi1;
 
             Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                this->calcGradientPij(delta.data(), target_index, m, 0 /*alpha*/, 1 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, &T, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
+                this->calcGradientPij(teamMember, delta.data(), target_index, m, 0 /*alpha*/, 1 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, &T, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
             });
             Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember,this->getNNeighbors(target_index)), [=] (const int i, double &t_grad_xi2) {
                 double alpha_ij = 0;

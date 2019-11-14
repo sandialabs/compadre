@@ -7,7 +7,7 @@
 namespace Compadre {
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_local_index) const {
+void GMLS::calcPij(const member_type& teamMember, double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_local_index) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
@@ -452,6 +452,128 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
                 }
             }
         }
+    } else if (polynomial_sampling_functional == ScalarFaceAverageSample) {
+        if (_problem_type == ProblemType::MANIFOLD) {
+            compadre_kernel_assert_release("ScalarFaceAverageSample not available for ProblemType::MANIFOLD\n");
+        } else {
+            // Calculate basis matrix for NON MANIFOLD problems
+            double cutoff_p = _epsilons(target_index);
+            int alphax, alphay, alphaz;
+            double alphaf;
+            const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
+
+            auto blah = _source_extra_data;
+            printf("blah size: %lu, %lu\n", blah.extent(0), blah.extent(1));
+            //if (target_index==1) {
+            //    printf("SOURCE INDEX 1!!!!!!!!!!!!!!\n");
+            //    for (size_t j=0; j<blah.extent(1); ++j) {
+            //        printf("SOURCE VAL AT 1: %d: %f\n", j, blah(neighbor_index,j));
+            //    }
+            //}
+            printf("quad size: %d\n", _qm.getNumberOfQuadraturePoints());
+
+            double triangle_coords[9];
+            scratch_vector_type midpoint(triangle_coords, 3); // fill first 3 with midpoint
+
+            getMidpointFromCellVertices(teamMember, midpoint, _source_extra_data, neighbor_index, 3 /*dim*/);
+            size_t num_vertices = _source_extra_data.extent(1) / 3;
+
+
+            // loop over each two vertices 
+            for (size_t i=0; i<num_vertices; ++i) {
+                int v1 = i;
+                int v2 = (i+1) % num_vertices;
+
+                for (int j=0; j<3; ++j) {
+                    triangle_coords[3+j] = _source_extra_data(neighbor_index, v1*3+j);
+                    triangle_coords[6+j] = _source_extra_data(neighbor_index, v2*3+j);
+                }
+                // triangle_coords now has:
+                // (midpoint_x, midpoint_y, midpoint_z, v1_x, v1_y, v1_z, v2_x, v2_y, v2_z);
+                scratch_vector_type triangle_coords_view(triangle_coords, 9); 
+                for (int quadrature = 0; quadrature<_qm.getNumberOfQuadraturePoints(); ++quadrature) {
+
+                }
+            }
+
+              
+            printf("midpoint: %f, %f, %f\n", midpoint(0), midpoint(1), midpoint(2));
+
+
+            *(delta+0) = 1.0; // temporary
+
+            
+            //for (int quadrature = 0; quadrature<_qm.getNumberOfQuadraturePoints(); ++quadrature) {
+
+                //auto blah = _source_extra_data;
+                //printf("blah size: %lu, %lu\n", blah.extent(0), blah.extent(1));
+                //if (target_index==1) {
+                //    printf("SOURCE INDEX 1!!!!!!!!!!!!!!\n");
+                //    for (size_t j=0; j<blah.extent(1); ++j) {
+                //        printf("SOURCE VAL AT 1: %d: %f\n", j, blah(neighbor_index,j));
+                //    }
+                //}
+
+                //int i = 0;
+
+                //XYZ quadrature_coord_3d;
+                //XYZ tangent_quadrature_coord_3d;
+                //for (int j=0; j<dimension; ++j) {
+                //    // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
+                //  quadrature_coord_3d[j] = (_qm.getSite(quadrature,0)-1)*getTargetCoordinate(target_index, j, NULL);
+                //  quadrature_coord_3d[j] += (1-_qm.getSite(quadrature,0))*getNeighborCoordinate(target_index, neighbor_index, j, NULL);
+                //  tangent_quadrature_coord_3d[j] = getTargetCoordinate(target_index, j, NULL);
+                //  tangent_quadrature_coord_3d[j] += -getNeighborCoordinate(target_index, neighbor_index, j, NULL);
+                //}
+                //for (int j=0; j<_basis_multiplier; ++j) {
+                //    for (int n = start_index; n <= poly_order; n++) {
+                //        for (alphaz = 0; alphaz <= n; alphaz++){
+                //            int s = n - alphaz;
+                //            for (alphay = 0; alphay <= s; alphay++){
+                //                alphax = s - alphay;
+                //                alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
+
+                //                // local evaluation of vector [p, 0, 0], [0, p, 0] or [0, 0, p]
+                //                double v0, v1, v2;
+                //                switch(j) {
+                //                    case 1:
+                //                        v0 = 0.0;
+                //                        v1 = std::pow(quadrature_coord_3d.x/cutoff_p,alphax)
+                //                          *std::pow(quadrature_coord_3d.y/cutoff_p,alphay)
+                //                          *std::pow(quadrature_coord_3d.z/cutoff_p,alphaz)/alphaf;
+                //                        v2 = 0.0;
+                //                        break;
+                //                    case 2:
+                //                        v0 = 0.0;
+                //                        v1 = 0.0;
+                //                        v2 = std::pow(quadrature_coord_3d.x/cutoff_p,alphax)
+                //                          *std::pow(quadrature_coord_3d.y/cutoff_p,alphay)
+                //                          *std::pow(quadrature_coord_3d.z/cutoff_p,alphaz)/alphaf;
+                //                        break;
+                //                    default:
+                //                        v0 = std::pow(quadrature_coord_3d.x/cutoff_p,alphax)
+                //                          *std::pow(quadrature_coord_3d.y/cutoff_p,alphay)
+                //                          *std::pow(quadrature_coord_3d.z/cutoff_p,alphaz)/alphaf;
+                //                        v1 = 0.0;
+                //                        v2 = 0.0;
+                //                        break;
+                //                }
+
+                //                double dot_product = tangent_quadrature_coord_3d[0]*v0 + tangent_quadrature_coord_3d[1]*v1 + tangent_quadrature_coord_3d[2]*v2;
+
+                //                // multiply by quadrature weight
+                //                if (quadrature == 0) {
+                //                    *(delta+i) = dot_product * _qm.getWeight(quadrature);
+                //                } else {
+                //                    *(delta+i) += dot_product * _qm.getWeight(quadrature);
+                //                }
+                //                i++;
+                //            }
+                //        }
+                //    }
+                //}
+            //}
+        } // NON MANIFOLD PROBLEMS
     } else {
         compadre_kernel_assert_release((false) && "Sampling and basis space combination not defined.");
     }
@@ -459,7 +581,7 @@ void GMLS::calcPij(double* delta, const int target_index, int neighbor_index, co
 
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_index) const {
+void GMLS::calcGradientPij(const member_type& teamMember, double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_index) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
@@ -602,7 +724,7 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
             // generate weight vector from distances and window sizes
             w(i+my_num_neighbors*d) = this->Wab(r, _epsilons(target_index), _weighting_type, _weighting_power);
 
-            this->calcPij(delta.data(), target_index, i + d*my_num_neighbors, 0 /*alpha*/, dimension, polynomial_order, false /*bool on only specific order*/, V, reconstruction_space, polynomial_sampling_functional);
+            this->calcPij(teamMember, delta.data(), target_index, i + d*my_num_neighbors, 0 /*alpha*/, dimension, polynomial_order, false /*bool on only specific order*/, V, reconstruction_space, polynomial_sampling_functional);
 
             // storage_size needs to change based on the size of the basis
             int storage_size = this->getNP(polynomial_order, dimension, reconstruction_space);
@@ -663,10 +785,10 @@ void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_
         // generate weight vector from distances and window sizes
         if (only_specific_order) {
             w(i) = this->Wab(r, _epsilons(target_index), _curvature_weighting_type, _curvature_weighting_power);
-            this->calcPij(delta.data(), target_index, i, 0 /*alpha*/, dimension, 1, true /*bool on only specific order*/);
+            this->calcPij(teamMember, delta.data(), target_index, i, 0 /*alpha*/, dimension, 1, true /*bool on only specific order*/);
         } else {
             w(i) = this->Wab(r, _epsilons(target_index), _curvature_weighting_type, _curvature_weighting_power);
-            this->calcPij(delta.data(), target_index, i, 0 /*alpha*/, dimension, _curvature_poly_order, false /*bool on only specific order*/, V);
+            this->calcPij(teamMember, delta.data(), target_index, i, 0 /*alpha*/, dimension, _curvature_poly_order, false /*bool on only specific order*/, V);
         }
 
         int storage_size = only_specific_order ? this->getNP(1, dimension)-this->getNP(0, dimension) : this->getNP(_curvature_poly_order, dimension);
