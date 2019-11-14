@@ -956,6 +956,21 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 
     // create placeholder for receiving peer field names
     std::vector<std::string> peer_field_names(peer_num_fields_for_swap);
+    std::vector<int> peer_target_operation(peer_num_fields_for_swap,0);
+    std::vector<int> peer_reconstruction_space(peer_num_fields_for_swap,0);
+    // SamplingFunctional is too complicated to serialize, so we pull relevant pieces out of it (from which we can reconstruct it on the other side)
+ 	std::vector<size_t> peer_polynomial_sampling_functional_id                      (peer_num_fields_for_swap, 0);
+ 	std::vector<int>    peer_polynomial_sampling_functional_input_rank              (peer_num_fields_for_swap, 0);
+ 	std::vector<int>    peer_polynomial_sampling_functional_output_rank             (peer_num_fields_for_swap, 0);
+ 	std::vector<int>   peer_polynomial_sampling_functional_use_target_site_weights (peer_num_fields_for_swap, 0);
+ 	std::vector<int>   peer_polynomial_sampling_functional_nontrivial_nullspace    (peer_num_fields_for_swap, 0);
+ 	std::vector<int>    peer_polynomial_sampling_functional_transform_type          (peer_num_fields_for_swap, 0);
+ 	std::vector<size_t> peer_data_sampling_functional_id                      (peer_num_fields_for_swap, 0);
+ 	std::vector<int>    peer_data_sampling_functional_input_rank              (peer_num_fields_for_swap, 0);
+ 	std::vector<int>    peer_data_sampling_functional_output_rank             (peer_num_fields_for_swap, 0);
+ 	std::vector<int>   peer_data_sampling_functional_use_target_site_weights (peer_num_fields_for_swap, 0);
+ 	std::vector<int>   peer_data_sampling_functional_nontrivial_nullspace    (peer_num_fields_for_swap, 0);
+ 	std::vector<int>    peer_data_sampling_functional_transform_type          (peer_num_fields_for_swap, 0);
 	for (local_index_type i=0; i<std::max((local_index_type)(peer_field_names.size()), my_num_fields_for_swap); ++i) {
 
 		if ((size_t)i < peer_field_names.size())
@@ -965,19 +980,99 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 		if (_amLower) {
 			if (i < my_num_fields_for_swap && _local_comm->getRank()==0) {
 				Teuchos::broadcast<local_index_type, char>(*_lower_root_plus_upper_all_comm, 0, my_field_name_sizes[i], &remap_vector[i].src_fieldname[0]);
+				int target_operation = (int)(remap_vector[i]._target_operation);
+				int reconstruction_space = (int)(remap_vector[i]._reconstruction_space);
+                SamplingFunctional polynomial_sampling_functional = remap_vector[i]._polynomial_sampling_functional;
+                SamplingFunctional data_sampling_functional = remap_vector[i]._data_sampling_functional;
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &target_operation);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &reconstruction_space);
+
+				Teuchos::broadcast<local_index_type, size_t>(*_lower_root_plus_upper_all_comm, 0, 1, &(polynomial_sampling_functional.id));
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &(polynomial_sampling_functional.input_rank));
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &(polynomial_sampling_functional.output_rank));
+                auto polynomial_use_target_site_weights = static_cast<int>(polynomial_sampling_functional.use_target_site_weights);
+                auto polynomial_nontrivial_nullspace = static_cast<int>(polynomial_sampling_functional.nontrivial_nullspace);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &polynomial_use_target_site_weights);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &polynomial_nontrivial_nullspace);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &(polynomial_sampling_functional.transform_type));
+
+				Teuchos::broadcast<local_index_type, size_t>(*_lower_root_plus_upper_all_comm, 0, 1, &(data_sampling_functional.id));
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &(data_sampling_functional.input_rank));
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &(data_sampling_functional.output_rank));
+                auto data_use_target_site_weights = static_cast<int>(data_sampling_functional.use_target_site_weights);
+                auto data_nontrivial_nullspace = static_cast<int>(data_sampling_functional.nontrivial_nullspace);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &data_use_target_site_weights);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &data_nontrivial_nullspace);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &(data_sampling_functional.transform_type));
 			}
 		} else {
 			if ((size_t)i < peer_field_names.size()) {
 				Teuchos::broadcast<local_index_type, char>(*_lower_root_plus_upper_all_comm, 0, peer_field_name_sizes[i], &peer_field_names[i][0]);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_target_operation[i]);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_reconstruction_space[i]);
+
+				Teuchos::broadcast<local_index_type, size_t>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_polynomial_sampling_functional_id[i]);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_polynomial_sampling_functional_input_rank[i]);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_polynomial_sampling_functional_output_rank[i]);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_polynomial_sampling_functional_use_target_site_weights[i]);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_polynomial_sampling_functional_nontrivial_nullspace[i]);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_polynomial_sampling_functional_transform_type[i]);
+
+				Teuchos::broadcast<local_index_type, size_t>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_data_sampling_functional_id[i]);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_data_sampling_functional_input_rank[i]);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_data_sampling_functional_output_rank[i]);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_data_sampling_functional_use_target_site_weights[i]);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_data_sampling_functional_nontrivial_nullspace[i]);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_data_sampling_functional_transform_type[i]);
 			}
 		}
 		if (_amLower) {
 			if ((size_t)i < peer_field_names.size()) {
 				Teuchos::broadcast<local_index_type, char>(*_upper_root_plus_lower_all_comm, 0, peer_field_name_sizes[i], &peer_field_names[i][0]);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_target_operation[i]);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_reconstruction_space[i]);
+
+				Teuchos::broadcast<local_index_type, size_t>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_polynomial_sampling_functional_id[i]);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_polynomial_sampling_functional_input_rank[i]);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_polynomial_sampling_functional_output_rank[i]);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_polynomial_sampling_functional_use_target_site_weights[i]);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_polynomial_sampling_functional_nontrivial_nullspace[i]);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_polynomial_sampling_functional_transform_type[i]);
+
+				Teuchos::broadcast<local_index_type, size_t>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_data_sampling_functional_id[i]);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_data_sampling_functional_input_rank[i]);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_data_sampling_functional_output_rank[i]);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_data_sampling_functional_use_target_site_weights[i]);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_data_sampling_functional_nontrivial_nullspace[i]);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_data_sampling_functional_transform_type[i]);
 			}
 		} else {
 			if (i < my_num_fields_for_swap && _local_comm->getRank()==0) {
 				Teuchos::broadcast<local_index_type, char>(*_upper_root_plus_lower_all_comm, 0, my_field_name_sizes[i], &remap_vector[i].src_fieldname[0]);
+				int target_operation = (int)(remap_vector[i]._target_operation);
+				int reconstruction_space = (int)(remap_vector[i]._reconstruction_space);
+                SamplingFunctional polynomial_sampling_functional = remap_vector[i]._polynomial_sampling_functional;
+                SamplingFunctional data_sampling_functional = remap_vector[i]._data_sampling_functional;
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &target_operation);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &reconstruction_space);
+
+				Teuchos::broadcast<local_index_type, size_t>(*_upper_root_plus_lower_all_comm, 0, 1, &(polynomial_sampling_functional.id));
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &(polynomial_sampling_functional.input_rank));
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &(polynomial_sampling_functional.output_rank));
+                auto polynomial_use_target_site_weights = static_cast<int>(polynomial_sampling_functional.use_target_site_weights);
+                auto polynomial_nontrivial_nullspace = static_cast<int>(polynomial_sampling_functional.nontrivial_nullspace);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &polynomial_use_target_site_weights);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &polynomial_nontrivial_nullspace);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &(polynomial_sampling_functional.transform_type));
+
+				Teuchos::broadcast<local_index_type, size_t>(*_upper_root_plus_lower_all_comm, 0, 1, &(data_sampling_functional.id));
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &(data_sampling_functional.input_rank));
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &(data_sampling_functional.output_rank));
+                auto data_use_target_site_weights = static_cast<int>(data_sampling_functional.use_target_site_weights);
+                auto data_nontrivial_nullspace = static_cast<int>(data_sampling_functional.nontrivial_nullspace);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &data_use_target_site_weights);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &data_nontrivial_nullspace);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &(data_sampling_functional.transform_type));
 			}
 		}
 	}
@@ -1111,7 +1206,7 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 	// Construct a remap object and reconstruct data onto temporary particles
 	//
 	//***************
-
+    
 	// create a remap manager
     if (peer_num_fields_for_swap > 0) {
         Teuchos::RCP<Compadre::RemapManager> rm;
@@ -1124,7 +1219,19 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
                 _rm = rm;
             }
             for (local_index_type i=0; i<peer_num_fields_for_swap; ++i) {
-            	RemapObject ro(peer_field_names[i]);
+                // reconstruct SamplingFunctional(const int input_rank_, const int output_rank_,
+                // 							        const bool use_target_site_weights_, const bool nontrivial_nullspace_,
+                // 							        const int transform_type_, const int id_)
+                auto poly_st = SamplingFunctional(peer_polynomial_sampling_functional_input_rank[i], peer_polynomial_sampling_functional_output_rank[i],
+													static_cast<bool>(peer_polynomial_sampling_functional_use_target_site_weights[i]), 
+                                                    static_cast<bool>(peer_polynomial_sampling_functional_nontrivial_nullspace[i]),
+													peer_polynomial_sampling_functional_transform_type[i], peer_polynomial_sampling_functional_id[i]);
+                auto data_st = SamplingFunctional(peer_data_sampling_functional_input_rank[i], peer_data_sampling_functional_output_rank[i],
+													static_cast<bool>(peer_data_sampling_functional_use_target_site_weights[i]), 
+                                                    static_cast<bool>(peer_data_sampling_functional_nontrivial_nullspace[i]),
+													peer_data_sampling_functional_transform_type[i], peer_data_sampling_functional_id[i]);
+                auto ro = RemapObject(peer_field_names[i], peer_field_names[i], static_cast<TargetOperation>(peer_target_operation[i]), 
+                                        static_cast<ReconstructionSpace>(peer_reconstruction_space[i]), poly_st, data_st);
                 if (peer_optimization_algorithm[i] > 0) {
                     OptimizationObject optimization_object((OptimizationAlgorithm)peer_optimization_algorithm[i],(bool)peer_single_linear_bound_constraint[i],(bool)peer_bounds_preservation[i],peer_global_lower_bound[i],peer_global_upper_bound[i]);
             	    ro.setOptimizationObject(optimization_object);
