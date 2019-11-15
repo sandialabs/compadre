@@ -39,7 +39,6 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                 ? static_cast<int>(getNAdditionalEvaluationCoordinates(target_index)+1) : 1;
 
     for (size_t i=0; i<_operations.size(); ++i) {
-                printf("WORKING ON TARGET OP %d\n", _operations[i]);
 
         bool additional_evaluation_sites_handled = false; // target operations that can handle these sites should flip this flag
 
@@ -148,7 +147,78 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                   }
               });
             } else if (_operations(i) == TargetOperation::ScalarFaceAverageEvaluation) {
-                printf("WORKING ON CORRECT TARGET \n");
+
+                //// Calculate basis matrix for NON MANIFOLD problems
+                //double cutoff_p = _epsilons(target_index);
+                //int alphax, alphay, alphaz;
+                //double alphaf;
+                //const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
+
+                //double triangle_coords[9];
+                //scratch_matrix_right_type triangle_coords_matrix(triangle_coords, 3, 3);
+                //scratch_vector_type midpoint(delta, 3);
+
+                //getMidpointFromCellVertices(teamMember, midpoint, _source_extra_data, neighbor_index, 3 /*dim*/);
+                //for (int j=0; j<3; ++j) {
+                //    triangle_coords_matrix(j, 0) = midpoint(j);
+                //}
+                //size_t num_vertices = _source_extra_data.extent(1) / 3;
+
+                //
+
+                //// loop over each two vertices
+                //for (size_t i=0; i<num_vertices; ++i) {
+                //    int v1 = i;
+                //    int v2 = (i+1) % num_vertices;
+
+                //    for (int j=0; j<3; ++j) {
+                //        triangle_coords_matrix(j,1) = _source_extra_data(neighbor_index, v1*3+j) - triangle_coords_matrix(j,0);
+                //        triangle_coords_matrix(j,2) = _source_extra_data(neighbor_index, v2*3+j) - triangle_coords_matrix(j,0);
+                //    }
+                //    // triangle_coords now has:
+                //    // (midpoint_x, midpoint_y, midpoint_z,
+                //    //  v1_x-midpoint_x, v1_y-midpoint_y, v1_z-midpoint_z,
+                //    //  v2_x-midpoint_x, v2_y-midpoint_y, v2_z-midpoint_z);
+                //    auto T=triangle_coords_matrix;
+                //    for (int quadrature = 0; quadrature<_qm.getNumberOfQuadraturePoints(); ++quadrature) {
+                //        double transformed_qp[3] = {0,0,0};
+                //        for (int j=0; j<3; ++j) {
+                //            for (int k=1; k<3; ++k) {
+                //                transformed_qp[j] += T(j,k)*_qm.getSite(quadrature, k-1);
+                //            }
+                //            transformed_qp[j] += T(j,0);
+                //        }
+                //        // half the norm of the cross-product is the area of the triangle
+                //        // so scaling is area / reference area (0.5) = the norm of the cross-product
+                //        double area_scaling = getAreaFromVectors(teamMember,
+                //                Kokkos::subview(T, Kokkos::ALL(), 1), Kokkos::subview(T, Kokkos::ALL(), 2));
+
+                //        for (int j=0; j<3; ++j) {
+                //            relative_coord[j] = transformed_qp[j] - getTargetCoordinate(target_index, j); // shift quadrature point by target site
+                //        }
+
+                //        int k = 0;
+
+                //        const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
+                //        for (int n = start_index; n <= poly_order; n++){
+                //            for (alphaz = 0; alphaz <= n; alphaz++){
+                //                int s = n - alphaz;
+                //                for (alphay = 0; alphay <= s; alphay++){
+                //                    alphax = s - alphay;
+                //                    alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
+                //                    double val_to_sum = (area_scaling * _qm.getWeight(quadrature)
+                //                            * std::pow(relative_coord.x/cutoff_p,alphax)
+                //                            *std::pow(relative_coord.y/cutoff_p,alphay)
+                //                            *std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf) / (0.5 * area_scaling);
+                //                    if (i==0) *(delta+k) = val_to_sum;
+                //                    else *(delta+k) += val_to_sum;
+                //                    k++;
+                //                }
+                //            }
+                //        }
+                //    }
+                //}
+
             } else {
                 compadre_kernel_assert_release((false) && "Functionality not yet available.");
             }

@@ -19,7 +19,20 @@ Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 });
 }
 
-template <typename output_memory_space, typename view_type_input_data, typename output_array_layout = typename view_type_input_data::array_layout, typedef index_type = int>
+template <typename view_type_1, typename view_type_2>
+KOKKOS_INLINE_FUNCTION
+double getAreaFromVectors(const member_type& teamMember, view_type_1 v1, view_type_2 v2) {
+    double area = 0;
+    double val = v1[1]*v2[2] - v1[2]*v2[1];
+    area += val*val;
+    val = v1[2]*v2[0] - v1[0]*v2[2];
+    area += val*val;
+    val = v1[0]*v2[1] - v1[1]*v2[0];
+    area += val*val;
+    return std::sqrt(area);
+}
+
+template <typename output_memory_space, typename view_type_input_data, typename output_array_layout = typename view_type_input_data::array_layout, typename index_type=int>
 Kokkos::View<int*, output_array_layout, output_memory_space> // shares layout of input by default
         filterViewByID(view_type_input_data input_data_host_or_device, index_type filtered_value) {
 
@@ -31,11 +44,11 @@ Kokkos::View<int*, output_array_layout, output_memory_space> // shares layout of
 
     // Count the number of elements in the input view that match the desired value
     int num_count = 0;
-    Kokkos::parallel_reduce("Count occurrences of values in the view", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace(0, input_data_device.extent(0)), KOKKOS_LAMBDA(const int i, int& local_num_count) {
-        if (input_data_device(i) == desired_value) {
-            local_num_count++;
+    for (int i=0; i<input_data_device(i).extent(0); i++) {
+        if (input_data_device(i) == filtered_value) {
+            num_count++;
         }
-    }, num_count);
+    }
     Kokkos::fence();
 
     // Create a new view living on device

@@ -462,22 +462,15 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
             double alphaf;
             const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
 
-            auto blah = _source_extra_data;
-            printf("blah size: %lu, %lu\n", blah.extent(0), blah.extent(1));
-            //if (target_index==1) {
-            //    printf("SOURCE INDEX 1!!!!!!!!!!!!!!\n");
-            //    for (size_t j=0; j<blah.extent(1); ++j) {
-            //        printf("SOURCE VAL AT 1: %d: %f\n", j, blah(neighbor_index,j));
-            //    }
-            //}
-            printf("quad size: %d\n", _qm.getNumberOfQuadraturePoints());
-
             double triangle_coords[9];
-            scratch_vector_type midpoint(triangle_coords, 3); // fill first 3 with midpoint
+            scratch_matrix_right_type triangle_coords_matrix(triangle_coords, 3, 3);
+            scratch_vector_type midpoint(delta, 3);
 
             getMidpointFromCellVertices(teamMember, midpoint, _source_extra_data, neighbor_index, 3 /*dim*/);
+            for (int j=0; j<3; ++j) {
+                triangle_coords_matrix(j, 0) = midpoint(j);
+            }
             size_t num_vertices = _source_extra_data.extent(1) / 3;
-
 
             // loop over each two vertices 
             for (size_t i=0; i<num_vertices; ++i) {
@@ -485,22 +478,57 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
                 int v2 = (i+1) % num_vertices;
 
                 for (int j=0; j<3; ++j) {
-                    triangle_coords[3+j] = _source_extra_data(neighbor_index, v1*3+j);
-                    triangle_coords[6+j] = _source_extra_data(neighbor_index, v2*3+j);
+                    triangle_coords_matrix(j,1) = _source_extra_data(neighbor_index, v1*3+j) - triangle_coords_matrix(j,0);
+                    triangle_coords_matrix(j,2) = _source_extra_data(neighbor_index, v2*3+j) - triangle_coords_matrix(j,0);
                 }
                 // triangle_coords now has:
-                // (midpoint_x, midpoint_y, midpoint_z, v1_x, v1_y, v1_z, v2_x, v2_y, v2_z);
-                scratch_vector_type triangle_coords_view(triangle_coords, 9); 
+                // (midpoint_x, midpoint_y, midpoint_z,
+                //  v1_x-midpoint_x, v1_y-midpoint_y, v1_z-midpoint_z,
+                //  v2_x-midpoint_x, v2_y-midpoint_y, v2_z-midpoint_z);
+                auto T=triangle_coords_matrix;
                 for (int quadrature = 0; quadrature<_qm.getNumberOfQuadraturePoints(); ++quadrature) {
+                    double transformed_qp[3] = {0,0,0};
+                    for (int j=0; j<3; ++j) {
+                        for (int k=1; k<3; ++k) {
+                            transformed_qp[j] += T(j,k)*_qm.getSite(quadrature, k-1);
+                        }
+                        transformed_qp[j] += T(j,0);
+                    }
+                    // half the norm of the cross-product is the area of the triangle
+                    // so scaling is area / reference area (0.5) = the norm of the cross-product
+                    double area_scaling = getAreaFromVectors(teamMember,
+                            Kokkos::subview(T, Kokkos::ALL(), 1), Kokkos::subview(T, Kokkos::ALL(), 2));
 
+                    for (int j=0; j<3; ++j) {
+                        relative_coord[j] = transformed_qp[j] - getTargetCoordinate(target_index, j); // shift quadrature point by target site
+                    }
+
+                    int k = 0;
+                    const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
+                    for (int n = start_index; n <= poly_order; n++){
+                        for (alphaz = 0; alphaz <= n; alphaz++){
+                            int s = n - alphaz;
+                            for (alphay = 0; alphay <= s; alphay++){
+                                alphax = s - alphay;
+                                alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
+                                double val_to_sum = (area_scaling * _qm.getWeight(quadrature)
+                                        * std::pow(relative_coord.x/cutoff_p,alphax)
+                                        *std::pow(relative_coord.y/cutoff_p,alphay)
+                                        *std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf) / (0.5 * area_scaling);
+                                if (i==0) *(delta+k) = val_to_sum;
+                                else *(delta+k) += val_to_sum;
+                                k++;
+                            }
+                        }
+                    }
                 }
             }
 
               
-            printf("midpoint: %f, %f, %f\n", midpoint(0), midpoint(1), midpoint(2));
+            //printf("midpoint: %f, %f, %f\n", triangle_coords_matrix(0,0), triangle_coords_matrix(1,0), triangle_coords_matrix(2,0));
 
 
-            *(delta+0) = 1.0; // temporary
+            //*(delta+0) = 1.0; // temporary
 
             
             //for (int quadrature = 0; quadrature<_qm.getNumberOfQuadraturePoints(); ++quadrature) {
