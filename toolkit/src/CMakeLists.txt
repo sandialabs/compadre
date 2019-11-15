@@ -16,6 +16,7 @@ set(COMPADRE_HEADERS
   Compadre_PointCloudSearch.hpp
   Compadre_Quadrature.hpp
   Compadre_Typedefs.hpp
+  Compadre_Utilities.hpp
   Compadre_Evaluator.hpp
   USER_StandardTargetFunctionals.hpp
   USER_ManifoldTargetFunctionals.hpp

@@ -3,6 +3,7 @@
   <Parameter name="peer coloring" type="int" value="33"/>
   <Parameter name="initial step" type="int" value="1"/>
   <Parameter name="final step" type="int" value="1000"/>
+  <Parameter name="print norms" type="bool" value="true"/>
   <ParameterList name="io">
     <Parameter name="input file prefix" type="string" value="../test_data/grids/canga/Cubed-Sphere/"/>
     <Parameter name="input file" type="string" value="outCSMesh_ne16_TPW_CFR_TPO.g"/>
@@ -25,14 +26,19 @@
     <Parameter name="porder" type="int" value="4"/>
     <Parameter name="curvature porder" type="int" value="3"/>
     <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
-    <Parameter name="dense solver type" type="string" value="QR"/>
-    <Parameter name="problem type" type="string" value="MANIFOLD"/>
     <Parameter name="weighting power" type="int" value="4"/>
     <Parameter name="curvature weighting power" type="int" value="4"/>
     <Parameter name="quadrature points" type="int" value="3"/>
     <Parameter name="optimization algorithm" type="string" value="CAAS"/>
     <Parameter name="source weighting field name" type="string" value="cell_area"/>
     <Parameter name="target weighting field name" type="string" value="cell_area"/>
+    <Parameter name="dense solver type" type="string" value="QR"/>
+    <Parameter name="problem type" type="string" value="MANIFOLD"/>
+    <Parameter name="cell averaged" type="bool" value="true"/>
+    <Parameter name="extra data field name" type="string" value="extra_data"/>
+    <Parameter name="quadrature type" type="string" value="triangle"/>
+    <Parameter name="quadrature order" type="int" value="8"/>
+    <Parameter name="quadrature dimension" type="int" value="2"/>
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>

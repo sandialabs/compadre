@@ -183,12 +183,11 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                         _GMLS->setReferenceOutwardNormalDirection(reference_normal_directions, true /*use_to_orient_surface*/);
                     }
 
-                    if (_queue[i]._extra_data_fieldname != "") {
-
+                    if (_queue[i]._source_extra_data_fieldname != "") {
                         auto extra_data_local = 
-                            _src_particles->getFieldManagerConst()->getFieldByName(_queue[i]._extra_data_fieldname)->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                            _src_particles->getFieldManagerConst()->getFieldByName(_queue[i]._source_extra_data_fieldname)->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
                         auto extra_data_halo = 
-                            _src_particles->getFieldManagerConst()->getFieldByName(_queue[i]._extra_data_fieldname)->getHaloMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                            _src_particles->getFieldManagerConst()->getFieldByName(_queue[i]._source_extra_data_fieldname)->getHaloMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
                         auto combined_extra_data = host_view_type("combined extra data", extra_data_local.extent(0) + extra_data_halo.extent(0), extra_data_local.extent(1));
     
                         // fill in combined data
@@ -204,7 +203,13 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                             }
                         });
 
-                        _GMLS->setExtraData(combined_extra_data);
+                        _GMLS->setSourceExtraData(combined_extra_data);
+                    }
+                    if (_queue[i]._target_extra_data_fieldname != "") {
+                        // no halo information needed (or available)
+                        auto extra_data_local = 
+                            _trg_particles->getFieldManagerConst()->getFieldByName(_queue[i]._target_extra_data_fieldname)->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                        _GMLS->setTargetExtraData(extra_data_local);
                     }
     
     
@@ -506,7 +511,8 @@ bool RemapManager::isCompatible(const RemapObject obj_1, const RemapObject obj_2
     are_same &= obj_2._data_sampling_functional == obj_1._data_sampling_functional;
     are_same &= obj_2._operator_coefficients_fieldname == obj_1._operator_coefficients_fieldname;
     are_same &= obj_2._reference_normal_directions_fieldname == obj_1._reference_normal_directions_fieldname;
-    are_same &= obj_2._extra_data_fieldname == obj_1._extra_data_fieldname;
+    are_same &= obj_2._source_extra_data_fieldname == obj_1._source_extra_data_fieldname;
+    are_same &= obj_2._target_extra_data_fieldname == obj_1._target_extra_data_fieldname;
 
     return are_same;
 
