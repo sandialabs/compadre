@@ -75,9 +75,9 @@ Kokkos::View<int*, output_array_layout, output_memory_space> // shares layout of
     return filtered_view_output;
 }
 
-template <typename output_memory_space, typename view_type_input_data, typename view_type_index_data, typename input_data_type = typename view_type_input_data::type, typename output_array_layout = typename view_type_input_data::array_layout, typename output_data_type = typename view_type_input_data::type>
+template <typename output_memory_space, typename view_type_input_data, typename view_type_index_data, typename input_data_type = typename view_type_input_data::data_type, typename output_array_layout = typename view_type_input_data::array_layout, typename output_data_type = typename view_type_input_data::data_type>
 Kokkos::View<output_data_type, output_array_layout, output_memory_space> // shares layout of input by default
-        extracViewByIndex(view_type_input_data input_data_host_or_device, view_type_index_data index_data_host_or_device) {
+        extractViewByIndex(view_type_input_data input_data_host_or_device, view_type_index_data index_data_host_or_device) {
 
     // Make view on the host for input data (does nothing if already on the host)
     auto input_data_host = Kokkos::create_mirror_view(input_data_host_or_device);
