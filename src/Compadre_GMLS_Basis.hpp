@@ -457,7 +457,6 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
         double cutoff_p = _epsilons(target_index);
         int alphax, alphay, alphaz;
         double alphaf;
-        const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
 
         double triangle_coords[9];
         scratch_matrix_right_type triangle_coords_matrix(triangle_coords, 3, 3); 
