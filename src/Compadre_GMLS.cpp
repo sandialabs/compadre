@@ -372,6 +372,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
             _pm.CallFunctorWithTeamThreadsAndVectors<ApplyStandardTargets>(this_batch_size, _pm.getThreadsPerTeam(_pm.getVectorLanesPerThread()), _pm.getVectorLanesPerThread(), *this);
 
         }
+        Kokkos::fence();
         _initial_index_for_batch += max_batch_size;
     } // end of batch loops
 
