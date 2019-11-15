@@ -115,7 +115,7 @@ def consolidate(iters, file1, file2):
     new_filename = file1_short + "-" + file2_short
 
     # get data from various data files
-    field_dictionary = get_data_from_file_sequence(iters, file1, "backward_", ["ID","TotalPrecipWater","CloudFraction","Topography"])
+    field_dictionary = get_data_from_file_sequence(iters, file1, "backward_", ["ID","TotalPrecipWater","CloudFraction","Topography","Smooth"])
 
     # create an empty dataset
     dataset1 = Dataset(new_filename, "w", format="NETCDF4")
@@ -138,7 +138,7 @@ def consolidate(iters, file1, file2):
     #new_filename = file2_short + "-" + file1_short
 
     # get data from various data files
-    field_dictionary = get_data_from_file_sequence(iters, file2, "forward_", ["ID","TotalPrecipWater","CloudFraction","Topography"])
+    field_dictionary = get_data_from_file_sequence(iters, file2, "forward_", ["ID","TotalPrecipWater","CloudFraction","Topography","Smooth"])
 
     # create an empty dataset
     #dataset2 = Dataset(new_filename, "w", format="NETCDF4")
