@@ -31,8 +31,8 @@
     <Parameter name="optimization algorithm" type="string" value="CAAS"/>
     <Parameter name="source weighting field name" type="string" value="cell_area"/>
     <Parameter name="target weighting field name" type="string" value="cell_area"/>
-    <Parameter name="dense solver type" type="string" value="SVD"/>
-    <!--Parameter name="problem type" type="string" value="MANIFOLD"/-->
+    <Parameter name="dense solver type" type="string" value="QR"/>
+    <Parameter name="problem type" type="string" value="MANIFOLD"/>
     <Parameter name="cell averaged" type="bool" value="true"/>
     <Parameter name="extra data field name" type="string" value="extra_data"/>
     <Parameter name="quadrature type" type="string" value="triangle"/>
