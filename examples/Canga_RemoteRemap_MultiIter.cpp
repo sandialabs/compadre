@@ -189,6 +189,7 @@ int main (int argc, char* args[]) {
                     if (parameters->get<Teuchos::ParameterList>("remap").get<bool>("cell averaged")) {
                          std::string extra_data_name = parameters->get<Teuchos::ParameterList>("remap").get<std::string>("extra data field name");
                         Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                        //Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
                         //Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                         r0.setSourceExtraData(extra_data_name);
                         Compadre::OptimizationObject opt_obj_0 = Compadre::OptimizationObject(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm"), true /*single linear bound*/, true /*bounds preservation*/, 0, 1.0e+15);
@@ -196,6 +197,7 @@ int main (int argc, char* args[]) {
                         remap_vec.push_back(r0);
 
                         Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                        //Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
                         //Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                         r1.setSourceExtraData(extra_data_name);
                         Compadre::OptimizationObject opt_obj_1 = Compadre::OptimizationObject(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm"), true /*single linear bound*/, true /*bounds preservation*/, 0, 1);
@@ -203,6 +205,7 @@ int main (int argc, char* args[]) {
                         remap_vec.push_back(r1);
 
                         Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                        //Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
                         //Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                         r2.setSourceExtraData(extra_data_name);
                         Compadre::OptimizationObject opt_obj_2 = Compadre::OptimizationObject(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm"), true /*single linear bound*/, true /*bounds preservation*/, -1.0e+15, 1.0e+15);
@@ -248,6 +251,7 @@ int main (int argc, char* args[]) {
                     if (parameters->get<Teuchos::ParameterList>("remap").get<bool>("cell averaged")) {
                          std::string extra_data_name = parameters->get<Teuchos::ParameterList>("remap").get<std::string>("extra data field name");
                         Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                        //Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
                         //Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                         r0.setSourceExtraData(extra_data_name);
                         Compadre::OptimizationObject opt_obj_0 = Compadre::OptimizationObject(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm"), true /*single linear bound*/, true /*bounds preservation*/, 0, 1.0e+15);
@@ -255,6 +259,7 @@ int main (int argc, char* args[]) {
                         remap_vec.push_back(r0);
 
                         Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                        //Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
                         //Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                         r1.setSourceExtraData(extra_data_name);
                         Compadre::OptimizationObject opt_obj_1 = Compadre::OptimizationObject(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm"), true /*single linear bound*/, true /*bounds preservation*/, 0, 1);
@@ -262,6 +267,7 @@ int main (int argc, char* args[]) {
                         remap_vec.push_back(r1);
 
                         Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                        //Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
                         //Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                         r2.setSourceExtraData(extra_data_name);
                         Compadre::OptimizationObject opt_obj_2 = Compadre::OptimizationObject(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm"), true /*single linear bound*/, true /*bounds preservation*/, -1.0e+15, 1.0e+15);
@@ -297,6 +303,101 @@ int main (int argc, char* args[]) {
                     fm2.setWriter(output_filename, particles);
                     fm2.write();
                     WriteTime->stop();
+
+                    if (i==1 && parameters->get<bool>("print norms")) {
+            			auto grid_area_field = particles->getFieldManager()->getFieldByName(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("target weighting field name"))->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+            			auto exact_cloudfraction = particles->getFieldManager()->getFieldByName("exact CloudFraction")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+            			auto computed_cloudfraction = particles->getFieldManager()->getFieldByName("CloudFraction")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+            			auto exact_totalprecipwater = particles->getFieldManager()->getFieldByName("exact TotalPrecipWater")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+            			auto computed_totalprecipwater = particles->getFieldManager()->getFieldByName("TotalPrecipWater")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+            			auto exact_topography = particles->getFieldManager()->getFieldByName("exact Topography")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+            			auto computed_topography = particles->getFieldManager()->getFieldByName("Topography")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+
+                        LO local_dof = coords->nLocal();
+                        LO global_dof = 0;
+						double val_sq_error_cloudfraction=0;
+						double val_sq_error_totalprecipwater=0;
+						double val_sq_error_topography=0;
+						double val_exact_cloudfraction=0;
+						double val_exact_totalprecipwater=0;
+						double val_exact_topography=0;
+						double global_sq_error_cloudfraction=0;
+						double global_sq_error_totalprecipwater=0;
+						double global_sq_error_topography=0;
+						double global_exact_cloudfraction=0;
+						double global_exact_totalprecipwater=0;
+						double global_exact_topography=0;
+						double weighted_sq_error_cloudfraction=0;
+						double weighted_sq_error_totalprecipwater=0;
+						double weighted_sq_error_topography=0;
+						double weighted_exact_cloudfraction=0;
+						double weighted_exact_totalprecipwater=0;
+						double weighted_exact_topography=0;
+						double global_weighted_sq_error_cloudfraction=0;
+						double global_weighted_sq_error_totalprecipwater=0;
+						double global_weighted_sq_error_topography=0;
+						double global_weighted_exact_cloudfraction=0;
+						double global_weighted_exact_totalprecipwater=0;
+						double global_weighted_exact_topography=0;
+            			for(int j=0; j<coords->nLocal(); j++){
+							val_sq_error_cloudfraction += (computed_cloudfraction(j,0) - exact_cloudfraction(j,0))*(computed_cloudfraction(j,0) - exact_cloudfraction(j,0));
+							val_sq_error_totalprecipwater += (computed_totalprecipwater(j,0) - exact_totalprecipwater(j,0))*(computed_totalprecipwater(j,0) - exact_totalprecipwater(j,0));
+							val_sq_error_topography += (computed_topography(j,0) - exact_topography(j,0))*(computed_topography(j,0) - exact_topography(j,0));
+							val_exact_cloudfraction += exact_cloudfraction(j,0)*exact_cloudfraction(j,0);
+							val_exact_totalprecipwater += exact_totalprecipwater(j,0)*exact_totalprecipwater(j,0);
+							val_exact_topography += exact_topography(j,0)*exact_topography(j,0);
+
+							weighted_sq_error_cloudfraction += (computed_cloudfraction(j,0) - exact_cloudfraction(j,0))*(computed_cloudfraction(j,0) - exact_cloudfraction(j,0))*grid_area_field(j,0);
+							weighted_sq_error_totalprecipwater += (computed_totalprecipwater(j,0) - exact_totalprecipwater(j,0))*(computed_totalprecipwater(j,0) - exact_totalprecipwater(j,0))*grid_area_field(j,0);
+							weighted_sq_error_topography += (computed_topography(j,0) - exact_topography(j,0))*(computed_topography(j,0) - exact_topography(j,0))*grid_area_field(j,0);
+							weighted_exact_cloudfraction += exact_cloudfraction(j,0)*exact_cloudfraction(j,0)*grid_area_field(j,0);
+							weighted_exact_totalprecipwater += exact_totalprecipwater(j,0)*exact_totalprecipwater(j,0)*grid_area_field(j,0);
+							weighted_exact_topography += exact_topography(j,0)*exact_topography(j,0)*grid_area_field(j,0);
+            			}
+
+						Teuchos::Ptr<LO> global_dof_ptr(&global_dof);
+
+						Teuchos::Ptr<ST> global_sq_error_cloudfraction_ptr(&global_sq_error_cloudfraction);
+						Teuchos::Ptr<ST> global_sq_error_totalprecipwater_ptr(&global_sq_error_totalprecipwater);
+						Teuchos::Ptr<ST> global_sq_error_topography_ptr(&global_sq_error_topography);
+						Teuchos::Ptr<ST> global_exact_cloudfraction_ptr(&global_exact_cloudfraction);
+						Teuchos::Ptr<ST> global_exact_totalprecipwater_ptr(&global_exact_totalprecipwater);
+						Teuchos::Ptr<ST> global_exact_topography_ptr(&global_exact_topography);
+
+						Teuchos::Ptr<ST> global_weighted_sq_error_cloudfraction_ptr(&global_weighted_sq_error_cloudfraction);
+						Teuchos::Ptr<ST> global_weighted_sq_error_totalprecipwater_ptr(&global_weighted_sq_error_totalprecipwater);
+						Teuchos::Ptr<ST> global_weighted_sq_error_topography_ptr(&global_weighted_sq_error_topography);
+						Teuchos::Ptr<ST> global_weighted_exact_cloudfraction_ptr(&global_weighted_exact_cloudfraction);
+						Teuchos::Ptr<ST> global_weighted_exact_totalprecipwater_ptr(&global_weighted_exact_totalprecipwater);
+						Teuchos::Ptr<ST> global_weighted_exact_topography_ptr(&global_weighted_exact_topography);
+
+						Teuchos::reduceAll<int, LO>(*comm, Teuchos::REDUCE_SUM, local_dof, global_dof_ptr);
+
+						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, val_sq_error_cloudfraction, global_sq_error_cloudfraction_ptr);
+						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, val_sq_error_totalprecipwater, global_sq_error_totalprecipwater_ptr);
+						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, val_sq_error_topography, global_sq_error_topography_ptr);
+						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, val_exact_cloudfraction, global_exact_cloudfraction_ptr);
+						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, val_exact_totalprecipwater, global_exact_totalprecipwater_ptr);
+						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, val_exact_topography, global_exact_topography_ptr);
+
+
+						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, weighted_sq_error_cloudfraction, global_weighted_sq_error_cloudfraction_ptr);
+						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, weighted_sq_error_totalprecipwater, global_weighted_sq_error_totalprecipwater_ptr);
+						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, weighted_sq_error_topography, global_weighted_sq_error_topography_ptr);
+						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, weighted_exact_cloudfraction, global_weighted_exact_cloudfraction_ptr);
+						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, weighted_exact_totalprecipwater, global_weighted_exact_totalprecipwater_ptr);
+						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, weighted_exact_topography, global_weighted_exact_topography_ptr);
+						printf("Absolute l2 error cloudfraction %.16f\n", std::sqrt(global_sq_error_cloudfraction/global_dof));
+						printf("Absolute l2 error totalprecipwater %.16f\n", std::sqrt(global_sq_error_totalprecipwater/global_dof));
+						printf("Absolute l2 error topography %.16f\n", std::sqrt(global_sq_error_topography/global_dof));
+
+						printf("Relative L2 error cloudfraction %.16f\n", std::sqrt(global_weighted_sq_error_cloudfraction/global_weighted_exact_cloudfraction));
+						printf("Relative L2 error totalprecipwater %.16f\n", std::sqrt(global_weighted_sq_error_totalprecipwater/global_weighted_exact_totalprecipwater));
+						printf("Relative L2 error topography %.16f\n", std::sqrt(global_weighted_sq_error_topography/global_weighted_exact_topography));
+						printf("Absolute L2 error cloudfraction %.16f\n", std::sqrt(global_weighted_sq_error_cloudfraction));
+						printf("Absolute L2 error totalprecipwater %.16f\n", std::sqrt(global_weighted_sq_error_totalprecipwater));
+						printf("Absolute L2 error topography %.16f\n", std::sqrt(global_weighted_sq_error_topography));
+                    }
                 }
             }
         }
