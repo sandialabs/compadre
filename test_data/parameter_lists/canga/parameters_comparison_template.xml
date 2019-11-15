@@ -3,6 +3,7 @@
   <Parameter name="peer coloring" type="int" value="33"/>
   <Parameter name="initial step" type="int" value="1"/>
   <Parameter name="final step" type="int" value="1000"/>
+  <Parameter name="print norms" type="bool" value="true"/>
   <ParameterList name="io">
     <Parameter name="input file prefix" type="string" value="../test_data/grids/canga/Cubed-Sphere/"/>
     <Parameter name="input file" type="string" value="outCSMesh_ne16_TPW_CFR_TPO.g"/>

@@ -304,7 +304,7 @@ int main (int argc, char* args[]) {
                     fm2.write();
                     WriteTime->stop();
 
-                    if (i==1) {
+                    if (i==1 && parameters->get<bool>("print norms")) {
             			auto grid_area_field = particles->getFieldManager()->getFieldByName(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("target weighting field name"))->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
             			auto exact_cloudfraction = particles->getFieldManager()->getFieldByName("exact CloudFraction")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
             			auto computed_cloudfraction = particles->getFieldManager()->getFieldByName("CloudFraction")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
