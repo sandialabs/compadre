@@ -44,7 +44,7 @@ Kokkos::View<int*, output_array_layout, output_memory_space> // shares layout of
 
     // Count the number of elements in the input view that match the desired value
     int num_count = 0;
-    for (int i=0; i<input_data_device(i).extent(0); i++) {
+    for (int i=0; i<input_data_device.extent(0); i++) {
         if (input_data_device(i) == filtered_value) {
             num_count++;
         }
@@ -55,7 +55,7 @@ Kokkos::View<int*, output_array_layout, output_memory_space> // shares layout of
     Kokkos::View<int*, output_array_layout> filtered_view("filterd view", num_count);
     // Gather up the indices into the new view
     int filtered_index = 0;
-    for (int i=0; i<input_data_device(i).extent(0); i++) {
+    for (int i=0; i<input_data_device.extent(0); i++) {
         if (input_data_device(i) == filtered_value) {
             filtered_view(filtered_index) = i;
             filtered_index++;
