@@ -37,40 +37,89 @@ Kokkos::View<int*, output_array_layout, output_memory_space> // shares layout of
         filterViewByID(view_type_input_data input_data_host_or_device, index_type filtered_value) {
 
     // Make view on the device (does nothing if already on the device)
-    auto input_data_device = Kokkos::create_mirror_view(
-        device_execution_space::memory_space(), input_data_host_or_device);
-    Kokkos::deep_copy(input_data_device, input_data_host_or_device);
+    auto input_data_host = Kokkos::create_mirror_view(input_data_host_or_device);
+    Kokkos::deep_copy(input_data_host, input_data_host_or_device);
     Kokkos::fence();
 
     // Count the number of elements in the input view that match the desired value
     int num_count = 0;
-    for (int i=0; i<input_data_device.extent(0); i++) {
-        if (input_data_device(i) == filtered_value) {
-            num_count++;
+    auto this_filtered_value = filtered_value;
+
+    // call device functor here
+
+    for (int i=0; i<input_data_host.extent(0); i++) {
+        if (input_data_host(i) == this_filtered_value) {
+             num_count++;
         }
     }
     Kokkos::fence();
 
     // Create a new view living on device
-    Kokkos::View<int*, output_array_layout> filtered_view("filterd view", num_count);
+    Kokkos::View<int*, output_array_layout, output_memory_space> filtered_view("filterd view", num_count);
     // Gather up the indices into the new view
     int filtered_index = 0;
-    for (int i=0; i<input_data_device.extent(0); i++) {
-        if (input_data_device(i) == filtered_value) {
-            filtered_view(filtered_index) = i;
-            filtered_index++;
-        }
+    for (int i=0; i<input_data_host.extent(0); i++) {
+         if (input_data_host(i) == this_filtered_value) {
+             filtered_view(filtered_index) = i;
+             filtered_index++;
+         }
     }
     Kokkos::fence();
 
-    // Then copy it back out - either to host or device space based on user's request
+    // // Then copy it back out - either to host or device space based on user's request
     typedef Kokkos::View<int*, output_array_layout, output_memory_space> output_view_type;
     output_view_type filtered_view_output("output filtered view", num_count);
-    Kokkos::deep_copy(filtered_view_output, filtered_view);
+    // Kokkos::deep_copy(filtered_view_output, filtered_view);
     Kokkos::fence();
 
     return filtered_view_output;
 }
+
+// template <typename output_memory_space, typename view_type_input_data, typename output_array_layout = typename view_type_input_data::array_layout, typename index_type=int>
+// Kokkos::View<int*, output_array_layout, output_memory_space> // shares layout of input by default
+//         filterViewByID(view_type_input_data input_data_host_or_device, index_type filtered_value) {
+// 
+//     // Make view on the device (does nothing if already on the device)
+//     auto input_data_device = Kokkos::create_mirror_view(
+//         device_execution_space::memory_space(), input_data_host_or_device);
+//     Kokkos::deep_copy(input_data_device, input_data_host_or_device);
+//     Kokkos::fence();
+// 
+//     // Count the number of elements in the input view that match the desired value
+//     int num_count = 0;
+//     auto this_filtered_value = filtered_value;
+// 
+//     // call device functor here
+// 
+//     for (int i=0; i<input_data_device.extent(0); i++) {
+//         input_data_device(i)++;
+//         // if (input_data_device(i) == this_filtered_value) {
+//         // if (input_data_device(i) == 1) {
+//         //      num_count++;
+//         // }
+//     }
+//     Kokkos::fence();
+// 
+//     // Create a new view living on device
+//     Kokkos::View<int*, output_array_layout> filtered_view("filterd view", num_count);
+//     // // Gather up the indices into the new view
+//     // int filtered_index = 0;
+//     // for (int i=0; i<input_data_device.extent(0); i++) {
+//     //     if (input_data_device(i) == filtered_value) {
+//     //         filtered_view(filtered_index) = i;
+//     //         filtered_index++;
+//     //     }
+//     // }
+//     // Kokkos::fence();
+// 
+//     // Then copy it back out - either to host or device space based on user's request
+//     typedef Kokkos::View<int*, output_array_layout, output_memory_space> output_view_type;
+//     output_view_type filtered_view_output("output filtered view", num_count);
+//     Kokkos::deep_copy(filtered_view_output, filtered_view);
+//     Kokkos::fence();
+// 
+//     return filtered_view_output;
+// }
 
 }  // Compadre namespace
 
