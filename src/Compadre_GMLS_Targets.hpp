@@ -1380,7 +1380,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
 
                 // Calculate basis matrix for NON MANIFOLD problems
                 double cutoff_p = _epsilons(target_index);
-                int alphax, alphay, alphaz;
+                int alphax, alphay;
                 double alphaf;
 
                 double triangle_coords[9];

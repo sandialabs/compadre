@@ -3229,7 +3229,6 @@ public:
             return QuadratureType::INVALID;
         } else {
             compadre_assert_release(false && "Quadrature type not available.");
-            return QuadratureType::INVALID;
         }
     }
 
@@ -3240,22 +3239,27 @@ public:
  */
 ///@{
 
+    KOKKOS_INLINE_FUNCTION 
     bool validQuadrature() const {
         return _is_initialized;
     }
 
+    KOKKOS_INLINE_FUNCTION 
     int getNumberOfQuadraturePoints() const {
         return _number_of_quadrature_points;
     }
 
+    KOKKOS_INLINE_FUNCTION 
     int getOrderOfQuadraturePoints() const {
         return _order_of_quadrature_points;
     }
 
+    KOKKOS_INLINE_FUNCTION 
     int getDimensionOfQuadraturePoints() const {
         return _order_of_quadrature_points;
     }
 
+    KOKKOS_INLINE_FUNCTION 
     QuadratureType getQuadratureType() const {
         return _qt;
     }
