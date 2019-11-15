@@ -61,7 +61,10 @@ int main (int argc, char* args[]) {
 
     Teuchos::RCP<const Teuchos::Comm<int> > comm = global_comm->split(my_coloring, global_comm->getRank());
 
-    {
+	Teuchos::RCP<Compadre::AnalyticFunction> function;
+	function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(3 /*dimension*/)));
+
+	{
 
         {
             //
@@ -143,6 +146,9 @@ int main (int argc, char* args[]) {
                         particles->getFieldManager()->getFieldByName("TotalPrecipWater")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>());
                     Kokkos::deep_copy(particles->getFieldManager()->getFieldByName("exact Topography")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>(),
                         particles->getFieldManager()->getFieldByName("Topography")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>());
+			        particles->getFieldManager()->createField(1,"exact Smooth","m^2/1a");
+				    particles->getFieldManager()->getFieldByName("exact Smooth")->
+						localInitFromScalarFunction(function.getRawPtr());
                 }
                 // else exact data already is created in the particle set
             }
@@ -226,6 +232,9 @@ int main (int argc, char* args[]) {
                         Compadre::OptimizationObject opt_obj_2 = Compadre::OptimizationObject(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm"), true /*single linear bound*/, true /*bounds preservation*/, -1.0e+15, 1.0e+15);
                         r2.setOptimizationObject(opt_obj_2);
                         remap_vec.push_back(r2);
+
+                        Compadre::RemapObject r3("Smooth", "Smooth", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
+                        remap_vec.push_back(r3);
                     }
                 }
 
@@ -288,6 +297,9 @@ int main (int argc, char* args[]) {
                         Compadre::OptimizationObject opt_obj_2 = Compadre::OptimizationObject(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm"), true /*single linear bound*/, true /*bounds preservation*/, -1.0e+15, 1.0e+15);
                         r2.setOptimizationObject(opt_obj_2);
                         remap_vec.push_back(r2);
+
+                        Compadre::RemapObject r3("Smooth", "Smooth", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
+                        remap_vec.push_back(r3);
                     }
                 }
 
