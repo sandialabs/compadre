@@ -39,6 +39,7 @@ if (Compadre_EXAMPLES)
   add_exe_w_compadre(GMLS_Staggered_Manifold_Test GMLS_Staggered_Manifold.cpp)
   add_exe_w_compadre(GMLS_MultiSite_Test GMLS_Multiple_Evaluation_Sites.cpp)
   add_exe_w_compadre(GMLS_Manifold_MultiSite_Test GMLS_Manifold_Multiple_Evaluation_Sites.cpp)
+  add_exe_w_compadre(TestFilterByID UtilityTest_FilterByID.cpp)
 
   if (Compadre_TESTS)
 
@@ -141,6 +142,10 @@ if (Compadre_EXAMPLES)
     CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Staggered_Manifold.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py" @ONLY)
     ADD_TEST(NAME GMLS_Staggered_Manifold_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py" "3" "4")
     SET_TESTS_PROPERTIES(GMLS_Staggered_Manifold_Refinement_Study PROPERTIES LABELS "ConvergenceTest;convergence;manifold;staggered" TIMEOUT 20)
+
+    # Utility test - Filter By ID
+    ADD_TEST(NAME Test_Filter_By_ID COMMAND ${CMAKE_CURRENT_BINARY_DIR}/TestFilterByID "200" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(Test_Filter_By_ID PROPERTIES LABELS "UtilityTest;utility;kokkos" TIMEOUT 5)
 
     # WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH} )
     if (Compadre_USE_PYTHON)
