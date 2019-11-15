@@ -453,62 +453,64 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
             }
         }
     } else if (polynomial_sampling_functional == ScalarFaceAverageSample) {
-        if (_problem_type == ProblemType::MANIFOLD) {
-            compadre_kernel_assert_release("ScalarFaceAverageSample not available for ProblemType::MANIFOLD\n");
-        } else {
-            //printf("ScalarFaceAverageSample\n");
-            //printf("size: %lu, %f\n", _source_extra_data.extent(1), _source_extra_data(0,0));
-            // Calculate basis matrix for NON MANIFOLD problems
-            double cutoff_p = _epsilons(target_index);
-            int alphax, alphay, alphaz;
-            double alphaf;
-            const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
+        auto global_neighbor_index = getNeighborIndex(target_index, neighbor_index);
+        double cutoff_p = _epsilons(target_index);
+        int alphax, alphay, alphaz;
+        double alphaf;
+        const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
 
-            double triangle_coords[9];
-            scratch_matrix_right_type triangle_coords_matrix(triangle_coords, 3, 3); 
-            scratch_vector_type midpoint(delta, 3);
+        double triangle_coords[9];
+        scratch_matrix_right_type triangle_coords_matrix(triangle_coords, 3, 3); 
+        scratch_vector_type midpoint(delta, 3);
 
-            getMidpointFromCellVertices(teamMember, midpoint, _source_extra_data, neighbor_index, 3 /*dim*/);
+        getMidpointFromCellVertices(teamMember, midpoint, _source_extra_data, global_neighbor_index, 3 /*dim*/);
+        for (int j=0; j<3; ++j) {
+            triangle_coords_matrix(j, 0) = midpoint(j);
+        }
+        size_t num_vertices = _source_extra_data.extent(1) / 3;
+
+        // loop over each two vertices 
+        for (size_t v=0; v<num_vertices; ++v) {
+            int v1 = v;
+            int v2 = (v+1) % num_vertices;
+
             for (int j=0; j<3; ++j) {
-                triangle_coords_matrix(j, 0) = midpoint(j);
+                triangle_coords_matrix(j,1) = _source_extra_data(global_neighbor_index, v1*3+j) - triangle_coords_matrix(j,0);
+                triangle_coords_matrix(j,2) = _source_extra_data(global_neighbor_index, v2*3+j) - triangle_coords_matrix(j,0);
             }
-            size_t num_vertices = _source_extra_data.extent(1) / 3;
-
-            
-
-            // loop over each two vertices 
-            for (size_t v=0; v<num_vertices; ++v) {
-                int v1 = v;
-                int v2 = (v+1) % num_vertices;
-
+            // triangle_coords now has:
+            // (midpoint_x, midpoint_y, midpoint_z, 
+            //  v1_x-midpoint_x, v1_y-midpoint_y, v1_z-midpoint_z, 
+            //  v2_x-midpoint_x, v2_y-midpoint_y, v2_z-midpoint_z);
+            auto T=triangle_coords_matrix;
+            for (int quadrature = 0; quadrature<_qm.getNumberOfQuadraturePoints(); ++quadrature) {
+                double transformed_qp[3] = {0,0,0};
                 for (int j=0; j<3; ++j) {
-                    triangle_coords_matrix(j,1) = _source_extra_data(neighbor_index, v1*3+j) - triangle_coords_matrix(j,0);
-                    triangle_coords_matrix(j,2) = _source_extra_data(neighbor_index, v2*3+j) - triangle_coords_matrix(j,0);
+                    for (int k=1; k<3; ++k) {
+                        transformed_qp[j] += T(j,k)*_qm.getSite(quadrature, k-1);
+                    }
+                    transformed_qp[j] += T(j,0);
                 }
-                // triangle_coords now has:
-                // (midpoint_x, midpoint_y, midpoint_z, 
-                //  v1_x-midpoint_x, v1_y-midpoint_y, v1_z-midpoint_z, 
-                //  v2_x-midpoint_x, v2_y-midpoint_y, v2_z-midpoint_z);
-                auto T=triangle_coords_matrix;
-                for (int quadrature = 0; quadrature<_qm.getNumberOfQuadraturePoints(); ++quadrature) {
-                    double transformed_qp[3] = {0,0,0};
-                    for (int j=0; j<3; ++j) {
-                        for (int k=1; k<3; ++k) {
-                            transformed_qp[j] += T(j,k)*_qm.getSite(quadrature, k-1);
-                        }
-                        transformed_qp[j] += T(j,0);
-                    }
-                    // half the norm of the cross-product is the area of the triangle
-                    // so scaling is area / reference area (0.5) = the norm of the cross-product
-                    double area_scaling = getAreaFromVectors(teamMember, 
-                            Kokkos::subview(T, Kokkos::ALL(), 1), Kokkos::subview(T, Kokkos::ALL(), 2));
+                // half the norm of the cross-product is the area of the triangle
+                // so scaling is area / reference area (0.5) = the norm of the cross-product
+                double area_scaling = getAreaFromVectors(teamMember, 
+                        Kokkos::subview(T, Kokkos::ALL(), 1), Kokkos::subview(T, Kokkos::ALL(), 2));
 
-                    for (int j=0; j<3; ++j) {
-                        relative_coord[j] = transformed_qp[j] - getTargetCoordinate(target_index, j); // shift quadrature point by target site
+                if (_problem_type == ProblemType::MANIFOLD) {
+                    XYZ qp = XYZ(transformed_qp[0], transformed_qp[1], transformed_qp[2]);
+                    for (int j=0; j<2; ++j) {
+                        relative_coord[j] = convertGlobalToLocalCoordinate(qp,j,V) - getTargetCoordinate(target_index,j,V); // shift quadrature point by target site
+                        relative_coord[2] = 0;
                     }
+                } else {
+                    for (int j=0; j<3; ++j) {
+                        relative_coord[j] = transformed_qp[j] - getTargetCoordinate(target_index,j,V); // shift quadrature point by target site
+                    }
+                }
 
-                    int k = 0;
-                    const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
+                int k = 0;
+                const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
+                if (dimension == 3) {
                     for (int n = start_index; n <= poly_order; n++){
                         for (alphaz = 0; alphaz <= n; alphaz++){
                             int s = n - alphaz;
@@ -525,87 +527,22 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
                             }
                         }
                     }
+                } else if (dimension == 2) {
+                    for (int n = start_index; n <= poly_order; n++){
+                        for (alphay = 0; alphay <= n; alphay++){
+                            alphax = n - alphay;
+                            alphaf = factorial[alphax]*factorial[alphay];
+                            double val_to_sum = (area_scaling * _qm.getWeight(quadrature) 
+                                    * std::pow(relative_coord.x/cutoff_p,alphax)
+                                    *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf) / (0.5 * area_scaling);
+                            if (quadrature==0) *(delta+k) = val_to_sum;
+                            else *(delta+k) += val_to_sum;
+                            k++;
+                        }
+                    }
                 }
             }
-
-              
-            //printf("midpoint: %f, %f, %f\n", triangle_coords_matrix(0,0), triangle_coords_matrix(1,0), triangle_coords_matrix(2,0));
-
-
-            //*(delta+0) = 1.0; // temporary
-
-            
-            //for (int quadrature = 0; quadrature<_qm.getNumberOfQuadraturePoints(); ++quadrature) {
-
-                //auto blah = _source_extra_data;
-                //printf("blah size: %lu, %lu\n", blah.extent(0), blah.extent(1));
-                //if (target_index==1) {
-                //    printf("SOURCE INDEX 1!!!!!!!!!!!!!!\n");
-                //    for (size_t j=0; j<blah.extent(1); ++j) {
-                //        printf("SOURCE VAL AT 1: %d: %f\n", j, blah(neighbor_index,j));
-                //    }
-                //}
-
-                //int i = 0;
-
-                //XYZ quadrature_coord_3d;
-                //XYZ tangent_quadrature_coord_3d;
-                //for (int j=0; j<dimension; ++j) {
-                //    // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
-                //  quadrature_coord_3d[j] = (_qm.getSite(quadrature,0)-1)*getTargetCoordinate(target_index, j, NULL);
-                //  quadrature_coord_3d[j] += (1-_qm.getSite(quadrature,0))*getNeighborCoordinate(target_index, neighbor_index, j, NULL);
-                //  tangent_quadrature_coord_3d[j] = getTargetCoordinate(target_index, j, NULL);
-                //  tangent_quadrature_coord_3d[j] += -getNeighborCoordinate(target_index, neighbor_index, j, NULL);
-                //}
-                //for (int j=0; j<_basis_multiplier; ++j) {
-                //    for (int n = start_index; n <= poly_order; n++) {
-                //        for (alphaz = 0; alphaz <= n; alphaz++){
-                //            int s = n - alphaz;
-                //            for (alphay = 0; alphay <= s; alphay++){
-                //                alphax = s - alphay;
-                //                alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
-
-                //                // local evaluation of vector [p, 0, 0], [0, p, 0] or [0, 0, p]
-                //                double v0, v1, v2;
-                //                switch(j) {
-                //                    case 1:
-                //                        v0 = 0.0;
-                //                        v1 = std::pow(quadrature_coord_3d.x/cutoff_p,alphax)
-                //                          *std::pow(quadrature_coord_3d.y/cutoff_p,alphay)
-                //                          *std::pow(quadrature_coord_3d.z/cutoff_p,alphaz)/alphaf;
-                //                        v2 = 0.0;
-                //                        break;
-                //                    case 2:
-                //                        v0 = 0.0;
-                //                        v1 = 0.0;
-                //                        v2 = std::pow(quadrature_coord_3d.x/cutoff_p,alphax)
-                //                          *std::pow(quadrature_coord_3d.y/cutoff_p,alphay)
-                //                          *std::pow(quadrature_coord_3d.z/cutoff_p,alphaz)/alphaf;
-                //                        break;
-                //                    default:
-                //                        v0 = std::pow(quadrature_coord_3d.x/cutoff_p,alphax)
-                //                          *std::pow(quadrature_coord_3d.y/cutoff_p,alphay)
-                //                          *std::pow(quadrature_coord_3d.z/cutoff_p,alphaz)/alphaf;
-                //                        v1 = 0.0;
-                //                        v2 = 0.0;
-                //                        break;
-                //                }
-
-                //                double dot_product = tangent_quadrature_coord_3d[0]*v0 + tangent_quadrature_coord_3d[1]*v1 + tangent_quadrature_coord_3d[2]*v2;
-
-                //                // multiply by quadrature weight
-                //                if (quadrature == 0) {
-                //                    *(delta+i) = dot_product * _qm.getWeight(quadrature);
-                //                } else {
-                //                    *(delta+i) += dot_product * _qm.getWeight(quadrature);
-                //                }
-                //                i++;
-                //            }
-                //        }
-                //    }
-                //}
-            //}
-        } // NON MANIFOLD PROBLEMS
+        }
     } else {
         compadre_kernel_assert_release((false) && "Sampling and basis space combination not defined.");
     }
