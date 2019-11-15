@@ -456,6 +456,8 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
         if (_problem_type == ProblemType::MANIFOLD) {
             compadre_kernel_assert_release("ScalarFaceAverageSample not available for ProblemType::MANIFOLD\n");
         } else {
+            //printf("ScalarFaceAverageSample\n");
+            //printf("size: %lu, %f\n", _source_extra_data.extent(1), _source_extra_data(0,0));
             // Calculate basis matrix for NON MANIFOLD problems
             double cutoff_p = _epsilons(target_index);
             int alphax, alphay, alphaz;
@@ -475,9 +477,9 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
             
 
             // loop over each two vertices 
-            for (size_t i=0; i<num_vertices; ++i) {
-                int v1 = i;
-                int v2 = (i+1) % num_vertices;
+            for (size_t v=0; v<num_vertices; ++v) {
+                int v1 = v;
+                int v2 = (v+1) % num_vertices;
 
                 for (int j=0; j<3; ++j) {
                     triangle_coords_matrix(j,1) = _source_extra_data(neighbor_index, v1*3+j) - triangle_coords_matrix(j,0);
@@ -517,7 +519,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
                                         * std::pow(relative_coord.x/cutoff_p,alphax)
                                         *std::pow(relative_coord.y/cutoff_p,alphay)
                                         *std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf) / (0.5 * area_scaling);
-                                if (i==0) *(delta+k) = val_to_sum;
+                                if (quadrature==0) *(delta+k) = val_to_sum;
                                 else *(delta+k) += val_to_sum;
                                 k++;
                             }
