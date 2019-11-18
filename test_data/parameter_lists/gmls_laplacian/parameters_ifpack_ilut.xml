@@ -12,7 +12,7 @@
     <Parameter name="blocked" type="bool" value="false"/>
   </ParameterList>
   <ParameterList name="remap">
-    <Parameter name="weighting power" type="int" value="10"/>
+    <Parameter name="weighting power" type="int" value="5"/>
     <Parameter name="porder" type="int" value="2"/>
     <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
   </ParameterList>

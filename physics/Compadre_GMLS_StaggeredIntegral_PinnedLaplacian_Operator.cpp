@@ -167,6 +167,9 @@ void GMLS_StaggeredIntegral_LaplacianPhysics::computeMatrix(local_index_type fie
 	my_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 
 	my_GMLS.addTargets(TargetOperation::DivergenceOfVectorPointEvaluation);
+	my_GMLS.setOrderOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
+	my_GMLS.setDimensionOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature dimension"));
+	my_GMLS.setQuadratureType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));
 	my_GMLS.generateAlphas(); // just point evaluations
 
 	Teuchos::RCP<Teuchos::Time> GMLSTime = Teuchos::TimeMonitor::getNewCounter ("GMLS");

@@ -147,19 +147,19 @@ int main (int argc, char* args[]) {
 
             if (remap_type == "face normal integrated") {
                 Compadre::RemapObject ro("u_integrated_normal", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, FaceNormalIntegralSample, PointSample);
-                ro.setExtraData("combined_extra_data");
+                ro.setSourceExtraData("combined_extra_data");
                 rm->add(ro);
             } else if (remap_type == "face normal point") {
                 Compadre::RemapObject ro("u_point_normal", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, FaceNormalPointSample, PointSample);
-                ro.setExtraData("combined_extra_data");
+                ro.setSourceExtraData("combined_extra_data");
                 rm->add(ro);
             } else if (remap_type == "face tangent integrated") {
                 Compadre::RemapObject ro("u_integrated_tangent", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, FaceTangentIntegralSample, PointSample);
-                ro.setExtraData("combined_extra_data");
+                ro.setSourceExtraData("combined_extra_data");
                 rm->add(ro);
             } else if (remap_type == "face tangent point") {
                 Compadre::RemapObject ro("u_point_tangent", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, FaceTangentPointSample, PointSample);
-                ro.setExtraData("combined_extra_data");
+                ro.setSourceExtraData("combined_extra_data");
                 rm->add(ro);
             }
 

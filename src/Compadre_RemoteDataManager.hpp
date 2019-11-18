@@ -47,6 +47,8 @@ class RemoteDataManager {
 		Teuchos::RCP<Teuchos::Time> RemoteDataCoordinatesTime;
 		Teuchos::RCP<Teuchos::Time> RemoteDataRemapTime;
 
+        std::string _extra_data_for_remap_field_name;
+
 
 	public:
 
@@ -73,6 +75,8 @@ class RemoteDataManager {
 		void putRemoteCoordinatesInParticleSet(particles_type* particles_to_overwrite, const bool use_physical_coords = true);
 
 		void putRemoteWeightsInParticleSet(const particles_type* source_particles, particles_type* particles_to_overwrite, std::string weighting_field_name);
+
+		void putExtraRemapDataInParticleSet(const particles_type* source_particles, particles_type* particles_to_overwrite, std::string extra_data_for_remap_field_name);
 
 		// remap_vector contains name of source field name for peer process and target name for what we would like to call it
 		void remapData(std::vector<RemapObject> remap_vector,

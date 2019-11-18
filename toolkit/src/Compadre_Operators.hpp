@@ -39,8 +39,11 @@ namespace Compadre {
         ChainedStaggeredLaplacianOfScalarPointEvaluation,
         //! Point evaluation of Gaussian curvature
         GaussianCurvaturePointEvaluation,
+        //! Average of values in a face of a cell using quadrature
+        //! 2D in 3D problem, 1D in 2D problem
+        ScalarFaceAverageEvaluation,
         //! Should be the total count of all available target functionals
-        COUNT=14,
+        COUNT=15,
     };
 
     //! Rank of target functional output for each TargetOperation 
@@ -61,6 +64,7 @@ namespace Compadre {
         0, ///< PartialZOfScalarPointEvaluation
         0, ///< ChainedStaggeredLaplacianOfScalarPointEvaluation
         0, ///< GaussianCurvaturePointEvaluation
+        0, ///< ScalarFaceAverageEvaluation
     };
 
     //! Space in which to reconstruct polynomial
@@ -162,7 +166,10 @@ namespace Compadre {
         FaceTangentIntegralSample = make_sampling_functional(1,0,false,false,(int)Identity),
 
         //! For polynomial dotted with tangent
-        FaceTangentPointSample = make_sampling_functional(1,0,false,false,(int)Identity);
+        FaceTangentPointSample = make_sampling_functional(1,0,false,false,(int)Identity),
+
+        //! For polynomial integrated on faces
+        ScalarFaceAverageSample = make_sampling_functional(0,0,false,false,(int)DifferentEachNeighbor);
 
     //! Dense solver type
     enum DenseSolverType {
