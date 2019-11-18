@@ -68,6 +68,18 @@ def copy_variables_from_source_except_data(filename_source, dataset, new_fields,
 
     f.close()
 
+def filter_fields_in_file_sequence(iters, reference_file, file_prefix, fields):
+    # make sure all requested fields exist in file sequence (e.g. Smooth may not)
+    updated_fields = list()
+    f = Dataset(file_prefix+str(1)+".pvtp.g", "r", format="NETCDF4")
+    for field_name in fields:
+        for varname,ncvar in f.variables.items():
+            if (field_name == varname):
+                updated_fields.append(field_name)
+                break
+    f.close()
+    return updated_fields
+
 def get_data_from_file_sequence(iters, reference_file, file_prefix, fields):
     concatenated_data = {}
     for field in fields:
@@ -105,6 +117,9 @@ def get_data_from_file_sequence(iters, reference_file, file_prefix, fields):
 
 def consolidate(iters, file1, file2):
 
+    original_field_names = ["ID","TotalPrecipWater","CloudFraction","Topography","Smooth"]
+    field_names = filter_fields_in_file_sequence(iters, file1, "forward_", original_field_names)
+
     head, tail = os.path.split(file1)
     file1_short = tail
 
@@ -115,7 +130,7 @@ def consolidate(iters, file1, file2):
     new_filename = file1_short + "-" + file2_short
 
     # get data from various data files
-    field_dictionary = get_data_from_file_sequence(iters, file1, "backward_", ["ID","TotalPrecipWater","CloudFraction","Topography","Smooth"])
+    field_dictionary = get_data_from_file_sequence(iters, file1, "backward_", field_names)
 
     # create an empty dataset
     dataset1 = Dataset(new_filename, "w", format="NETCDF4")
@@ -138,7 +153,7 @@ def consolidate(iters, file1, file2):
     #new_filename = file2_short + "-" + file1_short
 
     # get data from various data files
-    field_dictionary = get_data_from_file_sequence(iters, file2, "forward_", ["ID","TotalPrecipWater","CloudFraction","Topography","Smooth"])
+    field_dictionary = get_data_from_file_sequence(iters, file2, "forward_", field_names)
 
     # create an empty dataset
     #dataset2 = Dataset(new_filename, "w", format="NETCDF4")
