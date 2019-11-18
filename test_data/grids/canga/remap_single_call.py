@@ -5,6 +5,7 @@ import re
 import math
 import sys
 from consolidate import *
+from reorder_file_by_field import *
 
 assert len(sys.argv)>0, "Not enough arguments"
 
@@ -49,9 +50,9 @@ opt_name = opt_types[opt_num]
 NPTS=[16,32,64,128,256]
 
 pre_CS_name   = "../../test_data/grids/canga/Cubed-Sphere/outCSMesh_ne"
-post_CS_name  = "_TPW_CFR_TPO.pvtp"
+post_CS_name  = "_TPW_CFR_TPO.g"
 pre_CVT_name  = "../../test_data/grids/canga/CVT-MPAS/outICODMesh_ne"
-post_CVT_name = ".pvtp"
+post_CVT_name = ".g"
 
 # initially set to these existing files
 CS_names = [pre_CS_name+str(i)+post_CS_name for i in NPTS]
@@ -89,7 +90,7 @@ def create_XML(file1, file2, total_steps):
         if (item.attrib['name']=="output file"):
             item.attrib['value']=file2;
 
-    # have io now
+    # have remap now
     for item in g.getchildren():
         if (item.attrib['name']=="optimization algorithm"):
             item.attrib['value']=opt_name;
@@ -145,8 +146,8 @@ def run_transfer(opt_name):
             #my_env['OMP_PROC_BIND']='spread'
             #my_env['OMP_PLACES']='threads'
             #my_env['OMP_NUM_THREADS']='1'
-            #output = subprocess.check_output(["mpirun", "--bind-to", "socket", "-np", "1", "./cangaIntercomparisonActual.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml","--kokkos-threads=32",":","-np", "1", "./cangaIntercomparisonActual.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=32"], env=my_env).decode()
             output = subprocess.check_output(["mpirun", "--bind-to", "socket", "-np", "4", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml","--kokkos-threads=4",":","-np", "4", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=4"], env=my_env).decode()
+            #output = subprocess.check_output(["mpirun", "-np", "1", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml","--kokkos-threads=2",":","-np", "1", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=2"], env=my_env).decode()
     except subprocess.CalledProcessError as exc:
         print("error code", exc.returncode)
         for line in exc.output.decode().split('\n'):
@@ -168,5 +169,7 @@ run_transfer(opt_name)
 f1_head, f1_tail = os.path.splitext(f1)
 f2_head, f2_tail = os.path.splitext(f2)
 print(f1_head,f2_head)
-consolidate(total_iterations, f1_head+'.g', f2_head+'.g')
+newname=consolidate(total_iterations, f1_head+'.g', f2_head+'.g')
+reorder_file_by_field(newname,'_remap_src')
+reorder_file_by_field(newname,'_remap_tgt')
 

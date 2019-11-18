@@ -11,6 +11,7 @@
     <Parameter name="file" type="string" value="../test_data/parameter_lists/trilinos_test/solver_amg_blockdiag5x5.xml"/>
   </ParameterList>
   <ParameterList name="remap">
+    <Parameter name="weighting power" type="int" value="5"/>
     <Parameter name="porder" type="int" value="2"/>
     <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
   </ParameterList>

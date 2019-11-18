@@ -8,6 +8,7 @@
 #include "Compadre_Operators.hpp"
 #include "Compadre_LinearAlgebra_Definitions.hpp"
 #include "Compadre_ParallelManager.hpp"
+#include "Compadre_Quadrature.hpp"
 
 namespace Compadre {
 
@@ -60,8 +61,11 @@ protected:
     //! _dimension-1 gradient values for curvature for all problems
     Kokkos::View<double*> _manifold_curvature_gradient;
 
-    //! Extra data available to basis functions and target operations (optional)
-    Kokkos::View<double**, layout_right> _extra_data;
+    //! Extra data available to basis functions (optional)
+    Kokkos::View<double**, layout_right> _source_extra_data;
+
+    //! Extra data available to target operations (optional)
+    Kokkos::View<double**, layout_right> _target_extra_data;
 
     
     //! contains local IDs of neighbors to get coordinates from _source_coordinates (device)
@@ -163,14 +167,6 @@ protected:
 
 
 
-    //! 1D quadrature weights for staggered approaches
-    Kokkos::View<double*, layout_right> _quadrature_weights;
-
-    //! 1D quadrature sites (reference [0,1]) for staggered approaches
-    Kokkos::View<double*, layout_right> _parameterized_quadrature_sites;
-
-
-
     //! weighting kernel type for GMLS
     WeightingFunctionType _weighting_type;
 
@@ -195,9 +191,6 @@ protected:
     //! effective dimension of the data sampling functional
     //! e.g. in 3D, a scalar will be 1, a vector will be 3, and a vector of reused scalars will be 3
     int _data_sampling_multiplier;
-
-    //! determined by 1D quadrature rules
-    int _number_of_quadrature_points;
 
     //! whether or not operator to be inverted for GMLS problem has a nontrivial nullspace (requiring SVD)
     bool _nontrivial_nullspace;
@@ -267,6 +260,18 @@ protected:
     //! determines scratch level spaces and is used to call kernels
     ParallelManager _pm;
 
+    //! order of exact polynomial integration for quadrature rule
+    int _order_of_quadrature_points;
+
+    //! dimension of quadrature rule
+    int _dimension_of_quadrature_points;
+
+    //! quadrature rule type 
+    std::string _quadrature_type;
+
+    //! manages and calculates quadrature
+    Quadrature _qm;
+
 
 /** @name Private Modifiers
  *  Private function because information lives on the device
@@ -287,7 +292,7 @@ protected:
         \param additional_evaluation_local_index [in] - local index for evaluation sites 
     */
     KOKKOS_INLINE_FUNCTION
-    void calcPij(double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, const scratch_matrix_right_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = PointSample, const int additional_evaluation_local_index = 0) const;
+    void calcPij(const member_type& teamMember, double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, const scratch_matrix_right_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = PointSample, const int additional_evaluation_local_index = 0) const;
 
     /*! \brief Evaluates the gradient of a polynomial basis under the Dirac Delta (pointwise) sampling function.
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -304,7 +309,7 @@ protected:
         \param additional_evaluation_local_index [in] - local index for evaluation sites 
     */
     KOKKOS_INLINE_FUNCTION
-    void calcGradientPij(double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int additional_evaluation_local_index = 0) const;
+    void calcGradientPij(const member_type& teamMember, double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int additional_evaluation_local_index = 0) const;
 
     /*! \brief Fills the _P matrix with either P or P*sqrt(w)
         \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
@@ -377,9 +382,6 @@ protected:
     //! Helper function for applying the evaluations from a target functional to the polynomial coefficients
     KOKKOS_INLINE_FUNCTION
     void applyTargetsToCoefficients(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type Q, scratch_vector_type w, scratch_matrix_right_type P_target_row, const int target_NP) const;
-
-    //! Generates quadrature for staggered approach
-    void generate1DQuadrature();
 
 ///@}
 
@@ -605,10 +607,6 @@ public:
                         && (data_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : data_sampling_strategy)
             {
 
-        // Asserting available problems and solvers
-        compadre_kernel_assert_release((_constraint_type == ConstraintType::NO_CONSTRAINT) &&
-                                       "Neumann constraint type hasn't been implemented yet.");
-
         // seed random number generator pool
         _random_number_pool = pool_type(1);
 
@@ -641,7 +639,6 @@ public:
 
         _basis_multiplier = 1;
         _sampling_multiplier = 1;
-        _number_of_quadrature_points = 2;
 
         _nontrivial_nullspace = false;
         _orthonormal_tangent_space_provided = false; 
@@ -659,6 +656,9 @@ public:
         } else {
             _local_dimensions = dimensions;
         }
+
+        _order_of_quadrature_points = 0;
+        _dimension_of_quadrature_points = 0;
     }
 
     //! Constructor for the case when the data sampling functional does not match the polynomial
@@ -831,7 +831,7 @@ public:
     KOKKOS_INLINE_FUNCTION
     static double Wab(const double r, const double h, const WeightingFunctionType& weighting_type, const int power) {
         if (weighting_type == WeightingFunctionType::Power) {
-            return std::pow(1.0-std::abs(r/(3*h)), power) * double(1.0-std::abs(r/(3*h))>0.0);
+            return std::pow(1.0-std::abs(r/h), power) * double(1.0-std::abs(r/h)>0.0);
         } else { // Gaussian
             // 2.5066282746310002416124 = sqrt(2*pi)
             double h_over_3 = h/3.0;
@@ -865,11 +865,36 @@ public:
  */
 ///@{
 
-    //! Returns size of the basis used in instance's polynomial reconstruction
-    int getPolynomialCoefficientsSize() const { return _basis_multiplier*_NP; }
 
-    //! Returns size of the full polynomial coefficients matrix tile sizes
-    int getPolynomialCoefficientsMatrixTileSize() const { return _sampling_multiplier*getMaxNNeighbors(); }
+    //! Returns (size of the basis used in instance's polynomial reconstruction) x (data input dimension)
+    host_managed_local_index_type getPolynomialCoefficientsDomainRangeSize() const { 
+        host_managed_local_index_type sizes("sizes", 2);
+        sizes(0) = _basis_multiplier*_NP;
+        sizes(1) = _sampling_multiplier*getMaxNNeighbors();
+        return sizes;
+    }
+
+    //! Returns size of the basis used in instance's polynomial reconstruction
+    int getPolynomialCoefficientsSize() const {
+        auto sizes = this->getPolynomialCoefficientsDomainRangeSize();
+        return sizes(0);
+    }
+
+    //! Returns 2D array size in memory on which coefficients are stored
+    host_managed_local_index_type getPolynomialCoefficientsMemorySize() const {
+        auto M_by_N = this->getPolynomialCoefficientsDomainRangeSize();
+        compadre_assert_release(_entire_batch_computed_at_once 
+                && "Entire batch not computed at once, so getFullPolynomialCoefficientsBasis() can not be called.");
+        host_managed_local_index_type sizes("sizes", 2);
+        if (_dense_solver_type != DenseSolverType::LU) {
+            int rhsdim = getRHSSquareDim(_dense_solver_type, _constraint_type, M_by_N[1], M_by_N[0]);
+            sizes(0) = rhsdim;
+            sizes(1) = rhsdim;
+        } else {
+            getPDims(_dense_solver_type, _constraint_type, M_by_N[1], M_by_N[0], sizes(1), sizes(0));
+        }
+        return sizes;
+    }
 
     //! Dimension of the GMLS problem, set only at class instantiation
     int getDimensions() const { return _dimensions; }
@@ -901,8 +926,17 @@ public:
     //! Power for weighting kernel for curvature
     int getManifoldWeightingPower() const { return _curvature_weighting_power; }
 
-    //! Number of 1D quadrature points to use for staggered approach
-    int getNumberOfQuadraturePoints() const { return _number_of_quadrature_points; }
+    //! Number of quadrature points
+    int getNumberOfQuadraturePoints() const { return _qm.getNumberOfQuadraturePoints(); }
+
+    //! Order of quadrature points
+    int getOrderOfQuadraturePoints() const { return _order_of_quadrature_points; }
+
+    //! Dimensions of quadrature points
+    int getDimensionOfQuadraturePoints() const { return _dimension_of_quadrature_points; }
+
+    //! Type of quadrature points
+    std::string getQuadratureType() const { return _quadrature_type; }
 
     //! Get a view (host) of the length of each neighbor list. 
     //! Each entry corresponds to a row of _neighbor_lists.
@@ -1338,11 +1372,16 @@ public:
         // allocate memory on device
         _T = decltype(_T)("device tangent directions", _target_coordinates.extent(0)*_dimensions*_dimensions);
 
+        compadre_assert_release( (std::is_same<decltype(_T)::memory_space, typename view_type::memory_space>::value) &&
+                "Memory space does not match between _T and tangent_directions");
+
+        auto this_dimensions = _dimensions;
+        auto this_T = _T;
         // rearrange data on device from data given on host
         Kokkos::parallel_for("copy tangent vectors", Kokkos::RangePolicy<device_execution_space>(0, _target_coordinates.extent(0)), KOKKOS_LAMBDA(const int i) {
-            scratch_matrix_right_type T(_T.data() + i*_dimensions*_dimensions, _dimensions, _dimensions);
-            for (int j=0; j<_dimensions; ++j) {
-                for (int k=0; k<_dimensions; ++k) {
+            scratch_matrix_right_type T(this_T.data() + i*this_dimensions*this_dimensions, this_dimensions, this_dimensions);
+            for (int j=0; j<this_dimensions; ++j) {
+                for (int k=0; k<this_dimensions; ++k) {
                     T(j,k) = tangent_directions(i, j, k);
                 }
             }
@@ -1385,26 +1424,50 @@ public:
     }
 
     //! (OPTIONAL)
-    //! Sets extra data to be used by sampling functionals and target operations in certain instances.
+    //! Sets extra data to be used by sampling functionals in certain instances.
     template<typename view_type>
-    void setExtraData(view_type extra_data) {
+    void setSourceExtraData(view_type extra_data) {
 
         // allocate memory on device
-        _extra_data = decltype(_extra_data)("device extra data", extra_data.extent(0), extra_data.extent(1));
+        _source_extra_data = decltype(_source_extra_data)("device source extra data", extra_data.extent(0), extra_data.extent(1));
 
-        auto host_extra_data = Kokkos::create_mirror_view(_extra_data);
+        auto host_extra_data = Kokkos::create_mirror_view(_source_extra_data);
         Kokkos::deep_copy(host_extra_data, extra_data);
         // copy data from host to device
-        Kokkos::deep_copy(_extra_data, host_extra_data);
+        Kokkos::deep_copy(_source_extra_data, host_extra_data);
         this->resetCoefficientData();
     }
 
     //! (OPTIONAL)
-    //! Sets extra data to be used by sampling functionals and target operations in certain instances. (device)
+    //! Sets extra data to be used by sampling functionals in certain instances. (device)
     template<typename view_type>
-    void setExtraData(decltype(_extra_data) extra_data) {
+    void setSourceExtraData(decltype(_source_extra_data) extra_data) {
         // allocate memory on device
-        _extra_data = extra_data;
+        _source_extra_data = extra_data;
+        this->resetCoefficientData();
+    }
+
+    //! (OPTIONAL)
+    //! Sets extra data to be used by target operations in certain instances.
+    template<typename view_type>
+    void setTargetExtraData(view_type extra_data) {
+
+        // allocate memory on device
+        _target_extra_data = decltype(_target_extra_data)("device target extra data", extra_data.extent(0), extra_data.extent(1));
+
+        auto host_extra_data = Kokkos::create_mirror_view(_target_extra_data);
+        Kokkos::deep_copy(host_extra_data, extra_data);
+        // copy data from host to device
+        Kokkos::deep_copy(_target_extra_data, host_extra_data);
+        this->resetCoefficientData();
+    }
+
+    //! (OPTIONAL)
+    //! Sets extra data to be used by target operations in certain instances. (device)
+    template<typename view_type>
+    void setTargetExtraData(decltype(_target_extra_data) extra_data) {
+        // allocate memory on device
+        _target_extra_data = extra_data;
         this->resetCoefficientData();
     }
 
@@ -1563,9 +1626,21 @@ public:
         this->resetCoefficientData();
     }
 
-    //! Number of 1D quadrature points to use for staggered approach
-    void setNumberOfQuadraturePoints(int np) { 
-        _number_of_quadrature_points = np;
+    //! Number quadrature points to use
+    void setOrderOfQuadraturePoints(int order) { 
+        _order_of_quadrature_points = order;
+        this->resetCoefficientData();
+    }
+
+    //! Dimensions of quadrature points to use
+    void setDimensionOfQuadraturePoints(int dim) { 
+        _dimension_of_quadrature_points = dim;
+        this->resetCoefficientData();
+    }
+
+    //! Type of quadrature points
+    void setQuadratureType(std::string quadrature_type) { 
+        _quadrature_type = quadrature_type;
         this->resetCoefficientData();
     }
 

@@ -233,7 +233,7 @@ class CoordsT {
 
 // Utilities
 
-		void verifyCoordsOnProcessor(const std::vector<xyz_type>& new_pts_vector, bool use_physical_coords = true) const;
+		bool verifyCoordsOnProcessor(const std::vector<xyz_type>& new_pts_vector, bool use_physical_coords = true, bool throw_exception = false) const;
 
 		std::vector<scalar_type> boundingBoxMinOnProcessor(const local_index_type processor_num = -1) const;
 

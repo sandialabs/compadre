@@ -1,3 +1,7 @@
+# original script used to get coordinates from lat/lon
+# no longer used to generate files
+# also contains area generation, now included
+
 import math
 import random
 import numpy as np

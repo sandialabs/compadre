@@ -111,7 +111,9 @@ void ParameterManager::setDefaultParameters() {
 	remapList->set("global upper bound", (scalar_type)std::numeric_limits<scalar_type>::max());
 	remapList->set("source weighting field name", "");
 	remapList->set("target weighting field name", "");
-	remapList->set("quadrature points", (local_index_type)2); // number of quadrature points for integral sampling
+	remapList->set("quadrature order", (local_index_type)2); // order of quadrature points for integral sampling
+	remapList->set("quadrature type", "line"); // type of quadrature points for integral sampling
+	remapList->set("quadrature dimension", (local_index_type)0); // dimension of quadrature points for integral sampling
 
 	// Neighborhood Details
 	Teuchos::RCP<Teuchos::ParameterList> neighborList = Teuchos::rcp(new Teuchos::ParameterList("neighborhood"));

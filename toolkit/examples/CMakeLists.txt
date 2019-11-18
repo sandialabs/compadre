@@ -30,6 +30,7 @@ if (Compadre_EXAMPLES)
   endif()
   add_exe_w_compadre(GMLS_Host_Test GMLS_Host.cpp)
   add_exe_w_compadre(GMLS_Device_Test GMLS_Device.cpp)
+  add_exe_w_compadre(GMLS_NeumannGradScalar_Test GMLS_NeumannGradScalar.cpp)
   add_exe_w_compadre(GMLS_Vector_Test GMLS_Vector.cpp)
   add_exe_w_compadre(GMLS_Divergence_Test GMLS_DivergenceFree.cpp)
   add_exe_w_compadre(GMLS_SmallBatchReuse_Device_Test GMLS_SmallBatchReuse_Device.cpp)
@@ -38,6 +39,7 @@ if (Compadre_EXAMPLES)
   add_exe_w_compadre(GMLS_Staggered_Manifold_Test GMLS_Staggered_Manifold.cpp)
   add_exe_w_compadre(GMLS_MultiSite_Test GMLS_Multiple_Evaluation_Sites.cpp)
   add_exe_w_compadre(GMLS_Manifold_MultiSite_Test GMLS_Manifold_Multiple_Evaluation_Sites.cpp)
+  add_exe_w_compadre(TestUtility UtilityTest.cpp)
 
   if (Compadre_TESTS)
 
@@ -71,6 +73,10 @@ if (Compadre_EXAMPLES)
     # Device views tests for GMLS - LU solver
     ADD_TEST(NAME GMLS_Device_Dim3_LU COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "4" "200" "3" "2" "0" "0" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_Device_Dim3_LU PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+
+    # Device views tests with Neumann BC for GMLS - LU solver
+    ADD_TEST(NAME GMLS_NeumannGradScalar_Dim3_LU COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_NeumannGradScalar_Test "3" "200" "3" "2" "0" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_NeumannGradScalar_Dim3_LU PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
 
     # Device views tests for GMLS (vector basis)
     ADD_TEST(NAME GMLS_Vector_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Vector_Test "3" "20" "3" "1" "0" "0" "--kokkos-threads=2")
@@ -136,6 +142,10 @@ if (Compadre_EXAMPLES)
     CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Staggered_Manifold.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py" @ONLY)
     ADD_TEST(NAME GMLS_Staggered_Manifold_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py" "3" "4")
     SET_TESTS_PROPERTIES(GMLS_Staggered_Manifold_Refinement_Study PROPERTIES LABELS "ConvergenceTest;convergence;manifold;staggered" TIMEOUT 20)
+
+    # Utility test - Filter By ID
+    ADD_TEST(NAME Test_Utilities COMMAND ${CMAKE_CURRENT_BINARY_DIR}/TestUtility "200" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(Test_Utilities PROPERTIES LABELS "UtilityTest;utility;kokkos" TIMEOUT 5)
 
     # WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH} )
     if (Compadre_USE_PYTHON)
