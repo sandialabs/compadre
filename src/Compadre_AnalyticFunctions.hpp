@@ -306,7 +306,11 @@ class SecondOrderBasis : public AnalyticFunction {
 
 	typedef XyzVector xyz_type;
 
+	const int _dim;
+
 	public :
+
+	    SecondOrderBasis(const int dim = 3) : _dim(dim) {}
 
 		virtual scalar_type evalScalar(const xyz_type& xIn) const;
 

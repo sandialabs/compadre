@@ -24,7 +24,8 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
         field_two = field_one;
     }
 
-    auto function = Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/));
+    //auto function = Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/));
+    auto function = Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/));
 
 	host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
     const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
@@ -43,7 +44,7 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     auto unit_normals = _physics->_cells->getFieldManager()->getFieldByName("unit_normal")->getMultiVectorPtr()->getLocalView<host_view_type>();
     auto adjacent_elements = _physics->_cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalView<host_view_type>();
 
-    auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")*_physics->_particles_particles_neighborhood->getMinimumHSupportSize();
+    //auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")*_physics->_particles_particles_neighborhood->getMinimumHSupportSize();
     // each element must have the same number of edges
     auto num_edges = adjacent_elements.extent(1);
     auto num_interior_quadrature = 0;
@@ -65,6 +66,7 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
 
     for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
         // get all particle neighbors of cell i
+        //local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
         for (size_t j=0; j<cell_particles_all_neighbors[i].size(); ++j) {
             auto particle_j = cell_particles_all_neighbors[i][j].first;
             //Put the values of alpha in the proper place in the global matrix
@@ -73,25 +75,41 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
             if (bc_id(row, 0) == 0) {
                 // loop over quadrature
                 double contribution = 0;
+                std::vector<double> edge_lengths(3);
+                int current_edge_num = 0;
+                for (int q=0; q<_physics->_weights_ndim; ++q) {
+                    if (quadrature_type(i,q)!=1) { // edge
+                        int new_current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                        if (new_current_edge_num!=current_edge_num) {
+                            edge_lengths[new_current_edge_num] = quadrature_weights(i,q);
+                            current_edge_num = new_current_edge_num;
+                        } else {
+                            edge_lengths[current_edge_num] += quadrature_weights(i,q);
+                        }
+                    }
+                }
                 for (int q=0; q<_physics->_weights_ndim; ++q) {
                     if (quadrature_type(i,q)==1) { // interior
                         // integrating RHS function
                         double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
                         xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
                         contribution += quadrature_weights(i,q) * v * function->evalScalar(pt);
-                    } else if (quadrature_type(i,q)==2) { // edge on exterior
-                        // DG enforcement of Dirichlet BCs
-                        int current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                        int adjacent_cell = adjacent_elements(i,current_edge_num);
-                        //printf("%d, %d, %d, %d\n", i, q, current_edge_num, adjacent_cell);
-                        if (adjacent_cell >= 0) {
-                            printf("SHOULD BE NEGATIVE NUMBER!\n");
-                        }
-                        // penalties for edges of mass
-                        double vr = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
-                        xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
-                        contribution += penalty * quadrature_weights(i,q) * vr * function->evalScalar(pt);
-                    }
+                    } 
+                    //else if (quadrature_type(i,q)==2) { // edge on exterior
+                    //    //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_physics->_kokkos_epsilons_host(i);
+                    //    // DG enforcement of Dirichlet BCs
+                    //    int current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                    //    auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/edge_lengths[current_edge_num];
+                    //    int adjacent_cell = adjacent_elements(i,current_edge_num);
+                    //    //printf("%d, %d, %d, %d\n", i, q, current_edge_num, adjacent_cell);
+                    //    if (adjacent_cell >= 0) {
+                    //        printf("SHOULD BE NEGATIVE NUMBER!\n");
+                    //    }
+                    //    // penalties for edges of mass
+                    //    double vr = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
+                    //    xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
+                    //    contribution += penalty * quadrature_weights(i,q) * vr * function->evalScalar(pt);
+                    //}
                 }
                 if (row_seen(row)==1) { // already seen
                     rhs_vals(row,0) += contribution;
@@ -102,6 +120,13 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
             }
         }
     }
+    auto global_force = 1.9166666666666665;//0.21132196999014932;
+    double sum = 0;
+    for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
+        local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
+        sum += rhs_vals(row,0);
+    }
+    printf("s1: %.16f, e1: %.16f\n", sum, global_force);
 }
 
 std::vector<InteractingFields> AdvectionDiffusionSources::gatherFieldInteractions() {

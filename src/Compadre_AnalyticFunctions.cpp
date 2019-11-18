@@ -249,7 +249,11 @@ scalar_type SineProducts::evalAdvectionDiffusionRHS(const xyz_type& xyzIn, const
 }
 
 scalar_type SecondOrderBasis::evalScalar(const xyz_type& xyzIn) const {
-    return xyzIn.x*(1 + xyzIn.x + xyzIn.y + xyzIn.z) + xyzIn.y*(1 + xyzIn.y + xyzIn.z) + xyzIn.z*(1 + xyzIn.z);
+    if (_dim==2) {
+        return xyzIn.x*(1 + xyzIn.x + xyzIn.y) + xyzIn.y*(1 + xyzIn.y);
+    } else {
+        return xyzIn.x*(1 + xyzIn.x + xyzIn.y + xyzIn.z) + xyzIn.y*(1 + xyzIn.y + xyzIn.z) + xyzIn.z*(1 + xyzIn.z);
+    }
 }
 
 xyz_type SecondOrderBasis::evalVector(const xyz_type& xyzIn) const {
