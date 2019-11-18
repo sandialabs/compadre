@@ -2,7 +2,7 @@
 ---
 Compadre:
   'solution type': 'sine'
-  'loop size': 3
+  'loop size': 1
   'io':
     # source file for coords and normal vectors
     'input file prefix': '../test_data/grids/cube_normal_'
