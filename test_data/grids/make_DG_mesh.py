@@ -4,6 +4,8 @@ import numpy as np
 from netCDF4 import Dataset
 from scipy.spatial import Delaunay
 from scipy.integrate import quad
+import quadLine1D
+import quadTri2D
 
 # helper functions
 def get_velocity(coordinate):
@@ -11,11 +13,12 @@ def get_velocity(coordinate):
 
 def get_num_points_for_order(poly_order, dimension=2):
     if (dimension==1):
-        num_points_lookup=[1,1,1,2,2]
+        #num_points_lookup=[1,1,1,2,2]
+        num_points_lookup=[item.shape[0] for item in quadLine1D.weights]#[1,1,3,4,6,7,12,13,16,19,24,27,32,36,42,55,61,66,73,78]
         num_points = num_points_lookup[poly_order]
         return num_points
     else:
-        num_points_lookup=[1,1,3,4]
+        num_points_lookup=[item.shape[0] for item in quadTri2D.weights]#[1,1,3,4,6,7,12,13,16,19,24,27,32,36,42,55,61,66,73,78]
         num_points = num_points_lookup[poly_order]
         return num_points
 
@@ -24,34 +27,8 @@ def get_quadrature(poly_order, dimension=2):
     num_points = get_num_points_for_order(poly_order, dimension)
     w=np.empty([num_points],dtype="d")
     if (dimension==2):
-        q=np.empty([num_points,2],dtype="d")
-        if (num_points==1):
-            w[0]=0.5;
-            q[0,0]=1./3.;
-            q[0,1]=1./3.;
-        elif (num_points==3):
-            w[0]=1./6.;
-            w[1]=1./6.;
-            w[2]=1./6.;
-            q[0,0]=0.5;
-            q[0,1]=0;
-            q[1,0]=0.5;
-            q[1,1]=0.5;
-            q[2,0]=0;
-            q[2,1]=0.5;
-        elif (num_points==4):
-            w[0]=-9./32.;
-            w[1]=25./96.
-            w[2]=25./96.
-            w[3]=25./96.
-            q[0,0]=1./3.;
-            q[0,1]=1./3.;
-            q[1,0]=0.6;
-            q[1,1]=0.2;
-            q[2,0]=0.2;
-            q[2,1]=0.6;
-            q[3,0]=0.2;
-            q[3,1]=0.2;
+        w=quadTri2D.weights[poly_order]
+        q=quadTri2D.sites[poly_order]
         return (w,q)
     if (dimension==1):
         q=np.empty([num_points],dtype="d")
@@ -192,15 +169,15 @@ width  = 1.0
 # random transformations of the original mesh
 random.seed(1234)
 blowup_ratio = 1 # 1 does nothing, identity
-random_rotation = True
+random_rotation = False
 rotation_max = 180 # in degrees (either clockwise or counterclockwise, 180 should be highest needed)
 variation = .00 # as a decimal for a percent
 
 
 #h_all=[0.2]#,0.1,0.05,0.025,0.0125,0.00625]
-h_all=[0.1,0.05,0.025,0.0125,0.00625]
+h_all=[0.1,0.05,0.025,0.0125]
 
-poly_order = 3
+poly_order = 10
 num_points_interior = get_num_points_for_order(poly_order, 2)
 num_points_exterior = get_num_points_for_order(poly_order, 1)
 

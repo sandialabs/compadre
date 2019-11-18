@@ -87,6 +87,8 @@ class AdvectionDiffusionPhysics : public PhysicsT {
 
         void generateData();
 
+        Teuchos::RCP<GMLS> getGMLSInstance() { return _gmls; }
+
 };
 
 }
