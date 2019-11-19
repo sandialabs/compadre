@@ -4,6 +4,7 @@ set(Physics_HEADERS
   Compadre_GMLS_PinnedLaplacian_BoundaryConditions.hpp
   Compadre_GMLS_PinnedLaplacian_Operator.hpp
   Compadre_GMLS_PinnedLaplacian_Sources.hpp
+  Compadre_GMLS_PinnedLaplacianNeumann_Operator.hpp
   Compadre_GMLS_CurlCurl_BoundaryConditions.hpp
   Compadre_GMLS_CurlCurl_Operator.hpp
   Compadre_GMLS_CurlCurl_Sources.hpp
@@ -28,6 +29,7 @@ set(Physics_SOURCES
   Compadre_GMLS_PinnedLaplacian_BoundaryConditions.cpp
   Compadre_GMLS_PinnedLaplacian_Operator.cpp
   Compadre_GMLS_PinnedLaplacian_Sources.cpp
+  Compadre_GMLS_PinnedLaplacianNeumann_Operator.cpp
   Compadre_GMLS_CurlCurl_BoundaryConditions.cpp
   Compadre_GMLS_CurlCurl_Operator.cpp
   Compadre_GMLS_CurlCurl_Sources.cpp
