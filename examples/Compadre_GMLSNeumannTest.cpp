@@ -17,6 +17,10 @@
 
 #include <Compadre_GMLS.hpp>
 
+// #include <Compadre_GMLS_PinnedLaplacianNeumann_Sources.hpp>
+// #include <Compadre_GMLS_PinnedLaplacianNeumann_BoundaryConditions.hpp>
+#include <Compadre_GMLS_PinnedLaplacianNeumann_Operator.hpp>
+
 typedef int LO;
 typedef long GO;
 typedef double ST;
@@ -88,6 +92,39 @@ int main (int argc, char* args[]) {
 
             particles->zoltan2Initialize();
             particles->getFieldManager()->printAllFields(std::cout);
+
+            ST halo_size;
+            {
+                if (parameters->get<Teuchos::ParameterList>("halo").get<bool>("dynamic")) {
+                    halo_size = h_size * parameters->get<Teuchos::ParameterList>("halo").get<double>("multiplier");
+                } else {
+                    halo_size = parameters->get<Teuchos::ParameterList>("halo").get<double>("size");
+                }
+                particles->buildHalo(halo_size);
+                particles->createDOFManager();
+
+                //Set the radius for the neighbor list:
+                ST h_support;
+                if (parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("dynamic radius")) {
+                    h_support = h_size;
+                } else {
+                    h_support = parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size");
+                }
+                particles->createNeighborhood();
+                particles->getNeighborhood()->setAllHSupportSizes(h_support);
+
+                LO neighbors_needed = Compadre::GMLS::getNP(Porder);
+
+                LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
+                particles->getNeighborhood()->constructAllNeighborList(particles->getCoordsConst()->getHaloSize(), extra_neighbors);
+
+                // Iterative solver for the problem
+                Teuchos::RCP<Compadre::ProblemT> problem = Teuchos::rcp( new Compadre::ProblemT(particles));
+
+                // construct physics, sources, and boundary conditions
+                Teuchos::RCP<Compadre::GMLS_LaplacianNeumannPhysics> physics =
+                    Teuchos::rcp( new Compadre::GMLS_LaplacianNeumannPhysics(particles, Porder));
+            }
         }
     }
 
