@@ -80,6 +80,9 @@ void GMLS_LaplacianNeumannPhysics::computeMatrix(local_index_type field_one, loc
     const neighborhood_type* neighborhood = this->_particles->getNeighborhoodConst();
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
     const host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
+    const host_view_type nx_vectors = this->_particles->getFieldManager()->getFieldByName("nx")->getMultiVectorPtrConst()->getLocalView<host_view_type>();
+    const host_view_type ny_vectors = this->_particles->getFieldManager()->getFieldByName("ny")->getMultiVectorPtrConst()->getLocalView<host_view_type>();
+    const host_view_type nz_vectors = this->_particles->getFieldManager()->getFieldByName("nz")->getMultiVectorPtrConst()->getLocalView<host_view_type>();
 
     //****************
     //
@@ -138,28 +141,90 @@ void GMLS_LaplacianNeumannPhysics::computeMatrix(local_index_type field_one, loc
         kokkos_epsilons_host(i) = epsilons(i,0);
     });
 
+    Kokkos::View<int*> kokkos_flags("target_flags", target_coords->nLocal());
+    Kokkos::View<int*>::HostMirror kokkos_flags_host = Kokkos::create_mirror_view(kokkos_flags);
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
+        kokkos_flags_host(i) = bc_id(i, 0);
+    });
+
+    Kokkos::View<double**> kokkos_normals("target_normals", target_coords->nLocal(), target_coords->nDim(), target_coords->nDim());
+    Kokkos::View<double**>::HostMirror kokkos_normals_host = Kokkos::create_mirror_view(kokkos_normals);
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
+        kokkos_normals_host(i, 0) = nx_vectors(i, 0);
+        kokkos_normals_host(i, 1) = ny_vectors(i, 0);
+        kokkos_normals_host(i, 2) = nz_vectors(i, 0);
+    });
+
+    // Extract out points without any BC
+    auto noconstraint_filtered_flags = filterViewByID<Kokkos::HostSpace>(kokkos_flags_host, 0);
+    auto noconstraint_kokkos_target_coordinates_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_target_coordinates_host,
+            noconstraint_filtered_flags);
+    auto noconstraint_kokkos_neighbor_lists_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_neighbor_lists_host,
+            noconstraint_filtered_flags);
+    auto noconstraint_kokkos_epsilons_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_epsilons_host,
+            noconstraint_filtered_flags);
+
+    // Extract out points labeled with Neumann BC
+    auto neumann_filtered_flags = filterViewByID<Kokkos::HostSpace>(kokkos_flags_host, 2);
+    auto neumann_kokkos_target_coordinates_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_target_coordinates_host,
+            neumann_filtered_flags);
+    auto neumann_kokkos_neighbor_lists_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_neighbor_lists_host,
+            neumann_filtered_flags);
+    auto neumann_kokkos_epsilons_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_epsilons_host,
+            neumann_filtered_flags);
+    auto neumann_kokkos_normals_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_normals_host,
+            neumann_filtered_flags);
+
+    // Now create a tangent bundles to set for the points with Neumann BC
+    Kokkos::View<double***> neumann_kokkos_tangent_bundles_host("target_tangent_bundles", target_coords->nLocal(), target_coords->nDim(), target_coords->nDim());
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
+        neumann_kokkos_tangent_bundles_host(i, 0, 0) = 0.0;
+        neumann_kokkos_tangent_bundles_host(i, 1, 0) = 0.0;
+        neumann_kokkos_tangent_bundles_host(i, 1, 1) = 0.0;
+        neumann_kokkos_tangent_bundles_host(i, 1, 2) = 0.0;
+        neumann_kokkos_tangent_bundles_host(i, 2, 0) = neumann_kokkos_normals_host(i, 0);
+        neumann_kokkos_tangent_bundles_host(i, 2, 1) = neumann_kokkos_normals_host(i, 1);
+        neumann_kokkos_tangent_bundles_host(i, 2, 2) = neumann_kokkos_normals_host(i, 2);
+    });
+
     //****************
     //
     // End of data copying
     //
     //****************
 
-    // GMLS operator
-
-    GMLS my_GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+    // No-constraint GMLS operator
+    GMLS noconstraint_GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
                  3 /* dimension */,
                  "QR" /* dense sovler type */,
                  "STANDARD" /* problem type */,
                  "NO_CONSTRAINT");
-    my_GMLS.setProblemData(kokkos_neighbor_lists_host,
+    noconstraint_GMLS.setProblemData(noconstraint_kokkos_neighbor_lists_host,
                            kokkos_augmented_source_coordinates_host,
-                           kokkos_target_coordinates,
-                           kokkos_epsilons_host);
-    my_GMLS.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-    my_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+                           noconstraint_kokkos_target_coordinates_host,
+                           noconstraint_kokkos_epsilons_host);
+    noconstraint_GMLS.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
+    noconstraint_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 
-    my_GMLS.addTargets(TargetOperation::LaplacianOfScalarPointEvaluation);
-    my_GMLS.generateAlphas(); // just point evaluations
+    noconstraint_GMLS.addTargets(TargetOperation::LaplacianOfScalarPointEvaluation);
+    noconstraint_GMLS.generateAlphas(); // just point evaluations
+
+    // Neumann GMLS operator - member of the physics class
+    _neumann_GMLS = Teuchos::rcp<GMLS>( new GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+                  3 /* dimension */,
+                  "LU" /* dense sovler type */,
+                  "STANDARD" /* problem type */,
+                  "NEUMANN_GRAD_SCALAR"));
+    _neumann_GMLS->setProblemData(neumann_kokkos_neighbor_lists_host,
+                          kokkos_augmented_source_coordinates_host,
+                          neumann_kokkos_target_coordinates_host,
+                          neumann_kokkos_epsilons_host);
+    _neumann_GMLS->setTangentBundle(neumann_kokkos_tangent_bundles_host);
+    _neumann_GMLS->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
+    _neumann_GMLS->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+
+    _neumann_GMLS->addTargets(TargetOperation::LaplacianOfScalarPointEvaluation);
+    _neumann_GMLS->generateAlphas(); // just point evaluations
 
     Teuchos::RCP<Teuchos::Time> GMLSTime = Teuchos::TimeMonitor::getNewCounter ("GMLS");
 
@@ -198,11 +263,7 @@ void GMLS_LaplacianNeumannPhysics::computeMatrix(local_index_type field_one, loc
                                 val_data(l*fields[field_two]->nDim() + n) = 0.0;
                             }
                         } else {
-                            if (i==static_cast<local_index_type>(neighbors[l].first)) {
-                                val_data(l*fields[field_two]->nDim() + n) = my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
-                            } else {
-                                val_data(l*fields[field_two]->nDim() + n) = my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
-                            }
+                            val_data(l*fields[field_two]->nDim() + n) = noconstraint_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
                         }
                     } else {
                         val_data(l*fields[field_two]->nDim() + n) = 0.0;

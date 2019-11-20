@@ -19,7 +19,7 @@ class GMLS_LaplacianNeumannPhysics : public PhysicsT{
 
         local_index_type Porder;
     public:
-        Teuchos::RCP<GMLS> _gmls;
+        Teuchos::RCP<GMLS> _neumann_GMLS;
 
         GMLS_LaplacianNeumannPhysics(Teuchos::RCP<particle_type> particles, local_index_type t_Porder,
                                      Teuchos::RCP<crs_graph_type> A_graph = Teuchos::null,
