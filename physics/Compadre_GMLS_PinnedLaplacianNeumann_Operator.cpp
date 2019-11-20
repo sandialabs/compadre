@@ -273,13 +273,13 @@ void GMLS_PinnedLaplacianNeumannPhysics::computeMatrix(local_index_type field_on
 
     // Put values from neumann GMLS into matrix
     int nlocal_neumann = neumann_kokkos_target_coordinates_host.extent(0);
-    Kokkos::parallel_for(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
+    Kokkos::parallel_for(host_team_policy(nlocal_neumann, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
         const int i = teamMember.league_rank();
 
         host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
         host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
 
-        const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
+        const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(_neumann_filtered_flags(i));
         const local_index_type num_neighbors = neighbors.size();
 
         // Print error if there's not enough neighbors:
