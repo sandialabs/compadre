@@ -148,6 +148,7 @@ def run_transfer(opt_name):
             #my_env['OMP_NUM_THREADS']='1'
             output = subprocess.check_output(["mpirun", "--bind-to", "socket", "-np", "4", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml","--kokkos-threads=4",":","-np", "4", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=4"], env=my_env).decode()
             #output = subprocess.check_output(["mpirun", "-np", "1", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml","--kokkos-threads=2",":","-np", "1", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=2"], env=my_env).decode()
+            print(output)
     except subprocess.CalledProcessError as exc:
         print("error code", exc.returncode)
         for line in exc.output.decode().split('\n'):

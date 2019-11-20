@@ -21,9 +21,113 @@
 typedef int LO;
 typedef long GO;
 typedef double ST;
+typedef Compadre::EuclideanCoordsT CT;
 typedef Compadre::XyzVector xyz_type;
 
 using namespace Compadre;
+
+void calculateErrorNorms(Teuchos::RCP<Compadre::ParticlesT> particles, Teuchos::RCP<const Teuchos::Comm<int> > comm, Teuchos::RCP<Teuchos::ParameterList> parameters, const std::string& prefix = "") {
+
+    CT* coords = (CT*)particles->getCoords();
+
+    auto grid_area_field = particles->getFieldManager()->getFieldByName(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("target weighting field name"))->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+    auto exact_cloudfraction = particles->getFieldManager()->getFieldByName("exact CloudFraction")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+    auto computed_cloudfraction = particles->getFieldManager()->getFieldByName("CloudFraction")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+    auto exact_totalprecipwater = particles->getFieldManager()->getFieldByName("exact TotalPrecipWater")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+    auto computed_totalprecipwater = particles->getFieldManager()->getFieldByName("TotalPrecipWater")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+    auto exact_topography = particles->getFieldManager()->getFieldByName("exact Topography")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+    auto computed_topography = particles->getFieldManager()->getFieldByName("Topography")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+
+    LO local_dof = coords->nLocal();
+    LO global_dof = 0;
+	double val_sq_error_cloudfraction=0;
+	double val_sq_error_totalprecipwater=0;
+	double val_sq_error_topography=0;
+	double val_exact_cloudfraction=0;
+	double val_exact_totalprecipwater=0;
+	double val_exact_topography=0;
+	double global_sq_error_cloudfraction=0;
+	double global_sq_error_totalprecipwater=0;
+	double global_sq_error_topography=0;
+	double global_exact_cloudfraction=0;
+	double global_exact_totalprecipwater=0;
+	double global_exact_topography=0;
+	double weighted_sq_error_cloudfraction=0;
+	double weighted_sq_error_totalprecipwater=0;
+	double weighted_sq_error_topography=0;
+	double weighted_exact_cloudfraction=0;
+	double weighted_exact_totalprecipwater=0;
+	double weighted_exact_topography=0;
+	double global_weighted_sq_error_cloudfraction=0;
+	double global_weighted_sq_error_totalprecipwater=0;
+	double global_weighted_sq_error_topography=0;
+	double global_weighted_exact_cloudfraction=0;
+	double global_weighted_exact_totalprecipwater=0;
+	double global_weighted_exact_topography=0;
+    for(int j=0; j<coords->nLocal(); j++){
+		val_sq_error_cloudfraction += (computed_cloudfraction(j,0) - exact_cloudfraction(j,0))*(computed_cloudfraction(j,0) - exact_cloudfraction(j,0));
+		val_sq_error_totalprecipwater += (computed_totalprecipwater(j,0) - exact_totalprecipwater(j,0))*(computed_totalprecipwater(j,0) - exact_totalprecipwater(j,0));
+		val_sq_error_topography += (computed_topography(j,0) - exact_topography(j,0))*(computed_topography(j,0) - exact_topography(j,0));
+		val_exact_cloudfraction += exact_cloudfraction(j,0)*exact_cloudfraction(j,0);
+		val_exact_totalprecipwater += exact_totalprecipwater(j,0)*exact_totalprecipwater(j,0);
+		val_exact_topography += exact_topography(j,0)*exact_topography(j,0);
+
+		weighted_sq_error_cloudfraction += (computed_cloudfraction(j,0) - exact_cloudfraction(j,0))*(computed_cloudfraction(j,0) - exact_cloudfraction(j,0))*grid_area_field(j,0);
+		weighted_sq_error_totalprecipwater += (computed_totalprecipwater(j,0) - exact_totalprecipwater(j,0))*(computed_totalprecipwater(j,0) - exact_totalprecipwater(j,0))*grid_area_field(j,0);
+		weighted_sq_error_topography += (computed_topography(j,0) - exact_topography(j,0))*(computed_topography(j,0) - exact_topography(j,0))*grid_area_field(j,0);
+		weighted_exact_cloudfraction += exact_cloudfraction(j,0)*exact_cloudfraction(j,0)*grid_area_field(j,0);
+		weighted_exact_totalprecipwater += exact_totalprecipwater(j,0)*exact_totalprecipwater(j,0)*grid_area_field(j,0);
+		weighted_exact_topography += exact_topography(j,0)*exact_topography(j,0)*grid_area_field(j,0);
+    }
+
+	Teuchos::Ptr<LO> global_dof_ptr(&global_dof);
+
+	Teuchos::Ptr<ST> global_sq_error_cloudfraction_ptr(&global_sq_error_cloudfraction);
+	Teuchos::Ptr<ST> global_sq_error_totalprecipwater_ptr(&global_sq_error_totalprecipwater);
+	Teuchos::Ptr<ST> global_sq_error_topography_ptr(&global_sq_error_topography);
+	Teuchos::Ptr<ST> global_exact_cloudfraction_ptr(&global_exact_cloudfraction);
+	Teuchos::Ptr<ST> global_exact_totalprecipwater_ptr(&global_exact_totalprecipwater);
+	Teuchos::Ptr<ST> global_exact_topography_ptr(&global_exact_topography);
+
+	Teuchos::Ptr<ST> global_weighted_sq_error_cloudfraction_ptr(&global_weighted_sq_error_cloudfraction);
+	Teuchos::Ptr<ST> global_weighted_sq_error_totalprecipwater_ptr(&global_weighted_sq_error_totalprecipwater);
+	Teuchos::Ptr<ST> global_weighted_sq_error_topography_ptr(&global_weighted_sq_error_topography);
+	Teuchos::Ptr<ST> global_weighted_exact_cloudfraction_ptr(&global_weighted_exact_cloudfraction);
+	Teuchos::Ptr<ST> global_weighted_exact_totalprecipwater_ptr(&global_weighted_exact_totalprecipwater);
+	Teuchos::Ptr<ST> global_weighted_exact_topography_ptr(&global_weighted_exact_topography);
+
+	Teuchos::reduceAll<int, LO>(*comm, Teuchos::REDUCE_SUM, local_dof, global_dof_ptr);
+
+	Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, val_sq_error_cloudfraction, global_sq_error_cloudfraction_ptr);
+	Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, val_sq_error_totalprecipwater, global_sq_error_totalprecipwater_ptr);
+	Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, val_sq_error_topography, global_sq_error_topography_ptr);
+	Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, val_exact_cloudfraction, global_exact_cloudfraction_ptr);
+	Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, val_exact_totalprecipwater, global_exact_totalprecipwater_ptr);
+	Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, val_exact_topography, global_exact_topography_ptr);
+
+
+	Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, weighted_sq_error_cloudfraction, global_weighted_sq_error_cloudfraction_ptr);
+	Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, weighted_sq_error_totalprecipwater, global_weighted_sq_error_totalprecipwater_ptr);
+	Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, weighted_sq_error_topography, global_weighted_sq_error_topography_ptr);
+	Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, weighted_exact_cloudfraction, global_weighted_exact_cloudfraction_ptr);
+	Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, weighted_exact_totalprecipwater, global_weighted_exact_totalprecipwater_ptr);
+	Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, weighted_exact_topography, global_weighted_exact_topography_ptr);
+
+    if (comm->getRank() == 0) {
+	    printf("\n\n");
+	    printf("%sAbsolute l2 error cloudfraction %.16f\n", prefix.c_str(), std::sqrt(global_sq_error_cloudfraction/global_dof));
+	    printf("%sAbsolute l2 error totalprecipwater %.16f\n", prefix.c_str(), std::sqrt(global_sq_error_totalprecipwater/global_dof));
+	    printf("%sAbsolute l2 error topography %.16f\n", prefix.c_str(), std::sqrt(global_sq_error_topography/global_dof));
+
+	    printf("%sRelative L2 error cloudfraction %.16f\n", prefix.c_str(), std::sqrt(global_weighted_sq_error_cloudfraction/global_weighted_exact_cloudfraction));
+	    printf("%sRelative L2 error totalprecipwater %.16f\n", prefix.c_str(), std::sqrt(global_weighted_sq_error_totalprecipwater/global_weighted_exact_totalprecipwater));
+	    printf("%sRelative L2 error topography %.16f\n", prefix.c_str(), std::sqrt(global_weighted_sq_error_topography/global_weighted_exact_topography));
+	    printf("%sAbsolute L2 error cloudfraction %.16f\n", prefix.c_str(), std::sqrt(global_weighted_sq_error_cloudfraction));
+	    printf("%sAbsolute L2 error totalprecipwater %.16f\n", prefix.c_str(), std::sqrt(global_weighted_sq_error_totalprecipwater));
+	    printf("%sAbsolute L2 error topography %.16f\n", prefix.c_str(), std::sqrt(global_weighted_sq_error_topography));
+	    printf("\n\n");
+    }
+}
 
 int main (int argc, char* args[]) {
 
@@ -71,7 +175,6 @@ int main (int argc, char* args[]) {
             // Remote Data Test (Two differing distributions of particles)
             //
 
-            typedef Compadre::EuclideanCoordsT CT;
              Teuchos::RCP<Compadre::ParticlesT> particles =
                  Teuchos::rcp( new Compadre::ParticlesT(parameters, comm));
              CT* coords = (CT*)particles->getCoords();
@@ -135,23 +238,23 @@ int main (int argc, char* args[]) {
             // my_coloring==25 already has CloudFraction, TotalPrecipWater, and Topography
             // my_coloring==33 has none
             // nice to get exact versions of these and store them as exact
-            if (my_coloring == 25) {
-                if (initial_step_to_compute==1) {
-                    particles->getFieldManager()->createField(1,"exact CloudFraction","m^2/1a");
-                    particles->getFieldManager()->createField(1,"exact TotalPrecipWater","m^2/1a");
-                    particles->getFieldManager()->createField(1,"exact Topography","m^2/1a");
-                    Kokkos::deep_copy(particles->getFieldManager()->getFieldByName("exact CloudFraction")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>(),
-                        particles->getFieldManager()->getFieldByName("CloudFraction")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>());
-                    Kokkos::deep_copy(particles->getFieldManager()->getFieldByName("exact TotalPrecipWater")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>(),
-                        particles->getFieldManager()->getFieldByName("TotalPrecipWater")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>());
-                    Kokkos::deep_copy(particles->getFieldManager()->getFieldByName("exact Topography")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>(),
-                        particles->getFieldManager()->getFieldByName("Topography")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>());
+            if (initial_step_to_compute==1) {
+                particles->getFieldManager()->createField(1,"exact CloudFraction","m^2/1a");
+                particles->getFieldManager()->createField(1,"exact TotalPrecipWater","m^2/1a");
+                particles->getFieldManager()->createField(1,"exact Topography","m^2/1a");
+                Kokkos::deep_copy(particles->getFieldManager()->getFieldByName("exact CloudFraction")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>(),
+                    particles->getFieldManager()->getFieldByName("CloudFraction")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>());
+                Kokkos::deep_copy(particles->getFieldManager()->getFieldByName("exact TotalPrecipWater")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>(),
+                    particles->getFieldManager()->getFieldByName("TotalPrecipWater")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>());
+                Kokkos::deep_copy(particles->getFieldManager()->getFieldByName("exact Topography")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>(),
+                    particles->getFieldManager()->getFieldByName("Topography")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>());
+                if (my_coloring == 25) {
 			        particles->getFieldManager()->createField(1,"exact Smooth","m^2/1a");
-				    particles->getFieldManager()->getFieldByName("exact Smooth")->
-						localInitFromScalarFunction(function.getRawPtr());
+			        particles->getFieldManager()->getFieldByName("exact Smooth")->
+				    	localInitFromScalarFunction(function.getRawPtr());
                 }
-                // else exact data already is created in the particle set
             }
+            // else exact data already is created in the particle set
 
              // calculate h_size for mesh
              // build halo data
@@ -250,6 +353,9 @@ int main (int argc, char* args[]) {
                     fm2.setWriter(output_filename, particles);
                     fm2.write();
                     WriteTime->stop();
+                    if (i==1 && parameters->get<bool>("print norms")) {
+                        calculateErrorNorms(particles, comm, parameters, "Target ");
+                    }
                 }
 
                 // now the backwards pass from 33->25
@@ -317,98 +423,7 @@ int main (int argc, char* args[]) {
                     WriteTime->stop();
 
                     if (i==1 && parameters->get<bool>("print norms")) {
-            			auto grid_area_field = particles->getFieldManager()->getFieldByName(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("target weighting field name"))->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-            			auto exact_cloudfraction = particles->getFieldManager()->getFieldByName("exact CloudFraction")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-            			auto computed_cloudfraction = particles->getFieldManager()->getFieldByName("CloudFraction")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-            			auto exact_totalprecipwater = particles->getFieldManager()->getFieldByName("exact TotalPrecipWater")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-            			auto computed_totalprecipwater = particles->getFieldManager()->getFieldByName("TotalPrecipWater")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-            			auto exact_topography = particles->getFieldManager()->getFieldByName("exact Topography")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-            			auto computed_topography = particles->getFieldManager()->getFieldByName("Topography")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-
-                        LO local_dof = coords->nLocal();
-                        LO global_dof = 0;
-						double val_sq_error_cloudfraction=0;
-						double val_sq_error_totalprecipwater=0;
-						double val_sq_error_topography=0;
-						double val_exact_cloudfraction=0;
-						double val_exact_totalprecipwater=0;
-						double val_exact_topography=0;
-						double global_sq_error_cloudfraction=0;
-						double global_sq_error_totalprecipwater=0;
-						double global_sq_error_topography=0;
-						double global_exact_cloudfraction=0;
-						double global_exact_totalprecipwater=0;
-						double global_exact_topography=0;
-						double weighted_sq_error_cloudfraction=0;
-						double weighted_sq_error_totalprecipwater=0;
-						double weighted_sq_error_topography=0;
-						double weighted_exact_cloudfraction=0;
-						double weighted_exact_totalprecipwater=0;
-						double weighted_exact_topography=0;
-						double global_weighted_sq_error_cloudfraction=0;
-						double global_weighted_sq_error_totalprecipwater=0;
-						double global_weighted_sq_error_topography=0;
-						double global_weighted_exact_cloudfraction=0;
-						double global_weighted_exact_totalprecipwater=0;
-						double global_weighted_exact_topography=0;
-            			for(int j=0; j<coords->nLocal(); j++){
-							val_sq_error_cloudfraction += (computed_cloudfraction(j,0) - exact_cloudfraction(j,0))*(computed_cloudfraction(j,0) - exact_cloudfraction(j,0));
-							val_sq_error_totalprecipwater += (computed_totalprecipwater(j,0) - exact_totalprecipwater(j,0))*(computed_totalprecipwater(j,0) - exact_totalprecipwater(j,0));
-							val_sq_error_topography += (computed_topography(j,0) - exact_topography(j,0))*(computed_topography(j,0) - exact_topography(j,0));
-							val_exact_cloudfraction += exact_cloudfraction(j,0)*exact_cloudfraction(j,0);
-							val_exact_totalprecipwater += exact_totalprecipwater(j,0)*exact_totalprecipwater(j,0);
-							val_exact_topography += exact_topography(j,0)*exact_topography(j,0);
-
-							weighted_sq_error_cloudfraction += (computed_cloudfraction(j,0) - exact_cloudfraction(j,0))*(computed_cloudfraction(j,0) - exact_cloudfraction(j,0))*grid_area_field(j,0);
-							weighted_sq_error_totalprecipwater += (computed_totalprecipwater(j,0) - exact_totalprecipwater(j,0))*(computed_totalprecipwater(j,0) - exact_totalprecipwater(j,0))*grid_area_field(j,0);
-							weighted_sq_error_topography += (computed_topography(j,0) - exact_topography(j,0))*(computed_topography(j,0) - exact_topography(j,0))*grid_area_field(j,0);
-							weighted_exact_cloudfraction += exact_cloudfraction(j,0)*exact_cloudfraction(j,0)*grid_area_field(j,0);
-							weighted_exact_totalprecipwater += exact_totalprecipwater(j,0)*exact_totalprecipwater(j,0)*grid_area_field(j,0);
-							weighted_exact_topography += exact_topography(j,0)*exact_topography(j,0)*grid_area_field(j,0);
-            			}
-
-						Teuchos::Ptr<LO> global_dof_ptr(&global_dof);
-
-						Teuchos::Ptr<ST> global_sq_error_cloudfraction_ptr(&global_sq_error_cloudfraction);
-						Teuchos::Ptr<ST> global_sq_error_totalprecipwater_ptr(&global_sq_error_totalprecipwater);
-						Teuchos::Ptr<ST> global_sq_error_topography_ptr(&global_sq_error_topography);
-						Teuchos::Ptr<ST> global_exact_cloudfraction_ptr(&global_exact_cloudfraction);
-						Teuchos::Ptr<ST> global_exact_totalprecipwater_ptr(&global_exact_totalprecipwater);
-						Teuchos::Ptr<ST> global_exact_topography_ptr(&global_exact_topography);
-
-						Teuchos::Ptr<ST> global_weighted_sq_error_cloudfraction_ptr(&global_weighted_sq_error_cloudfraction);
-						Teuchos::Ptr<ST> global_weighted_sq_error_totalprecipwater_ptr(&global_weighted_sq_error_totalprecipwater);
-						Teuchos::Ptr<ST> global_weighted_sq_error_topography_ptr(&global_weighted_sq_error_topography);
-						Teuchos::Ptr<ST> global_weighted_exact_cloudfraction_ptr(&global_weighted_exact_cloudfraction);
-						Teuchos::Ptr<ST> global_weighted_exact_totalprecipwater_ptr(&global_weighted_exact_totalprecipwater);
-						Teuchos::Ptr<ST> global_weighted_exact_topography_ptr(&global_weighted_exact_topography);
-
-						Teuchos::reduceAll<int, LO>(*comm, Teuchos::REDUCE_SUM, local_dof, global_dof_ptr);
-
-						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, val_sq_error_cloudfraction, global_sq_error_cloudfraction_ptr);
-						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, val_sq_error_totalprecipwater, global_sq_error_totalprecipwater_ptr);
-						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, val_sq_error_topography, global_sq_error_topography_ptr);
-						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, val_exact_cloudfraction, global_exact_cloudfraction_ptr);
-						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, val_exact_totalprecipwater, global_exact_totalprecipwater_ptr);
-						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, val_exact_topography, global_exact_topography_ptr);
-
-
-						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, weighted_sq_error_cloudfraction, global_weighted_sq_error_cloudfraction_ptr);
-						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, weighted_sq_error_totalprecipwater, global_weighted_sq_error_totalprecipwater_ptr);
-						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, weighted_sq_error_topography, global_weighted_sq_error_topography_ptr);
-						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, weighted_exact_cloudfraction, global_weighted_exact_cloudfraction_ptr);
-						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, weighted_exact_totalprecipwater, global_weighted_exact_totalprecipwater_ptr);
-						Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, weighted_exact_topography, global_weighted_exact_topography_ptr);
-						printf("Absolute l2 error cloudfraction %.16f\n", std::sqrt(global_sq_error_cloudfraction/global_dof));
-						printf("Absolute l2 error totalprecipwater %.16f\n", std::sqrt(global_sq_error_totalprecipwater/global_dof));
-						printf("Absolute l2 error topography %.16f\n", std::sqrt(global_sq_error_topography/global_dof));
-
-						printf("Relative L2 error cloudfraction %.16f\n", std::sqrt(global_weighted_sq_error_cloudfraction/global_weighted_exact_cloudfraction));
-						printf("Relative L2 error totalprecipwater %.16f\n", std::sqrt(global_weighted_sq_error_totalprecipwater/global_weighted_exact_totalprecipwater));
-						printf("Relative L2 error topography %.16f\n", std::sqrt(global_weighted_sq_error_topography/global_weighted_exact_topography));
-						printf("Absolute L2 error cloudfraction %.16f\n", std::sqrt(global_weighted_sq_error_cloudfraction));
-						printf("Absolute L2 error totalprecipwater %.16f\n", std::sqrt(global_weighted_sq_error_totalprecipwater));
-						printf("Absolute L2 error topography %.16f\n", std::sqrt(global_weighted_sq_error_topography));
+                        calculateErrorNorms(particles, comm, parameters, "Source ");
                     }
                 }
             }
