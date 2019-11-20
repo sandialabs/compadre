@@ -135,6 +135,11 @@ int main (int argc, char* args[]) {
 
                 problem->setSources(source);
                 problem->setBCS(bcs);
+
+                // assembly
+                AssemblyTime->start();
+                problem->initialize();
+                AssemblyTime->stop();
             }
         }
     }
