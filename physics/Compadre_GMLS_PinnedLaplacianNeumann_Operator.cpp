@@ -234,6 +234,81 @@ void GMLS_LaplacianNeumannPhysics::computeMatrix(local_index_type field_one, loc
     team_scratch_size += host_scratch_vector_local_index_type::shmem_size(max_num_neighbors * fields[field_two]->nDim()); // local column indices
     const local_index_type host_scratch_team_level = 0; // not used in Kokkos currently
 
+    // Put values from no-constraint GMLS into matrix
+    int nlocal_noconstraint = noconstraint_kokkos_target_coordinates_host.extent(0);
+    Kokkos::parallel_for(host_team_policy(nlocal_noconstraint, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
+        const int i = teamMember.league_rank();
+
+        host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+        host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+
+        const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(noconstraint_filtered_flags(i));
+        const local_index_type num_neighbors = neighbors.size();
+
+        // Print error if there's not enough neighbors:
+        TEUCHOS_TEST_FOR_EXCEPT_MSG(num_neighbors < neighbors_needed,
+            "ERROR: Number of neighbors: " + std::to_string(num_neighbors) << " Neighbors needed: " << std::to_string(neighbors_needed) );
+
+        //Put the values of alpha in the proper place in the global matrix
+        for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+            local_index_type row = local_to_dof_map(noconstraint_filtered_flags(i), field_one, k);
+            for (local_index_type l = 0; l < num_neighbors; l++) {
+                for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+                    col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
+                    if (n==k) { // same field, same component
+                        // implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
+                        // and checking its boundary condition
+                        local_index_type corresponding_particle_id = row/fields[field_one]->nDim();
+                        val_data(l*fields[field_two]->nDim() + n) = noconstraint_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, noconstraint_filtered_flags(i), l);
+                    } else {
+                        val_data(l*fields[field_two]->nDim() + n) = 0.0;
+                    }
+                }
+            }
+            {
+                this->_A->sumIntoLocalValues(row, num_neighbors * fields[field_two]->nDim(), val_data.data(), col_data.data());//, /*atomics*/false);
+            }
+        }
+    });
+
+    // Put values from neumann GMLS into matrix
+    int nlocal_neumann = neumann_kokkos_target_coordinates_host.extent(0);
+    Kokkos::parallel_for(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
+        const int i = teamMember.league_rank();
+
+        host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+        host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+
+        const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
+        const local_index_type num_neighbors = neighbors.size();
+
+        // Print error if there's not enough neighbors:
+        TEUCHOS_TEST_FOR_EXCEPT_MSG(num_neighbors < neighbors_needed,
+            "ERROR: Number of neighbors: " + std::to_string(num_neighbors) << " Neighbors needed: " << std::to_string(neighbors_needed) );
+
+        //Put the values of alpha in the proper place in the global matrix
+        for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+            local_index_type row = local_to_dof_map(_neumann_filtered_flags(i), field_one, k);
+            for (local_index_type l = 0; l < num_neighbors; l++) {
+                for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+                    col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
+                    if (n==k) { // same field, same component
+                        // implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
+                        // and checking its boundary condition
+                        local_index_type corresponding_particle_id = row/fields[field_one]->nDim();
+                        val_data(l*fields[field_two]->nDim() + n) = _neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, _neumann_filtered_flags(i), l);
+                    } else {
+                        val_data(l*fields[field_two]->nDim() + n) = 0.0;
+                    }
+                }
+            }
+            {
+                this->_A->sumIntoLocalValues(row, num_neighbors * fields[field_two]->nDim(), val_data.data(), col_data.data());//, /*atomics*/false);
+            }
+        }
+    });
+
+    // Apply Dirichlet conditions
     Kokkos::parallel_for(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
         const int i = teamMember.league_rank();
 
@@ -257,14 +332,12 @@ void GMLS_LaplacianNeumannPhysics::computeMatrix(local_index_type field_one, loc
                         // implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
                         // and checking its boundary condition
                         local_index_type corresponding_particle_id = row/fields[field_one]->nDim();
-                        if (bc_id(corresponding_particle_id, 0) != 0) {
+                        if (bc_id(corresponding_particle_id, 0) == 1) {
                             if (i==static_cast<local_index_type>(neighbors[l].first)) {
                                 val_data(l*fields[field_two]->nDim() + n) = 1.0;
                             } else {
                                 val_data(l*fields[field_two]->nDim() + n) = 0.0;
                             }
-                        } else {
-                            val_data(l*fields[field_two]->nDim() + n) = noconstraint_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
                         }
                     } else {
                         val_data(l*fields[field_two]->nDim() + n) = 0.0;
@@ -276,7 +349,6 @@ void GMLS_LaplacianNeumannPhysics::computeMatrix(local_index_type field_one, loc
             }
         }
     });
-
     TEUCHOS_ASSERT(!this->_A.is_null());
     this->_A->print(std::cout);
     ComputeMatrixTime->stop();
