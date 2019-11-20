@@ -17,9 +17,9 @@
 
 #include <Compadre_GMLS.hpp>
 
-// #include <Compadre_GMLS_PinnedLaplacianNeumann_Sources.hpp>
-// #include <Compadre_GMLS_PinnedLaplacianNeumann_BoundaryConditions.hpp>
 #include <Compadre_GMLS_PinnedLaplacianNeumann_Operator.hpp>
+#include <Compadre_GMLS_PinnedLaplacianNeumann_BoundaryConditions.hpp>
+#include <Compadre_GMLS_PinnedLaplacianNeumann_Sources.hpp>
 
 typedef int LO;
 typedef long GO;
@@ -124,9 +124,17 @@ int main (int argc, char* args[]) {
                 // construct physics, sources, and boundary conditions
                 Teuchos::RCP<Compadre::GMLS_PinnedLaplacianNeumannPhysics> physics =
                     Teuchos::rcp( new Compadre::GMLS_PinnedLaplacianNeumannPhysics(particles, Porder));
+                Teuchos::RCP<Compadre::GMLS_PinnedLaplacianNeumannSources> source =
+                    Teuchos::rcp( new Compadre::GMLS_PinnedLaplacianNeumannSources(particles));
+                Teuchos::RCP<Compadre::GMLS_PinnedLaplacianNeumannBoundaryConditions> bcs =
+                    Teuchos::rcp( new Compadre::GMLS_PinnedLaplacianNeumannBoundaryConditions(particles));
 
                 // set physics, sources and boundary conditions in the problem
                 problem->setPhysics(physics);
+                source->setPhysics(physics);
+
+                problem->setSources(source);
+                problem->setBCS(bcs);
             }
         }
     }
