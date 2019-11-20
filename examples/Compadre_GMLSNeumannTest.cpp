@@ -122,8 +122,11 @@ int main (int argc, char* args[]) {
                 Teuchos::RCP<Compadre::ProblemT> problem = Teuchos::rcp( new Compadre::ProblemT(particles));
 
                 // construct physics, sources, and boundary conditions
-                Teuchos::RCP<Compadre::GMLS_LaplacianNeumannPhysics> physics =
-                    Teuchos::rcp( new Compadre::GMLS_LaplacianNeumannPhysics(particles, Porder));
+                Teuchos::RCP<Compadre::GMLS_PinnedLaplacianNeumannPhysics> physics =
+                    Teuchos::rcp( new Compadre::GMLS_PinnedLaplacianNeumannPhysics(particles, Porder));
+
+                // set physics, sources and boundary conditions in the problem
+                problem->setPhysics(physics);
             }
         }
     }

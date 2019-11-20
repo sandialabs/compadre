@@ -13,7 +13,7 @@ class GMLS;
 class ParticlesT;
 class NeighborhoodT;
 
-class GMLS_LaplacianNeumannPhysics : public PhysicsT{
+class GMLS_PinnedLaplacianNeumannPhysics : public PhysicsT{
     protected:
         typedef Compadre::ParticlesT particle_type;
 
@@ -23,12 +23,12 @@ class GMLS_LaplacianNeumannPhysics : public PhysicsT{
 
         Kokkos::View<int*>::HostMirror _neumann_filtered_flags;
 
-        GMLS_LaplacianNeumannPhysics(Teuchos::RCP<particle_type> particles, local_index_type t_Porder,
+        GMLS_PinnedLaplacianNeumannPhysics(Teuchos::RCP<particle_type> particles, local_index_type t_Porder,
                                      Teuchos::RCP<crs_graph_type> A_graph = Teuchos::null,
                                      Teuchos::RCP<crs_matrix_type> A = Teuchos::null) :
             PhysicsT(particles, A_graph, A), Porder(t_Porder) {}
 
-        virtual ~GMLS_LaplacianNeumannPhysics() {}
+        virtual ~GMLS_PinnedLaplacianNeumannPhysics() {}
 
         virtual Teuchos::RCP<crs_graph_type> computeGraph(local_index_type field_one, local_index_type field_two = -1);
 

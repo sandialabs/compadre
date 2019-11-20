@@ -24,7 +24,7 @@ typedef Compadre::FieldT fields_type;
 typedef Compadre::NeighborhoodT neighborhood_type;
 typedef Compadre::XyzVector xyz_type;
 
-Teuchos::RCP<crs_graph_type> GMLS_LaplacianNeumannPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
+Teuchos::RCP<crs_graph_type> GMLS_PinnedLaplacianNeumannPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
     if (field_two == -1) {
         field_two = field_one;
     }
@@ -63,7 +63,7 @@ Teuchos::RCP<crs_graph_type> GMLS_LaplacianNeumannPhysics::computeGraph(local_in
     return this->_A_graph;
 }
 
-void GMLS_LaplacianNeumannPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
+void GMLS_PinnedLaplacianNeumannPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
     Teuchos::RCP<Teuchos::Time> ComputeMatrixTime = Teuchos::TimeMonitor::getNewCounter("Computer Matrix Time");
     ComputeMatrixTime->start();
 
@@ -354,7 +354,7 @@ void GMLS_LaplacianNeumannPhysics::computeMatrix(local_index_type field_one, loc
     ComputeMatrixTime->stop();
 }
 
-const std::vector<InteractingFields> GMLS_LaplacianNeumannPhysics::gatherFieldInteractions() {
+const std::vector<InteractingFields> GMLS_PinnedLaplacianNeumannPhysics::gatherFieldInteractions() {
     std::vector<InteractingFields> field_interactions;
     field_interactions.push_back(InteractingFields(op_needing_interaction::physics, 0));
     return field_interactions;
