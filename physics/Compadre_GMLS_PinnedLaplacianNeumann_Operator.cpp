@@ -165,15 +165,16 @@ void GMLS_LaplacianNeumannPhysics::computeMatrix(local_index_type field_one, loc
             noconstraint_filtered_flags);
 
     // Extract out points labeled with Neumann BC
-    auto neumann_filtered_flags = filterViewByID<Kokkos::HostSpace>(kokkos_flags_host, 2);
+    // _neuman_filtered_flags belongs to physics class
+    _neumann_filtered_flags = filterViewByID<Kokkos::HostSpace>(kokkos_flags_host, 2);
     auto neumann_kokkos_target_coordinates_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_target_coordinates_host,
-            neumann_filtered_flags);
+            _neumann_filtered_flags);
     auto neumann_kokkos_neighbor_lists_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_neighbor_lists_host,
-            neumann_filtered_flags);
+            _neumann_filtered_flags);
     auto neumann_kokkos_epsilons_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_epsilons_host,
-            neumann_filtered_flags);
+            _neumann_filtered_flags);
     auto neumann_kokkos_normals_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_normals_host,
-            neumann_filtered_flags);
+            _neumann_filtered_flags);
 
     // Now create a tangent bundles to set for the points with Neumann BC
     Kokkos::View<double***> neumann_kokkos_tangent_bundles_host("target_tangent_bundles", target_coords->nLocal(), target_coords->nDim(), target_coords->nDim());

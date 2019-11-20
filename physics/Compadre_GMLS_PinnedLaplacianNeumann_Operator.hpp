@@ -21,6 +21,8 @@ class GMLS_LaplacianNeumannPhysics : public PhysicsT{
     public:
         Teuchos::RCP<GMLS> _neumann_GMLS;
 
+        Kokkos::View<int*>::HostMirror _neumann_filtered_flags;
+
         GMLS_LaplacianNeumannPhysics(Teuchos::RCP<particle_type> particles, local_index_type t_Porder,
                                      Teuchos::RCP<crs_graph_type> A_graph = Teuchos::null,
                                      Teuchos::RCP<crs_matrix_type> A = Teuchos::null) :
