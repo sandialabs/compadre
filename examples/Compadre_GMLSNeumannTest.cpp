@@ -171,9 +171,23 @@ int main (int argc, char* args[]) {
             Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, norm, global_norm_ptr);
             global_norm = sqrt(global_norm);
             if (comm->getRank()==0) std::cout << "Global Norm: " << global_norm << "\n";
-        }
-    }
+            errors[i] = global_norm;
 
+            // if (parameters->get<Teuchos::ParameterList>("solver").get<std::string>("type")=="direct")
+            //     Teuchos::TimeMonitor::summarize();
+
+            TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i]!=errors[i], "NaN found in error norm.");
+            if (parameters->get<std::string>("solution type")=="sine") {
+                if (i>0)
+                    TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i-1]/errors[i] < 3.5, std::string("Second order not achieved for sine solution (should be 4). Is: ") + std::to_string(errors[i-1]/errors[i]));
+            } else {
+                TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i] > 1e-13, "Second order solution not recovered exactly.");
+            }
+        }
+        // if (comm->getRank()==0) parameters->print();
+    }
+    // Teuchos::TimeMonitor::summarize();
+    Kokkos::finalize();
 #endif
     return 0;
 }
