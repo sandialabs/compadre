@@ -91,7 +91,7 @@ int main (int argc, char* args[]) {
             FirstReadTime->stop();
 
             particles->zoltan2Initialize();
-            particles->getFieldManager()->printAllFields(std::cout);
+            // particles->getFieldManager()->printAllFields(std::cout);
 
             ST halo_size;
             {
@@ -140,7 +140,37 @@ int main (int argc, char* args[]) {
                 AssemblyTime->start();
                 problem->initialize();
                 AssemblyTime->stop();
+
+                // solving
+                SolvingTime->start();
+                problem->solve();
+                SolvingTime->stop();
             }
+
+            // check solution
+            double norm = 0.0;
+            double exact = 0.0;
+
+            Teuchos::RCP<Compadre::AnalyticFunction> function;
+            if (parameters->get<std::string>("solution type")=="sine") {
+                function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts));
+            } else {
+                function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis));
+            }
+
+            for (int j=0; j<coords->nLocal(); j++) {
+                xyz_type xyz = coords->getLocalCoords(j);
+                const ST val = particles->getFieldManagerConst()->getFieldByID(0)->getLocalScalarVal(j);
+                exact = function->evalScalar(xyz);
+                norm += (exact - val)*(exact - val);
+            }
+            norm /= (double)(coords->nGlobalMax());
+
+            ST global_norm;
+            Teuchos::Ptr<ST> global_norm_ptr(&global_norm);
+            Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, norm, global_norm_ptr);
+            global_norm = sqrt(global_norm);
+            if (comm->getRank()==0) std::cout << "Global Norm: " << global_norm << "\n";
         }
     }
 
