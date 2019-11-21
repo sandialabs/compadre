@@ -259,7 +259,7 @@ void GMLS_PinnedLaplacianNeumannPhysics::computeMatrix(local_index_type field_on
                         // implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
                         // and checking its boundary condition
                         local_index_type corresponding_particle_id = row/fields[field_one]->nDim();
-                        val_data(l*fields[field_two]->nDim() + n) = noconstraint_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, noconstraint_filtered_flags(i), l);
+                        val_data(l*fields[field_two]->nDim() + n) = noconstraint_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
                     } else {
                         val_data(l*fields[field_two]->nDim() + n) = 0.0;
                     }
@@ -296,7 +296,7 @@ void GMLS_PinnedLaplacianNeumannPhysics::computeMatrix(local_index_type field_on
                         // implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
                         // and checking its boundary condition
                         local_index_type corresponding_particle_id = row/fields[field_one]->nDim();
-                        val_data(l*fields[field_two]->nDim() + n) = _neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, _neumann_filtered_flags(i), l);
+                        val_data(l*fields[field_two]->nDim() + n) = _neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
                     } else {
                         val_data(l*fields[field_two]->nDim() + n) = 0.0;
                     }
