@@ -164,6 +164,9 @@ void GMLS_PinnedLaplacianNeumannPhysics::computeMatrix(local_index_type field_on
     auto noconstraint_kokkos_epsilons_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_epsilons_host,
             noconstraint_filtered_flags);
 
+    // Extract out points labeled with Dirichlet BC
+    auto dirichlet_filtered_flags = filterViewByID<Kokkos::HostSpace>(kokkos_flags_host, 1);
+
     // Extract out points labeled with Neumann BC
     // _neuman_filtered_flags belongs to physics class
     _neumann_filtered_flags = filterViewByID<Kokkos::HostSpace>(kokkos_flags_host, 2);
@@ -256,9 +259,6 @@ void GMLS_PinnedLaplacianNeumannPhysics::computeMatrix(local_index_type field_on
                 for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
                     col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
                     if (n==k) { // same field, same component
-                        // implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
-                        // and checking its boundary condition
-                        local_index_type corresponding_particle_id = row/fields[field_one]->nDim();
                         val_data(l*fields[field_two]->nDim() + n) = noconstraint_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
                     } else {
                         val_data(l*fields[field_two]->nDim() + n) = 0.0;
@@ -293,9 +293,6 @@ void GMLS_PinnedLaplacianNeumannPhysics::computeMatrix(local_index_type field_on
                 for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
                     col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
                     if (n==k) { // same field, same component
-                        // implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
-                        // and checking its boundary condition
-                        local_index_type corresponding_particle_id = row/fields[field_one]->nDim();
                         val_data(l*fields[field_two]->nDim() + n) = _neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
                     } else {
                         val_data(l*fields[field_two]->nDim() + n) = 0.0;
@@ -309,13 +306,14 @@ void GMLS_PinnedLaplacianNeumannPhysics::computeMatrix(local_index_type field_on
     });
 
     // Apply Dirichlet conditions
-    Kokkos::parallel_for(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
+    int nlocal_dirichlet = dirichlet_filtered_flags.extent(0);
+    Kokkos::parallel_for(host_team_policy(nlocal_dirichlet, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
         const int i = teamMember.league_rank();
 
         host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
         host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
 
-        const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
+        const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(dirichlet_filtered_flags(i));
         const local_index_type num_neighbors = neighbors.size();
 
         // Print error if there's not enough neighbors:
@@ -324,20 +322,15 @@ void GMLS_PinnedLaplacianNeumannPhysics::computeMatrix(local_index_type field_on
 
         //Put the values of alpha in the proper place in the global matrix
         for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-            local_index_type row = local_to_dof_map(i, field_one, k);
+            local_index_type row = local_to_dof_map(dirichlet_filtered_flags(i), field_one, k);
             for (local_index_type l = 0; l < num_neighbors; l++) {
                 for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
                     col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
                     if (n==k) { // same field, same component
-                        // implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
-                        // and checking its boundary condition
-                        local_index_type corresponding_particle_id = row/fields[field_one]->nDim();
-                        if (bc_id(corresponding_particle_id, 0) == 1) {
-                            if (i==static_cast<local_index_type>(neighbors[l].first)) {
-                                val_data(l*fields[field_two]->nDim() + n) = 1.0;
-                            } else {
-                                val_data(l*fields[field_two]->nDim() + n) = 0.0;
-                            }
+                        if (dirichlet_filtered_flags(i)==static_cast<local_index_type>(neighbors[l].first)) {
+                            val_data(l*fields[field_two]->nDim() + n) = 1.0;
+                        } else {
+                            val_data(l*fields[field_two]->nDim() + n) = 0.0;
                         }
                     } else {
                         val_data(l*fields[field_two]->nDim() + n) = 0.0;
