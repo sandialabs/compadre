@@ -20,8 +20,11 @@ class GMLS_PinnedLaplacianNeumannPhysics : public PhysicsT{
         local_index_type Porder;
     public:
         Teuchos::RCP<GMLS> _neumann_GMLS;
+        Teuchos::RCP<GMLS> _noconstraint_GMLS;
 
         Kokkos::View<int*>::HostMirror _neumann_filtered_flags;
+        Kokkos::View<int*>::HostMirror _noconstraint_filtered_flags;
+        Kokkos::View<int*>::HostMirror _dirichlet_filtered_flags;
 
         GMLS_PinnedLaplacianNeumannPhysics(Teuchos::RCP<particle_type> particles, local_index_type t_Porder,
                                      Teuchos::RCP<crs_graph_type> A_graph = Teuchos::null,
@@ -35,6 +38,8 @@ class GMLS_PinnedLaplacianNeumannPhysics : public PhysicsT{
         virtual void computeMatrix(local_index_type field_one, local_index_type field_two = -1, scalar_type time = 0.0);
 
         virtual const std::vector<InteractingFields> gatherFieldInteractions();
+
+        void generateData();
 };
 
 }
