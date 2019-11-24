@@ -79,7 +79,7 @@ void GMLS_PinnedLaplacianNeumannSources::evaluateRHS(local_index_type field_one,
 
 std::vector<InteractingFields> GMLS_PinnedLaplacianNeumannSources::gatherFieldInteractions() {
     std::vector<InteractingFields> field_interactions;
-    field_interactions.push_back(InteractingFields(op_needing_interaction::source, 0));
+    field_interactions.push_back(InteractingFields(op_needing_interaction::source, _particles->getFieldManagerConst()->getIDOfFieldFromName("neumann solution")));
     return field_interactions;
 }
 

@@ -356,7 +356,7 @@ void GMLS_PinnedLaplacianNeumannPhysics::computeMatrix(local_index_type field_on
 
 const std::vector<InteractingFields> GMLS_PinnedLaplacianNeumannPhysics::gatherFieldInteractions() {
     std::vector<InteractingFields> field_interactions;
-    field_interactions.push_back(InteractingFields(op_needing_interaction::physics, 0));
+    field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _particles->getFieldManagerConst()->getIDOfFieldFromName("neumann solution")));
     return field_interactions;
 }
 

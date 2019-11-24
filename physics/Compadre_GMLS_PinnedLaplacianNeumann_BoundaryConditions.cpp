@@ -49,7 +49,7 @@ void GMLS_PinnedLaplacianNeumannBoundaryConditions::applyBoundaries(local_index_
 
 std::vector<InteractingFields> GMLS_PinnedLaplacianNeumannBoundaryConditions::gatherFieldInteractions() {
     std::vector<InteractingFields> field_interactions;
-    field_interactions.push_back(InteractingFields(op_needing_interaction::bc, 0));
+    field_interactions.push_back(InteractingFields(op_needing_interaction::bc, _particles->getFieldManagerConst()->getIDOfFieldFromName("neumann solution")));
     return field_interactions;
 }
 
