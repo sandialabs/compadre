@@ -483,7 +483,7 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
             int num_neigh_target = this->getNNeighbors(target_index);
             double cutoff_p = _epsilons(target_index);
 
-            evaluateConstraints(M, PsqrtW, _constraint_type, cutoff_p, num_neigh_target, &T);
+            evaluateConstraints(M, PsqrtW, _constraint_type, cutoff_p, _dimensions, num_neigh_target, &T);
         }
     }
 }
