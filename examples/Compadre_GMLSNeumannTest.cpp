@@ -91,6 +91,7 @@ int main (int argc, char* args[]) {
             FirstReadTime->stop();
 
             particles->zoltan2Initialize();
+            particles->getFieldManager()->createField(1, "neumann solution");
             // particles->getFieldManager()->printAllFields(std::cout);
 
             ST halo_size;
@@ -157,12 +158,18 @@ int main (int argc, char* args[]) {
             } else {
                 function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis));
             }
+            // store exact solutions onto particles' field
+            particles->getFieldManager()->createField(1, "exact solution");
+            auto function1 = Compadre::SineProducts();
+            particles->getFieldManager()->getFieldByName("exact solution")->localInitFromScalarFunction(&function1);
 
             for (int j=0; j<coords->nLocal(); j++) {
+                // if (particles->getFlag(j) != 0) {
                 xyz_type xyz = coords->getLocalCoords(j);
-                const ST val = particles->getFieldManagerConst()->getFieldByID(0)->getLocalScalarVal(j);
+                const ST val = particles->getFieldManagerConst()->getFieldByName("neumann solution")->getLocalScalarVal(j);
                 exact = function->evalScalar(xyz);
                 norm += (exact - val)*(exact - val);
+                // }
             }
             norm /= (double)(coords->nGlobalMax());
 
@@ -172,6 +179,14 @@ int main (int argc, char* args[]) {
             global_norm = sqrt(global_norm);
             if (comm->getRank()==0) std::cout << "Global Norm: " << global_norm << "\n";
             errors[i] = global_norm;
+
+            WriteTime->start();
+            std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + std::to_string(i) /* loop */ + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
+            std::string writetest_output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "writetest" + std::to_string(i) /* loop */ + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
+            fm.setWriter(output_filename, particles);
+            if (parameters->get<Teuchos::ParameterList>("io").get<bool>("vtk produce mesh")) fm.generateWriteMesh();
+            fm.write();
+            WriteTime->stop();
 
             // if (parameters->get<Teuchos::ParameterList>("solver").get<std::string>("type")=="direct")
             //     Teuchos::TimeMonitor::summarize();
