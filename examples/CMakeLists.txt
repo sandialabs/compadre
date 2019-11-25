@@ -112,6 +112,12 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
     ADD_TEST(NAME CompadreGMLSCurlCurlSineTest4x1amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSCurlCurlTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_curlcurl/parameters_amg_sine.xml" "--kokkos-threads=1")
     SET_TESTS_PROPERTIES(CompadreGMLSCurlCurlSineTest4x1amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;four")
 
+
+    # GMLS LAPLACIAN WITH NEUMANN TEST
+
+    ADD_TEST(NAME CompadreGMLSLaplacianNeumann2x2amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSNeumann "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_neumann/parameters_amg.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(CompadreGMLSCurlCurlSineTest2x2amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls")
+
     # GRAPH LAPLACIAN
 
     ADD_TEST(NAME TrilinosTest COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/tpetraCoordsTest.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/trilinos_test/parameters_amg.xml" "--kokkos-threads=2")
