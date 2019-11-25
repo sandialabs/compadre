@@ -85,7 +85,9 @@ class AdvectionDiffusionPhysics : public PhysicsT {
 
         void setCells(Teuchos::RCP<particle_type> cells) { _cells = cells.getRawPtr(); };
 
-        void generateData();
+        virtual void initialize();
+        
+        virtual local_index_type getMaxNumNeighbors();
 
         Teuchos::RCP<GMLS> getGMLSInstance() { return _gmls; }
 

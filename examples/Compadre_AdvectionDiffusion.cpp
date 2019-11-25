@@ -150,20 +150,20 @@ int main (int argc, char* args[]) {
 
 
 
-			//Set the radius for the neighbor list:
-	 		ST h_support;
-	 		if (parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("dynamic radius")) {
-	 			h_support = h_size;
-	 		} else {
-	 			h_support = parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size");
-	 		}
-	 		particles->createNeighborhood();
-	 		particles->getNeighborhood()->setAllHSupportSizes(h_support);
+			////Set the radius for the neighbor list:
+	 		//ST h_support;
+	 		//if (parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("dynamic radius")) {
+	 		//	h_support = h_size;
+	 		//} else {
+	 		//	h_support = parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size");
+	 		//}
+	 		//particles->createNeighborhood();
+	 		//particles->getNeighborhood()->setAllHSupportSizes(h_support);
 
-	 		LO neighbors_needed = Compadre::GMLS::getNP(Porder, 2 /*dimension*/);
+	 		//LO neighbors_needed = Compadre::GMLS::getNP(Porder, 2 /*dimension*/);
 
-			LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
-			particles->getNeighborhood()->constructAllNeighborList(particles->getCoordsConst()->getHaloSize(), extra_neighbors);
+			//LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
+			//particles->getNeighborhood()->constructAllNeighborList(particles->getCoordsConst()->getHaloSize(), extra_neighbors);
 
 		}
 
