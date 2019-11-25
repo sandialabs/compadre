@@ -1,4 +1,8 @@
 <ParameterList name="Compadre">
+  <ParameterList name="physics">
+    <Parameter name="diffusion" type="double" value="0.0"/>
+    <Parameter name="penalty" type="double" value="0e-4"/>
+  </ParameterList>
   <ParameterList name="io">
     <Parameter name="input file prefix" type="string" value="../test_data/grids/"/>
     <Parameter name="input file" type="string" value="dg_0.nc"/>
@@ -20,7 +24,8 @@
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>
     <Parameter name="dynamic radius" type="bool" value="true"/>
-    <Parameter name="spatially varying radius" type="bool" value="true"/>
+    <Parameter name="spatially varying radius" type="bool" value="false"/>
+    <!-- spatially varying must be false to ensure symmetry in neighborhoods -->
     <Parameter name="multiplier" type="double" value="2.00"/>
     <Parameter name="size" type="double" value="0.5"/>
     <Parameter name="cutoff multiplier" type="double" value="1.6"/>
