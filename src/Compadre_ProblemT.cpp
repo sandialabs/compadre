@@ -186,6 +186,13 @@ void ProblemT::initialize(scalar_type initial_simulation_time) {
         buildMaps(field_interaction.src_fieldnum, field_interaction.trg_fieldnum);
     }
 
+    TEUCHOS_TEST_FOR_EXCEPT_MSG(_OP.is_null(), "Physics not set before initialize() called.");
+    _OP->setParameters(*_parameters);
+    _OP->setDOFData(_problem_dof_data);
+
+    // generate all initial data needed for graphs and assembly
+    _OP->initialize();
+
     // first is graph construction
     for (InteractingFields field_interaction : _field_interactions) {
         local_index_type field_one = field_interaction.src_fieldnum;
@@ -209,9 +216,9 @@ void ProblemT::initialize(scalar_type initial_simulation_time) {
         local_index_type row_block = _field_to_block_row_map[field_one];
         local_index_type col_block = _field_to_block_col_map[field_two];
 
+        assembleOperator(field_one, field_two);
         assembleBCS(field_one, field_two);
         assembleRHS(field_one, field_two);
-        assembleOperator(field_one, field_two);
         if (_A[row_block][col_block]->isFillActive()) {
             _A[row_block][col_block]->fillComplete(_problem_dof_data->getRowMap(col_block), _problem_dof_data->getRowMap(row_block));
         }
@@ -277,10 +284,8 @@ void ProblemT::buildGraphs(local_index_type field_one, local_index_type field_tw
     local_index_type row_block = _field_to_block_row_map[field_one];
     local_index_type col_block = _field_to_block_col_map[field_two];
 
-    TEUCHOS_TEST_FOR_EXCEPT_MSG(_OP.is_null(), "Physics not set before assembleOperator() called.");
-    _OP->setParameters(*_parameters);
-
-    _OP->setDOFData(_problem_dof_data);
+    // let the physics operator determine max num neighbors
+    auto max_num_neighbors = _OP->getMaxNumNeighbors();
 
     if (row_map[row_block].is_null()) {
         buildMaps(field_one, field_two);
@@ -288,7 +293,7 @@ void ProblemT::buildGraphs(local_index_type field_one, local_index_type field_tw
     if (A_graph[row_block][col_block].is_null()) {
         local_index_type field_one_dim = _particles->getFieldManagerConst()->getFieldByID(field_one)->nDim();
         local_index_type field_two_dim = _particles->getFieldManagerConst()->getFieldByID(field_two)->nDim();
-        A_graph[row_block][col_block] = Teuchos::rcp(new crs_graph_type (row_map[row_block], col_map[col_block], _particles->getNeighborhood()->getMaxNumNeighbors()*field_one_dim*field_two_dim, Tpetra::StaticProfile));
+        A_graph[row_block][col_block] = Teuchos::rcp(new crs_graph_type (row_map[row_block], col_map[col_block], max_num_neighbors*field_one_dim*field_two_dim, Tpetra::StaticProfile));
     }
     // _OP sets the initial graph and may change it
     _OP->setGraph(A_graph[row_block][col_block]);

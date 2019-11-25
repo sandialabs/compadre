@@ -242,8 +242,29 @@ scalar_type SineProducts::evalScalarLaplacian(const xyz_type& xyzIn) const {
     }
 }
 
+scalar_type SineProducts::evalAdvectionDiffusionRHS(const xyz_type& xyzIn, const scalar_type diffusion, 
+        const xyz_type& advection_field) const {
+    if (_dim==3) {
+        double grad[3];
+        grad[0] = cos(xyzIn.x)*sin(xyzIn.y)*sin(xyzIn.z);
+        grad[1] = cos(xyzIn.y)*sin(xyzIn.x)*sin(xyzIn.z);
+        grad[2] = cos(xyzIn.z)*sin(xyzIn.x)*sin(xyzIn.y);
+        return -diffusion*3*sin(xyzIn.x)*sin(xyzIn.y)*sin(xyzIn.z) + 
+            (advection_field.x*grad[0] + advection_field.y*grad[1] + advection_field.z*grad[2]);
+    } else {
+        double grad[2];
+        grad[0] = cos(xyzIn.x)*sin(xyzIn.y);
+        grad[1] = cos(xyzIn.y)*sin(xyzIn.x);
+        return -diffusion*2*sin(xyzIn.x)*sin(xyzIn.y) + (advection_field.x*grad[0] + advection_field.y*grad[1]);
+    }
+}
+
 scalar_type SecondOrderBasis::evalScalar(const xyz_type& xyzIn) const {
-    return xyzIn.x*(1 + xyzIn.x + xyzIn.y + xyzIn.z) + xyzIn.y*(1 + xyzIn.y + xyzIn.z) + xyzIn.z*(1 + xyzIn.z);
+    if (_dim==2) {
+        return xyzIn.x*(1 + xyzIn.x + xyzIn.y) + xyzIn.y*(1 + xyzIn.y);
+    } else {
+        return xyzIn.x*(1 + xyzIn.x + xyzIn.y + xyzIn.z) + xyzIn.y*(1 + xyzIn.y + xyzIn.z) + xyzIn.z*(1 + xyzIn.z);
+    }
 }
 
 xyz_type SecondOrderBasis::evalVector(const xyz_type& xyzIn) const {

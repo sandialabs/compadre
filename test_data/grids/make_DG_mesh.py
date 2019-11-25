@@ -4,6 +4,8 @@ import numpy as np
 from netCDF4 import Dataset
 from scipy.spatial import Delaunay
 from scipy.integrate import quad
+import quadLine1D
+import quadTri2D
 
 # helper functions
 def get_velocity(coordinate):
@@ -11,11 +13,12 @@ def get_velocity(coordinate):
 
 def get_num_points_for_order(poly_order, dimension=2):
     if (dimension==1):
-        num_points_lookup=[1,1,1,2,2]
+        #num_points_lookup=[1,1,1,2,2]
+        num_points_lookup=[item.shape[0] for item in quadLine1D.weights]#[1,1,3,4,6,7,12,13,16,19,24,27,32,36,42,55,61,66,73,78]
         num_points = num_points_lookup[poly_order]
         return num_points
     else:
-        num_points_lookup=[1,1,3,4]
+        num_points_lookup=[item.shape[0] for item in quadTri2D.weights]#[1,1,3,4,6,7,12,13,16,19,24,27,32,36,42,55,61,66,73,78]
         num_points = num_points_lookup[poly_order]
         return num_points
 
@@ -24,34 +27,8 @@ def get_quadrature(poly_order, dimension=2):
     num_points = get_num_points_for_order(poly_order, dimension)
     w=np.empty([num_points],dtype="d")
     if (dimension==2):
-        q=np.empty([num_points,2],dtype="d")
-        if (num_points==1):
-            w[0]=0.5;
-            q[0,0]=1./3.;
-            q[0,1]=1./3.;
-        elif (num_points==3):
-            w[0]=1./6.;
-            w[1]=1./6.;
-            w[2]=1./6.;
-            q[0,0]=0.5;
-            q[0,1]=0;
-            q[1,0]=0.5;
-            q[1,1]=0.5;
-            q[2,0]=0;
-            q[2,1]=0.5;
-        elif (num_points==4):
-            w[0]=-9./32.;
-            w[1]=25./96.
-            w[2]=25./96.
-            w[3]=25./96.
-            q[0,0]=1./3.;
-            q[0,1]=1./3.;
-            q[1,0]=0.6;
-            q[1,1]=0.2;
-            q[2,0]=0.2;
-            q[2,1]=0.6;
-            q[3,0]=0.2;
-            q[3,1]=0.2;
+        w=quadTri2D.weights[poly_order]
+        q=quadTri2D.sites[poly_order]
         return (w,q)
     if (dimension==1):
         q=np.empty([num_points],dtype="d")
@@ -73,12 +50,16 @@ def get_line_lengths(physical_vertices):
     return lengths
 
 def get_triangle_area(physical_vertices):
-    t1 = np.empty([2], dtype='d')
-    t2 = np.empty([2], dtype='d')
+    # return value is scaling of the physical triangle
+    # relative to the reference triangle
+    t1 = np.zeros([3], dtype='d')
+    t2 = np.zeros([3], dtype='d')
     for i in range(2):
-        t1[i] = physical_vertices[0,i]-physical_vertices[1,i]
-        t2[i] = physical_vertices[1,i]-physical_vertices[2,i]
-    return abs(np.cross(t1,t2))
+        #t1[i] = physical_vertices[0,i]-physical_vertices[1,i]
+        #t2[i] = physical_vertices[1,i]-physical_vertices[2,i]
+        t1[i] = physical_vertices[1,i]-physical_vertices[0,i]
+        t2[i] = physical_vertices[2,i]-physical_vertices[0,i]
+    return np.linalg.norm(np.cross(t1,t2))
 
 def transform_reference_line_point(weights, ref_quadrature, physical_vertices, vertex_indices):
     centroid = np.zeros([2], dtype='d')
@@ -112,10 +93,12 @@ def transform_reference_triangle_point(weights, ref_quadrature, physical_vertice
     updated_weights = np.copy(weights) * scaling
     updated_quadrature = np.empty(ref_quadrature.shape, dtype='d')
     pv=physical_vertices
-    a = np.array([[pv[0,0]-pv[2,0], pv[1,0]-pv[2,0]], [pv[0,1]-pv[2,1], pv[1,1]-pv[2,1]]], dtype='d');
-    ainv = np.linalg.inv(np.matrix(a))
+    a = np.array([[pv[0,0]-pv[2,0], pv[1,0]-pv[2,0]], [pv[0,1]-pv[2,1], pv[1,1]-pv[2,1]]], dtype='f8');
+    #ainv = np.linalg.inv(np.matrix(a))
+    #ainv = np.matrix(a)
     for i in range(ref_quadrature.shape[0]):
-        updated_quadrature[i,:] = np.dot(a, ref_quadrature[i,:]) + pv[2,:].T
+        updated_quadrature[i,:] = np.matmul(a, ref_quadrature[i,:]) + pv[2,:].T
+        #updated_quadrature[i,:] = np.dot(a, ref_quadrature[i,:]) + pv[2,:].T
     return (updated_weights, updated_quadrature)
     
 def get_unit_normal_vector(line_coordinates):
@@ -186,21 +169,21 @@ def integrate_along_line(line_coordinates):
 vis = False
 
 # geometry
-height = 1.0
-width  = 1.0
+height = 2.0
+width  = 2.0
 
 # random transformations of the original mesh
 random.seed(1234)
 blowup_ratio = 1 # 1 does nothing, identity
-random_rotation = True
+random_rotation = False
 rotation_max = 180 # in degrees (either clockwise or counterclockwise, 180 should be highest needed)
 variation = .00 # as a decimal for a percent
 
 
 #h_all=[0.2]#,0.1,0.05,0.025,0.0125,0.00625]
-h_all=[0.1,0.05]#,0.025,0.0125,0.00625]
+h_all=[0.1,0.05,0.025,0.0125]
 
-poly_order = 3
+poly_order = 1
 num_points_interior = get_num_points_for_order(poly_order, 2)
 num_points_exterior = get_num_points_for_order(poly_order, 1)
 
@@ -236,6 +219,7 @@ for key, h in enumerate(h_all):
     all_normals = np.zeros([tri.simplices.shape[0], 2*(num_points_interior + 3*num_points_exterior)], dtype='d')
     all_interior = np.ones([tri.simplices.shape[0], num_points_interior + 3*num_points_exterior], dtype='int')
     all_vertices = np.zeros([tri.simplices.shape[0], 2], dtype='d')
+    all_adjacent_elements = np.zeros([tri.simplices.shape[0], 3], dtype='int')
 
     (w_interior, q_interior) = get_quadrature(poly_order, 2)
     (w_exterior, q_exterior) = get_quadrature(poly_order, 1)
@@ -266,6 +250,7 @@ for key, h in enumerate(h_all):
                 # put a 1 for interior quadrature point to a cell, 0 for exterior (edge/face), and 2 for exterior (edge/face) but on a Dirichlet boundary
                 all_interior  [i, num_points_interior + k*num_points_exterior + j] = e_type[k];
                 all_weights   [i, num_points_interior + k*num_points_exterior + j] = w_physical_exterior[k*num_points_exterior + j]
+            all_adjacent_elements [i, k] = edge_adjacency[(k-1)%3] # consistent with point/edge ordering for e_type
 
 
     if (vis):
@@ -301,6 +286,7 @@ for key, h in enumerate(h_all):
     dataset = Dataset('dg_%d.nc'%key, mode="w", clobber=True, diskless=False,\
                        persist=False, keepweakref=False, format='NETCDF4')
     dataset.createDimension('num_entities', size=tri.simplices.shape[0])
+    dataset.createDimension('num_edges', size=3)
     dataset.createDimension('num_interior_quadrature', size=num_points_interior)
     dataset.createDimension('num_exterior_quadrature', size=3*num_points_exterior)
     dataset.createDimension('num_total_quadrature', size=num_points_interior + 3*num_points_exterior)
@@ -337,6 +323,10 @@ for key, h in enumerate(h_all):
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
+    dataset.createVariable('adjacent_elements', datatype='int', dimensions=('num_entities','num_edges'), zlib=False, complevel=4,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
+
 
     dataset.variables['x'][:]=all_vertices[:,0]
     dataset.variables['y'][:]=all_vertices[:,1]
@@ -345,6 +335,7 @@ for key, h in enumerate(h_all):
     dataset.variables['quadrature_points'][:,:]=all_quadrature[:,:]
     dataset.variables['unit_normal'][:,:]=all_normals[:,:]
     dataset.variables['interior'][:,:]=all_interior[:,:]
+    dataset.variables['adjacent_elements'][:,:]=all_adjacent_elements[:,:]
 
 
     #help(dataset)
