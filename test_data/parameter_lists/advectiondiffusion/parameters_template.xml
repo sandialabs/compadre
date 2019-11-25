@@ -11,15 +11,16 @@
     <Parameter name="vtk produce mesh" type="bool" value="false"/>
   </ParameterList>
   <ParameterList name="solver">
-    <Parameter name="type" type="string" value="iterative"/>
+    <Parameter name="type" type="string" value="direct"/>
     <Parameter name="file" type="string" value="../test_data/parameter_lists/advectiondiffusion/solver_amg.xml"/>
     <Parameter name="blocked" type="bool" value="true"/>
     <!--<Parameter name="save residual over solution" type="bool" value="true"/>-->
   </ParameterList>
   <ParameterList name="remap">
-    <Parameter name="weighting power" type="int" value="13"/>
-    <Parameter name="porder" type="int" value="2"/>
+    <Parameter name="weighting power" type="int" value="3"/>
+    <Parameter name="porder" type="int" value="1"/>
     <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
+    <Parameter name="dense solver type" type="string" value="SVD"/>
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>
@@ -28,7 +29,7 @@
     <!-- spatially varying must be false to ensure symmetry in neighborhoods -->
     <Parameter name="multiplier" type="double" value="2.00"/>
     <Parameter name="size" type="double" value="0.5"/>
-    <Parameter name="cutoff multiplier" type="double" value="1.6"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.2"/>
   </ParameterList>
   <ParameterList name="halo">
     <Parameter name="dynamic" type="bool" value="true"/>
