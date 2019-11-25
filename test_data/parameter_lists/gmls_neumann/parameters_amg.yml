@@ -19,7 +19,7 @@ Compadre:
     'blocked': false
   'remap':
     'weighting power': 5
-    'porder': 2
+    'porder': 3
     'neighbors needed multiplier': 1.0
     'quadrature order': 2
     'quadrature dimension': 1
