@@ -98,6 +98,7 @@ bool all_passed = true;
             dimension = arg4toi;
         }
     }
+    compadre_assert_release((dimension==2 || dimension==3) && "Only supports 2D or 3D.");
     
     // check if 3 arguments are given from the command line
     //  set the number of target sites where we will reconstruct the target functionals at
@@ -205,8 +206,7 @@ bool all_passed = true;
             tangent_bundles(i, 0, 1) = 0.0;
             tangent_bundles(i, 1, 0) = 1.0/(sqrt(2.0));
             tangent_bundles(i, 1, 1) = 1.0/(sqrt(2.0));
-        }
-        if (dimension == 3) {
+        } else if (dimension == 3) {
             tangent_bundles(i, 0, 0) = 0.0;
             tangent_bundles(i, 0, 1) = 0.0;
             tangent_bundles(i, 0, 2) = 0.0;
@@ -418,9 +418,8 @@ bool all_passed = true;
         // calculate value of g to reconstruct the computed Laplacian
         double actual_Gradient[3] = {0,0,0}; // initialized for 3, but only filled up to dimension
         trueGradient(actual_Gradient, xval, yval, zval, order, dimension);
-        double g;
-        if (dimension == 3) g = (1.0/sqrt(3.0))*(actual_Gradient[0] + actual_Gradient[1] + actual_Gradient[2]);
-        if (dimension == 2) g = (1.0/sqrt(2.0))*(actual_Gradient[0] + actual_Gradient[1]);
+        double g = (dimension == 3) ? (1.0/sqrt(3.0))*(actual_Gradient[0] + actual_Gradient[1] + actual_Gradient[2]) 
+                                        : (1.0/sqrt(2.0))*(actual_Gradient[0] + actual_Gradient[1]);
         double adjusted_value = GMLS_value + b_i*g;
 
         // check actual function value
