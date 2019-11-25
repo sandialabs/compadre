@@ -122,7 +122,7 @@ void GMLS_PinnedLaplacianNeumannPhysics::generateData() {
             _noconstraint_filtered_flags);
 
     // Extract out points labeled with Dirichlet BC
-    auto _dirichlet_filtered_flags = filterViewByID<Kokkos::HostSpace>(kokkos_flags_host, 1);
+    _dirichlet_filtered_flags = filterViewByID<Kokkos::HostSpace>(kokkos_flags_host, 1);
 
     // Extract out points labeled with Neumann BC
     // _neuman_filtered_flags belongs to physics class
