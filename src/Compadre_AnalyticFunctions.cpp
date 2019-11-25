@@ -214,6 +214,17 @@ scalar_type SineProducts::evalScalar(const xyz_type& xyzIn) const {
     }
 }
 
+xyz_type SineProducts::evalScalarDerivative(const xyz_type& xyzIn) const {
+    if (_dim==3) {
+        return xyz_type(cos(xyzIn.x)*sin(xyzIn.y)*sin(xyzIn.z),
+                        sin(xyzIn.x)*cos(xyzIn.y)*sin(xyzIn.z),
+                        sin(xyzIn.x)*sin(xyzIn.y)*cos(xyzIn.z));
+    } else {
+        return xyz_type(cos(xyzIn.x)*sin(xyzIn.y),
+                        sin(xyzIn.x)*cos(xyzIn.y));
+    }
+}
+
 xyz_type SineProducts::evalVector(const xyz_type& xyzIn) const {
     if (_dim==3) {
         return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn),2*evalScalar(xyzIn));
