@@ -115,7 +115,7 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
 
     # GMLS LAPLACIAN WITH NEUMANN TEST
 
-    ADD_TEST(NAME CompadreGMLSLaplacianNeumann2x2amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSNeumann "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_neumann/parameters_amg.xml" "--kokkos-threads=2")
+    ADD_TEST(NAME CompadreGMLSLaplacianNeumann2x2amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSNeumann "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_neumann/parameters_amg.yml" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(CompadreGMLSLaplacianNeumann2x2amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls")
 
     # GRAPH LAPLACIAN
