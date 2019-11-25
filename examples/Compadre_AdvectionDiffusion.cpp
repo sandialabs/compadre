@@ -106,20 +106,20 @@ int main (int argc, char* args[]) {
 
 
 
-			//Set the radius for the neighbor list:
-	 		ST h_support;
-	 		if (parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("dynamic radius")) {
-	 			h_support = h_size;
-	 		} else {
-	 			h_support = parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size");
-	 		}
-	 		cells->createNeighborhood();
-	 		cells->getNeighborhood()->setAllHSupportSizes(h_support);
+			////Set the radius for the neighbor list:
+	 		//ST h_support;
+	 		//if (parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("dynamic radius")) {
+	 		//	h_support = h_size;
+	 		//} else {
+	 		//	h_support = parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size");
+	 		//}
+	 		//cells->createNeighborhood();
+	 		//cells->getNeighborhood()->setAllHSupportSizes(h_support);
 
-	 		LO neighbors_needed = Compadre::GMLS::getNP(Porder, 2 /*dimension*/);
+	 		//LO neighbors_needed = Compadre::GMLS::getNP(Porder, 2 /*dimension*/);
 
-			LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
-			cells->getNeighborhood()->constructAllNeighborList(cells->getCoordsConst()->getHaloSize(), extra_neighbors);
+			//LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
+			//cells->getNeighborhood()->constructAllNeighborList(cells->getCoordsConst()->getHaloSize(), extra_neighbors);
 
 		}
 //		{
@@ -212,7 +212,7 @@ int main (int argc, char* args[]) {
 		particles->getFieldManager()->createField(1, "processed solution", "m/s");
 		auto processed_view = particles->getFieldManager()->getFieldByName("processed solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 		auto dof_view = particles->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-	    auto neighborhood = cells->getNeighborhoodConst();
+	    auto neighborhood = physics->_cell_particles_neighborhood;//cells->getNeighborhoodConst();
 
         // loop over cells
 		for( int j =0; j<coords->nLocal(); j++){
@@ -293,12 +293,15 @@ int main (int argc, char* args[]) {
 		auto exact_view = particles->getFieldManager()->getFieldByName("exact solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 		for( int j =0; j<coords->nLocal(); j++){
 			xyz_type xyz = coords->getLocalCoords(j);
-			const ST val = particles->getFieldManagerConst()->getFieldByName("solution")->getLocalScalarVal(j);
-			exact = function->evalScalar(xyz);
+			//const ST val = particles->getFieldManagerConst()->getFieldByName("processed solution")->getLocalScalarVal(j);
+			const ST val = dof_view(j,0);
+			exact = 1;//+xyz[0]+xyz[1];//function->evalScalar(xyz);
 			norm += (exact - val)*(exact-val);
 			exact_view(j,0) = exact;
 		}
 		norm /= (double)(coords->nGlobalMax());
+
+        // get matrix out from problem_T
 
 		ST global_norm;
 		Teuchos::Ptr<ST> global_norm_ptr(&global_norm);
