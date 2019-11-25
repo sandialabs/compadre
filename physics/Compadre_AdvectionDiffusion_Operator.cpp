@@ -29,7 +29,7 @@ typedef Compadre::NanoFlannInformation nanoflann_neighborhood_type;
 typedef Compadre::XyzVector xyz_type;
 
 
-void AdvectionDiffusionPhysics::generateData() {
+void AdvectionDiffusionPhysics::initialize() {
 
 	Teuchos::RCP<Teuchos::Time> GenerateData = Teuchos::TimeMonitor::getNewCounter ("Generate Data");
     GenerateData->start();
@@ -211,12 +211,11 @@ void AdvectionDiffusionPhysics::generateData() {
 
 }
 
+local_index_type AdvectionDiffusionPhysics::getMaxNumNeighbors() {
+    return _cell_particles_max_num_neighbors;
+}
 
 Teuchos::RCP<crs_graph_type> AdvectionDiffusionPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
-    if (_gmls.is_null()) {
-        this->generateData();
-    }
-
 	if (field_two == -1) {
 		field_two = field_one;
 	}

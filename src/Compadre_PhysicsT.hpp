@@ -75,6 +75,12 @@ class PhysicsT {
 			return 0;
 		}
 
+        // any problem data that needs generated once before assembly
+        virtual void initialize() {}
+
+        // default comes from particles class 
+        virtual local_index_type getMaxNumNeighbors();
+
 };
 
 }
