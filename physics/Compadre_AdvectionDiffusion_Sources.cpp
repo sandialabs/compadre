@@ -64,62 +64,246 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     host_vector_local_index_type row_seen("has row had dirichlet addition", nlocal);
     Kokkos::deep_copy(row_seen,0);
 
+    //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
+    //    // get all particle neighbors of cell i
+    //    //local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
+    //    //for (size_t j=0; j<cell_particles_all_neighbors[i].size(); ++j) {
+    //    for (size_t j=0; j<cell_particles_all_neighbors[i].size(); ++j) {
+    //        //auto particle_j = cell_particles_all_neighbors[i][j].first;
+    //        auto cell_j = cell_particles_all_neighbors[i][j].first;
+    //        //Put the values of alpha in the proper place in the global matrix
+    //        //for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+    //        //local_index_type row = local_to_dof_map(particle_j, field_one, 0 /* component 0*/);
+    //        local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
+    //        //if (bc_id(row, 0) == 0) {
+    //            // loop over quadrature
+    //            double contribution = 0;
+    //            //std::vector<double> edge_lengths(3);
+    //            //int current_edge_num = 0;
+    //            //for (int q=0; q<_physics->_weights_ndim; ++q) {
+    //            //    if (quadrature_type(i,q)!=1) { // edge
+    //            //        int new_current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+    //            //        if (new_current_edge_num!=current_edge_num) {
+    //            //            edge_lengths[new_current_edge_num] = quadrature_weights(i,q);
+    //            //            current_edge_num = new_current_edge_num;
+    //            //        } else {
+    //            //            edge_lengths[current_edge_num] += quadrature_weights(i,q);
+    //            //        }
+    //            //    }
+    //            //}
+    //            // loop through j's neighbor list until i find i
+    //            auto i_index_to_j = -1;
+    //            for (size_t k=0; k<cell_particles_all_neighbors[j].size(); ++k) {
+    //                if (particles_particles_all_neighbors[j][k].first == static_cast<size_t>(i)) {
+    //                    i_index_to_j = k;
+    //                    break;
+    //                }
+    //            }
+    //            for (int q=0; q<_physics->_weights_ndim; ++q) {
+    //                if (quadrature_type(cell_j,q)==1) { // interior
+    //                    // integrating RHS function
+    //                    //double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
+    //                    double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_j, i_index_to_j, q+1);
+    //                    xyz_type pt(quadrature_points(cell_j,2*q),quadrature_points(cell_j,2*q+1),0);
+    //                    contribution += quadrature_weights(cell_j,q) * v * function->evalScalar(pt);
+    //                } 
+    //                //else if (quadrature_type(i,q)==2) { // edge on exterior
+    //                //    //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_physics->_kokkos_epsilons_host(i);
+    //                //    // DG enforcement of Dirichlet BCs
+    //                //    int current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+    //                //    auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/edge_lengths[current_edge_num];
+    //                //    int adjacent_cell = adjacent_elements(i,current_edge_num);
+    //                //    //printf("%d, %d, %d, %d\n", i, q, current_edge_num, adjacent_cell);
+    //                //    if (adjacent_cell >= 0) {
+    //                //        printf("SHOULD BE NEGATIVE NUMBER!\n");
+    //                //    }
+    //                //    // penalties for edges of mass
+    //                //    double vr = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
+    //                //    xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
+    //                //    contribution += penalty * quadrature_weights(i,q) * vr * function->evalScalar(pt);
+    //                //}
+    //            }
+    //            if (row_seen(row)==1) { // already seen
+    //                rhs_vals(row,0) += contribution;
+    //            } else {
+    //                rhs_vals(row,0) = contribution;
+    //                row_seen(row) = 1;
+    //            }
+    //        //}
+    //    }
+    //}
+    //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
+    //    // get all particle neighbors of cell i
+    //    //local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
+    //    //for (size_t j=0; j<cell_particles_all_neighbors[i].size(); ++j) {
+    //    for (size_t j=0; j<cell_particles_all_neighbors[i].size(); ++j) {
+    //        auto particle_j = cell_particles_all_neighbors[i][j].first;
+    //        //auto cell_j = cell_particles_all_neighbors[i][j].first;
+    //        //Put the values of alpha in the proper place in the global matrix
+    //        //for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+    //        local_index_type row = local_to_dof_map(particle_j, field_one, 0 /* component 0*/);
+    //        //local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
+    //        //if (bc_id(row, 0) == 0) {
+    //            // loop over quadrature
+    //            double contribution = 0;
+    //            //std::vector<double> edge_lengths(3);
+    //            //int current_edge_num = 0;
+    //            //for (int q=0; q<_physics->_weights_ndim; ++q) {
+    //            //    if (quadrature_type(i,q)!=1) { // edge
+    //            //        int new_current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+    //            //        if (new_current_edge_num!=current_edge_num) {
+    //            //            edge_lengths[new_current_edge_num] = quadrature_weights(i,q);
+    //            //            current_edge_num = new_current_edge_num;
+    //            //        } else {
+    //            //            edge_lengths[current_edge_num] += quadrature_weights(i,q);
+    //            //        }
+    //            //    }
+    //            //}
+    //            // loop through j's neighbor list until i find i
+    //            for (int q=0; q<_physics->_weights_ndim; ++q) {
+    //                if (quadrature_type(i,q)==1) { // interior
+    //                    // integrating RHS function
+    //                    double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
+    //                    xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
+    //                    contribution += quadrature_weights(i,q) * v * function->evalScalar(pt);
+    //                } 
+    //                //else if (quadrature_type(i,q)==2) { // edge on exterior
+    //                //    //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_physics->_kokkos_epsilons_host(i);
+    //                //    // DG enforcement of Dirichlet BCs
+    //                //    int current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+    //                //    auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/edge_lengths[current_edge_num];
+    //                //    int adjacent_cell = adjacent_elements(i,current_edge_num);
+    //                //    //printf("%d, %d, %d, %d\n", i, q, current_edge_num, adjacent_cell);
+    //                //    if (adjacent_cell >= 0) {
+    //                //        printf("SHOULD BE NEGATIVE NUMBER!\n");
+    //                //    }
+    //                //    // penalties for edges of mass
+    //                //    double vr = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
+    //                //    xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
+    //                //    contribution += penalty * quadrature_weights(i,q) * vr * function->evalScalar(pt);
+    //                //}
+    //            }
+    //            if (row_seen(row)==1) { // already seen
+    //                rhs_vals(row,0) += contribution;
+    //            } else {
+    //                rhs_vals(row,0) = contribution;
+    //                row_seen(row) = 1;
+    //            }
+    //        //}
+    //    }
+    //}
+ 
+    //// loop over a cell
+    //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
+    //    // find particle having contribution in this cell
+    //    for (size_t j=0; j<cell_particles_all_neighbors[i].size(); ++j) {
+    //        auto particle_j = cell_particles_all_neighbors[i][j].first;
+    //        // add the contribution to the row for the particle
+    //        local_index_type row = local_to_dof_map(particle_j, field_one, 0 /* component 0*/);
+    //        double contribution = 0;
+    //        // loop through j's neighbor list until i find i
+    //        for (int q=0; q<_physics->_weights_ndim; ++q) {
+    //            if (quadrature_type(i,q)==1) { // interior
+    //                // integrating RHS function
+    //                double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
+    //                xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
+    //                contribution += quadrature_weights(i,q) * v * function->evalScalar(pt);
+    //            } 
+    //        }
+    //        if (row_seen(row)==1) { // already seen
+    //            rhs_vals(row,0) += contribution;
+    //        } else {
+    //            rhs_vals(row,0) = contribution;
+    //            row_seen(row) = 1;
+    //        }
+    //        
+    //    }
+    //}
+
+    //// loop over particles GOOD
+    //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
+    //    // loop over cells touching that particle
+    //    local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
+    //    for (size_t j=0; j<cell_particles_all_neighbors[i].size(); ++j) {
+    //        auto cell_j = cell_particles_all_neighbors[i][j].first;
+    //        // add the contribution to the row for the particle
+    //        double contribution = 0;
+    //        // what neighbor is i to cell_j
+    //        auto i_index_to_j = -1;
+    //        for (size_t k=0; k<cell_particles_all_neighbors[cell_j].size(); ++k) {
+    //            if (particles_particles_all_neighbors[cell_j][k].first == static_cast<size_t>(i)) {
+    //                i_index_to_j = k;
+    //                break;
+    //            }
+    //        }
+    //        // loop through j's neighbor list until i find i
+    //        for (int q=0; q<_physics->_weights_ndim; ++q) {
+    //            if (quadrature_type(cell_j,q)==1) { // interior
+    //                // integrating RHS function
+    //                double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_j, i_index_to_j, q+1);
+    //                xyz_type pt(quadrature_points(cell_j,2*q),quadrature_points(cell_j,2*q+1),0);
+    //                contribution += quadrature_weights(cell_j,q) * v * 1;//(1 + pt[0] + pt[1]);//function->evalScalar(pt);
+    //            } 
+    //        }
+    //        if (row_seen(row)==1) { // already seen
+    //            rhs_vals(row,0) += contribution;
+    //        } else {
+    //            rhs_vals(row,0) = contribution;
+    //            row_seen(row) = 1;
+    //        }
+    //        
+    //    }
+    //}
+    
+
+    // just for putting polynomial at pts
+    // loop over particles
     for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
-        // get all particle neighbors of cell i
-        //local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
+        // loop over cells touching that particle
+        local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
+        auto pt = this->_coords->getLocalCoords(i);
+        rhs_vals(row, 0) = 1.0;//function->evalScalar(pt);
+    }
+ 
+	host_view_type pts = this->_coords->getPts()->getLocalView<host_view_type>();
+    // test of basis
+    for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
+        // loop over cells touching that particle
+        local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
         for (size_t j=0; j<cell_particles_all_neighbors[i].size(); ++j) {
-            auto particle_j = cell_particles_all_neighbors[i][j].first;
-            //Put the values of alpha in the proper place in the global matrix
-            //for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-            local_index_type row = local_to_dof_map(particle_j, field_one, 0 /* component 0*/);
-            if (bc_id(row, 0) == 0) {
-                // loop over quadrature
-                double contribution = 0;
-                std::vector<double> edge_lengths(3);
-                int current_edge_num = 0;
-                for (int q=0; q<_physics->_weights_ndim; ++q) {
-                    if (quadrature_type(i,q)!=1) { // edge
-                        int new_current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                        if (new_current_edge_num!=current_edge_num) {
-                            edge_lengths[new_current_edge_num] = quadrature_weights(i,q);
-                            current_edge_num = new_current_edge_num;
-                        } else {
-                            edge_lengths[current_edge_num] += quadrature_weights(i,q);
-                        }
-                    }
+            auto cell_j = cell_particles_all_neighbors[i][j].first;
+
+
+            // add the contribution to the row for the particle
+            double contribution = 0;
+            // what neighbor is i to cell_j
+            auto i_index_to_j = -1;
+            for (size_t k=0; k<cell_particles_all_neighbors[cell_j].size(); ++k) {
+                if (particles_particles_all_neighbors[cell_j][k].first == static_cast<size_t>(i)) {
+                    i_index_to_j = k;
+                    break;
                 }
-                for (int q=0; q<_physics->_weights_ndim; ++q) {
-                    if (quadrature_type(i,q)==1) { // interior
-                        // integrating RHS function
-                        double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
-                        xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
-                        contribution += quadrature_weights(i,q) * v * function->evalScalar(pt);
-                    } 
-                    //else if (quadrature_type(i,q)==2) { // edge on exterior
-                    //    //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_physics->_kokkos_epsilons_host(i);
-                    //    // DG enforcement of Dirichlet BCs
-                    //    int current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                    //    auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/edge_lengths[current_edge_num];
-                    //    int adjacent_cell = adjacent_elements(i,current_edge_num);
-                    //    //printf("%d, %d, %d, %d\n", i, q, current_edge_num, adjacent_cell);
-                    //    if (adjacent_cell >= 0) {
-                    //        printf("SHOULD BE NEGATIVE NUMBER!\n");
-                    //    }
-                    //    // penalties for edges of mass
-                    //    double vr = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
-                    //    xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
-                    //    contribution += penalty * quadrature_weights(i,q) * vr * function->evalScalar(pt);
-                    //}
-                }
-                if (row_seen(row)==1) { // already seen
-                    rhs_vals(row,0) += contribution;
-                } else {
-                    rhs_vals(row,0) = contribution;
-                    row_seen(row) = 1;
-                }
+            }
+
+
+            if (i_index_to_j >= 0) {
+            // loop through j's neighbor list until i find i
+            for (int q=0; q<_physics->_weights_ndim; ++q) {
+                if (quadrature_type(cell_j,q)==1) { // interior
+                    // integrating RHS function
+                    double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_j, i_index_to_j, q+1);
+                    xyz_type pt(quadrature_points(cell_j,2*q),quadrature_points(cell_j,2*q+1),0);
+                    contribution += quadrature_weights(cell_j,q) * v * 1;//(1 + pt[0] + pt[1]);//function->evalScalar(pt);
+                    // basis eval is:
+                    printf("q: %d %d (%f,%f): %.16f\n", i, j, pt[0], pt[1], _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_j, i_index_to_j, q+1));
+                } 
+            }
+            printf("m: %d %d (%f,%f): %.16f\n", i, j, pts(cell_j,0), pts(cell_j,1), _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_j, i_index_to_j, 0));
             }
         }
     }
+
+
     auto global_force = 1.9166666666666665;//0.21132196999014932;
     double sum = 0;
     for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {

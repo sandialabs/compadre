@@ -50,12 +50,16 @@ def get_line_lengths(physical_vertices):
     return lengths
 
 def get_triangle_area(physical_vertices):
-    t1 = np.empty([2], dtype='d')
-    t2 = np.empty([2], dtype='d')
+    # return value is scaling of the physical triangle
+    # relative to the reference triangle
+    t1 = np.zeros([3], dtype='d')
+    t2 = np.zeros([3], dtype='d')
     for i in range(2):
-        t1[i] = physical_vertices[0,i]-physical_vertices[1,i]
-        t2[i] = physical_vertices[1,i]-physical_vertices[2,i]
-    return abs(np.cross(t1,t2))
+        #t1[i] = physical_vertices[0,i]-physical_vertices[1,i]
+        #t2[i] = physical_vertices[1,i]-physical_vertices[2,i]
+        t1[i] = physical_vertices[1,i]-physical_vertices[0,i]
+        t2[i] = physical_vertices[2,i]-physical_vertices[0,i]
+    return np.linalg.norm(np.cross(t1,t2))
 
 def transform_reference_line_point(weights, ref_quadrature, physical_vertices, vertex_indices):
     centroid = np.zeros([2], dtype='d')
@@ -89,10 +93,12 @@ def transform_reference_triangle_point(weights, ref_quadrature, physical_vertice
     updated_weights = np.copy(weights) * scaling
     updated_quadrature = np.empty(ref_quadrature.shape, dtype='d')
     pv=physical_vertices
-    a = np.array([[pv[0,0]-pv[2,0], pv[1,0]-pv[2,0]], [pv[0,1]-pv[2,1], pv[1,1]-pv[2,1]]], dtype='d');
-    ainv = np.linalg.inv(np.matrix(a))
+    a = np.array([[pv[0,0]-pv[2,0], pv[1,0]-pv[2,0]], [pv[0,1]-pv[2,1], pv[1,1]-pv[2,1]]], dtype='f8');
+    #ainv = np.linalg.inv(np.matrix(a))
+    #ainv = np.matrix(a)
     for i in range(ref_quadrature.shape[0]):
-        updated_quadrature[i,:] = np.dot(a, ref_quadrature[i,:]) + pv[2,:].T
+        updated_quadrature[i,:] = np.matmul(a, ref_quadrature[i,:]) + pv[2,:].T
+        #updated_quadrature[i,:] = np.dot(a, ref_quadrature[i,:]) + pv[2,:].T
     return (updated_weights, updated_quadrature)
     
 def get_unit_normal_vector(line_coordinates):
@@ -163,8 +169,8 @@ def integrate_along_line(line_coordinates):
 vis = False
 
 # geometry
-height = 1.0
-width  = 1.0
+height = 2.0
+width  = 2.0
 
 # random transformations of the original mesh
 random.seed(1234)
@@ -177,7 +183,7 @@ variation = .00 # as a decimal for a percent
 #h_all=[0.2]#,0.1,0.05,0.025,0.0125,0.00625]
 h_all=[0.1,0.05,0.025,0.0125]
 
-poly_order = 10
+poly_order = 1
 num_points_interior = get_num_points_for_order(poly_order, 2)
 num_points_exterior = get_num_points_for_order(poly_order, 1)
 

@@ -315,6 +315,19 @@ void SolverT::solve() {
 
     if (_parameters->get<std::string>("type")=="direct") {
 
+        //// DIAGNOSTICS
+        //// extra mat-vec then print sum
+        //_A_tpetra[0][0]->apply (*_b_tpetra[0], *_x_tpetra[0], Teuchos::NO_TRANS);
+        //auto x_view = _x_tpetra[0]->getLocalView<Compadre::host_view_type>();
+        //double sum = 0;
+        //for (size_t j=0; j<x_view.extent(0); ++j) {
+        //    sum += x_view(j,0);
+        //}
+        //printf("SUM IS: %.16f\n", sum);
+
+        //auto out = Teuchos::getFancyOStream(Teuchos::rcpFromRef(std::cout));
+        ////_A_tpetra[0][0]->describe(*out, Teuchos::VERB_EXTREME);
+
         // Constructor from Factory
         Teuchos::RCP<Amesos2::Solver<crs_matrix_type,mvec_type> > solver;
         try{
@@ -329,6 +342,7 @@ void SolverT::solve() {
         }
         solver->solve();
         auto out = Teuchos::getFancyOStream(Teuchos::rcpFromRef(std::cout));
+        //_A_tpetra[0][0]->describe(*out, Teuchos::VERB_EXTREME);
         solver->printTiming(*out, Teuchos::VERB_LOW);
 
     } else if (_parameters->get<std::string>("type")=="iterative") {
