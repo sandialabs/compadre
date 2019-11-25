@@ -164,12 +164,10 @@ int main (int argc, char* args[]) {
             particles->getFieldManager()->getFieldByName("exact solution")->localInitFromScalarFunction(&function1);
 
             for (int j=0; j<coords->nLocal(); j++) {
-                // if (particles->getFlag(j) != 0) {
                 xyz_type xyz = coords->getLocalCoords(j);
                 const ST val = particles->getFieldManagerConst()->getFieldByName("neumann solution")->getLocalScalarVal(j);
                 exact = function->evalScalar(xyz);
                 norm += (exact - val)*(exact - val);
-                // }
             }
             norm /= (double)(coords->nGlobalMax());
 
@@ -194,7 +192,7 @@ int main (int argc, char* args[]) {
             TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i]!=errors[i], "NaN found in error norm.");
             if (parameters->get<std::string>("solution type")=="sine") {
                 if (i>0)
-                    TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i-1]/errors[i] < 3.5, std::string("Second order not achieved for sine solution (should be 4). Is: ") + std::to_string(errors[i-1]/errors[i]));
+                    TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i-1]/errors[i] < 3.0, std::string("Second order not achieved for sine solution (should be 3). Is: ") + std::to_string(errors[i-1]/errors[i]));
             } else {
                 TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i] > 1e-13, "Second order solution not recovered exactly.");
             }
