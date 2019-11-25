@@ -1,0 +1,37 @@
+%YAML 1.1
+---
+Compadre:
+  'solution type': 'sine'
+  'loop size': 3
+  'io':
+    # source file for coords and normal vectors
+    'input file prefix': '../test_data/grids/cube_normal_'
+    'input file': ''
+    # output file location
+    'output file prefix': '../test_data/amg_neumann_'
+    # data reconstructed on target
+    'output file': '.pvtp'
+    # turn off mesh produced by vtk
+    'vtk produce mesh': false
+  'solver':
+    'type': 'iterative'
+    'file': '../test_data/parameter_lists/gmls_laplacian/solver_amg.xml'
+    'blocked': false
+  'remap':
+    'weighting power': 5
+    'porder': 3
+    'neighbors needed multiplier': 1.0
+    'quadrature order': 2
+    'quadrature dimension': 1
+    'quadrature type': 'line'
+  'neighborhood':
+    'method': nanoflann
+    'dynamic radius': true
+    'spatially varying radius': true
+    'multiplier': 2.0
+    'cutoff multiplier': 1.5
+    'size': 25.5
+  'halo':
+    'dynamic': true
+    'multiplier': 8.0
+...
