@@ -166,7 +166,7 @@ class PointCloudSearch {
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
         void generateNeighborListsFromKNNSearch(trg_view_type trg_pts_view, neighbor_lists_view_type neighbor_lists,
                 epsilons_view_type epsilons, const int neighbors_needed, 
-                const int dimension = 3, const double epsilon_multiplier = 1.6, std::shared_ptr<tree_type> kd_tree = NULL, bool max_search_radius = 0.0) {
+                const int dimension = 3, const double epsilon_multiplier = 1.6, std::shared_ptr<tree_type> kd_tree = NULL, const double max_search_radius = 0.0) {
 
             // First, do a knn search (removes need for guessing initial search radius)
 
