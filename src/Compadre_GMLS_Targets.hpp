@@ -728,9 +728,71 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                         }
                     }
                 });
+            } else if (_operations(i) == TargetOperation::GradientOfVectorPointEvaluation) {
+                Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+                    for (int m0=0; m0<_sampling_multiplier; ++m0) { // input components
+                        for (int m1=0; m1<_sampling_multiplier; ++m1) { // output components 1
+                            for (int m2=0; m2<_sampling_multiplier; ++m2) { // output componets 2
+                                int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1*_sampling_multiplier+m2 /*out*/, 0 /*no additional*/);
+                                switch (m1) {
+                                    // manually compute the output components
+                                    case 0:
+                                        switch (m2) {
+                                            case 0:
+                                                // output component 0, 0
+                                                P_target_row(offset, 9) = std::pow(_epsilons(target_index), -1);
+                                                P_target_row(offset, 10) = std::pow(_epsilons(target_index), -1);
+                                                break;
+                                            case 1:
+                                                // output component 0, 1
+                                                P_target_row(offset, 3) = std::pow(_epsilons(target_index), -1);
+                                                break;
+                                            default:
+                                                // output component 0, 2
+                                                P_target_row(offset, 4) = std::pow(_epsilons(target_index), -1);
+                                                break;
+                                        }
+                                        break;
+                                    case 1:
+                                        switch (m2) {
+                                            case 0:
+                                                // output component 1, 0
+                                                P_target_row(offset, 5) = std::pow(_epsilons(target_index), -1);
+                                                break;
+                                            case 1:
+                                                // output component 1, 1
+                                                P_target_row(offset, 3) = -std::pow(_epsilons(target_index), -1);
+                                                break;
+                                            default:
+                                                // output component 1, 2
+                                                P_target_row(offset, 6) = std::pow(_epsilons(target_index), -1);
+                                                break;
+                                        }
+                                        break;
+                                    default:
+                                        switch (m2) {
+                                            case 0:
+                                                // output component 2, 0
+                                                P_target_row(offset, 7) = std::pow(_epsilons(target_index), -1);
+                                                break;
+                                            case 1:
+                                                // output component 2, 1
+                                                P_target_row(offset, 8) = std::pow(_epsilons(target_index), -1);
+                                                break;
+                                            default:
+                                                // output component 2, 2
+                                                P_target_row(offset, 10) = -std::pow(_epsilons(target_index), -1);
+                                                break;
+                                        }
+                                        break;
+                                }
+                            }
+                        }
+                    }
+                });
             }
             additional_evaluation_sites_handled = false; // additional non-target site evaluations handled
-        } else {
+        }  else {
           compadre_kernel_assert_release((false) && "Functionality not yet available.");
         }
 
