@@ -24,7 +24,7 @@ typedef Compadre::FieldT fields_type;
 typedef Compadre::NeighborhoodT neighborhood_type;
 typedef Compadre::XyzVector xyz_type;
 
-void GMLS_PoissonNeumannPhysics::generateData() {
+void GMLS_PoissonNeumannPhysics::initialize() {
 
     const local_index_type neighbors_needed = GMLS::getNP(Porder);
 
@@ -191,10 +191,6 @@ void GMLS_PoissonNeumannPhysics::generateData() {
 }
 
 Teuchos::RCP<crs_graph_type> GMLS_PoissonNeumannPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
-    if (_neumann_GMLS.is_null()) {
-        this->generateData();
-    }
-
     if (field_two == -1) {
         field_two = field_one;
     }

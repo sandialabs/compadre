@@ -39,7 +39,8 @@ class GMLS_PoissonNeumannPhysics : public PhysicsT{
 
         virtual const std::vector<InteractingFields> gatherFieldInteractions();
 
-        void generateData();
+        virtual void initialize();
+
 };
 
 }
