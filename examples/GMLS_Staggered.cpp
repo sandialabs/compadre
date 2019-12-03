@@ -249,7 +249,8 @@ bool all_passed = true;
     //! [Performing Neighbor Search]
 
     Kokkos::Profiling::popRegion();
-    Kokkos::fence(); // let call to build neighbor lists complete before copying back to device timer.reset();
+    Kokkos::fence(); // let call to build neighbor lists complete before copying back to device
+    timer.reset();
 
     //! [Setting Up The GMLS Object]
 
@@ -473,7 +474,8 @@ bool all_passed = true;
     Kokkos::Profiling::popRegion();
     //! [Finalize Program]
 
-} // end of code block to reduce scope, causing Kokkos View de-allocations // otherwise, Views may be deallocating when we call Kokkos::finalize() later
+} // end of code block to reduce scope, causing Kokkos View de-allocations
+// otherwise, Views may be deallocating when we call Kokkos::finalize() later
 
 // finalize Kokkos and MPI (if available)
 Kokkos::finalize();
