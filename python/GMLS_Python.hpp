@@ -580,7 +580,8 @@ public:
         
         // call point_cloud_search using targets
         // use these neighbor lists and epsilons to set the gmls object
-        point_cloud_search->generateNeighborListsFromKNNSearch(target_coords, neighbor_lists, epsilon, neighbors_needed, dimension, epsilon_multiplier, kd_tree);
+        point_cloud_search->generateNeighborListsFromKNNSearch(false /* not a dry run*/, target_coords, neighbor_lists, 
+                epsilon, neighbors_needed, dimension, epsilon_multiplier, kd_tree);
 
         Kokkos::fence();
 
