@@ -7,9 +7,7 @@
 #include "Compadre_FieldT.hpp"
 
 #include "Compadre_OptimizationManager.hpp"
-
-#include "Compadre_nanoflannInformation.hpp"
-#include "Compadre_nanoflannPointCloudT.hpp"
+#include "Compadre_NeighborhoodT.hpp"
 
 #include <Compadre_GMLS.hpp>
 #include <Compadre_Evaluator.hpp>
@@ -18,7 +16,6 @@
 
 namespace Compadre {
 
-typedef Compadre::NanoFlannInformation nanoflann_neighbors_type;
 typedef Compadre::NeighborhoodT neighbors_type;
 
 typedef Compadre::CoordsT coords_type;
@@ -43,9 +40,9 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
         if (!currently_reusing_neighborhoods) {
             local_index_type maxLeaf = _parameters->get<Teuchos::ParameterList>("neighborhood").get<int>("max leaf");
             _neighborhoodInfo = Teuchos::rcp_static_cast<neighbors_type>(Teuchos::rcp(
-                    new nanoflann_neighbors_type(_src_particles, _parameters, maxLeaf, _trg_particles, use_physical_coords)));
+                    new neighbors_type(_src_particles, _trg_particles, use_physical_coords, maxLeaf)));
     
-            local_index_type neighbors_needed;
+            local_index_type neighbors_needed = -1;
     
             std::string problem_type_to_lower = _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("problem type");
             transform(problem_type_to_lower.begin(), problem_type_to_lower.end(), problem_type_to_lower.begin(), ::tolower);
@@ -56,16 +53,16 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
             } else {
                 neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 3);
             }
-    
-            local_index_type extra_neighbors = _parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
-    
-            _neighborhoodInfo->constructAllNeighborList(_max_radius, extra_neighbors,
+
+            _neighborhoodInfo->constructAllNeighborLists(_max_radius, 
+                    _parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
+                    true /*dry run for sizes*/,
+                    neighbors_needed,
+                    _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
                     _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
-                    _parameters->get<Teuchos::ParameterList>("neighborhood").get<int>("max leaf"),
+                    _parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
                     use_physical_coords);
         }
-
-        const std::vector<std::vector<std::pair<size_t, scalar_type> > >& all_neighbors = _neighborhoodInfo->getAllNeighbors();
 
         Kokkos::View<int**> kokkos_neighbor_lists;
         Kokkos::View<double**> kokkos_augmented_source_coordinates;
@@ -84,19 +81,14 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
             //
             //****************
     
-            size_t max_num_neighbors = 0;
-            Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_trg_particles->getCoordsConst()->nLocal()),
-                    KOKKOS_LAMBDA (const int i, size_t &myVal) {
-                myVal = (all_neighbors[i].size() > myVal) ? all_neighbors[i].size() : myVal;
-            }, Kokkos::Experimental::Max<size_t>(max_num_neighbors));
-    
+            size_t max_num_neighbors = _neighborhoodInfo->computeMaxNumNeighbors(false /*local processor maximum*/);
             kokkos_neighbor_lists = Kokkos::View<int**>("neighbor lists", target_coords->nLocal(), max_num_neighbors+1);
             Kokkos::View<int**>::HostMirror kokkos_neighbor_lists_host = Kokkos::create_mirror_view(kokkos_neighbor_lists);
             // fill in the neighbor lists into a kokkos view. First entry is # of neighbors for that target
             Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
-                const int num_i_neighbors = all_neighbors[i].size();
+                const int num_i_neighbors = _neighborhoodInfo->getNumNeighbors(i);
                 for (int j=1; j<num_i_neighbors+1; ++j) {
-                    kokkos_neighbor_lists_host(i,j) = all_neighbors[i][j-1].first;
+                    kokkos_neighbor_lists_host(i,j) = _neighborhoodInfo->getNeighbor(i,j-1);
                 }
                 kokkos_neighbor_lists_host(i,0) = num_i_neighbors;
             });

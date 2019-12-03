@@ -9,7 +9,7 @@
 #include <Compadre_FieldManager.hpp>
 #include <Compadre_DOFManager.hpp>
 #include <Compadre_EuclideanCoordsT.hpp>
-#include <Compadre_nanoflannInformation.hpp>
+#include <Compadre_NeighborhoodT.hpp>
 #include <Compadre_FieldT.hpp>
 #include <Compadre_XyzVector.hpp>
 #include <Compadre_AnalyticFunctions.hpp>
@@ -216,11 +216,10 @@ int main (int argc, char* args[]) {
 
         // loop over cells
 		for( int j =0; j<coords->nLocal(); j++){
-		    LO num_neighbors = neighborhood->getNeighbors(j).size();
-		    std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(j);
+		    LO num_neighbors = neighborhood->getNumNeighbors(j);
             // loop over particles neighbor to the cell
 			for (LO l = 0; l < num_neighbors; l++) {
-                processed_view(j,0) += dof_view(static_cast<LO>(neighbors[l].first),0) * my_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, 0);
+                processed_view(j,0) += dof_view(neighborhood->getNeighbor(j,l),0) * my_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, 0);
             }
         }
 

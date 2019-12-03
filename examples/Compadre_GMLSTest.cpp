@@ -8,7 +8,7 @@
 #include <Compadre_ParticlesT.hpp>
 #include <Compadre_FieldManager.hpp>
 #include <Compadre_EuclideanCoordsT.hpp>
-#include <Compadre_nanoflannInformation.hpp>
+#include <Compadre_NeighborhoodT.hpp>
 #include <Compadre_FieldT.hpp>
 #include <Compadre_XyzVector.hpp>
 #include <Compadre_AnalyticFunctions.hpp>
@@ -146,8 +146,13 @@ int main (int argc, char* args[]) {
 
 		 		LO neighbors_needed = Compadre::GMLS::getNP(Porder);
 
-				LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
-				particles->getNeighborhood()->constructAllNeighborList(particles->getCoordsConst()->getHaloSize(), extra_neighbors);
+ 		        particles->getNeighborhood()->constructAllNeighborLists(particles->getCoordsConst()->getHaloSize(),
+                    parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
+                    true /*dry run for sizes*/,
+                    neighbors_needed,
+                    parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
+                    parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
+                    parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"));
 
 				// Iterative solver for the problem
 				Teuchos::RCP<Compadre::ProblemT> problem = Teuchos::rcp( new Compadre::ProblemT(particles));

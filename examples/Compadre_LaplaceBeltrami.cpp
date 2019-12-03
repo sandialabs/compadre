@@ -14,7 +14,7 @@
 #include <Compadre_DOFManager.hpp>
 #include <Compadre_EuclideanCoordsT.hpp>
 #include <Compadre_SphericalCoordsT.hpp>
-#include <Compadre_nanoflannInformation.hpp>
+#include <Compadre_NeighborhoodT.hpp>
 #include <Compadre_FieldT.hpp>
 #include <Compadre_XyzVector.hpp>
 #include <Compadre_AnalyticFunctions.hpp>
@@ -202,8 +202,13 @@ int main (int argc, char* args[]) {
 				particles->getNeighborhood()->setAllHSupportSizes(h_support);
 				LO neighbors_needed = Compadre::GMLS::getNP(std::max(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
                            parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder")), 2);
-				LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
-				particles->getNeighborhood()->constructAllNeighborList(particles->getCoordsConst()->getHaloSize(), extra_neighbors);
+ 		        particles->getNeighborhood()->constructAllNeighborLists(particles->getCoordsConst()->getHaloSize(),
+                    parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
+                    true /*dry run for sizes*/,
+                    neighbors_needed,
+                    parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
+                    parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
+                    parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"));
 				NeighborSearchTime->stop();
 
 			}
