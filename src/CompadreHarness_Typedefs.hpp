@@ -23,8 +23,6 @@
 #include <Zoltan2_PartitioningProblem.hpp>
 #include <Zoltan2_CoordinatePartitioningGraph.hpp>
 
-#include <TPL/nanoflann/nanoflann.hpp>
-
 //#include <MatrixMarket_Tpetra.hpp>
 
 #include <string>

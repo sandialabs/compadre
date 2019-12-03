@@ -106,13 +106,8 @@ set(CompadreHarness_TPL_Cobra
   )
   
 
-set(CompadreHarness_TPL_Nanoflann
-  TPL/nanoflann/nanoflann.hpp
-  )
-
 install(FILES ${CompadreHarness_HEADERS} DESTINATION include)
 install(FILES ${CompadreHarness_TPL_Cobra} DESTINATION include/TPL)
-install(FILES ${CompadreHarness_TPL_Nanoflann} DESTINATION include/TPL/nanoflann)
 
 bob_end_subdir()
 
