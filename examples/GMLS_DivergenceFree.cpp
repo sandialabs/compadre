@@ -511,53 +511,43 @@ bool all_passed = true;
         // check gradient of vector evaluation
         if (dimension==3) {
             if (std::abs(actual_gradient_vector[0] - GMLS_Gradient_DivFree_VectorXX) > failure_tolerance) {
-                // all_passed = false;
+                all_passed = false;
                 std::cout << i << " Failed gradient_x VectorX by: " << std::abs(actual_curlcurl_vector[0] - GMLS_Gradient_DivFree_VectorXX) << std::endl;
             }
             if (std::abs(actual_gradient_vector[1] - GMLS_Gradient_DivFree_VectorXY) > failure_tolerance) {
-                // all_passed = false;
+                all_passed = false;
                 std::cout << i << " Failed gradient_y VectorX by: " << std::abs(actual_curlcurl_vector[1] - GMLS_Gradient_DivFree_VectorXY) << std::endl;
             }
             if (std::abs(actual_gradient_vector[2] - GMLS_Gradient_DivFree_VectorXZ) > failure_tolerance) {
-                // all_passed = false;
+                all_passed = false;
                 std::cout << i << " Failed gradient_z VectorX by: " << std::abs(actual_curlcurl_vector[2] - GMLS_Gradient_DivFree_VectorXZ) << std::endl;
             }
 
             if (std::abs(actual_gradient_vector[3] - GMLS_Gradient_DivFree_VectorYX) > failure_tolerance) {
-                // all_passed = false;
+                all_passed = false;
                 std::cout << i << " Failed gradient_x VectorY by: " << std::abs(actual_curlcurl_vector[3] - GMLS_Gradient_DivFree_VectorYX) << std::endl;
             }
             if (std::abs(actual_gradient_vector[4] - GMLS_Gradient_DivFree_VectorYY) > failure_tolerance) {
-                // all_passed = false;
+                all_passed = false;
                 std::cout << i << " Failed gradient_y VectorY by: " << std::abs(actual_curlcurl_vector[4] - GMLS_Gradient_DivFree_VectorYY) << std::endl;
             }
             if (std::abs(actual_gradient_vector[5] - GMLS_Gradient_DivFree_VectorYZ) > failure_tolerance) {
-                // all_passed = false;
+                all_passed = false;
                 std::cout << i << " Failed gradient_z VectorY by: " << std::abs(actual_curlcurl_vector[5] - GMLS_Gradient_DivFree_VectorYZ) << std::endl;
             }
 
             if (std::abs(actual_gradient_vector[6] - GMLS_Gradient_DivFree_VectorZX) > failure_tolerance) {
-                // all_passed = false;
+                all_passed = false;
                 std::cout << i << " Failed gradient_x VectorZ by: " << std::abs(actual_curlcurl_vector[6] - GMLS_Gradient_DivFree_VectorZX) << std::endl;
             }
             if (std::abs(actual_gradient_vector[7] - GMLS_Gradient_DivFree_VectorZY) > failure_tolerance) {
-                // all_passed = false;
+                all_passed = false;
                 std::cout << i << " Failed gradient_y VectorZ by: " << std::abs(actual_curlcurl_vector[7] - GMLS_Gradient_DivFree_VectorZY) << std::endl;
             }
             if (std::abs(actual_gradient_vector[8] - GMLS_Gradient_DivFree_VectorZZ) > failure_tolerance) {
-                // all_passed = false;
+                all_passed = false;
                 std::cout << i << " Failed gradient_z VectorZ by: " << std::abs(actual_curlcurl_vector[8] - GMLS_Gradient_DivFree_VectorZZ) << std::endl;
             }
-
-            std::cout << i << ' ' << actual_gradient_vector[0] << ' ' << GMLS_Gradient_DivFree_VectorXX << std::endl;
-            std::cout << i << ' ' << actual_gradient_vector[1] << ' ' << GMLS_Gradient_DivFree_VectorXY << std::endl;
-            std::cout << i << ' ' << actual_gradient_vector[2] << ' ' << GMLS_Gradient_DivFree_VectorXZ << std::endl;
-            std::cout << i << ' ' << actual_gradient_vector[3] << ' ' << GMLS_Gradient_DivFree_VectorYX << std::endl;
-            std::cout << i << ' ' << actual_gradient_vector[4] << ' ' << GMLS_Gradient_DivFree_VectorYY << std::endl;
-            std::cout << i << ' ' << actual_gradient_vector[5] << ' ' << GMLS_Gradient_DivFree_VectorYZ << std::endl;
-            std::cout << i << ' ' << actual_gradient_vector[6] << ' ' << GMLS_Gradient_DivFree_VectorZX << std::endl;
-            std::cout << i << ' ' << actual_gradient_vector[7] << ' ' << GMLS_Gradient_DivFree_VectorZY << std::endl;
-            std::cout << i << ' ' << actual_gradient_vector[8] << ' ' << GMLS_Gradient_DivFree_VectorZZ << std::endl;
         }
     }
 
