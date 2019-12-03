@@ -355,8 +355,8 @@ bool all_passed = true;
         // query the point cloud to generate the neighbor lists using a kdtree to produce the n nearest neighbor
         // to each target site, adding (epsilon_multiplier-1)*100% to whatever the distance away the further neighbor used is from
         // each target to the view for epsilon
-        point_cloud_search.generateNeighborListsFromKNNSearch(single_target_coords, single_neighbor_lists, single_epsilon, min_neighbors, dimension, 
-                epsilon_multiplier, kd_tree);
+        point_cloud_search.generateNeighborListsFromKNNSearch(false /*not dry run*/, single_target_coords, 
+                single_neighbor_lists, single_epsilon, min_neighbors, dimension, epsilon_multiplier, kd_tree);
         
         //! [Performing Neighbor Search]
         
