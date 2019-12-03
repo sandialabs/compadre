@@ -8,8 +8,6 @@
 #include <Compadre_AnalyticFunctions.hpp>
 #include <Compadre_XyzVector.hpp>
 #include <Compadre_NeighborhoodT.hpp>
-#include "Compadre_nanoflannInformation.hpp"
-#include "Compadre_nanoflannPointCloudT.hpp"
 #include <Compadre_AdvectionDiffusion_Operator.hpp>
 #include <Compadre_GMLS.hpp>
 
@@ -32,10 +30,6 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
     const host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
-
-    const std::vector<std::vector<std::pair<size_t, scalar_type> > >& particles_particles_all_neighbors = _physics->_particles_particles_neighborhood->getAllNeighbors();
-    const std::vector<std::vector<std::pair<size_t, scalar_type> > >& particle_cells_all_neighbors = _physics->_particle_cells_neighborhood->getAllNeighbors();
-    const std::vector<std::vector<std::pair<size_t, scalar_type> > >& cell_particles_all_neighbors = _physics->_cell_particles_neighborhood->getAllNeighbors();
 
     // quantities contained on cells (mesh)
     auto quadrature_points = _physics->_cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
@@ -224,14 +218,14 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
         // loop over cells touching that particle
         local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
-        for (size_t j=0; j<cell_particles_all_neighbors[i].size(); ++j) {
-            auto cell_j = cell_particles_all_neighbors[i][j].first;
+        for (size_t j=0; j<_physics->_cell_particles_neighborhood->getNumNeighbors(i); ++j) {
+            auto cell_j = _physics->_cell_particles_neighborhood->getNeighbor(i,j);
             // add the contribution to the row for the particle
             double contribution = 0;
             // what neighbor is i to cell_j
             auto i_index_to_j = -1;
-            for (size_t k=0; k<cell_particles_all_neighbors[cell_j].size(); ++k) {
-                if (particles_particles_all_neighbors[cell_j][k].first == static_cast<size_t>(i)) {
+            for (size_t k=0; k<_physics->_cell_particles_neighborhood->getNumNeighbors(cell_j); ++k) {
+                if (_physics->_cell_particles_neighborhood->getNeighbor(cell_j,k) == static_cast<size_t>(i)) {
                     i_index_to_j = k;
                     break;
                 }
@@ -256,52 +250,52 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     }
     
 
-    //// just for putting polynomial at pts
-    //// loop over particles
+    ////// just for putting polynomial at pts
+    ////// loop over particles
+    ////for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
+    ////    // loop over cells touching that particle
+    ////    local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
+    ////    auto pt = this->_coords->getLocalCoords(i);
+    ////    rhs_vals(row, 0) = 1.0;//function->evalScalar(pt);
+    ////}
+ 
+	//host_view_type pts = this->_coords->getPts()->getLocalView<host_view_type>();
+    //// test of basis
     //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
     //    // loop over cells touching that particle
     //    local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
-    //    auto pt = this->_coords->getLocalCoords(i);
-    //    rhs_vals(row, 0) = 1.0;//function->evalScalar(pt);
+    //    for (size_t j=0; j<cell_particles_all_neighbors[i].size(); ++j) {
+    //        auto cell_j = cell_particles_all_neighbors[i][j].first;
+
+
+    //        // add the contribution to the row for the particle
+    //        double contribution = 0;
+    //        // what neighbor is i to cell_j
+    //        auto i_index_to_j = -1;
+    //        for (size_t k=0; k<cell_particles_all_neighbors[cell_j].size(); ++k) {
+    //            if (particles_particles_all_neighbors[cell_j][k].first == static_cast<size_t>(i)) {
+    //                i_index_to_j = k;
+    //                break;
+    //            }
+    //        }
+
+
+    //        if (i_index_to_j >= 0) {
+    //        // loop through j's neighbor list until i find i
+    //        for (int q=0; q<_physics->_weights_ndim; ++q) {
+    //            if (quadrature_type(cell_j,q)==1) { // interior
+    //                // integrating RHS function
+    //                double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_j, i_index_to_j, q+1);
+    //                xyz_type pt(quadrature_points(cell_j,2*q),quadrature_points(cell_j,2*q+1),0);
+    //                contribution += quadrature_weights(cell_j,q) * v * 1;//(1 + pt[0] + pt[1]);//function->evalScalar(pt);
+    //                // basis eval is:
+    //                //printf("q: %d %d (%f,%f): %.16f\n", i, j, pt[0], pt[1], _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_j, i_index_to_j, q+1));
+    //            } 
+    //        }
+    //        //printf("m: %d %d (%f,%f): %.16f\n", i, j, pts(cell_j,0), pts(cell_j,1), _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_j, i_index_to_j, 0));
+    //        }
+    //    }
     //}
- 
-	host_view_type pts = this->_coords->getPts()->getLocalView<host_view_type>();
-    // test of basis
-    for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
-        // loop over cells touching that particle
-        local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
-        for (size_t j=0; j<cell_particles_all_neighbors[i].size(); ++j) {
-            auto cell_j = cell_particles_all_neighbors[i][j].first;
-
-
-            // add the contribution to the row for the particle
-            double contribution = 0;
-            // what neighbor is i to cell_j
-            auto i_index_to_j = -1;
-            for (size_t k=0; k<cell_particles_all_neighbors[cell_j].size(); ++k) {
-                if (particles_particles_all_neighbors[cell_j][k].first == static_cast<size_t>(i)) {
-                    i_index_to_j = k;
-                    break;
-                }
-            }
-
-
-            if (i_index_to_j >= 0) {
-            // loop through j's neighbor list until i find i
-            for (int q=0; q<_physics->_weights_ndim; ++q) {
-                if (quadrature_type(cell_j,q)==1) { // interior
-                    // integrating RHS function
-                    double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_j, i_index_to_j, q+1);
-                    xyz_type pt(quadrature_points(cell_j,2*q),quadrature_points(cell_j,2*q+1),0);
-                    contribution += quadrature_weights(cell_j,q) * v * 1;//(1 + pt[0] + pt[1]);//function->evalScalar(pt);
-                    // basis eval is:
-                    //printf("q: %d %d (%f,%f): %.16f\n", i, j, pt[0], pt[1], _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_j, i_index_to_j, q+1));
-                } 
-            }
-            //printf("m: %d %d (%f,%f): %.16f\n", i, j, pts(cell_j,0), pts(cell_j,1), _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_j, i_index_to_j, 0));
-            }
-        }
-    }
 
 
     auto global_force = 4.0;//1.9166666666666665;//0.21132196999014932;

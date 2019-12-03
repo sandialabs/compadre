@@ -34,17 +34,16 @@ Teuchos::RCP<crs_graph_type> PinnedGraphLaplacianPhysics::computeGraph(local_ind
 	//#pragma omp parallel for
 	for(local_index_type i = 0; i < nlocal; i++) {
 
-		local_index_type num_neighbors = neighborhood->getNeighbors(i).size();
+		local_index_type num_neighbors = neighborhood->getNumNeighbors(i);
 		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
 			local_index_type row = local_to_dof_map(i, field_one, k);
 
 			Teuchos::Array<local_index_type> col_data(num_neighbors * fields[field_two]->nDim());
 			Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
-			std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
 
 			for (local_index_type l = 0; l < num_neighbors; l++) {
 				for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-					cols[l*fields[field_two]->nDim() + n] = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
+					cols[l*fields[field_two]->nDim() + n] = local_to_dof_map(neighborhood->getNeighbor(i,l), field_two, n);
 				}
 			}
 			//#pragma omp critical
@@ -98,7 +97,7 @@ void PinnedGraphLaplacianPhysics::computeMatrix(local_index_type field_one, loca
 	const host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
 
 	// get maximum number of neighbors * fields[field_two]->nDim()
-	const local_index_type max_num_neighbors = neighborhood->getMaxNumNeighbors();
+	const local_index_type max_num_neighbors = neighborhood->computeMaxNumNeighbors(false /* local processor max */);
 	int team_scratch_size = host_scratch_vector_scalar_type::shmem_size(max_num_neighbors * fields[field_two]->nDim()); // values
 	team_scratch_size += host_scratch_vector_local_index_type::shmem_size(max_num_neighbors * fields[field_two]->nDim()); // local column indices
 	const local_index_type host_scratch_team_level = 0; // not used in Kokkos currently
@@ -118,31 +117,29 @@ void PinnedGraphLaplacianPhysics::computeMatrix(local_index_type field_one, loca
 			//std::cout << "insert row : " << row << " for field " << j << " with dim " << k << " of " << this->_particles->getFieldByID(j)->nDim() << std::endl;
 			//std::cout << "diagnostic: "<< this->_particles->getNeighborhood()->getNeighbors(i).size() << " " << this->_particles->getFieldByID(j)->nDim() << std::endl;
 
-			const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
-
 			//std::cout << "size(N) : " << neighbors.size() << std::endl;
-			if (neighborhood->getNeighbors(i).size() == 0) std::cout << neighborhood->getNeighbors(i).size() << std::endl;
-			for (size_t l = 0; l < neighbors.size(); l++) { // loop over neighbors
+			if (neighborhood->getNumNeighbors(i) == 0) std::cout << neighborhood->getNumNeighbors(i) << std::endl;
+			for (size_t l = 0; l < neighborhood->getNumNeighbors(i); l++) { // loop over neighbors
 				// std::cout << l << " first : " << neighbors[l].first << " second : " << neighbors[l].second << std::endl;
 				for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) { // loop over comp#'s
-					//std::cout << n << " of " << this->_particles->getFieldByID(j)->nDim() << " is " << this->_particles->getDOFFromLID(static_cast<local_index_type>(neighbors[l].first),j,n) << std::endl;
+					//std::cout << n << " of " << this->_particles->getFieldByID(j)->nDim() << " is " << this->_particles->getDOFFromLID(neighborhood->getNeighbor(i,l),j,n) << std::endl;
 						  // local offset, size_t to local_index_type conversion of neighbor number, j is for the same field, component number is n
-					col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
-					//std::cout << "neighbor: " << static_cast<local_index_type>(neighbors[l].first) << std::endl;
+					col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(neighborhood->getNeighbor(i,l), field_two, n);
+					//std::cout << "neighbor: " << neighborhood->getNeighbor(i,l) << std::endl;
 
 					if (n==k) { // same field, same component
 						// implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
 						// and checking its boundary condition
 						local_index_type corresponding_particle_id = row/fields[field_one]->nDim();
 						if (bc_id(corresponding_particle_id,0) != 0) {
-							if (i==static_cast<local_index_type>(neighbors[l].first)) {
+							if (i==neighborhood->getNeighbor(i,l)) {
 								val_data(l*fields[field_two]->nDim() + n) = 1.0;
 							} else {
 								val_data(l*fields[field_two]->nDim() + n) = 0.0;
 							}
 						} else {
-							if (i==static_cast<local_index_type>(neighbors[l].first)) {
-								val_data(l*fields[field_two]->nDim() + n) = -static_cast<double>(static_cast<int>(neighborhood->getNeighbors(i).size())-1);
+							if (i==neighborhood->getNeighbor(i,l)) {
+								val_data(l*fields[field_two]->nDim() + n) = -static_cast<double>(static_cast<int>(neighborhood->getNumNeighbors(i))-1);
 							} else {
 								val_data(l*fields[field_two]->nDim() + n) = 1.0;
 							}
@@ -179,7 +176,7 @@ void PinnedGraphLaplacianPhysics::computeMatrix(local_index_type field_one, loca
 			//this->_A->insertLocalValues(row, cols, values);
 			//#pragma omp critical
 			{
-				this->_A->sumIntoLocalValues(row, neighbors.size()*fields[field_two]->nDim(), val_data.data(), col_data.data());
+				this->_A->sumIntoLocalValues(row, neighborhood->getNumNeighbors(i)*fields[field_two]->nDim(), val_data.data(), col_data.data());
 			}
 		}
 	});
@@ -201,16 +198,16 @@ void PinnedGraphLaplacianPhysics::computeMatrix(local_index_type field_one, loca
 //						for (local_index_type l = 0; l < neighbors.size(); l++) {
 //							for (local_index_type m = 0; m < _particles->getVectorOfFields().size(); ++m) {
 //								for (local_index_type n = 0; n < _particles->getFieldByID(m)->nDim(); ++n) {
-//									cols[l*_particles->getTotalFieldDimensions() + _particles->getFieldOffset(m) + n] = _particles->getDOFFromLID(static_cast<local_index_type>(neighbors[l].first),m,n);
+//									cols[l*_particles->getTotalFieldDimensions() + _particles->getFieldOffset(m) + n] = _particles->getDOFFromLID(neighborhood->getNeighbor(i,l),m,n);
 //									if (m==j && n==k) { // same field, same field
 //										if (_particles->getFlag(row / _particles->getTotalFieldDimensions()) != 0) {
-//											if (i==static_cast<local_index_type>(neighbors[l].first)) {
+//											if (i==neighborhood->getNeighbor(i,l)) {
 //												values[l*_particles->getTotalFieldDimensions() + _particles->getFieldOffset(m) + n] = 1.0;
 //											} else {
 //												values[l*_particles->getTotalFieldDimensions() + _particles->getFieldOffset(m) + n] = 0.0;
 //											}
 //										} else {
-//											if (i==static_cast<local_index_type>(neighbors[l].first)) {
+//											if (i==neighborhood->getNeighbor(i,l)) {
 //												values[l*_particles->getTotalFieldDimensions() + _particles->getFieldOffset(m) + n] = -static_cast<double>(static_cast<int>(_particles->getNeighbors(i).size())-1);
 //											} else {
 //												values[l*_particles->getTotalFieldDimensions() + _particles->getFieldOffset(m) + n] = 1.0;

@@ -52,7 +52,7 @@ Kokkos::View<size_t*, Kokkos::HostSpace> LaplaceBeltramiPhysics::getMaxEntriesPe
 
     if (field_one == solution_field_id && field_two == solution_field_id) {
         for(local_index_type i = 0; i < nlocal; i++) {
-            maxEntriesPerRow(i) = fields[field_one]->nDim()*fields[field_two]->nDim()*neighborhood->getNeighbors(i).size();
+            maxEntriesPerRow(i) = fields[field_one]->nDim()*fields[field_two]->nDim()*neighborhood->getNumNeighbors(i);
         }
     } else if (field_one == lm_field_id && field_two == solution_field_id) {
         auto row_map_entries = _row_map->getMyGlobalIndices();
@@ -238,17 +238,16 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
     if (field_one == solution_field_id && field_two == solution_field_id) {
 		//#pragma omp parallel for
 		for(local_index_type i = 0; i < nlocal; i++) {
-			local_index_type num_neighbors = neighborhood->getNeighbors(i).size();
+			local_index_type num_neighbors = neighborhood->getNumNeighbors(i);
 			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
 				local_index_type row = local_to_dof_map(i, field_one, k);
 
 				Teuchos::Array<local_index_type> col_data(num_neighbors * fields[field_two]->nDim());
 				Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
-				std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
 
 				for (local_index_type l = 0; l < num_neighbors; l++) {
 					for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-						cols[l*fields[field_two]->nDim() + n] = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
+						cols[l*fields[field_two]->nDim() + n] = local_to_dof_map(neighborhood->getNeighbor(i,l), field_two, n);
 					}
 				}
 				//#pragma omp critical
@@ -355,22 +354,16 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 	const coords_type* target_coords = this->_coords;
 	const coords_type* source_coords = this->_coords;
 
-	const std::vector<std::vector<std::pair<size_t, scalar_type> > >& all_neighbors = neighborhood->getAllNeighbors();
-
-	size_t max_num_neighbors = 0;
-	Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()),
-			KOKKOS_LAMBDA (const int i, size_t &myVal) {
-		myVal = (all_neighbors[i].size() > myVal) ? all_neighbors[i].size() : myVal;
-	}, Kokkos::Experimental::Max<size_t>(max_num_neighbors));
+	size_t max_num_neighbors = neighborhood->computeMaxNumNeighbors(false /* local processor max*/);
 
 	Kokkos::View<int**> kokkos_neighbor_lists("neighbor lists", target_coords->nLocal(), max_num_neighbors+1);
 	Kokkos::View<int**>::HostMirror kokkos_neighbor_lists_host = Kokkos::create_mirror_view(kokkos_neighbor_lists);
 
 	// fill in the neighbor lists into a kokkos view. First entry is # of neighbors for that target
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
-		const int num_i_neighbors = all_neighbors[i].size();
+		const int num_i_neighbors = neighborhood->getNumNeighbors(i);
 		for (int j=1; j<num_i_neighbors+1; ++j) {
-			kokkos_neighbor_lists_host(i,j) = all_neighbors[i][j-1].first;
+			kokkos_neighbor_lists_host(i,j) = neighborhood->getNeighbor(i,j-1);
 		}
 		kokkos_neighbor_lists_host(i,0) = num_i_neighbors;
 	});
@@ -438,7 +431,6 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 //
 //		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal), KOKKOS_LAMBDA(const int i) {
 //
-//			const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
 //			const local_index_type num_neighbors = neighbors.size();
 //
 //			//Print error if there's not enough neighbors:
@@ -456,10 +448,10 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 //
 //				for (local_index_type l = 0; l < num_neighbors; l++) {
 //					for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-//						cols[l*fields[field_two]->nDim() + n] = local_to_dof_map[static_cast<local_index_type>(neighbors[l].first)][field_two][n];
+//						cols[l*fields[field_two]->nDim() + n] = local_to_dof_map[neighborhood->getNeighbor(i,l)][field_two][n];
 //	//					local_index_type corresponding_particle_id = blocked_matrix ? row/fields[field_one]->nDim() : row/ntotalfielddimensions;
 //	//					if (bc_id(corresponding_particle_id, 0) != 0) {
-//	//						if (i==static_cast<local_index_type>(neighbors[l].first)) {
+//	//						if (i==neighborhood->getNeighbor(i,l)) {
 //	//							values[l*fields[field_two]->nDim() + n] = 1.0;
 //	//							printf("put 1 at: %d,%d\n", row, cols[l*fields[field_two]->nDim() + n]);
 //	//						}
@@ -468,13 +460,13 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 //							// implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
 //							// and checking its boundary condition
 //							if (bc_id(i, 0) != 0) {
-//								if (i==static_cast<local_index_type>(neighbors[l].first)) {
+//								if (i==neighborhood->getNeighbor(i,l)) {
 //									values[l*fields[field_two]->nDim() + n] = 1.0;
 //								} else {
 //									values[l*fields[field_two]->nDim() + n] = 0.0;
 //								}
 //							} else {
-//								if (i==static_cast<local_index_type>(neighbors[l].first)) {
+//								if (i==neighborhood->getNeighbor(i,l)) {
 //									values[l*fields[field_two]->nDim() + n] = my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
 //								} else {
 //									values[l*fields[field_two]->nDim() + n] = my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
@@ -542,8 +534,8 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 			scalar_type target_coeff = fsos->evalDiffusionCoefficient(target_coords->getLocalCoords(i, false));
 
-			const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
-			const local_index_type num_neighbors = neighbors.size();
+			local_index_type num_neighbors = neighborhood->getNumNeighbors(i);
+
 
 			//Print error if there's not enough neighbors:
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(num_neighbors < neighbors_needed,
@@ -557,17 +549,17 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 					scalar_type avg_coeff = 1;
 					if (_physics_type==3) {
-						scalar_type neighbor_coeff = fsos->evalDiffusionCoefficient(source_coords->getLocalCoords(static_cast<local_index_type>(neighbors[l].first), true));
+						scalar_type neighbor_coeff = fsos->evalDiffusionCoefficient(source_coords->getLocalCoords(neighborhood->getNeighbor(i,l), true));
 						avg_coeff = 0.5*(target_coeff + neighbor_coeff);
 					}
 
 					for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-						col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
+						col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(neighborhood->getNeighbor(i,l), field_two, n);
 						if (n==k) { // same field, same component
 							// implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
 							// and checking its boundary condition
 							if (bc_id(i, 0) != 0) {
-								if (i==static_cast<local_index_type>(neighbors[l].first)) {
+								if (i==neighborhood->getNeighbor(i,l)) {
 									val_data(l*fields[field_two]->nDim() + n) = 1.0;
 								} else {
 									val_data(l*fields[field_two]->nDim() + n) = 0.0;
@@ -640,8 +632,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 			scalar_type target_coeff = fsos->evalDiffusionCoefficient(target_coords->getLocalCoords(i, false));
 
-			const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
-			const local_index_type num_neighbors = neighbors.size();
+			local_index_type num_neighbors = neighborhood->getNumNeighbors(i);
 
 			//Print error if there's not enough neighbors:
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(num_neighbors < neighbors_needed,
@@ -655,17 +646,17 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 					scalar_type avg_coeff = 1;
 					if (_physics_type==3) {
-						scalar_type neighbor_coeff = fsos->evalDiffusionCoefficient(source_coords->getLocalCoords(static_cast<local_index_type>(neighbors[l].first), true));
+						scalar_type neighbor_coeff = fsos->evalDiffusionCoefficient(source_coords->getLocalCoords(neighborhood->getNeighbor(i,l), true));
 						avg_coeff = 0.5*(target_coeff + neighbor_coeff);
 					}
 
 					for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-						col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
+						col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(neighborhood->getNeighbor(i,l), field_two, n);
 						if (n==k) { // same field, same component
 							// implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
 							// and checking its boundary condition
 							if (bc_id(i, 0) != 0) {
-								if (i==static_cast<local_index_type>(neighbors[l].first)) {
+								if (i==neighborhood->getNeighbor(i,l)) {
 									val_data(l*fields[field_two]->nDim() + n) = 1.0;
 								} else {
 									val_data(l*fields[field_two]->nDim() + n) = 0.0;
@@ -761,8 +752,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 			scalar_type target_coeff = fsos->evalDiffusionCoefficient(target_coords->getLocalCoords(i, false));
 
-			const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
-			const local_index_type num_neighbors = neighbors.size();
+			local_index_type num_neighbors = neighborhood->getNumNeighbors(i);
 
 			//Print error if there's not enough neighbors:
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(num_neighbors < neighbors_needed,
@@ -782,11 +772,11 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 					scalar_type avg_coeff = 1;
 					if (_physics_type==3) {
-						scalar_type neighbor_coeff = fsos->evalDiffusionCoefficient(source_coords->getLocalCoords(static_cast<local_index_type>(neighbors[l].first), true));
+						scalar_type neighbor_coeff = fsos->evalDiffusionCoefficient(source_coords->getLocalCoords(neighborhood->getNeighbor(i,l), true));
 						avg_coeff = 0.5*(target_coeff + neighbor_coeff);
 					}
 
-					cols[l*fields[field_two]->nDim()] = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, 0);
+					cols[l*fields[field_two]->nDim()] = local_to_dof_map(neighborhood->getNeighbor(i,l), field_two, 0);
 					values[l*fields[field_two]->nDim()] = avg_coeff * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l) * my_GMLS_staggered_grad.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
 					values[0*fields[field_two]->nDim()] += avg_coeff * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l) * my_GMLS_staggered_grad.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
 				}
@@ -806,7 +796,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 				for (local_index_type l = 0; l < num_neighbors; l++) {
 					for (local_index_type m = 0; m < fields[field_two]->nDim(); ++m) {
-						cols[l*fields[field_two]->nDim() + m] = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, m);
+						cols[l*fields[field_two]->nDim() + m] = local_to_dof_map(neighborhood->getNeighbor(i,l), field_two, m);
 						values[l*fields[field_two]->nDim() + m] = my_GMLS_staggered_div.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, 0) * my_GMLS_staggered_div.getPreStencilWeight(StaggeredEdgeIntegralSample, i, l, false, 0 /*output component*/, m /*input component*/);
 						values[0*fields[field_two]->nDim() + m] += my_GMLS_staggered_div.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, 0) * my_GMLS_staggered_div.getPreStencilWeight(StaggeredEdgeIntegralSample, i, l, true, 0 /*output component*/, m /*input component*/);
 					}
@@ -827,8 +817,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 //		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal), KOKKOS_LAMBDA(const int i) {
 		for (local_index_type i=0; i<nlocal; ++i) {
-			const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
-			const local_index_type num_neighbors = neighbors.size();
+			local_index_type num_neighbors = neighborhood->getNumNeighbors(i);
 
 			//Put the values of alpha in the proper place in the global matrix
 			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
@@ -968,8 +957,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 			//scalar_type target_coeff = fsos->evalDiffusionCoefficient(target_coords->getLocalCoords(i, false));
 
-			const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
-			const local_index_type num_neighbors = neighbors.size();
+			local_index_type num_neighbors = neighborhood->getNumNeighbors(i);
 
 			//Print error if there's not enough neighbors:
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(num_neighbors < neighbors_needed,
@@ -989,11 +977,11 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 					scalar_type avg_coeff = 1;
 //					if (_physics_type==4) {
-//						scalar_type neighbor_coeff = fsos->evalDiffusionCoefficient(source_coords->getLocalCoords(static_cast<local_index_type>(neighbors[l].first), true));
+//						scalar_type neighbor_coeff = fsos->evalDiffusionCoefficient(source_coords->getLocalCoords(neighborhood->getNeighbor(i,l), true));
 //						avg_coeff = 0.5*(target_coeff + neighbor_coeff);
 //					}
 
-					cols[l*fields[field_two]->nDim()] = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, 0);
+					cols[l*fields[field_two]->nDim()] = local_to_dof_map(neighborhood->getNeighbor(i,l), field_two, 0);
 					values[l*fields[field_two]->nDim()] = avg_coeff * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l) * my_GMLS_staggered_grad.getPreStencilWeight(PointSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
 					values[0*fields[field_two]->nDim()] += avg_coeff * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l) * my_GMLS_staggered_grad.getPreStencilWeight(PointSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
 				}
@@ -1015,14 +1003,14 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 					scalar_type avg_coeff = 1;
 //					if (_physics_type==4) {
-//						scalar_type neighbor_coeff = fsos->evalDiffusionCoefficient(source_coords->getLocalCoords(static_cast<local_index_type>(neighbors[l].first), true));
+//						scalar_type neighbor_coeff = fsos->evalDiffusionCoefficient(source_coords->getLocalCoords(neighborhood->getNeighbor(i,l), true));
 //						avg_coeff = 0.5*(target_coeff + neighbor_coeff);
 //					}
 
 					for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
 						for (local_index_type m = 0; m < fields[field_two]->nDim(); ++m) {
 							// get neighbor l, evaluate coordinate and get latitude from strip
-							cols[l*fields[field_two]->nDim() + m] = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, m);
+							cols[l*fields[field_two]->nDim() + m] = local_to_dof_map(neighborhood->getNeighbor(i,l), field_two, m);
 							values[l*fields[field_two]->nDim() + m] = avg_coeff * my_GMLS_staggered_div.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, n) * my_GMLS_staggered_div.getPreStencilWeight(ManifoldVectorPointSample, i, l, false, n /*output component*/, m /*input component*/);
 							values[0*fields[field_two]->nDim() + m] += avg_coeff * my_GMLS_staggered_div.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, n) * my_GMLS_staggered_div.getPreStencilWeight(ManifoldVectorPointSample, i, l, true, n /*output component*/, m /*input component*/);
 						}
@@ -1044,8 +1032,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 //		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal), KOKKOS_LAMBDA(const int i) {
 		for (local_index_type i=0; i<nlocal; ++i) {
-			const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
-			const local_index_type num_neighbors = neighbors.size();
+			local_index_type num_neighbors = neighborhood->getNumNeighbors(i);
 
 			//Put the values of alpha in the proper place in the global matrix
 			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {

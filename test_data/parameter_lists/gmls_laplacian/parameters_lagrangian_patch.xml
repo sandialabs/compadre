@@ -18,7 +18,6 @@
   <ParameterList name="remap">
     <Parameter name="weighting power" type="int" value="12"/>
     <Parameter name="porder" type="int" value="2"/>
-    <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>

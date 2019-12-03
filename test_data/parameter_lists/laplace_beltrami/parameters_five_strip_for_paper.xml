@@ -19,7 +19,6 @@
   <ParameterList name="remap">
     <Parameter name="porder" type="int" value="1" />
     <Parameter name="curvature porder" type="int" value="2" />
-    <Parameter name="neighbors needed multiplier" type="double" value="1.0" />
     <Parameter name="dense solver type" type="string" value="QR"/>
     <Parameter name="problem type" type="string" value="MANIFOLD"/>
     <Parameter name="constraint type" type="string" value="NONE"/>

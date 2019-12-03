@@ -58,8 +58,7 @@ void GMLS_PoissonNeumannSources::evaluateRHS(local_index_type field_one, local_i
             const local_index_type dof = local_to_dof_map(neumann_filtered_flags(i), field_one, k);
 
             // get the number of neighbors for that target
-            const std::vector<std::pair<size_t, scalar_type>> neighbors = neighborhood->getNeighbors(neumann_filtered_flags(i));
-            const local_index_type num_neighbors = neighbors.size();
+            const local_index_type num_neighbors = neighborhood->getNumNeighbors(neumann_filtered_flags(i));
             // obtain the beta value from the constraint
             scalar_type b_i = _physics->_neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, num_neighbors);
 

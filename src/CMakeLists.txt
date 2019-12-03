@@ -13,8 +13,6 @@ set(CompadreHarness_SOURCES
   Compadre_FieldT.cpp                
   Compadre_FileIO.cpp                
   Compadre_LagCoordsT.cpp            
-  Compadre_nanoflannInformation.cpp  
-  Compadre_nanoflannPointCloudT.cpp  
   Compadre_NeighborhoodT.cpp         
   Compadre_OptimizationManager.cpp
   Compadre_ParameterManager.cpp
@@ -83,8 +81,6 @@ set(CompadreHarness_HEADERS
   Compadre_FileIO.hpp                
   Compadre_GlobalConstants.hpp       
   Compadre_LagCoordsT.hpp            
-  Compadre_nanoflannInformation.hpp  
-  Compadre_nanoflannPointCloudT.hpp  
   Compadre_NeighborhoodT.hpp         
   Compadre_OptimizationManager.hpp                 
   Compadre_ParameterManager.hpp      

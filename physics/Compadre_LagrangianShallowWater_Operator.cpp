@@ -116,22 +116,16 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 	const coords_type* target_coords = this->_coords;
 	const coords_type* source_coords = this->_coords;
 
-	const std::vector<std::vector<std::pair<size_t, scalar_type> > >& all_neighbors = neighborhood->getAllNeighbors();
-
-	size_t max_num_neighbors = 0;
-	Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()),
-			KOKKOS_LAMBDA (const int i, size_t &myVal) {
-		myVal = (all_neighbors[i].size() > myVal) ? all_neighbors[i].size() : myVal;
-	}, Kokkos::Experimental::Max<size_t>(max_num_neighbors));
+	size_t max_num_neighbors = neighborhood->computeMaxNumNeighbors(false /* use local processor max*/);
 
 	Kokkos::View<int**> kokkos_neighbor_lists("neighbor lists", target_coords->nLocal(), max_num_neighbors+1);
 	Kokkos::View<int**>::HostMirror kokkos_neighbor_lists_host = Kokkos::create_mirror_view(kokkos_neighbor_lists);
 
 	// fill in the neighbor lists into a kokkos view. First entry is # of neighbors for that target
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
-		const int num_i_neighbors = all_neighbors[i].size();
+		const int num_i_neighbors = neighborhood->getNumNeighbors(i);
 		for (int j=1; j<num_i_neighbors+1; ++j) {
-			kokkos_neighbor_lists_host(i,j) = all_neighbors[i][j-1].first;
+			kokkos_neighbor_lists_host(i,j) = neighborhood->getNeighbor(i,j-1);
 		}
 		kokkos_neighbor_lists_host(i,0) = num_i_neighbors;
 	});
@@ -264,11 +258,11 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 		Teuchos::RCP<Compadre::CoriolisForce> cf = Teuchos::rcp(new Compadre::CoriolisForce(swtc->getOmega()));
 
-		const double artificial_viscosity_coeff = _parameters->get<Teuchos::ParameterList>("physics").get<double>("artificial viscosity") * _particles->getNeighborhood()->getMinimumHSupportSize() * _particles->getNeighborhood()->getMinimumHSupportSize();
+        auto global_min_h = _particles->getNeighborhood()->computeMinHSupportSize(true /*global min*/);
+		const double artificial_viscosity_coeff = _parameters->get<Teuchos::ParameterList>("physics").get<double>("artificial viscosity") * global_min_h * global_min_h;
 
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal), KOKKOS_LAMBDA(const int i) {
-			const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
-			const local_index_type num_neighbors = neighbors.size();
+			const local_index_type num_neighbors = neighborhood->getNumNeighbors(i);
 
 			xyz_type xyz = _particles->getCoordsConst()->getLocalCoords(i, include_halo, use_physical_coords);
 			xyz_type normal_direction = xyz / xyz.magnitude();
@@ -320,7 +314,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 				double reconstructed_v1_ambient = 0;
 				double reconstructed_v2_ambient = 0;
 
-				const local_index_type my_index = static_cast<local_index_type>(neighbors[0].first);
+				const local_index_type my_index = neighborhood->getNeighbor(i,0);
 				double h_data_mine_0 = (my_index < nlocal) ? h_data(my_index, 0) : h_halo_data(my_index-nlocal, 0);
 				double h_value_mine = swtc->evalScalar(xyz);
 				double v_data_mine_0 = (my_index < nlocal) ? v_data(my_index, 0) : v_halo_data(my_index-nlocal, 0);
@@ -328,7 +322,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 				double v_data_mine_2 = (my_index < nlocal) ? v_data(my_index, 2) : v_halo_data(my_index-nlocal, 2);
 
 				for (local_index_type l = 0; l < num_neighbors; l++) {
-					const local_index_type neighbor_index = static_cast<local_index_type>(neighbors[l].first);
+					const local_index_type neighbor_index = neighborhood->getNeighbor(i,l);
 
 					double h_data_0 = (neighbor_index < nlocal) ? h_data(neighbor_index, 0) : h_halo_data(neighbor_index-nlocal, 0);
 					double v_data_0 = (neighbor_index < nlocal) ? v_data(neighbor_index, 0) : v_halo_data(neighbor_index-nlocal, 0);
@@ -410,7 +404,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 				if (EULERIAN) {
 					for (local_index_type l = 0; l < num_neighbors; l++) {
-						const local_index_type neighbor_index = static_cast<local_index_type>(neighbors[l].first);
+						const local_index_type neighbor_index = neighborhood->getNeighbor(i,l);
 
 						double v_data_0 = (neighbor_index < nlocal) ? v_data(neighbor_index, 0) : v_halo_data(neighbor_index-nlocal, 0);
 						double v_data_1 = (neighbor_index < nlocal) ? v_data(neighbor_index, 1) : v_halo_data(neighbor_index-nlocal, 1);
@@ -464,7 +458,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 					double reconstructed_laplace_u_1_local = 0;
 
 					for (local_index_type l = 0; l < num_neighbors; l++) {
-						const local_index_type neighbor_index = static_cast<local_index_type>(neighbors[l].first);
+						const local_index_type neighbor_index = neighborhood->getNeighbor(i,l);
 
 						double v_data_0 = (neighbor_index < nlocal) ? v_data(neighbor_index, 0) : v_halo_data(neighbor_index-nlocal, 0);
 						double v_data_1 = (neighbor_index < nlocal) ? v_data(neighbor_index, 1) : v_halo_data(neighbor_index-nlocal, 1);
@@ -605,8 +599,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal), KOKKOS_LAMBDA(const int i) {
 
-			const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
-			const local_index_type num_neighbors = neighbors.size();
+			const local_index_type num_neighbors = neighborhood->getNumNeighbors(i);
 
 //			std::vector<std::vector<double> > P(3, std::vector<double>(3,0));
 //			{
@@ -656,7 +649,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 				double reconstructed_h_grad1_ambient = 0;
 				double reconstructed_h_grad2_ambient = 0;
 
-				const local_index_type my_index = static_cast<local_index_type>(neighbors[0].first);
+				const local_index_type my_index = neighborhood->getNeighbor(i,0);
 				double v_data_mine_0 = (my_index < nlocal) ? v_data(my_index, 0) : v_halo_data(my_index-nlocal, 0);
 				double v_data_mine_1 = (my_index < nlocal) ? v_data(my_index, 1) : v_halo_data(my_index-nlocal, 1);
 				double v_data_mine_2 = (my_index < nlocal) ? v_data(my_index, 2) : v_halo_data(my_index-nlocal, 2);
@@ -664,7 +657,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 				if (EULERIAN) {
 				    if (use_velocity_interpolation) {
 				    	for (local_index_type l = 0; l < num_neighbors; l++) {
-				    		const local_index_type neighbor_index = static_cast<local_index_type>(neighbors[l].first);
+				    		const local_index_type neighbor_index = neighborhood->getNeighbor(i,l);
 				    		double v_data_0 = (neighbor_index < nlocal) ? v_data(neighbor_index, 0) : v_halo_data(neighbor_index-nlocal, 0);
 				    		double v_data_1 = (neighbor_index < nlocal) ? v_data(neighbor_index, 1) : v_halo_data(neighbor_index-nlocal, 1);
 				    		double v_data_2 = (neighbor_index < nlocal) ? v_data(neighbor_index, 2) : v_halo_data(neighbor_index-nlocal, 2);
@@ -699,7 +692,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 
 				for (local_index_type l = 0; l < num_neighbors; l++) {
-					const local_index_type neighbor_index = static_cast<local_index_type>(neighbors[l].first);
+					const local_index_type neighbor_index = neighborhood->getNeighbor(i,l);
 
 					double h_data_0 = (neighbor_index < nlocal) ? h_data(neighbor_index, 0) : h_halo_data(neighbor_index-nlocal, 0);
 
@@ -777,8 +770,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 			//xyz_type xyz = _particles->getCoordsConst()->getLocalCoords(i, include_halo, use_physical_coords);
 			//xyz_type normal_direction = xyz / xyz.magnitude();
 
-			const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
-			const local_index_type num_neighbors = neighbors.size();
+			const local_index_type num_neighbors = neighborhood->getNumNeighbors(i);
 
 			if (bc_id(i, 0) == 0) {
 
@@ -790,7 +782,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 				if (use_velocity_interpolation) {
 					for (local_index_type l = 0; l < num_neighbors; l++) {
-						const local_index_type neighbor_index = static_cast<local_index_type>(neighbors[l].first);
+						const local_index_type neighbor_index = neighborhood->getNeighbor(i,l);
 						double v_data_0 = (neighbor_index < nlocal) ? v_data(neighbor_index, 0) : v_halo_data(neighbor_index-nlocal, 0);
 						double v_data_1 = (neighbor_index < nlocal) ? v_data(neighbor_index, 1) : v_halo_data(neighbor_index-nlocal, 1);
 						double v_data_2 = (neighbor_index < nlocal) ? v_data(neighbor_index, 2) : v_halo_data(neighbor_index-nlocal, 2);
@@ -817,7 +809,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
                     reconstructed_v2_ambient = td(0,2)*reconstructed_v0_local + td(1,2)*reconstructed_v1_local;
 
 				} else {
-					const local_index_type my_index = static_cast<local_index_type>(neighbors[0].first);
+					const local_index_type my_index = neighborhood->getNeighbor(i,0);
 					double v_data_mine_0 = (my_index < nlocal) ? v_data(my_index, 0) : v_halo_data(my_index, 0);
 					double v_data_mine_1 = (my_index < nlocal) ? v_data(my_index, 1) : v_halo_data(my_index, 1);
 					double v_data_mine_2 = (my_index < nlocal) ? v_data(my_index, 2) : v_halo_data(my_index, 2);
@@ -825,7 +817,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 					reconstructed_v1_ambient = v_data_mine_1;
 					reconstructed_v2_ambient = v_data_mine_2;
 				}
-//				const local_index_type my_index = static_cast<local_index_type>(neighbors[0].first);
+//				const local_index_type my_index = neighborhood->getNeighbor(i,0);
 //				reconstructed_v0 = (my_index < nlocal) ? v_data(my_index, 0) : v_halo_data(my_index-nlocal, 0);
 //				reconstructed_v1 = (my_index < nlocal) ? v_data(my_index, 1) : v_halo_data(my_index-nlocal, 1);
 //				reconstructed_v2 = (my_index < nlocal) ? v_data(my_index, 2) : v_halo_data(my_index-nlocal, 2);
