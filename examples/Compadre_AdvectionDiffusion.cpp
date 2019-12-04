@@ -303,8 +303,8 @@ int main (int argc, char* args[]) {
 		auto exact_view = cells->getFieldManager()->getFieldByName("exact solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 		for( int j =0; j<coords->nLocal(); j++){
 			xyz_type xyz = coords->getLocalCoords(j);
-			//const ST val = particles->getFieldManagerConst()->getFieldByName("processed solution")->getLocalScalarVal(j);
-			const ST val = dof_view(j,0);
+			const ST val = cells->getFieldManagerConst()->getFieldByName("processed solution")->getLocalScalarVal(j);
+			//const ST val = dof_view(j,0);
 			//exact = 1;//+xyz[0]+xyz[1];//function->evalScalar(xyz);
 			exact = function->evalScalar(xyz);
 			norm += (exact - val)*(exact-val);
