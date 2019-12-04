@@ -875,7 +875,8 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
                         neighbors_needed,
                         _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
                         _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
-                        _parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"));
+                        _parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
+                        _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
 			}
 
 		}

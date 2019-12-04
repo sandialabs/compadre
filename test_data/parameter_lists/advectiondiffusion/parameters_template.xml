@@ -23,12 +23,10 @@
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>
-    <Parameter name="dynamic radius" type="bool" value="true"/>
-    <Parameter name="spatially varying radius" type="bool" value="false"/>
-    <!-- spatially varying must be false to ensure symmetry in neighborhoods -->
-    <Parameter name="multiplier" type="double" value="2.00"/>
-    <Parameter name="size" type="double" value="0.5"/>
-    <Parameter name="cutoff multiplier" type="double" value="1.2"/>
+    <Parameter name="uniform radii" type="bool" value="true"/>
+    <!-- uniform radii must be true to ensure symmetry in neighborhoods -->
+    <Parameter name="cutoff multiplier" type="double" value="1.8"/>
+    <Parameter name="radii post search scaling" type="double" value="0.5"/>
   </ParameterList>
   <ParameterList name="halo">
     <Parameter name="dynamic" type="bool" value="true"/>

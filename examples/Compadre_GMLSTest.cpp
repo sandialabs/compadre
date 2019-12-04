@@ -152,7 +152,8 @@ int main (int argc, char* args[]) {
                     neighbors_needed,
                     parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
                     parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
-                    parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"));
+                    parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
+                    parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
 
 				// Iterative solver for the problem
 				Teuchos::RCP<Compadre::ProblemT> problem = Teuchos::rcp( new Compadre::ProblemT(particles));

@@ -206,7 +206,8 @@ int main (int argc, char* args[]) {
             7 /* neighbors needed */,
             parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
             parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
-            parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"));
+            parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
+            parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
 
  		Teuchos::RCP<Compadre::ProblemT> problem =
  			Teuchos::rcp( new Compadre::ProblemT(particles) );
@@ -278,7 +279,8 @@ int main (int argc, char* args[]) {
                     4 /* neighbors needed */,
                     parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
                     parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
-                    parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"));
+                    parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
+                    parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
 				NeighborSearchTime->stop();
 
 				Teuchos::RCP<Compadre::ProblemT> problem =

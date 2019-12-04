@@ -125,6 +125,8 @@ void ParameterManager::setDefaultParameters() {
 	neighborList->set("size", 0.2); // search radius to use for radius searches
 
 	neighborList->set("uniform radii", (bool)false); // enforce equal size neighbor search radii
+	neighborList->set("radii post search scaling", 1.0); // scaling of epsilon sizes after search is complete
+    // making < 1.0 allows a guarantee that neighborhood includes neighbors beyond the radii size
 
 
 	// Halo Details

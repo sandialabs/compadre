@@ -61,6 +61,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                     _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
                     _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
                     _parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
+                    _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"),
                     use_physical_coords);
         }
 
