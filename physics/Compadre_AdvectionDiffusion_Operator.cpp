@@ -273,10 +273,10 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
 
     // loop over cells
     //Kokkos::View<int*, Kokkos::HostSpace> row_seen("has row had dirichlet addition", target_coords->nLocal());
-    host_vector_local_index_type row_seen("has row had dirichlet addition", nlocal);
-    Kokkos::deep_copy(row_seen,0);
-    host_vector_local_index_type col_data("col data", _cell_particles_max_num_neighbors);//particles_particles_max_num_neighbors*fields[field_two]->nDim());
-    host_vector_scalar_type val_data("val data", _cell_particles_max_num_neighbors);//particles_particles_max_num_neighbors*fields[field_two]->nDim());
+    //host_vector_local_index_type row_seen("has row had dirichlet addition", nlocal);
+    //Kokkos::deep_copy(row_seen,0);
+    //host_vector_local_index_type col_data("col data", _cell_particles_max_num_neighbors);//particles_particles_max_num_neighbors*fields[field_two]->nDim());
+    //host_vector_scalar_type val_data("val data", _cell_particles_max_num_neighbors);//particles_particles_max_num_neighbors*fields[field_two]->nDim());
 
     //auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")*_particles_particles_neighborhood->getMinimumHSupportSize();
     //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")*_particles_particles_neighborhood->getMinimumHSupportSize();
@@ -387,9 +387,18 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
     //    }
     //}
 
+    double area = 0; // (good, no rewriting)
+    //Kokkos::View<double,Kokkos::MemoryTraits<Kokkos::Atomic> > area; // scalar
+	int team_scratch_size = host_scratch_vector_scalar_type::shmem_size(1); // values
+	team_scratch_size += host_scratch_vector_local_index_type::shmem_size(1); // local column indices
+	const local_index_type host_scratch_team_level = 0; // not used in Kokkos currently
+	Kokkos::parallel_reduce(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember, scalar_type& t_area) {
+		const int i = teamMember.league_rank();
 
-     double area = 0; // (good, no rewriting)
-     for (int i=0; i<_cells->getCoordsConst()->nLocal(); ++i) {
+		host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), 1);
+		host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), 1);
+
+     //for (int i=0; i<_cells->getCoordsConst()->nLocal(); ++i) {
 
          ////if (i==3199) {
          //   printf("eps of %d: %.16f\n", i, _cell_particles_neighborhood->getHSupportSize(i));
@@ -417,7 +426,7 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
 
          for (int q=0; q<_weights_ndim; ++q) {
              if (quadrature_type(i,q)==1) { // interior
-                 area += quadrature_weights(i,q);
+                 t_area += quadrature_weights(i,q);
              }
          }
          // get all particle neighbors of cell i
@@ -432,52 +441,52 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                  local_index_type row = local_to_dof_map(particle_j, field_one, 0 /* component 0*/);
                  col_data(0) = local_to_dof_map(particle_k, field_two, 0 /* component */);
 
-                 // i can see j, but can j see i?
-                 bool j_see_i = false;
-                 for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(particle_j); ++l) {
-                     if (_cell_particles_neighborhood->getNeighbor(particle_j,l) == i) {
-                         j_see_i = true;
-                         break;
-                     }
-                 }
-                 // i can see k, but can k see i?
-                 bool k_see_i = false;
-                 for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(particle_k); ++l) {
-                     if (_cell_particles_neighborhood->getNeighbor(particle_k,l) == i) {
-                         k_see_i = true;
-                         break;
-                     }
-                 }
+                 //// i can see j, but can j see i?
+                 //bool j_see_i = false;
+                 //for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(particle_j); ++l) {
+                 //    if (_cell_particles_neighborhood->getNeighbor(particle_j,l) == i) {
+                 //        j_see_i = true;
+                 //        break;
+                 //    }
+                 //}
+                 //// i can see k, but can k see i?
+                 //bool k_see_i = false;
+                 //for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(particle_k); ++l) {
+                 //    if (_cell_particles_neighborhood->getNeighbor(particle_k,l) == i) {
+                 //        k_see_i = true;
+                 //        break;
+                 //    }
+                 //}
 
-                 // j can see i, and k can see i, but can j see k?
-                 bool j_see_k = false;
-                 for (size_t l=0; l<_cell_particles_neighborhood->getNumNeighbors(particle_j); ++l) {
-                     if (_cell_particles_neighborhood->getNeighbor(particle_j,l) == particle_k) {
-                         j_see_k = true;
-                         break;
-                     }
-                 }
+                 //// j can see i, and k can see i, but can j see k?
+                 //bool j_see_k = false;
+                 //for (size_t l=0; l<_cell_particles_neighborhood->getNumNeighbors(particle_j); ++l) {
+                 //    if (_cell_particles_neighborhood->getNeighbor(particle_j,l) == particle_k) {
+                 //        j_see_k = true;
+                 //        break;
+                 //    }
+                 //}
 
-                 local_index_type j_to_i = -1;
-                 for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(i); ++l) {
-                     if (_cell_particles_neighborhood->getNeighbor(i,l) == particle_j) {
-                         j_to_i = l;
-                         break;
-                     }
-                 }
-                 // i can see k, but can k see i?
-                 local_index_type k_to_i = -1;
-                 for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(i); ++l) {
-                     if (_cell_particles_neighborhood->getNeighbor(i,l) == particle_k) {
-                         k_to_i = l;
-                         break;
-                     }
-                 }
-                 compadre_assert_release((j_see_i && k_see_i) &&  "Someone can't see i.");
+                 //local_index_type j_to_i = -1;
+                 //for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(i); ++l) {
+                 //    if (_cell_particles_neighborhood->getNeighbor(i,l) == particle_j) {
+                 //        j_to_i = l;
+                 //        break;
+                 //    }
+                 //}
+                 //// i can see k, but can k see i?
+                 //local_index_type k_to_i = -1;
+                 //for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(i); ++l) {
+                 //    if (_cell_particles_neighborhood->getNeighbor(i,l) == particle_k) {
+                 //        k_to_i = l;
+                 //        break;
+                 //    }
+                 //}
+                 //compadre_assert_release((j_see_i && k_see_i) &&  "Someone can't see i.");
 
 
-                 //if (j_see_k && k_see_i && j_see_i) {
-                 if (j_to_i>-1 && k_to_i>-1) {
+                 ////if (j_see_k && k_see_i && j_see_i) {
+                 //if (j_to_i>-1 && k_to_i>-1) {
                      double contribution = 0;
                      for (int q=0; q<_weights_ndim; ++q) {
                          if (quadrature_type(i,q)==1) { // interior
@@ -485,15 +494,15 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                              contribution += quadrature_weights(i,q) 
                                  //* _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_i, 0) 
                                  //* _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_i, 0);
-                                 * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_i, q+1) 
-                                 * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_i, q+1);
+                                 * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1) 
+                                 * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1);
                          } 
 	                     TEUCHOS_ASSERT(contribution==contribution);
                      }
 
                      val_data(0) = contribution;
                      this->_A->sumIntoLocalValues(row, 1, val_data.data(), col_data.data());//, /*atomics*/false);
-                 }
+                 //}
                  //{
                  //    if (row_seen(row)==1) { // already seen
                  //        this->_A->sumIntoLocalValues(row, 1, val_data.data(), col_data.data());//, /*atomics*/false);
@@ -506,7 +515,7 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                  //}
              }
          }
-     }
+     }, Kokkos::Sum<scalar_type>(area));
     //double area = 0; // (alternate assembly, also good)
     //for (int i=0; i<_cells->getCoordsConst()->nLocal(); ++i) {
     //    for (int q=0; q<_weights_ndim; ++q) {
@@ -551,8 +560,8 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
     //                    if (quadrature_type(cell_k,q)==1) { // interior
     //                        // mass matrix
     //                        entry_i_j += quadrature_weights(cell_k,q) 
-    //                            * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_k, i_to_k, 0)//q+1) 
-    //                            * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_k, j_to_k, 0);//q+1);
+    //                            * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_k, i_to_k, q+1) 
+    //                            * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_k, j_to_k, q+1);
     //                    } 
 	//                    TEUCHOS_ASSERT(entry_i_j==entry_i_j);
     //                }

@@ -53,10 +53,6 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     //printf("num exterior quadrature (per edge): %d\n", num_exterior_quadrature_per_edge);
     //printf("penalty: %f\n", penalty);
 
-    // loop over cells
-    //Kokkos::View<int*, Kokkos::HostSpace> row_seen("has row had dirichlet addition", target_coords->nLocal());
-    host_vector_local_index_type row_seen("has row had dirichlet addition", nlocal);
-    Kokkos::deep_copy(row_seen,0);
 
     //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
     //    // get all particle neighbors of cell i
@@ -215,7 +211,22 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     //}
 
     // loop over particles GOOD
-    for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
+    //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
+ 
+
+    // loop over cells
+    //Kokkos::View<int*, Kokkos::HostSpace> row_seen("has row had dirichlet addition", target_coords->nLocal());
+    //host_vector_local_index_type row_seen("has row had dirichlet addition", nlocal);
+    //Kokkos::deep_copy(row_seen,0);
+
+    // zero out rhs before starting
+    Kokkos::deep_copy(rhs_vals, 0.0);
+
+    // get an unmanaged atomic view that can be added to in a parallel for loop
+    Kokkos::View<scalar_type**, decltype(rhs_vals)::memory_space, Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > 
+        rhs_vals_atomic(rhs_vals.data(), rhs_vals.extent(0), rhs_vals.extent(1));
+
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_physics->_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
         // loop over cells touching that particle
         local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
         for (size_t j=0; j<_physics->_cell_particles_neighborhood->getNumNeighbors(i); ++j) {
@@ -239,15 +250,16 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
                     contribution += quadrature_weights(cell_j,q) * v * function->evalScalar(pt);
                 } 
             }
-            if (row_seen(row)==1) { // already seen
-                rhs_vals(row,0) += contribution;
-            } else {
-                rhs_vals(row,0) = contribution;
-                row_seen(row) = 1;
-            }
+            rhs_vals_atomic(row,0) += contribution;
+            //if (row_seen(row)==1) { // already seen
+            //    rhs_vals(row,0) += contribution;
+            //} else {
+            //    rhs_vals(row,0) = contribution;
+            //    row_seen(row) = 1;
+            //}
             
         }
-    }
+    });
     
 
     ////// just for putting polynomial at pts
@@ -298,7 +310,7 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     //}
 
 
-    auto global_force = 4.0;//1.9166666666666665;//0.21132196999014932;
+    auto global_force = 22.666666666666666666;//4.0;//1.9166666666666665;//0.21132196999014932;
     double sum = 0;
     for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
         local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
