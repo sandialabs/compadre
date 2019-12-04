@@ -516,13 +516,25 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
              }
          }
      }, Kokkos::Sum<scalar_type>(area));
+
+
     //double area = 0; // (alternate assembly, also good)
-    //for (int i=0; i<_cells->getCoordsConst()->nLocal(); ++i) {
+    ////Kokkos::View<double,Kokkos::MemoryTraits<Kokkos::Atomic> > area; // scalar
+	//int team_scratch_size = host_scratch_vector_scalar_type::shmem_size(_cell_particles_max_num_neighbors); // values
+	//team_scratch_size += host_scratch_vector_local_index_type::shmem_size(_cell_particles_max_num_neighbors); // local column indices
+	//const local_index_type host_scratch_team_level = 0; // not used in Kokkos currently
+	//Kokkos::parallel_reduce(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember, scalar_type& t_area) {
+	//	const int i = teamMember.league_rank();
+
+	//	host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), _cell_particles_max_num_neighbors);
+	//	host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), _cell_particles_max_num_neighbors);
+
     //    for (int q=0; q<_weights_ndim; ++q) {
     //        if (quadrature_type(i,q)==1) { // interior
-    //            area += quadrature_weights(i,q);
+    //            t_area += quadrature_weights(i,q);
     //        }
     //    }
+
     //    local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
     //    // treat i as shape function, not cell
     //    // get all particle neighbors of particle i
@@ -571,7 +583,7 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
     //        val_data(j) = entry_i_j;
     //    }
     //    this->_A->sumIntoLocalValues(row, num_particle_neighbors, val_data.data(), col_data.data());//, /*atomics*/false);
-    //}
+    //}, Kokkos::Sum<scalar_type>(area));
     //double area = 0;
     //for (int i=0; i<_cells->getCoordsConst()->nLocal(); ++i) {
     //    for (int q=0; q<_weights_ndim; ++q) {
