@@ -45,10 +45,9 @@
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>
-    <Parameter name="cutoff multiplier" type="double" value="1.6"/>
     <Parameter name="size" type="double" value="3.125"/>
-    <Parameter name="dynamic radius" type="bool" value="false"/>
-    <Parameter name="spatially varying radius" type="bool" value="false"/>
+    <Parameter name="search type" type="string" value="radius"/>
+    <Parameter name="uniform radii" type="bool" value="true"/>
   </ParameterList>
   <ParameterList name="halo">
     <Parameter name="multiplier" type="double" value="150"/>
