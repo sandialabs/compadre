@@ -26,9 +26,6 @@ Compadre:
     'dimensions': 2
   'neighborhood':
     'method': nanoflann
-    'dynamic radius': true
-    'spatially varying radius': true
-    'multiplier': 2.10
     'size': 0.25
     'cutoff multiplier': 2.5
   'halo':

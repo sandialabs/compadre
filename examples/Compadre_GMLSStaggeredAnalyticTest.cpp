@@ -114,15 +114,7 @@ int main (int argc, char* args[]) {
                             particles->buildHalo(halo_size);
                             particles->createDOFManager();
 
-                            //Set the radius for the neighbor list:
-                            ST h_support;
-                            if (parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("dynamic radius")) {
-                                h_support = h_size;
-                            } else {
-                                h_support = parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size");
-                            }
                             particles->createNeighborhood();
-                            particles->getNeighborhood()->setAllHSupportSizes(h_support);
 
                             LO neighbors_needed = Compadre::GMLS::getNP(Porder);
 

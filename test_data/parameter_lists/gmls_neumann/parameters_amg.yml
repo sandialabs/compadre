@@ -25,9 +25,6 @@ Compadre:
     'quadrature type': 'line'
   'neighborhood':
     'method': nanoflann
-    'dynamic radius': true
-    'spatially varying radius': true
-    'multiplier': 2.0
     'cutoff multiplier': 1.5
     'size': 25.5
   'halo':
