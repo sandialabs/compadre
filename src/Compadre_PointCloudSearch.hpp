@@ -386,7 +386,12 @@ class PointCloudSearch {
                     t_min_num_neighbors = std::min(neighbors_found, t_min_num_neighbors);
             
                     // scale by epsilon_multiplier to window from location where the last neighbor was found
-                    epsilons(i) = std::sqrt(neighbor_distances(neighbors_found-1))*epsilon_multiplier;
+                    epsilons(i) = (neighbor_distances(neighbors_found-1) > 0) ?
+                        std::sqrt(neighbor_distances(neighbors_found-1))*epsilon_multiplier : 1e-14*epsilon_multiplier;
+                    // the only time the second case using 1e-14 is used is when either zero neighbors or exactly one 
+                    // neighbor (neighbor is target site) is found.  when the follow on radius search is conducted, the one
+                    // neighbor (target site) will not be found if left at 0, so any positive amount will do, however 1e-14 
+                    // should is small enough to ensure that other neighbors are not found
 
                     // needs furthest neighbor's distance for next portion
                     compadre_kernel_assert_release((neighbors_found<neighbor_lists.extent(1) || is_dry_run) 
