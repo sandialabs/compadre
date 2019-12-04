@@ -126,7 +126,7 @@ scalar_type NeighborhoodT::computeMaxHSupportSize(const bool global) const {
 
 void NeighborhoodT::constructAllNeighborLists(const scalar_type halo_max_search_size, std::string search_type, 
         bool do_dry_run_for_sizes, const local_index_type knn_needed, const scalar_type cutoff_multiplier, 
-        const scalar_type radius, const bool equal_radii, bool use_physical_coords) {
+        const scalar_type radius, const bool equal_radii, const scalar_type post_search_radii_scaling, bool use_physical_coords) {
 
     NeighborSearchTime->start();
 
@@ -215,6 +215,14 @@ void NeighborhoodT::constructAllNeighborLists(const scalar_type halo_max_search_
         _local_max_num_neighbors = _point_cloud_search->generateNeighborListsFromRadiusSearch(false /*not dry run*/, 
                 target_pts_view, _neighbor_lists, epsilons, max_h, _n_dim, _kd_tree, halo_max_search_size);
     }
+
+    if (post_search_radii_scaling != 1.0) {
+        h_support_view = _h_support_size->getLocalView<host_view_type>();
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,h_support_view.extent(0)), KOKKOS_LAMBDA(const int i) {
+            h_support_view(i,0) *= post_search_radii_scaling;
+        });
+    }
+
     NeighborSearchTime->stop();
 }
 

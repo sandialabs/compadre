@@ -236,7 +236,7 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
                     // integrating RHS function
                     double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_j, i_index_to_j, q+1);
                     xyz_type pt(quadrature_points(cell_j,2*q),quadrature_points(cell_j,2*q+1),0);
-                    contribution += quadrature_weights(cell_j,q) * v * 1;//(1 + pt[0] + pt[1]);//function->evalScalar(pt);
+                    contribution += quadrature_weights(cell_j,q) * v * function->evalScalar(pt);
                 } 
             }
             if (row_seen(row)==1) { // already seen

@@ -102,9 +102,20 @@ int main (int argc, char* args[]) {
 				halo_size = parameters->get<Teuchos::ParameterList>("halo").get<double>("size");
 			}
  			cells->buildHalo(halo_size);
+		    cells->getFieldManager()->createField(1, "solution", "m/s");
  			cells->createDOFManager();
 
 
+            auto neighbors_needed = GMLS::getNP(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
+	 		cells->createNeighborhood();
+ 		    cells->getNeighborhood()->constructAllNeighborLists(1e+16,
+                parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
+                true /*dry run for sizes*/,
+                neighbors_needed+1,
+                parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
+                parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
+                parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
+                parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
 
 			////Set the radius for the neighbor list:
 	 		//ST h_support;
@@ -131,55 +142,55 @@ int main (int argc, char* args[]) {
 //	        fm.write();
 //	        WriteTime->stop();
 //		}
-		Teuchos::RCP<Compadre::ParticlesT> particles =
-				Teuchos::rcp( new Compadre::ParticlesT(parameters, comm));
-        auto particle_coords = Teuchos::rcpFromRef<CT>(*(CT*)cells->getCoords());
-        particles->setCoords(particle_coords);
+		//Teuchos::RCP<Compadre::ParticlesT> particles =
+		//		Teuchos::rcp( new Compadre::ParticlesT(parameters, comm));
+        //auto particle_coords = Teuchos::rcpFromRef<CT>(*(CT*)cells->getCoords());
+        //particles->setCoords(particle_coords);
 
-		particles->getFieldManager()->createField(1, "solution", "m/s");
-        particles->createDOFManager();
-        particles->getDOFManager()->generateDOFMap();
-		{
-			if (parameters->get<Teuchos::ParameterList>("halo").get<bool>("dynamic")) {
-				halo_size = h_size * parameters->get<Teuchos::ParameterList>("halo").get<double>("multiplier");
-			} else {
-				halo_size = parameters->get<Teuchos::ParameterList>("halo").get<double>("size");
-			}
- 			particles->buildHalo(halo_size);
- 			particles->createDOFManager();
+		//cells->getFieldManager()->createField(1, "solution", "m/s");
+        //particles->createDOFManager();
+        //particles->getDOFManager()->generateDOFMap();
+		//{
+		//	if (parameters->get<Teuchos::ParameterList>("halo").get<bool>("dynamic")) {
+		//		halo_size = h_size * parameters->get<Teuchos::ParameterList>("halo").get<double>("multiplier");
+		//	} else {
+		//		halo_size = parameters->get<Teuchos::ParameterList>("halo").get<double>("size");
+		//	}
+ 		//	particles->buildHalo(halo_size);
+ 		//	particles->createDOFManager();
 
 
 
-			////Set the radius for the neighbor list:
-	 		//ST h_support;
-	 		//if (parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("dynamic radius")) {
-	 		//	h_support = h_size;
-	 		//} else {
-	 		//	h_support = parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size");
-	 		//}
-	 		//particles->createNeighborhood();
-	 		//particles->getNeighborhood()->setAllHSupportSizes(h_support);
+		//	////Set the radius for the neighbor list:
+	 	//	//ST h_support;
+	 	//	//if (parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("dynamic radius")) {
+	 	//	//	h_support = h_size;
+	 	//	//} else {
+	 	//	//	h_support = parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size");
+	 	//	//}
+	 	//	//particles->createNeighborhood();
+	 	//	//particles->getNeighborhood()->setAllHSupportSizes(h_support);
 
-	 		//LO neighbors_needed = Compadre::GMLS::getNP(Porder, 2 /*dimension*/);
+	 	//	//LO neighbors_needed = Compadre::GMLS::getNP(Porder, 2 /*dimension*/);
 
-			//LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
-			//particles->getNeighborhood()->constructAllNeighborList(particles->getCoordsConst()->getHaloSize(), extra_neighbors);
+		//	//LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
+		//	//particles->getNeighborhood()->constructAllNeighborList(particles->getCoordsConst()->getHaloSize(), extra_neighbors);
 
-		}
+		//}
 
         // Iterative solver for the problem
-        Teuchos::RCP<Compadre::ProblemT> problem = Teuchos::rcp( new Compadre::ProblemT(particles));
+        Teuchos::RCP<Compadre::ProblemT> problem = Teuchos::rcp( new Compadre::ProblemT(cells));
 
         // construct physics, sources, and boundary conditions
         Teuchos::RCP<Compadre::AdvectionDiffusionPhysics> physics =
-          Teuchos::rcp( new Compadre::AdvectionDiffusionPhysics(particles, Porder));
+          Teuchos::rcp( new Compadre::AdvectionDiffusionPhysics(cells, Porder));
         Teuchos::RCP<Compadre::AdvectionDiffusionSources> source =
-            Teuchos::rcp( new Compadre::AdvectionDiffusionSources(particles));
+            Teuchos::rcp( new Compadre::AdvectionDiffusionSources(cells));
         Teuchos::RCP<Compadre::AdvectionDiffusionBoundaryConditions> bcs =
-            Teuchos::rcp( new Compadre::AdvectionDiffusionBoundaryConditions(particles));
+            Teuchos::rcp( new Compadre::AdvectionDiffusionBoundaryConditions(cells));
 
         // set physics, sources, and boundary conditions in the problem
-        xyz_type advection_field(1,1,1);
+        xyz_type advection_field(0,0,0);
 
         // set advection and diffusion for physics
         physics->setAdvectionField(advection_field);
@@ -203,15 +214,15 @@ int main (int argc, char* args[]) {
         SolvingTime->start();
         problem->solve();
         SolvingTime->stop();
-        particles->getFieldManager()->updateFieldsHaloData();
+        cells->getFieldManager()->updateFieldsHaloData();
 
 
         auto my_gmls = physics->getGMLSInstance();
 
         // post process solution
-		particles->getFieldManager()->createField(1, "processed solution", "m/s");
-		auto processed_view = particles->getFieldManager()->getFieldByName("processed solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-		auto dof_view = particles->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+		cells->getFieldManager()->createField(1, "processed solution", "m/s");
+		auto processed_view = cells->getFieldManager()->getFieldByName("processed solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+		auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 	    auto neighborhood = physics->_cell_particles_neighborhood;//cells->getNeighborhoodConst();
 
         // loop over cells
@@ -288,13 +299,14 @@ int main (int argc, char* args[]) {
 		//function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
 		function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
 
-		particles->getFieldManager()->createField(1, "exact solution", "m/s");
-		auto exact_view = particles->getFieldManager()->getFieldByName("exact solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+		cells->getFieldManager()->createField(1, "exact solution", "m/s");
+		auto exact_view = cells->getFieldManager()->getFieldByName("exact solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 		for( int j =0; j<coords->nLocal(); j++){
 			xyz_type xyz = coords->getLocalCoords(j);
 			//const ST val = particles->getFieldManagerConst()->getFieldByName("processed solution")->getLocalScalarVal(j);
 			const ST val = dof_view(j,0);
-			exact = 1;//+xyz[0]+xyz[1];//function->evalScalar(xyz);
+			//exact = 1;//+xyz[0]+xyz[1];//function->evalScalar(xyz);
+			exact = function->evalScalar(xyz);
 			norm += (exact - val)*(exact-val);
 			exact_view(j,0) = exact;
 		}
@@ -312,7 +324,7 @@ int main (int argc, char* args[]) {
         {
             WriteTime->start();
             std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
-            fm.setWriter(output_filename, particles);
+            fm.setWriter(output_filename, cells);
             if (parameters->get<Teuchos::ParameterList>("io").get<bool>("vtk produce mesh")) fm.generateWriteMesh();
             fm.write();
             WriteTime->stop();

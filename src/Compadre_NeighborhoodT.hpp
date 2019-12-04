@@ -79,7 +79,8 @@ class NeighborhoodT {
 
         void constructAllNeighborLists(const scalar_type halo_max_search_size, std::string search_type, 
             bool do_dry_run_for_sizes, const local_index_type knn_needed, const scalar_type cutoff_multiplier, 
-            const scalar_type radius = 0.0, const bool equal_radii = false, bool use_physical_coords = true);
+            const scalar_type radius = 0.0, const bool equal_radii = false, 
+            const scalar_type post_search_radii_scaling = 1.0, bool use_physical_coords = true);
 
 };
 
