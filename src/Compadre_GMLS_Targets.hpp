@@ -745,11 +745,11 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                                                 break;
                                             case 1:
                                                 // output component 0, 1
-                                                P_target_row(offset, 5) = std::pow(_epsilons(target_index), -1);
+                                                P_target_row(offset, 3) = std::pow(_epsilons(target_index), -1);
                                                 break;
                                             default:
                                                 // output component 0, 2
-                                                P_target_row(offset, 7) = std::pow(_epsilons(target_index), -1);
+                                                P_target_row(offset, 4) = std::pow(_epsilons(target_index), -1);
                                                 break;
                                         }
                                         break;
@@ -757,7 +757,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                                         switch (m2) {
                                             case 0:
                                                 // output component 1, 0
-                                                P_target_row(offset, 3) = std::pow(_epsilons(target_index), -1);
+                                                P_target_row(offset, 5) = std::pow(_epsilons(target_index), -1);
                                                 break;
                                             case 1:
                                                 // output component 1, 1
@@ -765,7 +765,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                                                 break;
                                             default:
                                                 // output component 1, 2
-                                                P_target_row(offset, 8) = std::pow(_epsilons(target_index), -1);
+                                                P_target_row(offset, 6) = std::pow(_epsilons(target_index), -1);
                                                 break;
                                         }
                                         break;
@@ -773,11 +773,11 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                                         switch (m2) {
                                             case 0:
                                                 // output component 2, 0
-                                                P_target_row(offset, 4) = std::pow(_epsilons(target_index), -1);
+                                                P_target_row(offset, 7) = std::pow(_epsilons(target_index), -1);
                                                 break;
                                             case 1:
                                                 // output component 2, 1
-                                                P_target_row(offset, 6) = std::pow(_epsilons(target_index), -1);
+                                                P_target_row(offset, 8) = std::pow(_epsilons(target_index), -1);
                                                 break;
                                             default:
                                                 // output component 2, 2
