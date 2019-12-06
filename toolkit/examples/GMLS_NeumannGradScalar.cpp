@@ -98,6 +98,7 @@ bool all_passed = true;
             dimension = arg4toi;
         }
     }
+    compadre_assert_release((dimension==2 || dimension==3) && "Only supports 2D or 3D.");
     
     // check if 3 arguments are given from the command line
     //  set the number of target sites where we will reconstruct the target functionals at
@@ -148,7 +149,7 @@ bool all_passed = true;
     Kokkos::View<double**>::HostMirror target_coords = Kokkos::create_mirror_view(target_coords_device);
 
     // tangent bundle for each target sites
-    Kokkos::View<double***, Kokkos::DefaultExecutionSpace> tangent_bundles_device ("tangent bundles", number_target_coords, 3, 3);
+    Kokkos::View<double***, Kokkos::DefaultExecutionSpace> tangent_bundles_device ("tangent bundles", number_target_coords, dimension, dimension);
     Kokkos::View<double***>::HostMirror tangent_bundles = Kokkos::create_mirror_view(tangent_bundles_device);
 
     // fill source coordinates with a uniform grid
@@ -200,15 +201,22 @@ bool all_passed = true;
         // target_coords(i, 2) = 1.0;
 
         // Set tangent bundles
-        tangent_bundles(i, 0, 0) = 0.0;
-        tangent_bundles(i, 0, 1) = 0.0;
-        tangent_bundles(i, 0, 2) = 0.0;
-        tangent_bundles(i, 1, 0) = 0.0;
-        tangent_bundles(i, 1, 1) = 0.0;
-        tangent_bundles(i, 1, 2) = 0.0;
-        tangent_bundles(i, 2, 0) = 1.0/(sqrt(3.0));
-        tangent_bundles(i, 2, 1) = 1.0/(sqrt(3.0));
-        tangent_bundles(i, 2, 2) = 1.0/(sqrt(3.0));
+        if (dimension == 2) {
+            tangent_bundles(i, 0, 0) = 0.0;
+            tangent_bundles(i, 0, 1) = 0.0;
+            tangent_bundles(i, 1, 0) = 1.0/(sqrt(2.0));
+            tangent_bundles(i, 1, 1) = 1.0/(sqrt(2.0));
+        } else if (dimension == 3) {
+            tangent_bundles(i, 0, 0) = 0.0;
+            tangent_bundles(i, 0, 1) = 0.0;
+            tangent_bundles(i, 0, 2) = 0.0;
+            tangent_bundles(i, 1, 0) = 0.0;
+            tangent_bundles(i, 1, 1) = 0.0;
+            tangent_bundles(i, 1, 2) = 0.0;
+            tangent_bundles(i, 2, 0) = 1.0/(sqrt(3.0));
+            tangent_bundles(i, 2, 1) = 1.0/(sqrt(3.0));
+            tangent_bundles(i, 2, 2) = 1.0/(sqrt(3.0));
+        }
     }
 
     //! [Setting Up The Point Cloud]
@@ -273,9 +281,8 @@ bool all_passed = true;
     // query the point cloud to generate the neighbor lists using a kdtree to produce the n nearest neighbor
     // to each target site, adding (epsilon_multiplier-1)*100% to whatever the distance away the further neighbor used is from
     // each target to the view for epsilon
-    point_cloud_search.generateNeighborListsFromKNNSearch(target_coords, neighbor_lists, epsilon, min_neighbors, dimension, 
-            epsilon_multiplier);
-    
+    point_cloud_search.generateNeighborListsFromKNNSearch(false /*not dry run*/, target_coords, neighbor_lists, 
+            epsilon, min_neighbors, dimension, epsilon_multiplier);
     
     //! [Performing Neighbor Search]
     
@@ -410,7 +417,8 @@ bool all_passed = true;
         // calculate value of g to reconstruct the computed Laplacian
         double actual_Gradient[3] = {0,0,0}; // initialized for 3, but only filled up to dimension
         trueGradient(actual_Gradient, xval, yval, zval, order, dimension);
-        double g = (1.0/sqrt(3.0))*(actual_Gradient[0] + actual_Gradient[1] + actual_Gradient[2]);
+        double g = (dimension == 3) ? (1.0/sqrt(3.0))*(actual_Gradient[0] + actual_Gradient[1] + actual_Gradient[2]) 
+                                        : (1.0/sqrt(2.0))*(actual_Gradient[0] + actual_Gradient[1]);
         double adjusted_value = GMLS_value + b_i*g;
 
         // check actual function value
