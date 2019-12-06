@@ -2,6 +2,8 @@
   <ParameterList name="physics">
     <Parameter name="diffusion" type="double" value="0.0"/>
     <Parameter name="penalty" type="double" value="0e-4"/>
+    <Parameter name="l2 projection only" type="bool" value="true"/>
+    <Parameter name="solution" type="string" value="polynomial"/>
   </ParameterList>
   <ParameterList name="io">
     <Parameter name="input file prefix" type="string" value="../test_data/grids/"/>

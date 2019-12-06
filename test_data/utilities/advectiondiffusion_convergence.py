@@ -22,10 +22,16 @@ def check_bounds(porder, rate):
 # second argument sets maximum meshes to check
 max_porder = 10
 max_fname = 10 
+l2_only = 0
+solution = 0
 if (len(sys.argv) > 1):
     max_porder = int(sys.argv[1])
 if (len(sys.argv) > 2):
     max_fname = int(sys.argv[2])
+if (len(sys.argv) > 3):
+    l2_only = int(sys.argv[3])
+if (len(sys.argv) > 4):
+    solution = int(sys.argv[4])
 
 porders = ["%d"%num for num in range(2,11)]
 file_names = ["dg_%d.nc"%num for num in range(4)]
@@ -41,16 +47,25 @@ for key1, porder in enumerate(porders):
                 f=item
             if (item.attrib['name']=="remap"):
                 g=item
+            if (item.attrib['name']=="physics"):
+                p=item
         
         # have io now
         for item in f.getchildren():
             if (item.attrib['name']=="input file"):
-                item.attrib['value']=fname;
+                item.attrib['value']=fname
 
         # have remap now
         for item in g.getchildren():
             if (item.attrib['name']=="porder"):
-                item.attrib['value']=porder;
+                item.attrib['value']=porder
+
+        # have physics now
+        for item in p.getchildren():
+            if (item.attrib['name']=="l2 projection only"):
+                item.attrib['value']="true" if (l2_only > 0) else "false"
+            if (item.attrib['name']=="solution"):
+                item.attrib['value']="polynomial" if (solution==0) else "sine"
         
         tree.write(open('../test_data/parameter_lists/advectiondiffusion/parameters.xml', 'wb'))
         
@@ -72,15 +87,20 @@ for key1, porder in enumerate(porders):
         if (max_fname==(key2+1)):
             break
     
-    #print errors
-    print("\n\nerror rates: porder:%s\n============="%(porder,))
-    for i in range(1,len(errors)):
-        if (errors[i]!=0):
-            rate = math.log(errors[i]/errors[i-1])/math.log(.5)
-            print(str(rate) + ", " + str(errors[i]) + ", " + str(errors[i-1]))
-            #assert(check_bounds(porder, rate))
-        else:
-            print("NaN - Division by zero")
+    if (max_fname>1 or solution!=0):
+        #print errors
+        print("\n\nerror rates: porder:%s\n============="%(porder,))
+        for i in range(1,len(errors)):
+            if (errors[i]!=0):
+                rate = math.log(errors[i]/errors[i-1])/math.log(.5)
+                print(str(rate) + ", " + str(errors[i]) + ", " + str(errors[i-1]))
+                #assert(check_bounds(porder, rate))
+            else:
+                print("NaN - Division by zero")
+    else: # 1 mesh and polynomial solution, so should be exact
+        print("\n\nerror: porder:%s\n============="%(porder,))
+        print(str(errors[0]))
+        assert(errors[0]<1e-14, "Solution not exact to machine precision")
         
     errors = []
     

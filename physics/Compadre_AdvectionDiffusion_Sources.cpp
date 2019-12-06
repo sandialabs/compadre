@@ -22,8 +22,12 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
         field_two = field_one;
     }
 
-    //auto function = Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/));
-    auto function = Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/));
+    Teuchos::RCP<Compadre::AnalyticFunction> function;
+    if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial") {
+	    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
+    } else {
+	    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
+    }
 
 	host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
     const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
