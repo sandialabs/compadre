@@ -83,6 +83,7 @@ set(CompadreHarness_HEADERS
   Compadre_GlobalConstants.hpp       
   Compadre_LagCoordsT.hpp            
   Compadre_MultiJumpNeighborhood.hpp         
+  Compadre_nanoflannPointCloudT.hpp
   Compadre_NeighborhoodT.hpp         
   Compadre_OptimizationManager.hpp                 
   Compadre_ParameterManager.hpp      
