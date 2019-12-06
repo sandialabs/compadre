@@ -108,7 +108,7 @@ int main (int argc, char* args[]) {
 
             auto neighbors_needed = GMLS::getNP(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
 	 		cells->createNeighborhood();
- 		    cells->getNeighborhood()->constructAllNeighborLists(1e+16,
+ 		    cells->getNeighborhood()->constructAllNeighborLists(cells->getCoordsConst()->getHaloSize(),
                 parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
                 true /*dry run for sizes*/,
                 neighbors_needed+1,

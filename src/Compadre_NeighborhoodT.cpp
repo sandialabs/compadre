@@ -133,6 +133,8 @@ void NeighborhoodT::constructAllNeighborLists(const scalar_type halo_max_search_
     const local_index_type comm_size = _source_coords->getComm()->getSize();
     bool global_reduction = (comm_size>1); // used for max num neighbors
 
+    scalar_type recalculated_halo_max_search_size = (global_reduction) ? halo_max_search_size : 0.0;
+
     // get view from h_support and check its size
     host_view_type h_support_view = _h_support_size->getLocalView<host_view_type>();
     // should be zero or exactly as large as target coords
@@ -165,11 +167,11 @@ void NeighborhoodT::constructAllNeighborLists(const scalar_type halo_max_search_
             _neighbor_lists = host_view_local_index_type("neighbor lists", h_support_view.extent(0), 1+knn_needed);
             max_num_neighbors = _point_cloud_search->generateNeighborListsFromKNNSearch(do_dry_run_for_sizes, 
                     target_pts_view, _neighbor_lists, epsilons, knn_needed, _n_dim, cutoff_multiplier, _kd_tree, 
-                    halo_max_search_size);
+                    recalculated_halo_max_search_size);
         } else if (search_type=="radius") {
             _neighbor_lists = host_view_local_index_type("neighbor lists", h_support_view.extent(0), 1);
             max_num_neighbors = _point_cloud_search->generateNeighborListsFromRadiusSearch(do_dry_run_for_sizes, 
-                    target_pts_view, _neighbor_lists, epsilons, radius, _n_dim, _kd_tree, halo_max_search_size);
+                    target_pts_view, _neighbor_lists, epsilons, radius, _n_dim, _kd_tree, recalculated_halo_max_search_size);
         }
 
         // at this point, h_supports contains all search sizes
@@ -180,7 +182,7 @@ void NeighborhoodT::constructAllNeighborLists(const scalar_type halo_max_search_
 
             // perform a radius search with max_h
             max_num_neighbors = _point_cloud_search->generateNeighborListsFromRadiusSearch(do_dry_run_for_sizes, 
-                    target_pts_view, _neighbor_lists, epsilons, max_h, _n_dim, _kd_tree, halo_max_search_size);
+                    target_pts_view, _neighbor_lists, epsilons, max_h, _n_dim, _kd_tree, recalculated_halo_max_search_size);
         }
 
         // follow up by figuring out max num neighbors resize neighbor_lists to that large
@@ -199,10 +201,10 @@ void NeighborhoodT::constructAllNeighborLists(const scalar_type halo_max_search_
     if (search_type=="knn") {
         _local_max_num_neighbors = _point_cloud_search->generateNeighborListsFromKNNSearch(false /*not dry run*/, 
                 target_pts_view, _neighbor_lists, epsilons, knn_needed, _n_dim, cutoff_multiplier, _kd_tree, 
-                halo_max_search_size);
+                recalculated_halo_max_search_size);
     } else if (search_type=="radius") {
         _local_max_num_neighbors = _point_cloud_search->generateNeighborListsFromRadiusSearch(false /*not dry run*/, 
-                target_pts_view, _neighbor_lists, epsilons, radius, _n_dim, _kd_tree, halo_max_search_size);
+                target_pts_view, _neighbor_lists, epsilons, radius, _n_dim, _kd_tree, recalculated_halo_max_search_size);
     }
 
     // at this point, h_supports contains all search sizes
@@ -213,7 +215,7 @@ void NeighborhoodT::constructAllNeighborLists(const scalar_type halo_max_search_
 
         // perform a radius search with max_h
         _local_max_num_neighbors = _point_cloud_search->generateNeighborListsFromRadiusSearch(false /*not dry run*/, 
-                target_pts_view, _neighbor_lists, epsilons, max_h, _n_dim, _kd_tree, halo_max_search_size);
+                target_pts_view, _neighbor_lists, epsilons, max_h, _n_dim, _kd_tree, recalculated_halo_max_search_size);
     }
 
     if (post_search_radii_scaling != 1.0) {

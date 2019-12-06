@@ -72,10 +72,10 @@ void AdvectionDiffusionPhysics::initialize() {
 
     _particles_double_hop_neighborhood = Teuchos::rcp(new MultiJumpNeighborhood(_cell_particles_neighborhood.getRawPtr()));
     auto as_multi_jump = Teuchos::rcp_static_cast<MultiJumpNeighborhood>(_particles_double_hop_neighborhood);
-    as_multi_jump->constructNeighborOfNeighborLists(0.0 /* no halo constraint on max search size*/);
+    as_multi_jump->constructNeighborOfNeighborLists(_cells->getCoordsConst()->getHaloSize());
 
 
-    TEUCHOS_TEST_FOR_EXCEPT_MSG(_particles->getCoordsConst()->getComm()->getRank()>0, "Only for serial.");
+    //TEUCHOS_TEST_FOR_EXCEPT_MSG(_particles->getCoordsConst()->getComm()->getRank()>0, "Only for serial.");
 
     //****************
     //

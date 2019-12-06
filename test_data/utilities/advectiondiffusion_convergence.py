@@ -65,8 +65,8 @@ for key1, porder in enumerate(porders):
                 for line in exc.output.decode().split('\n'):
                     print(line)
                 sys.exit(exc.returncode)
-            #print output
-            m = re.search('(?<=compare len: )[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?', output)
+            print(output)
+            m = re.search('(?<=Global Norm: )[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?', output)
             errors.append(float(m.group(0)))
         
         if (max_fname==(key2+1)):
