@@ -380,19 +380,19 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
     host_vector_scalar_type val_data("val data", _cell_particles_max_num_neighbors);//particles_particles_max_num_neighbors*fields[field_two]->nDim());
     double t_area = 0; 
     for (int i=0; i<_cells->getCoordsConst()->nLocal(); ++i) {
-        auto window_size = _cell_particles_neighborhood->getHSupportSize(i);
-        //auto less_than = 0;
-        for (int j=0; j<_cell_particles_neighborhood->getNumNeighbors(i); ++j) {
-            auto this_i = _cells->getCoordsConst()->getLocalCoords(_cell_particles_neighborhood->getNeighbor(i,0));
-            auto this_j = _cells->getCoordsConst()->getLocalCoords(_cell_particles_neighborhood->getNeighbor(i,j));
-            auto diff = std::sqrt(pow(this_i[0]-this_j[0],2) + pow(this_i[1]-this_j[1],2) + pow(this_i[2]-this_j[2],2));
-            if (diff > window_size) {
-                //printf("diff: %.16f\n", std::sqrt(pow(this_i[0]-this_j[0],2) + pow(this_i[1]-this_j[1],2)));
-                more_than(j) = 1;
-            } else {
-                more_than(j) = 0;
-            }
-        }
+        //auto window_size = _cell_particles_neighborhood->getHSupportSize(i);
+        ////auto less_than = 0;
+        //for (int j=0; j<_cell_particles_neighborhood->getNumNeighbors(i); ++j) {
+        //    auto this_i = _cells->getCoordsConst()->getLocalCoords(_cell_particles_neighborhood->getNeighbor(i,0));
+        //    auto this_j = _cells->getCoordsConst()->getLocalCoords(_cell_particles_neighborhood->getNeighbor(i,j));
+        //    auto diff = std::sqrt(pow(this_i[0]-this_j[0],2) + pow(this_i[1]-this_j[1],2) + pow(this_i[2]-this_j[2],2));
+        //    if (diff > window_size) {
+        //        //printf("diff: %.16f\n", std::sqrt(pow(this_i[0]-this_j[0],2) + pow(this_i[1]-this_j[1],2)));
+        //        more_than(j) = 1;
+        //    } else {
+        //        more_than(j) = 0;
+        //    }
+        //}
 
          for (int q=0; q<_weights_ndim; ++q) {
              if (quadrature_type(i,q)==1) { // interior
@@ -412,13 +412,15 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
 
 
                  double contribution = 0;
-                 for (int q=0; q<_weights_ndim; ++q) {
-                     if (quadrature_type(i,q)==1) { // interior
-                         contribution += quadrature_weights(i,q) 
-                             * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1) 
-                             * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1);
-                     } 
-	                 TEUCHOS_ASSERT(contribution==contribution);
+                 if (_parameters->get<Teuchos::ParameterList>("physics").get<bool>("l2 projection only")) {
+                    for (int q=0; q<_weights_ndim; ++q) {
+                        if (quadrature_type(i,q)==1) { // interior
+                            contribution += quadrature_weights(i,q) 
+                                * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1) 
+                                * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1);
+                        } 
+	                    TEUCHOS_ASSERT(contribution==contribution);
+                    }
                  }
 
                  val_data(0) = contribution;

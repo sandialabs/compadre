@@ -296,8 +296,12 @@ int main (int argc, char* args[]) {
 		double exact = 0.0;
 
 		Teuchos::RCP<Compadre::AnalyticFunction> function;
-		//function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
-		function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
+        if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial") {
+		    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
+        } else {
+		    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
+        }
+
 
 		cells->getFieldManager()->createField(1, "exact solution", "m/s");
 		auto exact_view = cells->getFieldManager()->getFieldByName("exact solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
