@@ -19,7 +19,6 @@
   </ParameterList>
   <ParameterList name="remap">
     <Parameter name="porder" type="int" value="2"/>
-    <Parameter name="neighbors needed multiplier" type="double" value="1.4"/>
     <Parameter name="optimization algorithm" type="string" value="NONE"/>
     <Parameter name="dense solver type" type="string" value="QR"/>
     <Parameter name="problem type" type="string" value="MANIFOLD"/>
@@ -27,7 +26,7 @@
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>
-    <Parameter name="cutoff multiplier" type="double" value="1.1"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.6"/>
     <Parameter name="size" type="double" value=".0125"/>
   </ParameterList>
   <ParameterList name="halo">
@@ -36,14 +35,13 @@
   </ParameterList>
   <!--ParameterList name="remap">
     <Parameter name="porder" type="int" value="3"/>
-    <Parameter name="neighbors needed multiplier" type="double" value="1.4"/>
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>
-    <Parameter name="cutoff multiplier" type="double" value="1.4"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.6"/>
     <Parameter name="size" type="double" value="3.125"/>
-    <Parameter name="dynamic radius" type="bool" value="false"/>
-    <Parameter name="spatially varying radius" type="bool" value="false"/>
+    <Parameter name="search type" type="string" value="radius"/>
+    <Parameter name="uniform radii" type="bool" value="true"/>
   </ParameterList>
   <ParameterList name="halo">
     <Parameter name="multiplier" type="double" value="150"/>

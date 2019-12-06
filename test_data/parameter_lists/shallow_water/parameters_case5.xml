@@ -7,7 +7,6 @@
   <ParameterList name="remap">
     <Parameter name="porder" type="int" value="4"/>
     <Parameter name="curvature porder" type="int" value="4"/>
-    <Parameter name="neighbors needed multiplier" type="double" value="2.8"/>
     <Parameter name="dense solver type" type="string" value="QR"/>
     <Parameter name="problem type" type="string" value="MANIFOLD"/>
     <Parameter name="constraint type" type="string" value="NONE"/>
@@ -15,11 +14,8 @@
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>
-    <Parameter name="dynamic radius" type="bool" value="true"/>
-    <Parameter name="spatially varying radius" type="bool" value="true"/>
-    <Parameter name="multiplier" type="double" value="2.10"/>
     <Parameter name="size" type="double" value="0.25"/>
-    <Parameter name="cutoff multiplier" type="double" value="1.1"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.6"/>
   </ParameterList>
   <ParameterList name="halo">
     <Parameter name="dynamic" type="bool" value="true"/>

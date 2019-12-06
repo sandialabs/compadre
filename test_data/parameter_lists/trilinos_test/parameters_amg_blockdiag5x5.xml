@@ -13,15 +13,12 @@
   <ParameterList name="remap">
     <Parameter name="weighting power" type="int" value="5"/>
     <Parameter name="porder" type="int" value="2"/>
-    <Parameter name="neighbors needed multiplier" type="double" value="1.0"/>
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>
-    <Parameter name="dynamic radius" type="bool" value="true"/>
-    <Parameter name="spatially varying radius" type="bool" value="false"/>
     <Parameter name="size" type="double" value="0.38"/>
-    <Parameter name="multiplier" type="double" value="1.5"/>
     <Parameter name="cutoff multiplier" type="double" value="1.2"/>
+    <Parameter name="uniform radii" type="bool" value="true"/>
   </ParameterList>
   <ParameterList name="halo">
     <Parameter name="dynamic" type="bool" value="false"/>

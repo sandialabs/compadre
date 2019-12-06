@@ -15,7 +15,7 @@ PhysicsT::PhysicsT(	Teuchos::RCP<particle_type> particles,
 }
 
 local_index_type PhysicsT::getMaxNumNeighbors() {
-    return _particles->getNeighborhood()->getMaxNumNeighbors();
+    return _particles->getNeighborhood()->computeMaxNumNeighbors(false /*local processor neighbor max*/);
 }
 
 }

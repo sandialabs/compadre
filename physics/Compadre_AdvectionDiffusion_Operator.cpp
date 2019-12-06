@@ -6,8 +6,7 @@
 #include <Compadre_DOFManager.hpp>
 #include <Compadre_FieldT.hpp>
 #include <Compadre_NeighborhoodT.hpp>
-#include "Compadre_nanoflannInformation.hpp"
-#include "Compadre_nanoflannPointCloudT.hpp"
+#include <Compadre_MultiJumpNeighborhood.hpp>
 #include <Compadre_XyzVector.hpp>
 
 #include <Compadre_GMLS.hpp>
@@ -24,8 +23,6 @@ namespace Compadre {
 
 typedef Compadre::CoordsT coords_type;
 typedef Compadre::FieldT fields_type;
-typedef Compadre::NeighborhoodT neighborhood_type;
-typedef Compadre::NanoFlannInformation nanoflann_neighborhood_type;
 typedef Compadre::XyzVector xyz_type;
 
 
@@ -39,30 +36,46 @@ void AdvectionDiffusionPhysics::initialize() {
     // cell neighbor search should someday be bigger than the particles neighborhoods (so that we are sure it includes all interacting particles)
     // get neighbors of cells (the neighbors are particles)
     local_index_type maxLeaf = _parameters->get<Teuchos::ParameterList>("neighborhood").get<int>("max leaf");
-    _cell_particles_neighborhood = Teuchos::rcp_static_cast<neighborhood_type>(Teuchos::rcp(
-            new nanoflann_neighborhood_type(_particles.getRawPtr(), _parameters, maxLeaf, _cells, false /* material coords */)));
-    // for now, since cells = particles, neighbor lists should be the same, later symmetric neighbor search should be enforced
-    _particle_cells_neighborhood = Teuchos::rcp_static_cast<neighborhood_type>(Teuchos::rcp(
-            new nanoflann_neighborhood_type(_cells, _parameters, maxLeaf, _particles.getRawPtr(), false /* material coords */)));
-    _particles_particles_neighborhood = Teuchos::rcp_static_cast<neighborhood_type>(Teuchos::rcp(
-            new nanoflann_neighborhood_type(_particles.getRawPtr(), _parameters, maxLeaf, _particles.getRawPtr(), false /* material coords */)));
+    _cell_particles_neighborhood = Teuchos::rcp(_particles->getNeighborhood(), false /*owns memory*/);
 
-    auto neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
-    local_index_type extra_neighbors = _parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
+    // cell k can see particle i and cell k can see particle i
+    // sparsity graph then requires particle i can see particle j since they will have a cell shared between them
+    // since both i and j are shared by k, the radius for k's search doubled (and performed at i) will always find j
+    // also, if it appears doubling is too costly, realize nothing less than double could be guaranteed to work
+    // 
+    // the alternative would be to perform a neighbor search from particles to cells, then again from cells to
+    // particles (which would provide exactly what was needed)
+    // in that case, for any neighbor j of i found, you can assume that there is some k approximately half the 
+    // distance between i and j, which means that if doubling the search size is wasteful, it is barely so
+ 
+    //
+    // double-sized search
+    //
+
+    //auto max_h = _cell_particles_neighborhood->computeMaxHSupportSize(false /* local processor max is fine, since they are all the same */);
+    //auto neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
+    //_particles_double_hop_neighborhood = Teuchos::rcp_static_cast<neighborhood_type>(Teuchos::rcp(
+    //        new neighborhood_type(_cells, _particles.getRawPtr(), false /*material coords*/, maxLeaf)));
+    //_particles_double_hop_neighborhood->constructAllNeighborLists(1e+16,
+    //    "radius",
+    //    true /*dry run for sizes*/,
+    //    neighbors_needed+1,
+    //    0.0, /* cutoff multiplier */
+    //    2*max_h, /* search size */
+    //    false, /* uniform radii is true, but will be enforce automatically because all search sizes are the same globally */
+    //    _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
+
+
+    //
+    // neighbor of neighbor search
+    // 
+
+    _particles_double_hop_neighborhood = Teuchos::rcp(new MultiJumpNeighborhood(_cell_particles_neighborhood.getRawPtr()));
+    auto as_multi_jump = Teuchos::rcp_static_cast<MultiJumpNeighborhood>(_particles_double_hop_neighborhood);
+    as_multi_jump->constructNeighborOfNeighborLists(0.0 /* no halo constraint on max search size*/);
+
 
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_particles->getCoordsConst()->getComm()->getRank()>0, "Only for serial.");
-    _particles_particles_neighborhood->constructAllNeighborList(0, extra_neighbors,
-        _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
-        maxLeaf,
-        false);
-    _cell_particles_neighborhood->constructAllNeighborList(0, extra_neighbors,
-        _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
-        maxLeaf,
-        false);
-    _particle_cells_neighborhood->constructAllNeighborList(0, extra_neighbors,
-        _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
-        maxLeaf,
-        false);
 
     //****************
     //
@@ -74,40 +87,18 @@ void AdvectionDiffusionPhysics::initialize() {
     const coords_type* target_coords = this->_coords;
     const coords_type* source_coords = this->_coords;
 
-    const std::vector<std::vector<std::pair<size_t, scalar_type> > >& particles_particles_all_neighbors = _particles_particles_neighborhood->getAllNeighbors();
-    const std::vector<std::vector<std::pair<size_t, scalar_type> > >& particle_cells_all_neighbors = _particle_cells_neighborhood->getAllNeighbors();
-    const std::vector<std::vector<std::pair<size_t, scalar_type> > >& cell_particles_all_neighbors = _cell_particles_neighborhood->getAllNeighbors();
+    double max_window = _cell_particles_neighborhood->computeMaxHSupportSize(false /*local processor max*/);
 
-    double max_window = 0;
-    Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()),
-            KOKKOS_LAMBDA (const int i, double &myVal) {
-        for (int j=0; j<particles_particles_all_neighbors[i].size(); ++j) {
-            myVal = (particles_particles_all_neighbors[i][j].second > myVal) ? particles_particles_all_neighbors[i][j].second : myVal;
-        }
-    }, Kokkos::Experimental::Max<double>(max_window));
+    _cell_particles_max_num_neighbors = 
+        _cell_particles_neighborhood->computeMaxNumNeighbors(false /*local processor max*/);
 
-    Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()),
-            KOKKOS_LAMBDA (const int i, size_t &myVal) {
-        myVal = (particles_particles_all_neighbors[i].size() > myVal) ? particles_particles_all_neighbors[i].size() : myVal;
-    }, Kokkos::Experimental::Max<size_t>(_particles_particles_max_num_neighbors));
-
-    Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()),
-            KOKKOS_LAMBDA (const int i, size_t &myVal) {
-        myVal = (particle_cells_all_neighbors[i].size() > myVal) ? particle_cells_all_neighbors[i].size() : myVal;
-    }, Kokkos::Experimental::Max<size_t>(_particle_cells_max_num_neighbors));
-
-    Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()),
-            KOKKOS_LAMBDA (const int i, size_t &myVal) {
-        myVal = (cell_particles_all_neighbors[i].size() > myVal) ? cell_particles_all_neighbors[i].size() : myVal;
-    }, Kokkos::Experimental::Max<size_t>(_cell_particles_max_num_neighbors));
-
-    Kokkos::View<int**> kokkos_neighbor_lists("neighbor lists", target_coords->nLocal(), _particles_particles_max_num_neighbors+1);
+    Kokkos::View<int**> kokkos_neighbor_lists("neighbor lists", target_coords->nLocal(), _cell_particles_max_num_neighbors+1);
     _kokkos_neighbor_lists_host = Kokkos::create_mirror_view(kokkos_neighbor_lists);
     // fill in the neighbor lists into a kokkos view. First entry is # of neighbors for that target
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
-        const int num_i_neighbors = particles_particles_all_neighbors[i].size();
+        const int num_i_neighbors = _cell_particles_neighborhood->getNumNeighbors(i);
         for (int j=1; j<num_i_neighbors+1; ++j) {
-            _kokkos_neighbor_lists_host(i,j) = particles_particles_all_neighbors[i][j-1].first;
+            _kokkos_neighbor_lists_host(i,j) = _cell_particles_neighborhood->getNeighbor(i,j-1);
         }
         _kokkos_neighbor_lists_host(i,0) = num_i_neighbors;
     });
@@ -132,12 +123,11 @@ void AdvectionDiffusionPhysics::initialize() {
         _kokkos_target_coordinates_host(i,2) = coordinate.z;
     });
 
-    auto epsilons = _particles_particles_neighborhood->getHSupportSizes()->getLocalView<const host_view_type>();
+    auto epsilons = _cell_particles_neighborhood->getHSupportSizes()->getLocalView<const host_view_type>();
     Kokkos::View<double*> kokkos_epsilons("target_coordinates", target_coords->nLocal(), target_coords->nDim());
     _kokkos_epsilons_host = Kokkos::create_mirror_view(kokkos_epsilons);
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
         _kokkos_epsilons_host(i) = epsilons(i,0);//0.75*max_window;//std::sqrt(max_window);//epsilons(i,0);
-        //printf("epsilons %d: %f\n", i, epsilons(i,0));
     });
 
     // quantities contained on cells (mesh)
@@ -161,19 +151,6 @@ void AdvectionDiffusionPhysics::initialize() {
         }
     });
 
-    //// get cell neighbors of particles, and add indices to these for quadrature
-    //// loop over particles, get cells in neighborhood and get their quadrature
-    //Kokkos::View<int**> kokkos_quadrature_neighbor_lists("quadrature neighbor lists", target_coords->nLocal(), _weights_ndim*_particle_cells_max_num_neighbors+1);
-    //_kokkos_quadrature_neighbor_lists_host = Kokkos::create_mirror_view(kokkos_quadrature_neighbor_lists);
-    //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
-    //    _kokkos_quadrature_neighbor_lists_host(i,0) = static_cast<int>(particle_cells_all_neighbors[i].size());
-    //    for (int j=0; j<kokkos_quadrature_neighbor_lists(i,0); ++j) {
-    //        auto cell_num = static_cast<int>(particle_cells_all_neighbors[i][j].first);
-    //        for (int k=0; k<_weights_ndim; ++k) {
-    //            _kokkos_quadrature_neighbor_lists_host(i, 1 + j*_weights_ndim + k) = cell_num*_weights_ndim + k;
-    //        }
-    //    }
-    //});
     // get cell neighbors of particles, and add indices to these for quadrature
     // loop over particles, get cells in neighborhood and get their quadrature
     Kokkos::View<int**> kokkos_quadrature_neighbor_lists("quadrature neighbor lists", _cells->getCoordsConst()->nLocal(), _weights_ndim+1);
@@ -212,7 +189,7 @@ void AdvectionDiffusionPhysics::initialize() {
 }
 
 local_index_type AdvectionDiffusionPhysics::getMaxNumNeighbors() {
-    return _cell_particles_max_num_neighbors;
+    return _particles_double_hop_neighborhood->computeMaxNumNeighbors(false /*local processor maximum*/);
 }
 
 Teuchos::RCP<crs_graph_type> AdvectionDiffusionPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
@@ -226,25 +203,21 @@ Teuchos::RCP<crs_graph_type> AdvectionDiffusionPhysics::computeGraph(local_index
 
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
-	auto particles_particles_neighborhood = _particles_particles_neighborhood;
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
 
-	//#pragma omp parallel for
     for(local_index_type i = 0; i < nlocal; i++) {
-        local_index_type num_neighbors = particles_particles_neighborhood->getNeighbors(i).size();
+        local_index_type num_neighbors = _particles_double_hop_neighborhood->getNumNeighbors(i);
         for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
             local_index_type row = local_to_dof_map(i, field_one, k);
 
             Teuchos::Array<local_index_type> col_data(num_neighbors * fields[field_two]->nDim());
             Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
-            std::vector<std::pair<size_t, scalar_type> > neighbors = particles_particles_neighborhood->getNeighbors(i);
 
             for (local_index_type l = 0; l < num_neighbors; l++) {
                 for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-                    col_data[l*fields[field_two]->nDim() + n] = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
+                    col_data[l*fields[field_two]->nDim() + n] = local_to_dof_map(_particles_double_hop_neighborhood->getNeighbor(i,l), field_two, n);
                 }
             }
-            //#pragma omp critical
             {
                 this->_A_graph->insertLocalIndices(row, cols);
             }
@@ -271,10 +244,6 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
     const host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
 
-    const std::vector<std::vector<std::pair<size_t, scalar_type> > >& particles_particles_all_neighbors = _particles_particles_neighborhood->getAllNeighbors();
-    const std::vector<std::vector<std::pair<size_t, scalar_type> > >& particle_cells_all_neighbors = _particle_cells_neighborhood->getAllNeighbors();
-    const std::vector<std::vector<std::pair<size_t, scalar_type> > >& cell_particles_all_neighbors = _cell_particles_neighborhood->getAllNeighbors();
-
     // quantities contained on cells (mesh)
     auto quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
     auto quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
@@ -282,13 +251,6 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
     auto unit_normals = _cells->getFieldManager()->getFieldByName("unit_normal")->getMultiVectorPtr()->getLocalView<host_view_type>();
     auto adjacent_elements = _cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalView<host_view_type>();
 
-
-    // loop over cells
-    //Kokkos::View<int*, Kokkos::HostSpace> row_seen("has row had dirichlet addition", target_coords->nLocal());
-    host_vector_local_index_type row_seen("has row had dirichlet addition", nlocal);
-    Kokkos::deep_copy(row_seen,0);
-    host_vector_local_index_type col_data("col data", _cell_particles_max_num_neighbors);//particles_particles_max_num_neighbors*fields[field_two]->nDim());
-    host_vector_scalar_type val_data("val data", _cell_particles_max_num_neighbors);//particles_particles_max_num_neighbors*fields[field_two]->nDim());
 
     //auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")*_particles_particles_neighborhood->getMinimumHSupportSize();
     //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")*_particles_particles_neighborhood->getMinimumHSupportSize();
@@ -399,136 +361,141 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
     //    }
     //}
 
+    double area = 0; // (good, no rewriting)
+    //Kokkos::View<double,Kokkos::MemoryTraits<Kokkos::Atomic> > area; // scalar
+	int team_scratch_size = host_scratch_vector_scalar_type::shmem_size(1); // values
+	team_scratch_size += host_scratch_vector_local_index_type::shmem_size(1); // local column indices
+	team_scratch_size += host_scratch_vector_local_index_type::shmem_size(_cell_particles_neighborhood->computeMaxNumNeighbors(false)); // local column indices
+	//const local_index_type host_scratch_team_level = 0; // not used in Kokkos currently
+	//Kokkos::parallel_reduce(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember, scalar_type& t_area) {
+	//	const int i = teamMember.league_rank();
 
-     //double area = 0; // (good, no rewriting)
-     //for (int i=0; i<_cells->getCoordsConst()->nLocal(); ++i) {
-     //    for (int q=0; q<_weights_ndim; ++q) {
-     //        if (quadrature_type(i,q)==1) { // interior
-     //            area += quadrature_weights(i,q);
-     //        }
-     //    }
-     //    // get all particle neighbors of cell i
-     //    for (size_t j=0; j<cell_particles_all_neighbors[i].size(); ++j) {
-     //        auto particle_j = cell_particles_all_neighbors[i][j].first;
-     //        for (size_t k=0; k<cell_particles_all_neighbors[i].size(); ++k) {
-     //            auto particle_k = cell_particles_all_neighbors[i][k].first;
+	//	host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), 1);
+	//	host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), 1);
+	//	host_scratch_vector_local_index_type more_than(teamMember.team_scratch(host_scratch_team_level), _cell_particles_neighborhood->getNumNeighbors(i));
 
-     //            //if (j==k) {
-     //            local_index_type row = local_to_dof_map(particle_j, field_one, 0 /* component 0*/);
-     //            col_data(0) = local_to_dof_map(particle_k, field_two, 0 /* component */);
-
-     //            // i can see j, but can j see i?
-     //            bool j_see_i = false;
-     //            for (size_t l=0; l<cell_particles_all_neighbors[particle_j].size(); ++l) {
-     //                if (cell_particles_all_neighbors[particle_j][l].first == i) {
-     //                    j_see_i = true;
-     //                    break;
-     //                }
-     //            }
-     //            // i can see k, but can k see i?
-     //            bool k_see_i = false;
-     //            for (size_t l=0; l<cell_particles_all_neighbors[particle_k].size(); ++l) {
-     //                if (cell_particles_all_neighbors[particle_k][l].first == i) {
-     //                    k_see_i = true;
-     //                    break;
-     //                }
-     //            }
-
-     //            // j can see i, and k can see i, but can j see k?
-     //            bool j_see_k = false;
-     //            for (size_t l=0; l<cell_particles_all_neighbors[particle_j].size(); ++l) {
-     //                if (cell_particles_all_neighbors[particle_j][l].first == particle_k) {
-     //                    j_see_k = true;
-     //                    break;
-     //                }
-     //            }
-
-
-     //            if (j_see_k && k_see_i && j_see_i) {
-     //                double contribution = 0;
-     //                for (int q=0; q<_weights_ndim; ++q) {
-     //                    if (quadrature_type(i,q)==1) { // interior
-     //                        // mass matrix
-     //                        contribution += quadrature_weights(i,q) 
-     //                            * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, 0) 
-     //                            * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, 0);
-     //                            //* _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1) 
-     //                            //* _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1);
-     //                    } 
-	 //                    TEUCHOS_ASSERT(contribution==contribution);
-     //                }
-
-     //                val_data(0) = contribution;
-     //                this->_A->sumIntoLocalValues(row, 1, val_data.data(), col_data.data());//, /*atomics*/false);
-     //            }
-     //            //{
-     //            //    if (row_seen(row)==1) { // already seen
-     //            //        this->_A->sumIntoLocalValues(row, 1, val_data.data(), col_data.data());//, /*atomics*/false);
-     //            //    } else {
-     //            //        this->_A->sumIntoLocalValues(row, 1, val_data.data(), col_data.data());//, /*atomics*/false);
-     //            //        //this->_A->replaceLocalValues(row, 1, val_data.data(), col_data.data());//, /*atomics*/false);
-     //            //        //row_seen(row) = 1;
-     //            //    }
-     //            //}
-     //            //}
-     //        }
-     //    }
-     //}
-    double area = 0; // (alternate assembly, also good)
+    // loop over cells
+    host_vector_local_index_type col_data("col data", _cell_particles_max_num_neighbors);//particles_particles_max_num_neighbors*fields[field_two]->nDim());
+    host_vector_local_index_type more_than("more than", _cell_particles_max_num_neighbors);//particles_particles_max_num_neighbors*fields[field_two]->nDim());
+    host_vector_scalar_type val_data("val data", _cell_particles_max_num_neighbors);//particles_particles_max_num_neighbors*fields[field_two]->nDim());
+    double t_area = 0; 
     for (int i=0; i<_cells->getCoordsConst()->nLocal(); ++i) {
-        for (int q=0; q<_weights_ndim; ++q) {
-            if (quadrature_type(i,q)==1) { // interior
-                area += quadrature_weights(i,q);
+        auto window_size = _cell_particles_neighborhood->getHSupportSize(i);
+        //auto less_than = 0;
+        for (int j=0; j<_cell_particles_neighborhood->getNumNeighbors(i); ++j) {
+            auto this_i = _cells->getCoordsConst()->getLocalCoords(_cell_particles_neighborhood->getNeighbor(i,0));
+            auto this_j = _cells->getCoordsConst()->getLocalCoords(_cell_particles_neighborhood->getNeighbor(i,j));
+            auto diff = std::sqrt(pow(this_i[0]-this_j[0],2) + pow(this_i[1]-this_j[1],2) + pow(this_i[2]-this_j[2],2));
+            if (diff > window_size) {
+                //printf("diff: %.16f\n", std::sqrt(pow(this_i[0]-this_j[0],2) + pow(this_i[1]-this_j[1],2)));
+                more_than(j) = 1;
+            } else {
+                more_than(j) = 0;
             }
         }
-        local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
-        // treat i as shape function, not cell
-        // get all particle neighbors of particle i
-        size_t num_particle_neighbors = cell_particles_all_neighbors[i].size();
-        for (size_t j=0; j<num_particle_neighbors; ++j) {
-            auto particle_j = cell_particles_all_neighbors[i][j].first;
 
-            col_data(j) = local_to_dof_map(particle_j, field_two, 0 /* component */);
-            double entry_i_j = 0;
+         for (int q=0; q<_weights_ndim; ++q) {
+             if (quadrature_type(i,q)==1) { // interior
+                 t_area += quadrature_weights(i,q);
+             }
+         }
+         // get all particle neighbors of cell i
+         for (int j=0; j<_cell_particles_neighborhood->getNumNeighbors(i); ++j) {
+             auto particle_j = _cell_particles_neighborhood->getNeighbor(i,j);
+             for (int k=0; k<_cell_particles_neighborhood->getNumNeighbors(i); ++k) {
+                 auto particle_k = _cell_particles_neighborhood->getNeighbor(i,k);
 
-            // particle i only has support on its neighbors (since particles == cells right now)
-            for (size_t k=0; k<cell_particles_all_neighbors[i].size(); ++k) {
-                auto cell_k = cell_particles_all_neighbors[i][k].first;
+                 //if (j==k) {
+                 local_index_type row = local_to_dof_map(particle_j, field_one, 0 /* component 0*/);
+                 col_data(0) = local_to_dof_map(particle_k, field_two, 0 /* component */);
 
-                // what neighbor locally is particle j to cell k
-                int j_to_k = -1;
-                int i_to_k = -1;
 
-                // does this cell see particle j? we know it sees particle i
-                for (size_t l=0; l<cell_particles_all_neighbors[cell_k].size(); ++l) {
-                    if (cell_particles_all_neighbors[cell_k][l].first == particle_j) {
-                        j_to_k = l;
-                        break;
-                    }
-                }
-                for (size_t l=0; l<cell_particles_all_neighbors[cell_k].size(); ++l) {
-                    if (cell_particles_all_neighbors[cell_k][l].first == i) {
-                        i_to_k = l;
-                        break;
-                    }
-                }
-                if (j_to_k>=0) {
-                    for (int q=0; q<_weights_ndim; ++q) {
-                        if (quadrature_type(cell_k,q)==1) { // interior
-                            // mass matrix
-                            entry_i_j += quadrature_weights(cell_k,q) 
-                                * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_k, i_to_k, q+1) 
-                                * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_k, j_to_k, q+1);
-                        } 
-	                    TEUCHOS_ASSERT(entry_i_j==entry_i_j);
-                    }
 
-                }
-            }
-            val_data(j) = entry_i_j;
-        }
-        this->_A->sumIntoLocalValues(row, num_particle_neighbors, val_data.data(), col_data.data());//, /*atomics*/false);
-    }
+                 double contribution = 0;
+                 for (int q=0; q<_weights_ndim; ++q) {
+                     if (quadrature_type(i,q)==1) { // interior
+                         contribution += quadrature_weights(i,q) 
+                             * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1) 
+                             * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1);
+                     } 
+	                 TEUCHOS_ASSERT(contribution==contribution);
+                 }
+
+                 val_data(0) = contribution;
+                 this->_A->sumIntoLocalValues(row, 1, val_data.data(), col_data.data());//, /*atomics*/false);
+             }
+         }
+     }
+     area = t_area;
+     //}, Kokkos::Sum<scalar_type>(area));
+
+
+    //double area = 0; // (alternate assembly, also good)
+    ////Kokkos::View<double,Kokkos::MemoryTraits<Kokkos::Atomic> > area; // scalar
+	//int team_scratch_size = host_scratch_vector_scalar_type::shmem_size(_cell_particles_max_num_neighbors); // values
+	//team_scratch_size += host_scratch_vector_local_index_type::shmem_size(_cell_particles_max_num_neighbors); // local column indices
+	//const local_index_type host_scratch_team_level = 0; // not used in Kokkos currently
+	//Kokkos::parallel_reduce(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember, scalar_type& t_area) {
+	//	const int i = teamMember.league_rank();
+
+	//	host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), _cell_particles_max_num_neighbors);
+	//	host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), _cell_particles_max_num_neighbors);
+
+    //    for (int q=0; q<_weights_ndim; ++q) {
+    //        if (quadrature_type(i,q)==1) { // interior
+    //            t_area += quadrature_weights(i,q);
+    //        }
+    //    }
+
+    //    local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
+    //    // treat i as shape function, not cell
+    //    // get all particle neighbors of particle i
+    //    size_t num_particle_neighbors = _cell_particles_neighborhood->getNumNeighbors(i);
+    //    for (int j=0; j<num_particle_neighbors; ++j) {
+    //        auto particle_j = _cell_particles_neighborhood->getNeighbor(i,j);
+
+    //        col_data(j) = local_to_dof_map(particle_j, field_two, 0 /* component */);
+    //        double entry_i_j = 0;
+
+    //        // particle i only has support on its neighbors (since particles == cells right now)
+    //        for (int cell_k=0; cell_k<_cells->getCoordsConst()->nLocal(); ++cell_k) {
+    //        //for (int k=0; k<_cell_particles_neighborhood->getNumNeighbors(i); ++k) {
+    //            //auto cell_k = _cell_particles_neighborhood->getNeighbor(i,k);
+
+    //            // what neighbor locally is particle j to cell k
+    //            int j_to_k = -1;
+    //            int i_to_k = -1;
+
+    //            // does this cell see particle j? we know it sees particle i
+    //            for (size_t l=0; l<_cell_particles_neighborhood->getNumNeighbors(cell_k); ++l) {
+    //                if (_cell_particles_neighborhood->getNeighbor(cell_k,l) == particle_j) {
+    //                    j_to_k = l;
+    //                    break;
+    //                }
+    //            }
+    //            for (size_t l=0; l<_cell_particles_neighborhood->getNumNeighbors(cell_k); ++l) {
+    //                if (_cell_particles_neighborhood->getNeighbor(cell_k,l) == i) {
+    //                    i_to_k = l;
+    //                    break;
+    //                }
+    //            }
+    //            if (i_to_k>=0 && j_to_k>=0) {
+    //                for (int q=0; q<_weights_ndim; ++q) {
+    //                    if (quadrature_type(cell_k,q)==1) { // interior
+    //                        // mass matrix
+    //                        entry_i_j += quadrature_weights(cell_k,q) 
+    //                            * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_k, i_to_k, q+1) 
+    //                            * _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_k, j_to_k, q+1);
+    //                    } 
+	//                    TEUCHOS_ASSERT(entry_i_j==entry_i_j);
+    //                }
+
+    //            }
+    //        }
+    //        val_data(j) = entry_i_j;
+    //    }
+    //    this->_A->sumIntoLocalValues(row, num_particle_neighbors, val_data.data(), col_data.data());//, /*atomics*/false);
+    //}, Kokkos::Sum<scalar_type>(area));
     //double area = 0;
     //for (int i=0; i<_cells->getCoordsConst()->nLocal(); ++i) {
     //    for (int q=0; q<_weights_ndim; ++q) {

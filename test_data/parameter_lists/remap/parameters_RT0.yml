@@ -20,16 +20,12 @@ Compadre:
   'remap':
     'porder': 3
     'curvature porder': 3
-    'neighbors needed multiplier': 1.0
     'weighting power': 12
     'curvature weighting power': 12
     'quadrature points': 4
     'dimensions': 2
   'neighborhood':
     'method': nanoflann
-    'dynamic radius': true
-    'spatially varying radius': true
-    'multiplier': 2.10
     'size': 0.25
     'cutoff multiplier': 2.5
   'halo':

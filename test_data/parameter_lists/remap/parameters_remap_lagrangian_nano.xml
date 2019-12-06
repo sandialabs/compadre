@@ -5,12 +5,11 @@
   </ParameterList>
   <ParameterList name="remap">
     <Parameter name="porder" type="int" value="2"/>
-    <Parameter name="neighbors needed multiplier" type="double" value="1.4"/>
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>
     <Parameter name="multiplier" type="double" value="1.1"/>
-    <Parameter name="cutoff multiplier" type="double" value="1.4"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.9"/>
     <Parameter name="size" type="double" value=".225"/>
   </ParameterList>
   <ParameterList name="halo">

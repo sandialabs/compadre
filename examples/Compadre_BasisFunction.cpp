@@ -16,8 +16,7 @@
 #include <Compadre_FileIO.hpp>
 #include <Compadre_ParameterManager.hpp>
 #include <Compadre_Evaluator.hpp>
-#include "Compadre_nanoflannInformation.hpp"
-#include "Compadre_nanoflannPointCloudT.hpp"
+#include <Compadre_NeighborhoodT.hpp>
 
 #include <iostream>
 
@@ -26,7 +25,6 @@ typedef int LO;
 typedef long GO;
 typedef double ST;
 
-typedef Compadre::NanoFlannInformation nanoflann_neighbors_type;
 typedef Compadre::NeighborhoodT neighbors_type;
 
 typedef Compadre::CoordsT coords_type;
@@ -140,7 +138,8 @@ int main (int argc, char* args[]) {
     
         local_index_type maxLeaf = parameters->get<Teuchos::ParameterList>("neighborhood").get<int>("max leaf");
         auto _neighborhoodInfo = Teuchos::rcp_static_cast<neighbors_type>(Teuchos::rcp(
-                    new nanoflann_neighbors_type(src_particles.getRawPtr(), parameters, maxLeaf, trg_particles.getRawPtr(), false)));
+                    new neighbors_type(src_particles.getRawPtr(), trg_particles.getRawPtr(), 
+                        false /*use physical coords*/, maxLeaf)));
     
         local_index_type neighbors_needed;
     
@@ -154,12 +153,15 @@ int main (int argc, char* args[]) {
             neighbors_needed = GMLS::getNP(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), dim);
         }
     
-        local_index_type extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
-    
-        _neighborhoodInfo->constructAllNeighborList(1e+16, extra_neighbors,
-                parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
-                parameters->get<Teuchos::ParameterList>("neighborhood").get<int>("max leaf"),
-                false);
+ 		_neighborhoodInfo->constructAllNeighborLists(1e+16,
+            parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
+            true /*dry run for sizes*/,
+            neighbors_needed,
+            parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
+            parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
+            parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
+            parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"),
+            false);
         Kokkos::fence();
     
     
@@ -169,13 +171,7 @@ int main (int argc, char* args[]) {
         //
         //****************
     
-        const std::vector<std::vector<std::pair<size_t, scalar_type> > >& all_neighbors = _neighborhoodInfo->getAllNeighbors();
-    
-        size_t max_num_neighbors = 0;
-        Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,trg_particles->getCoordsConst()->nLocal()),
-                KOKKOS_LAMBDA (const int i, size_t &myVal) {
-            myVal = (all_neighbors[i].size() > myVal) ? all_neighbors[i].size() : myVal;
-        }, Kokkos::Experimental::Max<size_t>(max_num_neighbors));
+        size_t max_num_neighbors = _neighborhoodInfo->computeMaxNumNeighbors(false /*local process max*/);
     
         // generate the interpolation operator and call the coefficients needed (storing them)
         const coords_type* target_coords = trg_particles->getCoordsConst();
@@ -186,9 +182,9 @@ int main (int argc, char* args[]) {
     
         // fill in the neighbor lists into a kokkos view. First entry is # of neighbors for that target
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
-            const int num_i_neighbors = all_neighbors[i].size();
+            const int num_i_neighbors = _neighborhoodInfo->getNumNeighbors(i);
             for (int j=1; j<num_i_neighbors+1; ++j) {
-                kokkos_neighbor_lists_host(i,j) = all_neighbors[i][j-1].first;
+                kokkos_neighbor_lists_host(i,j) = _neighborhoodInfo->getNeighbor(i,j-1);
             }
             kokkos_neighbor_lists_host(i,0) = num_i_neighbors;
         });

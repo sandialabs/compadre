@@ -5,7 +5,7 @@
 #include "Compadre_FieldT.hpp"
 #include "Compadre_FieldManager.hpp"
 #include "Compadre_DOFManager.hpp"
-#include "Compadre_nanoflannInformation.hpp"
+#include "Compadre_NeighborhoodT.hpp"
 #include "Compadre_PhysicsT.hpp"
 #include "Compadre_SourcesT.hpp"
 #include "Compadre_BoundaryConditionsT.hpp"

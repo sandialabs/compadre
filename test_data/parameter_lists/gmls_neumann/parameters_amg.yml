@@ -20,15 +20,11 @@ Compadre:
   'remap':
     'weighting power': 5
     'porder': 3
-    'neighbors needed multiplier': 1.0
     'quadrature order': 2
     'quadrature dimension': 1
     'quadrature type': 'line'
   'neighborhood':
     'method': nanoflann
-    'dynamic radius': true
-    'spatially varying radius': true
-    'multiplier': 2.0
     'cutoff multiplier': 1.5
     'size': 25.5
   'halo':
