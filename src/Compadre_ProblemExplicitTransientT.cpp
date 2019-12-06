@@ -5,7 +5,7 @@
 #include "Compadre_FieldT.hpp"
 #include "Compadre_FieldManager.hpp"
 #include "Compadre_DOFManager.hpp"
-#include "Compadre_nanoflannInformation.hpp"
+#include "Compadre_NeighborhoodT.hpp"
 #include "Compadre_PhysicsT.hpp"
 #include "Compadre_SourcesT.hpp"
 #include "Compadre_BoundaryConditionsT.hpp"
@@ -859,7 +859,7 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 			// find new neighborhoods
 			{
 				// get old search size
-				scalar_type h_min = _particles->getNeighborhood()->getMinimumHSupportSize();
+				scalar_type h_min = _particles->getNeighborhood()->computeMinHSupportSize(true /*global min*/);
 
 				// destroy old neighborhood and create new one
 				_particles->createNeighborhood();
@@ -869,8 +869,14 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 					printf("hmin: %f\n", h_min);
 				// determine number of neighbors needed and construct list
 				local_index_type neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
-				local_index_type extra_neighbors = _parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
-				_particles->getNeighborhood()->constructAllNeighborList(_particles->getCoordsConst()->getHaloSize(), extra_neighbors);
+				_particles->getNeighborhood()->constructAllNeighborLists(_particles->getCoordsConst()->getHaloSize(), 
+                        _parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"), 
+                        true /*dry run for sizes*/, 
+                        neighbors_needed,
+                        _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
+                        _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
+                        _parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
+                        _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
 			}
 
 		}

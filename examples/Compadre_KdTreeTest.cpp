@@ -6,7 +6,7 @@
 #include "Compadre_EuclideanCoordsT.hpp"
 #include "Compadre_SphericalCoordsT.hpp"
 #include "Compadre_AnalyticFunctions.hpp"
-#include <TPL/nanoflann/nanoflann.hpp>
+#include <tpl/nanoflann.hpp>
 #include "Compadre_nanoflannPointCloudT.hpp"
 
 #include <iostream>

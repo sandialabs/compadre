@@ -9,7 +9,7 @@
 #include <Compadre_FieldManager.hpp>
 #include <Compadre_EuclideanCoordsT.hpp>
 #include <Compadre_SphericalCoordsT.hpp>
-#include <Compadre_nanoflannInformation.hpp>
+#include <Compadre_NeighborhoodT.hpp>
 #include <Compadre_FieldT.hpp>
 #include <Compadre_XyzVector.hpp>
 #include <Compadre_AnalyticFunctions.hpp>
@@ -200,7 +200,14 @@ int main (int argc, char* args[]) {
  		const ST h_support = parameters->get<Teuchos::ParameterList>("halo").get<double>("size");
  		particles->createNeighborhood();
  		particles->getNeighborhood()->setAllHSupportSizes(h_support);
- 		particles->getNeighborhood()->constructAllNeighborList(particles->getCoordsConst()->getHaloSize(), 7);
+ 		particles->getNeighborhood()->constructAllNeighborLists(particles->getCoordsConst()->getHaloSize(),
+            parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
+            true /*dry run for sizes*/,
+            7 /* neighbors needed */,
+            parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
+            parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
+            parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
+            parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
 
  		Teuchos::RCP<Compadre::ProblemT> problem =
  			Teuchos::rcp( new Compadre::ProblemT(particles) );
@@ -266,7 +273,14 @@ int main (int argc, char* args[]) {
 
 		 		particles->createNeighborhood();
 				particles->getNeighborhood()->setAllHSupportSizes(h_support);
-				particles->getNeighborhood()->constructAllNeighborList(particles->getCoordsConst()->getHaloSize(), 4);
+ 		        particles->getNeighborhood()->constructAllNeighborLists(particles->getCoordsConst()->getHaloSize(),
+                    parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
+                    true /*dry run for sizes*/,
+                    4 /* neighbors needed */,
+                    parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
+                    parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
+                    parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
+                    parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
 				NeighborSearchTime->stop();
 
 				Teuchos::RCP<Compadre::ProblemT> problem =

@@ -183,7 +183,7 @@ variation = .00 # as a decimal for a percent
 #h_all=[0.2]#,0.1,0.05,0.025,0.0125,0.00625]
 h_all=[0.1,0.05,0.025,0.0125]
 
-poly_order = 1
+poly_order = 4
 num_points_interior = get_num_points_for_order(poly_order, 2)
 num_points_exterior = get_num_points_for_order(poly_order, 1)
 
@@ -295,35 +295,35 @@ for key, h in enumerate(h_all):
     dataset.createDimension('spatial_dimension', size=2) # 2 is spatial dimension
     dataset.createDimension('scalar_dim', size=1) 
 
-    dataset.createVariable('x', datatype='d', dimensions=('num_entities'), zlib=False, complevel=4,\
+    dataset.createVariable('x', datatype='d', dimensions=('num_entities'), zlib=True, complevel=8,\
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
-    dataset.createVariable('y', datatype='d', dimensions=('num_entities'), zlib=False, complevel=4,\
+    dataset.createVariable('y', datatype='d', dimensions=('num_entities'), zlib=True, complevel=8,\
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
-    dataset.createVariable('z', datatype='d', dimensions=('num_entities'), zlib=False, complevel=4,\
+    dataset.createVariable('z', datatype='d', dimensions=('num_entities'), zlib=True, complevel=8,\
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
-    dataset.createVariable('quadrature_weights', datatype='d', dimensions=('num_entities','scalar_for_quadrature'), zlib=False, complevel=4,\
+    dataset.createVariable('quadrature_weights', datatype='d', dimensions=('num_entities','scalar_for_quadrature'), zlib=True, complevel=8,\
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
-    dataset.createVariable('quadrature_points', datatype='d', dimensions=('num_entities','vector_for_quadrature'), zlib=False, complevel=4,\
+    dataset.createVariable('quadrature_points', datatype='d', dimensions=('num_entities','vector_for_quadrature'), zlib=True, complevel=8,\
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
-    dataset.createVariable('unit_normal', datatype='d', dimensions=('num_entities','vector_for_quadrature'), zlib=False, complevel=4,\
+    dataset.createVariable('unit_normal', datatype='d', dimensions=('num_entities','vector_for_quadrature'), zlib=True, complevel=8,\
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
-    dataset.createVariable('interior', datatype='int', dimensions=('num_entities','scalar_for_quadrature'), zlib=False, complevel=4,\
+    dataset.createVariable('interior', datatype='int', dimensions=('num_entities','scalar_for_quadrature'), zlib=True, complevel=8,\
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
-    dataset.createVariable('adjacent_elements', datatype='int', dimensions=('num_entities','num_edges'), zlib=False, complevel=4,\
+    dataset.createVariable('adjacent_elements', datatype='int', dimensions=('num_entities','num_edges'), zlib=True, complevel=8,\
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 

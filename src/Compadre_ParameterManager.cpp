@@ -96,7 +96,6 @@ void ParameterManager::setDefaultParameters() {
 	remapList->set("dimensions", 3);
 	remapList->set("porder", 2);
 	remapList->set("curvature porder", 0); // order to reconstruct manifold with when requested
-	remapList->set("neighbors needed multiplier", 1.2);
 	remapList->set("dense solver type", "QR");
 	remapList->set("problem type", "STANDARD");
 	remapList->set("constraint type", "NO_CONSTRAINT");
@@ -118,15 +117,17 @@ void ParameterManager::setDefaultParameters() {
 	// Neighborhood Details
 	Teuchos::RCP<Teuchos::ParameterList> neighborList = Teuchos::rcp(new Teuchos::ParameterList("neighborhood"));
 	neighborList->set("method", "nanoflann"); // default neighbor search program is vtk
-	neighborList->set("dynamic radius", (bool)true);
-	// allow for dynamically enlarging the radius if more neighbors are needed than are found
-	neighborList->set("spatially varying radius", (bool)true);
-	// allow each target to have a neighborhood with a different support radius than other targets
-	neighborList->set("cutoff multiplier", 1.1);
-	// multiplier times the quantitiy that is the distance from target, for the location that is the nth#required neighbor
-	neighborList->set("multiplier", 1.4); // multiplier for dynamically increasing neighbor search after failing to find sufficient neighbors
-	neighborList->set("size", 0.2); // initial search radius used
 	neighborList->set("max leaf", (int)10); // used by nanoflann for kdtree search
+
+	neighborList->set("search type", "knn"); // k-nearest neighbors (knn) or radius (radius) search
+	// multiplier timeshe quantitiy that is the distance from target, for the location that is the nth#required neighbor
+	neighborList->set("cutoff multiplier", 1.6); // radius enlargement after finding knn
+	neighborList->set("size", 0.2); // search radius to use for radius searches
+
+	neighborList->set("uniform radii", (bool)false); // enforce equal size neighbor search radii
+	neighborList->set("radii post search scaling", 1.0); // scaling of epsilon sizes after search is complete
+    // making < 1.0 allows a guarantee that neighborhood includes neighbors beyond the radii size
+
 
 	// Halo Details
 	Teuchos::RCP<Teuchos::ParameterList> haloList = Teuchos::rcp(new Teuchos::ParameterList("halo"));

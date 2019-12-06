@@ -45,27 +45,20 @@ Teuchos::RCP<crs_graph_type> GMLS_CurlCurlPhysics::computeGraph(local_index_type
 	// generate the interpolation operator and call the coefficients needed (storing them)
 	const coords_type* target_coords = this->_coords;
 
-	const std::vector<std::vector<std::pair<size_t, scalar_type> > >& all_neighbors = neighborhood->getAllNeighbors();
-
-	size_t max_num_neighbors = 0;
-	Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()),
-			KOKKOS_LAMBDA (const int i, size_t &myVal) {
-		myVal = (all_neighbors[i].size() > myVal) ? all_neighbors[i].size() : myVal;
-	}, Kokkos::Experimental::Max<size_t>(max_num_neighbors));
+	size_t max_num_neighbors = neighborhood->computeMaxNumNeighbors(false /*local processor max*/);
 
 	//#pragma omp parallel for
 	for(local_index_type i = 0; i < nlocal; i++) {
-		local_index_type num_neighbors = neighborhood->getNeighbors(i).size();
+		local_index_type num_neighbors = neighborhood->getNumNeighbors(i);
 		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
 			local_index_type row = local_to_dof_map(i, field_one, k);
 
 			Teuchos::Array<local_index_type> col_data(max_num_neighbors * fields[field_two]->nDim());
 			Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
-			std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
 
 			for (local_index_type l = 0; l < num_neighbors; l++) {
 				for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-					col_data[l*fields[field_two]->nDim() + n] = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
+					col_data[l*fields[field_two]->nDim() + n] = local_to_dof_map(neighborhood->getNeighbor(i,l), field_two, n);
 				}
 			}
 			//#pragma omp critical
@@ -107,22 +100,16 @@ void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index
 	const coords_type* target_coords = this->_coords;
 	const coords_type* source_coords = this->_coords;
 
-	const std::vector<std::vector<std::pair<size_t, scalar_type> > >& all_neighbors = neighborhood->getAllNeighbors();
-
-	size_t max_num_neighbors = 0;
-	Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()),
-			KOKKOS_LAMBDA (const int i, size_t &myVal) {
-		myVal = (all_neighbors[i].size() > myVal) ? all_neighbors[i].size() : myVal;
-	}, Kokkos::Experimental::Max<size_t>(max_num_neighbors));
+	size_t max_num_neighbors = neighborhood->computeMaxNumNeighbors(false /*local processor max*/);
 
 	Kokkos::View<int**> kokkos_neighbor_lists("neighbor lists", target_coords->nLocal(), max_num_neighbors+1);
 	Kokkos::View<int**>::HostMirror kokkos_neighbor_lists_host = Kokkos::create_mirror_view(kokkos_neighbor_lists);
 
 	// fill in the neighbor lists into a kokkos view. First entry is # of neighbors for that target
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
-		const int num_i_neighbors = all_neighbors[i].size();
+		const int num_i_neighbors = neighborhood->getNumNeighbors(i);
 		for (int j=1; j<num_i_neighbors+1; ++j) {
-			kokkos_neighbor_lists_host(i,j) = all_neighbors[i][j-1].first;
+			kokkos_neighbor_lists_host(i,j) = neighborhood->getNeighbor(i,j-1);
 		}
 		kokkos_neighbor_lists_host(i,0) = num_i_neighbors;
 	});
@@ -191,8 +178,7 @@ void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index
 		host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
 		host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
 
-		const std::vector<std::pair<size_t, scalar_type> > neighbors = neighborhood->getNeighbors(i);
-		const local_index_type num_neighbors = neighbors.size();
+		const local_index_type num_neighbors = neighborhood->getNumNeighbors(i);
 
 		//Put the values of alpha in the proper place in the global matrix
 		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
@@ -200,12 +186,12 @@ void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index
 
                     for (local_index_type l = 0; l < num_neighbors; l++) {
                         for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-                            col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(static_cast<local_index_type>(neighbors[l].first), field_two, n);
+                            col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(neighborhood->getNeighbor(i,l), field_two, n);
                             // implicitly this is dof = particle#*ntotalfielddimension so this is just getting the particle number from dof
                             // and checking its boundary condition
                             if (bc_id(i, 0) == 1) {
                                 // for points on the boundary
-                                if (i==static_cast<local_index_type>(neighbors[l].first)) {
+                                if (i==neighborhood->getNeighbor(i,l)) {
                                     if (n==k) {
                                         val_data(l*fields[field_two]->nDim() + n) = 1.0;
                                     } else {

@@ -89,11 +89,10 @@ if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE)
             target_values[j] = target_solution_data(j,i);
 
             // loop over neighbors to get max and min for each component of the field
-            const std::vector<std::pair<size_t, scalar_type> > neighbors = _neighborhood_info->getNeighbors(j);
-            const local_index_type num_neighbors = neighbors.size();
+            const local_index_type num_neighbors = _neighborhood_info->getNumNeighbors(j);
 
             for (local_index_type k=0; k<num_neighbors; ++k) {
-                scalar_type neighbor_value = (neighbors[k].first < (size_t)source_nlocal) ? source_solution_data(neighbors[k].first, i) : source_halo_solution_data(neighbors[k].first-source_nlocal, i);
+                scalar_type neighbor_value = (_neighborhood_info->getNeighbor(j,k) < (size_t)source_nlocal) ? source_solution_data(_neighborhood_info->getNeighbor(j,k), i) : source_halo_solution_data(_neighborhood_info->getNeighbor(j,k)-source_nlocal, i);
 
                 source_mins[j] = (neighbor_value < source_mins[j]) ? neighbor_value : source_mins[j];
                 source_maxs[j] = (neighbor_value > source_maxs[j]) ? neighbor_value : source_maxs[j];

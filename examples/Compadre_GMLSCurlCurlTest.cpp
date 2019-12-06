@@ -8,7 +8,7 @@
 #include <Compadre_ParticlesT.hpp>
 #include <Compadre_FieldManager.hpp>
 #include <Compadre_EuclideanCoordsT.hpp>
-#include <Compadre_nanoflannInformation.hpp>
+#include <Compadre_NeighborhoodT.hpp>
 #include <Compadre_FieldT.hpp>
 #include <Compadre_XyzVector.hpp>
 #include <Compadre_AnalyticFunctions.hpp>
@@ -119,20 +119,18 @@ int main (int argc, char* args[]) {
                             particles->buildHalo(halo_size);
                             particles->createDOFManager();
 
-                            //Set the radius for the neighbor list:
-                            ST h_support;
-                            if (parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("dynamic radius")) {
-                                h_support = h_size;
-                            } else {
-                                h_support = parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size");
-                            }
                             particles->createNeighborhood();
-                            particles->getNeighborhood()->setAllHSupportSizes(h_support);
 
                             LO neighbors_needed = Compadre::GMLS::getNP(Porder, 3, Compadre::DivergenceFreeVectorTaylorPolynomial);
 
-                            LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
-                            particles->getNeighborhood()->constructAllNeighborList(particles->getCoordsConst()->getHaloSize(), extra_neighbors);
+ 		                    particles->getNeighborhood()->constructAllNeighborLists(particles->getCoordsConst()->getHaloSize(),
+                                parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
+                                true /*dry run for sizes*/,
+                                neighbors_needed,
+                                parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
+                                parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
+                                parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
+                                parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
 
                             // Iterative solver for the problem
                             Teuchos::RCP<Compadre::ProblemT> problem = Teuchos::rcp( new Compadre::ProblemT(particles));
