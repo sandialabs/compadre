@@ -1,3 +1,6 @@
+#ifndef _COMPADRE_POINTCLOUDSEARCH_HPP_
+#define _COMPADRE_POINTCLOUDSEARCH_HPP_
+
 #include <tpl/nanoflann.hpp>
 #include <Kokkos_Core.hpp>
 #include "Compadre_Typedefs.hpp"
@@ -428,3 +431,5 @@ PointCloudSearch<view_type> CreatePointCloudSearch(view_type src_view) {
 }
 
 }; // Compadre
+
+#endif
