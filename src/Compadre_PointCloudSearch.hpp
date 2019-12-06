@@ -272,8 +272,6 @@ class PointCloudSearch {
                     Compadre::RadiusResultSet<double> rrs(epsilons(i)*epsilons(i), neighbor_distances.data(), neighbor_indices.data(), neighbor_lists.extent(1));
                     neighbors_found = kd_tree->template radiusSearchCustomCallback<Compadre::RadiusResultSet<double> >(this_target_coord.data(), rrs, sp) ;
 
-                    //neighbors_found = kd_tree->radiusSearch(this_target_coord.data(), epsilons(i)*epsilons(i), neighbors, sp) ;
-
                     t_max_num_neighbors = std::max(neighbors_found, t_max_num_neighbors);
             
                     // the number of neighbors is stored in column zero of the neighbor lists 2D array
@@ -290,7 +288,6 @@ class PointCloudSearch {
                     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, loop_bound), [&](const int j) {
                         // cast to an whatever data type the 2D array of neighbor lists is using
                         neighbor_lists(i,j+1) = static_cast<typename std::remove_pointer<typename std::remove_pointer<typename neighbor_lists_view_type::data_type>::type>::type>(neighbor_indices(j));
-                        //neighbor_lists(i,j+1) = neighbors[j].first;
                     });
                 }
 
