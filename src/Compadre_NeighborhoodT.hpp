@@ -39,6 +39,9 @@ class NeighborhoodT {
         local_index_type _local_max_num_neighbors;
         local_index_type _storage_multiplier; 
 
+        // protected so it can be called by derived classes
+        NeighborhoodT() : _n_dim(3), _local_max_num_neighbors(0), _storage_multiplier(1) {};
+
     public:
 
         NeighborhoodT(const particles_type* source_particles, const particles_type* target_particles = NULL, 
