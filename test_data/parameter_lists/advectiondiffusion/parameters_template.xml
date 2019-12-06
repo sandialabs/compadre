@@ -26,7 +26,7 @@
     <Parameter name="uniform radii" type="bool" value="true"/>
     <!-- uniform radii must be true to ensure symmetry in neighborhoods -->
     <Parameter name="cutoff multiplier" type="double" value="1.8"/>
-    <Parameter name="radii post search scaling" type="double" value="0.5"/>
+    <Parameter name="radii post search scaling" type="double" value="1.0"/>
   </ParameterList>
   <ParameterList name="halo">
     <Parameter name="dynamic" type="bool" value="true"/>
