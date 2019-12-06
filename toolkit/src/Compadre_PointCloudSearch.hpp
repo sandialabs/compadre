@@ -1,9 +1,21 @@
+#ifndef _COMPADRE_POINTCLOUDSEARCH_HPP_
+#define _COMPADRE_POINTCLOUDSEARCH_HPP_
+
 #include <tpl/nanoflann.hpp>
 #include <Kokkos_Core.hpp>
 #include "Compadre_Typedefs.hpp"
 #include <memory>
 
 namespace Compadre {
+
+//class sort_indices
+//{
+//   private:
+//     double* mparr;
+//   public:
+//     sort_indices(double* parr) : mparr(parr) {}
+//     bool operator()(int i, int j) const { return mparr[i]<mparr[j]; }
+//};
 
 //! Custom RadiusResultSet for nanoflann that uses pre-allocated space for indices and radii
 //! instead of using std::vec for std::pairs
@@ -71,6 +83,23 @@ class RadiusResultSet {
  
         if (count > 0) {
 
+            // alternate sort for every entry, not currently being used
+            //int indices[count];
+            //for (int i=0; i<count; ++i) {
+            //    indices[i] = i;
+            //}
+            //std::sort(indices, indices+count, sort_indices(r_dist));
+            //std::vector<IndexType> tmp_indices(count);
+            //std::vector<DistanceType> tmp_r(count);
+            //for (int i=0; i<count; ++i) {
+            //    tmp_indices[i] = i_dist[indices[i]];
+            //    tmp_r[i] = r_dist[indices[i]];
+            //}
+            //for (int i=0; i<count; ++i) {
+            //    i_dist[i] = tmp_indices[i];
+            //    r_dist[i] = tmp_r[i];
+            //}
+
             DistanceType best_distance = std::numeric_limits<DistanceType>::max();
             IndexType best_distance_index = 0;
             int best_index = -1;
@@ -98,15 +127,15 @@ class PointCloudSearch {
 
     protected:
 
-        // define the cloud_type using this class
-        typedef nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<double, PointCloudSearch<view_type> >, 
-                PointCloudSearch<view_type>, 3> tree_type;
-
-
         //! source site coordinates
         view_type _src_pts_view;
 
     public:
+
+        // define the cloud_type using this class
+        typedef nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<double, PointCloudSearch<view_type> >, 
+                PointCloudSearch<view_type>, 3> tree_type;
+
 
         PointCloudSearch(view_type src_pts_view) 
                 : _src_pts_view(src_pts_view) {
@@ -147,10 +176,8 @@ class PointCloudSearch {
 
         }
 
-        std::shared_ptr<tree_type> generateKDTree(const int dimension = 3) {
-
-            // maximum number of levels in the tree constructed by nanoflann
-            const int maxLeaf = 10;
+        std::shared_ptr<tree_type> generateKDTree(const int dimension = 3, const int maxLeaf = 10) {
+            // maxLeaf - maximum number of levels in the tree constructed by nanoflann
 
             // allocate a kd_tree from nanoflann
             std::shared_ptr<tree_type> kd_tree(new tree_type(dimension, *this, nanoflann::KDTreeSingleIndexAdaptorParams(maxLeaf)));
@@ -164,11 +191,12 @@ class PointCloudSearch {
 
         //! Generates neighbor lists
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        void generateNeighborListsFromKNNSearch(trg_view_type trg_pts_view, neighbor_lists_view_type neighbor_lists,
-                epsilons_view_type epsilons, const int neighbors_needed, 
-                const int dimension = 3, const double epsilon_multiplier = 1.6, std::shared_ptr<tree_type> kd_tree = NULL, bool max_search_radius = 0.0) {
+        size_t generateNeighborListsFromRadiusSearch(bool is_dry_run, trg_view_type trg_pts_view, 
+                neighbor_lists_view_type neighbor_lists, epsilons_view_type epsilons, 
+                const double uniform_radius = 0.0, const int dimension = 3, 
+                std::shared_ptr<tree_type> kd_tree = NULL, double max_search_radius = 0.0) {
 
-            // First, do a knn search (removes need for guessing initial search radius)
+            // function does not populate epsilons, they must be prepopulated
 
             compadre_assert_release((std::is_same<typename trg_view_type::memory_space, Kokkos::HostSpace>::value) &&
                     "Target coordinates view passed to generateNeighborListsFromKNNSearch should reside on the host.");
@@ -187,7 +215,7 @@ class PointCloudSearch {
 
             // allocate neighbor lists and epsilons
             compadre_assert_release((neighbor_lists.extent(0)==(size_t)num_target_sites 
-                        && neighbor_lists.extent(1)>=(size_t)(neighbors_needed+1)) 
+                        && neighbor_lists.extent(1)>=1)
                         && "neighbor lists View does not have large enough dimensions");
             compadre_assert_release((epsilons.extent(0)==(size_t)num_target_sites)
                         && "epsilons View does not have the correct dimension");
@@ -200,68 +228,6 @@ class PointCloudSearch {
 
             // determine scratch space size needed
             int team_scratch_size = 0;
-            team_scratch_size += scratch_double_view::shmem_size(neighbor_lists.extent(1)); // distances
-            team_scratch_size += scratch_int_view::shmem_size(neighbor_lists.extent(1)); // indices
-            team_scratch_size += scratch_double_view::shmem_size(3); // target coordinate
-
-            // minimum number of neighbors found over all target sites' neighborhoods
-            size_t min_num_neighbors = 0;
-            //
-            // part 1. do knn search for neighbors needed for unisolvency
-            // each row of neighbor lists is a neighbor list for the target site corresponding to that row
-            //
-            compadre_assert_release((neighbor_lists.extent(1) >= (neighbors_needed+1)) && "neighbor_lists does not contain enough columns for the minimum number of neighbors needed to be stored.");
-            // as long as neighbor_lists can hold the number of neighbors_needed, we don't need to check
-            // that the maximum number of neighbors will fit into neighbor_lists
-            //
-            Kokkos::parallel_reduce("knn search", host_team_policy(num_target_sites, Kokkos::AUTO)
-                    .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)), 
-                    KOKKOS_LAMBDA(const host_member_type& teamMember, size_t& t_min_num_neighbors) {
-
-                // make unmanaged scratch views
-                scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
-                scratch_int_view neighbor_indices(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
-                scratch_double_view this_target_coord(teamMember.team_scratch(0 /*shared memory*/), 3);
-
-                size_t neighbors_found = 0;
-
-                const int i = teamMember.league_rank();
-
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.extent(1)), [=](const int j) {
-                    neighbor_indices(j) = 0;
-                    neighbor_distances(j) = 0;
-                });
-            
-                teamMember.team_barrier();
-                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                    // target_coords is LayoutLeft on device and its HostMirror, so giving a pointer to 
-                    // this data would lead to a wrong result if the device is a GPU
-
-                    for (int j=0; j<3; ++j) this_target_coord(j) = trg_pts_view(i,j);
-
-                    neighbors_found = kd_tree->knnSearch(this_target_coord.data(), neighbors_needed, 
-                            neighbor_indices.data(), neighbor_distances.data()) ;
-            
-                    // get minimum number of neighbors found over all target sites' neighborhoods
-                    t_min_num_neighbors = std::min(neighbors_found, t_min_num_neighbors);
-            
-                    // scale by epsilon_multiplier to window from location where the last neighbor was found
-                    epsilons(i) = std::sqrt(neighbor_distances(neighbors_found-1))*epsilon_multiplier;
-
-                    // needs furthest neighbor's distance for next portion
-                    compadre_kernel_assert_release((epsilons(i)<=max_search_radius || max_search_radius==0) && "max_search_radius given (generally derived from the size of a halo region), and search radius needed would exceed this max_search_radius.");
-                    // neighbor_distances stores squared distances from neighbor to target, as returned by nanoflann
-                });
-            }, Kokkos::Min<size_t>(min_num_neighbors) );
-            Kokkos::fence();
-
-            // Next, check that we found the neighbors_needed number that we require for unisolvency
-            compadre_assert_release((min_num_neighbors>=neighbors_needed) 
-                    && "Neighbor search failed to find number of neighbors needed for unisolvency.");
-            
-
-            // determine scratch space size needed
-            team_scratch_size = 0;
             team_scratch_size += scratch_double_view::shmem_size(neighbor_lists.extent(1)); // distances
             team_scratch_size += scratch_int_view::shmem_size(neighbor_lists.extent(1)); // indices
             team_scratch_size += scratch_double_view::shmem_size(3); // target coordinate
@@ -283,15 +249,19 @@ class PointCloudSearch {
 
                 const int i = teamMember.league_rank();
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.extent(1)), [=](const int j) {
-                    neighbor_indices(j) = 0;
+                // set epsilons if radius is specified
+                if (uniform_radius > 0) epsilons(i) = uniform_radius;
+
+                // needs furthest neighbor's distance for next portion
+                compadre_kernel_assert_release((epsilons(i)<=max_search_radius || max_search_radius==0) && "max_search_radius given (generally derived from the size of a halo region), and search radius needed would exceed this max_search_radius.");
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.extent(1)), [=](const int j) { neighbor_indices(j) = 0;
                     neighbor_distances(j) = 0;
                 });
             
                 teamMember.team_barrier();
 
-                auto data_for_search = std::vector<std::pair<unsigned long int, double> >();
-
+                //    std::vector<std::pair<size_t, double> > neighbors;
                 Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                     // target_coords is LayoutLeft on device and its HostMirror, so giving a pointer to 
                     // this data would lead to a wrong result if the device is a GPU
@@ -301,6 +271,7 @@ class PointCloudSearch {
                     nanoflann::SearchParams sp; // default parameters
                     Compadre::RadiusResultSet<double> rrs(epsilons(i)*epsilons(i), neighbor_distances.data(), neighbor_indices.data(), neighbor_lists.extent(1));
                     neighbors_found = kd_tree->template radiusSearchCustomCallback<Compadre::RadiusResultSet<double> >(this_target_coord.data(), rrs, sp) ;
+
                     t_max_num_neighbors = std::max(neighbors_found, t_max_num_neighbors);
             
                     // the number of neighbors is stored in column zero of the neighbor lists 2D array
@@ -313,19 +284,139 @@ class PointCloudSearch {
                 // loop_bound so that we don't write into memory we don't have allocated
                 int loop_bound = std::min(neighbors_found, neighbor_lists.extent(1)-1);
                 // loop over each neighbor index and fill with a value
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, loop_bound), [&](const int j) {
-                    // cast to an whatever data type the 2D array of neighbor lists is using
-                    neighbor_lists(i,j+1) = static_cast<typename std::remove_pointer<typename std::remove_pointer<typename neighbor_lists_view_type::data_type>::type>::type>(neighbor_indices(j));
-                });
+                if (!is_dry_run) {
+                    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, loop_bound), [&](const int j) {
+                        // cast to an whatever data type the 2D array of neighbor lists is using
+                        neighbor_lists(i,j+1) = static_cast<typename std::remove_pointer<typename std::remove_pointer<typename neighbor_lists_view_type::data_type>::type>::type>(neighbor_indices(j));
+                    });
+                }
 
             }, Kokkos::Max<size_t>(max_num_neighbors) );
             Kokkos::fence();
 
             // check if max_num_neighbors will fit onto pre-allocated space
-            compadre_assert_release((neighbor_lists.extent(1) >= (max_num_neighbors+1)) 
+            compadre_assert_release((neighbor_lists.extent(1) >= (max_num_neighbors+1) || is_dry_run) 
                     && "neighbor_lists does not contain enough columns for the maximum number of neighbors needing to be stored.");
 
+            return max_num_neighbors;
+        }
 
+        //! Generates neighbor lists
+        template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
+        size_t generateNeighborListsFromKNNSearch(bool is_dry_run, trg_view_type trg_pts_view, 
+                neighbor_lists_view_type neighbor_lists, epsilons_view_type epsilons, 
+                const int neighbors_needed, const int dimension = 3, const double epsilon_multiplier = 1.6, 
+                std::shared_ptr<tree_type> kd_tree = NULL, double max_search_radius = 0.0) {
+
+            // First, do a knn search (removes need for guessing initial search radius)
+
+            compadre_assert_release((std::is_same<typename trg_view_type::memory_space, Kokkos::HostSpace>::value) &&
+                    "Target coordinates view passed to generateNeighborListsFromKNNSearch should reside on the host.");
+            compadre_assert_release(trg_pts_view.extent(1)==3 &&
+                    "Target coordinates view passed to generateNeighborListsFromKNNSearch must have second dimension of 3.");
+            compadre_assert_release((std::is_same<typename neighbor_lists_view_type::memory_space, Kokkos::HostSpace>::value) &&
+                    "Views passed to generateNeighborListsFromKNNSearch should reside on the host.");
+            compadre_assert_release((std::is_same<typename epsilons_view_type::memory_space, Kokkos::HostSpace>::value) &&
+                    "Views passed to generateNeighborListsFromKNNSearch should reside on the host.");
+
+            // loop size
+            const int num_target_sites = trg_pts_view.extent(0);
+
+            if (!kd_tree)
+                kd_tree = this->generateKDTree(dimension);
+
+            compadre_assert_release((num_target_sites==0 || // sizes don't matter when there are no targets
+                    (neighbor_lists.extent(0)==(size_t)num_target_sites 
+                        && neighbor_lists.extent(1)>=(size_t)(neighbors_needed+1)))
+                        && "neighbor lists View does not have large enough dimensions");
+            compadre_assert_release((epsilons.extent(0)==(size_t)num_target_sites)
+                        && "epsilons View does not have the correct dimension");
+
+            typedef Kokkos::View<double*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
+                    scratch_double_view;
+
+            typedef Kokkos::View<size_t*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
+                    scratch_int_view;
+
+            // determine scratch space size needed
+            int team_scratch_size = 0;
+            int tmp_space = 0;
+            team_scratch_size += scratch_double_view::shmem_size(neighbor_lists.extent(1)); // distances
+            team_scratch_size += scratch_int_view::shmem_size(neighbor_lists.extent(1)); // indices
+            team_scratch_size += scratch_double_view::shmem_size(3); // target coordinate
+
+            // minimum number of neighbors found over all target sites' neighborhoods
+            size_t min_num_neighbors = 0;
+            //
+            // part 1. do knn search for neighbors needed for unisolvency
+            // each row of neighbor lists is a neighbor list for the target site corresponding to that row
+            //
+            // as long as neighbor_lists can hold the number of neighbors_needed, we don't need to check
+            // that the maximum number of neighbors will fit into neighbor_lists
+            //
+            Kokkos::parallel_reduce("knn search", host_team_policy(num_target_sites, Kokkos::AUTO)
+                    .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)), 
+                    KOKKOS_LAMBDA(const host_member_type& teamMember, size_t& t_min_num_neighbors) {
+
+                // make unmanaged scratch views
+                scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
+                scratch_int_view neighbor_indices(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
+                scratch_double_view this_target_coord(teamMember.team_scratch(0 /*shared memory*/), 3);
+
+                size_t neighbors_found = 0;
+
+                const int i = teamMember.league_rank();
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.extent(1)), [=](const int j) {
+                    neighbor_indices(j) = 0;
+                    neighbor_distances(j) = 0.0;
+                });
+            
+                teamMember.team_barrier();
+                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                    // target_coords is LayoutLeft on device and its HostMirror, so giving a pointer to 
+                    // this data would lead to a wrong result if the device is a GPU
+
+                    for (int j=0; j<3; ++j) this_target_coord(j) = trg_pts_view(i,j);
+
+                    neighbors_found = kd_tree->knnSearch(this_target_coord.data(), neighbors_needed, 
+                            neighbor_indices.data(), neighbor_distances.data()) ;
+            
+                    // get minimum number of neighbors found over all target sites' neighborhoods
+                    t_min_num_neighbors = std::min(neighbors_found, t_min_num_neighbors);
+            
+                    // scale by epsilon_multiplier to window from location where the last neighbor was found
+                    epsilons(i) = (neighbor_distances(neighbors_found-1) > 0) ?
+                        std::sqrt(neighbor_distances(neighbors_found-1))*epsilon_multiplier : 1e-14*epsilon_multiplier;
+                    // the only time the second case using 1e-14 is used is when either zero neighbors or exactly one 
+                    // neighbor (neighbor is target site) is found.  when the follow on radius search is conducted, the one
+                    // neighbor (target site) will not be found if left at 0, so any positive amount will do, however 1e-14 
+                    // should is small enough to ensure that other neighbors are not found
+
+                    // needs furthest neighbor's distance for next portion
+                    compadre_kernel_assert_release((neighbors_found<neighbor_lists.extent(1) || is_dry_run) 
+                            && "Neighbors found exceeded storage capacity in neighbor list.");
+                    compadre_kernel_assert_release((epsilons(i)<=max_search_radius || max_search_radius==0 || is_dry_run) 
+                            && "max_search_radius given (generally derived from the size of a halo region), \
+                                and search radius needed would exceed this max_search_radius.");
+                    // neighbor_distances stores squared distances from neighbor to target, as returned by nanoflann
+                });
+            }, Kokkos::Min<size_t>(min_num_neighbors) );
+            Kokkos::fence();
+            
+            // if no target sites, then min_num_neighbors is set to neighbors_needed
+            // which also avoids min_num_neighbors being improperly set by min reduction
+            if (num_target_sites==0) min_num_neighbors = neighbors_needed;
+
+            // Next, check that we found the neighbors_needed number that we require for unisolvency
+            compadre_assert_release((num_target_sites==0 || (min_num_neighbors>=(size_t)neighbors_needed))
+                    && "Neighbor search failed to find number of neighbors needed for unisolvency.");
+            
+            // call a radius search using values now stored in epsilons
+            size_t max_num_neighbors = generateNeighborListsFromRadiusSearch(is_dry_run, trg_pts_view, neighbor_lists, 
+                    epsilons, 0.0 /*don't set uniform radius*/, dimension, kd_tree, max_search_radius);
+
+            return max_num_neighbors;
         }
 
 }; // PointCloudSearch
@@ -337,3 +428,5 @@ PointCloudSearch<view_type> CreatePointCloudSearch(view_type src_view) {
 }
 
 }; // Compadre
+
+#endif
