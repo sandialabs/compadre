@@ -258,7 +258,28 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                             for (int c=0; c<output_components; ++c) {
                                 int offset = getTargetOffsetIndexDevice(i, m /*in*/, c /*out*/, e/*additional*/);
                                 // for the case where _sampling_multiplier is > 1,
-                                // this approach relies on c*target_NP being equivalent to P_target_row(offset, j) where offset is 
+                                // this approach relies on c*target_NP being equivalent to P_target_row(offset, j) where offset is
+                                // getTargetOffsetIndexDevice(i, m /*in*/, c /*out*/, e/*additional*/)*_basis_multiplier*target_NP;
+                                for (int j=0; j<target_NP; ++j) {
+                                    P_target_row(offset, c*target_NP + j) = t1(j);
+                                }
+                            }
+                        }
+                    }
+                });
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+            } else if ( (_operations(i) == TargetOperation::GradientOfScalarPointEvaluation) && (_polynomial_sampling_functional == StaggeredEdgeIntegralSample) ) {
+                // when using staggered edge integral sample with vector basis, the gradient of scalar point evaluation
+                // is just the vector point evaluation
+                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                    for (int e=0; e<num_evaluation_sites; ++e) {
+                        this->calcPij(teamMember, t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
+                        for (int m=0; m<_sampling_multiplier; ++m) {
+                            int output_components = _basis_multiplier;
+                            for (int c=0; c<output_components; ++c) {
+                                int offset = getTargetOffsetIndexDevice(i, m /*in*/, c /*out*/, e/*additional*/);
+                                // for the case where _sampling_multiplier is > 1,
+                                // this approach relies on c*target_NP being equivalent to P_target_row(offset, j) where offset is
                                 // getTargetOffsetIndexDevice(i, m /*in*/, c /*out*/, e/*additional*/)*_basis_multiplier*target_NP;
                                 for (int j=0; j<target_NP; ++j) {
                                     P_target_row(offset, c*target_NP + j) = t1(j);
