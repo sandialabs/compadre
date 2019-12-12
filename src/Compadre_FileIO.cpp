@@ -1828,6 +1828,9 @@ int XMLVTPFileIO::read(const std::string& fn) {
 #ifdef COMPADREHARNESS_USE_NETCDF
 
 void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
+
+	auto ndim_particles = _particles->getCoordsConst()->nDim();
+
 	//http://www.unidata.ucar.edu/software/netcdf/docs/data_type.html
 	//http://www.unidata.ucar.edu/software/netcdf/docs/group__variables.html#ga82d204ebcb895d42d76b780566d91f9a
 
@@ -1859,12 +1862,12 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
 	// define the spatial coordinate variables
 	retval = nc_def_var(ncid, "x", NC_DOUBLE, 1, &particle_dim_id, &x_var_id);
-	retval = nc_def_var(ncid, "y", NC_DOUBLE, 1, &particle_dim_id, &y_var_id);
-	retval = nc_def_var(ncid, "z", NC_DOUBLE, 1, &particle_dim_id, &z_var_id);
+	if (ndim_particles > 1) retval = nc_def_var(ncid, "y", NC_DOUBLE, 1, &particle_dim_id, &y_var_id);
+	if (ndim_particles > 2) retval = nc_def_var(ncid, "z", NC_DOUBLE, 1, &particle_dim_id, &z_var_id);
 	std::string units = this->_particles->getParameters()->get<Teuchos::ParameterList>("coordinates").get<std::string>("units");
 	retval = nc_put_att_text(ncid, x_var_id, "units", units.length(), units.c_str());
-	retval = nc_put_att_text(ncid, y_var_id, "units", units.length(), units.c_str());
-	retval = nc_put_att_text(ncid, z_var_id, "units", units.length(), units.c_str());
+	if (ndim_particles > 1) retval = nc_put_att_text(ncid, y_var_id, "units", units.length(), units.c_str());
+	if (ndim_particles > 2) retval = nc_put_att_text(ncid, z_var_id, "units", units.length(), units.c_str());
 
 	// loop over fields and define for each of them
 	const std::vector<Teuchos::RCP<field_type> > fields = _particles->getFieldManagerConst()->getVectorOfFields();
@@ -1902,17 +1905,18 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
 
 	std::vector<scalar_type> coords_x(coords_size);
-	std::vector<scalar_type> coords_y(coords_size);
-	std::vector<scalar_type> coords_z(coords_size);
+	std::vector<scalar_type> coords_y, coords_z;
+    if (ndim_particles > 1) coords_y.resize(coords_size);
+    if (ndim_particles > 2) coords_z.resize(coords_size);
 	for (int i=0; i<coords_size; i++) {
 		coords_x[i] = host_coords(i,0);
-		coords_y[i] = host_coords(i,1);
-		coords_z[i] = host_coords(i,2);
+		if (ndim_particles > 1) coords_y[i] = host_coords(i,1);
+		if (ndim_particles > 2) coords_z[i] = host_coords(i,2);
 	}
 
 	retval = nc_put_var(ncid, x_var_id, &coords_x[0]);
-	retval = nc_put_var(ncid, y_var_id, &coords_y[0]);
-	retval = nc_put_var(ncid, z_var_id, &coords_z[0]);
+	if (ndim_particles > 1) retval = nc_put_var(ncid, y_var_id, &coords_y[0]);
+	if (ndim_particles > 2) retval = nc_put_var(ncid, z_var_id, &coords_z[0]);
 
 	for (size_t i=0; i<fields.size(); i++){
 
@@ -1970,6 +1974,9 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 #ifdef COMPADREHARNESS_USE_NETCDF_MPI
 
 void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
+
+	auto ndim_particles = _particles->getCoordsConst()->nDim();
+
 	#define NC_INDEPENDENT 0
 	#define NC_COLLECTIVE 1
 
@@ -2012,12 +2019,12 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
 	// define the spatial coordinate variables
 	retval = nc_def_var(ncid, "x", NC_DOUBLE, 1, &particle_dim_id, &x_var_id);
-	retval = nc_def_var(ncid, "y", NC_DOUBLE, 1, &particle_dim_id, &y_var_id);
-	retval = nc_def_var(ncid, "z", NC_DOUBLE, 1, &particle_dim_id, &z_var_id);
+	if (ndim_particles > 1) retval = nc_def_var(ncid, "y", NC_DOUBLE, 1, &particle_dim_id, &y_var_id);
+	if (ndim_particles > 2) retval = nc_def_var(ncid, "z", NC_DOUBLE, 1, &particle_dim_id, &z_var_id);
 	std::string units = this->_particles->getParameters()->get<Teuchos::ParameterList>("coordinates").get<std::string>("units");
 	retval = nc_put_att_text(ncid, x_var_id, "units", units.length(), units.c_str());
-	retval = nc_put_att_text(ncid, y_var_id, "units", units.length(), units.c_str());
-	retval = nc_put_att_text(ncid, z_var_id, "units", units.length(), units.c_str());
+	if (ndim_particles > 1) retval = nc_put_att_text(ncid, y_var_id, "units", units.length(), units.c_str());
+	if (ndim_particles > 2) retval = nc_put_att_text(ncid, z_var_id, "units", units.length(), units.c_str());
 
 	// loop over fields and define for each of them
 	const std::vector<Teuchos::RCP<field_type> > fields = _particles->getFieldManagerConst()->getVectorOfFields();
@@ -2073,20 +2080,25 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
 //	std::cout << coords_size << " on " << rank << std::endl;
 	std::vector<scalar_type> coords_x(coords_size);
-	std::vector<scalar_type> coords_y(coords_size);
-	std::vector<scalar_type> coords_z(coords_size);
+	std::vector<scalar_type> coords_y, coords_z;
+    if (ndim_particles > 1) coords_y.resize(coords_size);
+    if (ndim_particles > 2) coords_z.resize(coords_size);
 	for (int i=0; i<coords_size; i++) {
 		coords_x[i] = host_coords(i,0);
-		coords_y[i] = host_coords(i,1);
-		coords_z[i] = host_coords(i,2);
+		if (ndim_particles > 1) coords_y[i] = host_coords(i,1);
+		if (ndim_particles > 2) coords_z[i] = host_coords(i,2);
 	}
 
 	if ((retval = nc_var_par_access(ncid, x_var_id, NC_COLLECTIVE)))
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "x write permission not changed.");
-	if ((retval = nc_var_par_access(ncid, y_var_id, NC_COLLECTIVE)))
-		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "y write permission not changed.");
-	if ((retval = nc_var_par_access(ncid, z_var_id, NC_COLLECTIVE)))
-		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "z write permission not changed.");
+	if (ndim_particles > 1) {
+        if ((retval = nc_var_par_access(ncid, y_var_id, NC_COLLECTIVE)))
+		    TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "y write permission not changed.");
+    }
+	if (ndim_particles > 2) {
+        if ((retval = nc_var_par_access(ncid, z_var_id, NC_COLLECTIVE)))
+		    TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "z write permission not changed.");
+    }
 
 	// this mapping temporarily gives the min and max elements which is equivalent to an offset
 	Teuchos::RCP<map_type> temporary_map = Teuchos::rcp(new map_type(
@@ -2098,10 +2110,14 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
 		if ((retval = nc_put_vara_double(ncid, x_var_id, &start, &countDiff, &coords_x[0])))
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "x not written.");
-		if ((retval = nc_put_vara_double(ncid, y_var_id, &start, &countDiff, &coords_y[0])))
-			TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "y not written.");
-		if ((retval = nc_put_vara_double(ncid, z_var_id, &start, &countDiff, &coords_z[0])))
-			TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "z not written.");
+	    if (ndim_particles > 1) {
+		    if ((retval = nc_put_vara_double(ncid, y_var_id, &start, &countDiff, &coords_y[0])))
+		    	TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "y not written.");
+        }
+	    if (ndim_particles > 2) {
+		    if ((retval = nc_put_vara_double(ncid, z_var_id, &start, &countDiff, &coords_z[0])))
+		    	TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "z not written.");
+        }
 	}
 
 
@@ -2167,6 +2183,10 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 #ifdef COMPADREHARNESS_USE_VTK
 
 void LegacyVTKFileIO::write(const std::string& fn, bool use_binary) {
+
+	auto ndim_particles = _particles->getCoordsConst()->nDim();
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(ndim_particles<3, "Incompatible with dimension < 3.");
+
 	local_index_type comm_size = _particles->getCoordsConst()->getComm()->getSize();
 	local_index_type my_rank = _particles->getCoordsConst()->getComm()->getRank();
 
@@ -2217,6 +2237,10 @@ void LegacyVTKFileIO::write(const std::string& fn, bool use_binary) {
 
 
 void XMLVTUFileIO::write(const std::string& fn, bool use_binary) {
+
+	auto ndim_particles = _particles->getCoordsConst()->nDim();
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(ndim_particles<3, "Incompatible with dimension < 3.");
+
 	local_index_type comm_size = _particles->getCoordsConst()->getComm()->getSize();
 	local_index_type my_rank = _particles->getCoordsConst()->getComm()->getRank();
 
@@ -2281,6 +2305,10 @@ void XMLVTUFileIO::write(const std::string& fn, bool use_binary) {
 
 
 void XMLVTPFileIO::write(const std::string& fn, bool use_binary) {
+
+	auto ndim_particles = _particles->getCoordsConst()->nDim();
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(ndim_particles<3, "Incompatible with dimension < 3.");
+
 	local_index_type comm_size = _particles->getCoordsConst()->getComm()->getSize();
 	local_index_type my_rank = _particles->getCoordsConst()->getComm()->getRank();
 
