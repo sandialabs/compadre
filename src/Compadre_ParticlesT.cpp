@@ -20,9 +20,9 @@ ParticlesT::ParticlesT (Teuchos::RCP<Teuchos::ParameterList> parameters,
 	std::string coords_type_name =_parameters->get<Teuchos::ParameterList>("coordinates").get<std::string>("type");
 	transform(coords_type_name.begin(), coords_type_name.end(), coords_type_name.begin(), ::tolower);
 	if (coords_type_name == "spherical") {
-		_coords = Teuchos::rcp_static_cast<Compadre::CoordsT>(Teuchos::rcp(new Compadre::SphericalCoordsT(0,_comm)));
+		_coords = Teuchos::rcp_static_cast<Compadre::CoordsT>(Teuchos::rcp(new Compadre::SphericalCoordsT(0,_comm, nDim)));
 	} else {
-		_coords = Teuchos::rcp_static_cast<Compadre::CoordsT>(Teuchos::rcp(new Compadre::EuclideanCoordsT(0,_comm)));
+		_coords = Teuchos::rcp_static_cast<Compadre::CoordsT>(Teuchos::rcp(new Compadre::EuclideanCoordsT(0,_comm, nDim)));
 	}
 	if (_parameters->get<std::string>("simulation type")=="lagrangian") _coords->setLagrangian();
 	_coords->setUnits(_parameters->get<Teuchos::ParameterList>("coordinates").get<std::string>("units"));
@@ -209,13 +209,13 @@ void ParticlesT::mergeWith(const particles_type* other_particles) {
 	std::vector<xyz_type> copied_pts_physical;
 
 	for (local_index_type i=0; i<other_pts_num; i++) {
-		copied_pts[i] = xyz_type(other_pts_vals(i,0), other_pts_vals(i,1), other_pts_vals(i,2));
+		copied_pts[i] = xyz_type(other_pts_vals(i,0), (_nDim>1)*other_pts_vals(i,1), (_nDim>2)*other_pts_vals(i,2));
 	}
 
 	if (other_particles->getCoordsConst()->isLagrangian()) {
 		copied_pts_physical.resize(other_pts_physical_num);
 		for (local_index_type i=0; i<other_pts_physical_num; i++) {
-			copied_pts_physical[i] = xyz_type(other_pts_physical_vals(i,0), other_pts_physical_vals(i,1), other_pts_physical_vals(i,2));
+			copied_pts_physical[i] = xyz_type(other_pts_physical_vals(i,0), (_nDim>1)*other_pts_physical_vals(i,1), (_nDim>2)*other_pts_physical_vals(i,2));
 		}
 		_coords->insertCoords(copied_pts, copied_pts_physical);
 	} else {

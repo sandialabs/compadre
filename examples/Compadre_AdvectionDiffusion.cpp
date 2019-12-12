@@ -80,8 +80,10 @@ int main (int argc, char* args[]) {
 		int Porder = parameters->get<Teuchos::ParameterList>("remap").get<int>("porder");
 		double h_size = 1./12.;
 
+        TEUCHOS_TEST_FOR_EXCEPT_MSG(parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions")<2, "Only supported for A-D problem in 2 or 3D.");
+              
 		Teuchos::RCP<Compadre::ParticlesT> cells =
-				Teuchos::rcp( new Compadre::ParticlesT(parameters, comm));
+				Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions")));
 		const CT * coords = (CT*)(cells->getCoordsConst());
 
 		//Read in data file. Needs to be a file with one scalar field.
@@ -190,7 +192,7 @@ int main (int argc, char* args[]) {
             Teuchos::rcp( new Compadre::AdvectionDiffusionBoundaryConditions(cells));
 
         // set physics, sources, and boundary conditions in the problem
-        xyz_type advection_field(0,0,0);
+        xyz_type advection_field(1,1,1);
 
         // set advection and diffusion for physics
         physics->setAdvectionField(advection_field);
@@ -238,7 +240,7 @@ int main (int argc, char* args[]) {
         auto quadrature_weights = cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
         auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
 		Teuchos::RCP<Compadre::ParticlesT> particles_new =
-			Teuchos::rcp( new Compadre::ParticlesT(parameters, comm));
+			Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions")));
 		CT* new_coords = (CT*)particles_new->getCoords();
 		std::vector<Compadre::XyzVector> verts_to_insert;
         // put real quadrature points here

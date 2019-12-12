@@ -98,7 +98,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 	bool use_physical_coords = true; // can be set on the operator in the future
 
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_b.is_null(), "Tpetra multivector for Physics not yet specified.");
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(_b==NULL, "Tpetra multivector for Physics not yet specified.");
 
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();

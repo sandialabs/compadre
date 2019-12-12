@@ -7,7 +7,7 @@ namespace Compadre {
 
 
 BoundaryConditionsT::BoundaryConditionsT(	Teuchos::RCP<particle_type> particles,
-											Teuchos::RCP<mvec_type> b) :
+											mvec_type* b) :
 											_coords(particles->getCoordsConst()), _particles(particles), _b(b)
 {
 	_comm = particles->getCoordsConst()->getComm();

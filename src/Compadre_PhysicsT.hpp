@@ -26,7 +26,7 @@ class PhysicsT {
 		Teuchos::RCP<const map_type> _col_map;
 		Teuchos::RCP<crs_graph_type> _A_graph;
 		Teuchos::RCP<crs_matrix_type> _A;
-		Teuchos::RCP<mvec_type> _b;
+		mvec_type* _b;
 		Teuchos::RCP<const dof_data_type> _dof_data;
 
 	public:
@@ -55,7 +55,7 @@ class PhysicsT {
 			_A = A;
 		}
 
-		void setMultiVector(Teuchos::RCP<mvec_type> b) {
+		void setMultiVector(mvec_type* b) {
 			_b = b;
 		}
 

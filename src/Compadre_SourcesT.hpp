@@ -23,7 +23,7 @@ class SourcesT {
 		Teuchos::RCP<const Teuchos::Comm<local_index_type> > _comm;
 		const coords_type* _coords;
 		Teuchos::RCP<particle_type> _particles;
-		Teuchos::RCP<mvec_type> _b;
+		mvec_type* _b;
 		Teuchos::RCP<const dof_data_type> _dof_data;
 
 		device_view_type rhs;
@@ -32,13 +32,13 @@ class SourcesT {
 	public:
 
 		SourcesT(	Teuchos::RCP<particle_type> particles,
-					Teuchos::RCP<mvec_type> b = Teuchos::null);
+					mvec_type* b = NULL);
 
 		virtual ~SourcesT() {};
 		
 		void setParameters(Teuchos::ParameterList& parameters) { _parameters = Teuchos::rcp(&parameters, false); }
 
-		void setMultiVector(Teuchos::RCP<mvec_type> b) {
+		void setMultiVector(mvec_type* b) {
 			_b = b;
 		}
 

@@ -18,7 +18,7 @@ class LaplaceBeltramiBoundaryConditions : public BoundaryConditionsT {
 	public:
 
 		LaplaceBeltramiBoundaryConditions( Teuchos::RCP<particle_type> particles,
-												Teuchos::RCP<mvec_type> b = Teuchos::null) :
+												mvec_type* b = NULL) :
 												BoundaryConditionsT(particles, b)
 		{}
 

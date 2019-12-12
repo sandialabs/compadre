@@ -24,7 +24,7 @@ void PinnedGraphLaplacianBoundaryConditions::flagBoundaries() {
 }
 
 void PinnedGraphLaplacianBoundaryConditions::applyBoundaries(local_index_type field_one, local_index_type field_two, scalar_type time) {
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_b.is_null(), "Tpetra Multivector for BCS not yet specified.");
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(_b==NULL, "Tpetra Multivector for BCS not yet specified.");
 	if (field_two == -1) {
 		field_two = field_one;
 	}

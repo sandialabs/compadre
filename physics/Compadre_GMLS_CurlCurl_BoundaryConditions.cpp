@@ -36,7 +36,7 @@ void GMLS_CurlCurlBoundaryConditions::applyBoundaries(local_index_type field_one
 		function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::CurlCurlPolyTest));
 	}
 
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_b.is_null(), "Tpetra Multivector for BCS not yet specified.");
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(_b==NULL, "Tpetra Multivector for BCS not yet specified.");
 	if (field_two == -1) {
 		field_two = field_one;
 	}

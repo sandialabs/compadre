@@ -23,10 +23,10 @@ class AdvectionDiffusionPhysics : public PhysicsT {
         typedef Compadre::NeighborhoodT neighborhood_type;
 		local_index_type Porder;
 
+    public:
+
         xyz_type _advection_field;
         scalar_type _diffusion;
-
-    public:
         
         particle_type* _cells;
 
@@ -50,6 +50,11 @@ class AdvectionDiffusionPhysics : public PhysicsT {
         Kokkos::View<double*>::HostMirror _kokkos_epsilons_host;
         Kokkos::View<double**>::HostMirror _kokkos_quadrature_coordinates_host;
         Kokkos::View<int**>::HostMirror _kokkos_quadrature_neighbor_lists_host;
+
+        Teuchos::RCP<mvec_local_index_type> _ids;
+        Teuchos::RCP<mvec_local_index_type> _halo_ids;
+        host_view_local_index_type _id_view;
+        host_view_local_index_type _halo_id_view;
 
 
 		AdvectionDiffusionPhysics(	Teuchos::RCP<particle_type> particles, local_index_type t_Porder,
@@ -78,13 +83,9 @@ class AdvectionDiffusionPhysics : public PhysicsT {
             }
         }
         
-        xyz_type getAdvectionField() const { return _advection_field; }
-
         void setDiffusion(const scalar_type diffusion) {
             _diffusion = diffusion;
         }
-
-        scalar_type getDiffusion() const { return _diffusion; }
 
         void setCells(Teuchos::RCP<particle_type> cells) { _cells = cells.getRawPtr(); };
 

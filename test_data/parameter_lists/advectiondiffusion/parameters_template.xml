@@ -6,11 +6,14 @@
     <Parameter name="solution" type="string" value="polynomial"/>
   </ParameterList>
   <ParameterList name="io">
+    <Parameter name="input dimensions" type="int" value="2"/>
     <Parameter name="input file prefix" type="string" value="../test_data/grids/"/>
     <Parameter name="input file" type="string" value="dg_0.nc"/>
     <Parameter name="output file prefix" type="string" value="../test_data/"/>
     <Parameter name="output file" type="string" value="dg_out.pvtp"/>
     <Parameter name="vtk produce mesh" type="bool" value="false"/>
+    <Parameter name="preserve gids" type="bool" value="true"/>
+    <Parameter name="gids name" type="string" value="ID"/>
   </ParameterList>
   <ParameterList name="solver">
     <Parameter name="type" type="string" value="direct"/>
