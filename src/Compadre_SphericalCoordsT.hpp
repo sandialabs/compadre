@@ -17,8 +17,8 @@ class SphericalCoordsT : public CoordsT {
 	
 	public :
 
-		SphericalCoordsT(const global_index_type n, const Teuchos::RCP<const Teuchos::Comm<int> >& comm) : 
-			CoordsT(n, comm, 3) {};
+		SphericalCoordsT(const global_index_type n, const Teuchos::RCP<const Teuchos::Comm<int> >& comm, const local_index_type nDim = 3) : 
+			CoordsT(n, comm, nDim) {};
 		virtual ~SphericalCoordsT() {};
 
 		friend class ParticlesT;

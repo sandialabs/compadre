@@ -344,7 +344,7 @@ void ProblemT::assembleRHS(local_index_type field_one, local_index_type field_tw
         bool setToZero = true;
         _b[row_block] = Teuchos::rcp(new mvec_type(row_map[row_block], 1, setToZero));
     }
-    _RHS->setMultiVector(_b[row_block]);
+    _RHS->setMultiVector(_b[row_block].getRawPtr());
     _RHS->setDOFData(_problem_dof_data);
     _RHS->evaluateRHS(field_one, field_two, 0.0);
 }
@@ -362,7 +362,7 @@ void ProblemT::assembleBCS(local_index_type field_one, local_index_type field_tw
         bool setToZero = true;
         _b[row_block] = Teuchos::rcp(new mvec_type(row_map[row_block], 1, setToZero));
     }
-    _BCS->setMultiVector(_b[row_block]);
+    _BCS->setMultiVector(_b[row_block].getRawPtr());
     _BCS->setDOFData(_problem_dof_data);
     _BCS->flagBoundaries();
     _BCS->applyBoundaries(field_one, field_two, 0.0);

@@ -26,9 +26,7 @@ class MultiJumpNeighborhood : public NeighborhoodT {
 
     public:
 
-        MultiJumpNeighborhood(const NeighborhoodT* neighborhood_1, const NeighborhoodT* neighborhood_2 = NULL) 
-            : _neighborhood_1(neighborhood_1), _neighborhood_2((neighborhood_2==NULL)?neighborhood_1:NULL) 
-            {}
+        MultiJumpNeighborhood(const NeighborhoodT* neighborhood_1, const NeighborhoodT* neighborhood_2 = NULL);
 
         virtual ~MultiJumpNeighborhood() {};
 

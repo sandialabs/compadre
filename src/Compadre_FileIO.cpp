@@ -194,6 +194,11 @@ void FileManager::writerIOChoice(std::string& extension, const bool enforce_seri
 }
 
 void FileManager::read() {
+
+	auto ndim_particles = _particles->getCoordsConst()->nDim();
+    auto ndim_requested = _particles->getParameters()->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions");
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(ndim_particles!=ndim_requested, "Dimension of particles reading in file does not match dimension requested in parameter list.");
+
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(_io.is_null(), "read() called before setReader(...)")
     try {
 	    _io->read(_reader_fn);
@@ -282,14 +287,14 @@ void VTKData::generateDataSet(bool include_halo, bool for_writing_output, bool u
 	points->SetNumberOfPoints(coords_size);
 	if (include_halo) ghost_points->SetNumberOfPoints(halo_coords_size);
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,coords_size), KOKKOS_LAMBDA(const int i) {
-		double coord[ndim];
-		for (local_index_type j=0; j<coords->nDim(); j++) coord[j] = dev_coords(i,j);
+		double coord[3] = {0,0,0};
+		for (local_index_type j=0; j<ndim; j++) coord[j] = dev_coords(i,j);
 		points->SetPoint(i, coord);
 	});
 	if (include_halo) {
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,halo_coords_size), KOKKOS_LAMBDA(const int i) {
-			double coord[ndim];
-			for (local_index_type j=0; j<coords->nDim(); j++) coord[j] = dev_coords_halo_only(i,j);
+			double coord[3] = {0,0,0};
+			for (local_index_type j=0; j<ndim; j++) coord[j] = dev_coords_halo_only(i,j);
 			ghost_points->SetPoint(i, coord);
 		});
 	}
@@ -433,6 +438,8 @@ void VTKData::generateCombinedDataSet() {
 
 void VTKFileIO::populateParticles() {
 
+    auto ndim_requested = _particles->getParameters()->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions");
+
 	std::string flag_string_lower(_particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("flags name"));
 	transform(flag_string_lower.begin(), flag_string_lower.end(), flag_string_lower.begin(), ::tolower);
 
@@ -486,11 +493,10 @@ void VTKFileIO::populateParticles() {
 	// first fill the coordinates
 	host_view_type dev_coords = coords->getPts()->getLocalView<host_view_type>(); // assumes we are reading in physical coords in a lagrangian simulation
 
-	const local_index_type ndim = coords->nDim();
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int i) {
-		double coord[ndim];
+		double coord[3];
 		_dataSet->GetPoint(i, coord);
-		for (local_index_type j=0; j<coords->nDim(); j++) dev_coords(i,j) = coord[j];
+		for (local_index_type j=0; j<ndim_requested; j++) dev_coords(i,j) = coord[j];
 	});
 
 	for (int i = 0; i < pd->GetNumberOfArrays(); i++) {
@@ -538,6 +544,9 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 	// ideally this should only be called when one processor is in the communicator
 	// otherwise, it would make more sense to distribute the reading as well as storing the values
 	// but this is dealt with by the file manager
+
+    auto ndim_requested = _particles->getParameters()->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions");
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(_coordinate_layout==CoordinateLayout::LAT_LON_separate && ndim_requested<3, "LAT/LON incompatible with dimension < 3.");
 
 //	int comm_size = _particles->getCoordsConst()->getComm()->getSize();
 //		TEUCHOS_TEST_FOR_EXCEPT_MSG(comm_size > 1, "SerialNetCDFFileIO::read called with more than one processor.");
@@ -608,33 +617,37 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 		    	identified_fields[i] = true;
 		    }
 		    else if (var_string_lower==_coordinate_names[1]) {
-		    	int num_dims;
-		    	retval = nc_inq_varndims(ncid, i, &num_dims);
-		    	TEUCHOS_TEST_FOR_EXCEPT_MSG(num_dims != 1, "Only one dimension should be associated with 'y'.");
+                if (ndim_requested > 1) {
+		    	    int num_dims;
+		    	    retval = nc_inq_varndims(ncid, i, &num_dims);
+		    	    TEUCHOS_TEST_FOR_EXCEPT_MSG(num_dims != 1, "Only one dimension should be associated with 'y'.");
 
-		    	std::vector<local_index_type> dims_for_var(num_dims,0);
-		    	retval = nc_inq_vardimid(ncid, i, &dims_for_var[0]);
+		    	    std::vector<local_index_type> dims_for_var(num_dims,0);
+		    	    retval = nc_inq_vardimid(ncid, i, &dims_for_var[0]);
 
-		    	size_t num_entries;
-		    	retval = nc_inq_dimlen(ncid, dims_for_var[0], &num_entries);
-		    	coords_y.resize(num_entries);
+		    	    size_t num_entries;
+		    	    retval = nc_inq_dimlen(ncid, dims_for_var[0], &num_entries);
+		    	    coords_y.resize(num_entries);
 
-		    	retval = nc_get_var_double(ncid, i, &coords_y[0]);
+		    	    retval = nc_get_var_double(ncid, i, &coords_y[0]);
+                }
 		    	identified_fields[i] = true;
 		    }
 		    else if (var_string_lower==_coordinate_names[2]) {
-		    	int num_dims;
-		    	retval = nc_inq_varndims(ncid, i, &num_dims);
-		    	TEUCHOS_TEST_FOR_EXCEPT_MSG(num_dims != 1, "Only one dimension should be associated with 'z'.");
+                if (ndim_requested > 2) {
+		    	    int num_dims;
+		    	    retval = nc_inq_varndims(ncid, i, &num_dims);
+		    	    TEUCHOS_TEST_FOR_EXCEPT_MSG(num_dims != 1, "Only one dimension should be associated with 'z'.");
 
-		    	std::vector<local_index_type> dims_for_var(num_dims,0);
-		    	retval = nc_inq_vardimid(ncid, i, &dims_for_var[0]);
+		    	    std::vector<local_index_type> dims_for_var(num_dims,0);
+		    	    retval = nc_inq_vardimid(ncid, i, &dims_for_var[0]);
 
-		    	size_t num_entries;
-		    	retval = nc_inq_dimlen(ncid, dims_for_var[0], &num_entries);
-		    	coords_z.resize(num_entries);
+		    	    size_t num_entries;
+		    	    retval = nc_inq_dimlen(ncid, dims_for_var[0], &num_entries);
+		    	    coords_z.resize(num_entries);
 
-		    	retval = nc_get_var_double(ncid, i, &coords_z[0]);
+		    	    retval = nc_get_var_double(ncid, i, &coords_z[0]);
+                }
 		    	identified_fields[i] = true;
 		    }
         } else if (_coordinate_layout==CoordinateLayout::XYZ_joint) {
@@ -673,8 +686,8 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
                 // allocate space for xyz array
 		    	auto coords_xyz = std::vector<scalar_type>(num_entries*dim_2);
 		    	coords_x.resize(num_entries);
-		    	coords_y.resize(num_entries);
-		    	coords_z.resize(num_entries);
+                if (ndim_requested > 1) coords_y.resize(num_entries);
+		    	if (ndim_requested > 2) coords_z.resize(num_entries);
 
 
 		    	// read in from netcdf variable
@@ -684,16 +697,32 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
                     for (size_t p_num=0; p_num<num_entries; ++p_num) {
                         // copying from (x,y,z,x,y,z,....)
                         coords_x[p_num] = coords_xyz[dim_2*p_num + 0];
-                        coords_y[p_num] = coords_xyz[dim_2*p_num + 1];
-                        coords_z[p_num] = coords_xyz[dim_2*p_num + 2];
+                    }
+                    if (ndim_requested > 1) {
+                        for (size_t p_num=0; p_num<num_entries; ++p_num) {
+                            coords_y[p_num] = coords_xyz[dim_2*p_num + 1];
+                        }
+                    }
+                    if (ndim_requested > 2) {
+                        for (size_t p_num=0; p_num<num_entries; ++p_num) {
+                            coords_z[p_num] = coords_xyz[dim_2*p_num + 2];
+                        }
                     }
                 } else {
                     // ordered so spatial dimension is first
                     for (size_t p_num=0; p_num<num_entries; ++p_num) {
                         // copying from (x,x,x,x,x,x,....,y,y,y,y,y,y,.....,z,z,z,z,z,z...)
                         coords_x[p_num] = coords_xyz[0*num_entries + p_num];
-                        coords_y[p_num] = coords_xyz[1*num_entries + p_num];
-                        coords_z[p_num] = coords_xyz[2*num_entries + p_num];
+                    }
+                    if (ndim_requested > 1) {
+                        for (size_t p_num=0; p_num<num_entries; ++p_num) {
+                            coords_y[p_num] = coords_xyz[1*num_entries + p_num];
+                        }
+                    }
+                    if (ndim_requested > 2) {
+                        for (size_t p_num=0; p_num<num_entries; ++p_num) {
+                            coords_z[p_num] = coords_xyz[2*num_entries + p_num];
+                        }
                     }
 
                 }
@@ -753,7 +782,11 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
    	TEUCHOS_TEST_FOR_EXCEPT_MSG(particle_num_dimension_id < 0, "_particle_num_name: " + _particle_num_name + " value not found, or coordinates variable: " + _coordinate_names[0] + " name not found.");
 
     if (_coordinate_layout==CoordinateLayout::XYZ_joint || _coordinate_layout==CoordinateLayout::XYZ_separate) {
-	    TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_x.size()!=coords_y.size() || coords_y.size()!=coords_z.size(), "Different number of " + _coordinate_names[0] + ": " + std::to_string(coords_x.size()) + ", " + _coordinate_names[1] + ": " + std::to_string(coords_y.size()) + ", " + _coordinate_names[2] + ": " + std::to_string(coords_z.size()) + "\n");
+         if (ndim_requested == 2) {
+	        TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_x.size()!=coords_y.size(), "Different number of " + _coordinate_names[0] + ": " + std::to_string(coords_x.size()) + ", " + _coordinate_names[1] + ": " + std::to_string(coords_y.size()) + "\n");
+        }  else if (ndim_requested == 3) {
+	        TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_x.size()!=coords_y.size() || coords_y.size()!=coords_z.size(), "Different number of " + _coordinate_names[0] + ": " + std::to_string(coords_x.size()) + ", " + _coordinate_names[1] + ": " + std::to_string(coords_y.size()) + ", " + _coordinate_names[2] + ": " + std::to_string(coords_z.size()) + "\n");
+        }
     } else if (_coordinate_layout==CoordinateLayout::LAT_LON_separate) {
         TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_lat.size() != coords_lon.size(), _coordinate_names[0] + " size does not match " + _coordinate_names[1] + " size. "
 			+ std::to_string(coords_lat.size()) + " vs. " + std::to_string(coords_lon.size()) );
@@ -903,8 +936,8 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
     if (_coordinate_layout==CoordinateLayout::XYZ_separate || _coordinate_layout==CoordinateLayout::XYZ_joint) {
 	    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int i) {
 	    	host_coords(i,0) = coords_x[i+minInd];
-	    	host_coords(i,1) = coords_y[i+minInd];
-	    	host_coords(i,2) = coords_z[i+minInd];
+	    	if (ndim_requested > 1) host_coords(i,1) = coords_y[i+minInd];
+	    	if (ndim_requested > 2) host_coords(i,2) = coords_z[i+minInd];
 	    });
     } else if (_coordinate_layout==CoordinateLayout::LAT_LON_separate) {
    	    Compadre::CangaSphereTransform sphere_transform(_lat_lon_unit_type=="degrees");
@@ -998,6 +1031,9 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 	#define NC_INDEPENDENT 0
 	#define NC_COLLECTIVE 1
 
+    auto ndim_requested = _particles->getParameters()->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions");
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(_coordinate_layout==CoordinateLayout::LAT_LON_separate && ndim_requested<3, "LAT/LON incompatible with dimension < 3.");
+
 	MPI_Comm comm = *(Teuchos::rcp_dynamic_cast<const Teuchos::MpiComm<int>>(this->_particles->getCoordsConst()->getComm(), true /*throw on fail*/)->getRawMpiComm());
 	MPI_Info info = MPI_INFO_NULL;
 
@@ -1072,27 +1108,29 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 		    	identified_fields[i] = true;
 		    }
 		    else if (var_string_lower==_coordinate_names[1]) {
-		    	int num_dims;
-		    	retval = nc_inq_varndims(ncid, i, &num_dims);
-		    	TEUCHOS_TEST_FOR_EXCEPT_MSG(num_dims != 1, "Only one dimension should be associated with 'y'.");
+                if (ndim_requested > 1) {
+		    	    int num_dims;
+		    	    retval = nc_inq_varndims(ncid, i, &num_dims);
+		    	    TEUCHOS_TEST_FOR_EXCEPT_MSG(num_dims != 1, "Only one dimension should be associated with 'y'.");
 
-		    	std::vector<local_index_type> dims_for_var(num_dims,0);
-		    	retval = nc_inq_vardimid(ncid, i, &dims_for_var[0]);
+		    	    std::vector<local_index_type> dims_for_var(num_dims,0);
+		    	    retval = nc_inq_vardimid(ncid, i, &dims_for_var[0]);
 
-		    	retval = nc_inq_dimlen(ncid, dims_for_var[0], &coords_y_size);
-
+		    	    retval = nc_inq_dimlen(ncid, dims_for_var[0], &coords_y_size);
+                }
 		    	identified_fields[i] = true;
 		    }
 		    else if (var_string_lower==_coordinate_names[2]) {
-		    	int num_dims;
-		    	retval = nc_inq_varndims(ncid, i, &num_dims);
-		    	TEUCHOS_TEST_FOR_EXCEPT_MSG(num_dims != 1, "Only one dimension should be associated with 'z'.");
+                if (ndim_requested > 2) {
+		    	    int num_dims;
+		    	    retval = nc_inq_varndims(ncid, i, &num_dims);
+		    	    TEUCHOS_TEST_FOR_EXCEPT_MSG(num_dims != 1, "Only one dimension should be associated with 'z'.");
 
-		    	std::vector<local_index_type> dims_for_var(num_dims,0);
-		    	retval = nc_inq_vardimid(ncid, i, &dims_for_var[0]);
+		    	    std::vector<local_index_type> dims_for_var(num_dims,0);
+		    	    retval = nc_inq_vardimid(ncid, i, &dims_for_var[0]);
 
-		    	retval = nc_inq_dimlen(ncid, dims_for_var[0], &coords_z_size);
-
+		    	    retval = nc_inq_dimlen(ncid, dims_for_var[0], &coords_z_size);
+                }
 		    	identified_fields[i] = true;
 		    }
         } else if (_coordinate_layout==CoordinateLayout::XYZ_joint) {
@@ -1126,11 +1164,14 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
                 // get size of second dimensions
 			    size_t dim_2;
 				retval = nc_inq_dimlen(ncid, dims_for_var[(local_particle_num_dimension_id+1)%2], &dim_2);
-		    	TEUCHOS_TEST_FOR_EXCEPT_MSG(dim_2 != 3, "Three dimensions should be associated with " + _coordinate_names[0]);
 
                 coords_x_size = num_entries;
-                coords_y_size = num_entries;
-                coords_z_size = num_entries;
+                if (ndim_requested > 1) {
+                    coords_y_size = num_entries;
+                }
+                if (ndim_requested > 2) {
+                    coords_z_size = num_entries;
+                }
 		    	identified_fields[i] = true;
             }
         } else if (_coordinate_layout==CoordinateLayout::LAT_LON_separate) {
@@ -1178,7 +1219,11 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 	}
 
     if (_coordinate_layout==CoordinateLayout::XYZ_joint || _coordinate_layout==CoordinateLayout::XYZ_separate) {
-	    TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_x_size!=coords_y_size || coords_y_size!=coords_z_size, "Different number of " + _coordinate_names[0] + ": " + std::to_string(coords_x_size) + ", " + _coordinate_names[1] + ": " + std::to_string(coords_y_size) + ", " + _coordinate_names[2] + ": " + std::to_string(coords_z_size) + "\n");
+        if (ndim_requested==2) {
+	        TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_x_size!=coords_y_size, "Different number of " + _coordinate_names[0] + ": " + std::to_string(coords_x_size) + ", " + _coordinate_names[1] + ": " + std::to_string(coords_y_size) + "\n");
+        } else if (ndim_requested==3) {
+	        TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_x_size!=coords_y_size || coords_y_size!=coords_z_size, "Different number of " + _coordinate_names[0] + ": " + std::to_string(coords_x_size) + ", " + _coordinate_names[1] + ": " + std::to_string(coords_y_size) + ", " + _coordinate_names[2] + ": " + std::to_string(coords_z_size) + "\n");
+        }
     } else if (_coordinate_layout==CoordinateLayout::LAT_LON_separate) {
         TEUCHOS_TEST_FOR_EXCEPT_MSG(coords_lat_size != coords_lon_size, _coordinate_names[0] + " size does not match " + _coordinate_names[1] + " size. "
 			+ std::to_string(coords_lat_size) + " vs. " + std::to_string(coords_lon_size) );
@@ -1203,8 +1248,14 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 
 
 	std::vector<scalar_type> coords_x(local_coords_size);
-	std::vector<scalar_type> coords_y(local_coords_size);
-	std::vector<scalar_type> coords_z(local_coords_size);
+	std::vector<scalar_type> coords_y;
+	std::vector<scalar_type> coords_z;
+    if (ndim_requested > 1) {
+        coords_y.resize(local_coords_size);
+    }
+    if (ndim_requested > 2) {
+        coords_z.resize(local_coords_size);
+    }
 	std::vector<scalar_type> coords_lat;
 	std::vector<scalar_type> coords_lon;
 	std::vector<local_index_type> flags(local_coords_size);
@@ -1231,12 +1282,12 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 		    	unsigned long countDiff = (unsigned long)(local_coords_size);
 		    	retval = nc_get_vara_double(ncid, i, &start, &countDiff, &coords_x[0]);
 		    }
-		    else if (var_string_lower==_coordinate_names[1]) {
+		    else if (var_string_lower==_coordinate_names[1] && ndim_requested > 1) {
 		    	unsigned long start = minInd;
 		    	unsigned long countDiff = (unsigned long)(local_coords_size);
 		    	retval = nc_get_vara_double(ncid, i, &start, &countDiff, &coords_y[0]);
 		    }
-		    else if (var_string_lower==_coordinate_names[2]) {
+		    else if (var_string_lower==_coordinate_names[2] && ndim_requested > 2) {
 		    	unsigned long start = minInd;
 		    	unsigned long countDiff = (unsigned long)(local_coords_size);
 		    	retval = nc_get_vara_double(ncid, i, &start, &countDiff, &coords_z[0]);
@@ -1257,7 +1308,6 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
                 // get size of second dimensions (not the particle number dimension)
 			    size_t dim_2;
 			    retval = nc_inq_dimlen(ncid, dims_for_var[(local_particle_number_dim_id+1)%2], &dim_2);
-		        TEUCHOS_TEST_FOR_EXCEPT_MSG(dim_2 != 3, "Three dimensions should be associated with " + _coordinate_names[0]);
 
                 auto coords_xyz = std::vector<scalar_type>(local_coords_size*dim_2);
 
@@ -1278,14 +1328,14 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
                 if (local_particle_number_dim_id==0) {
                     for (int c_num=0; c_num<local_coords_size; ++c_num) {
                         coords_x[c_num] = coords_xyz[dim_2*c_num + 0];
-                        coords_y[c_num] = coords_xyz[dim_2*c_num + 1];
-                        coords_z[c_num] = coords_xyz[dim_2*c_num + 2];
+                        if (ndim_requested > 1) coords_y[c_num] = coords_xyz[dim_2*c_num + 1];
+                        if (ndim_requested > 2) coords_z[c_num] = coords_xyz[dim_2*c_num + 2];
                     }
                 } else { // flipped
                     for (int c_num=0; c_num<local_coords_size; ++c_num) {
                         coords_x[c_num] = coords_xyz[local_coords_size*0 + c_num];
-                        coords_y[c_num] = coords_xyz[local_coords_size*1 + c_num];
-                        coords_z[c_num] = coords_xyz[local_coords_size*2 + c_num];
+                        if (ndim_requested > 1) coords_y[c_num] = coords_xyz[local_coords_size*1 + c_num];
+                        if (ndim_requested > 2) coords_z[c_num] = coords_xyz[local_coords_size*2 + c_num];
                     }
                 }
             }
@@ -1434,8 +1484,8 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 	    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,local_coords_size), 
                 KOKKOS_LAMBDA(const int i) {
 	    	host_coords(i,0) = coords_x[i];
-	    	host_coords(i,1) = coords_y[i];
-	    	host_coords(i,2) = coords_z[i];
+	    	if (ndim_requested > 1) host_coords(i,1) = coords_y[i];
+	    	if (ndim_requested > 2) host_coords(i,2) = coords_z[i];
 	    });
     } else if (_coordinate_layout==CoordinateLayout::LAT_LON_separate) {
    	    Compadre::CangaSphereTransform sphere_transform(_lat_lon_unit_type=="degrees");
@@ -1526,6 +1576,8 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 
 int LegacyVTKFileIO::read(const std::string& fn) {
 
+    auto ndim_requested = _particles->getParameters()->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions");
+
 	std::string flag_string_lower(_particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("flags name"));
 	transform(flag_string_lower.begin(), flag_string_lower.end(), flag_string_lower.begin(), ::tolower);
 
@@ -1613,11 +1665,11 @@ int LegacyVTKFileIO::read(const std::string& fn) {
 	// first fill the coordinates
 	host_view_type dev_coords = coords->getPts()->getLocalView<host_view_type>(); // assumes we are reading in physical coords in a lagrangian simulation
 
-	const local_index_type ndim = coords->nDim();
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int i) {
-		double coord[ndim];
+		double coord[3]; // 3 instead of ndim_requested so that it can read in up to dimension 3 point data
+        // if ndim_requested is <3 then extra data in coord will be ignored
 		_dataSet->GetPoint(i+minInd, coord);
-		for (local_index_type j=0; j<coords->nDim(); j++) dev_coords(i,j) = coord[j];
+		for (local_index_type j=0; j<ndim_requested; j++) dev_coords(i,j) = coord[j];
 	});
 
 	for (int i = 0; i < pd->GetNumberOfArrays(); i++) {
@@ -1655,7 +1707,6 @@ int LegacyVTKFileIO::read(const std::string& fn) {
 
 
 int XMLVTUFileIO::read(const std::string& fn) {
-
 	MPI_Comm comm = *(Teuchos::rcp_dynamic_cast<const Teuchos::MpiComm<int>>(this->_particles->getCoordsConst()->getComm(), true /*throw on fail*/)->getRawMpiComm());
 	vtkMPICommunicatorOpaqueComm mpi_comm(&comm);
 	vtkSmartPointer<vtkMPICommunicator> communicator = vtkSmartPointer<vtkMPICommunicator>::New();
@@ -1711,7 +1762,6 @@ int XMLVTUFileIO::read(const std::string& fn) {
 
 
 int XMLVTPFileIO::read(const std::string& fn) {
-
 	MPI_Comm comm = *(Teuchos::rcp_dynamic_cast<const Teuchos::MpiComm<int>>(this->_particles->getCoordsConst()->getComm(), true /*throw on fail*/)->getRawMpiComm());
 	vtkMPICommunicatorOpaqueComm mpi_comm(&comm);
 	vtkSmartPointer<vtkMPICommunicator> communicator = vtkSmartPointer<vtkMPICommunicator>::New();
@@ -1770,6 +1820,9 @@ int XMLVTPFileIO::read(const std::string& fn) {
 #ifdef COMPADREHARNESS_USE_NETCDF
 
 void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
+
+	auto ndim_particles = _particles->getCoordsConst()->nDim();
+
 	//http://www.unidata.ucar.edu/software/netcdf/docs/data_type.html
 	//http://www.unidata.ucar.edu/software/netcdf/docs/group__variables.html#ga82d204ebcb895d42d76b780566d91f9a
 
@@ -1801,12 +1854,12 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
 	// define the spatial coordinate variables
 	retval = nc_def_var(ncid, "x", NC_DOUBLE, 1, &particle_dim_id, &x_var_id);
-	retval = nc_def_var(ncid, "y", NC_DOUBLE, 1, &particle_dim_id, &y_var_id);
-	retval = nc_def_var(ncid, "z", NC_DOUBLE, 1, &particle_dim_id, &z_var_id);
+	if (ndim_particles > 1) retval = nc_def_var(ncid, "y", NC_DOUBLE, 1, &particle_dim_id, &y_var_id);
+	if (ndim_particles > 2) retval = nc_def_var(ncid, "z", NC_DOUBLE, 1, &particle_dim_id, &z_var_id);
 	std::string units = this->_particles->getParameters()->get<Teuchos::ParameterList>("coordinates").get<std::string>("units");
 	retval = nc_put_att_text(ncid, x_var_id, "units", units.length(), units.c_str());
-	retval = nc_put_att_text(ncid, y_var_id, "units", units.length(), units.c_str());
-	retval = nc_put_att_text(ncid, z_var_id, "units", units.length(), units.c_str());
+	if (ndim_particles > 1) retval = nc_put_att_text(ncid, y_var_id, "units", units.length(), units.c_str());
+	if (ndim_particles > 2) retval = nc_put_att_text(ncid, z_var_id, "units", units.length(), units.c_str());
 
 	// loop over fields and define for each of them
 	const std::vector<Teuchos::RCP<field_type> > fields = _particles->getFieldManagerConst()->getVectorOfFields();
@@ -1844,17 +1897,18 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
 
 	std::vector<scalar_type> coords_x(coords_size);
-	std::vector<scalar_type> coords_y(coords_size);
-	std::vector<scalar_type> coords_z(coords_size);
+	std::vector<scalar_type> coords_y, coords_z;
+    if (ndim_particles > 1) coords_y.resize(coords_size);
+    if (ndim_particles > 2) coords_z.resize(coords_size);
 	for (int i=0; i<coords_size; i++) {
 		coords_x[i] = host_coords(i,0);
-		coords_y[i] = host_coords(i,1);
-		coords_z[i] = host_coords(i,2);
+		if (ndim_particles > 1) coords_y[i] = host_coords(i,1);
+		if (ndim_particles > 2) coords_z[i] = host_coords(i,2);
 	}
 
 	retval = nc_put_var(ncid, x_var_id, &coords_x[0]);
-	retval = nc_put_var(ncid, y_var_id, &coords_y[0]);
-	retval = nc_put_var(ncid, z_var_id, &coords_z[0]);
+	if (ndim_particles > 1) retval = nc_put_var(ncid, y_var_id, &coords_y[0]);
+	if (ndim_particles > 2) retval = nc_put_var(ncid, z_var_id, &coords_z[0]);
 
 	for (size_t i=0; i<fields.size(); i++){
 
@@ -1912,6 +1966,9 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 #ifdef COMPADREHARNESS_USE_NETCDF_MPI
 
 void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
+
+	auto ndim_particles = _particles->getCoordsConst()->nDim();
+
 	#define NC_INDEPENDENT 0
 	#define NC_COLLECTIVE 1
 
@@ -1954,12 +2011,12 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
 	// define the spatial coordinate variables
 	retval = nc_def_var(ncid, "x", NC_DOUBLE, 1, &particle_dim_id, &x_var_id);
-	retval = nc_def_var(ncid, "y", NC_DOUBLE, 1, &particle_dim_id, &y_var_id);
-	retval = nc_def_var(ncid, "z", NC_DOUBLE, 1, &particle_dim_id, &z_var_id);
+	if (ndim_particles > 1) retval = nc_def_var(ncid, "y", NC_DOUBLE, 1, &particle_dim_id, &y_var_id);
+	if (ndim_particles > 2) retval = nc_def_var(ncid, "z", NC_DOUBLE, 1, &particle_dim_id, &z_var_id);
 	std::string units = this->_particles->getParameters()->get<Teuchos::ParameterList>("coordinates").get<std::string>("units");
 	retval = nc_put_att_text(ncid, x_var_id, "units", units.length(), units.c_str());
-	retval = nc_put_att_text(ncid, y_var_id, "units", units.length(), units.c_str());
-	retval = nc_put_att_text(ncid, z_var_id, "units", units.length(), units.c_str());
+	if (ndim_particles > 1) retval = nc_put_att_text(ncid, y_var_id, "units", units.length(), units.c_str());
+	if (ndim_particles > 2) retval = nc_put_att_text(ncid, z_var_id, "units", units.length(), units.c_str());
 
 	// loop over fields and define for each of them
 	const std::vector<Teuchos::RCP<field_type> > fields = _particles->getFieldManagerConst()->getVectorOfFields();
@@ -2015,20 +2072,25 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
 //	std::cout << coords_size << " on " << rank << std::endl;
 	std::vector<scalar_type> coords_x(coords_size);
-	std::vector<scalar_type> coords_y(coords_size);
-	std::vector<scalar_type> coords_z(coords_size);
+	std::vector<scalar_type> coords_y, coords_z;
+    if (ndim_particles > 1) coords_y.resize(coords_size);
+    if (ndim_particles > 2) coords_z.resize(coords_size);
 	for (int i=0; i<coords_size; i++) {
 		coords_x[i] = host_coords(i,0);
-		coords_y[i] = host_coords(i,1);
-		coords_z[i] = host_coords(i,2);
+		if (ndim_particles > 1) coords_y[i] = host_coords(i,1);
+		if (ndim_particles > 2) coords_z[i] = host_coords(i,2);
 	}
 
 	if ((retval = nc_var_par_access(ncid, x_var_id, NC_COLLECTIVE)))
 		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "x write permission not changed.");
-	if ((retval = nc_var_par_access(ncid, y_var_id, NC_COLLECTIVE)))
-		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "y write permission not changed.");
-	if ((retval = nc_var_par_access(ncid, z_var_id, NC_COLLECTIVE)))
-		TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "z write permission not changed.");
+	if (ndim_particles > 1) {
+        if ((retval = nc_var_par_access(ncid, y_var_id, NC_COLLECTIVE)))
+		    TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "y write permission not changed.");
+    }
+	if (ndim_particles > 2) {
+        if ((retval = nc_var_par_access(ncid, z_var_id, NC_COLLECTIVE)))
+		    TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "z write permission not changed.");
+    }
 
 	// this mapping temporarily gives the min and max elements which is equivalent to an offset
 	Teuchos::RCP<map_type> temporary_map = Teuchos::rcp(new map_type(
@@ -2040,10 +2102,14 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
 		if ((retval = nc_put_vara_double(ncid, x_var_id, &start, &countDiff, &coords_x[0])))
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "x not written.");
-		if ((retval = nc_put_vara_double(ncid, y_var_id, &start, &countDiff, &coords_y[0])))
-			TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "y not written.");
-		if ((retval = nc_put_vara_double(ncid, z_var_id, &start, &countDiff, &coords_z[0])))
-			TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "z not written.");
+	    if (ndim_particles > 1) {
+		    if ((retval = nc_put_vara_double(ncid, y_var_id, &start, &countDiff, &coords_y[0])))
+		    	TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "y not written.");
+        }
+	    if (ndim_particles > 2) {
+		    if ((retval = nc_put_vara_double(ncid, z_var_id, &start, &countDiff, &coords_z[0])))
+		    	TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "z not written.");
+        }
 	}
 
 

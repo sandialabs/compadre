@@ -327,6 +327,9 @@ for key, h in enumerate(h_all):
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
+    dataset.createVariable('ID', datatype='int', dimensions=('num_entities'), zlib=True, complevel=8,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
 
     dataset.variables['x'][:]=all_vertices[:,0]
     dataset.variables['y'][:]=all_vertices[:,1]
@@ -336,6 +339,7 @@ for key, h in enumerate(h_all):
     dataset.variables['unit_normal'][:,:]=all_normals[:,:]
     dataset.variables['interior'][:,:]=all_interior[:,:]
     dataset.variables['adjacent_elements'][:,:]=all_adjacent_elements[:,:]
+    dataset.variables['ID'][:]=np.arange(tri.simplices.shape[0])
 
 
     #help(dataset)

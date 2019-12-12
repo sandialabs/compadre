@@ -14,7 +14,7 @@ class PinnedGraphLaplacianSources : public SourcesT {
 	public:
 
 		PinnedGraphLaplacianSources(	Teuchos::RCP<particle_type> particles,
-										Teuchos::RCP<mvec_type> b = Teuchos::null) :
+										mvec_type* b = NULL) :
 										SourcesT(particles, b)
 		{}
 
