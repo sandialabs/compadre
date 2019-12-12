@@ -287,14 +287,14 @@ void VTKData::generateDataSet(bool include_halo, bool for_writing_output, bool u
 	points->SetNumberOfPoints(coords_size);
 	if (include_halo) ghost_points->SetNumberOfPoints(halo_coords_size);
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,coords_size), KOKKOS_LAMBDA(const int i) {
-		double coord[ndim];
-		for (local_index_type j=0; j<coords->nDim(); j++) coord[j] = dev_coords(i,j);
+		double coord[3] = {0,0,0};
+		for (local_index_type j=0; j<ndim; j++) coord[j] = dev_coords(i,j);
 		points->SetPoint(i, coord);
 	});
 	if (include_halo) {
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,halo_coords_size), KOKKOS_LAMBDA(const int i) {
-			double coord[ndim];
-			for (local_index_type j=0; j<coords->nDim(); j++) coord[j] = dev_coords_halo_only(i,j);
+			double coord[3] = {0,0,0};
+			for (local_index_type j=0; j<ndim; j++) coord[j] = dev_coords_halo_only(i,j);
 			ghost_points->SetPoint(i, coord);
 		});
 	}
@@ -438,6 +438,8 @@ void VTKData::generateCombinedDataSet() {
 
 void VTKFileIO::populateParticles() {
 
+    auto ndim_requested = _particles->getParameters()->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions");
+
 	std::string flag_string_lower(_particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("flags name"));
 	transform(flag_string_lower.begin(), flag_string_lower.end(), flag_string_lower.begin(), ::tolower);
 
@@ -491,11 +493,10 @@ void VTKFileIO::populateParticles() {
 	// first fill the coordinates
 	host_view_type dev_coords = coords->getPts()->getLocalView<host_view_type>(); // assumes we are reading in physical coords in a lagrangian simulation
 
-	const local_index_type ndim = coords->nDim();
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int i) {
-		double coord[ndim];
+		double coord[3];
 		_dataSet->GetPoint(i, coord);
-		for (local_index_type j=0; j<coords->nDim(); j++) dev_coords(i,j) = coord[j];
+		for (local_index_type j=0; j<ndim_requested; j++) dev_coords(i,j) = coord[j];
 	});
 
 	for (int i = 0; i < pd->GetNumberOfArrays(); i++) {
@@ -1576,7 +1577,6 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
 int LegacyVTKFileIO::read(const std::string& fn) {
 
     auto ndim_requested = _particles->getParameters()->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions");
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(ndim_requested<3, "Incompatible with dimension < 3.");
 
 	std::string flag_string_lower(_particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("flags name"));
 	transform(flag_string_lower.begin(), flag_string_lower.end(), flag_string_lower.begin(), ::tolower);
@@ -1665,11 +1665,11 @@ int LegacyVTKFileIO::read(const std::string& fn) {
 	// first fill the coordinates
 	host_view_type dev_coords = coords->getPts()->getLocalView<host_view_type>(); // assumes we are reading in physical coords in a lagrangian simulation
 
-	const local_index_type ndim = coords->nDim();
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int i) {
-		double coord[ndim];
+		double coord[3]; // 3 instead of ndim_requested so that it can read in up to dimension 3 point data
+        // if ndim_requested is <3 then extra data in coord will be ignored
 		_dataSet->GetPoint(i+minInd, coord);
-		for (local_index_type j=0; j<coords->nDim(); j++) dev_coords(i,j) = coord[j];
+		for (local_index_type j=0; j<ndim_requested; j++) dev_coords(i,j) = coord[j];
 	});
 
 	for (int i = 0; i < pd->GetNumberOfArrays(); i++) {
@@ -1707,10 +1707,6 @@ int LegacyVTKFileIO::read(const std::string& fn) {
 
 
 int XMLVTUFileIO::read(const std::string& fn) {
-
-    auto ndim_requested = _particles->getParameters()->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions");
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(ndim_requested<3, "Incompatible with dimension < 3.");
-
 	MPI_Comm comm = *(Teuchos::rcp_dynamic_cast<const Teuchos::MpiComm<int>>(this->_particles->getCoordsConst()->getComm(), true /*throw on fail*/)->getRawMpiComm());
 	vtkMPICommunicatorOpaqueComm mpi_comm(&comm);
 	vtkSmartPointer<vtkMPICommunicator> communicator = vtkSmartPointer<vtkMPICommunicator>::New();
@@ -1766,10 +1762,6 @@ int XMLVTUFileIO::read(const std::string& fn) {
 
 
 int XMLVTPFileIO::read(const std::string& fn) {
-
-    auto ndim_requested = _particles->getParameters()->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions");
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(ndim_requested<3, "Incompatible with dimension < 3.");
-
 	MPI_Comm comm = *(Teuchos::rcp_dynamic_cast<const Teuchos::MpiComm<int>>(this->_particles->getCoordsConst()->getComm(), true /*throw on fail*/)->getRawMpiComm());
 	vtkMPICommunicatorOpaqueComm mpi_comm(&comm);
 	vtkSmartPointer<vtkMPICommunicator> communicator = vtkSmartPointer<vtkMPICommunicator>::New();
@@ -2183,10 +2175,6 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 #ifdef COMPADREHARNESS_USE_VTK
 
 void LegacyVTKFileIO::write(const std::string& fn, bool use_binary) {
-
-	auto ndim_particles = _particles->getCoordsConst()->nDim();
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(ndim_particles<3, "Incompatible with dimension < 3.");
-
 	local_index_type comm_size = _particles->getCoordsConst()->getComm()->getSize();
 	local_index_type my_rank = _particles->getCoordsConst()->getComm()->getRank();
 
@@ -2237,10 +2225,6 @@ void LegacyVTKFileIO::write(const std::string& fn, bool use_binary) {
 
 
 void XMLVTUFileIO::write(const std::string& fn, bool use_binary) {
-
-	auto ndim_particles = _particles->getCoordsConst()->nDim();
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(ndim_particles<3, "Incompatible with dimension < 3.");
-
 	local_index_type comm_size = _particles->getCoordsConst()->getComm()->getSize();
 	local_index_type my_rank = _particles->getCoordsConst()->getComm()->getRank();
 
@@ -2305,10 +2289,6 @@ void XMLVTUFileIO::write(const std::string& fn, bool use_binary) {
 
 
 void XMLVTPFileIO::write(const std::string& fn, bool use_binary) {
-
-	auto ndim_particles = _particles->getCoordsConst()->nDim();
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(ndim_particles<3, "Incompatible with dimension < 3.");
-
 	local_index_type comm_size = _particles->getCoordsConst()->getComm()->getSize();
 	local_index_type my_rank = _particles->getCoordsConst()->getComm()->getRank();
 
