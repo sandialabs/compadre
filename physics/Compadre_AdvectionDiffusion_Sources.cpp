@@ -17,7 +17,7 @@ typedef Compadre::FieldT fields_type;
 typedef Compadre::XyzVector xyz_type;
 
 void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time) {
-    TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_b.is_null(), "Tpetra Multivector for RHS not yet specified.");
+    TEUCHOS_TEST_FOR_EXCEPT_MSG(_b==NULL, "Tpetra Multivector for RHS not yet specified.");
     if (field_two == -1) {
         field_two = field_one;
     }
@@ -227,43 +227,112 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     Kokkos::deep_copy(rhs_vals, 0.0);
 
     // get an unmanaged atomic view that can be added to in a parallel for loop
-    Kokkos::View<scalar_type**, decltype(rhs_vals)::memory_space, Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > 
-        rhs_vals_atomic(rhs_vals.data(), rhs_vals.extent(0), rhs_vals.extent(1));
+    //Kokkos::View<scalar_type**, decltype(rhs_vals)::memory_space, Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > 
+    //    rhs_vals_atomic(rhs_vals.data(), rhs_vals.extent(0), rhs_vals.extent(1));
 
-    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_physics->_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
+    // assembly over particle, then over cells
+
+    //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_physics->_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
+    //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
+    //    // loop over cells touching that particle
+    //    local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
+    //    for (size_t j=0; j<_physics->_cell_particles_neighborhood->getNumNeighbors(i); ++j) {
+    //        auto cell_j = _physics->_cell_particles_neighborhood->getNeighbor(i,j);
+    //        // add the contribution to the row for the particle
+    //        double contribution = 0;
+
+    //        // what neighbor is i to cell_j
+    //        auto i_index_to_j = -1;
+    //        const local_index_type comm_size = _physics->_cell_particles_neighborhood->getSourceCoordinates()->getComm()->getSize();
+    //        TEUCHOS_TEST_FOR_EXCEPT_MSG((comm_size > 1), "Search from source to target not supported yet.");
+    //        for (size_t k=0; k<_physics->_cell_particles_neighborhood->getNumNeighbors(cell_j); ++k) {
+    //            if (_physics->_cell_particles_neighborhood->getNeighbor(cell_j,k) == static_cast<size_t>(i)) {
+    //                i_index_to_j = k;
+    //                break;
+    //            }
+    //        }
+    //        // loop through j's neighbor list until i find i
+
+    //        if (_parameters->get<Teuchos::ParameterList>("physics").get<bool>("l2 projection only")) {
+    //            for (int q=0; q<_physics->_weights_ndim; ++q) {
+    //                if (quadrature_type(cell_j,q)==1) { // interior
+    //                    // integrating RHS function
+    //                    double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_j, i_index_to_j, q+1);
+    //                    xyz_type pt(quadrature_points(cell_j,2*q),quadrature_points(cell_j,2*q+1),0);
+    //                    contribution += quadrature_weights(cell_j,q) * v * function->evalScalar(pt);
+    //                } 
+    //            }
+    //        } else {
+    //            for (int q=0; q<_physics->_weights_ndim; ++q) {
+    //                if (quadrature_type(cell_j,q)==1) { // interior
+    //                    // integrating RHS function
+    //                    double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_j, i_index_to_j, q+1);
+    //                    xyz_type pt(quadrature_points(cell_j,2*q),quadrature_points(cell_j,2*q+1),0);
+    //                    auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());//Teuchos::rcp_dynamic_cast<Compadre::SineProducts>(function);
+    //                    //if (!cast_to_sine==NULL) {
+    //                        contribution += quadrature_weights(cell_j,q) * v * cast_to_sine->evalAdvectionDiffusionRHS(pt,_physics->_diffusion,_physics->_advection_field);
+    //                    //} else {
+    //                    //    printf("is null.\n");
+    //                    //}
+    //                } 
+    //            }
+
+    //        }
+    //        
+    //        //rhs_vals_atomic(row,0) += contribution;
+    //        rhs_vals(row,0) += contribution;
+    //    }
+    //}
+    ////});
+
+    // assembly over cells, then particles
+
+    //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_physics->_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
+    for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(true /* include halo in count */); ++i) {
+
+        TEUCHOS_ASSERT(i<nlocal);
+        // need to have a halo gmls object that can be queried for cells that do not live on processor
+        // this is also needed for the operator file in order to finish jump terms
+
         // loop over cells touching that particle
-        local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
         for (size_t j=0; j<_physics->_cell_particles_neighborhood->getNumNeighbors(i); ++j) {
-            auto cell_j = _physics->_cell_particles_neighborhood->getNeighbor(i,j);
+            auto particle_j = _physics->_cell_particles_neighborhood->getNeighbor(i,j);
+            if (particle_j >= nlocal) continue; // particle is in halo region, but we only want dofs that are rows (locally owned))
+            local_index_type row = local_to_dof_map(particle_j, field_one, 0 /* component 0*/);
             // add the contribution to the row for the particle
             double contribution = 0;
-            // what neighbor is i to cell_j
-            auto i_index_to_j = -1;
-            for (size_t k=0; k<_physics->_cell_particles_neighborhood->getNumNeighbors(cell_j); ++k) {
-                if (_physics->_cell_particles_neighborhood->getNeighbor(cell_j,k) == static_cast<size_t>(i)) {
-                    i_index_to_j = k;
-                    break;
+
+            if (_parameters->get<Teuchos::ParameterList>("physics").get<bool>("l2 projection only")) {
+                for (int q=0; q<_physics->_weights_ndim; ++q) {
+                    if (quadrature_type(i,q)==1) { // interior
+                        // integrating RHS function
+                        double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
+                        xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
+                        contribution += quadrature_weights(i,q) * v * function->evalScalar(pt);
+                    } 
                 }
+            } else {
+                for (int q=0; q<_physics->_weights_ndim; ++q) {
+                    if (quadrature_type(i,q)==1) { // interior
+                        // integrating RHS function
+                        double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
+                        xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
+                        auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());//Teuchos::rcp_dynamic_cast<Compadre::SineProducts>(function);
+                        //if (!cast_to_sine==NULL) {
+                            contribution += quadrature_weights(i,q) * v * cast_to_sine->evalAdvectionDiffusionRHS(pt,_physics->_diffusion,_physics->_advection_field);
+                        //} else {
+                        //    printf("is null.\n");
+                        //}
+                    } 
+                }
+
             }
-            // loop through j's neighbor list until i find i
-            for (int q=0; q<_physics->_weights_ndim; ++q) {
-                if (quadrature_type(cell_j,q)==1) { // interior
-                    // integrating RHS function
-                    double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, cell_j, i_index_to_j, q+1);
-                    xyz_type pt(quadrature_points(cell_j,2*q),quadrature_points(cell_j,2*q+1),0);
-                    contribution += quadrature_weights(cell_j,q) * v * function->evalScalar(pt);
-                } 
-            }
-            rhs_vals_atomic(row,0) += contribution;
-            //if (row_seen(row)==1) { // already seen
-            //    rhs_vals(row,0) += contribution;
-            //} else {
-            //    rhs_vals(row,0) = contribution;
-            //    row_seen(row) = 1;
-            //}
             
+            //rhs_vals_atomic(row,0) += contribution;
+            rhs_vals(row,0) += contribution;
         }
-    });
+    }
+    //});
     
 
     ////// just for putting polynomial at pts

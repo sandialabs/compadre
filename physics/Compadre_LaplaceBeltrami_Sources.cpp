@@ -24,7 +24,7 @@ void LaplaceBeltramiSources::evaluateRHS(local_index_type field_one, local_index
 		function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::CylinderSinLonCosZRHS));
 	}
 
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_b.is_null(), "Tpetra Multivector for RHS not yet specified.");
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(_b==NULL, "Tpetra Multivector for RHS not yet specified.");
 	if (field_two == -1) {
 		field_two = field_one;
 	}

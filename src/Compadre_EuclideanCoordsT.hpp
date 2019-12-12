@@ -17,8 +17,8 @@ class EuclideanCoordsT : public CoordsT {
 	
 	public :
 
-		EuclideanCoordsT(const global_index_type n, const Teuchos::RCP<const Teuchos::Comm<int> >& comm) : 
-			CoordsT(n, comm, 3) {};
+		EuclideanCoordsT(const global_index_type n, const Teuchos::RCP<const Teuchos::Comm<int> >& comm, const local_index_type nDim = 3) : 
+			CoordsT(n, comm, nDim) {};
 		virtual ~EuclideanCoordsT() {};
 	
 		friend class ParticlesT;

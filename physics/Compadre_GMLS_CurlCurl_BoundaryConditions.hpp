@@ -16,7 +16,7 @@ class GMLS_CurlCurlBoundaryConditions : public BoundaryConditionsT {
 	public:
 
 		GMLS_CurlCurlBoundaryConditions( Teuchos::RCP<particle_type> particles,
-												Teuchos::RCP<mvec_type> b = Teuchos::null) :
+												mvec_type* b = NULL) :
 												BoundaryConditionsT(particles, b)
 		{}
 

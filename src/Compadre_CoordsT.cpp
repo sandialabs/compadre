@@ -171,8 +171,8 @@ void CoordsT::insertCoords(const std::vector<xyz_type>& new_pts_vector, const st
 	// writes all data to either physical or lagrange coordinates, depending on parameters
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_added_coords), KOKKOS_LAMBDA(const int i) {
 		new_pts_vals(_nLocal+i,0) = new_pts_vector[i].x;
-		new_pts_vals(_nLocal+i,1) = new_pts_vector[i].y;
-		new_pts_vals(_nLocal+i,2) = new_pts_vector[i].z;
+		if (_nDim>1) new_pts_vals(_nLocal+i,1) = new_pts_vector[i].y;
+		if (_nDim>2) new_pts_vals(_nLocal+i,2) = new_pts_vector[i].z;
 	});
 
 	if (_is_lagrangian) {
@@ -180,8 +180,8 @@ void CoordsT::insertCoords(const std::vector<xyz_type>& new_pts_vector, const st
 		// writes all data to either physical or lagrange coordinates, depending on parameters
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_added_coords), KOKKOS_LAMBDA(const int i) {
 			new_pts_physical_vals(_nLocal+i,0) = new_pts_physical_vector[i].x;
-			new_pts_physical_vals(_nLocal+i,1) = new_pts_physical_vector[i].y;
-			new_pts_physical_vals(_nLocal+i,2) = new_pts_physical_vector[i].z;
+			if (_nDim>1) new_pts_physical_vals(_nLocal+i,1) = new_pts_physical_vector[i].y;
+			if (_nDim>2) new_pts_physical_vals(_nLocal+i,2) = new_pts_physical_vector[i].z;
 		});
 	}
 	// if Lagrangian simulation, and for some reason inserted into Lagrangian coordinates, then we need to get values for
@@ -357,12 +357,12 @@ void CoordsT::replaceLocalCoords(const local_index_type idx, const scalar_type x
 void CoordsT::replaceLocalCoords(const local_index_type idx, const CoordsT::xyz_type xyz, bool use_physical_coords) {
 	if (_is_lagrangian && use_physical_coords) {
 		pts_physical_view(idx, 0) = xyz.x;
-		pts_physical_view(idx, 1) = xyz.y;
-		pts_physical_view(idx, 2) = xyz.z;
+		if (_nDim>1) pts_physical_view(idx, 1) = xyz.y;
+		if (_nDim>2) pts_physical_view(idx, 2) = xyz.z;
 	} else {
 		pts_view(idx, 0) = xyz.x;
-		pts_view(idx, 1) = xyz.y;
-		pts_view(idx, 2) = xyz.z;
+		if (_nDim>1) pts_view(idx, 1) = xyz.y;
+		if (_nDim>2) pts_view(idx, 2) = xyz.z;
 	}
 }
 
@@ -370,33 +370,67 @@ void CoordsT::replaceGlobalCoords(const global_index_type idx, const scalar_type
 						 const scalar_type z, bool use_physical_coords) {
 	mvec_type* pts_vec = (_is_lagrangian && use_physical_coords) ? pts_physical.getRawPtr() : pts.getRawPtr();
 	pts_vec->replaceGlobalValue(idx, 0, x);
-	pts_vec->replaceGlobalValue(idx, 1, y);
-	pts_vec->replaceGlobalValue(idx, 2, z);
+	if (_nDim>1) pts_vec->replaceGlobalValue(idx, 1, y);
+	if (_nDim>2) pts_vec->replaceGlobalValue(idx, 2, z);
 }
 
 void CoordsT::replaceGlobalCoords(const global_index_type idx, const CoordsT::xyz_type xyz, bool use_physical_coords) {
 	mvec_type* pts_vec = (_is_lagrangian && use_physical_coords) ? pts_physical.getRawPtr() : pts.getRawPtr();
 	pts_vec->replaceGlobalValue(idx, 0, xyz.x);
-	pts_vec->replaceGlobalValue(idx, 1, xyz.y);
-	pts_vec->replaceGlobalValue(idx, 2, xyz.z);
+	if (_nDim>1) pts_vec->replaceGlobalValue(idx, 1, xyz.y);
+	if (_nDim>2) pts_vec->replaceGlobalValue(idx, 2, xyz.z);
 }
 
 CoordsT::xyz_type CoordsT::getLocalCoords(const local_index_type idx1, bool use_halo, bool use_physical_coords) const {
-	if (_is_lagrangian && use_physical_coords) {
-		const local_index_type nlocal_minus_halo = pts_physical_view.dimension_0();
-		if (idx1 < nlocal_minus_halo) {
-			return CoordsT::xyz_type(pts_physical_view(idx1, 0), pts_physical_view(idx1, 1), pts_physical_view(idx1, 2));
-		} else {
-			return CoordsT::xyz_type(halo_pts_physical_view(idx1-nlocal_minus_halo, 0), halo_pts_physical_view(idx1-nlocal_minus_halo, 1), halo_pts_physical_view(idx1-nlocal_minus_halo, 2));
-		}
-	} else {
-		const local_index_type nlocal_minus_halo = pts_view.dimension_0();
-		if (idx1 < nlocal_minus_halo) {
-			return CoordsT::xyz_type(pts_view(idx1, 0), pts_view(idx1, 1), pts_view(idx1, 2));
-		} else {
-			return CoordsT::xyz_type(halo_pts_view(idx1-nlocal_minus_halo, 0), halo_pts_view(idx1-nlocal_minus_halo, 1), halo_pts_view(idx1-nlocal_minus_halo, 2));
-		}
-	}
+    if (_nDim == 3) {
+	    if (_is_lagrangian && use_physical_coords) {
+	    	const local_index_type nlocal_minus_halo = pts_physical_view.dimension_0();
+	    	if (idx1 < nlocal_minus_halo) {
+	    		return CoordsT::xyz_type(pts_physical_view(idx1, 0), pts_physical_view(idx1, 1), pts_physical_view(idx1, 2));
+	    	} else {
+	    		return CoordsT::xyz_type(halo_pts_physical_view(idx1-nlocal_minus_halo, 0), halo_pts_physical_view(idx1-nlocal_minus_halo, 1), halo_pts_physical_view(idx1-nlocal_minus_halo, 2));
+	    	}
+	    } else {
+	    	const local_index_type nlocal_minus_halo = pts_view.dimension_0();
+	    	if (idx1 < nlocal_minus_halo) {
+	    		return CoordsT::xyz_type(pts_view(idx1, 0), pts_view(idx1, 1), pts_view(idx1, 2));
+	    	} else {
+	    		return CoordsT::xyz_type(halo_pts_view(idx1-nlocal_minus_halo, 0), halo_pts_view(idx1-nlocal_minus_halo, 1), halo_pts_view(idx1-nlocal_minus_halo, 2));
+	    	}
+	    }
+    } else if (_nDim == 2) {
+	    if (_is_lagrangian && use_physical_coords) {
+	    	const local_index_type nlocal_minus_halo = pts_physical_view.dimension_0();
+	    	if (idx1 < nlocal_minus_halo) {
+	    		return CoordsT::xyz_type(pts_physical_view(idx1, 0), pts_physical_view(idx1, 1), 0);
+	    	} else {
+	    		return CoordsT::xyz_type(halo_pts_physical_view(idx1-nlocal_minus_halo, 0), halo_pts_physical_view(idx1-nlocal_minus_halo, 1), 0);
+	    	}
+	    } else {
+	    	const local_index_type nlocal_minus_halo = pts_view.dimension_0();
+	    	if (idx1 < nlocal_minus_halo) {
+	    		return CoordsT::xyz_type(pts_view(idx1, 0), pts_view(idx1, 1), 0);
+	    	} else {
+	    		return CoordsT::xyz_type(halo_pts_view(idx1-nlocal_minus_halo, 0), halo_pts_view(idx1-nlocal_minus_halo, 1), 0);
+	    	}
+	    }
+    } else {
+	    if (_is_lagrangian && use_physical_coords) {
+	    	const local_index_type nlocal_minus_halo = pts_physical_view.dimension_0();
+	    	if (idx1 < nlocal_minus_halo) {
+	    		return CoordsT::xyz_type(pts_physical_view(idx1, 0), 0, 0);
+	    	} else {
+	    		return CoordsT::xyz_type(halo_pts_physical_view(idx1-nlocal_minus_halo, 0), 0, 0);
+	    	}
+	    } else {
+	    	const local_index_type nlocal_minus_halo = pts_view.dimension_0();
+	    	if (idx1 < nlocal_minus_halo) {
+	    		return CoordsT::xyz_type(pts_view(idx1, 0), 0, 0);
+	    	} else {
+	    		return CoordsT::xyz_type(halo_pts_view(idx1-nlocal_minus_halo, 0), 0, 0);
+	    	}
+	    }
+    }
 }
 
 const Teuchos::RCP<mvec_type>& CoordsT::getPts(const bool halo, bool use_physical_coords) const {
@@ -409,7 +443,7 @@ const Teuchos::RCP<mvec_type>& CoordsT::getPts(const bool halo, bool use_physica
 
 CoordsT::xyz_type CoordsT::getGlobalCoords(const global_index_type idx, bool use_physical_coords) const {
 	const std::pair<int, local_index_type> remoteIds = getLocalIdFromGlobalId(idx);
-	std::vector<scalar_type> cVec(3);
+	std::vector<scalar_type> cVec(_nDim);
 	Teuchos::ArrayView<scalar_type> cView(cVec);
 	if (comm->getRank() == remoteIds.first) {
 		const CoordsT::xyz_type pt = getLocalCoords(remoteIds.second, use_physical_coords);
@@ -426,14 +460,14 @@ CoordsT::xyz_type CoordsT::getCoordsPointToPoint(const global_index_type idx, co
 		return_vec = getLocalCoords(remoteIds.second, false /*halo*/, use_physical_coords);
 	}
 	else {
-		scalar_type arry[3];
+		scalar_type arry[_nDim];
 		if (comm->getRank() == remoteIds.first) {
 			const CoordsT::xyz_type pt = getLocalCoords(remoteIds.second, use_physical_coords);
 			pt.convertToArray(arry);
-			Teuchos::send<int, scalar_type>(*comm, 3, arry, destRank);
+			Teuchos::send<int, scalar_type>(*comm, _nDim, arry, destRank);
 		}
 		else if (comm->getRank() == destRank) {
-			Teuchos::receive<int, scalar_type>(*comm, remoteIds.first, 3, arry);
+			Teuchos::receive<int, scalar_type>(*comm, remoteIds.first, _nDim, arry);
 			return_vec = CoordsT::xyz_type(arry);
 		}
 	}
@@ -446,6 +480,7 @@ Teuchos::RCP<const importer_type> CoordsT::getHaloImporterConst() const { return
 
 // TODO: Not currently thread-safe
 CoordsT::xyz_type CoordsT::localCrossProduct(const local_index_type idx1, const CoordsT::xyz_type& queryPt, bool use_physical_coords) const {
+    TEUCHOS_ASSERT(_nDim==3);
 	mvec_type* pts_vec = (_is_lagrangian && use_physical_coords) ? pts_physical.getRawPtr() : pts.getRawPtr();
 	host_view_type ptsView = pts_vec->getLocalView<host_view_type>();
 	return CoordsT::xyz_type( ptsView(idx1, 1) * queryPt.z -
@@ -458,6 +493,7 @@ CoordsT::xyz_type CoordsT::localCrossProduct(const local_index_type idx1, const 
 
 // TODO: Not currently thread-safe
 scalar_type CoordsT::localDotProduct( const local_index_type idx1, const CoordsT::xyz_type& queryPt, bool use_physical_coords) const {
+    TEUCHOS_ASSERT(_nDim==3);
 	mvec_type* pts_vec = (_is_lagrangian && use_physical_coords) ? pts_physical.getRawPtr() : pts.getRawPtr();
 	host_view_type ptsView = pts_vec->getLocalView<host_view_type>();
 	return ptsView(idx1, 0) * queryPt.x +
@@ -537,10 +573,10 @@ bool CoordsT::verifyCoordsOnProcessor(const std::vector<xyz_type>& new_pts_vecto
 	const z2_box_type box = z2problem->getSolution().getPartBoxesView()[comm->getRank()];
     int number_off_processor = 0; // should remain zero
 	Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,new_pts_vector_size), KOKKOS_LAMBDA(const int i, int& t_number_off_processor) {
-		scalar_type coordinates[3];
+		scalar_type coordinates[_nDim];
 		new_pts_vector[i].convertToArray(coordinates);
-        t_number_off_processor = std::max(t_number_off_processor, static_cast<int>(!box.pointInBox(3, coordinates)));
-		TEUCHOS_TEST_FOR_EXCEPT_MSG((throw_exception && !box.pointInBox(3, coordinates)),"On processor# " + std::to_string(comm->getRank())
+        t_number_off_processor = std::max(t_number_off_processor, static_cast<int>(!box.pointInBox(_nDim, coordinates)));
+		TEUCHOS_TEST_FOR_EXCEPT_MSG((throw_exception && !box.pointInBox(_nDim, coordinates)),"On processor# " + std::to_string(comm->getRank())
 		+ ", Point inserted (" + std::to_string(coordinates[0]) + "," + std::to_string(coordinates[1]) +  ","
 		+ std::to_string(coordinates[2]) + ") not within bounding box of this processor.");
 	}, Kokkos::Max<int>(number_off_processor));
@@ -553,7 +589,7 @@ std::vector<scalar_type> CoordsT::boundingBoxMinOnProcessor(const local_index_ty
 	const local_index_type proc_num_to_query = (processor_num > -1) ? processor_num : comm->getRank();
 	const z2_box_type box = z2problem->getSolution().getPartBoxesView()[proc_num_to_query];
 	const scalar_type* mins = box.getlmins();
-	std::vector<scalar_type> min_bound(mins, mins+3);
+	std::vector<scalar_type> min_bound(mins, mins+_nDim);
 	return min_bound;
 }
 
@@ -561,7 +597,7 @@ std::vector<scalar_type> CoordsT::boundingBoxMaxOnProcessor(const local_index_ty
 	const local_index_type proc_num_to_query = (processor_num > -1) ? processor_num : comm->getRank();
 	const z2_box_type box = z2problem->getSolution().getPartBoxesView()[proc_num_to_query];
 	const scalar_type* maxs = box.getlmaxs();
-	std::vector<scalar_type> max_bound(maxs, maxs+3);
+	std::vector<scalar_type> max_bound(maxs, maxs+_nDim);
 	return max_bound;
 }
 
@@ -676,6 +712,7 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
 				const_gid_view_type gids;
 				count_type count;
 				global_index_type max_gid;
+                local_index_type ndim;
 
 				SearchBoxFunctor(z2_box_type box_, gid_view_type gids_found_,
 						host_view_type pts_view_, const_gid_view_type gids_,
@@ -683,11 +720,15 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
 						: box(box_),gids_found(gids_found_),
 						  pts_view(pts_view_),gids(gids_),count(count_){
 					max_gid = std::numeric_limits<global_index_type>::max();
+                    ndim = static_cast<int>(pts_view_.extent(1));
 				}
 
 				void operator()(const int i) const {
-					scalar_type coordinates[3] = {pts_view(i,0), pts_view(i,1), pts_view(i,2)};
-					if (box.pointInBox(3, coordinates)) {
+					scalar_type coordinates[3] = {0, 0, 0};
+                    coordinates[0] = pts_view(i,0);
+                    coordinates[1] = (ndim>1) ? pts_view(i,1) : 0;
+                    coordinates[2] = (ndim>2) ? pts_view(i,2) : 0;
+					if (box.pointInBox(ndim, coordinates)) {
 						//Kokkos::atomic_add(&count(), 1);
 						Kokkos::atomic_fetch_add(&count(), 1);
 						gids_found(i) = gids(i);

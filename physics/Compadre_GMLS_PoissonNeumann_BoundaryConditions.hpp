@@ -13,7 +13,7 @@ class GMLS_PoissonNeumannBoundaryConditions : public BoundaryConditionsT {
 
     public:
         GMLS_PoissonNeumannBoundaryConditions(Teuchos::RCP<particle_type> particles,
-            Teuchos::RCP<mvec_type> b = Teuchos::null) : BoundaryConditionsT(particles, b) {}
+            mvec_type* b = NULL) : BoundaryConditionsT(particles, b) {}
 
         virtual ~GMLS_PoissonNeumannBoundaryConditions() {}
 
