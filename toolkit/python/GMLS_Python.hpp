@@ -53,7 +53,6 @@ private:
 
     typedef nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<double, Compadre::PointCloudSearch<double_2d_view_type> >, 
             Compadre::PointCloudSearch<double_2d_view_type>, 3> tree_type;
-    std::shared_ptr<tree_type> kd_tree;
     std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> > point_cloud_search;
 
     double_2d_view_type _source_coords;
@@ -529,8 +528,7 @@ public:
                 source_coords(i,j) = *val;
             }
         });
-        point_cloud_search = std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> >(new Compadre::PointCloudSearch<double_2d_view_type>(source_coords));
-        kd_tree = point_cloud_search->generateKDTree(gmls_object->getGlobalDimensions());
+        point_cloud_search = std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> >(new Compadre::PointCloudSearch<double_2d_view_type>(source_coords, gmls_object->getGlobalDimensions()));
 
         _source_coords = source_coords;
     }
@@ -581,7 +579,7 @@ public:
         // call point_cloud_search using targets
         // use these neighbor lists and epsilons to set the gmls object
         point_cloud_search->generateNeighborListsFromKNNSearch(false /* not a dry run*/, target_coords, neighbor_lists, 
-                epsilon, neighbors_needed, dimension, epsilon_multiplier, kd_tree);
+                epsilon, neighbors_needed, epsilon_multiplier);
 
         Kokkos::fence();
 

@@ -4,7 +4,30 @@
 
 namespace Compadre {
 
+MultiJumpNeighborhood::MultiJumpNeighborhood(const NeighborhoodT* neighborhood_1, const NeighborhoodT* neighborhood_2) 
+        : NeighborhoodT(neighborhood_1->getSourceCoordinates()->nDim()), _neighborhood_1(neighborhood_1), _neighborhood_2((neighborhood_2==NULL)?neighborhood_1:NULL) 
+            {}
+
 void MultiJumpNeighborhood::constructNeighborOfNeighborLists(const scalar_type max_search_size, bool use_physical_coords) {
+
+    // it is a safe upper bound to use twice the previous search size as the maximum new radii
+    scalar_type max_radius = 2.0 * _neighborhood_1->computeMaxHSupportSize(false /* local processor max */);
+    // check that max_halo_size is not violated by distance of the double jump, if max_search_size != 0.0
+    const local_index_type comm_size = _neighborhood_1->getSourceCoordinates()->getComm()->getSize();
+    if (max_search_size != 0.0) {
+        // this constraint comes from the halo search
+		TEUCHOS_TEST_FOR_EXCEPT_MSG((comm_size > 1) && (max_search_size < max_radius), "Neighbor of neighbor search results in a search radius exceeding the halo size.");
+    }
+
+    // neighborhood_1 gives neighbors of target sites from source sites. source sites may include halo information, which means
+    // that we may then require a neighbor list of a halo site, which is generally not available.
+    // now that we know that twice the MaxHSupportSize is visible in halo information, we are assured that a neighbor search
+    // can be performed for halo data with radius of MaxHSupportSize and that this neighbor list will contain all needed
+    // entries for filling out the stencil
+    //
+    // TODO: [insert code here for this secondary search]
+    TEUCHOS_TEST_FOR_EXCEPT_MSG((comm_size > 1), "Secondary search not yet added.");
+ 
 
     // perform neighbor search using existing neighborhoods for a double hop
     // i can see j and j see k, then i sees k
@@ -38,8 +61,6 @@ void MultiJumpNeighborhood::constructNeighborOfNeighborLists(const scalar_type m
             _neighborhood_1->getTargetCoordinates()->nLocal(false /* no halo */), 1+_local_max_num_neighbors);
 
     // do loops again and add entries into list, also get maximum distance between double jumps
-    // it is a safe upper bound to use twice the previous search size as the maximum new radii
-    scalar_type max_radius = 2.0 * _neighborhood_1->computeMaxHSupportSize(false /* local processor max */);
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_neighborhood_1->getTargetCoordinates()->nLocal(false /* no halo */)), 
             KOKKOS_LAMBDA(const int i) {//, scalar_type& t_max_radius) {
 
@@ -73,17 +94,6 @@ void MultiJumpNeighborhood::constructNeighborOfNeighborLists(const scalar_type m
 
     });//, Kokkos::Max<scalar_type>(max_radius));
     Kokkos::fence();
-
-    // check that max_halo_size is not violated by distance of the double jump, if max_search_size != 0.0
-    if (max_search_size != 0.0) {
-
-        const local_index_type comm_size = _neighborhood_1->getSourceCoordinates()->getComm()->getSize();
-
-        // this constraint comes from the halo search
-		TEUCHOS_TEST_FOR_EXCEPT_MSG((comm_size > 1) && (max_search_size < max_radius), "Neighbor of neighbor search results in a search radius exceeding the halo size.");
-
-    }
-
 }
 
 }

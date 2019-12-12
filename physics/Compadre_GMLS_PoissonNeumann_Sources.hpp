@@ -15,7 +15,7 @@ class GMLS_PoissonNeumannSources : public SourcesT{
 
     public:
         GMLS_PoissonNeumannSources(Teuchos::RCP<particle_type> particles,
-             Teuchos::RCP<mvec_type> b = Teuchos::null) : SourcesT(particles, b) {};
+             mvec_type* b = NULL) : SourcesT(particles, b) {};
 
         virtual ~GMLS_PoissonNeumannSources() {};
 

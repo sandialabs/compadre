@@ -27,9 +27,6 @@ class NeighborhoodT {
         host_view_local_index_type _neighbor_lists;
         host_view_scalar_type _kokkos_augmented_source_coordinates_host;
 
-        typedef decltype(Compadre::PointCloudSearch<host_view_scalar_type>(_kokkos_augmented_source_coordinates_host))::tree_type tree_type;
-
-        std::shared_ptr<tree_type> _kd_tree;
         std::shared_ptr<Compadre::PointCloudSearch<host_view_scalar_type> > _point_cloud_search;
 
         Teuchos::RCP<Teuchos::Time> NeighborSearchTime;
@@ -40,7 +37,7 @@ class NeighborhoodT {
         local_index_type _storage_multiplier; 
 
         // protected so it can be called by derived classes
-        NeighborhoodT() : _n_dim(3), _local_max_num_neighbors(0), _storage_multiplier(1) {};
+        NeighborhoodT(const local_index_type dim);
 
     public:
 

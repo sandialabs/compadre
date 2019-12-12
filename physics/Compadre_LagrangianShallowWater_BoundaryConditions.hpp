@@ -16,7 +16,7 @@ class LagrangianShallowWaterBoundaryConditions : public BoundaryConditionsT {
 	public:
 
 		LagrangianShallowWaterBoundaryConditions( Teuchos::RCP<particle_type> particles,
-												Teuchos::RCP<mvec_type> b = Teuchos::null) :
+												mvec_type* b = NULL) :
 												BoundaryConditionsT(particles, b)
 		{}
 

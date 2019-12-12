@@ -1020,13 +1020,13 @@ void ProblemExplicitTransientT::assembleOperatorToVector(local_index_type field_
 			bool setToZero = true;
 			_b[row_block] = Teuchos::rcp(new mvec_type(row_map[row_block], 1, setToZero));
 		}
-		_OP->setMultiVector(_b[row_block]);
+		_OP->setMultiVector(_b[row_block].getRawPtr());
 	} else {
 		if (_b[0].is_null()) {
 			bool setToZero = true;
 			_b[0] = Teuchos::rcp(new mvec_type(row_map[0], 1, setToZero));
 		}
-			_OP->setMultiVector(_b[0]);
+			_OP->setMultiVector(_b[0].getRawPtr());
 	}
 	_OP->computeVector(field_one, field_two, simulation_time);
 }
@@ -1044,13 +1044,13 @@ void ProblemExplicitTransientT::assembleRHS(local_index_type field_one, local_in
 			bool setToZero = true;
 			_b[row_block] = Teuchos::rcp(new mvec_type(row_map[row_block], 1, setToZero));
 		}
-		_RHS->setMultiVector(_b[row_block]);
+		_RHS->setMultiVector(_b[row_block].getRawPtr());
 	} else {
 		if (_b[0].is_null()) {
 			bool setToZero = true;
 			_b[0] = Teuchos::rcp(new mvec_type(row_map[0], 1, setToZero));
 		}
-		_RHS->setMultiVector(_b[0]);
+		_RHS->setMultiVector(_b[0].getRawPtr());
 	}
 
 	_RHS->evaluateRHS(field_one, field_two, simulation_time);
@@ -1070,14 +1070,14 @@ void ProblemExplicitTransientT::assembleBCS(local_index_type field_one, local_in
 			bool setToZero = true;
 			_b[row_block] = Teuchos::rcp(new mvec_type(row_map[row_block], 1, setToZero));
 		}
-		_BCS->setMultiVector(_b[row_block]);
+		_BCS->setMultiVector(_b[row_block].getRawPtr());
 	} else {
 		// generate b if in the zero, zero block
 		if (_b[0].is_null()) {
 			bool setToZero = true;
 			_b[0] = Teuchos::rcp(new mvec_type(row_map[0], 1, setToZero));
 		}
-		_BCS->setMultiVector(_b[0]);
+		_BCS->setMultiVector(_b[0].getRawPtr());
 	}
 	_BCS->applyBoundaries(field_one, field_two, simulation_time);
 
