@@ -303,9 +303,7 @@ bool all_passed = true;
         
     // Point cloud construction for neighbor search
     // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
-    auto point_cloud_search(CreatePointCloudSearch(source_coords));
-
-    auto kd_tree = point_cloud_search.generateKDTree(dimension);
+    auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
 
     // loop through the target sites
     for (int i=0; i<number_target_coords; i++) {
@@ -356,7 +354,7 @@ bool all_passed = true;
         // to each target site, adding (epsilon_multiplier-1)*100% to whatever the distance away the further neighbor used is from
         // each target to the view for epsilon
         point_cloud_search.generateNeighborListsFromKNNSearch(false /*not dry run*/, single_target_coords, 
-                single_neighbor_lists, single_epsilon, min_neighbors, dimension, epsilon_multiplier, kd_tree);
+                single_neighbor_lists, single_epsilon, min_neighbors, epsilon_multiplier);
         
         //! [Performing Neighbor Search]
         
