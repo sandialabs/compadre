@@ -32,8 +32,9 @@ class AdvectionDiffusionPhysics : public PhysicsT {
 
 
 		Teuchos::RCP<neighborhood_type> _particles_particles_neighborhood;
-		Teuchos::RCP<neighborhood_type> _cell_particles_neighborhood;
 		Teuchos::RCP<neighborhood_type> _particle_cells_neighborhood;
+		Teuchos::RCP<neighborhood_type> _cell_particles_neighborhood;
+		Teuchos::RCP<neighborhood_type> _halo_cell_particles_neighborhood;
 
 		Teuchos::RCP<neighborhood_type> _particles_double_hop_neighborhood;
 
@@ -43,6 +44,7 @@ class AdvectionDiffusionPhysics : public PhysicsT {
         size_t _weights_ndim;
 
         Teuchos::RCP<GMLS> _gmls;
+        Teuchos::RCP<GMLS> _halo_gmls;
 
         Kokkos::View<int**>::HostMirror _kokkos_neighbor_lists_host;
         Kokkos::View<double**>::HostMirror _kokkos_augmented_source_coordinates_host;
@@ -55,6 +57,9 @@ class AdvectionDiffusionPhysics : public PhysicsT {
         Teuchos::RCP<mvec_local_index_type> _halo_ids;
         host_view_local_index_type _id_view;
         host_view_local_index_type _halo_id_view;
+
+        host_view_local_index_type _halo_big_to_small;
+        host_view_local_index_type _halo_small_to_big;
 
 
 		AdvectionDiffusionPhysics(	Teuchos::RCP<particle_type> particles, local_index_type t_Porder,

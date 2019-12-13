@@ -345,12 +345,12 @@ void CoordsT::replaceLocalCoords(const local_index_type idx, const scalar_type x
 						const scalar_type z, bool use_physical_coords) {
 	if (_is_lagrangian && use_physical_coords) {
 		pts_physical_view(idx, 0) = x;
-		pts_physical_view(idx, 1) = y;
-		pts_physical_view(idx, 2) = z;
+		if (_nDim>1) pts_physical_view(idx, 1) = y;
+		if (_nDim>2) pts_physical_view(idx, 2) = z;
 	} else {
 		pts_view(idx, 0) = x;
-		pts_view(idx, 1) = y;
-		pts_view(idx, 2) = z;
+		if (_nDim>1) pts_view(idx, 1) = y;
+		if (_nDim>2) pts_view(idx, 2) = z;
 	}
 }
 
