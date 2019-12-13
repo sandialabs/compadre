@@ -3,6 +3,7 @@
 #include "Compadre_XyzVector.hpp"
 #include "Compadre_AnalyticFunctions.hpp"
 #include <limits>
+#include <Compadre_PointCloudSearch.hpp>
 
 namespace Compadre {
 
@@ -666,13 +667,109 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
 	// get bounding boxes from Zoltan2
 	std::vector<z2_box_type> boxes = z2problem->getSolution().getPartBoxesView();
 
-	Teuchos::ArrayRCP<z2_partition_type> commXAdj, commAdj;
-	// get list of processors that share a boundary with this processor
-	// function not frequently used, a test of it is in order
-	z2problem->getSolution().getCommunicationGraph(commXAdj, commAdj);
-	local_index_type pb = commXAdj[comm->getRank()];
-	local_index_type pe = commXAdj[comm->getRank()+1];
-	local_index_type num_sending_processors = pe - pb;
+    auto source_sites = host_view_type("source sites", comm->getSize(), _nDim);
+    auto target_sites = host_view_type("target sites", 1, _nDim);
+    auto neighbor_lists = host_view_local_index_type("neighbor lists", 
+            1, 1+(_nDim+2)*(_nDim+2)*(_nDim+2)-1 /* 2 layer max halo in Nd */);
+    auto epsilons = host_vector_scalar_type("epsilons", 1);
+    
+    std::set<local_index_type> proc_neighbors;
+    auto comm_size = comm->getSize();
+    auto comm_rank = comm->getRank();
+    if (_nDim==3) {
+        for (local_index_type i=0; i<2; ++i) {
+            for (local_index_type j=0; j<2; ++j) {
+                for (local_index_type k=0; k<2; ++k) {
+                    for (local_index_type a=0; a<2; ++a) {
+                        for (local_index_type b=0; b<2; ++b) {
+                            for (local_index_type c=0; c<2; ++c) {
+                                for (local_index_type l=0; l<comm_size; ++l) {
+                                    scalar_type* mins = boxes[l].getlmins();
+                                    scalar_type* maxs = boxes[l].getlmaxs();
+                                    source_sites(l,0) = (i==0) ? mins[0] : maxs[0];
+                                    source_sites(l,1) = (j==0) ? mins[1] : maxs[1];
+                                    source_sites(l,2) = (k==0) ? mins[2] : maxs[2];
+                                }
+                                scalar_type* mins = boxes[comm_rank].getlmins();
+                                scalar_type* maxs = boxes[comm_rank].getlmaxs();
+                                target_sites(0,0) = (a==0) ? mins[0] : maxs[0];
+                                target_sites(0,1) = (b==0) ? mins[1] : maxs[1];
+                                target_sites(0,2) = (c==0) ? mins[2] : maxs[2];
+                                // do 3d search here
+                                auto point_cloud_search(CreatePointCloudSearch(source_sites, _nDim));
+                                point_cloud_search.generateNeighborListsFromRadiusSearch(false /*not dry run*/, target_sites, 
+                                        neighbor_lists, epsilons, h_size);
+                                for (local_index_type m=1; m<=neighbor_lists(0,0); ++m) {
+                                    if (neighbor_lists(0,m)!=comm_rank)
+                                        proc_neighbors.insert(neighbor_lists(0,m));   
+                                } 
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } else if (_nDim==2) {
+        for (local_index_type i=0; i<2; ++i) {
+            for (local_index_type j=0; j<2; ++j) {
+                for (local_index_type a=0; a<2; ++a) {
+                    for (local_index_type b=0; b<2; ++b) {
+                        for (local_index_type l=0; l<comm_size; ++l) {
+                            scalar_type* mins = boxes[l].getlmins();
+                            scalar_type* maxs = boxes[l].getlmaxs();
+                            source_sites(l,0) = (i==0) ? mins[0] : maxs[0];
+                            source_sites(l,1) = (j==0) ? mins[1] : maxs[1];
+                        }
+                        scalar_type* mins = boxes[comm_rank].getlmins();
+                        scalar_type* maxs = boxes[comm_rank].getlmaxs();
+                        target_sites(0,0) = (a==0) ? mins[0] : maxs[0];
+                        target_sites(0,1) = (b==0) ? mins[1] : maxs[1];
+                        // do 2d search here
+                        auto point_cloud_search(CreatePointCloudSearch(source_sites, _nDim));
+                        point_cloud_search.generateNeighborListsFromRadiusSearch(false /*not dry run*/, target_sites, 
+                                neighbor_lists, epsilons, h_size);
+                        for (local_index_type m=1; m<=neighbor_lists(0,0); ++m) {
+                            if (neighbor_lists(0,m)!=comm_rank)
+                                proc_neighbors.insert(neighbor_lists(0,m));   
+                        } 
+                    }
+                }
+            }
+        }
+    } else if (_nDim==1) {
+        for (local_index_type i=0; i<2; ++i) {
+            for (local_index_type a=0; a<2; ++a) {
+                for (local_index_type l=0; l<comm_size; ++l) {
+                    scalar_type* mins = boxes[l].getlmins();
+                    scalar_type* maxs = boxes[l].getlmaxs();
+                    source_sites(l,0) = (i==0) ? mins[0] : maxs[0];
+                }
+                scalar_type* mins = boxes[comm_rank].getlmins();
+                scalar_type* maxs = boxes[comm_rank].getlmaxs();
+                target_sites(0,0) = (a==0) ? mins[0] : maxs[0];
+                // do 1d search here
+                auto point_cloud_search(CreatePointCloudSearch(source_sites, _nDim));
+                point_cloud_search.generateNeighborListsFromRadiusSearch(false /*not dry run*/, target_sites, 
+                        neighbor_lists, epsilons, h_size);
+                for (local_index_type m=1; m<=neighbor_lists(0,0); ++m) {
+                    if (neighbor_lists(0,m)!=comm_rank)
+                        proc_neighbors.insert(neighbor_lists(0,m));   
+                } 
+            }
+        }
+    } else {
+        TEUCHOS_ASSERT(false);
+    }
+
+	auto num_sending_processors = proc_neighbors.size();
+
+    //// DIAGNOSTIC:: with 4 processors should see the 3 others
+    //if (comm->getRank()==2) {
+    //    printf("send to %d procs\n", num_sending_processors);
+	//    for (auto proc : proc_neighbors) {
+    //        printf("proc %d\n", proc);
+    //    }
+    //}
 	haloGraphTime->stop();
 
 	Teuchos::RCP<Teuchos::Time> haloSearchTime = Teuchos::TimeMonitor::getNewCounter ("Halo - Search");
@@ -685,8 +782,8 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
 	host_view_type ptsView = (_is_lagrangian && use_physical_coords)
 			? pts_physical->getLocalView<host_view_type>() : pts->getLocalView<host_view_type>();
 
-	for (z2_partition_type p=pb; p<pe; p++) {
-		local_index_type peer_processor_num = commAdj[p];
+    auto p_count = 0;
+	for (auto peer_processor_num : proc_neighbors) {
 
 		// enlarge the bounding box by h
 		z2_box_type enlarged_box(boxes[peer_processor_num]);
@@ -773,7 +870,8 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
 			Kokkos::deep_copy(*h_gids_to_send, gids_to_send);
 
 
-			coords_to_send[p-pb] = h_gids_to_send;
+			coords_to_send[p_count] = h_gids_to_send;
+            p_count++;
 			haloCoordTime2->stop();
 		}
 	}
@@ -796,18 +894,22 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
 		Teuchos::Array<Teuchos::RCP<Teuchos::CommRequest<local_index_type> > > requests(2*num_sending_processors);
 
 		Teuchos::ArrayRCP<local_index_type> recv_counts(num_sending_processors);
-		for (local_index_type p = pb; p<pe; p++) {
-			Teuchos::ArrayRCP<local_index_type> single_recv_value(&recv_counts[p-pb], 0, 1, false);
-			requests[p-pb] = Teuchos::ireceive<local_index_type,local_index_type>(*comm, single_recv_value, commAdj[p]);
+        auto p_count = 0;
+	    for (auto comm_adj_p : proc_neighbors) {
+			Teuchos::ArrayRCP<local_index_type> single_recv_value(&recv_counts[p_count], 0, 1, false);
+			requests[p_count] = Teuchos::ireceive<local_index_type,local_index_type>(*comm, single_recv_value, comm_adj_p);
+            p_count++;
 		}
 
 		// put out a send for all processors to send to of a single integer
 		// go through my neighbor list
 		// non-blocking sends
 		Teuchos::ArrayRCP<local_index_type> send_counts(&processor_i_destined[0], 0, processor_i_destined.size(), false);
-		for (local_index_type p = pb; p<pe; p++) {
-			Teuchos::ArrayRCP<local_index_type> single_send_value(&send_counts[p-pb], 0, 1, false);
-			requests[num_sending_processors+(p-pb)] = Teuchos::isend<local_index_type,local_index_type>(*comm, single_send_value, commAdj[p]);
+        p_count = 0;
+	    for (auto comm_adj_p : proc_neighbors) {
+			Teuchos::ArrayRCP<local_index_type> single_send_value(&send_counts[p_count], 0, 1, false);
+			requests[num_sending_processors+(p_count)] = Teuchos::isend<local_index_type,local_index_type>(*comm, single_send_value, comm_adj_p);
+            p_count++;
 		}
 		Teuchos::waitAll<local_index_type>(*comm, requests);
 
@@ -823,26 +925,30 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
 		// put out a receive for all processors of a N integers
 		// go through my neighbor list
 		Teuchos::ArrayRCP<global_index_type> indices_received(&indices_i_need[0], 0, sum, false);
-		for (local_index_type p = pb; p<pe; p++) {
+        p_count = 0;
+	    for (auto comm_adj_p : proc_neighbors) {
 			Teuchos::ArrayRCP<global_index_type> single_indices_recv;
-			if (recv_counts[p-pb] > 0) {
-				single_indices_recv = Teuchos::ArrayRCP<global_index_type>(&indices_received[sending_processor_offsets[p-pb]], 0, recv_counts[p-pb], false);
+			if (recv_counts[p_count] > 0) {
+				single_indices_recv = Teuchos::ArrayRCP<global_index_type>(&indices_received[sending_processor_offsets[p_count]], 0, recv_counts[p_count], false);
 			} else {
 				single_indices_recv = Teuchos::ArrayRCP<global_index_type>(NULL, 0, 0, false);
 			}
-			requests[p-pb] = Teuchos::ireceive<local_index_type,global_index_type>(*comm, single_indices_recv, commAdj[p]);
+			requests[p_count] = Teuchos::ireceive<local_index_type,global_index_type>(*comm, single_indices_recv, comm_adj_p);
+            p_count++;
 		}
 
 		// put out a send for all processors of N integers
 		// go through my neighbor list
-		for (local_index_type p = pb; p<pe; p++) {
+        p_count = 0;
+	    for (auto comm_adj_p : proc_neighbors) {
 			Teuchos::ArrayRCP<global_index_type> indices_to_send;
-			if (coords_to_send[p-pb]->dimension(0) > 0) {
-				indices_to_send = Teuchos::ArrayRCP<global_index_type>(&(*coords_to_send[p-pb])(0), 0, coords_to_send[p-pb]->dimension(0), false);
+			if (coords_to_send[p_count]->dimension(0) > 0) {
+				indices_to_send = Teuchos::ArrayRCP<global_index_type>(&(*coords_to_send[p_count])(0), 0, coords_to_send[p_count]->dimension(0), false);
 			} else {
 				indices_to_send = Teuchos::ArrayRCP<global_index_type>(NULL, 0, 0, false);
 			}
-			requests[num_sending_processors+(p-pb)] = Teuchos::isend<local_index_type,global_index_type>(*comm, indices_to_send, commAdj[p]);
+			requests[num_sending_processors+(p_count)] = Teuchos::isend<local_index_type,global_index_type>(*comm, indices_to_send, comm_adj_p);
+            p_count++;
 		}
 		Teuchos::waitAll<local_index_type>(*comm, requests);
 	}

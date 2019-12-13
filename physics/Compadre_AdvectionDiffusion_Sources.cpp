@@ -362,6 +362,31 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
         }
     }
     //});
+    // DIAGNOSTIC:: loop particles locally owned
+    //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
+    //    bool i_found_in_cell_list = false;
+    //    local_index_type num_neighbors = _physics->_cell_particles_neighborhood->getNumNeighbors(i);
+    //    for (local_index_type j=0; j<num_neighbors; ++j) {
+    //        auto cell_j = _physics->_cell_particles_neighborhood->getNeighbor(i,j);
+    //        // this cell_j is in support of particle i
+    //        
+    //        auto halo_j = (cell_j<nlocal) ? -1 : _physics->_halo_big_to_small(cell_j-nlocal,0);
+    //        if (cell_j>=nlocal /* halo */  && halo_j<0 /* not one found within max_h of locally owned particles */) continue;
+
+    //        local_index_type num_neighbors_j = (cell_j<nlocal) ? _physics->_cell_particles_neighborhood->getNumNeighbors(cell_j)
+    //            : _physics->_halo_cell_particles_neighborhood->getNumNeighbors(halo_j);
+    //        for (local_index_type k=0; k<num_neighbors_j; ++k) {
+    //            auto particle_k = (cell_j<nlocal) ? _physics->_cell_particles_neighborhood->getNeighbor(cell_j,k)
+    //                : _physics->_halo_cell_particles_neighborhood->getNeighbor(halo_j,k);
+    //            if (particle_k==i) i_found_in_cell_list = true;
+    //        }
+    //    }
+    //    printf("%d: %d\n", i, i_found_in_cell_list);
+    //    TEUCHOS_ASSERT(i_found_in_cell_list);
+    //}
+
+
+            
     
 
     ////// just for putting polynomial at pts
