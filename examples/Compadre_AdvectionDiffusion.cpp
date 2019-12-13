@@ -219,61 +219,70 @@ int main (int argc, char* args[]) {
         cells->getFieldManager()->updateFieldsHaloData();
 
 
-        auto my_gmls = physics->getGMLSInstance();
-
-        // post process solution
-		cells->getFieldManager()->createField(1, "processed solution", "m/s");
-		auto processed_view = cells->getFieldManager()->getFieldByName("processed solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-		auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-	    auto neighborhood = physics->_cell_particles_neighborhood;//cells->getNeighborhoodConst();
-
-        // loop over cells
-		for( int j =0; j<coords->nLocal(); j++){
-		    LO num_neighbors = neighborhood->getNumNeighbors(j);
-            // loop over particles neighbor to the cell
-			for (LO l = 0; l < num_neighbors; l++) {
-                processed_view(j,0) += dof_view(neighborhood->getNeighbor(j,l),0) * my_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, 0);
-            }
-        }
-
-        auto quadrature_points = cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
-        auto quadrature_weights = cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
-        auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
-		Teuchos::RCP<Compadre::ParticlesT> particles_new =
-			Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions")));
-		CT* new_coords = (CT*)particles_new->getCoords();
-		std::vector<Compadre::XyzVector> verts_to_insert;
-        // put real quadrature points here
-		for( int j =0; j<coords->nLocal(); j++){
-            for (int i=0; i<quadrature_weights.extent(1); ++i) {
-                if (quadrature_type(j,i)==1) { // interior
-                    verts_to_insert.push_back(Compadre::XyzVector(quadrature_points(j,2*i+0), quadrature_points(j,2*i+1),0));
-                }
-            }
-        }
-        //verts_to_insert.push_back(Compadre::XyzVector(0,0,0));
-        //verts_to_insert.push_back(Compadre::XyzVector(0,1,0));
-        //verts_to_insert.push_back(Compadre::XyzVector(1,1,0));
-		new_coords->insertCoords(verts_to_insert);
-		particles_new->resetWithSameCoords(); // must be called because particles doesn't know about coordinate insertions
-
-
-		particles_new->getFieldManager()->createField(1, "cell", "m/s");
-		auto cell_id = particles_new->getFieldManager()->getFieldByName("cell")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-        int count = 0;
-		for( int j =0; j<coords->nLocal(); j++){
-            for (int i=0; i<quadrature_weights.extent(1); ++i) {
-                if (quadrature_type(j,i)==1) { // interior
-                    cell_id(count,0) = j;
-                    count++;
-                }
-            }
-        }
+        // post process solution ( modal DOF -> cell centered value )
         {
-		    Compadre::FileManager fm3;
-            std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "new_particles.pvtp";
-            fm3.setWriter(output_filename, particles_new);
-            fm3.write();
+            auto gmls = physics->_gmls;
+		    cells->getFieldManager()->createField(1, "processed solution", "m/s");
+		    auto processed_view = cells->getFieldManager()->getFieldByName("processed solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+		    auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+		    auto halo_dof_view = cells->getFieldManager()->getFieldByName("solution")->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+	        auto neighborhood = physics->_cell_particles_neighborhood;
+	        auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
+
+            auto nlocal = coords->nLocal();
+		    for(int j=0; j<nlocal; j++){
+		        LO num_neighbors = neighborhood->getNumNeighbors(j);
+                // loop over particles neighbor to the cell
+		    	for (LO l = 0; l < num_neighbors; l++) {
+                    auto particle_l = neighborhood->getNeighbor(j,l);
+                    auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,0) : halo_dof_view(particle_l-nlocal,0);
+                    auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, 0);
+                    processed_view(j,0) += dof_val * v;
+                }
+            }
+        }
+
+        // DIAGNOSTIC:: serial only checking of quadrature points
+        if (comm->getSize()==1) {
+            auto quadrature_points = cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
+            auto quadrature_weights = cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
+            auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
+		    Teuchos::RCP<Compadre::ParticlesT> particles_new =
+		    	Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions")));
+		    CT* new_coords = (CT*)particles_new->getCoords();
+		    std::vector<Compadre::XyzVector> verts_to_insert;
+            // put real quadrature points here
+		    for( int j =0; j<coords->nLocal(); j++){
+                for (int i=0; i<quadrature_weights.extent(1); ++i) {
+                    if (quadrature_type(j,i)==1) { // interior
+                        verts_to_insert.push_back(Compadre::XyzVector(quadrature_points(j,2*i+0), quadrature_points(j,2*i+1),0));
+                    }
+                }
+            }
+            //verts_to_insert.push_back(Compadre::XyzVector(0,0,0));
+            //verts_to_insert.push_back(Compadre::XyzVector(0,1,0));
+            //verts_to_insert.push_back(Compadre::XyzVector(1,1,0));
+		    new_coords->insertCoords(verts_to_insert);
+		    particles_new->resetWithSameCoords(); // must be called because particles doesn't know about coordinate insertions
+
+
+		    particles_new->getFieldManager()->createField(1, "cell", "m/s");
+		    auto cell_id = particles_new->getFieldManager()->getFieldByName("cell")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            int count = 0;
+		    for( int j =0; j<coords->nLocal(); j++){
+                for (int i=0; i<quadrature_weights.extent(1); ++i) {
+                    if (quadrature_type(j,i)==1) { // interior
+                        cell_id(count,0) = j;
+                        count++;
+                    }
+                }
+            }
+            {
+		        Compadre::FileManager fm3;
+                std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "new_particles.pvtp";
+                fm3.setWriter(output_filename, particles_new);
+                fm3.write();
+            }
         }
 
         // get the quadrature points for the first element

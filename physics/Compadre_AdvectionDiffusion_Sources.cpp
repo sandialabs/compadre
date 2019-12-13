@@ -42,6 +42,12 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     auto unit_normals = _physics->_cells->getFieldManager()->getFieldByName("unit_normal")->getMultiVectorPtr()->getLocalView<host_view_type>();
     auto adjacent_elements = _physics->_cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalView<host_view_type>();
 
+    auto halo_quadrature_points = _physics->_cells->getFieldManager()->getFieldByName("quadrature_points")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
+    auto halo_quadrature_weights = _physics->_cells->getFieldManager()->getFieldByName("quadrature_weights")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
+    auto halo_quadrature_type = _physics->_cells->getFieldManager()->getFieldByName("interior")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
+    auto halo_unit_normals = _physics->_cells->getFieldManager()->getFieldByName("unit_normal")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
+    auto halo_adjacent_elements = _physics->_cells->getFieldManager()->getFieldByName("adjacent_elements")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
+
     //auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")*_physics->_particles_particles_neighborhood->getMinimumHSupportSize();
     // each element must have the same number of edges
     auto num_edges = adjacent_elements.extent(1);
@@ -288,27 +294,50 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     // assembly over cells, then particles
 
     //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_physics->_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
+  
+    // loop over cells including halo cells 
     for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(true /* include halo in count */); ++i) {
+    //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
 
-        TEUCHOS_ASSERT(i<nlocal);
+
+        // filter out (skip) all halo cells that are not able to be seen from a locally owned particle
+        auto halo_i = (i<nlocal) ? -1 : _physics->_halo_big_to_small(i-nlocal,0);
+        if (i>=nlocal /* halo */  && halo_i<0 /* not one found within max_h of locally owned particles */) continue;
+
+        //TEUCHOS_ASSERT(i<nlocal);
         // need to have a halo gmls object that can be queried for cells that do not live on processor
         // this is also needed for the operator file in order to finish jump terms
 
         // loop over cells touching that particle
-        for (size_t j=0; j<_physics->_cell_particles_neighborhood->getNumNeighbors(i); ++j) {
-            auto particle_j = _physics->_cell_particles_neighborhood->getNeighbor(i,j);
+        local_index_type num_neighbors = (i<nlocal) ? _physics->_cell_particles_neighborhood->getNumNeighbors(i)
+            : _physics->_halo_cell_particles_neighborhood->getNumNeighbors(halo_i);
+        for (local_index_type j=0; j<num_neighbors; ++j) {
+            auto particle_j = (i<nlocal) ? _physics->_cell_particles_neighborhood->getNeighbor(i,j)
+                : _physics->_halo_cell_particles_neighborhood->getNeighbor(halo_i,j);
+            // particle_j is an index from 0..nlocal+nhalo
+
+            // filter out (skip) all halo particles that are not a local DOF
             if (particle_j >= nlocal) continue; // particle is in halo region, but we only want dofs that are rows (locally owned))
+
+
             local_index_type row = local_to_dof_map(particle_j, field_one, 0 /* component 0*/);
+
             // add the contribution to the row for the particle
             double contribution = 0;
-
             if (_parameters->get<Teuchos::ParameterList>("physics").get<bool>("l2 projection only")) {
                 for (int q=0; q<_physics->_weights_ndim; ++q) {
-                    if (quadrature_type(i,q)==1) { // interior
+                    auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_physics->_halo_small_to_big(halo_i,0),q);
+                    if (q_type==1) { // interior
                         // integrating RHS function
-                        double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
-                        xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
-                        contribution += quadrature_weights(i,q) * v * function->evalScalar(pt);
+                        double v = (i<nlocal) ? _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1)
+                            : _physics->_halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, q+1);
+
+                        xyz_type pt = (i<nlocal) ? xyz_type(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0) 
+                            : xyz_type(halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),2*q), halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),2*q+1),0);
+
+                        double q_wt = (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_physics->_halo_small_to_big(halo_i,0),q);
+
+                        contribution += q_wt * v * function->evalScalar(pt);
                     } 
                 }
             } else {
@@ -383,13 +412,21 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     //}
 
 
-    auto global_force = 22.666666666666666666;//4.0;//1.9166666666666665;//0.21132196999014932;
-    double sum = 0;
-    for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
-        local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
-        sum += rhs_vals(row,0);
+
+    if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial") {
+        auto reference_global_force = 22.666666666666666666;//4.0;//1.9166666666666665;//0.21132196999014932;
+        double force = 0;
+        for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
+            local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
+            force += rhs_vals(row,0);
+        }
+	    scalar_type global_force;
+	    Teuchos::Ptr<scalar_type> global_force_ptr(&global_force);
+	    Teuchos::reduceAll<int, scalar_type>(*(_physics->_cells->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, force, global_force_ptr);
+        if (_physics->_cells->getCoordsConst()->getComm()->getRank()==0) {
+            printf("Global RHS SUM calculated: %.16f, reference RHS SUM: %.16f\n", global_force, reference_global_force);
+        }
     }
-    printf("s1: %.16f, e1: %.16f\n", sum, global_force);
 }
 
 std::vector<InteractingFields> AdvectionDiffusionSources::gatherFieldInteractions() {
