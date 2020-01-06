@@ -886,12 +886,12 @@ public:
         compadre_assert_release(_entire_batch_computed_at_once 
                 && "Entire batch not computed at once, so getFullPolynomialCoefficientsBasis() can not be called.");
         host_managed_local_index_type sizes("sizes", 2);
-        if (_dense_solver_type != DenseSolverType::LU) {
-            int rhsdim = getRHSSquareDim(_dense_solver_type, _constraint_type, M_by_N[1], M_by_N[0]);
+        if ((_constraint_type == ConstraintType::NO_CONSTRAINT) && (_dense_solver_type != DenseSolverType::LU)) {
+            int rhsdim = getRHSSquareDim(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, M_by_N[1], M_by_N[0]);
             sizes(0) = rhsdim;
             sizes(1) = rhsdim;
         } else {
-            getPDims(_dense_solver_type, _constraint_type, M_by_N[1], M_by_N[0], sizes(1), sizes(0));
+            getPDims(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, M_by_N[1], M_by_N[0], sizes(1), sizes(0));
         }
         return sizes;
     }
@@ -1023,7 +1023,7 @@ public:
     decltype(_RHS) getFullPolynomialCoefficientsBasis() const { 
         compadre_assert_release(_entire_batch_computed_at_once 
                 && "Entire batch not computed at once, so getFullPolynomialCoefficientsBasis() can not be called.");
-        if (_dense_solver_type != DenseSolverType::LU) {
+        if ((_constraint_type == ConstraintType::NO_CONSTRAINT) && (_dense_solver_type != DenseSolverType::LU)) {
             return _RHS; 
         } else {
             return _P; 
