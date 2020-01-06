@@ -131,8 +131,9 @@ void GMLS_PoissonNeumannPhysics::initialize() {
             _neumann_filtered_flags);
 
     // Now create a tangent bundles to set for the points with Neumann BC
-    Kokkos::View<double***> neumann_kokkos_tangent_bundles_host("target_tangent_bundles", target_coords->nLocal(), target_coords->nDim(), target_coords->nDim());
-    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
+    int nlocal_neumann = _neumann_filtered_flags.extent(0);
+    Kokkos::View<double***> neumann_kokkos_tangent_bundles_host("target_tangent_bundles", nlocal_neumann, target_coords->nDim(), target_coords->nDim());
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal_neumann), KOKKOS_LAMBDA(const int i) {
         neumann_kokkos_tangent_bundles_host(i, 0, 0) = 0.0;
         neumann_kokkos_tangent_bundles_host(i, 1, 0) = 0.0;
         neumann_kokkos_tangent_bundles_host(i, 1, 1) = 0.0;
