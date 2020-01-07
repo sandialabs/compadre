@@ -219,6 +219,7 @@ for key, h in enumerate(h_all):
     all_normals = np.zeros([tri.simplices.shape[0], 2*(num_points_interior + 3*num_points_exterior)], dtype='d')
     all_interior = np.ones([tri.simplices.shape[0], num_points_interior + 3*num_points_exterior], dtype='int')
     all_vertices = np.zeros([tri.simplices.shape[0], 2], dtype='d')
+    all_vertices_points = np.zeros([tri.simplices.shape[0], 6], dtype='d')
     all_adjacent_elements = np.zeros([tri.simplices.shape[0], 3], dtype='int')
 
     (w_interior, q_interior) = get_quadrature(poly_order, 2)
@@ -232,6 +233,8 @@ for key, h in enumerate(h_all):
             vertex_indices[j] = tri.simplices[i][j]
             all_vertices[i,:] += 1./3.*points[tri.simplices[i][j], :]
             edge_adjacency[j] = tri.neighbors[i][j]
+            all_vertices_points[i,j*2+0] = points[tri.simplices[i][j], 0]
+            all_vertices_points[i,j*2+1] = points[tri.simplices[i][j], 1]
 
         (w_physical_interior, q_physical_interior) = transform_reference_triangle_point(w_interior, q_interior, physical_vertices) 
         for j in range(num_points_interior):
@@ -287,6 +290,7 @@ for key, h in enumerate(h_all):
                        persist=False, keepweakref=False, format='NETCDF4')
     dataset.createDimension('num_entities', size=tri.simplices.shape[0])
     dataset.createDimension('num_edges', size=3)
+    dataset.createDimension('num_vertices', size=6)
     dataset.createDimension('num_interior_quadrature', size=num_points_interior)
     dataset.createDimension('num_exterior_quadrature', size=3*num_points_exterior)
     dataset.createDimension('num_total_quadrature', size=num_points_interior + 3*num_points_exterior)
@@ -315,6 +319,10 @@ for key, h in enumerate(h_all):
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
+    dataset.createVariable('vertex_points', datatype='d', dimensions=('num_entities','num_vertices'), zlib=True, complevel=8,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
+
     dataset.createVariable('unit_normal', datatype='d', dimensions=('num_entities','vector_for_quadrature'), zlib=True, complevel=8,\
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
@@ -336,6 +344,7 @@ for key, h in enumerate(h_all):
     dataset.variables['z'][:]=np.zeros(all_vertices[:,1].shape)
     dataset.variables['quadrature_weights'][:,:]=all_weights[:,:]
     dataset.variables['quadrature_points'][:,:]=all_quadrature[:,:]
+    dataset.variables['vertex_points'][:,:]=all_vertices_points[:,:]
     dataset.variables['unit_normal'][:,:]=all_normals[:,:]
     dataset.variables['interior'][:,:]=all_interior[:,:]
     dataset.variables['adjacent_elements'][:,:]=all_adjacent_elements[:,:]
