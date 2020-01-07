@@ -31,7 +31,6 @@ if (Compadre_EXAMPLES)
   add_exe_w_compadre(GMLS_Host_Test GMLS_Host.cpp)
   add_exe_w_compadre(GMLS_Device_Test GMLS_Device.cpp)
   add_exe_w_compadre(GMLS_NeumannGradScalar_Test GMLS_NeumannGradScalar.cpp)
-  add_exe_w_compadre(GMLS_StaggeredNeumannGradScalar_Test GMLS_StaggeredNeumannGradScalar.cpp)
   add_exe_w_compadre(GMLS_Vector_Test GMLS_Vector.cpp)
   add_exe_w_compadre(GMLS_Divergence_Test GMLS_DivergenceFree.cpp)
   add_exe_w_compadre(GMLS_SmallBatchReuse_Device_Test GMLS_SmallBatchReuse_Device.cpp)
@@ -80,7 +79,7 @@ if (Compadre_EXAMPLES)
     SET_TESTS_PROPERTIES(GMLS_NeumannGradScalar_Dim3_LU PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
 
     # Device views tests with Neumann BC for STAGGERED GMLS - SVD solver
-    ADD_TEST(NAME GMLS_StaggeredNeumannGradScalar_Dim3_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_StaggeredNeumannGradScalar_Test "3" "200" "3" "0" "0" "1" "--kokkos-threads=2")
+    ADD_TEST(NAME GMLS_StaggeredNeumannGradScalar_Dim3_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered "3" "200" "3" "0" "0" "1" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_StaggeredNeumannGradScalar_Dim3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos;staggered" TIMEOUT 10)
 
     # Device views tests for GMLS (vector basis)
