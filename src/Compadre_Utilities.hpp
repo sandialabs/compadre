@@ -22,14 +22,21 @@ Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 template <typename view_type_1, typename view_type_2>
 KOKKOS_INLINE_FUNCTION
 double getAreaFromVectors(const member_type& teamMember, view_type_1 v1, view_type_2 v2) {
-    double area = 0;
-    double val = v1[1]*v2[2] - v1[2]*v2[1];
-    area += val*val;
-    val = v1[2]*v2[0] - v1[0]*v2[2];
-    area += val*val;
-    val = v1[0]*v2[1] - v1[1]*v2[0];
-    area += val*val;
-    return std::sqrt(area);
+    if (v1.extent(0)==3) {
+        double area = 0;
+        double val = v1[1]*v2[2] - v1[2]*v2[1];
+        area += val*val;
+        val = v1[2]*v2[0] - v1[0]*v2[2];
+        area += val*val;
+        val = v1[0]*v2[1] - v1[1]*v2[0];
+        area += val*val;
+        return std::sqrt(area);
+    } else if (v1.extent(0)==2) {
+        double area = 0;
+        double val = v1[0]*v2[1] - v1[1]*v2[0];
+        area += val*val;
+        return std::sqrt(area);
+    }
 }
 
 template <typename output_memory_space, typename view_type_input_data, typename output_array_layout = typename view_type_input_data::array_layout, typename index_type=int>
