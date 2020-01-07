@@ -371,7 +371,7 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
 
         // use a custom # of neighbors for each problem, if possible
         const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
-        int my_num_rows = d_neighbor_list_sizes(target_index)*multiplier + initial_index_of_batch;
+        int my_num_rows = d_neighbor_list_sizes(target_index)*multiplier;
         //int my_num_rows = d_neighbor_list_sizes(target_index)*multiplier : M;
 
         scratch_vector_type s(teamMember.team_scratch(scratch_space_level), min_mn ); // shared memory
@@ -568,12 +568,14 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
 #endif
 
     // Results are written layout left, so they need converted to layout right
-    ConvertLayoutLeftToRight clr(pm, ldb, ndb, RHS);
-    int scratch_size = scratch_matrix_left_type::shmem_size(ldb, ndb);
-    pm.clearScratchSizes();
-    pm.setTeamScratchSize(1, scratch_size);
-    pm.CallFunctorWithTeamThreads(num_matrices, clr);
-    Kokkos::fence();
+    if (swap_layout_RHS) {
+        ConvertLayoutLeftToRight clr(pm, ldb, ndb, RHS);
+        int scratch_size = scratch_matrix_left_type::shmem_size(ldb, ndb);
+        pm.clearScratchSizes();
+        pm.setTeamScratchSize(1, scratch_size);
+        pm.CallFunctorWithTeamThreads(num_matrices, clr);
+        Kokkos::fence();
+    }
 
 }
 
