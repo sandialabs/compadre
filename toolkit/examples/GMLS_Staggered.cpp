@@ -110,7 +110,7 @@ bool all_passed = true;
 
     // the functions we will be seeking to reconstruct are in the span of the basis
     // of the reconstruction space we choose for GMLS, so the error should be very small
-    const double failure_tolerance = 1e-9;
+    const double failure_tolerance = 9e-8;
 
     // minimum neighbors for unisolvency is the same as the size of the polynomial basis
     const int min_neighbors = Compadre::GMLS::getNP(order, dimension);
@@ -136,6 +136,9 @@ bool all_passed = true;
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> target_coords_device ("target coordinates", number_target_coords, 3);
     Kokkos::View<double**>::HostMirror target_coords = Kokkos::create_mirror_view(target_coords_device);
 
+    // tangent bundle for each target sites
+    Kokkos::View<double***, Kokkos::DefaultExecutionSpace> tangent_bundles_device ("tangent bundles", number_target_coords, 3, 3);
+    Kokkos::View<double***>::HostMirror tangent_bundles = Kokkos::create_mirror_view(tangent_bundles_device);
 
     // fill source coordinates with a uniform grid
     int source_index = 0;
@@ -180,6 +183,17 @@ bool all_passed = true;
         const int source_site_to_copy = gen_num_neighbours(rng);
         for (int j=0; j<3; j++) {
             target_coords(i, j) = source_coords(source_site_to_copy, j);
+        }
+        if (constraint_type == 1) { // create bundles of normal vectors
+            tangent_bundles(i, 0, 0) = 0.0;
+            tangent_bundles(i, 0, 1) = 0.0;
+            tangent_bundles(i, 0, 2) = 0.0;
+            tangent_bundles(i, 1, 0) = 0.0;
+            tangent_bundles(i, 1, 1) = 0.0;
+            tangent_bundles(i, 1, 2) = 0.0;
+            tangent_bundles(i, 2, 0) = 1.0/(sqrt(3.0));
+            tangent_bundles(i, 2, 1) = 1.0/(sqrt(3.0));
+            tangent_bundles(i, 2, 2) = 1.0/(sqrt(3.0));
         }
     }
 
@@ -321,6 +335,10 @@ bool all_passed = true;
     //
     scalar_basis_gmls.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
     vector_basis_gmls.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    if (constraint_name == "NEUMANN_GRAD_SCALAR") {
+        scalar_basis_gmls.setTangentBundle(tangent_bundles_device);
+        vector_basis_gmls.setTangentBundle(tangent_bundles_device);
+    }
 
     // create a vector of target operations
     std::vector<TargetOperation> lro(2);
@@ -394,17 +412,6 @@ bool all_passed = true;
 
     // loop through the target sites
     for (int i=0; i<number_target_coords; i++) {
-        // load divergence from output
-        double GMLS_Divergence_Scalar = output_divergence_scalar(i);
-        double GMLS_Divergence_Vector = output_divergence_vector(i);
-        // load gradient from output
-        double Scalar_GMLS_GradX = (dimension>1) ? output_gradient_scalar(i,0) : 0;
-        double Scalar_GMLS_GradY = (dimension>1) ? output_gradient_scalar(i,1) : 0;
-        double Scalar_GMLS_GradZ = (dimension>2) ? output_gradient_scalar(i,2) : 0;
-
-        double Vector_GMLS_GradX = (dimension>1) ? output_gradient_vector(i,0) : 0;
-        double Vector_GMLS_GradY = (dimension>1) ? output_gradient_vector(i,1) : 0;
-        double Vector_GMLS_GradZ = (dimension>2) ? output_gradient_vector(i,2) : 0;
 
         // target site i's coordinate
         double xval = target_coords(i,0);
@@ -417,17 +424,63 @@ bool all_passed = true;
         double actual_Gradient[3] = {0,0,0}; // initialized for 3, but only filled up to dimension
         trueGradient(actual_Gradient, xval, yval, zval, order, dimension);
 
-        // check divergence
+        // calculate correction factor
+        double g = (1.0/sqrt(3.0))*(actual_Gradient[0] + actual_Gradient[1] + actual_Gradient[2]);
+        // obtain number of neighbor for each target
+        // in order to exploit the index where the value for the Lagrange multiplier is stored
+        int num_neigh_i = neighbor_lists(i, 0);
+
+        // load divergence from output
+        double GMLS_Divergence_Scalar = output_divergence_scalar(i);
+        double GMLS_Divergence_Vector = output_divergence_vector(i);
+
+        // obtain adjusted value for divergence
+        if (constraint_name == "NEUMANN_GRAD_SCALAR") {
+            double b_i_scalar = scalar_basis_gmls.getAlpha0TensorTo0Tensor(DivergenceOfVectorPointEvaluation, i, num_neigh_i);
+            GMLS_Divergence_Scalar = GMLS_Divergence_Scalar + b_i_scalar*g;
+
+            double b_i_vector = vector_basis_gmls.getAlpha0TensorTo0Tensor(DivergenceOfVectorPointEvaluation, i, num_neigh_i);
+            GMLS_Divergence_Vector = GMLS_Divergence_Vector + b_i_vector*g;
+        }
+
+        // check divergence - scalar basis
         if(std::abs(actual_Divergence - GMLS_Divergence_Scalar) > failure_tolerance) {
             all_passed = false;
             std::cout << i << " Failed Divergence on SCALAR basis by: " << std::abs(actual_Divergence - GMLS_Divergence_Scalar) << std::endl;
-            std::cout << i << " GMLS " << GMLS_Divergence_Scalar << " actual " << actual_Divergence << std::endl;
+            std::cout << i << " GMLS " << GMLS_Divergence_Scalar << " adjusted " << GMLS_Divergence_Scalar << " actual " << actual_Divergence << std::endl;
         }
 
+        // check divergence - vector basis
         if(std::abs(actual_Divergence - GMLS_Divergence_Vector) > failure_tolerance) {
             all_passed = false;
             std::cout << i << " Failed Divergence on VECTOR basis by: " << std::abs(actual_Divergence - GMLS_Divergence_Vector) << std::endl;
-            std::cout << i << " GMLS " << GMLS_Divergence_Vector << " actual " << actual_Divergence << std::endl;
+            std::cout << i << " GMLS " << GMLS_Divergence_Vector << " adjusted " << GMLS_Divergence_Vector << " actual " << actual_Divergence << std::endl;
+        }
+
+        // load gradient from output
+        double Scalar_GMLS_GradX = (dimension>1) ? output_gradient_scalar(i,0) : 0;
+        double Scalar_GMLS_GradY = (dimension>1) ? output_gradient_scalar(i,1) : 0;
+        double Scalar_GMLS_GradZ = (dimension>2) ? output_gradient_scalar(i,2) : 0;
+
+        double Vector_GMLS_GradX = (dimension>1) ? output_gradient_vector(i,0) : 0;
+        double Vector_GMLS_GradY = (dimension>1) ? output_gradient_vector(i,1) : 0;
+        double Vector_GMLS_GradZ = (dimension>2) ? output_gradient_vector(i,2) : 0;
+
+        // Obtain adjusted value
+        if (constraint_name == "NEUMANN_GRAD_SCALAR") {
+            double bx_i_scalar = scalar_basis_gmls.getAlpha0TensorTo1Tensor(GradientOfScalarPointEvaluation, i, 0, num_neigh_i);
+            double by_i_scalar = scalar_basis_gmls.getAlpha0TensorTo1Tensor(GradientOfScalarPointEvaluation, i, 1, num_neigh_i);
+            double bz_i_scalar = scalar_basis_gmls.getAlpha0TensorTo1Tensor(GradientOfScalarPointEvaluation, i, 2, num_neigh_i);
+            Scalar_GMLS_GradX = Scalar_GMLS_GradX + bx_i_scalar*g;
+            Scalar_GMLS_GradY = Scalar_GMLS_GradY + by_i_scalar*g;
+            Scalar_GMLS_GradZ = Scalar_GMLS_GradZ + bz_i_scalar*g;
+
+            double bx_i_vector = vector_basis_gmls.getAlpha0TensorTo1Tensor(GradientOfScalarPointEvaluation, i, 0, num_neigh_i);
+            double by_i_vector = vector_basis_gmls.getAlpha0TensorTo1Tensor(GradientOfScalarPointEvaluation, i, 1, num_neigh_i);
+            double bz_i_vector = vector_basis_gmls.getAlpha0TensorTo1Tensor(GradientOfScalarPointEvaluation, i, 2, num_neigh_i);
+            Vector_GMLS_GradX = Vector_GMLS_GradX + bx_i_vector*g;
+            Vector_GMLS_GradY = Vector_GMLS_GradY + by_i_vector*g;
+            Vector_GMLS_GradZ = Vector_GMLS_GradZ + bz_i_vector*g;
         }
 
         // check gradient - scalar gmls
