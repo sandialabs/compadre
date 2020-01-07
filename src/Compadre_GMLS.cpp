@@ -331,7 +331,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
 
             // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
             // uses SVD if necessary or if explicitly asked to do so (much slower than QR)
-            if (_constraint_type == ConstraintType::NEUMANN_GRAD_SCALAR) {
+            if (_constraint_type != ConstraintType::NO_CONSTRAINT) {
                 if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
                      Kokkos::Profiling::pushRegion("SVD Factorization");
                      GMLS_LinearAlgebra::batchSVDFactorize(_pm, false, _RHS.data(), RHS_square_dim, RHS_square_dim, true, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + added_alpha_size, this_batch_size, 0, _initial_index_for_batch, NULL);
@@ -396,7 +396,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
         _RHS = Kokkos::View<double*>("RHS",0);
         _P = Kokkos::View<double*>("P",0);
     } else {
-        if (_constraint_type == ConstraintType::NEUMANN_GRAD_SCALAR) {
+        if (_constraint_type != ConstraintType::NO_CONSTRAINT) {
             _RHS = Kokkos::View<double*>("RHS", 0);
         } else {
             if (_dense_solver_type != DenseSolverType::LU) {
