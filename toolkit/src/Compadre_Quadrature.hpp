@@ -115,7 +115,7 @@ protected:
                 parameterized_quadrature_sites(0,1) = 1./6.;
                 //{1./6., 2./3., 0.0},
                 parameterized_quadrature_sites(1,0) = 1./6.;
-                parameterized_quadrature_sites(1,1) = 2./6.;
+                parameterized_quadrature_sites(1,1) = 2./3.;
                 //{2./3., 1./6., 0.0}},
                 parameterized_quadrature_sites(2,0) = 2./3.;
                 parameterized_quadrature_sites(2,1) = 1./6.;
@@ -150,20 +150,20 @@ protected:
                 parameterized_quadrature_sites(0,0) = 4.4594849091596487577332043252695176084800e-1;
                 parameterized_quadrature_sites(0,1) = 4.4594849091596487577332043252695176084800e-1;
                 //{4.4594849091596487577332043252695176084800e-1,  1.0810301816807024845335913494609647830400e-1, 0.0},
-                parameterized_quadrature_sites(0,0) = 4.4594849091596487577332043252695176084800e-1;
-                parameterized_quadrature_sites(0,1) = 1.0810301816807024845335913494609647830400e-1;
+                parameterized_quadrature_sites(1,0) = 4.4594849091596487577332043252695176084800e-1;
+                parameterized_quadrature_sites(1,1) = 1.0810301816807024845335913494609647830400e-1;
                 //{1.0810301816807024845335913494609647830400e-1,  4.4594849091596487577332043252695176084800e-1, 0.0},
-                parameterized_quadrature_sites(0,0) = 1.0810301816807024845335913494609647830400e-1;
-                parameterized_quadrature_sites(0,1) = 4.4594849091596487577332043252695176084800e-1;
+                parameterized_quadrature_sites(2,0) = 1.0810301816807024845335913494609647830400e-1;
+                parameterized_quadrature_sites(2,1) = 4.4594849091596487577332043252695176084800e-1;
                 //{9.1576213509770745141706146463816673424873e-2,  9.1576213509770745141706146463816673424873e-2, 0.0},
-                parameterized_quadrature_sites(0,0) = 9.1576213509770745141706146463816673424873e-2;
-                parameterized_quadrature_sites(0,1) = 9.1576213509770745141706146463816673424873e-2;
+                parameterized_quadrature_sites(3,0) = 9.1576213509770745141706146463816673424873e-2;
+                parameterized_quadrature_sites(3,1) = 9.1576213509770745141706146463816673424873e-2;
                 //{9.1576213509770745141706146463816673424873e-2,  8.1684757298045850971658770707236665315025e-1, 0.0},
-                parameterized_quadrature_sites(0,0) = 9.1576213509770745141706146463816673424873e-2;
-                parameterized_quadrature_sites(0,1) = 8.1684757298045850971658770707236665315025e-1;
+                parameterized_quadrature_sites(4,0) = 9.1576213509770745141706146463816673424873e-2;
+                parameterized_quadrature_sites(4,1) = 8.1684757298045850971658770707236665315025e-1;
                 //{8.1684757298045850971658770707236665315025e-1,  9.1576213509770745141706146463816673424873e-2, 0.0}},
-                parameterized_quadrature_sites(0,0) = 8.1684757298045850971658770707236665315025e-1;
-                parameterized_quadrature_sites(0,1) = 9.1576213509770745141706146463816673424873e-2;
+                parameterized_quadrature_sites(5,0) = 8.1684757298045850971658770707236665315025e-1;
+                parameterized_quadrature_sites(5,1) = 9.1576213509770745141706146463816673424873e-2;
                 break;
 			case 7:
 			    parameterized_quadrature_sites(0,0) = 3.3333333333333333333333333333333333333333e-1;
