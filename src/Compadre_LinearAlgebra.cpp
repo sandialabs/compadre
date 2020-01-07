@@ -574,8 +574,8 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
         pm.clearScratchSizes();
         pm.setTeamScratchSize(1, scratch_size);
         pm.CallFunctorWithTeamThreads(num_matrices, clr);
-        Kokkos::fence();
     }
+    Kokkos::fence();
 
 }
 

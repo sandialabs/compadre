@@ -10,8 +10,6 @@ namespace Compadre {
 
 void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
 
-    // throw an assertion for QR solver failer
-    compadre_assert_release( (!(_dense_solver_type==DenseSolverType::QR && _constraint_type==ConstraintType::NEUMANN_GRAD_SCALAR))  && "Cannot solve GMLS problems with the NEUMANN_GRAD_SCALAR constraint using QR Factorization.");
     /*
      *    Generate Quadrature
      */
