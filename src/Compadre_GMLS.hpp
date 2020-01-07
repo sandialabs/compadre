@@ -1011,7 +1011,7 @@ public:
         // reconstruction space, and sampling functional are all known (as was the case at the
         // construction of this class)
         const int input_index = getSamplingOutputIndex(_data_sampling_functional, input_component_axis_1, input_component_axis_2);
-        const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2);
+        const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2, _dimensions);
 
         return getTargetOffsetIndexHost(lro_number, input_index, output_index, additional_evaluation_local_index);
     }
