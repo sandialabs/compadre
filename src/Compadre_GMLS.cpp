@@ -35,15 +35,23 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
      *    Initialize Alphas and Prestencil Weights
      */
 
+    // throw an assertion for QR solver incompatibility
+    // TODO: this is a temporary location for this check, in the future the
+    // constraint type could be an object that can check when given a dense_solver_type
+    compadre_assert_release( (!(_dense_solver_type==DenseSolverType::QR
+                && _constraint_type==ConstraintType::NEUMANN_GRAD_SCALAR))
+            && "Cannot solve GMLS problems with the NEUMANN_GRAD_SCALAR constraint using QR Factorization.");
+
     // calculate the additional size for different constraint problems
-    const int added_size = getAdditionalSizeFromConstraint(_dense_solver_type, _constraint_type);
+    const int added_alpha_size = getAdditionalAlphaSizeFromConstraint(_dense_solver_type, _constraint_type);
+    const int added_coeff_size = getAdditionalCoeffSizeFromConstraintAndSpace(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions);
 
     // initialize all alpha values to be used for taking the dot product with data to get a reconstruction 
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
     // would have to store for the max case (potentially number
     try {
-        _alphas = decltype(_alphas)("coefficients", _neighbor_lists.extent(0), _total_alpha_values*max_evaluation_sites, _max_num_neighbors + added_size);
+        _alphas = decltype(_alphas)("coefficients", _neighbor_lists.extent(0), _total_alpha_values*max_evaluation_sites, _max_num_neighbors + added_alpha_size);
     } catch(std::exception &e) {
        printf("Insufficient memory to store alphas: \n\n%s", e.what()); 
        throw e;
@@ -185,9 +193,9 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
      *    Calculate the size for matrix P and RHS
      */
 
-    int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols);
+    int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols);
     int P_dim_0, P_dim_1;
-    getPDims(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
+    getPDims(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
 
     /*
      *    Allocate Global Device Storage of Data Needed Over Multiple Calls
@@ -304,7 +312,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
             // uses SVD if necessary or if explicitly asked to do so (much slower than QR)
             if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
                 Kokkos::Profiling::pushRegion("Manifold SVD Factorization");
-                GMLS_LinearAlgebra::batchSVDFactorize(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_square_dim, RHS_square_dim, max_num_rows, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                GMLS_LinearAlgebra::batchSVDFactorize(_pm, true, _P.data(), P_dim_0, P_dim_1, true, _RHS.data(), RHS_square_dim, RHS_square_dim, max_num_rows, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
                 Kokkos::Profiling::popRegion();
             } else if (_dense_solver_type == DenseSolverType::LU) {
                 Kokkos::Profiling::pushRegion("Manifold LU Factorization");
@@ -330,18 +338,31 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
 
             // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
             // uses SVD if necessary or if explicitly asked to do so (much slower than QR)
-            if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
-                Kokkos::Profiling::pushRegion("SVD Factorization");
-                GMLS_LinearAlgebra::batchSVDFactorize(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_square_dim, RHS_square_dim, max_num_rows, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
-                Kokkos::Profiling::popRegion();
-            } else if (_dense_solver_type == DenseSolverType::LU) {
-                Kokkos::Profiling::pushRegion("LU Factorization");
-                GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_square_dim, RHS_square_dim, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_size, this_num_cols + added_size, max_num_rows + added_size, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
-                Kokkos::Profiling::popRegion();
+            if (_constraint_type != ConstraintType::NO_CONSTRAINT) {
+                if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
+                     Kokkos::Profiling::pushRegion("SVD Factorization");
+                     GMLS_LinearAlgebra::batchSVDFactorize(_pm, false, _RHS.data(), RHS_square_dim, RHS_square_dim, true, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + added_alpha_size, this_batch_size, 0, _initial_index_for_batch, NULL);
+                     Kokkos::Profiling::popRegion();
+                } else {
+                     Kokkos::Profiling::pushRegion("LU Factorization");
+                     GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_square_dim, RHS_square_dim, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + added_alpha_size, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                     Kokkos::Profiling::popRegion();
+                }
             } else {
-                Kokkos::Profiling::pushRegion("QR Factorization");
-                GMLS_LinearAlgebra::batchQRFactorize(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_square_dim, RHS_square_dim, max_num_rows, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
-                Kokkos::Profiling::popRegion();
+                // Solve normally for no-constraint cases
+                if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
+                    Kokkos::Profiling::pushRegion("SVD Factorization");
+                    GMLS_LinearAlgebra::batchSVDFactorize(_pm, true, _P.data(), P_dim_0, P_dim_1, true, _RHS.data(), RHS_square_dim, RHS_square_dim, max_num_rows, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                    Kokkos::Profiling::popRegion();
+                } else if (_dense_solver_type == DenseSolverType::LU) {
+                    Kokkos::Profiling::pushRegion("LU Factorization");
+                    GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_square_dim, RHS_square_dim, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + added_alpha_size, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                    Kokkos::Profiling::popRegion();
+                } else {
+                    Kokkos::Profiling::pushRegion("QR Factorization");
+                    GMLS_LinearAlgebra::batchQRFactorize(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_square_dim, RHS_square_dim, max_num_rows, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                    Kokkos::Profiling::popRegion();
+                }
             }
 
             _pm.CallFunctorWithTeamThreadsAndVectors<ComputePrestencilWeights>(this_batch_size, _pm.getThreadsPerTeam(_pm.getVectorLanesPerThread()), _pm.getVectorLanesPerThread(), *this);
@@ -382,10 +403,14 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
         _RHS = Kokkos::View<double*>("RHS",0);
         _P = Kokkos::View<double*>("P",0);
     } else {
-        if (_dense_solver_type != DenseSolverType::LU) {
-            _P = Kokkos::View<double*>("P",0);
+        if (_constraint_type != ConstraintType::NO_CONSTRAINT) {
+            _RHS = Kokkos::View<double*>("RHS", 0);
         } else {
-            _RHS = Kokkos::View<double*>("RHS",0);
+            if (_dense_solver_type != DenseSolverType::LU) {
+                _P = Kokkos::View<double*>("P", 0);
+            } else {
+                _RHS = Kokkos::View<double*>("RHS", 0);
+            }
         }
     }
 
@@ -426,9 +451,9 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_cols = _basis_multiplier*_NP;
 
-    int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols);
+    int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols);
     int P_dim_0, P_dim_1;
-    getPDims(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
+    getPDims(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
 
     /*
      *    Data
@@ -451,7 +476,8 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
     // creates the matrix sqrt(W)*P
     this->createWeightsAndP(teamMember, delta, PsqrtW, w, _dimensions, _poly_order, true /*weight_p*/, NULL /*&V*/, _reconstruction_space, _polynomial_sampling_functional);
 
-    if (_dense_solver_type != DenseSolverType::LU) {
+    if ((_constraint_type == ConstraintType::NO_CONSTRAINT) && (_dense_solver_type != DenseSolverType::LU)) {
+    // if (_dense_solver_type != DenseSolverType::LU) {
         // fill in RHS with Identity * sqrt(weights)
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this_num_rows), [=] (const int i) {
             for(int j = 0; j < this_num_rows; ++j) {
@@ -483,7 +509,7 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
             int num_neigh_target = this->getNNeighbors(target_index);
             double cutoff_p = _epsilons(target_index);
 
-            evaluateConstraints(M, PsqrtW, _constraint_type, cutoff_p, _dimensions, num_neigh_target, &T);
+            evaluateConstraints(M, PsqrtW, _constraint_type, _reconstruction_space, _NP, cutoff_p, _dimensions, num_neigh_target, &T);
         }
     }
 }
@@ -504,9 +530,9 @@ void GMLS::operator()(const ApplyStandardTargets&, const member_type& teamMember
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
 
-    int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols);
+    int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols);
     int P_dim_0, P_dim_1;
-    getPDims(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
+    getPDims(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
 
     /*
      *    Data
@@ -514,7 +540,8 @@ void GMLS::operator()(const ApplyStandardTargets&, const member_type& teamMember
 
     // Coefficients for polynomial basis have overwritten _RHS
     scratch_matrix_right_type Coeffs;
-    if (_dense_solver_type != DenseSolverType::LU) {
+    // if (_dense_solver_type != DenseSolverType::LU) {
+    if ((_constraint_type == ConstraintType::NO_CONSTRAINT) && (_dense_solver_type != DenseSolverType::LU)) {
         Coeffs = scratch_matrix_right_type(_RHS.data() 
             + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_square_dim)*TO_GLOBAL(RHS_square_dim), RHS_square_dim, RHS_square_dim);
     } else {
@@ -557,7 +584,7 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
     const int this_num_cols = _basis_multiplier*max_manifold_NP;
 
     int P_dim_0, P_dim_1;
-    getPDims(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
+    getPDims(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
 
     /*
      *    Data
@@ -609,9 +636,9 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
     const int this_num_neighbors = this->getNNeighbors(target_index);
     const int this_num_cols = _basis_multiplier*max_manifold_NP;
 
-    int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols);
+    int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols);
     int P_dim_0, P_dim_1;
-    getPDims(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
+    getPDims(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
 
     /*
      *    Data
@@ -683,9 +710,9 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
 
-    int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols);
+    int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols);
     int P_dim_0, P_dim_1;
-    getPDims(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
+    getPDims(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
 
     /*
      *    Data
@@ -881,9 +908,9 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
 
-    int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols);
+    int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols);
     int P_dim_0, P_dim_1;
-    getPDims(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
+    getPDims(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
 
     /*
      *    Data
@@ -1023,9 +1050,9 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
     const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
     const int this_num_cols = _basis_multiplier*max_manifold_NP;
 
-    int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols);
+    int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols);
     int P_dim_0, P_dim_1;
-    getPDims(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
+    getPDims(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
 
     /*
      *    Data
@@ -1093,9 +1120,9 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
 
-    int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols);
+    int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols);
     int P_dim_0, P_dim_1;
-    getPDims(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
+    getPDims(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
 
     /*
      *    Data
@@ -1153,9 +1180,9 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
 
-    int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols);
+    int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols);
     int P_dim_0, P_dim_1;
-    getPDims(_dense_solver_type, _constraint_type, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
+    getPDims(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
 
     /*
      *    Data
@@ -1167,7 +1194,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
 
     // holds polynomial coefficients for curvature reconstruction
     scratch_matrix_right_type Q;
-    if (_dense_solver_type != DenseSolverType::LU) {
+    if ((_constraint_type == ConstraintType::NO_CONSTRAINT) && (_dense_solver_type != DenseSolverType::LU)) {
         // Solution from QR comes from RHS
         Q = scratch_matrix_right_type(_RHS.data()
             + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_square_dim)*TO_GLOBAL(RHS_square_dim), RHS_square_dim, RHS_square_dim);
