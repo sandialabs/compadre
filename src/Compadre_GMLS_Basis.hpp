@@ -458,42 +458,60 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
         int alphax, alphay, alphaz;
         double alphaf;
 
-        double triangle_coords[9];
-        scratch_matrix_right_type triangle_coords_matrix(triangle_coords, 3, 3); 
-        scratch_vector_type midpoint(delta, 3);
+        double triangle_coords[_global_dimensions*3];
+        for (int i=0; i<_global_dimensions*3; ++i) triangle_coords[i] = 0;
+        // 3 is for # vertices in sub-triangle
+        scratch_matrix_right_type triangle_coords_matrix(triangle_coords, _global_dimensions, 3); 
 
-        getMidpointFromCellVertices(teamMember, midpoint, _source_extra_data, global_neighbor_index, 3 /*dim*/);
-        for (int j=0; j<3; ++j) {
+        scratch_vector_type midpoint(delta, _global_dimensions);
+        getMidpointFromCellVertices(teamMember, midpoint, _source_extra_data, global_neighbor_index, _global_dimensions /*dim*/);
+        for (int j=0; j<_global_dimensions; ++j) {
             triangle_coords_matrix(j, 0) = midpoint(j);
         }
-        size_t num_vertices = _source_extra_data.extent(1) / 3;
+
+        size_t num_vertices = _source_extra_data.extent(1) / _global_dimensions;
+        double reference_cell_area = 0.5;
+        double entire_cell_area = 0.0;
+        auto T=triangle_coords_matrix;
+
+        for (size_t v=0; v<num_vertices; ++v) {
+            int v1 = v;
+            int v2 = (v+1) % num_vertices;
+            for (int j=0; j<_global_dimensions; ++j) {
+                triangle_coords_matrix(j,1) = _source_extra_data(global_neighbor_index, v1*_global_dimensions+j) - triangle_coords_matrix(j,0);
+                triangle_coords_matrix(j,2) = _source_extra_data(global_neighbor_index, v2*_global_dimensions+j) - triangle_coords_matrix(j,0);
+            }
+            entire_cell_area += 0.5 * getAreaFromVectors(teamMember, 
+                Kokkos::subview(T, Kokkos::ALL(), 1), Kokkos::subview(T, Kokkos::ALL(), 2));
+        }
 
         // loop over each two vertices 
+        // made for flat surfaces (either dim=2 or on a manifold)
         for (size_t v=0; v<num_vertices; ++v) {
             int v1 = v;
             int v2 = (v+1) % num_vertices;
 
-            for (int j=0; j<3; ++j) {
-                triangle_coords_matrix(j,1) = _source_extra_data(global_neighbor_index, v1*3+j) - triangle_coords_matrix(j,0);
-                triangle_coords_matrix(j,2) = _source_extra_data(global_neighbor_index, v2*3+j) - triangle_coords_matrix(j,0);
+            for (int j=0; j<_global_dimensions; ++j) {
+                triangle_coords_matrix(j,1) = _source_extra_data(global_neighbor_index, v1*_global_dimensions+j) - triangle_coords_matrix(j,0);
+                triangle_coords_matrix(j,2) = _source_extra_data(global_neighbor_index, v2*_global_dimensions+j) - triangle_coords_matrix(j,0);
             }
             // triangle_coords now has:
             // (midpoint_x, midpoint_y, midpoint_z, 
             //  v1_x-midpoint_x, v1_y-midpoint_y, v1_z-midpoint_z, 
             //  v2_x-midpoint_x, v2_y-midpoint_y, v2_z-midpoint_z);
-            auto T=triangle_coords_matrix;
             for (int quadrature = 0; quadrature<_qm.getNumberOfQuadraturePoints(); ++quadrature) {
                 double transformed_qp[3] = {0,0,0};
-                for (int j=0; j<3; ++j) {
-                    for (int k=1; k<3; ++k) {
+                for (int j=0; j<_global_dimensions; ++j) {
+                    for (int k=1; k<3; ++k) { // 3 is for # vertices in subtriangle
                         transformed_qp[j] += T(j,k)*_qm.getSite(quadrature, k-1);
                     }
                     transformed_qp[j] += T(j,0);
                 }
                 // half the norm of the cross-product is the area of the triangle
                 // so scaling is area / reference area (0.5) = the norm of the cross-product
-                double area_scaling = getAreaFromVectors(teamMember, 
+                double sub_cell_area = 0.5 * getAreaFromVectors(teamMember, 
                         Kokkos::subview(T, Kokkos::ALL(), 1), Kokkos::subview(T, Kokkos::ALL(), 2));
+                double scaling_factor = sub_cell_area / reference_cell_area;
 
                 if (_problem_type == ProblemType::MANIFOLD) {
                     XYZ qp = XYZ(transformed_qp[0], transformed_qp[1], transformed_qp[2]);
@@ -502,8 +520,11 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
                         relative_coord[2] = 0;
                     }
                 } else {
-                    for (int j=0; j<3; ++j) {
+                    for (int j=0; j<dimension; ++j) {
                         relative_coord[j] = transformed_qp[j] - getTargetCoordinate(target_index,j,V); // shift quadrature point by target site
+                    }
+                    for (int j=dimension; j<3; ++j) {
+                        relative_coord[j] = 0.0;
                     }
                 }
 
@@ -516,11 +537,11 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
                             for (alphay = 0; alphay <= s; alphay++){
                                 alphax = s - alphay;
                                 alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
-                                double val_to_sum = (area_scaling * _qm.getWeight(quadrature) 
+                                double val_to_sum = (scaling_factor * _qm.getWeight(quadrature) 
                                         * std::pow(relative_coord.x/cutoff_p,alphax)
-                                        *std::pow(relative_coord.y/cutoff_p,alphay)
-                                        *std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf) / (0.5 * area_scaling);
-                                if (quadrature==0) *(delta+k) = val_to_sum;
+                                        * std::pow(relative_coord.y/cutoff_p,alphay)
+                                        * std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf) / entire_cell_area;
+                                if (quadrature==0 && v==0) *(delta+k) = val_to_sum;
                                 else *(delta+k) += val_to_sum;
                                 k++;
                             }
@@ -531,10 +552,10 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
                         for (alphay = 0; alphay <= n; alphay++){
                             alphax = n - alphay;
                             alphaf = factorial[alphax]*factorial[alphay];
-                            double val_to_sum = (area_scaling * _qm.getWeight(quadrature) 
+                            double val_to_sum = (scaling_factor * _qm.getWeight(quadrature) 
                                     * std::pow(relative_coord.x/cutoff_p,alphax)
-                                    *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf) / (0.5 * area_scaling);
-                            if (quadrature==0) *(delta+k) = val_to_sum;
+                                    * std::pow(relative_coord.y/cutoff_p,alphay)/alphaf) / entire_cell_area;
+                            if (quadrature==0 && v==0) *(delta+k) = val_to_sum;
                             else *(delta+k) += val_to_sum;
                             k++;
                         }
