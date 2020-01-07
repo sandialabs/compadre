@@ -1,0 +1,33 @@
+%YAML 1.1
+---
+Compadre:
+  'remap type': 'cell average'
+  'io':
+    'input file prefix': '../test_data/grids/'
+    # source sites
+    'input file': 'dg_1.nc'
+    # target sites
+    'input file2': 'dg_1.nc'
+    'output file prefix': '../test_data/'
+    # data reconstructed on target
+    'output file': 'pressure_out.pvtu'
+    # source data as pvtu
+    'output file2': 'pressure_in.pvtu'
+    'vtk produce mesh': true
+  'remap':
+    'porder': 3
+    'curvature porder': 3
+    'weighting power': 3
+    'curvature weighting power': 12
+    'quadrature type': 'tri'
+    'quadrature order': 2
+    'quadrature dimension': 2
+    'dimensions': 2
+  'neighborhood':
+    'method': nanoflann
+    'size': 0.25
+    'cutoff multiplier': 1.7
+  'halo':
+    'dynamic': true
+    'multiplier': 16.0
+...
