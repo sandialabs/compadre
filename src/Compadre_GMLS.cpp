@@ -35,6 +35,13 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
      *    Initialize Alphas and Prestencil Weights
      */
 
+    // throw an assertion for QR solver incompatibility
+    // TODO: this is a temporary location for this check, in the future the
+    // constraint type could be an object that can check when given a dense_solver_type
+    compadre_assert_release( (!(_dense_solver_type==DenseSolverType::QR
+                && _constraint_type==ConstraintType::NEUMANN_GRAD_SCALAR))
+            && "Cannot solve GMLS problems with the NEUMANN_GRAD_SCALAR constraint using QR Factorization.");
+
     // calculate the additional size for different constraint problems
     const int added_alpha_size = getAdditionalAlphaSizeFromConstraint(_dense_solver_type, _constraint_type);
     const int added_coeff_size = getAdditionalCoeffSizeFromConstraintAndSpace(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions);

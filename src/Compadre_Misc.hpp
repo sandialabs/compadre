@@ -41,13 +41,6 @@ struct XYZ {
 
 KOKKOS_INLINE_FUNCTION
 int getAdditionalAlphaSizeFromConstraint(DenseSolverType dense_solver_type, ConstraintType constraint_type) {
-    // throw an assertion for QR solver incompatibility
-    // TODO: this is a temporary location for this check, in the future the 
-    // constraint type could be an object that can check when given a dense_solver_type 
-    compadre_assert_release( (!(dense_solver_type==DenseSolverType::QR 
-                && constraint_type==ConstraintType::NEUMANN_GRAD_SCALAR))  
-            && "Cannot solve GMLS problems with the NEUMANN_GRAD_SCALAR constraint using QR Factorization.");
-
     // Return the additional constraint size
     if (constraint_type == NEUMANN_GRAD_SCALAR) {
         return 1;
