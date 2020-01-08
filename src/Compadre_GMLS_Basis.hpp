@@ -458,7 +458,9 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
         int alphax, alphay, alphaz;
         double alphaf;
 
-        double triangle_coords[_global_dimensions*3];
+        // global dimension cannot be determined in a constexpr way, so we use a largest case scenario
+        // of dimensions 3 for _global_dimension
+        double triangle_coords[3/*_global_dimensions*/*3];
         for (int i=0; i<_global_dimensions*3; ++i) triangle_coords[i] = 0;
         // 3 is for # vertices in sub-triangle
         scratch_matrix_right_type triangle_coords_matrix(triangle_coords, _global_dimensions, 3); 
