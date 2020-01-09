@@ -719,7 +719,7 @@ void GMLS_StokesPhysics::computeMatrix(local_index_type field_one, local_index_t
         });
     }
 
-    if (field_one == lm_pressure_field_id && field_two == lm_pressure_field_id) {
+    if (field_one == lm_pressure_field_id && field_two == pressure_field_id) {
         // row all DOFs for solution against Lagrange multiplier
         Teuchos::Array<local_index_type> col_data(nlocal*fields[field_two]->nDim());
         Teuchos::Array<scalar_type> val_data(nlocal*fields[field_two]->nDim());
