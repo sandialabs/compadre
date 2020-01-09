@@ -630,7 +630,7 @@ void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *R
     // call batched LU application
     cublas_stat=cublasDgetrsBatched(cublas_handle, CUBLAS_OP_N,
                                    M, NRHS,
-                                   reinterpret_cast<double**>(array_P_RHS.data()), lda,
+                                   reinterpret_cast<const double**>(array_P_RHS.data()), lda,
                                    reinterpret_cast<int*>(ipiv_device.data()),
                                    reinterpret_cast<double**>(array_P_RHS.data() + TO_GLOBAL(num_matrices)), ldb,
                                    &info, num_matrices );
