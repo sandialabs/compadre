@@ -272,6 +272,7 @@ double gradientdivfreeTestSolution(double x, double y, double z, int component, 
                 return 9.0*y;
         }
     }
+    return 0.0;
 }
 
 /** Standard GMLS Example 
