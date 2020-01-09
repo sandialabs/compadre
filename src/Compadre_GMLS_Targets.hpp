@@ -1456,6 +1456,68 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     }
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+            } else if (_operations(i) == TargetOperation::GradientOfVectorPointEvaluation) {
+                if ((_polynomial_sampling_functional == PointSample
+                    || _polynomial_sampling_functional == ManifoldVectorPointSample)) {
+                    Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+
+                        double h = _epsilons(target_index);
+                        double a1 = curvature_coefficients(1);
+                        double a2 = curvature_coefficients(2);
+
+                        double q1 = (h*h + a2*a2)/(h*h*h + h*a1*a1 + h*a2*a2);
+                        double q2 = -(a1*a2)/(h*h*h + h*a1*a1 + h*a2*a2);
+                        double q3 = (h*h + a1*a1)/(h*h*h + h*a1*a1 + h*a2*a2);
+
+                        double t1a = q1*1 + q2*0;
+                        double t2a = q1*0 + q2*1;
+
+                        double t1b = q2*1 + q3*0;
+                        double t2b = q2*0 + q3*1;
+
+                        // gradient of first vector component
+                        int offset = getTargetOffsetIndexDevice(i, 0, 0, 0);
+                        for (int j=0; j<target_NP; ++j) {
+                            P_target_row(offset, j) = 0;
+                        }
+                        if (_poly_order > 0 && _curvature_poly_order > 0) {
+                            P_target_row(offset, 1) = t1a + t2a;
+                            P_target_row(offset, 2) = 0;
+                        }
+
+                        offset = getTargetOffsetIndexDevice(i, 0, 1, 0);
+                        for (int j=0; j<target_NP; ++j) {
+                            P_target_row(offset, j) = 0;
+                        }
+                        if (_poly_order > 0 && _curvature_poly_order > 0) {
+                            P_target_row(offset, 1) = 0;
+                            P_target_row(offset, 2) = t1b + t2b;
+                        }
+
+                        // gradient of second vector component
+                        offset = getTargetOffsetIndexDevice(i, 1, 0, 0);
+                        for (int j=0; j<target_NP; ++j) {
+                            P_target_row(offset, j) = 0;
+                        }
+                        if (_poly_order > 0 && _curvature_poly_order > 0) {
+                            P_target_row(offset, 1) = t1a + t2a;
+                            P_target_row(offset, 2) = 0;
+                        }
+
+                        offset = getTargetOffsetIndexDevice(i, 1, 1, 0);
+                        for (int j=0; j<target_NP; ++j) {
+                            P_target_row(offset, j) = 0;
+                        }
+                        if (_poly_order > 0 && _curvature_poly_order > 0) {
+                            P_target_row(offset, 1) = 0;
+                            P_target_row(offset, 2) = t1b + t2b;
+                        }
+
+                    });
+                } else {
+                    compadre_kernel_assert_release((false) && "Functionality not yet available.");
+                }
+
             } else if (_operations(i) == TargetOperation::ScalarFaceAverageEvaluation) {
                 //printf("ScalarFaceAverageEvaluation\n");
                 const double factorial[15] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
