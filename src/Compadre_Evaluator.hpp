@@ -415,10 +415,10 @@ public:
 
         // only written for up to rank 1 to rank 2 (in / out)
         // loop over components of output of the target operation
-        for (int i=0; i<output_dimension1_of_operator; ++i) {
-            const int output_component_axis_1 = i;
-            for (int axes1=0; axes1<output_dimension2_of_operator; ++axes1) {
-                const int output_component_axis_2 = axes1;
+        for (int axes1=0; axes1<output_dimension1_of_operator; ++axes1) {
+            const int output_component_axis_1 = axes1;
+            for (int axes2=0; axes2<output_dimension2_of_operator; ++axes2) {
+                const int output_component_axis_2 = axes2;
                 // loop over components of input of the target operation
                 for (int j=0; j<input_dimension_of_operator; ++j) {
                     const int input_component_axis_1 = j;
@@ -427,20 +427,23 @@ public:
                     if (loop_global_dimensions) {
                         for (int k=0; k<global_dimensions; ++k) { // loop for handling sampling functional
                             this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
-                                    output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(k), lro, sro, 
+                                    output_subview_maker.get1DView(axes1*output_dimension2_of_operator+axes2), 
+                                    sampling_subview_maker.get1DView(k), lro, sro, 
                                     evaluation_site_local_index, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
                                     input_component_axis_2, j, k, -1, -1,
                                     vary_on_target, vary_on_neighbor);
                         }
                     } else if (sro_style != Identity) {
                         this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
-                                output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(j), lro, sro, 
+                                output_subview_maker.get1DView(axes1*output_dimension2_of_operator+axes2), 
+                                sampling_subview_maker.get1DView(j), lro, sro, 
                                 evaluation_site_local_index, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
                                 input_component_axis_2, 0, 0, -1, -1,
                                 vary_on_target, vary_on_neighbor);
                     } else { // standard
                         this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
-                                output_subview_maker.get1DView(i*((TargetOutputTensorRank[lro]<2)?1:output_dimension1_of_operator)+axes1), sampling_subview_maker.get1DView(j), lro, sro, 
+                                output_subview_maker.get1DView(axes1*output_dimension2_of_operator+axes2), 
+                                sampling_subview_maker.get1DView(j), lro, sro, 
                                 evaluation_site_local_index, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
                                 input_component_axis_2);
                     }
