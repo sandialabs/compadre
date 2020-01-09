@@ -720,6 +720,53 @@ void GMLS_StokesPhysics::computeMatrix(local_index_type field_one, local_index_t
     }
 
     if (field_one == lm_pressure_field_id && field_two == lm_pressure_field_id) {
+        // row all DOFs for solution against Lagrange multiplier
+        Teuchos::Array<local_index_type> col_data(nlocal*fields[field_two]->nDim());
+        Teuchos::Array<scalar_type> val_data(nlocal*fields[field_two]->nDim());
+        Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+        Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
+
+        for (local_index_type l=0; l<nlocal; l++) {
+            for (local_index_type n=0; n<fields[field_two]->nDim(); n++) {
+                cols[l*fields[field_two]->nDim() + n] = local_to_dof_map(l, field_two, n);
+                vals[l*fields[field_two]->nDim() + n] = 1;
+            }
+        }
+
+        auto comm = this->_particles->getCoordsConst()->getComm();
+        if (comm->getRank()==0) {
+            // local index 0 is the shared global id for the Lagrange multiplier
+            this->_A->sumIntoLocalValues(0, cols, vals);
+        } else {
+            // local index 0 is the shared global id for the Lagrange multiplier
+            this->_A->sumIntoLocalValues(nlocal, cols, vals);
+        }
+    }
+
+    if (field_one == pressure_field_id && field_two == lm_pressure_field_id) {
+        // col all DOFs for solution against Lagrange multiplier
+        auto comm = this->_particles->getCoordsConst()->getComm();
+        for (local_index_type i=0; i<nlocal; i++) {
+            for (local_index_type k=0; k<fields[field_one]->nDim(); k++) {
+                local_index_type row = local_to_dof_map(i, field_one, k);
+
+                Teuchos::Array<local_index_type> col_data(1);
+                Teuchos::Array<scalar_type> val_data(1);
+                Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+                Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
+
+                if (comm->getRank() == 0) {
+                    cols[0] = 0; // local index 0 is global shared index
+                } else {
+                    cols[0] = nlocal;
+                }
+                vals[0] = 1;
+                this->_A->sumIntoLocalValues(row, cols, vals);
+            }
+        }
+    }
+
+    if (field_one == lm_pressure_field_id && field_two == lm_pressure_field_id) {
         // identity on all DOFs for Lagrange multiplier
         scalar_type eps_penalty = 1.0;
 
@@ -768,11 +815,11 @@ const std::vector<InteractingFields> GMLS_StokesPhysics::gatherFieldInteractions
     field_interactions.push_back(InteractingFields(op_needing_interaction::physics,
         _particles->getFieldManagerConst()->getIDOfFieldFromName("lm_pressure")));
     field_interactions.push_back(InteractingFields(op_needing_interaction::physics,
+        _particles->getFieldManagerConst()->getIDOfFieldFromName("lm_pressure"),
+        _particles->getFieldManagerConst()->getIDOfFieldFromName("pressure")));
+    field_interactions.push_back(InteractingFields(op_needing_interaction::physics,
         _particles->getFieldManagerConst()->getIDOfFieldFromName("pressure"),
         _particles->getFieldManagerConst()->getIDOfFieldFromName("lm_pressure")));
-    //field_interactions.push_back(InteractingFields(op_needing_interaction::physics,
-    //    _particles->getFieldManagerConst()->getIDOfFieldFromName("lm_pressure"),
-    //    _particles->getFieldManagerConst()->getIDOfFieldFromName("pressure")));
 
     return field_interactions;
 }
