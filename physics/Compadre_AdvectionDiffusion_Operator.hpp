@@ -25,7 +25,7 @@ class AdvectionDiffusionPhysics : public PhysicsT {
 
     public:
 
-        xyz_type _advection_field;
+        scalar_type _advection;
         scalar_type _diffusion;
         
         particle_type* _cells;
@@ -82,10 +82,8 @@ class AdvectionDiffusionPhysics : public PhysicsT {
 
 		virtual const std::vector<InteractingFields> gatherFieldInteractions();
 
-        void setAdvectionField(const xyz_type advection_field) {
-            for (local_index_type i=0; i<3; ++i) {
-                _advection_field[i] = advection_field[i];
-            }
+        void setAdvection(const scalar_type advection) {
+            _advection = advection;
         }
         
         void setDiffusion(const scalar_type diffusion) {

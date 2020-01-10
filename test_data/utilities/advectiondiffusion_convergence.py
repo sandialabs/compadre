@@ -33,7 +33,7 @@ if (len(sys.argv) > 3):
 if (len(sys.argv) > 4):
     solution = int(sys.argv[4])
 
-porders = ["%d"%num for num in range(2,11)]
+porders = ["%d"%num for num in range(1,11)]
 file_names = ["dg_%d.nc"%num for num in range(4)]
 errors = []
 

@@ -242,20 +242,22 @@ scalar_type SineProducts::evalScalarLaplacian(const xyz_type& xyzIn) const {
     }
 }
 
-scalar_type SineProducts::evalAdvectionDiffusionRHS(const xyz_type& xyzIn, const scalar_type diffusion, 
-        const xyz_type& advection_field) const {
+scalar_type SineProducts::evalAdvectionDiffusionRHS(const xyz_type& xyzIn, const scalar_type diffusion, const scalar_type advection) const {
     if (_dim==3) {
+        TEUCHOS_ASSERT(false);
         double grad[3];
         grad[0] = cos(xyzIn.x)*sin(xyzIn.y)*sin(xyzIn.z);
         grad[1] = cos(xyzIn.y)*sin(xyzIn.x)*sin(xyzIn.z);
         grad[2] = cos(xyzIn.z)*sin(xyzIn.x)*sin(xyzIn.y);
-        return -diffusion*3*sin(xyzIn.x)*sin(xyzIn.y)*sin(xyzIn.z) + 
-            (advection_field.x*grad[0] + advection_field.y*grad[1] + advection_field.z*grad[2]);
+        return -diffusion*3*sin(xyzIn.x)*sin(xyzIn.y)*sin(xyzIn.z);// + 
+            //(advection_field.x*grad[0] + advection_field.y*grad[1] + advection_field.z*grad[2]);
     } else {
-        double grad[2];
-        grad[0] = cos(xyzIn.x)*sin(xyzIn.y);
-        grad[1] = cos(xyzIn.y)*sin(xyzIn.x);
-        return -diffusion*2*sin(xyzIn.x)*sin(xyzIn.y) + (advection_field.x*grad[0] + advection_field.y*grad[1]);
+        //TEUCHOS_ASSERT(advection_field.x==0.0);
+        //double grad[2];
+        //grad[0] = cos(xyzIn.x)*sin(xyzIn.y);
+        //grad[1] = cos(xyzIn.y)*sin(xyzIn.x);
+        auto laplace_u = -2*sin(xyzIn.x)*sin(xyzIn.y);
+        return -diffusion*laplace_u + advection*sin(xyzIn.x)*sin(xyzIn.y);// + (advection_field.x*grad[0] + advection_field.y*grad[1]);
     }
 }
 

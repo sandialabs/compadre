@@ -48,7 +48,7 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     auto halo_unit_normals = _physics->_cells->getFieldManager()->getFieldByName("unit_normal")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
     auto halo_adjacent_elements = _physics->_cells->getFieldManager()->getFieldByName("adjacent_elements")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
 
-    //auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")*_physics->_particles_particles_neighborhood->getMinimumHSupportSize();
+    auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_physics->_cell_particles_neighborhood->computeMinHSupportSize(true /* global processor min */);
     // each element must have the same number of edges
     auto num_edges = adjacent_elements.extent(1);
     auto num_interior_quadrature = 0;
@@ -294,6 +294,7 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     // assembly over cells, then particles
 
     //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_physics->_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
+    auto test_scaling = 0.5;
   
     // loop over cells including halo cells 
     for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(true /* include halo in count */); ++i) {
@@ -341,18 +342,52 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
                     } 
                 }
             } else {
+                std::vector<double> edge_lengths(3);
+                int current_edge_num = 0;
+                for (int q=0; q<_physics->_weights_ndim; ++q) {
+                    if (quadrature_type(i,q)!=1) { // edge
+                        int new_current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                        if (new_current_edge_num!=current_edge_num) {
+                            edge_lengths[new_current_edge_num] = quadrature_weights(i,q);
+                            current_edge_num = new_current_edge_num;
+                        } else {
+                            edge_lengths[current_edge_num] += quadrature_weights(i,q);
+                        }
+                    }
+                }
                 for (int q=0; q<_physics->_weights_ndim; ++q) {
                     if (quadrature_type(i,q)==1) { // interior
                         // integrating RHS function
                         double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
                         xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
                         auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());//Teuchos::rcp_dynamic_cast<Compadre::SineProducts>(function);
-                        //if (!cast_to_sine==NULL) {
-                            contribution += quadrature_weights(i,q) * v * cast_to_sine->evalAdvectionDiffusionRHS(pt,_physics->_diffusion,_physics->_advection_field);
+                        if (!cast_to_sine==NULL) {
+                            contribution += quadrature_weights(i,q) * v * cast_to_sine->evalAdvectionDiffusionRHS(pt,_physics->_diffusion,_physics->_advection);
+                        } else {
+                            TEUCHOS_ASSERT(false);
+                        }
                         //} else {
                         //    printf("is null.\n");
                         //}
                     } 
+                    else if (quadrature_type(i,q)==2) { // edge on exterior
+                        //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_physics->_kokkos_epsilons_host(i);
+                        // DG enforcement of Dirichlet BCs
+                        int current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                        //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/edge_lengths[current_edge_num];
+                        int adjacent_cell = adjacent_elements(i,current_edge_num);
+                        //printf("%d, %d, %d, %d\n", i, q, current_edge_num, adjacent_cell);
+                        if (adjacent_cell >= 0) {
+                            printf("SHOULD BE NEGATIVE NUMBER!\n");
+                        }
+                        // penalties for edges of mass
+                        double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
+                        double v_x = _physics->_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j, q+1);
+                        double v_y = _physics->_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j, q+1);
+                        xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
+                        contribution += penalty * quadrature_weights(i,q) * v * function->evalScalar(pt);
+                        contribution -= _physics->_diffusion * quadrature_weights(i,q) * ( unit_normals(i,2*q+0) * v_x + unit_normals(i,2*q+1) * v_y) * function->evalScalar(pt);
+                    }
                 }
 
             }

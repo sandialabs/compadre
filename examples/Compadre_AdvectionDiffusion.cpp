@@ -192,10 +192,8 @@ int main (int argc, char* args[]) {
             Teuchos::rcp( new Compadre::AdvectionDiffusionBoundaryConditions(cells));
 
         // set physics, sources, and boundary conditions in the problem
-        xyz_type advection_field(1,1,1);
-
         // set advection and diffusion for physics
-        physics->setAdvectionField(advection_field);
+        physics->setAdvection(parameters->get<Teuchos::ParameterList>("physics").get<double>("advection"));
         physics->setDiffusion(parameters->get<Teuchos::ParameterList>("physics").get<double>("diffusion"));
 
         physics->setCells(cells);

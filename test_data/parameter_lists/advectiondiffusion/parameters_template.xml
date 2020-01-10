@@ -1,7 +1,8 @@
 <ParameterList name="Compadre">
   <ParameterList name="physics">
     <Parameter name="diffusion" type="double" value="1.0"/>
-    <Parameter name="penalty" type="double" value="1e-10"/>
+    <Parameter name="advection" type="double" value="1.0"/>
+    <Parameter name="penalty" type="double" value="1e+2"/>
     <Parameter name="l2 projection only" type="bool" value="true"/>
     <Parameter name="solution" type="string" value="polynomial"/>
   </ParameterList>

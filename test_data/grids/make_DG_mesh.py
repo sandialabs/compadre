@@ -31,15 +31,8 @@ def get_quadrature(poly_order, dimension=2):
         q=quadTri2D.sites[poly_order]
         return (w,q)
     if (dimension==1):
-        q=np.empty([num_points],dtype="d")
-        if (num_points==1):
-            w[0]=2;
-            q[0]=0;
-        elif (num_points==2):
-            w[0]=1.;
-            w[1]=1.;
-            q[0]=-1./math.sqrt(3);
-            q[1]= 1./math.sqrt(3);
+        w=quadLine1D.weights[poly_order]
+        q=quadLine1D.sites[poly_order]
         return (w,q)
 
 def get_line_lengths(physical_vertices):
