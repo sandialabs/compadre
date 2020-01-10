@@ -5,9 +5,9 @@ Compadre:
   'io':
     'input file prefix': '../test_data/grids/'
     # source sites
-    'input file': 'dg_1.nc'
+    'input file': 'fv_0.nc'
     # target sites
-    'input file2': 'dg_1.nc'
+    'input file2': 'fv_0.nc'
     'output file prefix': '../test_data/'
     # data reconstructed on target
     'output file': 'pressure_out.pvtu'
@@ -15,12 +15,12 @@ Compadre:
     'output file2': 'pressure_in.pvtu'
     'vtk produce mesh': true
   'remap':
-    'porder': 3
+    'porder': 4
     'curvature porder': 3
-    'weighting power': 3
+    'weighting power': 10
     'curvature weighting power': 12
     'quadrature type': 'tri'
-    'quadrature order': 2
+    'quadrature order': 4
     'quadrature dimension': 2
     'dimensions': 2
   'neighborhood':
@@ -29,5 +29,5 @@ Compadre:
     'cutoff multiplier': 1.7
   'halo':
     'dynamic': true
-    'multiplier': 16.0
+    'multiplier': 32.0
 ...
