@@ -169,19 +169,19 @@ def integrate_along_line(line_coordinates):
 vis = True
 
 # geometry
-height = 2.0
-width  = 2.0
+height = 1.0
+width  = 1.0
 
 # random transformations of the original mesh
 random.seed(1234)
-blowup_ratio = 2 # 1 does nothing, identity
-random_rotation = True
-rotation_max = 35 # in degrees (either clockwise or counterclockwise, 180 should be highest needed)
+blowup_ratio = 1 # 1 does nothing, identity
+random_rotation = False
+rotation_max = 180 # in degrees (either clockwise or counterclockwise, 180 should be highest needed)
 variation = .20 # as a decimal for a percent
 
 
 #h_all=[0.2]#,0.1,0.05,0.025,0.0125,0.00625]
-h_all=[0.1,0.05,0.025,0.0125]
+h_all=[0.1,0.05,0.025,0.0125,0.00625]
 
 poly_order = 4
 num_points_interior = get_num_points_for_order(poly_order, 2)
