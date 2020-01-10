@@ -789,6 +789,9 @@ void GMLS_StokesPhysics::computeMatrix(local_index_type field_one, local_index_t
                         vals[n] = 1.0;
                     }
                 }
+                {
+                    this->_A->sumIntoLocalValues(row, cols, vals);
+                }
             }
         }
     }
