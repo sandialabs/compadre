@@ -417,9 +417,7 @@ Teuchos::RCP<crs_graph_type> GMLS_StokesPhysics::computeGraph(local_index_type f
                 }
             }
         }
-    }
-
-    if (field_one == lm_pressure_field_id && field_two == pressure_field_id) {
+    } else if (field_one == lm_pressure_field_id && field_two == pressure_field_id) {
         // row all DOFs for pressure against Lagrange multiplier
         Teuchos::Array<local_index_type> col_data(nlocal*fields[field_two]->nDim());
         Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
@@ -438,9 +436,7 @@ Teuchos::RCP<crs_graph_type> GMLS_StokesPhysics::computeGraph(local_index_type f
             // local index 0 is the shared global id for the Lagrange multiplier
             this->_A_graph->insertLocalIndices(nlocal, cols);
         }
-    }
-
-    if (field_one == pressure_field_id && field_two == lm_pressure_field_id) {
+    } else if (field_one == pressure_field_id && field_two == lm_pressure_field_id) {
         // col all DOFs for pressure agsint Lagrange multiplier
         auto comm = this->_particles->getCoordsConst()->getComm();
         for (local_index_type i=0; i<nlocal; i++) {
@@ -458,9 +454,7 @@ Teuchos::RCP<crs_graph_type> GMLS_StokesPhysics::computeGraph(local_index_type f
                 this->_A_graph->insertLocalIndices(row, cols);
             }
         }
-    }
-
-    if (field_one == lm_pressure_field_id && field_two == lm_pressure_field_id) {
+    } else if (field_one == lm_pressure_field_id && field_two == lm_pressure_field_id) {
         // Identity on all DOFs for Lagrange multiplier
         for (local_index_type i=0; i<nlocal; i++) {
             for (local_index_type k=0; k<fields[field_two]->nDim(); k++) {
@@ -517,65 +511,61 @@ void GMLS_StokesPhysics::computeMatrix(local_index_type field_one, local_index_t
     const local_index_type host_scratch_team_level = 0; // not used in Kokkos currently
 
     // Put values from no-constraint GMLS into matrix
-    Kokkos::parallel_for(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level, Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
-        const int i = teamMember.league_rank();
+    if ( (field_one == velocity_field_id && field_two == velocity_field_id) ||
+         (field_one == velocity_field_id && field_two == pressure_field_id) ) {
+        Kokkos::parallel_for(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level, Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
+            const int i = teamMember.league_rank();
 
-        host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
-        host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+            host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+            host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
 
-        const local_index_type num_neighbors = neighborhood->getNumNeighbors(i);
+            const local_index_type num_neighbors = neighborhood->getNumNeighbors(i);
 
-        // Print error if there's not enough neighbors
-        TEUCHOS_TEST_FOR_EXCEPT_MSG(num_neighbors < neighbors_needed,
-                "ERROR: Number of neighbors: " + std::to_string(num_neighbors) << " Neighbors needed: " << std::to_string(neighbors_needed));
+            // Print error if there's not enough neighbors
+            TEUCHOS_TEST_FOR_EXCEPT_MSG(num_neighbors < neighbors_needed,
+                    "ERROR: Number of neighbors: " + std::to_string(num_neighbors) << " Neighbors needed: " << std::to_string(neighbors_needed));
 
-        // Put the values of alpha in the proper place in the global matrix
-        for (local_index_type k=0; k<fields[field_one]->nDim(); k++) {
-            local_index_type row = local_to_dof_map(i, field_one, k);
-            for (local_index_type l=0; l<num_neighbors; l++) {
-                for (local_index_type n=0; n<fields[field_two]->nDim(); n++) {
-                    col_data(l*fields[field_two]->nDim()+n) = local_to_dof_map(neighborhood->getNeighbor(i, l), field_two, n);
-                    if (field_one == velocity_field_id && field_two == velocity_field_id) {
-                        // checking its boundary condition
-                        if (bc_id(i, 0) == 1) {
-                            // for points on the boundary
-                            if (i==neighborhood->getNeighbor(i, l)) {
-                                if (n==k) {
-                                    val_data(l*fields[field_two]->nDim() + n) = 1.0;
+            // Put the values of alpha in the proper place in the global matrix
+            for (local_index_type k=0; k<fields[field_one]->nDim(); k++) {
+                local_index_type row = local_to_dof_map(i, field_one, k);
+                for (local_index_type l=0; l<num_neighbors; l++) {
+                    for (local_index_type n=0; n<fields[field_two]->nDim(); n++) {
+                        col_data(l*fields[field_two]->nDim()+n) = local_to_dof_map(neighborhood->getNeighbor(i, l), field_two, n);
+                        if (field_one == velocity_field_id && field_two == velocity_field_id) {
+                            // checking its boundary condition
+                            if (bc_id(i, 0) == 1) {
+                                // for points on the boundary
+                                if (i==neighborhood->getNeighbor(i, l)) {
+                                    if (n==k) {
+                                        val_data(l*fields[field_two]->nDim() + n) = 1.0;
+                                    } else {
+                                        val_data(l*fields[field_two]->nDim() + n) = 0.0;
+                                    }
                                 } else {
                                     val_data(l*fields[field_two]->nDim() + n) = 0.0;
                                 }
                             } else {
-                                val_data(l*fields[field_two]->nDim() + n) = 0.0;
+                                // for others, evaluate the coefficient and fill the row
+                                val_data(l*fields[field_two]->nDim() + n) = _velocity_all_GMLS->getAlpha1TensorTo1Tensor(TargetOperation::CurlCurlOfVectorPointEvaluation, i, k /* output component*/, l, n /*input component*/);
                             }
-                        } else {
-                            // for others, evaluate the coefficient and fill the row
-                            val_data(l*fields[field_two]->nDim() + n) = _velocity_all_GMLS->getAlpha1TensorTo1Tensor(TargetOperation::CurlCurlOfVectorPointEvaluation, i, k /* output component*/, l, n /*input component*/);
+                        } else if (field_one == velocity_field_id && field_two == pressure_field_id) {
+                            if (bc_id(i, 0) == 1) {
+                                val_data(l*fields[field_two]->nDim() + n) = 0.0;
+                            } else {
+                                val_data(l*fields[field_two]->nDim() + n) = _pressure_all_GMLS->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l)*_pressure_all_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample,i, l, false, 0, 0);
+                                val_data(0) += _pressure_all_GMLS->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l)*_pressure_all_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0, 0);
+                            }
                         }
-                    } else if (field_one == velocity_field_id && field_two == pressure_field_id) {
-                        if (bc_id(i, 0) == 1) {
-                            val_data(l*fields[field_two]->nDim() + n) = 0.0;
-                        } else {
-                            val_data(l*fields[field_two]->nDim() + n) = _pressure_all_GMLS->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l)*_pressure_all_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample,i, l, false, 0, 0);
-                            val_data(0) += _pressure_all_GMLS->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l)*_pressure_all_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0, 0);
-                        }
-                    } else if (field_one == pressure_field_id && field_two == velocity_field_id) {
-                        // fill in zero here for now
-                        val_data(l*fields[field_two]->nDim() + n) = 0.0;
-                    } else if (field_one == pressure_field_id && field_two == pressure_field_id) {
-                        // fill in zero here for now
-                        val_data(l*fields[field_two]->nDim() + n) = 0.0;
                     }
                 }
+                {
+                    this->_A->sumIntoLocalValues(row, num_neighbors*fields[field_two]->nDim(), val_data.data(), col_data.data());
+                }
             }
-            {
-                this->_A->sumIntoLocalValues(row, num_neighbors*fields[field_two]->nDim(), val_data.data(), col_data.data());
-            }
-        }
-    });
+        });
+    } else if (field_one == pressure_field_id && field_two == velocity_field_id) {
+        // Put values into pressure-velocity block
 
-    // Put values into pressure-velocity block
-    if (field_one == pressure_field_id && field_two == velocity_field_id) {
         // Put values from Neumann GMLS into matrix
         int nlocal_neumann = _neumann_filtered_flags.extent(0);
         Kokkos::parallel_for(host_team_policy(nlocal_neumann, Kokkos::AUTO).set_scratch_size(host_scratch_team_level, Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
@@ -612,10 +602,9 @@ void GMLS_StokesPhysics::computeMatrix(local_index_type field_one, local_index_t
                 }
             }
         });
-    }
+    } else if (field_one == pressure_field_id && field_two == pressure_field_id) {
+        // Put values into pressure-pressure block
 
-    // Put values into pressure-pressure block
-    if (field_one == pressure_field_id && field_two == pressure_field_id) {
         // Put values from no-constraint GMLS into matrix
         int nlocal_noconstraint = _noconstraint_filtered_flags.extent(0);
         Kokkos::parallel_for(host_team_policy(nlocal_noconstraint, Kokkos::AUTO).set_scratch_size(host_scratch_team_level, Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
@@ -717,9 +706,7 @@ void GMLS_StokesPhysics::computeMatrix(local_index_type field_one, local_index_t
                 }
             }
         });
-    }
-
-    if (field_one == lm_pressure_field_id && field_two == pressure_field_id) {
+    } else if (field_one == lm_pressure_field_id && field_two == pressure_field_id) {
         // row all DOFs for solution against Lagrange multiplier
         Teuchos::Array<local_index_type> col_data(nlocal*fields[field_two]->nDim());
         Teuchos::Array<scalar_type> val_data(nlocal*fields[field_two]->nDim());
@@ -741,9 +728,7 @@ void GMLS_StokesPhysics::computeMatrix(local_index_type field_one, local_index_t
             // local index 0 is the shared global id for the Lagrange multiplier
             this->_A->sumIntoLocalValues(nlocal, cols, vals);
         }
-    }
-
-    if (field_one == pressure_field_id && field_two == lm_pressure_field_id) {
+    } else if (field_one == pressure_field_id && field_two == lm_pressure_field_id) {
         // col all DOFs for solution against Lagrange multiplier
         auto comm = this->_particles->getCoordsConst()->getComm();
         for (local_index_type i=0; i<nlocal; i++) {
@@ -764,9 +749,7 @@ void GMLS_StokesPhysics::computeMatrix(local_index_type field_one, local_index_t
                 this->_A->sumIntoLocalValues(row, cols, vals);
             }
         }
-    }
-
-    if (field_one == lm_pressure_field_id && field_two == lm_pressure_field_id) {
+    } else if (field_one == lm_pressure_field_id && field_two == lm_pressure_field_id) {
         // identity on all DOFs for Lagrange multiplier
         scalar_type eps_penalty = 1.0;
 
