@@ -94,16 +94,6 @@ void GMLS_StokesSources::evaluateRHS(local_index_type field_one, local_index_typ
 
 std::vector<InteractingFields> GMLS_StokesSources::gatherFieldInteractions() {
     std::vector<InteractingFields> field_interactions;
-    field_interactions.push_back(InteractingFields(op_needing_interaction::physics,
-        _particles->getFieldManagerConst()->getIDOfFieldFromName("velocity")));
-    field_interactions.push_back(InteractingFields(op_needing_interaction::physics,
-        _particles->getFieldManagerConst()->getIDOfFieldFromName("velocity"),
-        _particles->getFieldManagerConst()->getIDOfFieldFromName("pressure")));
-    field_interactions.push_back(InteractingFields(op_needing_interaction::physics,
-        _particles->getFieldManagerConst()->getIDOfFieldFromName("pressure"),
-        _particles->getFieldManagerConst()->getIDOfFieldFromName("velocity")));
-    field_interactions.push_back(InteractingFields(op_needing_interaction::physics,
-        _particles->getFieldManagerConst()->getIDOfFieldFromName("pressure")));
     return field_interactions;
 }
 
