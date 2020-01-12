@@ -150,7 +150,9 @@ void GMLS_PoissonNeumannPhysics::initialize() {
     //****************
 
     // No-constraint GMLS operator
-    _noconstraint_GMLS = Teuchos::rcp<GMLS>( new GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+    _noconstraint_GMLS = Teuchos::rcp<GMLS>( new GMLS(ScalarTaylorPolynomial,
+                 PointSample,
+                 _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
                  3 /* dimension */,
                  "QR" /* dense sovler type */,
                  "STANDARD" /* problem type */,
@@ -166,7 +168,9 @@ void GMLS_PoissonNeumannPhysics::initialize() {
     _noconstraint_GMLS->generateAlphas(); // just point evaluations
 
     // Neumann GMLS operator - member of the physics class
-    _neumann_GMLS = Teuchos::rcp<GMLS>( new GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+    _neumann_GMLS = Teuchos::rcp<GMLS>( new GMLS(ScalarTaylorPolynomial,
+                  PointSample,
+                  _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
                   3 /* dimension */,
                   "LU" /* dense sovler type */,
                   "STANDARD" /* problem type */,
