@@ -151,34 +151,31 @@ void GMLS_StokesPhysics::initialize() {
     });
 
     // Extract out points without any BC
-    _noconstraint_filtered_flags = filterViewByID<Kokkos::HostSpace>(kokkos_flags_host, 0);
-
-    // Extract out points labeled with Dirichlet BC
-    _dirichlet_filtered_flags = filterViewByID<Kokkos::HostSpace>(kokkos_flags_host, 1);
+    _internal_filtered_flags = filterViewByID<Kokkos::HostSpace>(kokkos_flags_host, 0);
 
     // Extract out points labeled with Neumann BC
     // _neuman_filtered_flags belongs to physics class
-    _neumann_filtered_flags = filterViewByID<Kokkos::HostSpace>(kokkos_flags_host, 2);
-    auto neumann_kokkos_target_coordinates_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_target_coordinates_host,
-            _neumann_filtered_flags);
-    auto neumann_kokkos_neighbor_lists_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_neighbor_lists_host,
-            _neumann_filtered_flags);
-    auto neumann_kokkos_epsilons_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_epsilons_host,
-            _neumann_filtered_flags);
-    auto neumann_kokkos_normals_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_normals_host,
-            _neumann_filtered_flags);
+    _boundary_filtered_flags = filterViewByID<Kokkos::HostSpace>(kokkos_flags_host, 1);
+    auto boundary_kokkos_target_coordinates_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_target_coordinates_host,
+            _boundary_filtered_flags);
+    auto boundary_kokkos_neighbor_lists_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_neighbor_lists_host,
+            _boundary_filtered_flags);
+    auto boundary_kokkos_epsilons_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_epsilons_host,
+            _boundary_filtered_flags);
+    auto boundary_kokkos_normals_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_normals_host,
+            _boundary_filtered_flags);
 
-    // Now create a tangent bundles to set for the points with Neumann BC
-    int nlocal_neumann = _neumann_filtered_flags.extent(0);
-    Kokkos::View<double***> neumann_kokkos_tangent_bundles_host("target_tangent_bundles", nlocal_neumann, target_coords->nDim(), target_coords->nDim());
-    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal_neumann), KOKKOS_LAMBDA(const int i) {
-        neumann_kokkos_tangent_bundles_host(i, 0, 0) = 0.0;
-        neumann_kokkos_tangent_bundles_host(i, 1, 0) = 0.0;
-        neumann_kokkos_tangent_bundles_host(i, 1, 1) = 0.0;
-        neumann_kokkos_tangent_bundles_host(i, 1, 2) = 0.0;
-        neumann_kokkos_tangent_bundles_host(i, 2, 0) = neumann_kokkos_normals_host(i, 0);
-        neumann_kokkos_tangent_bundles_host(i, 2, 1) = neumann_kokkos_normals_host(i, 1);
-        neumann_kokkos_tangent_bundles_host(i, 2, 2) = neumann_kokkos_normals_host(i, 2);
+    // Now create a tangent bundles to set for the points with boundary BC
+    int nlocal_boundary = _boundary_filtered_flags.extent(0);
+    Kokkos::View<double***> boundary_kokkos_tangent_bundles_host("target_tangent_bundles", nlocal_boundary, target_coords->nDim(), target_coords->nDim());
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal_boundary), KOKKOS_LAMBDA(const int i) {
+        boundary_kokkos_tangent_bundles_host(i, 0, 0) = 0.0;
+        boundary_kokkos_tangent_bundles_host(i, 1, 0) = 0.0;
+        boundary_kokkos_tangent_bundles_host(i, 1, 1) = 0.0;
+        boundary_kokkos_tangent_bundles_host(i, 1, 2) = 0.0;
+        boundary_kokkos_tangent_bundles_host(i, 2, 0) = boundary_kokkos_normals_host(i, 0);
+        boundary_kokkos_tangent_bundles_host(i, 2, 1) = boundary_kokkos_normals_host(i, 1);
+        boundary_kokkos_tangent_bundles_host(i, 2, 2) = boundary_kokkos_normals_host(i, 2);
     });
 
     //****************
@@ -223,17 +220,17 @@ void GMLS_StokesPhysics::initialize() {
     _pressure_all_GMLS->addTargets(TargetOperation::GradientOfScalarPointEvaluation);
     _pressure_all_GMLS->generateAlphas();
 
-    // pressure GMLS operator - neumann
+    // pressure GMLS operator - boundary
     _pressure_neumann_GMLS = Teuchos::rcp<GMLS>(new GMLS(ReconstructionSpace::VectorTaylorPolynomial,
                         StaggeredEdgeIntegralSample,
                         StaggeredEdgeAnalyticGradientIntegralSample,
                         _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
                         3, "SVD", "STANDARD", "NO_CONSTRAINT"));
-    _pressure_neumann_GMLS->setProblemData(neumann_kokkos_neighbor_lists_host,
+    _pressure_neumann_GMLS->setProblemData(boundary_kokkos_neighbor_lists_host,
                         kokkos_augmented_source_coordinates_host,
-                        neumann_kokkos_target_coordinates_host,
-                        neumann_kokkos_epsilons_host);
-    _pressure_neumann_GMLS->setTangentBundle(neumann_kokkos_tangent_bundles_host);
+                        boundary_kokkos_target_coordinates_host,
+                        boundary_kokkos_epsilons_host);
+    _pressure_neumann_GMLS->setTangentBundle(boundary_kokkos_tangent_bundles_host);
     _pressure_neumann_GMLS->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
     _pressure_neumann_GMLS->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
     _pressure_neumann_GMLS->setOrderOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
@@ -564,69 +561,67 @@ void GMLS_StokesPhysics::computeMatrix(local_index_type field_one, local_index_t
             }
         });
     } else if (field_one == pressure_field_id && field_two == velocity_field_id) {
-        // Put values into pressure-velocity block
+        // // Put values into pressure-velocity block
 
-        // Put values from Neumann GMLS into matrix
-        int nlocal_neumann = _neumann_filtered_flags.extent(0);
-        Kokkos::parallel_for(host_team_policy(nlocal_neumann, Kokkos::AUTO).set_scratch_size(host_scratch_team_level, Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
-            const int i = teamMember.league_rank();
-            host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
-            host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+        // // Put values from Neumann GMLS into matrix
+        // int nlocal_boundary = _boundary_filtered_flags.extent(0);
+        // Kokkos::parallel_for(host_team_policy(nlocal_boundary, Kokkos::AUTO).set_scratch_size(host_scratch_team_level, Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
+        //     const int i = teamMember.league_rank();
+        //     host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim()); host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+        //     const local_index_type num_neighbors = neighborhood->getNumNeighbors(_boundary_filtered_flags(i));
 
-            const local_index_type num_neighbors = neighborhood->getNumNeighbors(_neumann_filtered_flags(i));
+        //     // Obtain the value of b_i from Neumann GMLS
+        //     scalar_type b_i = _pressure_neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, num_neighbors);
 
-            // Obtain the value of b_i from Neumann GMLS
-            scalar_type b_i = _pressure_neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, num_neighbors);
-
-            // Print error if there's not enough neighbors
-            TEUCHOS_TEST_FOR_EXCEPT_MSG(num_neighbors < neighbors_needed,
-                    "ERROR: Number of neighbors: " + std::to_string(num_neighbors) << " Neighbors needed: " << std::to_string(neighbors_needed));
-            // Put the values of alpha in the proper place in the global matrix
-            for (local_index_type k=0; k<fields[field_one]->nDim(); k++) {
-                local_index_type row = local_to_dof_map(_neumann_filtered_flags(i), field_one, k);
-                for (local_index_type l=0; l<num_neighbors; l++) {
-                    for (local_index_type n=0; n<fields[field_two]->nDim(); n++) {
-                        col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(neighborhood->getNeighbor(_neumann_filtered_flags(i), l), field_two, n);
-                        // Taking the dot product between curl(curl(velocity)) and normal vector
-                        scalar_type collapsed_value = 0.0;
-                        for (local_index_type m=0; m<fields[field_two]->nDim(); m++) {
-                            // Obtained the normal direction
-                            scalar_type normal_comp = _pressure_neumann_GMLS->getTangentBundle(i, 2, m);
-                            collapsed_value += b_i*normal_comp*_velocity_all_GMLS->getAlpha1TensorTo1Tensor(TargetOperation::CurlCurlOfVectorPointEvaluation, _neumann_filtered_flags(i), m /* output component*/, l, n /*input component*/);
-                        }
-                        val_data(l*fields[field_two]->nDim() + n) = collapsed_value;
-                    }
-                }
-                {
-                    this->_A->sumIntoLocalValues(row, num_neighbors*fields[field_two]->nDim(), val_data.data(), col_data.data());
-                }
-            }
-        });
+        //     // Print error if there's not enough neighbors
+        //     TEUCHOS_TEST_FOR_EXCEPT_MSG(num_neighbors < neighbors_needed,
+        //             "ERROR: Number of neighbors: " + std::to_string(num_neighbors) << " Neighbors needed: " << std::to_string(neighbors_needed));
+        //     // Put the values of alpha in the proper place in the global matrix
+        //     for (local_index_type k=0; k<fields[field_one]->nDim(); k++) {
+        //         local_index_type row = local_to_dof_map(_boundary_filtered_flags(i), field_one, k);
+        //         for (local_index_type l=0; l<num_neighbors; l++) {
+        //             for (local_index_type n=0; n<fields[field_two]->nDim(); n++) {
+        //                 col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(neighborhood->getNeighbor(_boundary_filtered_flags(i), l), field_two, n);
+        //                 // Taking the dot product between curl(curl(velocity)) and normal vector
+        //                 scalar_type collapsed_value = 0.0;
+        //                 for (local_index_type m=0; m<fields[field_two]->nDim(); m++) {
+        //                     // Obtained the normal direction
+        //                     scalar_type normal_comp = _pressure_neumann_GMLS->getTangentBundle(i, 2, m);
+        //                     collapsed_value += b_i*normal_comp*_velocity_all_GMLS->getAlpha1TensorTo1Tensor(TargetOperation::CurlCurlOfVectorPointEvaluation, _boundary_filtered_flags(i), m /* output component*/, l, n /*input component*/);
+        //                 }
+        //                 val_data(l*fields[field_two]->nDim() + n) = collapsed_value;
+        //             }
+        //         }
+        //         {
+        //             this->_A->sumIntoLocalValues(row, num_neighbors*fields[field_two]->nDim(), val_data.data(), col_data.data());
+        //         }
+        //     }
+        // });
     } else if (field_one == pressure_field_id && field_two == pressure_field_id) {
         // Put values into pressure-pressure block
 
         // Put values from no-constraint GMLS into matrix
-        int nlocal_noconstraint = _noconstraint_filtered_flags.extent(0);
-        Kokkos::parallel_for(host_team_policy(nlocal_noconstraint, Kokkos::AUTO).set_scratch_size(host_scratch_team_level, Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
+        int nlocal_internal = _internal_filtered_flags.extent(0);
+        Kokkos::parallel_for(host_team_policy(nlocal_internal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level, Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
             const int i = teamMember.league_rank();
 
             host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
             host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
 
-            const local_index_type num_neighbors = neighborhood->getNumNeighbors(_noconstraint_filtered_flags(i));
+            const local_index_type num_neighbors = neighborhood->getNumNeighbors(_internal_filtered_flags(i));
 
             // Print error if there's not enough neighbors
             TEUCHOS_TEST_FOR_EXCEPT_MSG(num_neighbors < neighbors_needed,
                     "ERROR: Number of neighbors: " + std::to_string(num_neighbors) << " Neighbors needed: " << std::to_string(neighbors_needed));
             // Put the values of alpha in the proper place in the global matrix
             for (local_index_type k=0; k<fields[field_one]->nDim(); k++) {
-                local_index_type row = local_to_dof_map(_noconstraint_filtered_flags(i), field_one, k);
+                local_index_type row = local_to_dof_map(_internal_filtered_flags(i), field_one, k);
                 for (local_index_type l=0; l<num_neighbors; l++) {
                     for (local_index_type n=0; n<fields[field_two]->nDim(); n++) {
-                        col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(neighborhood->getNeighbor(_noconstraint_filtered_flags(i), l), field_two, n);
+                        col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(neighborhood->getNeighbor(_internal_filtered_flags(i), l), field_two, n);
                         if (n==k) { // same field, same component
-                            val_data(l*fields[field_two]->nDim() + n) = _pressure_all_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, _noconstraint_filtered_flags(i), l)*_pressure_all_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample,_noconstraint_filtered_flags(i), l, false, 0, 0);
-                            val_data(0) += _pressure_all_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, _noconstraint_filtered_flags(i), l)*_pressure_all_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, _noconstraint_filtered_flags(i), l, true, 0, 0);
+                            val_data(l*fields[field_two]->nDim() + n) = _pressure_all_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, _internal_filtered_flags(i), l)*_pressure_all_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample,_internal_filtered_flags(i), l, false, 0, 0);
+                            val_data(0) += _pressure_all_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, _internal_filtered_flags(i), l)*_pressure_all_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, _internal_filtered_flags(i), l, true, 0, 0);
                         } else {
                             val_data(l*fields[field_two]->nDim() + n) = 0.0;
                         }
@@ -638,60 +633,60 @@ void GMLS_StokesPhysics::computeMatrix(local_index_type field_one, local_index_t
             }
         });
 
-        // Put values from Neumann GMLS into matrix
-        int nlocal_neumann = _neumann_filtered_flags.extent(0);
-        Kokkos::parallel_for(host_team_policy(nlocal_neumann, Kokkos::AUTO).set_scratch_size(host_scratch_team_level, Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
-            const int i = teamMember.league_rank();
+        // // Put values from Neumann GMLS into matrix
+        // int nlocal_boundary = _boundary_filtered_flags.extent(0);
+        // Kokkos::parallel_for(host_team_policy(nlocal_boundary, Kokkos::AUTO).set_scratch_size(host_scratch_team_level, Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
+        //     const int i = teamMember.league_rank();
 
-            host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
-            host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+        //     host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+        //     host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
 
-            const local_index_type num_neighbors = neighborhood->getNumNeighbors(_neumann_filtered_flags(i));
+        //     const local_index_type num_neighbors = neighborhood->getNumNeighbors(_boundary_filtered_flags(i));
 
-            // Print error if there's not enough neighbors
-            TEUCHOS_TEST_FOR_EXCEPT_MSG(num_neighbors < neighbors_needed,
-                    "ERROR: Number of neighbors: " + std::to_string(num_neighbors) << " Neighbors needed: " << std::to_string(neighbors_needed));
-            // Put the values of alpha in the proper place in the global matrix
-            for (local_index_type k=0; k<fields[field_one]->nDim(); k++) {
-                local_index_type row = local_to_dof_map(_neumann_filtered_flags(i), field_one, k);
-                for (local_index_type l=0; l<num_neighbors; l++) {
-                    for (local_index_type n=0; n<fields[field_two]->nDim(); n++) {
-                        col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(neighborhood->getNeighbor(_neumann_filtered_flags(i), l), field_two, n);
-                        if (n==k) { // same field, same component
-                            val_data(l*fields[field_two]->nDim() + n) = _pressure_neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*_pressure_neumann_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample,i, l, false, 0, 0);
-                            val_data(0) += _pressure_neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*_pressure_neumann_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0, 0);
-                        } else {
-                            val_data(l*fields[field_two]->nDim() + n) = 0.0;
-                        }
-                    }
-                }
-                {
-                    this->_A->sumIntoLocalValues(row, num_neighbors*fields[field_two]->nDim(), val_data.data(), col_data.data());
-                }
-            }
-        });
+        //     // Print error if there's not enough neighbors
+        //     TEUCHOS_TEST_FOR_EXCEPT_MSG(num_neighbors < neighbors_needed,
+        //             "ERROR: Number of neighbors: " + std::to_string(num_neighbors) << " Neighbors needed: " << std::to_string(neighbors_needed));
+        //     // Put the values of alpha in the proper place in the global matrix
+        //     for (local_index_type k=0; k<fields[field_one]->nDim(); k++) {
+        //         local_index_type row = local_to_dof_map(_boundary_filtered_flags(i), field_one, k);
+        //         for (local_index_type l=0; l<num_neighbors; l++) {
+        //             for (local_index_type n=0; n<fields[field_two]->nDim(); n++) {
+        //                 col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(neighborhood->getNeighbor(_boundary_filtered_flags(i), l), field_two, n);
+        //                 if (n==k) { // same field, same component
+        //                     val_data(l*fields[field_two]->nDim() + n) = _pressure_neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*_pressure_neumann_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample,i, l, false, 0, 0);
+        //                     val_data(0) += _pressure_neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*_pressure_neumann_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0, 0);
+        //                 } else {
+        //                     val_data(l*fields[field_two]->nDim() + n) = 0.0;
+        //                 }
+        //             }
+        //         }
+        //         {
+        //             this->_A->sumIntoLocalValues(row, num_neighbors*fields[field_two]->nDim(), val_data.data(), col_data.data());
+        //         }
+        //     }
+        // });
 
         // Apply Dirichlet points into matrix
-        int nlocal_dirichlet = _dirichlet_filtered_flags.extent(0);
-        Kokkos::parallel_for(host_team_policy(nlocal_dirichlet, Kokkos::AUTO).set_scratch_size(host_scratch_team_level, Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
+        int nlocal_boundary = _boundary_filtered_flags.extent(0);
+        Kokkos::parallel_for(host_team_policy(nlocal_boundary, Kokkos::AUTO).set_scratch_size(host_scratch_team_level, Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
             const int i = teamMember.league_rank();
 
             host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
             host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
 
-            const local_index_type num_neighbors = neighborhood->getNumNeighbors(_dirichlet_filtered_flags(i));
+            const local_index_type num_neighbors = neighborhood->getNumNeighbors(_boundary_filtered_flags(i));
 
             // Print error if there's not enough neighbors
             TEUCHOS_TEST_FOR_EXCEPT_MSG(num_neighbors < neighbors_needed,
                     "ERROR: Number of neighbors: " + std::to_string(num_neighbors) << " Neighbors needed: " << std::to_string(neighbors_needed));
             // Put the values of alpha in the proper place in the global matrix
             for (local_index_type k=0; k<fields[field_one]->nDim(); k++) {
-                local_index_type row = local_to_dof_map(_dirichlet_filtered_flags(i), field_one, k);
+                local_index_type row = local_to_dof_map(_boundary_filtered_flags(i), field_one, k);
                 for (local_index_type l=0; l<num_neighbors; l++) {
                     for (local_index_type n=0; n<fields[field_two]->nDim(); n++) {
-                        col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(neighborhood->getNeighbor(_dirichlet_filtered_flags(i), l), field_two, n);
+                        col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(neighborhood->getNeighbor(_boundary_filtered_flags(i), l), field_two, n);
                         if (n==k) { // same field, same component
-                            if (_dirichlet_filtered_flags(i) == neighborhood->getNeighbor(_dirichlet_filtered_flags(i), l)) {
+                            if (_boundary_filtered_flags(i) == neighborhood->getNeighbor(_boundary_filtered_flags(i), l)) {
                                 val_data(l*fields[field_two]->nDim() + n) = 1.0;
                             } else {
                                 val_data(l*fields[field_two]->nDim() + n) = 0.0;
