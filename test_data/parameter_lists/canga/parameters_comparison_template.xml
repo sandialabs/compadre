@@ -36,7 +36,7 @@
     <Parameter name="cell averaged" type="bool" value="true"/>
     <Parameter name="extra data field name" type="string" value="extra_data"/>
     <Parameter name="quadrature type" type="string" value="triangle"/>
-    <Parameter name="quadrature order" type="int" value="8"/>
+    <Parameter name="quadrature order" type="int" value="4"/>
     <Parameter name="quadrature dimension" type="int" value="2"/>
   </ParameterList>
   <ParameterList name="neighborhood">

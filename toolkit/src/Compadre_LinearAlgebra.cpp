@@ -102,12 +102,13 @@ void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *R
             // use a custom # of neighbors for each problem, if possible
             const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
             int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i + initial_index_of_batch))*multiplier : M;
+            int my_num_rhs = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i + initial_index_of_batch))*multiplier : NRHS;
 
             Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
             dgels_( const_cast<char *>(transpose_or_no.c_str()), 
-                    const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rows), 
-                    p_offset, const_cast<int*>(&lda), 
-                    rhs_offset, const_cast<int*>(&ldb), 
+                    const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rhs),
+                    p_offset, const_cast<int*>(&lda),
+                    rhs_offset, const_cast<int*>(&ldb),
                     scratch_work.data(), const_cast<int*>(&lwork), &i_info);
             });
 
@@ -128,11 +129,12 @@ void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *R
             // use a custom # of neighbors for each problem, if possible
             const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
             int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i + initial_index_of_batch))*multiplier : M;
+            int my_num_rhs = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i + initial_index_of_batch))*multiplier : NRHS;
 
             dgels_( const_cast<char *>(transpose_or_no.c_str()), 
-                    const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rows), 
-                    p_offset, const_cast<int*>(&lda), 
-                    rhs_offset, const_cast<int*>(&ldb), 
+                    const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rhs),
+                    p_offset, const_cast<int*>(&lda),
+                    rhs_offset, const_cast<int*>(&ldb),
                     scratch_work.data(), const_cast<int*>(&lwork), &i_info);
 
             compadre_assert_release(i_info==0 && "dgels failed");
@@ -152,17 +154,19 @@ void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *R
 
 }
 
-void batchSVDFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
+void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int lda, int nda, bool swap_layout_RHS, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
 
-    // P was constructed layout right, while LAPACK and CUDA expect layout left
-    // P is not squared and not symmetric, so we must convert it to layout left
-    // RHS is symmetric and square, so no conversion is necessary
-    ConvertLayoutRightToLeft crl(pm, lda, nda, P);
-    int scratch_size = scratch_matrix_left_type::shmem_size(lda, nda);
-    pm.clearScratchSizes();
-    pm.setTeamScratchSize(1, scratch_size);
-    pm.CallFunctorWithTeamThreads(num_matrices, crl);
-    Kokkos::fence();
+    if (swap_layout_P) {
+        // P was constructed layout right, while LAPACK and CUDA expect layout left
+        // P is not squared and not symmetric, so we must convert it to layout left
+        // RHS is symmetric and square, so no conversion is necessary
+        ConvertLayoutRightToLeft crl(pm, lda, nda, P);
+        int scratch_size = scratch_matrix_left_type::shmem_size(lda, nda);
+        pm.clearScratchSizes();
+        pm.setTeamScratchSize(1, scratch_size);
+        pm.CallFunctorWithTeamThreads(num_matrices, crl);
+        Kokkos::fence();
+    }
 
 #ifdef COMPADRE_USE_CUDA
 
@@ -339,18 +343,28 @@ void batchSVDFactorize(ParallelManager pm, double *P, int lda, int nda, double *
 
 
     Kokkos::Profiling::pushRegion("SVD::S Copy");
-      // deep copy neighbor list sizes over to gpu
-      Kokkos::View<int*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > h_neighbor_list_sizes(neighbor_list_sizes + initial_index_of_batch, num_matrices);
-      Kokkos::View<int*> d_neighbor_list_sizes("neighbor list sizes on device", num_matrices);
-      Kokkos::deep_copy(d_neighbor_list_sizes, h_neighbor_list_sizes);
+    // deep copy neighbor list sizes over to gpu
+    Kokkos::View<int*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > h_neighbor_list_sizes(neighbor_list_sizes + initial_index_of_batch, num_matrices);
+    Kokkos::View<int*> d_neighbor_list_sizes("neighbor list sizes on device", num_matrices);
+    Kokkos::deep_copy(d_neighbor_list_sizes, h_neighbor_list_sizes);
 
-      int scratch_space_size = 0;
-      scratch_space_size += scratch_vector_type::shmem_size( min_mn );  // s
+    int scratch_space_level;
+    int scratch_space_size = 0;
+    scratch_space_size += scratch_vector_type::shmem_size( min_mn );  // s
+    if (swap_layout_P) {
+        // Less memory is required if the right hand side matrix is diagonal
+        scratch_space_level = 0;
+    } else {
+        // More memory is required to perform full matrix multiplication
+        scratch_space_size += scratch_matrix_left_type::shmem_size(N, M);
+        scratch_space_size += scratch_matrix_left_type::shmem_size(N, NRHS);
+        scratch_space_level = 1;
+    }
     Kokkos::Profiling::popRegion();
     
     Kokkos::parallel_for(
         team_policy(num_matrices, Kokkos::AUTO)
-        .set_scratch_size(0, Kokkos::PerTeam(scratch_space_size)), // shared memory
+        .set_scratch_size(scratch_space_level, Kokkos::PerTeam(scratch_space_size)), // shared memory
         KOKKOS_LAMBDA (const member_type& teamMember) {
 
         const int target_index = teamMember.league_rank();
@@ -360,7 +374,7 @@ void batchSVDFactorize(ParallelManager pm, double *P, int lda, int nda, double *
         int my_num_rows = d_neighbor_list_sizes(target_index)*multiplier;
         //int my_num_rows = d_neighbor_list_sizes(target_index)*multiplier : M;
 
-        scratch_vector_type s(teamMember.team_scratch(0), min_mn ); // shared memory
+        scratch_vector_type s(teamMember.team_scratch(scratch_space_level), min_mn ); // shared memory
 
         // data is actually layout left
         scratch_matrix_left_type
@@ -383,20 +397,61 @@ void batchSVDFactorize(ParallelManager pm, double *P, int lda, int nda, double *
         });
         teamMember.team_barrier();
 
-        for (int i=0; i<my_num_rows; ++i) {
-            double sqrt_w_i_m = RHS_(i,i);
-            Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,N), 
-                  [=] (const int j) {
+        if (swap_layout_P) {
+            // When solving PsqrtW against sqrtW, since there are two
+            // diagonal matrices (s and the right hand side), the matrix
+            // multiplication can be written more efficiently
+            for (int i=0; i<my_num_rows; ++i) {
+                double sqrt_w_i_m = RHS_(i,i);
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,N),
+                      [=] (const int j) {
 
-                double  bdataj = 0;
-                for (int k=0; k<min_mn; ++k) {
-                    bdataj += V_(j,k)*s(k)*U_(i,k);
+                    double  bdataj = 0;
+                    for (int k=0; k<min_mn; ++k) {
+                        bdataj += V_(j,k)*s(k)*U_(i,k);
+                    }
+                // RHS_ is where we can find std::sqrt(w)
+                    bdataj *= sqrt_w_i_m;
+                    RHS_(j,i) = bdataj;
+                });
+                teamMember.team_barrier();
+            }
+        } else {
+            // Otherwise, you need to perform a full matrix multiplication
+            scratch_matrix_left_type temp_VSU_left_matrix(teamMember.team_scratch(scratch_space_level), N, M);
+            scratch_matrix_left_type temp_x_left_matrix(teamMember.team_scratch(scratch_space_level), N, NRHS);
+            // Multiply V s U^T and sotre into temp_VSU_left_matrix
+            Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, N),
+                [=] (const int i) {
+                for (int j=0; j<M; j++) {
+                    double temp = 0.0;
+                    for (int k=0; k<min_mn; k++) {
+                        temp += V_(i,k)*s(k)*U_(j,k);
+                    }
+                    temp_VSU_left_matrix(i, j) = temp;
                 }
-            // RHS_ is where we can find std::sqrt(w)
-                bdataj *= sqrt_w_i_m;
-                RHS_(j,i) = bdataj;
             });
             teamMember.team_barrier();
+
+            // Multiply temp_VSU_left_matrix with RHS_ and store in temp_x_left_matrix
+            Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, N),
+                [=] (const int i) {
+                for (int j=0; j<NRHS; j++) {
+                    double temp = 0.0;
+                    for (int k=0; k<M; k++) {
+                        temp += temp_VSU_left_matrix(i, k)*RHS_(k, j);
+                    }
+                    temp_x_left_matrix(i, j) = temp;
+                }
+            });
+            teamMember.team_barrier();
+            // Copy the matrix back to RHS
+            Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, N),
+                [=] (const int i) {
+                for (int j=0; j<NRHS; j++) {
+                    RHS_(i, j) = temp_x_left_matrix(i, j);
+                }
+            });
         }
     }, "SVD: USV*RHS Multiply");
 
@@ -460,12 +515,13 @@ void batchSVDFactorize(ParallelManager pm, double *P, int lda, int nda, double *
 
                 // use a custom # of neighbors for each problem, if possible
                 const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
-                int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i))*multiplier : M;
+                int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i + initial_index_of_batch))*multiplier : M;
+                int my_num_rhs = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i + initial_index_of_batch))*multiplier : NRHS;
 
                 Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                dgelsd_( const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rows), 
-                         p_offset, const_cast<int*>(&lda), 
-                         rhs_offset, const_cast<int*>(&ldb), 
+                dgelsd_( const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rhs),
+                         p_offset, const_cast<int*>(&lda),
+                         rhs_offset, const_cast<int*>(&ldb),
                          scratch_s.data(), const_cast<double*>(&rcond), &i_rank,
                          scratch_work.data(), const_cast<int*>(&lwork), scratch_iwork.data(), &i_info);
                 });
@@ -491,10 +547,11 @@ void batchSVDFactorize(ParallelManager pm, double *P, int lda, int nda, double *
                 // use a custom # of neighbors for each problem, if possible
                 const int multiplier = (max_neighbors > 0) ? M/max_neighbors : 1; // assumes M is some positive integer scalaing of max_neighbors
                 int my_num_rows = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i + initial_index_of_batch))*multiplier : M;
+                int my_num_rhs = (neighbor_list_sizes) ? (*(neighbor_list_sizes + i + initial_index_of_batch))*multiplier : NRHS;
 
-                dgelsd_( const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rows), 
-                         p_offset, const_cast<int*>(&lda), 
-                         rhs_offset, const_cast<int*>(&ldb), 
+                dgelsd_( const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rhs),
+                         p_offset, const_cast<int*>(&lda),
+                         rhs_offset, const_cast<int*>(&ldb),
                          scratch_s, const_cast<double*>(&rcond), &i_rank,
                          scratch_work, const_cast<int*>(&lwork), scratch_iwork, &i_info);
 
@@ -511,11 +568,13 @@ void batchSVDFactorize(ParallelManager pm, double *P, int lda, int nda, double *
 #endif
 
     // Results are written layout left, so they need converted to layout right
-    ConvertLayoutLeftToRight clr(pm, ldb, ndb, RHS);
-    scratch_size = scratch_matrix_left_type::shmem_size(ldb, ndb);
-    pm.clearScratchSizes();
-    pm.setTeamScratchSize(1, scratch_size);
-    pm.CallFunctorWithTeamThreads(num_matrices, clr);
+    if (swap_layout_RHS) {
+        ConvertLayoutLeftToRight clr(pm, ldb, ndb, RHS);
+        int scratch_size = scratch_matrix_left_type::shmem_size(ldb, ndb);
+        pm.clearScratchSizes();
+        pm.setTeamScratchSize(1, scratch_size);
+        pm.CallFunctorWithTeamThreads(num_matrices, clr);
+    }
     Kokkos::fence();
 
 }

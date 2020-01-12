@@ -61,7 +61,7 @@ def get_triangle_area(physical_vertices):
         t2[i] = physical_vertices[2,i]-physical_vertices[0,i]
     return np.linalg.norm(np.cross(t1,t2))
 
-def transform_reference_line_point(weights, ref_quadrature, physical_vertices, vertex_indices):
+def transform_reference_line_point(weights, ref_quadrature, physical_vertices):
     centroid = np.zeros([2], dtype='d')
     for i in range(3):
         centroid += 1./3. * physical_vertices[i,:]
@@ -166,22 +166,22 @@ def integrate_along_line(line_coordinates):
     # return the integral
     return quad(integrand, 0, 1, args=(line_coordinates, unit_normal_vector))[0]
 
-vis = False
+vis = True
 
 # geometry
-height = 2.0
-width  = 2.0
+height = 1.0
+width  = 1.0
 
 # random transformations of the original mesh
 random.seed(1234)
 blowup_ratio = 1 # 1 does nothing, identity
 random_rotation = False
 rotation_max = 180 # in degrees (either clockwise or counterclockwise, 180 should be highest needed)
-variation = .00 # as a decimal for a percent
+variation = .20 # as a decimal for a percent
 
 
 #h_all=[0.2]#,0.1,0.05,0.025,0.0125,0.00625]
-h_all=[0.1,0.05,0.025,0.0125]
+h_all=[0.1,0.05,0.025,0.0125,0.00625]
 
 poly_order = 4
 num_points_interior = get_num_points_for_order(poly_order, 2)
@@ -226,15 +226,36 @@ for key, h in enumerate(h_all):
     (w_exterior, q_exterior) = get_quadrature(poly_order, 1)
     for i in range(tri.simplices.shape[0]): # all triangles
         physical_vertices = np.empty([3,2], dtype='d')
-        vertex_indices = np.empty([3], dtype='int')
         edge_adjacency = np.empty([3], dtype='int')
+
+        old_cell_midpoint = 0.0*physical_vertices[0,:]
         for j in range(3): # vertices
             physical_vertices[j,:] = points[tri.simplices[i][j], :]
-            vertex_indices[j] = tri.simplices[i][j]
-            all_vertices[i,:] += 1./3.*points[tri.simplices[i][j], :]
+            old_cell_midpoint += 1./3.*physical_vertices[j,:]
+        scaled_midpoint = blowup_ratio*old_cell_midpoint
+
+        for j in range(3): # vertices
+            physical_vertices[j,:] -= old_cell_midpoint
+
+        # generate random rotation matrix
+        if (random_rotation):
+            theta = rotation_max*math.pi/180.0*(random.random()-.5)
+            c, s = np.cos(theta), np.sin(theta)
+            R = np.array(((c,-s), (s, c)))
+            for j in range(3): # vertices
+                t_vec = physical_vertices[j,:]
+                physical_vertices[j,:] = np.dot(np.transpose(R), t_vec)
+        
+        for j in range(3): # vertices
+            physical_vertices[j,:] += scaled_midpoint
+        all_vertices[i,:] = scaled_midpoint
+        for j in range(3): # vertices
+            # i is the cell, figure out what it would do with jth vertex
+            # then use that instead of points
+            #all_vertices[i,:] += 1./3.*points[tri.simplices[i][j], :]
             edge_adjacency[j] = tri.neighbors[i][j]
-            all_vertices_points[i,j*2+0] = points[tri.simplices[i][j], 0]
-            all_vertices_points[i,j*2+1] = points[tri.simplices[i][j], 1]
+            all_vertices_points[i,j*2+0] = physical_vertices[j,0]
+            all_vertices_points[i,j*2+1] = physical_vertices[j,1]
 
         (w_physical_interior, q_physical_interior) = transform_reference_triangle_point(w_interior, q_interior, physical_vertices) 
         for j in range(num_points_interior):
@@ -242,7 +263,7 @@ for key, h in enumerate(h_all):
             all_quadrature[i, 2*j+1] = q_physical_interior[j, 1]
             all_weights   [i, j    ] = w_physical_interior[j]
 
-        (w_physical_exterior, q_physical_exterior, q_normals_exterior) = transform_reference_line_point(w_exterior, q_exterior, physical_vertices, vertex_indices) 
+        (w_physical_exterior, q_physical_exterior, q_normals_exterior) = transform_reference_line_point(w_exterior, q_exterior, physical_vertices) 
         e_type = get_boundary_type(edge_adjacency)
         for k in range(3): # edges
             for j in range(num_points_exterior):
@@ -257,36 +278,67 @@ for key, h in enumerate(h_all):
 
 
     if (vis):
-        #for z in range(all_quadrature.shape[0]):
-        # visualization
+        ##for z in range(all_quadrature.shape[0]):
+        ## visualization
+        #import matplotlib.pyplot as plt
+        #from matplotlib import collections as mc
+        ##plt.triplot(points[:,0], points[:,1], tri.simplices.copy())
+        #all_lines = list()
+        #fig, ax = plt.subplots()
+        #ax.plot(points[:,0], points[:,1], 'o')
+        #for i in range(num_points_interior):
+        #    ax.plot(all_quadrature[:,2*i + 0], all_quadrature[:,2*i + 1], 'o')
+        #for k in range(3): # edges
+        #    for j in range(num_points_exterior):
+        #        ax.plot(all_quadrature[:,2*(num_points_interior + k*num_points_exterior + j) + 0], all_quadrature[:,2*(num_points_interior + k*num_points_exterior + j) + 1], 'o')
+        ##for i in range(z,z+1):#all_quadrature.shape[0]):
+        #for i in range(all_quadrature.shape[0]):
+        #    for k in range(3):
+        #        for j in range(num_points_exterior):
+        #            all_lines.append([[all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 0], all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 1]], [0.1*h*all_normals[i,2*(num_points_interior + k*num_points_exterior + j) + 0]+all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 0], 0.1*h*all_normals[i,2*(num_points_interior + k*num_points_exterior + j) + 1]+all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 1]]])
+
+        #lc = mc.LineCollection(all_lines, linewidths=2)
+        #ax.add_collection(lc)
+        #ax.triplot(points[:,0], points[:,1], tri.simplices.copy())
+        #ax.autoscale()
+        #ax.margins(0.1)
+        #ax.axis('equal')
+        #plt.show()
+
         import matplotlib.pyplot as plt
         from matplotlib import collections as mc
-        #plt.triplot(points[:,0], points[:,1], tri.simplices.copy())
-        all_lines = list()
+        from matplotlib.pyplot import arrow as arrow
         fig, ax = plt.subplots()
-        ax.plot(points[:,0], points[:,1], 'o')
-        for i in range(num_points_interior):
-            ax.plot(all_quadrature[:,2*i + 0], all_quadrature[:,2*i + 1], 'o')
-        for k in range(3): # edges
-            for j in range(num_points_exterior):
-                ax.plot(all_quadrature[:,2*(num_points_interior + k*num_points_exterior + j) + 0], all_quadrature[:,2*(num_points_interior + k*num_points_exterior + j) + 1], 'o')
-        #for i in range(z,z+1):#all_quadrature.shape[0]):
-        for i in range(all_quadrature.shape[0]):
-            for k in range(3):
-                for j in range(num_points_exterior):
-                    all_lines.append([[all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 0], all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 1]], [0.1*h*all_normals[i,2*(num_points_interior + k*num_points_exterior + j) + 0]+all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 0], 0.1*h*all_normals[i,2*(num_points_interior + k*num_points_exterior + j) + 1]+all_quadrature[i,2*(num_points_interior + k*num_points_exterior + j) + 1]]])
-
-        lc = mc.LineCollection(all_lines, linewidths=2)
+        line_list = []
+        #for row in new_line_points:
+        for i in range(tri.simplices.shape[0]): # all triangles
+            #for j in range(3): # all triangles
+            #line_list.append([[points[row[0],0], points[row[0],1]],[points[row[1],0], points[row[1],1]]])
+            #line_list.append([row[0:2],row[2:4]]) #row[[points[row[0],0], points[row[0],1]],[points[row[1],0], points[row[1],1]]])
+            line_list.append([all_vertices_points[i,0:2],all_vertices_points[i,2:4]])
+            line_list.append([all_vertices_points[i,2:4],all_vertices_points[i,4:6]])
+            line_list.append([all_vertices_points[i,4:6],all_vertices_points[i,0:2]])
+            #origin = line_list[-1][0]
+            #diff = list(points[row[1],:]-points[row[0],:])
+            #ax.arrow(origin[0], origin[1], diff[0], diff[1])
+        lc = mc.LineCollection(line_list, linewidths=2)
+        #X = points[lines[:,0],0]
+        #Y = points[lines[:,0],1]
+        #print X, Y
+        #U = points[lines[:,1],0] - points[lines[:,0],0]
+        ##U = np.zeros(lines.shape[0]) #points[lines[:,1],0] - points[lines[:,0],0]
+        #V = points[lines[:,1],1] - points[lines[:,0],1]
+        ##V = np.ones(lines.shape[0]) #points[lines[:,1],1] - points[lines[:,0],1]
+        #q = ax.quiver(X, Y, U, V, scale=None)
         ax.add_collection(lc)
-        ax.triplot(points[:,0], points[:,1], tri.simplices.copy())
         ax.autoscale()
         ax.margins(0.1)
-        ax.axis('equal')
+        plt.scatter(all_vertices[:,0], all_vertices[:,1], color='red', s=0.2)
         plt.show()
 
 
     # write solution to netcdf
-    dataset = Dataset('dg_%d.nc'%key, mode="w", clobber=True, diskless=False,\
+    dataset = Dataset('fv_%d.nc'%key, mode="w", clobber=True, diskless=False,\
                        persist=False, keepweakref=False, format='NETCDF4')
     dataset.createDimension('num_entities', size=tri.simplices.shape[0])
     dataset.createDimension('num_edges', size=3)

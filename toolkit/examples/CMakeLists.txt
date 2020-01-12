@@ -78,6 +78,10 @@ if (Compadre_EXAMPLES)
     ADD_TEST(NAME GMLS_NeumannGradScalar_Dim3_LU COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_NeumannGradScalar_Test "3" "200" "3" "2" "0" "1" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_NeumannGradScalar_Dim3_LU PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
 
+    # Device views tests with Neumann BC for STAGGERED GMLS - SVD solver
+    ADD_TEST(NAME GMLS_StaggeredNeumannGradScalar_Dim3_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered "3" "200" "3" "0" "0" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_StaggeredNeumannGradScalar_Dim3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos;staggered" TIMEOUT 10)
+
     # Device views tests for GMLS (vector basis)
     ADD_TEST(NAME GMLS_Vector_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Vector_Test "3" "20" "3" "1" "0" "0" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_Vector_Dim3_QR PROPERTIES LABELS "UnitTest;unit;kokkos;vector" TIMEOUT 10)

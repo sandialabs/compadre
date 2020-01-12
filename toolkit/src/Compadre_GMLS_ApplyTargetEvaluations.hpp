@@ -12,14 +12,14 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
     const int num_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
             ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
 
-    const int added_size = getAdditionalSizeFromConstraint(_dense_solver_type, _constraint_type);
+    const int added_alpha_size = getAdditionalAlphaSizeFromConstraint(_dense_solver_type, _constraint_type);
 
 #ifdef COMPADRE_USE_LAPACK
 
     // CPU
     for (int e=0; e<num_evaluation_sites; ++e) {
         // evaluating alpha_ij
-        for (int i=0; i<this->getNNeighbors(target_index) + added_size; ++i) {
+        for (int i=0; i<this->getNNeighbors(target_index) + added_alpha_size; ++i) {
             for (size_t j=0; j<_operations.size(); ++j) {
                 for (int k=0; k<_lro_output_tile_size[j]; ++k) {
                     for (int m=0; m<_lro_input_tile_size[j]; ++m) {
@@ -105,7 +105,7 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
                 for (int m=0; m<_lro_input_tile_size[j]; ++m) {
                     int offset_index_jmke = getTargetOffsetIndexDevice(j,m,k,e);
                     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,
-                            this->getNNeighbors(target_index) + added_size), [&] (const int i) {
+                            this->getNNeighbors(target_index) + added_alpha_size), [&] (const int i) {
                         double alpha_ij = 0;
                         if (_sampling_multiplier>1 && m<_sampling_multiplier) {
                             const int m_neighbor_offset = i+m*this->getNNeighbors(target_index);
