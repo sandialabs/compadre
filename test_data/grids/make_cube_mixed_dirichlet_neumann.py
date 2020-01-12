@@ -46,7 +46,7 @@ for i in range(len(x)):
         flag[i] = 0
 
 # Write into file
-dataset = Dataset('cube_normal_%d.nc'%N, mode='w', clobber=True, diskless=False,
+dataset = Dataset('cube_mixed_dirichlet_neumann_%d.nc'%N, mode='w', clobber=True, diskless=False,
         persist=False, keepweakref=False, format='NETCDF4')
 
 # Create dimension for number of points
