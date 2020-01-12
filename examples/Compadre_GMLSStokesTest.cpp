@@ -92,9 +92,9 @@ int main(int argc, char* args[]) {
             FirstReadTime->stop();
 
             particles->zoltan2Initialize();
+            particles->getFieldManager()->createField(3, "velocity");
             particles->getFieldManager()->createField(1, "pressure");
             particles->getFieldManager()->createField(1, "lm_pressure");
-            particles->getFieldManager()->createField(3, "velocity");
 
             ST halo_size;
             {
@@ -174,9 +174,6 @@ int main(int argc, char* args[]) {
                 const ST pressure_val = particles->getFieldManagerConst()->getFieldByName("pressure")->getLocalScalarVal(j);
                 ST pressure_exact = pressure_function->evalScalar(xyz);
                 pressure_norm += (pressure_exact - pressure_val)*(pressure_exact - pressure_val);
-                // Check the values of Lagrange multiplier
-                const ST lm_pressure_val = particles->getFieldManagerConst()->getFieldByName("lm_pressure")->getLocalScalarVal(j);
-                std::cout << j << " " << lm_pressure_val << std::endl;
             }
             velocity_norm /= (double)(coords->nGlobalMax());
             pressure_norm /= (double)(coords->nGlobalMax());
