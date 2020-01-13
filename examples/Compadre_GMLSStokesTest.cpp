@@ -160,6 +160,29 @@ int main(int argc, char* args[]) {
                 pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis));
             }
 
+            // In order to comptue the error norm for pure-Neumann pressure field, the mean value of
+            // the computed pressure and the exact pressure is required
+            ST pressure_val_mean = 0.0;
+            ST pressure_exact_mean = 0.0;
+            for (int j=0; j>coords->nLocal(); j++) {
+                // Obtain the comptued and the exact values
+                xyz_type xyz = coords->getLocalCoords(j);
+                ST pressure_val = particles->getFieldManagerConst()->getFieldByName("pressure")->getLocalScalarVal(j);
+                ST pressure_exact = pressure_function->evalScalar(xyz);
+                // Add the up inside each local processor
+                pressure_val_mean += pressure_val;
+                pressure_exact_mean += pressure_exact;
+            }
+            // Take the average on each local processor
+            pressure_val_mean /= (double)(coords->nGlobalMax());
+            pressure_exact_mean /= (double)(coords->nGlobalMax());
+            // Perform a reduce all to broadcast the sum value to all processors
+            Teuchos::Ptr<ST> pressure_val_mean_ptr(&pressure_val_mean);
+            Teuchos::Ptr<ST> pressure_exact_mean_ptr(&pressure_exact_mean);
+            Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, pressure_val_mean, pressure_val_mean_ptr);
+            Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, pressure_exact_mean, pressure_exact_mean_ptr);
+
+            // Then calculate the norm for the velocity field and the zero-mean pressure field
             for (int j=0; j<coords->nLocal(); j++) {
                 xyz_type xyz = coords->getLocalCoords(j);
                 // calculate velocity norm
@@ -170,9 +193,9 @@ int main(int argc, char* args[]) {
                 for (LO id=0; id<3; id++) {
                     velocity_norm += (velocity_computed[id] - velocity_exact[id])*(velocity_computed[id] - velocity_exact[id]);
                 }
-                // calculate pressure norm
-                const ST pressure_val = particles->getFieldManagerConst()->getFieldByName("pressure")->getLocalScalarVal(j);
-                ST pressure_exact = pressure_function->evalScalar(xyz);
+                // remove the mean from the pressure field
+                ST pressure_val = particles->getFieldManagerConst()->getFieldByName("pressure")->getLocalScalarVal(j) - pressure_val_mean;
+                ST pressure_exact = pressure_function->evalScalar(xyz) - pressure_exact_mean;
                 pressure_norm += (pressure_exact - pressure_val)*(pressure_exact - pressure_val);
             }
             velocity_norm /= (double)(coords->nGlobalMax());
