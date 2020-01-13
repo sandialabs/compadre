@@ -55,7 +55,7 @@ int main(int argc, char* args[]) {
 
     // This proceed setting up the problem so that the parameters will be propagated down into the physics and bcs
     try {
-        parameters->get<std::string>("solution tye");
+        parameters->get<std::string>("solution type");
     } catch (Teuchos::Exceptions::InvalidParameter & exception) {
         parameters->set<std::string>("solution type", "sine");
     }
@@ -228,11 +228,11 @@ int main(int argc, char* args[]) {
             if (parameters->get<std::string>("solution type")=="sine") {
                 if (i>0) {
                     TEUCHOS_TEST_FOR_EXCEPT_MSG(velocity_errors[i-1]/velocity_errors[i] < 3.0, std::string("Second order not achieved for sine solution of velocity (should be 3). Is: ") + std::to_string(velocity_errors[i-1]/velocity_errors[i]));
-                    // TEUCHOS_TEST_FOR_EXCEPT_MSG(pressure_errors[i-1]/pressure_errors[i] < 3.0, std::string("Second order not achieved for sine solution of pressure (should be 3). Is: ") + std::to_string(pressure_errors[i-1]/pressure_errors[i]));
+                    TEUCHOS_TEST_FOR_EXCEPT_MSG(pressure_errors[i-1]/pressure_errors[i] < 3.0, std::string("Second order not achieved for sine solution of pressure (should be 3). Is: ") + std::to_string(pressure_errors[i-1]/pressure_errors[i]));
                 }
             } else {
-                TEUCHOS_TEST_FOR_EXCEPT_MSG(velocity_errors[i] > 1e-13, "Second order solution not recovered exactly for velocity.");
-                TEUCHOS_TEST_FOR_EXCEPT_MSG(pressure_errors[i] > 1e-13, "Second order solution not recovered exactly for pressure.");
+                TEUCHOS_TEST_FOR_EXCEPT_MSG(velocity_errors[i] > 1e-10, "Second order solution not recovered exactly for velocity.");
+                TEUCHOS_TEST_FOR_EXCEPT_MSG(pressure_errors[i] > 1e-10, "Second order solution not recovered exactly for pressure.");
             }
         }
     }
