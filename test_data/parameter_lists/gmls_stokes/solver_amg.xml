@@ -38,7 +38,7 @@
         <ParameterList name="BGS1x1">
           <Parameter name="Type" type="string" value="Block Gauss-Seidel"/>
           <Parameter name="Use Upper Triangle" type="bool" value="false"/>
-          <Parameter name="Inverse Type" type="string" value="GS"/>
+          <Parameter name="Inverse Type" type="string" value="ILUT"/>
         </ParameterList>
 
         <ParameterList name="AMG">
