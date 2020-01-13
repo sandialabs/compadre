@@ -316,6 +316,8 @@ class SecondOrderBasis : public AnalyticFunction {
 
 		virtual scalar_type evalScalar(const xyz_type& xIn) const;
 
+		virtual xyz_type evalScalarDerivative(const xyz_type& xIn) const;
+
 		virtual xyz_type evalVector(const xyz_type& xIn) const;
 
 		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn) const;
