@@ -267,6 +267,17 @@ scalar_type SecondOrderBasis::evalScalar(const xyz_type& xyzIn) const {
     }
 }
 
+xyz_type SecondOrderBasis::evalScalarDerivative(const xyz_type& xyzIn) const {
+    if (_dim==2) {
+        return xyz_type(2.0*xyzIn.x + xyzIn.y + 1.0,
+                        xyzIn.x + 2.0*xyzIn.y + 1.0);
+    } else {
+        return xyz_type(2.0*xyzIn.x + xyzIn.y + xyzIn.z + 1.0,
+                        xyzIn.x + 2.0*xyzIn.y + xyzIn.z + 1.0,
+                        xyzIn.x + xyzIn.y + 2.0*xyzIn.z + 1.0);
+    }
+}
+
 xyz_type SecondOrderBasis::evalVector(const xyz_type& xyzIn) const {
     return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn),2*evalScalar(xyzIn));
 }
