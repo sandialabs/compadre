@@ -36,6 +36,8 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
   add_exe_w_compadre(CompadreGMLSCurlCurlTest Compadre_GMLSCurlCurlTest.cpp)
   add_exe_w_compadre(CompadreGMLSTest Compadre_GMLSTest.cpp)
   add_exe_w_compadre(CompadreGMLSPoissonNeumann Compadre_GMLSPoissonNeumannTest.cpp)
+  add_exe_w_compadre(CompadreGMLSStaggeredPoissonNeumann Compadre_GMLSStaggeredPoissonNeumannTest.cpp)
+  add_exe_w_compadre(CompadreGMLSStokes Compadre_GMLSStokesTest.cpp)
   add_exe_w_compadre(tpetraCoordsTest.exe Compadre_TrilinosTest.cpp)
   #add_exe_w_compadre(spherePoisson.exe Compadre_SpherePoissonTest.cpp)
   add_exe_w_compadre(kdtreeTest.exe Compadre_KdTreeTest.cpp)
@@ -118,6 +120,9 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
 
     ADD_TEST(NAME CompadreGMLSPoissonNeumann2x2amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSPoissonNeumann "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_neumann/parameters_amg.yml" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(CompadreGMLSPoissonNeumann2x2amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls")
+
+    ADD_TEST(NAME CompadreGMLSStaggeredPoissonNeumann2x2amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStaggeredPoissonNeumann "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_neumann/parameters_amg.yml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(CompadreGMLSStaggeredPoissonNeumann2x2amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;staggered")
 
     # GRAPH LAPLACIAN
 
