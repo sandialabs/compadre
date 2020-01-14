@@ -154,7 +154,6 @@ void GMLS_StokesPhysics::initialize() {
     _internal_filtered_flags = filterViewByID<Kokkos::HostSpace>(kokkos_flags_host, 0);
 
     // Extract out points labeled with Neumann BC
-    // _neuman_filtered_flags belongs to physics class
     _boundary_filtered_flags = filterViewByID<Kokkos::HostSpace>(kokkos_flags_host, 1);
     auto boundary_kokkos_target_coordinates_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_target_coordinates_host,
             _boundary_filtered_flags);
