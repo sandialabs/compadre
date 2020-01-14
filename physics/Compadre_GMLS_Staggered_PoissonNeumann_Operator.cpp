@@ -1,4 +1,4 @@
-#include <Compadre_GMLS_PoissonNeumann_Operator.hpp>
+#include <Compadre_GMLS_Staggered_PoissonNeumann_Operator.hpp>
 
 #include <Compadre_CoordsT.hpp>
 #include <Compadre_ParticlesT.hpp>
@@ -24,7 +24,7 @@ typedef Compadre::FieldT fields_type;
 typedef Compadre::NeighborhoodT neighborhood_type;
 typedef Compadre::XyzVector xyz_type;
 
-void GMLS_PoissonNeumannPhysics::initialize() {
+void GMLS_Staggered_PoissonNeumannPhysics::initialize() {
 
     const local_index_type neighbors_needed = GMLS::getNP(Porder);
 
@@ -150,31 +150,33 @@ void GMLS_PoissonNeumannPhysics::initialize() {
     //****************
 
     // No-constraint GMLS operator
-    _noconstraint_GMLS = Teuchos::rcp<GMLS>( new GMLS(ScalarTaylorPolynomial,
-                 PointSample,
-                 _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-                 3 /* dimension */,
-                 "QR" /* dense sovler type */,
-                 "STANDARD" /* problem type */,
-                 "NO_CONSTRAINT"));
+    _noconstraint_GMLS = Teuchos::rcp<GMLS>(new GMLS(ReconstructionSpace::VectorTaylorPolynomial,
+                        StaggeredEdgeIntegralSample,
+                        StaggeredEdgeAnalyticGradientIntegralSample,
+                        _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+                        3, "SVD", "STANDARD", "NO_CONSTRAINT"));
     _noconstraint_GMLS->setProblemData(noconstraint_kokkos_neighbor_lists_host,
                            kokkos_augmented_source_coordinates_host,
                            noconstraint_kokkos_target_coordinates_host,
                            noconstraint_kokkos_epsilons_host);
     _noconstraint_GMLS->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
     _noconstraint_GMLS->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
-
-    _noconstraint_GMLS->addTargets(TargetOperation::LaplacianOfScalarPointEvaluation);
+    _noconstraint_GMLS->setOrderOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
+    _noconstraint_GMLS->setDimensionOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature dimension"));
+    _noconstraint_GMLS->setQuadratureType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));
+    _noconstraint_GMLS->addTargets(TargetOperation::DivergenceOfVectorPointEvaluation);
     _noconstraint_GMLS->generateAlphas(); // just point evaluations
 
     // Neumann GMLS operator - member of the physics class
-    _neumann_GMLS = Teuchos::rcp<GMLS>( new GMLS(ScalarTaylorPolynomial,
-                  PointSample,
-                  _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-                  3 /* dimension */,
-                  "LU" /* dense sovler type */,
-                  "STANDARD" /* problem type */,
-                  "NEUMANN_GRAD_SCALAR"));
+    // _neumann_GMLS = Teuchos::rcp<GMLS>(new GMLS(ReconstructionSpace::VectorTaylorPolynomial,
+    //                     StaggeredEdgeIntegralSample,
+    //                     StaggeredEdgeAnalyticGradientIntegralSample,
+    //                     _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+    //                     3, "LU", "STANDARD", "NEUMANN_GRAD_SCALAR"));
+    _neumann_GMLS = Teuchos::rcp<GMLS>(new GMLS(ReconstructionSpace::ScalarTaylorPolynomial,
+                        StaggeredEdgeAnalyticGradientIntegralSample,
+                        _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+                        3, "SVD", "STANDARD", "NEUMANN_GRAD_SCALAR"));
     _neumann_GMLS->setProblemData(neumann_kokkos_neighbor_lists_host,
                           kokkos_augmented_source_coordinates_host,
                           neumann_kokkos_target_coordinates_host,
@@ -182,14 +184,16 @@ void GMLS_PoissonNeumannPhysics::initialize() {
     _neumann_GMLS->setTangentBundle(neumann_kokkos_tangent_bundles_host);
     _neumann_GMLS->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
     _neumann_GMLS->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
-
-    _neumann_GMLS->addTargets(TargetOperation::LaplacianOfScalarPointEvaluation);
+    _neumann_GMLS->setOrderOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
+    _neumann_GMLS->setDimensionOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature dimension"));
+    _neumann_GMLS->setQuadratureType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));
+    _neumann_GMLS->addTargets(TargetOperation::DivergenceOfVectorPointEvaluation);
     _neumann_GMLS->generateAlphas(); // just point evaluations
 
     Teuchos::RCP<Teuchos::Time> GMLSTime = Teuchos::TimeMonitor::getNewCounter ("GMLS");
 }
 
-Teuchos::RCP<crs_graph_type> GMLS_PoissonNeumannPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
+Teuchos::RCP<crs_graph_type> GMLS_Staggered_PoissonNeumannPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
     if (field_two == -1) {
         field_two = field_one;
     }
@@ -227,7 +231,7 @@ Teuchos::RCP<crs_graph_type> GMLS_PoissonNeumannPhysics::computeGraph(local_inde
     return this->_A_graph;
 }
 
-void GMLS_PoissonNeumannPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
+void GMLS_Staggered_PoissonNeumannPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
 
     bool use_physical_coords = true; // can be set on the operator in the future
 
@@ -274,7 +278,8 @@ void GMLS_PoissonNeumannPhysics::computeMatrix(local_index_type field_one, local
                 for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
                     col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(neighborhood->getNeighbor(_noconstraint_filtered_flags(i),l), field_two, n);
                     if (n==k) { // same field, same component
-                        val_data(l*fields[field_two]->nDim() + n) = _noconstraint_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
+                        val_data(l*fields[field_two]->nDim() + n) = _noconstraint_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*_noconstraint_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0, 0);
+                        val_data(0) += _noconstraint_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*_noconstraint_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0, 0);
                     } else {
                         val_data(l*fields[field_two]->nDim() + n) = 0.0;
                     }
@@ -307,7 +312,8 @@ void GMLS_PoissonNeumannPhysics::computeMatrix(local_index_type field_one, local
                 for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
                     col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(neighborhood->getNeighbor(_neumann_filtered_flags(i),l), field_two, n);
                     if (n==k) { // same field, same component
-                        val_data(l*fields[field_two]->nDim() + n) = _neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
+                        val_data(l*fields[field_two]->nDim() + n) = _neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*_neumann_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0, 0);
+                        val_data(0) += _neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*_neumann_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0, 0);
                     } else {
                         val_data(l*fields[field_two]->nDim() + n) = 0.0;
                     }
@@ -360,7 +366,7 @@ void GMLS_PoissonNeumannPhysics::computeMatrix(local_index_type field_one, local
     ComputeMatrixTime->stop();
 }
 
-const std::vector<InteractingFields> GMLS_PoissonNeumannPhysics::gatherFieldInteractions() {
+const std::vector<InteractingFields> GMLS_Staggered_PoissonNeumannPhysics::gatherFieldInteractions() {
     std::vector<InteractingFields> field_interactions;
     field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _particles->getFieldManagerConst()->getIDOfFieldFromName("neumann solution")));
     return field_interactions;
