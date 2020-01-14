@@ -567,7 +567,8 @@ void GMLS_StokesPhysics::computeMatrix(local_index_type field_one, local_index_t
         int nlocal_boundary = _boundary_filtered_flags.extent(0);
         Kokkos::parallel_for(host_team_policy(nlocal_boundary, Kokkos::AUTO).set_scratch_size(host_scratch_team_level, Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
             const int i = teamMember.league_rank();
-            host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim()); host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+            host_scratch_vector_local_index_type col_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
+            host_scratch_vector_scalar_type val_data(teamMember.team_scratch(host_scratch_team_level), max_num_neighbors*fields[field_two]->nDim());
             const local_index_type num_neighbors = neighborhood->getNumNeighbors(_boundary_filtered_flags(i));
 
             // Obtain the value of b_i from Neumann GMLS
