@@ -51,41 +51,41 @@ void GMLS_StokesSources::evaluateRHS(local_index_type field_one, local_index_typ
             xyz_type pt(pts(i, 0), pts(i, 1), pts(i, 2));
             if (field_one == velocity_field_id && field_two == velocity_field_id) {
                 if (bc_id(i, 0) == 0) {
-                    rhs_vals(dof, 0) = velocity_function->evalVector(pt)[k] + pressure_function->evalScalarDerivative(pt)[k];
+                    rhs_vals(dof, 0) = velocity_function->evalVector(pt)[k]; //  + pressure_function->evalScalarDerivative(pt)[k];
                 }
             } else if (field_one == pressure_field_id && field_two == pressure_field_id) {
-                if (bc_id(i, 0) == 0) {
+                if (bc_id(i, 0) != 1) {
                     rhs_vals(dof, 0) = pressure_function->evalScalarLaplacian(pt);
                 }
             }
         }
     }
 
-    // if (field_one == pressure_field_id && field_two == pressure_field_id) {
-    //     // Obtain the filtered indices of the boundary
-    //     Kokkos::View<local_index_type*> boundary_filtered_flags = _physics->_boundary_filtered_flags;
-    //     local_index_type num_boundary = boundary_filtered_flags.extent(0);
-    //     // Add the penalty from Neumann BC to the RHS
-    //     for (local_index_type i=0; i<num_boundary; i++) {
-    //         for (local_index_type k=0; k<fields[field_one]->nDim(); k++) {
-    //             // get dof corresponding to field
-    //             const local_index_type dof = local_to_dof_map(boundary_filtered_flags(i), field_one, k);
-    //             // get the number of neighbors for that targe
-    //             const local_index_type num_neighbors = neighborhood->getNumNeighbors(boundary_filtered_flags(i));
-    //             // obtain the beta value from the constraint
-    //             scalar_type b_i = _physics->_pressure_neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, num_neighbors);
+    if (field_one == pressure_field_id && field_two == pressure_field_id) {
+        // Obtain the filtered indices of the boundary
+        Kokkos::View<local_index_type*> boundary_filtered_flags = _physics->_boundary_filtered_flags;
+        local_index_type num_boundary = boundary_filtered_flags.extent(0);
+        // Add the penalty from Neumann BC to the RHS
+        for (local_index_type i=0; i<num_boundary; i++) {
+            for (local_index_type k=0; k<fields[field_one]->nDim(); k++) {
+                // get dof corresponding to field
+                const local_index_type dof = local_to_dof_map(boundary_filtered_flags(i), field_one, k);
+                // get the number of neighbors for that targe
+                const local_index_type num_neighbors = neighborhood->getNumNeighbors(boundary_filtered_flags(i));
+                // obtain the beta value from the constraint
+                scalar_type b_i = _physics->_pressure_neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, num_neighbors);
 
-    //             // Setting up the constraint value - first obtain the gradient of the function
-    //             xyz_type pt(pts(boundary_filtered_flags(i), 0), pts(boundary_filtered_flags(i), 1), pts(boundary_filtered_flags(i), 2));
-    //             xyz_type force_term = pressure_function->evalScalarDerivative(pt) - velocity_function->evalVector(pt);
-    //             scalar_type g = force_term.x*_physics->_pressure_neumann_GMLS->getTangentBundle(i, 2, 0)
-    //                 + force_term.y*_physics->_pressure_neumann_GMLS->getTangentBundle(i, 2, 1)
-    //                 + force_term.z*_physics->_pressure_neumann_GMLS->getTangentBundle(i, 2, 2);
-    //             // Now move the constraint term to the RHS
-    //             rhs_vals(dof, 0) = rhs_vals(dof, 0) - b_i*g;
-    //         }
-    //     }
-    // }
+                // Setting up the constraint value - first obtain the gradient of the function
+                xyz_type pt(pts(boundary_filtered_flags(i), 0), pts(boundary_filtered_flags(i), 1), pts(boundary_filtered_flags(i), 2));
+                xyz_type force_term = pressure_function->evalScalarDerivative(pt) - velocity_function->evalVector(pt);
+                scalar_type g = force_term.x*_physics->_pressure_neumann_GMLS->getTangentBundle(i, 2, 0)
+                    + force_term.y*_physics->_pressure_neumann_GMLS->getTangentBundle(i, 2, 1)
+                    + force_term.z*_physics->_pressure_neumann_GMLS->getTangentBundle(i, 2, 2);
+                // Now move the constraint term to the RHS
+                rhs_vals(dof, 0) = rhs_vals(dof, 0) - b_i*g;
+            }
+        }
+    }
 }
 
 std::vector<InteractingFields> GMLS_StokesSources::gatherFieldInteractions() {
