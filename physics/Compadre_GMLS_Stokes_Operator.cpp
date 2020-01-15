@@ -548,12 +548,12 @@ void GMLS_StokesPhysics::computeMatrix(local_index_type field_one, local_index_t
                                 val_data(l*fields[field_two]->nDim() + n) = _velocity_all_GMLS->getAlpha1TensorTo1Tensor(TargetOperation::CurlCurlOfVectorPointEvaluation, i, k /* output component*/, l, n /*input component*/);
                             }
                         } else if (field_one == velocity_field_id && field_two == pressure_field_id) {
-                            // if (bc_id(i, 0) != 0) {
-                            //     val_data(l*fields[field_two]->nDim() + n) = 0.0;
-                            // } else {
-                            //     val_data(l*fields[field_two]->nDim() + n) = _pressure_all_GMLS->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l)*_pressure_all_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample,i, l, false, 0, 0);
-                            //     val_data(0) += _pressure_all_GMLS->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l)*_pressure_all_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0, 0);
-                            // }
+                            if (bc_id(i, 0) != 0) {
+                                val_data(l*fields[field_two]->nDim() + n) = 0.0;
+                            } else {
+                                val_data(l*fields[field_two]->nDim() + n) = _pressure_all_GMLS->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l)*_pressure_all_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample,i, l, false, 0, 0);
+                                val_data(0) += _pressure_all_GMLS->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l)*_pressure_all_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0, 0);
+                            }
                         }
                     }
                 }
