@@ -1,11 +1,11 @@
 %YAML 1.1
 ---
 Compadre:
-  'solution type': 'poly'
-  'loop size': 3
+  'solution type': 'sine'
+  'loop size': 2
   'io':
     # source file for coords and normal vectors
-    'input file prefix': '../test_data/grids/cube_normal_'
+    'input file prefix': '../test_data/grids/cube_mixed_dirichlet_neumann_'
     'input file': ''
     # output file location
     'output file prefix': '../test_data/amg_neumann_'
@@ -14,7 +14,7 @@ Compadre:
     # turn off mesh produced by vtk
     'vtk produce mesh': false
   'solver':
-    'type': 'iterative'
+    'type': 'direct'
     'file': '../test_data/parameter_lists/gmls_stokes/solver_amg.xml'
     'blocked': true
   'remap':
@@ -25,7 +25,7 @@ Compadre:
     'quadrature type': 'line'
   'neighborhood':
     'method': nanoflann
-    'cutoff multiplier': 1.80
+    'cutoff multiplier': 1.8
     'size': 25.5
   'halo':
     'dynamic': true
