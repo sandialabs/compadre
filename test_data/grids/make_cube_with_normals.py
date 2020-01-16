@@ -35,8 +35,8 @@ for i in range(len(x)):
         ny[i] = ytemp / np.sqrt(xtemp**2 + ytemp**2 + ztemp**2)
         nz[i] = ztemp / np.sqrt(xtemp**2 + ytemp**2 + ztemp**2)
     # Set up flags
-    bc_dirichlet = 0 + (x[i] == -1.0) + (y[i] == -1.0) + (z[i] == -1.0)
-    bc_neumann = 0 + (x[i] == 1.0) + (y[i] == 1.0) + (z[i] == 1.0)
+    bc_dirichlet = 0 + ((x[i] == -1.0) and (y[i] == -1.0) and (z[i] == -1.0))
+    bc_neumann = 0 + (z[i] == -1.0) + (x[i] == -1.0) + (y[i] == -1.0) + (x[i] == 1.0) + (y[i] == 1.0) + (z[i] == 1.0)
     # Set values for flags, 1 being Dirichlet points, 2 being Neumann points
     # and the rest are flagged as 0
     if (bc_dirichlet >= 1):
