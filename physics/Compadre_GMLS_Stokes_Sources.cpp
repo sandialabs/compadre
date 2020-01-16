@@ -54,9 +54,7 @@ void GMLS_StokesSources::evaluateRHS(local_index_type field_one, local_index_typ
                     rhs_vals(dof, 0) = velocity_function->evalVector(pt)[k] + pressure_function->evalScalarDerivative(pt)[k];
                 }
             } else if (field_one == pressure_field_id && field_two == pressure_field_id) {
-                if (bc_id(i, 0) != 1) {
-                    rhs_vals(dof, 0) = pressure_function->evalScalarLaplacian(pt);
-                }
+                rhs_vals(dof, 0) = pressure_function->evalScalarLaplacian(pt);
             }
         }
     }
