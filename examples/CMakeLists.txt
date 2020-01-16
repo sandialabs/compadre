@@ -124,6 +124,11 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
     ADD_TEST(NAME CompadreGMLSStaggeredPoissonNeumann2x2amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStaggeredPoissonNeumann "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_neumann/parameters_amg.yml" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(CompadreGMLSStaggeredPoissonNeumann2x2amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;staggered")
 
+    # GMLS STOKE'S SOLVER
+
+    ADD_TEST(NAME CompadreGMLSStokes2x2amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStokes "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_stokes/parameters_amg.yml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(CompadreGMLSPoissonNeumann2x2amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;stokes")
+
     # GRAPH LAPLACIAN
 
     ADD_TEST(NAME TrilinosTest COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/tpetraCoordsTest.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/trilinos_test/parameters_amg.xml" "--kokkos-threads=2")
