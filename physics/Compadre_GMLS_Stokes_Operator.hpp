@@ -23,7 +23,6 @@ class GMLS_StokesPhysics : public PhysicsT {
         Teuchos::RCP<GMLS> _pressure_all_GMLS;
 
         Kokkos::View<int*>::HostMirror _internal_filtered_flags;
-        Kokkos::View<int*>::HostMirror _dirichlet_filtered_flags;
         Kokkos::View<int*>::HostMirror _boundary_filtered_flags;
 
         GMLS_StokesPhysics(Teuchos::RCP<particle_type> particles, local_index_type t_Porder,
