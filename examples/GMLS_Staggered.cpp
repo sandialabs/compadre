@@ -185,15 +185,23 @@ bool all_passed = true;
             target_coords(i, j) = source_coords(source_site_to_copy, j);
         }
         if (constraint_type == 1) { // create bundles of normal vectors
-            tangent_bundles(i, 0, 0) = 0.0;
-            tangent_bundles(i, 0, 1) = 0.0;
-            tangent_bundles(i, 0, 2) = 0.0;
-            tangent_bundles(i, 1, 0) = 0.0;
-            tangent_bundles(i, 1, 1) = 0.0;
-            tangent_bundles(i, 1, 2) = 0.0;
-            tangent_bundles(i, 2, 0) = 1.0/(sqrt(3.0));
-            tangent_bundles(i, 2, 1) = 1.0/(sqrt(3.0));
-            tangent_bundles(i, 2, 2) = 1.0/(sqrt(3.0));
+            if (dimension == 3) {
+                tangent_bundles(i, 0, 0) = 0.0;
+                tangent_bundles(i, 0, 1) = 0.0;
+                tangent_bundles(i, 0, 2) = 0.0;
+                tangent_bundles(i, 1, 0) = 0.0;
+                tangent_bundles(i, 1, 1) = 0.0;
+                tangent_bundles(i, 1, 2) = 0.0;
+                tangent_bundles(i, 2, 0) = 1.0/(sqrt(3.0));
+                tangent_bundles(i, 2, 1) = 1.0/(sqrt(3.0));
+                tangent_bundles(i, 2, 2) = 1.0/(sqrt(3.0));
+            }
+            if (dimension == 2) {
+                tangent_bundles(i, 0, 0) = 0.0;
+                tangent_bundles(i, 0, 1) = 0.0;
+                tangent_bundles(i, 1, 0) = 1.0/(sqrt(2.0));
+                tangent_bundles(i, 1, 1) = 1.0/(sqrt(2.0));
+            }
         }
     }
 
@@ -425,7 +433,8 @@ bool all_passed = true;
         trueGradient(actual_Gradient, xval, yval, zval, order, dimension);
 
         // calculate correction factor
-        double g = (1.0/sqrt(3.0))*(actual_Gradient[0] + actual_Gradient[1] + actual_Gradient[2]);
+        double g = (dimension == 3) ? (1.0/sqrt(3.0))*(actual_Gradient[0] + actual_Gradient[1] + actual_Gradient[2]) 
+                                        : (1.0/sqrt(2.0))*(actual_Gradient[0] + actual_Gradient[1]);
         // obtain number of neighbor for each target
         // in order to exploit the index where the value for the Lagrange multiplier is stored
         int num_neigh_i = neighbor_lists(i, 0);
