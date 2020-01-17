@@ -164,7 +164,7 @@ int main(int argc, char* args[]) {
             // the computed pressure and the exact pressure is required
             ST pressure_val_mean = 0.0;
             ST pressure_exact_mean = 0.0;
-            for (int j=0; j>coords->nLocal(); j++) {
+            for (int j=0; j<coords->nLocal(); j++) {
                 // Obtain the comptued and the exact values
                 xyz_type xyz = coords->getLocalCoords(j);
                 ST pressure_val = particles->getFieldManagerConst()->getFieldByName("pressure")->getLocalScalarVal(j);
