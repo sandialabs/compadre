@@ -142,7 +142,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
     } else if ((polynomial_sampling_functional == VectorPointSample) &&
                (reconstruction_space == DivergenceFreeVectorTaylorPolynomial)) {
         // Divergence free vector polynomial basis
-        const int dimension_offset = this->getNP(_poly_order, 3 /* dimension */, reconstruction_space);
+        const int dimension_offset = this->getNP(_poly_order, _global_dimensions, reconstruction_space);
         double cutoff_p = _epsilons(target_index);
 
         double xs = relative_coord.x/cutoff_p;
@@ -150,11 +150,21 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
         double zs = relative_coord.z/cutoff_p;
         XYZ Pn;
 
-        for (int n = 0; n < dimension_offset; n++) {
-            // Obtain the vector for the basis
-            Pn = calDivFreeBasis(n, xs, ys, zs);
-            // Then assign it to the input
-            *(delta + n) = Pn[component];
+        if (dimension == 3) {
+            for (int n = 0; n < dimension_offset; n++) {
+                // Obtain the vector for the basis
+                Pn = calDivFreeBasis(n, xs, ys, zs);
+                // Then assign it to the input
+                *(delta + n) = Pn[component];
+            }
+        }
+        if (dimension == 2) {
+            for (int n = 0; n < dimension_offset; n++) {
+                // Obtain the vector for the basis
+                Pn = calDivFreeBasis(n, xs, ys);
+                // Then assign it to the input
+                *(delta + n) = Pn[component];
+            }
         }
     } else if ((polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) &&
             (reconstruction_space == ScalarTaylorPolynomial)) {
