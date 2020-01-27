@@ -113,6 +113,7 @@ void ParameterManager::setDefaultParameters() {
 	remapList->set("quadrature order", (local_index_type)2); // order of quadrature points for integral sampling
 	remapList->set("quadrature type", "line"); // type of quadrature points for integral sampling
 	remapList->set("quadrature dimension", (local_index_type)0); // dimension of quadrature points for integral sampling
+	remapList->set("number of batches", 1); // number of batches to generate alphas for GMLS
 
 	// Neighborhood Details
 	Teuchos::RCP<Teuchos::ParameterList> neighborList = Teuchos::rcp(new Teuchos::ParameterList("neighborhood"));
