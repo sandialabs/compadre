@@ -48,7 +48,7 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     auto halo_unit_normals = _physics->_cells->getFieldManager()->getFieldByName("unit_normal")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
     auto halo_adjacent_elements = _physics->_cells->getFieldManager()->getFieldByName("adjacent_elements")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
 
-    auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_physics->_cell_particles_neighborhood->computeMinHSupportSize(true /* global processor min */);
+    auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_physics->_cell_particles_neighborhood->computeMaxHSupportSize(true /* global processor max */);
     // each element must have the same number of edges
     auto num_edges = adjacent_elements.extent(1);
     auto num_interior_quadrature = 0;
@@ -294,7 +294,6 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     // assembly over cells, then particles
 
     //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_physics->_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
-    auto test_scaling = 0.5;
   
     // loop over cells including halo cells 
     for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(true /* include halo in count */); ++i) {
@@ -364,7 +363,9 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
                         if (!cast_to_sine==NULL) {
                             contribution += quadrature_weights(i,q) * v * cast_to_sine->evalAdvectionDiffusionRHS(pt,_physics->_diffusion,_physics->_advection);
                         } else {
-                            TEUCHOS_ASSERT(false);
+                            auto cast_to_poly = dynamic_cast<SecondOrderBasis*>(function.getRawPtr());//Teuchos::rcp_dynamic_cast<Compadre::SineProducts>(function);
+                            contribution += quadrature_weights(i,q) * v * cast_to_poly->evalAdvectionDiffusionRHS(pt,_physics->_diffusion,_physics->_advection);
+                            //TEUCHOS_ASSERT(false);
                         }
                         //} else {
                         //    printf("is null.\n");

@@ -495,7 +495,8 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
     auto halo_adjacent_elements = _cells->getFieldManager()->getFieldByName("adjacent_elements")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
 
 
-    auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_cell_particles_neighborhood->computeMinHSupportSize(true /* global processor min */);
+    auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_cell_particles_neighborhood->computeMaxHSupportSize(true /* global processor max */);
+    printf("Computed penalty parameter: %.16f\n", penalty); 
     //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")*_particles_particles_neighborhood->getMinimumHSupportSize();
 
     // each element must have the same number of edges
@@ -606,6 +607,7 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
     auto halo_map = _cells->getCoordsConst()->getMapConst(true);
 
     double area = 0; // (good, no rewriting)
+    double perimeter = 0;
     //Kokkos::View<double,Kokkos::MemoryTraits<Kokkos::Atomic> > area; // scalar
 	int team_scratch_size = host_scratch_vector_scalar_type::shmem_size(1); // values
 	team_scratch_size += host_scratch_vector_local_index_type::shmem_size(1); // local column indices
@@ -623,7 +625,11 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
     host_vector_local_index_type more_than("more than", _cell_particles_max_num_neighbors);//particles_particles_max_num_neighbors*fields[field_two]->nDim());
     host_vector_scalar_type val_data("val data", _cell_particles_max_num_neighbors);//particles_particles_max_num_neighbors*fields[field_two]->nDim());
     double t_area = 0; 
+    double t_perimeter = 0; 
  
+
+    //printf("interior: %d, exterior: %d\n", num_interior_quadrature, num_exterior_quadrature_per_edge);
+    int num_interior_edges = 0;
     // loop over cells including halo cells 
     for (int i=0; i<_cells->getCoordsConst()->nLocal(true); ++i) {
 
@@ -646,10 +652,76 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
         //}
 
         // DIAGNOSTIC:: sum area over locally owned cells
+
+        std::vector<double> edge_lengths(3);
+        {
+            int current_edge_num = 0;
+            for (int q=0; q<_weights_ndim; ++q) {
+                if (quadrature_type(i,q)!=1) { // edge
+                    int new_current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                    if (new_current_edge_num!=current_edge_num) {
+                        edge_lengths[new_current_edge_num] = quadrature_weights(i,q);
+                        current_edge_num = new_current_edge_num;
+                    } else {
+                        edge_lengths[current_edge_num] += quadrature_weights(i,q);
+                    }
+                }
+            }
+        }
+
+        int this_edge_num = -1;
         for (int q=0; q<_weights_ndim; ++q) {
+            this_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+            //printf("q: %d, e: %d\n", q, this_edge_num);
             if (i<nlocal) { // locally owned
                 if (quadrature_type(i,q)==1) { // interior
-                    t_area += quadrature_weights(i,q);
+                    //t_area += quadrature_weights(i,q);
+                    auto x=quadrature_points(i,2*q+0);
+                    auto y=quadrature_points(i,2*q+1);
+                    t_area += quadrature_weights(i,q) * (2 + 3*x + 3*y);
+                } else if (quadrature_type(i,q)==2) { // exterior quad point on exterior edge
+                    //t_perimeter += quadrature_weights(i,q);
+                    //t_perimeter += quadrature_weights(i,q ) * (quadrature_points(i,2*q+0)*quadrature_points(i,2*q+0) + quadrature_points(i,2*q+1)*quadrature_points(i,2*q+1));
+                    // integral of x^2 + y^2 over (0,0),(2,0),(2,2),(0,2) is
+                    // 4*8/3+2*8 = 26.666666
+                    auto x=quadrature_points(i,2*q+0);
+                    auto y=quadrature_points(i,2*q+1);
+                    auto nx=unit_normals(i,2*q+0);
+                    auto ny=unit_normals(i,2*q+1);
+                    t_perimeter += quadrature_weights(i,q) * (x+x*x+x*y+y+y*y) * (nx + ny);
+                } else if (quadrature_type(i,q)==0) { // interior quad point on exterior edge
+                    //if (i>adjacent_elements(i,this_edge_num)) {
+                    //    t_perimeter += quadrature_weights(i,q ) * 1 / edge_lengths[this_edge_num];
+                    //    if (q%3==0) num_interior_edges++;
+                    //}
+                    //auto x=quadrature_points(i,2*q+0);
+                    //auto y=quadrature_points(i,2*q+1);
+                    //auto nx=unit_normals(i,2*q+0);
+                    //auto ny=unit_normals(i,2*q+1);
+                    int adjacent_cell = adjacent_elements(i,this_edge_num);
+                    int side_i_to_adjacent_cell = -1;
+                    for (int z=0; z<3; ++z) {
+                        if ((int)adjacent_elements(adjacent_cell,z)==i) {
+                            side_i_to_adjacent_cell = z;
+                        }
+                    }
+                    
+                    int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((q-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
+
+                    //auto x=quadrature_points(adjacent_cell, num_interior_quadrature + 2*(side_i_to_adjacent_cell+(q%3))+0);
+                    //auto y=quadrature_points(adjacent_cell, num_interior_quadrature + 2*(side_i_to_adjacent_cell+(q%3))+1);
+                    //auto x=quadrature_points(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge+((q-num_interior_quadrature)%num_exterior_quadrature_per_edge))+0);
+                    //auto y=quadrature_points(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge+((q-num_interior_quadrature)%num_exterior_quadrature_per_edge))+1);
+                    auto x=quadrature_points(adjacent_cell, 2*adjacent_q+0);
+                    auto y=quadrature_points(adjacent_cell, 2*adjacent_q+1);
+
+                    //auto y=quadrature_points(adjacent_cell,2*q+1);
+                    //
+                    auto nx=-unit_normals(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge+((q-num_interior_quadrature)%num_exterior_quadrature_per_edge))+0);
+                    auto ny=-unit_normals(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge+((q-num_interior_quadrature)%num_exterior_quadrature_per_edge))+1);
+                    //auto nx=unit_normals(i,2*q+0);
+                    //auto ny=unit_normals(i,2*q+1);
+                    t_perimeter += quadrature_weights(i,q) * (x+x*x+x*y+y+y*y) * (nx + ny);
                 }
             }
         }
@@ -693,19 +765,19 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                 } else {
                     TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
                     // loop over quadrature
-                    std::vector<double> edge_lengths(3);
-                    int current_edge_num = 0;
-                    for (int q=0; q<_weights_ndim; ++q) {
-                        if (quadrature_type(i,q)!=1) { // edge
-                            int new_current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                            if (new_current_edge_num!=current_edge_num) {
-                                edge_lengths[new_current_edge_num] = quadrature_weights(i,q);
-                                current_edge_num = new_current_edge_num;
-                            } else {
-                                edge_lengths[current_edge_num] += quadrature_weights(i,q);
-                            }
-                        }
-                    }
+                    //std::vector<double> edge_lengths(3);
+                    //int current_edge_num = 0;
+                    //for (int q=0; q<_weights_ndim; ++q) {
+                    //    if (quadrature_type(i,q)!=1) { // edge
+                    //        int new_current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                    //        if (new_current_edge_num!=current_edge_num) {
+                    //            edge_lengths[new_current_edge_num] = quadrature_weights(i,q);
+                    //            current_edge_num = new_current_edge_num;
+                    //        } else {
+                    //            edge_lengths[current_edge_num] += quadrature_weights(i,q);
+                    //        }
+                    //    }
+                    //}
                     //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_kokkos_epsilons_host(i);
                     for (int q=0; q<_weights_ndim; ++q) {
                         //printf("i: %d, j: %d, k: %d, q: %d, contribution: %f\n", i, j, k, q, contribution);
@@ -729,7 +801,7 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                             int current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
                             //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/edge_lengths[current_edge_num];
                             int adjacent_cell = adjacent_elements(i,current_edge_num);
-                         //    TEUCHOS_ASSERT(adjacent_cell < 0);
+                            TEUCHOS_ASSERT(adjacent_cell < 0);
                             // penalties for edges of mass
                             double jumpv = _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
                             double jumpu = _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1);
@@ -739,10 +811,18 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                             double avgu_y = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, k, q+1);
                             auto n_x = unit_normals(i,2*q+0); // unique normal
                             auto n_y = unit_normals(i,2*q+1);
+                            auto jump_v_x = n_x*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
+                            auto jump_v_y = n_y*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
+                            auto jump_u_x = n_x*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1);
+                            auto jump_u_y = n_y*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1);
+                            auto jump_u_jump_v = jump_v_x*jump_u_x + jump_v_y*jump_u_y;
+
+                            //contribution += penalty * quadrature_weights(i,q) * jump_u_jump_v;//jumpv * jumpu; // other half will be added by other cell
                             contribution += penalty * quadrature_weights(i,q) * jumpv * jumpu;
                             contribution -= quadrature_weights(i,q) * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
                             contribution -= quadrature_weights(i,q) * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
                             //printf("exterior edge\n");
+                            
                         }
                         else if (quadrature_type(i,q)==0)  { // edge on interior
                             //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_kokkos_epsilons_host(i);
@@ -753,7 +833,8 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                             
 
                             //scalar_type adjacent_cell_global_index = adjacent_elements(i, current_edge_num);
-                            scalar_type adjacent_cell_local_index = adjacent_elements(i, current_edge_num);
+                            int adjacent_cell_local_index = (int)(adjacent_elements(i, current_edge_num));
+                            //if (i>adjacent_cell_local_index) {
                             //
                             //////printf("size is %lu\n", _halo_id_view.extent(0));
                             //int adjacent_cell_local_index = -1;
@@ -789,7 +870,29 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                             ////        printf("gid on halo %d\n", _halo_id_view(l,0));
                             ////    }
                             ////}
-                            //TEUCHOS_ASSERT(adjacent_cell_local_index >= 0);
+                            TEUCHOS_ASSERT(adjacent_cell_local_index >= 0);
+                            int j_to_adjacent_cell = -1;
+                            int k_to_adjacent_cell = -1;
+                            
+                            TEUCHOS_ASSERT(adjacent_cell_local_index < nlocal); // must be local, for now
+                            for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(adjacent_cell_local_index); ++l) {
+                                auto this_neighbor = _cell_particles_neighborhood->getNeighbor(adjacent_cell_local_index,l);
+                                if (this_neighbor==particle_j) {
+                                    j_to_adjacent_cell = l;
+                                    //if (k_to_adjacent_cell >= 0) break;
+                                } else if (this_neighbor==particle_k) {
+                                    k_to_adjacent_cell = l;
+                                    //if (j_to_adjacent_cell >= 0) break;
+                                }
+                            }
+
+                            //if (j_to_adjacent_cell>=0 && k_to_adjacent_cell>=0) {
+                            //    printf("both\n");
+                            //} else if (j_to_adjacent_cell>=0 || k_to_adjacent_cell>=0) {
+                            //    printf("one\n");
+                            //} else {
+                            //    printf("neither\n");
+                            //}
 
                             ////printf("adjacent cell %d into %d\n", adjacent_cell,_cells->getCoordsConst()->nLocal());
                             //TEUCHOS_ASSERT(adjacent_cell_global_index >= 0);
@@ -802,32 +905,118 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                             // also, j and k will NOT remain j and k when retrieved from adjacent_cell_local_index
                             // adjacent_cell_local_index may not see either j or k
                             
+                            ////switch to only adding if normal_direction_correction is positive
+                            ////then the half can be removed
+                            ////check signs in jump (maybe backwards)
+//                          //  auto normal_direction_correction = 1;//(i > adjacent_cell_local_index) ? -1 : 1; // gives a unique normal
+
                             auto normal_direction_correction = (i > adjacent_cell_local_index) ? -1 : 1; // gives a unique normal
-                            switch to only adding if normal_direction_correction is positive
-                            then the half can be removed
-                            check signs in jump (maybe backwards)
-//                            auto normal_direction_correction = 1;//(i > adjacent_cell_local_index) ? -1 : 1; // gives a unique normal
-
-                            double jumpv = normal_direction_correction * (_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1)
-                                -_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j, q+1));
-                            double jumpu = normal_direction_correction * (_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1)
-                                -_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, k, q+1));
-
-                            double avgv_x = 0.5*(_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j, q+1)
-                                                    + _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index, 0, j, q+1));
-                            double avgv_y = 0.5*(_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j, q+1)
-                                                    + _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index, 1, j, q+1));
-                            double avgu_x = 0.5*(_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, k, q+1)
-                                                    + _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index, 0, k, q+1));
-                            double avgu_y = 0.5*(_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, k, q+1)
-                                                    + _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index, 1, k, q+1));
-
                             auto n_x = normal_direction_correction * unit_normals(i,2*q+0);
                             auto n_y = normal_direction_correction * unit_normals(i,2*q+1);
 
-                            contribution += penalty * 0.5 * quadrature_weights(i,q) * jumpv * jumpu; // other half will be added by other cell
-                            contribution -= 0.5 * quadrature_weights(i,q) * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
-                            contribution -= 0.5 * quadrature_weights(i,q) * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
+                            double jump_u_jump_v = 0.0;
+                            double avgu_x=0, avgv_x=0, avgu_y=0, avgv_y=0;
+                            double integral_fraction = 1.0;
+                            double jumpu = 0.0;
+                            double jumpv = 0.0;
+
+                            int side_i_to_adjacent_cell = -1;
+                            for (int z=0; z<num_exterior_quadrature_per_edge; ++z) {
+                                if ((int)(adjacent_elements(adjacent_cell_local_index,z))==i) {
+                                    side_i_to_adjacent_cell = z;
+                                }
+                            }
+                            int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((q-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
+                            //int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge + ((q-num_interior_quadrature)%num_exterior_quadrature_per_edge);
+
+                            // diagnostic that quadrature matches up between adjacent_cell_local_index & adjacent_q 
+                            // along with i & q
+                            auto my_x = quadrature_points(i, 2*q+0);
+                            auto my_wt = quadrature_weights(i, q);
+                            auto their_wt = quadrature_weights(adjacent_cell_local_index, adjacent_q);
+                            if (std::abs(my_wt-their_wt)>1e-14) printf("wm: %f, t: %f, d: %.16f\n", my_wt, their_wt, my_wt-their_wt);
+                            auto my_y = quadrature_points(i, 2*q+1);
+                            auto their_x = quadrature_points(adjacent_cell_local_index, 2*adjacent_q+0);
+                            auto their_y = quadrature_points(adjacent_cell_local_index, 2*adjacent_q+1);
+                            if (std::abs(my_x-their_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_x, their_x, my_x-their_x);
+                            if (std::abs(my_y-their_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_y, their_y, my_y-their_y);
+
+                            if (j_to_adjacent_cell>=0 && k_to_adjacent_cell>=0) {// && i>adjacent_cell_local_index) {
+                            //if (j_to_adjacent_cell>=0) {
+                                //printf("a: %f\n", jumpv);
+                                jumpv = _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell, adjacent_q+1);
+                                jumpv -= _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
+                                //printf("b: %f\n", _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell, adjacent_q+1));
+                                auto my_j_index = _cell_particles_neighborhood->getNeighbor(i,j);
+                                auto their_j_index = _cell_particles_neighborhood->getNeighbor(adjacent_cell_local_index, j_to_adjacent_cell);
+                                //printf("xm: %d, t: %d\n", my_j_index, their_j_index);
+                                //auto my_q_x = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 0);
+                                //auto my_q_y = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 1);
+                                //auto their_q_x = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 0);
+                                //auto their_q_y = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 1);
+                                //if (std::abs(my_q_x-their_q_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_q_x, their_q_x, my_q_x-their_q_x);
+                                //if (std::abs(my_q_y-their_q_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_q_y, their_q_y, my_q_y-their_q_y);
+
+                                auto my_q_x = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 0);
+                                auto my_q_y = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 1);
+                                //auto their_q_index = _kokkos_quadrature_neighbor_lists_host(adjacent_cell_local_index, 1+k_to_adjacent_cell);
+                                auto their_q_x = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 0);
+                                auto their_q_y = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 1);
+                                if (std::abs(my_q_x-their_q_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_q_x, their_q_x, my_q_x-their_q_x);
+                                if (std::abs(my_q_y-their_q_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_q_y, their_q_y, my_q_y-their_q_y);
+                            //} else {
+                            //    jumpv = 0;
+                            //}
+                            //if (j_to_adjacent_cell>=0) {
+                            //if (k_to_adjacent_cell>=0) {
+                                jumpu = _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, k_to_adjacent_cell, adjacent_q+1);
+                                jumpu -= _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1);
+                            //} else {
+                            //    jumpu = 0;
+                            //}
+                            }
+
+
+                            //if (j_to_adjacent_cell>=0 || k_to_adjacent_cell>=0) {
+                            //    jumpv = normal_direction_correction * (_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1)
+                            //        -_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell, q+1)*(j_to_adjacent_cell>=0));
+                            //    jumpu = normal_direction_correction * (_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1)
+                            //        -_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, k_to_adjacent_cell, q+1)*(k_to_adjacent_cell>=0));
+
+
+                            //    //j and k are local neighbor numbering on a cell i, not on cell adjacent_cell_local_index
+                            //    //need to check that j and k are 
+
+                            //    avgv_x = 0.5*(_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j, q+1)
+                            //                            + _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index, 0, j_to_adjacent_cell, q+1));
+                            //    avgv_y = 0.5*(_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j, q+1)
+                            //                            + _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index, 1, j_to_adjacent_cell, q+1));
+                            //    avgu_x = 0.5*(_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, k, q+1)
+                            //                            + _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index, 0, k_to_adjacent_cell, q+1));
+                            //    avgu_y = 0.5*(_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, k, q+1)
+                            //                            + _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index, 1, k_to_adjacent_cell, q+1));
+
+                            //    auto jump_v_x = n_x*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1)
+                            //            -n_x*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell, q+1)*(j_to_adjacent_cell>=0);
+                            //    auto jump_v_y = n_y*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1)
+                            //            -n_y*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell, q+1)*(j_to_adjacent_cell>=0);
+                            //    auto jump_u_x = n_x*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1)
+                            //            -n_x*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, k_to_adjacent_cell, q+1)*(k_to_adjacent_cell>=0);
+                            //    auto jump_u_y = n_y*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1)
+                            //            -n_y*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, k_to_adjacent_cell, q+1)*(k_to_adjacent_cell>=0);
+                            //    jump_u_jump_v = jump_v_x*jump_u_x + jump_v_y*jump_u_y;
+                            //}
+                            //if (j_to_adjacent_cell>=0 && k_to_adjacent_cell>=0) {
+                            //    integral_fraction = 1.0;
+                            //}
+
+                            //contribution += 0.0*integral_fraction * penalty * quadrature_weights(i,q) * jump_u_jump_v;//jumpv * jumpu; // other half will be added by other cell
+                            contribution += 0.5 * penalty * quadrature_weights(i,q) * jumpv * jumpu; // other half will be added by other cell
+                            contribution -= quadrature_weights(i,q) * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
+                            contribution -= quadrature_weights(i,q) * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
+                            //contribution += penalty * 0.5 * quadrature_weights(i,q) * jumpv * jumpu; // other half will be added by other cell
+                            //contribution -= 0.5 * quadrature_weights(i,q) * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
+                            //contribution -= 0.5 * quadrature_weights(i,q) * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
                             //contribution += penalty * 0.5 * quadrature_weights(i,q) * jumpvr;// * jumpur; // other half will be added by other cell
                             // this cell numbering is only valid on serial (one) processor runs
                          //    TEUCHOS_ASSERT(adjacent_cell >= 0);
@@ -842,6 +1031,7 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                             //contribution += penalty * 0.5 * quadrature_weights(i,q) * jumpvr * jumpur; // other half will be added by other cell
                             //printf("jumpvr: %f, jumpur: %f, penalty: %f, qw: %f\n", jumpvr, jumpur, penalty, quadrature_weights(i,q));
                             //printf("interior edge\n");
+                            //}
                         }
                         //printf("i: %d, j: %d, k: %d, q: %d, contribution: %f\n", i, j, k, q, contribution);
                            TEUCHOS_ASSERT(contribution==contribution);
@@ -865,6 +1055,7 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
         }
     }
     area = t_area;
+    perimeter = t_perimeter;
     //}, Kokkos::Sum<scalar_type>(area));
 
 
@@ -998,6 +1189,12 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
 	Teuchos::reduceAll<int, scalar_type>(*(_cells->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, area, global_area_ptr);
     if (_cells->getCoordsConst()->getComm()->getRank()==0) {
         printf("GLOBAL AREA: %.16f\n", global_area);
+    }
+	scalar_type global_perimeter;
+	Teuchos::Ptr<scalar_type> global_perimeter_ptr(&global_perimeter);
+	Teuchos::reduceAll<int, scalar_type>(*(_cells->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, perimeter, global_perimeter_ptr);
+    if (_cells->getCoordsConst()->getComm()->getRank()==0) {
+        printf("GLOBAL PERIMETER: %.16f\n", global_perimeter);///((double)(num_interior_edges)));
     }
 
 	TEUCHOS_ASSERT(!this->_A.is_null());
