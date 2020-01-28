@@ -23,6 +23,7 @@ Compadre:
     'quadrature order': 2
     'quadrature dimension': 1
     'quadrature type': 'line'
+    'number of batches': 1
   'neighborhood':
     'method': nanoflann
     'cutoff multiplier': 2.7

@@ -198,7 +198,7 @@ void GMLS_StokesPhysics::initialize() {
     _velocity_all_GMLS->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
     _velocity_all_GMLS->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
     _velocity_all_GMLS->addTargets(TargetOperation::CurlCurlOfVectorPointEvaluation);
-    _velocity_all_GMLS->generateAlphas(5);
+    _velocity_all_GMLS->generateAlphas(_parameters->get<Teuchos::ParameterList>("remap").get<int>("number of batches"));
 
     // pressure GMLS operator - all points
     _pressure_all_GMLS = Teuchos::rcp<GMLS>(new GMLS(ReconstructionSpace::VectorTaylorPolynomial,
@@ -217,7 +217,7 @@ void GMLS_StokesPhysics::initialize() {
     _pressure_all_GMLS->setQuadratureType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));
     _pressure_all_GMLS->addTargets(TargetOperation::DivergenceOfVectorPointEvaluation);
     _pressure_all_GMLS->addTargets(TargetOperation::GradientOfScalarPointEvaluation);
-    _pressure_all_GMLS->generateAlphas(5);
+    _pressure_all_GMLS->generateAlphas(_parameters->get<Teuchos::ParameterList>("remap").get<int>("number of batches"));
 
     // pressure GMLS operator - boundary
     _pressure_neumann_GMLS = Teuchos::rcp<GMLS>(new GMLS(ReconstructionSpace::VectorTaylorPolynomial,
@@ -236,7 +236,7 @@ void GMLS_StokesPhysics::initialize() {
     _pressure_neumann_GMLS->setDimensionOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature dimension"));
     _pressure_neumann_GMLS->setQuadratureType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));
     _pressure_neumann_GMLS->addTargets(TargetOperation::DivergenceOfVectorPointEvaluation);
-    _pressure_neumann_GMLS->generateAlphas(5);
+    _pressure_neumann_GMLS->generateAlphas(_parameters->get<Teuchos::ParameterList>("remap").get<int>("number of batches"));
 
     GMLSTime->stop();
 }
