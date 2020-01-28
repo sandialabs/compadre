@@ -55,7 +55,7 @@ void AdvectionDiffusionPhysics::initialize() {
     //
     // it is a safe upper bound to use twice the previous search size as the maximum new radii
     auto max_h = _cell_particles_neighborhood->computeMaxHSupportSize(false /* local processor max is fine, since they are all the same */);
-    scalar_type double_radius = 2.0 * max_h;
+    scalar_type double_radius = 3.0 * max_h;
     scalar_type max_search_size = _cells->getCoordsConst()->getHaloSize();
     // check that max_halo_size is not violated by distance of the double jump
     const local_index_type comm_size = _cell_particles_neighborhood->getSourceCoordinates()->getComm()->getSize();
@@ -459,7 +459,7 @@ Teuchos::RCP<crs_graph_type> AdvectionDiffusionPhysics::computeGraph(local_index
         }
     }
     // set neighborhood to null because it is large (storage) and not used again
-	_particles_double_hop_neighborhood = Teuchos::null;
+	//_particles_double_hop_neighborhood = Teuchos::null;
 	ComputeGraphTime->stop();
     return this->_A_graph;
 }
@@ -669,6 +669,17 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
             }
         }
 
+        //std::vector<int> adjacent_cells(3,-1); // initialize all entries to -1
+        //int this_edge_num = -1;
+        //for (int q=0; q<_weights_ndim; ++q) {
+        //    int new_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+        //    if (new_edge_num != this_edge_num) {
+        //        this_edge_num = new_edge_num;
+        //        adjacent_cells[this_edge_num] = (int)(adjacent_elements(i, this_edge_num));
+        //    }
+        //}
+        //TEUCHOS_ASSERT(this_edge_num==2);
+
         int this_edge_num = -1;
         for (int q=0; q<_weights_ndim; ++q) {
             this_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
@@ -726,26 +737,51 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
             }
         }
         // get all particle neighbors of cell i
-        local_index_type num_neighbors = (i<nlocal) ? _cell_particles_neighborhood->getNumNeighbors(i)
+        //local_index_type num_neighbors = (i<nlocal) ? _cell_particles_neighborhood->getNumNeighbors(i)
+        //    : _halo_cell_particles_neighborhood->getNumNeighbors(halo_i);
+
+        local_index_type num_neighbors = (i<nlocal) ? _particles_double_hop_neighborhood->getNumNeighbors(i)
             : _halo_cell_particles_neighborhood->getNumNeighbors(halo_i);
 
         for (local_index_type j=0; j<num_neighbors; ++j) {
-            auto particle_j = (i<nlocal) ? _cell_particles_neighborhood->getNeighbor(i,j)
+            auto particle_j = (i<nlocal) ? _particles_double_hop_neighborhood->getNeighbor(i,j)
                 : _halo_cell_particles_neighborhood->getNeighbor(halo_i,j);
+            //auto particle_j = (i<nlocal) ? _cell_particles_neighborhood->getNeighbor(i,j)
+            //    : _halo_cell_particles_neighborhood->getNeighbor(halo_i,j);
             // particle_j is an index from {0..nlocal+nhalo}
             if (particle_j>=nlocal /* particle is halo particle */) continue; // row should be locally owned
 
             // locally owned DOF
             local_index_type row = local_to_dof_map(particle_j, field_one, 0 /* component 0*/);
             for (local_index_type k=0; k<num_neighbors; ++k) {
-                auto particle_k = (i<nlocal) ? _cell_particles_neighborhood->getNeighbor(i,k)
+                auto particle_k = (i<nlocal) ? _particles_double_hop_neighborhood->getNeighbor(i,k)
                     : _halo_cell_particles_neighborhood->getNeighbor(halo_i,k);
+                //auto particle_k = (i<nlocal) ? _cell_particles_neighborhood->getNeighbor(i,k)
+                //    : _halo_cell_particles_neighborhood->getNeighbor(halo_i,k);
                 // particle_k is an index from {0..nlocal+nhalo}
 
                 // do filter out (skip) all halo particles that are not seen by local DOF
                 // wrong thing to do, because k could be double hop through cell i
 
                 col_data(0) = local_to_dof_map(particle_k, field_two, 0 /* component */);
+
+                int j_to_cell_i = -1;
+                int k_to_cell_i = -1;
+                for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(i); ++l) {
+                    auto this_neighbor = _cell_particles_neighborhood->getNeighbor(i,l);
+                    if (this_neighbor==particle_j) {
+                        j_to_cell_i = l;
+                        if (k_to_cell_i >= 0) break;
+                    }
+                    if (this_neighbor==particle_k) {
+                        k_to_cell_i = l;
+                        if (j_to_cell_i >= 0) break;
+                    }
+                }
+
+                //if (j_to_cell_i>=0) {// && k_to_cell_i>=0) {
+                bool j_has_value = false;
+                bool k_has_value = false;
 
                 double contribution = 0;
                 if (_parameters->get<Teuchos::ParameterList>("physics").get<bool>("l2 projection only")) {
@@ -780,21 +816,50 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                     //}
                     //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_kokkos_epsilons_host(i);
                     for (int q=0; q<_weights_ndim; ++q) {
+                        double u, v;
+                        double grad_u_x, grad_u_y, grad_v_x, grad_v_y;
+                        
+                        //printf("jto: %d, kto: %d\n", j_to_cell_i, k_to_cell_i);
+
+                        if (j_to_cell_i>=0) {
+                            v = _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, q+1);
+                            //v = _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
+                            grad_v_x = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j_to_cell_i, q+1);
+                            grad_v_y = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j_to_cell_i, q+1);
+                            j_has_value = true;
+                        } else {
+                            v = 0.0;
+                            grad_v_x = 0.0;
+                            grad_v_y = 0.0;
+                        }
+                        if (k_to_cell_i>=0) {
+                            u = _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, q+1);
+                            //u = _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1);
+                            grad_u_x = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, k_to_cell_i, q+1);
+                            grad_u_y = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, k_to_cell_i, q+1);
+                            k_has_value = true;
+                        } else {
+                            u = 0.0;
+                            grad_u_x = 0.0;
+                            grad_u_y = 0.0;
+                        }
+
                         //printf("i: %d, j: %d, k: %d, q: %d, contribution: %f\n", i, j, k, q, contribution);
                         if (quadrature_type(i,q)==1) { // interior
                            auto q_wt = (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_halo_small_to_big(halo_i,0),q);
-                           auto u = (i<nlocal) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1)
-                                : _halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, k, q+1);
-                           auto v = (i<nlocal) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1)
-                                : _halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, q+1);
+                           //auto u = (i<nlocal) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1)
+                           //     : _halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, k, q+1);
+                           //auto v = (i<nlocal) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1)
+                           //     : _halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, q+1);
 
                            contribution += _advection * q_wt * u * v;
-                           contribution += _diffusion * quadrature_weights(i,q) 
-                               * _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j, q+1) 
-                               * _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, k, q+1);
-                           contribution += _diffusion * quadrature_weights(i,q) 
-                               * _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j, q+1) 
-                               * _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, k, q+1);
+                           //printf("u: %f, v: %f\n", u, v);
+                           //contribution += _diffusion * quadrature_weights(i,q) 
+                           //    * grad_v_x * grad_u_x;//_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j, q+1) 
+                           //    //* _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, k, q+1);
+                           //contribution += _diffusion * quadrature_weights(i,q) 
+                           //    * grad_v_y * grad_u_y;//_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j, q+1) 
+                           //    //* _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, k, q+1);
                         } 
                         else if (quadrature_type(i,q)==2) { // edge on exterior
                             //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_kokkos_epsilons_host(i);
@@ -803,24 +868,24 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                             int adjacent_cell = adjacent_elements(i,current_edge_num);
                             TEUCHOS_ASSERT(adjacent_cell < 0);
                             // penalties for edges of mass
-                            double jumpv = _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
-                            double jumpu = _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1);
-                            double avgv_x = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j, q+1);
-                            double avgv_y = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j, q+1);
-                            double avgu_x = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, k, q+1);
-                            double avgu_y = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, k, q+1);
+                            double jumpv = v;//_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, q+1);
+                            double jumpu = u;//_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, q+1);
+                            double avgv_x = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j_to_cell_i, q+1);
+                            double avgv_y = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j_to_cell_i, q+1);
+                            double avgu_x = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, k_to_cell_i, q+1);
+                            double avgu_y = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, k_to_cell_i, q+1);
                             auto n_x = unit_normals(i,2*q+0); // unique normal
                             auto n_y = unit_normals(i,2*q+1);
-                            auto jump_v_x = n_x*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
-                            auto jump_v_y = n_y*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
-                            auto jump_u_x = n_x*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1);
-                            auto jump_u_y = n_y*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1);
+                            auto jump_v_x = n_x*v;//_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, q+1);
+                            auto jump_v_y = n_y*v;//_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, q+1);
+                            auto jump_u_x = n_x*u;//_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, q+1);
+                            auto jump_u_y = n_y*u;//_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, q+1);
                             auto jump_u_jump_v = jump_v_x*jump_u_x + jump_v_y*jump_u_y;
 
-                            //contribution += penalty * quadrature_weights(i,q) * jump_u_jump_v;//jumpv * jumpu; // other half will be added by other cell
-                            contribution += penalty * quadrature_weights(i,q) * jumpv * jumpu;
-                            contribution -= quadrature_weights(i,q) * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
-                            contribution -= quadrature_weights(i,q) * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
+                            contribution += penalty * quadrature_weights(i,q) * jump_u_jump_v;//jumpv * jumpu; // other half will be added by other cell
+                            //contribution += penalty * quadrature_weights(i,q) * jumpv * jumpu;
+                            //contribution -= quadrature_weights(i,q) * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
+                            //contribution -= quadrature_weights(i,q) * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
                             //printf("exterior edge\n");
                             
                         }
@@ -879,13 +944,19 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                                 auto this_neighbor = _cell_particles_neighborhood->getNeighbor(adjacent_cell_local_index,l);
                                 if (this_neighbor==particle_j) {
                                     j_to_adjacent_cell = l;
-                                    //if (k_to_adjacent_cell >= 0) break;
-                                } else if (this_neighbor==particle_k) {
+                                    if (k_to_adjacent_cell >= 0) break;
+                                } 
+                                if (this_neighbor==particle_k) {
                                     k_to_adjacent_cell = l;
-                                    //if (j_to_adjacent_cell >= 0) break;
+                                    if (j_to_adjacent_cell >= 0) break;
                                 }
                             }
-
+                            if (j_to_adjacent_cell>=0) {
+                                j_has_value = true;
+                            }
+                            if (k_to_adjacent_cell>=0) {
+                                k_has_value = true;
+                            }
                             //if (j_to_adjacent_cell>=0 && k_to_adjacent_cell>=0) {
                             //    printf("both\n");
                             //} else if (j_to_adjacent_cell>=0 || k_to_adjacent_cell>=0) {
@@ -911,8 +982,10 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
 //                          //  auto normal_direction_correction = 1;//(i > adjacent_cell_local_index) ? -1 : 1; // gives a unique normal
 
                             auto normal_direction_correction = (i > adjacent_cell_local_index) ? -1 : 1; // gives a unique normal
-                            auto n_x = normal_direction_correction * unit_normals(i,2*q+0);
-                            auto n_y = normal_direction_correction * unit_normals(i,2*q+1);
+                            //auto n_x = normal_direction_correction * unit_normals(i,2*q+0);
+                            //auto n_y = normal_direction_correction * unit_normals(i,2*q+1);
+                            auto n_x = unit_normals(i,2*q+0);
+                            auto n_y = unit_normals(i,2*q+1);
 
                             double jump_u_jump_v = 0.0;
                             double avgu_x=0, avgv_x=0, avgu_y=0, avgv_y=0;
@@ -941,13 +1014,13 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                             if (std::abs(my_x-their_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_x, their_x, my_x-their_x);
                             if (std::abs(my_y-their_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_y, their_y, my_y-their_y);
 
-                            if (j_to_adjacent_cell>=0 && k_to_adjacent_cell>=0) {// && i>adjacent_cell_local_index) {
+                            //if (j_to_adjacent_cell>=0 && k_to_adjacent_cell>=0) {// && i>adjacent_cell_local_index) {
                             //if (j_to_adjacent_cell>=0) {
                                 //printf("a: %f\n", jumpv);
-                                jumpv = _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell, adjacent_q+1);
-                                jumpv -= _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
+                                double other_v = (j_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell, adjacent_q+1) : 0;
+                                jumpv = v-other_v;//_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, q+1);
                                 //printf("b: %f\n", _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell, adjacent_q+1));
-                                auto my_j_index = _cell_particles_neighborhood->getNeighbor(i,j);
+                                auto my_j_index = _cell_particles_neighborhood->getNeighbor(i,j_to_cell_i);
                                 auto their_j_index = _cell_particles_neighborhood->getNeighbor(adjacent_cell_local_index, j_to_adjacent_cell);
                                 //printf("xm: %d, t: %d\n", my_j_index, their_j_index);
                                 //auto my_q_x = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 0);
@@ -969,12 +1042,15 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                             //}
                             //if (j_to_adjacent_cell>=0) {
                             //if (k_to_adjacent_cell>=0) {
-                                jumpu = _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, k_to_adjacent_cell, adjacent_q+1);
-                                jumpu -= _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1);
+                                double other_u = (k_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, k_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                //jumpu -= _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1);
+                                jumpu = u-other_u;//_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1);
+                                //if (k_to_adjacent_cell<0||k_to_cell_i) jumpu=0;
+                                //if (j_to_adjacent_cell<0||j_to_cell_i) jumpv=0;
                             //} else {
                             //    jumpu = 0;
                             //}
-                            }
+                            //}
 
 
                             //if (j_to_adjacent_cell>=0 || k_to_adjacent_cell>=0) {
@@ -996,24 +1072,21 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                             //    avgu_y = 0.5*(_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, k, q+1)
                             //                            + _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index, 1, k_to_adjacent_cell, q+1));
 
-                            //    auto jump_v_x = n_x*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1)
-                            //            -n_x*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell, q+1)*(j_to_adjacent_cell>=0);
-                            //    auto jump_v_y = n_y*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1)
-                            //            -n_y*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell, q+1)*(j_to_adjacent_cell>=0);
-                            //    auto jump_u_x = n_x*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1)
-                            //            -n_x*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, k_to_adjacent_cell, q+1)*(k_to_adjacent_cell>=0);
-                            //    auto jump_u_y = n_y*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k, q+1)
-                            //            -n_y*_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, k_to_adjacent_cell, q+1)*(k_to_adjacent_cell>=0);
-                            //    jump_u_jump_v = jump_v_x*jump_u_x + jump_v_y*jump_u_y;
+                            auto jump_v_x = n_x*v-n_x*other_v;
+                            auto jump_v_y = n_y*v-n_y*other_v;
+                            auto jump_u_x = n_x*u-n_x*other_u;
+                            auto jump_u_y = n_y*u-n_y*other_u;
+                            jump_u_jump_v = jump_v_x*jump_u_x + jump_v_y*jump_u_y;
                             //}
                             //if (j_to_adjacent_cell>=0 && k_to_adjacent_cell>=0) {
                             //    integral_fraction = 1.0;
                             //}
 
-                            //contribution += 0.0*integral_fraction * penalty * quadrature_weights(i,q) * jump_u_jump_v;//jumpv * jumpu; // other half will be added by other cell
-                            contribution += 0.5 * penalty * quadrature_weights(i,q) * jumpv * jumpu; // other half will be added by other cell
-                            contribution -= quadrature_weights(i,q) * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
-                            contribution -= quadrature_weights(i,q) * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
+                            //contribution += 0.5* penalty * quadrature_weights(i,q) * jump_u_jump_v;//jumpv * jumpu; // other half will be added by other cell
+                            contribution +=  0.5 * penalty * quadrature_weights(i,q) * jump_u_jump_v;//jumpv * jumpu; // other half will be added by other cell
+                            //contribution += 0.5 * penalty * quadrature_weights(i,q) * jumpv * jumpu; // other half will be added by other cell
+                            //contribution -= quadrature_weights(i,q) * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
+                            //contribution -= quadrature_weights(i,q) * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
                             //contribution += penalty * 0.5 * quadrature_weights(i,q) * jumpv * jumpu; // other half will be added by other cell
                             //contribution -= 0.5 * quadrature_weights(i,q) * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
                             //contribution -= 0.5 * quadrature_weights(i,q) * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
@@ -1050,7 +1123,10 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                 }
 
                 val_data(0) = contribution;
-                this->_A->sumIntoLocalValues(row, 1, val_data.data(), col_data.data());//, /*atomics*/false);
+                if (j_has_value && k_has_value) {
+                    this->_A->sumIntoLocalValues(row, 1, val_data.data(), col_data.data());//, /*atomics*/false);
+                }
+                //}
             }
         }
     }
