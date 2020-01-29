@@ -55,7 +55,8 @@ void AdvectionDiffusionPhysics::initialize() {
     //
     // it is a safe upper bound to use twice the previous search size as the maximum new radii
     auto max_h = _cell_particles_neighborhood->computeMaxHSupportSize(false /* local processor max is fine, since they are all the same */);
-    scalar_type double_radius = 3.0 * max_h;
+    scalar_type double_radius = 1.5 * max_h;
+    scalar_type triple_radius = 3.0 * max_h;
     scalar_type max_search_size = _cells->getCoordsConst()->getHaloSize();
     // check that max_halo_size is not violated by distance of the double jump
     const local_index_type comm_size = _cell_particles_neighborhood->getSourceCoordinates()->getComm()->getSize();
@@ -64,6 +65,7 @@ void AdvectionDiffusionPhysics::initialize() {
     }
 
     auto neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
+
     _particles_double_hop_neighborhood = Teuchos::rcp_static_cast<neighborhood_type>(Teuchos::rcp(
             new neighborhood_type(_cells, _particles.getRawPtr(), false /*material coords*/, maxLeaf)));
     _particles_double_hop_neighborhood->constructAllNeighborLists(max_search_size,
@@ -72,6 +74,17 @@ void AdvectionDiffusionPhysics::initialize() {
         neighbors_needed+1,
         0.0, /* cutoff multiplier */
         double_radius, /* search size */
+        false, /* uniform radii is true, but will be enforce automatically because all search sizes are the same globally */
+        _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
+
+    _particles_triple_hop_neighborhood = Teuchos::rcp_static_cast<neighborhood_type>(Teuchos::rcp(
+            new neighborhood_type(_cells, _particles.getRawPtr(), false /*material coords*/, maxLeaf)));
+    _particles_triple_hop_neighborhood->constructAllNeighborLists(max_search_size,
+        "radius",
+        true /*dry run for sizes*/,
+        neighbors_needed+1,
+        0.0, /* cutoff multiplier */
+        triple_radius, /* search size */
         false, /* uniform radii is true, but will be enforce automatically because all search sizes are the same globally */
         _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
 
@@ -422,9 +435,9 @@ void AdvectionDiffusionPhysics::initialize() {
 }
 
 local_index_type AdvectionDiffusionPhysics::getMaxNumNeighbors() {
-    // _particles_double_hop_neighborhood set to null after computeGraph is called
-    TEUCHOS_ASSERT(!_particles_double_hop_neighborhood.is_null());
-    return _particles_double_hop_neighborhood->computeMaxNumNeighbors(false /*local processor maximum*/);
+    // _particles_triple_hop_neighborhood set to null after computeGraph is called
+    TEUCHOS_ASSERT(!_particles_triple_hop_neighborhood.is_null());
+    return _particles_triple_hop_neighborhood->computeMaxNumNeighbors(false /*local processor maximum*/);
 }
 
 Teuchos::RCP<crs_graph_type> AdvectionDiffusionPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
@@ -441,7 +454,7 @@ Teuchos::RCP<crs_graph_type> AdvectionDiffusionPhysics::computeGraph(local_index
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
 
     for(local_index_type i = 0; i < nlocal; i++) {
-        local_index_type num_neighbors = _particles_double_hop_neighborhood->getNumNeighbors(i);
+        local_index_type num_neighbors = _particles_triple_hop_neighborhood->getNumNeighbors(i);
         for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
             local_index_type row = local_to_dof_map(i, field_one, k);
 
@@ -450,7 +463,7 @@ Teuchos::RCP<crs_graph_type> AdvectionDiffusionPhysics::computeGraph(local_index
 
             for (local_index_type l = 0; l < num_neighbors; l++) {
                 for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-                    col_data[l*fields[field_two]->nDim() + n] = local_to_dof_map(_particles_double_hop_neighborhood->getNeighbor(i,l), field_two, n);
+                    col_data[l*fields[field_two]->nDim() + n] = local_to_dof_map(_particles_triple_hop_neighborhood->getNeighbor(i,l), field_two, n);
                 }
             }
             {
@@ -459,13 +472,54 @@ Teuchos::RCP<crs_graph_type> AdvectionDiffusionPhysics::computeGraph(local_index
         }
     }
     // set neighborhood to null because it is large (storage) and not used again
-	//_particles_double_hop_neighborhood = Teuchos::null;
+	_particles_triple_hop_neighborhood = Teuchos::null;
 	ComputeGraphTime->stop();
     return this->_A_graph;
 }
 
 
 void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
+    //{
+    //local_index_type maxLeaf = _parameters->get<Teuchos::ParameterList>("neighborhood").get<int>("max leaf");
+
+    //// cell k can see particle i and cell k can see particle i
+    //// sparsity graph then requires particle i can see particle j since they will have a cell shared between them
+    //// since both i and j are shared by k, the radius for k's search doubled (and performed at i) will always find j
+    //// also, if it appears doubling is too costly, realize nothing less than double could be guaranteed to work
+    //// 
+    //// the alternative would be to perform a neighbor search from particles to cells, then again from cells to
+    //// particles (which would provide exactly what was needed)
+    //// in that case, for any neighbor j of i found, you can assume that there is some k approximately half the 
+    //// distance between i and j, which means that if doubling the search size is wasteful, it is barely so
+ 
+    //local_index_type ndim_requested = _parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions");
+
+    ////
+    //// double-sized search
+    ////
+    //// it is a safe upper bound to use twice the previous search size as the maximum new radii
+    //auto max_h = _cell_particles_neighborhood->computeMaxHSupportSize(false /* local processor max is fine, since they are all the same */);
+    //scalar_type double_radius = 1.5 * max_h;
+    //scalar_type max_search_size = _cells->getCoordsConst()->getHaloSize();
+    //// check that max_halo_size is not violated by distance of the double jump
+    //const local_index_type comm_size = _cell_particles_neighborhood->getSourceCoordinates()->getComm()->getSize();
+    //if (comm_size > 1) {
+    //    TEUCHOS_TEST_FOR_EXCEPT_MSG((max_search_size < double_radius), "Neighbor of neighbor search results in a search radius exceeding the halo size.");
+    //}
+
+    //auto neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
+    //_particles_double_hop_neighborhood = Teuchos::rcp_static_cast<neighborhood_type>(Teuchos::rcp(
+    //        new neighborhood_type(_cells, _particles.getRawPtr(), false /*material coords*/, maxLeaf)));
+    //_particles_double_hop_neighborhood->constructAllNeighborLists(max_search_size,
+    //    "radius",
+    //    true /*dry run for sizes*/,
+    //    neighbors_needed+1,
+    //    0.0, /* cutoff multiplier */
+    //    double_radius, /* search size */
+    //    false, /* uniform radii is true, but will be enforce automatically because all search sizes are the same globally */
+    //    _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
+
+    //}
 
     bool use_physical_coords = true; // can be set on the operator in the future
 
@@ -628,6 +682,21 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
     double t_perimeter = 0; 
  
 
+    std::vector<std::map<local_index_type, local_index_type> > particle_to_local_neighbor_lookup(nlocal, std::map<local_index_type, local_index_type>());
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal(true)), [&](const int i) {
+    //for (int i=0; i<_cells->getCoordsConst()->nLocal(true); ++i) {
+        std::map<local_index_type, local_index_type>* i_map = const_cast<std::map<local_index_type, local_index_type>* >(&particle_to_local_neighbor_lookup[i]);
+        auto halo_i = (i<nlocal) ? -1 : _halo_big_to_small(i-nlocal,0);
+        local_index_type num_neighbors = (i<nlocal) ? _cell_particles_neighborhood->getNumNeighbors(i)
+            : _halo_cell_particles_neighborhood->getNumNeighbors(halo_i);
+        for (local_index_type j=0; j<num_neighbors; ++j) {
+            auto particle_j = (i<nlocal) ? _cell_particles_neighborhood->getNeighbor(i,j)
+                : _halo_cell_particles_neighborhood->getNeighbor(halo_i,j);
+            (*i_map)[particle_j]=j;
+        }
+    });
+    Kokkos::fence();
+
     //printf("interior: %d, exterior: %d\n", num_interior_quadrature, num_exterior_quadrature_per_edge);
     int num_interior_edges = 0;
     // loop over cells including halo cells 
@@ -766,18 +835,24 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                 col_data(0) = local_to_dof_map(particle_k, field_two, 0 /* component */);
 
                 int j_to_cell_i = -1;
-                int k_to_cell_i = -1;
-                for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(i); ++l) {
-                    auto this_neighbor = _cell_particles_neighborhood->getNeighbor(i,l);
-                    if (this_neighbor==particle_j) {
-                        j_to_cell_i = l;
-                        if (k_to_cell_i >= 0) break;
-                    }
-                    if (this_neighbor==particle_k) {
-                        k_to_cell_i = l;
-                        if (j_to_cell_i >= 0) break;
-                    }
+                if (particle_to_local_neighbor_lookup[i].count(particle_j)==1){
+                    j_to_cell_i = particle_to_local_neighbor_lookup[i][particle_j];
                 }
+                int k_to_cell_i = -1;
+                if (particle_to_local_neighbor_lookup[i].count(particle_k)==1){
+                    k_to_cell_i = particle_to_local_neighbor_lookup[i][particle_k];
+                }
+                //for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(i); ++l) {
+                //    auto this_neighbor = _cell_particles_neighborhood->getNeighbor(i,l);
+                //    if (this_neighbor==particle_j) {
+                //        j_to_cell_i = l;
+                //        if (k_to_cell_i >= 0) break;
+                //    }
+                //    if (this_neighbor==particle_k) {
+                //        k_to_cell_i = l;
+                //        if (j_to_cell_i >= 0) break;
+                //    }
+                //}
 
                 //if (j_to_cell_i>=0) {// && k_to_cell_i>=0) {
                 bool j_has_value = false;
@@ -937,20 +1012,26 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                             ////}
                             TEUCHOS_ASSERT(adjacent_cell_local_index >= 0);
                             int j_to_adjacent_cell = -1;
-                            int k_to_adjacent_cell = -1;
-                            
-                            TEUCHOS_ASSERT(adjacent_cell_local_index < nlocal); // must be local, for now
-                            for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(adjacent_cell_local_index); ++l) {
-                                auto this_neighbor = _cell_particles_neighborhood->getNeighbor(adjacent_cell_local_index,l);
-                                if (this_neighbor==particle_j) {
-                                    j_to_adjacent_cell = l;
-                                    if (k_to_adjacent_cell >= 0) break;
-                                } 
-                                if (this_neighbor==particle_k) {
-                                    k_to_adjacent_cell = l;
-                                    if (j_to_adjacent_cell >= 0) break;
-                                }
+                            if (particle_to_local_neighbor_lookup[adjacent_cell_local_index].count(particle_j)==1) {
+                                j_to_adjacent_cell = particle_to_local_neighbor_lookup[adjacent_cell_local_index][particle_j];
                             }
+                            int k_to_adjacent_cell = -1;
+                            if (particle_to_local_neighbor_lookup[adjacent_cell_local_index].count(particle_k)==1) {
+                                k_to_adjacent_cell = particle_to_local_neighbor_lookup[adjacent_cell_local_index][particle_k];
+                            }
+                            
+                            //TEUCHOS_ASSERT(adjacent_cell_local_index < nlocal); // must be local, for now
+                            //for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(adjacent_cell_local_index); ++l) {
+                            //    auto this_neighbor = _cell_particles_neighborhood->getNeighbor(adjacent_cell_local_index,l);
+                            //    if (this_neighbor==particle_j) {
+                            //        j_to_adjacent_cell = l;
+                            //        if (k_to_adjacent_cell >= 0) break;
+                            //    } 
+                            //    if (this_neighbor==particle_k) {
+                            //        k_to_adjacent_cell = l;
+                            //        if (j_to_adjacent_cell >= 0) break;
+                            //    }
+                            //}
                             if (j_to_adjacent_cell>=0) {
                                 j_has_value = true;
                             }

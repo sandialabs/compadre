@@ -37,6 +37,7 @@ class AdvectionDiffusionPhysics : public PhysicsT {
 		Teuchos::RCP<neighborhood_type> _halo_cell_particles_neighborhood;
 
 		Teuchos::RCP<neighborhood_type> _particles_double_hop_neighborhood;
+		Teuchos::RCP<neighborhood_type> _particles_triple_hop_neighborhood;
 
 		size_t _particles_particles_max_num_neighbors;
 		size_t _cell_particles_max_num_neighbors;
