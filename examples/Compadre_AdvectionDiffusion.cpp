@@ -220,8 +220,8 @@ int main (int argc, char* args[]) {
         // post process solution ( modal DOF -> cell centered value )
         {
             auto gmls = physics->_gmls;
-		    cells->getFieldManager()->createField(1, "processed solution", "m/s");
-		    auto processed_view = cells->getFieldManager()->getFieldByName("processed solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+		    cells->getFieldManager()->createField(1, "processed_solution", "m/s");
+		    auto processed_view = cells->getFieldManager()->getFieldByName("processed_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 		    auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 		    auto halo_dof_view = cells->getFieldManager()->getFieldByName("solution")->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 	        auto neighborhood = physics->_cell_particles_neighborhood;
@@ -239,6 +239,46 @@ int main (int argc, char* args[]) {
                 }
             }
         }
+
+        //// DIAGNOSTIC:: serial only checking of basis function near (1,1)
+        //{
+        //    // to visualize basis function
+        //    // first pick a DOF
+        //    // then get all cells in that DOFs neighborhood
+        //    // then loop over a cell 
+        //    // then loop over quadrature point
+        //    auto gmls = physics->_gmls;
+        //    auto quadrature_points = physics->_cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
+        //    auto quadrature_weights = physics->_cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
+        //    auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
+		//    auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+	    //    auto neighborhood = physics->_cell_particles_neighborhood;
+        //    auto nlocal = coords->nLocal();
+
+        //    int DOF = 0;
+		//    for(int p=0; p<nlocal; p++){
+		//	    xyz_type xyz = coords->getLocalCoords(p);
+        //        if (((xyz.x-1)*(xyz.x-1) + (xyz.y-1)*(xyz.y-1)) < 1e-2) DOF = p;
+        //    }
+		//    LO num_neighbors = neighborhood->getNumNeighbors(DOF);
+		//    for (LO l = 0; l < num_neighbors; l++) {
+        //        auto neighbor_l = neighborhood->getNeighbor(DOF,l);
+		//        for (LO q = 0; q < quadrature_weights.extent(1); q++) {
+        //            if (((int)quadrature_type(neighbor_l,q))==1) {
+        //                std::cout << quadrature_points(neighbor_l, 2*q+0) << " " << quadrature_points(neighbor_l, 2*q+1) << " ";
+        //                int DOF_to_l = -1;
+		//                for (LO z = 0; z < neighborhood->getNumNeighbors(neighbor_l); ++z) {
+        //                    if (neighborhood->getNeighbor(neighbor_l,z)==DOF) {
+        //                        DOF_to_l = z;
+        //                        break;
+        //                    }
+        //                }
+        //                auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, neighbor_l, DOF_to_l, q+1);
+        //                std::cout << v << std::endl;
+        //            }
+        //        }
+        //    }
+        //}
 
         // DIAGNOSTIC:: serial only checking of quadrature points
         if (comm->getSize()==1) {
@@ -311,12 +351,55 @@ int main (int argc, char* args[]) {
 		    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
         }
 
+        //auto penalty = (parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/physics->_cell_particles_neighborhood->computeMaxHSupportSize(true /* global processor max */);
+        //// jump errors
+        //double jump_error = 0.0;
+        //if (penalty > 0) 
+        //{
+        //    auto gmls = physics->_gmls;
+		//    cells->getFieldManager()->createField(1, "processed_solution", "m/s");
+		//    auto processed_view = cells->getFieldManager()->getFieldByName("processed_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+		//    auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+		//    auto halo_dof_view = cells->getFieldManager()->getFieldByName("solution")->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+	    //    auto neighborhood = physics->_cell_particles_neighborhood;
+	    //    auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
 
-		cells->getFieldManager()->createField(1, "exact solution", "m/s");
-		auto exact_view = cells->getFieldManager()->getFieldByName("exact solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        //    auto quadrature_points = physics->_cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
+        //    auto quadrature_weights = physics->_cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
+        //    auto quadrature_type = physics->_cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
+        //    auto unit_normals = physics->_cells->getFieldManager()->getFieldByName("unit_normal")->getMultiVectorPtr()->getLocalView<host_view_type>();
+        //    auto adjacent_elements = physics->_cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalView<host_view_type>();
+
+        //    auto halo_quadrature_points = physics->_cells->getFieldManager()->getFieldByName("quadrature_points")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
+        //    auto halo_quadrature_weights = physics->_cells->getFieldManager()->getFieldByName("quadrature_weights")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
+        //    auto halo_quadrature_type = physics->_cells->getFieldManager()->getFieldByName("interior")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
+        //    auto halo_unit_normals = physics->_cells->getFieldManager()->getFieldByName("unit_normal")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
+        //    auto halo_adjacent_elements = physics->_cells->getFieldManager()->getFieldByName("adjacent_elements")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
+
+        //    auto nlocal = coords->nLocal();
+        //    // loop over cells
+		//    for(int j=0; j<nlocal; j++){
+		//        LO num_neighbors = neighborhood->getNumNeighbors(j);
+        //        // loop over particles neighbor to the cell
+		//    	for (LO q = 0; q < quadrature_weights.extent(1); q++) {
+        //            if (quadrature_type(j,q)==0 || quadrature_type(j,q)==2) {
+        //                double val_at_quad = 0.0;
+		//    	        for (LO l = 0; l < num_neighbors; l++) {
+        //                    auto particle_l = neighborhood->getNeighbor(j,l);
+        //                    auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,0) : halo_dof_view(particle_l-nlocal,q+1);
+        //                    auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, q+1);
+        //                    val += dof_val * v;
+        //                }
+        //            }
+        //        }
+        //    }
+        //}
+
+		cells->getFieldManager()->createField(1, "exact_solution", "m/s");
+		auto exact_view = cells->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 		for( int j =0; j<coords->nLocal(); j++){
 			xyz_type xyz = coords->getLocalCoords(j);
-			const ST val = cells->getFieldManagerConst()->getFieldByName("processed solution")->getLocalScalarVal(j);
+			const ST val = cells->getFieldManagerConst()->getFieldByName("processed_solution")->getLocalScalarVal(j);
 			//const ST val = dof_view(j,0);
 			//exact = 1;//+xyz[0]+xyz[1];//function->evalScalar(xyz);
 			exact = function->evalScalar(xyz);

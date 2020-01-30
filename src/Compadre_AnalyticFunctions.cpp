@@ -273,6 +273,15 @@ xyz_type SecondOrderBasis::evalVector(const xyz_type& xyzIn) const {
     return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn),2*evalScalar(xyzIn));
 }
 
+scalar_type SecondOrderBasis::evalAdvectionDiffusionRHS(const xyz_type& xyzIn, const scalar_type diffusion, const scalar_type advection) const {
+    if (_dim==3) {
+        TEUCHOS_ASSERT(false);
+    } else {
+        auto laplace_u = 4;
+        return -diffusion*laplace_u + advection*this->evalScalar(xyzIn);
+    }
+}
+
 scalar_type SecondOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn) const {
 	return 6;
 }
