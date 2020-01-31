@@ -360,7 +360,7 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
                         double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
                         xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
                         auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());//Teuchos::rcp_dynamic_cast<Compadre::SineProducts>(function);
-                        if (!cast_to_sine==NULL) {
+                        if (!cast_to_sine==Teuchos::null) {
                             contribution += quadrature_weights(i,q) * v * cast_to_sine->evalAdvectionDiffusionRHS(pt,_physics->_diffusion,_physics->_advection);
                         } else {
                             auto cast_to_poly = dynamic_cast<SecondOrderBasis*>(function.getRawPtr());//Teuchos::rcp_dynamic_cast<Compadre::SineProducts>(function);
