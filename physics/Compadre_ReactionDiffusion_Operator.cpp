@@ -1,4 +1,4 @@
-#include <Compadre_AdvectionDiffusion_Operator.hpp>
+#include <Compadre_ReactionDiffusion_Operator.hpp>
 
 #include <Compadre_CoordsT.hpp>
 #include <Compadre_ParticlesT.hpp>
@@ -26,7 +26,7 @@ typedef Compadre::FieldT fields_type;
 typedef Compadre::XyzVector xyz_type;
 
 
-void AdvectionDiffusionPhysics::initialize() {
+void ReactionDiffusionPhysics::initialize() {
 
 	Teuchos::RCP<Teuchos::Time> GenerateData = Teuchos::TimeMonitor::getNewCounter ("Generate Data");
     GenerateData->start();
@@ -434,13 +434,13 @@ void AdvectionDiffusionPhysics::initialize() {
 
 }
 
-local_index_type AdvectionDiffusionPhysics::getMaxNumNeighbors() {
+local_index_type ReactionDiffusionPhysics::getMaxNumNeighbors() {
     // _particles_triple_hop_neighborhood set to null after computeGraph is called
     TEUCHOS_ASSERT(!_particles_triple_hop_neighborhood.is_null());
     return _particles_triple_hop_neighborhood->computeMaxNumNeighbors(false /*local processor maximum*/);
 }
 
-Teuchos::RCP<crs_graph_type> AdvectionDiffusionPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
+Teuchos::RCP<crs_graph_type> ReactionDiffusionPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
 	if (field_two == -1) {
 		field_two = field_one;
 	}
@@ -478,7 +478,7 @@ Teuchos::RCP<crs_graph_type> AdvectionDiffusionPhysics::computeGraph(local_index
 }
 
 
-void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
+void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
     //{
     //local_index_type maxLeaf = _parameters->get<Teuchos::ParameterList>("neighborhood").get<int>("max leaf");
 
@@ -682,11 +682,13 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
     double t_perimeter = 0; 
  
 
-    std::vector<std::map<local_index_type, local_index_type> > particle_to_local_neighbor_lookup(nlocal, std::map<local_index_type, local_index_type>());
+    // this maps should be for nLocal(true) so that it contains local neighbor lookups for owned and halo particles
+    std::vector<std::map<local_index_type, local_index_type> > particle_to_local_neighbor_lookup(_cells->getCoordsConst()->nLocal(true), std::map<local_index_type, local_index_type>());
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal(true)), [&](const int i) {
     //for (int i=0; i<_cells->getCoordsConst()->nLocal(true); ++i) {
         std::map<local_index_type, local_index_type>* i_map = const_cast<std::map<local_index_type, local_index_type>* >(&particle_to_local_neighbor_lookup[i]);
         auto halo_i = (i<nlocal) ? -1 : _halo_big_to_small(i-nlocal,0);
+        if (i>=nlocal /* halo */  && halo_i<0 /* not one found within max_h of locally owned particles */) return;
         local_index_type num_neighbors = (i<nlocal) ? _cell_particles_neighborhood->getNumNeighbors(i)
             : _halo_cell_particles_neighborhood->getNumNeighbors(halo_i);
         for (local_index_type j=0; j<num_neighbors; ++j) {
@@ -703,6 +705,8 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
     for (int i=0; i<_cells->getCoordsConst()->nLocal(true); ++i) {
 
         // filter out (skip) all halo cells that are not able to be seen from a locally owned particle
+        // dictionary needs created of halo_particle
+        // halo_big_to_small 
         auto halo_i = (i<nlocal) ? -1 : _halo_big_to_small(i-nlocal,0);
         if (i>=nlocal /* halo */  && halo_i<0 /* not one found within max_h of locally owned particles */) continue;
 
@@ -925,7 +929,7 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
                            //auto v = (i<nlocal) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1)
                            //     : _halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, q+1);
 
-                           contribution += _advection * q_wt * u * v;
+                           contribution += _reaction * q_wt * u * v;
                            //printf("u: %f, v: %f\n", u, v);
                            contribution += _diffusion * quadrature_weights(i,q) 
                                * grad_v_x * grad_u_x;//_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j, q+1) 
@@ -1370,7 +1374,7 @@ void AdvectionDiffusionPhysics::computeMatrix(local_index_type field_one, local_
 
 }
 
-const std::vector<InteractingFields> AdvectionDiffusionPhysics::gatherFieldInteractions() {
+const std::vector<InteractingFields> ReactionDiffusionPhysics::gatherFieldInteractions() {
 	std::vector<InteractingFields> field_interactions;
 	field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _particles->getFieldManagerConst()->getIDOfFieldFromName("solution")));
 	return field_interactions;

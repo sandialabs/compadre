@@ -1,4 +1,4 @@
-#include <Compadre_AdvectionDiffusion_Sources.hpp>
+#include <Compadre_ReactionDiffusion_Sources.hpp>
 
 #include <Compadre_CoordsT.hpp>
 #include <Compadre_FieldT.hpp>
@@ -8,7 +8,7 @@
 #include <Compadre_AnalyticFunctions.hpp>
 #include <Compadre_XyzVector.hpp>
 #include <Compadre_NeighborhoodT.hpp>
-#include <Compadre_AdvectionDiffusion_Operator.hpp>
+#include <Compadre_ReactionDiffusion_Operator.hpp>
 #include <Compadre_GMLS.hpp>
 
 namespace Compadre {
@@ -16,7 +16,7 @@ namespace Compadre {
 typedef Compadre::FieldT fields_type;
 typedef Compadre::XyzVector xyz_type;
 
-void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time) {
+void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time) {
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_b==NULL, "Tpetra Multivector for RHS not yet specified.");
     if (field_two == -1) {
         field_two = field_one;
@@ -276,7 +276,7 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     //                    xyz_type pt(quadrature_points(cell_j,2*q),quadrature_points(cell_j,2*q+1),0);
     //                    auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());//Teuchos::rcp_dynamic_cast<Compadre::SineProducts>(function);
     //                    //if (!cast_to_sine==NULL) {
-    //                        contribution += quadrature_weights(cell_j,q) * v * cast_to_sine->evalAdvectionDiffusionRHS(pt,_physics->_diffusion,_physics->_advection_field);
+    //                        contribution += quadrature_weights(cell_j,q) * v * cast_to_sine->evalReactionDiffusionRHS(pt,_physics->_diffusion,_physics->_reaction_field);
     //                    //} else {
     //                    //    printf("is null.\n");
     //                    //}
@@ -361,10 +361,10 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
                         xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
                         auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());//Teuchos::rcp_dynamic_cast<Compadre::SineProducts>(function);
                         if (!cast_to_sine==Teuchos::null) {
-                            contribution += quadrature_weights(i,q) * v * cast_to_sine->evalAdvectionDiffusionRHS(pt,_physics->_diffusion,_physics->_advection);
+                            contribution += quadrature_weights(i,q) * v * cast_to_sine->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
                         } else {
                             auto cast_to_poly = dynamic_cast<SecondOrderBasis*>(function.getRawPtr());//Teuchos::rcp_dynamic_cast<Compadre::SineProducts>(function);
-                            contribution += quadrature_weights(i,q) * v * cast_to_poly->evalAdvectionDiffusionRHS(pt,_physics->_diffusion,_physics->_advection);
+                            contribution += quadrature_weights(i,q) * v * cast_to_poly->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
                             //TEUCHOS_ASSERT(false);
                         }
                         //} else {
@@ -490,7 +490,7 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     }
 }
 
-std::vector<InteractingFields> AdvectionDiffusionSources::gatherFieldInteractions() {
+std::vector<InteractingFields> ReactionDiffusionSources::gatherFieldInteractions() {
 	std::vector<InteractingFields> field_interactions;
     //field_interactions.push_back(InteractingFields(op_needing_interaction::source, _particles->getFieldManagerConst()->getIDOfFieldFromName("solution")));
 	return field_interactions;

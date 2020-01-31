@@ -1,8 +1,8 @@
 <ParameterList name="Compadre">
   <ParameterList name="physics">
     <Parameter name="diffusion" type="double" value="1.0"/>
-    <Parameter name="advection" type="double" value="1.0"/>
-    <Parameter name="penalty" type="double" value="1e+2"/>
+    <Parameter name="reaction" type="double" value="1.0"/>
+    <Parameter name="penalty" type="double" value="1e+0"/>
     <Parameter name="l2 projection only" type="bool" value="true"/>
     <Parameter name="solution" type="string" value="polynomial"/>
   </ParameterList>
@@ -18,7 +18,7 @@
   </ParameterList>
   <ParameterList name="solver">
     <Parameter name="type" type="string" value="direct"/>
-    <Parameter name="file" type="string" value="../test_data/parameter_lists/advectiondiffusion/solver_amg.xml"/>
+    <Parameter name="file" type="string" value="../test_data/parameter_lists/reactiondiffusion/solver_amg.xml"/>
     <Parameter name="blocked" type="bool" value="true"/>
     <!--<Parameter name="save residual over solution" type="bool" value="true"/>-->
   </ParameterList>

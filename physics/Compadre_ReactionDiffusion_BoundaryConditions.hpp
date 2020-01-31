@@ -1,5 +1,5 @@
-#ifndef _COMPADRE_ADVECTIONDIFFUSIONBOUNDARYCONDITIONS_HPP_
-#define _COMPADRE_ADVECTIONDIFFUSIONBOUNDARYCONDITIONS_HPP_
+#ifndef _COMPADRE_REACTIONDIFFUSIONBOUNDARYCONDITIONS_HPP_
+#define _COMPADRE_REACTIONDIFFUSIONBOUNDARYCONDITIONS_HPP_
 
 #include <Compadre_BoundaryConditionsT.hpp>
 
@@ -7,7 +7,7 @@ namespace Compadre {
 
 class ParticlesT;
 
-class AdvectionDiffusionBoundaryConditions : public BoundaryConditionsT {
+class ReactionDiffusionBoundaryConditions : public BoundaryConditionsT {
 
 	protected:
 
@@ -15,12 +15,12 @@ class AdvectionDiffusionBoundaryConditions : public BoundaryConditionsT {
 
 	public:
 
-		AdvectionDiffusionBoundaryConditions( Teuchos::RCP<particle_type> particles,
+		ReactionDiffusionBoundaryConditions( Teuchos::RCP<particle_type> particles,
 												mvec_type* b = NULL) :
 												BoundaryConditionsT(particles, b)
 		{}
 
-		virtual ~AdvectionDiffusionBoundaryConditions() {}
+		virtual ~ReactionDiffusionBoundaryConditions() {}
 
 		virtual void flagBoundaries();
 

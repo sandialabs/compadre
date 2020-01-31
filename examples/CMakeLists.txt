@@ -48,7 +48,7 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
   add_exe_w_compadre(lagrangianTest.exe Compadre_LagrangianTest.cpp)
   add_exe_w_compadre(remoteRemapTest.exe Compadre_RemoteRemapTest.cpp)
   add_exe_w_compadre(laplaceBeltrami.exe Compadre_LaplaceBeltrami.cpp)
-  add_exe_w_compadre(advectionDiffusion.exe Compadre_AdvectionDiffusion.cpp)
+  add_exe_w_compadre(reactionDiffusion.exe Compadre_ReactionDiffusion.cpp)
   IF(CompadreHarness_CANGA_ENABLED)
     add_exe_w_compadre(cangaTestRemoteRemap.exe Canga_Test_RemoteRemap.cpp)
     add_exe_w_compadre(cangaTestIntercomparison.exe Canga_Test_Intercomparison.cpp)
@@ -242,8 +242,8 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
     ADD_TEST(NAME L2ProjectionTestConv COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/advectiondiffusion_convergence.py" "2" "2" "1" "1") # 4 polynomial order, 2 successive meshes, 1 l2 projection only, 0 - polynomial solution
     SET_TESTS_PROPERTIES(L2ProjectionTestConv PROPERTIES LABELS "advection;diffusion;dg;variational;weakform;l2")
 
-    #ADD_TEST(NAME AdvectionDiffusionTestConv COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/advectiondiffusion_convergence.py" "2" "3" "0" "1") # 4 polynomial order, 2 successive meshes, 1 l2 projection only, 0 - polynomial solution
-    #SET_TESTS_PROPERTIES(AdvectionDiffusionTestConv PROPERTIES LABELS "advection;diffusion;dg;variational;weakform;")
+    #ADD_TEST(NAME ReactionDiffusionTestConv COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/reactiondiffusion_convergence.py" "2" "3" "0" "1") # 4 polynomial order, 2 successive meshes, 1 l2 projection only, 0 - polynomial solution
+    #SET_TESTS_PROPERTIES(ReactionDiffusionTestConv PROPERTIES LABELS "reaction;diffusion;dg;variational;weakform;")
     
     # CANGA TESTS
     

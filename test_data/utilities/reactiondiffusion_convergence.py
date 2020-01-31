@@ -39,7 +39,7 @@ errors = []
 
 for key1, porder in enumerate(porders):
     for key2, fname in enumerate(file_names):
-        e = ET.parse('../test_data/parameter_lists/advectiondiffusion/parameters_template.xml').getroot()
+        e = ET.parse('../test_data/parameter_lists/reactiondiffusion/parameters_template.xml').getroot()
         tree = ET.ElementTree(e)
         
         for item in e.getchildren():
@@ -67,11 +67,11 @@ for key1, porder in enumerate(porders):
             if (item.attrib['name']=="solution"):
                 item.attrib['value']="polynomial" if (solution==0) else "sine"
         
-        tree.write(open('../test_data/parameter_lists/advectiondiffusion/parameters.xml', 'wb'))
+        tree.write(open('../test_data/parameter_lists/reactiondiffusion/parameters.xml', 'wb'))
         
         with open(os.devnull, 'w') as devnull:
 
-            commands = ["mpirun", "-np", "1", "./advectionDiffusion.exe","--i=../test_data/parameter_lists/advectiondiffusion/parameters.xml","--kokkos-threads=4"]
+            commands = ["mpirun", "-np", "1", "./reactionDiffusion.exe","--i=../test_data/parameter_lists/reactiondiffusion/parameters.xml","--kokkos-threads=4"]
             print(" ".join(commands))
             try:
                 output = subprocess.check_output(commands, stderr=devnull).decode()

@@ -19,9 +19,9 @@
 
 #include <Compadre_GMLS.hpp> // for getNP()
 
-#include <Compadre_AdvectionDiffusion_Sources.hpp>
-#include <Compadre_AdvectionDiffusion_BoundaryConditions.hpp>
-#include <Compadre_AdvectionDiffusion_Operator.hpp>
+#include <Compadre_ReactionDiffusion_Sources.hpp>
+#include <Compadre_ReactionDiffusion_BoundaryConditions.hpp>
+#include <Compadre_ReactionDiffusion_Operator.hpp>
 
 #define STACK_TRACE(call) try { call; } catch (const std::exception& e ) { TEUCHOS_TRACE(e); }
 
@@ -184,16 +184,16 @@ int main (int argc, char* args[]) {
         Teuchos::RCP<Compadre::ProblemT> problem = Teuchos::rcp( new Compadre::ProblemT(cells));
 
         // construct physics, sources, and boundary conditions
-        Teuchos::RCP<Compadre::AdvectionDiffusionPhysics> physics =
-          Teuchos::rcp( new Compadre::AdvectionDiffusionPhysics(cells, Porder));
-        Teuchos::RCP<Compadre::AdvectionDiffusionSources> source =
-            Teuchos::rcp( new Compadre::AdvectionDiffusionSources(cells));
-        Teuchos::RCP<Compadre::AdvectionDiffusionBoundaryConditions> bcs =
-            Teuchos::rcp( new Compadre::AdvectionDiffusionBoundaryConditions(cells));
+        Teuchos::RCP<Compadre::ReactionDiffusionPhysics> physics =
+          Teuchos::rcp( new Compadre::ReactionDiffusionPhysics(cells, Porder));
+        Teuchos::RCP<Compadre::ReactionDiffusionSources> source =
+            Teuchos::rcp( new Compadre::ReactionDiffusionSources(cells));
+        Teuchos::RCP<Compadre::ReactionDiffusionBoundaryConditions> bcs =
+            Teuchos::rcp( new Compadre::ReactionDiffusionBoundaryConditions(cells));
 
         // set physics, sources, and boundary conditions in the problem
-        // set advection and diffusion for physics
-        physics->setAdvection(parameters->get<Teuchos::ParameterList>("physics").get<double>("advection"));
+        // set reaction and diffusion for physics
+        physics->setReaction(parameters->get<Teuchos::ParameterList>("physics").get<double>("reaction"));
         physics->setDiffusion(parameters->get<Teuchos::ParameterList>("physics").get<double>("diffusion"));
 
         physics->setCells(cells);

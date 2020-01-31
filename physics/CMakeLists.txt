@@ -19,9 +19,9 @@ set(Physics_HEADERS
   Compadre_PinnedGraphLaplacian_BoundaryConditions.hpp
   Compadre_PinnedGraphLaplacian_Operator.hpp
   Compadre_PinnedGraphLaplacian_Sources.hpp
-  Compadre_AdvectionDiffusion_BoundaryConditions.hpp
-  Compadre_AdvectionDiffusion_Operator.hpp
-  Compadre_AdvectionDiffusion_Sources.hpp
+  Compadre_ReactionDiffusion_BoundaryConditions.hpp
+  Compadre_ReactionDiffusion_Operator.hpp
+  Compadre_ReactionDiffusion_Sources.hpp
   )
 
 
@@ -46,9 +46,9 @@ set(Physics_SOURCES
   Compadre_PinnedGraphLaplacian_BoundaryConditions.cpp
   Compadre_PinnedGraphLaplacian_Operator.cpp
   Compadre_PinnedGraphLaplacian_Sources.cpp
-  Compadre_AdvectionDiffusion_BoundaryConditions.cpp
-  Compadre_AdvectionDiffusion_Operator.cpp
-  Compadre_AdvectionDiffusion_Sources.cpp
+  Compadre_ReactionDiffusion_BoundaryConditions.cpp
+  Compadre_ReactionDiffusion_Operator.cpp
+  Compadre_ReactionDiffusion_Sources.cpp
   )
 
 

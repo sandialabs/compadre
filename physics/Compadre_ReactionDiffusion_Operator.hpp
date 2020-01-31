@@ -1,5 +1,5 @@
-#ifndef _COMPADRE_ADVECTIONDIFFUSIONPHYSICS_HPP_
-#define _COMPADRE_ADVECTIONDIFFUSIONPHYSICS_HPP_
+#ifndef _COMPADRE_REACTIONDIFFUSIONPHYSICS_HPP_
+#define _COMPADRE_REACTIONDIFFUSIONPHYSICS_HPP_
 
 #include <Compadre_PhysicsT.hpp>
 #include <Compadre_XyzVector.hpp>
@@ -14,7 +14,7 @@ class GMLS;
 class ParticlesT;
 class NeighborhoodT;
 
-class AdvectionDiffusionPhysics : public PhysicsT {
+class ReactionDiffusionPhysics : public PhysicsT {
 
 	protected:
 
@@ -25,7 +25,7 @@ class AdvectionDiffusionPhysics : public PhysicsT {
 
     public:
 
-        scalar_type _advection;
+        scalar_type _reaction;
         scalar_type _diffusion;
         
         particle_type* _cells;
@@ -63,7 +63,7 @@ class AdvectionDiffusionPhysics : public PhysicsT {
         host_view_local_index_type _halo_small_to_big;
 
 
-		AdvectionDiffusionPhysics(	Teuchos::RCP<particle_type> particles, local_index_type t_Porder,
+		ReactionDiffusionPhysics(	Teuchos::RCP<particle_type> particles, local_index_type t_Porder,
 								Teuchos::RCP<crs_graph_type> A_graph = Teuchos::null,
 								Teuchos::RCP<crs_matrix_type> A = Teuchos::null) :
 									PhysicsT(particles, A_graph, A), Porder(t_Porder) {
@@ -75,7 +75,7 @@ class AdvectionDiffusionPhysics : public PhysicsT {
                                 
         } 
 		
-		virtual ~AdvectionDiffusionPhysics() {}
+		virtual ~ReactionDiffusionPhysics() {}
 		
 		virtual Teuchos::RCP<crs_graph_type> computeGraph(local_index_type field_one, local_index_type field_two = -1);
 
@@ -83,8 +83,8 @@ class AdvectionDiffusionPhysics : public PhysicsT {
 
 		virtual const std::vector<InteractingFields> gatherFieldInteractions();
 
-        void setAdvection(const scalar_type advection) {
-            _advection = advection;
+        void setReaction(const scalar_type reaction) {
+            _reaction = reaction;
         }
         
         void setDiffusion(const scalar_type diffusion) {
