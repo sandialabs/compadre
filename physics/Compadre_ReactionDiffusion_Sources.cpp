@@ -25,6 +25,8 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     Teuchos::RCP<Compadre::AnalyticFunction> function;
     if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial") {
 	    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
+    } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3") {
+	    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(2 /*dimension*/)));
     } else {
 	    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
     }
@@ -360,16 +362,18 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                         double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
                         xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
                         auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());//Teuchos::rcp_dynamic_cast<Compadre::SineProducts>(function);
-                        if (!cast_to_sine==Teuchos::null) {
-                            contribution += quadrature_weights(i,q) * v * cast_to_sine->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
+                        auto cast_to_poly_2 = dynamic_cast<SecondOrderBasis*>(function.getRawPtr());//Teuchos::rcp_dynamic_cast<Compadre::SineProducts>(function);
+                        //} else if (!cast_to_poly_2==Teuchos::null) {
+                        auto cast_to_poly_3 = dynamic_cast<ThirdOrderBasis*>(function.getRawPtr());//Teuchos::rcp_dynamic_cast<Compadre::SineProducts>(function);
+                        //} else if (!cast_to_poly_3==Teuchos::null) {
+                        //if (!cast_to_sine==Teuchos::null) {
+                        if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial") {
+                            contribution += quadrature_weights(i,q) * v * cast_to_poly_2->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
+                        } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3") {
+                            contribution += quadrature_weights(i,q) * v * cast_to_poly_3->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
                         } else {
-                            auto cast_to_poly = dynamic_cast<SecondOrderBasis*>(function.getRawPtr());//Teuchos::rcp_dynamic_cast<Compadre::SineProducts>(function);
-                            contribution += quadrature_weights(i,q) * v * cast_to_poly->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
-                            //TEUCHOS_ASSERT(false);
+                            contribution += quadrature_weights(i,q) * v * cast_to_sine->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
                         }
-                        //} else {
-                        //    printf("is null.\n");
-                        //}
                     } 
                     else if (quadrature_type(i,q)==2) { // edge on exterior
                         //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_physics->_kokkos_epsilons_host(i);

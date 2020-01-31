@@ -3,7 +3,7 @@
     <Parameter name="diffusion" type="double" value="1.0"/>
     <Parameter name="reaction" type="double" value="1.0"/>
     <Parameter name="penalty" type="double" value="1e+0"/>
-    <Parameter name="l2 projection only" type="bool" value="true"/>
+    <Parameter name="l2 projection only" type="bool" value="false"/>
     <Parameter name="solution" type="string" value="polynomial"/>
   </ParameterList>
   <ParameterList name="io">

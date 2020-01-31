@@ -403,6 +403,8 @@ int main (int argc, char* args[]) {
 		Teuchos::RCP<Compadre::AnalyticFunction> function;
         if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial") {
 		    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
+        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3") {
+		    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(2 /*dimension*/)));
         } else {
 		    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
         }
