@@ -43,6 +43,7 @@ class ReactionDiffusionPhysics : public PhysicsT {
 		size_t _cell_particles_max_num_neighbors;
 		size_t _particle_cells_max_num_neighbors;
         size_t _weights_ndim;
+		scalar_type _cell_particles_max_h;
 
         Teuchos::RCP<GMLS> _gmls;
         Teuchos::RCP<GMLS> _halo_gmls;
@@ -72,6 +73,7 @@ class ReactionDiffusionPhysics : public PhysicsT {
             _cell_particles_max_num_neighbors = 0;
             _particle_cells_max_num_neighbors = 0;
             _weights_ndim = 0;
+            _cell_particles_max_h = 0;
                                 
         } 
 		

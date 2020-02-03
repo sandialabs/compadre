@@ -50,7 +50,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     auto halo_unit_normals = _physics->_cells->getFieldManager()->getFieldByName("unit_normal")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
     auto halo_adjacent_elements = _physics->_cells->getFieldManager()->getFieldByName("adjacent_elements")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
 
-    auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_physics->_cell_particles_neighborhood->computeMaxHSupportSize(true /* global processor max */);
+    auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_physics->_cell_particles_max_h;
     // each element must have the same number of edges
     auto num_edges = adjacent_elements.extent(1);
     auto num_interior_quadrature = 0;
@@ -235,8 +235,8 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     Kokkos::deep_copy(rhs_vals, 0.0);
 
     // get an unmanaged atomic view that can be added to in a parallel for loop
-    //Kokkos::View<scalar_type**, decltype(rhs_vals)::memory_space, Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > 
-    //    rhs_vals_atomic(rhs_vals.data(), rhs_vals.extent(0), rhs_vals.extent(1));
+    Kokkos::View<scalar_type**, decltype(rhs_vals)::memory_space, Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > 
+        rhs_vals_atomic(rhs_vals.data(), rhs_vals.extent(0), rhs_vals.extent(1));
 
     // assembly over particle, then over cells
 
@@ -298,13 +298,14 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_physics->_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
   
     // loop over cells including halo cells 
-    for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(true /* include halo in count */); ++i) {
+    //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(true /* include halo in count */); ++i) {
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_physics->_cells->getCoordsConst()->nLocal(true /* include halo in count */)), KOKKOS_LAMBDA(const int i) {
     //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
 
 
         // filter out (skip) all halo cells that are not able to be seen from a locally owned particle
         auto halo_i = (i<nlocal) ? -1 : _physics->_halo_big_to_small(i-nlocal,0);
-        if (i>=nlocal /* halo */  && halo_i<0 /* not one found within max_h of locally owned particles */) continue;
+        if (i>=nlocal /* halo */  && halo_i<0 /* not one found within max_h of locally owned particles */) return;//continue;
 
         //TEUCHOS_ASSERT(i<nlocal);
         // need to have a halo gmls object that can be queried for cells that do not live on processor
@@ -397,10 +398,10 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
 
             }
             
-            //rhs_vals_atomic(row,0) += contribution;
-            rhs_vals(row,0) += contribution;
+            rhs_vals_atomic(row,0) += contribution;
+            //rhs_vals(row,0) += contribution;
         }
-    }
+    });
     //});
     // DIAGNOSTIC:: loop particles locally owned
     //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {

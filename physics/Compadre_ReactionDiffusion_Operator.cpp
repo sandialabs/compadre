@@ -54,9 +54,9 @@ void ReactionDiffusionPhysics::initialize() {
     // double-sized search
     //
     // it is a safe upper bound to use twice the previous search size as the maximum new radii
-    auto max_h = _cell_particles_neighborhood->computeMaxHSupportSize(false /* local processor max is fine, since they are all the same */);
-    scalar_type double_radius = 1.5 * max_h;
-    scalar_type triple_radius = 3.0 * max_h;
+    _cell_particles_max_h = _cell_particles_neighborhood->computeMaxHSupportSize(true /* global processor max */);
+    scalar_type double_radius = 1.5 * _cell_particles_max_h;
+    scalar_type triple_radius = 3.0 * _cell_particles_max_h;
     scalar_type max_search_size = _cells->getCoordsConst()->getHaloSize();
     // check that max_halo_size is not violated by distance of the double jump
     const local_index_type comm_size = _cell_particles_neighborhood->getSourceCoordinates()->getComm()->getSize();
@@ -126,8 +126,6 @@ void ReactionDiffusionPhysics::initialize() {
     const coords_type* target_coords = this->_coords;
     const coords_type* source_coords = this->_coords;
 
-    double max_window = _cell_particles_neighborhood->computeMaxHSupportSize(false /*local processor max*/);
-
     _cell_particles_max_num_neighbors = 
         _cell_particles_neighborhood->computeMaxNumNeighbors(false /*local processor max*/);
 
@@ -166,7 +164,7 @@ void ReactionDiffusionPhysics::initialize() {
     Kokkos::View<double*> kokkos_epsilons("target_coordinates", target_coords->nLocal(), target_coords->nDim());
     _kokkos_epsilons_host = Kokkos::create_mirror_view(kokkos_epsilons);
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
-        _kokkos_epsilons_host(i) = epsilons(i,0);//0.75*max_window;//std::sqrt(max_window);//epsilons(i,0);
+        _kokkos_epsilons_host(i) = epsilons(i,0);
     });
 
     // quantities contained on cells (mesh)
@@ -344,7 +342,7 @@ void ReactionDiffusionPhysics::initialize() {
             true /*dry run for sizes*/,
             neighbors_needed+1,
             0.0, /* cutoff multiplier */
-            max_h, /* search size */
+            _cell_particles_max_h, /* search size */
             false, /* uniform radii is true, but will be enforce automatically because all search sizes are the same globally */
             _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
         Kokkos::fence();
@@ -549,7 +547,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     auto halo_adjacent_elements = _cells->getFieldManager()->getFieldByName("adjacent_elements")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
 
 
-    auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_cell_particles_neighborhood->computeMaxHSupportSize(true /* global processor max */);
+    auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_cell_particles_max_h;
     printf("Computed penalty parameter: %.16f\n", penalty); 
     //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")*_particles_particles_neighborhood->getMinimumHSupportSize();
 
@@ -663,9 +661,9 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     double area = 0; // (good, no rewriting)
     double perimeter = 0;
     //Kokkos::View<double,Kokkos::MemoryTraits<Kokkos::Atomic> > area; // scalar
-	int team_scratch_size = host_scratch_vector_scalar_type::shmem_size(1); // values
-	team_scratch_size += host_scratch_vector_local_index_type::shmem_size(1); // local column indices
-	team_scratch_size += host_scratch_vector_local_index_type::shmem_size(_cell_particles_neighborhood->computeMaxNumNeighbors(false)); // local column indices
+	//int team_scratch_size = host_scratch_vector_scalar_type::shmem_size(1); // values
+	//team_scratch_size += host_scratch_vector_local_index_type::shmem_size(1); // local column indices
+	//team_scratch_size += host_scratch_vector_local_index_type::shmem_size(_cell_particles_max_num_neighbors); // local column indices
 	//const local_index_type host_scratch_team_level = 0; // not used in Kokkos currently
 	//Kokkos::parallel_reduce(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember, scalar_type& t_area) {
 	//	const int i = teamMember.league_rank();
@@ -675,11 +673,11 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 	//	host_scratch_vector_local_index_type more_than(teamMember.team_scratch(host_scratch_team_level), _cell_particles_neighborhood->getNumNeighbors(i));
 
     // loop over cells
-    host_vector_local_index_type col_data("col data", _cell_particles_max_num_neighbors);//particles_particles_max_num_neighbors*fields[field_two]->nDim());
-    host_vector_local_index_type more_than("more than", _cell_particles_max_num_neighbors);//particles_particles_max_num_neighbors*fields[field_two]->nDim());
-    host_vector_scalar_type val_data("val data", _cell_particles_max_num_neighbors);//particles_particles_max_num_neighbors*fields[field_two]->nDim());
-    double t_area = 0; 
-    double t_perimeter = 0; 
+    //host_vector_local_index_type col_data("col data", _cell_particles_max_num_neighbors);//particles_particles_max_num_neighbors*fields[field_two]->nDim());
+    //host_vector_local_index_type more_than("more than", _cell_particles_max_num_neighbors);//particles_particles_max_num_neighbors*fields[field_two]->nDim());
+    //host_vector_scalar_type val_data("val data", _cell_particles_max_num_neighbors);//particles_particles_max_num_neighbors*fields[field_two]->nDim());
+    //double t_area = 0; 
+    //double t_perimeter = 0; 
  
 
     // this maps should be for nLocal(true) so that it contains local neighbor lookups for owned and halo particles
@@ -702,13 +700,19 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     //printf("interior: %d, exterior: %d\n", num_interior_quadrature, num_exterior_quadrature_per_edge);
     int num_interior_edges = 0;
     // loop over cells including halo cells 
-    for (int i=0; i<_cells->getCoordsConst()->nLocal(true); ++i) {
+    Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal(true)), [&](const int i, scalar_type& t_area) {
+    //for (int i=0; i<_cells->getCoordsConst()->nLocal(true); ++i) {
+
+        double val_data[1] = {0};
+        int    col_data[1] = {-1};
+
+        double t_perimeter = 0; 
 
         // filter out (skip) all halo cells that are not able to be seen from a locally owned particle
         // dictionary needs created of halo_particle
         // halo_big_to_small 
         auto halo_i = (i<nlocal) ? -1 : _halo_big_to_small(i-nlocal,0);
-        if (i>=nlocal /* halo */  && halo_i<0 /* not one found within max_h of locally owned particles */) continue;
+        if (i>=nlocal /* halo */  && halo_i<0 /* not one found within max_h of locally owned particles */) return;//continue;
 
         //auto window_size = _cell_particles_neighborhood->getHSupportSize(i);
         ////auto less_than = 0;
@@ -836,7 +840,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                 // do filter out (skip) all halo particles that are not seen by local DOF
                 // wrong thing to do, because k could be double hop through cell i
 
-                col_data(0) = local_to_dof_map(particle_k, field_two, 0 /* component */);
+                col_data[0] = local_to_dof_map(particle_k, field_two, 0 /* component */);
 
                 int j_to_cell_i = -1;
                 if (particle_to_local_neighbor_lookup[i].count(particle_j)==1){
@@ -1218,17 +1222,17 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                     //}
                 }
 
-                val_data(0) = contribution;
+                val_data[0] = contribution;
                 if (j_has_value && k_has_value) {
-                    this->_A->sumIntoLocalValues(row, 1, val_data.data(), col_data.data());//, /*atomics*/false);
+                    this->_A->sumIntoLocalValues(row, 1, &val_data[0], &col_data[0], true);//, /*atomics*/false);
                 }
                 //}
             }
         }
-    }
-    area = t_area;
-    perimeter = t_perimeter;
-    //}, Kokkos::Sum<scalar_type>(area));
+    //}
+    //area = t_area;
+    //perimeter = t_perimeter;
+    }, Kokkos::Sum<scalar_type>(area));
 
 
     //double area = 0; // (alternate assembly, also good)
@@ -1362,12 +1366,12 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     if (_cells->getCoordsConst()->getComm()->getRank()==0) {
         printf("GLOBAL AREA: %.16f\n", global_area);
     }
-	scalar_type global_perimeter;
-	Teuchos::Ptr<scalar_type> global_perimeter_ptr(&global_perimeter);
-	Teuchos::reduceAll<int, scalar_type>(*(_cells->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, perimeter, global_perimeter_ptr);
-    if (_cells->getCoordsConst()->getComm()->getRank()==0) {
-        printf("GLOBAL PERIMETER: %.16f\n", global_perimeter);///((double)(num_interior_edges)));
-    }
+	//scalar_type global_perimeter;
+	//Teuchos::Ptr<scalar_type> global_perimeter_ptr(&global_perimeter);
+	//Teuchos::reduceAll<int, scalar_type>(*(_cells->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, perimeter, global_perimeter_ptr);
+    //if (_cells->getCoordsConst()->getComm()->getRank()==0) {
+    //    printf("GLOBAL PERIMETER: %.16f\n", global_perimeter);///((double)(num_interior_edges)));
+    //}
 
 	TEUCHOS_ASSERT(!this->_A.is_null());
 	ComputeMatrixTime->stop();
