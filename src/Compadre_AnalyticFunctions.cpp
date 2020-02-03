@@ -264,6 +264,17 @@ xyz_type SecondOrderBasis::evalVector(const xyz_type& xyzIn) const {
     return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn),2*evalScalar(xyzIn));
 }
 
+xyz_type SecondOrderBasis::evalScalarDerivative(const xyz_type& xyzIn) const {
+    if (_dim==3) {
+        return xyz_type((1 + 2*xyzIn.x + xyzIn.y + xyzIn.z),
+                        (xyzIn.x + 1 + 2*xyzIn.y + xyzIn.z),
+                        (xyzIn.x + xyzIn.y + 1 + 2*xyzIn.z));
+    } else {
+        return xyz_type((1 + 2*xyzIn.x + xyzIn.y),
+                        (xyzIn.x + 1 + 2*xyzIn.y));
+    }
+}
+
 scalar_type SecondOrderBasis::evalReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const {
     if (_dim==3) {
         TEUCHOS_ASSERT(false);
@@ -294,6 +305,20 @@ scalar_type ThirdOrderBasis::evalScalar(const xyz_type& xyzIn) const {
 
 xyz_type ThirdOrderBasis::evalVector(const xyz_type& xyzIn) const {
     return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn),2*evalScalar(xyzIn));
+}
+
+xyz_type ThirdOrderBasis::evalScalarDerivative(const xyz_type& xyzIn) const {
+    scalar_type x = xyzIn.x;
+    scalar_type y = xyzIn.y;
+    scalar_type z = xyzIn.z;
+    if (_dim==3) {
+        return xyz_type((1 + 2*x + y + z + 3*x*x + 2*x*y + 2*x*z + y*y + z*z + y*z),
+                        (1 + x + 2*y + z + x*x + 2*y*x + 3*y*y + 2*y*z + z*z + x*z),
+                        (1 + x + y + 2*z + x*x + y*y + 2*z*x + 2*z*y + 3*z*z + x*y));
+    } else {
+        return xyz_type((1 + 2*x + y + 3*x*x + 2*x*y + y*y),
+                        (1 + x + 2*y + x*x + 2*x*y + 3*y*y));
+    }
 }
 
 scalar_type ThirdOrderBasis::evalReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const {
