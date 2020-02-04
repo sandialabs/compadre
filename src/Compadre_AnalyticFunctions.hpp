@@ -301,7 +301,8 @@ class SineProducts : public AnalyticFunction {
 
 		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn) const;
 
-		scalar_type evalAdvectionDiffusionRHS(const xyz_type& xyzIn, const scalar_type diffusion, const xyz_type& advection_field) const;
+		scalar_type evalReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const;
+
 };
 
 class SecondOrderBasis : public AnalyticFunction {
@@ -316,9 +317,36 @@ class SecondOrderBasis : public AnalyticFunction {
 
 		virtual scalar_type evalScalar(const xyz_type& xIn) const;
 
+		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn) const;
+
 		virtual xyz_type evalVector(const xyz_type& xIn) const;
 
 		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn) const;
+
+		scalar_type evalReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const;
+
+};
+
+class ThirdOrderBasis : public AnalyticFunction {
+
+	typedef XyzVector xyz_type;
+
+	const int _dim;
+
+	public :
+
+	    ThirdOrderBasis(const int dim = 3) : _dim(dim) {}
+
+		virtual scalar_type evalScalar(const xyz_type& xIn) const;
+
+		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn) const;
+
+		virtual xyz_type evalVector(const xyz_type& xIn) const;
+
+		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn) const;
+
+		scalar_type evalReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const;
+
 };
 
 class ConstantEachDimension : public AnalyticFunction {

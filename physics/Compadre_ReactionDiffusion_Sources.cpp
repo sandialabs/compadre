@@ -1,4 +1,4 @@
-#include <Compadre_AdvectionDiffusion_Sources.hpp>
+#include <Compadre_ReactionDiffusion_Sources.hpp>
 
 #include <Compadre_CoordsT.hpp>
 #include <Compadre_FieldT.hpp>
@@ -8,7 +8,7 @@
 #include <Compadre_AnalyticFunctions.hpp>
 #include <Compadre_XyzVector.hpp>
 #include <Compadre_NeighborhoodT.hpp>
-#include <Compadre_AdvectionDiffusion_Operator.hpp>
+#include <Compadre_ReactionDiffusion_Operator.hpp>
 #include <Compadre_GMLS.hpp>
 
 namespace Compadre {
@@ -16,7 +16,7 @@ namespace Compadre {
 typedef Compadre::FieldT fields_type;
 typedef Compadre::XyzVector xyz_type;
 
-void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time) {
+void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time) {
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_b==NULL, "Tpetra Multivector for RHS not yet specified.");
     if (field_two == -1) {
         field_two = field_one;
@@ -25,6 +25,8 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     Teuchos::RCP<Compadre::AnalyticFunction> function;
     if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial") {
 	    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
+    } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3") {
+	    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(2 /*dimension*/)));
     } else {
 	    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
     }
@@ -48,7 +50,7 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     auto halo_unit_normals = _physics->_cells->getFieldManager()->getFieldByName("unit_normal")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
     auto halo_adjacent_elements = _physics->_cells->getFieldManager()->getFieldByName("adjacent_elements")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
 
-    //auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")*_physics->_particles_particles_neighborhood->getMinimumHSupportSize();
+    auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_physics->_cell_particles_max_h;
     // each element must have the same number of edges
     auto num_edges = adjacent_elements.extent(1);
     auto num_interior_quadrature = 0;
@@ -233,8 +235,8 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     Kokkos::deep_copy(rhs_vals, 0.0);
 
     // get an unmanaged atomic view that can be added to in a parallel for loop
-    //Kokkos::View<scalar_type**, decltype(rhs_vals)::memory_space, Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > 
-    //    rhs_vals_atomic(rhs_vals.data(), rhs_vals.extent(0), rhs_vals.extent(1));
+    Kokkos::View<scalar_type**, decltype(rhs_vals)::memory_space, Kokkos::MemoryTraits<Kokkos::Atomic|Kokkos::Unmanaged> > 
+        rhs_vals_atomic(rhs_vals.data(), rhs_vals.extent(0), rhs_vals.extent(1));
 
     // assembly over particle, then over cells
 
@@ -276,7 +278,7 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     //                    xyz_type pt(quadrature_points(cell_j,2*q),quadrature_points(cell_j,2*q+1),0);
     //                    auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());//Teuchos::rcp_dynamic_cast<Compadre::SineProducts>(function);
     //                    //if (!cast_to_sine==NULL) {
-    //                        contribution += quadrature_weights(cell_j,q) * v * cast_to_sine->evalAdvectionDiffusionRHS(pt,_physics->_diffusion,_physics->_advection_field);
+    //                        contribution += quadrature_weights(cell_j,q) * v * cast_to_sine->evalReactionDiffusionRHS(pt,_physics->_diffusion,_physics->_reaction_field);
     //                    //} else {
     //                    //    printf("is null.\n");
     //                    //}
@@ -296,13 +298,14 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_physics->_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
   
     // loop over cells including halo cells 
-    for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(true /* include halo in count */); ++i) {
+    //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(true /* include halo in count */); ++i) {
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_physics->_cells->getCoordsConst()->nLocal(true /* include halo in count */)), KOKKOS_LAMBDA(const int i) {
     //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
 
 
         // filter out (skip) all halo cells that are not able to be seen from a locally owned particle
         auto halo_i = (i<nlocal) ? -1 : _physics->_halo_big_to_small(i-nlocal,0);
-        if (i>=nlocal /* halo */  && halo_i<0 /* not one found within max_h of locally owned particles */) continue;
+        if (i>=nlocal /* halo */  && halo_i<0 /* not one found within max_h of locally owned particles */) return;//continue;
 
         //TEUCHOS_ASSERT(i<nlocal);
         // need to have a halo gmls object that can be queried for cells that do not live on processor
@@ -341,26 +344,64 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
                     } 
                 }
             } else {
+                std::vector<double> edge_lengths(3);
+                int current_edge_num = 0;
+                for (int q=0; q<_physics->_weights_ndim; ++q) {
+                    if (quadrature_type(i,q)!=1) { // edge
+                        int new_current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                        if (new_current_edge_num!=current_edge_num) {
+                            edge_lengths[new_current_edge_num] = quadrature_weights(i,q);
+                            current_edge_num = new_current_edge_num;
+                        } else {
+                            edge_lengths[current_edge_num] += quadrature_weights(i,q);
+                        }
+                    }
+                }
                 for (int q=0; q<_physics->_weights_ndim; ++q) {
                     if (quadrature_type(i,q)==1) { // interior
                         // integrating RHS function
                         double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
                         xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
                         auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());//Teuchos::rcp_dynamic_cast<Compadre::SineProducts>(function);
-                        //if (!cast_to_sine==NULL) {
-                            contribution += quadrature_weights(i,q) * v * cast_to_sine->evalAdvectionDiffusionRHS(pt,_physics->_diffusion,_physics->_advection_field);
-                        //} else {
-                        //    printf("is null.\n");
-                        //}
+                        auto cast_to_poly_2 = dynamic_cast<SecondOrderBasis*>(function.getRawPtr());//Teuchos::rcp_dynamic_cast<Compadre::SineProducts>(function);
+                        //} else if (!cast_to_poly_2==Teuchos::null) {
+                        auto cast_to_poly_3 = dynamic_cast<ThirdOrderBasis*>(function.getRawPtr());//Teuchos::rcp_dynamic_cast<Compadre::SineProducts>(function);
+                        //} else if (!cast_to_poly_3==Teuchos::null) {
+                        //if (!cast_to_sine==Teuchos::null) {
+                        if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial") {
+                            contribution += quadrature_weights(i,q) * v * cast_to_poly_2->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
+                        } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3") {
+                            contribution += quadrature_weights(i,q) * v * cast_to_poly_3->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
+                        } else {
+                            contribution += quadrature_weights(i,q) * v * cast_to_sine->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
+                        }
                     } 
+                    else if (quadrature_type(i,q)==2) { // edge on exterior
+                        //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_physics->_kokkos_epsilons_host(i);
+                        // DG enforcement of Dirichlet BCs
+                        int current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                        //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/edge_lengths[current_edge_num];
+                        int adjacent_cell = adjacent_elements(i,current_edge_num);
+                        //printf("%d, %d, %d, %d\n", i, q, current_edge_num, adjacent_cell);
+                        if (adjacent_cell >= 0) {
+                            printf("SHOULD BE NEGATIVE NUMBER!\n");
+                        }
+                        // penalties for edges of mass
+                        double v = _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1);
+                        double v_x = _physics->_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j, q+1);
+                        double v_y = _physics->_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j, q+1);
+                        xyz_type pt(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0);
+                        contribution += penalty * quadrature_weights(i,q) * v * function->evalScalar(pt);
+                        contribution -= _physics->_diffusion * quadrature_weights(i,q) * ( unit_normals(i,2*q+0) * v_x + unit_normals(i,2*q+1) * v_y) * function->evalScalar(pt);
+                    }
                 }
 
             }
             
-            //rhs_vals_atomic(row,0) += contribution;
-            rhs_vals(row,0) += contribution;
+            rhs_vals_atomic(row,0) += contribution;
+            //rhs_vals(row,0) += contribution;
         }
-    }
+    });
     //});
     // DIAGNOSTIC:: loop particles locally owned
     //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
@@ -454,7 +495,7 @@ void AdvectionDiffusionSources::evaluateRHS(local_index_type field_one, local_in
     }
 }
 
-std::vector<InteractingFields> AdvectionDiffusionSources::gatherFieldInteractions() {
+std::vector<InteractingFields> ReactionDiffusionSources::gatherFieldInteractions() {
 	std::vector<InteractingFields> field_interactions;
     //field_interactions.push_back(InteractingFields(op_needing_interaction::source, _particles->getFieldManagerConst()->getIDOfFieldFromName("solution")));
 	return field_interactions;

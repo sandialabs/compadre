@@ -1,4 +1,4 @@
-#include <Compadre_AdvectionDiffusion_BoundaryConditions.hpp>
+#include <Compadre_ReactionDiffusion_BoundaryConditions.hpp>
 
 #include <Compadre_CoordsT.hpp>
 #include <Compadre_ParticlesT.hpp>
@@ -13,7 +13,7 @@ namespace Compadre {
 typedef Compadre::FieldT fields_type;
 typedef Compadre::XyzVector xyz_type;
 
-void AdvectionDiffusionBoundaryConditions::flagBoundaries() {
+void ReactionDiffusionBoundaryConditions::flagBoundaries() {
 	//device_view_type pts = this->_coords->getPts()->getLocalView<device_view_type>();
 	//local_index_type bc_id_size = this->_particles->getFlags()->getLocalLength();
 	//Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,bc_id_size), KOKKOS_LAMBDA(const int i) {
@@ -30,7 +30,7 @@ void AdvectionDiffusionBoundaryConditions::flagBoundaries() {
 	//});
 }
 
-void AdvectionDiffusionBoundaryConditions::applyBoundaries(local_index_type field_one, local_index_type field_two, scalar_type time) {
+void ReactionDiffusionBoundaryConditions::applyBoundaries(local_index_type field_one, local_index_type field_two, scalar_type time) {
 
 	//Teuchos::RCP<Compadre::AnalyticFunction> function;
 	//function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
@@ -60,7 +60,7 @@ void AdvectionDiffusionBoundaryConditions::applyBoundaries(local_index_type fiel
 
 }
 
-std::vector<InteractingFields> AdvectionDiffusionBoundaryConditions::gatherFieldInteractions() {
+std::vector<InteractingFields> ReactionDiffusionBoundaryConditions::gatherFieldInteractions() {
 	std::vector<InteractingFields> field_interactions;
 	//field_interactions.push_back(InteractingFields(op_needing_interaction::bc, _particles->getFieldManagerConst()->getIDOfFieldFromName("solution")));
 	return field_interactions;

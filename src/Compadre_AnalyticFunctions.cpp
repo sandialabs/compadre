@@ -242,20 +242,13 @@ scalar_type SineProducts::evalScalarLaplacian(const xyz_type& xyzIn) const {
     }
 }
 
-scalar_type SineProducts::evalAdvectionDiffusionRHS(const xyz_type& xyzIn, const scalar_type diffusion, 
-        const xyz_type& advection_field) const {
+scalar_type SineProducts::evalReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const {
     if (_dim==3) {
-        double grad[3];
-        grad[0] = cos(xyzIn.x)*sin(xyzIn.y)*sin(xyzIn.z);
-        grad[1] = cos(xyzIn.y)*sin(xyzIn.x)*sin(xyzIn.z);
-        grad[2] = cos(xyzIn.z)*sin(xyzIn.x)*sin(xyzIn.y);
-        return -diffusion*3*sin(xyzIn.x)*sin(xyzIn.y)*sin(xyzIn.z) + 
-            (advection_field.x*grad[0] + advection_field.y*grad[1] + advection_field.z*grad[2]);
+        TEUCHOS_ASSERT(false);
+        return 0;
     } else {
-        double grad[2];
-        grad[0] = cos(xyzIn.x)*sin(xyzIn.y);
-        grad[1] = cos(xyzIn.y)*sin(xyzIn.x);
-        return -diffusion*2*sin(xyzIn.x)*sin(xyzIn.y) + (advection_field.x*grad[0] + advection_field.y*grad[1]);
+        auto laplace_u = -2*sin(xyzIn.x)*sin(xyzIn.y);
+        return -diffusion*laplace_u + reaction*sin(xyzIn.x)*sin(xyzIn.y);
     }
 }
 
@@ -271,8 +264,81 @@ xyz_type SecondOrderBasis::evalVector(const xyz_type& xyzIn) const {
     return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn),2*evalScalar(xyzIn));
 }
 
+xyz_type SecondOrderBasis::evalScalarDerivative(const xyz_type& xyzIn) const {
+    if (_dim==3) {
+        return xyz_type((1 + 2*xyzIn.x + xyzIn.y + xyzIn.z),
+                        (xyzIn.x + 1 + 2*xyzIn.y + xyzIn.z),
+                        (xyzIn.x + xyzIn.y + 1 + 2*xyzIn.z));
+    } else {
+        return xyz_type((1 + 2*xyzIn.x + xyzIn.y),
+                        (xyzIn.x + 1 + 2*xyzIn.y));
+    }
+}
+
+scalar_type SecondOrderBasis::evalReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const {
+    if (_dim==3) {
+        TEUCHOS_ASSERT(false);
+    } else {
+        auto laplace_u = this->evalScalarLaplacian(xyzIn);
+        return -diffusion*laplace_u + reaction*this->evalScalar(xyzIn);
+    }
+}
+
 scalar_type SecondOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn) const {
-	return 6;
+    if (_dim==3) {
+        return 6;
+    } else {
+        return 4;
+    }
+}
+
+scalar_type ThirdOrderBasis::evalScalar(const xyz_type& xyzIn) const {
+    scalar_type x = xyzIn.x;
+    scalar_type y = xyzIn.y;
+    scalar_type z = xyzIn.z;
+    if (_dim==2) {
+        return 1 + x + y + x*x + x*y + y*y + x*x*x + x*x*y + x*y*y + y*y*y;
+    } else {
+        return 1 + x + y + z + x*x + x*y + x*z + y*y + y*z + z*z + x*x*x + x*x*y + x*x*z + y*y*x + y*y*y + y*y*z + z*z*x + z*z*y + z*z*z + x*y*z;
+    }
+}
+
+xyz_type ThirdOrderBasis::evalVector(const xyz_type& xyzIn) const {
+    return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn),2*evalScalar(xyzIn));
+}
+
+xyz_type ThirdOrderBasis::evalScalarDerivative(const xyz_type& xyzIn) const {
+    scalar_type x = xyzIn.x;
+    scalar_type y = xyzIn.y;
+    scalar_type z = xyzIn.z;
+    if (_dim==3) {
+        return xyz_type((1 + 2*x + y + z + 3*x*x + 2*x*y + 2*x*z + y*y + z*z + y*z),
+                        (1 + x + 2*y + z + x*x + 2*y*x + 3*y*y + 2*y*z + z*z + x*z),
+                        (1 + x + y + 2*z + x*x + y*y + 2*z*x + 2*z*y + 3*z*z + x*y));
+    } else {
+        return xyz_type((1 + 2*x + y + 3*x*x + 2*x*y + y*y),
+                        (1 + x + 2*y + x*x + 2*x*y + 3*y*y));
+    }
+}
+
+scalar_type ThirdOrderBasis::evalReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const {
+    if (_dim==3) {
+        TEUCHOS_ASSERT(false);
+    } else {
+        auto laplace_u = this->evalScalarLaplacian(xyzIn);
+        return -diffusion*laplace_u + reaction*this->evalScalar(xyzIn);
+    }
+}
+
+scalar_type ThirdOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn) const {
+    scalar_type x = xyzIn.x;
+    scalar_type y = xyzIn.y;
+    scalar_type z = xyzIn.z;
+    if (_dim==3) {
+        return (2 + 6*x + 2*y + 2*z) + (2 + 2*x + 6*y + 2*z) + (2 + 2*x + 2*y + 6*z);
+    } else {
+        return (2 + 6*x + 2*y) + (2 + 2*x + 6*y);
+    }
 }
 
 scalar_type ConstantEachDimension::evalScalarLaplacian(const xyz_type& xyzIn) const {
