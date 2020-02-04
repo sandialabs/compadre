@@ -35,6 +35,7 @@ class ReactionDiffusionPhysics : public PhysicsT {
 		Teuchos::RCP<neighborhood_type> _particle_cells_neighborhood;
 		Teuchos::RCP<neighborhood_type> _cell_particles_neighborhood;
 		Teuchos::RCP<neighborhood_type> _halo_cell_particles_neighborhood;
+		Teuchos::RCP<neighborhood_type> _halo_particles_double_hop_neighborhood;
 
 		Teuchos::RCP<neighborhood_type> _particles_double_hop_neighborhood;
 		Teuchos::RCP<neighborhood_type> _particles_triple_hop_neighborhood;
@@ -62,6 +63,9 @@ class ReactionDiffusionPhysics : public PhysicsT {
 
         host_view_local_index_type _halo_big_to_small;
         host_view_local_index_type _halo_small_to_big;
+
+        host_view_local_index_type _halo_big_to_small_double_hop;
+        host_view_local_index_type _halo_small_to_big_double_hop;
 
 
 		ReactionDiffusionPhysics(	Teuchos::RCP<particle_type> particles, local_index_type t_Porder,
