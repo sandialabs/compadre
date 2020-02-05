@@ -576,13 +576,10 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
             for (int q=0; q<_weights_ndim; ++q) {
                 if (q>=num_interior_quadrature) {
                     current_edge_num[q] = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                    adjacent_cell_local_index[q] = (i<nlocal) ? (int)(adjacent_elements(i, current_edge_num[q]))
-                        : (int)(halo_adjacent_elements(halo_i, current_edge_num[q]));
+                    adjacent_cell_local_index[q] = (int)(adjacent_elements(i, current_edge_num[q]));
                     side_of_cell_i_to_adjacent_cell[q] = -1;
                     for (int z=0; z<num_exterior_quadrature_per_edge; ++z) {
-                        auto adjacent_cell_to_adjacent_cell = (adjacent_cell_local_index[q]<nlocal) ?
-                            (int)(adjacent_elements(adjacent_cell_local_index[q],z))
-                            : (int)(halo_adjacent_elements(adjacent_cell_local_index[q]-nlocal,z));
+                        auto adjacent_cell_to_adjacent_cell = (int)(adjacent_elements(adjacent_cell_local_index[q],z));
                         if (adjacent_cell_to_adjacent_cell==i) {
                             side_of_cell_i_to_adjacent_cell[q] = z;
                             break;
@@ -590,6 +587,24 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                     }
                 }
             }
+            // not yet set up for MPI
+            //for (int q=0; q<_weights_ndim; ++q) {
+            //    if (q>=num_interior_quadrature) {
+            //        current_edge_num[q] = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+            //        adjacent_cell_local_index[q] = (i<nlocal) ? (int)(adjacent_elements(i, current_edge_num[q]))
+            //            : (int)(halo_adjacent_elements(halo_i, current_edge_num[q]));
+            //        side_of_cell_i_to_adjacent_cell[q] = -1;
+            //        for (int z=0; z<num_exterior_quadrature_per_edge; ++z) {
+            //            auto adjacent_cell_to_adjacent_cell = (adjacent_cell_local_index[q]<nlocal) ?
+            //                (int)(adjacent_elements(adjacent_cell_local_index[q],z))
+            //                : (int)(halo_adjacent_elements(adjacent_cell_local_index[q]-nlocal,z));
+            //            if (adjacent_cell_to_adjacent_cell==i) {
+            //                side_of_cell_i_to_adjacent_cell[q] = z;
+            //                break;
+            //            }
+            //        }
+            //    }
+            //}
         }
 
 //        //std::vector<int> adjacent_cells(3,-1); // initialize all entries to -1
@@ -675,17 +690,28 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
             if (!_parameters->get<Teuchos::ParameterList>("physics").get<bool>("l2 projection only")) {
                 TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
                 for (local_index_type j=0; j<3; ++j) {
-                    int adj_el = (i<nlocal) ? (int)(adjacent_elements(i,j)) : (int)(halo_adjacent_elements(i-nlocal,j));
+                    int adj_el = (int)(adjacent_elements(i,j));
                     if (adj_el>=0) {
-                        num_neighbors = (adj_el<nlocal) ? _cell_particles_neighborhood->getNumNeighbors(adj_el)
-                            : _halo_cell_particles_neighborhood->getNumNeighbors(adj_el);
+                        num_neighbors = _cell_particles_neighborhood->getNumNeighbors(adj_el);
                         for (local_index_type k=0; k<num_neighbors; ++k) {
-                            auto particle_k = (adj_el<nlocal) ? _cell_particles_neighborhood->getNeighbor(adj_el,k)
-                                : _halo_cell_particles_neighborhood->getNeighbor(adj_el-nlocal,k);
+                            auto particle_k = _cell_particles_neighborhood->getNeighbor(adj_el,k);
                             cell_neighbors[particle_k] = 1;
                         }
                     }
                 }
+                // not yet set up for MPI
+                //for (local_index_type j=0; j<3; ++j) {
+                //    int adj_el = (i<nlocal) ? (int)(adjacent_elements(i,j)) : (int)(halo_adjacent_elements(i-nlocal,j));
+                //    if (adj_el>=0) {
+                //        num_neighbors = (adj_el<nlocal) ? _cell_particles_neighborhood->getNumNeighbors(adj_el)
+                //            : _halo_cell_particles_neighborhood->getNumNeighbors(adj_el);
+                //        for (local_index_type k=0; k<num_neighbors; ++k) {
+                //            auto particle_k = (adj_el<nlocal) ? _cell_particles_neighborhood->getNeighbor(adj_el,k)
+                //                : _halo_cell_particles_neighborhood->getNeighbor(adj_el-nlocal,k);
+                //            cell_neighbors[particle_k] = 1;
+                //        }
+                //    }
+                //}
             }
         }
 
@@ -761,8 +787,8 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                     TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
                     // loop over quadrature
                     for (int q=0; q<_weights_ndim; ++q) {
-                        auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_halo_small_to_big(halo_i,0),q);
-                        auto q_wt = (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_halo_small_to_big(halo_i,0),q);
+                        auto q_type = quadrature_type(i,q);
+                        auto q_wt = quadrature_weights(i,q);
                         double u, v;
                         double grad_u_x, grad_u_y, grad_v_x, grad_v_y;
                         
