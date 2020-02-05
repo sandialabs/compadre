@@ -55,28 +55,15 @@ void ReactionDiffusionPhysics::initialize() {
     //
     // it is a safe upper bound to use twice the previous search size as the maximum new radii
     _cell_particles_max_h = _cell_particles_neighborhood->computeMaxHSupportSize(true /* global processor max */);
-    scalar_type double_radius = 1.5 * _cell_particles_max_h;
     scalar_type triple_radius = 3.0 * _cell_particles_max_h;
     scalar_type max_search_size = _cells->getCoordsConst()->getHaloSize();
     // check that max_halo_size is not violated by distance of the double jump
     const local_index_type comm_size = _cell_particles_neighborhood->getSourceCoordinates()->getComm()->getSize();
     if (comm_size > 1) {
-        TEUCHOS_TEST_FOR_EXCEPT_MSG((max_search_size < double_radius), "Neighbor of neighbor search results in a search radius exceeding the halo size.");
+        TEUCHOS_TEST_FOR_EXCEPT_MSG((max_search_size < triple_radius), "Neighbor of neighbor search results in a search radius exceeding the halo size.");
     }
 
     auto neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
-
-    _particles_double_hop_neighborhood = Teuchos::rcp_static_cast<neighborhood_type>(Teuchos::rcp(
-            new neighborhood_type(_cells, _particles.getRawPtr(), false /*material coords*/, maxLeaf)));
-    _particles_double_hop_neighborhood->constructAllNeighborLists(max_search_size,
-        "radius",
-        true /*dry run for sizes*/,
-        neighbors_needed+1,
-        0.0, /* cutoff multiplier */
-        double_radius, /* search size */
-        false, /* uniform radii is true, but will be enforce automatically because all search sizes are the same globally */
-        _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
-     Kokkos::fence();
 
     _particles_triple_hop_neighborhood = Teuchos::rcp_static_cast<neighborhood_type>(Teuchos::rcp(
             new neighborhood_type(_cells, _particles.getRawPtr(), false /*material coords*/, maxLeaf)));
@@ -208,7 +195,6 @@ void ReactionDiffusionPhysics::initialize() {
 
         // halo version of _cell_particles_neighborhood
         {
-            TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1); // this piece of code is not tested / exercised
             // quantities contained on cells (mesh)
             auto halo_quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
             auto halo_quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
@@ -314,6 +300,7 @@ void ReactionDiffusionPhysics::initialize() {
             // for (int i=0;i<max_needed_entries;++i) {
             //     printf("%.16f %.16f %.16f\n", retrieved_halo_coords(i,0)-kokkos_halo_target_coordinates_host(i,0), retrieved_halo_coords(i,0),kokkos_halo_target_coordinates_host(i,0));
             // }
+            _cell_particles_neighborhood->getSourceCoordinates()->getComm()->barrier();
  
             // perform neighbor search to halo particles using same h as previous radii search
             _halo_cell_particles_neighborhood = Teuchos::rcp_static_cast<neighborhood_type>(Teuchos::rcp(
@@ -409,128 +396,6 @@ void ReactionDiffusionPhysics::initialize() {
             _halo_gmls->generateAlphas();
             Kokkos::fence();
         }
-        // halo version of _particles_double_hop_neighborhood
-        {
-            // quantities contained on cells (mesh)
-            auto halo_quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
-            auto halo_quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
-            auto halo_quadrature_type = _cells->getFieldManager()->getFieldByName("interior")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
-            auto halo_unit_normals = _cells->getFieldManager()->getFieldByName("unit_normal")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
-            
-            // this quantity refers to global elements, so it's local number can be found by getting neighbor with same global number
-            auto halo_adjacent_elements = _cells->getFieldManager()->getFieldByName("adjacent_elements")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
-
-            auto halo_needed = host_view_local_index_type("halo index needed", nhalo, 1);
-            Kokkos::deep_copy(halo_needed, 0);
-
-            // marks all neighbors reachable from locally owned cells
-            for(local_index_type i = 0; i < nlocal; i++) {
-                local_index_type num_neighbors = _particles_double_hop_neighborhood->getNumNeighbors(i);
-                for (local_index_type l = 0; l < num_neighbors; l++) {
-                    if (_particles_double_hop_neighborhood->getNeighbor(i,l) >= nlocal) {
-                       auto index = _particles_double_hop_neighborhood->getNeighbor(i,l)-nlocal;
-                       halo_needed(index,0) = 1;
-                    }
-                }
-            }
-            Kokkos::fence();
-
-            _halo_big_to_small_double_hop = host_view_local_index_type("halo big to small map", nhalo, 1);
-            Kokkos::deep_copy(_halo_big_to_small_double_hop, halo_needed);
-
-            //// DIAGNOSTIC:: check to see which DOFs are needed
-            //if (_cell_particles_neighborhood->getSourceCoordinates()->getComm()->getRank()==3) {
-            //    for (int i=0; i<nhalo; ++i) {
-            //        printf("h:%d, %d\n", i, _halo_big_to_small(i,0));
-            //    }
-            //}
-
-            Kokkos::parallel_scan(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nhalo), KOKKOS_LAMBDA(const int i, local_index_type& upd, const bool& final) {
-                const local_index_type this_i = _halo_big_to_small_double_hop(i,0);
-                upd += this_i;
-                if (final) {
-                    _halo_big_to_small_double_hop(i,0) = upd;
-                }
-            });
-
-            auto max_needed_entries = _halo_big_to_small_double_hop(nhalo-1,0);
-            _halo_small_to_big_double_hop = host_view_local_index_type("halo small to big map - double hop", max_needed_entries, 1);
-
-            //// DIAGNOSTIC:: check mappings to see results of scan
-            //if (_cell_particles_neighborhood->getSourceCoordinates()->getComm()->getRank()==3) {
-            //    for (int i=0; i<nhalo; ++i) {
-            //        printf("a:%d, %d\n", i, _halo_big_to_small(i,0));
-            //    }
-            //}
-
-            Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nhalo), KOKKOS_LAMBDA(const int i) {
-                _halo_big_to_small_double_hop(i,0) *= halo_needed(i,0);
-                _halo_big_to_small_double_hop(i,0)--;
-                if (_halo_big_to_small_double_hop(i,0) >= 0) _halo_small_to_big_double_hop(_halo_big_to_small_double_hop(i,0),0) = i;
-            });
-            //// DIAGNOSTIC:: check mappings from big to small and small to big to ensure they are consistent
-            //if (_cell_particles_neighborhood->getSourceCoordinates()->getComm()->getRank()==3) {
-            //    for (int i=0; i<nhalo; ++i) {
-            //        printf("b:%d, %d\n", i, _halo_big_to_small(i,0));
-            //    }
-            //    for (int i=0; i<max_needed_entries; ++i) {
-            //        printf("s:%d, %d\n", i, _halo_small_to_big(i,0));
-            //    }
-            //}
-
-            Kokkos::View<double**> kokkos_halo_target_coordinates("halo target_coordinates double hop", max_needed_entries, target_coords->nDim());
-            auto kokkos_halo_target_coordinates_host = Kokkos::create_mirror_view(kokkos_halo_target_coordinates);
-            // fill in the target, adding regular coordiantes only into a kokkos view
-            Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,max_needed_entries), KOKKOS_LAMBDA(const int i) {
-                xyz_type coordinate = target_coords->getLocalCoords(nlocal+_halo_small_to_big_double_hop(i,0), true /*include halo*/, use_physical_coords);
-                kokkos_halo_target_coordinates_host(i,0) = coordinate.x;
-                kokkos_halo_target_coordinates_host(i,1) = coordinate.y;
-                if (ndim_requested>2) kokkos_halo_target_coordinates_host(i,2) = 0;//coordinate.z;
-            });
-
-            // make temporary particle set of halo target coordinates needed
-		    Teuchos::RCP<Compadre::ParticlesT> halo_particles_double_hop =
-		    	Teuchos::rcp( new Compadre::ParticlesT(_parameters, _cells->getCoordsConst()->getComm(), _parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions")));
-            halo_particles_double_hop->resize(max_needed_entries, true);
-            auto halo_coords = halo_particles_double_hop->getCoords();
-		    //std::vector<Compadre::XyzVector> verts_to_insert(max_needed_entries);
-            Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,max_needed_entries), KOKKOS_LAMBDA(const int i) {
-                XyzVector coord_i(0,0,0);
-                for (local_index_type j=0; j<ndim_requested; ++j) {
-                    coord_i[j] = kokkos_halo_target_coordinates_host(i,j);
-                }
-                halo_coords->replaceLocalCoords(i, coord_i, true);
-                halo_coords->replaceLocalCoords(i, coord_i, false);
-                //for (local_index_type j=0; j<ndim_requested; ++j) {
-                //    (*const_cast<Compadre::XyzVector*>(&verts_to_insert[i]))[j] = kokkos_halo_target_coordinates_host(i,j);
-                //}
-            });
-            //halo_coords->insertCoords(verts_to_insert);
-            //halo_particles->resetWithSameCoords();
-
-            // DIAGNOSTIC:: pull coords from halo_particles and compare to what was inserted
-            // auto retrieved_halo_coords = halo_particles->getCoords()->getPts()->getLocalView<const host_view_type>();
-            // for (int i=0;i<max_needed_entries;++i) {
-            //     printf("%.16f %.16f %.16f\n", retrieved_halo_coords(i,0)-kokkos_halo_target_coordinates_host(i,0), retrieved_halo_coords(i,0),kokkos_halo_target_coordinates_host(i,0));
-            // }
- 
-            // perform neighbor search to halo particles using same h as previous radii search
-            _halo_particles_double_hop_neighborhood = Teuchos::rcp_static_cast<neighborhood_type>(Teuchos::rcp(
-                    new neighborhood_type(_cells, halo_particles_double_hop.getRawPtr(), false /*material coords*/, maxLeaf)));
-            _halo_particles_double_hop_neighborhood->constructAllNeighborLists(max_search_size /* we know we have enough halo info */,
-                "radius",
-                true /*dry run for sizes*/,
-                neighbors_needed+1,
-                0.0, /* cutoff multiplier */
-                double_radius, /* search size */
-                false, /* uniform radii is true, but will be enforce automatically because all search sizes are the same globally */
-                _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
-            Kokkos::fence();
-            // to verify all needed particles will be found, it would seem necessary to check that 2*double_radius fits within
-            // the halo buffer search on processors. However, we know all particles that participate in the column map are within triple_radius
-            // of an owned particle, and this check was done when the original triple_hop search was performed
-        }
-
     }
 
     GenerateData->stop();
@@ -650,11 +515,10 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     });
     Kokkos::fence();
 
-    //printf("interior: %d, exterior: %d\n", num_interior_quadrature, num_exterior_quadrature_per_edge);
-    int num_interior_edges = 0;
     // loop over cells including halo cells 
     Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal(true)), [&](const int i, scalar_type& t_area) {
     //for (int i=0; i<_cells->getCoordsConst()->nLocal(true); ++i) {
+        std::map<local_index_type, local_index_type> cell_neighbors;
 
         double val_data[1] = {0};
         int    col_data[1] = {-1};
@@ -664,8 +528,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
         // filter out (skip) all halo cells that are not able to be seen from a locally owned particle
         // dictionary needs created of halo_particle
         // halo_big_to_small 
-        auto halo_i = (i<nlocal) ? -1 : _halo_big_to_small_double_hop(i-nlocal,0);
-        auto halo_i_single_hop = (i<nlocal) ? -1 : _halo_big_to_small(i-nlocal,0);
+        auto halo_i = (i<nlocal) ? -1 : _halo_big_to_small(i-nlocal,0);
         if (i>=nlocal /* halo */  && halo_i<0 /* not one found within max_h of locally owned particles */) return;//continue;
 
         //auto window_size = _cell_particles_neighborhood->getHSupportSize(i);
@@ -688,30 +551,42 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
         {
             int current_edge_num = 0;
             for (int q=0; q<_weights_ndim; ++q) {
-                if (quadrature_type(i,q)!=1) { // edge
+                auto q_type = (i<nlocal) ? quadrature_type(i,q) 
+                    : halo_quadrature_type(_halo_small_to_big(halo_i,0),q);
+                if (q_type!=1) { // edge
+                    auto q_wt = (i<nlocal) ? quadrature_weights(i,q) 
+                        : halo_quadrature_weights(_halo_small_to_big(halo_i,0),q);
                     int new_current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
                     if (new_current_edge_num!=current_edge_num) {
-                        edge_lengths[new_current_edge_num] = quadrature_weights(i,q);
+                        edge_lengths[new_current_edge_num] = q_wt;
                         current_edge_num = new_current_edge_num;
                     } else {
-                        edge_lengths[current_edge_num] += quadrature_weights(i,q);
+                        edge_lengths[current_edge_num] += q_wt;
                     }
                 }
             }
         }
 
+        // information needed for calculating jump terms
         std::vector<int> current_edge_num(_weights_ndim);
         std::vector<int> side_of_cell_i_to_adjacent_cell(_weights_ndim);
         std::vector<int> adjacent_cell_local_index(_weights_ndim);
-        for (int q=0; q<_weights_ndim; ++q) {
-            if (q>=num_interior_quadrature) {
-                current_edge_num[q] = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                adjacent_cell_local_index[q] = (int)(adjacent_elements(i, current_edge_num[q]));
-                side_of_cell_i_to_adjacent_cell[q] = -1;
-                for (int z=0; z<num_exterior_quadrature_per_edge; ++z) {
-                    if ((int)(adjacent_elements(adjacent_cell_local_index[q],z))==i) {
-                        side_of_cell_i_to_adjacent_cell[q] = z;
-                        break;
+        if (!_parameters->get<Teuchos::ParameterList>("physics").get<bool>("l2 projection only")) {
+            TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
+            for (int q=0; q<_weights_ndim; ++q) {
+                if (q>=num_interior_quadrature) {
+                    current_edge_num[q] = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                    adjacent_cell_local_index[q] = (i<nlocal) ? (int)(adjacent_elements(i, current_edge_num[q]))
+                        : (int)(halo_adjacent_elements(halo_i, current_edge_num[q]));
+                    side_of_cell_i_to_adjacent_cell[q] = -1;
+                    for (int z=0; z<num_exterior_quadrature_per_edge; ++z) {
+                        auto adjacent_cell_to_adjacent_cell = (adjacent_cell_local_index[q]<nlocal) ?
+                            (int)(adjacent_elements(adjacent_cell_local_index[q],z))
+                            : (int)(halo_adjacent_elements(adjacent_cell_local_index[q]-nlocal,z));
+                        if (adjacent_cell_to_adjacent_cell==i) {
+                            side_of_cell_i_to_adjacent_cell[q] = z;
+                            break;
+                        }
                     }
                 }
             }
@@ -785,20 +660,58 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 //            }
 //        }
 
-        local_index_type num_neighbors = (i<nlocal) ? _particles_double_hop_neighborhood->getNumNeighbors(i)
-            : _halo_particles_double_hop_neighborhood->getNumNeighbors(halo_i);
+        // creates a map that contains all neighbors from cell i plus any neighbors of cells
+        // adjacent to cell i not contained in cell i's neighbor list
+        {
+            //local_index_type num_neighbors = _cell_particles_neighborhood->getNumNeighbors(i);
+            local_index_type num_neighbors = (i<nlocal) ? _cell_particles_neighborhood->getNumNeighbors(i)
+                : _halo_cell_particles_neighborhood->getNumNeighbors(halo_i);
+            for (local_index_type j=0; j<num_neighbors; ++j) {
+                //auto particle_j = _cell_particles_neighborhood->getNeighbor(i,j);
+                auto particle_j = (i<nlocal) ? _cell_particles_neighborhood->getNeighbor(i,j)
+                    : _halo_cell_particles_neighborhood->getNeighbor(halo_i,j);
+                cell_neighbors[particle_j] = 1;
+            }
+            if (!_parameters->get<Teuchos::ParameterList>("physics").get<bool>("l2 projection only")) {
+                TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
+                for (local_index_type j=0; j<3; ++j) {
+                    int adj_el = (i<nlocal) ? (int)(adjacent_elements(i,j)) : (int)(halo_adjacent_elements(i-nlocal,j));
+                    if (adj_el>=0) {
+                        num_neighbors = (adj_el<nlocal) ? _cell_particles_neighborhood->getNumNeighbors(adj_el)
+                            : _halo_cell_particles_neighborhood->getNumNeighbors(adj_el);
+                        for (local_index_type k=0; k<num_neighbors; ++k) {
+                            auto particle_k = (adj_el<nlocal) ? _cell_particles_neighborhood->getNeighbor(adj_el,k)
+                                : _halo_cell_particles_neighborhood->getNeighbor(adj_el-nlocal,k);
+                            cell_neighbors[particle_k] = 1;
+                        }
+                    }
+                }
+            }
+        }
 
-        for (local_index_type j=0; j<num_neighbors; ++j) {
-            auto particle_j = (i<nlocal) ? _particles_double_hop_neighborhood->getNeighbor(i,j)
-                : _halo_particles_double_hop_neighborhood->getNeighbor(halo_i,j);
+        local_index_type num_neighbors = cell_neighbors.size();
+        //local_index_type num_neighbors = (i<nlocal) ? _particles_double_hop_neighborhood->getNumNeighbors(i)
+        //    : _halo_particles_double_hop_neighborhood->getNumNeighbors(halo_i);
+
+        int j=-1;
+        //for (local_index_type j=0; j<num_neighbors; ++j) {
+        for (auto j_it=cell_neighbors.begin(); j_it!=cell_neighbors.end(); ++j_it) {
+            j++;
+            auto particle_j = j_it->first;
+            //auto particle_j = (i<nlocal) ? _particles_double_hop_neighborhood->getNeighbor(i,j)
+            //    : _halo_particles_double_hop_neighborhood->getNeighbor(halo_i,j);
             // particle_j is an index from {0..nlocal+nhalo}
             if (particle_j>=nlocal /* particle is halo particle */) continue; // row should be locally owned
 
             // locally owned DOF
             local_index_type row = local_to_dof_map(particle_j, field_one, 0 /* component 0*/);
-            for (local_index_type k=0; k<num_neighbors; ++k) {
-                auto particle_k = (i<nlocal) ? _particles_double_hop_neighborhood->getNeighbor(i,k)
-                    : _halo_particles_double_hop_neighborhood->getNeighbor(halo_i,k);
+            int k=-1;
+            //for (local_index_type k=0; k<num_neighbors; ++k) {
+            for (auto k_it=cell_neighbors.begin(); k_it!=cell_neighbors.end(); ++k_it) {
+                k++;
+                auto particle_k = k_it->first;
+                //auto particle_k = (i<nlocal) ? _particles_double_hop_neighborhood->getNeighbor(i,k)
+                //    : _halo_particles_double_hop_neighborhood->getNeighbor(halo_i,k);
                 // particle_k is an index from {0..nlocal+nhalo}
 
                 // do filter out (skip) all halo particles that are not seen by local DOF
@@ -821,20 +734,20 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                 double contribution = 0;
                 if (_parameters->get<Teuchos::ParameterList>("physics").get<bool>("l2 projection only")) {
                     for (int q=0; q<_weights_ndim; ++q) {
-                        auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_halo_small_to_big_double_hop(halo_i,0),q);
+                        auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_halo_small_to_big(halo_i,0),q);
                         if (q_type==1) { // interior
                             double u, v;
-                            auto q_wt = (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_halo_small_to_big_double_hop(halo_i,0),q);
+                            auto q_wt = (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_halo_small_to_big(halo_i,0),q);
                             if (j_to_cell_i>=0) {
                                 v = (i<nlocal) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, q+1)
-                                     : _halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i_single_hop, j_to_cell_i, q+1);
+                                     : _halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j_to_cell_i, q+1);
                                 j_has_value = true;
                             } else {
                                 v = 0;
                             }
                             if (k_to_cell_i>=0) {
                                 u = (i<nlocal) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, q+1)
-                                     : _halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i_single_hop, k_to_cell_i, q+1);
+                                     : _halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, k_to_cell_i, q+1);
                                 k_has_value = true;
                             } else {
                                 u = 0;
@@ -848,8 +761,8 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                     TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
                     // loop over quadrature
                     for (int q=0; q<_weights_ndim; ++q) {
-                        auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_halo_small_to_big_double_hop(halo_i,0),q);
-                        auto q_wt = (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_halo_small_to_big_double_hop(halo_i,0),q);
+                        auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_halo_small_to_big(halo_i,0),q);
+                        auto q_wt = (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_halo_small_to_big(halo_i,0),q);
                         double u, v;
                         double grad_u_x, grad_u_y, grad_v_x, grad_v_y;
                         
