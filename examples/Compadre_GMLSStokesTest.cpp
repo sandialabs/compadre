@@ -200,7 +200,7 @@ int main(int argc, char* args[]) {
                 ST pressure_val = particles->getFieldManagerConst()->getFieldByName("pressure")->getLocalScalarVal(j) - pressure_global_val_mean;
                 ST pressure_exact = pressure_function->evalScalar(xyz) - pressure_global_exact_mean;
                 error_pressure_norm += (pressure_exact - pressure_val)*(pressure_exact - pressure_val);
-                pressure_norm = pressure_exact*pressure_exact;
+                pressure_norm += pressure_exact*pressure_exact;
             }
 
             // Now sum up and broadcast both the velocity and pressure norm. And also error norm.
