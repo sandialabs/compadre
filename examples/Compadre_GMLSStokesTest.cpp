@@ -170,14 +170,15 @@ int main(int argc, char* args[]) {
                 pressure_val_mean += pressure_val;
                 pressure_exact_mean += pressure_exact;
             }
-            // Take the average on each local processor
-            pressure_val_mean /= (double)(coords->nGlobalMax());
-            pressure_exact_mean /= (double)(coords->nGlobalMax());
             // Perform a reduce all to broadcast the sum value to all processors
-            Teuchos::Ptr<ST> pressure_val_mean_ptr(&pressure_val_mean);
-            Teuchos::Ptr<ST> pressure_exact_mean_ptr(&pressure_exact_mean);
-            Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, pressure_val_mean, pressure_val_mean_ptr);
-            Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, pressure_exact_mean, pressure_exact_mean_ptr);
+            ST pressure_global_val_mean, pressure_global_exact_mean;
+            Teuchos::Ptr<ST> pressure_global_val_mean_ptr(&pressure_global_val_mean);
+            Teuchos::Ptr<ST> pressure_global_exact_mean_ptr(&pressure_global_exact_mean);
+            Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, pressure_val_mean, pressure_global_val_mean_ptr);
+            Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, pressure_exact_mean, pressure_global_exact_mean_ptr);
+            // Take the average on each local processor
+            pressure_global_val_mean /= (double)(coords->nGlobalMax());
+            pressure_global_exact_mean /= (double)(coords->nGlobalMax());
 
             // check solution
             ST error_velocity_norm = 0.0, error_pressure_norm = 0.0;
@@ -196,8 +197,8 @@ int main(int argc, char* args[]) {
                     velocity_norm += velocity_exact[id]*velocity_exact[id];
                 }
                 // remove the mean from the pressure field
-                ST pressure_val = particles->getFieldManagerConst()->getFieldByName("pressure")->getLocalScalarVal(j) - pressure_val_mean;
-                ST pressure_exact = pressure_function->evalScalar(xyz) - pressure_exact_mean;
+                ST pressure_val = particles->getFieldManagerConst()->getFieldByName("pressure")->getLocalScalarVal(j) - pressure_global_val_mean;
+                ST pressure_exact = pressure_function->evalScalar(xyz) - pressure_global_exact_mean;
                 error_pressure_norm += (pressure_exact - pressure_val)*(pressure_exact - pressure_val);
                 pressure_norm = pressure_exact*pressure_exact;
             }
