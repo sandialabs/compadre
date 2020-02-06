@@ -148,9 +148,6 @@ int main(int argc, char* args[]) {
                 SolvingTime->stop();
             }
 
-            // check solution
-            ST velocity_norm = 0.0, pressure_norm = 0.0;
-
             Teuchos::RCP<Compadre::AnalyticFunction> velocity_function, pressure_function;
             if (parameters->get<std::string>("solution type")=="sine") {
                 velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::CurlCurlSineTest));
@@ -182,6 +179,10 @@ int main(int argc, char* args[]) {
             Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, pressure_val_mean, pressure_val_mean_ptr);
             Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, pressure_exact_mean, pressure_exact_mean_ptr);
 
+            // check solution
+            ST error_velocity_norm = 0.0, error_pressure_norm = 0.0;
+            // calculate the exact norm
+            ST velocity_norm = 0.0, pressure_norm = 0.0;
             // Then calculate the norm for the velocity field and the zero-mean pressure field
             for (int j=0; j<coords->nLocal(); j++) {
                 xyz_type xyz = coords->getLocalCoords(j);
@@ -191,29 +192,38 @@ int main(int argc, char* args[]) {
                 std::vector<ST> velocity_exact(3);
                 velocity_exact_xyz.convertToStdVector(velocity_exact);
                 for (LO id=0; id<3; id++) {
-                    velocity_norm += (velocity_computed[id] - velocity_exact[id])*(velocity_computed[id] - velocity_exact[id]);
+                    error_velocity_norm += (velocity_computed[id] - velocity_exact[id])*(velocity_computed[id] - velocity_exact[id]);
+                    velocity_norm += velocity_exact[id]*velocity_exact[id];
                 }
                 // remove the mean from the pressure field
                 ST pressure_val = particles->getFieldManagerConst()->getFieldByName("pressure")->getLocalScalarVal(j) - pressure_val_mean;
                 ST pressure_exact = pressure_function->evalScalar(xyz) - pressure_exact_mean;
-                pressure_norm += (pressure_exact - pressure_val)*(pressure_exact - pressure_val);
+                error_pressure_norm += (pressure_exact - pressure_val)*(pressure_exact - pressure_val);
+                pressure_norm = pressure_exact*pressure_exact;
             }
-            velocity_norm /= (double)(coords->nGlobalMax());
-            pressure_norm /= (double)(coords->nGlobalMax());
-
+            // Now sum up and broadcast both the velocity and pressure norm
             ST velocity_global_norm, pressure_global_norm;
             Teuchos::Ptr<ST> velocity_global_norm_ptr(&velocity_global_norm);
             Teuchos::Ptr<ST> pressure_global_norm_ptr(&pressure_global_norm);
             Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, velocity_norm, velocity_global_norm_ptr);
             Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, pressure_norm, pressure_global_norm_ptr);
-            velocity_global_norm = sqrt(velocity_global_norm);
-            pressure_global_norm = sqrt(pressure_global_norm);
+
+            // Then obtain the global relative error
+            error_velocity_norm /= velocity_global_norm;
+            error_pressure_norm /= pressure_global_norm;
+            ST error_velocity_global_norm, error_pressure_global_norm;
+            Teuchos::Ptr<ST> error_velocity_global_norm_ptr(&error_velocity_global_norm);
+            Teuchos::Ptr<ST> error_pressure_global_norm_ptr(&error_pressure_global_norm);
+            Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, error_velocity_norm, error_velocity_global_norm_ptr);
+            Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, error_pressure_norm, error_pressure_global_norm_ptr);
+            error_velocity_global_norm = sqrt(error_velocity_global_norm);
+            error_pressure_global_norm = sqrt(error_pressure_global_norm);
             if (comm->getRank()==0) {
-                std::cout << "Global Velocity Norm: " << velocity_global_norm << std::endl;
-                std::cout << "Global Pressure Norm: " << pressure_global_norm << std::endl;
+                std::cout << "Global Velocity Norm: " << error_velocity_global_norm << std::endl;
+                std::cout << "Global Pressure Norm: " << error_pressure_global_norm << std::endl;
             }
-            velocity_errors[i] = velocity_global_norm;
-            pressure_errors[i] = pressure_global_norm;
+            velocity_errors[i] = error_velocity_global_norm;
+            pressure_errors[i] = error_pressure_global_norm;
 
             WriteTime->start();
             std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + std::to_string(i) /* loop */ + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
