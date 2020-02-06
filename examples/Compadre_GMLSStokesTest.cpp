@@ -201,21 +201,22 @@ int main(int argc, char* args[]) {
                 error_pressure_norm += (pressure_exact - pressure_val)*(pressure_exact - pressure_val);
                 pressure_norm = pressure_exact*pressure_exact;
             }
-            // Now sum up and broadcast both the velocity and pressure norm
+
+            // Now sum up and broadcast both the velocity and pressure norm. And also error norm.
             ST velocity_global_norm, pressure_global_norm;
             Teuchos::Ptr<ST> velocity_global_norm_ptr(&velocity_global_norm);
             Teuchos::Ptr<ST> pressure_global_norm_ptr(&pressure_global_norm);
             Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, velocity_norm, velocity_global_norm_ptr);
             Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, pressure_norm, pressure_global_norm_ptr);
-
-            // Then obtain the global relative error
-            error_velocity_norm /= velocity_global_norm;
-            error_pressure_norm /= pressure_global_norm;
             ST error_velocity_global_norm, error_pressure_global_norm;
             Teuchos::Ptr<ST> error_velocity_global_norm_ptr(&error_velocity_global_norm);
             Teuchos::Ptr<ST> error_pressure_global_norm_ptr(&error_pressure_global_norm);
             Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, error_velocity_norm, error_velocity_global_norm_ptr);
             Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, error_pressure_norm, error_pressure_global_norm_ptr);
+
+            // Then obtain the global relative error
+            error_velocity_global_norm /= velocity_global_norm;
+            error_pressure_global_norm /= pressure_global_norm;
             error_velocity_global_norm = sqrt(error_velocity_global_norm);
             error_pressure_global_norm = sqrt(error_pressure_global_norm);
             if (comm->getRank()==0) {
