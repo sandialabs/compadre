@@ -208,7 +208,7 @@ scalar_type CylinderSinLonCosZRHS::evalScalar(const xyz_type& xyzIn) const {
 
 scalar_type SineProducts::evalScalar(const xyz_type& xyzIn) const {
     if (_dim==3) {
-        return sin(4.0*xyzIn.x)*sin(4.0*xyzIn.y)*sin(4.0*xyzIn.z);
+        return sin(0.5*xyzIn.x)*sin(0.5*xyzIn.y)*sin(0.5*xyzIn.z);
     } else {
         return sin(xyzIn.x)*sin(xyzIn.y);
     }
@@ -216,9 +216,9 @@ scalar_type SineProducts::evalScalar(const xyz_type& xyzIn) const {
 
 xyz_type SineProducts::evalScalarDerivative(const xyz_type& xyzIn) const {
     if (_dim==3) {
-        return xyz_type(4.0*cos(4.0*xyzIn.x)*sin(4.0*xyzIn.y)*sin(4.0*xyzIn.z),
-                        4.0*sin(4.0*xyzIn.x)*cos(4.0*xyzIn.y)*sin(4.0*xyzIn.z),
-                        4.0*sin(4.0*xyzIn.x)*sin(4.0*xyzIn.y)*cos(4.0*xyzIn.z));
+        return xyz_type(0.5*cos(0.5*xyzIn.x)*sin(0.5*xyzIn.y)*sin(0.5*xyzIn.z),
+                        0.5*sin(0.5*xyzIn.x)*cos(0.5*xyzIn.y)*sin(0.5*xyzIn.z),
+                        0.5*sin(0.5*xyzIn.x)*sin(0.5*xyzIn.y)*cos(0.5*xyzIn.z));
     } else {
         return xyz_type(cos(xyzIn.x)*sin(xyzIn.y),
                         sin(xyzIn.x)*cos(xyzIn.y));
@@ -236,7 +236,7 @@ xyz_type SineProducts::evalVector(const xyz_type& xyzIn) const {
 
 scalar_type SineProducts::evalScalarLaplacian(const xyz_type& xyzIn) const {
     if (_dim==3) {
-        return -48.0*sin(4.0*xyzIn.x)*sin(4.0*xyzIn.y)*sin(4.0*xyzIn.z);
+        return -0.75*sin(0.5*xyzIn.x)*sin(0.5*xyzIn.y)*sin(0.5*xyzIn.z);
     } else {
         return -2*sin(xyzIn.x)*sin(xyzIn.y);
     }
@@ -309,15 +309,15 @@ xyz_type CangaSphereTransform::evalVector(const xyz_type& latLonIn) const {
 }
 
 xyz_type CurlCurlSineTestRHS::evalVector(const xyz_type& xyzIn) const {
-    return xyz_type(32.0*sin(4.0*xyzIn.y)*sin(4.0*xyzIn.z),
-                    32.0*sin(4.0*xyzIn.x)*sin(4.0*xyzIn.z),
-                    32.0*sin(4.0*xyzIn.x)*sin(4.0*xyzIn.y));
+    return xyz_type(0.5*sin(0.5*xyzIn.y)*sin(0.5*xyzIn.z),
+                    0.5*sin(0.5*xyzIn.x)*sin(0.5*xyzIn.z),
+                    0.5*sin(0.5*xyzIn.x)*sin(0.5*xyzIn.y));
 }
 
 xyz_type CurlCurlSineTest::evalVector(const xyz_type& xyzIn) const {
-    return xyz_type(sin(4.0*xyzIn.y)*sin(4.0*xyzIn.z),
-                    sin(4.0*xyzIn.x)*sin(4.0*xyzIn.z),
-                    sin(4.0*xyzIn.x)*sin(4.0*xyzIn.y));
+    return xyz_type(sin(0.5*xyzIn.y)*sin(0.5*xyzIn.z),
+                    sin(0.5*xyzIn.x)*sin(0.5*xyzIn.z),
+                    sin(0.5*xyzIn.x)*sin(0.5*xyzIn.y));
 }
 
 xyz_type CurlCurlPolyTestRHS::evalVector(const xyz_type& xyzIn) const {
