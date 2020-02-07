@@ -505,18 +505,6 @@ int main (int argc, char* args[]) {
 		    	norm += (exact - val)*(exact-val);
 		    }
 		    norm /= (double)(coords->nGlobalMax());
-        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le") {
-		    auto processed_view = cells->getFieldManager()->getFieldByName("processed_solution")->
-                getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-		    for( int j =0; j<coords->nLocal(); j++){
-		        for( int k=0; k<2; k++){
-		    	    const ST val = processed_view(j,k);
-		    	    xyz_type xyz = coords->getLocalCoords(j);
-		    	    auto exacts = function->evalVector(xyz);
-		    	    norm += (exacts[k] - val)*(exacts[k]-val);
-                }
-		    }
-		    norm /= (double)(coords->nGlobalMax());
         } else {
             // get error from l2, h1, and jump
 
@@ -573,13 +561,15 @@ int main (int argc, char* args[]) {
                                     h1_val_y += dof_val * v_y;
                                 }
                                 auto xyz = Compadre::XyzVector(quadrature_points(j,2*i+0), quadrature_points(j,2*i+1),0);
-                                double l2_exact = function->evalScalar(xyz);
-                                xyz_type h1_exact = function->evalScalarDerivative(xyz);
                                 if (rd_op) {
+                                    double l2_exact = function->evalScalar(xyz);
+                                    xyz_type h1_exact = function->evalScalarDerivative(xyz);
                                     l2_error_on_cell += reaction_coeff * quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
                                     h1_error_on_cell += diffusion_coeff * quadrature_weights(j,i) * (h1_val_x - h1_exact[0]) * (h1_val_x - h1_exact[0]);
                                     h1_error_on_cell += diffusion_coeff * quadrature_weights(j,i) * (h1_val_y - h1_exact[1]) * (h1_val_y - h1_exact[1]);
                                 } else if (le_op) {
+                                    double l2_exact = function->evalVector(xyz)[m];
+                                    xyz_type h1_exact = function->evalJacobian(xyz)[m];
                                     // still needs customized to LE stress tensor
                                     l2_error_on_cell += quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
                                     h1_error_on_cell += shear_coeff * quadrature_weights(j,i) * (h1_val_x - h1_exact[0]) * (h1_val_x - h1_exact[0]);
@@ -597,7 +587,12 @@ int main (int argc, char* args[]) {
                                     u_val += dof_val * v;
                                 }
                                 auto xyz = Compadre::XyzVector(quadrature_points(j,2*i+0), quadrature_points(j,2*i+1),0);
-                                double u_exact = function->evalScalar(xyz);
+                                double u_exact = 0;
+                                if (rd_op) {
+                                    u_exact = function->evalScalar(xyz);
+                                } else if (le_op) {
+                                    u_exact = function->evalVector(xyz)[m];
+                                }
                                 jump_error_on_cell += quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);
                             } else if (quadrature_type(j,i)==0) { // interior edge
                                 double u_val = 0.0;
