@@ -248,6 +248,33 @@ double curlcurldivfreeTestSolution(double x, double y, double z, int component, 
     }
 }
 
+KOKKOS_INLINE_FUNCTION
+double gradientdivfreeTestSolution(double x, double y, double z, int component, int dimension) {
+    if (dimension==3) {
+        switch (component) {
+            case 0:
+                return 12.0*x*y - 9.0*y + 7.0*z*z;
+            case 1:
+                return 6.0*x*x - 9.0*x + 12.0*y*z;
+            case 2:
+                return 14.0*x*z + 6.0*y*y;
+            case 3:
+                return 20.0*x*z - 6.0*y*y;
+            case 4:
+                return -7.0*z*z - 12.0*x*y;
+            case 5:
+                return 10.0*x*x - 14.0*y*z;
+            case 6:
+                return -6.0*x*x + 9.0*y*y;
+            case 7:
+                return 18.0*x*y + 9.0*z;
+            case 8:
+                return 9.0*y;
+        }
+    }
+    return 0.0;
+}
+
 /** Standard GMLS Example 
  *
  *  Exercises GMLS operator evaluation with data over various orders and numbers of targets for targets including point evaluation, Laplacian, divergence, curl, and gradient.

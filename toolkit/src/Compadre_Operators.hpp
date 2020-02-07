@@ -212,8 +212,8 @@ namespace Compadre {
     };
 
     //! Helper function for finding alpha coefficients
-    static int getTargetOutputIndex(const int operation_num, const int output_component_axis_1, const int output_component_axis_2) {
-        const int axis_1_size = (TargetOutputTensorRank[operation_num] > 1) ? TargetOutputTensorRank[operation_num] : 1;
+    static int getTargetOutputIndex(const int operation_num, const int output_component_axis_1, const int output_component_axis_2, const int dimensions) {
+        const int axis_1_size = (TargetOutputTensorRank[operation_num] > 1) ? dimensions : 1;
         return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
     }
 

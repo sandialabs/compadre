@@ -364,14 +364,15 @@ public:
 
         auto problem_type = _gmls->getProblemType();
         auto global_dimensions = _gmls->getGlobalDimensions();
-        auto output_dimension_of_operator = _gmls->getOutputDimensionOfOperation(lro);
+        auto output_dimension1_of_operator = (TargetOutputTensorRank[lro]<2) ? _gmls->getOutputDimensionOfOperation(lro) : std::sqrt(_gmls->getOutputDimensionOfOperation(lro));
+        auto output_dimension2_of_operator = (TargetOutputTensorRank[lro]<2) ? 1 : std::sqrt(_gmls->getOutputDimensionOfOperation(lro));
         auto input_dimension_of_operator = _gmls->getInputDimensionOfOperation(lro);
 
         // gather needed information for evaluation
         auto neighbor_lists = _gmls->getNeighborLists();
 
         // determines the number of columns needed for output after action of the target functional
-        int output_dimensions = output_dimension_of_operator;
+        int output_dimensions = _gmls->getOutputDimensionOfOperation(lro);
 
         // special case for VectorPointSample, because if it is on a manifold it includes data transform to local charts
         auto sro = (problem_type==MANIFOLD && sro_in==VectorPointSample) ? ManifoldVectorPointSample : sro_in;
@@ -381,7 +382,7 @@ public:
                 neighbor_lists.extent(0) /* number of targets */, output_dimensions);
 
         // make sure input and output columns make sense under the target operation
-        compadre_assert_debug(((output_dimension_of_operator==1 && output_view_type::rank==1) || output_view_type::rank!=1) && 
+        compadre_assert_debug(((output_dimensions==1 && output_view_type::rank==1) || output_view_type::rank!=1) && 
                 "Output view is requested as rank 1, but the target requires a rank larger than 1. Try double** as template argument.");
 
         // we need to specialize a template on the rank of the output view type and the input view type
@@ -412,35 +413,40 @@ public:
         }
 
 
-        // only written for up to rank 1 to rank 1 (in / out)
+        // only written for up to rank 1 to rank 2 (in / out)
         // loop over components of output of the target operation
-        for (int i=0; i<output_dimension_of_operator; ++i) {
-            const int output_component_axis_1 = i;
-            const int output_component_axis_2 = 0;
-            // loop over components of input of the target operation
-            for (int j=0; j<input_dimension_of_operator; ++j) {
-                const int input_component_axis_1 = j;
-                const int input_component_axis_2 = 0;
+        for (int axes1=0; axes1<output_dimension1_of_operator; ++axes1) {
+            const int output_component_axis_1 = axes1;
+            for (int axes2=0; axes2<output_dimension2_of_operator; ++axes2) {
+                const int output_component_axis_2 = axes2;
+                // loop over components of input of the target operation
+                for (int j=0; j<input_dimension_of_operator; ++j) {
+                    const int input_component_axis_1 = j;
+                    const int input_component_axis_2 = 0;
 
-                if (loop_global_dimensions) {
-                    for (int k=0; k<global_dimensions; ++k) { // loop for handling sampling functional
+                    if (loop_global_dimensions) {
+                        for (int k=0; k<global_dimensions; ++k) { // loop for handling sampling functional
+                            this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
+                                    output_subview_maker.get1DView(axes1*output_dimension2_of_operator+axes2), 
+                                    sampling_subview_maker.get1DView(k), lro, sro, 
+                                    evaluation_site_local_index, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
+                                    input_component_axis_2, j, k, -1, -1,
+                                    vary_on_target, vary_on_neighbor);
+                        }
+                    } else if (sro_style != Identity) {
                         this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
-                                output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(k), lro, sro, 
+                                output_subview_maker.get1DView(axes1*output_dimension2_of_operator+axes2), 
+                                sampling_subview_maker.get1DView(j), lro, sro, 
                                 evaluation_site_local_index, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
-                                input_component_axis_2, j, k, -1, -1,
+                                input_component_axis_2, 0, 0, -1, -1,
                                 vary_on_target, vary_on_neighbor);
+                    } else { // standard
+                        this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
+                                output_subview_maker.get1DView(axes1*output_dimension2_of_operator+axes2), 
+                                sampling_subview_maker.get1DView(j), lro, sro, 
+                                evaluation_site_local_index, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
+                                input_component_axis_2);
                     }
-                } else if (sro_style != Identity) {
-                    this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
-                            output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(j), lro, sro, 
-                            evaluation_site_local_index, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
-                            input_component_axis_2, 0, 0, -1, -1,
-                            vary_on_target, vary_on_neighbor);
-                } else { // standard
-                    this->applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(
-                            output_subview_maker.get1DView(i), sampling_subview_maker.get1DView(j), lro, sro, 
-                            evaluation_site_local_index, output_component_axis_1, output_component_axis_2, input_component_axis_1, 
-                            input_component_axis_2);
                 }
             }
         }
@@ -456,7 +462,7 @@ public:
             auto transformed_output_subview_maker = CreateNDSliceOnDeviceView(ambient_target_output, false); 
             // output will always be the correct dimension
             for (int i=0; i<global_dimensions; ++i) {
-                for (int j=0; j<output_dimension_of_operator; ++j) {
+                for (int j=0; j<output_dimensions; ++j) {
                     this->applyLocalChartToAmbientSpaceTransform(
                             transformed_output_subview_maker.get1DView(i), output_subview_maker.get1DView(j), j, i);
                 }

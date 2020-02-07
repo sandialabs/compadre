@@ -33,23 +33,22 @@ class RadiusResultSet {
     IndexType* i_dist;
     const IndexType max_size;
 
-    inline RadiusResultSet(
+    RadiusResultSet(
         DistanceType radius_,
         DistanceType* r_dist_, IndexType* i_dist_, const IndexType max_size_)
-        : radius(radius_), r_dist(r_dist_), i_dist(i_dist_), max_size(max_size_) {
-        count = 0;
+        : radius(radius_), count(0), r_dist(r_dist_), i_dist(i_dist_), max_size(max_size_) {
         init();
     }
 
-    inline void init() {}
+    void init() {}
 
-    inline void clear() { count = 0; }
+    void clear() { count = 0; }
 
-    inline size_t size() const { return count; }
+    size_t size() const { return count; }
 
-    inline bool full() const { return true; }
+    bool full() const { return true; }
 
-    inline bool addPoint(DistanceType dist, IndexType index) {
+    bool addPoint(DistanceType dist, IndexType index) {
 
         if (dist < radius) {
             // would throw an exception here if count>=max_size, but this code is 
@@ -70,14 +69,14 @@ class RadiusResultSet {
 
     }
 
-    inline DistanceType worstDist() const { return radius; }
+    DistanceType worstDist() const { return radius; }
 
     std::pair<IndexType, DistanceType> worst_item() const {
         // just to verify this isn't ever called
         compadre_kernel_assert_release(false && "worst_item() should not be called.");
     }
 
-    inline void sort() { 
+    void sort() { 
         // puts closest neighbor as the first entry in the neighbor list
         // leaves the rest unsorted
  
@@ -99,11 +98,12 @@ class RadiusResultSet {
             //    i_dist[i] = tmp_indices[i];
             //    r_dist[i] = tmp_r[i];
             //}
+            IndexType loop_max = (count < max_size) ? count : max_size;
 
             DistanceType best_distance = std::numeric_limits<DistanceType>::max();
             IndexType best_distance_index = 0;
             int best_index = -1;
-            for (IndexType i=0; i<count; ++i) {
+            for (IndexType i=0; i<loop_max; ++i) {
                 if (r_dist[i] < best_distance) {
                     best_distance = r_dist[i];
                     best_distance_index = i_dist[i];
@@ -267,8 +267,9 @@ class PointCloudSearch {
                 // needs furthest neighbor's distance for next portion
                 compadre_kernel_assert_release((epsilons(i)<=max_search_radius || max_search_radius==0) && "max_search_radius given (generally derived from the size of a halo region), and search radius needed would exceed this max_search_radius.");
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.extent(1)), [=](const int j) { neighbor_indices(j) = 0;
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.extent(1)), [&](const int j) { neighbor_indices(j) = 0;
                     neighbor_distances(j) = 0;
+                    neighbor_indices(j) = 0;
                 });
             
                 teamMember.team_barrier();

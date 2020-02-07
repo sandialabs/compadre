@@ -36,6 +36,9 @@ double getAreaFromVectors(const member_type& teamMember, view_type_1 v1, view_ty
         double val = v1[0]*v2[1] - v1[1]*v2[0];
         area += val*val;
         return std::sqrt(area);
+    } else {
+        compadre_kernel_assert_debug(false && "v1 in getAreaFromVectors has length != 2 or 3");
+        return 0.0;
     }
 }
 
