@@ -450,9 +450,12 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
     bool use_physical_coords = true; // can be set on the operator in the future
 
-    bool l2_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="l2");
-    bool rd_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="rd");
-    bool le_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le");
+    const bool l2_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="l2");
+    if (!l2_op) {
+        TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
+    }
+    const bool rd_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="rd");
+    const bool le_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le");
 
     Teuchos::RCP<Teuchos::Time> ComputeMatrixTime = Teuchos::TimeMonitor::getNewCounter ("Compute Matrix Time");
     ComputeMatrixTime->start();
@@ -735,6 +738,9 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
             // locally owned DOF
             for (local_index_type j_comp = 0; j_comp < fields[field_one]->nDim(); ++j_comp) {
 
+                bool j_comp_0 = (j_comp==0);
+                bool j_comp_1 = (j_comp==1);
+
                 local_index_type row = local_to_dof_map(particle_j, field_one, j_comp);
 
                 int k=-1;
@@ -750,6 +756,9 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                     // wrong thing to do, because k could be double hop through cell i
 
                     for (local_index_type k_comp = 0; k_comp < fields[field_two]->nDim(); ++k_comp) {
+
+                        bool k_comp_0 = (k_comp==0);
+                        bool k_comp_1 = (k_comp==1);
 
                         col_data[0] = local_to_dof_map(particle_k, field_two, k_comp);
 
@@ -768,10 +777,10 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                         double contribution = 0;
                         if (l2_op) {
                             for (int q=0; q<_weights_ndim; ++q) {
-                                auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_halo_small_to_big(halo_i,0),q);
+                                const auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_halo_small_to_big(halo_i,0),q);
                                 if (q_type==1) { // interior
                                     double u, v;
-                                    auto q_wt = (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_halo_small_to_big(halo_i,0),q);
+                                    const auto q_wt = (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_halo_small_to_big(halo_i,0),q);
                                     if (j_to_cell_i>=0) {
                                         v = (i<nlocal) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, q+1)
                                              : _halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j_to_cell_i, q+1);
@@ -792,11 +801,10 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 	                            TEUCHOS_ASSERT(contribution==contribution);
                             }
                         } else {
-                            TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
                             // loop over quadrature
                             for (int q=0; q<_weights_ndim; ++q) {
-                                auto q_type = quadrature_type(i,q);
-                                auto q_wt = quadrature_weights(i,q);
+                                const auto q_type = quadrature_type(i,q);
+                                const auto q_wt = quadrature_weights(i,q);
                                 double u, v;
                                 double grad_u_x, grad_u_y, grad_v_x, grad_v_y;
                                 
@@ -830,30 +838,27 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         contribution += _diffusion * q_wt 
                                             * grad_v_y * grad_u_y;
                                     } else if (le_op) {
-                                        //if (particle_j==particle_k && particle_j==i && j_comp==k_comp) {
-                                        //    contribution += _lambda*1./num_interior_quadrature;
-                                        //}
-                                        contribution += q_wt * _lambda * (grad_v_x*(j_comp==0) + grad_v_y*(j_comp==1)) 
-                                            * (grad_u_x*(k_comp==0) + grad_u_y*(k_comp==1));
+                                        contribution += q_wt * _lambda * (grad_v_x*j_comp_0 + grad_v_y*j_comp_1) 
+                                            * (grad_u_x*k_comp_0 + grad_u_y*k_comp_1);
                                        
                                         contribution += q_wt * 2 * _shear* (
-                                              grad_v_x*grad_u_x*(j_comp==0)*(k_comp==0) 
-                                            + grad_v_y*grad_u_y*(j_comp==1)*(k_comp==1) 
-                                            + 0.5*(grad_v_y*(j_comp==0) + grad_v_x*(j_comp==1))*(grad_u_y*(k_comp==0) + grad_u_x*(k_comp==1)));
+                                              grad_v_x*grad_u_x*j_comp_0*k_comp_0 
+                                            + grad_v_y*grad_u_y*j_comp_1*k_comp_1 
+                                            + 0.5*(grad_v_y*j_comp_0 + grad_v_x*j_comp_1)*(grad_u_y*k_comp_0 + grad_u_x*k_comp_1));
                                     }
  
                                 } 
                                 else if (q_type==2) { // edge on exterior
 
                                     if (rd_op) {
-                                        double jumpv = v;
-                                        double jumpu = u;
-                                        double avgv_x = grad_v_x;
-                                        double avgv_y = grad_v_y;
-                                        double avgu_x = grad_u_x;
-                                        double avgu_y = grad_u_y;
-                                        auto n_x = unit_normals(i,2*q+0); // unique outward normal
-                                        auto n_y = unit_normals(i,2*q+1);
+                                        const double jumpv = v;
+                                        const double jumpu = u;
+                                        const double avgv_x = grad_v_x;
+                                        const double avgv_y = grad_v_y;
+                                        const double avgu_x = grad_u_x;
+                                        const double avgu_y = grad_u_y;
+                                        const auto n_x = unit_normals(i,2*q+0); // unique outward normal
+                                        const auto n_y = unit_normals(i,2*q+1);
                                         //auto jump_v_x = n_x*v;
                                         //auto jump_v_y = n_y*v;
                                         //auto jump_u_x = n_x*u;
@@ -865,33 +870,33 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         contribution -= q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
                                     } else if (le_op) {
                                         // only jump penalization currently included
-                                        double jumpv = v;
-                                        double jumpu = u;
-                                        double avgv_x = grad_v_x;
-                                        double avgv_y = grad_v_y;
-                                        double avgu_x = grad_u_x;
-                                        double avgu_y = grad_u_y;
-                                        auto n_x = unit_normals(i,2*q+0); // unique outward normal
-                                        auto n_y = unit_normals(i,2*q+1);
+                                        const double jumpv = v;
+                                        const double jumpu = u;
+                                        const double avgv_x = grad_v_x;
+                                        const double avgv_y = grad_v_y;
+                                        const double avgu_x = grad_u_x;
+                                        const double avgu_y = grad_u_y;
+                                        const auto n_x = unit_normals(i,2*q+0); // unique outward normal
+                                        const auto n_y = unit_normals(i,2*q+1);
 
                                         contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp);
                                         contribution -= q_wt * (
-                                              2 * _shear * (n_x*avgv_x*(j_comp==0) 
-                                                + 0.5*n_y*(avgv_y*(j_comp==0) + avgv_x*(j_comp==1))) * jumpu*(k_comp==0)  
-                                            + 2 * _shear * (n_y*avgv_y*(j_comp==1) 
-                                                + 0.5*n_x*(avgv_x*(j_comp==1) + avgv_y*(j_comp==0))) * jumpu*(k_comp==1)
-                                            + _lambda*(avgv_x*(j_comp==0) + avgv_y*(j_comp==1))*(n_x*jumpu*(k_comp==0) + n_y*jumpu*(k_comp==1)));
+                                              2 * _shear * (n_x*avgv_x*j_comp_0 
+                                                + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
+                                            + 2 * _shear * (n_y*avgv_y*j_comp_1 
+                                                + 0.5*n_x*(avgv_x*j_comp_1 + avgv_y*j_comp_0)) * jumpu*k_comp_1
+                                            + _lambda*(avgv_x*j_comp_0 + avgv_y*j_comp_1)*(n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1));
                                         contribution -= q_wt * (
-                                              2 * _shear * (n_x*avgu_x*(k_comp==0) 
-                                                + 0.5*n_y*(avgu_y*(k_comp==0) + avgu_x*(k_comp==1))) * jumpv*(j_comp==0)  
-                                            + 2 * _shear * (n_y*avgu_y*(k_comp==1) 
-                                                + 0.5*n_x*(avgu_x*(k_comp==1) + avgu_y*(k_comp==0))) * jumpv*(j_comp==1)
-                                            + _lambda*(avgu_x*(k_comp==0) + avgu_y*(k_comp==1))*(n_x*jumpv*(j_comp==0) + n_y*jumpv*(j_comp==1)));
+                                              2 * _shear * (n_x*avgu_x*k_comp_0 
+                                                + 0.5*n_y*(avgu_y*k_comp_0 + avgu_x*k_comp_1)) * jumpv*j_comp_0  
+                                            + 2 * _shear * (n_y*avgu_y*k_comp_1 
+                                                + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
+                                            + _lambda*(avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
                                     }
                                     
                                 }
                                 else if (q_type==0)  { // edge on interior
-                                    double adjacent_cell_local_index_q = adjacent_cell_local_index[q];
+                                    const double adjacent_cell_local_index_q = adjacent_cell_local_index[q];
                                     //int current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
                                     //int adjacent_cell_local_index = (int)(adjacent_elements(i, current_edge_num));
 
@@ -950,18 +955,14 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     }
                                     if (j_to_adjacent_cell<0 && k_to_adjacent_cell<0 && j_to_cell_i<0 && k_to_cell_i<0) continue;
                                     
-                                    auto normal_direction_correction = (i > adjacent_cell_local_index_q) ? 1 : -1; 
-                                    auto n_x = normal_direction_correction * unit_normals(i,2*q+0);
-                                    auto n_y = normal_direction_correction * unit_normals(i,2*q+1);
+                                    const auto normal_direction_correction = (i > adjacent_cell_local_index_q) ? 1 : -1; 
+                                    const auto n_x = normal_direction_correction * unit_normals(i,2*q+0);
+                                    const auto n_y = normal_direction_correction * unit_normals(i,2*q+1);
                                     // gives a unique normal that is always outward to the cell with the lower index
-
-                                    double avgu_x=0, avgv_x=0, avgu_y=0, avgv_y=0;
-                                    double jumpu = 0.0;
-                                    double jumpv = 0.0;
 
                                     // gets quadrature # on adjacent cell (enumerates quadrature on 
                                     // side_of_cell_i_to_adjacent_cell in reverse due to orientation)
-                                    int adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[q]*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((q-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
+                                    const int adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[q]*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((q-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
 
 
                                     //int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge + ((q-num_interior_quadrature)%num_exterior_quadrature_per_edge);
@@ -999,24 +1000,21 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     //if (std::abs(my_q_x-their_q_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_q_x, their_q_x, my_q_x-their_q_x);
                                     //if (std::abs(my_q_y-their_q_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_q_y, their_q_y, my_q_y-their_q_y);
  
-                                    double other_v = (j_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell, adjacent_q+1) : 0;
-                                    jumpv = v-other_v;
+                                    const double other_v = (j_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    const double jumpv = normal_direction_correction*(v-other_v);
 
-                                    double other_u = (k_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell, adjacent_q+1) : 0.0;
-                                    jumpu = u-other_u;
+                                    const double other_u = (k_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    const double jumpu = normal_direction_correction*(u-other_u);
 
-                                    jumpu *= normal_direction_correction;
-                                    jumpv *= normal_direction_correction;
+                                    const double other_grad_v_x = (j_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, j_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    const double other_grad_v_y = (j_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, j_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    const double other_grad_u_x = (k_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, k_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    const double other_grad_u_y = (k_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, k_to_adjacent_cell, adjacent_q+1) : 0.0;
 
-                                    double other_grad_v_x = (j_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, j_to_adjacent_cell, adjacent_q+1) : 0.0;
-                                    double other_grad_v_y = (j_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, j_to_adjacent_cell, adjacent_q+1) : 0.0;
-                                    double other_grad_u_x = (k_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, k_to_adjacent_cell, adjacent_q+1) : 0.0;
-                                    double other_grad_u_y = (k_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, k_to_adjacent_cell, adjacent_q+1) : 0.0;
-
-                                    avgv_x = 0.5*(grad_v_x+other_grad_v_x);
-                                    avgv_y = 0.5*(grad_v_y+other_grad_v_y);
-                                    avgu_x = 0.5*(grad_u_x+other_grad_u_x);
-                                    avgu_y = 0.5*(grad_u_y+other_grad_u_y);
+                                    const double avgv_x = 0.5*(grad_v_x+other_grad_v_x);
+                                    const double avgv_y = 0.5*(grad_v_y+other_grad_v_y);
+                                    const double avgu_x = 0.5*(grad_u_x+other_grad_u_x);
+                                    const double avgu_y = 0.5*(grad_u_y+other_grad_u_y);
 
                                     //double jump_u_jump_v = 0.0;
                                     //auto jump_v_x = n_x*v-n_x*other_v;
@@ -1035,20 +1033,20 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     } else if (le_op) {
                                         contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp); // other half will be added by other cell
                                         contribution -= q_wt * (
-                                              2 * _shear * (n_x*avgv_x*(j_comp==0) 
-                                                + 0.5*n_y*(avgv_y*(j_comp==0) + avgv_x*(j_comp==1))) * jumpu*(k_comp==0)  
-                                            + 2 * _shear * (n_y*avgv_y*(j_comp==1) 
-                                                + 0.5*n_x*(avgv_x*(j_comp==1) + avgv_y*(j_comp==0))) * jumpu*(k_comp==1)
-                                            + _lambda*(avgv_x*(j_comp==0) + avgv_y*(j_comp==1))*(n_x*jumpu*(k_comp==0) + n_y*jumpu*(k_comp==1)));
+                                              2 * _shear * (n_x*avgv_x*j_comp_0 
+                                                + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
+                                            + 2 * _shear * (n_y*avgv_y*j_comp_1 
+                                                + 0.5*n_x*(avgv_x*j_comp_1 + avgv_y*j_comp_0)) * jumpu*k_comp_1
+                                            + _lambda*(avgv_x*j_comp_0 + avgv_y*j_comp_1)*(n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1));
                                         contribution -= q_wt * (
-                                              2 * _shear * (n_x*avgu_x*(k_comp==0) 
-                                                + 0.5*n_y*(avgu_y*(k_comp==0) + avgu_x*(k_comp==1))) * jumpv*(j_comp==0)  
-                                            + 2 * _shear * (n_y*avgu_y*(k_comp==1) 
-                                                + 0.5*n_x*(avgu_x*(k_comp==1) + avgu_y*(k_comp==0))) * jumpv*(j_comp==1)
-                                            + _lambda*(avgu_x*(k_comp==0) + avgu_y*(k_comp==1))*(n_x*jumpv*(j_comp==0) + n_y*jumpv*(j_comp==1)));
+                                              2 * _shear * (n_x*avgu_x*k_comp_0 
+                                                + 0.5*n_y*(avgu_y*k_comp_0 + avgu_x*k_comp_1)) * jumpv*j_comp_0  
+                                            + 2 * _shear * (n_y*avgu_y*k_comp_1 
+                                                + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
+                                            + _lambda*(avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
                                     }
                                 }
-                                TEUCHOS_ASSERT(contribution==contribution);
+                                compadre_assert_debug(contribution==contribution && "NaN encountered in contribution.");
                             }
                         }
 

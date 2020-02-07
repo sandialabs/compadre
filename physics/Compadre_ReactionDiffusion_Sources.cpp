@@ -22,15 +22,19 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     bool rd_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="rd");
     bool le_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le");
 
+    bool polynomial_solution = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial");
+    bool polynomial_3_solution = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3");
+    bool sine_solution = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="sine");
+
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_b==NULL, "Tpetra Multivector for RHS not yet specified.");
     if (field_two == -1) {
         field_two = field_one;
     }
 
     Teuchos::RCP<Compadre::AnalyticFunction> function;
-    if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial") {
+    if (polynomial_solution) {
 	    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
-    } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3") {
+    } else if (polynomial_3_solution) {
 	    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(2 /*dimension*/)));
     } else {
 	    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
@@ -135,10 +139,10 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                             double rhs_eval = 0;
                             if (rd_op) {
                                 // integrating RHS function
-                                if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial") {
+                                if (polynomial_solution) {
                                     auto cast_to_poly_2 = dynamic_cast<SecondOrderBasis*>(function.getRawPtr());
                                     rhs_eval = cast_to_poly_2->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
-                                } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3") {
+                                } else if (polynomial_3_solution) {
                                     auto cast_to_poly_3 = dynamic_cast<ThirdOrderBasis*>(function.getRawPtr());
                                     rhs_eval = cast_to_poly_3->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
                                 } else {
@@ -146,10 +150,10 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                     rhs_eval = cast_to_sine->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
                                 }
                             } else if (le_op) {
-                                if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial") {
+                                if (polynomial_solution) {
                                     auto cast_to_poly_2 = dynamic_cast<SecondOrderBasis*>(function.getRawPtr());
                                     rhs_eval = cast_to_poly_2->evalLinearElasticityRHS(pt,comp,_physics->_shear,_physics->_lambda);
-                                } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3") {
+                                } else if (polynomial_3_solution) {
                                     auto cast_to_poly_3 = dynamic_cast<ThirdOrderBasis*>(function.getRawPtr());
                                     rhs_eval = cast_to_poly_3->evalLinearElasticityRHS(pt,comp,_physics->_shear,_physics->_lambda);
                                 } else {
@@ -221,7 +225,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     //}
 
 
-    if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial") {
+    if (polynomial_solution) {
         auto reference_global_force = 22.666666666666666666;//4.0;//1.9166666666666665;//0.21132196999014932;
         double force = 0;
         for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
