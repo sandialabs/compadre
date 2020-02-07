@@ -96,9 +96,15 @@ XyzVector operator * ( const XyzVector& vecA, const XyzVector& vecB );
 
 XyzVector operator + ( const XyzVector& vecA, const scalar_type& constant );
 
+XyzVector operator + ( const scalar_type& constant, const XyzVector& vecA );
+
 XyzVector operator - ( const XyzVector& vecA, const scalar_type& constant );
 
+XyzVector operator - ( const scalar_type& constant, const XyzVector& vecA );
+
 XyzVector operator * ( const XyzVector& vecA, const scalar_type& constant );
+
+XyzVector operator * ( const scalar_type& constant, const XyzVector& vecA );
 
 XyzVector operator / ( const XyzVector& vecA, const scalar_type& constant );
 

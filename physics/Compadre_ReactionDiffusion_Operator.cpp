@@ -450,6 +450,10 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
     bool use_physical_coords = true; // can be set on the operator in the future
 
+    bool l2_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="l2");
+    bool rd_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="rd");
+    bool le_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le");
+
     Teuchos::RCP<Teuchos::Time> ComputeMatrixTime = Teuchos::TimeMonitor::getNewCounter ("Compute Matrix Time");
     ComputeMatrixTime->start();
 
@@ -571,7 +575,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
         std::vector<int> current_edge_num(_weights_ndim);
         std::vector<int> side_of_cell_i_to_adjacent_cell(_weights_ndim);
         std::vector<int> adjacent_cell_local_index(_weights_ndim);
-        if (!_parameters->get<Teuchos::ParameterList>("physics").get<bool>("l2 projection only")) {
+        if (!l2_op) {
             TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
             for (int q=0; q<_weights_ndim; ++q) {
                 if (q>=num_interior_quadrature) {
@@ -687,7 +691,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                     : _halo_cell_particles_neighborhood->getNeighbor(halo_i,j);
                 cell_neighbors[particle_j] = 1;
             }
-            if (!_parameters->get<Teuchos::ParameterList>("physics").get<bool>("l2 projection only")) {
+            if (!l2_op) {
                 TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
                 for (local_index_type j=0; j<3; ++j) {
                     int adj_el = (int)(adjacent_elements(i,j));
@@ -728,272 +732,332 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
             //    : _halo_particles_double_hop_neighborhood->getNeighbor(halo_i,j);
             // particle_j is an index from {0..nlocal+nhalo}
             if (particle_j>=nlocal /* particle is halo particle */) continue; // row should be locally owned
-
             // locally owned DOF
-            local_index_type row = local_to_dof_map(particle_j, field_one, 0 /* component 0*/);
-            int k=-1;
-            //for (local_index_type k=0; k<num_neighbors; ++k) {
-            for (auto k_it=cell_neighbors.begin(); k_it!=cell_neighbors.end(); ++k_it) {
-                k++;
-                auto particle_k = k_it->first;
-                //auto particle_k = (i<nlocal) ? _particles_double_hop_neighborhood->getNeighbor(i,k)
-                //    : _halo_particles_double_hop_neighborhood->getNeighbor(halo_i,k);
-                // particle_k is an index from {0..nlocal+nhalo}
+            for (local_index_type j_comp = 0; j_comp < fields[field_one]->nDim(); ++j_comp) {
 
-                // do filter out (skip) all halo particles that are not seen by local DOF
-                // wrong thing to do, because k could be double hop through cell i
+                local_index_type row = local_to_dof_map(particle_j, field_one, j_comp);
 
-                col_data[0] = local_to_dof_map(particle_k, field_two, 0 /* component */);
+                int k=-1;
+                //for (local_index_type k=0; k<num_neighbors; ++k) {
+                for (auto k_it=cell_neighbors.begin(); k_it!=cell_neighbors.end(); ++k_it) {
+                    k++;
+                    auto particle_k = k_it->first;
+                    //auto particle_k = (i<nlocal) ? _particles_double_hop_neighborhood->getNeighbor(i,k)
+                    //    : _halo_particles_double_hop_neighborhood->getNeighbor(halo_i,k);
+                    // particle_k is an index from {0..nlocal+nhalo}
 
-                int j_to_cell_i = -1;
-                if (particle_to_local_neighbor_lookup[i].count(particle_j)==1){
-                    j_to_cell_i = particle_to_local_neighbor_lookup[i][particle_j];
-                }
-                int k_to_cell_i = -1;
-                if (particle_to_local_neighbor_lookup[i].count(particle_k)==1){
-                    k_to_cell_i = particle_to_local_neighbor_lookup[i][particle_k];
-                }
+                    // do filter out (skip) all halo particles that are not seen by local DOF
+                    // wrong thing to do, because k could be double hop through cell i
 
-                bool j_has_value = false;
-                bool k_has_value = false;
+                    for (local_index_type k_comp = 0; k_comp < fields[field_two]->nDim(); ++k_comp) {
 
-                double contribution = 0;
-                if (_parameters->get<Teuchos::ParameterList>("physics").get<bool>("l2 projection only")) {
-                    for (int q=0; q<_weights_ndim; ++q) {
-                        auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_halo_small_to_big(halo_i,0),q);
-                        if (q_type==1) { // interior
-                            double u, v;
-                            auto q_wt = (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_halo_small_to_big(halo_i,0),q);
-                            if (j_to_cell_i>=0) {
-                                v = (i<nlocal) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, q+1)
-                                     : _halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j_to_cell_i, q+1);
-                                j_has_value = true;
-                            } else {
-                                v = 0;
+                        col_data[0] = local_to_dof_map(particle_k, field_two, k_comp);
+
+                        int j_to_cell_i = -1;
+                        if (particle_to_local_neighbor_lookup[i].count(particle_j)==1){
+                            j_to_cell_i = particle_to_local_neighbor_lookup[i][particle_j];
+                        }
+                        int k_to_cell_i = -1;
+                        if (particle_to_local_neighbor_lookup[i].count(particle_k)==1){
+                            k_to_cell_i = particle_to_local_neighbor_lookup[i][particle_k];
+                        }
+
+                        bool j_has_value = false;
+                        bool k_has_value = false;
+
+                        double contribution = 0;
+                        if (l2_op) {
+                            for (int q=0; q<_weights_ndim; ++q) {
+                                auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_halo_small_to_big(halo_i,0),q);
+                                if (q_type==1) { // interior
+                                    double u, v;
+                                    auto q_wt = (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_halo_small_to_big(halo_i,0),q);
+                                    if (j_to_cell_i>=0) {
+                                        v = (i<nlocal) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, q+1)
+                                             : _halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j_to_cell_i, q+1);
+                                        j_has_value = true;
+                                    } else {
+                                        v = 0;
+                                    }
+                                    if (k_to_cell_i>=0) {
+                                        u = (i<nlocal) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, q+1)
+                                             : _halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, k_to_cell_i, q+1);
+                                        k_has_value = true;
+                                    } else {
+                                        u = 0;
+                                    }
+
+                                    contribution += q_wt * u * v;
+                                } 
+	                            TEUCHOS_ASSERT(contribution==contribution);
                             }
-                            if (k_to_cell_i>=0) {
-                                u = (i<nlocal) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, q+1)
-                                     : _halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, k_to_cell_i, q+1);
-                                k_has_value = true;
-                            } else {
-                                u = 0;
-                            }
-
-                            contribution += q_wt * u * v;
-                        } 
-	                    TEUCHOS_ASSERT(contribution==contribution);
-                    }
-                } else {
-                    TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
-                    // loop over quadrature
-                    for (int q=0; q<_weights_ndim; ++q) {
-                        auto q_type = quadrature_type(i,q);
-                        auto q_wt = quadrature_weights(i,q);
-                        double u, v;
-                        double grad_u_x, grad_u_y, grad_v_x, grad_v_y;
-                        
-                        if (j_to_cell_i>=0) {
-                            v = _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, q+1);
-                            grad_v_x = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j_to_cell_i, q+1);
-                            grad_v_y = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j_to_cell_i, q+1);
-                            j_has_value = true;
                         } else {
-                            v = 0.0;
-                            grad_v_x = 0.0;
-                            grad_v_y = 0.0;
-                        }
-                        if (k_to_cell_i>=0) {
-                            u = _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, q+1);
-                            grad_u_x = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, k_to_cell_i, q+1);
-                            grad_u_y = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, k_to_cell_i, q+1);
-                            k_has_value = true;
-                        } else {
-                            u = 0.0;
-                            grad_u_x = 0.0;
-                            grad_u_y = 0.0;
-                        }
+                            TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
+                            // loop over quadrature
+                            for (int q=0; q<_weights_ndim; ++q) {
+                                auto q_type = quadrature_type(i,q);
+                                auto q_wt = quadrature_weights(i,q);
+                                double u, v;
+                                double grad_u_x, grad_u_y, grad_v_x, grad_v_y;
+                                
+                                if (j_to_cell_i>=0) {
+                                    v = _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, q+1);
+                                    grad_v_x = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j_to_cell_i, q+1);
+                                    grad_v_y = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j_to_cell_i, q+1);
+                                    j_has_value = true;
+                                } else {
+                                    v = 0.0;
+                                    grad_v_x = 0.0;
+                                    grad_v_y = 0.0;
+                                }
+                                if (k_to_cell_i>=0) {
+                                    u = _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, q+1);
+                                    grad_u_x = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, k_to_cell_i, q+1);
+                                    grad_u_y = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, k_to_cell_i, q+1);
+                                    k_has_value = true;
+                                } else {
+                                    u = 0.0;
+                                    grad_u_x = 0.0;
+                                    grad_u_y = 0.0;
+                                }
 
-                        if (q_type==1) { // interior
+                                if (q_type==1) { // interior
 
-                           contribution += _reaction * q_wt * u * v;
-                           contribution += _diffusion * q_wt 
-                               * grad_v_x * grad_u_x;
-                           contribution += _diffusion * q_wt 
-                               * grad_v_y * grad_u_y;
+                                    if (rd_op) {
+                                        contribution += _reaction * q_wt * u * v;
+                                        contribution += _diffusion * q_wt 
+                                            * grad_v_x * grad_u_x;
+                                        contribution += _diffusion * q_wt 
+                                            * grad_v_y * grad_u_y;
+                                    } else if (le_op) {
+                                        //if (particle_j==particle_k && particle_j==i && j_comp==k_comp) {
+                                        //    contribution += _lambda*1./num_interior_quadrature;
+                                        //}
+                                        contribution += q_wt * _lambda * (grad_v_x*(j_comp==0) + grad_v_y*(j_comp==1)) 
+                                            * (grad_u_x*(k_comp==0) + grad_u_y*(k_comp==1));
+                                       
+                                        contribution += q_wt * 2 * _shear* (
+                                              grad_v_x*grad_u_x*(j_comp==0)*(k_comp==0) 
+                                            + grad_v_y*grad_u_y*(j_comp==1)*(k_comp==1) 
+                                            + 0.5*(grad_v_y*(j_comp==0) + grad_v_x*(j_comp==1))*(grad_u_y*(k_comp==0) + grad_u_x*(k_comp==1)));
+                                    }
  
-                        } 
-                        else if (q_type==2) { // edge on exterior
+                                } 
+                                else if (q_type==2) { // edge on exterior
 
-                            double jumpv = v;
-                            double jumpu = u;
-                            double avgv_x = grad_v_x;
-                            double avgv_y = grad_v_y;
-                            double avgu_x = grad_u_x;
-                            double avgu_y = grad_u_y;
-                            auto n_x = unit_normals(i,2*q+0); // unique outward normal
-                            auto n_y = unit_normals(i,2*q+1);
-                            //auto jump_v_x = n_x*v;
-                            //auto jump_v_y = n_y*v;
-                            //auto jump_u_x = n_x*u;
-                            //auto jump_u_y = n_y*u;
-                            //auto jump_u_jump_v = jump_v_x*jump_u_x + jump_v_y*jump_u_y;
+                                    if (rd_op) {
+                                        double jumpv = v;
+                                        double jumpu = u;
+                                        double avgv_x = grad_v_x;
+                                        double avgv_y = grad_v_y;
+                                        double avgu_x = grad_u_x;
+                                        double avgu_y = grad_u_y;
+                                        auto n_x = unit_normals(i,2*q+0); // unique outward normal
+                                        auto n_y = unit_normals(i,2*q+1);
+                                        //auto jump_v_x = n_x*v;
+                                        //auto jump_v_y = n_y*v;
+                                        //auto jump_u_x = n_x*u;
+                                        //auto jump_u_y = n_y*u;
+                                        //auto jump_u_jump_v = jump_v_x*jump_u_x + jump_v_y*jump_u_y;
 
-                            contribution += penalty * q_wt * jumpv * jumpu;
-                            contribution -= q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
-                            contribution -= q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
-                            
-                        }
-                        else if (q_type==0)  { // edge on interior
-                            double adjacent_cell_local_index_q = adjacent_cell_local_index[q];
-                            //int current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                            //int adjacent_cell_local_index = (int)(adjacent_elements(i, current_edge_num));
+                                        contribution += penalty * q_wt * jumpv * jumpu;
+                                        contribution -= q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
+                                        contribution -= q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
+                                    } else if (le_op) {
+                                        // only jump penalization currently included
+                                        double jumpv = v;
+                                        double jumpu = u;
+                                        double avgv_x = grad_v_x;
+                                        double avgv_y = grad_v_y;
+                                        double avgu_x = grad_u_x;
+                                        double avgu_y = grad_u_y;
+                                        auto n_x = unit_normals(i,2*q+0); // unique outward normal
+                                        auto n_y = unit_normals(i,2*q+1);
 
-                            //if (i>adjacent_cell_local_index) {
-                            //
-                            //////printf("size is %lu\n", _halo_id_view.extent(0));
-                            //int adjacent_cell_local_index = -1;
-                            ////// loop all of i's neighbors to get local index
-                            ////for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(i); ++l) {
-                            ////    auto this_neighbor_local_index = _cell_particles_neighborhood->getNeighbor(i,l);
-                            ////    scalar_type gid;
-                            ////    if (this_neighbor_local_index < nlocal) {
-                            ////        gid = static_cast<scalar_type>(_id_view(this_neighbor_local_index,0));
-                            ////    } else {
-                            ////        gid = static_cast<scalar_type>(_halo_id_view(this_neighbor_local_index-nlocal,0));
-                            ////    }
-                            ////    //printf("gid %lu\n", gid);
-                            ////    if (adjacent_cell_global_index==gid) {
-                            ////        adjacent_cell_local_index = this_neighbor_local_index;
-                            ////        break;
-                            ////    }
-                            ////}
-                            ////if (adjacent_cell_local_index < 0) {
-                            ////    std::cout << "looking for " << adjacent_cell_global_index << std::endl;
-                            ////    for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(i); ++l) {
-                            ////        auto this_neighbor_local_index = _cell_particles_neighborhood->getNeighbor(i,l);
-                            ////        scalar_type gid;
-                            ////        if (this_neighbor_local_index < nlocal) {
-                            ////            gid = static_cast<scalar_type>(_id_view(this_neighbor_local_index,0));
-                            ////        } else {
-                            ////            gid = static_cast<scalar_type>(_halo_id_view(this_neighbor_local_index-nlocal,0));
-                            ////        }
-                            ////        //printf("gid %lu\n", gid);
-                            ////        std::cout << "see gid " << gid << std::endl;
-                            ////    }
-                            ////    for (int l=0; l<_halo_id_view.extent(0); ++l) {
-                            ////        printf("gid on halo %d\n", _halo_id_view(l,0));
-                            ////    }
-                            ////}
-                            if (i <= adjacent_cell_local_index_q) continue;
-                            
-                            TEUCHOS_ASSERT(adjacent_cell_local_index_q >= 0);
-                            int j_to_adjacent_cell = -1;
-                            if (particle_to_local_neighbor_lookup[adjacent_cell_local_index_q].count(particle_j)==1) {
-                                j_to_adjacent_cell = particle_to_local_neighbor_lookup[adjacent_cell_local_index_q][particle_j];
-                            }
-                            int k_to_adjacent_cell = -1;
-                            if (particle_to_local_neighbor_lookup[adjacent_cell_local_index_q].count(particle_k)==1) {
-                                k_to_adjacent_cell = particle_to_local_neighbor_lookup[adjacent_cell_local_index_q][particle_k];
-                            }
-                            if (j_to_adjacent_cell>=0) {
-                                j_has_value = true;
-                            }
-                            if (k_to_adjacent_cell>=0) {
-                                k_has_value = true;
-                            }
-                            if (j_to_adjacent_cell<0 && k_to_adjacent_cell<0 && j_to_cell_i<0 && k_to_cell_i<0) continue;
-                            
-                            auto normal_direction_correction = (i > adjacent_cell_local_index_q) ? 1 : -1; 
-                            auto n_x = normal_direction_correction * unit_normals(i,2*q+0);
-                            auto n_y = normal_direction_correction * unit_normals(i,2*q+1);
-                            // gives a unique normal that is always outward to the cell with the lower index
+                                        contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp);
+                                        contribution -= q_wt * (
+                                              2 * _shear * (n_x*avgv_x*(j_comp==0) 
+                                                + 0.5*n_y*(avgv_y*(j_comp==0) + avgv_x*(j_comp==1))) * jumpu*(k_comp==0)  
+                                            + 2 * _shear * (n_y*avgv_y*(j_comp==1) 
+                                                + 0.5*n_x*(avgv_x*(j_comp==1) + avgv_y*(j_comp==0))) * jumpu*(k_comp==1)
+                                            + _lambda*(avgv_x*(j_comp==0) + avgv_y*(j_comp==1))*(n_x*jumpu*(k_comp==0) + n_y*jumpu*(k_comp==1)));
+                                        contribution -= q_wt * (
+                                              2 * _shear * (n_x*avgu_x*(k_comp==0) 
+                                                + 0.5*n_y*(avgu_y*(k_comp==0) + avgu_x*(k_comp==1))) * jumpv*(j_comp==0)  
+                                            + 2 * _shear * (n_y*avgu_y*(k_comp==1) 
+                                                + 0.5*n_x*(avgu_x*(k_comp==1) + avgu_y*(k_comp==0))) * jumpv*(j_comp==1)
+                                            + _lambda*(avgu_x*(k_comp==0) + avgu_y*(k_comp==1))*(n_x*jumpv*(j_comp==0) + n_y*jumpv*(j_comp==1)));
+                                    }
+                                    
+                                }
+                                else if (q_type==0)  { // edge on interior
+                                    double adjacent_cell_local_index_q = adjacent_cell_local_index[q];
+                                    //int current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                                    //int adjacent_cell_local_index = (int)(adjacent_elements(i, current_edge_num));
 
-                            double avgu_x=0, avgv_x=0, avgu_y=0, avgv_y=0;
-                            double jumpu = 0.0;
-                            double jumpv = 0.0;
+                                    //if (i>adjacent_cell_local_index) {
+                                    //
+                                    //////printf("size is %lu\n", _halo_id_view.extent(0));
+                                    //int adjacent_cell_local_index = -1;
+                                    ////// loop all of i's neighbors to get local index
+                                    ////for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(i); ++l) {
+                                    ////    auto this_neighbor_local_index = _cell_particles_neighborhood->getNeighbor(i,l);
+                                    ////    scalar_type gid;
+                                    ////    if (this_neighbor_local_index < nlocal) {
+                                    ////        gid = static_cast<scalar_type>(_id_view(this_neighbor_local_index,0));
+                                    ////    } else {
+                                    ////        gid = static_cast<scalar_type>(_halo_id_view(this_neighbor_local_index-nlocal,0));
+                                    ////    }
+                                    ////    //printf("gid %lu\n", gid);
+                                    ////    if (adjacent_cell_global_index==gid) {
+                                    ////        adjacent_cell_local_index = this_neighbor_local_index;
+                                    ////        break;
+                                    ////    }
+                                    ////}
+                                    ////if (adjacent_cell_local_index < 0) {
+                                    ////    std::cout << "looking for " << adjacent_cell_global_index << std::endl;
+                                    ////    for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(i); ++l) {
+                                    ////        auto this_neighbor_local_index = _cell_particles_neighborhood->getNeighbor(i,l);
+                                    ////        scalar_type gid;
+                                    ////        if (this_neighbor_local_index < nlocal) {
+                                    ////            gid = static_cast<scalar_type>(_id_view(this_neighbor_local_index,0));
+                                    ////        } else {
+                                    ////            gid = static_cast<scalar_type>(_halo_id_view(this_neighbor_local_index-nlocal,0));
+                                    ////        }
+                                    ////        //printf("gid %lu\n", gid);
+                                    ////        std::cout << "see gid " << gid << std::endl;
+                                    ////    }
+                                    ////    for (int l=0; l<_halo_id_view.extent(0); ++l) {
+                                    ////        printf("gid on halo %d\n", _halo_id_view(l,0));
+                                    ////    }
+                                    ////}
+                                    if (i <= adjacent_cell_local_index_q) continue;
+                                    
+                                    TEUCHOS_ASSERT(adjacent_cell_local_index_q >= 0);
+                                    int j_to_adjacent_cell = -1;
+                                    if (particle_to_local_neighbor_lookup[adjacent_cell_local_index_q].count(particle_j)==1) {
+                                        j_to_adjacent_cell = particle_to_local_neighbor_lookup[adjacent_cell_local_index_q][particle_j];
+                                    }
+                                    int k_to_adjacent_cell = -1;
+                                    if (particle_to_local_neighbor_lookup[adjacent_cell_local_index_q].count(particle_k)==1) {
+                                        k_to_adjacent_cell = particle_to_local_neighbor_lookup[adjacent_cell_local_index_q][particle_k];
+                                    }
+                                    if (j_to_adjacent_cell>=0) {
+                                        j_has_value = true;
+                                    }
+                                    if (k_to_adjacent_cell>=0) {
+                                        k_has_value = true;
+                                    }
+                                    if (j_to_adjacent_cell<0 && k_to_adjacent_cell<0 && j_to_cell_i<0 && k_to_cell_i<0) continue;
+                                    
+                                    auto normal_direction_correction = (i > adjacent_cell_local_index_q) ? 1 : -1; 
+                                    auto n_x = normal_direction_correction * unit_normals(i,2*q+0);
+                                    auto n_y = normal_direction_correction * unit_normals(i,2*q+1);
+                                    // gives a unique normal that is always outward to the cell with the lower index
 
-                            // gets quadrature # on adjacent cell (enumerates quadrature on 
-                            // side_of_cell_i_to_adjacent_cell in reverse due to orientation)
-                            int adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[q]*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((q-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
+                                    double avgu_x=0, avgv_x=0, avgu_y=0, avgv_y=0;
+                                    double jumpu = 0.0;
+                                    double jumpv = 0.0;
+
+                                    // gets quadrature # on adjacent cell (enumerates quadrature on 
+                                    // side_of_cell_i_to_adjacent_cell in reverse due to orientation)
+                                    int adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[q]*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((q-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
 
 
-                            //int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge + ((q-num_interior_quadrature)%num_exterior_quadrature_per_edge);
+                                    //int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge + ((q-num_interior_quadrature)%num_exterior_quadrature_per_edge);
 
-                            //// diagnostic that quadrature matches up between adjacent_cell_local_index & adjacent_q 
-                            //// along with i & q
-                            //auto my_x = quadrature_points(i, 2*q+0);
-                            //auto my_wt = quadrature_weights(i, q);
-                            //auto their_wt = quadrature_weights(adjacent_cell_local_index, adjacent_q);
-                            //if (std::abs(my_wt-their_wt)>1e-14) printf("wm: %f, t: %f, d: %.16f\n", my_wt, their_wt, my_wt-their_wt);
-                            //auto my_y = quadrature_points(i, 2*q+1);
-                            //auto their_x = quadrature_points(adjacent_cell_local_index, 2*adjacent_q+0);
-                            //auto their_y = quadrature_points(adjacent_cell_local_index, 2*adjacent_q+1);
-                            //if (std::abs(my_x-their_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_x, their_x, my_x-their_x);
-                            //if (std::abs(my_y-their_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_y, their_y, my_y-their_y);
+                                    //// diagnostic that quadrature matches up between adjacent_cell_local_index & adjacent_q 
+                                    //// along with i & q
+                                    //auto my_x = quadrature_points(i, 2*q+0);
+                                    //auto my_wt = quadrature_weights(i, q);
+                                    //auto their_wt = quadrature_weights(adjacent_cell_local_index, adjacent_q);
+                                    //if (std::abs(my_wt-their_wt)>1e-14) printf("wm: %f, t: %f, d: %.16f\n", my_wt, their_wt, my_wt-their_wt);
+                                    //auto my_y = quadrature_points(i, 2*q+1);
+                                    //auto their_x = quadrature_points(adjacent_cell_local_index, 2*adjacent_q+0);
+                                    //auto their_y = quadrature_points(adjacent_cell_local_index, 2*adjacent_q+1);
+                                    //if (std::abs(my_x-their_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_x, their_x, my_x-their_x);
+                                    //if (std::abs(my_y-their_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_y, their_y, my_y-their_y);
 
 
-                            // diagnostics for quadrature points
-                            //printf("b: %f\n", _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell, adjacent_q+1));
-                            //auto my_j_index = _cell_particles_neighborhood->getNeighbor(i,j_to_cell_i);
-                            //auto their_j_index = _cell_particles_neighborhood->getNeighbor(adjacent_cell_local_index, j_to_adjacent_cell);
-                            //printf("xm: %d, t: %d\n", my_j_index, their_j_index);
-                            //auto my_q_x = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 0);
-                            //auto my_q_y = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 1);
-                            //auto their_q_x = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 0);
-                            //auto their_q_y = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 1);
-                            //if (std::abs(my_q_x-their_q_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_q_x, their_q_x, my_q_x-their_q_x);
-                            //if (std::abs(my_q_y-their_q_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_q_y, their_q_y, my_q_y-their_q_y);
+                                    // diagnostics for quadrature points
+                                    //printf("b: %f\n", _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell, adjacent_q+1));
+                                    //auto my_j_index = _cell_particles_neighborhood->getNeighbor(i,j_to_cell_i);
+                                    //auto their_j_index = _cell_particles_neighborhood->getNeighbor(adjacent_cell_local_index, j_to_adjacent_cell);
+                                    //printf("xm: %d, t: %d\n", my_j_index, their_j_index);
+                                    //auto my_q_x = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 0);
+                                    //auto my_q_y = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 1);
+                                    //auto their_q_x = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 0);
+                                    //auto their_q_y = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 1);
+                                    //if (std::abs(my_q_x-their_q_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_q_x, their_q_x, my_q_x-their_q_x);
+                                    //if (std::abs(my_q_y-their_q_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_q_y, their_q_y, my_q_y-their_q_y);
 
-                            //auto my_q_x = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 0);
-                            //auto my_q_y = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 1);
-                            ////auto their_q_index = _kokkos_quadrature_neighbor_lists_host(adjacent_cell_local_index, 1+k_to_adjacent_cell);
-                            //auto their_q_x = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 0);
-                            //auto their_q_y = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 1);
-                            //if (std::abs(my_q_x-their_q_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_q_x, their_q_x, my_q_x-their_q_x);
-                            //if (std::abs(my_q_y-their_q_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_q_y, their_q_y, my_q_y-their_q_y);
+                                    //auto my_q_x = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 0);
+                                    //auto my_q_y = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 1);
+                                    ////auto their_q_index = _kokkos_quadrature_neighbor_lists_host(adjacent_cell_local_index, 1+k_to_adjacent_cell);
+                                    //auto their_q_x = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 0);
+                                    //auto their_q_y = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 1);
+                                    //if (std::abs(my_q_x-their_q_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_q_x, their_q_x, my_q_x-their_q_x);
+                                    //if (std::abs(my_q_y-their_q_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_q_y, their_q_y, my_q_y-their_q_y);
  
-                            double other_v = (j_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell, adjacent_q+1) : 0;
-                            jumpv = v-other_v;
+                                    double other_v = (j_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell, adjacent_q+1) : 0;
+                                    jumpv = v-other_v;
 
-                            double other_u = (k_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell, adjacent_q+1) : 0.0;
-                            jumpu = u-other_u;
+                                    double other_u = (k_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    jumpu = u-other_u;
 
-                            jumpu *= normal_direction_correction;
-                            jumpv *= normal_direction_correction;
+                                    jumpu *= normal_direction_correction;
+                                    jumpv *= normal_direction_correction;
 
-                            double other_grad_v_x = (j_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, j_to_adjacent_cell, adjacent_q+1) : 0.0;
-                            double other_grad_v_y = (j_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, j_to_adjacent_cell, adjacent_q+1) : 0.0;
-                            double other_grad_u_x = (k_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, k_to_adjacent_cell, adjacent_q+1) : 0.0;
-                            double other_grad_u_y = (k_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, k_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    double other_grad_v_x = (j_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, j_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    double other_grad_v_y = (j_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, j_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    double other_grad_u_x = (k_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, k_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    double other_grad_u_y = (k_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, k_to_adjacent_cell, adjacent_q+1) : 0.0;
 
-                            avgv_x = 0.5*(grad_v_x+other_grad_v_x);
-                            avgv_y = 0.5*(grad_v_y+other_grad_v_y);
-                            avgu_x = 0.5*(grad_u_x+other_grad_u_x);
-                            avgu_y = 0.5*(grad_u_y+other_grad_u_y);
+                                    avgv_x = 0.5*(grad_v_x+other_grad_v_x);
+                                    avgv_y = 0.5*(grad_v_y+other_grad_v_y);
+                                    avgu_x = 0.5*(grad_u_x+other_grad_u_x);
+                                    avgu_y = 0.5*(grad_u_y+other_grad_u_y);
 
-                            //double jump_u_jump_v = 0.0;
-                            //auto jump_v_x = n_x*v-n_x*other_v;
-                            //auto jump_v_y = n_y*v-n_y*other_v;
-                            //auto jump_u_x = n_x*u-n_x*other_u;
-                            //auto jump_u_y = n_y*u-n_y*other_u;
-                            //jump_u_jump_v = jump_v_x*jump_u_x + jump_v_y*jump_u_y;
+                                    //double jump_u_jump_v = 0.0;
+                                    //auto jump_v_x = n_x*v-n_x*other_v;
+                                    //auto jump_v_y = n_y*v-n_y*other_v;
+                                    //auto jump_u_x = n_x*u-n_x*other_u;
+                                    //auto jump_u_y = n_y*u-n_y*other_u;
+                                    //jump_u_jump_v = jump_v_x*jump_u_x + jump_v_y*jump_u_y;
 
-                            //contribution += 0.5 * penalty * q_wt * jumpv * jumpu; // other half will be added by other cell
-                            //contribution -= 0.5 * q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
-                            //contribution -= 0.5 * q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
-                            contribution += penalty * q_wt * jumpv * jumpu; // other half will be added by other cell
-                            contribution -= q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
-                            contribution -= q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
+                                    //contribution += 0.5 * penalty * q_wt * jumpv * jumpu; // other half will be added by other cell
+                                    //contribution -= 0.5 * q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
+                                    //contribution -= 0.5 * q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
+                                    if (rd_op) {
+                                        contribution += penalty * q_wt * jumpv * jumpu; // other half will be added by other cell
+                                        contribution -= q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
+                                        contribution -= q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
+                                    } else if (le_op) {
+                                        contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp); // other half will be added by other cell
+                                        contribution -= q_wt * (
+                                              2 * _shear * (n_x*avgv_x*(j_comp==0) 
+                                                + 0.5*n_y*(avgv_y*(j_comp==0) + avgv_x*(j_comp==1))) * jumpu*(k_comp==0)  
+                                            + 2 * _shear * (n_y*avgv_y*(j_comp==1) 
+                                                + 0.5*n_x*(avgv_x*(j_comp==1) + avgv_y*(j_comp==0))) * jumpu*(k_comp==1)
+                                            + _lambda*(avgv_x*(j_comp==0) + avgv_y*(j_comp==1))*(n_x*jumpu*(k_comp==0) + n_y*jumpu*(k_comp==1)));
+                                        contribution -= q_wt * (
+                                              2 * _shear * (n_x*avgu_x*(k_comp==0) 
+                                                + 0.5*n_y*(avgu_y*(k_comp==0) + avgu_x*(k_comp==1))) * jumpv*(j_comp==0)  
+                                            + 2 * _shear * (n_y*avgu_y*(k_comp==1) 
+                                                + 0.5*n_x*(avgu_x*(k_comp==1) + avgu_y*(k_comp==0))) * jumpv*(j_comp==1)
+                                            + _lambda*(avgu_x*(k_comp==0) + avgu_y*(k_comp==1))*(n_x*jumpv*(j_comp==0) + n_y*jumpv*(j_comp==1)));
+                                    }
+                                }
+                                TEUCHOS_ASSERT(contribution==contribution);
+                            }
                         }
-                        TEUCHOS_ASSERT(contribution==contribution);
+
+                        val_data[0] = contribution;
+                        if (j_has_value && k_has_value) {
+                            this->_A->sumIntoLocalValues(row, 1, &val_data[0], &col_data[0], true);//, /*atomics*/false);
+                        }
                     }
                 }
-
-                val_data[0] = contribution;
-                if (j_has_value && k_has_value) {
-                    this->_A->sumIntoLocalValues(row, 1, &val_data[0], &col_data[0], true);//, /*atomics*/false);
-                }
-                //}
             }
         }
     //}

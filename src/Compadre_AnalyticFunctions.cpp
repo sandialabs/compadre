@@ -225,6 +225,39 @@ xyz_type SineProducts::evalScalarDerivative(const xyz_type& xyzIn) const {
     }
 }
 
+std::vector<xyz_type> SineProducts::evalJacobian(const xyz_type& xyzIn) const {
+    std::vector<xyz_type> jacobian(_dim);
+    if (_dim==3) {
+        jacobian[0] = this->evalScalarDerivative(xyzIn);
+        jacobian[1] = -1*this->evalScalarDerivative(xyzIn);
+        jacobian[2] = 2*this->evalScalarDerivative(xyzIn);
+    } else {
+        jacobian[0] = this->evalScalarDerivative(xyzIn);
+        jacobian[1] = -1*this->evalScalarDerivative(xyzIn);
+    }
+    return jacobian;
+}
+
+std::vector<std::vector<xyz_type> > SineProducts::evalHessian(const xyz_type& xyzIn) const {
+    std::vector<std::vector<xyz_type> > hessian(_dim, std::vector<xyz_type>(_dim));
+    if (_dim==3) {
+        TEUCHOS_ASSERT(false);
+        return hessian;
+    } else {
+        // first component
+        // u_xd = (u_xx, u_xy)
+        xyz_type u_xd(-sin(xyzIn.x)*sin(xyzIn.y),cos(xyzIn.x)*cos(xyzIn.y));
+        hessian[0][0] = u_xd;
+        // u_yd = (u_yx, u_yy)
+        xyz_type u_yd(cos(xyzIn.x)*cos(xyzIn.y),-sin(xyzIn.x)*sin(xyzIn.y));
+        hessian[0][1] = u_yd;
+
+        hessian[1][0] = -1*hessian[0][0];
+        hessian[1][1] = -1*hessian[0][1];
+    }
+    return hessian;
+}
+
 xyz_type SineProducts::evalVector(const xyz_type& xyzIn) const {
     if (_dim==3) {
         return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn),2*evalScalar(xyzIn));
@@ -252,6 +285,21 @@ scalar_type SineProducts::evalReactionDiffusionRHS(const xyz_type& xyzIn, const 
     }
 }
 
+scalar_type SineProducts::evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type comp, const scalar_type shear_modulus, const scalar_type lambda) const {
+    if (_dim==3) {
+        TEUCHOS_ASSERT(false);
+        return 0;
+    } else {
+        auto hess = this->evalHessian(xyzIn);
+        // - div(2*shear*D(u) + lambda* div(u))
+        if (comp==0) {
+            return -lambda*(hess[0][0][0] + hess[1][1][0]) - 2*shear_modulus*(hess[0][0][0] + 0.5*(hess[1][0][1]+hess[0][1][1]));
+        } else {
+            return -lambda*(hess[1][1][1] + hess[0][0][1]) - 2*shear_modulus*(hess[1][1][1] + 0.5*(hess[0][1][0]+hess[1][0][0]));
+        }
+    }
+}
+
 scalar_type SecondOrderBasis::evalScalar(const xyz_type& xyzIn) const {
     if (_dim==2) {
         return xyzIn.x*(1 + xyzIn.x + xyzIn.y) + xyzIn.y*(1 + xyzIn.y);
@@ -261,7 +309,11 @@ scalar_type SecondOrderBasis::evalScalar(const xyz_type& xyzIn) const {
 }
 
 xyz_type SecondOrderBasis::evalVector(const xyz_type& xyzIn) const {
-    return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn),2*evalScalar(xyzIn));
+    if (_dim==3) {
+        return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn),2*evalScalar(xyzIn));
+    } else {
+        return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn));
+    }
 }
 
 xyz_type SecondOrderBasis::evalScalarDerivative(const xyz_type& xyzIn) const {
@@ -273,6 +325,39 @@ xyz_type SecondOrderBasis::evalScalarDerivative(const xyz_type& xyzIn) const {
         return xyz_type((1 + 2*xyzIn.x + xyzIn.y),
                         (xyzIn.x + 1 + 2*xyzIn.y));
     }
+}
+
+std::vector<xyz_type> SecondOrderBasis::evalJacobian(const xyz_type& xyzIn) const {
+    std::vector<xyz_type> jacobian(_dim);
+    if (_dim==3) {
+        jacobian[0] = this->evalScalarDerivative(xyzIn);
+        jacobian[1] = -1*this->evalScalarDerivative(xyzIn);
+        jacobian[2] = 2*this->evalScalarDerivative(xyzIn);
+    } else {
+        jacobian[0] = this->evalScalarDerivative(xyzIn);
+        jacobian[1] = -1*this->evalScalarDerivative(xyzIn);
+    }
+    return jacobian;
+}
+
+std::vector<std::vector<xyz_type> > SecondOrderBasis::evalHessian(const xyz_type& xyzIn) const {
+    std::vector<std::vector<xyz_type> > hessian(_dim, std::vector<xyz_type>(_dim));
+    if (_dim==3) {
+        TEUCHOS_ASSERT(false);
+        return hessian;
+    } else {
+        // first component
+        // u_xd = (u_xx, u_xy)
+        xyz_type u_xd(2,1,0);
+        hessian[0][0] = u_xd;
+        // u_yd = (u_yx, u_yy)
+        xyz_type u_yd(1,2,0);
+        hessian[0][1] = u_yd;
+
+        hessian[1][0] = -1*hessian[0][0];
+        hessian[1][1] = -1*hessian[0][1];
+    }
+    return hessian;
 }
 
 scalar_type SecondOrderBasis::evalReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const {
@@ -292,6 +377,21 @@ scalar_type SecondOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn) const {
     }
 }
 
+scalar_type SecondOrderBasis::evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type comp, const scalar_type shear_modulus, const scalar_type lambda) const {
+    if (_dim==3) {
+        TEUCHOS_ASSERT(false);
+        return 0;
+    } else {
+        auto hess = this->evalHessian(xyzIn);
+        // - div(2*shear*D(u) + lambda* div(u))
+        if (comp==0) {
+            return -lambda*(hess[0][0][0] + hess[1][1][0]) - 2*shear_modulus*(hess[0][0][0] + 0.5*(hess[1][0][1]+hess[0][1][1]));
+        } else {
+            return -lambda*(hess[1][1][1] + hess[0][0][1]) - 2*shear_modulus*(hess[1][1][1] + 0.5*(hess[0][1][0]+hess[1][0][0]));
+        }
+    }
+}
+
 scalar_type ThirdOrderBasis::evalScalar(const xyz_type& xyzIn) const {
     scalar_type x = xyzIn.x;
     scalar_type y = xyzIn.y;
@@ -304,7 +404,11 @@ scalar_type ThirdOrderBasis::evalScalar(const xyz_type& xyzIn) const {
 }
 
 xyz_type ThirdOrderBasis::evalVector(const xyz_type& xyzIn) const {
-    return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn),2*evalScalar(xyzIn));
+    if (_dim==3) {
+        return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn),2*evalScalar(xyzIn));
+    } else {
+        return xyz_type(evalScalar(xyzIn),-evalScalar(xyzIn));
+    }
 }
 
 xyz_type ThirdOrderBasis::evalScalarDerivative(const xyz_type& xyzIn) const {
@@ -319,6 +423,42 @@ xyz_type ThirdOrderBasis::evalScalarDerivative(const xyz_type& xyzIn) const {
         return xyz_type((1 + 2*x + y + 3*x*x + 2*x*y + y*y),
                         (1 + x + 2*y + x*x + 2*x*y + 3*y*y));
     }
+}
+
+std::vector<xyz_type> ThirdOrderBasis::evalJacobian(const xyz_type& xyzIn) const {
+    std::vector<xyz_type> jacobian(_dim);
+    if (_dim==3) {
+        jacobian[0] = this->evalScalarDerivative(xyzIn);
+        jacobian[1] = -1*this->evalScalarDerivative(xyzIn);
+        jacobian[2] = 2*this->evalScalarDerivative(xyzIn);
+    } else {
+        jacobian[0] = this->evalScalarDerivative(xyzIn);
+        jacobian[1] = -1*this->evalScalarDerivative(xyzIn);
+    }
+    return jacobian;
+}
+
+std::vector<std::vector<xyz_type> > ThirdOrderBasis::evalHessian(const xyz_type& xyzIn) const {
+    scalar_type x = xyzIn.x;
+    scalar_type y = xyzIn.y;
+    scalar_type z = xyzIn.z;
+    std::vector<std::vector<xyz_type> > hessian(_dim, std::vector<xyz_type>(_dim));
+    if (_dim==3) {
+        TEUCHOS_ASSERT(false);
+        return hessian;
+    } else {
+        // first component
+        // u_xd = (u_xx, u_xy)
+        xyz_type u_xd(2+6*x+2*y, 1+2*x+2*y);
+        hessian[0][0] = u_xd;
+        // u_yd = (u_yx, u_yy)
+        xyz_type u_yd(1+2*x+2*y, 2+2*x+6*y);
+        hessian[0][1] = u_yd;
+
+        hessian[1][0] = -1*hessian[0][0];
+        hessian[1][1] = -1*hessian[0][1];
+    }
+    return hessian;
 }
 
 scalar_type ThirdOrderBasis::evalReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const {
@@ -338,6 +478,21 @@ scalar_type ThirdOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn) const {
         return (2 + 6*x + 2*y + 2*z) + (2 + 2*x + 6*y + 2*z) + (2 + 2*x + 2*y + 6*z);
     } else {
         return (2 + 6*x + 2*y) + (2 + 2*x + 6*y);
+    }
+}
+
+scalar_type ThirdOrderBasis::evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type comp, const scalar_type shear_modulus, const scalar_type lambda) const {
+    if (_dim==3) {
+        TEUCHOS_ASSERT(false);
+        return 0;
+    } else {
+        auto hess = this->evalHessian(xyzIn);
+        // - div(2*shear*D(u) + lambda* div(u))
+        if (comp==0) {
+            return -lambda*(hess[0][0][0] + hess[1][1][0]) - 2*shear_modulus*(hess[0][0][0] + 0.5*(hess[1][0][1]+hess[0][1][1]));
+        } else {
+            return -lambda*(hess[1][1][1] + hess[0][0][1]) - 2*shear_modulus*(hess[1][1][1] + 0.5*(hess[0][1][0]+hess[1][0][0]));
+        }
     }
 }
 

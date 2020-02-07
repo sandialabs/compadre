@@ -301,110 +301,151 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(true /* include halo in count */); ++i) {
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_physics->_cells->getCoordsConst()->nLocal(true /* include halo in count */)), KOKKOS_LAMBDA(const int i) {
     //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
+        for (local_index_type comp = 0; comp < fields[field_one]->nDim(); ++comp) {
+
+            // filter out (skip) all halo cells that are not able to be seen from a locally owned particle
+            auto halo_i = (i<nlocal) ? -1 : _physics->_halo_big_to_small(i-nlocal,0);
+            if (i>=nlocal /* halo */  && halo_i<0 /* not one found within max_h of locally owned particles */) return;//continue;
+
+            //TEUCHOS_ASSERT(i<nlocal);
+            // need to have a halo gmls object that can be queried for cells that do not live on processor
+            // this is also needed for the operator file in order to finish jump terms
+
+            // loop over cells touching that particle
+            local_index_type num_neighbors = (i<nlocal) ? _physics->_cell_particles_neighborhood->getNumNeighbors(i)
+                : _physics->_halo_cell_particles_neighborhood->getNumNeighbors(halo_i);
+            for (local_index_type j=0; j<num_neighbors; ++j) {
+                auto particle_j = (i<nlocal) ? _physics->_cell_particles_neighborhood->getNeighbor(i,j)
+                    : _physics->_halo_cell_particles_neighborhood->getNeighbor(halo_i,j);
+                // particle_j is an index from 0..nlocal+nhalo
+
+                // filter out (skip) all halo particles that are not a local DOF
+                if (particle_j >= nlocal) continue; // particle is in halo region, but we only want dofs that are rows (locally owned))
 
 
-        // filter out (skip) all halo cells that are not able to be seen from a locally owned particle
-        auto halo_i = (i<nlocal) ? -1 : _physics->_halo_big_to_small(i-nlocal,0);
-        if (i>=nlocal /* halo */  && halo_i<0 /* not one found within max_h of locally owned particles */) return;//continue;
+                local_index_type row = local_to_dof_map(particle_j, field_one, comp);
 
-        //TEUCHOS_ASSERT(i<nlocal);
-        // need to have a halo gmls object that can be queried for cells that do not live on processor
-        // this is also needed for the operator file in order to finish jump terms
+                // add the contribution to the row for the particle
+                double contribution = 0;
+                if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="l2") {
+                    for (int q=0; q<_physics->_weights_ndim; ++q) {
+                        auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_physics->_halo_small_to_big(halo_i,0),q);
+                        if (q_type==1) { // interior
+                            // integrating RHS function
+                            double v = (i<nlocal) ? _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1)
+                                : _physics->_halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, q+1);
 
-        // loop over cells touching that particle
-        local_index_type num_neighbors = (i<nlocal) ? _physics->_cell_particles_neighborhood->getNumNeighbors(i)
-            : _physics->_halo_cell_particles_neighborhood->getNumNeighbors(halo_i);
-        for (local_index_type j=0; j<num_neighbors; ++j) {
-            auto particle_j = (i<nlocal) ? _physics->_cell_particles_neighborhood->getNeighbor(i,j)
-                : _physics->_halo_cell_particles_neighborhood->getNeighbor(halo_i,j);
-            // particle_j is an index from 0..nlocal+nhalo
+                            xyz_type pt = (i<nlocal) ? xyz_type(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0) 
+                                : xyz_type(halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),2*q), halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),2*q+1),0);
 
-            // filter out (skip) all halo particles that are not a local DOF
-            if (particle_j >= nlocal) continue; // particle is in halo region, but we only want dofs that are rows (locally owned))
+                            double q_wt = (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_physics->_halo_small_to_big(halo_i,0),q);
 
-
-            local_index_type row = local_to_dof_map(particle_j, field_one, 0 /* component 0*/);
-
-            // add the contribution to the row for the particle
-            double contribution = 0;
-            if (_parameters->get<Teuchos::ParameterList>("physics").get<bool>("l2 projection only")) {
-                for (int q=0; q<_physics->_weights_ndim; ++q) {
-                    auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_physics->_halo_small_to_big(halo_i,0),q);
-                    if (q_type==1) { // interior
-                        // integrating RHS function
+                            contribution += q_wt * v * function->evalScalar(pt);
+                        } 
+                    }
+                } else {
+                    //std::vector<double> edge_lengths(3);
+                    //int current_edge_num = 0;
+                    //for (int q=0; q<_physics->_weights_ndim; ++q) {
+                    //    auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_physics->_halo_small_to_big(halo_i,0),q);
+                    //    if (quadrature_type(i,q)!=1) { // edge
+                    //        int new_current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                    //        if (new_current_edge_num!=current_edge_num) {
+                    //            edge_lengths[new_current_edge_num] = (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_physics->_halo_small_to_big(halo_i,0),q);
+                    //            current_edge_num = new_current_edge_num;
+                    //        } else {
+                    //            edge_lengths[current_edge_num] += (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_physics->_halo_small_to_big(halo_i,0),q);
+                    //        }
+                    //    }
+                    //}
+                    for (int q=0; q<_physics->_weights_ndim; ++q) {
+                        auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_physics->_halo_small_to_big(halo_i,0),q);
                         double v = (i<nlocal) ? _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1)
                             : _physics->_halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, q+1);
-
+                        double q_wt = (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_physics->_halo_small_to_big(halo_i,0),q);
                         xyz_type pt = (i<nlocal) ? xyz_type(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0) 
                             : xyz_type(halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),2*q), halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),2*q+1),0);
 
-                        double q_wt = (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_physics->_halo_small_to_big(halo_i,0),q);
+                        if (q_type==1) { // interior
+                            double rhs_eval = 0;
+                            if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="rd") {
+                                // integrating RHS function
+                                if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial") {
+                                    auto cast_to_poly_2 = dynamic_cast<SecondOrderBasis*>(function.getRawPtr());
+                                    rhs_eval = cast_to_poly_2->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
+                                } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3") {
+                                    auto cast_to_poly_3 = dynamic_cast<ThirdOrderBasis*>(function.getRawPtr());
+                                    rhs_eval = cast_to_poly_3->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
+                                } else {
+                                    auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());
+                                    rhs_eval = cast_to_sine->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
+                                }
+                            } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le") {
+                                if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial") {
+                                    auto cast_to_poly_2 = dynamic_cast<SecondOrderBasis*>(function.getRawPtr());
+                                    rhs_eval = cast_to_poly_2->evalLinearElasticityRHS(pt,comp,_physics->_shear,_physics->_lambda);
+                                } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3") {
+                                    auto cast_to_poly_3 = dynamic_cast<ThirdOrderBasis*>(function.getRawPtr());
+                                    rhs_eval = cast_to_poly_3->evalLinearElasticityRHS(pt,comp,_physics->_shear,_physics->_lambda);
+                                } else {
+                                    auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());
+                                    rhs_eval = cast_to_sine->evalLinearElasticityRHS(pt,comp,_physics->_shear,_physics->_lambda);
+                                }
+                            }
+                            contribution += q_wt * v * rhs_eval;
+                        } 
+                        else if (q_type==2) { // edge on exterior
+                            //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_physics->_kokkos_epsilons_host(i);
+                            // DG enforcement of Dirichlet BCs
+                            //int current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                            //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/edge_lengths[current_edge_num];
+                            //int adjacent_cell = adjacent_elements(i,current_edge_num);
+                            ////printf("%d, %d, %d, %d\n", i, q, current_edge_num, adjacent_cell);
+                            //if (adjacent_cell >= 0) {
+                            //    printf("SHOULD BE NEGATIVE NUMBER!\n");
+                            //}
+                            // penalties for edges of mass
+                            double v_x = (i<nlocal) ? _physics->_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j, q+1)
+                                : _physics->_halo_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, halo_i, 0, j, q+1);
+                            double v_y = (i<nlocal) ? _physics->_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j, q+1)
+                                : _physics->_halo_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, halo_i, 1, j, q+1);
+                            double n_x = (i<nlocal) ? unit_normals(i,2*q+0) : halo_unit_normals(_physics->_halo_small_to_big(halo_i,0), 2*q+0);
+                            double n_y = (i<nlocal) ? unit_normals(i,2*q+1) : halo_unit_normals(_physics->_halo_small_to_big(halo_i,0), 2*q+1);
+                            double exact_eval = 0;
+                            if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="rd") {
+                                exact_eval = function->evalScalar(pt);
+                            } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le") {
+                                auto exact = function->evalVector(pt);
+                                exact_eval = exact[comp];
+                            }
+                            contribution += penalty * q_wt * v * exact_eval;
 
-                        contribution += q_wt * v * function->evalScalar(pt);
-                    } 
-                }
-            } else {
-                //std::vector<double> edge_lengths(3);
-                //int current_edge_num = 0;
-                //for (int q=0; q<_physics->_weights_ndim; ++q) {
-                //    auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_physics->_halo_small_to_big(halo_i,0),q);
-                //    if (quadrature_type(i,q)!=1) { // edge
-                //        int new_current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                //        if (new_current_edge_num!=current_edge_num) {
-                //            edge_lengths[new_current_edge_num] = (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_physics->_halo_small_to_big(halo_i,0),q);
-                //            current_edge_num = new_current_edge_num;
-                //        } else {
-                //            edge_lengths[current_edge_num] += (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_physics->_halo_small_to_big(halo_i,0),q);
-                //        }
-                //    }
-                //}
-                for (int q=0; q<_physics->_weights_ndim; ++q) {
-                    auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_physics->_halo_small_to_big(halo_i,0),q);
-                    double v = (i<nlocal) ? _physics->_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, q+1)
-                        : _physics->_halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, q+1);
-                    double q_wt = (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_physics->_halo_small_to_big(halo_i,0),q);
-                    xyz_type pt = (i<nlocal) ? xyz_type(quadrature_points(i,2*q),quadrature_points(i,2*q+1),0) 
-                        : xyz_type(halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),2*q), halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),2*q+1),0);
-
-                    if (q_type==1) { // interior
-                        // integrating RHS function
-                        if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial") {
-                            auto cast_to_poly_2 = dynamic_cast<SecondOrderBasis*>(function.getRawPtr());
-                            contribution += q_wt * v * cast_to_poly_2->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
-                        } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3") {
-                            auto cast_to_poly_3 = dynamic_cast<ThirdOrderBasis*>(function.getRawPtr());
-                            contribution += q_wt * v * cast_to_poly_3->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
-                        } else {
-                            auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());
-                            contribution += q_wt * v * cast_to_sine->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
+                            if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="rd") {
+                                contribution -= _physics->_diffusion * q_wt * ( n_x * v_x + n_y * v_y) * exact_eval;
+                            } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le") {
+                                auto exact = function->evalVector(pt);
+                                //if (comp==0) {
+                                //    contribution -= q_wt * (2 * _physics->_shear * ( n_x * v_x + 0.5 * n_y * v_y) * exact[0] 
+                                //    + 2 * _physics->_shear * ( 0.5 * n_x * v_y ) * exact[1]
+                                //    + _physics->_lambda * (n_x*v_x*exact[0] + n_y*v_x*exact[1]));
+                                //} else {
+                                //    contribution -= q_wt * (2 * _physics->_shear * ( n_y * v_y + 0.5 * n_x * v_x) * exact[1] 
+                                //    + 2 * _physics->_shear * ( 0.5 * n_y * v_x ) * exact[0]
+                                //    + _physics->_lambda * (n_x*v_x*exact[0] + n_y*v_x*exact[1]));
+                                //}
+                                contribution -= q_wt * (
+                                      2 * _physics->_shear * (n_x*v_x*(comp==0) + 0.5*n_y*(v_y*(comp==0) + v_x*(comp==1))) * exact[0]  
+                                    + 2 * _physics->_shear * (n_y*v_y*(comp==1) + 0.5*n_x*(v_x*(comp==1) + v_y*(comp==0))) * exact[1]
+                                    + _physics->_lambda * (v_x*(comp==0) + v_y*(comp==1)) * (n_x*exact[0] + n_y*exact[1]));
+                            }
                         }
-                    } 
-                    else if (q_type==2) { // edge on exterior
-                        //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_physics->_kokkos_epsilons_host(i);
-                        // DG enforcement of Dirichlet BCs
-                        //int current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                        //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/edge_lengths[current_edge_num];
-                        //int adjacent_cell = adjacent_elements(i,current_edge_num);
-                        ////printf("%d, %d, %d, %d\n", i, q, current_edge_num, adjacent_cell);
-                        //if (adjacent_cell >= 0) {
-                        //    printf("SHOULD BE NEGATIVE NUMBER!\n");
-                        //}
-                        // penalties for edges of mass
-                        double v_x = (i<nlocal) ? _physics->_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j, q+1)
-                            : _physics->_halo_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, halo_i, 0, j, q+1);
-                        double v_y = (i<nlocal) ? _physics->_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j, q+1)
-                            : _physics->_halo_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, halo_i, 1, j, q+1);
-                        double n_x = (i<nlocal) ? unit_normals(i,2*q+0) : halo_unit_normals(_physics->_halo_small_to_big(halo_i,0), 2*q+0);
-                        double n_y = (i<nlocal) ? unit_normals(i,2*q+1) : halo_unit_normals(_physics->_halo_small_to_big(halo_i,0), 2*q+1);
-                        contribution += penalty * q_wt * v * function->evalScalar(pt);
-                        contribution -= _physics->_diffusion * q_wt * ( n_x * v_x + n_y * v_y) * function->evalScalar(pt);
                     }
-                }
 
+                }
+                
+                rhs_vals_atomic(row,0) += contribution;
+                //rhs_vals(row,0) += contribution;
             }
-            
-            rhs_vals_atomic(row,0) += contribution;
-            //rhs_vals(row,0) += contribution;
         }
     });
     //});

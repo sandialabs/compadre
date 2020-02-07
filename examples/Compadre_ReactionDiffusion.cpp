@@ -104,7 +104,11 @@ int main (int argc, char* args[]) {
 				halo_size = parameters->get<Teuchos::ParameterList>("halo").get<double>("size");
 			}
  			cells->buildHalo(halo_size);
-		    cells->getFieldManager()->createField(1, "solution", "m/s");
+            if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")!="le") {
+		        cells->getFieldManager()->createField(1, "solution", "m/s");
+            } else {
+		        cells->getFieldManager()->createField(2, "solution", "m/s");
+            }
  			cells->createDOFManager();
 
 
@@ -193,8 +197,18 @@ int main (int argc, char* args[]) {
 
         // set physics, sources, and boundary conditions in the problem
         // set reaction and diffusion for physics
-        physics->setReaction(parameters->get<Teuchos::ParameterList>("physics").get<double>("reaction"));
-        physics->setDiffusion(parameters->get<Teuchos::ParameterList>("physics").get<double>("diffusion"));
+        double reaction_coeff, diffusion_coeff, shear_coeff, lambda_coeff;
+        if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="rd") {
+            reaction_coeff = parameters->get<Teuchos::ParameterList>("physics").get<double>("reaction");
+            diffusion_coeff = parameters->get<Teuchos::ParameterList>("physics").get<double>("diffusion");
+            physics->setReaction(reaction_coeff);
+            physics->setDiffusion(diffusion_coeff);
+        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le") {
+            shear_coeff = parameters->get<Teuchos::ParameterList>("physics").get<double>("shear");
+            lambda_coeff = parameters->get<Teuchos::ParameterList>("physics").get<double>("lambda");
+            physics->setShear(shear_coeff);
+            physics->setLambda(lambda_coeff);
+        }
 
         physics->setCells(cells);
         problem->setPhysics(physics);
@@ -220,7 +234,11 @@ int main (int argc, char* args[]) {
         // post process solution ( modal DOF -> cell centered value )
         {
             auto gmls = physics->_gmls;
-		    cells->getFieldManager()->createField(1, "processed_solution", "m/s");
+            if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")!="le") {
+		        cells->getFieldManager()->createField(1, "processed_solution", "m/s");
+            } else {
+		        cells->getFieldManager()->createField(2, "processed_solution", "m/s");
+            }
 		    auto processed_view = cells->getFieldManager()->getFieldByName("processed_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 		    auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 		    auto halo_dof_view = cells->getFieldManager()->getFieldByName("solution")->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
@@ -232,10 +250,12 @@ int main (int argc, char* args[]) {
 		        LO num_neighbors = neighborhood->getNumNeighbors(j);
                 // loop over particles neighbor to the cell
 		    	for (LO l = 0; l < num_neighbors; l++) {
-                    auto particle_l = neighborhood->getNeighbor(j,l);
-                    auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,0) : halo_dof_view(particle_l-nlocal,0);
-                    auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, 0);
-                    processed_view(j,0) += dof_val * v;
+		    	    for (LO k = 0; k < processed_view.extent(1); ++k) {
+                        auto particle_l = neighborhood->getNeighbor(j,l);
+                        auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,k) : halo_dof_view(particle_l-nlocal,k);
+                        auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, 0);
+                        processed_view(j,k) += dof_val * v;
+                    }
                 }
             }
         }
@@ -453,15 +473,29 @@ int main (int argc, char* args[]) {
         //    }
         //}
  
-		cells->getFieldManager()->createField(1, "exact_solution", "m/s");
+        if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")!="le") {
+		    cells->getFieldManager()->createField(1, "exact_solution", "m/s");
+        } else {
+            cells->getFieldManager()->createField(2, "exact_solution", "m/s");
+        }
 		auto exact_view = cells->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-		for( int j =0; j<coords->nLocal(); j++){
-			xyz_type xyz = coords->getLocalCoords(j);
-			exact = function->evalScalar(xyz);
-			exact_view(j,0) = exact;
-		}
+        if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")!="le") {
+		    for( int j =0; j<coords->nLocal(); j++){
+		        xyz_type xyz = coords->getLocalCoords(j);
+		        exact = function->evalScalar(xyz);
+		        exact_view(j,0) = exact;
+		    }
+        } else {
+		    for( int j =0; j<coords->nLocal(); j++){
+		        for( int k =0; k<exact_view.extent(1); k++){
+		    	    xyz_type xyz = coords->getLocalCoords(j);
+		    	    auto exacts = function->evalVector(xyz);
+		    	    exact_view(j,k) = exacts[k];
+                }
+		    }
+        }
 
-        if (parameters->get<Teuchos::ParameterList>("physics").get<bool>("l2 projection only")) {
+        if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="l2") {
 		    for( int j =0; j<coords->nLocal(); j++){
 		    	xyz_type xyz = coords->getLocalCoords(j);
 		    	const ST val = cells->getFieldManagerConst()->getFieldByName("processed_solution")->getLocalScalarVal(j);
@@ -471,14 +505,28 @@ int main (int argc, char* args[]) {
 		    	norm += (exact - val)*(exact-val);
 		    }
 		    norm /= (double)(coords->nGlobalMax());
+        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le") {
+		    auto processed_view = cells->getFieldManager()->getFieldByName("processed_solution")->
+                getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+		    for( int j =0; j<coords->nLocal(); j++){
+		        for( int k=0; k<2; k++){
+		    	    const ST val = processed_view(j,k);
+		    	    xyz_type xyz = coords->getLocalCoords(j);
+		    	    auto exacts = function->evalVector(xyz);
+		    	    norm += (exacts[k] - val)*(exacts[k]-val);
+                }
+		    }
+		    norm /= (double)(coords->nGlobalMax());
         } else {
             // get error from l2, h1, and jump
+
+            bool rd_op = (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="rd");
+            bool le_op = (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le");
             double jump_error = 0.0;
             double l2_error = 0.0;
             double h1_error = 0.0;
-            double reaction_coeff = parameters->get<Teuchos::ParameterList>("physics").get<double>("reaction");
-            double diffusion_coeff = parameters->get<Teuchos::ParameterList>("physics").get<double>("diffusion");
             double penalty = (parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/physics->_cell_particles_neighborhood->computeMaxHSupportSize(true /* global processor max */);
+
             {
 
                 auto quadrature_points = cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
@@ -505,82 +553,91 @@ int main (int argc, char* args[]) {
                     double l2_error_on_cell = 0.0;
                     double h1_error_on_cell = 0.0;
                     double jump_error_on_cell = 0.0;
-                    for (int i=0; i<quadrature_weights.extent(1); ++i) {
-                        if (quadrature_type(j,i)==1) { // interior
-                            double l2_val = 0.0;
-                            double h1_val_x = 0.0;
-                            double h1_val_y = 0.0;
-                            // needs reconstruction at this quadrature point
-		                    LO num_neighbors = neighborhood->getNumNeighbors(j);
-                            // loop over particles neighbor to the cell
-		        	        for (LO l = 0; l < num_neighbors; l++) {
-                                auto particle_l = neighborhood->getNeighbor(j,l);
-                                auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,0) : halo_dof_view(particle_l-nlocal,0);
-                                auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
-                                auto v_x = gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, j, 0, l, i+1);
-                                auto v_y = gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, j, 1, l, i+1);
-                                l2_val += dof_val * v;
-                                h1_val_x += dof_val * v_x;
-                                h1_val_y += dof_val * v_y;
-                            }
-                            auto xyz = Compadre::XyzVector(quadrature_points(j,2*i+0), quadrature_points(j,2*i+1),0);
-                            double l2_exact = function->evalScalar(xyz);
-                            xyz_type h1_exact = function->evalScalarDerivative(xyz);
-                            l2_error_on_cell += reaction_coeff * quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
-                            h1_error_on_cell += diffusion_coeff * quadrature_weights(j,i) * (h1_val_x - h1_exact[0]) * (h1_val_x - h1_exact[0]);
-                            h1_error_on_cell += diffusion_coeff * quadrature_weights(j,i) * (h1_val_y - h1_exact[1]) * (h1_val_y - h1_exact[1]);
-                        } else if (quadrature_type(j,i)==2) { // exterior edge
-                            double u_val = 0.0;
-                            // needs reconstruction at this quadrature point
-		                    LO num_neighbors = neighborhood->getNumNeighbors(j);
-                            // loop over particles neighbor to the cell
-		        	        for (LO l = 0; l < num_neighbors; l++) {
-                                auto particle_l = neighborhood->getNeighbor(j,l);
-                                auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,0) : halo_dof_view(particle_l-nlocal,0);
-                                auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
-                                u_val += dof_val * v;
-                            }
-                            auto xyz = Compadre::XyzVector(quadrature_points(j,2*i+0), quadrature_points(j,2*i+1),0);
-                            double u_exact = function->evalScalar(xyz);
-                            jump_error_on_cell += quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);
-                        } else if (quadrature_type(j,i)==0) { // interior edge
-                            double u_val = 0.0;
-                            double other_u_val = 0.0;
-                            // needs reconstruction at this quadrature point
-		                    LO num_neighbors = neighborhood->getNumNeighbors(j);
-                            // loop over particles neighbor to the cell
-		        	        for (LO l = 0; l < num_neighbors; l++) {
-                                auto particle_l = neighborhood->getNeighbor(j,l);
-                                auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,0) : halo_dof_view(particle_l-nlocal,0);
-                                auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
-                                u_val += dof_val * v;
-                            }
-                            int current_edge_num = (i - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                            int adj_j = (int)(adjacent_elements(j, current_edge_num));
-
-                            int side_j_to_adjacent_cell = -1;
-                            for (int z=0; z<num_exterior_quadrature_per_edge; ++z) {
-                                if ((int)(adjacent_elements(adj_j,z))==j) {
-                                    side_j_to_adjacent_cell = z;
+                    for (int m=0; m<dof_view.extent(1); ++m) {
+                        for (int i=0; i<quadrature_weights.extent(1); ++i) {
+                            if (quadrature_type(j,i)==1) { // interior
+                                double l2_val = 0.0;
+                                double h1_val_x = 0.0;
+                                double h1_val_y = 0.0;
+                                // needs reconstruction at this quadrature point
+		                        LO num_neighbors = neighborhood->getNumNeighbors(j);
+                                // loop over particles neighbor to the cell
+		        	            for (LO l = 0; l < num_neighbors; l++) {
+                                    auto particle_l = neighborhood->getNeighbor(j,l);
+                                    auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,m) : halo_dof_view(particle_l-nlocal,m);
+                                    auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
+                                    auto v_x = gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, j, 0, l, i+1);
+                                    auto v_y = gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, j, 1, l, i+1);
+                                    l2_val += dof_val * v;
+                                    h1_val_x += dof_val * v_x;
+                                    h1_val_y += dof_val * v_y;
                                 }
-                            }
-                            int adj_i = num_interior_quadrature + side_j_to_adjacent_cell*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((i-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
+                                auto xyz = Compadre::XyzVector(quadrature_points(j,2*i+0), quadrature_points(j,2*i+1),0);
+                                double l2_exact = function->evalScalar(xyz);
+                                xyz_type h1_exact = function->evalScalarDerivative(xyz);
+                                if (rd_op) {
+                                    l2_error_on_cell += reaction_coeff * quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
+                                    h1_error_on_cell += diffusion_coeff * quadrature_weights(j,i) * (h1_val_x - h1_exact[0]) * (h1_val_x - h1_exact[0]);
+                                    h1_error_on_cell += diffusion_coeff * quadrature_weights(j,i) * (h1_val_y - h1_exact[1]) * (h1_val_y - h1_exact[1]);
+                                } else if (le_op) {
+                                    // still needs customized to LE stress tensor
+                                    l2_error_on_cell += quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
+                                    h1_error_on_cell += shear_coeff * quadrature_weights(j,i) * (h1_val_x - h1_exact[0]) * (h1_val_x - h1_exact[0]);
+                                    h1_error_on_cell += shear_coeff * quadrature_weights(j,i) * (h1_val_y - h1_exact[1]) * (h1_val_y - h1_exact[1]);
+                                }
+                            } else if (quadrature_type(j,i)==2) { // exterior edge
+                                double u_val = 0.0;
+                                // needs reconstruction at this quadrature point
+		                        LO num_neighbors = neighborhood->getNumNeighbors(j);
+                                // loop over particles neighbor to the cell
+		        	            for (LO l = 0; l < num_neighbors; l++) {
+                                    auto particle_l = neighborhood->getNeighbor(j,l);
+                                    auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,m) : halo_dof_view(particle_l-nlocal,m);
+                                    auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
+                                    u_val += dof_val * v;
+                                }
+                                auto xyz = Compadre::XyzVector(quadrature_points(j,2*i+0), quadrature_points(j,2*i+1),0);
+                                double u_exact = function->evalScalar(xyz);
+                                jump_error_on_cell += quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);
+                            } else if (quadrature_type(j,i)==0) { // interior edge
+                                double u_val = 0.0;
+                                double other_u_val = 0.0;
+                                // needs reconstruction at this quadrature point
+		                        LO num_neighbors = neighborhood->getNumNeighbors(j);
+                                // loop over particles neighbor to the cell
+		        	            for (LO l = 0; l < num_neighbors; l++) {
+                                    auto particle_l = neighborhood->getNeighbor(j,l);
+                                    auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,m) : halo_dof_view(particle_l-nlocal,m);
+                                    auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
+                                    u_val += dof_val * v;
+                                }
+                                int current_edge_num = (i - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                                int adj_j = (int)(adjacent_elements(j, current_edge_num));
 
-                            // needs reconstruction at this quadrature point
-		                    num_neighbors = neighborhood->getNumNeighbors(adj_j);
-                            // loop over particles neighbor to the cell
-		        	        for (LO l = 0; l < num_neighbors; l++) {
-                                auto particle_l = neighborhood->getNeighbor(adj_j,l);
-                                auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,0) : halo_dof_view(particle_l-nlocal,0);
-                                auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adj_j, l, adj_i+1);
-                                other_u_val += dof_val * v;
+                                int side_j_to_adjacent_cell = -1;
+                                for (int z=0; z<num_exterior_quadrature_per_edge; ++z) {
+                                    if ((int)(adjacent_elements(adj_j,z))==j) {
+                                        side_j_to_adjacent_cell = z;
+                                    }
+                                }
+                                int adj_i = num_interior_quadrature + side_j_to_adjacent_cell*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((i-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
+
+                                // needs reconstruction at this quadrature point
+		                        num_neighbors = neighborhood->getNumNeighbors(adj_j);
+                                // loop over particles neighbor to the cell
+		        	            for (LO l = 0; l < num_neighbors; l++) {
+                                    auto particle_l = neighborhood->getNeighbor(adj_j,l);
+                                    auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,m) : halo_dof_view(particle_l-nlocal,m);
+                                    auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adj_j, l, adj_i+1);
+                                    other_u_val += dof_val * v;
+                                }
+                                jump_error_on_cell += penalty * quadrature_weights(j,i) * (u_val - other_u_val) * (u_val - other_u_val);
                             }
-                            jump_error_on_cell += penalty * quadrature_weights(j,i) * (u_val - other_u_val) * (u_val - other_u_val);
                         }
+                        l2_error += l2_error_on_cell;
+                        h1_error += h1_error_on_cell;
+                        jump_error += jump_error_on_cell;
                     }
-                    l2_error += l2_error_on_cell;
-                    h1_error += h1_error_on_cell;
-                    jump_error += jump_error_on_cell;
                 }
             }
             printf("L2: %.5e\n", sqrt(l2_error));
