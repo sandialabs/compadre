@@ -2,7 +2,7 @@
 ---
 Compadre:
   'solution type': 'sine'
-  'loop size': 3
+  'loop size': 1
   'io':
     # source file for coords and normal vectors
     'input file prefix': '../test_data/grids/cube_with_normals_'
@@ -26,8 +26,10 @@ Compadre:
     'number of batches': 1
   'neighborhood':
     'method': nanoflann
-    'cutoff multiplier': 2.7
-    'size': 25.5
+    'cutoff multiplier': 1.7
+    'size': 30.0
+    'uniform radii': true
+    'radii post search scaling': 0.6
   'halo':
     'dynamic': true
     'multiplier': 8.0
