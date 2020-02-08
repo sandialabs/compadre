@@ -23,13 +23,13 @@ Compadre:
     'quadrature order': 2
     'quadrature dimension': 1
     'quadrature type': 'line'
-    'number of batches': 1
+    'number of batches': 100
   'neighborhood':
     'method': nanoflann
-    'cutoff multiplier': 1.7
+    'cutoff multiplier': 2.7
     'size': 30.0
     'uniform radii': true
-    'radii post search scaling': 0.6
+    'radii post search scaling': 1.5
   'halo':
     'dynamic': true
     'multiplier': 8.0
