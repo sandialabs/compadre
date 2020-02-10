@@ -357,7 +357,6 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
 
         double cutoff_p = _epsilons(target_index);
 
-        compadre_kernel_assert_debug(_dimensions==2 && "Only written for 2D");
         compadre_kernel_assert_debug(_source_extra_data.extent(0)>0 && "Extra data used but not set.");
 
         int neighbor_index_in_source = getNeighborIndex(target_index, neighbor_index);
@@ -376,12 +375,12 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
 
         // only used for integrated quantities
         XYZ endpoints_difference;
-        for (int j=0; j<dimension; ++j) {
-            endpoints_difference[j] = _source_extra_data(neighbor_index_in_source, j) - _source_extra_data(neighbor_index_in_source, j+2);
+        for (int j=0; j<_dimensions; ++j) {
+            endpoints_difference[j] = _source_extra_data(neighbor_index_in_source, j) - _source_extra_data(neighbor_index_in_source, j+_dimensions);
         }
-        double magnitude = EuclideanVectorLength(endpoints_difference, 2);
+        double magnitude = EuclideanVectorLength(endpoints_difference, _dimensions);
         
-        int alphax, alphay;
+        int alphax, alphay, alphaz;
         double alphaf;
         const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
 
@@ -390,64 +389,120 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
 
             int i = 0;
 
-            XYZ direction_2d;
-            XYZ quadrature_coord_2d;
-            for (int j=0; j<dimension; ++j) {
+            XYZ direction_nd;
+            XYZ quadrature_coord_nd;
+            for (int j=0; j<_dimensions; ++j) {
                 
                 if (polynomial_sampling_functional == FaceNormalIntegralSample 
                         || polynomial_sampling_functional == FaceTangentIntegralSample) {
                     // quadrature coord site
-                    quadrature_coord_2d[j] = _qm.getSite(quadrature,0)*_source_extra_data(neighbor_index_in_source, j);
-                    quadrature_coord_2d[j] += (1-_qm.getSite(quadrature,0))*_source_extra_data(neighbor_index_in_source, j+2);
-                    quadrature_coord_2d[j] -= getTargetCoordinate(target_index, j);
+                    quadrature_coord_nd[j] = _qm.getSite(quadrature,0)*_source_extra_data(neighbor_index_in_source, j);
+                    quadrature_coord_nd[j] += (1-_qm.getSite(quadrature,0))*_source_extra_data(neighbor_index_in_source, j+_dimensions);
+                    quadrature_coord_nd[j] -= getTargetCoordinate(target_index, j);
                 } else {
                     // traditional coord
-                    quadrature_coord_2d[j] = relative_coord[j];
+                    quadrature_coord_nd[j] = relative_coord[j];
                 }
 
                 // normal direction or tangent direction
                 if (polynomial_sampling_functional == FaceNormalIntegralSample 
                         || polynomial_sampling_functional == FaceNormalPointSample) {
                     // normal direction
-                    direction_2d[j] = _source_extra_data(neighbor_index_in_source, 4 + j);
+                    direction_nd[j] = _source_extra_data(neighbor_index_in_source, 2*_dimensions + j);
                 } else {
                     // tangent direction
-                    direction_2d[j] = _source_extra_data(neighbor_index_in_source, 6 + j);
+                    direction_nd[j] = _source_extra_data(neighbor_index_in_source, 3*_dimensions + j);
                 }
 
             }
 
             for (int j=0; j<_basis_multiplier; ++j) {
-                for (int n = start_index; n <= poly_order; n++){
-                    for (alphay = 0; alphay <= n; alphay++){
-                        alphax = n - alphay;
-                        alphaf = factorial[alphax]*factorial[alphay];
+                if (_dimensions==2) {
+                    for (int n = start_index; n <= poly_order; n++){
+                        for (alphaz = 0; alphaz <= n; alphaz++){
+                            int s = n - alphaz;
+                            for (alphay = 0; alphay <= s; alphay++){
+                                alphax = s - alphay;
+                                alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
 
-                        // local evaluation of vector [0,p] or [p,0]
-                        double v0, v1;
-                        v0 = (j==0) ? std::pow(quadrature_coord_2d.x/cutoff_p,alphax)
-                            *std::pow(quadrature_coord_2d.y/cutoff_p,alphay)/alphaf : 0;
-                        v1 = (j==0) ? 0 : std::pow(quadrature_coord_2d.x/cutoff_p,alphax)
-                            *std::pow(quadrature_coord_2d.y/cutoff_p,alphay)/alphaf;
+                                double v0, v1, v2;
+                                switch(j) {
+                                    case 1:
+                                        v0 = 0.0;
+                                        v1 = std::pow(quadrature_coord_nd.x/cutoff_p,alphax)
+                                          *std::pow(quadrature_coord_nd.y/cutoff_p,alphay)
+                                          *std::pow(quadrature_coord_nd.z/cutoff_p,alphaz)/alphaf;
+                                        v2 = 0.0;
+                                        break;
+                                    case 2:
+                                        v0 = 0.0;
+                                        v1 = 0.0;
+                                        v2 = std::pow(quadrature_coord_nd.x/cutoff_p,alphax)
+                                          *std::pow(quadrature_coord_nd.y/cutoff_p,alphay)
+                                          *std::pow(quadrature_coord_nd.z/cutoff_p,alphaz)/alphaf;
+                                        break;
+                                    default:
+                                        v0 = std::pow(quadrature_coord_nd.x/cutoff_p,alphax)
+                                          *std::pow(quadrature_coord_nd.y/cutoff_p,alphay)
+                                          *std::pow(quadrature_coord_nd.z/cutoff_p,alphaz)/alphaf;
+                                        v1 = 0.0;
+                                        v2 = 0.0;
+                                        break;
+                                }
 
-                        // either n*v or t*v
-                        double dot_product = direction_2d[0]*v0 + direction_2d[1]*v1;
+                                // either n*v or t*v
+                                double dot_product = direction_nd[0]*v0 + direction_nd[1]*v1 + direction_nd[2]*v2;
 
-                        // multiply by quadrature weight
-                        if (quadrature==0) {
-                            if (polynomial_sampling_functional == FaceNormalIntegralSample 
-                                    || polynomial_sampling_functional == FaceTangentIntegralSample) {
-                                // integral
-                                *(delta+i) = dot_product * _qm.getWeight(quadrature) * magnitude;
-                            } else {
-                                // point
-                                *(delta+i) = dot_product;
+                                // multiply by quadrature weight
+                                if (quadrature==0) {
+                                    if (polynomial_sampling_functional == FaceNormalIntegralSample 
+                                            || polynomial_sampling_functional == FaceTangentIntegralSample) {
+                                        // integral
+                                        *(delta+i) = dot_product * _qm.getWeight(quadrature) * magnitude;
+                                    } else {
+                                        // point
+                                        *(delta+i) = dot_product;
+                                    }
+                                } else {
+                                    // non-integrated quantities never satisfy this condition
+                                    *(delta+i) += dot_product * _qm.getWeight(quadrature) * magnitude;
+                                }
+                                i++;
                             }
-                        } else {
-                            // non-integrated quantities never satisfy this condition
-                            *(delta+i) += dot_product * _qm.getWeight(quadrature) * magnitude;
                         }
-                        i++;
+                    }
+                } else {
+                    for (int n = start_index; n <= poly_order; n++){
+                        for (alphay = 0; alphay <= n; alphay++){
+                            alphax = n - alphay;
+                            alphaf = factorial[alphax]*factorial[alphay];
+
+                            // local evaluation of vector [0,p] or [p,0]
+                            double v0, v1;
+                            v0 = (j==0) ? std::pow(quadrature_coord_nd.x/cutoff_p,alphax)
+                                *std::pow(quadrature_coord_nd.y/cutoff_p,alphay)/alphaf : 0;
+                            v1 = (j==0) ? 0 : std::pow(quadrature_coord_nd.x/cutoff_p,alphax)
+                                *std::pow(quadrature_coord_nd.y/cutoff_p,alphay)/alphaf;
+
+                            // either n*v or t*v
+                            double dot_product = direction_nd[0]*v0 + direction_nd[1]*v1;
+
+                            // multiply by quadrature weight
+                            if (quadrature==0) {
+                                if (polynomial_sampling_functional == FaceNormalIntegralSample 
+                                        || polynomial_sampling_functional == FaceTangentIntegralSample) {
+                                    // integral
+                                    *(delta+i) = dot_product * _qm.getWeight(quadrature) * magnitude;
+                                } else {
+                                    // point
+                                    *(delta+i) = dot_product;
+                                }
+                            } else {
+                                // non-integrated quantities never satisfy this condition
+                                *(delta+i) += dot_product * _qm.getWeight(quadrature) * magnitude;
+                            }
+                            i++;
+                        }
                     }
                 }
             }
