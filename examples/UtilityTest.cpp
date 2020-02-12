@@ -107,7 +107,7 @@ bool all_passed = true;
 
     // Then call out the function to create view
     auto filtered_flags = filterViewByID<Kokkos::HostSpace>(flags_device, 1);
-    auto extracted_data = extractViewByIndex<Kokkos::HostSpace>(data_device, filtered_flags);
+    auto extracted_data = Extract::extractViewByIndex<Kokkos::HostSpace>(data_device, filtered_flags);
 
     //! [Filtering Data]
 
