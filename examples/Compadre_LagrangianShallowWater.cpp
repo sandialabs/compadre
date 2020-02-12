@@ -205,7 +205,7 @@ int main (int argc, char* args[]) {
 //				Compadre::host_view_type initial_coords = particles->getCoords()->getPts()->getLocalView<Compadre::host_view_type>();
 //				Teuchos::RCP<Compadre::FieldT> disp_field = particles->getFieldManager()->getFieldByName("displacement");
 //
-//				for (LO i=0; i<initial_coords.dimension_0(); ++i) {
+//				for (LO i=0; i<initial_coords.extent(0); ++i) {
 //					for (LO j=0; j<3; ++j) {
 //						disp_field->setLocalScalarVal(i,j,initial_coords(i,j));
 //					}
@@ -301,7 +301,7 @@ int main (int argc, char* args[]) {
 //				Compadre::host_view_type initial_coords = particles->getCoords()->getPts(false /*halo*/, false /*use_physical_coords*/)->getLocalView<Compadre::host_view_type>();
 //				Teuchos::RCP<Compadre::FieldT> disp_field = particles->getFieldManager()->getFieldByName("displacement");
 //
-//				for (LO i=0; i<initial_coords.dimension_0(); ++i) {
+//				for (LO i=0; i<initial_coords.extent(0); ++i) {
 //					for (LO j=0; j<2; ++j) {
 //						printf("diff in (%d,%d) is: %f, %f, %f\n", i, j, initial_coords(i,j)-disp_field->getLocalScalarVal(i,j), initial_coords(i,j), disp_field->getLocalScalarVal(i,j));
 //					}

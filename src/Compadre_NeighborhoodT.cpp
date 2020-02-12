@@ -64,7 +64,7 @@ double NeighborhoodT::getHSupportSize(const local_index_type idx) const {
 
 void NeighborhoodT::setAllHSupportSizes(const scalar_type val) {
     host_view_type hsupportView = _h_support_size->getLocalView<host_view_type>();
-    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,hsupportView.dimension_0()), KOKKOS_LAMBDA(const int j) {
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,hsupportView.extent(0)), KOKKOS_LAMBDA(const int j) {
         hsupportView(j,0) = val;
     });
 }
@@ -88,7 +88,7 @@ scalar_type NeighborhoodT::computeMinHSupportSize(const bool global) const {
     Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_target_coords->nLocal()),
             KOKKOS_LAMBDA (const int i, scalar_type &myVal) {
         myVal = hsupportView(i,0)<myVal ? hsupportView(i,0) : myVal;
-    }, Kokkos::Experimental::Min<scalar_type>(local_processor_min_radius));
+    }, Kokkos::Min<scalar_type>(local_processor_min_radius));
 
     if (global) {
         // collect min radius from all processors
@@ -111,7 +111,7 @@ scalar_type NeighborhoodT::computeMaxHSupportSize(const bool global) const {
     Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_target_coords->nLocal()),
             KOKKOS_LAMBDA (const int i, scalar_type &myVal) {
         myVal = hsupportView(i,0)>myVal ? hsupportView(i,0) : myVal;
-    }, Kokkos::Experimental::Max<scalar_type>(local_processor_max_radius));
+    }, Kokkos::Max<scalar_type>(local_processor_max_radius));
 
     if (global) {
         // collect max radius from all processors

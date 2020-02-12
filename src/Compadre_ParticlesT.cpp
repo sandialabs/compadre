@@ -154,7 +154,7 @@ void ParticlesT::removeParticles(const std::vector<local_index_type>& coord_ids,
 	Teuchos::RCP<mvec_local_index_type> new_flag = Teuchos::rcp(new mvec_local_index_type(_coords->getMapConst(), 1, setToZero));
 	host_view_local_index_type new_bc_id = new_flag->getLocalView<host_view_local_index_type>();
 	host_view_local_index_type old_bc_id = _flag->getLocalView<host_view_local_index_type>();
-	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,old_bc_id.dimension_0()), KOKKOS_LAMBDA(const int i) {
+	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,old_bc_id.extent(0)), KOKKOS_LAMBDA(const int i) {
 		bool deleted = false;
 		local_index_type offset = num_remove_coords;
 		for (local_index_type j=0; j<num_remove_coords; j++) {
@@ -198,12 +198,12 @@ void ParticlesT::mergeWith(const particles_type* other_particles) {
 	if (other_particles->getCoordsConst()->isLagrangian()) {
 		other_pts_vals = other_particles->getCoordsConst()->getPts(false /*halo*/, false)->getLocalView<host_view_type>();
 		other_pts_physical_vals = other_particles->getCoordsConst()->getPts()->getLocalView<host_view_type>();
-		other_pts_physical_num = other_pts_physical_vals.dimension_0();
+		other_pts_physical_num = other_pts_physical_vals.extent(0);
 	} else {
 		other_pts_vals = other_particles->getCoordsConst()->getPts()->getLocalView<host_view_type>();
 		other_pts_physical_vals = other_particles->getCoordsConst()->getPts(false /*halo*/, false)->getLocalView<host_view_type>();
 	}
-	other_pts_num = other_pts_vals.dimension_0();
+	other_pts_num = other_pts_vals.extent(0);
 
 	std::vector<xyz_type> copied_pts(other_pts_num);
 	std::vector<xyz_type> copied_pts_physical;
@@ -230,7 +230,7 @@ void ParticlesT::mergeWith(const particles_type* other_particles) {
 	host_view_local_index_type old_bc_id = _flag->getLocalView<host_view_local_index_type>();
 	host_view_local_index_type other_bc_id = other_particles->getFlags()->getLocalView<host_view_local_index_type>();
 	// copy over old boundary ids
-	const local_index_type old_bc_id_num = (local_index_type)(old_bc_id.dimension_0());
+	const local_index_type old_bc_id_num = (local_index_type)(old_bc_id.extent(0));
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,old_bc_id_num), KOKKOS_LAMBDA(const int i) {
 		new_bc_id(i,0) = old_bc_id(i,0);
 	});
@@ -391,7 +391,7 @@ void ParticlesT::setFlag(const local_index_type idx, const local_index_type val)
 	flagView(idx,0) = val;
 }
 
-double ParticlesT::getFlag(const local_index_type idx) const {
+local_index_type ParticlesT::getFlag(const local_index_type idx) const {
 	host_view_local_index_type flagView = _flag->getLocalView<host_view_local_index_type>();
 	return flagView(idx,0);
 }

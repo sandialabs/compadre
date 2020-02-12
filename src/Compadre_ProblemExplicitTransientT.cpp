@@ -972,13 +972,13 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 //		if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
 //			// copy this to updated_solution so that it starts in the right place
 //			host_view_type reference_data = reference_solution[row_block]->getLocalView<host_view_type>();
-//			for (local_index_type k=0; k<reference_data.dimension_0(); ++k) {
+//			for (local_index_type k=0; k<reference_data.extent(0); ++k) {
 //				printf("field #%d: index #%d: val:%.16f\n", field_one, k, reference_data(k,0));
 //			}
 //		} else {
 //			// copy this to updated_solution so that it starts in the right place
 //			host_view_type reference_data = reference_solution[0]->getLocalView<host_view_type>();
-//			for (local_index_type k=0; k<reference_data.dimension_0(); ++k) {
+//			for (local_index_type k=0; k<reference_data.extent(0); ++k) {
 //				printf("field #%d: index #%d: val:%.16f\n", field_one, k, reference_data(k,0));
 //			}
 //			break;

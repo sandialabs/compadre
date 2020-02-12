@@ -390,7 +390,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 	});
 
 	auto epsilons = neighborhood->getHSupportSizes()->getLocalView<const host_view_type>();
-	Kokkos::View<double*> kokkos_epsilons("target_coordinates", target_coords->nLocal(), target_coords->nDim());
+	Kokkos::View<double*> kokkos_epsilons("epsilons", target_coords->nLocal());
 	Kokkos::View<double*>::HostMirror kokkos_epsilons_host = Kokkos::create_mirror_view(kokkos_epsilons);
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
 		kokkos_epsilons_host(i) = epsilons(i,0);

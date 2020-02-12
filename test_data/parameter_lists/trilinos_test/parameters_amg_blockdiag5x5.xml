@@ -3,7 +3,9 @@
     <Parameter name="input file prefix" type="string" value="../test_data/grids/"/>
     <Parameter name="input file" type="string" value="output.vtk"/>
     <Parameter name="output file prefix" type="string" value="../test_data/"/>
-    <Parameter name="output file" type="string" value="trilinos_test_output_blockdiag5x5.pvtp"/>
+    <Parameter name="output file" type="string" value="trilinos_test_output_blockdiag5x5.nc"/>
+    <Parameter name="preserve gids" type="bool" value="false"/>
+    <Parameter name="gids name" type="string" value="id"/>
   </ParameterList>
   <ParameterList name="solver">
     <Parameter name="type" type="string" value="iterative"/>

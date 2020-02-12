@@ -154,7 +154,7 @@ void FieldManager::updateFieldsFromVector(Teuchos::RCP<mvec_type> source, local_
 	host_view_type source_data = source->getLocalView<host_view_type>(); // this field's new info
 
 	// copy data from source to field_vals
-	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,particle_gids_locally_owned.dimension_0()), KOKKOS_LAMBDA(const int i) {
+	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,particle_gids_locally_owned.extent(0)), KOKKOS_LAMBDA(const int i) {
 		for (local_index_type j=0; j<_fields[field_num]->nDim(); j++) {
 			field_vals(i,j) = source_data(i*this->_fields[field_num]->nDim() + j,0);
 		}
@@ -184,7 +184,7 @@ void FieldManager::updateVectorFromFields(Teuchos::RCP<mvec_type> target, local_
 	host_view_type target_data = target->getLocalView<host_view_type>(); // this field's new info
 
 	// copy data from source to field_vals
-	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,particle_gids_locally_owned.dimension_0()), KOKKOS_LAMBDA(const int i) {
+	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,particle_gids_locally_owned.extent(0)), KOKKOS_LAMBDA(const int i) {
 		for (local_index_type j=0; j<_fields[field_num]->nDim(); j++) {
 			target_data(i*this->_fields[field_num]->nDim() + j,0) = field_vals(i,j);
 		}

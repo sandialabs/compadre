@@ -246,7 +246,7 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 	// this has the effect of 1) ensuring that a target site is only claimed by one
 	// peer processor
 
-	gid_view_type local_to_global_id_found("found", our_coords->nLocal(), 0);
+	gid_view_type local_to_global_id_found("found", our_coords->nLocal());
     for (size_t i=0; i<peer_processors_i_overlap.size(); i++) {
 
 			count_type count_gids_found("GID_Count");
@@ -462,7 +462,7 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 		for (size_t i = 0; i<peer_processors_i_overlap.size(); i++) {
 			Teuchos::ArrayRCP<global_index_type> indices_to_send;
                         if (coords_to_send[i]->size() > 0) {
-				indices_to_send = Teuchos::ArrayRCP<global_index_type>(&(*coords_to_send[i])(0), 0, coords_to_send[i]->dimension(0), false);
+				indices_to_send = Teuchos::ArrayRCP<global_index_type>(&(*coords_to_send[i])(0), 0, coords_to_send[i]->extent(0), false);
 			} else {
 				indices_to_send = Teuchos::ArrayRCP<global_index_type>(NULL, 0, 0, false);
 			}
@@ -474,8 +474,8 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 	// now to figure out offsets
 	// each set of processes (lower & upper), both have their own global ids that are now stored in indices_i_need
 	// we need to set up the importers and exporters such that we can move data
-	std::vector<global_index_type> indices_i_have(gids.dimension_0());
-	for (size_t i=0; i<gids.dimension_0(); i++) {
+	std::vector<global_index_type> indices_i_have(gids.extent(0));
+	for (size_t i=0; i<gids.extent(0); i++) {
 		indices_i_have[i] = gids(i);
 //		std::cout << global_comm->getRank() << " have " << indices_i_have.size() << " " << gids(i) << std::endl;
 	}
@@ -490,7 +490,7 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 		// elements I need from upper
 		_lower_map_for_lower_data = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
 																 &indices_i_have[0],
-																 gids.dimension_0(),
+																 gids.extent(0),
 																 0,
 																 global_comm));
 
@@ -540,7 +540,7 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 		// elements I provide for lower
 		_upper_map_for_upper_data = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
 																&indices_i_have[0],
-																gids.dimension_0(),
+																gids.extent(0),
 																0,
 																global_comm));
 
@@ -567,12 +567,12 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 //	host_view_type upper_pt_vals;
 //	if (_amLower) {
 //		upper_pt_vals = lower_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
-//		for (int i=0; i<upper_pt_vals.dimension_0(); i++) {
+//		for (int i=0; i<upper_pt_vals.extent(0); i++) {
 //			upper_pt_vals(i,0) = 50;
 //		}
 //	} else {
 //		lower_pt_vals = upper_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
-//		for (int i=0; i<lower_pt_vals.dimension_0(); i++) {
+//		for (int i=0; i<lower_pt_vals.extent(0); i++) {
 //			lower_pt_vals(i,0) = -1;
 //		}
 //	}
@@ -582,12 +582,12 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 //
 //	if (_amLower) {
 //		lower_pt_vals = lower_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
-//		for (int i=0; i<lower_pt_vals.dimension_0(); i++) {
+//		for (int i=0; i<lower_pt_vals.extent(0); i++) {
 //			std::cout << _amLower << " " << global_comm->getRank() << " " << gids(i) << " " << lower_pt_vals(i,0) << std::endl;
 //		}
 //	} else {
 //		upper_pt_vals = upper_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
-//		for (int i=0; i<upper_pt_vals.dimension_0(); i++) {
+//		for (int i=0; i<upper_pt_vals.extent(0); i++) {
 //			std::cout << _amLower << " " << global_comm->getRank() << " " << gids(i) << " " << upper_pt_vals(i,0) << std::endl;
 //		}
 //	}
@@ -618,14 +618,14 @@ void RemoteDataManager::putRemoteCoordinatesInParticleSet(particles_type* partic
 	host_view_type duplicated_pt_vals;
 	if (_amLower) {
 		duplicated_pt_vals = lower_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
-		for (size_t i=0; i<duplicated_pt_vals.dimension_0(); i++) {
+		for (size_t i=0; i<duplicated_pt_vals.extent(0); i++) {
 			for (local_index_type j=0; j<_ndim; j++) {
 				duplicated_pt_vals(i,j) = original_pt_vals(i,j);
 			}
 		}
 	} else {
 		duplicated_pt_vals = upper_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
-		for (size_t i=0; i<duplicated_pt_vals.dimension_0(); i++) {
+		for (size_t i=0; i<duplicated_pt_vals.extent(0); i++) {
 			for (local_index_type j=0; j<_ndim; j++) {
 				duplicated_pt_vals(i,j) = original_pt_vals(i,j);
 			}
@@ -646,7 +646,7 @@ void RemoteDataManager::putRemoteCoordinatesInParticleSet(particles_type* partic
 		coordinates_to_move_into_particles = upper_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
 	}
 
-	for (size_t i=0; i<coordinates_to_move_into_particles.dimension_0(); i++) {
+	for (size_t i=0; i<coordinates_to_move_into_particles.extent(0); i++) {
 		coords_of_particles_to_overwrite->replaceLocalCoords(i,
 															coordinates_to_move_into_particles(i,0),
 															coordinates_to_move_into_particles(i,1),
@@ -673,14 +673,14 @@ void RemoteDataManager::putRemoteCoordinatesInParticleSet(particles_type* partic
 //	host_view_type duplicated_field_vals;
 //	if (_amLower) {
 //		duplicated_field_vals = lower_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
-//		for (local_index_type i=0; i<duplicated_field_vals.dimension_0(); i++) {
+//		for (local_index_type i=0; i<duplicated_field_vals.extent(0); i++) {
 //			for (local_index_type j=0; j<1; j++) {
 //				duplicated_field_vals(i,j) = rank_data_of_who_received_to_send(i,j);
 //			}
 //		}
 //	} else {
 //		duplicated_field_vals = upper_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
-//		for (local_index_type i=0; i<duplicated_field_vals.dimension_0(); i++) {
+//		for (local_index_type i=0; i<duplicated_field_vals.extent(0); i++) {
 //			for (local_index_type j=0; j<1; j++) {
 //				duplicated_field_vals(i,j) = rank_data_of_who_received_to_send(i,j);
 //			}
@@ -714,7 +714,7 @@ void RemoteDataManager::putRemoteCoordinatesInParticleSet(particles_type* partic
 //		coordinates_to_move_into_particles = _our_coords->getPts()->getLocalView<host_view_type>();
 //	}
 //
-//	for (local_index_type i=0; i<coordinates_to_move_into_particles.dimension_0(); i++) {
+//	for (local_index_type i=0; i<coordinates_to_move_into_particles.extent(0); i++) {
 //		coords_of_particles_to_overwrite->replaceLocalCoords(i,
 //															coordinates_to_move_into_particles(i,0),
 //															coordinates_to_move_into_particles(i,1),
@@ -725,14 +725,14 @@ void RemoteDataManager::putRemoteCoordinatesInParticleSet(particles_type* partic
 //	// copy data into vector
 //	if (_amLower) {
 //		duplicated_field_vals = lower_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
-//		for (local_index_type i=0; i<duplicated_field_vals.dimension_0(); i++) {
+//		for (local_index_type i=0; i<duplicated_field_vals.extent(0); i++) {
 //			for (local_index_type j=0; j<1; j++) {
 //				rank_data_of_who_received_to_send(i,j) = duplicated_field_vals(i,j);
 //			}
 //		}
 //	} else {
 //		duplicated_field_vals = upper_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
-//		for (local_index_type i=0; i<duplicated_field_vals.dimension_0(); i++) {
+//		for (local_index_type i=0; i<duplicated_field_vals.extent(0); i++) {
 //			for (local_index_type j=0; j<1; j++) {
 //				rank_data_of_who_received_to_send(i,j) = duplicated_field_vals(i,j);
 //			}
@@ -756,12 +756,12 @@ void RemoteDataManager::putRemoteWeightsInParticleSet(const particles_type* sour
 
 	if (_amLower) {
 		duplicated_weighting_vals = lower_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
-		for (size_t i=0; i<duplicated_weighting_vals.dimension_0(); i++) {
+		for (size_t i=0; i<duplicated_weighting_vals.extent(0); i++) {
 			duplicated_weighting_vals(i,0) = original_weighting_vals(i,0);
 		}
 	} else {
 		duplicated_weighting_vals = upper_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
-		for (size_t i=0; i<duplicated_weighting_vals.dimension_0(); i++) {
+		for (size_t i=0; i<duplicated_weighting_vals.extent(0); i++) {
 			duplicated_weighting_vals(i,0) = original_weighting_vals(i,0);
 		}
 	}
@@ -790,7 +790,7 @@ void RemoteDataManager::putRemoteWeightsInParticleSet(const particles_type* sour
 		weights_inside_particles = particles_to_overwrite->getFieldManager()->getFieldByName(weighting_field_name)->getMultiVectorPtr()->getLocalView<host_view_type>();
 	}
 
-	for (size_t i=0; i<weights_to_move_into_particles.dimension_0(); i++) {
+	for (size_t i=0; i<weights_to_move_into_particles.extent(0); i++) {
 		weights_inside_particles(i,0) = weights_to_move_into_particles(i,0);
 	}
     // no halo field updating is intentional
@@ -1316,7 +1316,7 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 		} else {
 			field_vals_to_send = upper_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
 		}
-		for (size_t j=0; j<field_vals_to_send.dimension_0(); j++) {
+		for (size_t j=0; j<field_vals_to_send.extent(0); j++) {
 			for (local_index_type k=0; k<each_peer_field_dim[i]; k++) {
 				field_vals_to_send(j,k+offset) = this_peer_fields_values(j,k);
 			}
@@ -1367,7 +1367,7 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 		} else {
 			field_vals_sent_from_peer = upper_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
 		}
-		for (size_t j=0; j<field_vals_sent_from_peer.dimension_0(); j++) {
+		for (size_t j=0; j<field_vals_sent_from_peer.extent(0); j++) {
 			for (local_index_type k=0; k<received_field_dim[i]; k++) {
 				my_fields_values(j,k) = field_vals_sent_from_peer(j,k+offset);
 			}

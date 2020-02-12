@@ -84,7 +84,7 @@ struct evaluateVector {
 		default:
 			vecval = fn->evalVector(xyz);
 		}
-		switch (vals.dimension_1()) {
+		switch (vals.extent(1)) {
 		case 3:
 			vals(i,2) = vecval.z;
 		case 2:

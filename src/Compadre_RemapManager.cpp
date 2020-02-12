@@ -118,7 +118,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
             Kokkos::deep_copy(kokkos_target_coordinates, kokkos_target_coordinates_host);
     
             auto epsilons = _neighborhoodInfo->getHSupportSizes()->getLocalView<const host_view_type>();
-            kokkos_epsilons = Kokkos::View<double*>("target_coordinates", target_coords->nLocal(), target_coords->nDim());
+            kokkos_epsilons = Kokkos::View<double*>("epsilons", target_coords->nLocal());
             Kokkos::View<double*>::HostMirror kokkos_epsilons_host = Kokkos::create_mirror_view(kokkos_epsilons);
             Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
                 kokkos_epsilons_host(i) = epsilons(i,0);
@@ -284,14 +284,14 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
     
                 host_view_type target_values = _trg_particles->getFieldManager()->
                         getFieldByID(target_field_num)->getMultiVectorPtr()->getLocalView<host_view_type>();
-                const local_index_type num_target_values = target_values.dimension_0();
+                const local_index_type num_target_values = target_values.extent(0);
     
                 const host_view_type source_values_holder = _src_particles->getFieldManagerConst()->
                         getFieldByID(source_field_num)->getMultiVectorPtrConst()->getLocalView<const host_view_type>();
                 const host_view_type source_halo_values_holder = _src_particles->getFieldManagerConst()->
                         getFieldByID(source_field_num)->getHaloMultiVectorPtrConst()->getLocalView<const host_view_type>();
     
-                const local_index_type num_local_particles = source_values_holder.dimension_0();
+                const local_index_type num_local_particles = source_values_holder.extent(0);
     
     
                 // fill in the source values, adding regular with halo values into a kokkos view
@@ -351,7 +351,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                     target_values = _trg_particles->getCoordsConst()->getPts(false/*halo*/,true /*use_physical_coordinates*/)->getLocalView<host_view_type>();
                 }
     
-                const local_index_type num_target_values = target_values.dimension_0();
+                const local_index_type num_target_values = target_values.extent(0);
     
                 host_view_type source_values_holder;
                 host_view_type source_halo_values_holder;
@@ -364,7 +364,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                     source_halo_values_holder = _src_particles->getCoordsConst()->getPts(true/*halo*/, true /*use_physical_coordinates*/)->getLocalView<host_view_type>();
                 }
     
-                const local_index_type num_local_particles = source_values_holder.dimension_0();
+                const local_index_type num_local_particles = source_values_holder.extent(0);
     
     
     
