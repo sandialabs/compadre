@@ -53,7 +53,7 @@ ParticlesT::ParticlesT (Teuchos::RCP<Teuchos::ParameterList> parameters,
 
 void ParticlesT::insertParticles(const std::vector<xyz_type>& new_pts_vector, const scalar_type rebuilt_halo_size,
 		bool repartition, bool inserting_physical_coords, bool repartition_using_physical_coords, bool verify_coords_on_processor) {
-
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(_parameters->get<Teuchos::ParameterList>("io").get<bool>("preserve gids"), "Preservation of global IDs is incompatible with inserting particles.\n");
 	/*
 	 * A few important details on this function.
 	 *
@@ -140,6 +140,8 @@ void ParticlesT::insertParticles(const std::vector<xyz_type>& new_pts_vector, co
 }
 
 void ParticlesT::removeParticles(const std::vector<local_index_type>& coord_ids, const scalar_type rebuilt_halo_size, bool repartition, bool repartition_using_physical_coords) {
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(_parameters->get<Teuchos::ParameterList>("io").get<bool>("preserve gids"), "Preservation of global IDs is incompatible with removing particles.\n");
+
 	std::vector<local_index_type> coord_ids_ordered = coord_ids;
 	std::sort (coord_ids_ordered.begin(), coord_ids_ordered.end());
 
@@ -189,6 +191,8 @@ void ParticlesT::removeParticles(const std::vector<local_index_type>& coord_ids,
 }
 
 void ParticlesT::mergeWith(const particles_type* other_particles) {
+	TEUCHOS_TEST_FOR_EXCEPT_MSG(_parameters->get<Teuchos::ParameterList>("io").get<bool>("preserve gids"), "Preservation of global IDs is incompatible with merging particles.\n");
+
 	// we could copy data using Kokkos arrays, but converting to std::vector isn't that expensive and
 	// allows us to reuse the existing interface to CoordsT for inserting points
 	host_view_type other_pts_vals;
