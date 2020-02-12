@@ -32,16 +32,15 @@ or
     >> mkdir build
     >> cd build
 ```
- 3.) then run this script:
+ 3.) then run this script (with your changes to `SRC_DIR`, `MPI_DIR`, and `INSTALL_DIR`):
 
 ```
 #!/bin/bash
 
-SRC_DIR=$HOME/code/Trilinos
-BUILD_DIR=$HOME/code/Trilinos/build
-INSTALL_DIR=$BUILD_DIR/install
-
-MPI_DIR=/usr
+SRC_DIR=/your/Trilinos-source
+BUILD_DIR=$SRC_DIR/build
+INSTALL_DIR=/your/Trilinos-install
+MPI_DIR=/your/mpi-base-dir
 
 rm -rf CMakeFiles/ CMakeCache.txt
 
@@ -59,11 +58,6 @@ cmake \
 -D TPL_ENABLE_MPI:BOOL=ON \
 -D Trilinos_ENABLE_OpenMP:BOOL=ON \
 -D TPL_ENABLE_Pthread:BOOL=OFF \
-\
-\
--D TPL_ENABLE_Netcdf:BOOL=ON \
--D Netcdf_INCLUDE_DIRS:FILEPATH=$NETCDF_DIR/include \
--D Netcdf_LIBRARY_DIRS:FILEPATH=$NETCDF_DIR/lib \
 \
 -D Trilinos_DISABLE_ENABLED_FORWARD_DEP_PACKAGES=ON \
 -D Trilinos_ENABLE_ALL_PACKAGES:BOOL=OFF \
@@ -120,98 +114,213 @@ cmake \
 $SRC_DIR
 ```
 
-#### NetCDF + HDF5
+ 4.)  After running the above script (configuring), run:
+```
+    >> make -j4
+```
+
+ 5.) After compilation is completed, run:
+```
+    >> make install
+```
+
+#### NetCDF + HDF5 (required to use .nc and .g files)
 HDF5 needs to be installed before NetCDF.
 
-HDF5 instructions:
+#####HDF5 instructions:
 
-NetCDF instructions:
+ 1.) Get HDF5 source code at https://www.hdfgroup.org/downloads/hdf5/source-code/ , but be
+**SURE** to get the **NON-CMake** version ending in .tar.gz as the .zip has wrong line endings (which will break your build).
 
-#### VTK
-
-  VTK and NetCDF are the two means by which files can be read into the Harness.
-
-
-
-
-  1.) Copy one of the examples bash script files from ./scripts to the folder where you would like to build the project.
-      Ideally, this should not be at the root of the repository as it is never suggested to build in-source.
-  
-  example:
-
+ 2.) Run the following script (in-source, with your changes to `MPI_DIR` and `INSTALL_DIR`):
 ```
-  >> mkdir build
-  >> cp ./scripts/script_you_choose.sh build
-```
-  
-  2.) Edit the script file that you copied to your soon-to-be build folder.
-      Make changes to these files to suit your needs (KokkosCore_PREFIX, etc...)
-      Then, run the modified bash script file.
-  
-  (assumes you moved the script to ./build as in #1 )
-  
-```
-  >> cd ./build
-  >> vi script_you_choose.sh
-```
-  (make any changes and save, [Python Interface and Matlab examples](Python-Interface-Install.md))
-  
-```
-  >> ./script_you_choose.sh
-```
-      
-  3.) Build the project.
-  
-```
-  >> make -j4                      # if you want to build using 4 processors
-  >> make install
-```
-  
-  4.) Test the built project by exercising the suite of tests.
-  
-```
-  >> ctest
+#!/bin/bash
+MPI_DIR=/usr
+INSTALL_DIR=/your/install/location
+CC=$MPI_DIR/bin/mpicc ./configure --enable-parallel --prefix=$INSTALL_DIR
 ```
 
-  5.) Build doxygen documentation for the project by executing
-
+ 3.)  After running the above script (configuring), run:
 ```
-  >> make Doxygen
-  >> [your favorite internet browser executable] doc/output/html/index.html
+    >> make -j4
 ```
 
-   
-  If some tests fail, be sure to check the error as it is possible that you have not configured CMake
-  as to where it should locate libraries like Kokkos, Python, etc...
-  If a library is missing but not turned on in the CMake options, then the test will simply fail.
-  
-## Importing Project Into Eclipse
+ 4.) After compilation is completed, run:
+```
+    >> make install
+```
 
-From https://stackoverflow.com/questions/11645575/importing-a-cmake-project-into-eclipse-cdt,
-the instructions for importing from CMake into eclipse are as follows:
 
-> First, choose a directory for the CMake files. I prefer to keep my Eclipse workspaces in 
-> ~/workspaces and the source code in ~/src. Data which I need to build or test the project 
-> goes in subdirs of the project's workspace dir, so I suggest doing the same for CMake.
-> 
-> Assuming both your workspace and source folders are named someproject, do:
-> 
-> cd ~/workspaces/someproject
-> mkdir cmake
-> cd cmake
-> cmake -G "Eclipse CDT4 - Unix Makefiles" ~/src/someproject
-> 
-> Then, in your Eclipse workspace, do:
-> 
-> File > Import... > General > Existing Projects into Workspace
-> 
-> Check Select root directory and choose ~/workspaces/someproject/cmake. Make sure Copy projects into workspace is NOT checked.
-> 
-> Click Finish and you have a CMake project in your workspace.
-> 
-> Two things to note:
-> 
->   I used cmake for the workspace subdir, but you can use a name of your choice.
->   If you make any changes to your build configuration (such as editing Makefile.am), you will need to re-run the 
->   last command in order for Eclipse to pick up the changes.
+#####NetCDF instructions:
+
+ 1.) Get source code at https://www.unidata.ucar.edu/downloads/netcdf/
+     get .tar.gz file under "NetCDF-C Releases"
+
+ 2.) Run the following script (with your changes to `HDF5_DIR`, `MPI_DIR`, and `INSTALL_PREFIX`):
+```
+#!/bin/bash
+INSTALL_PREFIX=/your/netcdf
+HDF5_DIR=/your/hdf5
+MPI_DIR=/usr
+CC=$MPI_DIR/bin/mpicc CPPFLAGS=-I${HDF5_DIR}/include LDFLAGS=-L${HDF5_DIR}/lib \
+./configure --enable-parallel-tests --prefix=$INSTALL_PREFIX --disable-dap
+```
+
+ `--disable-dap` is so that you don't need curl
+
+ 3.)  After running the above script (configuring), run:
+```
+    >> make -j4
+```
+
+ 4.) After compilation is completed, run:
+```
+    >> make install
+```
+
+ 5.) After installation (optional):
+```
+    >> make check
+```
+
+#### VTK (required to use .vtk, .pvtu, and .pvtp files)
+
+ 1.) Get source code from https://vtk.org/download/ 
+ Under "Latest Release" and "Source" get the .tar.gz file
+
+ 2.)  After cloning, go into VTK source directory followed by:
+```
+    >> mkdir build
+    >> cd build
+```
+ 3.) then run this script (with your changes to `SRC_DIR`, `MPI_DIR`, and `INSTALL_DIR`):
+```
+#!/bin/bash
+
+SRC_DIR=/your/VTK-source
+BUILD_DIR=$SRC_DIR/build
+INSTALL_DIR=/your/VTK-install
+MPI_DIR=/your/mpi-base-dir
+
+rm -rf CMakeCache* CMakeFiles*
+
+cmake \
+-D BUILD_SHARED_LIBS:BOOL=ON \
+-D CMAKE_INSTALL_PREFIX:PATH=$INSTALL_DIR \
+-D CMAKE_INSTALL_NAME_DIR:STRING=$INSTALL_DIR/lib \
+-D CMAKE_BUILD_WITH_INSTALL_RPATH:BOOL=ON \
+-D BUILD_TESTING:BOOL=OFF \
+-D CMAKE_C_COMPILER=$MPI_DIR/bin/mpicc \
+-D CMAKE_CXX_COMPILER=$MPI_DIR/bin/mpic++ \
+-D CMAKE_INSTALL_RPATH:STRING=$INSTALL_DIR/lib \
+-D VTK_SMP_IMPLEMENTATION_TYPE=OPENMP \
+-D Module_vtkFiltersParallelMPI:BOOL=ON \
+-D Module_vtkIOMPIParallel:BOOL=ON \
+-D Module_vtkIOParallelExodus:BOOL=ON \
+-D Module_vtkIOParallelNetCDF:BOOL=ON \
+-D Module_vtkParallelMPI:BOOL=ON \
+-D Module_vtkRenderingParallel:BOOL=ON \
+-D MPIEXEC_MAX_NUMPROCS:STRING=8 \
+-D Module_vtkIOMPIImage:BOOL=ON \
+-D VTK_Group_MPI:BOOL=ON \
+-D VTK_MPI_MAX_NUMPROCS:STRING=8 \
+-D CMAKE_BUILD_TYPE:STRING=Release \
+\
+\
+$SRC_DIR
+```
+
+ 4.)  After running the above script (configuring), run:
+```
+    >> make -j4
+```
+
+ 5.) After compilation is completed, run:
+```
+    >> make install
+```
+
+ While running this script, may encounter needing X11_Xt_LIB
+ - on Ubuntu, 
+```
+>> sudo apt-get install libxt-dev
+```
+ - on RHEL,   
+```
+>> sudo yum install libXt-devel
+```
+
+#### Compadre Harness
+
+Now that all of the third party libraries have been installed (HDF5, NetCDF, VTK, and Trilinos), it is time to install the Compadre Harness.
+
+ 1.) Get the source code at https://github.com/SNLComputation/compadre
+     Clone the repo, then check out the **harness** branch:
+```
+>> git clone https://github.com/SNLComputation/compadre.git
+>> cd compadre
+>> git fetch origin
+>> git checkout -b harness origin/harness
+```
+
+ 2.)  After cloning, go into compadre directory followed by:
+```
+    >> mkdir build
+    >> cd build
+```
+
+ 3.) then run this script (with your changes to `MPI_DIR`, and `INSTALL_DIR`):
+
+```
+#!/bin/bash
+
+INSTALL_DIR=/your/harness/install
+MPI_DIR=/usr
+TRILINOS_DIR=/your/trilinos/install
+NETCDF_DIR=/your/netcdf/install
+VTK_DIR=/your/vtk/install
+
+# following lines for build directory cleanup
+find . ! -name '*.sh' -type f -exec rm -f {} +
+find . -mindepth 1 -type d -exec rm -rf {} +
+
+cmake \
+    -D CMAKE_CXX_COMPILER=$MPI_DIR/bin/mpic++ \
+    -D CMAKE_INSTALL_PREFIX=$INSTALL_DIR \
+    -D CompadreHarness_USE_Trilinos:BOOL=ON \
+    -D CompadreHarness_USE_Trilinos_CXX_Flags:BOOL=ON \
+    -D CompadreHarness_USE_Trilinos_Solvers:BOOL=ON \
+    -D CompadreHarness_USE_Netcdf:BOOL=ON \
+    -D CompadreHarness_USE_VTK:BOOL=ON \
+    -D CompadreHarness_USE_PYTHON:BOOL=OFF \
+    -D CompadreHarness_EXAMPLES:BOOL=ON \
+    -D CompadreHarness_TESTS:BOOL=ON \
+    -D Toolkit_EXAMPLES:BOOL=ON \
+    -D Toolkit_TESTS:BOOL=ON \
+    -D Trilinos_PREFIX:FILEPATH=$TRILINOS_DIR \
+    -D Netcdf_PREFIX:FILEPATH=$NETCDF_DIR \
+    -D VTK_PREFIX:FILEPATH=$VTK_DIR \
+    \
+    ..
+```
+Other install scripts are available in the `./scripts` directory of the repo.
+
+ 4.)  After running the above script (configuring), run:
+```
+    >> make -j4
+```
+
+ 5.) After compilation is completed, run:
+```
+    >> make install
+```
+
+ 6.) Go to the `INSTALL_DIR` and run:
+```
+    >> ctest
+```
+
+
+
+
 
