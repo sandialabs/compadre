@@ -44,7 +44,7 @@ Teuchos::RCP<const DOFManager::dof_data_type> DOFManager::generateDOFMap(std::ve
 
 	if (!(halo_particle_map.is_null())) {
 		halo_particle_gids_locally_owned = halo_particle_map->getMyGlobalIndices();
-		num_halo_particle_gids = halo_particle_gids_locally_owned.dimension_0();
+		num_halo_particle_gids = halo_particle_gids_locally_owned.extent(0);
 	}
 	// above is particles and halo particles, but not DOFS
 
@@ -66,17 +66,17 @@ Teuchos::RCP<const DOFManager::dof_data_type> DOFManager::generateDOFMap(std::ve
 		field_dimensions_max_size = std::max(field_dimensions_max_size, _fields[field_numbers[i]]->nDim());
 	}
 
-    local_dof_map_view_type particle_field_component_to_dof_map = local_dof_map_view_type("particle field components to local DOF", particle_gids_locally_owned.dimension_0() + num_halo_particle_gids, _fields.size(), field_dimensions_max_size);
+    local_dof_map_view_type particle_field_component_to_dof_map = local_dof_map_view_type("particle field components to local DOF", particle_gids_locally_owned.extent(0) + num_halo_particle_gids, _fields.size(), field_dimensions_max_size);
 
 	for (size_t i=0; i<field_numbers.size(); i++) {
         // check field type here to determine if particle_gids_locally_owned is appropriate
-		row_map_gids[i] = gid_view_type("row gids", _fields[field_numbers[i]]->nDim() * particle_gids_locally_owned.dimension_0());
-		col_map_gids[i] = gid_view_type("col gids", _fields[field_numbers[i]]->nDim() * (particle_gids_locally_owned.dimension_0() + num_halo_particle_gids) );
+		row_map_gids[i] = gid_view_type("row gids", _fields[field_numbers[i]]->nDim() * particle_gids_locally_owned.extent(0));
+		col_map_gids[i] = gid_view_type("col gids", _fields[field_numbers[i]]->nDim() * (particle_gids_locally_owned.extent(0) + num_halo_particle_gids) );
 	}
 
 	// copy data to build column map
-	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,particle_gids_locally_owned.dimension_0()), KOKKOS_LAMBDA(const int i) {
-	//for (size_t i=0; i<particle_gids_locally_owned.dimension_0(); ++i) {
+	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,particle_gids_locally_owned.extent(0)), KOKKOS_LAMBDA(const int i) {
+	//for (size_t i=0; i<particle_gids_locally_owned.extent(0); ++i) {
 		for (size_t j=0; j<field_numbers.size(); j++) {
 			for (local_index_type k=0; k<_fields[field_numbers[j]]->nDim(); k++) {
 				global_index_type global_value = particle_gids_locally_owned(i)*_fields[field_numbers[j]]->nDim() + k;
@@ -89,7 +89,7 @@ Teuchos::RCP<const DOFManager::dof_data_type> DOFManager::generateDOFMap(std::ve
 		}
 	//}
 	});
-	local_index_type offset = particle_gids_locally_owned.dimension_0();
+	local_index_type offset = particle_gids_locally_owned.extent(0);
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_halo_particle_gids), KOKKOS_LAMBDA(const int i) {
 	//for (local_index_type i=0; i<num_halo_particle_gids; ++i) {
 		for (size_t j=0; j<field_numbers.size(); j++) {

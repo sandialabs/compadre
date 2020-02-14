@@ -20,6 +20,7 @@ int main(int argc, char* argv[]) {
     std::ostream& out = (procRank == 0) ? std::cout : blackHole;
     
     Kokkos::initialize(argc, argv);
+{
     
     out << "*** Compadre unit test: SimpleCoords ***" << std::endl;
     out << "1. Spherical Coordinates." << std::endl;
@@ -133,6 +134,7 @@ int main(int argc, char* argv[]) {
     out << "\tarea of bottom face should be 1; computed area is " << surfArea << std::endl;
     
     out << "End Result: TEST PASSED" << std::endl;
+}
     Kokkos::finalize();
 return 0;
 }

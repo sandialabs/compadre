@@ -36,7 +36,7 @@ void FieldT::insertParticles(const coords_type * coords, const std::vector<xyz_t
 	Teuchos::RCP<mvec_type> new_vals = Teuchos::rcp(new mvec_type(coords->getMapConst(), _nDim, setToZero));
 	host_view_type new_vals_data = new_vals->getLocalView<host_view_type>();
 	host_view_type old_vals_data = _vals->getLocalView<host_view_type>();
-	const local_index_type old_vals_data_num = (local_index_type)(old_vals_data.dimension_0());
+	const local_index_type old_vals_data_num = (local_index_type)(old_vals_data.extent(0));
 	// copy old data
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,old_vals_data_num), KOKKOS_LAMBDA(const int i) {
 		for (local_index_type j=0; j<_nDim; j++) {
@@ -67,7 +67,7 @@ void FieldT::removeParticles(const coords_type * coords, const std::vector<local
 	Teuchos::RCP<mvec_type> new_vals = Teuchos::rcp(new mvec_type(coords->getMapConst(), _nDim, setToZero));
 	host_view_type new_vals_data = new_vals->getLocalView<host_view_type>();
 	host_view_type old_vals_data = _vals->getLocalView<host_view_type>();
-	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,old_vals_data.dimension_0()), KOKKOS_LAMBDA(const int i) {
+	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,old_vals_data.extent(0)), KOKKOS_LAMBDA(const int i) {
 		bool deleted = false;
 		local_index_type offset = num_remove_coords;
 		for (local_index_type j=0; j<num_remove_coords; j++) {

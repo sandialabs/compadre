@@ -45,7 +45,7 @@ if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE)
     Compadre::host_view_type source_halo_solution_data = _source_particles->getFieldManagerConst()->getFieldByID(_source_field_num)->getHaloMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
 
 
-    std::vector<scalar_type> weights(target_grid_weighting_field.dimension_0());
+    std::vector<scalar_type> weights(target_grid_weighting_field.extent(0));
     for (local_index_type j=0; j<_target_particles->getCoordsConst()->nLocal(); ++j) {
         weights[j] = target_grid_weighting_field(j,0);
     }
@@ -54,7 +54,7 @@ if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE)
     const local_index_type target_nlocal = _target_particles->getCoordsConst()->nLocal();
 
     // loop over field's dimensions
-    for (size_t i=0; i<target_solution_data.dimension_1(); ++i) {
+    for (size_t i=0; i<target_solution_data.extent(1); ++i) {
 
         scalar_type local_conserved_quantity = 0, global_conserved_quantity = 0;
         for (local_index_type j=0; j<_source_particles->getCoordsConst()->nLocal(); ++j) {
@@ -63,10 +63,10 @@ if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE)
         Teuchos::Ptr<scalar_type> global_conserved_quantity_ptr(&global_conserved_quantity);
         Teuchos::reduceAll<local_index_type, scalar_type>(*(_source_particles->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, local_conserved_quantity, global_conserved_quantity_ptr);
 
-        std::vector<scalar_type> target_values(target_solution_data.dimension_0());
-        std::vector<scalar_type> updated_target_values(target_solution_data.dimension_0(),0);
-        std::vector<scalar_type> source_mins(target_solution_data.dimension_0(), 1e+15);//std::numeric_limits<scalar_type>::max());
-        std::vector<scalar_type> source_maxs(target_solution_data.dimension_0(), -1e+15);//std::numeric_limits<scalar_type>::lowest());
+        std::vector<scalar_type> target_values(target_solution_data.extent(0));
+        std::vector<scalar_type> updated_target_values(target_solution_data.extent(0),0);
+        std::vector<scalar_type> source_mins(target_solution_data.extent(0), 1e+15);//std::numeric_limits<scalar_type>::max());
+        std::vector<scalar_type> source_maxs(target_solution_data.extent(0), -1e+15);//std::numeric_limits<scalar_type>::lowest());
 
         bool use_global_lower_bound = false;
         bool use_global_upper_bound = false;

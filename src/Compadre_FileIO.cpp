@@ -280,8 +280,8 @@ void VTKData::generateDataSet(bool include_halo, bool for_writing_output, bool u
 	device_view_type dev_coords_halo_only;
 	if (include_halo) dev_coords_halo_only = coords->getPts(true /*halo*/, get_physical_coords)->getLocalView<device_view_type>();
 
-	const local_index_type coords_size = dev_coords.dimension_0();
-	const local_index_type halo_coords_size = dev_coords_halo_only.dimension_0();
+	const local_index_type coords_size = dev_coords.extent(0);
+	const local_index_type halo_coords_size = dev_coords_halo_only.extent(0);
 
 	const local_index_type ndim = coords->nDim();
 	points->SetNumberOfPoints(coords_size);
@@ -324,16 +324,16 @@ void VTKData::generateDataSet(bool include_halo, bool for_writing_output, bool u
 		host_view_type host_field_data_halo_only;
 		if (include_halo) host_field_data_halo_only = fields[i]->getLocalVectorVals(true /*halo*/)->getLocalView<host_view_type>();
 
-		field_data->SetNumberOfTuples(host_field_data.dimension_0());
-		if (include_halo) ghost_field_data->SetNumberOfTuples(host_field_data_halo_only.dimension_0());
-		const local_index_type field_data_size = host_field_data.dimension_0();
+		field_data->SetNumberOfTuples(host_field_data.extent(0));
+		if (include_halo) ghost_field_data->SetNumberOfTuples(host_field_data_halo_only.extent(0));
+		const local_index_type field_data_size = host_field_data.extent(0);
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,field_data_size), KOKKOS_LAMBDA(const int j) {
 			double data[comp_size];
 			for (local_index_type k=0; k<comp_size; k++) data[k] = host_field_data(j,k);
 			field_data->SetTuple(j, data);
 		});
 		if (include_halo) {
-			Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,host_field_data_halo_only.dimension_0()), KOKKOS_LAMBDA(const int j) {
+			Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,host_field_data_halo_only.extent(0)), KOKKOS_LAMBDA(const int j) {
 				double data[comp_size];
 				for (local_index_type k=0; k<comp_size; k++) data[k] = host_field_data_halo_only(j,k);
 				ghost_field_data->SetTuple(j, data);
@@ -362,17 +362,17 @@ void VTKData::generateDataSet(bool include_halo, bool for_writing_output, bool u
 		bc_id_data->SetNumberOfTuples(_particles->getFlags()->getLocalLength());
 		if (include_halo) ghost_bc_id_data->SetNumberOfTuples(halo_coords_size);
 		host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
-		const local_index_type flag_size = bc_id.dimension_0();
+		const local_index_type flag_size = bc_id.extent(0);
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,flag_size), KOKKOS_LAMBDA(const int j) {
 			double data[comp_size];
-			data[0] = bc_id(j,0);
+			data[0] = (double)(bc_id(j,0));
 			bc_id_data->SetTuple(j, data);
 		});
 		const local_index_type my_rank = _particles->getCoordsConst()->getComm()->getRank();
 		if (include_halo) {
 			Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,halo_coords_size), KOKKOS_LAMBDA(const int j) {
 				double data[comp_size];
-				data[0] = -my_rank;
+				data[0] = (double)(-my_rank);
 				ghost_bc_id_data->SetTuple(j, data);
 			});
 		}
@@ -399,21 +399,20 @@ void VTKData::generateDataSet(bool include_halo, bool for_writing_output, bool u
 		ids->SetNumberOfTuples(_particles->getCoordsConst()->nLocal());
 		if (include_halo) ghost_ids->SetNumberOfTuples(halo_coords_size);
 
-		typedef Kokkos::View<const global_index_type*> const_gid_view_type;
-		const_gid_view_type gids = _particles->getCoordsConst()->getMapConst()->getMyGlobalIndices();
-		const_gid_view_type ghost_gids;
+		auto gids = _particles->getCoordsConst()->getMapConst()->getMyGlobalIndices();
+		decltype(gids) ghost_gids;
 		if (include_halo) ghost_gids = _particles->getCoordsConst()->getMapConst(true /*halo*/)->getMyGlobalIndices();
 
-		const local_index_type id_size = gids.dimension_0();
+		const local_index_type id_size = gids.extent(0);
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,id_size), KOKKOS_LAMBDA(const int j) {
 			double data[1];
-			data[0] = gids(j,0);
+			data[0] = gids(j);
 			ids->SetTuple(j, data);
 		});
 		if (include_halo) {
 			Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,halo_coords_size), KOKKOS_LAMBDA(const int j) {
 				double data[1];
-				data[0] = ghost_gids(j,0);
+				data[0] = ghost_gids(j);
 				ghost_ids->SetTuple(j, data);
 			});
 		}
@@ -455,6 +454,7 @@ void VTKFileIO::populateParticles() {
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(pd==NULL, "Error in dataSet.");
 
 	if (_particles->getParameters()->get<Teuchos::ParameterList>("io").get<bool>("preserve gids")) {
+	    TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "\"preserve gids\" capability not tested for VTK type files.");
         bool gids_field_found = false;
 	    for (int i = 0; i < pd->GetNumberOfArrays(); i++) {
 	    	std::string lowerCaseArrayName = pd->GetArrayName(i);
@@ -487,7 +487,7 @@ void VTKFileIO::populateParticles() {
 
     //auto gids = _particles->getCoordsConst()->getMapConst()->getMyGlobalIndices();
 	//for (local_index_type j=0; j<gids.extent(0); j++) {
-    //    printf("%d: %lli\n", j, gids(j));    
+    //    printf("%d: %lli\n", j, gids(j,0));    
     //}
 
 	// first fill the coordinates
@@ -511,7 +511,7 @@ void VTKFileIO::populateParticles() {
 			Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int j) {
 				double data[comp_size];
 				pd->GetArray(i)->GetTuple(j, data);
-				bc_id(j,0) = data[0];
+				bc_id(j,0) = (int)(data[0]);
 			});
 		} else {
 			Teuchos::RCP<field_type> field = _particles->getFieldManager()->createField(
@@ -1846,7 +1846,7 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	bool get_physical_coords = !(coords->isLagrangian() && _particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("coordinate type")=="lagrangian");
 	// only when both are true do we want the value to be false
 	host_view_type host_coords = coords->getPts(false /*halo*/, get_physical_coords)->getLocalView<host_view_type>();
-	const local_index_type coords_size = host_coords.dimension_0();
+	const local_index_type coords_size = host_coords.extent(0);
 
 	// define the dimensions
 	if ((retval = nc_def_dim(ncid, "particle", coords_size, &particle_dim_id)))
@@ -1936,7 +1936,7 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	{
         // flags
 		host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
-		std::vector<global_index_type> bc_id_vec(coords_size);
+		std::vector<local_index_type> bc_id_vec(coords_size);
 		for (int k=0; k<coords_size; k++) {
 			bc_id_vec[k] = bc_id(k,0);
 		}
@@ -1945,12 +1945,11 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
         if (_particles->getParameters()->get<Teuchos::ParameterList>("io").get<bool>("write gids")) {
             // GIDs
-		    typedef Kokkos::View<const global_index_type*> const_gid_view_type;
-		    const_gid_view_type gids = _particles->getCoordsConst()->getMapConst()->getMyGlobalIndices();
+		    auto gids = _particles->getCoordsConst()->getMapConst()->getMyGlobalIndices();
 
 		    std::vector<global_index_type> gids_vec(coords_size);
 		    for (int k=0; k<coords_size; k++) {
-		    	gids_vec[k] = gids(k,0);
+		    	gids_vec[k] = gids(k);
 		    }
 
 		    retval = nc_put_var_longlong(ncid, gids_var_id, &gids_vec[0]);
@@ -2003,7 +2002,7 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 	bool get_physical_coords = !(coords->isLagrangian() && _particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("coordinate type")=="lagrangian");
 	// only when both are true do we want the value to be false
 	host_view_type host_coords = coords->getPts(false /*halo*/, get_physical_coords)->getLocalView<host_view_type>();
-	const local_index_type coords_size = host_coords.dimension_0();
+	const local_index_type coords_size = host_coords.extent(0);
 
 	// define the dimensions
 	if ((retval = nc_def_dim(ncid, "particle", global_coords_size, &particle_dim_id)))
@@ -2145,7 +2144,7 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
         // flags
 		host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
-		std::vector<global_index_type> bc_id_vec(coords_size);
+		std::vector<local_index_type> bc_id_vec(coords_size);
 		for (int k=0; k<coords_size; k++) {
 			bc_id_vec[k] = bc_id(k,0);
 		}
@@ -2153,12 +2152,11 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
         if (_particles->getParameters()->get<Teuchos::ParameterList>("io").get<bool>("write gids")) {
             // GIDs
-		    typedef Kokkos::View<const global_index_type*> const_gid_view_type;
-		    const_gid_view_type gids = _particles->getCoordsConst()->getMapConst()->getMyGlobalIndices();
+		    auto gids = _particles->getCoordsConst()->getMapConst()->getMyGlobalIndices();
 
 		    std::vector<global_index_type> gids_vec(coords_size);
 		    for (int k=0; k<coords_size; k++) {
-		    	gids_vec[k] = gids(k,0);
+		    	gids_vec[k] = gids(k);
 		    }
 		    retval = nc_put_vara_longlong(ncid, gids_var_id, &start, &countDiff, &gids_vec[0]);
         }

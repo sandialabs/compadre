@@ -47,7 +47,7 @@ class LocalPointCloudT {
 			// we get a local view so that we have easier access to the coordinates that we will need for neighbor searches
 			_pts_view = cIn->getPts(false,use_physical_coords)->getLocalView<host_view_type>();
 			_halo_pts_view = cIn->getPts(true,use_physical_coords)->getLocalView<host_view_type>();
-			_nlocal_minus_halo = _pts_view.dimension_0();
+			_nlocal_minus_halo = _pts_view.extent(0);
 		};
 	
 		~LocalPointCloudT() {};
@@ -98,7 +98,7 @@ class LocalPointCloudT {
 			}
 		}
 
-		inline local_index_type kdtree_get_point_count() const {return _pts_view.dimension_0() + _halo_pts_view.dimension_0();}
+		inline local_index_type kdtree_get_point_count() const {return _pts_view.extent(0) + _halo_pts_view.extent(0);}
 
 		/// Returns the coordinate value of a pt.
 		inline scalar_type kdtree_get_pt(const local_index_type idx, int dim) const {

@@ -39,7 +39,7 @@ struct greensFn {
 
     KOKKOS_INLINE_FUNCTION
     void operator() (const int& i) const {
-        for (int j = 0; j < srcCoords.dimension_0(); ++j) {
+        for (int j = 0; j < srcCoords.extent(0); ++j) {
             scalar_type dotProd = 0.0;
             for (int k = 0; k < 3; ++k)
                 dotProd += tgtCoords(i,k) * srcCoords(j,k);
@@ -153,7 +153,7 @@ int main(int argc, char* args[]) {
 			typedef Kokkos::View<const global_index_type*> const_gid_view_type;
 
 			const_gid_view_type send_gids_const = particles->getCoordMap()->getMyGlobalIndices();
-			const local_index_type sendSize = send_gids_const.dimension_0();
+			const local_index_type sendSize = send_gids_const.extent(0);
 
 			std::vector<global_index_type> send_gids(sendSize);
 			for (global_index_type j = 0; j < sendSize; ++j)
@@ -201,7 +201,7 @@ int main(int argc, char* args[]) {
 
 					if (procRank == i) {
 						std::cout << "proc " << i << " recv gids (" << recvSize << "):" << std::endl << "\t";
-						for (int j = 0; j < send_gids_const.dimension_0(); ++j)
+						for (int j = 0; j < send_gids_const.extent(0); ++j)
 							std::cout << send_gids_const(j,0) << " ";
 						std::cout << std::endl;
 					}
@@ -219,7 +219,7 @@ int main(int argc, char* args[]) {
 
 					if (procRank == i) {
 						std::cout << "proc " << i << " has global indices in map (" << recvSize << "):" << std::endl << "\t";
-						for (int j = 0; j < send_gids_const.dimension_0(); ++j)
+						for (int j = 0; j < send_gids_const.extent(0); ++j)
 							std::cout << send_gids_const(j) << " ";
 						std::cout << std::endl;
 					}
@@ -253,8 +253,8 @@ int main(int argc, char* args[]) {
 	//                 comm->barrier();
 	//
 	//                 if (procRank == i) {
-	//                     std::cout << "proc " << i << " has f = (" << send_gids_const.dimension_0() << "):" << std::endl << "\t";
-	//                     for (int j = 0; j < sourceCoords.dimension_0(); ++j) {
+	//                     std::cout << "proc " << i << " has f = (" << send_gids_const.extent(0) << "):" << std::endl << "\t";
+	//                     for (int j = 0; j < sourceCoords.extent(0); ++j) {
 	//                         std::cout << "(";
 	//                         for (int k = 0; k < 3; ++k)
 	//                             std::cout << sourceCoords(j,k) << (k < 2 ? ", " : ")");

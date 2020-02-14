@@ -86,7 +86,7 @@ void GMLS_PoissonNeumannPhysics::initialize() {
     });
 
     auto epsilons = neighborhood->getHSupportSizes()->getLocalView<const host_view_type>();
-    Kokkos::View<double*> kokkos_epsilons("target_coordinates", target_coords->nLocal(), target_coords->nDim());
+    Kokkos::View<double*> kokkos_epsilons("epsilons", target_coords->nLocal());
     Kokkos::View<double*>::HostMirror kokkos_epsilons_host = Kokkos::create_mirror_view(kokkos_epsilons);
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
         kokkos_epsilons_host(i) = epsilons(i,0);
@@ -98,7 +98,7 @@ void GMLS_PoissonNeumannPhysics::initialize() {
         kokkos_flags_host(i) = bc_id(i, 0);
     });
 
-    Kokkos::View<double**> kokkos_normals("target_normals", target_coords->nLocal(), target_coords->nDim(), target_coords->nDim());
+    Kokkos::View<double**> kokkos_normals("target_normals", target_coords->nLocal(), target_coords->nDim());
     Kokkos::View<double**>::HostMirror kokkos_normals_host = Kokkos::create_mirror_view(kokkos_normals);
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
         kokkos_normals_host(i, 0) = nx_vectors(i, 0);
@@ -108,11 +108,11 @@ void GMLS_PoissonNeumannPhysics::initialize() {
 
     // Extract out points without any BC
     _noconstraint_filtered_flags = filterViewByID<Kokkos::HostSpace>(kokkos_flags_host, 0);
-    auto noconstraint_kokkos_target_coordinates_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_target_coordinates_host,
+    auto noconstraint_kokkos_target_coordinates_host = Extract::extractViewByIndex<Kokkos::HostSpace>(kokkos_target_coordinates_host,
             _noconstraint_filtered_flags);
-    auto noconstraint_kokkos_neighbor_lists_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_neighbor_lists_host,
+    auto noconstraint_kokkos_neighbor_lists_host = Extract::extractViewByIndex<Kokkos::HostSpace>(kokkos_neighbor_lists_host,
             _noconstraint_filtered_flags);
-    auto noconstraint_kokkos_epsilons_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_epsilons_host,
+    auto noconstraint_kokkos_epsilons_host = Extract::extractViewByIndex<Kokkos::HostSpace>(kokkos_epsilons_host,
             _noconstraint_filtered_flags);
 
     // Extract out points labeled with Dirichlet BC
@@ -121,13 +121,13 @@ void GMLS_PoissonNeumannPhysics::initialize() {
     // Extract out points labeled with Neumann BC
     // _neuman_filtered_flags belongs to physics class
     _neumann_filtered_flags = filterViewByID<Kokkos::HostSpace>(kokkos_flags_host, 2);
-    auto neumann_kokkos_target_coordinates_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_target_coordinates_host,
+    auto neumann_kokkos_target_coordinates_host = Extract::extractViewByIndex<Kokkos::HostSpace>(kokkos_target_coordinates_host,
             _neumann_filtered_flags);
-    auto neumann_kokkos_neighbor_lists_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_neighbor_lists_host,
+    auto neumann_kokkos_neighbor_lists_host = Extract::extractViewByIndex<Kokkos::HostSpace>(kokkos_neighbor_lists_host,
             _neumann_filtered_flags);
-    auto neumann_kokkos_epsilons_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_epsilons_host,
+    auto neumann_kokkos_epsilons_host = Extract::extractViewByIndex<Kokkos::HostSpace>(kokkos_epsilons_host,
             _neumann_filtered_flags);
-    auto neumann_kokkos_normals_host = extractViewByIndex<Kokkos::HostSpace>(kokkos_normals_host,
+    auto neumann_kokkos_normals_host = Extract::extractViewByIndex<Kokkos::HostSpace>(kokkos_normals_host,
             _neumann_filtered_flags);
 
     // Now create a tangent bundles to set for the points with Neumann BC

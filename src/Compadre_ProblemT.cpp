@@ -248,7 +248,7 @@ void ProblemT::solve() {
 //    Teuchos::RCP<mvec_type> exact_solution = Teuchos::rcp(new mvec_type(*_solver->getSolution(), Teuchos::Copy)); // need a copy with the same structure
 //    host_view_type vals = exact_solution->getLocalView<host_view_type>();
 //    const Teuchos::RCP<Compadre::FieldT> field = _particles->getFieldByID(0);
-//    Kokkos::parallel_for(vals.dimension_0(), KOKKOS_LAMBDA(const int i) {
+//    Kokkos::parallel_for(vals.extent(0), KOKKOS_LAMBDA(const int i) {
 //        vals(i,0) = field->getLocalScalarVal(i);
 //    });
 //

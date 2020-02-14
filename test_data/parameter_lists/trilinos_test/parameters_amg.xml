@@ -3,7 +3,9 @@
     <Parameter name="input file prefix" type="string" value="../test_data/grids/"/>
     <Parameter name="input file" type="string" value="output.vtk"/>
     <Parameter name="output file prefix" type="string" value="../test_data/"/>
-    <Parameter name="output file" type="string" value="trilinos_test_output.pvtp"/>
+    <Parameter name="output file" type="string" value="trilinos_test_output.nc"/>
+    <Parameter name="preserve gids" type="bool" value="false"/>
+    <Parameter name="gids name" type="string" value="id"/>
   </ParameterList>
   <ParameterList name="solver">
     <Parameter name="type" type="string" value="iterative"/>
@@ -17,7 +19,7 @@
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>
     <Parameter name="size" type="double" value="0.2"/>
-    <Parameter name="cutoff multiplier" type="double" value="1.2"/>
+    <Parameter name="cutoff multiplier" type="double" value="1.3"/>
   </ParameterList>
   <ParameterList name="halo">
     <Parameter name="dynamic" type="bool" value="false"/>

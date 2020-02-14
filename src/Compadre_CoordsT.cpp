@@ -225,7 +225,7 @@ void CoordsT::removeCoords(const std::vector<local_index_type>& coord_ids) {
 	Teuchos::RCP<mvec_type> new_pts = Teuchos::rcp(new mvec_type(new_map, _nDim, setToZero));
 	host_view_type new_pts_vals = new_pts->getLocalView<host_view_type>();
 	host_view_type old_pts_vals = pts->getLocalView<host_view_type>();
-	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,old_pts_vals.dimension_0()), KOKKOS_LAMBDA(const int i) {
+	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,old_pts_vals.extent(0)), KOKKOS_LAMBDA(const int i) {
 		bool deleted = false;
 		local_index_type offset = num_remove_coords;
 		for (local_index_type j=0; j<num_remove_coords; j++) {
@@ -251,7 +251,7 @@ void CoordsT::removeCoords(const std::vector<local_index_type>& coord_ids) {
 		new_pts_physical = Teuchos::rcp(new mvec_type(new_map, _nDim, setToZero));
 		host_view_type new_pts_physical_vals = new_pts_physical->getLocalView<host_view_type>();
 		host_view_type old_pts_physical_vals = pts_physical->getLocalView<host_view_type>();
-		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,old_pts_physical_vals.dimension_0()), KOKKOS_LAMBDA(const int i) {
+		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,old_pts_physical_vals.extent(0)), KOKKOS_LAMBDA(const int i) {
 			bool deleted = false;
 			local_index_type offset = num_remove_coords;
 			for (local_index_type j=0; j<num_remove_coords; j++) {
@@ -295,7 +295,7 @@ void CoordsT::snapLagrangianCoordsToPhysicalCoords() {
 		host_view_type lagrangian_pts = pts->getLocalView<host_view_type>();
 		host_view_type physical_pts = pts_physical->getLocalView<host_view_type>();
 
-		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,lagrangian_pts.dimension_0()), KOKKOS_LAMBDA(const int i) {
+		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,lagrangian_pts.extent(0)), KOKKOS_LAMBDA(const int i) {
 			for (local_index_type j=0; j<_nDim; j++) {
 				lagrangian_pts(i,j) = physical_pts(i,j);
 			}
@@ -311,7 +311,7 @@ void CoordsT::snapPhysicalCoordsToLagrangianCoords() {
 		host_view_type lagrangian_pts = pts->getLocalView<host_view_type>();
 		host_view_type physical_pts = pts_physical->getLocalView<host_view_type>();
 
-		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,lagrangian_pts.dimension_0()), KOKKOS_LAMBDA(const int i) {
+		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,lagrangian_pts.extent(0)), KOKKOS_LAMBDA(const int i) {
 			for (local_index_type j=0; j<_nDim; j++) {
 				physical_pts(i,j) = lagrangian_pts(i,j);
 			}
@@ -329,7 +329,7 @@ void CoordsT::snapPhysicalCoordsToLagrangianCoords() {
 //		host_view_type lagrangian_pts = pts->getLocalView<host_view_type>();
 //		host_view_type physical_pts = pts_physical->getLocalView<host_view_type>();
 //
-//		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,lagrangian_pts.dimension_0()), KOKKOS_LAMBDA(const int i) {
+//		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,lagrangian_pts.extent(0)), KOKKOS_LAMBDA(const int i) {
 //			for (local_index_type j=0; j<_nDim; j++) {
 //				lagrangian_pts(i,j) = physical_pts(i,j);
 //			}
@@ -385,14 +385,14 @@ void CoordsT::replaceGlobalCoords(const global_index_type idx, const CoordsT::xy
 CoordsT::xyz_type CoordsT::getLocalCoords(const local_index_type idx1, bool use_halo, bool use_physical_coords) const {
     if (_nDim == 3) {
 	    if (_is_lagrangian && use_physical_coords) {
-	    	const local_index_type nlocal_minus_halo = pts_physical_view.dimension_0();
+	    	const local_index_type nlocal_minus_halo = pts_physical_view.extent(0);
 	    	if (idx1 < nlocal_minus_halo) {
 	    		return CoordsT::xyz_type(pts_physical_view(idx1, 0), pts_physical_view(idx1, 1), pts_physical_view(idx1, 2));
 	    	} else {
 	    		return CoordsT::xyz_type(halo_pts_physical_view(idx1-nlocal_minus_halo, 0), halo_pts_physical_view(idx1-nlocal_minus_halo, 1), halo_pts_physical_view(idx1-nlocal_minus_halo, 2));
 	    	}
 	    } else {
-	    	const local_index_type nlocal_minus_halo = pts_view.dimension_0();
+	    	const local_index_type nlocal_minus_halo = pts_view.extent(0);
 	    	if (idx1 < nlocal_minus_halo) {
 	    		return CoordsT::xyz_type(pts_view(idx1, 0), pts_view(idx1, 1), pts_view(idx1, 2));
 	    	} else {
@@ -401,14 +401,14 @@ CoordsT::xyz_type CoordsT::getLocalCoords(const local_index_type idx1, bool use_
 	    }
     } else if (_nDim == 2) {
 	    if (_is_lagrangian && use_physical_coords) {
-	    	const local_index_type nlocal_minus_halo = pts_physical_view.dimension_0();
+	    	const local_index_type nlocal_minus_halo = pts_physical_view.extent(0);
 	    	if (idx1 < nlocal_minus_halo) {
 	    		return CoordsT::xyz_type(pts_physical_view(idx1, 0), pts_physical_view(idx1, 1), 0);
 	    	} else {
 	    		return CoordsT::xyz_type(halo_pts_physical_view(idx1-nlocal_minus_halo, 0), halo_pts_physical_view(idx1-nlocal_minus_halo, 1), 0);
 	    	}
 	    } else {
-	    	const local_index_type nlocal_minus_halo = pts_view.dimension_0();
+	    	const local_index_type nlocal_minus_halo = pts_view.extent(0);
 	    	if (idx1 < nlocal_minus_halo) {
 	    		return CoordsT::xyz_type(pts_view(idx1, 0), pts_view(idx1, 1), 0);
 	    	} else {
@@ -417,14 +417,14 @@ CoordsT::xyz_type CoordsT::getLocalCoords(const local_index_type idx1, bool use_
 	    }
     } else {
 	    if (_is_lagrangian && use_physical_coords) {
-	    	const local_index_type nlocal_minus_halo = pts_physical_view.dimension_0();
+	    	const local_index_type nlocal_minus_halo = pts_physical_view.extent(0);
 	    	if (idx1 < nlocal_minus_halo) {
 	    		return CoordsT::xyz_type(pts_physical_view(idx1, 0), 0, 0);
 	    	} else {
 	    		return CoordsT::xyz_type(halo_pts_physical_view(idx1-nlocal_minus_halo, 0), 0, 0);
 	    	}
 	    } else {
-	    	const local_index_type nlocal_minus_halo = pts_view.dimension_0();
+	    	const local_index_type nlocal_minus_halo = pts_view.extent(0);
 	    	if (idx1 < nlocal_minus_halo) {
 	    		return CoordsT::xyz_type(pts_view(idx1, 0), 0, 0);
 	    	} else {
@@ -942,8 +942,8 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
         p_count = 0;
 	    for (auto comm_adj_p : proc_neighbors) {
 			Teuchos::ArrayRCP<global_index_type> indices_to_send;
-			if (coords_to_send[p_count]->dimension(0) > 0) {
-				indices_to_send = Teuchos::ArrayRCP<global_index_type>(&(*coords_to_send[p_count])(0), 0, coords_to_send[p_count]->dimension(0), false);
+			if (coords_to_send[p_count]->extent(0) > 0) {
+				indices_to_send = Teuchos::ArrayRCP<global_index_type>(&(*coords_to_send[p_count])(0), 0, coords_to_send[p_count]->extent(0), false);
 			} else {
 				indices_to_send = Teuchos::ArrayRCP<global_index_type>(NULL, 0, 0, false);
 			}
@@ -1005,7 +1005,7 @@ void CoordsT::setLagrangian(bool val) {
 			pts_physical = Teuchos::rcp(new mvec_type(map, _nDim, false /*set to zero*/));
 			host_view_type physical_coords = pts_physical->getLocalView<host_view_type>();
 
-			Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,lagrangian_coords.dimension_0()), KOKKOS_LAMBDA(const int i) {
+			Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,lagrangian_coords.extent(0)), KOKKOS_LAMBDA(const int i) {
 				lagrangian_coords(i,0) = physical_coords(i,0);
 				lagrangian_coords(i,1) = physical_coords(i,1);
 				lagrangian_coords(i,2) = physical_coords(i,2);
@@ -1022,7 +1022,7 @@ void CoordsT::deltaUpdatePhysicalCoordsFromVector(const mvec_type* update_vector
 	mvec_type* pts_evaluate_to_vec = (_is_lagrangian) ? pts_physical.getRawPtr() : pts.getRawPtr();
 	host_view_type updateVals = update_vector->getLocalView<host_view_type>();
 	host_view_type ptsViewTo = pts_evaluate_to_vec->getLocalView<host_view_type>();
-	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.dimension_0()),  KOKKOS_LAMBDA(const int i) {
+	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.extent(0)),  KOKKOS_LAMBDA(const int i) {
 		for (int j=0; j<_nDim; j++) ptsViewTo(i,j) += updateVals(i,j);
 	});
 
@@ -1034,7 +1034,7 @@ void CoordsT::deltaUpdatePhysicalCoordsFromVectorByTimestep(const double dt, con
 	mvec_type* pts_evaluate_to_vec = (_is_lagrangian) ? pts_physical.getRawPtr() : pts.getRawPtr();
 	host_view_type updateVals = update_vector->getLocalView<host_view_type>();
 	host_view_type ptsViewTo = pts_evaluate_to_vec->getLocalView<host_view_type>();
-	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.dimension_0()),  KOKKOS_LAMBDA(const int i) {
+	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.extent(0)),  KOKKOS_LAMBDA(const int i) {
 		for (int j=0; j<_nDim; j++) ptsViewTo(i,j) += dt*updateVals(i,j);
 	});
 
@@ -1048,7 +1048,7 @@ void CoordsT::deltaUpdatePhysicalCoordsFromVectorFunction(function_type* fn, boo
 	mvec_type* pts_evaluate_to_vec = (_is_lagrangian) ? pts_physical.getRawPtr() : pts.getRawPtr();
 	host_view_type ptsViewFrom = pts_evaluate_from_vec->getLocalView<host_view_type>();
 	host_view_type ptsViewTo = pts_evaluate_to_vec->getLocalView<host_view_type>();
-	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.dimension_0()),
+	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.extent(0)),
 		incrementByEvaluateVector(ptsViewTo, ptsViewFrom, fn));
 
 	this->updateHaloPts();
@@ -1059,7 +1059,7 @@ void CoordsT::overwriteCoordinates(const mvec_type* data, bool use_physical_coor
 	mvec_type* pts_evaluate_to_vec = (_is_lagrangian && use_physical_coords) ? pts_physical.getRawPtr() : pts.getRawPtr();
 	host_view_type ptsViewTo = pts_evaluate_to_vec->getLocalView<host_view_type>();
 	host_view_type fieldData = data->getLocalView<host_view_type>();
-	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.dimension_0()), KOKKOS_LAMBDA(const int i) {
+	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.extent(0)), KOKKOS_LAMBDA(const int i) {
 		ptsViewTo(i,0) = fieldData(i,0);
 		ptsViewTo(i,1) = fieldData(i,1);
 		ptsViewTo(i,2) = fieldData(i,2);
@@ -1073,7 +1073,7 @@ void CoordsT::snapToSphere(const double radius, bool use_physical_coords) {
 	// to_vec should generally be physical coords (pts_physical)
 	mvec_type* pts_evaluate_to_vec = (_is_lagrangian && use_physical_coords) ? pts_physical.getRawPtr() : pts.getRawPtr();
 	host_view_type ptsViewTo = pts_evaluate_to_vec->getLocalView<host_view_type>();
-	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.dimension_0()),  KOKKOS_LAMBDA(const int i) {
+	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.extent(0)),  KOKKOS_LAMBDA(const int i) {
 		double this_norm = 0;
 		for (int j=0; j<_nDim; j++) this_norm += ptsViewTo(i,j)*ptsViewTo(i,j);
 		this_norm = std::sqrt(this_norm);
@@ -1090,7 +1090,7 @@ void CoordsT::transformLagrangianCoordsToPhysicalCoordsByVectorFunction(function
 	mvec_type* pts_evaluate_to_vec = (_is_lagrangian) ? pts_physical.getRawPtr() : pts.getRawPtr();
 	host_view_type ptsViewFrom = pts_evaluate_from_vec->getLocalView<host_view_type>();
 	host_view_type ptsViewTo = pts_evaluate_to_vec->getLocalView<host_view_type>();
-	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.dimension_0()),
+	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.extent(0)),
 		evaluateVector(ptsViewTo, ptsViewFrom, fn));
 
 	this->updateHaloPts();

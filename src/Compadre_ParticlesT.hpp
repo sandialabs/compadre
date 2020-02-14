@@ -137,7 +137,7 @@ class ParticlesT {
 		///@{
 		void setFlag(const local_index_type idx, const local_index_type val);
 
-		double getFlag(const local_index_type idx) const;
+		local_index_type getFlag(const local_index_type idx) const;
 
 		Teuchos::RCP<mvec_local_index_type> getFlags() const { return _flag; }
 		///@}
