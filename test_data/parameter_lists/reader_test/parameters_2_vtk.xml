@@ -1,8 +1,0 @@
-<ParameterList name="Compadre">
-  <ParameterList name="io">
-    <Parameter name="input file prefix" type="string" value="../test_data/grids/parallel_processor_2/"/>
-    <Parameter name="input file" type="string" value="readtest_1.pvtp"/>
-    <Parameter name="output file prefix" type="string" value="../test_data/"/>
-    <Parameter name="output file" type="string" value="reader_output_2.pvtu"/>
-  </ParameterList>
-</ParameterList>

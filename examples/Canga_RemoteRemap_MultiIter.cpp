@@ -186,7 +186,7 @@ int main (int argc, char* args[]) {
             if (initial_step_to_compute==1) {
                 testfilename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file");
             } else {
-                testfilename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "backward_" + std::to_string(initial_step_to_compute-1) + ".pvtp";
+                testfilename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "backward_" + std::to_string(initial_step_to_compute-1) + ".nc";
             }
             fm.setReader(testfilename, particles);
             fm.getReader()->setCoordinateLayout(parameters->get<Teuchos::ParameterList>("io").get<std::string>("particles number dimension name"),
@@ -345,11 +345,11 @@ int main (int argc, char* args[]) {
                 // data is now on 33
                 if (my_coloring == 33) {
                     WriteTime->start();
-                    std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "forward_" + std::to_string(i) + ".pvtp";
+                    std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "forward_" + std::to_string(i) + ".nc";
                     Compadre::FileManager fm2;
                     fm2.setWriter(output_filename, particles);
                     fm2.write();
-                    output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "forward_" + std::to_string(i) + ".pvtp.g";
+                    output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "forward_" + std::to_string(i) + ".g";
                     fm2.setWriter(output_filename, particles);
                     fm2.write();
                     WriteTime->stop();
@@ -413,11 +413,11 @@ int main (int argc, char* args[]) {
                 // data is now on 25
                 if (my_coloring == 25) {
                     WriteTime->start();
-                    std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "backward_" + std::to_string(i) + ".pvtp";
+                    std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "backward_" + std::to_string(i) + ".nc";
                     Compadre::FileManager fm2;
                     fm2.setWriter(output_filename, particles);
                     fm2.write();
-                    output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "backward_" + std::to_string(i) + ".pvtp.g";
+                    output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "backward_" + std::to_string(i) + ".g";
                     fm2.setWriter(output_filename, particles);
                     fm2.write();
                     WriteTime->stop();

@@ -67,9 +67,6 @@ int main (int argc, char* args[]) {
 
 
     {
-        //
-        // VTK File Reader Test and Parallel VTK File Reader
-        //
 
         typedef Compadre::EuclideanCoordsT CT;
         Teuchos::RCP<Compadre::ParticlesT> particles =

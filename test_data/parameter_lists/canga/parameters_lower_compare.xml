@@ -15,7 +15,7 @@
     <!--Parameter name="input file" type="string" value="mpas_10242.nc"/-->
     <Parameter name="input file" type="string" value="mpas_2562.nc"/>
     <Parameter name="output file prefix" type="string" value="../test_data/"/>
-    <Parameter name="output file" type="string" value="canga_output_lower.pvtp"/>
+    <Parameter name="output file" type="string" value="canga_output_lower.nc"/>
     <Parameter name="nc type" type="string" value="HOMME"/>
     <Parameter name="coordinates layout" type="string" value="lat_lon_separate" />
     <Parameter name="coordinate 0 name" type="string" value="grid_center_lat" />

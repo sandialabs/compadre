@@ -13,8 +13,7 @@
     <Parameter name="input file" type="string" value="shallow_0.nc"/>
     <Parameter name="nc type" type="string" value="HOMME"/>
     <Parameter name="output file prefix" type="string" value="../test_data/"/>
-    <Parameter name="output file" type="string" value="lb.pvtp"/>
-    <Parameter name="vtk produce mesh" type="bool" value="true"/>
+    <Parameter name="output file" type="string" value="lb.nc"/>
     <Parameter name="coordinates layout" type="string" value="lat_lon_separate"/>
     <Parameter name="coordinate 0 name" type="string" value="grid_center_lat"/>
     <Parameter name="coordinate 1 name" type="string" value="grid_center_lon"/>

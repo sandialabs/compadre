@@ -84,11 +84,6 @@ int main (int argc, char* args[]) {
 	Teuchos::RCP<Teuchos::Time> NormTime = Teuchos::TimeMonitor::getNewCounter ("Norm calculation");
 
 	{
-		//
-		// VTK File Reader Test and Parallel VTK File Reader
-		//
-
-
 
 
 		typedef Compadre::EuclideanCoordsT CT;

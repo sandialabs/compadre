@@ -231,7 +231,7 @@ int main (int argc, char* args[]) {
 			particles->getFieldManager()->updateFieldsHaloData();
 
 			// diagnostic
-			std::string output_filename1 = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "pre_swap" + std::to_string(my_coloring) + ".pvtp";
+			std::string output_filename1 = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "pre_swap" + std::to_string(my_coloring) + ".nc";
 			fm.setWriter(output_filename1, particles);
 			fm.write();
 
@@ -261,7 +261,7 @@ int main (int argc, char* args[]) {
 		 	    remoteDataManager->putRemoteWeightsInParticleSet(particles.getRawPtr(), peer_processors_particles.getRawPtr(), target_weights_name);
 		 	}
 
-			std::string output_filename2 = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "before_swap" + std::to_string(my_coloring) + ".pvtp";
+			std::string output_filename2 = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "before_swap" + std::to_string(my_coloring) + ".nc";
 			fm.setWriter(output_filename2, peer_processors_particles);
 			fm.write();
 
@@ -304,7 +304,7 @@ int main (int argc, char* args[]) {
 				}
 			}
 
-			std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "after_swap" + std::to_string(my_coloring) + ".pvtp";
+			std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "after_swap" + std::to_string(my_coloring) + ".nc";
 			fm.setWriter(output_filename, particles);
 			fm.write();
 

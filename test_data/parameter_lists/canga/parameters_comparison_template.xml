@@ -10,10 +10,9 @@
     <Parameter name="target file prefix" type="string" value="../test_data/grids/canga/CVT-MPAS/"/>
     <Parameter name="target file" type="string" value="outICODMesh_ne16.g"/>
     <Parameter name="output file prefix" type="string" value="../test_data/"/>
-    <Parameter name="output file" type="string" value="canga_output.pvtp"/>
+    <Parameter name="output file" type="string" value="canga_output.nc"/>
     <Parameter name="alt output file prefix" type="string" value="../test_data/"/>
-    <Parameter name="alt output file" type="string" value="canga_output.pvtp"/>
-    <Parameter name="vtk produce mesh" type="bool" value="false"/>
+    <Parameter name="alt output file" type="string" value="canga_output.nc"/>
     <Parameter name="coordinates layout" type="string" value="xyz_separate"/>
     <Parameter name="coordinate 0 name" type="string" value="x"/>
     <Parameter name="coordinate 1 name" type="string" value="y"/>

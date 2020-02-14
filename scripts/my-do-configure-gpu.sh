@@ -15,7 +15,6 @@ cmake \
     -D CompadreHarness_USE_Trilinos_CXX_Flags:BOOL=OFF \
     -D CompadreHarness_USE_Trilinos_Solvers:BOOL=OFF \
     -D CompadreHarness_USE_Netcdf:BOOL=OFF \
-    -D CompadreHarness_USE_VTK:BOOL=OFF \
     -D CompadreHarness_USE_PYTHON:BOOL=OFF \
     -D CompadreHarness_USE_Harness:BOOL=OFF \
     -D CompadreHarness_EXAMPLES:BOOL=OFF \
