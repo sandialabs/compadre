@@ -47,8 +47,16 @@ elif (file_extension==".pvtu"):
     reader = vtk.vtkXMLPUnstructuredGridReader()
 elif (file_extension==".vtp"):
     reader = vtk.vtkXMLPolyDataReader()
+    reader.ReadAllScalarsOn()
+    reader.ReadAllVectorsOn()
 elif (file_extension==".vtu"):
     reader = vtk.vtkXMLUnstructuredGridReader()
+    reader.ReadAllScalarsOn()
+    reader.ReadAllVectorsOn()
+elif (file_extension==".vtk"):
+    reader = vtk.vtkPolyDataReader()
+    reader.ReadAllScalarsOn()
+    reader.ReadAllVectorsOn()
 else:
     assert False, "file input extension name not recognized"
 reader.SetFileName(file_in)
@@ -73,6 +81,8 @@ for i in range(pd.GetNumberOfArrays()):
     data = None
     if (str(type(pd.GetArray(i))) == '<class \'vtkCommonCorePython.vtkDoubleArray\'>'):
         data = np.zeros(shape=(rows,cols), dtype='f8')
+    elif (str(type(pd.GetArray(i))) == '<class \'vtkCommonCorePython.vtkFloatArray\'>'):
+        data = np.zeros(shape=(rows,cols), dtype='f8')
     elif (str(type(pd.GetArray(i))) == '<class \'vtkCommonCorePython.vtkIntArray\'>'):
         data = np.zeros(shape=(rows,cols), dtype='i4')
     elif (str(type(pd.GetArray(i))) == '<class \'vtkCommonCorePython.vtkLongArray\'>' or \
@@ -88,6 +98,7 @@ for i in range(pd.GetNumberOfArrays()):
             "Field(%s) shares a name with coordinate variable name(%s, %s, or %s)."%(fields[i][0], x_name, y_name, z_name)
     elif (xyz_type==1): # joint
         assert fields[i][0]!=x_name, "Field(%s) shares a name with coordinate variable name(%s)."%(fields[i][0], x_name)
+    print(fields[i][0])
 
 
 # all point data now collected (coordinates + fields from VTK)
