@@ -222,11 +222,11 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
 
     # ADVECTION DIFFUSION TESTS
     
-    ADD_TEST(NAME L2ProjectionTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/advectiondiffusion_convergence.py" "2" "1" "1" "0") # 4 polynomial order, 2 successive meshes, 1 l2 projection only, 0 - polynomial solution
-    SET_TESTS_PROPERTIES(L2ProjectionTest PROPERTIES LABELS "advection;diffusion;dg;variational;weakform;l2")
+    #ADD_TEST(NAME L2ProjectionTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/advectiondiffusion_convergence.py" "2" "1" "1" "0") # 4 polynomial order, 2 successive meshes, 1 l2 projection only, 0 - polynomial solution
+    #SET_TESTS_PROPERTIES(L2ProjectionTest PROPERTIES LABELS "advection;diffusion;dg;variational;weakform;l2")
 
-    ADD_TEST(NAME L2ProjectionTestConv COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/advectiondiffusion_convergence.py" "2" "2" "1" "1") # 4 polynomial order, 2 successive meshes, 1 l2 projection only, 0 - polynomial solution
-    SET_TESTS_PROPERTIES(L2ProjectionTestConv PROPERTIES LABELS "advection;diffusion;dg;variational;weakform;l2")
+    #ADD_TEST(NAME L2ProjectionTestConv COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/advectiondiffusion_convergence.py" "2" "2" "1" "1") # 4 polynomial order, 2 successive meshes, 1 l2 projection only, 0 - polynomial solution
+    #SET_TESTS_PROPERTIES(L2ProjectionTestConv PROPERTIES LABELS "advection;diffusion;dg;variational;weakform;l2")
 
     #ADD_TEST(NAME ReactionDiffusionTestConv COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/reactiondiffusion_convergence.py" "2" "3" "0" "1") # 4 polynomial order, 2 successive meshes, 1 l2 projection only, 0 - polynomial solution
     #SET_TESTS_PROPERTIES(ReactionDiffusionTestConv PROPERTIES LABELS "reaction;diffusion;dg;variational;weakform;")
