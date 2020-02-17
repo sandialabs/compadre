@@ -8,17 +8,16 @@
 
   **All build instructions are only tested on linux platforms.
 
-  VTK and NetCDF are the two means by which files can be read into the Harness. It is expected that a user will have BOTH installed, but each can be individually disable in the CMake configure script using the variable
+  NetCDF is the means by which files can be read into the Harness. It is expected that a user will have it installed, but it can be disabled in the CMake configure script using the variable
 
-```
--D CompadreHarness_USE_VTK:BOOL=OFF
-```
-
-or 
 
 ```
 -D CompadreHarness_USE_Netcdf:BOOL=OFF
 ```
+
+  For VTK (.vtk, .pvtu, and .pvtp) type files:
+    If you would like your input/output in a VTK style, there are two utilities `./test_data/utilities/convert_nc_to_vtk.py`, and `./test_data/utilities/convert_vtk_to_nc.py` for pre and post processing. Directions on their use are contained inside of the .py files. They both require that a user have the python package for 'vtk' and 'netCDF4' installed.
+
 
 #### Trilinos
 
@@ -181,73 +180,6 @@ CC=$MPI_DIR/bin/mpicc CPPFLAGS=-I${HDF5_DIR}/include LDFLAGS=-L${HDF5_DIR}/lib \
  5.) After installation (optional):
 ```
     >> make check
-```
-
-#### VTK (required to use .vtk, .pvtu, and .pvtp files)
-
- 1.) Get source code from https://vtk.org/download/ 
- Under "Latest Release" and "Source" get the .tar.gz file
-
- 2.)  After cloning, go into VTK source directory followed by:
-```
-    >> mkdir build
-    >> cd build
-```
- 3.) then run this script (with your changes to `SRC_DIR`, `MPI_DIR`, and `INSTALL_DIR`):
-```
-#!/bin/bash
-
-SRC_DIR=/your/VTK-source
-BUILD_DIR=$SRC_DIR/build
-INSTALL_DIR=/your/VTK-install
-MPI_DIR=/your/mpi-base-dir
-
-rm -rf CMakeCache* CMakeFiles*
-
-cmake \
--D BUILD_SHARED_LIBS:BOOL=ON \
--D CMAKE_INSTALL_PREFIX:PATH=$INSTALL_DIR \
--D CMAKE_INSTALL_NAME_DIR:STRING=$INSTALL_DIR/lib \
--D CMAKE_BUILD_WITH_INSTALL_RPATH:BOOL=ON \
--D BUILD_TESTING:BOOL=OFF \
--D CMAKE_C_COMPILER=$MPI_DIR/bin/mpicc \
--D CMAKE_CXX_COMPILER=$MPI_DIR/bin/mpic++ \
--D CMAKE_INSTALL_RPATH:STRING=$INSTALL_DIR/lib \
--D VTK_SMP_IMPLEMENTATION_TYPE=OPENMP \
--D Module_vtkFiltersParallelMPI:BOOL=ON \
--D Module_vtkIOMPIParallel:BOOL=ON \
--D Module_vtkIOParallelExodus:BOOL=ON \
--D Module_vtkIOParallelNetCDF:BOOL=ON \
--D Module_vtkParallelMPI:BOOL=ON \
--D Module_vtkRenderingParallel:BOOL=ON \
--D MPIEXEC_MAX_NUMPROCS:STRING=8 \
--D Module_vtkIOMPIImage:BOOL=ON \
--D VTK_Group_MPI:BOOL=ON \
--D VTK_MPI_MAX_NUMPROCS:STRING=8 \
--D CMAKE_BUILD_TYPE:STRING=Release \
-\
-\
-$SRC_DIR
-```
-
- 4.)  After running the above script (configuring), run:
-```
-    >> make -j4
-```
-
- 5.) After compilation is completed, run:
-```
-    >> make install
-```
-
- While running this script, may encounter needing X11_Xt_LIB
- - on Ubuntu, 
-```
->> sudo apt-get install libxt-dev
-```
- - on RHEL,   
-```
->> sudo yum install libXt-devel
 ```
 
 #### Compadre Harness
