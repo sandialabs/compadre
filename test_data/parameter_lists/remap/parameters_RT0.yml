@@ -16,7 +16,6 @@ Compadre:
     'output file': 'vector_out.pvtu'
     # source data as pvtu
     'output file2': 'vector_in.pvtu'
-    'vtk produce mesh': true
   'remap':
     'porder': 3
     'curvature porder': 3

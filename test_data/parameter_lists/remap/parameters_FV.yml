@@ -13,7 +13,6 @@ Compadre:
     'output file': 'pressure_out.pvtu'
     # source data as pvtu
     'output file2': 'pressure_in.pvtu'
-    'vtk produce mesh': true
   'remap':
     'porder': 4
     'curvature porder': 3

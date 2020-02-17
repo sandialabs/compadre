@@ -10,9 +10,7 @@ Compadre:
     # output file location
     'output file prefix': '../test_data/amg_neumann_'
     # data reconstructed on target
-    'output file': '.pvtp'
-    # turn off mesh produced by vtk
-    'vtk produce mesh': false
+    'output file': '.nc'
   'solver':
     'type': 'iterative'
     'file': '../test_data/parameter_lists/gmls_laplacian/solver_amg.xml'

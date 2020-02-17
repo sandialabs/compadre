@@ -110,7 +110,7 @@ int main (int argc, char* args[]) {
 			particles->buildHalo(halo_size);
 
 
-			std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "remap_coords_output.pvtp";
+			std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "remap_coords_output.nc";
 			Compadre::FileManager fm;
 			fm.setWriter(output_filename, particles);
 			fm.write();
@@ -189,7 +189,7 @@ int main (int argc, char* args[]) {
 				ParticleInsertionTime->stop();
 				NormTime->start();
 		 	}
-			output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "only_acceleration_output.pvtp";
+			output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "only_acceleration_output.nc";
 			fm.setWriter(output_filename, new_particles);
 			fm.write();
 
@@ -239,7 +239,7 @@ int main (int argc, char* args[]) {
 			if (comm->getRank()==0) std::cout << "Global Norm Velocity: " << global_norm_velocity << "\n";
 			if (comm->getRank()==0) std::cout << "Global Norm Pressure: " << global_norm_pressure << "\n\n\n\n\n";
 
-			output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "remap_particle_output.pvtp";
+			output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "remap_particle_output.nc";
 			fm.setWriter(output_filename, particles);
 			fm.write();
 

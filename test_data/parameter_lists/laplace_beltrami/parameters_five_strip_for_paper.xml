@@ -4,11 +4,10 @@
   <Parameter name="post process grad" type="bool" value="true" />
   <ParameterList name="io">
     <Parameter name="input file prefix" type="string" value="../test_data/grids/" />
-    <Parameter name="input file" type="string" value="cylinder_0.vtk" />
+    <Parameter name="input file" type="string" value="cylinder_0.nc" />
     <Parameter name="nc type" type="string" value="HOMME" />
     <Parameter name="output file prefix" type="string" value="../test_data/" />
-    <Parameter name="output file" type="string" value="fiver.pvtp" />
-    <Parameter name="vtk produce mesh" type="bool" value="false" />
+    <Parameter name="output file" type="string" value="fiver.nc" />
   </ParameterList>
   <ParameterList name="solver">
     <Parameter name="type" type="string" value="iterative" />

@@ -294,8 +294,6 @@ int main (int argc, char* args[]) {
                 Teuchos::RCP<Compadre::PinnedGraphLaplacianBoundaryConditions> bcs =
                     Teuchos::rcp( new Compadre::PinnedGraphLaplacianBoundaryConditions(particles));
 
-                //bcs->flagBoundaries(); // used if we want to overwrite the flags from the .vtk file using PinnedGraphLaplacianBoundaryConditions
-
                 // set physics, sources, and boundary conditions in the problem
                 problem->setPhysics(physics);
                 problem->setSources(source);
@@ -312,14 +310,12 @@ int main (int argc, char* args[]) {
                 SolvingTime->stop();
             }
 
-            // set each flag to i
+            // set each flag to the global id for particle at i
             auto gids = particles->getCoordsConst()->getMapConst()->getMyGlobalIndices();
             const CT * sphCoords = (CT*)(particles->getCoordsConst());
             for (int i=0; i<sphCoords->nLocal(); i++) {
                 particles->setFlag(i,(int)(gids(i)));
             }
-
-
 
             WriteTime->start();
             {
@@ -346,7 +342,7 @@ int main (int argc, char* args[]) {
         }
         {
              //
-             // VTK File Reader Test and Parallel VTK File Re-Reader
+             // NetCDF File Reader Test and Parallel NetCDF File Re-Reader
              //
 
              // read solution back in which should also reset flags
@@ -369,6 +365,11 @@ int main (int argc, char* args[]) {
 
              particles->getFieldManagerConst()->listFields(std::cout);
 
+             // since preserve gids is true, value of flag at particle i should match 
+             // global id of particle at i 
+             // this tests setting gids as flags, writing flags and storing gids,
+             // reading back in preserved gid ordering (determining flag values)
+             // which are then read back in and checked against the original
             auto gids = particles->getCoordsConst()->getMapConst()->getMyGlobalIndices();
              for (int i=0; i<sphCoords->nLocal(); i++) {
                  std::ostringstream msg;
@@ -376,6 +377,9 @@ int main (int argc, char* args[]) {
                  // accomodate for removing particles 50 through 200 from each processor
                  TEUCHOS_TEST_FOR_EXCEPT_MSG((int)(gids(i))-particles->getFlag(i) != 0, msg.str());
             }
+            // preserve gids must be set back to false since it is incompatible with insertParticles
+            parameters->get<Teuchos::ParameterList>("io").set<bool>("preserve gids", false);
+            comm->barrier();
 
              // needed for insertParticles to perform an interpolation
              particles->zoltan2Initialize();
@@ -409,6 +413,7 @@ int main (int argc, char* args[]) {
                     printf("Point added: (%f,%f,%f) on %d\n", (*point)[0], (*point)[1], (*point)[2], comm->getRank());
                 }
             }
+
             particles->insertParticles(verts_to_insert);
 
              // Temporary, writer out additional particle data fields to view

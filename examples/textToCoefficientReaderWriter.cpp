@@ -65,7 +65,6 @@ int main (int argc, char* args[]) {
 	// There is a balance between "neighbors needed multiplier" and "cutoff multiplier"
 	// Their product must increase somewhat with "porder", but "neighbors needed multiplier"
 	// requires more of an increment than "cutoff multiplier" to achieve the required threshold (the other staying the same)
-	// parameters->get<Teuchos::ParameterList>("neighborhood").set<std::string>("method", "vtk");
 	// parameters->get<Teuchos::ParameterList>("neighborhood").set<bool>("search: dynamic", true);
 	// parameters->get<Teuchos::ParameterList>("neighborhood").set<double>("search: multiplier", 0.125);
 	// parameters->get<Teuchos::ParameterList>("neighborhood").set<double>("search: size", 0.2);
@@ -132,7 +131,7 @@ int main (int argc, char* args[]) {
 			particles->buildHalo(halo_size);
 
 
-			//std::string output_filename = "remap_coords_output.pvtp";
+			//std::string output_filename = "remap_coords_output.nc";
 			//Compadre::FileManager fm;
 			//fm.setWriter(output_filename, particles);
 			//fm.write();
@@ -176,7 +175,6 @@ int main (int argc, char* args[]) {
 
 				typedef Compadre::NeighborhoodT neighbors_type;
 				typedef Compadre::NanoFlannInformation nanoflann_neighbors_type;
-				typedef Compadre::VTKInformation vtk_neighbors_type;
 				Teuchos::RCP<neighbors_type> neighborhoodInfo;
 					LO maxLeaf = parameters->get<Teuchos::ParameterList>("neighborhood").get<int>("max leaf");
 					neighborhoodInfo = Teuchos::rcp_static_cast<neighbors_type>(Teuchos::rcp(

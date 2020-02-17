@@ -37,10 +37,6 @@ if (CompadreHarness_USE_Trilinos)
   bob_link_dependency(compadreharness PUBLIC Trilinos)
 endif()
 
-if (CompadreHarness_USE_VTK)
-  bob_link_dependency(compadreharness PUBLIC VTK)
-endif()
-
 if(CompadreHarness_USE_Netcdf)
   target_include_directories(compadreharness PUBLIC "${Netcdf_INCLUDE_DIR}")
   target_link_libraries(compadreharness PUBLIC "${Netcdf_LIBRARIES}")

@@ -6,8 +6,7 @@
     <Parameter name="input file prefix" type="string" value="../test_data/grids/output_"/>
     <Parameter name="input file" type="string" value=""/>
     <Parameter name="output file prefix" type="string" value="../test_data/amg_"/>
-    <Parameter name="output file" type="string" value=".pvtp"/>
-    <Parameter name="vtk produce mesh" type="bool" value="false"/>
+    <Parameter name="output file" type="string" value=".nc"/>
   </ParameterList>
   <ParameterList name="solver">
     <Parameter name="type" type="string" value="iterative"/>

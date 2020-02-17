@@ -77,7 +77,7 @@ int main (int argc, char* args[]) {
         
 
         // NEED Cell centered data
-        fm.setReader("../test_data/grids/cells.vtk", particles);
+        fm.setReader("../test_data/grids/cells.nc", particles);
         fm.read();
 	    // build halo data
 	    ST halo_size = h_size *
@@ -104,8 +104,8 @@ int main (int argc, char* args[]) {
     		Teuchos::rcp( new Compadre::ParticlesT(parameters, comm));
     //{
     //    //Compadre::FileManager fm;
-    //    //fm.setReader("../test_data/grids/patch.vtk", eval_particles);
-    //    ////fm.setReader("../test_data/grids/cells.vtk", eval_particles);
+    //    //fm.setReader("../test_data/grids/patch.nc", eval_particles);
+    //    ////fm.setReader("../test_data/grids/cells.nc", eval_particles);
     //    //fm.read();
 	//    // build halo data
 	//    ST halo_size = h_size *
@@ -422,10 +422,10 @@ int main (int argc, char* args[]) {
 
     {
         //Compadre::FileManager fm;
-	    //fm.setWriter("./out.pvtp", particles);
+	    //fm.setWriter("./out.nc", particles);
 	    //fm.write();
         Compadre::FileManager fm;
-	    fm.setWriter("./out.pvtp", eval_particles);
+	    fm.setWriter("./out.nc", eval_particles);
 	    fm.write();
     }
 

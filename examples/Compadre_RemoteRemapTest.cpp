@@ -160,7 +160,7 @@ int main (int argc, char* args[]) {
 			remoteDataManager->putRemoteCoordinatesInParticleSet(peer_processors_particles.getRawPtr());
 
 			Compadre::FileManager fm;
-			std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "after_swap" + std::to_string(my_coloring) + ".pvtp";
+			std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "after_swap" + std::to_string(my_coloring) + ".nc";
 			fm.setWriter(output_filename, peer_processors_particles);
 			fm.write();
 		}

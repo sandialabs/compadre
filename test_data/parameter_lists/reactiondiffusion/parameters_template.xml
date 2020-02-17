@@ -11,8 +11,7 @@
     <Parameter name="input file prefix" type="string" value="../test_data/grids/"/>
     <Parameter name="input file" type="string" value="dg_0.nc"/>
     <Parameter name="output file prefix" type="string" value="../test_data/"/>
-    <Parameter name="output file" type="string" value="dg_out.pvtp"/>
-    <Parameter name="vtk produce mesh" type="bool" value="false"/>
+    <Parameter name="output file" type="string" value="dg_out.nc"/>
     <Parameter name="preserve gids" type="bool" value="true"/>
     <Parameter name="gids name" type="string" value="ID"/>
   </ParameterList>

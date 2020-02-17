@@ -32,7 +32,7 @@
     <Parameter name="input file" type="string" value="shallow_1.nc"/>
     <Parameter name="nc type" type="string" value="HOMME"/>
     <Parameter name="output file prefix" type="string" value="./test_data/"/>
-    <Parameter name="output file" type="string" value="shallow_water.pvtp"/>
+    <Parameter name="output file" type="string" value="shallow_water.nc"/>
     <Parameter name="write every" type="int" value="1"/>
     <Parameter name="keep original lat lon" type="bool" value="true"/>
   </ParameterList>

@@ -88,12 +88,6 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
     
     ADD_TEST(NAME GMLSTest4x1amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_amg.xml" "--kokkos-threads=1")
     SET_TESTS_PROPERTIES(GMLSTest4x1amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;four")
-    
-    ADD_TEST(NAME MeshWritePVTU COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_mesh_pvtu.xml" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(MeshWritePVTU PROPERTIES LABELS "UnitTest;unit;mesh;pvtu")
-    
-    ADD_TEST(NAME MeshWritePVTP COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_mesh_pvtp.xml" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(MeshWritePVTP PROPERTIES LABELS "UnitTest;unit;mesh;pvtp")
 
     # GMLS STAGGERED ANALYTIC LAPLACIAN
 
@@ -136,27 +130,19 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
 
     # READER TEST
 
-    ADD_TEST(NAME SphReaderTest COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 3 ${CMAKE_CURRENT_BINARY_DIR}/readerTest.exe "${CMAKE_CURRENT_BINARY_DIR}/../test_data/grids/icos_tri_sphere/icosTri_1.vtk" "--kokkos-threads=2")
+    ADD_TEST(NAME SphReaderTest COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 3 ${CMAKE_CURRENT_BINARY_DIR}/readerTest.exe "${CMAKE_CURRENT_BINARY_DIR}/../test_data/grids/icos_tri_sphere/icosTri_1.nc" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(SphReaderTest PROPERTIES LABELS "UnitTest;unit;Reader" TIMEOUT 60)
 
 
     # PARALLEL READER TEST
 
     # named 2 because the files it will read in were written by two processors
-    ADD_TEST(NAME ParallelReadVTKWriteVTKTest2 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/parallelReader.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/reader_test/parameters_2_vtk.xml" "--kokkos-threads=1")
-    SET_TESTS_PROPERTIES(ParallelReadVTKWriteVTKTest2 PROPERTIES LABELS "UnitTest;unit;parallel;read;vtk;VTK")
+    ADD_TEST(NAME ParallelReadNETCDFWriteNETCDFTest2 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/parallelReader.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/reader_test/parameters_2_netcdf.xml" "--kokkos-threads=1")
+    SET_TESTS_PROPERTIES(ParallelReadNETCDFWriteNETCDFTest2 PROPERTIES LABELS "UnitTest;unit;parallel;read;netcdf;Netcdf")
     
     # named 4 because the files it will read in were written by four processors
-    ADD_TEST(NAME ParallelReadVTKWriteVTKTest4 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/parallelReader.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/reader_test/parameters_4_vtk.xml" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(ParallelReadVTKWriteVTKTest4 PROPERTIES LABELS "UnitTest;unit;parallel;read;vtk;VTK")
-    
-    # named 2 because the files it will read in were written by two processors
-    ADD_TEST(NAME ParallelReadVTKWriteNETCDFTest2 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/parallelReader.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/reader_test/parameters_2_netcdf.xml" "--kokkos-threads=1")
-    SET_TESTS_PROPERTIES(ParallelReadVTKWriteNETCDFTest2 PROPERTIES LABELS "UnitTest;unit;parallel;read;vtk;VTK;netcdf;Netcdf")
-    
-    # named 4 because the files it will read in were written by four processors
-    ADD_TEST(NAME ParallelReadVTKWriteNETCDFTest4 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/parallelReader.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/reader_test/parameters_4_netcdf.xml" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(ParallelReadVTKWriteNETCDFTest4 PROPERTIES LABELS "UnitTest;unit;parallel;read;vtk;VTK;netcdf;Netcdf")
+    ADD_TEST(NAME ParallelReadNETCDFWriteNETCDFTest4 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/parallelReader.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/reader_test/parameters_4_netcdf.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(ParallelReadNETCDFWriteNETCDFTest4 PROPERTIES LABELS "UnitTest;unit;parallel;read;netcdf;Netcdf")
 
 
     # COORDS TEST
@@ -236,11 +222,11 @@ if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
 
     # ADVECTION DIFFUSION TESTS
     
-    ADD_TEST(NAME L2ProjectionTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/advectiondiffusion_convergence.py" "2" "1" "1" "0") # 4 polynomial order, 2 successive meshes, 1 l2 projection only, 0 - polynomial solution
-    SET_TESTS_PROPERTIES(L2ProjectionTest PROPERTIES LABELS "advection;diffusion;dg;variational;weakform;l2")
+    #ADD_TEST(NAME L2ProjectionTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/advectiondiffusion_convergence.py" "2" "1" "1" "0") # 4 polynomial order, 2 successive meshes, 1 l2 projection only, 0 - polynomial solution
+    #SET_TESTS_PROPERTIES(L2ProjectionTest PROPERTIES LABELS "advection;diffusion;dg;variational;weakform;l2")
 
-    ADD_TEST(NAME L2ProjectionTestConv COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/advectiondiffusion_convergence.py" "2" "2" "1" "1") # 4 polynomial order, 2 successive meshes, 1 l2 projection only, 0 - polynomial solution
-    SET_TESTS_PROPERTIES(L2ProjectionTestConv PROPERTIES LABELS "advection;diffusion;dg;variational;weakform;l2")
+    #ADD_TEST(NAME L2ProjectionTestConv COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/advectiondiffusion_convergence.py" "2" "2" "1" "1") # 4 polynomial order, 2 successive meshes, 1 l2 projection only, 0 - polynomial solution
+    #SET_TESTS_PROPERTIES(L2ProjectionTestConv PROPERTIES LABELS "advection;diffusion;dg;variational;weakform;l2")
 
     #ADD_TEST(NAME ReactionDiffusionTestConv COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/reactiondiffusion_convergence.py" "2" "3" "0" "1") # 4 polynomial order, 2 successive meshes, 1 l2 projection only, 0 - polynomial solution
     #SET_TESTS_PROPERTIES(ReactionDiffusionTestConv PROPERTIES LABELS "reaction;diffusion;dg;variational;weakform;")

@@ -4,14 +4,6 @@
 #include "CompadreHarness_Config.h"
 #include "CompadreHarness_Typedefs.hpp"
 
-#ifdef COMPADREHARNESS_USE_VTK
-	#include <vtkSmartPointer.h>
-#endif
-
-class vtkDataSet;
-class vtkPolyData;
-class vtkUnstructuredGrid;
-
 namespace Compadre {
 
 class ParticlesT;
@@ -57,9 +49,6 @@ class FileIO {
 
 		virtual int read(const std::string& fn) = 0;
 		virtual void write(const std::string& fn, bool use_binary) = 0;
-
-		virtual void generateMesh() = 0;
-		virtual void writeMesh(const std::string& fn) = 0;
 
         // coordinates will be stored in a rank-2 tensor with one axis being the number of particles [particle_num_name]
         // and the other axis being the number of pieces of coordinate data per particle
@@ -132,9 +121,6 @@ class NetCDFFileIO : public FileIO {
 		virtual int read(const std::string& fn) = 0;
 		virtual void write(const std::string& fn, bool use_binary) = 0;
 
-		virtual void generateMesh() = 0;
-		virtual void writeMesh(const std::string& fn) = 0;
-
 };
 
 class SerialNetCDFFileIO : public NetCDFFileIO {
@@ -152,9 +138,6 @@ class SerialNetCDFFileIO : public NetCDFFileIO {
 
 		virtual int read(const std::string& fn);
 		virtual void write(const std::string& fn, bool use_binary);
-
-		virtual void generateMesh(){};
-		virtual void writeMesh(const std::string& fn){};
 
 };
 
@@ -177,99 +160,12 @@ class ParallelHDF5NetCDFFileIO : public NetCDFFileIO {
 		virtual int read(const std::string& fn);
 		virtual void write(const std::string& fn, bool use_binary);
 
-		virtual void generateMesh(){};
-		virtual void writeMesh(const std::string& fn){};
-
 };
 
 
 #endif // COMPADREHARNESS_USE_NETCDF_MPI
 #endif // COMPADREHARNESS_USE_NETCDF
 
-#ifdef COMPADREHARNESS_USE_VTK
-
-class VTKFileIO : public FileIO {
-	/*
-		NOTE: VTK Specialization of FileIO base class
-	*/
-	protected:
-
-		vtkSmartPointer<vtkDataSet> _dataSet;
-		vtkSmartPointer<vtkDataSet> _haloDataSet;
-		vtkSmartPointer<vtkUnstructuredGrid> _mesh; // doesn't exist unless explicitly created
-
-		virtual void populateParticles();
-
-	public:
-
-		VTKFileIO ( particles_type * particles ) : FileIO(particles) {}
-		virtual ~VTKFileIO() {};
-
-		virtual int read(const std::string& fn) = 0;
-		virtual void write(const std::string& fn, bool use_binary) = 0;
-
-		virtual void generateMesh() = 0;
-		virtual void writeMesh(const std::string& fn);
-
-};
-
-class LegacyVTKFileIO : public VTKFileIO {
-	/*
-		NOTE: Serial reader / writer for legacy VTK (.vtk) files
-	*/
-
-	public:
-
-		LegacyVTKFileIO ( particles_type * particles ) : VTKFileIO(particles) {}
-		virtual ~LegacyVTKFileIO() {};
-
-		virtual int read(const std::string& fn);
-		virtual void write(const std::string& fn, bool use_binary = false);
-
-		virtual void generateMesh() {};
-
-};
-
-class XMLVTUFileIO : public VTKFileIO {
-	/*
-		NOTE: XML Parallel UnstructuredGrid reader / writer for VTK (format is .pvtu with supporting .vtu files)
-	*/
-	protected:
-		vtkSmartPointer<vtkUnstructuredGrid> _unstructuredGrid;
-
-	public:
-
-		XMLVTUFileIO ( particles_type * particles ) : VTKFileIO(particles) {}
-		virtual ~XMLVTUFileIO() {};
-
-		virtual int read(const std::string& fn);
-		virtual void write(const std::string& fn, bool use_binary = true);
-
-		virtual void generateMesh();
-
-};
-
-class XMLVTPFileIO : public VTKFileIO {
-	/*
-		NOTE: XML Parallel PolyData reader / writer for VTK (format is .pvtp with supporting .vtp files)
-	*/
-	protected:
-
-		vtkSmartPointer<vtkPolyData> _polyData;
-
-	public:
-
-		XMLVTPFileIO ( particles_type * particles ) : VTKFileIO(particles) {}
-		virtual ~XMLVTPFileIO() {};
-
-		virtual int read(const std::string& fn);
-		virtual void write(const std::string& fn, bool use_binary = true);
-
-		virtual void generateMesh();
-
-};
-
-#endif // COMPADREHARNESS_USE_VTK
 
 class FileManager {
 
@@ -305,44 +201,8 @@ class FileManager {
 
 		void write() const;
 
-		void generateWriteMesh();
-
 };
 
-#ifdef COMPADREHARNESS_USE_VTK
-
-class VTKData {
-	/*
-	 * Not for files. This generates a dataset given a set of particles. It can be used by FileIO as well as in neighbor searches.
-	 */
-	protected:
-
-		typedef Compadre::ParticlesT particles_type;
-
-		const particles_type* _particles;
-		vtkSmartPointer<vtkDataSet> _dataSet;
-		vtkSmartPointer<vtkDataSet> _haloDataSet;
-		vtkSmartPointer<vtkDataSet> _data_w_halo_DataSet;
-		Teuchos::RCP<Teuchos::ParameterList> _parameters;
-
-	public:
-
-		VTKData ( const particles_type * particles , Teuchos::RCP<Teuchos::ParameterList> parameters) :
-			_particles(particles), _parameters(parameters) {}
-		~VTKData() {};
-
-		vtkSmartPointer<vtkDataSet> getDataSet() const { return _dataSet; }
-		vtkSmartPointer<vtkDataSet> getHaloDataSet() const { return _haloDataSet; }
-		vtkSmartPointer<vtkDataSet> getCombinedDataSet() const {
-			TEUCHOS_TEST_FOR_EXCEPT_MSG(_data_w_halo_DataSet==NULL, "getCombinedDataSet() called before generateCombinedDataSet()");
-			return _data_w_halo_DataSet;
-		}
-
-		void generateDataSet( bool include_halo = false, bool for_writing_output = true, bool use_physical_coords = true);
-		void generateCombinedDataSet();
-};
-
-#endif // COMPADREHARNESS_USE_VTK
 }
 
 #endif

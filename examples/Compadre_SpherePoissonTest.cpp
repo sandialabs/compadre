@@ -65,8 +65,8 @@ int main(int argc, char* args[]) {
 		// PARSE COMMAND LINE ARGUMENTS
 		Teuchos::CommandLineProcessor clp;
 		clp.setDocString("Poisson solver for the sphere. Argument --filename=afile is required to define a particle set.");
-		std::string fname = "../test_data/grids/icos_tri_sphere/icosTri_5.vtk";
-		clp.setOption("filename", &fname, "particle set .vtk filename", false);
+		std::string fname = "../test_data/grids/icos_tri_sphere/icosTri_5.nc";
+		clp.setOption("filename", &fname, "particle set .nc filename", false);
 		clp.throwExceptions(false);
 
 		Teuchos::CommandLineProcessor::EParseCommandLineReturn parseReturn = clp.parse(argc, args);
@@ -84,7 +84,7 @@ int main(int argc, char* args[]) {
 		Teuchos::ParameterList coordList = parameters->get<Teuchos::ParameterList>("coordinates");
 		coordList.set("type","spherical");
 
-		// DEFINE PARTICLES: Read from .vtk file
+		// DEFINE PARTICLES: Read from .nc file
 		Teuchos::RCP<CT> sphCoords = Teuchos::rcp(new CT(0, comm));
 		Teuchos::RCP<Compadre::ParticlesT> particles =
 			Teuchos::rcp( new Compadre::ParticlesT(parameters, Teuchos::rcp_dynamic_cast<Compadre::CoordsT>(sphCoords)));
@@ -273,7 +273,7 @@ int main(int argc, char* args[]) {
 		fields[errID]->updateMultiVector(1.0, fields[computID], -1.0, fields[exactID], 0.0);
 		std::vector<scalar_type> infErr = fields[errID]->normInf();
 
-		fm.setWriter("sphPoissonTest.pvtk", particles);
+		fm.setWriter("sphPoissonTest.nc", particles);
 		fm.write();
 
 		out << "PROGRAM COMPLETE\n";

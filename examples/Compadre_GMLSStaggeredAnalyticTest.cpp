@@ -68,11 +68,11 @@ int main (int argc, char* args[]) {
 		std::vector<double> hsize(5);
 		std::vector<double> errors(5);
 		const std::string filename_prefix = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix");
-		fnames[0]=filename_prefix + "6.vtk"; // this case won't work except with very low Porder
-		fnames[1]=filename_prefix + "12.vtk";
-		fnames[2]=filename_prefix + "24.vtk";
-		fnames[3]=filename_prefix + "48.vtk";
-		fnames[4]=filename_prefix + "96.vtk";
+		fnames[0]=filename_prefix + "6.nc"; // this case won't work except with very low Porder
+		fnames[1]=filename_prefix + "12.nc";
+		fnames[2]=filename_prefix + "24.nc";
+		fnames[3]=filename_prefix + "48.nc";
+		fnames[4]=filename_prefix + "96.nc";
 		hsize[0]=6;
 		hsize[1]=12;
 		hsize[2]=24;
@@ -189,7 +189,6 @@ int main (int argc, char* args[]) {
 			std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + std::to_string(i) /* loop # */ + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
 			std::string writetest_output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "writetest" + std::to_string(i) /* loop # */ + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
 			fm.setWriter(output_filename, particles);
-			if (parameters->get<Teuchos::ParameterList>("io").get<bool>("vtk produce mesh")) fm.generateWriteMesh();
 			fm.write();
 			WriteTime->stop();
 			{

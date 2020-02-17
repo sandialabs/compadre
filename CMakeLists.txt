@@ -272,30 +272,6 @@ else()
     set(CompadreHarness_USE_Netcdf_MPI OFF)
 endif()
    
-#VTK
-bob_option(CompadreHarness_USE_VTK "Use VTK" ON)
-bob_input(VTK_PREFIX "" PATH "Path to VTK install")
-if (VTK_PREFIX)
-  if(NOT IS_ABSOLUTE ${VTK_PREFIX})
-    set(VTK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/${VTK_PREFIX}")
-  endif()
-  set(CMAKE_PREFIX_PATH ${VTK_PREFIX} ${CMAKE_PREFIX_PATH})
-endif()
-IF (CompadreHarness_USE_VTK)
-  FIND_PACKAGE(VTK)
-  bob_add_dependency(PUBLIC NAME VTK
-    TARGETS "${VTK_LIBRARIES}"
-    INCLUDE_DIR_VARS 
-      VTK_INCLUDE_DIRS 
-    LIBRARY_VARS
-  VTK_LIBRARIES)
-  LIST(FIND VTK_LIBRARIES vtkIOMPIParallel HAVE_VTKMPIIO)
-  IF (HAVE_VTKMPIIO GREATER -1 )
-    MESSAGE(STATUS "VTK with MPI_IO support found.")
-  ELSE()
-    MESSAGE(STATUS "VTK found, but not built with MPI support.\n Try rebuilding with VTK with:-D VTK_USE_PARALLEL:BOOL=ON, -D VTK_USE_MPI:BOOL=ON, -D Module_vtkFiltersParallelMPI:BOOL=ON, -D Module_vtkIOMPIParallel:BOOL=ON \n")
-  ENDIF()
-ENDIF()
 
 #MPI
 FIND_PACKAGE(MPI)
@@ -547,7 +523,6 @@ set(CompadreHarness_KEY_BOOLS
     CompadreHarness_USE_OpenMP
     CompadreHarness_USE_PYTHON
     CompadreHarness_USE_Trilinos
-    CompadreHarness_USE_VTK
     TRILINOS_LINEAR_SOLVES
     LAPACK_DECLARED_THREADSAFE
    )
@@ -712,5 +687,5 @@ if(CompadreHarness_BUILD_Doxygen)
 endif(CompadreHarness_BUILD_Doxygen)
 
 
-set (augmented_list "${Trilinos_LIBRARIES}" "${VTK_LIBRARIES}")
+set (augmented_list "${Trilinos_LIBRARIES}")
 bob_end_package_no_recurse("${augmented_list}")

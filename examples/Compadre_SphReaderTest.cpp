@@ -34,7 +34,7 @@ int main (int argc, char* args[]) {
 //// 		std::cout << "Hello from MPI rank " << procRank << ", Kokkos execution space "
 //// 				  << typeid(Kokkos::DefaultExecutionSpace).name() << std::endl;
 //
-//		std::string testfilename("./build/icosTri_1.vtk");
+//		std::string testfilename("./build/icosTri_1.nc");
 //
 //
 //		Compadre::ASCIIFileReader<Compadre::SphericalCoordsT<ST, LO, GO>, ST, LO, GO> reader(testfilename);
