@@ -33,7 +33,7 @@ protected:
     //! Generates quadrature
     void generateQuadrature(const int order, const int dimension) {
 
-        std::vector<int> oneDNumPointsFromOrder = {1, 1, 2, 2, 3, 3, 5, 5};
+        std::vector<int> oneDNumPointsFromOrder = {1, 1, 2, 2, 3, 3, 4, 4, 5, 5};
         std::vector<int> twoDNumPointsFromOrder = {1, 1, 3, 4, 6, 7, 12, 13, 16, 19, 24, 27, 32, 36, 42, 55, 61, 66, 73, 78};
 
         if (dimension == 0) {
