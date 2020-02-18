@@ -1191,6 +1191,18 @@ public:
         return sro.input_rank;
     }
 
+    int getInputDimensionOfPolynomialBasis() {
+        if (_reconstruction_space == ReconstructionSpace::ScalarTaylorPolynomial || _reconstruction_space == ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial) {
+            return 1;
+        } else {
+            return this->getGlobalDimensions();
+        }
+    }
+
+    int getOutputDimensionOfPolynomialBasis() const {
+        return 1;
+    }
+
 ///@}
 
 
