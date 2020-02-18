@@ -297,11 +297,18 @@ class SineProducts : public AnalyticFunction {
 
 		virtual xyz_type evalScalarDerivative(const xyz_type& xIn) const;
 
+		virtual std::vector<xyz_type> evalJacobian(const xyz_type& xyzIn) const;
+
+		std::vector<std::vector<xyz_type> > evalHessian(const xyz_type& xyzIn) const;
+
 		virtual xyz_type evalVector(const xyz_type& xIn) const;
 
 		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn) const;
 
 		scalar_type evalReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const;
+
+		scalar_type evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type comp, 
+                const scalar_type shear_modulus, const scalar_type lambda) const;
 
 };
 
@@ -319,11 +326,18 @@ class SecondOrderBasis : public AnalyticFunction {
 
 		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn) const;
 
+		virtual std::vector<xyz_type> evalJacobian(const xyz_type& xyzIn) const;
+
+		std::vector<std::vector<xyz_type> > evalHessian(const xyz_type& xyzIn) const;
+
 		virtual xyz_type evalVector(const xyz_type& xIn) const;
 
 		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn) const;
 
 		scalar_type evalReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const;
+
+		scalar_type evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type comp, 
+                const scalar_type shear_modulus, const scalar_type lambda) const;
 
 };
 
@@ -341,11 +355,18 @@ class ThirdOrderBasis : public AnalyticFunction {
 
 		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn) const;
 
+		virtual std::vector<xyz_type> evalJacobian(const xyz_type& xyzIn) const;
+
+		std::vector<std::vector<xyz_type> > evalHessian(const xyz_type& xyzIn) const;
+
 		virtual xyz_type evalVector(const xyz_type& xIn) const;
 
 		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn) const;
 
 		scalar_type evalReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const;
+
+		scalar_type evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type comp, 
+                const scalar_type shear_modulus, const scalar_type lambda) const;
 
 };
 

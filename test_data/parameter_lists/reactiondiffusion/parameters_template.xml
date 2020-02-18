@@ -2,9 +2,11 @@
   <ParameterList name="physics">
     <Parameter name="diffusion" type="double" value="1.0"/>
     <Parameter name="reaction" type="double" value="1.0"/>
+    <Parameter name="shear" type="double" value="1.0"/>
+    <Parameter name="lambda" type="double" value="1.0"/>
     <Parameter name="penalty" type="double" value="1e+0"/>
-    <Parameter name="l2 projection only" type="bool" value="false"/>
     <Parameter name="solution" type="string" value="polynomial"/>
+    <Parameter name="operator" type="string" value="le"/> <!-- choices are l2, rd, and le -->
   </ParameterList>
   <ParameterList name="io">
     <Parameter name="input dimensions" type="int" value="2"/>
@@ -22,8 +24,8 @@
     <!--<Parameter name="save residual over solution" type="bool" value="true"/>-->
   </ParameterList>
   <ParameterList name="remap">
-    <Parameter name="weighting power" type="int" value="3"/>
-    <Parameter name="porder" type="int" value="1"/>
+    <Parameter name="weighting power" type="int" value="1"/>
+    <Parameter name="porder" type="int" value="2"/>
     <Parameter name="dense solver type" type="string" value="SVD"/>
   </ParameterList>
   <ParameterList name="neighborhood">

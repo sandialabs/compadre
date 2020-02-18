@@ -25,8 +25,11 @@ class ReactionDiffusionPhysics : public PhysicsT {
 
     public:
 
-        scalar_type _reaction;
-        scalar_type _diffusion;
+        scalar_type _reaction;  // used for reaction-diffusion
+        scalar_type _diffusion; // used for reaction-diffusion
+        scalar_type _shear;     // used for linear elasticity
+        scalar_type _lambda;    // used for linear elasticity
+
         
         particle_type* _cells;
 
@@ -36,7 +39,6 @@ class ReactionDiffusionPhysics : public PhysicsT {
 		Teuchos::RCP<neighborhood_type> _cell_particles_neighborhood;
 		Teuchos::RCP<neighborhood_type> _halo_cell_particles_neighborhood;
 
-		Teuchos::RCP<neighborhood_type> _particles_double_hop_neighborhood;
 		Teuchos::RCP<neighborhood_type> _particles_triple_hop_neighborhood;
 
 		size_t _particles_particles_max_num_neighbors;
@@ -91,6 +93,14 @@ class ReactionDiffusionPhysics : public PhysicsT {
         
         void setDiffusion(const scalar_type diffusion) {
             _diffusion = diffusion;
+        }
+
+        void setShear(const scalar_type shear) {
+            _shear = shear;
+        }
+        
+        void setLambda(const scalar_type lambda) {
+            _lambda = lambda;
         }
 
         void setCells(Teuchos::RCP<particle_type> cells) { _cells = cells.getRawPtr(); };

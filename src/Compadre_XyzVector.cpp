@@ -20,10 +20,19 @@ XyzVector operator * ( const XyzVector& vecA, const XyzVector& vecB ) {
 XyzVector operator + ( const XyzVector& vecA, const scalar_type& constant ) {
 	return XyzVector( vecA.x + constant, vecA.y + constant, vecA.z + constant); }
 
+XyzVector operator + ( const scalar_type& constant, const XyzVector& vecA ) {
+	return XyzVector( vecA.x + constant, vecA.y + constant, vecA.z + constant); }
+
 XyzVector operator - ( const XyzVector& vecA, const scalar_type& constant ) {
 	return XyzVector( vecA.x - constant, vecA.y - constant, vecA.z - constant); }
 
+XyzVector operator - ( const scalar_type& constant,  const XyzVector& vecA ) {
+	return XyzVector( vecA.x - constant, vecA.y - constant, vecA.z - constant); }
+
 XyzVector operator * ( const XyzVector& vecA, const scalar_type& constant ) {
+	return XyzVector( vecA.x * constant, vecA.y * constant, vecA.z * constant); }
+
+XyzVector operator * (const scalar_type& constant, const XyzVector& vecA) {
 	return XyzVector( vecA.x * constant, vecA.y * constant, vecA.z * constant); }
 
 XyzVector operator / ( const XyzVector& vecA, const scalar_type& constant ) {
