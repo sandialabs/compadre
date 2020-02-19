@@ -9,6 +9,8 @@
 #include <Compadre_MultiJumpNeighborhood.hpp>
 #include <Compadre_XyzVector.hpp>
 
+#include <Teuchos_SerialDenseMatrix.hpp>
+#include <Teuchos_SerialDenseSolver.hpp>
 #include <Compadre_GMLS.hpp>
 
 #ifdef TRILINOS_DISCRETIZATION
@@ -637,6 +639,32 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     });
     Kokkos::fence();
 
+    
+    // MA 200219 - TEUCHOS SOLVER for AX = B ######################################################
+    //Adapted from online example at https://www.icl.utk.edu/files/publications/2017/icl-utk-1031-2017.pdf   
+    //Also see example at https://docs.trilinos.org/dev/packages/teuchos/doc/html/DenseMatrix_2cxx_main_8cpp-example.html.   
+    //Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> A(3, 3), X(3, 1), B(3, 1);
+    //Teuchos :: SerialDenseSolver <local_index_type, scalar_type> solver;
+    //solver.setMatrix( Teuchos ::rcp( &A,false) );
+    //solver.setVectors( Teuchos ::rcp( &X,false), Teuchos ::rcp( &B,false) );    
+    //A.putScalar(0.0);
+    //B.putScalar(0.0);
+    //X.putScalar(0.0);
+    //A(0,0) = 10.0;
+    //A(1,1) = 1.0;
+    //A(2,2) = 2.0;
+    //B(0,0) = 2.0; 
+    //B(2,0) = 4.0;
+    //auto info = solver.factor();
+    //info = solver.solve();
+    //A.print(std::cout);
+    //B.print(std::cout);
+    //X.print(std::cout);  //should be X = [0.2, 0.0. 2]^T 
+    //MA END of TEUCHOS solver example ################################################################
+
+
+
+
     // loop over cells including halo cells 
     Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal(true)), [&](const int i, scalar_type& t_area) {
     //for (int i=0; i<_cells->getCoordsConst()->nLocal(true); ++i) {
@@ -700,7 +728,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                     current_edge_num[q] = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
                     adjacent_cell_local_index[q] = (int)(adjacent_elements(i, current_edge_num[q]));
                     side_of_cell_i_to_adjacent_cell[q] = -1;
-                    for (int z=0; z<num_exterior_quadrature_per_edge; ++z) {
+                    for (int z=0; z<num_edges; ++z) {
                         auto adjacent_cell_to_adjacent_cell = (int)(adjacent_elements(adjacent_cell_local_index[q],z));
                         if (adjacent_cell_to_adjacent_cell==i) {
                             side_of_cell_i_to_adjacent_cell[q] = z;
@@ -811,7 +839,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
             }
             if (!l2_op) {
                 TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
-                for (local_index_type j=0; j<3; ++j) {
+                for (local_index_type j=0; j<num_edges; ++j) {
                     int adj_el = (int)(adjacent_elements(i,j));
                     if (adj_el>=0) {
                         num_neighbors = _cell_particles_neighborhood->getNumNeighbors(adj_el);
