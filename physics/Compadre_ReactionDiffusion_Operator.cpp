@@ -17,6 +17,7 @@
   #include <Shards_CellTopology.hpp>
   #include <Intrepid_DefaultCubatureFactory.hpp>
   #include <Intrepid_CellTools.hpp>
+  #include <Intrepid_FunctionSpaceTools.hpp>
 #endif
 
 #ifdef COMPADREHARNESS_USE_OPENMP
@@ -174,9 +175,6 @@ void ReactionDiffusionPhysics::initialize() {
     int num_triangle_cub_points = triangle_cubature->getNumPoints();
     int triangle_dim = triangle.getDimension();
 
-    printf("num_cub_points: %d\n", num_triangle_cub_points);
-    printf("num_nodes: %d\n", num_triangle_nodes);
-
     Intrepid::FieldContainer<double> triangle_cub_points(num_triangle_cub_points, triangle_dim);
     Intrepid::FieldContainer<double> triangle_cub_weights(num_triangle_cub_points);
     triangle_cubature->getCubature(triangle_cub_points, triangle_cub_weights);
@@ -185,26 +183,26 @@ void ReactionDiffusionPhysics::initialize() {
     //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
     for (int i=0; i<num_cells_local; ++i) {
         for (int j=0; j<num_triangle_nodes; ++j) {
-            //triangle_nodes(i, j, 0) = cell_vertices(i, 2*((j+2)%3) + 0);
-            //triangle_nodes(i, j, 1) = cell_vertices(i, 2*((j+2)%3) + 1);
             for (int k=0; k<triangle_dim; ++k) {
                 triangle_nodes(i, j, k) = cell_vertices(i, 2*j + k);
             }
         }
     }//);
-    //std::cout << triangle_nodes << std::endl;
     Intrepid::FieldContainer<double> triangle_jacobian(num_cells_local, num_triangle_cub_points, triangle_dim, triangle_dim);
-    Intrepid::FieldContainer<double> physical_triangle_cub_weights(num_cells_local, num_triangle_cub_points);
+    Intrepid::FieldContainer<double> triangle_jacobian_det(num_cells_local, num_triangle_cub_points);
     Intrepid::FieldContainer<double> physical_triangle_cub_points(num_cells_local, num_triangle_cub_points, triangle_dim);
+    Intrepid::FieldContainer<double> physical_triangle_cub_weights(num_cells_local, num_triangle_cub_points);
 
     Intrepid::CellTools<double>::setJacobian(triangle_jacobian, triangle_cub_points, triangle_nodes, triangle);
-    Intrepid::CellTools<double>::setJacobianDet(physical_triangle_cub_weights, triangle_jacobian);
+    Intrepid::CellTools<double>::setJacobianDet(triangle_jacobian_det, triangle_jacobian);
+    Intrepid::FunctionSpaceTools::computeCellMeasure<double>(physical_triangle_cub_weights,
+                                                             triangle_jacobian_det,
+                                                             triangle_cub_weights);
     Intrepid::CellTools<scalar_type>::mapToPhysicalFrame(physical_triangle_cub_points,
                                                          triangle_cub_points,
                                                          triangle_nodes,
                                                          triangle,
                                                          -1);
-
 
 
     // quadrature sites and weights on lines
@@ -217,7 +215,6 @@ void ReactionDiffusionPhysics::initialize() {
     Intrepid::FieldContainer<double> line_cub_weights(num_line_cub_points);
     line_cubature->getCubature(line_cub_points_1d, line_cub_weights);
 
-    //Intrepid::FieldContainer<double> line_cub_points_2d(num_line_cub_points, triangle_dim);
     std::vector<Intrepid::FieldContainer<double> > line_cub_points_2d(num_triangle_edges, Intrepid::FieldContainer<double>(num_line_cub_points, triangle_dim));
     for (int i=0; i<num_triangle_edges; ++i) {
         Intrepid::CellTools<double>::mapToReferenceSubcell(line_cub_points_2d[i],
@@ -227,45 +224,22 @@ void ReactionDiffusionPhysics::initialize() {
                                                            triangle);
     }
 
-    printf("line dim: %d\n", line_dim);
-    printf("num_cub_points: %d\n", num_line_cub_points);
-    printf("num_nodes: %d\n", num_line_nodes);
-
-    //Intrepid::FieldContainer<double> line_nodes(num_cells_local*num_triangle_nodes, num_line_nodes, triangle_dim);
-    //for (int i=0; i<num_cells_local; ++i) {
-    //    for (int j=0; j<num_triangle_nodes; ++j) {
-    //        for (int k=0; k<num_line_nodes; ++k) {
-    //            for (int l=0; l<triangle_dim; ++l) {
-    //                //triangle_nodes(i, j, 0) = cell_vertices(i, 2*((j+2)%3) + 0);
-    //                //triangle_nodes(i, j, 1) = cell_vertices(i, 2*((j+2)%3) + 1);
-    //                line_nodes(i*num_triangle_nodes+j, k, l) = cell_vertices(i, triangle_dim*((j+k)%num_triangle_nodes) + l);
-    //            }
-    //        }
-    //    }
-    //}//);
-    //std::cout << line_nodes << std::endl;
-    //std::cout << line_cub_points_2d << std::endl;
-
-    //Intrepid::FieldContainer<double> line_jacobian(num_cells_local*num_triangle_nodes, num_line_cub_points, 1, 1);
     std::vector<Intrepid::FieldContainer<double> > line_jacobian(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim, triangle_dim));
     std::vector<Intrepid::FieldContainer<double> > physical_line_cub_weights(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points));
     std::vector<Intrepid::FieldContainer<double> > physical_line_cub_points(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim));
-
     for (int i=0; i<num_triangle_edges; ++i) {
         Intrepid::CellTools<double>::setJacobian(line_jacobian[i], line_cub_points_2d[i], triangle_nodes, triangle);
-        //std::cout << line_jacobian << std::endl;
-        Intrepid::CellTools<double>::setJacobianDet(physical_line_cub_weights[i], line_jacobian[i]);
-        std::cout << physical_line_cub_weights[i] << std::endl;
+        Intrepid::FunctionSpaceTools::computeEdgeMeasure<double>(physical_line_cub_weights[i],
+                                                                 line_jacobian[i],
+                                                                 line_cub_weights,
+                                                                 i,
+                                                                 triangle);
         Intrepid::CellTools<scalar_type>::mapToPhysicalFrame(physical_line_cub_points[i],
                                                              line_cub_points_2d[i],
                                                              triangle_nodes,
                                                              triangle,
                                                              -1);
     }
-    //std::cout << physical_line_cub_points[0] << std::endl;
-    //std::cout << physical_line_cub_points[1] << std::endl;
-    //std::cout << physical_line_cub_points[2] << std::endl;
-
 
     // quantities contained on cells (mesh)
     auto quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
@@ -282,48 +256,38 @@ void ReactionDiffusionPhysics::initialize() {
     _weights_ndim = quadrature_weights.extent(1);
 
     // store calculated quadrature values over fields values
-    //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
-    for (int i=0; i<num_cells_local; ++i) {
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), KOKKOS_LAMBDA(const int i) {
+    //for (int i=0; i<num_cells_local; ++i) {
         for (int j=0; j<_weights_ndim; ++j) {
             if (j<num_triangle_cub_points) {
-                quadrature_weights(i,j) = triangle_cub_weights(j)*physical_triangle_cub_weights(i,j);
+                //printf("%f vs %f, d: %f\n", quadrature_weights(i,j), physical_triangle_cub_weights(i,j), quadrature_weights(i,j)-physical_triangle_cub_weights(i,j));
+                quadrature_weights(i,j) = physical_triangle_cub_weights(i,j);
                 for (int k=0; k<ndim_requested; ++k) {
                     quadrature_points(i,2*j+k) = physical_triangle_cub_points(i,j,k);
                 }
-                //printf("%f vs %f, d: %f\n", quadrature_weights(i,j), triangle_cub_weights(j)*physical_triangle_cub_weights(i,j), quadrature_weights(i,j)-triangle_cub_weights(j)*physical_triangle_cub_weights(i,j));
             } 
             else {
                 int current_edge_num = (j - num_triangle_cub_points)/num_line_cub_points;
                 // reverse ordering because Intrepid does quadrature in reverse of v0->v1
                 int local_cub_num = num_line_cub_points - (j-num_triangle_cub_points)%num_line_cub_points - 1;
-                //quadrature_weights(i,j) = line_cub_weights(local_cub_num)*physical_line_cub_weights(i*num_triangle_nodes+current_edge_num, local_cub_num);
-                printf("%f vs %f, d: %f\n", quadrature_weights(i,j), line_cub_weights(local_cub_num)*physical_line_cub_weights[current_edge_num](i, local_cub_num), quadrature_weights(i,j)-line_cub_weights(local_cub_num)*physical_line_cub_weights[current_edge_num](i, local_cub_num));
+                quadrature_weights(i,j) = physical_line_cub_weights[current_edge_num](i, local_cub_num);
+                //printf("%f vs %f, d: %f\n", quadrature_weights(i,j), physical_line_cub_weights[current_edge_num](i, local_cub_num), quadrature_weights(i,j)-physical_line_cub_weights[current_edge_num](i, local_cub_num));
                 for (int k=0; k<triangle_dim; ++k) {
                     quadrature_points(i,2*j+k) = physical_line_cub_points[current_edge_num](i, local_cub_num, k);
                     //printf("%f vs %f, d: %f\n", quadrature_points(i,2*j+k), physical_line_cub_points[current_edge_num](i, local_cub_num, k), quadrature_points(i,2*j+k)-physical_line_cub_points[current_edge_num](i, local_cub_num, k));
                 }
-                //quadrature_points(i,2*j+1) = physical_line_cub_points(i,j,1);
             }
         }
-    }//);
+    });
 
     Kokkos::View<double**> kokkos_quadrature_coordinates("all quadrature coordinates", _cells->getCoordsConst()->nLocal()*_weights_ndim, 3);
     _kokkos_quadrature_coordinates_host = Kokkos::create_mirror_view(kokkos_quadrature_coordinates);
-    //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
-    for (int i=0; i<num_cells_local; ++i) {
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), KOKKOS_LAMBDA(const int i) {
         for (int j=0; j<_weights_ndim; ++j) {
             _kokkos_quadrature_coordinates_host(i*_weights_ndim + j, 0) = quadrature_points(i,2*j+0);
             _kokkos_quadrature_coordinates_host(i*_weights_ndim + j, 1) = quadrature_points(i,2*j+1);
-            //if (j<num_triangle_cub_points && i==0) {
-            //    printf("%f vs %f, d: %f\n", quadrature_points(i,2*j+0), physical_triangle_cub_points(i,j,0),quadrature_points(i,2*j+0)-physical_triangle_cub_points(i,j,0));
-            //    _kokkos_quadrature_coordinates_host(i*_weights_ndim + j, 0) = physical_triangle_cub_points(i, j, 0);
-            //    _kokkos_quadrature_coordinates_host(i*_weights_ndim + j, 1) = physical_triangle_cub_points(i, j, 1);
-            //} else {
-            //    _kokkos_quadrature_coordinates_host(i*_weights_ndim + j, 0) = quadrature_points(i,2*j+0);
-            //    _kokkos_quadrature_coordinates_host(i*_weights_ndim + j, 1) = quadrature_points(i,2*j+1);
-            //}
         }
-    }//);
+    });
 
     // get cell neighbors of particles, and add indices to these for quadrature
     // loop over particles, get cells in neighborhood and get their quadrature
