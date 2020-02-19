@@ -49,6 +49,9 @@ cmake \
 -D Zoltan2_ENABLE_Experimental:BOOL=ON\
 -D Zoltan2_ENABLE_TESTS:BOOL=ON \
 \
+-D Trilinos_ENABLE_Shards:BOOL=ON \
+-D Trilinos_ENABLE_Intrepid:BOOL=ON \
+\
 -D Trilinos_ENABLE_Xpetra:BOOL=ON \
 -D Trilinos_ENABLE_Anasazi:BOOL=ON \
 -D Trilinos_ENABLE_Epetra:BOOL=ON \

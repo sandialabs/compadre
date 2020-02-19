@@ -76,6 +76,7 @@ bob_option(CompadreHarness_USE_Trilinos_Solvers "Use Trilinos Linear Algebra cap
 bob_option(CompadreHarness_USE_Trilinos_CXX_Flags "Use Trilinos CXX flags" ON)
 
 SET(TRILINOS_LINEAR_SOLVES OFF)
+SET(TRILINOS_DISCRETIZATION OFF)
 IF (CompadreHarness_USE_Trilinos)
   FIND_PACKAGE(Trilinos)
   if (CompadreHarness_USE_Trilinos_Solvers)
@@ -138,6 +139,8 @@ IF (CompadreHarness_USE_Trilinos)
   LIST(FIND Trilinos_PACKAGE_LIST Thyra ThyraTrilinosID)
   LIST(FIND Trilinos_PACKAGE_LIST Teko TekoTrilinosID)
   LIST(FIND Trilinos_PACKAGE_LIST Stratimikos StratimikosTrilinosID)
+  LIST(FIND Trilinos_PACKAGE_LIST Intrepid IntrepidTrilinosID)
+  LIST(FIND Trilinos_PACKAGE_LIST Shards ShardsTrilinosID)
   IF (Zoltan2TrilinosID GREATER -1 )
     MESSAGE(STATUS "Found Zoltan2 inside Trilinos!")
   ELSE()
@@ -198,6 +201,21 @@ IF (CompadreHarness_USE_Trilinos)
     ENDIF()
 
   endif()
+
+  IF (IntrepidTrilinosID GREATER -1 )
+    MESSAGE(STATUS "Found Intrepid inside Trilinos!")
+      SET(TRILINOS_LINEAR_SOLVES ON)
+  ELSE()
+    MESSAGE(STATUS "Found Trilinos but could not find Intrepid.")
+  ENDIF()
+  IF (ShardsTrilinosID GREATER -1 )
+    MESSAGE(STATUS "Found Shards inside Trilinos!")
+  ELSE()
+    MESSAGE(STATUS "Found Trilinos but could not find Shards.")
+  ENDIF()
+  IF ((IntrepidTrilinosID GREATER -1 ) AND (ShardsTrilinosID GREATER -1 ))
+    SET(TRILINOS_DISCRETIZATION ON)
+  ENDIF()
 ENDIF()
 
 
@@ -524,6 +542,7 @@ set(CompadreHarness_KEY_BOOLS
     CompadreHarness_USE_PYTHON
     CompadreHarness_USE_Trilinos
     TRILINOS_LINEAR_SOLVES
+    TRILINOS_DISCRETIZATION
     LAPACK_DECLARED_THREADSAFE
    )
 

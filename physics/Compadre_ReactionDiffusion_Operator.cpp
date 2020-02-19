@@ -11,8 +11,10 @@
 
 #include <Compadre_GMLS.hpp>
 
-#include <Shards_CellTopology.hpp>
-#include <Intrepid_DefaultCubatureFactory.hpp>
+#ifdef TRILINOS_DISCRETIZATION
+  #include <Shards_CellTopology.hpp>
+  #include <Intrepid_DefaultCubatureFactory.hpp>
+#endif
 
 #ifdef COMPADREHARNESS_USE_OPENMP
 #include <omp.h>
@@ -30,6 +32,10 @@ typedef Compadre::XyzVector xyz_type;
 
 
 void ReactionDiffusionPhysics::initialize() {
+
+#ifndef TRILINOS_DISCRETIZATION
+    compadre_assert_release(false && "Trilinos packages Shards and Intrepid required to run this example.");
+#else
 
 	Teuchos::RCP<Teuchos::Time> GenerateData = Teuchos::TimeMonitor::getNewCounter ("Generate Data");
     GenerateData->start();
@@ -508,6 +514,7 @@ void ReactionDiffusionPhysics::initialize() {
 
     GenerateData->stop();
 
+#endif // TRILINOS_DISCRETIZATION
 }
 
 local_index_type ReactionDiffusionPhysics::getMaxNumNeighbors() {
