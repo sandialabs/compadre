@@ -11,6 +11,9 @@
 
 #include <Compadre_GMLS.hpp>
 
+#include <Shards_CellTopology.hpp>
+#include <Intrepid_DefaultCubatureFactory.hpp>
+
 #ifdef COMPADREHARNESS_USE_OPENMP
 #include <omp.h>
 #endif
@@ -31,6 +34,8 @@ void ReactionDiffusionPhysics::initialize() {
 	Teuchos::RCP<Teuchos::Time> GenerateData = Teuchos::TimeMonitor::getNewCounter ("Generate Data");
     GenerateData->start();
     bool use_physical_coords = true; // can be set on the operator in the future
+ 
+    auto nlocal = _cells->getCoordsConst()->nLocal();
 
     // we don't know which particles are in each cell
     // cell neighbor search should someday be bigger than the particles neighborhoods (so that we are sure it includes all interacting particles)
@@ -49,6 +54,7 @@ void ReactionDiffusionPhysics::initialize() {
     // distance between i and j, which means that if doubling the search size is wasteful, it is barely so
  
     local_index_type ndim_requested = _parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions");
+
 
     //
     // double and triple hop sized search
@@ -128,6 +134,81 @@ void ReactionDiffusionPhysics::initialize() {
         _kokkos_epsilons_host(i) = epsilons(i,0);
     });
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    auto cell_vertices = _cells->getFieldManager()->getFieldByName("vertex_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
+
+    // quadrature sites and weights on triangle cells
+    shards::CellTopology triangle = shards::getCellTopologyData< shards::Triangle<> >();
+
+    Intrepid::DefaultCubatureFactory<double> cubature_factory;
+    int cubature_degree = 2*_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder");
+
+    int num_triangle_nodes = triangle.getNodeCount();
+    Teuchos::RCP<Intrepid::Cubature<double> > triangle_cubature = cubature_factory.create(triangle, cubature_degree);
+    int num_triangle_cub_points = triangle_cubature->getNumPoints();
+
+    printf("num_cub_points: %d\n", num_triangle_cub_points);
+    printf("num_nodes: %d\n", num_triangle_nodes);
+
+    Intrepid::FieldContainer<double> triangle_cub_points(num_triangle_cub_points, ndim_requested);
+    Intrepid::FieldContainer<double> triangle_cub_weights(num_triangle_cub_points);
+    triangle_cubature->getCubature(triangle_cub_points, triangle_cub_weights);
+
+    std::cout << triangle_cub_points << std::endl; 
+    std::cout << triangle_cub_weights << std::endl; 
+
+    Intrepid::FieldContainer<double> triangle_nodes(nlocal, num_triangle_nodes, ndim_requested);
+    //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
+    for (int i=0; i<nlocal; ++i) {
+        for (int j=0; j<num_triangle_nodes; ++j) {
+            //triangle_nodes(i, j, 0) = cell_vertices(i, 2*((j+2)%3) + 0);
+            //triangle_nodes(i, j, 1) = cell_vertices(i, 2*((j+2)%3) + 1);
+            triangle_nodes(i, j, 0) = cell_vertices(i, 2*j + 0);
+            triangle_nodes(i, j, 1) = cell_vertices(i, 2*j + 1);
+        }
+    }//);
+    Intrepid::FieldContainer<double> triangle_jacobian(nlocal, num_triangle_cub_points, ndim_requested, ndim_requested);
+    Intrepid::FieldContainer<double> physical_triangle_cub_weights(nlocal, num_triangle_cub_points);
+    Intrepid::FieldContainer<double> physical_triangle_cub_points(nlocal, num_triangle_cub_points, ndim_requested);
+
+    Intrepid::CellTools<double>::setJacobian(triangle_jacobian, triangle_cub_points, triangle_nodes, triangle);
+    Intrepid::CellTools<double>::setJacobianDet(physical_triangle_cub_weights, triangle_jacobian);
+    Intrepid::CellTools<scalar_type>::mapToPhysicalFrame(physical_triangle_cub_points,
+                                                         triangle_cub_points,
+                                                         triangle_nodes,
+                                                         triangle,
+                                                         -1);
+
+    //std::cout << triangle_nodes << std::endl; 
+    //std::cout << physical_triangle_cub_points << std::endl; 
+    //std::cout << physical_triangle_cub_weights << std::endl; 
+
+    //// quadrature sites and weights on lines
+    //shards::CellTopology line = shards::getCellTopologyData< shards::Line<> >();
+    //int line_num_nodes = line->getNodeCount();
+    //Teuchos::RCP<Intrepid::Cubature<double> > line_cubature = cubature_factory.create(line, cubature_degree);
+    //int num_exterior_cub_points = line_cubature->getNumPoints();
+    //Intrepid::FieldContainer<double> line_cub_points(num_exterior_cub_points, ndim_requested);
+    //Intrepid::FieldContainer<double> line_cub_weights(num_exterior_cub_points);
+    //line_cubature->getCubature(line_cub_points, line_cub_weights);
+
+
     // quantities contained on cells (mesh)
     auto quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
     auto quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
@@ -141,14 +222,38 @@ void ReactionDiffusionPhysics::initialize() {
 
     // get all quadrature put together here as auxiliary evaluation sites
     _weights_ndim = quadrature_weights.extent(1);
+
+    // store calculated quadrature values over fields values
+    //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
+    for (int i=0; i<nlocal; ++i) {
+        for (int j=0; j<_weights_ndim; ++j) {
+            if (j<num_triangle_cub_points) {
+                quadrature_weights(i,j) = triangle_cub_weights(j)*physical_triangle_cub_weights(i,j);
+                quadrature_points(i,2*j+0) = physical_triangle_cub_points(i,j,0);
+                quadrature_points(i,2*j+1) = physical_triangle_cub_points(i,j,1);
+                //printf("%f vs %f, d: %f\n", quadrature_weights(i,j), triangle_cub_weights(j)*physical_triangle_cub_weights(i,j), quadrature_weights(i,j)-triangle_cub_weights(j)*physical_triangle_cub_weights(i,j));
+            }
+            // otherwise don't change them
+        }
+    }//);
+
     Kokkos::View<double**> kokkos_quadrature_coordinates("all quadrature coordinates", _cells->getCoordsConst()->nLocal()*_weights_ndim, 3);
     _kokkos_quadrature_coordinates_host = Kokkos::create_mirror_view(kokkos_quadrature_coordinates);
-    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
+    //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
+    for (int i=0; i<nlocal; ++i) {
         for (int j=0; j<_weights_ndim; ++j) {
-            _kokkos_quadrature_coordinates_host(i*_weights_ndim + j, 0) = quadrature_points(i,2*j+0);
-            _kokkos_quadrature_coordinates_host(i*_weights_ndim + j, 1) = quadrature_points(i,2*j+1);
+            //_kokkos_quadrature_coordinates_host(i*_weights_ndim + j, 0) = quadrature_points(i,2*j+0);
+            //_kokkos_quadrature_coordinates_host(i*_weights_ndim + j, 1) = quadrature_points(i,2*j+1);
+            if (j<num_triangle_cub_points && i==0) {
+                printf("%f vs %f, d: %f\n", quadrature_points(i,2*j+0), physical_triangle_cub_points(i,j,0),quadrature_points(i,2*j+0)-physical_triangle_cub_points(i,j,0));
+                _kokkos_quadrature_coordinates_host(i*_weights_ndim + j, 0) = physical_triangle_cub_points(i, j, 0);
+                _kokkos_quadrature_coordinates_host(i*_weights_ndim + j, 1) = physical_triangle_cub_points(i, j, 1);
+            } else {
+                _kokkos_quadrature_coordinates_host(i*_weights_ndim + j, 0) = quadrature_points(i,2*j+0);
+                _kokkos_quadrature_coordinates_host(i*_weights_ndim + j, 1) = quadrature_points(i,2*j+1);
+            }
         }
-    });
+    }//);
 
     // get cell neighbors of particles, and add indices to these for quadrature
     // loop over particles, get cells in neighborhood and get their quadrature
@@ -187,9 +292,7 @@ void ReactionDiffusionPhysics::initialize() {
 
 
     // halo
- 
-    auto nlocal = target_coords->nLocal();
-    auto nhalo = target_coords->nLocal(true)-nlocal;
+    auto nhalo = _cells->getCoordsConst()->nLocal(true)-nlocal;
 
     if (nhalo > 0) {
 
@@ -397,6 +500,11 @@ void ReactionDiffusionPhysics::initialize() {
             Kokkos::fence();
         }
     }
+
+    auto num_edges = adjacent_elements.extent(1);
+    _tau = Kokkos::View<double****, Kokkos::HostSpace>("tau", nlocal, num_edges, ndim_requested, ndim_requested);
+
+
 
     GenerateData->stop();
 
