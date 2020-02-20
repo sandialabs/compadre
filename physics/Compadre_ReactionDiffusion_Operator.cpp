@@ -227,6 +227,10 @@ void ReactionDiffusionPhysics::initialize() {
     std::vector<Intrepid::FieldContainer<double> > line_jacobian(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim, triangle_dim));
     std::vector<Intrepid::FieldContainer<double> > physical_line_cub_weights(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points));
     std::vector<Intrepid::FieldContainer<double> > physical_line_cub_points(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim));
+    std::vector<Intrepid::FieldContainer<double> > edge_normals(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim));
+    Kokkos::View<double***, Kokkos::HostSpace> edge_unit_normals("edge unit normals", num_cells_local, num_triangle_edges, triangle_dim);
+    std::vector<Intrepid::FieldContainer<double> > edge_unit_normals_int(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim));
+
     for (int i=0; i<num_triangle_edges; ++i) {
         Intrepid::CellTools<double>::setJacobian(line_jacobian[i], line_cub_points_2d[i], triangle_nodes, triangle);
         Intrepid::FunctionSpaceTools::computeEdgeMeasure<double>(physical_line_cub_weights[i],
@@ -239,9 +243,31 @@ void ReactionDiffusionPhysics::initialize() {
                                                              triangle_nodes,
                                                              triangle,
                                                              -1);
+        Intrepid::CellTools<scalar_type>::getPhysicalSideNormals(edge_normals[i],
+                                                                 line_jacobian[i],
+                                                                 i,
+                                                                 triangle);
     }
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), KOKKOS_LAMBDA(const int i) {
+        for (int j=0; j<num_triangle_edges; ++j) {
+            double vector_norm = 0;
+            for (int k=0; k<triangle_dim; ++k) {
+                vector_norm += edge_normals[j](i, 0, k)*edge_normals[j](i, 0, k);
+            }
+            vector_norm = std::sqrt(vector_norm);
+            for (int k=0; k<triangle_dim; ++k) {
+                edge_unit_normals(i, j, k) = edge_normals[j](i, 0, k)/vector_norm;
+            }
+        }
+    });
+
+    _weights_ndim = num_triangle_cub_points + num_triangle_edges*(num_line_cub_points);
 
     // quantities contained on cells (mesh)
+    _cells->getFieldManager()->createField(triangle_dim*_weights_ndim, "quadrature_points");
+    _cells->getFieldManager()->createField(_weights_ndim, "quadrature_weights");
+    _cells->getFieldManager()->createField(_weights_ndim, "interior");
+    _cells->getFieldManager()->createField(triangle_dim*_weights_ndim, "unit_normal");
     auto quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
     auto quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
     auto quadrature_type = _cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
@@ -251,16 +277,12 @@ void ReactionDiffusionPhysics::initialize() {
     auto adjacent_elements = _cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalView<host_view_type>();
 
 
-
     // get all quadrature put together here as auxiliary evaluation sites
-    _weights_ndim = quadrature_weights.extent(1);
-
     // store calculated quadrature values over fields values
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), KOKKOS_LAMBDA(const int i) {
-    //for (int i=0; i<num_cells_local; ++i) {
         for (int j=0; j<_weights_ndim; ++j) {
             if (j<num_triangle_cub_points) {
-                //printf("%f vs %f, d: %f\n", quadrature_weights(i,j), physical_triangle_cub_weights(i,j), quadrature_weights(i,j)-physical_triangle_cub_weights(i,j));
+                quadrature_type(i,j) = 1;
                 quadrature_weights(i,j) = physical_triangle_cub_weights(i,j);
                 for (int k=0; k<ndim_requested; ++k) {
                     quadrature_points(i,2*j+k) = physical_triangle_cub_points(i,j,k);
@@ -268,17 +290,19 @@ void ReactionDiffusionPhysics::initialize() {
             } 
             else {
                 int current_edge_num = (j - num_triangle_cub_points)/num_line_cub_points;
+                quadrature_type(i,j) = ((int)adjacent_elements(i,current_edge_num)>-1) ? 0 : 2;
                 // reverse ordering because Intrepid does quadrature in reverse of v0->v1
                 int local_cub_num = num_line_cub_points - (j-num_triangle_cub_points)%num_line_cub_points - 1;
                 quadrature_weights(i,j) = physical_line_cub_weights[current_edge_num](i, local_cub_num);
-                //printf("%f vs %f, d: %f\n", quadrature_weights(i,j), physical_line_cub_weights[current_edge_num](i, local_cub_num), quadrature_weights(i,j)-physical_line_cub_weights[current_edge_num](i, local_cub_num));
                 for (int k=0; k<triangle_dim; ++k) {
                     quadrature_points(i,2*j+k) = physical_line_cub_points[current_edge_num](i, local_cub_num, k);
-                    //printf("%f vs %f, d: %f\n", quadrature_points(i,2*j+k), physical_line_cub_points[current_edge_num](i, local_cub_num, k), quadrature_points(i,2*j+k)-physical_line_cub_points[current_edge_num](i, local_cub_num, k));
+                    unit_normals(i,2*j+k) = edge_unit_normals(i, current_edge_num, k);
                 }
             }
         }
     });
+    Kokkos::fence();
+    _cells->getFieldManager()->updateFieldsHaloData();
 
     Kokkos::View<double**> kokkos_quadrature_coordinates("all quadrature coordinates", _cells->getCoordsConst()->nLocal()*_weights_ndim, 3);
     _kokkos_quadrature_coordinates_host = Kokkos::create_mirror_view(kokkos_quadrature_coordinates);

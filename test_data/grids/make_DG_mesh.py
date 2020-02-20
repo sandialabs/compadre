@@ -174,7 +174,7 @@ variation = .00 # as a decimal for a percent
 
 
 #h_all=[0.2]#,0.1,0.05,0.025,0.0125,0.00625]
-h_all=[0.1,0.05,0.025,0.0125]
+h_all=[0.4,0.2,0.1,0.05,0.025,0.0125]
 
 poly_order = 4
 num_points_interior = get_num_points_for_order(poly_order, 2)
@@ -284,11 +284,11 @@ for key, h in enumerate(h_all):
     dataset.createDimension('num_entities', size=tri.simplices.shape[0])
     dataset.createDimension('num_edges', size=3)
     dataset.createDimension('num_vertices', size=6)
-    dataset.createDimension('num_interior_quadrature', size=num_points_interior)
-    dataset.createDimension('num_exterior_quadrature', size=3*num_points_exterior)
-    dataset.createDimension('num_total_quadrature', size=num_points_interior + 3*num_points_exterior)
-    dataset.createDimension('vector_for_quadrature', size=2*(num_points_interior + 3*num_points_exterior)) # a vector at each quadrature point
-    dataset.createDimension('scalar_for_quadrature', size=num_points_interior + 3*num_points_exterior) # a scalar at each quadrature point
+    #dataset.createDimension('num_interior_quadrature', size=num_points_interior)
+    #dataset.createDimension('num_exterior_quadrature', size=3*num_points_exterior)
+    #dataset.createDimension('num_total_quadrature', size=num_points_interior + 3*num_points_exterior)
+    #dataset.createDimension('vector_for_quadrature', size=2*(num_points_interior + 3*num_points_exterior)) # a vector at each quadrature point
+    #dataset.createDimension('scalar_for_quadrature', size=num_points_interior + 3*num_points_exterior) # a scalar at each quadrature point
     dataset.createDimension('spatial_dimension', size=2) # 2 is spatial dimension
     dataset.createDimension('scalar_dim', size=1) 
 
@@ -304,25 +304,25 @@ for key, h in enumerate(h_all):
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
-    dataset.createVariable('quadrature_weights', datatype='d', dimensions=('num_entities','scalar_for_quadrature'), zlib=True, complevel=8,\
-                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
-                           endian='native', least_significant_digit=None, fill_value=None)
+    #dataset.createVariable('quadrature_weights', datatype='d', dimensions=('num_entities','scalar_for_quadrature'), zlib=True, complevel=8,\
+    #                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+    #                       endian='native', least_significant_digit=None, fill_value=None)
 
-    dataset.createVariable('quadrature_points', datatype='d', dimensions=('num_entities','vector_for_quadrature'), zlib=True, complevel=8,\
-                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
-                           endian='native', least_significant_digit=None, fill_value=None)
+    #dataset.createVariable('quadrature_points', datatype='d', dimensions=('num_entities','vector_for_quadrature'), zlib=True, complevel=8,\
+    #                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+    #                       endian='native', least_significant_digit=None, fill_value=None)
 
     dataset.createVariable('vertex_points', datatype='d', dimensions=('num_entities','num_vertices'), zlib=True, complevel=8,\
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
 
-    dataset.createVariable('unit_normal', datatype='d', dimensions=('num_entities','vector_for_quadrature'), zlib=True, complevel=8,\
-                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
-                           endian='native', least_significant_digit=None, fill_value=None)
+    #dataset.createVariable('unit_normal', datatype='d', dimensions=('num_entities','vector_for_quadrature'), zlib=True, complevel=8,\
+    #                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+    #                       endian='native', least_significant_digit=None, fill_value=None)
 
-    dataset.createVariable('interior', datatype='int', dimensions=('num_entities','scalar_for_quadrature'), zlib=True, complevel=8,\
-                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
-                           endian='native', least_significant_digit=None, fill_value=None)
+    #dataset.createVariable('interior', datatype='int', dimensions=('num_entities','scalar_for_quadrature'), zlib=True, complevel=8,\
+    #                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+    #                       endian='native', least_significant_digit=None, fill_value=None)
 
     dataset.createVariable('adjacent_elements', datatype='int', dimensions=('num_entities','num_edges'), zlib=True, complevel=8,\
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
@@ -335,11 +335,11 @@ for key, h in enumerate(h_all):
     dataset.variables['x'][:]=all_vertices[:,0]
     dataset.variables['y'][:]=all_vertices[:,1]
     dataset.variables['z'][:]=np.zeros(all_vertices[:,1].shape)
-    dataset.variables['quadrature_weights'][:,:]=all_weights[:,:]
-    dataset.variables['quadrature_points'][:,:]=all_quadrature[:,:]
+    #dataset.variables['quadrature_weights'][:,:]=all_weights[:,:]
+    #dataset.variables['quadrature_points'][:,:]=all_quadrature[:,:]
     dataset.variables['vertex_points'][:,:]=all_vertices_points[:,:]
-    dataset.variables['unit_normal'][:,:]=all_normals[:,:]
-    dataset.variables['interior'][:,:]=all_interior[:,:]
+    #dataset.variables['unit_normal'][:,:]=all_normals[:,:]
+    #dataset.variables['interior'][:,:]=all_interior[:,:]
     dataset.variables['adjacent_elements'][:,:]=all_adjacent_elements[:,:]
     dataset.variables['ID'][:]=np.arange(tri.simplices.shape[0])
 
