@@ -36,6 +36,9 @@ using namespace Compadre;
 int main (int argc, char* args[]) {
 #ifdef TRILINOS_LINEAR_SOLVES
 
+	Kokkos::initialize(argc, args);
+
+    {
 	Teuchos::RCP<Compadre::ParameterManager> parameter_manager;
 	if (argc > 1)
 		parameter_manager = Teuchos::rcp(new Compadre::ParameterManager(argc, args));
@@ -53,7 +56,6 @@ int main (int argc, char* args[]) {
 	Teuchos::oblackholestream bstream;
 	Teuchos::RCP<const Teuchos::Comm<int> > comm = Teuchos::DefaultComm<int>::getComm();
 	
-	Kokkos::initialize(argc, args);
 	
 	Teuchos::RCP<Teuchos::Time> FirstReadTime = Teuchos::TimeMonitor::getNewCounter ("1st Read Time");
 	Teuchos::RCP<Teuchos::Time> AssemblyTime = Teuchos::TimeMonitor::getNewCounter ("Assembly Time");
@@ -69,9 +71,6 @@ int main (int argc, char* args[]) {
 	}
 
 	{
-		std::vector<std::string> fnames(5);
-		std::vector<double> hsize(5);
-		std::vector<double> errors(5);
 		const std::string testfilename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + "/" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file");
 
 		//
@@ -704,7 +703,8 @@ int main (int argc, char* args[]) {
 //		}
 //		if (comm->getRank()==0) parameters->print();
 	}
-	 Teuchos::TimeMonitor::summarize();
+	Teuchos::TimeMonitor::summarize();
+    }
 	Kokkos::finalize();
 	#endif
 	return 0;

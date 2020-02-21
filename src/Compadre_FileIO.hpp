@@ -188,7 +188,9 @@ class FileManager {
 
 	public:
 
-		FileManager() : _use_binary(true), _particles(NULL), _is_reader(false), _is_writer(false) {};
+		FileManager() : _reader_fn("\0"), _writer_fn("\0"), _use_binary(true), _particles(NULL), 
+                        _is_reader(false), _is_writer(false) {};
+
 		~FileManager() {};
 
 		void setReader(const std::string& _fn, Teuchos::RCP<ParticlesT>& particles, const std::string& type = std::string());
