@@ -1,5 +1,4 @@
 cmake_minimum_required (VERSION 3.5)
-set_property(GLOBAL PROPERTY GLOBAL_DEPENDS_DEBUG_MODE 1)
 
 project (compose CXX)
 set (CMAKE_CXX_STANDARD 11)
@@ -128,19 +127,17 @@ set(COMPOSE_CONFIG_FILES
 )
 install(FILES ${COMPOSE_CONFIG_FILES} DESTINATION include/compose)
 
-add_library (${PROJECT_NAME} SHARED ${SOURCES})
+add_library (${PROJECT_NAME} ${SOURCES})
 set_target_properties (${PROJECT_NAME} PROPERTIES
   COMPILE_FLAGS "${COMPOSE_COMPILE_FLAGS}"
   LINK_FLAGS "${COMPOSE_LINK_FLAGS}")
-#  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 target_include_directories (${PROJECT_NAME} PUBLIC cedr siqk)
 target_include_directories (${PROJECT_NAME} PRIVATE siqk cedr)
 target_include_directories (${PROJECT_NAME} PUBLIC ${COMPOSE_INCLUDES})
-target_link_libraries (${PROJECT_NAME} PUBLIC ${COMPOSE_LIBRARIES})
+target_link_libraries (${PROJECT_NAME} ${COMPOSE_LIBRARIES})
 
-
-install (TARGETS ${PROJECT_NAME} DESTINATION lib)
-install (FILES ${HEADERS} DESTINATION include/compose)
+install (TARGETS ${PROJECT_NAME} ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
+install (FILES ${HEADERS} ${CMAKE_BINARY_DIR}/config/compose_config.h DESTINATION include/compose)
 
 enable_testing ()
 add_subdirectory(siqk)
