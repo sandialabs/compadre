@@ -62,8 +62,8 @@ for key1, porder in enumerate(porders):
 
         # have physics now
         for item in p.getchildren():
-            if (item.attrib['name']=="l2 projection only"):
-                item.attrib['value']="true" if (l2_only > 0) else "false"
+            if (item.attrib['name']=="operator"):
+                item.attrib['value']="l2" if (l2_only > 0) else "rd"
             if (item.attrib['name']=="solution"):
                 item.attrib['value']="polynomial" if (solution==0) else "sine"
         

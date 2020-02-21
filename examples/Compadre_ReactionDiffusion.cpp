@@ -36,84 +36,91 @@ using namespace Compadre;
 int main (int argc, char* args[]) {
 #ifdef TRILINOS_LINEAR_SOLVES
 
-	Kokkos::initialize(argc, args);
+    Kokkos::initialize(argc, args);
 
     {
-	Teuchos::RCP<Compadre::ParameterManager> parameter_manager;
-	if (argc > 1)
-		parameter_manager = Teuchos::rcp(new Compadre::ParameterManager(argc, args));
-	else {
-		parameter_manager = Teuchos::rcp(new Compadre::ParameterManager());
-		std::cout << "WARNING: No parameter list given. Default parameters used." << std::endl;
-	}
-	if (parameter_manager->helpRequested()) return 0;
-	if (parameter_manager->parseError()) return -1;
+    Teuchos::RCP<Compadre::ParameterManager> parameter_manager;
+    if (argc > 1)
+        parameter_manager = Teuchos::rcp(new Compadre::ParameterManager(argc, args));
+    else {
+        parameter_manager = Teuchos::rcp(new Compadre::ParameterManager());
+        std::cout << "WARNING: No parameter list given. Default parameters used." << std::endl;
+    }
+    if (parameter_manager->helpRequested()) return 0;
+    if (parameter_manager->parseError()) return -1;
 
 
-	Teuchos::RCP<Teuchos::ParameterList> parameters = parameter_manager->getList();
+    Teuchos::RCP<Teuchos::ParameterList> parameters = parameter_manager->getList();
 
-	Teuchos::GlobalMPISession mpi(&argc, &args);
-	Teuchos::oblackholestream bstream;
-	Teuchos::RCP<const Teuchos::Comm<int> > comm = Teuchos::DefaultComm<int>::getComm();
-	
-	
-	Teuchos::RCP<Teuchos::Time> FirstReadTime = Teuchos::TimeMonitor::getNewCounter ("1st Read Time");
-	Teuchos::RCP<Teuchos::Time> AssemblyTime = Teuchos::TimeMonitor::getNewCounter ("Assembly Time");
-	Teuchos::RCP<Teuchos::Time> SolvingTime = Teuchos::TimeMonitor::getNewCounter ("Solving Time");
-	Teuchos::RCP<Teuchos::Time> WriteTime = Teuchos::TimeMonitor::getNewCounter ("Write Time");
-	Teuchos::RCP<Teuchos::Time> SecondReadTime = Teuchos::TimeMonitor::getNewCounter ("2nd Read Time");
+    Teuchos::GlobalMPISession mpi(&argc, &args);
+    Teuchos::oblackholestream bstream;
+    Teuchos::RCP<const Teuchos::Comm<int> > comm = Teuchos::DefaultComm<int>::getComm();
+    
+    
+    Teuchos::RCP<Teuchos::Time> FirstReadTime = Teuchos::TimeMonitor::getNewCounter ("1st Read Time");
+    Teuchos::RCP<Teuchos::Time> AssemblyTime = Teuchos::TimeMonitor::getNewCounter ("Assembly Time");
+    Teuchos::RCP<Teuchos::Time> SolvingTime = Teuchos::TimeMonitor::getNewCounter ("Solving Time");
+    Teuchos::RCP<Teuchos::Time> WriteTime = Teuchos::TimeMonitor::getNewCounter ("Write Time");
+    Teuchos::RCP<Teuchos::Time> SecondReadTime = Teuchos::TimeMonitor::getNewCounter ("2nd Read Time");
 
-	// this proceeds setting up the problem so that the parameters will be propagated down into the physics and bcs
-	try {
-		parameters->get<std::string>("solution type");
-	} catch (Teuchos::Exceptions::InvalidParameter & exception) {
-		parameters->set<std::string>("solution type","sine");
-	}
+    // this proceeds setting up the problem so that the parameters will be propagated down into the physics and bcs
+    try {
+        parameters->get<std::string>("solution type");
+    } catch (Teuchos::Exceptions::InvalidParameter & exception) {
+        parameters->set<std::string>("solution type","sine");
+    }
+    try {
+        parameters->get<Teuchos::ParameterList>("io").get<bool>("plot quadrature");
+    } catch (Teuchos::Exceptions::InvalidParameter & exception) {
+        parameters->get<Teuchos::ParameterList>("io").set<bool>("plot quadrature", false);
+    }
+    bool plot_quadrature = parameters->get<Teuchos::ParameterList>("io").get<bool>("plot quadrature");
+    local_index_type input_dim = parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions");
 
-	{
-		const std::string testfilename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + "/" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file");
+    {
+        const std::string testfilename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + "/" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file");
 
-		//
-		// GMLS Test
-		//
-		int Porder = parameters->get<Teuchos::ParameterList>("remap").get<int>("porder");
-		double h_size = 1./12.;
+        //
+        // GMLS Test
+        //
+        int Porder = parameters->get<Teuchos::ParameterList>("remap").get<int>("porder");
+        double h_size = 1./12.;
 
-        TEUCHOS_TEST_FOR_EXCEPT_MSG(parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions")<2, "Only supported for A-D problem in 2 or 3D.");
+        TEUCHOS_TEST_FOR_EXCEPT_MSG(input_dim<2, "Only supported for A-D problem in 2 or 3D.");
               
-		Teuchos::RCP<Compadre::ParticlesT> cells =
-				Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions")));
-		const CT * coords = (CT*)(cells->getCoordsConst());
+        Teuchos::RCP<Compadre::ParticlesT> cells =
+                Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, input_dim));
+        const CT * coords = (CT*)(cells->getCoordsConst());
 
-		//Read in data file. Needs to be a file with one scalar field.
-		FirstReadTime->start();
-		Compadre::FileManager fm;
-		fm.setReader(testfilename, cells);
-		fm.read();
-		FirstReadTime->stop();
+        //Read in data file. Needs to be a file with one scalar field.
+        FirstReadTime->start();
+        Compadre::FileManager fm;
+        fm.setReader(testfilename, cells);
+        fm.read();
+        FirstReadTime->stop();
 
-		cells->zoltan2Initialize();
+        cells->zoltan2Initialize();
 
 
-		ST halo_size;
-		{
-			if (parameters->get<Teuchos::ParameterList>("halo").get<bool>("dynamic")) {
-				halo_size = h_size * parameters->get<Teuchos::ParameterList>("halo").get<double>("multiplier");
-			} else {
-				halo_size = parameters->get<Teuchos::ParameterList>("halo").get<double>("size");
-			}
- 			cells->buildHalo(halo_size);
-            if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")!="le") {
-		        cells->getFieldManager()->createField(1, "solution", "m/s");
+        ST halo_size;
+        {
+            if (parameters->get<Teuchos::ParameterList>("halo").get<bool>("dynamic")) {
+                halo_size = h_size * parameters->get<Teuchos::ParameterList>("halo").get<double>("multiplier");
             } else {
-		        cells->getFieldManager()->createField(2, "solution", "m/s");
+                halo_size = parameters->get<Teuchos::ParameterList>("halo").get<double>("size");
             }
- 			cells->createDOFManager();
+             cells->buildHalo(halo_size);
+            if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")!="le") {
+                cells->getFieldManager()->createField(1, "solution", "m/s");
+            } else {
+                cells->getFieldManager()->createField(2, "solution", "m/s");
+            }
+             cells->createDOFManager();
 
 
             auto neighbors_needed = GMLS::getNP(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
-	 		cells->createNeighborhood();
- 		    cells->getNeighborhood()->constructAllNeighborLists(cells->getCoordsConst()->getHaloSize(),
+             cells->createNeighborhood();
+             cells->getNeighborhood()->constructAllNeighborLists(cells->getCoordsConst()->getHaloSize(),
                 parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
                 true /*dry run for sizes*/,
                 neighbors_needed+1,
@@ -122,65 +129,65 @@ int main (int argc, char* args[]) {
                 parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
                 parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
 
-			////Set the radius for the neighbor list:
-	 		//ST h_support;
-	 		//if (parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("dynamic radius")) {
-	 		//	h_support = h_size;
-	 		//} else {
-	 		//	h_support = parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size");
-	 		//}
-	 		//cells->createNeighborhood();
-	 		//cells->getNeighborhood()->setAllHSupportSizes(h_support);
+            ////Set the radius for the neighbor list:
+             //ST h_support;
+             //if (parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("dynamic radius")) {
+             //    h_support = h_size;
+             //} else {
+             //    h_support = parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size");
+             //}
+             //cells->createNeighborhood();
+             //cells->getNeighborhood()->setAllHSupportSizes(h_support);
 
-	 		//LO neighbors_needed = Compadre::GMLS::getNP(Porder, 2 /*dimension*/);
+             //LO neighbors_needed = Compadre::GMLS::getNP(Porder, 2 /*dimension*/);
 
-			//LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
-			//cells->getNeighborhood()->constructAllNeighborList(cells->getCoordsConst()->getHaloSize(), extra_neighbors);
+            //LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
+            //cells->getNeighborhood()->constructAllNeighborList(cells->getCoordsConst()->getHaloSize(), extra_neighbors);
 
-		}
-//		{
-//	        WriteTime->start();
-//	        std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
-//	        std::string writetest_output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "writetest" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
-//	        fm.setWriter(output_filename, cells);
-//	        fm.write();
-//	        WriteTime->stop();
-//		}
-		//Teuchos::RCP<Compadre::ParticlesT> particles =
-		//		Teuchos::rcp( new Compadre::ParticlesT(parameters, comm));
+        }
+//        {
+//            WriteTime->start();
+//            std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
+//            std::string writetest_output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "writetest" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
+//            fm.setWriter(output_filename, cells);
+//            fm.write();
+//            WriteTime->stop();
+//        }
+        //Teuchos::RCP<Compadre::ParticlesT> particles =
+        //        Teuchos::rcp( new Compadre::ParticlesT(parameters, comm));
         //auto particle_coords = Teuchos::rcpFromRef<CT>(*(CT*)cells->getCoords());
         //particles->setCoords(particle_coords);
 
-		//cells->getFieldManager()->createField(1, "solution", "m/s");
+        //cells->getFieldManager()->createField(1, "solution", "m/s");
         //particles->createDOFManager();
         //particles->getDOFManager()->generateDOFMap();
-		//{
-		//	if (parameters->get<Teuchos::ParameterList>("halo").get<bool>("dynamic")) {
-		//		halo_size = h_size * parameters->get<Teuchos::ParameterList>("halo").get<double>("multiplier");
-		//	} else {
-		//		halo_size = parameters->get<Teuchos::ParameterList>("halo").get<double>("size");
-		//	}
- 		//	particles->buildHalo(halo_size);
- 		//	particles->createDOFManager();
+        //{
+        //    if (parameters->get<Teuchos::ParameterList>("halo").get<bool>("dynamic")) {
+        //        halo_size = h_size * parameters->get<Teuchos::ParameterList>("halo").get<double>("multiplier");
+        //    } else {
+        //        halo_size = parameters->get<Teuchos::ParameterList>("halo").get<double>("size");
+        //    }
+         //    particles->buildHalo(halo_size);
+         //    particles->createDOFManager();
 
 
 
-		//	////Set the radius for the neighbor list:
-	 	//	//ST h_support;
-	 	//	//if (parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("dynamic radius")) {
-	 	//	//	h_support = h_size;
-	 	//	//} else {
-	 	//	//	h_support = parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size");
-	 	//	//}
-	 	//	//particles->createNeighborhood();
-	 	//	//particles->getNeighborhood()->setAllHSupportSizes(h_support);
+        //    ////Set the radius for the neighbor list:
+         //    //ST h_support;
+         //    //if (parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("dynamic radius")) {
+         //    //    h_support = h_size;
+         //    //} else {
+         //    //    h_support = parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size");
+         //    //}
+         //    //particles->createNeighborhood();
+         //    //particles->getNeighborhood()->setAllHSupportSizes(h_support);
 
-	 	//	//LO neighbors_needed = Compadre::GMLS::getNP(Porder, 2 /*dimension*/);
+         //    //LO neighbors_needed = Compadre::GMLS::getNP(Porder, 2 /*dimension*/);
 
-		//	//LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
-		//	//particles->getNeighborhood()->constructAllNeighborList(particles->getCoordsConst()->getHaloSize(), extra_neighbors);
+        //    //LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
+        //    //particles->getNeighborhood()->constructAllNeighborList(particles->getCoordsConst()->getHaloSize(), extra_neighbors);
 
-		//}
+        //}
 
         // Iterative solver for the problem
         Teuchos::RCP<Compadre::ProblemT> problem = Teuchos::rcp( new Compadre::ProblemT(cells));
@@ -233,22 +240,22 @@ int main (int argc, char* args[]) {
         {
             auto gmls = physics->_gmls;
             if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")!="le") {
-		        cells->getFieldManager()->createField(1, "processed_solution", "m/s");
+                cells->getFieldManager()->createField(1, "processed_solution", "m/s");
             } else {
-		        cells->getFieldManager()->createField(2, "processed_solution", "m/s");
+                cells->getFieldManager()->createField(2, "processed_solution", "m/s");
             }
-		    auto processed_view = cells->getFieldManager()->getFieldByName("processed_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-		    auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-		    auto halo_dof_view = cells->getFieldManager()->getFieldByName("solution")->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-	        auto neighborhood = physics->_cell_particles_neighborhood;
-	        auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
+            auto processed_view = cells->getFieldManager()->getFieldByName("processed_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            auto halo_dof_view = cells->getFieldManager()->getFieldByName("solution")->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            auto neighborhood = physics->_cell_particles_neighborhood;
+            auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
 
             auto nlocal = coords->nLocal();
-		    for(int j=0; j<nlocal; j++){
-		        LO num_neighbors = neighborhood->getNumNeighbors(j);
+            for(int j=0; j<nlocal; j++){
+                LO num_neighbors = neighborhood->getNumNeighbors(j);
                 // loop over particles neighbor to the cell
-		    	for (LO l = 0; l < num_neighbors; l++) {
-		    	    for (LO k = 0; k < processed_view.extent(1); ++k) {
+                for (LO l = 0; l < num_neighbors; l++) {
+                    for (LO k = 0; k < processed_view.extent(1); ++k) {
                         auto particle_l = neighborhood->getNeighbor(j,l);
                         auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,k) : halo_dof_view(particle_l-nlocal,k);
                         auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, 0);
@@ -269,23 +276,23 @@ int main (int argc, char* args[]) {
         //    auto quadrature_points = physics->_cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
         //    auto quadrature_weights = physics->_cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
         //    auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
-		//    auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-	    //    auto neighborhood = physics->_cell_particles_neighborhood;
+        //    auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        //    auto neighborhood = physics->_cell_particles_neighborhood;
         //    auto nlocal = coords->nLocal();
 
         //    int DOF = 0;
-		//    for(int p=0; p<nlocal; p++){
-		//	    xyz_type xyz = coords->getLocalCoords(p);
+        //    for(int p=0; p<nlocal; p++){
+        //        xyz_type xyz = coords->getLocalCoords(p);
         //        if (((xyz.x-1)*(xyz.x-1) + (xyz.y-1)*(xyz.y-1)) < 1e-2) DOF = p;
         //    }
-		//    LO num_neighbors = neighborhood->getNumNeighbors(DOF);
-		//    for (LO l = 0; l < num_neighbors; l++) {
+        //    LO num_neighbors = neighborhood->getNumNeighbors(DOF);
+        //    for (LO l = 0; l < num_neighbors; l++) {
         //        auto neighbor_l = neighborhood->getNeighbor(DOF,l);
-		//        for (LO q = 0; q < quadrature_weights.extent(1); q++) {
+        //        for (LO q = 0; q < quadrature_weights.extent(1); q++) {
         //            if (((int)quadrature_type(neighbor_l,q))==1) {
         //                std::cout << quadrature_points(neighbor_l, 2*q+0) << " " << quadrature_points(neighbor_l, 2*q+1) << " ";
         //                int DOF_to_l = -1;
-		//                for (LO z = 0; z < neighborhood->getNumNeighbors(neighbor_l); ++z) {
+        //                for (LO z = 0; z < neighborhood->getNumNeighbors(neighbor_l); ++z) {
         //                    if (neighborhood->getNeighbor(neighbor_l,z)==DOF) {
         //                        DOF_to_l = z;
         //                        break;
@@ -303,17 +310,17 @@ int main (int argc, char* args[]) {
         //    auto quadrature_points = cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
         //    auto quadrature_weights = cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
         //    auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
-	    //    auto neighborhood = physics->_cell_particles_neighborhood;
-	    //    auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
-		//    auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-		//    auto halo_dof_view = cells->getFieldManager()->getFieldByName("solution")->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        //    auto neighborhood = physics->_cell_particles_neighborhood;
+        //    auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
+        //    auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        //    auto halo_dof_view = cells->getFieldManager()->getFieldByName("solution")->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
         //    auto gmls = physics->_gmls;
-		//    Teuchos::RCP<Compadre::ParticlesT> particles_new =
-		//    	Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions")));
-		//    CT* new_coords = (CT*)particles_new->getCoords();
-		//    std::vector<Compadre::XyzVector> verts_to_insert;
+        //    Teuchos::RCP<Compadre::ParticlesT> particles_new =
+        //        Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions")));
+        //    CT* new_coords = (CT*)particles_new->getCoords();
+        //    std::vector<Compadre::XyzVector> verts_to_insert;
         //    // put real quadrature points here
-		//    for( int j =0; j<coords->nLocal(); j++){
+        //    for( int j =0; j<coords->nLocal(); j++){
         //        for (int i=0; i<quadrature_weights.extent(1); ++i) {
         //            verts_to_insert.push_back(Compadre::XyzVector(quadrature_points(j,2*i+0), quadrature_points(j,2*i+1),0));
         //        }
@@ -321,21 +328,21 @@ int main (int argc, char* args[]) {
         //    //verts_to_insert.push_back(Compadre::XyzVector(0,0,0));
         //    //verts_to_insert.push_back(Compadre::XyzVector(0,1,0));
         //    //verts_to_insert.push_back(Compadre::XyzVector(1,1,0));
-		//    new_coords->insertCoords(verts_to_insert);
-		//    particles_new->resetWithSameCoords(); // must be called because particles doesn't know about coordinate insertions
+        //    new_coords->insertCoords(verts_to_insert);
+        //    particles_new->resetWithSameCoords(); // must be called because particles doesn't know about coordinate insertions
 
 
         //    auto nlocal = coords->nLocal();
-		//    particles_new->getFieldManager()->createField(1, "cell", "m/s");
-		//    auto cell_id = particles_new->getFieldManager()->getFieldByName("cell")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        //    particles_new->getFieldManager()->createField(1, "cell", "m/s");
+        //    auto cell_id = particles_new->getFieldManager()->getFieldByName("cell")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
         //    int count = 0;
-		//    for( int j =0; j<coords->nLocal(); j++){
+        //    for( int j =0; j<coords->nLocal(); j++){
         //        for (int i=0; i<quadrature_weights.extent(1); ++i) {
         //            double quad_val = 0;
         //            // needs reconstruction at this quadrature point
-		//            LO num_neighbors = neighborhood->getNumNeighbors(j);
+        //            LO num_neighbors = neighborhood->getNumNeighbors(j);
         //            // loop over particles neighbor to the cell
-		//    	    for (LO l = 0; l < num_neighbors; l++) {
+        //            for (LO l = 0; l < num_neighbors; l++) {
         //                auto particle_l = neighborhood->getNeighbor(j,l);
         //                auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,0) : halo_dof_view(particle_l-nlocal,0);
         //                auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
@@ -347,7 +354,7 @@ int main (int argc, char* args[]) {
         //        }
         //    }
         //    {
-		//        Compadre::FileManager fm3;
+        //        Compadre::FileManager fm3;
         //        std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "new_particles.nc";
         //        fm3.setWriter(output_filename, particles_new);
         //        fm3.write();
@@ -359,12 +366,12 @@ int main (int argc, char* args[]) {
         //    auto quadrature_points = cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
         //    auto quadrature_weights = cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
         //    auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
-		//    Teuchos::RCP<Compadre::ParticlesT> particles_new =
-		//    	Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions")));
-		//    CT* new_coords = (CT*)particles_new->getCoords();
-		//    std::vector<Compadre::XyzVector> verts_to_insert;
+        //    Teuchos::RCP<Compadre::ParticlesT> particles_new =
+        //        Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions")));
+        //    CT* new_coords = (CT*)particles_new->getCoords();
+        //    std::vector<Compadre::XyzVector> verts_to_insert;
         //    // put real quadrature points here
-		//    for( int j =0; j<coords->nLocal(); j++){
+        //    for( int j =0; j<coords->nLocal(); j++){
         //        for (int i=0; i<quadrature_weights.extent(1); ++i) {
         //            if (quadrature_type(j,i)==1) { // interior
         //                verts_to_insert.push_back(Compadre::XyzVector(quadrature_points(j,2*i+0), quadrature_points(j,2*i+1),0));
@@ -374,14 +381,14 @@ int main (int argc, char* args[]) {
         //    //verts_to_insert.push_back(Compadre::XyzVector(0,0,0));
         //    //verts_to_insert.push_back(Compadre::XyzVector(0,1,0));
         //    //verts_to_insert.push_back(Compadre::XyzVector(1,1,0));
-		//    new_coords->insertCoords(verts_to_insert);
-		//    particles_new->resetWithSameCoords(); // must be called because particles doesn't know about coordinate insertions
+        //    new_coords->insertCoords(verts_to_insert);
+        //    particles_new->resetWithSameCoords(); // must be called because particles doesn't know about coordinate insertions
 
 
-		//    particles_new->getFieldManager()->createField(1, "cell", "m/s");
-		//    auto cell_id = particles_new->getFieldManager()->getFieldByName("cell")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        //    particles_new->getFieldManager()->createField(1, "cell", "m/s");
+        //    auto cell_id = particles_new->getFieldManager()->getFieldByName("cell")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
         //    int count = 0;
-		//    for( int j =0; j<coords->nLocal(); j++){
+        //    for( int j =0; j<coords->nLocal(); j++){
         //        for (int i=0; i<quadrature_weights.extent(1); ++i) {
         //            if (quadrature_type(j,i)==1) { // interior
         //                cell_id(count,0) = j;
@@ -390,7 +397,7 @@ int main (int argc, char* args[]) {
         //        }
         //    }
         //    {
-		//        Compadre::FileManager fm3;
+        //        Compadre::FileManager fm3;
         //        std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "new_particles.nc";
         //        fm3.setWriter(output_filename, particles_new);
         //        fm3.write();
@@ -401,30 +408,30 @@ int main (int argc, char* args[]) {
         // and insert these into another particle set, then print that particle set
 
 
-		//Teuchos::RCP<Compadre::RemapManager> rm = Teuchos::rcp(new Compadre::RemapManager(parameters, particles.getRawPtr(), cells.getRawPtr(), halo_size));
-		//Compadre::RemapObject ro("solution", "another_solution", TargetOperation::ScalarPointEvaluation);
-		//rm->add(ro);
-		//STACK_TRACE(rm->execute());
+        //Teuchos::RCP<Compadre::RemapManager> rm = Teuchos::rcp(new Compadre::RemapManager(parameters, particles.getRawPtr(), cells.getRawPtr(), halo_size));
+        //Compadre::RemapObject ro("solution", "another_solution", TargetOperation::ScalarPointEvaluation);
+        //rm->add(ro);
+        //STACK_TRACE(rm->execute());
 //
-//			// write matrix and rhs to files
-////				Tpetra::MatrixMarket::Writer<Compadre::mvec_type>::writeDenseFile("b"+std::to_string(i), *problem->getb(), "rhs", "description");
-////				Tpetra::MatrixMarket::Writer<Compadre::crs_matrix_type>::writeSparseFile("A"+std::to_string(i), problem->getA(), "A", "description");
-//		}
+//            // write matrix and rhs to files
+////                Tpetra::MatrixMarket::Writer<Compadre::mvec_type>::writeDenseFile("b"+std::to_string(i), *problem->getb(), "rhs", "description");
+////                Tpetra::MatrixMarket::Writer<Compadre::crs_matrix_type>::writeSparseFile("A"+std::to_string(i), problem->getA(), "A", "description");
+//        }
 //
 //
-//		Teuchos::RCP< Compadre::FieldT > PField = particles->getFieldManagerConst()->getFieldByID(0);
+//        Teuchos::RCP< Compadre::FieldT > PField = particles->getFieldManagerConst()->getFieldByID(0);
 //
-		// check solution
-		double norm = 0.0;
-		double exact = 0.0;
+        // check solution
+        double norm = 0.0;
+        double exact = 0.0;
 
-		Teuchos::RCP<Compadre::AnalyticFunction> function;
+        Teuchos::RCP<Compadre::AnalyticFunction> function;
         if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial") {
-		    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
+            function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
         } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3") {
-		    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(2 /*dimension*/)));
+            function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(2 /*dimension*/)));
         } else {
-		    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
+            function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
         }
 
         //auto penalty = (parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/physics->_cell_particles_neighborhood->computeMaxHSupportSize(true /* global processor max */);
@@ -433,12 +440,12 @@ int main (int argc, char* args[]) {
         //if (penalty > 0) 
         //{
         //    auto gmls = physics->_gmls;
-		//    cells->getFieldManager()->createField(1, "processed_solution", "m/s");
-		//    auto processed_view = cells->getFieldManager()->getFieldByName("processed_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-		//    auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-		//    auto halo_dof_view = cells->getFieldManager()->getFieldByName("solution")->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-	    //    auto neighborhood = physics->_cell_particles_neighborhood;
-	    //    auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
+        //    cells->getFieldManager()->createField(1, "processed_solution", "m/s");
+        //    auto processed_view = cells->getFieldManager()->getFieldByName("processed_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        //    auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        //    auto halo_dof_view = cells->getFieldManager()->getFieldByName("solution")->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        //    auto neighborhood = physics->_cell_particles_neighborhood;
+        //    auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
 
         //    auto quadrature_points = physics->_cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
         //    auto quadrature_weights = physics->_cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
@@ -454,13 +461,13 @@ int main (int argc, char* args[]) {
 
         //    auto nlocal = coords->nLocal();
         //    // loop over cells
-		//    for(int j=0; j<nlocal; j++){
-		//        LO num_neighbors = neighborhood->getNumNeighbors(j);
+        //    for(int j=0; j<nlocal; j++){
+        //        LO num_neighbors = neighborhood->getNumNeighbors(j);
         //        // loop over particles neighbor to the cell
-		//    	for (LO q = 0; q < quadrature_weights.extent(1); q++) {
+        //        for (LO q = 0; q < quadrature_weights.extent(1); q++) {
         //            if (quadrature_type(j,q)==0 || quadrature_type(j,q)==2) {
         //                double val_at_quad = 0.0;
-		//    	        for (LO l = 0; l < num_neighbors; l++) {
+        //                for (LO l = 0; l < num_neighbors; l++) {
         //                    auto particle_l = neighborhood->getNeighbor(j,l);
         //                    auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,0) : halo_dof_view(particle_l-nlocal,q+1);
         //                    auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, q+1);
@@ -472,37 +479,66 @@ int main (int argc, char* args[]) {
         //}
  
         if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")!="le") {
-		    cells->getFieldManager()->createField(1, "exact_solution", "m/s");
+            cells->getFieldManager()->createField(1, "exact_solution", "m/s");
         } else {
             cells->getFieldManager()->createField(2, "exact_solution", "m/s");
         }
-		auto exact_view = cells->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        auto exact_view = cells->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
         if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")!="le") {
-		    for( int j =0; j<coords->nLocal(); j++){
-		        xyz_type xyz = coords->getLocalCoords(j);
-		        exact = function->evalScalar(xyz);
-		        exact_view(j,0) = exact;
-		    }
+            for( int j =0; j<coords->nLocal(); j++){
+                xyz_type xyz = coords->getLocalCoords(j);
+                exact = function->evalScalar(xyz);
+                exact_view(j,0) = exact;
+            }
         } else {
-		    for( int j =0; j<coords->nLocal(); j++){
-		        for( int k =0; k<exact_view.extent(1); k++){
-		    	    xyz_type xyz = coords->getLocalCoords(j);
-		    	    auto exacts = function->evalVector(xyz);
-		    	    exact_view(j,k) = exacts[k];
+            for( int j =0; j<coords->nLocal(); j++){
+                for( int k =0; k<exact_view.extent(1); k++){
+                    xyz_type xyz = coords->getLocalCoords(j);
+                    auto exacts = function->evalVector(xyz);
+                    exact_view(j,k) = exacts[k];
                 }
-		    }
+            }
+        }
+
+        Teuchos::RCP<Compadre::ParticlesT> particles_new;
+        //// DIAGNOSTIC:: get solution at quadrature pts
+        if (plot_quadrature) {
+            auto quadrature_points = cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
+            auto quadrature_weights = cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
+            auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
+            auto neighborhood = physics->_cell_particles_neighborhood;
+            auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
+            auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            auto halo_dof_view = cells->getFieldManager()->getFieldByName("solution")->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            auto gmls = physics->_gmls;
+            particles_new =
+                Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, input_dim));
+            CT* new_coords = (CT*)particles_new->getCoords();
+            std::vector<Compadre::XyzVector> verts_to_insert;
+            // put real quadrature points here
+            for( int j =0; j<coords->nLocal(); j++){
+                for (int i=0; i<quadrature_weights.extent(1); ++i) {
+                    verts_to_insert.push_back(Compadre::XyzVector(quadrature_points(j,2*i+0), quadrature_points(j,2*i+1),0));
+                }
+            }
+            new_coords->insertCoords(verts_to_insert);
+            particles_new->resetWithSameCoords(); // must be called because particles doesn't know about coordinate insertions
+
+            particles_new->getFieldManager()->createField(input_dim, "l2", "m/s");
+            particles_new->getFieldManager()->createField(input_dim, "h1", "m/s");
+            particles_new->getFieldManager()->createField(input_dim, "jump", "m/s");
         }
 
         if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="l2") {
-		    for( int j =0; j<coords->nLocal(); j++){
-		    	xyz_type xyz = coords->getLocalCoords(j);
-		    	const ST val = cells->getFieldManagerConst()->getFieldByName("processed_solution")->getLocalScalarVal(j);
-		    	//const ST val = dof_view(j,0);
-		    	//exact = 1;//+xyz[0]+xyz[1];//function->evalScalar(xyz);
-		    	exact = function->evalScalar(xyz);
-		    	norm += (exact - val)*(exact-val);
-		    }
-		    norm /= (double)(coords->nGlobalMax());
+            for( int j =0; j<coords->nLocal(); j++){
+                xyz_type xyz = coords->getLocalCoords(j);
+                const ST val = cells->getFieldManagerConst()->getFieldByName("processed_solution")->getLocalScalarVal(j);
+                //const ST val = dof_view(j,0);
+                //exact = 1;//+xyz[0]+xyz[1];//function->evalScalar(xyz);
+                exact = function->evalScalar(xyz);
+                norm += (exact - val)*(exact-val);
+            }
+            norm /= (double)(coords->nGlobalMax());
         } else {
             // get error from l2, h1, and jump
 
@@ -513,15 +549,22 @@ int main (int argc, char* args[]) {
             double h1_error = 0.0;
             double penalty = (parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/physics->_cell_particles_neighborhood->computeMaxHSupportSize(true /* global processor max */);
 
+            host_view_type l2_view, h1_view, jump_view;
+            if (plot_quadrature) {
+                l2_view = particles_new->getFieldManager()->getFieldByName("l2")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                h1_view = particles_new->getFieldManager()->getFieldByName("h1")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                jump_view = particles_new->getFieldManager()->getFieldByName("jump")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            }
+
             {
 
                 auto quadrature_points = cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
                 auto quadrature_weights = cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
                 auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
-	            auto neighborhood = physics->_cell_particles_neighborhood;
-	            auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
-		        auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-		        auto halo_dof_view = cells->getFieldManager()->getFieldByName("solution")->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                auto neighborhood = physics->_cell_particles_neighborhood;
+                auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
+                auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                auto halo_dof_view = cells->getFieldManager()->getFieldByName("solution")->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
                 auto adjacent_elements = cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalView<host_view_type>();
                 auto gmls = physics->_gmls;
                 auto nlocal = coords->nLocal();
@@ -535,10 +578,11 @@ int main (int argc, char* args[]) {
                 }
                 auto num_exterior_quadrature_per_edge = (quadrature_weights.extent(1) - num_interior_quadrature)/num_edges;
 
-		        for( int j =0; j<coords->nLocal(); j++){
+                for( int j =0; j<coords->nLocal(); j++){
                     double l2_error_on_cell = 0.0;
                     double h1_error_on_cell = 0.0;
                     double jump_error_on_cell = 0.0;
+                    int count = quadrature_weights.extent(1) * j;
                     for (int m=0; m<dof_view.extent(1); ++m) {
                         for (int i=0; i<quadrature_weights.extent(1); ++i) {
                             if (quadrature_type(j,i)==1) { // interior
@@ -546,9 +590,9 @@ int main (int argc, char* args[]) {
                                 double h1_val_x = 0.0;
                                 double h1_val_y = 0.0;
                                 // needs reconstruction at this quadrature point
-		                        LO num_neighbors = neighborhood->getNumNeighbors(j);
+                                LO num_neighbors = neighborhood->getNumNeighbors(j);
                                 // loop over particles neighbor to the cell
-		        	            for (LO l = 0; l < num_neighbors; l++) {
+                                for (LO l = 0; l < num_neighbors; l++) {
                                     auto particle_l = neighborhood->getNeighbor(j,l);
                                     auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,m) : halo_dof_view(particle_l-nlocal,m);
                                     auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
@@ -572,13 +616,18 @@ int main (int argc, char* args[]) {
                                     l2_error_on_cell += quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
                                     h1_error_on_cell += shear_coeff * quadrature_weights(j,i) * (h1_val_x - h1_exact[0]) * (h1_val_x - h1_exact[0]);
                                     h1_error_on_cell += shear_coeff * quadrature_weights(j,i) * (h1_val_y - h1_exact[1]) * (h1_val_y - h1_exact[1]);
+                                    if (plot_quadrature) {
+                                        l2_view(count+i,m) += quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
+                                        h1_view(count+i,m) += shear_coeff * quadrature_weights(j,i) * (h1_val_x - h1_exact[0]) * (h1_val_x - h1_exact[0]);
+                                        h1_view(count+i,m) += shear_coeff * quadrature_weights(j,i) * (h1_val_y - h1_exact[1]) * (h1_val_y - h1_exact[1]);
+                                    }
                                 }
                             } else if (quadrature_type(j,i)==2) { // exterior edge
                                 double u_val = 0.0;
                                 // needs reconstruction at this quadrature point
-		                        LO num_neighbors = neighborhood->getNumNeighbors(j);
+                                LO num_neighbors = neighborhood->getNumNeighbors(j);
                                 // loop over particles neighbor to the cell
-		        	            for (LO l = 0; l < num_neighbors; l++) {
+                                for (LO l = 0; l < num_neighbors; l++) {
                                     auto particle_l = neighborhood->getNeighbor(j,l);
                                     auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,m) : halo_dof_view(particle_l-nlocal,m);
                                     auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
@@ -591,14 +640,17 @@ int main (int argc, char* args[]) {
                                 } else if (le_op) {
                                     u_exact = function->evalVector(xyz)[m];
                                 }
-                                jump_error_on_cell += quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);
+                                jump_error_on_cell += penalty * quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);
+                                if (plot_quadrature) {
+                                    jump_view(count+i,m) += penalty * quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);
+                                }
                             } else if (quadrature_type(j,i)==0) { // interior edge
                                 double u_val = 0.0;
                                 double other_u_val = 0.0;
                                 // needs reconstruction at this quadrature point
-		                        LO num_neighbors = neighborhood->getNumNeighbors(j);
+                                LO num_neighbors = neighborhood->getNumNeighbors(j);
                                 // loop over particles neighbor to the cell
-		        	            for (LO l = 0; l < num_neighbors; l++) {
+                                for (LO l = 0; l < num_neighbors; l++) {
                                     auto particle_l = neighborhood->getNeighbor(j,l);
                                     auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,m) : halo_dof_view(particle_l-nlocal,m);
                                     auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
@@ -608,23 +660,27 @@ int main (int argc, char* args[]) {
                                 int adj_j = (int)(adjacent_elements(j, current_edge_num));
 
                                 int side_j_to_adjacent_cell = -1;
-                                for (int z=0; z<num_exterior_quadrature_per_edge; ++z) {
+                                for (int z=0; z<num_edges; ++z) {
                                     if ((int)(adjacent_elements(adj_j,z))==j) {
                                         side_j_to_adjacent_cell = z;
+                                        break;
                                     }
                                 }
                                 int adj_i = num_interior_quadrature + side_j_to_adjacent_cell*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((i-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
 
                                 // needs reconstruction at this quadrature point
-		                        num_neighbors = neighborhood->getNumNeighbors(adj_j);
+                                num_neighbors = neighborhood->getNumNeighbors(adj_j);
                                 // loop over particles neighbor to the cell
-		        	            for (LO l = 0; l < num_neighbors; l++) {
+                                for (LO l = 0; l < num_neighbors; l++) {
                                     auto particle_l = neighborhood->getNeighbor(adj_j,l);
                                     auto dof_val = (particle_l<nlocal) ? dof_view(particle_l,m) : halo_dof_view(particle_l-nlocal,m);
                                     auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adj_j, l, adj_i+1);
                                     other_u_val += dof_val * v;
                                 }
                                 jump_error_on_cell += penalty * quadrature_weights(j,i) * (u_val - other_u_val) * (u_val - other_u_val);
+                                if (plot_quadrature) {
+                                    jump_view(count+i,m) += penalty * quadrature_weights(j,i) * (u_val - other_u_val) * (u_val - other_u_val);
+                                }
                             }
                         }
                         l2_error += l2_error_on_cell;
@@ -639,13 +695,23 @@ int main (int argc, char* args[]) {
             norm = jump_error + l2_error + h1_error;
         }
 
+        //// DIAGNOSTIC:: get solution at quadrature pts
+        if (plot_quadrature) {
+            {
+                Compadre::FileManager fm3;
+                std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "errors_at_quadrature.nc";
+                fm3.setWriter(output_filename, particles_new);
+                fm3.write();
+            }
+        }
+
         // get matrix out from problem_T
 
-		ST global_norm;
-		Teuchos::Ptr<ST> global_norm_ptr(&global_norm);
-		Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, norm, global_norm_ptr);
-		global_norm = sqrt(global_norm);
-		if (comm->getRank()==0) std::cout << "Global Norm: " << global_norm << "\n";
+        ST global_norm;
+        Teuchos::Ptr<ST> global_norm_ptr(&global_norm);
+        Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, norm, global_norm_ptr);
+        global_norm = sqrt(global_norm);
+        if (comm->getRank()==0) std::cout << "Global Norm: " << global_norm << "\n";
 
 
         {
@@ -662,52 +728,52 @@ int main (int argc, char* args[]) {
         //    fm.write();
         //    WriteTime->stop();
         //}
-//		errors[i] = global_norm;
+//        errors[i] = global_norm;
 //
-//		WriteTime->start();
-//		std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
-//		std::string writetest_output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "writetest" + std::to_string(i) /* loop # */ + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
-//		fm.setWriter(output_filename, particles);
-//		fm.write();
-//		WriteTime->stop();
-//		{
-//			//
-//			// VTK File Reader Test and Parallel VTK File Re-Reader
-//			//
+//        WriteTime->start();
+//        std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
+//        std::string writetest_output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "writetest" + std::to_string(i) /* loop # */ + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
+//        fm.setWriter(output_filename, particles);
+//        fm.write();
+//        WriteTime->stop();
+//        {
+//            //
+//            // VTK File Reader Test and Parallel VTK File Re-Reader
+//            //
 //
-//			// read solution back in which should also reset flags
+//            // read solution back in which should also reset flags
 //
-//			SecondReadTime->start();
-//			Teuchos::RCP<Compadre::ParticlesT> test_particles =
-//					Teuchos::rcp( new Compadre::ParticlesT(parameters, comm));
+//            SecondReadTime->start();
+//            Teuchos::RCP<Compadre::ParticlesT> test_particles =
+//                    Teuchos::rcp( new Compadre::ParticlesT(parameters, comm));
 //
-//			fm.setReader(output_filename, test_particles);
-//			fm.read();
+//            fm.setReader(output_filename, test_particles);
+//            fm.read();
 //
-//			fm.setWriter(writetest_output_filename, test_particles);
-//			fm.write();
-//			SecondReadTime->stop();
+//            fm.setWriter(writetest_output_filename, test_particles);
+//            fm.write();
+//            SecondReadTime->stop();
 //
-//			test_particles->getFieldManagerConst()->listFields(std::cout);
+//            test_particles->getFieldManagerConst()->listFields(std::cout);
 //
-//		}
+//        }
 //
-//		if (parameters->get<Teuchos::ParameterList>("solver").get<std::string>("type")=="direct")
-//			Teuchos::TimeMonitor::summarize();
+//        if (parameters->get<Teuchos::ParameterList>("solver").get<std::string>("type")=="direct")
+//            Teuchos::TimeMonitor::summarize();
 //
-//		TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i]!=errors[i], "NaN found in error norm.");
-//		if (parameters->get<std::string>("solution type")=="sine") {
-//			 if (i>0) TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i-1]/errors[i] < 3.5, "Second order not achieved for sine solution (should be 4).");
-//		} else {
-//			TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i] > 1e-13, "Second order solution not recovered exactly.");
-//		}
-//		if (comm->getRank()==0) parameters->print();
-	}
-	Teuchos::TimeMonitor::summarize();
+//        TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i]!=errors[i], "NaN found in error norm.");
+//        if (parameters->get<std::string>("solution type")=="sine") {
+//             if (i>0) TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i-1]/errors[i] < 3.5, "Second order not achieved for sine solution (should be 4).");
+//        } else {
+//            TEUCHOS_TEST_FOR_EXCEPT_MSG(errors[i] > 1e-13, "Second order solution not recovered exactly.");
+//        }
+//        if (comm->getRank()==0) parameters->print();
     }
-	Kokkos::finalize();
-	#endif
-	return 0;
+    Teuchos::TimeMonitor::summarize();
+    }
+    Kokkos::finalize();
+    #endif
+    return 0;
 }
 
 
