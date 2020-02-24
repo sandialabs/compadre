@@ -487,7 +487,7 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
                     size_t unit_name_length;
                     retval = nc_inq_attlen (ncid, i, "units", &unit_name_length);
                     if (retval) unit_name_length = 0;
-                    char var2_name[unit_name_length] = "\0";
+                    char var2_name[unit_name_length];
                     retval = nc_get_att_text(ncid, i, "units", var2_name);
                     std::string var2_string(var2_name);
                     field_units[count] = var2_string;
@@ -1053,7 +1053,7 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
                     size_t unit_name_length;
                     retval = nc_inq_attlen (ncid, i, "units", &unit_name_length);
                     if (retval) unit_name_length = 0;
-                    char var2_name[unit_name_length] = "\0";
+                    char var2_name[unit_name_length];
                     retval = nc_get_att_text(ncid, i, "units", var2_name);
                     std::string var2_string(var2_name);
                     field_units[count] = var2_string;
