@@ -318,6 +318,7 @@ bool all_passed = true;
         printf("point cloud convert time: %f s\n", point_cloud_convert_time);
         Kokkos::fence();
 
+        double eps = 1e-14;
         // need to do a sort by dist, then verify epsilon(i) = 1.5 * knn_distance
         int epsilon_diff_from_knn_dist_multiplied = 0;
         Kokkos::parallel_reduce("check kth neighbor in point cloud", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
@@ -327,7 +328,7 @@ bool all_passed = true;
             int j = 0;
             for (auto it=inverted_map.begin(); it!=inverted_map.end(); ++it) {
                 if (j==min_neighbors-1) {
-                    if (std::abs(epsilon(i)/1.5 - it->first) > 1e-15) {
+                    if (std::abs(epsilon(i)/1.5 - it->first) > eps) {
                         t_epsilon_diff_from_knn_dist_multiplied++;
                     }
                     break;
@@ -345,7 +346,6 @@ bool all_passed = true;
         // we find at least as many neighbors as min_neighbors
         // (not for the 1.5x as many, but rather for 1.0x as many)
         timer.reset();
-        double eps = 1e-15;
         int total_insufficient_neighbors = 0;
         std::vector<std::map<int, double> > brute_force_neighbor_list(number_target_coords, std::map<int, double>());
         Kokkos::parallel_reduce("brute force knn search", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
