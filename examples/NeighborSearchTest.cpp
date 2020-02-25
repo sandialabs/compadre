@@ -1,3 +1,6 @@
+#include <vector>
+#include <map>
+
 #include <Compadre_Config.h>
 #include <Compadre_PointCloudSearch.hpp>
 #include <Compadre_KokkosParser.hpp>
