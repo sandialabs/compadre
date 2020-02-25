@@ -1,5 +1,6 @@
 #include <vector>
 #include <map>
+#include <random>
 
 #include <Compadre_Config.h>
 #include <Compadre_PointCloudSearch.hpp>
@@ -26,6 +27,24 @@ bool all_passed = true;
 
 {
     Kokkos::Timer timer;
+
+    // check for radius search (1 to check, 0 to skip)
+    int radius_search = 1; 
+    if (argc >= 6) {
+        int arg6toi = atoi(args[5]);
+        if (arg6toi > 0) {
+            radius_search = arg6toi;
+        }
+    }
+
+    // check for knn search (1 to check, 0 to skip)
+    int knn_search = 0; // initial knn search
+    if (argc >= 5) {
+        int arg5toi = atoi(args[4]);
+        if (arg5toi > 0) {
+            knn_search = arg5toi;
+        }
+    }
 
     // check if 4 arguments are given from the command line
     //  multiplier times h spacing for search
@@ -126,97 +145,121 @@ bool all_passed = true;
     
     }
 
-    timer.reset();
-    // Point cloud construction for neighbor search
-    // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
-    auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
+    if (radius_search==1 && knn_search==0) {
+        timer.reset();
+        // Point cloud construction for neighbor search
+        // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
+        auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
 
-    Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace> neighbor_lists("neighbor lists", 
-            number_target_coords, 2); // first column is # of neighbors
-    
-    // each target site has a window size
-    Kokkos::View<double*, Kokkos::DefaultHostExecutionSpace> epsilon("h supports", number_target_coords);
-    
-    // query the point cloud to generate the neighbor lists using a radius search
+        Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace> neighbor_lists("neighbor lists", 
+                number_target_coords, 2); // first column is # of neighbors
+        
+        // each target site has a window size
+        Kokkos::View<double*, Kokkos::DefaultHostExecutionSpace> epsilon("h supports", number_target_coords);
+        Kokkos::View<double*, Kokkos::DefaultHostExecutionSpace> random_vec("random vector", number_target_coords);
 
-    // start with a dry-run, but without enough room to store the results
-    auto max_num_neighbors = point_cloud_search.generateNeighborListsFromRadiusSearch(true /* dry run */,
-        target_coords, neighbor_lists, epsilon, h_multiplier*h_spacing);
-    printf("max neighbors: %lu\n", max_num_neighbors);
+        Kokkos::parallel_for("random perturbation of search size", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
+                (0,number_target_coords), [&](const int i) {
+            // value in [-.25, .25]
+            random_vec(i) = 0.5 * ((double)rand() / (double) RAND_MAX) - 0.5;
+            epsilon(i) = (h_multiplier + random_vec(i)) * h_spacing;
+        });
+        
+        // query the point cloud to generate the neighbor lists using a radius search
 
-    // resize neighbor lists to be large enough to hold the results
-    neighbor_lists = Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace>("neighbor lists", 
-        number_target_coords, 1+max_num_neighbors); // first column is # of neighbors
+        // start with a dry-run, but without enough room to store the results
+        auto max_num_neighbors = point_cloud_search.generateNeighborListsFromRadiusSearch(true /* dry run */,
+            target_coords, neighbor_lists, epsilon);
+        printf("max neighbors: %lu\n", max_num_neighbors);
 
-    // search again, now that we know that there is enough room to store the results
-    point_cloud_search.generateNeighborListsFromRadiusSearch(false /* dry run */,
-        target_coords, neighbor_lists, epsilon, h_multiplier*h_spacing);
+        // resize neighbor lists to be large enough to hold the results
+        neighbor_lists = Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace>("neighbor lists", 
+            number_target_coords, 1+max_num_neighbors); // first column is # of neighbors
 
-    double radius_search_time = timer.seconds();
-    printf("nanoflann search time: %f s\n", radius_search_time);
+        // search again, now that we know that there is enough room to store the results
+        point_cloud_search.generateNeighborListsFromRadiusSearch(false /* dry run */,
+            target_coords, neighbor_lists, epsilon);
 
-    // convert point cloud search to vector of maps
-    timer.reset();
-    std::vector<std::map<int, double> > point_cloud_neighbor_list(number_target_coords, std::map<int, double>());
-    Kokkos::parallel_for("point search conversion", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
-            (0,number_target_coords), [&](const int i) {
-        auto &point_cloud_neighbor_list_i = const_cast<std::map<int, double>& >(point_cloud_neighbor_list[i]);
-        for (int j=1; j<=neighbor_lists(i,0); ++j) {
-            point_cloud_neighbor_list_i[neighbor_lists(i,j)] = 1.0;
-        }
-    });
-    double point_cloud_convert_time = timer.seconds();
-    printf("point cloud convert time: %f s\n", point_cloud_convert_time);
-    Kokkos::fence();
+        double radius_search_time = timer.seconds();
+        printf("nanoflann search time: %f s\n", radius_search_time);
 
-    // loop over targets, finding all of their neighbors by brute force
-    timer.reset();
-    std::vector<std::map<int, double> > brute_force_neighbor_list(number_target_coords, std::map<int, double>());
-    Kokkos::parallel_for("brute force search", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
-            (0,number_target_coords), [&](const int i) {
-        auto &brute_force_neighbor_list_i = const_cast<std::map<int, double>& >(brute_force_neighbor_list[i]);
-        for (int j=0; j<number_source_coords; ++j) {
-            double dist = 0;
-            for (int k=0; k<dimension; ++k) {
-                dist += (target_coords(i,k)-source_coords(j,k))*(target_coords(i,k)-source_coords(j,k));
+        // convert point cloud search to vector of maps
+        timer.reset();
+        std::vector<std::map<int, double> > point_cloud_neighbor_list(number_target_coords, std::map<int, double>());
+        Kokkos::parallel_for("point search conversion", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
+                (0,number_target_coords), [&](const int i) {
+            auto &point_cloud_neighbor_list_i = const_cast<std::map<int, double>& >(point_cloud_neighbor_list[i]);
+            for (int j=1; j<=neighbor_lists(i,0); ++j) {
+                point_cloud_neighbor_list_i[neighbor_lists(i,j)] = 1.0;
+                printf("p: %d: %d\n", i, neighbor_lists(i,j));
             }
-            dist = std::sqrt(dist);
+        });
+        double point_cloud_convert_time = timer.seconds();
+        printf("point cloud convert time: %f s\n", point_cloud_convert_time);
+        Kokkos::fence();
 
-            if (dist<h_multiplier*h_spacing) {
-                brute_force_neighbor_list_i[j]=dist;
+        // loop over targets, finding all of their neighbors by brute force
+        timer.reset();
+        std::vector<std::map<int, double> > brute_force_neighbor_list(number_target_coords, std::map<int, double>());
+        Kokkos::parallel_for("brute force search", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
+                (0,number_target_coords), [&](const int i) {
+            auto &brute_force_neighbor_list_i = const_cast<std::map<int, double>& >(brute_force_neighbor_list[i]);
+            for (int j=0; j<number_source_coords; ++j) {
+                double dist = 0;
+                for (int k=0; k<dimension; ++k) {
+                    dist += (target_coords(i,k)-source_coords(j,k))*(target_coords(i,k)-source_coords(j,k));
+                }
+                dist = std::sqrt(dist);
+
+                if (dist<(h_multiplier + random_vec(i))*h_spacing) {
+                    brute_force_neighbor_list_i[j]=dist;
+                }
             }
-        }
-    });
-    double brute_force_search_time = timer.seconds();
-    printf("brute force search time: %f s\n", brute_force_search_time);
-    Kokkos::fence();
+        });
+        double brute_force_search_time = timer.seconds();
+        printf("brute force search time: %f s\n", brute_force_search_time);
+        Kokkos::fence();
 
-    timer.reset();
-    // check that all neighbors in brute force list are in original search list
-    int num_passed = 0;
-    Kokkos::parallel_reduce("brute force search", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
-            (0,number_target_coords), KOKKOS_LAMBDA(const int i, int& t_num_passed) {
-        for (auto it=brute_force_neighbor_list[i].begin(); it!=brute_force_neighbor_list[i].end(); ++it) {
-            if (point_cloud_neighbor_list[i].count(it->first)==1) t_num_passed++;
+        timer.reset();
+        // check that all neighbors in brute force list are in point cloud search list
+        int num_passed = 0;
+        Kokkos::parallel_reduce("check brute force search in point cloud search", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
+                (0,number_target_coords), [&](const int i, int& t_num_passed) {
+            bool all_found = true;
+            for (auto it=brute_force_neighbor_list[i].begin(); it!=brute_force_neighbor_list[i].end(); ++it) {
+                if (point_cloud_neighbor_list[i].count(it->first)!=1) {
+                    all_found = false;
+                }
+            }
+            if (all_found) t_num_passed++;
+        }, Kokkos::Sum<int>(num_passed));
+        Kokkos::fence();
+        if (num_passed != number_target_coords) {
+            printf("Brute force neighbor not found in point cloud list\n");
+            all_passed = false;
         }
-    }, Kokkos::Sum<int>(num_passed));
-    Kokkos::fence();
-    compadre_kernel_assert_release(num_passed != number_target_coords 
-            && "Neighbor not found in point cloud list\n");
 
-    // check that all neighbors in original list are in brute force list
-    Kokkos::parallel_reduce("original in brute force search", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
-            (0,number_target_coords), KOKKOS_LAMBDA(const int i, int& t_num_passed) {
-        for (int j=1; j<=neighbor_lists(i,0); ++j) {
-            if (brute_force_neighbor_list[i].count(neighbor_lists(i,j))==1) t_num_passed++;
+        num_passed = 0;
+        // check that all neighbors in point cloud search list are in brute force list
+        Kokkos::parallel_reduce("original in brute force search", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
+                (0,number_target_coords), KOKKOS_LAMBDA(const int i, int& t_num_passed) {
+            bool all_found = true;
+            for (int j=1; j<=neighbor_lists(i,0); ++j) {
+                if (brute_force_neighbor_list[i].count(neighbor_lists(i,j))!=1) {
+                    all_found = false;
+                }
+            }
+            if (all_found) t_num_passed++;
+        }, Kokkos::Sum<int>(num_passed));
+        Kokkos::fence();
+        if (num_passed != number_target_coords) {
+            printf("Point cloud neighbor not found in brute force list\n");
+            all_passed = false;
         }
-    }, Kokkos::Sum<int>(num_passed));
-    Kokkos::fence();
-    compadre_kernel_assert_release(num_passed != number_target_coords 
-            && "Neighbor not found in brute force list\n");
 
-    double check_time = timer.seconds();
-    printf("check time: %f s\n", check_time);
+        double check_time = timer.seconds();
+        printf("check time: %f s\n", check_time);
+    }
 
 }
 
