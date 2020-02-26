@@ -37,8 +37,7 @@ bob_library_includes(compadre)
 
 # link to Kokkos
 if (KOKKOS_EXISTING_ELSEWHERE) # user points to Kokkos installation
-  target_include_directories(compadre PUBLIC "${KokkosCore_INCLUDE_DIRS}")
-  target_link_libraries(compadre PUBLIC "${KokkosCore_STATIC_LIB}")
+  target_link_libraries(compadre PUBLIC Kokkos::kokkoscore)
 elseif (KOKKOS_IN_TRILINOS) # Kokkos found in Trilinos installation
   bob_link_dependency(compadre PUBLIC KokkosCore)
 elseif (KOKKOS_BUILT_FOR_USER) # Kokkos built for user by this project
