@@ -41,12 +41,10 @@ if (KOKKOS_EXISTING_ELSEWHERE) # user points to Kokkos installation
 elseif (KOKKOS_IN_TRILINOS) # Kokkos found in Trilinos installation
   bob_link_dependency(compadre PUBLIC KokkosCore)
 elseif (KOKKOS_BUILT_FOR_USER) # Kokkos built for user by this project
-  # adds a KokkosCore dependency to compadre, but checks whether or not CMake needs to rescan after
-  # building KokkosCore
-  add_dependencies(compadre RescanKokkosCore)
-  if (Kokkos_FOUND)
-    target_link_libraries(compadre PUBLIC Kokkos::kokkoscore)
-  endif()
+  target_link_libraries(compadre PUBLIC kokkos)
+endif()
+if (KOKKOSKERNELS_BUILT_FOR_USER) # Kokkos-Kernels built for user by this project
+    target_link_libraries(compadre LINK_PRIVATE kokkoskernels)
 endif()
 
 # link to CUDA

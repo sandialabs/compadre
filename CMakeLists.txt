@@ -67,6 +67,10 @@ endif()
 bob_option(Compadre_USE_KokkosCore "Use KokkosCore" ON)
 bob_input(KokkosCore_PREFIX "${Trilinos_PREFIX}" PATH "Path to KokkosCore install")
 
+#KOKKOS-KERNELS
+bob_option(Compadre_USE_KokkosKernels "Use KokkosKernels" ON)
+bob_input(KokkosKernels_PREFIX "${Trilinos_PREFIX}" PATH "Path to KokkosKernels install")
+
 if (Trilinos_PREFIX AND NOT("${KokkosCore_PREFIX}" STREQUAL "${Trilinos_PREFIX}"))
     # check both KokkosCore_PREFIX and Trilinos_PREFIX were specified differ (if either or both are not specified, it is fine)
     MESSAGE(FATAL_ERROR "KokkosCore_PREFIX and Trilinos_PREFIX were both specified, but with different values")
@@ -97,6 +101,9 @@ endif()
 set(KOKKOS_IN_TRILINOS OFF)
 set(KOKKOS_EXISTING_ELSEWHERE OFF)
 set(KOKKOS_BUILT_FOR_USER OFF)
+set(KOKKOSKERNELS_IN_TRILINOS OFF)
+set(KOKKOSKERNELS_EXISTING_ELSEWHERE OFF)
+set(KOKKOSKERNELS_BUILT_FOR_USER OFF)
 
 bob_input(CUDA_PREFIX "" PATH "Path to CUDA install")
 # Set CUBLAS install to the same as CUDA by default (this changes in CUDA 10.1)
@@ -201,70 +208,43 @@ else()
   else()
     if (KokkosCore_PREFIX STREQUAL "")
       SET(KOKKOS_BUILT_FOR_USER ON)
-      # Case where we install KokkosCore
-      # If we enter this case, then the first time the following find_package will fail
-      # After configuring the CMake project, the RescanKokkosCore target will cause
-      # CMake to build Kokkos and then rescan the CMake file, allowing us to get the
-      # KOKKOS_CXX_FLAGS that we will use to compile the project
-
-      # Check for Kokkos will succeed only in the case of a rescan of the CMakeLists.txt 
-      set(KokkosCore_PREFIX "${PROJECT_BINARY_DIR}/KokkosCore-install")
-      find_package(Kokkos PATHS "${KokkosCore_PREFIX}/lib/cmake/Kokkos" NO_DEFAULT_PATH QUIET)
-
-      bob_input(KOKKOS_ENABLE_DEBUG "${Compadre_DEBUG}" PATH "Debugging mode on or off for KokkosCore install")
-
-      # fPIC flag is needed to link against Kokkos library when our library we are creating is shared
-      set(KokkosCore_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-      set(KokkosCore_ARGS
-        "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
-        "-DCMAKE_CXX_FLAGS=${KokkosCore_FLAGS}"
-        "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS}"
-        "-DCMAKE_INSTALL_PREFIX=${KokkosCore_PREFIX}"
-        "-DKokkos_ENABLE_OPENMP=${Compadre_USE_OpenMP}"
-        "-DKokkos_ENABLE_PTHREAD=${Compadre_USE_Pthread}"
-        "-DKokkos_ENABLE_CUDA=${Compadre_USE_CUDA}"
-        "-DKokkos_CUDA_DIR=${CUDA_PREFIX}"
-        "-DKokkos_ENABLE_DEPRECATED_CODE=${KOKKOS_ENABLE_DEPRECATED_CODE}"
-        "-DKokkos_ENABLE_CUDA_LAMBDA=ON"
-        "-DKokkos_ENABLE_DEBUG=${KOKKOS_ENABLE_DEBUG}"
-        "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}"
-      )
-
-      # get architecture
-	  get_cmake_property(variableNames VARIABLES)
-      string(REGEX MATCH "KokkosCore_ARCH_[a-zA-Z]+[0-9]*"
-          arch_match_variable ${variableNames})
-      if (arch_match_variable) 
-          list(APPEND KokkosCore_ARGS "-D${arch_match_variable}:BOOL=ON")
-      endif()
-
-      
-      # update the RPATH from for the includes and libraries this externalproject will create
-      SET(CMAKE_INSTALL_RPATH ${KokkosCore_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
-      SET(CMAKE_BUILD_RPATH ${KokkosCore_PREFIX}/lib ${CMAKE_BUILD_RPATH})
-
-      externalproject_add(KokkosCore
-          PREFIX kokkoscore
-          SOURCE_DIR "${PROJECT_SOURCE_DIR}/kokkos"
-          CMAKE_ARGS ${KokkosCore_ARGS}
-          BUILD_ALWAYS 1
-          TEST_AFTER_INSTALL OFF
-      )
-
-      if (NOT Kokkos_FOUND)
-        # first scan via CMake so Kokkos not built yet
-        add_custom_target(RescanKokkosCore ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR} ${CMAKE_SOURCE_DIR} DEPENDS KokkosCore)
-      else()
-        # second scan via CMake so we set a blank custom target
-        add_custom_target(RescanKokkosCore)
-      endif()
-
+      option(Kokkos_ENABLE_OPENMP "" "${Compadre_USE_OpenMP}")
+      option(Kokkos_ENABLE_PTHREAD  "" "${Compadre_USE_Pthread}")
+      option(Kokkos_ENABLE_CUDA "" "${Compadre_USE_Cuda}")
+      option(Kokkos_ENABLE_TESTS "" OFF)
+      option(Kokkos_ENABLE_EXAMPLES "" OFF)
+      set(Kokkos_CUDA_DIR "${CUDA_PREFIX}")
+      add_subdirectory(kokkos)
     else()
       # Existing KokkosCore indicated by user by setting KokkosCore_PREFIX, so we look for it
       # where specified (only)
       set(CMAKE_PREFIX_PATH ${KokkosCore_PREFIX} ${CMAKE_PREFIX_PATH})
       find_package(Kokkos PATHS "${KokkosCore_PREFIX}/lib/cmake/Kokkos" NO_DEFAULT_PATH QUIET)
       set(KOKKOS_EXISTING_ELSEWHERE ON)
+    endif()
+  endif()
+endif()
+
+if (KOKKOSKERNELS_IN_TRILINOS)
+  bob_add_dependency(PUBLIC NAME KokkosKernels TARGETS kokkoskernels INCLUDE_DIR_VARS KokkosKernels_INCLUDE_DIRS)
+else()
+  if(NOT(Compadre_USE_KokkosKernels))
+    MESSAGE(FATAL_ERROR "Compadre_USE_KokkosKernels set to OFF, but entire toolkit relies on KokkosKernels.")
+  else()
+    if (KokkosKernels_PREFIX STREQUAL "")
+      SET(KOKKOSKERNELS_BUILT_FOR_USER ON)
+      option(KokkosKernels_ENABLE_TPL_BLAS ON)
+      option(KokkosKernels_ENABLE_EXAMPLES OFF)
+      option(KokkosKernels_ENABLE_TESTS OFF)
+      add_subdirectory(kokkos-kernels)
+      install(TARGETS kokkoskernels EXPORT kokkoskernels DESTINATION bin)
+      #export(TARGETS kokkoskernels FILE lib/cmake/KokkosKernelsConfig.cmake)#TARGETS kokkoskernels EXPORT kokkoskernels LIBRARY DESTINATION "${CMAKE_INSTALL_PREFIX}/lib"  ARCHIVE DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}/lib")
+    else()
+      # Existing KokkosCore indicated by user by setting KokkosCore_PREFIX, so we look for it
+      # where specified (only)
+      set(CMAKE_PREFIX_PATH ${KokkosKernels_PREFIX} ${CMAKE_PREFIX_PATH})
+      find_package(Kokkos PATHS "${KokkosKernels_PREFIX}/lib/cmake/Kokkos" NO_DEFAULT_PATH QUIET)
+      set(KOKKOSKERNELS_EXISTING_ELSEWHERE ON)
     endif()
   endif()
 endif()
