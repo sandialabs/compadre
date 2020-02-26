@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 2.0
-//              Copyright (2014) Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -50,27 +51,26 @@
 
 namespace Test {
 
-template< typename SpaceDst, typename SpaceSrc >
-void view_space_assign()
-{
-  Kokkos::View< double*, SpaceDst > a =
-    Kokkos::View< double*, SpaceSrc >( "a", 1 );
+template <typename SpaceDst, typename SpaceSrc>
+void view_space_assign() {
+  Kokkos::View<double*, SpaceDst> a = Kokkos::View<double*, SpaceSrc>("a", 1);
 
-  Kokkos::View< double*, Kokkos::LayoutLeft, SpaceDst > b =
-    Kokkos::View< double*, Kokkos::LayoutLeft, SpaceSrc >( "b", 1 );
+  Kokkos::View<double*, Kokkos::LayoutLeft, SpaceDst> b =
+      Kokkos::View<double*, Kokkos::LayoutLeft, SpaceSrc>("b", 1);
 
-  Kokkos::View< double*, Kokkos::LayoutRight, SpaceDst > c =
-    Kokkos::View< double*, Kokkos::LayoutRight, SpaceSrc >( "c", 1 );
+  Kokkos::View<double*, Kokkos::LayoutRight, SpaceDst> c =
+      Kokkos::View<double*, Kokkos::LayoutRight, SpaceSrc>("c", 1);
 
-  Kokkos::View< double*, SpaceDst, Kokkos::MemoryRandomAccess > d =
-    Kokkos::View< double*, SpaceSrc >( "d", 1 );
+  Kokkos::View<double*, SpaceDst, Kokkos::MemoryRandomAccess> d =
+      Kokkos::View<double*, SpaceSrc>("d", 1);
 
-  Kokkos::View< double*, Kokkos::LayoutLeft, SpaceDst, Kokkos::MemoryRandomAccess > e =
-    Kokkos::View< double*, Kokkos::LayoutLeft, SpaceSrc >( "e", 1 );
+  Kokkos::View<double*, Kokkos::LayoutLeft, SpaceDst,
+               Kokkos::MemoryRandomAccess>
+      e = Kokkos::View<double*, Kokkos::LayoutLeft, SpaceSrc>("e", 1);
 
   // Rank-one layout can assign:
-  Kokkos::View< double*, Kokkos::LayoutRight, SpaceDst > f =
-  Kokkos::View< double*, Kokkos::LayoutLeft, SpaceSrc >( "f", 1 );
+  Kokkos::View<double*, Kokkos::LayoutRight, SpaceDst> f =
+      Kokkos::View<double*, Kokkos::LayoutLeft, SpaceSrc>("f", 1);
 }
 
-} // namespace Test
+}  // namespace Test

@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 2.0
-//              Copyright (2014) Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -46,9 +47,9 @@
 
 namespace Test {
 
-TEST_F( TEST_CATEGORY, view_subview_1d_assign_atomic )
-{
-  TestViewSubview::test_1d_assign< TEST_EXECSPACE, Kokkos::MemoryTraits<Kokkos::Atomic> >();
+TEST(TEST_CATEGORY, view_subview_1d_assign_atomic) {
+  TestViewSubview::test_1d_assign<TEST_EXECSPACE,
+                                  Kokkos::MemoryTraits<Kokkos::Atomic> >();
 }
 
-} // namespace Test
+}  // namespace Test

@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 2.0
-//              Copyright (2014) Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -46,12 +47,11 @@
 
 namespace Test {
 
-TEST( kokkosresize, host_space_access )
-{
+TEST(kokkosresize, host_space_access) {
   // Test with the default device type.
   using TestViewResize::testResize;
   typedef Kokkos::View<int*>::device_type device_type;
-  testResize<device_type> ();
+  testResize<device_type>();
 }
 
-} // namespace Test
+}  // namespace Test

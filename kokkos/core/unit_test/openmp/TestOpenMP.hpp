@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 2.0
-//              Copyright (2014) Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -83,13 +84,12 @@
 namespace Test {
 
 class openmp : public ::testing::Test {
-protected:
-  static void SetUpTestCase()
-  {
+ protected:
+  static void SetUpTestCase() {
     int threads_count = 0;
-    #pragma omp parallel
+#pragma omp parallel
     {
-      #pragma omp atomic
+#pragma omp atomic
       ++threads_count;
     }
 
@@ -97,18 +97,15 @@ protected:
       threads_count /= 2;
     }
 
-    Kokkos::OpenMP::initialize( threads_count );
-    Kokkos::print_configuration( std::cout, true );
+    Kokkos::OpenMP::initialize(threads_count);
+    Kokkos::print_configuration(std::cout, true);
 
-    srand( 10231 );
+    srand(10231);
   }
 
-  static void TearDownTestCase()
-  {
-    Kokkos::OpenMP::finalize();
-  }
+  static void TearDownTestCase() { Kokkos::OpenMP::finalize(); }
 };
 
-} // namespace Test
+}  // namespace Test
 
 #endif

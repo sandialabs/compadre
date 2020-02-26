@@ -18,6 +18,7 @@ bob_option(Compadre_EXTREME_DEBUG "Run Compadre Toolkit in EXTREME DEBUG mode" O
 
 # RPATH related settings
 # https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/RPATH-handling
+SET(CMAKE_CXX_STANDARD 11)
 SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
 SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
@@ -208,7 +209,7 @@ else()
 
       # Check for Kokkos will succeed only in the case of a rescan of the CMakeLists.txt 
       set(KokkosCore_PREFIX "${PROJECT_BINARY_DIR}/KokkosCore-install")
-      find_package(Kokkos PATHS "${KokkosCore_PREFIX}/lib/CMake/Kokkos" NO_DEFAULT_PATH QUIET)
+      find_package(Kokkos PATHS "${KokkosCore_PREFIX}/lib/cmake/Kokkos" NO_DEFAULT_PATH QUIET)
 
       bob_input(KOKKOS_ENABLE_DEBUG "${Compadre_DEBUG}" PATH "Debugging mode on or off for KokkosCore install")
 
@@ -219,16 +220,24 @@ else()
         "-DCMAKE_CXX_FLAGS=${KokkosCore_FLAGS}"
         "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS}"
         "-DCMAKE_INSTALL_PREFIX=${KokkosCore_PREFIX}"
-        "-DKokkos_ENABLE_OpenMP=${Compadre_USE_OpenMP}"
-        "-DKokkos_ENABLE_Pthread=${Compadre_USE_Pthread}"
-        "-DKokkos_ENABLE_Cuda=${Compadre_USE_CUDA}"
-        "-DKOKKOS_ARCH=${KokkosCore_ARCH}"
-        "-DKOKKOS_CUDA_DIR=${CUDA_PREFIX}"
-        "-DKOKKOS_ENABLE_DEPRECATED_CODE=${KOKKOS_ENABLE_DEPRECATED_CODE}"
-        "-DKokkos_ENABLE_Cuda_Lambda=ON"
-        "-DKOKKOS_ENABLE_DEBUG=${KOKKOS_ENABLE_DEBUG}"
+        "-DKokkos_ENABLE_OPENMP=${Compadre_USE_OpenMP}"
+        "-DKokkos_ENABLE_PTHREAD=${Compadre_USE_Pthread}"
+        "-DKokkos_ENABLE_CUDA=${Compadre_USE_CUDA}"
+        "-DKokkos_CUDA_DIR=${CUDA_PREFIX}"
+        "-DKokkos_ENABLE_DEPRECATED_CODE=${KOKKOS_ENABLE_DEPRECATED_CODE}"
+        "-DKokkos_ENABLE_CUDA_LAMBDA=ON"
+        "-DKokkos_ENABLE_DEBUG=${KOKKOS_ENABLE_DEBUG}"
         "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}"
       )
+
+      # get architecture
+	  get_cmake_property(variableNames VARIABLES)
+      string(REGEX MATCH "KokkosCore_ARCH_[a-zA-Z]+[0-9]*"
+          arch_match_variable ${variableNames})
+      if (arch_match_variable) 
+          list(APPEND KokkosCore_ARGS "-D${arch_match_variable}:BOOL=ON")
+      endif()
+
       
       # update the RPATH from for the includes and libraries this externalproject will create
       SET(CMAKE_INSTALL_RPATH ${KokkosCore_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
@@ -241,10 +250,6 @@ else()
           BUILD_ALWAYS 1
           TEST_AFTER_INSTALL OFF
       )
-
-      SET(KokkosCore_INCLUDE_DIRS "${KokkosCore_PREFIX}/include")
-      SET(KokkosCore_STATIC_LIB "${KokkosCore_PREFIX}/lib/libkokkos.a")
-      include_directories(${KokkosCore_INCLUDE_DIRS})
 
       if (NOT Kokkos_FOUND)
         # first scan via CMake so Kokkos not built yet

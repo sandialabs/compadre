@@ -45,7 +45,9 @@ elseif (KOKKOS_BUILT_FOR_USER) # Kokkos built for user by this project
   # adds a KokkosCore dependency to compadre, but checks whether or not CMake needs to rescan after
   # building KokkosCore
   add_dependencies(compadre RescanKokkosCore)
-  target_link_libraries(compadre PUBLIC "${KokkosCore_STATIC_LIB}")
+  if (Kokkos_FOUND)
+    target_link_libraries(compadre PUBLIC Kokkos::kokkoscore)
+  endif()
 endif()
 
 # link to CUDA
