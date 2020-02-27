@@ -1,5 +1,12 @@
 #include "Compadre_LinearAlgebra_Definitions.hpp"
 #include "Compadre_Functors.hpp"
+#include <KokkosBlas.hpp>
+#include <KokkosBatched_LU_Decl.hpp>
+#include <KokkosBatched_LU_Serial_Impl.hpp>
+#include <KokkosBatched_LU_Team_Impl.hpp>
+#include <KokkosBatched_Trsv_Decl.hpp>
+#include <KokkosBatched_Trsv_Serial_Impl.hpp>
+#include <KokkosBatched_Trsv_Team_Impl.hpp>
 
 namespace Compadre{
 namespace GMLS_LinearAlgebra {
@@ -642,90 +649,127 @@ void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *R
 
 #elif defined(COMPADRE_USE_LAPACK)
 
-    // later improvement could be to send in an optional view with the neighbor list size for each target to reduce work
+    Kokkos::View<double***> AA("AA", num_matrices, M, N); /// element matrices
+    Kokkos::View<double**>  BB("BB", num_matrices, N, N);    /// load vector and would be overwritten by a solution
+    
+    using namespace KokkosBatched;
+#if 0 // range policy
+    Kokkos::parallel_for(N, KOKKOS_LAMBDA(const int i) {
+      auto A = Kokkos::subview(AA, i, Kokkos::ALL(), Kokkos::ALL()); /// ith matrix
+      auto B = Kokkos::subview(BB, i, Kokkos::ALL());                /// ith load/solution vector
+    
+      SerialLU<Algo::LU::Unblocked>
+        ::invoke(A);
+      SerialTrsv<Uplo::Lower,Trans::NoTranspose,Diag::Unit,Algo::Trsv::Unblocked>
+        ::invoke(1, A, B);
+    });
+#endif
 
-    Kokkos::Profiling::pushRegion("LU::Setup(Create)");
-    Kokkos::Profiling::popRegion();
-
-    std::string transpose_or_no = "N";
-
-    #ifdef LAPACK_DECLARED_THREADSAFE
-        int scratch_space_size = 0;
-        scratch_space_size += scratch_local_index_type::shmem_size( std::min(M, N) );  // ipiv
-
-        Kokkos::parallel_for(
-            team_policy(num_matrices, Kokkos::AUTO)
-            .set_scratch_size(0, Kokkos::PerTeam(scratch_space_size)),
-            KOKKOS_LAMBDA (const member_type& teamMember) {
-
-                scratch_local_index_type scratch_ipiv(teamMember.team_scratch(0), std::min(M, N));
-                int i_info = 0;
-
-                const int i = teamMember.league_rank();
-                double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
-                double * rhs_offset = RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb);
-
-                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                dgetrf_( const_cast<int*>(&M), const_cast<int*>(&N),
-                         p_offset, const_cast<int*>(&lda),
-                         scratch_ipiv.data(),
-                         &i_info);
-                });
-                teamMember.team_barrier();
-
-                compadre_assert_release(i_info==0 && "dgetrf failed");
-
-                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                dgetrs_( const_cast<char *>(transpose_or_no.c_str()),
-                         const_cast<int*>(&N), const_cast<int*>(&NRHS),
-                         p_offset, const_cast<int*>(&lda),
-                         scratch_ipiv.data(),
-                         rhs_offset, const_cast<int*>(&ldb),
-                         &i_info);
-                });
-
-                compadre_assert_release(i_info==0 && "dgetrs failed");
-
-        }, "LU Execution");
-
-    #else
-
-        Kokkos::View<int*> scratch_ipiv("scratch_ipiv", std::min(M, N));
-
-        for (int i=0; i<num_matrices; ++i) {
-
-                int i_info = 0;
-
-                double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
-                double * rhs_offset = RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb);
-
-                dgetrf_( const_cast<int*>(&M), const_cast<int*>(&N),
-                         p_offset, const_cast<int*>(&lda),
-                         scratch_ipiv.data(),
-                         &i_info);
-
-                dgetrs_( const_cast<char *>(transpose_or_no.c_str()),
-                         const_cast<int*>(&N), const_cast<int*>(&NRHS),
-                         p_offset, const_cast<int*>(&lda),
-                         scratch_ipiv.data(),
-                         rhs_offset, const_cast<int*>(&ldb),
-                         &i_info);
-
-                compadre_assert_release(i_info==0 && "dgetrs failed");
-
-        }
-
-    #endif // LAPACK is not threadsafe
+#if 1 // team policy
+    {
+      typedef Kokkos::TeamPolicy<device_execution_space> team_policy_type;
+      typedef typename team_policy_type::member_type member_type;
+      const int team_size = 32, vector_size = 1;
+      team_policy_type policy(num_matrices, team_size, vector_size); 
+      Kokkos::parallel_for(policy, KOKKOS_LAMBDA(const member_type &member) {
+	  const int i = member.league_rank();
+	    auto A = Kokkos::subview(AA, i, Kokkos::ALL(), Kokkos::ALL()); /// ith matrix
+	    auto B = Kokkos::subview(BB, i, Kokkos::ALL());                /// ith load/solution vector
+	    
+	    TeamLU<member_type,Algo::LU::Unblocked>
+	      ::invoke(member, A);
+	    TeamTrsv<member_type,Uplo::Lower,Trans::NoTranspose,Diag::Unit,Algo::Trsv::Unblocked>
+	      ::invoke(member, 1, A, B);
+	  });
+	}
+#endif
 
 #endif
 
-    // Results are written layout left, so they need converted to layout right
-    ConvertLayoutLeftToRight clr(pm, ldb, ndb, RHS);
-    int scratch_size = scratch_matrix_left_type::shmem_size(ldb, ndb);
-    pm.clearScratchSizes();
-    pm.setTeamScratchSize(1, scratch_size);
-    pm.CallFunctorWithTeamThreads(num_matrices, clr);
-    Kokkos::fence();
+//    // later improvement could be to send in an optional view with the neighbor list size for each target to reduce work
+//
+//    Kokkos::Profiling::pushRegion("LU::Setup(Create)");
+//    Kokkos::Profiling::popRegion();
+//
+//    std::string transpose_or_no = "N";
+//
+//    #ifdef LAPACK_DECLARED_THREADSAFE
+//        int scratch_space_size = 0;
+//        scratch_space_size += scratch_local_index_type::shmem_size( std::min(M, N) );  // ipiv
+//
+//        Kokkos::parallel_for(
+//            team_policy(num_matrices, Kokkos::AUTO)
+//            .set_scratch_size(0, Kokkos::PerTeam(scratch_space_size)),
+//            KOKKOS_LAMBDA (const member_type& teamMember) {
+//
+//                scratch_local_index_type scratch_ipiv(teamMember.team_scratch(0), std::min(M, N));
+//                int i_info = 0;
+//
+//                const int i = teamMember.league_rank();
+//                double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
+//                double * rhs_offset = RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb);
+//
+//                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+//                dgetrf_( const_cast<int*>(&M), const_cast<int*>(&N),
+//                         p_offset, const_cast<int*>(&lda),
+//                         scratch_ipiv.data(),
+//                         &i_info);
+//                });
+//                teamMember.team_barrier();
+//
+//                compadre_assert_release(i_info==0 && "dgetrf failed");
+//
+//                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+//                dgetrs_( const_cast<char *>(transpose_or_no.c_str()),
+//                         const_cast<int*>(&N), const_cast<int*>(&NRHS),
+//                         p_offset, const_cast<int*>(&lda),
+//                         scratch_ipiv.data(),
+//                         rhs_offset, const_cast<int*>(&ldb),
+//                         &i_info);
+//                });
+//
+//                compadre_assert_release(i_info==0 && "dgetrs failed");
+//
+//        }, "LU Execution");
+//
+//    #else
+//
+//        Kokkos::View<int*> scratch_ipiv("scratch_ipiv", std::min(M, N));
+//
+//        for (int i=0; i<num_matrices; ++i) {
+//
+//                int i_info = 0;
+//
+//                double * p_offset = P + TO_GLOBAL(i)*TO_GLOBAL(lda)*TO_GLOBAL(nda);
+//                double * rhs_offset = RHS + TO_GLOBAL(i)*TO_GLOBAL(ldb)*TO_GLOBAL(ndb);
+//
+//                dgetrf_( const_cast<int*>(&M), const_cast<int*>(&N),
+//                         p_offset, const_cast<int*>(&lda),
+//                         scratch_ipiv.data(),
+//                         &i_info);
+//
+//                dgetrs_( const_cast<char *>(transpose_or_no.c_str()),
+//                         const_cast<int*>(&N), const_cast<int*>(&NRHS),
+//                         p_offset, const_cast<int*>(&lda),
+//                         scratch_ipiv.data(),
+//                         rhs_offset, const_cast<int*>(&ldb),
+//                         &i_info);
+//
+//                compadre_assert_release(i_info==0 && "dgetrs failed");
+//
+//        }
+//
+//    #endif // LAPACK is not threadsafe
+//
+//#endif
+//
+//    // Results are written layout left, so they need converted to layout right
+//    ConvertLayoutLeftToRight clr(pm, ldb, ndb, RHS);
+//    int scratch_size = scratch_matrix_left_type::shmem_size(ldb, ndb);
+//    pm.clearScratchSizes();
+//    pm.setTeamScratchSize(1, scratch_size);
+//    pm.CallFunctorWithTeamThreads(num_matrices, clr);
+//    Kokkos::fence();
 
 }
 
