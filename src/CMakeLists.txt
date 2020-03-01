@@ -31,7 +31,6 @@ set(COMPADRE_SOURCES
   Compadre_LinearAlgebra.cpp
   )
 
-
 add_library(compadre ${COMPADRE_SOURCES})
 bob_library_includes(compadre)
 
@@ -44,7 +43,7 @@ elseif (KOKKOS_BUILT_FOR_USER) # Kokkos built for user by this project
   target_link_libraries(compadre PUBLIC kokkos)
 endif()
 if (KOKKOSKERNELS_BUILT_FOR_USER) # Kokkos-Kernels built for user by this project
-    target_link_libraries(compadre LINK_PRIVATE kokkoskernels)
+  target_link_libraries(compadre PUBLIC kokkoskernels)
 endif()
 
 # link to CUDA
