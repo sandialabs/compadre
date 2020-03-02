@@ -42,7 +42,12 @@ elseif (KOKKOS_IN_TRILINOS) # Kokkos found in Trilinos installation
 elseif (KOKKOS_BUILT_FOR_USER) # Kokkos built for user by this project
   target_link_libraries(compadre PUBLIC kokkos)
 endif()
-if (KOKKOSKERNELS_BUILT_FOR_USER) # Kokkos-Kernels built for user by this project
+
+if (KOKKOSKERNELS_EXISTING_ELSEWHERE) # user points to KokkosKernels installation
+  target_link_libraries(compadre PUBLIC Kokkos::kokkoskernels)
+elseif (KOKKOSKERNELS_IN_TRILINOS) # KokkosKernels found in Trilinos installation
+  bob_link_dependency(compadre PUBLIC KokkosKernels)
+elseif (KOKKOSKERNELS_BUILT_FOR_USER) # Kokkos-Kernels built for user by this project
   target_link_libraries(compadre PUBLIC kokkoskernels)
 endif()
 
@@ -53,16 +58,6 @@ if (Compadre_USE_CUDA AND NOT(KOKKOS_IN_TRILINOS))
   target_link_libraries(compadre PUBLIC "${CUDA_CUSOLVER_LIBRARIES}")
   target_link_libraries(compadre PUBLIC "${CUDA_CUDART_LIBRARIES}")
   MESSAGE(STATUS "${CUDA_INCLUDE_DIRS}")
-endif()
-
-# link to LAPACK
-if (Compadre_USE_LAPACK)
-  if (LAPACK_LIB)
-    target_link_libraries(compadre PUBLIC "${LAPACK_LIB}")
-  endif()
-  if (BLAS_LIB)
-    target_link_libraries(compadre PUBLIC "${BLAS_LIB}")
-  endif()
 endif()
 
 # link to MPI
