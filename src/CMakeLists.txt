@@ -43,7 +43,7 @@ elseif (KOKKOS_BUILT_FOR_USER) # Kokkos built for user by this project
   target_link_libraries(compadre PUBLIC kokkos)
 endif()
 if (KOKKOSKERNELS_BUILT_FOR_USER) # Kokkos-Kernels built for user by this project
-  target_link_libraries(compadre PUBLIC kokkoskernels)
+  target_link_libraries(compadre PUBLIC Kokkos::kokkoskernels)
 endif()
 
 # link to CUDA
