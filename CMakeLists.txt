@@ -5,6 +5,7 @@ cmake_minimum_required(VERSION 3.0.0)
 #   Compadre Details
 #
 ########## 
+
 PROJECT(Compadre VERSION 1.0.2 LANGUAGES CXX)
 
 # cmake helper functions
@@ -75,8 +76,7 @@ if (Trilinos_PREFIX AND NOT("${KokkosCore_PREFIX}" STREQUAL "${Trilinos_PREFIX}"
     # check both KokkosCore_PREFIX and Trilinos_PREFIX were specified differ (if either or both are not specified, it is fine)
     MESSAGE(FATAL_ERROR "KokkosCore_PREFIX and Trilinos_PREFIX were both specified, but with different values")
 endif()
-configure_file("${PROJECT_SOURCE_DIR}/kokkos/bin/nvcc_wrapper.in" "${PROJECT_SOURCE_DIR}/kokkos/bin/nvcc_wrapper" @ONLY)
-bob_input(KokkosCore_ARCH "" STRING "Architecture to specify for KokkosCore")
+
 if (APPLE)
   bob_option(Compadre_USE_CUDA "Whether to use CUDA" OFF)
   bob_option(Compadre_USE_OpenMP "Whether to use OpenMP" OFF)
@@ -86,28 +86,22 @@ else()
   bob_option(Compadre_USE_OpenMP "Whether to use OpenMP" ON)
   bob_option(Compadre_USE_Pthread "Whether to use Pthread" OFF)
 endif()
+bob_option(Kokkos_ENABLE_PTHEAD "Whether to use PTHREAD when building KokkosCore" "${Compadre_USE_Pthread}")
+bob_option(Kokkos_ENABLE_OPENMP "Whether to use OPENMP when building KokkosCore" "${Compadre_USE_OpenMP}")
+bob_option(Kokkos_ENABLE_CUDA "Whether to use CUDA when building KokkosCore" "${Compadre_USE_CUDA}")
 bob_option(Compadre_EXPLICITLY_DISABLE_CUDA "Special case CUDA override" OFF)
-if (Compadre_USE_CUDA)
-  if (KokkosCore_PREFIX STREQUAL "")
-    # replace users compiler with nvcc_wrapper which uses their compiler
-    set(CMAKE_CXX_COMPILER "${PROJECT_SOURCE_DIR}/kokkos/bin/nvcc_wrapper")
-    message("CXX_COMPILER changed to: ${CMAKE_CXX_COMPILER}")
-  endif()
-endif()
+
 if (Compadre_USE_OpenMP AND NOT(Compadre_USE_CUDA))
   # If cuda is enabled, nvcc_wrapper will take of openmp flag
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
 endif()
+
 set(KOKKOS_IN_TRILINOS OFF)
 set(KOKKOS_EXISTING_ELSEWHERE OFF)
 set(KOKKOS_BUILT_FOR_USER OFF)
 set(KOKKOSKERNELS_IN_TRILINOS OFF)
 set(KOKKOSKERNELS_EXISTING_ELSEWHERE OFF)
 set(KOKKOSKERNELS_BUILT_FOR_USER OFF)
-
-bob_input(CUDA_PREFIX "" PATH "Path to CUDA install")
-# Set CUBLAS install to the same as CUDA by default (this changes in CUDA 10.1)
-bob_input(CUDA_CUBLAS_PREFIX "${CUDA_PREFIX}" PATH "Path to CUBLAS install")
 
 #LAPACK and BLAS
 set(Compadre_USE_LAPACK ON)
@@ -219,10 +213,10 @@ else()
       SET(KOKKOS_BUILT_FOR_USER ON)
       option(Kokkos_ENABLE_OPENMP "" "${Compadre_USE_OpenMP}")
       option(Kokkos_ENABLE_PTHREAD  "" "${Compadre_USE_Pthread}")
-      option(Kokkos_ENABLE_CUDA "" "${Compadre_USE_Cuda}")
+      option(Kokkos_ENABLE_CUDA "" "${Compadre_USE_CUDA}")
+      option(Kokkos_ENABLE_CUDA_LAMBDA "" "${Compadre_USE_CUDA}")
       option(Kokkos_ENABLE_TESTS "" OFF)
       option(Kokkos_ENABLE_EXAMPLES "" OFF)
-      set(Kokkos_CUDA_DIR "${CUDA_PREFIX}")
       add_subdirectory(kokkos)
       if (NOT(KokkosKernels_PREFIX STREQUAL ""))
           MESSAGE(FATAL_ERROR "KokkosKernels_PREFIX specified but KokkosCore_PREFIX not specified. \
@@ -247,10 +241,30 @@ else()
     if (KokkosKernels_PREFIX STREQUAL "")
       SET(KOKKOSKERNELS_BUILT_FOR_USER ON)
       # both are required to be sure it finds it
-      OPTION(KokkosKernels_ENABLE_TPL_LAPACK "ON")
-      SET(KokkosKernels_ENABLE_TPL_LAPACK "ON")
+      OPTION(KokkosKernels_ENABLE_TPL_LAPACK "" "${Compadre_USE_LAPACK}")
+      SET(KokkosKernels_ENABLE_TPL_LAPACK "${Compadre_USE_LAPACK}")
+      OPTION(KokkosKernels_ENABLE_TPL_BLAS "" "${Compadre_USE_LAPACK}")
+      SET(KokkosKernels_ENABLE_TPL_BLAS "${Compadre_USE_LAPACK}")
+      OPTION(KokkosKernels_ENABLE_TPL_CUSPARSE "" "${Compadre_USE_CUDA}")
+      SET(KokkosKernels_ENABLE_TPL_CUSPARSE "${Compadre_USE_CUDA}")
+      OPTION(KokkosKernels_ENABLE_TPL_CUBLAS "" "${Compadre_USE_CUDA}")
+      SET(KokkosKernels_ENABLE_TPL_CUBLAS "${Compadre_USE_CUDA}")
       SET(KokkosKernels_ENABLE_EXAMPLES OFF)
       SET(KokkosKernels_ENABLE_TESTS OFF)
+      OPTION(KokkosKernels_ETI_ONLY "" OFF)
+      SET(KokkosKernels_ETI_ONLY OFF)
+      OPTION(KokkosKernels_INST_OFFSET_SIZE_T "" OFF)
+      SET(KokkosKernels_INST_OFFSET_SIZE_T OFF)
+      OPTION(KokkosKernels_INST_OFFSET_INT "" OFF)
+      SET(KokkosKernels_INST_OFFSET_INT OFF)
+      OPTION(KokkosKernels_INST_LAYOUTLEFT "" OFF)
+      SET(KokkosKernels_INST_LAYOUTLEFT OFF)
+      OPTION(KokkosKernels_INST_LAYOUTRIGHT "" OFF)
+      SET(KokkosKernels_INST_LAYOUTRIGHT OFF)
+      OPTION(KokkosKernels_INST_DOUBLE "" OFF)
+      SET(KokkosKernels_INST_DOUBLE OFF)
+      OPTION(KokkosKernels_INST_ORDINAL_INT "" OFF)
+      SET(KokkosKernels_INST_ORDINAL_INT OFF)
       add_subdirectory(kokkos-kernels)
       if (NOT(KokkosCore_PREFIX STREQUAL ""))
           MESSAGE(FATAL_ERROR "KokkosCore_PREFIX specified but KokkosKernels_PREFIX not specified. \
@@ -376,49 +390,6 @@ bob_option(Compadre_EXAMPLES "Compile Compadre examples" "${Compadre_TESTS}")
 
 
 
-##########
-#
-#
-#  CUDA Libraries Locations from Kokkos Configurations
-#
-#
-##########
-
-
-
-if (Compadre_USE_CUDA)
-  IF (KOKKOS_IN_TRILINOS)
-    # already taken care of by Trilinos linking
-  ELSE() # Kokkos already exiting or built as part of this project
-    # case where we built KokkosCore ourselves
-    if (CUDA_PREFIX STREQUAL "")
-      EXECUTE_PROCESS(
-          COMMAND which "nvcc" WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} RESULT_VARIABLE CUDA_PREFIX
-      )    
-      MESSAGE(STATUS "CUDA_PREFIX automatically determined: ${CUDA_PREFIX}")
-    endif()
-    find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINTS "${CUDA_PREFIX}/include")
-    find_library(CUDA_CUBLAS_LIBRARIES cublas HINTS "${CUDA_CUBLAS_PREFIX}" "${CUDA_PREFIX}/lib64" "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-    find_library(CUDA_CUSOLVER_LIBRARIES cusolver HINTS "${CUDA_PREFIX}/lib64" "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-    find_library(CUDA_CUDART_LIBRARIES cudart HINTS "${CUDA_PREFIX}/lib64" "${CUDA_INCLUDE_DIRS}/../lib64" NO_DEFAULT_PATH)
-    if ((NOT CUDA_CUBLAS_LIBRARIES))
-      if(CUDA_CUBLAS_PREFIX)
-        message(FATAL_ERROR "CUDA_CUBLAS_PREFIX specified but CUBLAS was not found at that location.")
-      else()
-        message(FATAL_ERROR "CUDA_PREFIX specified but CUBLAS was not found at that location.")
-      endif()
-    endif()
-    if ((NOT CUDA_CUSOLVER_LIBRARIES))
-      message(FATAL_ERROR "CUDA_PREFIX specified but CUSOLVER was not found at that location.")
-    endif()
-    if ((NOT CUDA_CUDART_LIBRARIES))
-      message(FATAL_ERROR "CUDA_PREFIX specified but CUDART was not found at that location.")
-    endif()
-    MESSAGE(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
-    MESSAGE(STATUS "CUDA_LIBRARIES: ${CUDA_INCLUDE_DIRS}/../lib64")
-  ENDIF()
-endif()
-
 
 ##########
 #
@@ -469,12 +440,6 @@ if(KOKKOS_IN_TRILINOS)
     message(WARNING "Unexpected compiler type ${CMAKE_CXX_COMPILER_ID}")
   endif()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FLAGS}")
-else()
-  IF (KOKKOS_CXX_FLAGS) 
-    FOREACH(arg ${KOKKOS_CXX_FLAGS} )
-      SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${arg}")
-    ENDFOREACH()
-  ENDIF()
 endif()
 
 

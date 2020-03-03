@@ -53,11 +53,11 @@ endif()
 
 # link to CUDA
 if (Compadre_USE_CUDA AND NOT(KOKKOS_IN_TRILINOS))
-  target_include_directories(compadre PUBLIC "${CUDA_INCLUDE_DIRS}")
-  target_link_libraries(compadre PUBLIC "${CUDA_CUBLAS_LIBRARIES}")
-  target_link_libraries(compadre PUBLIC "${CUDA_CUSOLVER_LIBRARIES}")
-  target_link_libraries(compadre PUBLIC "${CUDA_CUDART_LIBRARIES}")
-  MESSAGE(STATUS "${CUDA_INCLUDE_DIRS}")
+  if (TARGET Kokkos::CUDA)
+    target_link_libraries(compadre PUBLIC "cusolver") # comes from Kokkos::CUBLAS
+  else()
+    MESSAGE(FATAL_ERROR "Compadre_USE_CUDA is ON, but CUBLAS not found by KokkosKernels.")
+  endif()
 endif()
 
 # link to MPI

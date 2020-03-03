@@ -1,9 +1,9 @@
 #ifndef _COMPADRE_POINTCLOUDSEARCH_HPP_
 #define _COMPADRE_POINTCLOUDSEARCH_HPP_
 
+#include "Compadre_Typedefs.hpp"
 #include <tpl/nanoflann.hpp>
 #include <Kokkos_Core.hpp>
-#include "Compadre_Typedefs.hpp"
 #include <memory>
 
 namespace Compadre {
@@ -268,7 +268,7 @@ class PointCloudSearch {
                 compadre_kernel_assert_release((epsilons(i)<=max_search_radius || max_search_radius==0) && "max_search_radius given (generally derived from the size of a halo region), and search radius needed would exceed this max_search_radius.");
 
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.extent(1)), [&](const int j) { 
-                    neighbor_indices(j) = -1;
+                    neighbor_indices(j) = 0;
                     neighbor_distances(j) = -1.0;
                 });
                 teamMember.team_barrier();
@@ -292,7 +292,7 @@ class PointCloudSearch {
                         neighbors_found = _tree_3d->template radiusSearchCustomCallback<Compadre::RadiusResultSet<double> >(this_target_coord.data(), rrs, sp) ;
                     }
 
-                    t_max_num_neighbors = std::max(neighbors_found, t_max_num_neighbors);
+                    t_max_num_neighbors = max(neighbors_found, t_max_num_neighbors);
             
                     // the number of neighbors is stored in column zero of the neighbor lists 2D array
                     neighbor_lists(i,0) = neighbors_found;
@@ -302,7 +302,7 @@ class PointCloudSearch {
                 teamMember.team_barrier();
 
                 // loop_bound so that we don't write into memory we don't have allocated
-                int loop_bound = std::min(neighbors_found, neighbor_lists.extent(1)-1);
+                int loop_bound = min(neighbors_found, neighbor_lists.extent(1)-1);
                 // loop over each neighbor index and fill with a value
                 if (!is_dry_run) {
                     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, loop_bound), [&](const int j) {
@@ -363,7 +363,6 @@ class PointCloudSearch {
 
             // determine scratch space size needed
             int team_scratch_size = 0;
-            int tmp_space = 0;
             team_scratch_size += scratch_double_view::shmem_size(neighbor_lists.extent(1)); // distances
             team_scratch_size += scratch_int_view::shmem_size(neighbor_lists.extent(1)); // indices
             team_scratch_size += scratch_double_view::shmem_size(_dim); // target coordinate
@@ -391,7 +390,7 @@ class PointCloudSearch {
                 const int i = teamMember.league_rank();
 
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.extent(1)), [=](const int j) {
-                    neighbor_indices(j) = -1;
+                    neighbor_indices(j) = 0;
                     neighbor_distances(j) = -1.0;
                 });
             
