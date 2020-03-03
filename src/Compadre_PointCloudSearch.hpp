@@ -292,7 +292,7 @@ class PointCloudSearch {
                         neighbors_found = _tree_3d->template radiusSearchCustomCallback<Compadre::RadiusResultSet<double> >(this_target_coord.data(), rrs, sp) ;
                     }
 
-                    t_max_num_neighbors = max(neighbors_found, t_max_num_neighbors);
+                    t_max_num_neighbors = (neighbors_found > t_max_num_neighbors) ? neighbors_found : t_max_num_neighbors;
             
                     // the number of neighbors is stored in column zero of the neighbor lists 2D array
                     neighbor_lists(i,0) = neighbors_found;
@@ -302,7 +302,7 @@ class PointCloudSearch {
                 teamMember.team_barrier();
 
                 // loop_bound so that we don't write into memory we don't have allocated
-                int loop_bound = min(neighbors_found, neighbor_lists.extent(1)-1);
+                int loop_bound = (neighbors_found < neighbor_lists.extent(1)-1) ? neighbors_found : neighbor_lists.extent(1)-1;
                 // loop over each neighbor index and fill with a value
                 if (!is_dry_run) {
                     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, loop_bound), [&](const int j) {
@@ -415,7 +415,7 @@ class PointCloudSearch {
                     }
 
                     // get minimum number of neighbors found over all target sites' neighborhoods
-                    t_min_num_neighbors = std::min(neighbors_found, t_min_num_neighbors);
+                    t_min_num_neighbors = (neighbors_found < t_min_num_neighbors) ? neighbors_found : t_min_num_neighbors;
             
                     // scale by epsilon_multiplier to window from location where the last neighbor was found
                     epsilons(i) = (neighbor_distances(neighbors_found-1) > 0) ?
