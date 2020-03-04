@@ -34,9 +34,9 @@
 #set(DETECT_TRILINOS_OPTS true)
 
 function(detect_trilinos_opts)
-  if (KokkosCore_FOUND)
+  if (Trilino_FOUND)
     set(FILE_FOUND FALSE)
-    foreach(INC_DIR IN LISTS KokkosCore_INCLUDE_DIRS)
+    foreach(INC_DIR IN LISTS Trilinos_INCLUDE_DIRS)
       if (EXISTS "${INC_DIR}/KokkosCore_config.h")
         set(FILE_FOUND TRUE)
         message(STATUS "Found ${INC_DIR}/KokkosCore_config.h")

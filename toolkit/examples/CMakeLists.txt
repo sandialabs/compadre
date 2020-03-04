@@ -40,6 +40,7 @@ if (Compadre_EXAMPLES)
   add_exe_w_compadre(GMLS_MultiSite_Test GMLS_Multiple_Evaluation_Sites.cpp)
   add_exe_w_compadre(GMLS_Manifold_MultiSite_Test GMLS_Manifold_Multiple_Evaluation_Sites.cpp)
   add_exe_w_compadre(TestUtility UtilityTest.cpp)
+  add_exe_w_compadre(NeighborSearchTest NeighborSearchTest.cpp)
 
   if (Compadre_TESTS)
 
@@ -150,6 +151,38 @@ if (Compadre_EXAMPLES)
     # Utility test - Filter By ID
     ADD_TEST(NAME Test_Utilities COMMAND ${CMAKE_CURRENT_BINARY_DIR}/TestUtility "200" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(Test_Utilities PROPERTIES LABELS "UtilityTest;utility;kokkos" TIMEOUT 5)
+
+    # Neighbor radius search - 2D
+    ADD_TEST(NAME NeighborRadiusSearch2DTest_1 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "2" "200" "6.5" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(NeighborRadiusSearch2DTest_1 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+    ADD_TEST(NAME NeighborRadiusSearch2DTest_2 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "2" "300" "4.5" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(NeighborRadiusSearch2DTest_2 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+    #ADD_TEST(NAME NeighborRadiusSearch2DTest_3 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "2" "400" "1.8" "--kokkos-threads=2")
+    #SET_TESTS_PROPERTIES(NeighborRadiusSearch2DTest_3 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+
+    # Neighbor radius search - 3D
+    ADD_TEST(NAME NeighborRadiusSearch3DTest_1 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "3" "100" "4.5" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(NeighborRadiusSearch3DTest_1 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+    ADD_TEST(NAME NeighborRadiusSearch3DTest_2 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "3" "150" "3.5" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(NeighborRadiusSearch3DTest_2 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+    #ADD_TEST(NAME NeighborRadiusSearch3DTest_3 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "3" "160" "1.8" "--kokkos-threads=2")
+    #SET_TESTS_PROPERTIES(NeighborRadiusSearch3DTest_3 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+
+    # Neighbor KNN search - 2D
+    ADD_TEST(NAME NeighborKNNSearch2DTest_1 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "2" "200" "6.5" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(NeighborKNNSearch2DTest_1 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+    ADD_TEST(NAME NeighborKNNSearch2DTest_2 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "2" "300" "4.5" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(NeighborKNNSearch2DTest_2 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+    #ADD_TEST(NAME NeighborKNNSearch2DTest_3 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "2" "400" "1.8" "1" "--kokkos-threads=2")
+    #SET_TESTS_PROPERTIES(NeighborKNNSearch2DTest_3 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+
+    # Neighbor KNN search - 3D
+    ADD_TEST(NAME NeighborKNNSearch3DTest_1 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "3" "100" "4.5" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(NeighborKNNSearch3DTest_1 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+    ADD_TEST(NAME NeighborKNNSearch3DTest_2 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "3" "150" "3.5" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(NeighborKNNSearch3DTest_2 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+    #ADD_TEST(NAME NeighborKNNSearch3DTest_3 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "3" "160" "1.8" "1" "--kokkos-threads=2")
+    #SET_TESTS_PROPERTIES(NeighborKNNSearch3DTest_3 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
 
     # WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH} )
     if (Compadre_USE_PYTHON)

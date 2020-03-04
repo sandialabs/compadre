@@ -1,9 +1,9 @@
 #ifndef _COMPADRE_POINTCLOUDSEARCH_HPP_
 #define _COMPADRE_POINTCLOUDSEARCH_HPP_
 
+#include "Compadre_Typedefs.hpp"
 #include <tpl/nanoflann.hpp>
 #include <Kokkos_Core.hpp>
-#include "Compadre_Typedefs.hpp"
 #include <memory>
 
 namespace Compadre {
@@ -257,7 +257,7 @@ class PointCloudSearch {
                 scratch_int_view neighbor_indices(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
                 scratch_double_view this_target_coord(teamMember.team_scratch(0 /*shared memory*/), _dim);
 
-                size_t neighbors_found;
+                size_t neighbors_found = 0;
 
                 const int i = teamMember.league_rank();
 
@@ -267,11 +267,10 @@ class PointCloudSearch {
                 // needs furthest neighbor's distance for next portion
                 compadre_kernel_assert_release((epsilons(i)<=max_search_radius || max_search_radius==0) && "max_search_radius given (generally derived from the size of a halo region), and search radius needed would exceed this max_search_radius.");
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.extent(1)), [&](const int j) { neighbor_indices(j) = 0;
-                    neighbor_distances(j) = 0;
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.extent(1)), [&](const int j) { 
                     neighbor_indices(j) = 0;
+                    neighbor_distances(j) = -1.0;
                 });
-            
                 teamMember.team_barrier();
 
                 //    std::vector<std::pair<size_t, double> > neighbors;
@@ -279,7 +278,9 @@ class PointCloudSearch {
                     // target_coords is LayoutLeft on device and its HostMirror, so giving a pointer to 
                     // this data would lead to a wrong result if the device is a GPU
 
-                    for (int j=0; j<_dim; ++j) this_target_coord(j) = trg_pts_view(i,j);
+                    for (int j=0; j<_dim; ++j) {
+                        this_target_coord(j) = trg_pts_view(i,j);
+                    }
 
                     nanoflann::SearchParams sp; // default parameters
                     Compadre::RadiusResultSet<double> rrs(epsilons(i)*epsilons(i), neighbor_distances.data(), neighbor_indices.data(), neighbor_lists.extent(1));
@@ -291,7 +292,7 @@ class PointCloudSearch {
                         neighbors_found = _tree_3d->template radiusSearchCustomCallback<Compadre::RadiusResultSet<double> >(this_target_coord.data(), rrs, sp) ;
                     }
 
-                    t_max_num_neighbors = std::max(neighbors_found, t_max_num_neighbors);
+                    t_max_num_neighbors = (neighbors_found > t_max_num_neighbors) ? neighbors_found : t_max_num_neighbors;
             
                     // the number of neighbors is stored in column zero of the neighbor lists 2D array
                     neighbor_lists(i,0) = neighbors_found;
@@ -301,7 +302,7 @@ class PointCloudSearch {
                 teamMember.team_barrier();
 
                 // loop_bound so that we don't write into memory we don't have allocated
-                int loop_bound = std::min(neighbors_found, neighbor_lists.extent(1)-1);
+                int loop_bound = (neighbors_found < neighbor_lists.extent(1)-1) ? neighbors_found : neighbor_lists.extent(1)-1;
                 // loop over each neighbor index and fill with a value
                 if (!is_dry_run) {
                     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, loop_bound), [&](const int j) {
@@ -345,6 +346,7 @@ class PointCloudSearch {
             if ((!_tree_1d && _dim==1) || (!_tree_2d && _dim==2) || (!_tree_3d && _dim==3)) {
                 this->generateKDTree();
             }
+            Kokkos::fence();
 
             compadre_assert_release((num_target_sites==0 || // sizes don't matter when there are no targets
                     (neighbor_lists.extent(0)==(size_t)num_target_sites 
@@ -361,7 +363,6 @@ class PointCloudSearch {
 
             // determine scratch space size needed
             int team_scratch_size = 0;
-            int tmp_space = 0;
             team_scratch_size += scratch_double_view::shmem_size(neighbor_lists.extent(1)); // distances
             team_scratch_size += scratch_int_view::shmem_size(neighbor_lists.extent(1)); // indices
             team_scratch_size += scratch_double_view::shmem_size(_dim); // target coordinate
@@ -390,7 +391,7 @@ class PointCloudSearch {
 
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.extent(1)), [=](const int j) {
                     neighbor_indices(j) = 0;
-                    neighbor_distances(j) = 0.0;
+                    neighbor_distances(j) = -1.0;
                 });
             
                 teamMember.team_barrier();
@@ -398,7 +399,9 @@ class PointCloudSearch {
                     // target_coords is LayoutLeft on device and its HostMirror, so giving a pointer to 
                     // this data would lead to a wrong result if the device is a GPU
 
-                    for (int j=0; j<_dim; ++j) this_target_coord(j) = trg_pts_view(i,j);
+                    for (int j=0; j<_dim; ++j) { 
+                        this_target_coord(j) = trg_pts_view(i,j);
+                    }
 
                     if (_dim==1) {
                         neighbors_found = _tree_1d->knnSearch(this_target_coord.data(), neighbors_needed, 
@@ -410,13 +413,13 @@ class PointCloudSearch {
                         neighbors_found = _tree_3d->knnSearch(this_target_coord.data(), neighbors_needed, 
                                 neighbor_indices.data(), neighbor_distances.data()) ;
                     }
-            
+
                     // get minimum number of neighbors found over all target sites' neighborhoods
-                    t_min_num_neighbors = std::min(neighbors_found, t_min_num_neighbors);
+                    t_min_num_neighbors = (neighbors_found < t_min_num_neighbors) ? neighbors_found : t_min_num_neighbors;
             
                     // scale by epsilon_multiplier to window from location where the last neighbor was found
                     epsilons(i) = (neighbor_distances(neighbors_found-1) > 0) ?
-                        std::sqrt(neighbor_distances(neighbors_found-1))*epsilon_multiplier : 1e-14*epsilon_multiplier;
+                        std::sqrt(neighbor_distances(neighbors_found-1))*(epsilon_multiplier+1e-14) : 1e-14*epsilon_multiplier;
                     // the only time the second case using 1e-14 is used is when either zero neighbors or exactly one 
                     // neighbor (neighbor is target site) is found.  when the follow on radius search is conducted, the one
                     // neighbor (target site) will not be found if left at 0, so any positive amount will do, however 1e-14 

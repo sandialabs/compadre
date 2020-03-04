@@ -32,10 +32,7 @@ set(CompadreHarness_SOURCES
 add_library(compadreharness ${CompadreHarness_SOURCES})
 bob_library_includes(compadreharness)
 
-
-if (CompadreHarness_USE_Trilinos)
-  bob_link_dependency(compadreharness PUBLIC Trilinos)
-endif()
+target_link_libraries(compadreharness PUBLIC ${Trilinos_LIBRARIES})
 
 if(CompadreHarness_USE_Netcdf)
   target_include_directories(compadreharness PUBLIC "${Netcdf_INCLUDE_DIR}")
@@ -54,12 +51,14 @@ if(CompadreHarness_USE_Compose)
   )
 endif()
 
-add_dependencies(compadreharness Toolkit) # compadreharness relies on Toolkit
-target_link_libraries(compadreharness PUBLIC "${Toolkit_PREFIX}/lib/libcompadre${CMAKE_SHARED_LIBRARY_SUFFIX}")
-target_include_directories(compadreharness PUBLIC  
-  $<BUILD_INTERFACE:${Toolkit_PREFIX}/include>  
-  $<INSTALL_INTERFACE:include> 
-)
+target_link_libraries(compadreharness PUBLIC compadre)
+#bob_link_dependency(compadreharness PUBLIC compadre)
+#add_dependencies(compadreharness compadre) # compadreharness relies on toolkit
+#target_link_libraries(compadreharness PUBLIC "${Toolkit_PREFIX}/lib/libcompadre${CMAKE_SHARED_LIBRARY_SUFFIX}")
+#target_include_directories(compadreharness PUBLIC  
+#  $<BUILD_INTERFACE:${Toolkit_PREFIX}/include>  
+#  $<INSTALL_INTERFACE:include> 
+#)
 
 bob_export_target(compadreharness)
 
