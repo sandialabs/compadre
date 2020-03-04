@@ -25,44 +25,6 @@ include(ExternalProject)
 
 
 
-##LAPACK
-#bob_option(CompadreHarness_USE_LAPACK "Use LAPACK" ON)
-#SET(CompadreHarness_USE_OPENBLAS OFF) # need to know if openblas is used in order to limit its ability to spawn threads
-#bob_input(LAPACK_PREFIX "" PATH "Path to LAPACK install")
-#if (LAPACK_PREFIX)
-#  if(NOT IS_ABSOLUTE ${LAPACK_PREFIX})
-#    set(LAPACK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/${LAPACK_PREFIX}")
-#  endif()
-#  set(CMAKE_PREFIX_PATH ${LAPACK_PREFIX} ${CMAKE_PREFIX_PATH})
-#endif()
-#bob_input(LAPACK_LOCATION "" PATH "Optional explicit path to exact location of LAPACK")
-#bob_option(LAPACK_DECLARED_THREADSAFE "Is LAPACK threadsafe? If not, default to serial calls for solves." ON)
-#if (CompadreHarness_USE_LAPACK)
-#  if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
-#    # Intel compiler detected. Will use "-mkl" and no need to find Lapack or Blas
-#  else()
-#    if ("${LAPACK_LOCATION}" STREQUAL "")
-#      FIND_LIBRARY(LAPACK_LIB lapack)
-#    else()
-#      SET(LAPACK_LIB "${LAPACK_LOCATION}")
-#    endif()
-#    MESSAGE(STATUS "LAPACK_LIB: ${LAPACK_LIB}")
-#    IF (NOT(LAPACK_LIB))
-#      MESSAGE(FATAL_ERROR "CompadreHarness_USE_LAPACK is ON, but LAPACK_PREFIX was set incorrectly.")
-#    ELSE()
-#      IF(APPLE)
-#        execute_process(COMMAND otool -L  "${LAPACK_LIB}" OUTPUT_VARIABLE LAPACK_DEPENDENCIES) 
-#      ELSE()
-#        execute_process(COMMAND ldd "${LAPACK_LIB}" OUTPUT_VARIABLE LAPACK_DEPENDENCIES) 
-#      ENDIF()
-#      string(FIND "${LAPACK_DEPENDENCIES}" "openblas" BLAS_MATCH)
-#      if ("${BLAS_MATCH}" GREATER "-1")
-#        SET(CompadreHarness_USE_OPENBLAS ON)
-#      endif()
-#    ENDIF()
-#  endif()
-#endif()
-
 #TRILINOS
 bob_input(Trilinos_PREFIX "" PATH "Path to Trilinos install")
 if (Trilinos_PREFIX)
@@ -78,24 +40,7 @@ bob_option(CompadreHarness_USE_Trilinos_CXX_Flags "Use Trilinos CXX flags" ON)
 
 SET(TRILINOS_LINEAR_SOLVES OFF)
 FIND_PACKAGE(Trilinos)
-#if (CompadreHarness_USE_Trilinos_Solvers)
-#message("${Trilinos_LIBRARIES}, ${Trilinos_INCLUDE_DIRS}, ${Trilinos_TPL_INCLUDE_DIRS}, ${Trilinos_TPL_LIBRARIES}")
-#bob_add_dependency(PUBLIC NAME Trilinos
-#    TARGETS "${Trilinos_LIBRARIES}"
-#    INCLUDE_DIR_VARS 
-#      Trilinos_INCLUDE_DIRS 
-#      Trilinos_TPL_INCLUDE_DIRS 
-#    LIBRARY_VARS
-#  Trilinos_LIBRARIES Trilinos_TPL_LIBRARIES)
-#else()
-#  bob_add_dependency(PUBLIC NAME Trilinos
-#    TARGETS tpetra;kokkostsqr;tpetraclassicnodeapi;tpetraclassic;triutils;zoltan;rtop;tpetrakernels;teuchoskokkoscomm;teuchoskokkoscompat;teuchosremainder;teuchosnumerics;teuchoscomm;teuchosparameterlist;teuchoscore;kokkosalgorithms;kokkoscontainers;kokkoscore
-#    INCLUDE_DIR_VARS 
-#      Trilinos_INCLUDE_DIRS 
-#      Trilinos_TPL_INCLUDE_DIRS 
-#    LIBRARY_VARS
-#  Trilinos_LIBRARIES Trilinos_TPL_LIBRARIES)
-#endif()
+
 LIST(REVERSE Trilinos_INCLUDE_DIRS)
 LIST(REMOVE_DUPLICATES Trilinos_INCLUDE_DIRS)
 LIST(REVERSE Trilinos_INCLUDE_DIRS)
@@ -108,7 +53,7 @@ LIST(REVERSE Trilinos_TPL_LIBRARIES)
 LIST(REMOVE_DUPLICATES Trilinos_TPL_LIBRARIES)
 LIST(REVERSE Trilinos_TPL_LIBRARIES)
 
-MESSAGE("\nFound Trilinos!  Here are the details: ")
+MESSAGE("\nFound Trilinos for harness!  Here are the details: ")
 MESSAGE("   Trilinos_DIR = ${Trilinos_DIR}")
 MESSAGE("   Trilinos_VERSION = ${Trilinos_VERSION}")
 MESSAGE("   Trilinos_PACKAGE_LIST = ${Trilinos_PACKAGE_LIST}")
@@ -202,44 +147,6 @@ endif()
 
 
 
-##KOKKOS
-#bob_option(CompadreHarness_USE_KokkosCore "Use KokkosCore" ON)
-#bob_input(KokkosCore_PREFIX "${Trilinos_PREFIX}" PATH "Path to KokkosCore install")
-#set(KOKKOS_IN_TRILINOS OFF)
-#if (KokkosCore_PREFIX)
-#  if(NOT IS_ABSOLUTE ${KokkosCore_PREFIX})
-#    set(KokkosCore_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/${KokkosCore_PREFIX}")
-#  endif()
-#  set(CMAKE_PREFIX_PATH ${KokkosCore_PREFIX} ${CMAKE_PREFIX_PATH})
-#endif()
-#if (CompadreHarness_USE_KokkosCore)
-#  if ("${KokkosCore_PREFIX}" STREQUAL "${Trilinos_PREFIX}") 
-#    SET(KOKKOS_IN_TRILINOS ON)
-#    MESSAGE(STATUS "Using KokkosCore in Trilinos.")
-#    bob_add_dependency(PUBLIC NAME KokkosCore TARGETS kokkoscore INCLUDE_DIR_VARS KokkosCore_INCLUDE_DIRS)
-#  else()
-#    FIND_FILE(Kokkos_PROJECT_FULL_FILENAME name kokkos_generated_settings.cmake HINTS "${KokkosCore_PREFIX}" NO_DEFAULT_PATH)
-#    GET_FILENAME_COMPONENT(Kokkos_PROJECT_FILENAME ${Kokkos_PROJECT_FULL_FILENAME} NAME)
-#    IF(Kokkos_PROJECT_FILENAME)
-#      FIND_PACKAGE(KokkosCore CONFIGS "${Kokkos_PROJECT_FILENAME}") 
-#      IF(KokkosCore_FOUND)
-#        MESSAGE(STATUS "KokkosCore found at ${Kokkos_PROJECT_FULL_FILENAME}")
-#        GET_FILENAME_COMPONENT(KokkosCore_INSTALL_DIR ${Kokkos_PROJECT_FULL_FILENAME} DIRECTORY)
-#        SET(KokkosCore_INCLUDE_DIRS "${KokkosCore_INSTALL_DIR}/include")
-#        SET(KokkosCore_STATIC_LIB "${KokkosCore_INSTALL_DIR}/lib/${KOKKOS_LINK_DEPENDS}")
-#        MESSAGE(STATUS "KokkosCore_INCLUDE_DIRS: ${KokkosCore_INCLUDE_DIRS}")
-#        MESSAGE(STATUS "KokkosCore_STATIC_LIB: ${KokkosCore_STATIC_LIB}")
-#      ELSE()
-#          MESSAGE(FATAL_ERROR "KokkosCore from outside of Trilinos requested, but kokkos_generated_settings.cmake was not found.")
-#      ENDIF()
-#    ELSE()
-#        MESSAGE(FATAL_ERROR "KokkosCore from outside of Trilinos requested, but kokkos_generated_settings.cmake was not found.")
-#    ENDIF()
-#  endif()
-#else()
-#  MESSAGE(FATAL_ERROR "CompadreHarness_USE_KokkosCore set to OFF, but entire toolkit relies on KokkosCore.")
-#endif()
-
 #NETCDF
 bob_option(CompadreHarness_USE_Netcdf "Use Netcdf" ON)
 bob_input(Netcdf_PREFIX "" PATH "Path to Netcdf install")
@@ -273,67 +180,6 @@ else()
 endif()
    
 
-##MPI
-#FIND_PACKAGE(MPI)
-#bob_option(CompadreHarness_USE_MPI "Use MPI for parallelism" ${MPI_FOUND})
-##PYTHON
-#bob_option(CompadreHarness_USE_PYTHON "Use PYTHON" OFF)
-#bob_input(PYTHON_PREFIX "" PATH "Path to PYTHON install")
-#if (PYTHON_PREFIX)
-#  if(NOT IS_ABSOLUTE ${PYTHON_PREFIX})
-#    set(PYTHON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/${PYTHON_PREFIX}")
-#  endif()
-#  set(CMAKE_PREFIX_PATH ${PYTHON_PREFIX} ${CMAKE_PREFIX_PATH})
-#endif()
-#if (CompadreHarness_USE_PYTHON)
-#
-#  FIND_PACKAGE(PythonLibs)
-#  IF(PythonLibs_FOUND)
-#    MESSAGE(STATUS "PYTHON_LIBRARIES: ${PYTHON_LIBRARIES}")
-#    MESSAGE(STATUS "PYTHON_INCLUDE_DIRS: ${PYTHON_INCLUDE_DIRS}")
-#    
-#    bob_input(PYTHON_EXECUTABLE "" PATH "Python executable location")
-#    IF(NOT(PYTHON_EXECUTABLE))
-#      MESSAGE(STATUS "Python executable location PYTHON_EXECUTABLE not given. Search made using 'which python'")
-#      EXECUTE_PROCESS(
-#        COMMAND which "python"
-#        OUTPUT_VARIABLE PYTHON_EXECUTABLE
-#        OUTPUT_STRIP_TRAILING_WHITESPACE )
-#    ENDIF()
-#    MESSAGE(STATUS "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
-#    
-#    EXECUTE_PROCESS(
-#      COMMAND "${PYTHON_EXECUTABLE}" -c "import site; print(site.USER_SITE)"
-#      OUTPUT_VARIABLE PYTHON_SITEPACKAGES
-#      OUTPUT_STRIP_TRAILING_WHITESPACE )
-#    
-#    IF(NOT EXISTS ${PYTHON_SITEPACKAGES})
-#      EXECUTE_PROCESS(
-#        COMMAND "${PYTHON_EXECUTABLE}" -c "import sysconfig; print(sysconfig.get_path('platlib'))"
-#        OUTPUT_VARIABLE PYTHON_SITEPACKAGES
-#        OUTPUT_STRIP_TRAILING_WHITESPACE )
-#    ENDIF()
-#    MESSAGE(STATUS "PYTHON_SITEPACKAGES: ${PYTHON_SITEPACKAGES}")
-#    
-#    bob_input(Numpy_PREFIX "${PYTHON_SITEPACKAGES}/numpy/core/include" PATH "Installation location of Numpy headers" )
-#    
-#    FIND_PATH(Numpy_INCLUDE_DIRS numpy/arrayobject.h HINTS ${Numpy_PREFIX})
-#    IF (Numpy_INCLUDE_DIRS)
-#      MESSAGE(STATUS "Numpy_INCLUDE_DIRS: ${Numpy_INCLUDE_DIRS}")
-#    ELSE()
-#      MESSAGE(FATAL_ERROR "Numpy headers not found, but needed when CompadreHarness_USE_PYTHON:BOOL=ON. Try setting Numpy_PREFIX.")
-#    ENDIF()
-#
-#    set(SWIG_PREFIX "../GMLS/src/swig") # relative to examples folder
-#    if (PYTHON_VERSION_MAJOR EQUAL 3)
-#      set(GMLS_Module_DEST "lib/python3/dist-packages")
-#    else()
-#      set(GMLS_Module_DEST "lib/python/dist-packages")
-#    endif()
-#  ENDIF()
-#
-#endif()
-
 
 ##########
 #
@@ -343,9 +189,6 @@ endif()
 #
 ##########
 
-
-#bob_option(Toolkit_TESTS "Compile GMLS tests" ON)
-#bob_option(Toolkit_EXAMPLES "Compile GMLS examples" "${Toolkit_TESTS}")
 
 bob_option(CompadreHarness_TESTS "Compile CompadreHarness tests" ON)
 bob_option(CompadreHarness_EXAMPLES "Compile CompadreHarness examples" "${CompadreHarness_TESTS}")
@@ -365,29 +208,7 @@ bob_option(CompadreHarness_CANGA_ENABLED "Compile optional CANGA tests and examp
 ##########
 
 
-##  Detect KokkosCore functionality from Trilinos
-include(${CMAKE_CURRENT_LIST_DIR}/cmake/detect_trilinos_opts.cmake)
-detect_trilinos_opts()
-if (KokkosCore_HAS_CUDA)
-  if (NOT KokkosCore_HAS_CUDA_LAMBDA)
-    message(FATAL_ERROR
-      "Please reconfigure Kokkos with -DKokkos_ENABLE_Cuda_Lambda:BOOL=ON")
-  else()
-    bob_option(CompadreHarness_USE_CUDA "Whether to use CUDA" ON)
-  endif()
-endif()
-
-
-###
-###   OpenMP / Cuda
-###
-#if (KokkosCore_HAS_CUDA)
-#  find_package(CUDA)
-#  bob_input(CompadreHarness_CUDA_ARCH "" STRING "CUDA arch specifier")
-#  bob_option(CompadreHarness_USE_CUDA "Whether to use CUDA" ON)
-#endif()
-#bob_option(Compadre_USE_OPENMP "Whether to use OpenMP" "${KokkosCore_HAS_OpenMP}")
-
+# All Kokkos configuration is handles in the ./toolkit subdirectory (flags pass seamlessly between the two projects)
 
 
 ##########
@@ -400,30 +221,11 @@ endif()
 
 
 
-
 bob_begin_cxx_flags()
 bob_cxx11_flags()
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   set(FLAGS "${FLAGS} -fno-omit-frame-pointer")
-  #if(CompadreHarness_USE_CUDA)
-  #  if (CompadreHarness_CUDA_ARCH)
-  #    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:--cuda-gpu-arch=${CompadreHarness_CUDA_ARCH}>)
-  #  endif()
-  #  add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-x>)
-  #  add_compile_options($<$<COMPILE_LANGUAGE:CXX>:cuda>)
-  #  # -Wweak-vtables gives false positives with -x cuda
-  #  set(FLAGS "${FLAGS} -Wno-weak-vtables")
-  #endif()
 elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
-    #if(CompadreHarness_USE_CUDA)
-    #ifset(FLAGS "${FLAGS} -expt-extended-lambda -lineinfo")
-    #ifif (CompadreHarness_CUDA_ARCH)
-    #if  set(FLAGS "${FLAGS} -arch=${CompadreHarness_CUDA_ARCH}")
-    #ifendif()
-    #ifif (CUDA_VERSION EQUAL 9)
-    #if  set(FLAGS "${FLAGS} -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored")
-    #ifendif()
-    #else()
     set(FLAGS "${FLAGS} -fno-omit-frame-pointer")
     if(Compadre_USE_OPENMP)
       set(FLAGS "${FLAGS} -fopenmp")
@@ -472,16 +274,11 @@ bob_end_cxx_flags()
 set(CompadreHarness_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
 set(CompadreHarness_KEY_BOOLS
-    CompadreHarness_USE_LAPACK
     CompadreHarness_DEBUG
     CompadreHarness_USE_Compose
-    CompadreHarness_USE_OPENBLAS
-    CompadreHarness_USE_Nanoflann
     CompadreHarness_USE_Netcdf
     CompadreHarness_USE_Netcdf_MPI
-    CompadreHarness_USE_PYTHON
     TRILINOS_LINEAR_SOLVES
-    LAPACK_DECLARED_THREADSAFE
    )
 
 set(CompadreHarness_KEY_INTS
@@ -496,7 +293,6 @@ set(CompadreHarness_KEY_STRINGS
     CompadreHarness_COMMIT
     CompadreHarness_CXX_FLAGS
     CompadreHarness_CMAKE_ARGS
-    GMLS_Module_DEST
     CompadreHarness_INSTALL_PREFIX
 )
 
@@ -514,55 +310,18 @@ bob_get_semver()
 #
 ##########
 
-# check that either CUDA or LAPACK were turned on (needed for any computation to be performed)
-
 bob_option(CompadreHarness_DEBUG "Debug Mode" ON)
 bob_option(Compadre_DEBUG "Debug Mode" "${CompadreHarness_DEBUG}")
 option(Compadre_USE_Trilinos "" ON)
 add_subdirectory(toolkit)
-
-#set(Toolkit_PREFIX "${PROJECT_BINARY_DIR}/Toolkit-install")
-#set(Toolkit_ARGS
-#  "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
-#  "-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}"
-#  "-DCMAKE_INSTALL_PREFIX=${Toolkit_PREFIX}"
-#  "-DCompadre_USE_CUDA:BOOL=${CompadreHarness_USE_CUDA}"
-#  "-DCompadre_USE_LAPACK:BOOL=${CompadreHarness_USE_LAPACK}"
-#  "-DLAPACK_DECLARED_THREADSAFE:BOOL=${LAPACK_DECLARED_THREADSAFE}"
-#  "-DCompadre_USE_PYTHON:BOOL=${CompadreHarness_USE_PYTHON}"
-#  "-DCompadre_EXAMPLES:BOOL=${Toolkit_EXAMPLES}"
-#  "-DTrilinos_PREFIX=${Trilinos_PREFIX}"
-#  "-DCompadre_USE_Trilinos:BOOL=ON"
-#  "-DCompadre_TESTS:BOOL=${Toolkit_TESTS}"
-#  "-DCompadre_DEBUG:BOOL=${Toolkit_DEBUG}"
-#)
-
-    #GIT_REPOSITORY "/ascldap/users/pakuber/Desktop/ProjectStubs/Particles/barebone_toolkit"
 
 # RPATH related settings
 # https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/RPATH-handling
 SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
 SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-#SET(CMAKE_INSTALL_RPATH ${Toolkit_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
-#SET(CMAKE_BUILD_RPATH ${Toolkit_PREFIX}/lib ${CMAKE_BUILD_RPATH})
 SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
 
-#externalproject_add(Toolkit
-#    PREFIX toolkit
-#    SOURCE_DIR "${PROJECT_SOURCE_DIR}/toolkit"
-#    CMAKE_ARGS ${Toolkit_ARGS}
-#    BUILD_ALWAYS 1
-#    TEST_AFTER_INSTALL OFF
-#    )
-
-#    GIT_REPOSITORY "/ascldap/users/pakuber/Desktop/ProjectStubs/Particles/barebone_toolkit"
-# UPDATE_DISCONNECTED 1 indicates that GIT_TAG is a hash and it is stable
-#SOURCE_DIR "${PROJECT_SOURCE_DIR}/toolkit"
-#    UPDATE_COMMAND "" 
-#DOWNLOAD_DIR "${PROJECT_SOURCE_DIR}/toolkit"
-#    GIT_REPOSITORY "git+ssh://software.sandia.gov/git/compadre-dev"
-#    GIT_TAG "e590e1bba62823"
 
 bob_option(CompadreHarness_USE_Compose "Build compose for shape preservation and conservation post-processing" OFF)
 if(CompadreHarness_USE_Compose)

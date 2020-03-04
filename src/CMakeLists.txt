@@ -32,8 +32,10 @@ set(CompadreHarness_SOURCES
 add_library(compadreharness ${CompadreHarness_SOURCES})
 bob_library_includes(compadreharness)
 
+# Trilinos
 target_link_libraries(compadreharness PUBLIC ${Trilinos_LIBRARIES})
 
+# NetCDF
 if(CompadreHarness_USE_Netcdf)
   target_include_directories(compadreharness PUBLIC "${Netcdf_INCLUDE_DIR}")
   target_link_libraries(compadreharness PUBLIC "${Netcdf_LIBRARIES}")
@@ -42,6 +44,7 @@ if(CompadreHarness_USE_Netcdf_MPI)
   target_include_directories(compadreharness PUBLIC "${Netcdf_MPI_INCLUDE_DIR}")
 endif()
 
+# COMPOSE
 if(CompadreHarness_USE_Compose)
   add_dependencies(compadreharness Compose) # compadreharness relies on Compose
   target_link_libraries(compadreharness PUBLIC "${Compose_PREFIX}/lib/libcompose${CMAKE_SHARED_LIBRARY_SUFFIX}")
@@ -51,14 +54,8 @@ if(CompadreHarness_USE_Compose)
   )
 endif()
 
+# Compadre Toolkit
 target_link_libraries(compadreharness PUBLIC compadre)
-#bob_link_dependency(compadreharness PUBLIC compadre)
-#add_dependencies(compadreharness compadre) # compadreharness relies on toolkit
-#target_link_libraries(compadreharness PUBLIC "${Toolkit_PREFIX}/lib/libcompadre${CMAKE_SHARED_LIBRARY_SUFFIX}")
-#target_include_directories(compadreharness PUBLIC  
-#  $<BUILD_INTERFACE:${Toolkit_PREFIX}/include>  
-#  $<INSTALL_INTERFACE:include> 
-#)
 
 bob_export_target(compadreharness)
 
