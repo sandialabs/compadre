@@ -342,7 +342,7 @@ if(CompadreHarness_USE_Compose)
     "-DBUILD_SHARED_LIBS=ON"
     "-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}"
     "-DKokkos_DIR=${Compose_Kokkos_DIR}"
-    "-DKOKKOS_IN_TRILINOS=ON"
+    "-DKOKKOS_IN_TRILINOS:BOOL=ON"
   )
   
   # RPATH related settings
