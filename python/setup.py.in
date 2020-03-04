@@ -412,15 +412,25 @@ class build_ext(build_ext_orig):
         python_temps = ["./src","./kokkos/core/src","./kokkos/containers/src","./kokkos-kernels/src"]
         dest_temp = "../" + extdir.relative_to(*extdir.parts[:1]).as_posix() + "/../compadre"
         for python_temp in python_temps:
-            libs = [os.path.join(python_temp, _lib) for _lib in 
+
+            libs_not_sym = [os.path.join(python_temp, _lib) for _lib in 
                     os.listdir(python_temp) if 
-                    os.path.isfile(os.path.join(python_temp, _lib)) and 
-                    os.path.splitext(_lib)[1] in [".dll", ".so", ".dylib"]
+                    (not os.path.islink(os.path.join(python_temp, _lib))) and os.path.isfile(os.path.join(python_temp, _lib)) and 
+                    ((os.path.splitext(_lib)[1] in [".dll", ".so", ".dylib"]) or (len(os.path.basename(_lib).split("."))>1 and (os.path.basename(_lib).split(".")[1] in ["dll", "so", "dylib"])))
                     and not (_lib.startswith("python"))]
-            print(libs)
-            for lib in libs:
+
+            libs_are_sym = [os.path.join(python_temp, _lib) for _lib in 
+                    os.listdir(python_temp) if 
+                    os.path.islink(os.path.join(python_temp, _lib)) and os.path.isfile(os.path.join(python_temp, _lib)) and 
+                    ((os.path.splitext(_lib)[1] in [".dll", ".so", ".dylib"]) or (len(os.path.basename(_lib).split("."))>1 and (os.path.basename(_lib).split(".")[1] in ["dll", "so", "dylib"])))
+                    and not (_lib.startswith("python"))]
+
+            for lib in libs_not_sym:
                 shutil.move(lib, os.path.join(dest_temp,
                                               os.path.basename(lib)))
+
+            for lib in libs_are_sym:
+                os.symlink(os.path.basename(os.readlink(lib)), os.path.basename(lib))
 
         os.chdir(str(cwd))
 
