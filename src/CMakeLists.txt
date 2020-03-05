@@ -1,3 +1,5 @@
+include_tribits_build()
+
 bob_config_header("${CMAKE_CURRENT_BINARY_DIR}/Compadre_Config.h")
 
 set(COMPADRE_HEADERS

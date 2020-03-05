@@ -1,3 +1,5 @@
+include_tribits_build()
+
 # ERROR MESSAGES IF A TEST IS NOT RUN
 SET(OPENBLAS_NUM_THREADS "1")
 
