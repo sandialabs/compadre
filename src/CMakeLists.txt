@@ -38,7 +38,8 @@ bob_library_includes(compadre)
 if (KOKKOS_EXISTING_ELSEWHERE) # user points to Kokkos installation
   target_link_libraries(compadre PUBLIC Kokkos::kokkoscore)
 elseif (KOKKOS_IN_TRILINOS) # Kokkos found in Trilinos installation
-  bob_link_dependency(compadre PUBLIC KokkosCore)
+  target_include_directories(compadre PUBLIC ${Trilinos_INCLUDE_DIRS})
+  target_link_libraries(compadre PUBLIC kokkoscore)
 elseif (KOKKOS_BUILT_FOR_USER) # Kokkos built for user by this project
   target_link_libraries(compadre PUBLIC kokkos)
 endif()
@@ -46,7 +47,7 @@ endif()
 if (KOKKOSKERNELS_EXISTING_ELSEWHERE) # user points to KokkosKernels installation
   target_link_libraries(compadre PUBLIC Kokkos::kokkoskernels)
 elseif (KOKKOSKERNELS_IN_TRILINOS) # KokkosKernels found in Trilinos installation
-  bob_link_dependency(compadre PUBLIC KokkosKernels)
+  target_link_libraries(compadre PUBLIC kokkoskernels)
 elseif (KOKKOSKERNELS_BUILT_FOR_USER) # Kokkos-Kernels built for user by this project
   target_link_libraries(compadre PUBLIC kokkoskernels)
 endif()
