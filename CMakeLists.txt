@@ -249,6 +249,8 @@ if (KOKKOSKERNELS_IN_TRILINOS)
         MESSAGE(FATAL_ERROR "Compadre_USE_CUDA set to ON, but CUDA not defined in Trilinos")
     endif()
   endif()
+  # register Trilinos so that it shows up in CompadreConfig.cmake
+  set(Compadre_EXT_DEPS Trilinos)
 else()
   if (KokkosKernels_PREFIX STREQUAL "")
     SET(KOKKOSKERNELS_BUILT_FOR_USER ON)
