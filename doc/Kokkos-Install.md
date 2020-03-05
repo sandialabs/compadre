@@ -23,14 +23,26 @@ Valid choices for KokkosCore_ARCH can be found in kokkos/cmake/kokkos_options.cm
 >> cd build
 ```
 
-3.) Create file called configure.sh 
-insert the following two lines (for basic cpu with openmp build), but change prefix to whatever you
-would like. if you do not change it, then kokkos will be installed in /some/path/to/kokkos/build/install-openmp
+3.) Create file called configure.sh, and fill it with the following content (as an example):
 
 ```
-CXX="/path/to/your_c++_compiler"
-../generate_makefile.bash --compiler=$CXX --with-openmp --with-serial --prefix="../install-openmp" --cxxflags="-fPIC"
+cmake \
+   -DCMAKE_CXX_STANDARD=11 \
+   -DCMAKE_CXX_COMPILER=mpic++ \
+   -DCMAKE_CXX_FLAGS=" -fPIC" \
+   -DCMAKE_INSTALL_PREFIX=./install \
+   -DKokkos_ENABLE_OPENMP=ON \
+   -DKokkos_ENABLE_PTHREAD=OFF \
+   -DKokkos_ENABLE_CUDA=OFF \
+   -DKokkos_ENABLE_DEPRECATED_CODE=OFF \
+   -DKokkos_ENABLE_CUDA_LAMBDA=ON \
+   -DKokkos_ENABLE_DEBUG=ON \
+..
 ```
+
+The above example is for a basic CPU build with OpenMP. You can change the install prefix to whatever you
+would like. if you do not change it, then kokkos will be installed in /some/path/to/kokkos/build/install
+
 
 4.) Set permissions on configure.sh so it can be run with:
 ```

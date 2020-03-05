@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 2.0
-//              Copyright (2014) Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -41,17 +42,20 @@
 //@HEADER
 */
 
-#include<TestViewAPI.hpp>
+#include <TestViewAPI.hpp>
 
 namespace Test {
 
-TEST_F( TEST_CATEGORY, view_api_d )
-{
-  TestViewAPI< double, TEST_EXECSPACE >::run_test_const();
-  TestViewAPI< double, TEST_EXECSPACE >::run_test_subview();
-  TestViewAPI< double, TEST_EXECSPACE >::run_test_subview_strided();
-  TestViewAPI< double, TEST_EXECSPACE >::run_test_vector();
-  TestViewAPI< double, TEST_EXECSPACE >::run_test_view_operator_c();
+TEST(TEST_CATEGORY, view_api_d) {
+  TestViewAPI<double, TEST_EXECSPACE>::run_test_const();
+  TestViewAPI<double, TEST_EXECSPACE>::run_test_subview();
+  TestViewAPI<double, TEST_EXECSPACE>::run_test_subview_strided();
+  TestViewAPI<double, TEST_EXECSPACE>::run_test_vector();
+  TestViewAPI<double, TEST_EXECSPACE>::run_test_view_operator_c();
 }
 
+TEST(TEST_CATEGORY, view_allocation_error) {
+  TestViewAPI<double, TEST_EXECSPACE>::run_test_error();
 }
+
+}  // namespace Test

@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 2.0
-//              Copyright (2014) Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -47,55 +48,47 @@
 namespace Kokkos {
 namespace Impl {
 
-template< class FunctorType , class ... Traits >
-class ParallelFor< FunctorType ,
-                   Kokkos::WorkGraphPolicy< Traits ... > ,
-                   Kokkos::Serial
-                 >
-{
-private:
+template <class FunctorType, class... Traits>
+class ParallelFor<FunctorType, Kokkos::WorkGraphPolicy<Traits...>,
+                  Kokkos::Serial> {
+ private:
+  typedef Kokkos::WorkGraphPolicy<Traits...> Policy;
 
-  typedef Kokkos::WorkGraphPolicy< Traits ... > Policy ;
+  Policy m_policy;
+  FunctorType m_functor;
 
-  Policy       m_policy ;
-  FunctorType  m_functor ;
+  template <class TagType>
+  typename std::enable_if<std::is_same<TagType, void>::value>::type exec_one(
+      const std::int32_t w) const noexcept {
+    m_functor(w);
+  }
 
-  template< class TagType >
-  typename std::enable_if< std::is_same< TagType , void >::value >::type
-  exec_one( const std::int32_t w ) const noexcept
-    { m_functor( w ); }
+  template <class TagType>
+  typename std::enable_if<!std::is_same<TagType, void>::value>::type exec_one(
+      const std::int32_t w) const noexcept {
+    const TagType t{};
+    m_functor(t, w);
+  }
 
-  template< class TagType >
-  typename std::enable_if< ! std::is_same< TagType , void >::value >::type
-  exec_one( const std::int32_t w ) const noexcept
-    { const TagType t{}; m_functor( t , w ); }
+ public:
+  inline void execute() const noexcept {
+    // Spin until COMPLETED_TOKEN.
+    // END_TOKEN indicates no work is currently available.
 
-public:
-
-  inline
-  void execute() const noexcept
-    {
-      // Spin until COMPLETED_TOKEN.
-      // END_TOKEN indicates no work is currently available.
-        
-      for ( std::int32_t w = Policy::END_TOKEN ;
-            Policy::COMPLETED_TOKEN != ( w = m_policy.pop_work() ) ; ) {
-        if ( Policy::END_TOKEN != w ) {
-          exec_one< typename Policy::work_tag >( w );
-          m_policy.completed_work(w);
-        }
+    for (std::int32_t w = Policy::END_TOKEN;
+         Policy::COMPLETED_TOKEN != (w = m_policy.pop_work());) {
+      if (Policy::END_TOKEN != w) {
+        exec_one<typename Policy::work_tag>(w);
+        m_policy.completed_work(w);
       }
     }
+  }
 
-  inline
-  ParallelFor( const FunctorType & arg_functor
-             , const Policy      & arg_policy )
-    : m_policy( arg_policy )
-    , m_functor( arg_functor )
-    {}
+  inline ParallelFor(const FunctorType& arg_functor, const Policy& arg_policy)
+      : m_policy(arg_policy), m_functor(arg_functor) {}
 };
 
-} // namespace Impl
-} // namespace Kokkos
+}  // namespace Impl
+}  // namespace Kokkos
 
 #endif /* #define KOKKOS_SERIAL_WORKGRAPHPOLICY_HPP */

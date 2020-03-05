@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 2.0
-//              Copyright (2014) Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -44,10 +45,10 @@
 #include <PerfTest_ViewFill.hpp>
 
 namespace Test {
-TEST_F( default_exec, ViewFill_Rank7 ) {
+TEST(default_exec, ViewFill_Rank7) {
   printf("ViewFill Performance for LayoutLeft:\n");
-  run_fillview_tests7<Kokkos::LayoutLeft>(10,1);
+  run_fillview_tests7<Kokkos::LayoutLeft>(10, 1);
   printf("ViewFill Performance for LayoutRight:\n");
-  run_fillview_tests7<Kokkos::LayoutRight>(10,1);
+  run_fillview_tests7<Kokkos::LayoutRight>(10, 1);
 }
-}
+}  // namespace Test

@@ -17,18 +17,22 @@ MY_CXX_COMPILER=`which g++`
 # this will install in your build directory in a folder called install by default
 INSTALL_PREFIX="./install" 
 
+# GPU specific 
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+NVCC_WRAPPER=$SCRIPTPATH/../kokkos/bin/nvcc_wrapper
+NVCC_WRAPPER_DEFAULT_COMPILER=$MY_CXX_COMPILER
+
 # optional CMake variables to pass in are PYTHON_PREFIX and PYTHON_EXECUTABLE
 # if they are not passed in, then `which python` is called to determine your
 # python executable, and from that sitepackages and libraries are inferred.
-
-# Compadre_USE_LAPACK set to off because there is no point in searching for
-# LAPACK libraries when we are using Cuda toolkit libraries for dense solves
 cmake \
-    -D CMAKE_CXX_COMPILER="$MY_CXX_COMPILER" \
+    -D CMAKE_CXX_COMPILER="$NVCC_WRAPPER" \
     -D CMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
     -D Compadre_USE_PYTHON:BOOL=ON \
-    -D Compadre_USE_LAPACK:BOOL=OFF \
+    -D Compadre_DEBUG:BOOL=OFF \
+    -D Kokkos_ENABLE_PTHREAD:BOOL=OFF \
     -D Compadre_USE_CUDA:BOOL=ON \
-    -D KokkosCore_ARCH:STRING="Power8,Pascal60" \
+    -D Kokkos_ARCH_PASCAL60:BOOL=ON \
+    -D Kokkos_CUDA_DIR:PATH="/home/projects/ppc64le-pwr8-nvidia/cuda/9.2.88" \
     \
     ..
