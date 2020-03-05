@@ -334,7 +334,7 @@ if(CompadreHarness_USE_Compose)
   #
   ##########
   
-  set (Compose_Kokkos_DIR "${Trilinos_PREFIX}/lib/cmake/Kokkos")
+  set (Compose_Kokkos_DIR "${Trilinos_PREFIX}")
   set(Compose_PREFIX "${PROJECT_BINARY_DIR}/Compose-install")
   set(Compose_ARGS
     "-DCMAKE_INSTALL_PREFIX=${Compose_PREFIX}"
