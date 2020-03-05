@@ -305,14 +305,12 @@ endif()
 
 
 #MPI (Not really needed, only used so that if a kokkos-tool was built with MPI, it won't segfault)
-if (NOT(Trilinos_PREFIX))
-  FIND_PACKAGE(MPI QUIET)
-  bob_option(Compadre_USE_MPI "Use MPI for parallelism" ${MPI_CXX_FOUND})
-  message(STATUS "MPI Enabled: ${MPI_CXX_FOUND}")
-  if (MPI_CXX_FOUND)
-      MESSAGE(STATUS "MPI_CXX_INCLUDE_PATH: ${MPI_CXX_INCLUDE_PATH}")
-      MESSAGE(STATUS "MPI_CXX_LIBRARIES: ${MPI_CXX_LIBRARIES}")
-  endif()
+FIND_PACKAGE(MPI QUIET)
+bob_option(Compadre_USE_MPI "Use MPI for parallelism" ${MPI_CXX_FOUND})
+message(STATUS "MPI Enabled: ${MPI_CXX_FOUND}")
+if (MPI_CXX_FOUND)
+    MESSAGE(STATUS "MPI_CXX_INCLUDE_PATH: ${MPI_CXX_INCLUDE_PATH}")
+    MESSAGE(STATUS "MPI_CXX_LIBRARIES: ${MPI_CXX_LIBRARIES}")
 endif()
 
 
