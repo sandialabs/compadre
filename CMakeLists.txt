@@ -91,10 +91,6 @@ bob_option(Kokkos_ENABLE_OPENMP "Whether to use OPENMP when building KokkosCore"
 bob_option(Kokkos_ENABLE_CUDA "Whether to use CUDA when building KokkosCore" "${Compadre_USE_CUDA}")
 bob_option(Compadre_EXPLICITLY_DISABLE_CUDA "Special case CUDA override" OFF)
 
-if (Compadre_USE_OPENMP AND NOT(Compadre_USE_CUDA))
-  # If cuda is enabled, nvcc_wrapper will take of openmp flag
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
-endif()
 
 set(KOKKOS_IN_TRILINOS OFF)
 set(KOKKOS_EXISTING_ELSEWHERE OFF)
