@@ -143,7 +143,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
                (reconstruction_space == DivergenceFreeVectorTaylorPolynomial)) {
         // Divergence free vector polynomial basis
         const int dimension_offset = this->getNP(_poly_order, _global_dimensions, reconstruction_space);
-        double cutoff_p = _epsilons(target_index);
+        double cutoff_p = _epsilons(target_index) / 3.0;
 
         double xs = relative_coord.x/cutoff_p;
         double ys = relative_coord.y/cutoff_p;
