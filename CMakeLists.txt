@@ -207,6 +207,7 @@ else()
     set(Compadre_USE_OPENMP ${Kokkos_ENABLE_OPENMP})
     set(Compadre_USE_PTHREAD ${Kokkos_ENABLE_PTHREAD})
     set(Compadre_USE_CUDA ${Kokkos_ENABLE_CUDA})
+    set(Kokkos_PREFIX ${CMAKE_INSTALL_PREFIX})
   else()
     # Existing KokkosCore indicated by user by setting KokkosCore_PREFIX, so we look for it
     # where specified (only)
@@ -221,6 +222,7 @@ else()
     if (TARGET Kokkos::CUDA)
       set(Compadre_USE_CUDA ON)
     endif()
+    set(Kokkos_PREFIX "${KokkosCore_PREFIX}")
   endif()
 endif()
 # set LAPACK to off if CUDA is ON
@@ -280,6 +282,7 @@ else()
         MESSAGE(FATAL_ERROR "KokkosCore_PREFIX specified but KokkosKernels_PREFIX not specified. \
         Either provide KokkosKernels_PREFIX as well, or remove KokkosCore_PREFIX specification.")
     endif()
+    set(KokkosKernels_PREFIX ${CMAKE_INSTALL_PREFIX})
   else()
     # Existing KokkosCore indicated by user by setting KokkosCore_PREFIX, so we look for it
     # where specified (only)
@@ -295,6 +298,8 @@ else()
     endif()
     set(KOKKOSKERNELS_EXISTING_ELSEWHERE ON)
   endif()
+  # register Kokkos and KokkosKernels so that they show up in CompadreConfig.cmake
+  set(Compadre_EXT_DEPS Kokkos KokkosKernels)
 endif()
 
 
@@ -490,4 +495,8 @@ if(Compadre_BUILD_Doxygen)
 endif(Compadre_BUILD_Doxygen)
 
 
-bob_end_package_no_recurse("${Trilinos_LIBRARIES}")
+if (Trilinos_PREFIX)
+  bob_end_package_no_recurse("${Trilinos_LIBRARIES}")
+else()
+  bob_end_package()
+endif()
