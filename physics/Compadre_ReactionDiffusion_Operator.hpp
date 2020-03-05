@@ -57,6 +57,8 @@ class ReactionDiffusionPhysics : public PhysicsT {
         Kokkos::View<double**>::HostMirror _kokkos_quadrature_coordinates_host;
         Kokkos::View<int**>::HostMirror _kokkos_quadrature_neighbor_lists_host;
 
+        Kokkos::View<double****> _tau;
+
         Teuchos::RCP<mvec_local_index_type> _ids;
         Teuchos::RCP<mvec_local_index_type> _halo_ids;
         host_view_local_index_type _id_view;

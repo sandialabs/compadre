@@ -1,4 +1,4 @@
-## COMPOSE: Compact Multi-moment Performance-Portable Semi-Lagrangian methods
+## COMPOSE: Compact multi-moment performance-portable semi-Lagrangian methods
 
 COMPOSE provides libraries for semi-Lagrangian transport and, together or
 separately, property preservation:
@@ -29,6 +29,33 @@ Second, configure, build, and test COMPOSE:
 Optionally, third, install COMPOSE:
 ```
     make install
+```
+
+# References
+
+If you use COMPOSE, please cite
+```
+@misc{compose-software,
+  title={{COMPOSE}: {C}ompact multi-moment performance-portable semi-{L}agrangian methods},
+  author={A. M. Bradley and O. Guba and P. A. Bosler and M. A. Taylor},
+  doi={10.5281/zenodo.2552888},
+  howpublished={[Computer Software] \url{https://github.com/E3SM-Project/COMPOSE}},
+  year={2019}
+}
+```
+If you use CEDR in particular, please also cite
+```
+@article{compose-cedr,
+  title={Communication-Efficient Property Preservation in Tracer Transport},
+  author={A. M. Bradley and P. A. Bosler and O. Guba and M. A. Taylor and G. A. Barnett},
+  journal={SIAM Journal on Scientific Computing},
+  volume={41},
+  number={3},
+  pages={C161--C193},
+  year={2019},
+  publisher={SIAM},
+  doi={10.1137/18M1165414}
+}
 ```
 
 # Licence

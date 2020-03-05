@@ -279,6 +279,7 @@ set(CompadreHarness_KEY_BOOLS
     CompadreHarness_USE_Netcdf
     CompadreHarness_USE_Netcdf_MPI
     TRILINOS_LINEAR_SOLVES
+    TRILINOS_DISCRETIZATION
    )
 
 set(CompadreHarness_KEY_INTS

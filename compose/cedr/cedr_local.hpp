@@ -28,14 +28,16 @@ Int solve_1eq_bc_qp(const Int n, const Real* w, const Real* a, const Real b,
 KOKKOS_INLINE_FUNCTION
 Int solve_1eq_bc_qp_2d(const Real* w, const Real* a, const Real b,
                        const Real* xlo, const Real* xhi,
-                       const Real* y, Real* x);
+                       const Real* y, Real* x,
+                       const bool clip = true);
 
 // ClipAndAssuredSum. Minimize the 1-norm with w = 1s. Does not check for
 // feasibility.
 KOKKOS_INLINE_FUNCTION
 void caas(const Int n, const Real* a, const Real b,
           const Real* xlo, const Real* xhi,
-          const Real* y, Real* x);
+          const Real* y, Real* x,
+          const bool clip = true);
 
 struct Method { enum Enum { least_squares, caas }; };
 

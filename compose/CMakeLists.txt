@@ -1,5 +1,4 @@
 cmake_minimum_required (VERSION 3.5)
-set_property(GLOBAL PROPERTY GLOBAL_DEPENDS_DEBUG_MODE 1)
 
 project (compose CXX)
 set (CMAKE_CXX_STANDARD 11)
@@ -29,7 +28,7 @@ if (Kokkos_DIR)
     set(CMAKE_PREFIX_PATH ${Kokkos_DIR} ${CMAKE_PREFIX_PATH})
     find_package(Trilinos REQUIRED NO_DEFAULT_PATH HINTS ${Kokkos_DIR})
     set (Kokkos_INCLUDE ${Kokkos_INCLUDE_DIRS})
-    set(cuda_str_pos -1)
+    string (FIND "${Kokkos_DEVICES}" "Cuda" cuda_str_pos)
   else()
     include (${Kokkos_DIR}/kokkos_generated_settings.cmake)
     set (Kokkos_INCLUDE ${Kokkos_DIR}/include)
@@ -41,8 +40,6 @@ if (Kokkos_DIR)
   if (${cuda_str_pos} GREATER -1)
     set (CUDA_BUILD TRUE)
   endif ()
-else ()
-  message (FATAL_ERROR "COMPOSE requires Kokkos_DIR")
 endif ()
 
 set (SOURCES
@@ -114,11 +111,10 @@ set(COMPOSE_CONFIG_FILES
 )
 install(FILES ${COMPOSE_CONFIG_FILES} DESTINATION include/compose)
 
-add_library (${PROJECT_NAME} SHARED ${SOURCES})
+add_library (${PROJECT_NAME} ${SOURCES})
 set_target_properties (${PROJECT_NAME} PROPERTIES
   COMPILE_FLAGS "${COMPOSE_COMPILE_FLAGS}"
   LINK_FLAGS "${COMPOSE_LINK_FLAGS}")
-#  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 target_include_directories (${PROJECT_NAME} PUBLIC cedr siqk)
 target_include_directories (${PROJECT_NAME} PRIVATE siqk cedr)
 target_include_directories (${PROJECT_NAME} PUBLIC ${COMPOSE_INCLUDES})
@@ -128,8 +124,8 @@ if (KOKKOS_IN_TRILINOS)
 endif()
 
 
-install (TARGETS ${PROJECT_NAME} DESTINATION lib)
-install (FILES ${HEADERS} DESTINATION include/compose)
+install (TARGETS ${PROJECT_NAME} ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
+install (FILES ${HEADERS} ${CMAKE_BINARY_DIR}/config/compose_config.h DESTINATION include/compose)
 
 enable_testing ()
 add_subdirectory(siqk)

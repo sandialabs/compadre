@@ -68,10 +68,11 @@ void calc_r (const Int n, const Real* w, const Real* a, const Real b,
 KOKKOS_INLINE_FUNCTION
 Int solve_1eq_bc_qp_2d (const Real* w, const Real* a, const Real b,
                         const Real* xlo, const Real* xhi, 
-                        const Real* y, Real* x) {
+                        const Real* y, Real* x,
+                        const bool clip) {
   const Real r_tol = impl::calc_r_tol(b, a, y, 2);
   Int info = impl::check_lu(2, a, b, xlo, xhi, r_tol, x);
-  if (info != 0) return info;
+  if (info == -1) return info;
 
   { // Check if the optimal point ignoring bound constraints is in bounds.
     Real qmass = 0, dm = b;
@@ -141,22 +142,22 @@ Int solve_1eq_bc_qp_2d (const Real* w, const Real* a, const Real b,
   const Int ai = ais[objs[0] <= objs[1] ? 0 : 1];
 
   info = 1;
-  Int clipidx = 0;
-  const Real alpha = alphas[ai];
+  Int i0 = 0;
   switch (ai) {
   case 0: case 2:
-    x[0] = x_base[0] + alpha*x_dir[0];
     x[1] = ai == 0 ? xlo[1] : xhi[1];
-    clipidx = 0;
+    i0 = 1;
     break;
   case 1: case 3:
     x[0] = ai == 1 ? xhi[0] : xlo[0];
-    x[1] = x_base[1] + alpha*x_dir[1];
-    clipidx = 1;
+    i0 = 0;
     break;
   default: cedr_kernel_assert(0); info = -2;
   }
-  x[clipidx] = cedr::impl::min(xhi[clipidx], cedr::impl::max(xlo[clipidx], x[clipidx]));
+  const Int i1 = (i0 + 1) % 2;
+  x[i1] = (b - a[i0]*x[i0])/a[i1];
+  if (clip)
+    x[i1] = cedr::impl::min(xhi[i1], cedr::impl::max(xlo[i1], x[i1]));
   return info;
 }
 
@@ -268,7 +269,8 @@ Int solve_1eq_bc_qp (const Int n, const Real* w, const Real* a, const Real b,
 KOKKOS_INLINE_FUNCTION
 void caas (const Int n, const Real* a, const Real b,
            const Real* xlo, const Real* xhi,
-           const Real* y, Real* x) {
+           const Real* y, Real* x,
+           const bool clip) {
   Real dm = b;
   for (Int i = 0; i < n; ++i) {
     x[i] = cedr::impl::max(xlo[i], cedr::impl::min(xhi[i], y[i]));
@@ -295,8 +297,9 @@ void caas (const Int n, const Real* a, const Real b,
     }
   }
   // Clip again for numerics.
-  for (Int i = 0; i < n; ++i)
-    x[i] = cedr::impl::max(xlo[i], cedr::impl::min(xhi[i], x[i]));
+  if (clip)
+    for (Int i = 0; i < n; ++i)
+      x[i] = cedr::impl::max(xlo[i], cedr::impl::min(xhi[i], x[i]));
 }
 
 KOKKOS_INLINE_FUNCTION
