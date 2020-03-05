@@ -58,18 +58,15 @@ endif()
 #TRILINOS
 bob_input(Trilinos_PREFIX "" PATH "Path to Trilinos install")
 if (Trilinos_PREFIX)
-    message("ENTERED TRIL CASE")
   if(NOT IS_ABSOLUTE ${Trilinos_PREFIX})
     set(Trilinos_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/${Trilinos_PREFIX}")
   endif()
   set(CMAKE_PREFIX_PATH ${Trilinos_PREFIX} ${CMAKE_PREFIX_PATH})
-  #set(Compadre_USE_Trilinos ON)
 endif()
 
 #KOKKOS
 bob_input(KokkosCore_PREFIX "" PATH "Path to KokkosCore install")
 if (KokkosCore_PREFIX)
-    message("ENTERED KOKKOS CASE")
   if(NOT IS_ABSOLUTE ${KokkosCore_PREFIX})
     set(KokkosCore_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/${KokkosCore_PREFIX}")
   endif()
@@ -79,7 +76,6 @@ endif()
 #KOKKOS-KERNELS
 bob_input(KokkosKernels_PREFIX "" PATH "Path to KokkosKernels install")
 if (KokkosKernels_PREFIX)
-    message("ENTERED KK CASE")
   if(NOT IS_ABSOLUTE ${KokkosKernels_PREFIX})
     set(KokkosKernels_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/${KokkosKernels_PREFIX}")
   endif()
@@ -121,14 +117,6 @@ bob_option(LAPACK_DECLARED_THREADSAFE "Is LAPACK threadsafe? If not, default to 
 
 IF(Trilinos_PREFIX)
   FIND_PACKAGE(Trilinos)
-  #  set(Compadre_USE_Trilinos_CXX_Flags ON)
-  #  bob_add_dependency(PUBLIC NAME Trilinos
-  #    TARGETS "${Trilinos_LIBRARIES}"
-  #    INCLUDE_DIR_VARS 
-  #      Trilinos_INCLUDE_DIRS 
-  #      Trilinos_TPL_INCLUDE_DIRS 
-  #    LIBRARY_VARS
-  #  Trilinos_LIBRARIES Trilinos_TPL_LIBRARIES)
 
   LIST(REVERSE Trilinos_INCLUDE_DIRS)
   LIST(REMOVE_DUPLICATES Trilinos_INCLUDE_DIRS)
@@ -315,15 +303,11 @@ else()
       MESSAGE(FATAL_ERROR "Compadre_USE_BLAS set to ON, but Kokkos::BLAS not defined")
     endif()
     if(Compadre_USE_CUDA AND NOT(Kokkos::CUDA))
-        MESSAGE(FATAL_ERROR "Compadre_USE_CUDA set to ON, but Kokkos::CUDA not defined")
+      MESSAGE(FATAL_ERROR "Compadre_USE_CUDA set to ON, but Kokkos::CUDA not defined")
     endif()
     set(KOKKOSKERNELS_EXISTING_ELSEWHERE ON)
   endif()
 endif()
-# check that either CUDA or LAPACK is enabled
-if (NOT(Compadre_USE_CUDA OR Compadre_USE_LAPACK))
-  MESSAGE(FATAL_ERROR "Both Compadre_USE_CUDA and Compadre_USE_LAPACK are currently OFF.\n Since these are both OFF, either Compadre_USE_LAPACK is set to OFF explicitly in the build script, or CUDA was not found in the KokkosCore specified (Compadre_USE_CUDA is a calculated variable, not an option to be set).")
-endif () 
 
 
 
@@ -430,79 +414,6 @@ endif()
 
 bob_option(Compadre_TESTS "Compile Compadre tests" ON)
 bob_option(Compadre_EXAMPLES "Compile Compadre examples" "${Compadre_TESTS}")
-
-
-
-
-##########
-#
-#
-#  CXX FLAGS
-#
-#
-##########
-
-
-
-
-#if(KOKKOS_IN_TRILINOS)
-#  bob_begin_cxx_flags()
-#  bob_cxx11_flags()
-#  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-#    set(FLAGS "${FLAGS} -fno-omit-frame-pointer")
-#    if(Compadre_USE_CUDA)
-#      if (Compadre_CUDA_ARCH)
-#        add_compile_options($<$<COMPILE_LANGUAGE:CXX>:--cuda-gpu-arch=${Compadre_CUDA_ARCH}>)
-#      endif()
-#      add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-x>)
-#      add_compile_options($<$<COMPILE_LANGUAGE:CXX>:cuda>)
-#      # -Wweak-vtables gives false positives with -x cuda
-#      set(FLAGS "${FLAGS} -Wno-weak-vtables")
-#    endif()
-#  elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
-#    if(Compadre_USE_CUDA)
-#      set(FLAGS "${FLAGS} -expt-extended-lambda -lineinfo")
-#      if (Compadre_CUDA_ARCH)
-#        set(FLAGS "${FLAGS} -arch=${Compadre_CUDA_ARCH}")
-#      endif()
-#      if (CUDA_VERSION EQUAL 9)
-#        set(FLAGS "${FLAGS} -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored")
-#      endif()
-#    else()
-#      set(FLAGS "${FLAGS} -fno-omit-frame-pointer")
-#      if(Compadre_USE_OPENMP)
-#        set(FLAGS "${FLAGS} -fopenmp")
-#      endif()
-#    endif()
-#  elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
-#    set(FLAGS "${FLAGS} -fno-omit-frame-pointer")
-#    if(Compadre_USE_OPENMP)
-#      set(FLAGS "${FLAGS} -fopenmp")
-#    endif()
-#  else()
-#    message(WARNING "Unexpected compiler type ${CMAKE_CXX_COMPILER_ID}")
-#  endif()
-#  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FLAGS}")
-#endif()
-#
-#
-#if (Compadre_USE_Trilinos_CXX_Flags)
-#  # Get compiler flags from Trilinos
-#  SET(CMAKE_CXX_FLAGS "")
-#  IF (Trilinos_CXX_COMPILER_FLAGS) 
-#    FOREACH(arg ${Trilinos_CXX_COMPILER_FLAGS} )
-#      SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${arg}")
-#    ENDFOREACH()
-#  ENDIF()
-#endif()
-#
-#if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
-#  # if an Intel compiler, skip all library searching and add "-mkl" to flags
-#  SET(CMAKE_CXX_FLAGS "-mkl ${CMAKE_CXX_FLAGS}")
-#endif()
-#
-#bob_end_cxx_flags()
-
 
 
 
