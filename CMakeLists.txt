@@ -1,5 +1,13 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.10.0 FATAL_ERROR)
 
+# Called at the top of every CMakeLists.txt file
+macro(include_tribits_build)
+  if (${PROJECT_NAME}_TRIBITS_DIR)
+    include("${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.tribits.cmake")
+    return()
+  endif()
+endmacro()
+
 ##########
 #
 #   Compadre Details
