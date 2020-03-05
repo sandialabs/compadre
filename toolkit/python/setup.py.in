@@ -234,20 +234,20 @@ class build_ext(build_ext_orig):
         try:
             if use_openmp != None:
                 use_openmp_string = "ON"
-                print("Compadre_USE_OpenMP set to ON")
+                print("Compadre_USE_OPENMP set to ON")
             else:
-                print("Compadre_USE_OpenMP not set by Python")
+                print("Compadre_USE_OPENMP not set by Python")
         except:
-            print("Compadre_USE_OpenMP not set by Python")
+            print("Compadre_USE_OPENMP not set by Python")
         # check if turned off
         try:
             if disable_openmp != None:
                 use_openmp_string = "OFF"
-                print("Compadre_USE_OpenMP set to OFF")
+                print("Compadre_USE_OPENMP set to OFF")
             else:
-                print("Compadre_USE_OpenMP not set by Python")
+                print("Compadre_USE_OPENMP not set by Python")
         except:
-            print("Compadre_USE_OpenMP not set by Python")
+            print("Compadre_USE_OPENMP not set by Python")
 
         # Parse bool for using Pthread
         use_pthread_string = ""
@@ -255,20 +255,20 @@ class build_ext(build_ext_orig):
         try:
             if use_pthread != None:
                 use_pthread_string = "ON"
-                print("Compadre_USE_Pthread set to ON")
+                print("Compadre_USE_PTHREAD set to ON")
             else:
-                print("Compadre_USE_Pthread not set by Python")
+                print("Compadre_USE_PTHREAD not set by Python")
         except:
-            print("Compadre_USE_Pthread not set by Python")
+            print("Compadre_USE_PTHREAD not set by Python")
         # check if turned off
         try:
             if disable_pthread != None:
                 use_pthread_string = "OFF"
-                print("Compadre_USE_Pthread set to OFF")
+                print("Compadre_USE_PTHREAD set to OFF")
             else:
-                print("Compadre_USE_Pthread not set by Python")
+                print("Compadre_USE_PTHREAD not set by Python")
         except:
-            print("Compadre_USE_Pthread not set by Python")
+            print("Compadre_USE_PTHREAD not set by Python")
 
         # Parse string for kokkos architecture
         kokkos_arch_string = ""
@@ -370,9 +370,9 @@ class build_ext(build_ext_orig):
         if use_gpu_string != "":
             cmake_args.append('-DCompadre_USE_CUDA:BOOL=%s'%(use_gpu_string,),)
         if use_openmp_string != "":
-            cmake_args.append('-DCompadre_USE_OpenMP:BOOL=%s'%(use_openmp_string,),)
+            cmake_args.append('-DCompadre_USE_OPENMP:BOOL=%s'%(use_openmp_string,),)
         if use_pthread_string != "":
-            cmake_args.append('-DCompadre_USE_Pthread:BOOL=%s'%(use_pthread_string,),)
+            cmake_args.append('-DCompadre_USE_PTHREAD:BOOL=%s'%(use_pthread_string,),)
         if kokkos_prefix_string != "":
             cmake_args.append('-DKokkosCore_PREFIX:STRING=%s'%(kokkos_prefix_string,))
         if cuda_prefix_string != "":
