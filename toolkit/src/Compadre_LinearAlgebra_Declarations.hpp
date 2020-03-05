@@ -27,10 +27,6 @@
   // Solve a system of linear equations from LU decomposed matrix
   extern "C" void dgetrs_( char* trans, int* n, int* nrhs, double* a, int* lda,
                            int* ipiv, double* b, int* ldb, int* info );
-
-#ifdef COMPADRE_USE_OPENBLAS
-  void openblas_set_num_threads(int num_threads);
-#endif
 #endif // COMPADRE_USE_LAPACK
 
 namespace Compadre {

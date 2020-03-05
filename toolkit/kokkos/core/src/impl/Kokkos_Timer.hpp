@@ -1,13 +1,14 @@
 /*
 //@HEADER
 // ************************************************************************
-// 
-//                        Kokkos v. 2.0
-//              Copyright (2014) Sandia Corporation
-// 
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+//
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
+//
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
@@ -36,7 +37,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // Questions? Contact Christian R. Trott (crtrott@sandia.gov)
-// 
+//
 // ************************************************************************
 //@HEADER
 */
@@ -49,15 +50,14 @@
 namespace Kokkos {
 namespace Impl {
 
-/** \brief  Time since construction 
+/** \brief  Time since construction
  *   Timer promoted from Impl to Kokkos ns
  *   This file included for backwards compatibility
  */
 
-  using Kokkos::Timer ;
+using Kokkos::Timer;
 
-} // namespace Impl
-} // namespace Kokkos
+}  // namespace Impl
+}  // namespace Kokkos
 
 #endif /* #ifndef KOKKOS_IMPLWALLTIME_HPP */
-

@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 2.0
-//              Copyright (2014) Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -42,7 +43,7 @@
 */
 
 #include <Kokkos_Macros.hpp>
-#if defined( KOKKOS_ENABLE_SERIAL ) && defined( KOKKOS_ENABLE_TASKDAG )
+#if defined(KOKKOS_ENABLE_SERIAL) && defined(KOKKOS_ENABLE_TASKDAG)
 
 #include <Kokkos_Core.hpp>
 
@@ -55,108 +56,12 @@
 namespace Kokkos {
 namespace Impl {
 
-template class TaskQueue< Kokkos::Serial > ;
+template class TaskQueue<Kokkos::Serial, typename Kokkos::Serial::memory_space>;
 
-void TaskQueueSpecialization< Kokkos::Serial >::execute
-  ( TaskQueue< Kokkos::Serial > * const queue )
-{
-  using exec_space = Kokkos::Serial ;
-  using tqs_queue_type      = TaskQueue< exec_space > ;
-  using task_root_type  = TaskBase< void , void , void > ;
-  using Member          = Impl::HostThreadTeamMember< exec_space > ;
-
-  task_root_type * const end = (task_root_type *) task_root_type::EndTag ;
-
-  // Set default buffers
-  serial_resize_thread_team_data( 0   /* global reduce buffer */
-                                , 512 /* team reduce buffer */
-                                , 0   /* team shared buffer */
-                                , 0   /* thread local buffer */
-                                );
-
-  Impl::HostThreadTeamData * const data = Impl::serial_get_thread_team_data();
-
-  Member exec( *data );
-
-  // Loop until all queues are empty
-  while ( 0 < queue->m_ready_count ) {
-
-    task_root_type * task = end ;
-
-    for ( int i = 0 ; i < tqs_queue_type::NumQueue && end == task ; ++i ) {
-      for ( int j = 0 ; j < 2 && end == task ; ++j ) {
-        task = tqs_queue_type::pop_ready_task( & queue->m_ready[i][j] );
-      }
-    }
-
-    if ( end != task ) {
-
-      // pop_ready_task resulted in lock == task->m_next
-      // In the executing state
-
-      (*task->m_apply)( task , & exec );
-
-#if 0
-  printf( "TaskQueue<Serial>::executed: 0x%lx { 0x%lx 0x%lx %d %d %d }\n"
-        , uintptr_t(task)
-        , uintptr_t(task->m_wait)
-        , uintptr_t(task->m_next)
-        , task->m_task_type
-        , task->m_priority
-        , task->m_ref_count );
-#endif
-
-      // If a respawn then re-enqueue otherwise the task is complete
-      // and all tasks waiting on this task are updated.
-      queue->complete( task );
-    }
-    else if ( 0 != queue->m_ready_count ) {
-      Kokkos::abort("TaskQueue<Serial>::execute ERROR: ready_count");
-    }
-  }
 }
-
-void TaskQueueSpecialization< Kokkos::Serial > ::
-  iff_single_thread_recursive_execute(
-    TaskQueue< Kokkos::Serial > * const queue )
-{
-  using exec_space = Kokkos::Serial ;
-  using tqs_queue_type      = TaskQueue< exec_space > ;
-  using task_root_type  = TaskBase< void , void , void > ;
-  using Member          = Impl::HostThreadTeamMember< exec_space > ;
-
-  task_root_type * const end = (task_root_type *) task_root_type::EndTag ;
-
-  Impl::HostThreadTeamData * const data = Impl::serial_get_thread_team_data();
-
-  Member exec( *data );
-
-  // Loop until no runnable task
-
-  task_root_type * task = end ;
-
-  do {
-
-    task = end ;
-
-    for ( int i = 0 ; i < tqs_queue_type::NumQueue && end == task ; ++i ) {
-      for ( int j = 0 ; j < 2 && end == task ; ++j ) {
-        task = tqs_queue_type::pop_ready_task( & queue->m_ready[i][j] );
-      }
-    }
-
-    if ( end == task ) break ;
-
-    (*task->m_apply)( task , & exec );
-
-    queue->complete( task );
-
-  } while(1);
-}
-
-}} /* namespace Kokkos::Impl */
+}  // namespace Kokkos
 
 #else
 void KOKKOS_CORE_SRC_IMPL_SERIAL_TASK_PREVENT_LINK_ERROR() {}
-#endif /* #if defined( KOKKOS_ENABLE_SERIAL ) && defined( KOKKOS_ENABLE_TASKDAG ) */
-
+#endif /* #if defined( KOKKOS_ENABLE_SERIAL ) && defined( \
+          KOKKOS_ENABLE_TASKDAG ) */

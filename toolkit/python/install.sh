@@ -56,6 +56,7 @@ fi
 if [ "$CLEAN" == "YES" ]; then
     rm -r ../dist
     rm -r ../compadre.egg-info
+    rm -r ../PKG-INFO
     rm ../setup.py
     #rm ../pyproject.toml
     exit 0
