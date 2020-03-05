@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.0.0)
 #
 #   Compadre Details
 #
-########## 
+##########
 PROJECT(Compadre VERSION 1.0.2 LANGUAGES CXX)
 
 # cmake helper functions
@@ -43,6 +43,10 @@ endif()
 
 
 include(ExternalProject)
+
+function (printvar var)
+    message("${var}: ${${var}}")
+endfunction()
 
 
 ##########
@@ -106,9 +110,9 @@ IF (Compadre_USE_Trilinos)
   set(Compadre_USE_Trilinos_CXX_Flags ON)
   bob_add_dependency(PUBLIC NAME Trilinos
     TARGETS "${Trilinos_LIBRARIES}"
-    INCLUDE_DIR_VARS 
-      Trilinos_INCLUDE_DIRS 
-      Trilinos_TPL_INCLUDE_DIRS 
+    INCLUDE_DIR_VARS
+      Trilinos_INCLUDE_DIRS
+      Trilinos_TPL_INCLUDE_DIRS
     LIBRARY_VARS
   Trilinos_LIBRARIES Trilinos_TPL_LIBRARIES)
 
@@ -119,11 +123,11 @@ IF (Compadre_USE_Trilinos)
   LIST(REVERSE Trilinos_LIBRARIES)
   LIST(REMOVE_DUPLICATES Trilinos_LIBRARIES)
   LIST(REVERSE Trilinos_LIBRARIES)
-  
+
   LIST(REVERSE Trilinos_TPL_LIBRARIES)
   LIST(REMOVE_DUPLICATES Trilinos_TPL_LIBRARIES)
   LIST(REVERSE Trilinos_TPL_LIBRARIES)
-  
+
   MESSAGE("\nFound Trilinos!  Here are the details: ")
   MESSAGE("   Trilinos_DIR = ${Trilinos_DIR}")
   MESSAGE("   Trilinos_VERSION = ${Trilinos_VERSION}")
@@ -139,7 +143,7 @@ IF (Compadre_USE_Trilinos)
   MESSAGE("   Trilinos_BUILD_SHARED_LIBS = ${Trilinos_BUILD_SHARED_LIBS}")
   MESSAGE("   Trilinos_CXX_COMPILER_FLAGS = ${Trilinos_CXX_COMPILER_FLAGS}")
   MESSAGE("End of Trilinos details\n")
-  
+
   LIST(REVERSE Trilinos_INCLUDE_DIRS)
   LIST(REMOVE_DUPLICATES Trilinos_INCLUDE_DIRS)
   LIST(REVERSE Trilinos_INCLUDE_DIRS)
@@ -206,7 +210,7 @@ else()
       # CMake to build Kokkos and then rescan the CMake file, allowing us to get the
       # KOKKOS_CXX_FLAGS that we will use to compile the project
 
-      # Check for Kokkos will succeed only in the case of a rescan of the CMakeLists.txt 
+      # Check for Kokkos will succeed only in the case of a rescan of the CMakeLists.txt
       set(KokkosCore_PREFIX "${PROJECT_BINARY_DIR}/KokkosCore-install")
       find_package(Kokkos PATHS "${KokkosCore_PREFIX}/lib/CMake/Kokkos" NO_DEFAULT_PATH QUIET)
 
@@ -229,7 +233,7 @@ else()
         "-DKOKKOS_ENABLE_DEBUG=${KOKKOS_ENABLE_DEBUG}"
         "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}"
       )
-      
+
       # update the RPATH from for the includes and libraries this externalproject will create
       SET(CMAKE_INSTALL_RPATH ${KokkosCore_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
       SET(CMAKE_BUILD_RPATH ${KokkosCore_PREFIX}/lib ${CMAKE_BUILD_RPATH})
@@ -261,8 +265,9 @@ else()
       set(CMAKE_PREFIX_PATH ${KokkosCore_PREFIX} ${CMAKE_PREFIX_PATH})
       FIND_FILE(Kokkos_PROJECT_FULL_FILENAME name kokkos_generated_settings.cmake HINTS "${KokkosCore_PREFIX}" NO_DEFAULT_PATH)
       GET_FILENAME_COMPONENT(Kokkos_PROJECT_FILENAME ${Kokkos_PROJECT_FULL_FILENAME} NAME)
+      SET(Kokkos_USE_NEW_LIBRARIES CACHE BOOL FALSE)
       IF(Kokkos_PROJECT_FILENAME)
-        FIND_PACKAGE(KokkosCore CONFIGS "${Kokkos_PROJECT_FILENAME}") 
+        FIND_PACKAGE(KokkosCore CONFIGS "${Kokkos_PROJECT_FILENAME}")
         IF(KokkosCore_FOUND)
           MESSAGE(STATUS "KokkosCore found at ${Kokkos_PROJECT_FULL_FILENAME}")
           GET_FILENAME_COMPONENT(KokkosCore_INSTALL_DIR ${Kokkos_PROJECT_FULL_FILENAME} DIRECTORY)
@@ -301,9 +306,30 @@ else()
 
         ELSE()
             MESSAGE(FATAL_ERROR "KokkosCore from outside of Trilinos requested, but kokkos_generated_settings.cmake was not found.")
+
         ENDIF()
       ELSE()
-          MESSAGE(FATAL_ERROR "KokkosCore from outside of Trilinos requested, but kokkos_generated_settings.cmake was not found.")
+        FIND_PATH(Kokkos_Core_hpp_PATH "Kokkos_Core.hpp" HINTS ${KokkosCore_PREFIX}/include)
+        if (Kokkos_Core_hpp_PATH)
+            printvar(Kokkos_Core_hpp_PATH)
+        else ()
+            MESSAGE(FATAL_ERROR "Kokkos_Core.hpp not found.")
+        endif()
+        FIND_LIBRARY(Kokkos_Core kokkoscore HINTS ${Kokkos_Core_hpp_PATH}/../lib64)
+        IF (Kokkos_Core)
+            printvar(Kokkos_Core)
+        ELSE()
+            Message(FATAL_ERROR "KokkosCore library not found.")
+        ENDIF()
+        FIND_LIBRARY(Kokkos_Containers kokkoscontainers HINTS ${Kokkos_Core_hpp_PATH}/../lib64)
+        IF (Kokkos_Containers)
+            printvar(Kokkos_Containers)
+        ELSE ()
+            MESSAGE(FATAL_ERROR "KokkosContainers library not found.")
+        ENDIF()
+        SET (Kokkos_USE_NEW_LIBRARIES TRUE)
+        SET (KokkosCore_INCLUDE_DIRS "${Kokkos_Core_hpp_PATH}")
+        SET (KokkosCore_STATIC_LIB ${Kokkos_Core})
       ENDIF()
       set(KOKKOS_EXISTING_ELSEWHERE ON)
     endif()
@@ -363,9 +389,9 @@ if (Compadre_USE_LAPACK)
       MESSAGE(FATAL_ERROR "Compadre_USE_LAPACK is ON, but LAPACK_PREFIX was set incorrectly.")
     ELSE()
       IF(APPLE)
-        execute_process(COMMAND otool -L  "${LAPACK_LIB}" OUTPUT_VARIABLE LAPACK_DEPENDENCIES) 
+        execute_process(COMMAND otool -L  "${LAPACK_LIB}" OUTPUT_VARIABLE LAPACK_DEPENDENCIES)
       ELSE()
-        execute_process(COMMAND ldd "${LAPACK_LIB}" OUTPUT_VARIABLE LAPACK_DEPENDENCIES) 
+        execute_process(COMMAND ldd "${LAPACK_LIB}" OUTPUT_VARIABLE LAPACK_DEPENDENCIES)
       ENDIF()
       string(FIND "${LAPACK_DEPENDENCIES}" "openblas" BLAS_MATCH)
       if ("${BLAS_MATCH}" GREATER "-1")
@@ -393,12 +419,12 @@ if (Compadre_USE_PYTHON)
       OUTPUT_STRIP_TRAILING_WHITESPACE )
   ENDIF()
   MESSAGE(STATUS "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
-  
+
   EXECUTE_PROCESS(
     COMMAND "${PYTHON_EXECUTABLE}" -c "import site; print(site.USER_SITE)"
     OUTPUT_VARIABLE PYTHON_SITEPACKAGES
     OUTPUT_STRIP_TRAILING_WHITESPACE )
-  
+
   IF(NOT EXISTS ${PYTHON_SITEPACKAGES})
     EXECUTE_PROCESS(
       COMMAND "${PYTHON_EXECUTABLE}" -c "import sysconfig; print(sysconfig.get_path('platlib'))"
@@ -414,7 +440,7 @@ if (Compadre_USE_PYTHON)
       OUTPUT_STRIP_TRAILING_WHITESPACE )
   ENDIF()
   MESSAGE(STATUS "Numpy_PREFIX: ${Numpy_PREFIX}")
-  
+
   FIND_PATH(Numpy_INCLUDE_DIRS numpy/arrayobject.h HINTS ${Numpy_PREFIX})
   IF (Numpy_INCLUDE_DIRS)
     MESSAGE(STATUS "Numpy_INCLUDE_DIRS: ${Numpy_INCLUDE_DIRS}")
@@ -523,7 +549,7 @@ if (Compadre_USE_CUDA)
     if (CUDA_PREFIX STREQUAL "")
       EXECUTE_PROCESS(
           COMMAND which "nvcc" WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} RESULT_VARIABLE CUDA_PREFIX
-      )    
+      )
       MESSAGE(STATUS "CUDA_PREFIX automatically determined: ${CUDA_PREFIX}")
     endif()
     find_path(CUDA_INCLUDE_DIRS NAMES "cublas_api.h" HINTS "${CUDA_PREFIX}/include")
@@ -599,7 +625,7 @@ if(KOKKOS_IN_TRILINOS)
   endif()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FLAGS}")
 else()
-  IF (KOKKOS_CXX_FLAGS) 
+  IF (KOKKOS_CXX_FLAGS)
     FOREACH(arg ${KOKKOS_CXX_FLAGS} )
       SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${arg}")
     ENDFOREACH()
@@ -610,7 +636,7 @@ endif()
 if (Compadre_USE_Trilinos_CXX_Flags)
   # Get compiler flags from Trilinos
   SET(CMAKE_CXX_FLAGS "")
-  IF (Trilinos_CXX_COMPILER_FLAGS) 
+  IF (Trilinos_CXX_COMPILER_FLAGS)
     FOREACH(arg ${Trilinos_CXX_COMPILER_FLAGS} )
       SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${arg}")
     ENDFOREACH()
@@ -689,7 +715,7 @@ endif()
 if (Compadre_USE_CUDA OR Compadre_USE_LAPACK)
 
   add_subdirectory(src)
-  
+
   if(Compadre_EXAMPLES)
     add_subdirectory(examples)
   endif()
@@ -700,7 +726,7 @@ if (Compadre_USE_CUDA OR Compadre_USE_LAPACK)
 
 else ()
   MESSAGE(FATAL_ERROR "Both Compadre_USE_CUDA and Compadre_USE_LAPACK are currently OFF.\n Since these are both OFF, either Compadre_USE_LAPACK is set to OFF explicitly in the build script, or CUDA was not found in the KokkosCore specified (Compadre_USE_CUDA is a calculated variable, not an option to be set).")
-endif () 
+endif ()
 
 
 

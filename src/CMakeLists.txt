@@ -33,6 +33,7 @@ set(COMPADRE_SOURCES
 
 
 add_library(compadre ${COMPADRE_SOURCES})
+TARGET_LINK_LIBRARIES(compadre PUBLIC ${CMAKE_DL_LIBS})
 bob_library_includes(compadre)
 
 # link to Kokkos
