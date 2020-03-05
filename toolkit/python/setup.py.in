@@ -234,20 +234,20 @@ class build_ext(build_ext_orig):
         try:
             if use_openmp != None:
                 use_openmp_string = "ON"
-                print("Compadre_USE_OpenMP set to ON")
+                print("Compadre_USE_OPENMP set to ON")
             else:
-                print("Compadre_USE_OpenMP not set by Python")
+                print("Compadre_USE_OPENMP not set by Python")
         except:
-            print("Compadre_USE_OpenMP not set by Python")
+            print("Compadre_USE_OPENMP not set by Python")
         # check if turned off
         try:
             if disable_openmp != None:
                 use_openmp_string = "OFF"
-                print("Compadre_USE_OpenMP set to OFF")
+                print("Compadre_USE_OPENMP set to OFF")
             else:
-                print("Compadre_USE_OpenMP not set by Python")
+                print("Compadre_USE_OPENMP not set by Python")
         except:
-            print("Compadre_USE_OpenMP not set by Python")
+            print("Compadre_USE_OPENMP not set by Python")
 
         # Parse bool for using Pthread
         use_pthread_string = ""
@@ -255,20 +255,20 @@ class build_ext(build_ext_orig):
         try:
             if use_pthread != None:
                 use_pthread_string = "ON"
-                print("Compadre_USE_Pthread set to ON")
+                print("Compadre_USE_PTHREAD set to ON")
             else:
-                print("Compadre_USE_Pthread not set by Python")
+                print("Compadre_USE_PTHREAD not set by Python")
         except:
-            print("Compadre_USE_Pthread not set by Python")
+            print("Compadre_USE_PTHREAD not set by Python")
         # check if turned off
         try:
             if disable_pthread != None:
                 use_pthread_string = "OFF"
-                print("Compadre_USE_Pthread set to OFF")
+                print("Compadre_USE_PTHREAD set to OFF")
             else:
-                print("Compadre_USE_Pthread not set by Python")
+                print("Compadre_USE_PTHREAD not set by Python")
         except:
-            print("Compadre_USE_Pthread not set by Python")
+            print("Compadre_USE_PTHREAD not set by Python")
 
         # Parse string for kokkos architecture
         kokkos_arch_string = ""
@@ -361,24 +361,28 @@ class build_ext(build_ext_orig):
             '-DCompadre_USE_MATLAB:BOOL=ON',
             '-DCompadre_EXAMPLES:BOOL=OFF',
             '-DPYTHON_CALLING_BUILD:BOOL=ON',
-            '-DKokkosCore_ARCH:STRING=%s'%(kokkos_arch_string,),
         ]
+        if (len(kokkos_arch_string)>0):
+            for kokkos_arch in kokkos_arch_string.split(";").lstrip().rstrip():
+                if (len(kokkos_arch)>0):
+                    cmake_args.append('-DKokkos_ARCH_%s:BOOL=ON'%(kokkos_arch,))
+
         if use_gpu_string != "":
             cmake_args.append('-DCompadre_USE_CUDA:BOOL=%s'%(use_gpu_string,),)
         if use_openmp_string != "":
-            cmake_args.append('-DCompadre_USE_OpenMP:BOOL=%s'%(use_openmp_string,),)
+            cmake_args.append('-DCompadre_USE_OPENMP:BOOL=%s'%(use_openmp_string,),)
         if use_pthread_string != "":
-            cmake_args.append('-DCompadre_USE_Pthread:BOOL=%s'%(use_pthread_string,),)
+            cmake_args.append('-DCompadre_USE_PTHREAD:BOOL=%s'%(use_pthread_string,),)
         if kokkos_prefix_string != "":
             cmake_args.append('-DKokkosCore_PREFIX:STRING=%s'%(kokkos_prefix_string,))
         if cuda_prefix_string != "":
-            cmake_args.append('-DCUDA_PREFIX:STRING=%s'%(cuda_prefix_string,))
+            cmake_args.append('-DKokkos_CUDA_DIR:STRING=%s'%(cuda_prefix_string,))
         if cuda_cublas_prefix_string != "":
-            cmake_args.append('-DCUDA_CUBLAS_PREFIX:STRING=%s'%(cuda_cublas_prefix_string,))
+            cmake_args.append('-DKokkosKernels_CUBLAS_ROOT:STRING=%s'%(cuda_cublas_prefix_string,))
         if blas_prefix_string != "":
-            cmake_args.append('-DBLAS_PREFIX:STRING=%s'%(blas_prefix_string,))
+            cmake_args.append('-DKokkosKernels_BLAS_ROOT:STRING=%s'%(blas_prefix_string,))
         if lapack_prefix_string != "":
-            cmake_args.append('-DLAPACK_PREFIX:STRING=%s'%(lapack_prefix_string,))
+            cmake_args.append('-DKokkosKernels_LAPACK_ROOT:STRING=%s'%(lapack_prefix_string,))
         if trilinos_prefix_string != "":
             cmake_args.append('-DTrilinos_PREFIX:STRING=%s'%(trilinos_prefix_string,))
         else:
@@ -405,16 +409,28 @@ class build_ext(build_ext_orig):
                                           os.path.basename(lib)))
 
         # copy files from this build directory
-        python_temp = "./src"
+        python_temps = ["./src","./kokkos/core/src","./kokkos/containers/src","./kokkos-kernels/src"]
         dest_temp = "../" + extdir.relative_to(*extdir.parts[:1]).as_posix() + "/../compadre"
-        libs = [os.path.join(python_temp, _lib) for _lib in 
-                os.listdir(python_temp) if 
-                os.path.isfile(os.path.join(python_temp, _lib)) and 
-                os.path.splitext(_lib)[1] in [".dll", ".so", ".dylib"]
-                and not (_lib.startswith("python"))]
-        for lib in libs:
-            shutil.move(lib, os.path.join(dest_temp,
-                                          os.path.basename(lib)))
+        for python_temp in python_temps:
+
+            libs_not_sym = [os.path.join(python_temp, _lib) for _lib in 
+                    os.listdir(python_temp) if 
+                    (not os.path.islink(os.path.join(python_temp, _lib))) and os.path.isfile(os.path.join(python_temp, _lib)) and 
+                    ((os.path.splitext(_lib)[1] in [".dll", ".so", ".dylib"]) or (len(os.path.basename(_lib).split("."))>1 and (os.path.basename(_lib).split(".")[1] in ["dll", "so", "dylib"])))
+                    and not (_lib.startswith("python"))]
+
+            libs_are_sym = [os.path.join(python_temp, _lib) for _lib in 
+                    os.listdir(python_temp) if 
+                    os.path.islink(os.path.join(python_temp, _lib)) and os.path.isfile(os.path.join(python_temp, _lib)) and 
+                    ((os.path.splitext(_lib)[1] in [".dll", ".so", ".dylib"]) or (len(os.path.basename(_lib).split("."))>1 and (os.path.basename(_lib).split(".")[1] in ["dll", "so", "dylib"])))
+                    and not (_lib.startswith("python"))]
+
+            for lib in libs_not_sym:
+                shutil.move(lib, os.path.join(dest_temp,
+                                              os.path.basename(lib)))
+
+            for lib in libs_are_sym:
+                os.symlink(os.path.basename(os.readlink(lib)), os.path.basename(lib))
 
         os.chdir(str(cwd))
 

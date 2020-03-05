@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 2.0
-//              Copyright (2014) Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -46,35 +47,35 @@
 
 namespace Test {
 
-TEST_F( TEST_CATEGORY, team_scan )
-{
-  TestScanTeam< TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >( 0 );
-  TestScanTeam< TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >( 0 );
-  TestScanTeam< TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >( 10 );
-  TestScanTeam< TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >( 10 );
-  TestScanTeam< TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >( 10000 );
-  TestScanTeam< TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >( 10000 );
+TEST_F(TEST_CATEGORY, team_scan) {
+  TestScanTeam<TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >(0);
+  TestScanTeam<TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >(0);
+  TestScanTeam<TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >(10);
+  TestScanTeam<TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >(10);
+  TestScanTeam<TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >(10000);
+  TestScanTeam<TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >(10000);
 }
 
-TEST_F( TEST_CATEGORY, team_long_reduce )
-{
-  TestReduceTeam< long, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >( 0 );
-  TestReduceTeam< long, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >( 0 );
-  TestReduceTeam< long, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >( 3 );
-  TestReduceTeam< long, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >( 3 );
-  TestReduceTeam< long, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >( 100000 );
-  TestReduceTeam< long, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >( 100000 );
+TEST_F(TEST_CATEGORY, team_long_reduce) {
+  TestReduceTeam<long, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >(0);
+  TestReduceTeam<long, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >(0);
+  TestReduceTeam<long, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >(3);
+  TestReduceTeam<long, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >(3);
+  TestReduceTeam<long, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >(
+      100000);
+  TestReduceTeam<long, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >(
+      100000);
 }
 
-TEST_F( TEST_CATEGORY, team_double_reduce )
-{
-  TestReduceTeam< double, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >( 0 );
-  TestReduceTeam< double, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >( 0 );
-  TestReduceTeam< double, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >( 3 );
-  TestReduceTeam< double, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >( 3 );
-  TestReduceTeam< double, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >( 100000 );
-  TestReduceTeam< double, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >( 100000 );
+TEST_F(TEST_CATEGORY, team_double_reduce) {
+  TestReduceTeam<double, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >(0);
+  TestReduceTeam<double, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >(0);
+  TestReduceTeam<double, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >(3);
+  TestReduceTeam<double, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >(3);
+  TestReduceTeam<double, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >(
+      100000);
+  TestReduceTeam<double, TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >(
+      100000);
 }
 
-} // namespace Test
-
+}  // namespace Test

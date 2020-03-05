@@ -612,6 +612,11 @@ macro(latest_find_dependency dep)
   endif()
 endmacro(latest_find_dependency)"
        )
+  # PK added this
+  set(FIND_EXT_DEPS_CONTENT)
+  foreach(dep IN LISTS ${PROJECT_NAME}_EXT_DEPS)
+      set(FIND_EXT_DEPS_CONTENT "${FIND_EXT_DEPS_CONTENT}find_package(${dep} REQUIRED NO_DEFAULT_PATH HINTS ${${dep}_PREFIX})\n")
+  endforeach()
   set(FIND_DEPS_CONTENT)
   foreach(dep IN LISTS ${PROJECT_NAME}_DEPS)
     string(REPLACE ";" " " FIND_DEP_ARGS "${${dep}_find_package_args}")
@@ -623,6 +628,7 @@ latest_find_dependency(${dep} ${FIND_DEP_ARGS})"
   set(CONFIG_CONTENT
 "set(${PROJECT_NAME}_VERSION ${${PROJECT_NAME}_VERSION})
 ${LATEST_FIND_DEPENDENCY}
+${FIND_EXT_DEPS_CONTENT}
 ${FIND_DEPS_CONTENT}
 set(${PROJECT_NAME}_EXPORTED_TARGETS \"${${PROJECT_NAME}_EXPORTED_TARGETS}\")
 foreach(tgt IN LISTS ${PROJECT_NAME}_EXPORTED_TARGETS)
@@ -756,5 +762,5 @@ set(${KEY_${TYPE}} \"${val}\")")
       "${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
       DESTINATION lib/cmake/${PROJECT_NAME})
   endif()
-  #bob_install_provenance_no_recurse("${no_recurse_components_list}")
+  bob_install_provenance_no_recurse("${no_recurse_components_list}")
 endfunction(bob_end_package_no_recurse)

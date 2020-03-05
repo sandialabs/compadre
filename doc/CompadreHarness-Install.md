@@ -184,7 +184,7 @@ CC=$MPI_DIR/bin/mpicc CPPFLAGS=-I${HDF5_DIR}/include LDFLAGS=-L${HDF5_DIR}/lib \
 
 #### Compadre Harness
 
-Now that all of the third party libraries have been installed (HDF5, NetCDF, VTK, and Trilinos), it is time to install the Compadre Harness.
+Now that all of the third party libraries have been installed (HDF5, NetCDF, and Trilinos), it is time to install the Compadre Harness.
 
  1.) Get the source code at https://github.com/SNLComputation/compadre
      Clone the repo, then check out the **harness** branch:
@@ -210,7 +210,6 @@ INSTALL_DIR=/your/harness/install
 MPI_DIR=/usr
 TRILINOS_DIR=/your/trilinos/install
 NETCDF_DIR=/your/netcdf/install
-VTK_DIR=/your/vtk/install
 
 # following lines for build directory cleanup
 find . ! -name '*.sh' -type f -exec rm -f {} +
@@ -219,19 +218,15 @@ find . -mindepth 1 -type d -exec rm -rf {} +
 cmake \
     -D CMAKE_CXX_COMPILER=$MPI_DIR/bin/mpic++ \
     -D CMAKE_INSTALL_PREFIX=$INSTALL_DIR \
-    -D CompadreHarness_USE_Trilinos:BOOL=ON \
     -D CompadreHarness_USE_Trilinos_CXX_Flags:BOOL=ON \
     -D CompadreHarness_USE_Trilinos_Solvers:BOOL=ON \
     -D CompadreHarness_USE_Netcdf:BOOL=ON \
-    -D CompadreHarness_USE_VTK:BOOL=ON \
-    -D CompadreHarness_USE_PYTHON:BOOL=OFF \
     -D CompadreHarness_EXAMPLES:BOOL=ON \
     -D CompadreHarness_TESTS:BOOL=ON \
-    -D Toolkit_EXAMPLES:BOOL=ON \
-    -D Toolkit_TESTS:BOOL=ON \
+    -D Compadre_EXAMPLES:BOOL=ON \
+    -D Compadre_TESTS:BOOL=ON \
     -D Trilinos_PREFIX:FILEPATH=$TRILINOS_DIR \
     -D Netcdf_PREFIX:FILEPATH=$NETCDF_DIR \
-    -D VTK_PREFIX:FILEPATH=$VTK_DIR \
     \
     ..
 ```

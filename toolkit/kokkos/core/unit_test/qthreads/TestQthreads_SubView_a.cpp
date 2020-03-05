@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 2.0
-//              Copyright (2014) Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -45,81 +46,70 @@
 
 namespace Test {
 
-TEST_F( qthreads, view_subview_auto_1d_left )
-{
+TEST_F(qthreads, view_subview_auto_1d_left) {
 #if 0
   TestViewSubview::test_auto_1d< Kokkos::LayoutLeft, Kokkos::Qthreads >();
 #endif
 }
 
-TEST_F( qthreads, view_subview_auto_1d_right )
-{
+TEST_F(qthreads, view_subview_auto_1d_right) {
 #if 0
   TestViewSubview::test_auto_1d< Kokkos::LayoutRight, Kokkos::Qthreads >();
 #endif
 }
 
-TEST_F( qthreads, view_subview_auto_1d_stride )
-{
+TEST_F(qthreads, view_subview_auto_1d_stride) {
 #if 0
   TestViewSubview::test_auto_1d< Kokkos::LayoutStride, Kokkos::Qthreads >();
 #endif
 }
 
-TEST_F( qthreads, view_subview_assign_strided )
-{
+TEST_F(qthreads, view_subview_assign_strided) {
 #if 0
   TestViewSubview::test_1d_strided_assignment< Kokkos::Qthreads >();
 #endif
 }
 
-TEST_F( qthreads, view_subview_left_0 )
-{
+TEST_F(qthreads, view_subview_left_0) {
 #if 0
   TestViewSubview::test_left_0< Kokkos::Qthreads >();
 #endif
 }
 
-TEST_F( qthreads, view_subview_left_1 )
-{
+TEST_F(qthreads, view_subview_left_1) {
 #if 0
   TestViewSubview::test_left_1< Kokkos::Qthreads >();
 #endif
 }
 
-TEST_F( qthreads, view_subview_left_2 )
-{
+TEST_F(qthreads, view_subview_left_2) {
 #if 0
   TestViewSubview::test_left_2< Kokkos::Qthreads >();
 #endif
 }
 
-TEST_F( qthreads, view_subview_left_3 )
-{
+TEST_F(qthreads, view_subview_left_3) {
 #if 0
   TestViewSubview::test_left_3< Kokkos::Qthreads >();
 #endif
 }
 
-TEST_F( qthreads, view_subview_right_0 )
-{
+TEST_F(qthreads, view_subview_right_0) {
 #if 0
   TestViewSubview::test_right_0< Kokkos::Qthreads >();
 #endif
 }
 
-TEST_F( qthreads, view_subview_right_1 )
-{
+TEST_F(qthreads, view_subview_right_1) {
 #if 0
   TestViewSubview::test_right_1< Kokkos::Qthreads >();
 #endif
 }
 
-TEST_F( qthreads, view_subview_right_3 )
-{
+TEST_F(qthreads, view_subview_right_3) {
 #if 0
   TestViewSubview::test_right_3< Kokkos::Qthreads >();
 #endif
 }
 
-} // namespace Test
+}  // namespace Test

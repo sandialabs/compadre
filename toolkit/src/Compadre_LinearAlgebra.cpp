@@ -1,5 +1,12 @@
 #include "Compadre_LinearAlgebra_Definitions.hpp"
 #include "Compadre_Functors.hpp"
+//#include <KokkosBlas.hpp>
+//#include <KokkosBatched_LU_Decl.hpp>
+//#include <KokkosBatched_LU_Serial_Impl.hpp>
+//#include <KokkosBatched_LU_Team_Impl.hpp>
+//#include <KokkosBatched_Trsv_Decl.hpp>
+//#include <KokkosBatched_Trsv_Serial_Impl.hpp>
+//#include <KokkosBatched_Trsv_Team_Impl.hpp>
 
 namespace Compadre{
 namespace GMLS_LinearAlgebra {
@@ -641,6 +648,43 @@ void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *R
 
 
 #elif defined(COMPADRE_USE_LAPACK)
+
+//    Kokkos::View<double***> AA("AA", num_matrices, M, N); /// element matrices
+//    Kokkos::View<double**>  BB("BB", num_matrices, N, N);    /// load vector and would be overwritten by a solution
+//    
+//    using namespace KokkosBatched;
+//#if 0 // range policy
+//    Kokkos::parallel_for(N, KOKKOS_LAMBDA(const int i) {
+//      auto A = Kokkos::subview(AA, i, Kokkos::ALL(), Kokkos::ALL()); /// ith matrix
+//      auto B = Kokkos::subview(BB, i, Kokkos::ALL());                /// ith load/solution vector
+//    
+//      SerialLU<Algo::LU::Unblocked>
+//        ::invoke(A);
+//      SerialTrsv<Uplo::Lower,Trans::NoTranspose,Diag::Unit,Algo::Trsv::Unblocked>
+//        ::invoke(1, A, B);
+//    });
+//#endif
+//
+//#if 1 // team policy
+//    {
+//      typedef Kokkos::TeamPolicy<device_execution_space> team_policy_type;
+//      typedef typename team_policy_type::member_type member_type;
+//      const int team_size = 32, vector_size = 1;
+//      team_policy_type policy(num_matrices, team_size, vector_size); 
+//      Kokkos::parallel_for(policy, KOKKOS_LAMBDA(const member_type &member) {
+//	  const int i = member.league_rank();
+//	    auto A = Kokkos::subview(AA, i, Kokkos::ALL(), Kokkos::ALL()); /// ith matrix
+//	    auto B = Kokkos::subview(BB, i, Kokkos::ALL());                /// ith load/solution vector
+//	    
+//	    TeamLU<member_type,Algo::LU::Unblocked>
+//	      ::invoke(member, A);
+//	    TeamTrsv<member_type,Uplo::Lower,Trans::NoTranspose,Diag::Unit,Algo::Trsv::Unblocked>
+//	      ::invoke(member, 1, A, B);
+//	  });
+//	}
+//#endif
+//
+//#endif
 
     // later improvement could be to send in an optional view with the neighbor list size for each target to reduce work
 

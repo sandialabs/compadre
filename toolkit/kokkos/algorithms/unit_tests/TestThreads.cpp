@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 2.0
-//              Copyright (2014) Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -52,51 +53,36 @@
 #include <TestSort.hpp>
 #include <iomanip>
 
-
 //----------------------------------------------------------------------------
-
 
 namespace Test {
 
-class threads : public ::testing::Test {
-protected:
-  static void SetUpTestCase()
-  {
-    std::cout << std::setprecision(5) << std::scientific;
+#define THREADS_RANDOM_XORSHIFT64(num_draws)                             \
+  TEST(threads, Random_XorShift64) {                                     \
+    Impl::test_random<Kokkos::Random_XorShift64_Pool<Kokkos::Threads> >( \
+        num_draws);                                                      \
   }
 
-  static void TearDownTestCase()
-  {
-  }
-};
-
-#define THREADS_RANDOM_XORSHIFT64( num_draws )                                \
-  TEST_F( threads, Random_XorShift64 ) {   \
-      Impl::test_random<Kokkos::Random_XorShift64_Pool<Kokkos::Threads> >(num_draws);                                   \
+#define THREADS_RANDOM_XORSHIFT1024(num_draws)                             \
+  TEST(threads, Random_XorShift1024) {                                     \
+    Impl::test_random<Kokkos::Random_XorShift1024_Pool<Kokkos::Threads> >( \
+        num_draws);                                                        \
   }
 
-#define THREADS_RANDOM_XORSHIFT1024( num_draws )                                \
-  TEST_F( threads, Random_XorShift1024 ) {   \
-      Impl::test_random<Kokkos::Random_XorShift1024_Pool<Kokkos::Threads> >(num_draws);                                   \
+#define THREADS_SORT_UNSIGNED(size)                 \
+  TEST(threads, SortUnsigned) {                     \
+    Impl::test_sort<Kokkos::Threads, double>(size); \
   }
 
-#define THREADS_SORT_UNSIGNED( size )                                \
-  TEST_F( threads, SortUnsigned ) {   \
-      Impl::test_sort< Kokkos::Threads, double >(size);                                   \
-  }
-
-
-THREADS_RANDOM_XORSHIFT64( 10240000 )
-THREADS_RANDOM_XORSHIFT1024( 10130144 )
+THREADS_RANDOM_XORSHIFT64(10240000)
+THREADS_RANDOM_XORSHIFT1024(10130144)
 THREADS_SORT_UNSIGNED(171)
 
 #undef THREADS_RANDOM_XORSHIFT64
 #undef THREADS_RANDOM_XORSHIFT1024
 #undef THREADS_SORT_UNSIGNED
 
-} // namespace Test
+}  // namespace Test
 #else
 void KOKKOS_ALGORITHMS_UNITTESTS_TESTTHREADS_PREVENT_LINK_ERROR() {}
 #endif
-
-

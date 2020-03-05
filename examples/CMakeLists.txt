@@ -30,7 +30,7 @@ if (CompadreHarness_TESTS)
   file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/../test_data" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/..")
 endif()
 
-if (CompadreHarness_EXAMPLES AND CompadreHarness_USE_Trilinos)
+if (CompadreHarness_EXAMPLES)
   add_exe_w_compadre(CompadreGMLSStaggeredAnalyticTest Compadre_GMLSStaggeredAnalyticTest.cpp)
   add_exe_w_compadre(CompadreGMLSStaggeredIntegralTest Compadre_GMLSStaggeredIntegralTest.cpp)
   add_exe_w_compadre(CompadreGMLSCurlCurlTest Compadre_GMLSCurlCurlTest.cpp)

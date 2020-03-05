@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 2.0
-//              Copyright (2014) Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -42,7 +43,7 @@
 */
 
 #include <Kokkos_Macros.hpp>
-#if defined( KOKKOS_ENABLE_ROCM )
+#if defined(KOKKOS_ENABLE_ROCM)
 
 #include <cstdint>
 #include <string>
@@ -66,15 +67,14 @@
 namespace Performance {
 
 class rocm : public ::testing::Test {
-protected:
-  static void SetUpTestCase()
-  {
+ protected:
+  static void SetUpTestCase() {
     std::cout << std::setprecision(5) << std::scientific;
     Kokkos::HostSpace::execution_space::initialize();
-    Kokkos::Experimental::ROCm::initialize( Kokkos::Experimental::ROCm::SelectDevice(0) );
+    Kokkos::Experimental::ROCm::initialize(
+        Kokkos::Experimental::ROCm::SelectDevice(0));
   }
-  static void TearDownTestCase()
-  {
+  static void TearDownTestCase() {
     Kokkos::Experimental::ROCm::finalize();
     Kokkos::HostSpace::execution_space::finalize();
   }
@@ -97,17 +97,15 @@ TEST_F( rocm, global_2_local)
 }
 
 #endif
-TEST_F( rocm, unordered_map_performance_near)
-{
-  Perf::run_performance_tests<Kokkos::Experimental::ROCm,true>("rocm-near");
+TEST_F(rocm, unordered_map_performance_near) {
+  Perf::run_performance_tests<Kokkos::Experimental::ROCm, true>("rocm-near");
 }
 
-TEST_F( rocm, unordered_map_performance_far)
-{
-  Perf::run_performance_tests<Kokkos::Experimental::ROCm,false>("rocm-far");
+TEST_F(rocm, unordered_map_performance_far) {
+  Perf::run_performance_tests<Kokkos::Experimental::ROCm, false>("rocm-far");
 }
 
-}
+}  // namespace Performance
 #else
 void KOKKOS_CONTAINERS_PERFORMANCE_TESTS_TESTROCM_PREVENT_EMPTY_LINK_ERROR() {}
-#endif  /* #if defined( KOKKOS_ENABLE_ROCM ) */
+#endif /* #if defined( KOKKOS_ENABLE_ROCM ) */

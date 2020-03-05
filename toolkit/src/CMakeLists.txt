@@ -31,39 +31,33 @@ set(COMPADRE_SOURCES
   Compadre_LinearAlgebra.cpp
   )
 
-
 add_library(compadre ${COMPADRE_SOURCES})
 bob_library_includes(compadre)
 
 # link to Kokkos
 if (KOKKOS_EXISTING_ELSEWHERE) # user points to Kokkos installation
-  target_include_directories(compadre PUBLIC "${KokkosCore_INCLUDE_DIRS}")
-  target_link_libraries(compadre PUBLIC "${KokkosCore_STATIC_LIB}")
+  target_link_libraries(compadre PUBLIC Kokkos::kokkoscore)
 elseif (KOKKOS_IN_TRILINOS) # Kokkos found in Trilinos installation
-  bob_link_dependency(compadre PUBLIC KokkosCore)
+  target_include_directories(compadre PUBLIC ${Trilinos_INCLUDE_DIRS})
+  target_link_libraries(compadre PUBLIC kokkoscore)
 elseif (KOKKOS_BUILT_FOR_USER) # Kokkos built for user by this project
-  # adds a KokkosCore dependency to compadre, but checks whether or not CMake needs to rescan after
-  # building KokkosCore
-  add_dependencies(compadre RescanKokkosCore)
-  target_link_libraries(compadre PUBLIC "${KokkosCore_STATIC_LIB}")
+  target_link_libraries(compadre PUBLIC Kokkos::kokkoscore)
+endif()
+
+if (KOKKOSKERNELS_EXISTING_ELSEWHERE) # user points to KokkosKernels installation
+  target_link_libraries(compadre PUBLIC Kokkos::kokkoskernels)
+elseif (KOKKOSKERNELS_IN_TRILINOS) # KokkosKernels found in Trilinos installation
+  target_link_libraries(compadre PUBLIC kokkoskernels)
+elseif (KOKKOSKERNELS_BUILT_FOR_USER) # Kokkos-Kernels built for user by this project
+  target_link_libraries(compadre PUBLIC Kokkos::kokkoskernels)
 endif()
 
 # link to CUDA
 if (Compadre_USE_CUDA AND NOT(KOKKOS_IN_TRILINOS))
-  target_include_directories(compadre PUBLIC "${CUDA_INCLUDE_DIRS}")
-  target_link_libraries(compadre PUBLIC "${CUDA_CUBLAS_LIBRARIES}")
-  target_link_libraries(compadre PUBLIC "${CUDA_CUSOLVER_LIBRARIES}")
-  target_link_libraries(compadre PUBLIC "${CUDA_CUDART_LIBRARIES}")
-  MESSAGE(STATUS "${CUDA_INCLUDE_DIRS}")
-endif()
-
-# link to LAPACK
-if (Compadre_USE_LAPACK)
-  if (LAPACK_LIB)
-    target_link_libraries(compadre PUBLIC "${LAPACK_LIB}")
-  endif()
-  if (BLAS_LIB)
-    target_link_libraries(compadre PUBLIC "${BLAS_LIB}")
+  if (TARGET Kokkos::CUDA)
+    target_link_libraries(compadre PUBLIC "cusolver") # comes from Kokkos::CUBLAS
+  else()
+    MESSAGE(FATAL_ERROR "Compadre_USE_CUDA is ON, but CUBLAS not found by KokkosKernels.")
   endif()
 endif()
 

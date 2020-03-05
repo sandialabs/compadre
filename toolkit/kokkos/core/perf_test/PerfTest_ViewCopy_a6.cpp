@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 2.0
-//              Copyright (2014) Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -41,10 +42,10 @@
 //@HEADER
 */
 
-#include<PerfTest_ViewCopy.hpp>
+#include <PerfTest_ViewCopy.hpp>
 namespace Test {
-TEST_F( default_exec, ViewDeepCopy_LeftLeft_Rank6 ) {
+TEST(default_exec, ViewDeepCopy_LeftLeft_Rank6) {
   printf("DeepCopy Performance for LayoutLeft to LayoutLeft:\n");
-  run_deepcopyview_tests6<Kokkos::LayoutLeft,Kokkos::LayoutLeft>(10,1);
+  run_deepcopyview_tests6<Kokkos::LayoutLeft, Kokkos::LayoutLeft>(10, 1);
 }
-}
+}  // namespace Test
