@@ -21,17 +21,20 @@ p^{*}& =& \underset{p \in V}{\text{arg min}}\;\frac{1}{2}\sum_{j=1}^N (\lambda_j
 \end{align*} \]
 --->
 
+## Wiki Information
+Details about building and using the Compadre toolkit can be found on the [Wiki](https://github.com/SNLComputation/compadre/wiki).
+
 ## Recent Changes
-[Recent Changes](doc/Changelog.md)
+[Recent Changes](https://github.com/SNLComputation/compadre/wiki/Changelog)
 
 ## Installation
-[Installation of Kokkos](doc/Kokkos-Install.md) [Either automatically configured and built, or user installation location provided]
+[Installation of Kokkos and KokkosKernels](https://github.com/SNLComputation/compadre/wiki/Kokkos-and-KokkosKernels) [Either automatically configured and built, or user installation location provided]
 
-[Installation of Compadre](doc/Compadre-Install.md)
+[Installation of Compadre](https://github.com/SNLComputation/compadre/wiki/Building-Compadre)
 
 ## Documentation and Tutorials
 The toolkit is documented by Doxygen. <b>[Documentation is available online](https://snlcomputation.github.io/compadre/doc/html/index.html)</b> or can be compiled from source.
-To compile from source: 1.) install doxygen software on your computer, 2.) execute '>> make Doxygen' after having installed the Compadre Toolkit. HTML and Latex documentation will be generated in the <b>doc/</b> folder, in-source. 
+To compile from source: 1.) install doxygen software on your computer, 2.) execute '>> make doc' after having installed the Compadre Toolkit. HTML and Latex documentation will be generated in the <b>doc/</b> folder, in-source. 
 
 ## Citing the Software
 
