@@ -484,15 +484,17 @@ endif()
 #
 #
 ##########
-bob_option(Compadre_BUILD_Doxygen "Compile Doxygen documentation" ON)
-if(Compadre_BUILD_Doxygen)
-  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in" "${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile"
-                 @ONLY)
-  add_custom_target(Doxygen
-                    COMMAND doxygen
-                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doc )
-  # still must be called manually with "make Doxygen"
-endif(Compadre_BUILD_Doxygen)
+
+find_package(Doxygen QUIET)
+if (DOXYGEN_FOUND)
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in" "${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile" @ONLY)
+  add_custom_target(doc ALL
+      COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doc 
+      VERBATIM 
+  )
+  # still must be called manually with "make doc"
+endif()
 
 
 if (Trilinos_PREFIX)
