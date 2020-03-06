@@ -380,17 +380,17 @@ endif()
 #
 #
 ##########
-bob_option(CompadreHarness_BUILD_Doxygen "Compile Doxygen documentation" ON)
-if(CompadreHarness_BUILD_Doxygen)
-  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in" "${CMAKE_CURRENT_BINARY_DIR}/doc/Doxyfile"
-                 @ONLY)
-  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/doc/DoxygenLayout.xml" "${CMAKE_CURRENT_BINARY_DIR}/doc/DoxygenLayout.xml"
-                 COPYONLY)
-  add_custom_target(HarnessDoxygen
-                    COMMAND doxygen
-                    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/doc )
-  # still must be called manually with "make Doxygen"
-endif(CompadreHarness_BUILD_Doxygen)
+find_package(Doxygen QUIET)
+if (DOXYGEN_FOUND)
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in" "${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile" @ONLY)
+  add_custom_target(doc
+      COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doc 
+      VERBATIM 
+  )
+  set_target_properties(doc PROPERTIES EXCLUDE_FROM_ALL TRUE)
+  # still must be called manually with "make doc"
+endif()
 
 
 set (augmented_list "${Trilinos_LIBRARIES}")
