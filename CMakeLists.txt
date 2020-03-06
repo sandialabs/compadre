@@ -488,11 +488,12 @@ endif()
 find_package(Doxygen QUIET)
 if (DOXYGEN_FOUND)
   configure_file("${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in" "${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile" @ONLY)
-  add_custom_target(doc ALL
+  add_custom_target(doc
       COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doc 
       VERBATIM 
   )
+  set_target_properties(doc PROPERTIES EXCLUDE_FROM_ALL TRUE)
   # still must be called manually with "make doc"
 endif()
 
