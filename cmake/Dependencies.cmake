@@ -1,7 +1,6 @@
 tribits_package_define_dependencies(
   LIB_REQUIRED_PACKAGES
     KokkosCore
-  LIB_OPTIONAL_PACKAGES
     KokkosKernels
   LIB_REQUIRED_TPLS
     BLAS
