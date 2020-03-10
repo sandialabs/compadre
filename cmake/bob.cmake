@@ -30,9 +30,9 @@ function(bob_always_full_rpath)
   set(CMAKE_BUILD_WITH_INSTALL_RPATH False PARENT_SCOPE)
   # the RPATH to be used when installing, but only if it's not a system directory
   list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES
-       "${CMAKE_INSTALL_PREFIX}/lib" isSystemDir)
+       "${CMAKE_INSTALL_LIBDIR}" isSystemDir)
   if("${isSystemDir}" STREQUAL "-1")
-    set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib" PARENT_SCOPE)
+    set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_LIBDIR}" PARENT_SCOPE)
   endif()
   # add the automatically determined parts of the RPATH
   # which point to directories outside the build tree to the install RPATH
@@ -341,10 +341,10 @@ macro(bob_add_dependency)
       install(TARGETS ${tgt} EXPORT
           ${tgt}-target
           RUNTIME DESTINATION bin
-          ARCHIVE DESTINATION lib
-          RUNTIME DESTINATION lib)
+          ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+          RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR})
       install(EXPORT ${tgt}-target
-              DESTINATION lib/cmake/${PROJECT_NAME})
+              DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
       set(${PROJECT_NAME}_EXPORTED_TARGETS
           ${${PROJECT_NAME}_EXPORTED_TARGETS}
           ${tgt})
@@ -390,11 +390,11 @@ function(bob_export_target tgt_name)
     install(TARGETS ${tgt_name} DESTINATION bin)
   else()
     if (USE_XSDK_DEFAULTS)
-      install(TARGETS ${tgt_name} DESTINATION lib)
+      install(TARGETS ${tgt_name} DESTINATION ${CMAKE_INSTALL_LIBDIR})
     else()
-      install(TARGETS ${tgt_name} EXPORT ${tgt_name}-target DESTINATION lib)
+      install(TARGETS ${tgt_name} EXPORT ${tgt_name}-target DESTINATION ${CMAKE_INSTALL_LIBDIR})
       install(EXPORT ${tgt_name}-target NAMESPACE ${PROJECT_NAME}::
-              DESTINATION lib/cmake/${PROJECT_NAME})
+              DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
       set(${PROJECT_NAME}_EXPORTED_TARGETS
           ${${PROJECT_NAME}_EXPORTED_TARGETS} ${tgt_name} PARENT_SCOPE)
     endif()
@@ -516,7 +516,7 @@ function(bob_install_provenance)
        "${${PROJECT_NAME}_CMAKE_ARGS}")
   install(FILES
       ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_cmake_args.txt
-      DESTINATION lib/cmake/${PROJECT_NAME})
+      DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
   get_property(languages GLOBAL PROPERTY ENABLED_LANGUAGES)
   string(TOUPPER "${CMAKE_BUILD_TYPE}" build_type_upper)
   foreach(lang IN LISTS languages)
@@ -524,7 +524,7 @@ function(bob_install_provenance)
          "${CMAKE_${lang}_COMPILER} ${CMAKE_${lang}_FLAGS} ${CMAKE_${lang}_FLAGS_${build_type_upper}}")
     install(FILES
         ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_${lang}_compile_line.txt
-        DESTINATION lib/cmake/${PROJECT_NAME})
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
   endforeach()
   foreach(tgt IN LISTS ${PROJECT_NAME}_EXPORTED_TARGETS)
     get_target_property(tgt_type "${tgt}" TYPE)
@@ -534,7 +534,7 @@ function(bob_install_provenance)
            "${link_libs}")
       install(FILES
           ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_${tgt}_libs.txt
-          DESTINATION lib/cmake/${PROJECT_NAME})
+          DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
     endif()
   endforeach()
 
@@ -545,7 +545,7 @@ function(bob_install_provenance_no_recurse no_recurse_components_list)
        "${${PROJECT_NAME}_CMAKE_ARGS}")
   install(FILES
       ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_cmake_args.txt
-      DESTINATION lib/cmake/${PROJECT_NAME})
+      DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
   get_property(languages GLOBAL PROPERTY ENABLED_LANGUAGES)
   string(TOUPPER "${CMAKE_BUILD_TYPE}" build_type_upper)
   foreach(lang IN LISTS languages)
@@ -553,7 +553,7 @@ function(bob_install_provenance_no_recurse no_recurse_components_list)
          "${CMAKE_${lang}_COMPILER} ${CMAKE_${lang}_FLAGS} ${CMAKE_${lang}_FLAGS_${build_type_upper}}")
     install(FILES
         ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_${lang}_compile_line.txt
-        DESTINATION lib/cmake/${PROJECT_NAME})
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
   endforeach()
   foreach(tgt IN LISTS ${PROJECT_NAME}_EXPORTED_TARGETS)
     get_target_property(tgt_type "${tgt}" TYPE)
@@ -563,7 +563,7 @@ function(bob_install_provenance_no_recurse no_recurse_components_list)
            "${link_libs}")
       install(FILES
           ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_${tgt}_libs.txt
-          DESTINATION lib/cmake/${PROJECT_NAME})
+          DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
     endif()
   endforeach()
 
@@ -572,7 +572,7 @@ endfunction(bob_install_provenance_no_recurse)
 function(bob_end_package)
   include(CMakePackageConfigHelpers)
   set(INCLUDE_INSTALL_DIR include)
-  set(LIB_INSTALL_DIR lib)
+  set(LIB_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR})
   set(LATEST_FIND_DEPENDENCY
 "#The definition of this macro is really inconvenient prior to CMake
 #commit ab358d6a859d8b7e257ed1e06ca000e097a32ef6
@@ -654,7 +654,7 @@ set(${KEY_${TYPE}} \"${val}\")")
 ")
   install(FILES
     "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
-    DESTINATION lib/cmake/${PROJECT_NAME})
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
   if(PROJECT_VERSION)
     file(WRITE
         ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
@@ -665,7 +665,7 @@ set(${KEY_${TYPE}} \"${val}\")")
         COMPATIBILITY SameMajorVersion)
     install(FILES
       "${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
-      DESTINATION lib/cmake/${PROJECT_NAME})
+      DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
   endif()
   bob_install_provenance()
 endfunction(bob_end_package)
@@ -673,7 +673,7 @@ endfunction(bob_end_package)
 function(bob_end_package_no_recurse no_recurse_components_list)
   include(CMakePackageConfigHelpers)
   set(INCLUDE_INSTALL_DIR include)
-  set(LIB_INSTALL_DIR lib)
+  set(LIB_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR})
   set(LATEST_FIND_DEPENDENCY
 "#The definition of this macro is really inconvenient prior to CMake
 #commit ab358d6a859d8b7e257ed1e06ca000e097a32ef6
@@ -749,7 +749,7 @@ set(${KEY_${TYPE}} \"${val}\")")
 ")
   install(FILES
     "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
-    DESTINATION lib/cmake/${PROJECT_NAME})
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
   if(PROJECT_VERSION)
     file(WRITE
         ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
@@ -760,7 +760,7 @@ set(${KEY_${TYPE}} \"${val}\")")
         COMPATIBILITY SameMajorVersion)
     install(FILES
       "${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
-      DESTINATION lib/cmake/${PROJECT_NAME})
+      DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
   endif()
   bob_install_provenance_no_recurse("${no_recurse_components_list}")
 endfunction(bob_end_package_no_recurse)
