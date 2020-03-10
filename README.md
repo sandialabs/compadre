@@ -41,19 +41,21 @@ To compile from source: 1.) install doxygen software on your computer, 2.) execu
 If you write a paper using results obtained with the help of the Compadre Toolkit, please cite the following reference:
 
 ```
-@misc{paul_kuberry_2019_3338664,
+@software{paul_kuberry_2020_3703333,
   author       = {Paul Kuberry and
                   Peter Bosler and
                   Nathaniel Trask},
   title        = {Compadre Toolkit},
-  month        = jul,
-  year         = 2019,
-  doi          = {10.5281/zenodo.3338664},
-  url          = {https://doi.org/10.5281/zenodo.3338664}
+  month        = mar,
+  year         = 2020,
+  publisher    = {Zenodo},
+  version      = {v1.0.3},
+  doi          = {10.5281/zenodo.3703333},
+  url          = {https://doi.org/10.5281/zenodo.3703333}
 }
 ```
 
 If you would like to export the reference information to either CSL, DataCite, Dublin, Core, JSON, JSON-LD, MARCXML, or Mendeley, please find the export section at the bottom-right corner once you follow the link below:
 
-<a href="https://doi.org/10.5281/zenodo.3338664" target="_blank"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.3338664.svg"></a>
+<a href="https://doi.org/10.5281/zenodo.3338664" target="_blank"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.3703333.svg"></a>
 
