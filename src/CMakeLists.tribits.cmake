@@ -24,6 +24,7 @@ list(REMOVE_ITEM HEADERS
   ${CMAKE_CURRENT_SOURCE_DIR}/Compadre_Manifold_Functions.hpp
   )
 append_glob(HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/basis/*.hpp)
+append_glob(HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/tpl/*.hpp)
 append_glob(SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 
 #
