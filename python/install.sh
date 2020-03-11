@@ -153,3 +153,9 @@ fi
 # command to install from test pypi
 #python -m pip install --index-url https://test.pypi.org/simple/ --no-deps --upgrade compadre
 
+# instructions for updating conda package
+# 1.) git fetch origin on compadre repo
+# 2.) from the root of the repo, with master checked out, run >> git merge origin/conda_files
+# 3.) >> conda-build .
+# 4.) >> anaconda login
+# 5.) >> anaconda upload /some/path/to/compadre.tar.bz2
