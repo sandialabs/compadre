@@ -2,7 +2,7 @@
 # A) Package-specific configuration options
 #
 
-tribits_configure_file(${PACKAGE_NAME}_config.hpp)
+tribits_configure_file(${PACKAGE_NAME}_Config.h)
 
 #
 # B) Define the header and source files (and directories)
