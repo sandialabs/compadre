@@ -1,0 +1,15 @@
+#ifndef COMPADRE_CONFIG_H
+#define COMPADRE_CONFIG_H
+
+#cmakedefine COMPADRE_DEBUG
+#cmakedefine COMPADRE_USE_LAPACK
+#cmakedefine COMPADRE_USE_MPI
+#cmakedefine LAPACK_DECLARED_THREADSAFE
+#cmakedefine COMPADRE_VERSION_MAJOR 1
+#cmakedefine COMPADRE_VERSION_MINOR 0
+#cmakedefine COMPADRE_VERSION_PATCH 2
+#cmakedefine COMPADRE_SEMVER "1.0.2-sha.1938e0f+1001101"
+#cmakedefine COMPADRE_COMMIT "1938e0fe7ec62c37804e830370dbde74270b44ed"
+#cmakedefine GMLS_MODULE_DEST ""
+
+#endif
