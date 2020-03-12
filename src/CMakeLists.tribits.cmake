@@ -14,7 +14,7 @@ set(SOURCES "")
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 set(HEADERS ${HEADERS}
-  ${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}_config.hpp
+  ${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}_Config.h
   )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
