@@ -93,7 +93,7 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
     if (${TPL_ENABLE_LAPACK})
       set(testName LAPACK_THREADSAFE)
       tribits_add_test(
-        LAPACK_TEST
+        LAPACK_Test
         NAME
           ${testName}
         ARGS
