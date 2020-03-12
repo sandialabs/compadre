@@ -1,14 +1,14 @@
 %YAML 1.1
 ---
 Compadre:
-  'solution type': 'sine'
+  'solution type': 'poly'
   'loop size': 1
   'io':
     # source file for coords and normal vectors
     'input file prefix': '../test_data/grids/cube_with_normals_'
     'input file': ''
     # output file location
-    'output file prefix': '../test_data/amg_neumann_'
+    'output file prefix': '../test_data/amg_stokes_'
     # data reconstructed on target
     'output file': '.pvtp'
     # turn off mesh produced by vtk
@@ -18,18 +18,17 @@ Compadre:
     'file': '../test_data/parameter_lists/gmls_stokes/solver_amg.xml'
     'blocked': true
   'remap':
-    'weighting power': 5
+    'weighting power': 2
     'porder': 2
     'quadrature order': 2
     'quadrature dimension': 1
     'quadrature type': 'line'
-    'number of batches': 100
+    'number of batches': 1
   'neighborhood':
     'method': nanoflann
-    'cutoff multiplier': 2.7
-    'size': 30.0
+    'search type': radius
+    'size': 0.727272
     'uniform radii': true
-    'radii post search scaling': 1.5
   'halo':
     'dynamic': true
     'multiplier': 8.0

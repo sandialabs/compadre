@@ -61,17 +61,13 @@ int main(int argc, char* args[]) {
     }
 
     {
-        std::vector<std::string> fnames(3);
-        std::vector<double> hsize(3);
-        std::vector<double> velocity_errors(3);
-        std::vector<double> pressure_errors(3);
+        std::vector<std::string> fnames(1);
+        std::vector<double> hsize(1);
+        std::vector<double> velocity_errors(1);
+        std::vector<double> pressure_errors(1);
         const std::string filename_prefix = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix");
-        fnames[0] = filename_prefix + "6.nc";
-        fnames[1] = filename_prefix + "12.nc";
-        fnames[2] = filename_prefix + "24.nc";
-        hsize[0] = 6;
-        hsize[1] = 12;
-        hsize[2] = 24;
+        fnames[0] = filename_prefix + "12.nc";
+        hsize[0] = 12;
 
         TEUCHOS_TEST_FOR_EXCEPT_MSG(parameters->get<int>("loop size")>3, "Only three mesh levels available for this problem.");
 
@@ -94,6 +90,8 @@ int main(int argc, char* args[]) {
             particles->zoltan2Initialize();
             particles->getFieldManager()->createField(3, "velocity");
             particles->getFieldManager()->createField(1, "pressure");
+            particles->getFieldManager()->createField(3, "velocity_exact");
+            particles->getFieldManager()->createField(1, "pressure_exact");
             particles->getFieldManager()->createField(1, "lm_pressure");
 
             ST halo_size;
@@ -118,6 +116,11 @@ int main(int argc, char* args[]) {
                         parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
                         parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
                         parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
+
+                auto max_h = particles->getNeighborhood()->computeMaxHSupportSize(true);
+                if (comm->getRank()==0) {
+                    std::cout << "max _h " << max_h << std::endl;
+                }
 
                 // Iterative solver for the problem
                 Teuchos::RCP<Compadre::ProblemT> problem = Teuchos::rcp(new Compadre::ProblemT(particles));
@@ -180,6 +183,10 @@ int main(int argc, char* args[]) {
             pressure_global_val_mean /= (double)(coords->nGlobalMax());
             pressure_global_exact_mean /= (double)(coords->nGlobalMax());
 
+            // Get some view to write the exact solution to
+            Compadre::host_view_type pressure_exact_view = particles->getFieldManager()->getFieldByName("pressure_exact")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            Compadre::host_view_type velocity_exact_view = particles->getFieldManager()->getFieldByName("velocity_exact")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+
             // check solution
             ST error_velocity_norm = 0.0, error_pressure_norm = 0.0;
             // calculate the exact norm
@@ -195,12 +202,18 @@ int main(int argc, char* args[]) {
                 for (LO id=0; id<3; id++) {
                     error_velocity_norm += (velocity_computed[id] - velocity_exact[id])*(velocity_computed[id] - velocity_exact[id]);
                     velocity_norm += velocity_exact[id]*velocity_exact[id];
+                    // Write to output velocity field
+                    velocity_exact_view(j, 0) = velocity_exact[0];
+                    velocity_exact_view(j, 1) = velocity_exact[1];
+                    velocity_exact_view(j, 2) = velocity_exact[2];
                 }
                 // remove the mean from the pressure field
                 ST pressure_val = particles->getFieldManagerConst()->getFieldByName("pressure")->getLocalScalarVal(j) - pressure_global_val_mean;
                 ST pressure_exact = pressure_function->evalScalar(xyz) - pressure_global_exact_mean;
                 error_pressure_norm += (pressure_exact - pressure_val)*(pressure_exact - pressure_val);
                 pressure_norm += pressure_exact*pressure_exact;
+                // Write to output pressure field
+                pressure_exact_view(j, 0) = pressure_exact;
             }
 
             // Now sum up and broadcast both the velocity and pressure norm. And also error norm.
