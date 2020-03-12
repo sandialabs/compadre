@@ -97,15 +97,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
         NAME
           ${testName}
         ARGS
-          --kokkos-threads=8 --verbose --output-on-failure
-        ADDED_TEST_NAME_OUT ${testName}_CREATED
+          "--kokkos-threads=8 --verbose --output-on-failure"
+        ADDED_TESTS_NAMES_OUT ${testName}_CREATED
         ) # end tribits_add_test
       if (${testName}_CREATED)
         set_tests_properties(
           ${${testName}_CREATED}
           PROPERTIES
             LABELS
-              UnitTest unit lapack Lapack LAPACK kokkos
+              "UnitTest;unit;lapack;Lapack;LAPACK;kokkos"
             TIMEOUT
               5
             SKIP_RETURN_CODE
@@ -121,15 +121,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        4 200 3 0 0 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "4 200 3 0 0 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            UnitTest unit kokkos
+            "UnitTest;unit;kokkos"
           TIMEOUT
             10
         ) # end set_tests_properties
@@ -141,15 +141,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        4 200 2 0 0 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "4 200 2 0 0 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            UnitTest unit kokkos
+            "UnitTest;unit;kokkos"
           TIMEOUT
             10
         ) # end set_tests_properties
@@ -161,15 +161,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        4 200 1 0 0 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "4 200 1 0 0 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            UnitTest unit kokkos
+            "UnitTest;unit;kokkos"
           TIMEOUT
             10
         ) # end set_tests_properties
@@ -182,15 +182,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        4 200 3 1 0 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "4 200 3 1 0 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            UnitTest unit kokkos
+            "UnitTest;unit;kokkos"
           TIMEOUT
             10
         ) # end set_tests_properties
@@ -202,15 +202,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        4 200 2 1 0 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "4 200 2 1 0 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            UnitTest unit kokkos
+            "UnitTest;unit;kokkos"
           TIMEOUT
             10
         ) # end set_tests_properties
@@ -222,15 +222,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        4 200 1 1 0 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "4 200 1 1 0 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            UnitTest unit kokkos
+            "UnitTest;unit;kokkos"
           TIMEOUT
             10
         ) # end set_tests_properties
@@ -243,15 +243,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        4 200 3 2 0 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "4 200 3 2 0 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            UnitTest unit kokkos
+            "UnitTest;unit;kokkos"
           TIMEOUT
             10
         ) # end set_tests_properties
@@ -264,15 +264,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        3 200 3 2 0 1 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "3 200 3 2 0 1 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            UnitTest unit kokkos
+            "UnitTest;unit;kokkos"
           TIMEOUT
             10
         ) # end set_tests_properties
@@ -285,15 +285,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        3 200 3 0 0 1 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "3 200 3 0 0 1 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            UnitTest unit kokkos staggered
+            "UnitTest;unit;kokkos;staggered"
           TIMEOUT
             10
         ) # end set_tests_properties
@@ -306,15 +306,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        3 20 3 1 0 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "3 20 3 1 0 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            UnitTest unit kokkos vector
+            "UnitTest;unit;kokkos;vector"
           TIMEOUT
             10
         ) # end set_tests_properties
@@ -326,15 +326,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        3 20 2 1 0 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "3 20 2 1 0 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            UnitTest unit kokkos vector
+            "UnitTest;unit;kokkos;vector"
           TIMEOUT
             10
         ) # end set_tests_properties
@@ -346,15 +346,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        3 20 1 1 0 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "3 20 1 1 0 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            UnitTest unit kokkos vector
+            "UnitTest;unit;kokkos;vector"
           TIMEOUT
             10
         ) # end set_tests_properties
@@ -367,15 +367,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        3 200 3 2 0 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "3 200 3 2 0 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            UnitTest unit kokkos vector
+            "UnitTest;unit;kokkos;vector"
           TIMEOUT
             10
         ) # end set_tests_properties
@@ -388,15 +388,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        4 200 2 1 0 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "4 200 2 1 0 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            UnitTest unit kokkos
+            "UnitTest;unit;kokkos"
           TIMEOUT
             10
         ) # end set_tests_properties
@@ -408,15 +408,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        4 200 1 1 0 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "4 200 1 1 0 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            UnitTest unit kokkos
+            "UnitTest;unit;kokkos"
           TIMEOUT
             10
         ) # end set_tests_properties
@@ -429,15 +429,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        4 200 3 1 0 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "4 200 3 1 0 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            UnitTest unit kokkos
+            "UnitTest;unit;kokkos"
           TIMEOUT
             10
         ) # end set_tests_properties
@@ -451,15 +451,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        3 200 3 1 0 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "3 200 3 1 0 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            UnitTest unit kokkos staggered
+            "UnitTest;unit;kokkos;staggered"
           TIMEOUT
             10
         ) # end set_tests_properties
@@ -475,15 +475,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
 #        NAME
 #          ${testName}
 #        ARGS
-#          3 4 --kokkos-threads=2
-#        ADDED_TEST_NAME_OUT ${testName}_CREATED
+#          "3 4 --kokkos-threads=2"
+#        ADDED_TESTS_NAMES_OUT ${testName}_CREATED
 #        ) # end tribits_add_test
 #      if (${testName}_CREATED)
 #        set_tests_properties(
 #          ${${testName}_CREATED}
 #          PROPERTIES
 #            LABELS
-#              UnitTest unit kokkos multi manifold
+#              "UnitTest;unit;kokkos;multi;manifold"
 #            TIMEOUT
 #              10
 #          ) # end set_tests_properties
@@ -503,16 +503,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
         NAME
           ${testName}
         ARGS
-          ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py
-          3 3
-        ADDED_TEST_NAME_OUT ${testName}_CREATED
+          "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py 3 3"
+        ADDED_TESTS_NAMES_OUT ${testName}_CREATED
         ) # end tribits_add_test
       if (${testName}_CREATED)
         set_tests_properties(
           ${${testName}_CREATED}
           PROPERTIES
             LABELS
-              ConvergenceTest convergence manifold
+              "ConvergenceTest;convergence;manifold"
             TIMEOUT
               60
           ) # end set_tests_properties
@@ -526,15 +525,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
         NAME
           ${testName}
         ARGS
-          3 200 3 0 0 0 --kokkos-threads=2
-        ADDED_TEST_NAME_OUT ${testName}_CREATED
+          "3 200 3 0 0 0 --kokkos-threads=2"
+        ADDED_TESTS_NAMES_OUT ${testName}_CREATED
         ) # end tribits_add_test
       if (${testName}_CREATED)
         set_tests_properties(
           ${${testName}_CREATED}
           PROPERTIES
             LABELS
-              UnitTest unit kokkos divergencefree svd
+              "UnitTest;unit;kokkos;divergencefree;svd"
             TIMEOUT
               60
           ) # end set_tests_properties
@@ -548,15 +547,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
 #      NAME
 #        ${testName}
 #      ARGS
-#        4 200 3 1 0 0 --kokkos-threads=2
-#      ADDED_TEST_NAME_OUT ${testName}_CREATED
+#        "4 200 3 1 0 0 --kokkos-threads=2"
+#      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
 #      ) # end tribits_add_test
 #    if (${testName}_CREATED)
 #      set_tests_properties(
 #        ${${testName}_CREATED}
 #        PROPERTIES
 #          LABELS
-#            UnitTest unit kokkos
+#            "UnitTest;unit;kokkos"
 #          TIMEOUT
 #            10
 #        ) # end set_tests_properties
@@ -576,15 +575,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py 3 4 1
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py 3 4 1"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            ConvergenceTest convergence manifold
+            "ConvergenceTest;convergence;manifold"
           TIMEOUT
             20
         ) # end set_tests_properties
@@ -604,15 +603,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py 3 4 2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py 3 4 2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            ConvergenceTest convergence manifold
+            "ConvergenceTest;convergence;manifold"
           TIMEOUT
             20
         ) # end set_tests_properties
@@ -627,15 +626,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py 3 4
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py 3 4"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            ConvergenceTest convergence manifold staggered
+            "ConvergenceTest;convergence;manifold;staggered"
           TIMEOUT
             20
         ) # end set_tests_properties
@@ -648,15 +647,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        200 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "200 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            UtilityTest utility kokkos
+            "UtilityTest;utility;kokkos"
           TIMEOUT
             5
         ) # end set_tests_properties
@@ -669,15 +668,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        2 200 6.5 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "2 200 6.5 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            kdtree nanoflann
+            "kdtree;nanoflann"
           TIMEOUT
             5
         ) # end set_tests_properties
@@ -689,15 +688,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        2 300 4.5 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "2 300 4.5 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            kdtree nanoflann
+            "kdtree;nanoflann"
           TIMEOUT
             5
         ) # end set_tests_properties
@@ -709,15 +708,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
 #      NAME
 #        ${testName}
 #      ARGS
-#        2 400 1.8 --kokkos-threads=2
-#      ADDED_TEST_NAME_OUT ${testName}_CREATED
+#        "2 400 1.8 --kokkos-threads=2"
+#      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
 #      ) # end tribits_add_test
 #    if (${testName}_CREATED)
 #      set_tests_properties(
 #        ${${testName}_CREATED}
 #        PROPERTIES
 #          LABELS
-#            kdtree nanoflann
+#            "kdtree;nanoflann"
 #          TIMEOUT
 #            5
 #        ) # end set_tests_properties
@@ -730,15 +729,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        3 100 4.5 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "3 100 4.5 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            kdtree nanoflann
+            "kdtree;nanoflann"
           TIMEOUT
             5
         ) # end set_tests_properties
@@ -750,15 +749,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        3 150 3.5 0 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "3 150 3.5 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            kdtree nanoflann
+            "kdtree;nanoflann"
           TIMEOUT
             5
         ) # end set_tests_properties
@@ -770,15 +769,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
 #      NAME
 #        ${testName}
 #      ARGS
-#        3 160 1.8 --kokkos-threads=2
-#      ADDED_TEST_NAME_OUT ${testName}_CREATED
+#        "3 160 1.8 --kokkos-threads=2"
+#      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
 #      ) # end tribits_add_test
 #    if (${testName}_CREATED)
 #      set_tests_properties(
 #        ${${testName}_CREATED}
 #        PROPERTIES
 #          LABELS
-#            kdtree nanoflann
+#            "kdtree;nanoflann"
 #          TIMEOUT
 #            5
 #        ) # end set_tests_properties
@@ -791,15 +790,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        2 200 6.5 1 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "2 200 6.5 1 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            kdtree nanoflann
+            "kdtree;nanoflann"
           TIMEOUT
             5
         ) # end set_tests_properties
@@ -811,15 +810,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        2 300 4.5 1 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "2 300 4.5 1 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            kdtree nanoflann
+            "kdtree;nanoflann"
           TIMEOUT
             5
         ) # end set_tests_properties
@@ -831,15 +830,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
 #      NAME
 #        ${testName}
 #      ARGS
-#        2 400 1.8 --kokkos-threads=2
-#      ADDED_TEST_NAME_OUT ${testName}_CREATED
+#        "2 400 1.8 --kokkos-threads=2"
+#      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
 #      ) # end tribits_add_test
 #    if (${testName}_CREATED)
 #      set_tests_properties(
 #        ${${testName}_CREATED}
 #        PROPERTIES
 #          LABELS
-#            kdtree nanoflann
+#            "kdtree;nanoflann"
 #          TIMEOUT
 #            5
 #        ) # end set_tests_properties
@@ -852,15 +851,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        3 100 4.5 1 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "3 100 4.5 1 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            kdtree nanoflann
+            "kdtree;nanoflann"
           TIMEOUT
             5
         ) # end set_tests_properties
@@ -872,15 +871,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NAME
         ${testName}
       ARGS
-        3 150 3.5 1 --kokkos-threads=2
-      ADDED_TEST_NAME_OUT ${testName}_CREATED
+        "3 150 3.5 1 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
       ) # end tribits_add_test
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
         PROPERTIES
           LABELS
-            kdtree nanoflann
+            "kdtree;nanoflann"
           TIMEOUT
             5
         ) # end set_tests_properties
@@ -892,15 +891,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
 #      NAME
 #        ${testName}
 #      ARGS
-#        3 160 1.8 1 --kokkos-threads=2
-#      ADDED_TEST_NAME_OUT ${testName}_CREATED
+#        "3 160 1.8 1 --kokkos-threads=2"
+#      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
 #      ) # end tribits_add_test
 #    if (${testName}_CREATED)
 #      set_tests_properties(
 #        ${${testName}_CREATED}
 #        PROPERTIES
 #          LABELS
-#            kdtree nanoflann
+#            "kdtree;nanoflann"
 #          TIMEOUT
 #            5
 #        ) # end set_tests_properties
@@ -919,16 +918,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
         NAME
           ${testName}
         ARGS
-          {CMAKE_CURRENT_BINARY_DIR}/Python_3D_Convergence.py
-          --kokkos-threads=4
-        ADDED_TEST_NAME_OUT ${testName}_CREATED
+          "{CMAKE_CURRENT_BINARY_DIR}/Python_3D_Convergence.py --kokkos-threads=4"
+        ADDED_TESTS_NAMES_OUT ${testName}_CREATED
         ) # end tribits_add_test
       if (${testName}_CREATED)
         set_tests_properties(
           ${${testName}_CREATED}
           PROPERTIES
             LABELS
-              UnitTest unit python kokkos
+              "UnitTest;unit;python;kokkos"
             TIMEOUT
               10
           ) # end set_tests_properties
@@ -942,16 +940,15 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
           NAME
             ${testName}
           ARGS
-            -nodisplay -nojvm -nosplash -nodesktop -r
-            "\"try, run('${SWIG_PREFIX}/Matlab_1D_Using_Python_Interface.m'), catch, exit(1), end, exit(0);\""
-          ADDED_TEST_NAME_OUT ${testName}_CREATED
+            "-nodisplay -nojvm -nosplash -nodesktop -r \"try, run('${SWIG_PREFIX}/Matlab_1D_Using_Python_Interface.m'), catch, exit(1), end, exit(0);\""
+          ADDED_TESTS_NAMES_OUT ${testName}_CREATED
           ) # end tribits_add_test
         if (${testName}_CREATED)
           set_tests_properties(
             ${${testName}_CREATED}
             PROPERTIES
               LABELS
-                UnitTest unit python kokkos matlab
+                "UnitTest;unit;python;kokkos;matlab"
               TIMEOUT
                 10
             ) # end set_tests_properties
