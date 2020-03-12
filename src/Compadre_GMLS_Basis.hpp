@@ -417,7 +417,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
             }
 
             for (int j=0; j<_basis_multiplier; ++j) {
-                if (_dimensions==2) {
+                if (_dimensions==3) {
                     for (int n = start_index; n <= poly_order; n++){
                         for (alphaz = 0; alphaz <= n; alphaz++){
                             int s = n - alphaz;
