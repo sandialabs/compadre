@@ -10,16 +10,16 @@ source:
 
 requirements:
   host:
-    - "numpy>=1.16.0"
+    - numpy {{ numpy }}
+    - python {{ python }}
+    - "cmake>=3.10.0"
     - pathlib2
     - wheel
     - pip
-    - python
     - setuptools
-    - "cmake>=3.10.0"
   run:
-    - "numpy>=1.16.0"
     - python
+    - numpy
 
 test:
   imports:
