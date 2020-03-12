@@ -465,7 +465,7 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
         ) # end set_tests_properties
     endif() # test created
 
-    if (NOT ${CMAKE_BUILD_TYPE} EQUAL DEBUG)
+    if (NOT ${CMAKE_BUILD_TYPE} STREQUAL DEBUG)
       # This test is too slow in DEBUG (3x longer than all other tests
       # combined)
       # Multisite manifold test for GMLS
