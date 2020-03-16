@@ -155,7 +155,7 @@ fi
 
 # instructions for updating conda package
 # 1.) git fetch origin on compadre repo
-# 2.) from the root of the repo, with master checked out, run >> git merge origin/conda_files
-# 3.) >> conda-build .
+# 2.) from the root of the repo, with master checked out, run >> git merge origin/conda_files --allow-unrelated-histories
+# 3.) >> conda-build . --python=3.6 --python=3.7 --python=3.8
 # 4.) >> anaconda login
 # 5.) >> anaconda upload /some/path/to/compadre.tar.bz2

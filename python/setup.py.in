@@ -16,7 +16,7 @@ import pkg_resources
 # we do not use build and install requirements in pyproject.toml
 
 min_wheel_version = ['0','33','1']
-min_numpy_version = ['1','16','0']
+min_numpy_version = ['1','14','0']
 #min_cmake_version = ['3','0','0']
 
 min_wheel_version_str = '.'.join(min_wheel_version)
