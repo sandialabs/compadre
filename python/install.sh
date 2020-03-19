@@ -29,6 +29,10 @@ case $i in
     CLEAN=YES
     shift # passed argument with no value
     ;;
+    -C|--conda)
+    CONDA=YES
+    shift # passed argument with no value
+    ;;
     -h|--help)
     HELP=YES
     shift # passed argument with no value
@@ -66,6 +70,7 @@ fi
 echo "VERSION  = ${VERSION}"
 echo "INSTALL: ${INSTALL}"
 echo "CREATE PACKAGE: ${PACKAGE}"
+echo "CONDA: ${CONDA}"
 if [ "$EXECUTABLE" == "" ]; then
     EXECUTABLE=`which python`
     echo "$0: No Python executable provided with \" -e=*\", so first python found in search path is used: $EXECUTABLE"
@@ -136,6 +141,29 @@ if [ "$PACKAGE" == "YES" ]; then
     mkdir dist && mv compadre-$VERSION.tar.gz dist
     echo "tar ball moved to dist."
 
+    cd python
+
+fi
+
+# (NOT for users) create a conda package
+if [ "$CONDA" == "YES" ]; then
+
+    # conda activate builder
+    # conda build purge-all
+    # conda-bld should be cleared as well 
+
+    rm -rf ../build
+    rm -rf ../setup.py
+    rm -rf ../meta.yaml
+    rm -rf ../cmake_opts.txt
+
+    $EXECUTABLE insert_version.py $VERSION
+    echo "version $VERSION inserted into setup file."
+
+    cp build.sh.in ../build.sh
+    cp conda_build_config.yaml.in ../conda_build_config.yaml
+    cd ..
+    conda-build . --python=3.6 --python=3.7 --python=3.8
     cd python
 
 fi

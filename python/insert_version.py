@@ -15,3 +15,12 @@ with open ('setup.py.in', 'r' ) as f:
 
 with open ('../setup.py', 'w' ) as f:
     f.write(content_new)
+
+with open ('meta.yaml.in', 'r' ) as f:
+    content = f.read()
+    content_new = re.sub('VERSION', r'%s'%version, content, flags = re.M)
+    print(content_new)
+
+with open ('../meta.yaml', 'w' ) as f:
+    f.write(content_new)
+

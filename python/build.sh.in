@@ -1,0 +1,4 @@
+cd $RECIPE_DIR/python
+$PYTHON update_conda_cmake.py
+cd $RECIPE_DIR
+$PYTHON setup.py install --cmake-file="$RECIPE_DIR/cmake_opts.txt"
