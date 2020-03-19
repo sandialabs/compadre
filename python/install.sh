@@ -163,7 +163,7 @@ if [ "$CONDA" == "YES" ]; then
     cp build.sh.in ../build.sh
     cp conda_build_config.yaml.in ../conda_build_config.yaml
     cd ..
-    conda-build . --python=3.6 --python=3.7 --python=3.8
+    conda-build .
     cd python
 
 fi

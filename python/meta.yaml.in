@@ -8,6 +8,9 @@ package:
 source:
   path: .
 
+build:
+  string: _py{{ python | replace(".", "") }}
+
 requirements:
   host:
     - python {{ python }}
