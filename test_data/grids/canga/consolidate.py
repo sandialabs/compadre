@@ -4,7 +4,7 @@ import numpy as np
 from netCDF4 import Dataset
 
 # to be run from ./build/examples
-# gets many instances of backward_i.pvtp.g, forward_i.pvtp.g, and concatenates
+# gets many instances of backward_i.g, forward_i.g, and concatenates
 # them into a combo file
 
 def copy_variables_from_source_except_data(filename_source, dataset, new_fields, suffix):
@@ -71,7 +71,7 @@ def copy_variables_from_source_except_data(filename_source, dataset, new_fields,
 def filter_fields_in_file_sequence(iters, reference_file, file_prefix, fields):
     # make sure all requested fields exist in file sequence (e.g. Smooth may not)
     updated_fields = list()
-    f = Dataset(file_prefix+str(1)+".pvtp.g", "r", format="NETCDF4")
+    f = Dataset(file_prefix+str(1)+".g", "r", format="NETCDF4")
     for field_name in fields:
         for varname,ncvar in f.variables.items():
             if (field_name == varname):
@@ -89,7 +89,7 @@ def get_data_from_file_sequence(iters, reference_file, file_prefix, fields):
             concatenated_data[field]=np.zeros(shape=(0,0),dtype='f8')
 
     for i in range(iters):
-        f = Dataset(file_prefix+str(i+1)+".pvtp.g", "r", format="NETCDF4")
+        f = Dataset(file_prefix+str(i+1)+".g", "r", format="NETCDF4")
         for varname,ncvar in f.variables.items():
             if (varname in fields):
                 if (varname != "ID"):
@@ -117,7 +117,7 @@ def get_data_from_file_sequence(iters, reference_file, file_prefix, fields):
 
 def consolidate(iters, file1, file2):
 
-    original_field_names = ["ID","TotalPrecipWater","CloudFraction","Topography","Smooth"]
+    original_field_names = ["ID","TotalPrecipWater","CloudFraction","Topography","Smooth","AnalyticalFun1","AnalyticalFun2"]
     field_names = filter_fields_in_file_sequence(iters, file1, "forward_", original_field_names)
 
     head, tail = os.path.split(file1)
