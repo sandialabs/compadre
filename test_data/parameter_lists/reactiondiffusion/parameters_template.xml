@@ -1,12 +1,32 @@
 <ParameterList name="Compadre">
+  <!-- 
+    For convergence studies, run test_data/utilities/variational_convergence.py
+  -->
   <ParameterList name="physics">
+    <!-- 
+     choices are:
+        l2 - L2 projection
+        rd - reaction diffusion
+        le - linear elasticity
+        vl - vector Laplacian
+    -->
+    <Parameter name="operator" type="string" value="le"/>
+    <!-- Used by rd -->
     <Parameter name="diffusion" type="double" value="1.0"/>
     <Parameter name="reaction" type="double" value="1.0"/>
+    <!-- Used by le and vl -->
     <Parameter name="shear" type="double" value="1.0"/>
+    <!-- Used by le -->
     <Parameter name="lambda" type="double" value="1.0"/>
+    <!-- 1.0 works for all except le, there use >= 100 -->
     <Parameter name="penalty" type="double" value="1e+0"/>
+    <!-- 
+     choices are:
+        polynomial - 2nd degree polynomial manufactured solution
+        polynomial_3 - 3rd degree polynomial manufactured solution
+        sine - product of sine functions
+    -->
     <Parameter name="solution" type="string" value="polynomial"/>
-    <Parameter name="operator" type="string" value="le"/> <!-- choices are l2, rd, and le -->
   </ParameterList>
   <ParameterList name="io">
     <Parameter name="input dimensions" type="int" value="2"/>
