@@ -300,6 +300,21 @@ scalar_type SineProducts::evalLinearElasticityRHS(const xyz_type& xyzIn, const l
     }
 }
 
+scalar_type SineProducts::evalVectorLaplacianRHS(const xyz_type& xyzIn, const local_index_type comp, const scalar_type shear_modulus) const {
+    if (_dim==3) {
+        TEUCHOS_ASSERT(false);
+        return 0;
+    } else {
+        auto hess = this->evalHessian(xyzIn);
+        // - shear * laplace(u)
+        if (comp==0) {
+            return -shear_modulus*(hess[0][0][0] + hess[0][1][1]);
+        } else {
+            return -shear_modulus*(hess[1][0][0] + hess[1][1][1]);
+        }
+    }
+}
+
 scalar_type SecondOrderBasis::evalScalar(const xyz_type& xyzIn) const {
     if (_dim==2) {
         return xyzIn.x*(1 + xyzIn.x + xyzIn.y) + xyzIn.y*(1 + xyzIn.y);
@@ -388,6 +403,21 @@ scalar_type SecondOrderBasis::evalLinearElasticityRHS(const xyz_type& xyzIn, con
             return -lambda*(hess[0][0][0] + hess[1][1][0]) - 2*shear_modulus*(hess[0][0][0] + 0.5*(hess[1][0][1]+hess[0][1][1]));
         } else {
             return -lambda*(hess[1][1][1] + hess[0][0][1]) - 2*shear_modulus*(hess[1][1][1] + 0.5*(hess[0][1][0]+hess[1][0][0]));
+        }
+    }
+}
+
+scalar_type SecondOrderBasis::evalVectorLaplacianRHS(const xyz_type& xyzIn, const local_index_type comp, const scalar_type shear_modulus) const {
+    if (_dim==3) {
+        TEUCHOS_ASSERT(false);
+        return 0;
+    } else {
+        auto hess = this->evalHessian(xyzIn);
+        // - shear * laplace(u)
+        if (comp==0) {
+            return -shear_modulus*(hess[0][0][0] + hess[0][1][1]);
+        } else {
+            return -shear_modulus*(hess[1][0][0] + hess[1][1][1]);
         }
     }
 }
@@ -492,6 +522,21 @@ scalar_type ThirdOrderBasis::evalLinearElasticityRHS(const xyz_type& xyzIn, cons
             return -lambda*(hess[0][0][0] + hess[1][1][0]) - 2*shear_modulus*(hess[0][0][0] + 0.5*(hess[1][0][1]+hess[0][1][1]));
         } else {
             return -lambda*(hess[1][1][1] + hess[0][0][1]) - 2*shear_modulus*(hess[1][1][1] + 0.5*(hess[0][1][0]+hess[1][0][0]));
+        }
+    }
+}
+
+scalar_type ThirdOrderBasis::evalVectorLaplacianRHS(const xyz_type& xyzIn, const local_index_type comp, const scalar_type shear_modulus) const {
+    if (_dim==3) {
+        TEUCHOS_ASSERT(false);
+        return 0;
+    } else {
+        auto hess = this->evalHessian(xyzIn);
+        // - shear * laplace(u)
+        if (comp==0) {
+            return -shear_modulus*(hess[0][0][0] + hess[0][1][1]);
+        } else {
+            return -shear_modulus*(hess[1][0][0] + hess[1][1][1]);
         }
     }
 }

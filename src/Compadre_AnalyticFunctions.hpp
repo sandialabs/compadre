@@ -310,6 +310,9 @@ class SineProducts : public AnalyticFunction {
 		scalar_type evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type comp, 
                 const scalar_type shear_modulus, const scalar_type lambda) const;
 
+		scalar_type evalVectorLaplacianRHS(const xyz_type& xyzIn, const local_index_type comp, 
+                const scalar_type shear_modulus) const;
+
 };
 
 class SecondOrderBasis : public AnalyticFunction {
@@ -339,6 +342,9 @@ class SecondOrderBasis : public AnalyticFunction {
 		scalar_type evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type comp, 
                 const scalar_type shear_modulus, const scalar_type lambda) const;
 
+		scalar_type evalVectorLaplacianRHS(const xyz_type& xyzIn, const local_index_type comp, 
+                const scalar_type shear_modulus) const;
+
 };
 
 class ThirdOrderBasis : public AnalyticFunction {
@@ -367,6 +373,9 @@ class ThirdOrderBasis : public AnalyticFunction {
 
 		scalar_type evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type comp, 
                 const scalar_type shear_modulus, const scalar_type lambda) const;
+
+		scalar_type evalVectorLaplacianRHS(const xyz_type& xyzIn, const local_index_type comp, 
+                const scalar_type shear_modulus) const;
 
 };
 

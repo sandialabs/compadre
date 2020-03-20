@@ -623,6 +623,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     }
     const bool rd_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="rd");
     const bool le_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le");
+    const bool vl_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="vl");
 
     Teuchos::RCP<Teuchos::Time> ComputeMatrixTime = Teuchos::TimeMonitor::getNewCounter ("Compute Matrix Time");
     ComputeMatrixTime->start();
@@ -1038,6 +1039,12 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                               grad_v_x*grad_u_x*j_comp_0*k_comp_0 
                                             + grad_v_y*grad_u_y*j_comp_1*k_comp_1 
                                             + 0.5*(grad_v_y*j_comp_0 + grad_v_x*j_comp_1)*(grad_u_y*k_comp_0 + grad_u_x*k_comp_1));
+                                    } else if (vl_op) {
+                                        contribution += q_wt * _shear* (
+                                              grad_v_x*grad_u_x*j_comp_0*k_comp_0 
+                                            + grad_v_y*grad_u_y*j_comp_0*k_comp_0 
+                                            + grad_v_x*grad_u_x*j_comp_1*k_comp_1 
+                                            + grad_v_y*grad_u_y*j_comp_1*k_comp_1 );
                                     }
  
                                 } 
@@ -1061,7 +1068,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         contribution += penalty * q_wt * jumpv * jumpu;
                                         contribution -= q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
                                         contribution -= q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
-                                    } else if (le_op) {
+                                    } else if (le_op || vl_op) {
                                         // only jump penalization currently included
                                         const double jumpv = v;
                                         const double jumpu = u;
@@ -1073,18 +1080,31 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         const auto n_y = unit_normals(i,2*q+1);
 
                                         contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp);
-                                        contribution -= q_wt * (
-                                              2 * _shear * (n_x*avgv_x*j_comp_0 
-                                                + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
-                                            + 2 * _shear * (n_y*avgv_y*j_comp_1 
-                                                + 0.5*n_x*(avgv_x*j_comp_1 + avgv_y*j_comp_0)) * jumpu*k_comp_1
-                                            + _lambda*(avgv_x*j_comp_0 + avgv_y*j_comp_1)*(n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1));
-                                        contribution -= q_wt * (
-                                              2 * _shear * (n_x*avgu_x*k_comp_0 
-                                                + 0.5*n_y*(avgu_y*k_comp_0 + avgu_x*k_comp_1)) * jumpv*j_comp_0  
-                                            + 2 * _shear * (n_y*avgu_y*k_comp_1 
-                                                + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
-                                            + _lambda*(avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
+                                        if (le_op) {
+                                            contribution -= q_wt * (
+                                                  2 * _shear * (n_x*avgv_x*j_comp_0 
+                                                    + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
+                                                + 2 * _shear * (n_y*avgv_y*j_comp_1 
+                                                    + 0.5*n_x*(avgv_x*j_comp_1 + avgv_y*j_comp_0)) * jumpu*k_comp_1
+                                                + _lambda*(avgv_x*j_comp_0 + avgv_y*j_comp_1)*(n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1));
+                                            contribution -= q_wt * (
+                                                  2 * _shear * (n_x*avgu_x*k_comp_0 
+                                                    + 0.5*n_y*(avgu_y*k_comp_0 + avgu_x*k_comp_1)) * jumpv*j_comp_0  
+                                                + 2 * _shear * (n_y*avgu_y*k_comp_1 
+                                                    + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
+                                                + _lambda*(avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
+                                        } else { // vl_op
+                                            contribution -= q_wt * (
+                                                  _shear * (n_x*avgv_x*j_comp_0 
+                                                    + n_y*avgv_y*j_comp_0) * jumpu*k_comp_0  
+                                                + _shear * (n_x*avgv_x*j_comp_1 
+                                                    + n_y*avgv_y*j_comp_1) * jumpu*k_comp_1 );
+                                            contribution -= q_wt * (
+                                                  _shear * (n_x*avgu_x*k_comp_0 
+                                                    + n_y*avgu_y*k_comp_0) * jumpv*j_comp_0  
+                                                + _shear * (n_x*avgu_x*k_comp_1 
+                                                    + n_y*avgu_y*k_comp_1) * jumpv*j_comp_1 );
+                                        }
                                     }
                                     
                                 }
@@ -1223,20 +1243,34 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         contribution += penalty * q_wt * jumpv * jumpu; // other half will be added by other cell
                                         contribution -= q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
                                         contribution -= q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
-                                    } else if (le_op) {
+                                    } else if (le_op || vl_op) {
                                         contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp); // other half will be added by other cell
-                                        contribution -= q_wt * (
-                                              2 * _shear * (n_x*avgv_x*j_comp_0 
-                                                + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
-                                            + 2 * _shear * (n_y*avgv_y*j_comp_1 
-                                                + 0.5*n_x*(avgv_x*j_comp_1 + avgv_y*j_comp_0)) * jumpu*k_comp_1
-                                            + _lambda*(avgv_x*j_comp_0 + avgv_y*j_comp_1)*(n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1));
-                                        contribution -= q_wt * (
-                                              2 * _shear * (n_x*avgu_x*k_comp_0 
-                                                + 0.5*n_y*(avgu_y*k_comp_0 + avgu_x*k_comp_1)) * jumpv*j_comp_0  
-                                            + 2 * _shear * (n_y*avgu_y*k_comp_1 
-                                                + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
-                                            + _lambda*(avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
+
+                                        if (le_op) {
+                                            contribution -= q_wt * (
+                                                  2 * _shear * (n_x*avgv_x*j_comp_0 
+                                                    + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
+                                                + 2 * _shear * (n_y*avgv_y*j_comp_1 
+                                                    + 0.5*n_x*(avgv_x*j_comp_1 + avgv_y*j_comp_0)) * jumpu*k_comp_1
+                                                + _lambda*(avgv_x*j_comp_0 + avgv_y*j_comp_1)*(n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1));
+                                            contribution -= q_wt * (
+                                                  2 * _shear * (n_x*avgu_x*k_comp_0 
+                                                    + 0.5*n_y*(avgu_y*k_comp_0 + avgu_x*k_comp_1)) * jumpv*j_comp_0  
+                                                + 2 * _shear * (n_y*avgu_y*k_comp_1 
+                                                    + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
+                                                + _lambda*(avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
+                                        } else { // vl_op
+                                            contribution -= q_wt * (
+                                                  _shear * (n_x*avgv_x*j_comp_0 
+                                                    + n_y*avgv_y*j_comp_0) * jumpu*k_comp_0  
+                                                + _shear * (n_x*avgv_x*j_comp_1 
+                                                    + n_y*avgv_y*j_comp_1) * jumpu*k_comp_1 );
+                                            contribution -= q_wt * (
+                                                  _shear * (n_x*avgu_x*k_comp_0 
+                                                    + n_y*avgu_y*k_comp_0) * jumpv*j_comp_0  
+                                                + _shear * (n_x*avgu_x*k_comp_1 
+                                                    + n_y*avgu_y*k_comp_1) * jumpv*j_comp_1 );
+                                        }
                                     }
                                 }
                                 compadre_assert_debug(contribution==contribution && "NaN encountered in contribution.");

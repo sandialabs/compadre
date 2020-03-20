@@ -77,6 +77,11 @@ int main (int argc, char* args[]) {
     bool plot_quadrature = parameters->get<Teuchos::ParameterList>("io").get<bool>("plot quadrature");
     local_index_type input_dim = parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions");
 
+    bool l2_op = parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="l2";
+    bool rd_op = parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="rd";
+    bool le_op = parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le";
+    bool vl_op = parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="vl";
+
     {
         const std::string testfilename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + "/" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file");
 
@@ -109,13 +114,13 @@ int main (int argc, char* args[]) {
             } else {
                 halo_size = parameters->get<Teuchos::ParameterList>("halo").get<double>("size");
             }
-             cells->buildHalo(halo_size);
-            if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")!="le") {
-                cells->getFieldManager()->createField(1, "solution", "m/s");
-            } else {
+            cells->buildHalo(halo_size);
+            if (le_op || vl_op) { 
                 cells->getFieldManager()->createField(2, "solution", "m/s");
+            } else {
+                cells->getFieldManager()->createField(1, "solution", "m/s");
             }
-             cells->createDOFManager();
+            cells->createDOFManager();
 
 
             auto neighbors_needed = GMLS::getNP(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
@@ -203,12 +208,12 @@ int main (int argc, char* args[]) {
         // set physics, sources, and boundary conditions in the problem
         // set reaction and diffusion for physics
         double reaction_coeff, diffusion_coeff, shear_coeff, lambda_coeff;
-        if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="rd") {
+        if (rd_op) {
             reaction_coeff = parameters->get<Teuchos::ParameterList>("physics").get<double>("reaction");
             diffusion_coeff = parameters->get<Teuchos::ParameterList>("physics").get<double>("diffusion");
             physics->setReaction(reaction_coeff);
             physics->setDiffusion(diffusion_coeff);
-        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le") {
+        } else if (le_op || vl_op) {
             shear_coeff = parameters->get<Teuchos::ParameterList>("physics").get<double>("shear");
             lambda_coeff = parameters->get<Teuchos::ParameterList>("physics").get<double>("lambda");
             physics->setShear(shear_coeff);
@@ -239,10 +244,10 @@ int main (int argc, char* args[]) {
         // post process solution ( modal DOF -> cell centered value )
         {
             auto gmls = physics->_gmls;
-            if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")!="le") {
-                cells->getFieldManager()->createField(1, "processed_solution", "m/s");
-            } else {
+            if (le_op || vl_op) { 
                 cells->getFieldManager()->createField(2, "processed_solution", "m/s");
+            } else {
+                cells->getFieldManager()->createField(1, "processed_solution", "m/s");
             }
             auto processed_view = cells->getFieldManager()->getFieldByName("processed_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
             auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
@@ -478,25 +483,25 @@ int main (int argc, char* args[]) {
         //    }
         //}
  
-        if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")!="le") {
-            cells->getFieldManager()->createField(1, "exact_solution", "m/s");
-        } else {
+        if (le_op || vl_op) { 
             cells->getFieldManager()->createField(2, "exact_solution", "m/s");
+        } else {
+            cells->getFieldManager()->createField(1, "exact_solution", "m/s");
         }
         auto exact_view = cells->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-        if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")!="le") {
-            for( int j =0; j<coords->nLocal(); j++){
-                xyz_type xyz = coords->getLocalCoords(j);
-                exact = function->evalScalar(xyz);
-                exact_view(j,0) = exact;
-            }
-        } else {
+        if (le_op || vl_op) { 
             for( int j =0; j<coords->nLocal(); j++){
                 for( int k =0; k<exact_view.extent(1); k++){
                     xyz_type xyz = coords->getLocalCoords(j);
                     auto exacts = function->evalVector(xyz);
                     exact_view(j,k) = exacts[k];
                 }
+            }
+        } else {
+            for( int j =0; j<coords->nLocal(); j++){
+                xyz_type xyz = coords->getLocalCoords(j);
+                exact = function->evalScalar(xyz);
+                exact_view(j,0) = exact;
             }
         }
 
@@ -529,7 +534,7 @@ int main (int argc, char* args[]) {
             particles_new->getFieldManager()->createField(input_dim, "jump", "m/s");
         }
 
-        if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="l2") {
+        if (l2_op) {
             for( int j =0; j<coords->nLocal(); j++){
                 xyz_type xyz = coords->getLocalCoords(j);
                 const ST val = cells->getFieldManagerConst()->getFieldByName("processed_solution")->getLocalScalarVal(j);
@@ -542,8 +547,6 @@ int main (int argc, char* args[]) {
         } else {
             // get error from l2, h1, and jump
 
-            bool rd_op = (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="rd");
-            bool le_op = (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le");
             double jump_error = 0.0;
             double l2_error = 0.0;
             double h1_error = 0.0;
@@ -609,7 +612,7 @@ int main (int argc, char* args[]) {
                                     l2_error_on_cell += reaction_coeff * quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
                                     h1_error_on_cell += diffusion_coeff * quadrature_weights(j,i) * (h1_val_x - h1_exact[0]) * (h1_val_x - h1_exact[0]);
                                     h1_error_on_cell += diffusion_coeff * quadrature_weights(j,i) * (h1_val_y - h1_exact[1]) * (h1_val_y - h1_exact[1]);
-                                } else if (le_op) {
+                                } else if (le_op || vl_op) {
                                     double l2_exact = function->evalVector(xyz)[m];
                                     xyz_type h1_exact = function->evalJacobian(xyz)[m];
                                     // still needs customized to LE stress tensor
@@ -637,7 +640,7 @@ int main (int argc, char* args[]) {
                                 double u_exact = 0;
                                 if (rd_op) {
                                     u_exact = function->evalScalar(xyz);
-                                } else if (le_op) {
+                                } else if (le_op || vl_op) {
                                     u_exact = function->evalVector(xyz)[m];
                                 }
                                 jump_error_on_cell += penalty * quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);

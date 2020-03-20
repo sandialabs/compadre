@@ -21,6 +21,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     bool l2_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="l2");
     bool rd_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="rd");
     bool le_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le");
+    bool vl_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="vl");
 
     bool polynomial_solution = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial");
     bool polynomial_3_solution = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3");
@@ -160,6 +161,17 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                     auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());
                                     rhs_eval = cast_to_sine->evalLinearElasticityRHS(pt,comp,_physics->_shear,_physics->_lambda);
                                 }
+                            } else if (vl_op) {
+                                if (polynomial_solution) {
+                                    auto cast_to_poly_2 = dynamic_cast<SecondOrderBasis*>(function.getRawPtr());
+                                    rhs_eval = cast_to_poly_2->evalVectorLaplacianRHS(pt,comp,_physics->_shear);
+                                } else if (polynomial_3_solution) {
+                                    auto cast_to_poly_3 = dynamic_cast<ThirdOrderBasis*>(function.getRawPtr());
+                                    rhs_eval = cast_to_poly_3->evalVectorLaplacianRHS(pt,comp,_physics->_shear);
+                                } else {
+                                    auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());
+                                    rhs_eval = cast_to_sine->evalVectorLaplacianRHS(pt,comp,_physics->_shear);
+                                }
                             }
                             contribution += q_wt * v * rhs_eval;
                         } 
@@ -175,7 +187,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                             double exact_eval = 0;
                             if (rd_op) {
                                 exact_eval = function->evalScalar(pt);
-                            } else if (le_op) {
+                            } else if (le_op || vl_op) {
                                 auto exact = function->evalVector(pt);
                                 exact_eval = exact[comp];
                             }
@@ -189,6 +201,11 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                       2 * _physics->_shear * (n_x*v_x*(comp==0) + 0.5*n_y*(v_y*(comp==0) + v_x*(comp==1))) * exact[0]  
                                     + 2 * _physics->_shear * (n_y*v_y*(comp==1) + 0.5*n_x*(v_x*(comp==1) + v_y*(comp==0))) * exact[1]
                                     + _physics->_lambda * (v_x*(comp==0) + v_y*(comp==1)) * (n_x*exact[0] + n_y*exact[1]));
+                            } else if (vl_op) {
+                                auto exact = function->evalVector(pt);
+                                contribution -= q_wt * (
+                                      _physics->_shear * (n_x*v_x*(comp==0) + n_y*v_y*(comp==0)) * exact[0]  
+                                    + _physics->_shear * (n_x*v_x*(comp==1) + n_y*v_y*(comp==1)) * exact[1] );
                             }
                         }
                     }
