@@ -18,6 +18,7 @@
   #include <Intrepid_DefaultCubatureFactory.hpp>
   #include <Intrepid_CellTools.hpp>
   #include <Intrepid_FunctionSpaceTools.hpp>
+  #include <Intrepid_HGRAD_TRI_C2_FEM.hpp>
 #endif
 
 #ifdef COMPADREHARNESS_USE_OPENMP
@@ -179,6 +180,7 @@ void ReactionDiffusionPhysics::initialize() {
     Intrepid::FieldContainer<double> triangle_cub_weights(num_triangle_cub_points);
     triangle_cubature->getCubature(triangle_cub_points, triangle_cub_weights);
 
+
     Intrepid::FieldContainer<double> triangle_nodes(num_cells_local, num_triangle_nodes, triangle_dim);
     //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
     for (int i=0; i<num_cells_local; ++i) {
@@ -248,6 +250,7 @@ void ReactionDiffusionPhysics::initialize() {
                                                                  i,
                                                                  triangle);
     }
+
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), KOKKOS_LAMBDA(const int i) {
         for (int j=0; j<num_triangle_edges; ++j) {
             double vector_norm = 0;
@@ -263,6 +266,427 @@ void ReactionDiffusionPhysics::initialize() {
 
     _weights_ndim = num_triangle_cub_points + num_triangle_edges*(num_line_cub_points);
 
+    
+    //std::cout << physical_line_cub_points[0] << std::endl;
+    //std::cout << physical_line_cub_points[1] << std::endl;
+    //std::cout << physical_line_cub_points[2] << std::endl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    //############################################################################################
+    //
+    //  MA BEGIN INTREPID
+    //  MA NOTE: INSERT Intrepid calls for tau computation 
+    //
+    //############################################################################################
+    // For reference example on Intrepid see https://docs.trilinos.org/dev/packages/intrepid/doc/html/index.html
+    // Also see https://cfwebprod.sandia.gov/cfdocs/CompResearch/docs/intrepid_sp_main.pdf
+    // Links to documentation of relevant Intrepid Classes:
+    // FieldContainer: https://docs.trilinos.org/dev/packages/intrepid/doc/html/classIntrepid_1_1FieldContainer.html
+    // Basis (HGRA_TRI_C2 used here): https://docs.trilinos.org/dev/packages/intrepid/doc/html/classIntrepid_1_1Basis__HGRAD__TRI__C2__FEM.html
+    // FunctionSpaceTools: https://docs.trilinos.org/dev/packages/intrepid/doc/html/classIntrepid_1_1FunctionSpaceTools.html
+    // CellTools: https://docs.trilinos.org/dev/packages/intrepid/doc/html/classIntrepid_1_1CellTools.html   
+    //
+    // *** Some useful variables already defined by Paul ***
+    // num_cells_local: number of cells (for multiple MPI processes, it is num of cells in this process)
+    // triangle_dim: number of spatial dimensions of cell (for triangles=2)
+    // num_triangle_nodes: number of cell vertices
+    // num_triangle_cub_points: number of cubature points for triangle
+    // triangle_cub_points(num_triangle_cub_points, triangle_dim): cubature points in reference coords
+    // triangle_cub_weights(num_triangle_cub_points): cubature weights (for reference domain)
+    // physical_triangle_cub_weights(num_triangle_cub_points): cubature weights (for physical domain)
+    // physical_triangle_cub_points(num_cells_local, num_triangle_cub_points, triangle_dim): cubature points in physical coords
+    // triangle_nodes(num_cells_local, num_triangle_nodes, triangle_dim):  vertices coords for all cells
+    
+    // Declare some temp variables for testing below 
+    double junk;
+    int temprank;
+    
+    // MA TEMP: first test and try printing some info from shards and Intrepid to get familiar **********
+    // Operations with FieldContainer Arrays
+    //Intrepid::FieldContainer<double> myField1(3,3,3); // create a 3x3x3 MDarray, initialized to zero
+    //Intrepid::FieldContainer<double> myField2(3,3,3); // create a 3x3x3 MDarray, initialized to zero
+    //Intrepid::FieldContainer<double> myField3(3,3,3); // create a 3x3x3 MDarray, initialized to zero
+    //myField1.initialize(2.5); //set all entries to 2.5
+    //myField2.initialize(3.0);
+    //double valf1 = myField1(1,2,0);
+    //double valf2 = myField1[6];
+    //int mysize = myField1.size();   
+    //std::cout << "MAprint valf1=" << valf1 << " "  << valf2 << std::endl;
+    //std::cout << "MAprint size=" << mysize << std::endl;
+    ////myField1 = myField1 + myField2; //This does not work! Add with a loop
+    //for (int k = 0; k < mysize; ++k){
+    //    myField1[k] = myField1[k] + myField2[k];
+    //}
+    //valf1 = myField1[6];
+    //std::cout << "MAprint valf1=" << valf1 << std::endl;
+    //const bool rd_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="rd");
+    //const bool le_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le");
+    //std::cout << "MAprint rd_op=" << rd_op << std::endl;
+    //std::cout << "MAprint le_op=" << le_op << std::endl;
+    //std::cout << "MAprint diffusion=" << _diffusion << std::endl;
+    //std::cout << "MAprint shear=" << _shear << std::endl;
+    // END TEMP **************************************************************************************
+    
+
+    // MA Intrepid Integration over cell INTERIORS ###############################################
+    // *** Some useful Intrepid commands/quantities from above (by Paul) ***
+    //Intrepid::FieldContainer<double> triangle_jacobian(num_cells_local, num_triangle_cub_points, triangle_dim, triangle_dim);
+    //Intrepid::FieldContainer<double> triangle_jacobian_det(num_cells_local, num_triangle_cub_points);
+    //Intrepid::FieldContainer<double> physical_triangle_cub_points(num_cells_local, num_triangle_cub_points, triangle_dim);
+    //Intrepid::FieldContainer<double> physical_triangle_cub_weights(num_cells_local, num_triangle_cub_points);
+    //Intrepid::CellTools<double>::setJacobian(triangle_jacobian, triangle_cub_points, triangle_nodes, triangle);
+    //Intrepid::CellTools<double>::setJacobianDet(triangle_jacobian_det, triangle_jacobian);
+    //Intrepid::FunctionSpaceTools::computeCellMeasure<double>(physical_triangle_cub_weights,
+    //                                                         triangle_jacobian_det,
+    //                                                         triangle_cub_weights);
+    //Intrepid::CellTools<scalar_type>::mapToPhysicalFrame(physical_triangle_cub_points,
+    //                                                     triangle_cub_points,
+    //                                                     triangle_nodes,
+    //                                                     triangle,
+    //                                                     -1);
+    // *** end of list ***
+    
+    // Compute Jacobian Inverse (needed to compute gradients wrt physical coords)
+    Intrepid::FieldContainer<double> triangle_jacobian_inv(num_cells_local, num_triangle_cub_points, triangle_dim, triangle_dim); //allocate
+    Intrepid::CellTools<double>::setJacobianInv(triangle_jacobian_inv, triangle_jacobian); //compute
+    
+    // Generate Basis functions for fine scales
+    // calling entire T6 basis, (we only need a subset of it)
+    Intrepid::Basis_HGRAD_TRI_C2_FEM<double, Intrepid::FieldContainer<double> > basis_T6; // Define basis
+    int num_basis_functions = basis_T6.getCardinality(); 
+    
+    // MA NOTE: Operations that follow apply to entire T6 basis, for Tau, we only want basis functions associated with edges, with DOF ordinals (3,4,5)
+    // For now, it is easier (more efficient?) to use Intrepid to operate on the entire basis
+    // We can pull/call only the entries associated with DOF ordinals(3,4,5) (assoc. w/ edges) at the end
+    
+    // GRADS of basis functions wrt REF coords (in one ref cell)
+    Intrepid::FieldContainer<double> basis_T6_grad(num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate 
+    basis_T6.getValues(basis_T6_grad, triangle_cub_points, Intrepid::OPERATOR_GRAD); //compute
+   
+    // GRADS of basis functions wrt PHYSICAL coords (for all cells)
+    Intrepid::FieldContainer<double> physical_basis_T6_grad(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate 
+    Intrepid::FunctionSpaceTools::HGRADtransformGRAD<double>(physical_basis_T6_grad, triangle_jacobian_inv, basis_T6_grad); //compute 
+    
+    // Multiply PHYS GRADS with CUB WEIGHTS
+    Intrepid::FieldContainer<double> physical_basis_T6_grad_weighted(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate 
+    Intrepid::FunctionSpaceTools::multiplyMeasure<double>(physical_basis_T6_grad_weighted, physical_triangle_cub_weights, physical_basis_T6_grad); //compute
+    
+    // Modified bubbles (quadratic edge bubbles raised to some power)
+    double bub_pow = 2.0; //exponent
+    Intrepid::FieldContainer<double> basis_T6_values(num_basis_functions, num_triangle_cub_points); //allocate values
+    basis_T6.getValues(basis_T6_values, triangle_cub_points, Intrepid::OPERATOR_VALUE); //compute
+    int size_basis_T6_values = basis_T6_values.size();
+    Intrepid::FieldContainer<double> basis_T6_values_pow_m1(num_basis_functions, num_triangle_cub_points); //allocate mod. vals.
+    //parallelize? (maybe compiler vectorizes loop already)
+    for (int k = 0; k < size_basis_T6_values; ++k) {
+	basis_T6_values_pow_m1[k] = std::pow(basis_T6_values[k], bub_pow - 1.0); //raise to bub_pow-1
+    }
+    
+    // MA CHECK fine scale basis for when exponent is 2.0
+    //double junk = 0.0;
+    //for (int k = 0; k < size_basis_T6_values; ++k){
+    // 	junk += basis_T6_values_pow_m1[k] - basis_T6_values[k]; 	
+    //}
+    //std::cout << "MAprint basis exponent check = " << junk << std::endl;
+   
+
+    // GRAD of modified bubble (using chain rule): product nb^(n-1)*grad(b)
+    // Did not find a "field-field" multiply capability in Intrepid FunctionSpaceTools. Use a loop. 
+    Intrepid::FieldContainer<double> physical_basis_T6_grad_pow(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate 
+    Intrepid::FieldContainer<double> physical_basis_T6_grad_pow_weighted(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate
+    //parallelize
+    for (int k1 = 0; k1 < num_cells_local; ++k1) {
+	for (int k2 = 0; k2 < num_basis_functions; ++k2){
+            for (int k3 = 0; k3 < num_triangle_cub_points; ++k3) {
+		for (int k4 = 0; k4 < triangle_dim; ++k4) {
+		    physical_basis_T6_grad_pow(k1, k2, k3, k4) = bub_pow * basis_T6_values_pow_m1(k2, k3) * physical_basis_T6_grad(k1, k2, k3, k4); //multiply 
+		    physical_basis_T6_grad_pow_weighted(k1, k2, k3, k4) = bub_pow * basis_T6_values_pow_m1(k2, k3) * physical_basis_T6_grad_weighted(k1, k2, k3, k4); //multiply
+		}
+	    }
+	}
+    }
+
+    // 'Standard' Stiffness Matrices (may be unnecessary, and may be deprecated some day) 
+    Intrepid::FieldContainer<double> Stiff_Matrices_pow(num_cells_local, num_basis_functions, num_basis_functions);
+    Intrepid::FunctionSpaceTools::integrate<double> (Stiff_Matrices_pow, physical_basis_T6_grad_pow_weighted, physical_basis_T6_grad_pow, Intrepid::COMP_CPP);
+    
+    // MA NOTE: Still need to compute terms for off-diagonal entries for tau: integral (db/dxi * db/dxj)
+    // In order to compute this integrals with Intrepid, need to restructure the arrays with GRADS of basis functions, as follows
+ 
+    // Use vector of FieldContainers, each vector entry corresponds to a finse-scale basis function. (sep: separated)
+    std::vector<Intrepid::FieldContainer<double> > sep_physical_basis_T6_grad_pow(num_basis_functions, 
+		Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, num_triangle_cub_points));
+    
+    std::vector<Intrepid::FieldContainer<double> > sep_physical_basis_T6_grad_pow_weighted(num_basis_functions, 
+	        Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, num_triangle_cub_points) );
+    
+    // Restructure arrays
+    // some day, loop over only basis functions (k2) associated to edges
+    // parallelize (be careful with index reordering)
+    for (int k1 = 0; k1 < num_cells_local; ++k1) {
+	for (int k2 = 0; k2 < num_basis_functions; ++k2){
+            for (int k3 = 0; k3 < num_triangle_cub_points; ++k3) {
+		for (int k4 = 0; k4 < triangle_dim; ++k4) {
+		    sep_physical_basis_T6_grad_pow[k2](k1, k4, k3) = physical_basis_T6_grad_pow(k1, k2, k3, k4);
+		    sep_physical_basis_T6_grad_pow_weighted[k2](k1, k4, k3) = physical_basis_T6_grad_pow_weighted(k1, k2, k3, k4);
+		}
+	    }
+	}
+    }
+
+    // Compute ndim x ndim matrices: integral (db/dxi * db/dxj)
+    std::vector<Intrepid::FieldContainer<double> > sep_grad_grad_mat_integrals(num_basis_functions,
+    		Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, triangle_dim) ); //allocate
+    
+    // could parallelize loop
+    for (int k = 0; k < num_basis_functions; ++k) {
+        Intrepid::FunctionSpaceTools::operatorIntegral<double>(sep_grad_grad_mat_integrals[k],
+	          sep_physical_basis_T6_grad_pow[k], sep_physical_basis_T6_grad_pow_weighted[k], Intrepid::COMP_CPP); //integrate
+    }
+
+    // **** TESTS ****
+    //temprank = sep_grad_grad_mat_integrals[0].rank();
+    //std::cout << "MAprint grad grad rank= "<< temprank << std::endl;
+    //for (int k = 0; k < temprank; ++k) {
+    //    int sizedim = sep_grad_grad_mat_integrals[0].dimension(k);
+    //    std::cout << "MAprint grad grad dim = " << k << " size = "<< sizedim << std::endl;
+    //}
+    // *** END ****
+
+    // MA CHECK equivalency of integrals
+    //junk = 0.0;
+    //for (int k1 = 0; k1 < num_cells_local; ++k1) {
+    //    for (int k2 = 0; k2 < num_basis_functions; ++k2) {
+    //	      double temptrace = 0.0;
+    //        for (int k3 =0; k3 < triangle_dim; ++k3) {
+    //	          temptrace += sep_grad_grad_mat_integrals[k2](k1, k3, k3);
+    //	      }
+    //	      junk += std::abs(temptrace - Stiff_Matrices_pow(k1, k2, k2));
+    //    }
+    //}
+    //std::cout << "MA test intrepid integrals eq: " << junk << std::endl;
+    //std::cout << "MA ref value for test Kmat[0,0] for element 0: " << Stiff_Matrices_pow(0, 0, 0) 
+    //          << " for edge bub: " << Stiff_Matrices_pow(0, 3, 3) << std::endl;
+
+    // MA END Intrepid Integration over cell INTERIORS ###############################################
+
+
+
+
+
+    // MA Intrepid Integration over cell EDGES ##############################################
+    //
+    // *** Some useful qunatities defined above (by Paul) *** 
+    //
+    //shards::CellTopology line = shards::getCellTopologyData< shards::Line<> >();
+    //int num_line_nodes = line.getNodeCount();
+    //Teuchos::RCP<Intrepid::Cubature<double> > line_cubature = cubature_factory.create(line, cubature_degree);
+    //int num_line_cub_points = line_cubature->getNumPoints();
+    //int line_dim = line.getDimension();
+    //Intrepid::FieldContainer<double> line_cub_points_1d(num_line_cub_points, line_dim);
+    //Intrepid::FieldContainer<double> line_cub_weights(num_line_cub_points);
+    //line_cubature->getCubature(line_cub_points_1d, line_cub_weights); 
+    //
+    //std::vector<Intrepid::FieldContainer<double> > line_cub_points_2d(num_triangle_edges, Intrepid::FieldContainer<double>(num_line_cub_points, triangle_dim));
+    //for (int i=0; i<num_triangle_edges; ++i) {
+    //    Intrepid::CellTools<double>::mapToReferenceSubcell(line_cub_points_2d[i],
+    //                                                       line_cub_points_1d,
+    //                                                       line_dim,
+    //                                                       i,
+    //                                                       triangle);
+    //}
+    //
+    //std::vector<Intrepid::FieldContainer<double> > line_jacobian(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim, triangle_dim));
+    //std::vector<Intrepid::FieldContainer<double> > physical_line_cub_weights(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points));
+    //std::vector<Intrepid::FieldContainer<double> > physical_line_cub_points(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim));
+    //std::vector<Intrepid::FieldContainer<double> > edge_normals(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim));
+    //Kokkos::View<double***, Kokkos::HostSpace> edge_unit_normals("edge unit normals", num_cells_local, num_triangle_edges, triangle_dim);
+    //std::vector<Intrepid::FieldContainer<double> > edge_unit_normals_int(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim));
+    //for (int i=0; i<num_triangle_edges; ++i) {
+    //    Intrepid::CellTools<double>::setJacobian(line_jacobian[i], line_cub_points_2d[i], triangle_nodes, triangle);
+    //    Intrepid::FunctionSpaceTools::computeEdgeMeasure<double>(physical_line_cub_weights[i],
+    //                                                             line_jacobian[i],
+    //                                                             line_cub_weights,
+    //                                                             i,
+    //                                                             triangle);
+    //    Intrepid::CellTools<scalar_type>::mapToPhysicalFrame(physical_line_cub_points[i],
+    //                                                         line_cub_points_2d[i],
+    //                                                         triangle_nodes,
+    //                                                         triangle,
+    //                                                         -1);
+    //    Intrepid::CellTools<scalar_type>::getPhysicalSideNormals(edge_normals[i],
+    //                                                             line_jacobian[i],
+    //                                                             i,
+    //                                                             triangle);
+    //}
+    // *** end list ***
+    
+    // MA CHECK check coords of line cubatures
+    //std::cout << "ma line dim= " << line_dim  << std::endl;
+    //for (int k = 0; k < num_line_cub_points; ++k) {
+    //	std::cout << "ma line cub pt " << line_cub_points_1d(k, 0) << std::endl;
+    //}
+
+    // MA CHECK line_cub_points_2d contains the cub sites for the edges in ref Triangle coords
+    //for (int i = 0; i < num_triangle_edges; ++i) {
+    //	for (int k = 0; k < num_line_cub_points; ++k) {
+    //	    std::cout << "in edge i=" << i << ", cub pt=" << k << ", coords:" << line_cub_points_2d[i](k, 0) << ", " <<line_cub_points_2d[i](k, 1) <<std::endl;
+    //	}
+    //}
+    
+    // VALUES at EDGE CUB PTS
+    std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values(num_triangle_edges, Intrepid::FieldContainer<double>(num_basis_functions, num_line_cub_points) ); //allocate 
+    //parallelize? (small loop, maybe compiler already vectorices)
+    for (int i=0; i<num_triangle_edges; ++i) {
+        basis_T6.getValues(basis_T6_edge_values[i], line_cub_points_2d[i], Intrepid::OPERATOR_VALUE);	
+    }
+    
+    // Modify bubble (raise to power)
+    std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow(num_triangle_edges, Intrepid::FieldContainer<double>(num_basis_functions, num_line_cub_points) ); //allocate
+    int size_basis_T6_edge_values_1 = num_basis_functions * num_line_cub_points;
+    //parallelize (maybe compiler already unrolls and vectorizes)
+    for (int i=0; i<num_triangle_edges; ++i) {
+	for (int k=0; k<size_basis_T6_edge_values_1; ++k) {
+            basis_T6_edge_values_pow[i][k] = std::pow(basis_T6_edge_values[i][k], bub_pow); //exponentiate
+	}
+    }
+    
+    //Multiply CUB WEIGHTS
+    //side note: FunctionSpaceTools::multiplyMeasure is a wrappper for FunctionSpaceTools::scalarMultiplyDataField
+    //target field container can be indexed as (C,F,P) or just as (F,P) (the latter applies here) 
+    std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow_weighted(num_triangle_edges,
+		Intrepid::FieldContainer<double>(num_cells_local, num_basis_functions, num_line_cub_points) ); //allocate 
+    for (int i=0; i<num_triangle_edges; ++i) {
+        Intrepid::FunctionSpaceTools::multiplyMeasure<double>(basis_T6_edge_values_pow_weighted[i], physical_line_cub_weights[i], basis_T6_edge_values_pow[i]); //multiply
+    }
+    
+    //INTEGRATE
+    //To integrate just the value of the bubble basis, need to create a FieldContainer of only "1".
+    //couldn't integrate directly with the inputs above because both array inputs to "integrate" need to have dimension num_cells_local in their rank 0
+    std::vector<Intrepid::FieldContainer<double> > ones_for_edge_integration(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points) ); //allocate 
+    for (int i=0; i<num_triangle_edges; ++i) {
+        ones_for_edge_integration[i].initialize(1.0); //set ones
+    }
+     
+    std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow_integrated(num_triangle_edges,
+                Intrepid::FieldContainer<double>(num_cells_local, num_basis_functions) ); //allocate 
+    for (int i=0; i<num_triangle_edges; ++i) {
+	    Intrepid::FunctionSpaceTools::functionalIntegral<double>(basis_T6_edge_values_pow_integrated[i],
+                                          ones_for_edge_integration[i], basis_T6_edge_values_pow_weighted[i], Intrepid::COMP_CPP); //integrate
+    }
+
+    // MA CHECK
+    //for (int k=0; k < num_cells_local; ++k){
+    //    for (int i=0; i<num_triangle_edges; ++i) {
+    //	      std::cout << "cell " << k << " edge " << i << " integrals:";
+    //        for (int j = 0; j < num_basis_functions; ++j) {
+    //            std::cout << " " << basis_T6_edge_values_pow_integrated[i](k, j);
+    //	      }
+    //	      std::cout << std::endl;
+    //    }
+    //}
+
+    //Edge Lengths (Measures)
+    std::vector<Intrepid::FieldContainer<double> > triangle_edge_lengths(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local) ); //allocate
+    
+    // Approach 1: use FunctionSpaceTools:dataIntegral
+    for (int i=0; i<num_triangle_edges; ++i) {
+        Intrepid::FunctionSpaceTools::dataIntegral<double>(triangle_edge_lengths[i], ones_for_edge_integration[i], physical_line_cub_weights[i], Intrepid::COMP_CPP); //integrate
+    }
+    
+    // Aproach 2: sum weights. DEPRECATE, may be more efficient to contract indices using Intrepid (and already have array of ones) 
+    //std::vector<Intrepid::FieldContainer<double> > triangle_edge_lengths_alt(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local) ); // this is already initialized by 0
+    //for (int i=0; i<num_triangle_edges; ++i) {
+    //    for (int k=0; k<num_cells_local; ++k) {
+    //        for (int j=0; j<num_line_cub_points; ++j) {
+    //            triangle_edge_lengths_alt[i](k) += physical_line_cub_weights[i](k, j);
+    //        }
+    //    }
+    //}
+    
+    //MA CHECK equivalency of integrals
+    //junk = 0.0;
+    //for (int i=0; i<num_triangle_edges; ++i) {
+    //    for (int k=0; k<num_cells_local; ++k) {
+    //        junk += std::abs( triangle_edge_lengths[i](k) - triangle_edge_lengths_alt[i](k)  );
+    //        std::cout << "elem: " << k << " edge: " << i << " length: "  << triangle_edge_lengths_alt[i](k) << std::endl;
+    //    }
+    //}
+    //std::cout << "ma print check edge length integrals equivalency: " << junk << std::endl;
+
+    // MA END Intrepid Integration over cell EDGES ###############################################
+    
+    
+    // **** TESTS ****
+    //int rankbasisvals = basis_T6_values.rank();
+    //std::cout << "MAprint rank= "<< rankbasisvals << std::endl;
+    //for (int k = 0; k < rankbasisvals; ++k) {
+    //    int sizedim = basis_T6_values.dimension(k);
+    //    std::cout << "MAprint dim = " << k << " size = "<< sizedim << std::endl;
+    //}
+    //int rankcubpts = triangle_cub_points.rank();
+    //std::cout << "MAprint rank cub pts= "<< rankcubpts << std::endl;
+    //for (int k = 0; k < rankcubpts; ++k) {
+    //    int sizedim = triangle_cub_points.dimension(k);
+    //    std::cout << "MAprint cub pts dim = " << k << " size = "<< sizedim << std::endl;
+    //}
+    // 
+    //std::cout << "x,y,val" << std::endl;
+    //for (int k = 0; k < num_triangle_cub_points; ++k) {
+    //    int dof = 3;
+    //    double x = triangle_cub_points(k,0);
+    //    double y = triangle_cub_points(k,1);
+    //    double val = basis_T6_values(dof, k);
+    //    std::cout << k << "," << dof << std::endl;
+    //    std::cout << x << "," << y << ","<< val << std::endl;
+    //}
+    // **** END TESTS ****
+    
+
+    //###########################################################################################
+    // MA NOTE: list of quantities computed above that are needed for tau
+    //
+    // 1. sep_grad_grad_mat_integrals
+    // 2. basis_T6_edge_values_pow_integrated
+    // 3. triangle_edge_lengths
+    //
+    // see below for their type and dimensions:
+    //std::vector<Intrepid::FieldContainer<double> > sep_grad_grad_mat_integrals(num_basis_functions,
+    //		  Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, triangle_dim) ); 
+    //std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow_integrated(num_triangle_edges,
+    //            Intrepid::FieldContainer<double>(num_cells_local, num_basis_functions) ); 
+    //std::vector<Intrepid::FieldContainer<double> > triangle_edge_lengths(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local) );
+    //
+    //############################################################################################
+    //
+    //  MA END INTREPID
+    //
+    //############################################################################################
+
+
+
+
+
+
+
+
+
+
+
+    
+    
     // quantities contained on cells (mesh)
     _cells->getFieldManager()->createField(triangle_dim*_weights_ndim, "quadrature_points");
     _cells->getFieldManager()->createField(_weights_ndim, "quadrature_weights");
@@ -561,6 +985,135 @@ void ReactionDiffusionPhysics::initialize() {
 
     auto num_edges = adjacent_elements.extent(1);
     _tau = Kokkos::View<double****, Kokkos::HostSpace>("tau", num_cells_local, num_edges, ndim_requested, ndim_requested);
+
+
+    //############################################################################################
+    //
+    //  MA BEGIN Tau Computation
+    //
+    //############################################################################################ 
+    //  MA NOTES:
+    //  * _tau Kokkos::view could be restructured to have dim num_edges and num_cells_local in rank 1 and rank 2, respectively.
+    //      (would it help)? 
+    //  * Use quantities computed with Intrepid above
+    //  * Tau computed here is for every edge, from each element
+    //  * tau^(e)_s is a quantitiy associated with edge s (from the set of all edges) and element e
+    //  (in 2D there are only two options for e, only to elements associated with edge s, one at either side).
+    //
+    //############################################################################################
+    // USEFUL:
+    //
+    //std::vector<Intrepid::FieldContainer<double> > sep_grad_grad_mat_integrals(num_basis_functions,
+    //		  Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, triangle_dim) ); 
+    //std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow_integrated(num_triangle_edges,
+    //            Intrepid::FieldContainer<double>(num_cells_local, num_basis_functions) ); 
+    //std::vector<Intrepid::FieldContainer<double> > triangle_edge_lengths(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local) );
+    //____________________________________________________________________________________________
+
+
+    //MA TEST: intuition with _tau kokos view
+    // Accessing entries of _tau
+    //junk = _tau(0,0,0,0);
+    //std::cout << "ma check _tau(0,0,0,0)= " << junk << std::endl;
+    //
+    //_tau(0,0,0,0) = 2.5;
+    //junk = _tau(0,0,0,0);
+    //std::cout << "ma check _tau(0,0,0,0)= " << junk << std::endl;
+
+    //Forming matrix Amat (for scalar problem, it is a scalar)
+    Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> Amat(ndim_requested, ndim_requested);
+    Teuchos :: SerialDenseSolver <local_index_type, scalar_type> Amat_solver;
+    
+    //could parallelize outer two loops
+    for (int i = 0; i < num_triangle_edges; ++i) {
+	
+	int edge_ordinal = i + 3;
+        
+	for (int k = 0; k < num_cells_local; ++k) {
+	    
+            Amat.putScalar(0.0);
+	    
+	    for (int j1 = 0; j1 < ndim_requested; ++j1){
+	        for (int j2 = 0; j2 < ndim_requested; ++j2) {
+		    //THIS IS TEMP (actual Amat involves material elastic parameters shear and lambda
+		    // this is A_ij = db/dx_i * db/dx_j
+		    Amat(j1, j2) = sep_grad_grad_mat_integrals[edge_ordinal](k, j1, j2);
+		}
+	    }
+            
+            Amat_solver.setMatrix(Teuchos::rcp(&Amat, false));
+    	    auto info = Amat_solver.invert();
+	    auto Amat_inv_ptr = Amat_solver.getFactoredMatrix();
+	    //Amat is now its inverse
+	    
+	    double tempfactor = basis_T6_edge_values_pow_integrated[i](k, edge_ordinal) /
+		                triangle_edge_lengths[i](k);
+
+	    for (int j1 = 0; j1 < ndim_requested; ++j1){
+	        for (int j2 = 0; j2 < ndim_requested; ++j2) {
+	            _tau(k, i, j1, j2) = Amat(j1, j2) * tempfactor;
+		}
+	    }
+
+	    //MA CHECK inverse
+	    //std::cout << "ma check print Amat BEFORE inversion" << std::endl;
+            //Amat.print(std::cout);
+            //Amat_solver.setMatrix(Teuchos::rcp(&Amat, false));
+	    //auto info = Amat_solver.invert();
+	    //auto Amat_inv_ptr = Amat_solver.getFactoredMatrix();
+	    //std::cout << "ma check print Amat AFTER inversion" << std::endl;
+            //Amat.print(std::cout); //THIS IS THE INVERSE NOW!
+        
+	} //loop over num_cells_local
+    } //loop over num_triangle_edges
+
+
+
+    //MA CHECK
+    //for (int i = 0; i < num_triangle_edges; ++i) {
+    //    for (int k = 0; k < num_cells_local; ++k) {
+    //    for (int j1 = 0; j1 < ndim_requested; ++j1){
+    //        for (int j2 = 0; j2 < ndim_requested; ++j2) {
+    //
+    //            std::cout << "ma check _tau(" << k <<"," << i << "," << j1 <<"," << j2 << ")= " 
+    //                      << _tau(k,i,j1,j2) << std::endl;
+    //             }
+    //        }
+    //    }
+    //}
+   
+
+    // MA 200219 - TEUCHOS SOLVER for AX = B ######################################################
+    //Adapted from online example at https://www.icl.utk.edu/files/publications/2017/icl-utk-1031-2017.pdf   
+    //Also see example at https://docs.trilinos.org/dev/packages/teuchos/doc/html/DenseMatrix_2cxx_main_8cpp-example.html.   
+    //Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> A(3, 3), X(3, 1), B(3, 1);
+    //Teuchos :: SerialDenseSolver <local_index_type, scalar_type> solver;
+    //solver.setMatrix( Teuchos ::rcp( &A,false) );
+    //solver.setVectors( Teuchos ::rcp( &X,false), Teuchos ::rcp( &B,false) );    
+    //A.putScalar(0.0);
+    //B.putScalar(0.0);
+    //X.putScalar(0.0);
+    //A(0,0) = 10.0;
+    //A(1,1) = 1.0;
+    //A(2,2) = 2.0;
+    //B(0,0) = 2.0; 
+    //B(2,0) = 4.0;
+    //auto info = solver.factor();
+    //info = solver.solve();
+    //A.print(std::cout);
+    //B.print(std::cout);
+    //X.print(std::cout);  //should be X = [0.2, 0.0. 2]^T 
+    //MA END of TEUCHOS solver example ################################################################
+
+
+    //############################################################################################
+    //
+    //  MA END Tau Computation (for every edge, from each element)
+    //
+    //############################################################################################
+
+
+
 
 
 
