@@ -27,6 +27,7 @@
         sine - product of sine functions
     -->
     <Parameter name="solution" type="string" value="polynomial"/>
+    <Parameter name="pressure solution" type="string" value="none"/>
   </ParameterList>
   <ParameterList name="io">
     <Parameter name="input dimensions" type="int" value="2"/>

@@ -297,6 +297,8 @@ class SineProducts : public AnalyticFunction {
 
 		virtual xyz_type evalScalarDerivative(const xyz_type& xIn) const;
 
+		virtual xyz_type evalVectorLaplacian(const xyz_type& xyzIn) const;
+
 		virtual std::vector<xyz_type> evalJacobian(const xyz_type& xyzIn) const;
 
 		std::vector<std::vector<xyz_type> > evalHessian(const xyz_type& xyzIn) const;
@@ -309,9 +311,6 @@ class SineProducts : public AnalyticFunction {
 
 		scalar_type evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type comp, 
                 const scalar_type shear_modulus, const scalar_type lambda) const;
-
-		scalar_type evalVectorLaplacianRHS(const xyz_type& xyzIn, const local_index_type comp, 
-                const scalar_type shear_modulus) const;
 
 };
 
@@ -329,6 +328,8 @@ class SecondOrderBasis : public AnalyticFunction {
 
 		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn) const;
 
+		virtual xyz_type evalVectorLaplacian(const xyz_type& xyzIn) const;
+
 		virtual std::vector<xyz_type> evalJacobian(const xyz_type& xyzIn) const;
 
 		std::vector<std::vector<xyz_type> > evalHessian(const xyz_type& xyzIn) const;
@@ -341,9 +342,6 @@ class SecondOrderBasis : public AnalyticFunction {
 
 		scalar_type evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type comp, 
                 const scalar_type shear_modulus, const scalar_type lambda) const;
-
-		scalar_type evalVectorLaplacianRHS(const xyz_type& xyzIn, const local_index_type comp, 
-                const scalar_type shear_modulus) const;
 
 };
 
@@ -361,6 +359,8 @@ class ThirdOrderBasis : public AnalyticFunction {
 
 		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn) const;
 
+		virtual xyz_type evalVectorLaplacian(const xyz_type& xyzIn) const;
+
 		virtual std::vector<xyz_type> evalJacobian(const xyz_type& xyzIn) const;
 
 		std::vector<std::vector<xyz_type> > evalHessian(const xyz_type& xyzIn) const;
@@ -373,9 +373,6 @@ class ThirdOrderBasis : public AnalyticFunction {
 
 		scalar_type evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type comp, 
                 const scalar_type shear_modulus, const scalar_type lambda) const;
-
-		scalar_type evalVectorLaplacianRHS(const xyz_type& xyzIn, const local_index_type comp, 
-                const scalar_type shear_modulus) const;
 
 };
 

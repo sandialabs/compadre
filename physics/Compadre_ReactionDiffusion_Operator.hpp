@@ -25,6 +25,9 @@ class ReactionDiffusionPhysics : public PhysicsT {
 
     public:
 
+        std::string _velocity_name;
+        std::string _pressure_name;
+
         scalar_type _reaction;  // used for reaction-diffusion
         scalar_type _diffusion; // used for reaction-diffusion
         scalar_type _shear;     // used for linear elasticity
@@ -67,6 +70,15 @@ class ReactionDiffusionPhysics : public PhysicsT {
         host_view_local_index_type _halo_big_to_small;
         host_view_local_index_type _halo_small_to_big;
 
+        bool _l2_op;
+        bool _rd_op;
+        bool _le_op;
+        bool _vl_op;
+        bool _st_op;
+        bool _mix_le_op;
+
+        local_index_type _velocity_field_id;
+        local_index_type _pressure_field_id;
 
 		ReactionDiffusionPhysics(	Teuchos::RCP<particle_type> particles, local_index_type t_Porder,
 								Teuchos::RCP<crs_graph_type> A_graph = Teuchos::null,
@@ -78,6 +90,15 @@ class ReactionDiffusionPhysics : public PhysicsT {
             _particle_cells_max_num_neighbors = 0;
             _weights_ndim = 0;
             _cell_particles_max_h = 0;
+
+            _l2_op = false;
+            _rd_op = false;
+            _le_op = false;
+            _vl_op = false;
+            _st_op = false;
+            _mix_le_op = false;
+            _velocity_field_id = -1;
+            _pressure_field_id = -1;
                                 
         } 
 		

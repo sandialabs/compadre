@@ -4,26 +4,37 @@ import os
 import re
 import math
 import sys
+import argparse
+
+parser = argparse.ArgumentParser(description='Run convergence tests and calculate convergence rate.')
+
+parser.add_argument('--num-meshes', dest='num_meshes', type=int, default=3, nargs='?', help='number of meshes')
+parser.add_argument('--order', dest='order', type=int, nargs='?', default=2, help='polynomial order for basis')
+
+parser.add_argument('--shear', dest='shear', type=float, nargs='?', default=1.0, help='shear modulus')
+parser.add_argument('--lambda', dest='lambda_lame', type=float, nargs='?', default=1.0, help='lambda coefficient')
+parser.add_argument('--reaction', dest='reaction', type=float, nargs='?', default=1.0, help='reaction coefficient')
+parser.add_argument('--diffusion', dest='diffusion', type=float, nargs='?', default=1.0, help='diffusion coefficient')
+parser.add_argument('--penalty', dest='penalty', type=float, nargs='?', default=1.0, help='penalty coefficient')
+parser.add_argument('--size', dest='size', type=float, nargs='?', default=1.0, help='first mesh search size (halfed each refinement)')
+parser.add_argument('--rate-tol', dest='rate_tol', type=float, nargs='?', default=0.5, help='tolerance for convergence')
+
+parser.add_argument('--solution', dest='solution', type=str, nargs='?', default='polynomial', help='solution type')
+parser.add_argument('--operator', dest='operator', type=str, nargs='?', default='rd', help='operator for PDE solve')
+parser.add_argument('--convergence-type', dest='convergence_type', type=str, nargs='?', default='rate', help='type of convergence to test')
+
+args = parser.parse_args()
 
 
-# first argument sets maximum porder to check
-# second argument sets maximum meshes to check
-max_fname = 10 
-if (len(sys.argv) > 1):
-    max_fname = int(sys.argv[1])
 
-orig_size = 1.0
-if (len(sys.argv) > 2):
-    orig_size = float(sys.argv[2])
-
-file_names = ["dg_%d.nc"%num for num in range(max_fname)]
-error_types=['l2','h1','jp','sum']
-all_errors = [list(), list(), list(), list()]#list() * len(error_types)
+file_names = ["dg_%d.nc"%num for num in range(args.num_meshes)]
+error_types=['vel. l2','vel. h1','vel. jp','vel. sum','pr. l2','pr. jp','pr. sum']
+all_errors = [list(), list(), list(), list(), list(), list(), list()]#list() * len(error_types)
 
 for key2, fname in enumerate(file_names):
-    e = ET.parse('../test_data/parameter_lists/reactiondiffusion/parameters.xml').getroot()
+    e = ET.parse('../../test_data/parameter_lists/reactiondiffusion/parameters_template.xml').getroot()
     tree = ET.ElementTree(e)
-    size_str = str(orig_size/float(pow(2,key2)))
+    size_str = str(args.size/float(pow(2,key2)))
     print(size_str)
     
     for item in e.getchildren():
@@ -31,12 +42,11 @@ for key2, fname in enumerate(file_names):
             f=item
         if (item.attrib['name']=="neighborhood"):
             n=item
-    #    if (item.attrib['name']=="remap"):
-    #        g=item
-    #    if (item.attrib['name']=="physics"):
-    #        p=item
+        if (item.attrib['name']=="physics"):
+            p=item
+        if (item.attrib['name']=="remap"):
+            r=item
     
-    # have io now
     for item in f.getchildren():
         if (item.attrib['name']=="input file"):
             item.attrib['value']=fname
@@ -45,12 +55,25 @@ for key2, fname in enumerate(file_names):
         if (item.attrib['name']=="size"):
             item.attrib['value']=size_str
 
-    ## have physics now
-    #for item in p.getchildren():
-    #    if (item.attrib['name']=="operator"):
-    #        item.attrib['value']="l2" if (l2_only > 0) else "rd"
-    #    if (item.attrib['name']=="solution"):
-    #        item.attrib['value']="polynomial" if (solution==0) else "sine"
+    for item in p.getchildren():
+        if (item.attrib['name']=="solution"):
+            item.attrib['value']=args.solution
+        if (item.attrib['name']=="operator"):
+            item.attrib['value']=args.operator
+        if (item.attrib['name']=="reaction"):
+            item.attrib['value']=str(args.reaction)
+        if (item.attrib['name']=="diffusion"):
+            item.attrib['value']=str(args.diffusion)
+        if (item.attrib['name']=="shear"):
+            item.attrib['value']=str(args.shear)
+        if (item.attrib['name']=="lambda"):
+            item.attrib['value']=str(args.lambda_lame)
+        if (item.attrib['name']=="penalty"):
+            item.attrib['value']=str(args.penalty)
+
+    for item in r.getchildren():
+        if (item.attrib['name']=="porder"):
+            item.attrib['value']=str(args.order)
     
     tree.write(open('../test_data/parameter_lists/reactiondiffusion/parameters_generated.xml', 'wb'))
     
@@ -68,25 +91,44 @@ for key2, fname in enumerate(file_names):
         print(output)
         m = re.search('(?<=L2: )[0-9]+\.?[0-9]*(?:[Ee]\ *[-+]?\ *[0-9]+)?', output)
         all_errors[0].append(float(m.group(0)))
-        m = re.search('(?<=H1: )[0-9]+\.?[0-9]*(?:[Ee]\ *[-+]?\ *[0-9]+)?', output)
-        all_errors[1].append(float(m.group(0)))
-        m = re.search('(?<=Ju: )[0-9]+\.?[0-9]*(?:[Ee]\ *[-+]?\ *[0-9]+)?', output)
-        all_errors[2].append(float(m.group(0)))
-        m = re.search('(?<=Global Norm: )[0-9]+\.?[0-9]*(?:[Ee]\ *[-+]?\ *[0-9]+)?', output)
-        all_errors[3].append(float(m.group(0)))
+        if (args.operator != 'l2'):
+            m = re.search('(?<=H1: )[0-9]+\.?[0-9]*(?:[Ee]\ *[-+]?\ *[0-9]+)?', output)
+            all_errors[1].append(float(m.group(0)))
+            m = re.search('(?<=Ju: )[0-9]+\.?[0-9]*(?:[Ee]\ *[-+]?\ *[0-9]+)?', output)
+            all_errors[2].append(float(m.group(0)))
+            m = re.search('(?<=Global Norm: )[0-9]+\.?[0-9]*(?:[Ee]\ *[-+]?\ *[0-9]+)?', output)
+            all_errors[3].append(float(m.group(0)))
+        if (args.operator.lower() in ['st', 'mix_le']):
+            m = re.search('(?<=Pressure L2: )[0-9]+\.?[0-9]*(?:[Ee]\ *[-+]?\ *[0-9]+)?', output)
+            all_errors[4].append(float(m.group(0)))
+            m = re.search('(?<=Pressure Ju: )[0-9]+\.?[0-9]*(?:[Ee]\ *[-+]?\ *[0-9]+)?', output)
+            all_errors[5].append(float(m.group(0)))
+            m = re.search('(?<=Global Pressure Norm: )[0-9]+\.?[0-9]*(?:[Ee]\ *[-+]?\ *[0-9]+)?', output)
+            all_errors[6].append(float(m.group(0)))
     
-    if (max_fname==(key2+1)):
-        break
-
 print(all_errors)
 for key, errors in enumerate(all_errors):
-    if (max_fname>1):
+    rate = 0
+    last_error = 0
+    if (args.num_meshes>1 and len(errors)>0):
         print("\n\nerror rates: type:%s\n============="%(error_types[key],))
         for i in range(1,len(errors)):
             if (errors[i]!=0):
                 rate = math.log(errors[i]/errors[i-1])/math.log(.5)
+                last_error = errors[i]
                 print(str(rate) + ", " + str(errors[i]) + ", " + str(errors[i-1]))
             else:
                 print("NaN - Division by zero")
+    else:
+        break
+
+    if (args.convergence_type.lower()=="exact"):
+        if (abs(args.rate_tol-last_error)>args.rate_tol):
+            assert False, "Last calculated error (%f) more than %f from exact solution." % (last_error, args.rate_tol,)
+
+    elif (args.convergence_type.lower()=="rate"):
+        if (((abs(args.order-rate)>args.rate_tol and rate<args.order) and ('l2' not in error_types[key])) or ((abs(args.order+1-rate)>args.rate_tol and rate<(args.order+1)) and ('l2' in error_types[key]))):
+            assert False, "Last calculated rate (%f) more than %f from theoretical optimal rate." % (rate, args.rate_tol,)
+
 
 sys.exit(0)

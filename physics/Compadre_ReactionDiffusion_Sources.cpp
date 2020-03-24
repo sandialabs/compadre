@@ -18,14 +18,25 @@ typedef Compadre::XyzVector xyz_type;
 
 void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time) {
 
-    bool l2_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="l2");
-    bool rd_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="rd");
-    bool le_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le");
-    bool vl_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="vl");
+    bool _l2_op = _physics->_l2_op;
+    bool _rd_op = _physics->_rd_op;
+    bool _le_op = _physics->_le_op;
+    bool _vl_op = _physics->_vl_op;
+    bool _st_op = _physics->_st_op;
+    bool _mix_le_op = _physics->_mix_le_op;
 
     bool polynomial_solution = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial");
     bool polynomial_3_solution = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3");
     bool sine_solution = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="sine");
+
+    bool pressure_polynomial_solution = false;
+    bool pressure_polynomial_3_solution = false;
+    bool pressure_sine_solution = false;
+    if (_st_op) {
+        pressure_polynomial_solution = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial");
+        pressure_polynomial_3_solution = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_3");
+        pressure_sine_solution = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="sine");
+    }
 
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_b==NULL, "Tpetra Multivector for RHS not yet specified.");
     if (field_two == -1) {
@@ -111,7 +122,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
 
                 // add the contribution to the row for the particle
                 double contribution = 0;
-                if (l2_op) {
+                if (_l2_op) {
                     for (int q=0; q<_physics->_weights_ndim; ++q) {
                         auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_physics->_halo_small_to_big(halo_i,0),q);
                         if (q_type==1) { // interior
@@ -138,7 +149,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
 
                         if (q_type==1) { // interior
                             double rhs_eval = 0;
-                            if (rd_op) {
+                            if (_rd_op) {
                                 // integrating RHS function
                                 if (polynomial_solution) {
                                     auto cast_to_poly_2 = dynamic_cast<SecondOrderBasis*>(function.getRawPtr());
@@ -150,7 +161,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                     auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());
                                     rhs_eval = cast_to_sine->evalReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
                                 }
-                            } else if (le_op) {
+                            } else if (_le_op || _mix_le_op) {
                                 if (polynomial_solution) {
                                     auto cast_to_poly_2 = dynamic_cast<SecondOrderBasis*>(function.getRawPtr());
                                     rhs_eval = cast_to_poly_2->evalLinearElasticityRHS(pt,comp,_physics->_shear,_physics->_lambda);
@@ -161,17 +172,47 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                     auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());
                                     rhs_eval = cast_to_sine->evalLinearElasticityRHS(pt,comp,_physics->_shear,_physics->_lambda);
                                 }
-                            } else if (vl_op) {
+                            } else if (_vl_op) {
+                                xyz_type rhs_evals;
                                 if (polynomial_solution) {
                                     auto cast_to_poly_2 = dynamic_cast<SecondOrderBasis*>(function.getRawPtr());
-                                    rhs_eval = cast_to_poly_2->evalVectorLaplacianRHS(pt,comp,_physics->_shear);
+                                    rhs_evals = cast_to_poly_2->evalVectorLaplacian(pt);
                                 } else if (polynomial_3_solution) {
                                     auto cast_to_poly_3 = dynamic_cast<ThirdOrderBasis*>(function.getRawPtr());
-                                    rhs_eval = cast_to_poly_3->evalVectorLaplacianRHS(pt,comp,_physics->_shear);
+                                    rhs_evals = cast_to_poly_3->evalVectorLaplacian(pt);
                                 } else {
                                     auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());
-                                    rhs_eval = cast_to_sine->evalVectorLaplacianRHS(pt,comp,_physics->_shear);
+                                    rhs_evals = cast_to_sine->evalVectorLaplacian(pt);
                                 }
+                                rhs_evals *= -_physics->_shear;
+                                rhs_eval = rhs_evals[comp];
+                            } else if (_st_op) {
+                                xyz_type rhs_evals;
+                                if (polynomial_solution) {
+                                    auto cast_to_poly_2 = dynamic_cast<SecondOrderBasis*>(function.getRawPtr());
+                                    rhs_evals = cast_to_poly_2->evalVectorLaplacian(pt);
+                                } else if (polynomial_3_solution) {
+                                    auto cast_to_poly_3 = dynamic_cast<ThirdOrderBasis*>(function.getRawPtr());
+                                    rhs_evals = cast_to_poly_3->evalVectorLaplacian(pt);
+                                } else {
+                                    auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());
+                                    rhs_evals = cast_to_sine->evalVectorLaplacian(pt);
+                                }
+                                rhs_evals *= -_physics->_diffusion;
+                                rhs_eval = rhs_evals[comp];
+                                // pressure contribution not added yet
+                                xyz_type grad_p_vals;
+                                if (pressure_polynomial_solution) {
+                                    auto cast_to_poly_2 = dynamic_cast<SecondOrderBasis*>(function.getRawPtr());
+                                    grad_p_vals = cast_to_poly_2->evalScalarDerivative(pt);
+                                } else if (pressure_polynomial_3_solution) {
+                                    auto cast_to_poly_3 = dynamic_cast<ThirdOrderBasis*>(function.getRawPtr());
+                                    grad_p_vals = cast_to_poly_3->evalScalarDerivative(pt);
+                                } else {
+                                    auto cast_to_sine = dynamic_cast<SineProducts*>(function.getRawPtr());
+                                    grad_p_vals = cast_to_sine->evalScalarDerivative(pt);
+                                }
+                                rhs_eval += grad_p_vals[comp];
                             }
                             contribution += q_wt * v * rhs_eval;
                         } 
@@ -185,23 +226,23 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                             double n_x = (i<nlocal) ? unit_normals(i,2*q+0) : halo_unit_normals(_physics->_halo_small_to_big(halo_i,0), 2*q+0);
                             double n_y = (i<nlocal) ? unit_normals(i,2*q+1) : halo_unit_normals(_physics->_halo_small_to_big(halo_i,0), 2*q+1);
                             double exact_eval = 0;
-                            if (rd_op) {
+                            if (_rd_op) {
                                 exact_eval = function->evalScalar(pt);
-                            } else if (le_op || vl_op) {
+                            } else if (_le_op || _vl_op) {
                                 auto exact = function->evalVector(pt);
                                 exact_eval = exact[comp];
                             }
                             contribution += penalty * q_wt * v * exact_eval;
 
-                            if (rd_op) {
+                            if (_rd_op) {
                                 contribution -= _physics->_diffusion * q_wt * ( n_x * v_x + n_y * v_y) * exact_eval;
-                            } else if (le_op) {
+                            } else if (_le_op) {
                                 auto exact = function->evalVector(pt);
                                 contribution -= q_wt * (
                                       2 * _physics->_shear * (n_x*v_x*(comp==0) + 0.5*n_y*(v_y*(comp==0) + v_x*(comp==1))) * exact[0]  
                                     + 2 * _physics->_shear * (n_y*v_y*(comp==1) + 0.5*n_x*(v_x*(comp==1) + v_y*(comp==0))) * exact[1]
                                     + _physics->_lambda * (v_x*(comp==0) + v_y*(comp==1)) * (n_x*exact[0] + n_y*exact[1]));
-                            } else if (vl_op) {
+                            } else if (_vl_op) {
                                 auto exact = function->evalVector(pt);
                                 contribution -= q_wt * (
                                       _physics->_shear * (n_x*v_x*(comp==0) + n_y*v_y*(comp==0)) * exact[0]  
@@ -242,7 +283,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     //}
 
 
-    if (polynomial_solution) {
+    if (polynomial_solution && field_one==_physics->_velocity_field_id) {
         auto reference_global_force = 22.666666666666666666;//4.0;//1.9166666666666665;//0.21132196999014932;
         double force = 0;
         for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {

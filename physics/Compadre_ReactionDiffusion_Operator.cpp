@@ -617,13 +617,9 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
     bool use_physical_coords = true; // can be set on the operator in the future
 
-    const bool l2_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="l2");
-    if (!l2_op) {
+    if (!_l2_op) {
         TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
     }
-    const bool rd_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="rd");
-    const bool le_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le");
-    const bool vl_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="vl");
 
     Teuchos::RCP<Teuchos::Time> ComputeMatrixTime = Teuchos::TimeMonitor::getNewCounter ("Compute Matrix Time");
     ComputeMatrixTime->start();
@@ -772,7 +768,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
         std::vector<int> current_edge_num(_weights_ndim);
         std::vector<int> side_of_cell_i_to_adjacent_cell(_weights_ndim);
         std::vector<int> adjacent_cell_local_index(_weights_ndim);
-        if (!l2_op) {
+        if (!_l2_op) {
             TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
             for (int q=0; q<_weights_ndim; ++q) {
                 if (q>=num_interior_quadrature) {
@@ -888,7 +884,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                     : _halo_cell_particles_neighborhood->getNeighbor(halo_i,j);
                 cell_neighbors[particle_j] = 1;
             }
-            if (!l2_op) {
+            if (!_l2_op) {
                 TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
                 for (local_index_type j=0; j<num_edges; ++j) {
                     int adj_el = (int)(adjacent_elements(i,j));
@@ -969,7 +965,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                         bool k_has_value = false;
 
                         double contribution = 0;
-                        if (l2_op) {
+                        if (_l2_op) {
                             for (int q=0; q<_weights_ndim; ++q) {
                                 const auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_halo_small_to_big(halo_i,0),q);
                                 if (q_type==1) { // interior
@@ -1025,13 +1021,13 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
                                 if (q_type==1) { // interior
 
-                                    if (rd_op) {
+                                    if (_rd_op) {
                                         contribution += _reaction * q_wt * u * v;
                                         contribution += _diffusion * q_wt 
                                             * grad_v_x * grad_u_x;
                                         contribution += _diffusion * q_wt 
                                             * grad_v_y * grad_u_y;
-                                    } else if (le_op) {
+                                    } else if (_le_op) {
                                         contribution += q_wt * _lambda * (grad_v_x*j_comp_0 + grad_v_y*j_comp_1) 
                                             * (grad_u_x*k_comp_0 + grad_u_y*k_comp_1);
                                        
@@ -1039,7 +1035,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                               grad_v_x*grad_u_x*j_comp_0*k_comp_0 
                                             + grad_v_y*grad_u_y*j_comp_1*k_comp_1 
                                             + 0.5*(grad_v_y*j_comp_0 + grad_v_x*j_comp_1)*(grad_u_y*k_comp_0 + grad_u_x*k_comp_1));
-                                    } else if (vl_op) {
+                                    } else if (_vl_op) {
                                         contribution += q_wt * _shear* (
                                               grad_v_x*grad_u_x*j_comp_0*k_comp_0 
                                             + grad_v_y*grad_u_y*j_comp_0*k_comp_0 
@@ -1050,7 +1046,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                 } 
                                 else if (q_type==2) { // edge on exterior
 
-                                    if (rd_op) {
+                                    if (_rd_op) {
                                         const double jumpv = v;
                                         const double jumpu = u;
                                         const double avgv_x = grad_v_x;
@@ -1068,7 +1064,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         contribution += penalty * q_wt * jumpv * jumpu;
                                         contribution -= q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
                                         contribution -= q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
-                                    } else if (le_op || vl_op) {
+                                    } else if (_le_op || _vl_op) {
                                         // only jump penalization currently included
                                         const double jumpv = v;
                                         const double jumpu = u;
@@ -1080,7 +1076,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         const auto n_y = unit_normals(i,2*q+1);
 
                                         contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp);
-                                        if (le_op) {
+                                        if (_le_op) {
                                             contribution -= q_wt * (
                                                   2 * _shear * (n_x*avgv_x*j_comp_0 
                                                     + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
@@ -1093,7 +1089,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 + 2 * _shear * (n_y*avgu_y*k_comp_1 
                                                     + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
                                                 + _lambda*(avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
-                                        } else { // vl_op
+                                        } else { // _vl_op
                                             contribution -= q_wt * (
                                                   _shear * (n_x*avgv_x*j_comp_0 
                                                     + n_y*avgv_y*j_comp_0) * jumpu*k_comp_0  
@@ -1239,14 +1235,14 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     //contribution += 0.5 * penalty * q_wt * jumpv * jumpu; // other half will be added by other cell
                                     //contribution -= 0.5 * q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
                                     //contribution -= 0.5 * q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
-                                    if (rd_op) {
+                                    if (_rd_op) {
                                         contribution += penalty * q_wt * jumpv * jumpu; // other half will be added by other cell
                                         contribution -= q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
                                         contribution -= q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
-                                    } else if (le_op || vl_op) {
+                                    } else if (_le_op || _vl_op) {
                                         contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp); // other half will be added by other cell
 
-                                        if (le_op) {
+                                        if (_le_op) {
                                             contribution -= q_wt * (
                                                   2 * _shear * (n_x*avgv_x*j_comp_0 
                                                     + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
@@ -1259,7 +1255,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 + 2 * _shear * (n_y*avgu_y*k_comp_1 
                                                     + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
                                                 + _lambda*(avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
-                                        } else { // vl_op
+                                        } else { // _vl_op
                                             contribution -= q_wt * (
                                                   _shear * (n_x*avgv_x*j_comp_0 
                                                     + n_y*avgv_y*j_comp_0) * jumpu*k_comp_0  
@@ -1312,7 +1308,12 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
 const std::vector<InteractingFields> ReactionDiffusionPhysics::gatherFieldInteractions() {
 	std::vector<InteractingFields> field_interactions;
-	field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _particles->getFieldManagerConst()->getIDOfFieldFromName("solution")));
+	field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _velocity_field_id ));
+    if (_st_op || _mix_le_op) {
+	    field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _velocity_field_id, _pressure_field_id));
+	    field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _pressure_field_id, _velocity_field_id));
+	    field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _pressure_field_id));
+    }
 	return field_interactions;
 }
     
