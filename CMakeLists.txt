@@ -12,6 +12,29 @@ if (${PROJECT_NAME}_TRIBITS_DIR) # TriBITS CMake Project
 
   message("ETWAS:Under Construction")
 
+  #
+  # A) Define the package
+  #
+
+  tribits_package(Compadre)
+
+  #
+  # B) Set up package-specific options
+  #
+
+  #
+  # C) Add the libraries, tests, and examples
+  #
+
+  add_subdirectory(src)
+  tribits_add_test_directories(examples)
+
+  #
+  # D) Do standard postprocessing
+  #
+
+  tribits_package_postprocess()
+
 else() # Raw CMake Project
 
   ##########
