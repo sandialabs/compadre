@@ -50,8 +50,11 @@ class ReactionDiffusionPhysics : public PhysicsT {
         size_t _weights_ndim;
 		scalar_type _cell_particles_max_h;
 
-        Teuchos::RCP<GMLS> _gmls;
-        Teuchos::RCP<GMLS> _halo_gmls;
+        Teuchos::RCP<GMLS> _vel_gmls;
+        Teuchos::RCP<GMLS> _halo_vel_gmls;
+
+        Teuchos::RCP<GMLS> _pressure_gmls;
+        Teuchos::RCP<GMLS> _halo_pressure_gmls;
 
         Kokkos::View<int**>::HostMirror _kokkos_neighbor_lists_host;
         Kokkos::View<double**>::HostMirror _kokkos_augmented_source_coordinates_host;
@@ -79,6 +82,7 @@ class ReactionDiffusionPhysics : public PhysicsT {
 
         local_index_type _velocity_field_id;
         local_index_type _pressure_field_id;
+        local_index_type _lagrange_field_id;
 
 		ReactionDiffusionPhysics(	Teuchos::RCP<particle_type> particles, local_index_type t_Porder,
 								Teuchos::RCP<crs_graph_type> A_graph = Teuchos::null,
@@ -99,6 +103,7 @@ class ReactionDiffusionPhysics : public PhysicsT {
             _mix_le_op = false;
             _velocity_field_id = -1;
             _pressure_field_id = -1;
+            _lagrange_field_id = -1;
                                 
         } 
 		
@@ -132,7 +137,7 @@ class ReactionDiffusionPhysics : public PhysicsT {
         
         virtual local_index_type getMaxNumNeighbors();
 
-        Teuchos::RCP<GMLS> getGMLSInstance() { return _gmls; }
+        Kokkos::View<size_t*, Kokkos::HostSpace> getMaxEntriesPerRow(local_index_type field_one, local_index_type field_two);
 
 };
 

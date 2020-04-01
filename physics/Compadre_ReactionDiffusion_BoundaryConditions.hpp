@@ -7,26 +7,33 @@ namespace Compadre {
 
 class ParticlesT;
 
+class ReactionDiffusionPhysics;
+
 class ReactionDiffusionBoundaryConditions : public BoundaryConditionsT {
 
-	protected:
+    protected:
 
-		typedef Compadre::ParticlesT particle_type;
+        typedef Compadre::ParticlesT particle_type;
 
-	public:
+        ReactionDiffusionPhysics* _physics;
 
-		ReactionDiffusionBoundaryConditions( Teuchos::RCP<particle_type> particles,
-												mvec_type* b = NULL) :
-												BoundaryConditionsT(particles, b)
-		{}
+    public:
 
-		virtual ~ReactionDiffusionBoundaryConditions() {}
+        ReactionDiffusionBoundaryConditions( Teuchos::RCP<particle_type> particles,
+                                                mvec_type* b = NULL) :
+                                                BoundaryConditionsT(particles, b)
+        {}
 
-		virtual void flagBoundaries();
+        virtual ~ReactionDiffusionBoundaryConditions() {}
 
-		virtual void applyBoundaries(local_index_type field_one, local_index_type field_two = -1, scalar_type time = 0.0);
+        virtual void flagBoundaries();
 
-		virtual std::vector<InteractingFields> gatherFieldInteractions();
+        virtual void applyBoundaries(local_index_type field_one, local_index_type field_two = -1, scalar_type time = 0.0);
+
+        virtual std::vector<InteractingFields> gatherFieldInteractions();
+
+        void setPhysics(Teuchos::RCP<ReactionDiffusionPhysics> physics) { _physics = physics.getRawPtr(); }
+
 };
 
 }

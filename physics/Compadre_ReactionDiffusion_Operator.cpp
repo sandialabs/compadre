@@ -331,22 +331,38 @@ void ReactionDiffusionPhysics::initialize() {
     //****************
 
     // GMLS operator
-    _gmls = Teuchos::rcp<GMLS>(new GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+    _vel_gmls = Teuchos::rcp<GMLS>(new GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
                  2 /* dimension */,
                  _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"), 
                  "STANDARD", "NO_CONSTRAINT"));
-    _gmls->setProblemData(_kokkos_neighbor_lists_host,
+    _vel_gmls->setProblemData(_kokkos_neighbor_lists_host,
                     _kokkos_augmented_source_coordinates_host,
                     _kokkos_target_coordinates_host,
                     _kokkos_epsilons_host);
-    _gmls->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-    _gmls->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+    _vel_gmls->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
+    _vel_gmls->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 
-    _gmls->addTargets(TargetOperation::ScalarPointEvaluation);
-    _gmls->addTargets(TargetOperation::GradientOfScalarPointEvaluation);
-    _gmls->setAdditionalEvaluationSitesData(_kokkos_quadrature_neighbor_lists_host, _kokkos_quadrature_coordinates_host);
-    _gmls->generateAlphas();
+    _vel_gmls->addTargets(TargetOperation::ScalarPointEvaluation);
+    _vel_gmls->addTargets(TargetOperation::GradientOfScalarPointEvaluation);
+    _vel_gmls->setAdditionalEvaluationSitesData(_kokkos_quadrature_neighbor_lists_host, _kokkos_quadrature_coordinates_host);
+    _vel_gmls->generateAlphas();
 
+    if (_st_op || _mix_le_op) {
+        _pressure_gmls = Teuchos::rcp<GMLS>(new GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")-1,
+                     2 /* dimension */,
+                     _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"), 
+                     "STANDARD", "NO_CONSTRAINT"));
+        _pressure_gmls->setProblemData(_kokkos_neighbor_lists_host,
+                        _kokkos_augmented_source_coordinates_host,
+                        _kokkos_target_coordinates_host,
+                        _kokkos_epsilons_host);
+        _pressure_gmls->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
+        _pressure_gmls->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+
+        _pressure_gmls->addTargets(TargetOperation::ScalarPointEvaluation);
+        _pressure_gmls->setAdditionalEvaluationSitesData(_kokkos_quadrature_neighbor_lists_host, _kokkos_quadrature_coordinates_host);
+        _pressure_gmls->generateAlphas();
+    }
 
 
     // halo
@@ -540,21 +556,21 @@ void ReactionDiffusionPhysics::initialize() {
 
             // need _kokkos_halo_quadrature_neighbor lists and quadrature coordinates
             // GMLS operator
-            _halo_gmls = Teuchos::rcp<GMLS>(new GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
+            _halo_vel_gmls = Teuchos::rcp<GMLS>(new GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
                          2 /* dimension */,
                          _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"), 
                          "STANDARD", "NO_CONSTRAINT"));
-            _halo_gmls->setProblemData(kokkos_halo_neighbor_lists_host,
+            _halo_vel_gmls->setProblemData(kokkos_halo_neighbor_lists_host,
                             _kokkos_augmented_source_coordinates_host,
                             kokkos_halo_target_coordinates_host,
                             kokkos_halo_epsilons_host);
-            _halo_gmls->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-            _halo_gmls->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+            _halo_vel_gmls->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
+            _halo_vel_gmls->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 
-            _halo_gmls->addTargets(TargetOperation::ScalarPointEvaluation);
-            _halo_gmls->addTargets(TargetOperation::GradientOfScalarPointEvaluation);
-            _halo_gmls->setAdditionalEvaluationSitesData(kokkos_halo_quadrature_neighbor_lists_host, kokkos_halo_quadrature_coordinates_host);
-            _halo_gmls->generateAlphas();
+            _halo_vel_gmls->addTargets(TargetOperation::ScalarPointEvaluation);
+            _halo_vel_gmls->addTargets(TargetOperation::GradientOfScalarPointEvaluation);
+            _halo_vel_gmls->setAdditionalEvaluationSitesData(kokkos_halo_quadrature_neighbor_lists_host, kokkos_halo_quadrature_coordinates_host);
+            _halo_vel_gmls->generateAlphas();
             Kokkos::fence();
         }
     }
@@ -575,39 +591,249 @@ local_index_type ReactionDiffusionPhysics::getMaxNumNeighbors() {
     return _particles_triple_hop_neighborhood->computeMaxNumNeighbors(false /*local processor maximum*/);
 }
 
+Kokkos::View<size_t*, Kokkos::HostSpace> ReactionDiffusionPhysics::getMaxEntriesPerRow(local_index_type field_one, local_index_type field_two) {
+
+    auto comm = this->_particles->getCoordsConst()->getComm();
+
+	const local_index_type num_particles_local = static_cast<local_index_type>(this->_coords->nLocal());
+    Kokkos::View<size_t*, Kokkos::HostSpace> maxEntriesPerRow("max entries per row", num_particles_local);
+
+	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
+	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
+
+    if (field_one == _lagrange_field_id && field_two == _pressure_field_id) {
+        auto row_map_entries = _row_map->getMyGlobalIndices();
+        Kokkos::resize(maxEntriesPerRow, row_map_entries.extent(0));
+        Kokkos::deep_copy(maxEntriesPerRow, 0);
+        if (comm->getRank()==0) {
+            maxEntriesPerRow(0) = num_particles_local*fields[field_two]->nDim();
+        } else {
+            maxEntriesPerRow(row_map_entries.extent(0)-1) = num_particles_local*fields[field_two]->nDim();
+        }
+        // write to last entry
+    } else if (field_one == _pressure_field_id && field_two == _lagrange_field_id) {
+        for(local_index_type i = 0; i < num_particles_local; i++) {
+            maxEntriesPerRow(i) = fields[field_two]->nDim();
+        }
+    }
+
+    return maxEntriesPerRow;
+}
+
 Teuchos::RCP<crs_graph_type> ReactionDiffusionPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
 	if (field_two == -1) {
 		field_two = field_one;
 	}
 
+	const local_index_type num_particles_local = static_cast<local_index_type>(this->_coords->nLocal());
+
 	Teuchos::RCP<Teuchos::Time> ComputeGraphTime = Teuchos::TimeMonitor::getNewCounter ("Compute Graph Time");
 	ComputeGraphTime->start();
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_A_graph.is_null(), "Tpetra CrsGraph for Physics not yet specified.");
 
-	const local_index_type num_particles_local = static_cast<local_index_type>(this->_coords->nLocal());
+    if (field_one == _lagrange_field_id && field_two == _pressure_field_id) {
+        // row all DOFs for solution against Lagrange Multiplier
+
+        // create a new graph from the existing one, but with an updated row map augmented by a single global dof
+        // for the lagrange multiplier
+        auto existing_row_map = _row_map;
+        auto existing_col_map = _col_map;
+
+        size_t max_entries_per_row;
+        Teuchos::ArrayRCP<const size_t> empty_array;
+        bool bound_same_for_all_local_rows = true;
+        this->_A_graph->getNumEntriesPerLocalRowUpperBound(empty_array, max_entries_per_row, bound_same_for_all_local_rows);
+
+        auto row_map_index_base = existing_row_map->getIndexBase();
+        auto row_map_entries = existing_row_map->getMyGlobalIndices();
+
+        auto comm = this->_particles->getCoordsConst()->getComm();
+        const int offset_size = (comm->getRank() == 0) ? 0 : 1;
+        Kokkos::View<global_index_type*> new_row_map_entries("", row_map_entries.extent(0)+offset_size);
+
+        for (size_t i=0; i<row_map_entries.extent(0); ++i) {
+            //new_row_map_entries(i+offset_size) = row_map_entries(i);
+            new_row_map_entries(i) = row_map_entries(i);
+        }
+
+        {
+            // exchange information between processors to get first index on processor 0
+            global_index_type global_index_proc_0_element_0;
+            if (comm->getRank()==0) {
+                global_index_proc_0_element_0 = row_map_entries(0);
+            }
+
+            // broadcast from processor 0 to other ranks
+            Teuchos::broadcast<local_index_type, global_index_type>(*comm, 0 /*processor broadcasting*/, 
+                    1 /*size*/, &global_index_proc_0_element_0);
+
+            if (comm->getRank() > 0) {
+                // now the first entry in the map is to the shared gid for the LM
+                new_row_map_entries(new_row_map_entries.extent(0)-1) = global_index_proc_0_element_0;
+            }
+
+        }
+
+        auto new_row_map = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
+                										new_row_map_entries,
+                										row_map_index_base,
+                										this->_particles->getCoordsConst()->getComm()));
+
+        this->setRowMap(new_row_map);
+
+
+        auto entries = this->getMaxEntriesPerRow(field_one, field_two);
+        auto dual_view_entries = Kokkos::DualView<size_t*>("dual view", entries.extent(0));
+        auto host_view_entries = dual_view_entries.h_view;
+        Kokkos::deep_copy(host_view_entries, entries);
+        dual_view_entries.modify<Kokkos::DefaultHostExecutionSpace>();
+        dual_view_entries.sync<Kokkos::DefaultExecutionSpace>();
+        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries, Tpetra::StaticProfile));
+
+    } else if (field_one == _pressure_field_id && field_two == _lagrange_field_id) {
+
+        // create a new graph from the existing one, but with an updated col map augmented by a single global dof
+        // for the lagrange multiplier
+        auto existing_row_map = _row_map;
+        auto existing_col_map = _col_map;
+
+        size_t max_entries_per_row;
+        Teuchos::ArrayRCP<const size_t> empty_array;
+        bool bound_same_for_all_local_rows = true;
+        this->_A_graph->getNumEntriesPerLocalRowUpperBound(empty_array, max_entries_per_row, bound_same_for_all_local_rows);
+
+        auto col_map_index_base = existing_col_map->getIndexBase();
+        auto col_map_entries = existing_col_map->getMyGlobalIndices();
+        auto row_map_entries = existing_row_map->getMyGlobalIndices();
+
+        auto comm = this->_particles->getCoordsConst()->getComm();
+        const int offset_size = (comm->getRank() == 0) ? 0 : 1;
+        Kokkos::View<global_index_type*> new_col_map_entries("", col_map_entries.extent(0)+offset_size);
+
+        for (size_t i=0; i<col_map_entries.extent(0); ++i) {
+            //new_col_map_entries(i+offset_size) = col_map_entries(i);
+            new_col_map_entries(i) = col_map_entries(i);
+        }
+
+        {
+            // exchange information between processors to get first index on processor 0
+            global_index_type global_index_proc_0_element_0;
+            if (comm->getRank()==0) {
+                global_index_proc_0_element_0 = col_map_entries(0);
+            }
+
+            // broadcast from processor 0 to other ranks
+            Teuchos::broadcast<local_index_type, global_index_type>(*comm, 0 /*processor broadcasting*/, 
+                    1 /*size*/, &global_index_proc_0_element_0);
+
+            if (comm->getRank() > 0) {
+                // now the first entry in the map is to the shared gid for the LM
+                new_col_map_entries(new_col_map_entries.extent(0)-1) = global_index_proc_0_element_0;
+            }
+
+        }
+
+        auto new_col_map = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
+                										new_col_map_entries,
+                										col_map_index_base,
+                										this->_particles->getCoordsConst()->getComm()));
+
+        this->setColMap(new_col_map);
+
+        auto entries = this->getMaxEntriesPerRow(field_one, field_two);
+        auto dual_view_entries = Kokkos::DualView<size_t*>("dual view", entries.extent(0));
+        auto host_view_entries = dual_view_entries.h_view;
+        Kokkos::deep_copy(host_view_entries, entries);
+        dual_view_entries.modify<Kokkos::DefaultHostExecutionSpace>();
+        dual_view_entries.sync<Kokkos::DefaultExecutionSpace>();
+        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries, Tpetra::StaticProfile));
+
+    }
+
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
 
-    for(local_index_type i = 0; i < num_particles_local; i++) {
-        local_index_type num_neighbors = _particles_triple_hop_neighborhood->getNumNeighbors(i);
-        for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-            local_index_type row = local_to_dof_map(i, field_one, k);
+    if (((field_one == _velocity_field_id) || (field_one == _pressure_field_id)) && ((field_two == _velocity_field_id) || (field_two == _pressure_field_id))) {
+        for(local_index_type i = 0; i < num_particles_local; i++) {
+            local_index_type num_neighbors = _particles_triple_hop_neighborhood->getNumNeighbors(i);
+            for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+                local_index_type row = local_to_dof_map(i, field_one, k);
 
-            Teuchos::Array<local_index_type> col_data(num_neighbors * fields[field_two]->nDim());
-            Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+                Teuchos::Array<local_index_type> col_data(num_neighbors * fields[field_two]->nDim());
+                Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
 
-            for (local_index_type l = 0; l < num_neighbors; l++) {
-                for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-                    col_data[l*fields[field_two]->nDim() + n] = local_to_dof_map(_particles_triple_hop_neighborhood->getNeighbor(i,l), field_two, n);
+                for (local_index_type l = 0; l < num_neighbors; l++) {
+                    for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+                        col_data[l*fields[field_two]->nDim() + n] = local_to_dof_map(_particles_triple_hop_neighborhood->getNeighbor(i,l), field_two, n);
+                    }
+                }
+                {
+                    this->_A_graph->insertLocalIndices(row, cols);
                 }
             }
-            {
-                this->_A_graph->insertLocalIndices(row, cols);
-            }
         }
+    } else if (field_one == _lagrange_field_id && field_two == _pressure_field_id) {
+        // row all DOFs for solution against Lagrange Multiplier
+		Teuchos::Array<local_index_type> col_data(num_particles_local * fields[field_two]->nDim());
+		Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+
+		for (local_index_type l = 0; l < num_particles_local; l++) {
+			for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+				cols[l*fields[field_two]->nDim() + n] = local_to_dof_map(l, field_two, n);
+			}
+		}
+        // local index 0 is global index shared by all processors
+        //local_index_type row = local_to_dof_map[0][field_one][0];
+		//this->_A_graph->insertLocalIndices(0, cols);
+
+        auto comm = this->_particles->getCoordsConst()->getComm();
+        if (comm->getRank() == 0) {
+            // local index 0 is the shared global id for the lagrange multiplier
+            this->_A_graph->insertLocalIndices(0, cols);
+        } else {
+            // local index 0 is the shared global id for the lagrange multiplier
+            this->_A_graph->insertLocalIndices(num_particles_local, cols);
+        }
+
+    } else if (field_one == _pressure_field_id && field_two == _lagrange_field_id) {
+        // col all DOFs for solution against Lagrange Multiplier
+        auto comm = this->_particles->getCoordsConst()->getComm();
+        //if (comm->getRank() == 0) {
+		    for(local_index_type i = 0; i < num_particles_local; i++) {
+		    	for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+		    		local_index_type row = local_to_dof_map(i, field_one, k);
+
+		    		Teuchos::Array<local_index_type> col_data(1);
+		    		Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+                    if (comm->getRank() == 0) {
+		    		    cols[0] = 0; // local index 0 is global shared index
+                    } else {
+		    		    cols[0] = num_particles_local; // local index 0 is global shared index
+                    }
+		    		this->_A_graph->insertLocalIndices(row, cols);
+		    	}
+		    }
+        //}
+    } else if (field_one == _lagrange_field_id && field_two == _lagrange_field_id) {
+        // identity on all DOFs for Lagrange Multiplier (even DOFs not really used, since we only use first LM dof for now)
+		for(local_index_type i = 0; i < num_particles_local; i++) {
+			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+				local_index_type row = local_to_dof_map(i, field_one, k);
+
+				Teuchos::Array<local_index_type> col_data(fields[field_two]->nDim());
+				Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+				for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+					cols[n] = local_to_dof_map(i, field_two, n);
+				}
+				//#pragma omp critical
+				{
+					this->_A_graph->insertLocalIndices(row, cols);
+				}
+			}
+		}
     }
     // set neighborhood to null because it is large (storage) and not used again
-	_particles_triple_hop_neighborhood = Teuchos::null;
+    //_particles_triple_hop_neighborhood = Teuchos::null;
 	ComputeGraphTime->stop();
     return this->_A_graph;
 }
@@ -712,9 +938,14 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
 
 
+    if (((field_one == _velocity_field_id) || (field_one == _pressure_field_id)) && ((field_two == _velocity_field_id) || (field_two == _pressure_field_id))) {
     // loop over cells including halo cells 
     Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal(true)), [&](const int i, scalar_type& t_area) {
     //for (int i=0; i<_cells->getCoordsConst()->nLocal(true); ++i) {
+ 
+        // TODO: REMOVE LATER!
+        if (_pressure_field_id==field_one || _pressure_field_id==field_two) return;
+
         std::map<local_index_type, local_index_type> cell_neighbors;
 
         double val_data[1] = {0};
@@ -966,21 +1197,21 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
                         double contribution = 0;
                         if (_l2_op) {
-                            for (int q=0; q<_weights_ndim; ++q) {
-                                const auto q_type = (i<nlocal) ? quadrature_type(i,q) : halo_quadrature_type(_halo_small_to_big(halo_i,0),q);
+                            for (int qn=0; qn<_weights_ndim; ++qn) {
+                                const auto q_type = (i<nlocal) ? quadrature_type(i,qn) : halo_quadrature_type(_halo_small_to_big(halo_i,0),qn);
                                 if (q_type==1) { // interior
                                     double u, v;
-                                    const auto q_wt = (i<nlocal) ? quadrature_weights(i,q) : halo_quadrature_weights(_halo_small_to_big(halo_i,0),q);
+                                    const auto q_wt = (i<nlocal) ? quadrature_weights(i,qn) : halo_quadrature_weights(_halo_small_to_big(halo_i,0),qn);
                                     if (j_to_cell_i>=0) {
-                                        v = (i<nlocal) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, q+1)
-                                             : _halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j_to_cell_i, q+1);
+                                        v = (i<nlocal) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1)
+                                             : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j_to_cell_i, qn+1);
                                         j_has_value = true;
                                     } else {
                                         v = 0;
                                     }
                                     if (k_to_cell_i>=0) {
-                                        u = (i<nlocal) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, q+1)
-                                             : _halo_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, k_to_cell_i, q+1);
+                                        u = (i<nlocal) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1)
+                                             : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, k_to_cell_i, qn+1);
                                         k_has_value = true;
                                     } else {
                                         u = 0;
@@ -992,16 +1223,16 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                             }
                         } else {
                             // loop over quadrature
-                            for (int q=0; q<_weights_ndim; ++q) {
-                                const auto q_type = quadrature_type(i,q);
-                                const auto q_wt = quadrature_weights(i,q);
+                            for (int qn=0; qn<_weights_ndim; ++qn) {
+                                const auto q_type = quadrature_type(i,qn);
+                                const auto q_wt = quadrature_weights(i,qn);
                                 double u, v;
                                 double grad_u_x, grad_u_y, grad_v_x, grad_v_y;
                                 
                                 if (j_to_cell_i>=0) {
-                                    v = _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, q+1);
-                                    grad_v_x = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j_to_cell_i, q+1);
-                                    grad_v_y = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j_to_cell_i, q+1);
+                                    v = _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
+                                    grad_v_x = _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j_to_cell_i, qn+1);
+                                    grad_v_y = _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j_to_cell_i, qn+1);
                                     j_has_value = true;
                                 } else {
                                     v = 0.0;
@@ -1009,9 +1240,9 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     grad_v_y = 0.0;
                                 }
                                 if (k_to_cell_i>=0) {
-                                    u = _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, q+1);
-                                    grad_u_x = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, k_to_cell_i, q+1);
-                                    grad_u_y = _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, k_to_cell_i, q+1);
+                                    u = _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
+                                    grad_u_x = _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, k_to_cell_i, qn+1);
+                                    grad_u_y = _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, k_to_cell_i, qn+1);
                                     k_has_value = true;
                                 } else {
                                     u = 0.0;
@@ -1041,8 +1272,46 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             + grad_v_y*grad_u_y*j_comp_0*k_comp_0 
                                             + grad_v_x*grad_u_x*j_comp_1*k_comp_1 
                                             + grad_v_y*grad_u_y*j_comp_1*k_comp_1 );
+                                    } else if (_st_op) {
+                                        double p, q;
+                                        if (_pressure_field_id==field_one || _pressure_field_id==field_two) {
+                                            if (j_to_cell_i>=0) {
+                                                q = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
+                                                j_has_value = true;
+                                            } else {
+                                                q = 0.0;
+                                            }
+                                            if (k_to_cell_i>=0) {
+                                                p = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
+                                                k_has_value = true;
+                                            } else {
+                                                p = 0.0;
+                                            }
+                                        }
+                                        if (_velocity_field_id==field_one && _velocity_field_id==field_two) {
+                                            contribution += q_wt * _diffusion* (
+                                                  grad_v_x*grad_u_x*j_comp_0*k_comp_0 
+                                                + grad_v_y*grad_u_y*j_comp_0*k_comp_0 
+                                                + grad_v_x*grad_u_x*j_comp_1*k_comp_1 
+                                                + grad_v_y*grad_u_y*j_comp_1*k_comp_1 );
+                                        } else if (_velocity_field_id==field_one && _pressure_field_id==field_two) {
+                                            //contribution -= q_wt * (
+                                            //      (grad_v_x*j_comp_0 + grad_v_y*j_comp_1) * p );
+                                        } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
+                                            if (particle_j!=0) { // q is pinned at particle 0
+                                                //contribution -= q_wt * (
+                                                //      (grad_u_x*k_comp_0 + grad_u_y*k_comp_1) * q );
+                                            } 
+                                            //else if ((particle_j==particle_k) && (particle_j==i)) {
+                                            //    contribution += 1;
+                                            //}
+                                        }
+                                        //else {
+                                        //    if (particle_j==particle_k) {
+                                        //        contribution += 1;
+                                        //    }
+                                        //}
                                     }
- 
                                 } 
                                 else if (q_type==2) { // edge on exterior
 
@@ -1053,8 +1322,8 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         const double avgv_y = grad_v_y;
                                         const double avgu_x = grad_u_x;
                                         const double avgu_y = grad_u_y;
-                                        const auto n_x = unit_normals(i,2*q+0); // unique outward normal
-                                        const auto n_y = unit_normals(i,2*q+1);
+                                        const auto n_x = unit_normals(i,2*qn+0); // unique outward normal
+                                        const auto n_y = unit_normals(i,2*qn+1);
                                         //auto jump_v_x = n_x*v;
                                         //auto jump_v_y = n_y*v;
                                         //auto jump_u_x = n_x*u;
@@ -1064,7 +1333,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         contribution += penalty * q_wt * jumpv * jumpu;
                                         contribution -= q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
                                         contribution -= q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
-                                    } else if (_le_op || _vl_op) {
+                                    } else {
                                         // only jump penalization currently included
                                         const double jumpv = v;
                                         const double jumpu = u;
@@ -1072,11 +1341,12 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         const double avgv_y = grad_v_y;
                                         const double avgu_x = grad_u_x;
                                         const double avgu_y = grad_u_y;
-                                        const auto n_x = unit_normals(i,2*q+0); // unique outward normal
-                                        const auto n_y = unit_normals(i,2*q+1);
 
-                                        contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp);
+                                        const auto n_x = unit_normals(i,2*qn+0); // unique outward normal
+                                        const auto n_y = unit_normals(i,2*qn+1);
+
                                         if (_le_op) {
+                                            contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp);
                                             contribution -= q_wt * (
                                                   2 * _shear * (n_x*avgv_x*j_comp_0 
                                                     + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
@@ -1089,7 +1359,8 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 + 2 * _shear * (n_y*avgu_y*k_comp_1 
                                                     + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
                                                 + _lambda*(avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
-                                        } else { // _vl_op
+                                        } else if (_vl_op) {
+                                            contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp);
                                             contribution -= q_wt * (
                                                   _shear * (n_x*avgv_x*j_comp_0 
                                                     + n_y*avgv_y*j_comp_0) * jumpu*k_comp_0  
@@ -1100,12 +1371,54 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                     + n_y*avgu_y*k_comp_0) * jumpv*j_comp_0  
                                                 + _shear * (n_x*avgu_x*k_comp_1 
                                                     + n_y*avgu_y*k_comp_1) * jumpv*j_comp_1 );
+
+                                        } else if (_st_op) {
+                                            double p, q;
+                                            if (_pressure_field_id==field_one || _pressure_field_id==field_two) {
+                                                if (j_to_cell_i>=0) {
+                                                    q = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
+                                                    j_has_value = true;
+                                                } else {
+                                                    q = 0.0;
+                                                }
+                                                if (k_to_cell_i>=0) {
+                                                    p = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
+                                                    k_has_value = true;
+                                                } else {
+                                                    p = 0.0;
+                                                }
+                                            }
+                                            // p basis same as single component of u
+                                            const double avgp = p;
+                                            const double avgq = q;
+
+                                            if (_velocity_field_id==field_one && _velocity_field_id==field_two) {
+                                                contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp);
+                                                contribution -= q_wt * (
+                                                      _diffusion * (n_x*avgv_x*j_comp_0 
+                                                        + n_y*avgv_y*j_comp_0) * jumpu*k_comp_0  
+                                                    + _diffusion * (n_x*avgv_x*j_comp_1 
+                                                        + n_y*avgv_y*j_comp_1) * jumpu*k_comp_1 );
+                                                contribution -= q_wt * (
+                                                      _diffusion * (n_x*avgu_x*k_comp_0 
+                                                        + n_y*avgu_y*k_comp_0) * jumpv*j_comp_0  
+                                                    + _diffusion * (n_x*avgu_x*k_comp_1 
+                                                        + n_y*avgu_y*k_comp_1) * jumpv*j_comp_1 );
+                                            } else if (_velocity_field_id==field_one && _pressure_field_id==field_two) {
+                                                //contribution += q_wt * (
+                                                //      avgp * (n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1) );
+                                            } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
+                                                if (particle_j!=0) { // q is pinned at particle 0
+                                                    //contribution += q_wt * (
+                                                    //      avgq * (n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1) );
+                                                }
+                                            }
                                         }
                                     }
                                     
                                 }
                                 else if (q_type==0)  { // edge on interior
-                                    const double adjacent_cell_local_index_q = adjacent_cell_local_index[q];
+                                    const double adjacent_cell_local_index_q = adjacent_cell_local_index[qn];
                                     //int current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
                                     //int adjacent_cell_local_index = (int)(adjacent_elements(i, current_edge_num));
 
@@ -1165,13 +1478,13 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     if (j_to_adjacent_cell<0 && k_to_adjacent_cell<0 && j_to_cell_i<0 && k_to_cell_i<0) continue;
                                     
                                     const auto normal_direction_correction = (i > adjacent_cell_local_index_q) ? 1 : -1; 
-                                    const auto n_x = normal_direction_correction * unit_normals(i,2*q+0);
-                                    const auto n_y = normal_direction_correction * unit_normals(i,2*q+1);
+                                    const auto n_x = normal_direction_correction * unit_normals(i,2*qn+0);
+                                    const auto n_y = normal_direction_correction * unit_normals(i,2*qn+1);
                                     // gives a unique normal that is always outward to the cell with the lower index
 
                                     // gets quadrature # on adjacent cell (enumerates quadrature on 
                                     // side_of_cell_i_to_adjacent_cell in reverse due to orientation)
-                                    const int adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[q]*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((q-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
+                                    const int adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[qn]*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((qn-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
 
 
                                     //int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge + ((q-num_interior_quadrature)%num_exterior_quadrature_per_edge);
@@ -1190,7 +1503,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
 
                                     // diagnostics for quadrature points
-                                    //printf("b: %f\n", _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell, adjacent_q+1));
+                                    //printf("b: %f\n", _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell, adjacent_q+1));
                                     //auto my_j_index = _cell_particles_neighborhood->getNeighbor(i,j_to_cell_i);
                                     //auto their_j_index = _cell_particles_neighborhood->getNeighbor(adjacent_cell_local_index, j_to_adjacent_cell);
                                     //printf("xm: %d, t: %d\n", my_j_index, their_j_index);
@@ -1209,16 +1522,16 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     //if (std::abs(my_q_x-their_q_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_q_x, their_q_x, my_q_x-their_q_x);
                                     //if (std::abs(my_q_y-their_q_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_q_y, their_q_y, my_q_y-their_q_y);
  
-                                    const double other_v = (j_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    const double other_v = (j_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell, adjacent_q+1) : 0.0;
                                     const double jumpv = normal_direction_correction*(v-other_v);
 
-                                    const double other_u = (k_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    const double other_u = (k_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell, adjacent_q+1) : 0.0;
                                     const double jumpu = normal_direction_correction*(u-other_u);
 
-                                    const double other_grad_v_x = (j_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, j_to_adjacent_cell, adjacent_q+1) : 0.0;
-                                    const double other_grad_v_y = (j_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, j_to_adjacent_cell, adjacent_q+1) : 0.0;
-                                    const double other_grad_u_x = (k_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, k_to_adjacent_cell, adjacent_q+1) : 0.0;
-                                    const double other_grad_u_y = (k_to_adjacent_cell>=0) ? _gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, k_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    const double other_grad_v_x = (j_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, j_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    const double other_grad_v_y = (j_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, j_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    const double other_grad_u_x = (k_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, k_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    const double other_grad_u_y = (k_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, k_to_adjacent_cell, adjacent_q+1) : 0.0;
 
                                     const double avgv_x = 0.5*(grad_v_x+other_grad_v_x);
                                     const double avgv_y = 0.5*(grad_v_y+other_grad_v_y);
@@ -1239,10 +1552,9 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         contribution += penalty * q_wt * jumpv * jumpu; // other half will be added by other cell
                                         contribution -= q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
                                         contribution -= q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
-                                    } else if (_le_op || _vl_op) {
-                                        contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp); // other half will be added by other cell
-
+                                    } else {
                                         if (_le_op) {
+                                            contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp); // other half will be added by other cell
                                             contribution -= q_wt * (
                                                   2 * _shear * (n_x*avgv_x*j_comp_0 
                                                     + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
@@ -1255,7 +1567,8 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 + 2 * _shear * (n_y*avgu_y*k_comp_1 
                                                     + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
                                                 + _lambda*(avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
-                                        } else { // _vl_op
+                                        } else if (_vl_op) {
+                                            contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp); // other half will be added by other cell
                                             contribution -= q_wt * (
                                                   _shear * (n_x*avgv_x*j_comp_0 
                                                     + n_y*avgv_y*j_comp_0) * jumpu*k_comp_0  
@@ -1266,6 +1579,48 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                     + n_y*avgu_y*k_comp_0) * jumpv*j_comp_0  
                                                 + _shear * (n_x*avgu_x*k_comp_1 
                                                     + n_y*avgu_y*k_comp_1) * jumpv*j_comp_1 );
+                                        } else if (_st_op) {
+                                            double p, q;
+                                            if (_pressure_field_id==field_one || _pressure_field_id==field_two) {
+                                                if (j_to_cell_i>=0) {
+                                                    q = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
+                                                    j_has_value = true;
+                                                } else {
+                                                    q = 0.0;
+                                                }
+                                                if (k_to_cell_i>=0) {
+                                                    p = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
+                                                    k_has_value = true;
+                                                } else {
+                                                    p = 0.0;
+                                                }
+                                            }
+                                            const double other_q = (j_to_adjacent_cell>=0) ? _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                            const double other_p = (k_to_adjacent_cell>=0) ? _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                            const double avgp = 0.5*(p+other_p);
+                                            const double avgq = 0.5*(q+other_q);
+
+                                            if (_velocity_field_id==field_one && _velocity_field_id==field_two) {
+                                                contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp); // other half will be added by other cell
+                                                contribution -= q_wt * (
+                                                      _diffusion * (n_x*avgv_x*j_comp_0 
+                                                        + n_y*avgv_y*j_comp_0) * jumpu*k_comp_0  
+                                                    + _diffusion * (n_x*avgv_x*j_comp_1 
+                                                        + n_y*avgv_y*j_comp_1) * jumpu*k_comp_1 );
+                                                contribution -= q_wt * (
+                                                      _diffusion * (n_x*avgu_x*k_comp_0 
+                                                        + n_y*avgu_y*k_comp_0) * jumpv*j_comp_0  
+                                                    + _diffusion * (n_x*avgu_x*k_comp_1 
+                                                        + n_y*avgu_y*k_comp_1) * jumpv*j_comp_1 );
+                                            } else if (_velocity_field_id==field_one && _pressure_field_id==field_two) {
+                                                //contribution += q_wt * (
+                                                //      avgp * (n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1) );
+                                            } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
+                                                if (particle_j!=0) { // q is pinned at particle 0
+                                                    //contribution += q_wt * (
+                                                    //      avgq * (n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1) );
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1285,6 +1640,92 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     //area = t_area;
     //perimeter = t_perimeter;
     }, Kokkos::Sum<scalar_type>(area));
+    if (_st_op) {
+        // this is the pin for pressure
+        if ((field_one==field_two) && (field_one==_pressure_field_id)) {
+    	    for (local_index_type l = 0; l < nlocal; l++) {
+                local_index_type row = local_to_dof_map(l, field_one, 0);
+                double val_data[1] = {1.0};
+                int    col_data[1] = {row};
+                this->_A->sumIntoLocalValues(row, 1, &val_data[0], &col_data[0], true);//, /*atomics*/false);
+            }
+        }
+    }
+    } else if (field_one == _lagrange_field_id && field_two == _pressure_field_id) {
+        // row all DOFs for solution against Lagrange Multiplier
+    	Teuchos::Array<local_index_type> col_data(nlocal * fields[field_two]->nDim());
+    	Teuchos::Array<scalar_type> val_data(nlocal * fields[field_two]->nDim());
+    	Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+    	Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
+    
+    	for (local_index_type l = 0; l < nlocal; l++) {
+    		for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+    			cols[l*fields[field_two]->nDim() + n] = local_to_dof_map(l, field_two, n);
+    			vals[l*fields[field_two]->nDim() + n] = 1;
+    		}
+    	}
+        auto comm = this->_particles->getCoordsConst()->getComm();
+        if (comm->getRank() == 0) {
+            // local index 0 is the shared global id for the lagrange multiplier
+            this->_A->sumIntoLocalValues(0, cols, vals);
+        } else {
+            // local index 0 is the shared global id for the lagrange multiplier
+            this->_A->sumIntoLocalValues(nlocal, cols, vals);
+        }
+    } else if (field_one == _pressure_field_id && field_two == _lagrange_field_id) {
+    
+        // col all DOFs for solution against Lagrange Multiplier
+        auto comm = this->_particles->getCoordsConst()->getComm();
+        //if (comm->getRank() == 0) {
+    	    for(local_index_type i = 0; i < nlocal; i++) {
+    	    	for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+    	    		local_index_type row = local_to_dof_map(i, field_one, k);
+    
+    	    		Teuchos::Array<local_index_type> col_data(1);
+    	    		Teuchos::Array<scalar_type> val_data(1);
+    	    		Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+    	    		Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
+    
+                    if (comm->getRank() == 0) {
+    	    		    cols[0] = 0; // local index 0 is global shared index
+                    } else {
+                        cols[0] = nlocal;
+                    }
+                    vals[0] = 1;
+    	    	    this->_A->sumIntoLocalValues(row, cols, vals);
+    	    	}
+    	    }
+        //}
+    } else if (field_one == _lagrange_field_id && field_two == _lagrange_field_id) {
+        // identity on all DOFs for Lagrange Multiplier (even DOFs not really used, since we only use first LM dof for now)
+        scalar_type eps_penalty = nlocal; // would be nglobal but problem is serial
+        //scalar_type eps_penalty = 1e-5;
+    
+        auto comm = this->_particles->getCoordsConst()->getComm();
+    	for(local_index_type i = 0; i < nlocal; i++) {
+    		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+    			local_index_type row = local_to_dof_map(i, field_one, k);
+    
+    			Teuchos::Array<local_index_type> col_data(fields[field_two]->nDim());
+    			Teuchos::Array<scalar_type> val_data(fields[field_two]->nDim());
+    			Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+    			Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
+    			for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+                    if (i==0 && comm->getRank()==0) {
+    				    cols[n] = local_to_dof_map(i, field_two, n);
+    				    vals[n] = eps_penalty;
+                    } else {
+    				    cols[n] = local_to_dof_map(i, field_two, n);
+    				    vals[n] = 1;
+                    }
+    			}
+    			//#pragma omp critical
+    			{
+    		        this->_A->sumIntoLocalValues(row, cols, vals);
+    			}
+    		}
+    	}
+    }
 
 
     // DIAGNOSTIC:: get global area
@@ -1313,6 +1754,9 @@ const std::vector<InteractingFields> ReactionDiffusionPhysics::gatherFieldIntera
 	    field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _velocity_field_id, _pressure_field_id));
 	    field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _pressure_field_id, _velocity_field_id));
 	    field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _pressure_field_id));
+	    //field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _lagrange_field_id, _pressure_field_id));
+	    //field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _pressure_field_id, _lagrange_field_id));
+	    //field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _lagrange_field_id));
     }
 	return field_interactions;
 }

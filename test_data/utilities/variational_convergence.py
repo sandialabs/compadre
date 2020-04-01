@@ -20,6 +20,7 @@ parser.add_argument('--size', dest='size', type=float, nargs='?', default=1.0, h
 parser.add_argument('--rate-tol', dest='rate_tol', type=float, nargs='?', default=0.5, help='tolerance for convergence')
 
 parser.add_argument('--solution', dest='solution', type=str, nargs='?', default='polynomial', help='solution type')
+parser.add_argument('--pressure-solution', dest='pressure_solution', type=str, nargs='?', default='polynomial', help='pressure solution type')
 parser.add_argument('--operator', dest='operator', type=str, nargs='?', default='rd', help='operator for PDE solve')
 parser.add_argument('--convergence-type', dest='convergence_type', type=str, nargs='?', default='rate', help='type of convergence to test')
 
@@ -28,7 +29,7 @@ args = parser.parse_args()
 
 
 file_names = ["dg_%d.nc"%num for num in range(args.num_meshes)]
-error_types=['vel. l2','vel. h1','vel. jp','vel. sum','pr. l2','pr. jp','pr. sum']
+error_types=['vel. l2','vel. h1','vel. jp','vel. sum','pr. l2']
 all_errors = [list(), list(), list(), list(), list(), list(), list()]#list() * len(error_types)
 
 for key2, fname in enumerate(file_names):
@@ -58,6 +59,8 @@ for key2, fname in enumerate(file_names):
     for item in p.getchildren():
         if (item.attrib['name']=="solution"):
             item.attrib['value']=args.solution
+        if (item.attrib['name']=="pressure solution"):
+            item.attrib['value']=args.pressure_solution
         if (item.attrib['name']=="operator"):
             item.attrib['value']=args.operator
         if (item.attrib['name']=="reaction"):
@@ -101,10 +104,6 @@ for key2, fname in enumerate(file_names):
         if (args.operator.lower() in ['st', 'mix_le']):
             m = re.search('(?<=Pressure L2: )[0-9]+\.?[0-9]*(?:[Ee]\ *[-+]?\ *[0-9]+)?', output)
             all_errors[4].append(float(m.group(0)))
-            m = re.search('(?<=Pressure Ju: )[0-9]+\.?[0-9]*(?:[Ee]\ *[-+]?\ *[0-9]+)?', output)
-            all_errors[5].append(float(m.group(0)))
-            m = re.search('(?<=Global Pressure Norm: )[0-9]+\.?[0-9]*(?:[Ee]\ *[-+]?\ *[0-9]+)?', output)
-            all_errors[6].append(float(m.group(0)))
     
 print(all_errors)
 for key, errors in enumerate(all_errors):
