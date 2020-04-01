@@ -270,6 +270,7 @@ int main (int argc, char* args[]) {
         cells->getFieldManager()->updateFieldsHaloData();
 
 
+        double avg_pressure_computed = 0.0;
         // post process solution ( modal DOF -> cell centered value )
         {
             auto gmls = physics->_vel_gmls;
@@ -316,6 +317,15 @@ int main (int argc, char* args[]) {
                             // assumes pressure has same basis as velocity
                             pressure_processed_view(j,k) += dof_val * v;
                         }
+                    }
+                }
+                if (st_op) avg_pressure_computed += pressure_processed_view(j,0);
+            }
+            if (st_op || mix_le_op) {
+                avg_pressure_computed /= nlocal;
+                for(int j=0; j<nlocal; j++){
+                    for (LO k = 0; k < pressure_processed_view.extent(1); ++k) {
+                        pressure_processed_view(j,k) -= avg_pressure_computed;
                     }
                 }
             }
@@ -486,17 +496,23 @@ int main (int argc, char* args[]) {
 
         Teuchos::RCP<Compadre::AnalyticFunction> velocity_function;
         Teuchos::RCP<Compadre::AnalyticFunction> pressure_function;
-        if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial") {
+        if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_1") {
+            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::FirstOrderBasis(2 /*dimension*/)));
+        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_2") {
             velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
         } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3") {
             velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(2 /*dimension*/)));
         } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="divfree_sinecos") {
             velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::DivFreeSineCos(2 /*dimension*/)));
+        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="divfree_polynomial_2") {
+            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::DivFreeSecondOrderBasis(2 /*dimension*/)));
         } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="sine") {
             velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
         }
         if (st_op) { // mix_le_op uses pressure from divergence of velocity
-            if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial") {
+            if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_1") {
+                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::FirstOrderBasis(2 /*dimension*/)));
+            } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_2") {
                 pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
             } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_3") {
                 pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(2 /*dimension*/)));
@@ -590,15 +606,13 @@ int main (int argc, char* args[]) {
                 pressure_exact_view(j,0) = pressure_exact;
             }
         } else if (st_op) {
-            if (st_op) {
-                for( int j =0; j<coords->nLocal(); j++){
-                    xyz_type xyz = coords->getLocalCoords(j);
-                    pressure_exact = pressure_function->evalScalar(xyz);
-                    avg_pressure_exact += pressure_exact;
-                }
+            for( int j =0; j<coords->nLocal(); j++){
+                xyz_type xyz = coords->getLocalCoords(j);
+                pressure_exact = pressure_function->evalScalar(xyz);
+                avg_pressure_exact += pressure_exact;
             }
 
-            avg_pressure_exact /= coords->nLocal();
+            avg_pressure_exact /= (double)(coords->nLocal());
 
             for( int j =0; j<coords->nLocal(); j++){
                 xyz_type xyz = coords->getLocalCoords(j);
@@ -843,6 +857,7 @@ int main (int argc, char* args[]) {
                                     }
                                     auto xyz = Compadre::XyzVector(quadrature_points(j,2*i+0), quadrature_points(j,2*i+1),0);
                                     if (st_op) {
+                                        l2_val -= avg_pressure_computed;
                                         double l2_exact = pressure_function->evalScalar(xyz)-avg_pressure_exact;
                                         l2_error_on_cell += quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
                                     } else if (mix_le_op) {

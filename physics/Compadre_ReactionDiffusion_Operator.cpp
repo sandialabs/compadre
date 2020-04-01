@@ -41,7 +41,7 @@ void ReactionDiffusionPhysics::initialize() {
     compadre_assert_release(false && "Trilinos packages Shards and Intrepid required to run this example.");
 #else
 
-	Teuchos::RCP<Teuchos::Time> GenerateData = Teuchos::TimeMonitor::getNewCounter ("Generate Data");
+    Teuchos::RCP<Teuchos::Time> GenerateData = Teuchos::TimeMonitor::getNewCounter ("Generate Data");
     GenerateData->start();
     bool use_physical_coords = true; // can be set on the operator in the future
  
@@ -453,11 +453,11 @@ void ReactionDiffusionPhysics::initialize() {
             });
 
             // make temporary particle set of halo target coordinates needed
-		    Teuchos::RCP<Compadre::ParticlesT> halo_particles =
-		    	Teuchos::rcp( new Compadre::ParticlesT(_parameters, _cells->getCoordsConst()->getComm(), _parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions")));
+            Teuchos::RCP<Compadre::ParticlesT> halo_particles =
+                Teuchos::rcp( new Compadre::ParticlesT(_parameters, _cells->getCoordsConst()->getComm(), _parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions")));
             halo_particles->resize(max_needed_entries, true);
             auto halo_coords = halo_particles->getCoords();
-		    //std::vector<Compadre::XyzVector> verts_to_insert(max_needed_entries);
+            //std::vector<Compadre::XyzVector> verts_to_insert(max_needed_entries);
             Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,max_needed_entries), KOKKOS_LAMBDA(const int i) {
                 XyzVector coord_i(0,0,0);
                 for (local_index_type j=0; j<ndim_requested; ++j) {
@@ -595,11 +595,11 @@ Kokkos::View<size_t*, Kokkos::HostSpace> ReactionDiffusionPhysics::getMaxEntries
 
     auto comm = this->_particles->getCoordsConst()->getComm();
 
-	const local_index_type num_particles_local = static_cast<local_index_type>(this->_coords->nLocal());
+    const local_index_type num_particles_local = static_cast<local_index_type>(this->_coords->nLocal());
     Kokkos::View<size_t*, Kokkos::HostSpace> maxEntriesPerRow("max entries per row", num_particles_local);
 
-	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
-	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
+    const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
+    const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
 
     if (field_one == _lagrange_field_id && field_two == _pressure_field_id) {
         auto row_map_entries = _row_map->getMyGlobalIndices();
@@ -621,15 +621,15 @@ Kokkos::View<size_t*, Kokkos::HostSpace> ReactionDiffusionPhysics::getMaxEntries
 }
 
 Teuchos::RCP<crs_graph_type> ReactionDiffusionPhysics::computeGraph(local_index_type field_one, local_index_type field_two) {
-	if (field_two == -1) {
-		field_two = field_one;
-	}
+    if (field_two == -1) {
+        field_two = field_one;
+    }
 
-	const local_index_type num_particles_local = static_cast<local_index_type>(this->_coords->nLocal());
+    const local_index_type num_particles_local = static_cast<local_index_type>(this->_coords->nLocal());
 
-	Teuchos::RCP<Teuchos::Time> ComputeGraphTime = Teuchos::TimeMonitor::getNewCounter ("Compute Graph Time");
-	ComputeGraphTime->start();
-	TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_A_graph.is_null(), "Tpetra CrsGraph for Physics not yet specified.");
+    Teuchos::RCP<Teuchos::Time> ComputeGraphTime = Teuchos::TimeMonitor::getNewCounter ("Compute Graph Time");
+    ComputeGraphTime->start();
+    TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_A_graph.is_null(), "Tpetra CrsGraph for Physics not yet specified.");
 
     if (field_one == _lagrange_field_id && field_two == _pressure_field_id) {
         // row all DOFs for solution against Lagrange Multiplier
@@ -675,9 +675,9 @@ Teuchos::RCP<crs_graph_type> ReactionDiffusionPhysics::computeGraph(local_index_
         }
 
         auto new_row_map = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
-                										new_row_map_entries,
-                										row_map_index_base,
-                										this->_particles->getCoordsConst()->getComm()));
+                                                        new_row_map_entries,
+                                                        row_map_index_base,
+                                                        this->_particles->getCoordsConst()->getComm()));
 
         this->setRowMap(new_row_map);
 
@@ -734,9 +734,9 @@ Teuchos::RCP<crs_graph_type> ReactionDiffusionPhysics::computeGraph(local_index_
         }
 
         auto new_col_map = Teuchos::rcp(new map_type(Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
-                										new_col_map_entries,
-                										col_map_index_base,
-                										this->_particles->getCoordsConst()->getComm()));
+                                                        new_col_map_entries,
+                                                        col_map_index_base,
+                                                        this->_particles->getCoordsConst()->getComm()));
 
         this->setColMap(new_col_map);
 
@@ -750,7 +750,7 @@ Teuchos::RCP<crs_graph_type> ReactionDiffusionPhysics::computeGraph(local_index_
 
     }
 
-	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
+    const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
 
     if (((field_one == _velocity_field_id) || (field_one == _pressure_field_id)) && ((field_two == _velocity_field_id) || (field_two == _pressure_field_id))) {
@@ -774,17 +774,17 @@ Teuchos::RCP<crs_graph_type> ReactionDiffusionPhysics::computeGraph(local_index_
         }
     } else if (field_one == _lagrange_field_id && field_two == _pressure_field_id) {
         // row all DOFs for solution against Lagrange Multiplier
-		Teuchos::Array<local_index_type> col_data(num_particles_local * fields[field_two]->nDim());
-		Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+        Teuchos::Array<local_index_type> col_data(num_particles_local * fields[field_two]->nDim());
+        Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
 
-		for (local_index_type l = 0; l < num_particles_local; l++) {
-			for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-				cols[l*fields[field_two]->nDim() + n] = local_to_dof_map(l, field_two, n);
-			}
-		}
+        for (local_index_type l = 0; l < num_particles_local; l++) {
+            for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+                cols[l*fields[field_two]->nDim() + n] = local_to_dof_map(l, field_two, n);
+            }
+        }
         // local index 0 is global index shared by all processors
         //local_index_type row = local_to_dof_map[0][field_one][0];
-		//this->_A_graph->insertLocalIndices(0, cols);
+        //this->_A_graph->insertLocalIndices(0, cols);
 
         auto comm = this->_particles->getCoordsConst()->getComm();
         if (comm->getRank() == 0) {
@@ -799,42 +799,42 @@ Teuchos::RCP<crs_graph_type> ReactionDiffusionPhysics::computeGraph(local_index_
         // col all DOFs for solution against Lagrange Multiplier
         auto comm = this->_particles->getCoordsConst()->getComm();
         //if (comm->getRank() == 0) {
-		    for(local_index_type i = 0; i < num_particles_local; i++) {
-		    	for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-		    		local_index_type row = local_to_dof_map(i, field_one, k);
+            for(local_index_type i = 0; i < num_particles_local; i++) {
+                for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+                    local_index_type row = local_to_dof_map(i, field_one, k);
 
-		    		Teuchos::Array<local_index_type> col_data(1);
-		    		Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+                    Teuchos::Array<local_index_type> col_data(1);
+                    Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
                     if (comm->getRank() == 0) {
-		    		    cols[0] = 0; // local index 0 is global shared index
+                        cols[0] = 0; // local index 0 is global shared index
                     } else {
-		    		    cols[0] = num_particles_local; // local index 0 is global shared index
+                        cols[0] = num_particles_local; // local index 0 is global shared index
                     }
-		    		this->_A_graph->insertLocalIndices(row, cols);
-		    	}
-		    }
+                    this->_A_graph->insertLocalIndices(row, cols);
+                }
+            }
         //}
     } else if (field_one == _lagrange_field_id && field_two == _lagrange_field_id) {
         // identity on all DOFs for Lagrange Multiplier (even DOFs not really used, since we only use first LM dof for now)
-		for(local_index_type i = 0; i < num_particles_local; i++) {
-			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-				local_index_type row = local_to_dof_map(i, field_one, k);
+        for(local_index_type i = 0; i < num_particles_local; i++) {
+            for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+                local_index_type row = local_to_dof_map(i, field_one, k);
 
-				Teuchos::Array<local_index_type> col_data(fields[field_two]->nDim());
-				Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
-				for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-					cols[n] = local_to_dof_map(i, field_two, n);
-				}
-				//#pragma omp critical
-				{
-					this->_A_graph->insertLocalIndices(row, cols);
-				}
-			}
-		}
+                Teuchos::Array<local_index_type> col_data(fields[field_two]->nDim());
+                Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+                for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+                    cols[n] = local_to_dof_map(i, field_two, n);
+                }
+                //#pragma omp critical
+                {
+                    this->_A_graph->insertLocalIndices(row, cols);
+                }
+            }
+        }
     }
     // set neighborhood to null because it is large (storage) and not used again
     //_particles_triple_hop_neighborhood = Teuchos::null;
-	ComputeGraphTime->stop();
+    ComputeGraphTime->stop();
     return this->_A_graph;
 }
 
@@ -943,8 +943,8 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal(true)), [&](const int i, scalar_type& t_area) {
     //for (int i=0; i<_cells->getCoordsConst()->nLocal(true); ++i) {
  
-        // TODO: REMOVE LATER!
-        if (_pressure_field_id==field_one || _pressure_field_id==field_two) return;
+        //// TODO: REMOVE LATER!
+        //if (_pressure_field_id==field_one || _pressure_field_id==field_two) return;
 
         std::map<local_index_type, local_index_type> cell_neighbors;
 
@@ -1219,7 +1219,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
                                     contribution += q_wt * u * v;
                                 } 
-	                            TEUCHOS_ASSERT(contribution==contribution);
+                                TEUCHOS_ASSERT(contribution==contribution);
                             }
                         } else {
                             // loop over quadrature
@@ -1295,12 +1295,12 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 + grad_v_x*grad_u_x*j_comp_1*k_comp_1 
                                                 + grad_v_y*grad_u_y*j_comp_1*k_comp_1 );
                                         } else if (_velocity_field_id==field_one && _pressure_field_id==field_two) {
-                                            //contribution -= q_wt * (
-                                            //      (grad_v_x*j_comp_0 + grad_v_y*j_comp_1) * p );
+                                            contribution -= q_wt * (
+                                                  (grad_v_x*j_comp_0 + grad_v_y*j_comp_1) * p );
                                         } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
                                             if (particle_j!=0) { // q is pinned at particle 0
-                                                //contribution -= q_wt * (
-                                                //      (grad_u_x*k_comp_0 + grad_u_y*k_comp_1) * q );
+                                                contribution -= q_wt * (
+                                                      (grad_u_x*k_comp_0 + grad_u_y*k_comp_1) * q );
                                             } 
                                             //else if ((particle_j==particle_k) && (particle_j==i)) {
                                             //    contribution += 1;
@@ -1405,12 +1405,12 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                     + _diffusion * (n_x*avgu_x*k_comp_1 
                                                         + n_y*avgu_y*k_comp_1) * jumpv*j_comp_1 );
                                             } else if (_velocity_field_id==field_one && _pressure_field_id==field_two) {
-                                                //contribution += q_wt * (
-                                                //      avgp * (n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1) );
+                                                contribution += q_wt * (
+                                                      avgp * (n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1) );
                                             } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
                                                 if (particle_j!=0) { // q is pinned at particle 0
-                                                    //contribution += q_wt * (
-                                                    //      avgq * (n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1) );
+                                                    contribution += q_wt * (
+                                                          avgq * (n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1) );
                                                 }
                                             }
                                         }
@@ -1613,12 +1613,12 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                     + _diffusion * (n_x*avgu_x*k_comp_1 
                                                         + n_y*avgu_y*k_comp_1) * jumpv*j_comp_1 );
                                             } else if (_velocity_field_id==field_one && _pressure_field_id==field_two) {
-                                                //contribution += q_wt * (
-                                                //      avgp * (n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1) );
+                                                contribution += q_wt * (
+                                                      avgp * (n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1) );
                                             } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
                                                 if (particle_j!=0) { // q is pinned at particle 0
-                                                    //contribution += q_wt * (
-                                                    //      avgq * (n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1) );
+                                                    contribution += q_wt * (
+                                                          avgq * (n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1) );
                                                 }
                                             }
                                         }
@@ -1643,27 +1643,31 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     if (_st_op) {
         // this is the pin for pressure
         if ((field_one==field_two) && (field_one==_pressure_field_id)) {
-    	    for (local_index_type l = 0; l < nlocal; l++) {
-                local_index_type row = local_to_dof_map(l, field_one, 0);
-                double val_data[1] = {1.0};
-                int    col_data[1] = {row};
-                this->_A->sumIntoLocalValues(row, 1, &val_data[0], &col_data[0], true);//, /*atomics*/false);
-            }
+            local_index_type row = local_to_dof_map(0, field_one, 0);
+            double val_data[1] = {1.0};
+            int    col_data[1] = {row};
+            this->_A->sumIntoLocalValues(row, 1, &val_data[0], &col_data[0], true);//, /*atomics*/false);
+            //for (local_index_type l = 0; l < nlocal; l++) {
+            //    local_index_type row = local_to_dof_map(l, field_one, 0);
+            //    double val_data[1] = {1.0};
+            //    int    col_data[1] = {row};
+            //    this->_A->sumIntoLocalValues(row, 1, &val_data[0], &col_data[0], true);//, /*atomics*/false);
+            //}
         }
     }
     } else if (field_one == _lagrange_field_id && field_two == _pressure_field_id) {
         // row all DOFs for solution against Lagrange Multiplier
-    	Teuchos::Array<local_index_type> col_data(nlocal * fields[field_two]->nDim());
-    	Teuchos::Array<scalar_type> val_data(nlocal * fields[field_two]->nDim());
-    	Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
-    	Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
+        Teuchos::Array<local_index_type> col_data(nlocal * fields[field_two]->nDim());
+        Teuchos::Array<scalar_type> val_data(nlocal * fields[field_two]->nDim());
+        Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+        Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
     
-    	for (local_index_type l = 0; l < nlocal; l++) {
-    		for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
-    			cols[l*fields[field_two]->nDim() + n] = local_to_dof_map(l, field_two, n);
-    			vals[l*fields[field_two]->nDim() + n] = 1;
-    		}
-    	}
+        for (local_index_type l = 0; l < nlocal; l++) {
+            for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+                cols[l*fields[field_two]->nDim() + n] = local_to_dof_map(l, field_two, n);
+                vals[l*fields[field_two]->nDim() + n] = 1;
+            }
+        }
         auto comm = this->_particles->getCoordsConst()->getComm();
         if (comm->getRank() == 0) {
             // local index 0 is the shared global id for the lagrange multiplier
@@ -1677,24 +1681,24 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
         // col all DOFs for solution against Lagrange Multiplier
         auto comm = this->_particles->getCoordsConst()->getComm();
         //if (comm->getRank() == 0) {
-    	    for(local_index_type i = 0; i < nlocal; i++) {
-    	    	for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-    	    		local_index_type row = local_to_dof_map(i, field_one, k);
+            for(local_index_type i = 0; i < nlocal; i++) {
+                for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+                    local_index_type row = local_to_dof_map(i, field_one, k);
     
-    	    		Teuchos::Array<local_index_type> col_data(1);
-    	    		Teuchos::Array<scalar_type> val_data(1);
-    	    		Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
-    	    		Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
+                    Teuchos::Array<local_index_type> col_data(1);
+                    Teuchos::Array<scalar_type> val_data(1);
+                    Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+                    Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
     
                     if (comm->getRank() == 0) {
-    	    		    cols[0] = 0; // local index 0 is global shared index
+                        cols[0] = 0; // local index 0 is global shared index
                     } else {
                         cols[0] = nlocal;
                     }
                     vals[0] = 1;
-    	    	    this->_A->sumIntoLocalValues(row, cols, vals);
-    	    	}
-    	    }
+                    this->_A->sumIntoLocalValues(row, cols, vals);
+                }
+            }
         //}
     } else if (field_one == _lagrange_field_id && field_two == _lagrange_field_id) {
         // identity on all DOFs for Lagrange Multiplier (even DOFs not really used, since we only use first LM dof for now)
@@ -1702,63 +1706,63 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
         //scalar_type eps_penalty = 1e-5;
     
         auto comm = this->_particles->getCoordsConst()->getComm();
-    	for(local_index_type i = 0; i < nlocal; i++) {
-    		for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
-    			local_index_type row = local_to_dof_map(i, field_one, k);
+        for(local_index_type i = 0; i < nlocal; i++) {
+            for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
+                local_index_type row = local_to_dof_map(i, field_one, k);
     
-    			Teuchos::Array<local_index_type> col_data(fields[field_two]->nDim());
-    			Teuchos::Array<scalar_type> val_data(fields[field_two]->nDim());
-    			Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
-    			Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
-    			for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
+                Teuchos::Array<local_index_type> col_data(fields[field_two]->nDim());
+                Teuchos::Array<scalar_type> val_data(fields[field_two]->nDim());
+                Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
+                Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
+                for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
                     if (i==0 && comm->getRank()==0) {
-    				    cols[n] = local_to_dof_map(i, field_two, n);
-    				    vals[n] = eps_penalty;
+                        cols[n] = local_to_dof_map(i, field_two, n);
+                        vals[n] = eps_penalty;
                     } else {
-    				    cols[n] = local_to_dof_map(i, field_two, n);
-    				    vals[n] = 1;
+                        cols[n] = local_to_dof_map(i, field_two, n);
+                        vals[n] = 1;
                     }
-    			}
-    			//#pragma omp critical
-    			{
-    		        this->_A->sumIntoLocalValues(row, cols, vals);
-    			}
-    		}
-    	}
+                }
+                //#pragma omp critical
+                {
+                    this->_A->sumIntoLocalValues(row, cols, vals);
+                }
+            }
+        }
     }
 
 
     // DIAGNOSTIC:: get global area
-	scalar_type global_area;
-	Teuchos::Ptr<scalar_type> global_area_ptr(&global_area);
-	Teuchos::reduceAll<int, scalar_type>(*(_cells->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, area, global_area_ptr);
+    scalar_type global_area;
+    Teuchos::Ptr<scalar_type> global_area_ptr(&global_area);
+    Teuchos::reduceAll<int, scalar_type>(*(_cells->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, area, global_area_ptr);
     if (_cells->getCoordsConst()->getComm()->getRank()==0) {
         printf("GLOBAL AREA: %.16f\n", global_area);
     }
-	//scalar_type global_perimeter;
-	//Teuchos::Ptr<scalar_type> global_perimeter_ptr(&global_perimeter);
-	//Teuchos::reduceAll<int, scalar_type>(*(_cells->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, perimeter, global_perimeter_ptr);
+    //scalar_type global_perimeter;
+    //Teuchos::Ptr<scalar_type> global_perimeter_ptr(&global_perimeter);
+    //Teuchos::reduceAll<int, scalar_type>(*(_cells->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, perimeter, global_perimeter_ptr);
     //if (_cells->getCoordsConst()->getComm()->getRank()==0) {
     //    printf("GLOBAL PERIMETER: %.16f\n", global_perimeter);///((double)(num_interior_edges)));
     //}
 
-	TEUCHOS_ASSERT(!this->_A.is_null());
-	ComputeMatrixTime->stop();
+    TEUCHOS_ASSERT(!this->_A.is_null());
+    ComputeMatrixTime->stop();
 
 }
 
 const std::vector<InteractingFields> ReactionDiffusionPhysics::gatherFieldInteractions() {
-	std::vector<InteractingFields> field_interactions;
-	field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _velocity_field_id ));
+    std::vector<InteractingFields> field_interactions;
+    field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _velocity_field_id ));
     if (_st_op || _mix_le_op) {
-	    field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _velocity_field_id, _pressure_field_id));
-	    field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _pressure_field_id, _velocity_field_id));
-	    field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _pressure_field_id));
-	    //field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _lagrange_field_id, _pressure_field_id));
-	    //field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _pressure_field_id, _lagrange_field_id));
-	    //field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _lagrange_field_id));
+        field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _velocity_field_id, _pressure_field_id));
+        field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _pressure_field_id, _velocity_field_id));
+        field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _pressure_field_id));
+        //field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _lagrange_field_id, _pressure_field_id));
+        //field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _pressure_field_id, _lagrange_field_id));
+        //field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _lagrange_field_id));
     }
-	return field_interactions;
+    return field_interactions;
 }
     
 }

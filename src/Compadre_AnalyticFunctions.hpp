@@ -327,6 +327,42 @@ class SineProducts : public AnalyticFunction {
 
 };
 
+class FirstOrderBasis : public AnalyticFunction {
+
+	typedef XyzVector xyz_type;
+
+	public :
+
+	    FirstOrderBasis(const local_index_type dim = 3) : AnalyticFunction(dim) {}
+
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+
+		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+        virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+};
+
+class DivFreeSecondOrderBasis : public AnalyticFunction {
+
+	typedef XyzVector xyz_type;
+
+	public :
+
+	    DivFreeSecondOrderBasis(const local_index_type dim = 3) : AnalyticFunction(dim) {}
+
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+
+		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+        virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+};
+
 class SecondOrderBasis : public AnalyticFunction {
 
 	typedef XyzVector xyz_type;

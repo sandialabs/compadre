@@ -438,6 +438,148 @@ scalar_type SineProducts::evalScalarLaplacian(const xyz_type& xyzIn, const local
 }
 
 //
+// FirstOrderBasis
+//
+
+scalar_type FirstOrderBasis::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+    if (_dim==3) {
+        if (input_comp==0) {
+            return 2*xyzIn.x + xyzIn.y + xyzIn.z;
+        } else if (input_comp==1) {
+            return -1*(xyzIn.x + xyzIn.y + xyzIn.z);
+        } else {
+            return xyzIn.x - xyzIn.y - xyzIn.z;
+        }
+    } else if (_dim==2) {
+        if (input_comp==0) {
+            return xyzIn.x + xyzIn.y;
+        } else {
+            return -1*(xyzIn.x + xyzIn.y);
+        }
+    } else {
+        TEUCHOS_ASSERT(false);
+        return false;
+    }
+}
+
+xyz_type FirstOrderBasis::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp) const {
+    if (_dim==3) {
+        if (input_comp==0) {
+            return xyz_type(2,1,1);
+        } else if (input_comp==1) {
+            return xyz_type(-1,-1,-1);
+        } else {
+            return xyz_type(1,-1,-1);
+        }
+    } else {
+        if (input_comp==0) {
+            return xyz_type(1,1);
+        } else {
+            return xyz_type(-1,-1);
+        }
+    }
+}
+
+std::vector<xyz_type> FirstOrderBasis::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp) const {
+    std::vector<xyz_type> hessian(_dim);
+    if (_dim==3) {
+        TEUCHOS_ASSERT(false);
+        return hessian;
+    } else {
+        // first component
+        // u_xd = (u_xx, u_xy)
+        xyz_type u_xd(0,0,0);
+        // u_yd = (u_yx, u_yy)
+        xyz_type u_yd(0,0,0);
+        if (input_comp==0) {
+            hessian[0] = u_xd;
+            hessian[1] = u_yd;
+        } else {
+            hessian[0] = u_xd;
+            hessian[1] = u_yd;
+        }
+    }
+    return hessian;
+}
+
+scalar_type FirstOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp) const {
+    return 0;
+}
+
+//
+// Divergence Free SecondOrderBasis
+//
+
+scalar_type DivFreeSecondOrderBasis::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+
+    if (_dim==3) {
+        TEUCHOS_ASSERT(false);
+        return 0;
+    } else if (_dim==2) {
+        // u= [ 1 + x + y + x^2 + 2*xy + y^2
+        //     -1 - x - y - x^2 - 2*xy - y^2 ]
+        if (input_comp==0) {
+            return 1 + xyzIn.x + xyzIn.y + xyzIn.x*xyzIn.x + 2*xyzIn.x*xyzIn.y + xyzIn.y*xyzIn.y;
+        } else {
+            return -1*(1 + xyzIn.x + xyzIn.y + xyzIn.x*xyzIn.x + 2*xyzIn.x*xyzIn.y + xyzIn.y*xyzIn.y);
+        }
+    } else {
+        TEUCHOS_ASSERT(false);
+        return false;
+    }
+}
+
+xyz_type DivFreeSecondOrderBasis::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp) const {
+    if (_dim==3) {
+        TEUCHOS_ASSERT(false);
+        return xyz_type();
+    } else {
+        if (input_comp==0) {
+            return xyz_type(1 + 2*xyzIn.x + 2*xyzIn.y,
+                            1 + 2*xyzIn.x + 2*xyzIn.y);
+        } else {
+            return -1*xyz_type(1 + 2*xyzIn.x + 2*xyzIn.y,
+                               1 + 2*xyzIn.x + 2*xyzIn.y);
+        }
+    }
+}
+
+std::vector<xyz_type> DivFreeSecondOrderBasis::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp) const {
+    std::vector<xyz_type> hessian(_dim);
+    if (_dim==3) {
+        TEUCHOS_ASSERT(false);
+        return hessian;
+    } else {
+        // first component
+        // u_xd = (u_xx, u_xy)
+        xyz_type u_xd(2,2);
+        // u_yd = (u_yx, u_yy)
+        xyz_type u_yd(2,2);
+        if (input_comp==0) {
+            hessian[0] = u_xd;
+            hessian[1] = u_yd;
+        } else {
+            hessian[0] = -1*u_xd;
+            hessian[1] = -1*u_yd;
+        }
+    }
+    return hessian;
+}
+
+scalar_type DivFreeSecondOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp) const {
+    if (_dim==3) {
+        TEUCHOS_ASSERT(false);
+        return 0;
+    } else {
+        if (input_comp==0) {
+            return 4;
+        } else if (input_comp==1) {
+            return -4;
+        }
+    }
+}
+
+//
 // SecondOrderBasis
 //
 
@@ -496,9 +638,9 @@ std::vector<xyz_type> SecondOrderBasis::evalScalarHessian(const xyz_type& xyzIn,
     } else {
         // first component
         // u_xd = (u_xx, u_xy)
-        xyz_type u_xd(2,1,0);
+        xyz_type u_xd(2,1);
         // u_yd = (u_yx, u_yy)
-        xyz_type u_yd(1,2,0);
+        xyz_type u_yd(1,2);
         if (input_comp==0) {
             hessian[0] = u_xd;
             hessian[1] = u_yd;
@@ -524,11 +666,7 @@ scalar_type SecondOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn, const l
             return -4;
         }
     } else {
-        if (_dim==3) {
-            return 12;
-        } else {
-            return 8;
-        }
+        return 12;
     }
 }
 
