@@ -144,7 +144,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                             if (_rd_op) {
                                 rhs_eval = velocity_function->evalScalarReactionDiffusionRHS(pt,_physics->_reaction,_physics->_diffusion);
                             } else if (_le_op || _mix_le_op) {
-                                if (_velocity_field_id == field_one) {
+                                if (_velocity_field_id == field_one && _velocity_field_id == field_two) {
                                     rhs_eval = velocity_function->evalLinearElasticityRHS(pt,comp,_physics->_shear,_physics->_lambda);
                                 }
                             } else if (_vl_op) {
@@ -184,7 +184,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                     + 2 * _physics->_shear * (n_y*v_y*(comp==1) + 0.5*n_x*(v_x*(comp==1) + v_y*(comp==0))) * exact[1]
                                     + _physics->_lambda * (v_x*(comp==0) + v_y*(comp==1)) * (n_x*exact[0] + n_y*exact[1]));
                             } else if (_mix_le_op) {
-                                if (_velocity_field_id == field_one) {
+                                if ((_velocity_field_id == field_one) && (_velocity_field_id == field_two)) {
                                     exact_eval = velocity_function->evalScalar(pt, comp);
                                     contribution += penalty * q_wt * v * exact_eval;
                                     auto exact = velocity_function->evalVector(pt);
@@ -192,8 +192,12 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                           2 * _physics->_shear * (n_x*v_x*(comp==0) + 0.5*n_y*(v_y*(comp==0) + v_x*(comp==1))) * exact[0]  
                                         + 2 * _physics->_shear * (n_y*v_y*(comp==1) + 0.5*n_x*(v_x*(comp==1) + v_y*(comp==0))) * exact[1]
                                         + _physics->_lambda * (v_x*(comp==0) + v_y*(comp==1)) * (n_x*exact[0] + n_y*exact[1]));
-                                } else {
-                                    // have to figure out what this will be
+                                } else if (_pressure_field_id == field_one && _pressure_field_id == field_two) {
+                                    double q = (i<nlocal) ? _physics->_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, qn+1)
+                                        : _physics->_halo_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
+                                    auto exact = velocity_function->evalVector(pt);
+                                    contribution += q_wt * (
+                                          q * ( n_x * exact[0] + n_y * exact[1] ) );
                                 }
                             } else if (_vl_op) {
                                 exact_eval = velocity_function->evalScalar(pt, comp);

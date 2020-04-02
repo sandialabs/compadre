@@ -10,6 +10,7 @@ parser = argparse.ArgumentParser(description='Run convergence tests and calculat
 
 parser.add_argument('--num-meshes', dest='num_meshes', type=int, default=3, nargs='?', help='number of meshes')
 parser.add_argument('--order', dest='order', type=int, nargs='?', default=2, help='polynomial order for basis')
+parser.add_argument('--pressure-order', dest='pressure_order', type=int, nargs='?', default=-1, help='polynomial order for pressure basis')
 
 parser.add_argument('--shear', dest='shear', type=float, nargs='?', default=1.0, help='shear modulus')
 parser.add_argument('--lambda', dest='lambda_lame', type=float, nargs='?', default=1.0, help='lambda coefficient')
@@ -24,10 +25,13 @@ parser.add_argument('--pressure-solution', dest='pressure_solution', type=str, n
 parser.add_argument('--pressure-null-space', dest='pressure_null_space', type=str, nargs='?', default='pinning', help='treatment of null space in pressure {"pinning", "lm", "none}')
 parser.add_argument('--operator', dest='operator', type=str, nargs='?', default='rd', help='operator for PDE solve')
 parser.add_argument('--convergence-type', dest='convergence_type', type=str, nargs='?', default='rate', help='type of convergence to test')
-parser.add_argument('--assert-rate', dest='assert_rate', type=bool, nargs='?', default=True, help='whether to assert rate is optimal')
+
+parser.add_argument('--assert-rate', dest='assert_rate', type=str, nargs='?', default='True', help='whether to assert rate is optimal')
 
 args = parser.parse_args()
 
+if args.pressure_order<0:
+    args.pressure_order = args.order-1 # Taylor-Hood style velocity+pressure pair
 
 
 file_names = ["dg_%d.nc"%num for num in range(args.num_meshes)]
@@ -81,6 +85,8 @@ for key2, fname in enumerate(file_names):
     for item in r.getchildren():
         if (item.attrib['name']=="porder"):
             item.attrib['value']=str(args.order)
+        if (item.attrib['name']=="pressure porder"):
+            item.attrib['value']=str(args.pressure_order)
 
     for item in s.getchildren():
         if (item.attrib['name']=="pressure null space"):
@@ -129,11 +135,11 @@ for key, errors in enumerate(all_errors):
     else:
         break
 
-    if (args.convergence_type.lower()=="exact" and args.assert_rate):
+    if (args.convergence_type.lower()=="exact" and args.assert_rate.lower()=="true"):
         if (abs(args.rate_tol-last_error)>args.rate_tol):
             assert False, "Last calculated error (%f) more than %f from exact solution." % (last_error, args.rate_tol,)
 
-    elif (args.convergence_type.lower()=="rate" and args.assert_rate):
+    elif (args.convergence_type.lower()=="rate" and args.assert_rate.lower()=="true"):
         if (((abs(args.order-rate)>args.rate_tol and rate<args.order) and ('l2' not in error_types[key])) or ((abs(args.order+1-rate)>args.rate_tol and rate<(args.order+1)) and ('l2' in error_types[key]))):
             assert False, "Last calculated rate (%f) more than %f from theoretical optimal rate." % (rate, args.rate_tol,)
 

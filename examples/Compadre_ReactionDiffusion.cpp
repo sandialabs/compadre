@@ -86,7 +86,7 @@ int main (int argc, char* args[]) {
 
     // treatment of null space in pressure 
     bool use_pinning = false, use_lm = false;
-    if (st_op) {
+    if (st_op || mix_le_op) {
         if (parameters->get<Teuchos::ParameterList>("solver").get<std::string>("pressure null space")=="pinning") {
             use_pinning = true;
             use_lm = false;
@@ -371,7 +371,7 @@ int main (int argc, char* args[]) {
                         }
                     }
                 }
-                if (st_op) avg_pressure_computed += pressure_processed_view(j,0);
+                if (st_op || mix_le_op) avg_pressure_computed += pressure_processed_view(j,0);
             }
             if (st_op || mix_le_op) {
                 avg_pressure_computed /= nlocal;
@@ -626,9 +626,19 @@ int main (int argc, char* args[]) {
                 // pressure is div of velocity
                 auto velocity_jacobian = velocity_function->evalJacobian(xyz);
                 pressure_exact = velocity_jacobian[0][0] + velocity_jacobian[1][1];
-                pressure_exact_view(j,0) = pressure_exact;
+                avg_pressure_exact += pressure_exact;
             }
-        } else if (st_op) {
+
+            avg_pressure_exact /= (double)(coords->nLocal());
+
+            for( int j =0; j<coords->nLocal(); j++){
+                xyz_type xyz = coords->getLocalCoords(j);
+                // pressure is div of velocity
+                auto velocity_jacobian = velocity_function->evalJacobian(xyz);
+                pressure_exact = velocity_jacobian[0][0] + velocity_jacobian[1][1];
+                pressure_exact_view(j,0) = pressure_exact-avg_pressure_exact;
+            }
+        } else if (st_op || mix_le_op) {
             for( int j =0; j<coords->nLocal(); j++){
                 xyz_type xyz = coords->getLocalCoords(j);
                 pressure_exact = pressure_function->evalScalar(xyz);
@@ -876,8 +886,9 @@ int main (int argc, char* args[]) {
                                         double l2_exact = pressure_function->evalScalar(xyz)-avg_pressure_exact;
                                         l2_error_on_cell += quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
                                     } else if (mix_le_op) {
+                                        l2_val -= avg_pressure_computed;
                                         auto velocity_jacobian = velocity_function->evalJacobian(xyz);
-                                        double l2_exact = velocity_jacobian[0][0] + velocity_jacobian[1][1];
+                                        double l2_exact = (velocity_jacobian[0][0] + velocity_jacobian[1][1])-avg_pressure_exact;
                                         l2_error_on_cell += quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
                                     }
                                 }
