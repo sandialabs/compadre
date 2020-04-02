@@ -1646,13 +1646,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                 local_index_type row = local_to_dof_map(0, field_one, 0);
                 double val_data[1] = {1.0};
                 int    col_data[1] = {row};
-                this->_A->sumIntoLocalValues(row, 1, &val_data[0], &col_data[0], true);//, /*atomics*/false);
-                //for (local_index_type l = 0; l < nlocal; l++) {
-                //    local_index_type row = local_to_dof_map(l, field_one, 0);
-                //    double val_data[1] = {1.0};
-                //    int    col_data[1] = {row};
-                //    this->_A->sumIntoLocalValues(row, 1, &val_data[0], &col_data[0], true);//, /*atomics*/false);
-                //}
+                this->_A->sumIntoLocalValues(row, 1, &val_data[0], &col_data[0], true);
             }
         }
     } else if (field_one == _lagrange_field_id && field_two == _pressure_field_id) {
@@ -1733,12 +1727,12 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
 
     // DIAGNOSTIC:: get global area
-    scalar_type global_area;
-    Teuchos::Ptr<scalar_type> global_area_ptr(&global_area);
-    Teuchos::reduceAll<int, scalar_type>(*(_cells->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, area, global_area_ptr);
-    if (_cells->getCoordsConst()->getComm()->getRank()==0) {
-        printf("GLOBAL AREA: %.16f\n", global_area);
-    }
+    //scalar_type global_area;
+    //Teuchos::Ptr<scalar_type> global_area_ptr(&global_area);
+    //Teuchos::reduceAll<int, scalar_type>(*(_cells->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, area, global_area_ptr);
+    //if (_cells->getCoordsConst()->getComm()->getRank()==0) {
+    //    printf("GLOBAL AREA: %.16f\n", global_area);
+    //}
     //scalar_type global_perimeter;
     //Teuchos::Ptr<scalar_type> global_perimeter_ptr(&global_perimeter);
     //Teuchos::reduceAll<int, scalar_type>(*(_cells->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, perimeter, global_perimeter_ptr);

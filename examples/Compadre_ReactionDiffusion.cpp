@@ -84,6 +84,21 @@ int main (int argc, char* args[]) {
     bool st_op = parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="st";
     bool mix_le_op = parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="mix_le";
 
+    // treatment of null space in pressure 
+    bool use_pinning = false, use_lm = false;
+    if (st_op) {
+        if (parameters->get<Teuchos::ParameterList>("solver").get<std::string>("pressure null space")=="pinning") {
+            use_pinning = true;
+            use_lm = false;
+        } else if (parameters->get<Teuchos::ParameterList>("solver").get<std::string>("pressure null space")=="lm") {
+            use_pinning = false;
+            use_lm = true;
+        } else {
+            use_pinning = false;
+            use_lm = false;
+        }
+    }
+
     {
         const std::string testfilename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + "/" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file");
 
@@ -124,7 +139,7 @@ int main (int argc, char* args[]) {
                 pressure_name = "solution_pressure";
                 cells->getFieldManager()->createField(2, velocity_name, "m/s");
                 cells->getFieldManager()->createField(1, pressure_name, "m/s");
-				cells->getFieldManager()->createField(1, "lagrange multiplier", "NA");
+				if (use_lm) cells->getFieldManager()->createField(1, "lagrange multiplier", "NA");
             } else if (le_op || vl_op) {
                 velocity_name = "solution";
                 cells->getFieldManager()->createField(2, velocity_name, "m/s");
@@ -248,16 +263,8 @@ int main (int argc, char* args[]) {
             Teuchos::rcp( new Compadre::ReactionDiffusionBoundaryConditions(cells));
 
         // treatment of null space in pressure 
-        if (parameters->get<Teuchos::ParameterList>("solver").get<std::string>("pressure null space")=="pinning") {
-            physics->_use_pinning = true;
-            physics->_use_lm = false;
-        } else if (parameters->get<Teuchos::ParameterList>("solver").get<std::string>("pressure null space")=="lm") {
-            physics->_use_pinning = false;
-            physics->_use_lm = true;
-        } else {
-            physics->_use_pinning = false;
-            physics->_use_lm = false;
-        }
+        physics->_use_pinning = use_pinning;
+        physics->_use_lm = use_lm;
 
         physics->_velocity_name = velocity_name;
         physics->_pressure_name = pressure_name;
@@ -275,7 +282,7 @@ int main (int argc, char* args[]) {
         physics->_velocity_field_id = cells->getFieldManagerConst()->getIDOfFieldFromName(velocity_name);
         if (st_op || mix_le_op) {
             physics->_pressure_field_id = cells->getFieldManagerConst()->getIDOfFieldFromName(pressure_name);
-            physics->_lagrange_field_id = cells->getFieldManagerConst()->getIDOfFieldFromName("lagrange multiplier");
+            if (use_lm) physics->_lagrange_field_id = cells->getFieldManagerConst()->getIDOfFieldFromName("lagrange multiplier");
         }
 
         // set physics, sources, and boundary conditions in the problem
@@ -849,15 +856,11 @@ int main (int argc, char* args[]) {
                 if (st_op || mix_le_op) {
                     for( int j =0; j<coords->nLocal(); j++){
                         double l2_error_on_cell = 0.0;
-                        //double h1_error_on_cell = 0.0;
-                        //double jump_error_on_cell = 0.0;
                         int count = quadrature_weights.extent(1) * j;
                         for (int m=0; m<pressure_dof_view.extent(1); ++m) {
                             for (int i=0; i<quadrature_weights.extent(1); ++i) {
                                 if (quadrature_type(j,i)==1) { // interior
                                     double l2_val = 0.0;
-                                    //double h1_val_x = 0.0;
-                                    //double h1_val_y = 0.0;
                                     // needs reconstruction at this quadrature point
                                     LO num_neighbors = neighborhood->getNumNeighbors(j);
                                     // loop over particles neighbor to the cell
@@ -865,11 +868,7 @@ int main (int argc, char* args[]) {
                                         auto particle_l = neighborhood->getNeighbor(j,l);
                                         auto dof_val = (particle_l<nlocal) ? pressure_dof_view(particle_l,m) : pressure_halo_dof_view(particle_l-nlocal,m);
                                         auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
-                                        //auto v_x = gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, j, 0, l, i+1);
-                                        //auto v_y = gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, j, 1, l, i+1);
                                         l2_val += dof_val * v;
-                                        //h1_val_x += dof_val * v_x;
-                                        //h1_val_y += dof_val * v_y;
                                     }
                                     auto xyz = Compadre::XyzVector(quadrature_points(j,2*i+0), quadrature_points(j,2*i+1),0);
                                     if (st_op) {
@@ -882,65 +881,8 @@ int main (int argc, char* args[]) {
                                         l2_error_on_cell += quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
                                     }
                                 }
-                                //} else if (quadrature_type(j,i)==2) { // exterior edge
-                                //    double u_val = 0.0;
-                                //    // needs reconstruction at this quadrature point
-                                //    LO num_neighbors = neighborhood->getNumNeighbors(j);
-                                //    // loop over particles neighbor to the cell
-                                //    for (LO l = 0; l < num_neighbors; l++) {
-                                //        auto particle_l = neighborhood->getNeighbor(j,l);
-                                //        auto dof_val = (particle_l<nlocal) ? pressure_dof_view(particle_l,m) : pressure_halo_dof_view(particle_l-nlocal,m);
-                                //        auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
-                                //        u_val += dof_val * v;
-                                //    }
-                                //    auto xyz = Compadre::XyzVector(quadrature_points(j,2*i+0), quadrature_points(j,2*i+1),0);
-                                //    double u_exact = 0;
-                                //    if (st_op) {
-                                //        u_exact = pressure_function->evalScalar(xyz);
-                                //    } else if (mix_le_op) {
-                                //        auto velocity_jacobian = velocity_function->evalJacobian(xyz);
-                                //        u_exact = velocity_jacobian[0][0] + velocity_jacobian[1][1];
-                                //    }
-                                //    jump_error_on_cell += penalty * quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);
-                                //} else if (quadrature_type(j,i)==0) { // interior edge
-                                //    double u_val = 0.0;
-                                //    double other_u_val = 0.0;
-                                //    // needs reconstruction at this quadrature point
-                                //    LO num_neighbors = neighborhood->getNumNeighbors(j);
-                                //    // loop over particles neighbor to the cell
-                                //    for (LO l = 0; l < num_neighbors; l++) {
-                                //        auto particle_l = neighborhood->getNeighbor(j,l);
-                                //        auto dof_val = (particle_l<nlocal) ? pressure_dof_view(particle_l,m) : pressure_halo_dof_view(particle_l-nlocal,m);
-                                //        auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
-                                //        u_val += dof_val * v;
-                                //    }
-                                //    int current_edge_num = (i - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                                //    int adj_j = (int)(adjacent_elements(j, current_edge_num));
-
-                                //    int side_j_to_adjacent_cell = -1;
-                                //    for (int z=0; z<num_edges; ++z) {
-                                //        if ((int)(adjacent_elements(adj_j,z))==j) {
-                                //            side_j_to_adjacent_cell = z;
-                                //            break;
-                                //        }
-                                //    }
-                                //    int adj_i = num_interior_quadrature + side_j_to_adjacent_cell*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((i-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
-
-                                //    // needs reconstruction at this quadrature point
-                                //    num_neighbors = neighborhood->getNumNeighbors(adj_j);
-                                //    // loop over particles neighbor to the cell
-                                //    for (LO l = 0; l < num_neighbors; l++) {
-                                //        auto particle_l = neighborhood->getNeighbor(adj_j,l);
-                                //        auto dof_val = (particle_l<nlocal) ? pressure_dof_view(particle_l,m) : pressure_halo_dof_view(particle_l-nlocal,m);
-                                //        auto v = gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adj_j, l, adj_i+1);
-                                //        other_u_val += dof_val * v;
-                                //    }
-                                //    jump_error_on_cell += penalty * quadrature_weights(j,i) * (u_val - other_u_val) * (u_val - other_u_val);
-                                //}
                             }
                             pressure_l2_error += l2_error_on_cell;
-                            //pressure_h1_error += h1_error_on_cell;
-                            //pressure_jump_error += jump_error_on_cell;
                         }
                     }
                 }
@@ -950,11 +892,8 @@ int main (int argc, char* args[]) {
             printf("Ju: %.5e\n", sqrt(velocity_jump_error));
             if (st_op || mix_le_op) {
                 printf("Pressure L2: %.5e\n", sqrt(pressure_l2_error));
-                //printf("Pressure H1: %.5e\n", sqrt(pressure_h1_error));
-                //printf("Pressure Ju: %.5e\n", sqrt(pressure_jump_error));
             }
             velocity_norm = velocity_jump_error + velocity_l2_error + velocity_h1_error;
-            //if (st_op || mix_le_op) pressure_norm = pressure_jump_error + pressure_l2_error;// + pressure_h1_error;
         }
 
         //// DIAGNOSTIC:: get solution at quadrature pts
@@ -974,15 +913,6 @@ int main (int argc, char* args[]) {
         Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, velocity_norm, global_norm_ptr);
         global_norm = sqrt(global_norm);
         if (comm->getRank()==0) std::cout << "Global Norm: " << global_norm << "\n";
-
-        //if (st_op || mix_le_op) {
-        //    ST global_pressure_norm;
-        //    Teuchos::Ptr<ST> global_pressure_norm_ptr(&global_pressure_norm);
-        //    Teuchos::reduceAll<int, ST>(*comm, Teuchos::REDUCE_SUM, pressure_norm, global_pressure_norm_ptr);
-        //    global_norm = sqrt(global_pressure_norm);
-        //    if (comm->getRank()==0) std::cout << "Global Pressure Norm: " << global_pressure_norm << "\n";
-        //}
-
 
         {
             WriteTime->start();
