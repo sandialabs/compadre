@@ -162,6 +162,36 @@ int main (int argc, char* args[]) {
             //cells->getNeighborhood()->constructAllNeighborList(cells->getCoordsConst()->getHaloSize(), extra_neighbors);
 
         }
+
+        Teuchos::RCP<Compadre::AnalyticFunction> velocity_function;
+        Teuchos::RCP<Compadre::AnalyticFunction> pressure_function;
+        if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_1") {
+            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::FirstOrderBasis(2 /*dimension*/)));
+        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_2") {
+            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
+        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3") {
+            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(2 /*dimension*/)));
+        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="divfree_sinecos") {
+            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::DivFreeSineCos(2 /*dimension*/)));
+        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="divfree_polynomial_2") {
+            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::DivFreeSecondOrderBasis(2 /*dimension*/)));
+        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="sine") {
+            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
+        }
+        if (st_op) { // mix_le_op uses pressure from divergence of velocity
+            if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_1") {
+                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::FirstOrderBasis(2 /*dimension*/)));
+            } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_2") {
+                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
+            } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_3") {
+                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(2 /*dimension*/)));
+            } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="zero") {
+                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ConstantEachDimension(0, 0, 0)));
+            } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="sine") {
+                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
+            }
+        }
+
 //        {
 //            WriteTime->start();
 //            std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
@@ -217,8 +247,23 @@ int main (int argc, char* args[]) {
         Teuchos::RCP<Compadre::ReactionDiffusionBoundaryConditions> bcs =
             Teuchos::rcp( new Compadre::ReactionDiffusionBoundaryConditions(cells));
 
+        // treatment of null space in pressure 
+        if (parameters->get<Teuchos::ParameterList>("solver").get<std::string>("pressure null space")=="pinning") {
+            physics->_use_pinning = true;
+            physics->_use_lm = false;
+        } else if (parameters->get<Teuchos::ParameterList>("solver").get<std::string>("pressure null space")=="lm") {
+            physics->_use_pinning = false;
+            physics->_use_lm = true;
+        } else {
+            physics->_use_pinning = false;
+            physics->_use_lm = false;
+        }
+
         physics->_velocity_name = velocity_name;
         physics->_pressure_name = pressure_name;
+
+        physics->_velocity_function = velocity_function.getRawPtr();
+        physics->_pressure_function = pressure_function.getRawPtr();
 
         physics->_l2_op = l2_op;
         physics->_rd_op = rd_op;
@@ -493,35 +538,6 @@ int main (int argc, char* args[]) {
         double velocity_exact = 0.0;
         double pressure_exact = 0.0;
         double avg_pressure_exact = 0.0;
-
-        Teuchos::RCP<Compadre::AnalyticFunction> velocity_function;
-        Teuchos::RCP<Compadre::AnalyticFunction> pressure_function;
-        if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_1") {
-            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::FirstOrderBasis(2 /*dimension*/)));
-        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_2") {
-            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
-        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3") {
-            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(2 /*dimension*/)));
-        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="divfree_sinecos") {
-            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::DivFreeSineCos(2 /*dimension*/)));
-        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="divfree_polynomial_2") {
-            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::DivFreeSecondOrderBasis(2 /*dimension*/)));
-        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="sine") {
-            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
-        }
-        if (st_op) { // mix_le_op uses pressure from divergence of velocity
-            if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_1") {
-                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::FirstOrderBasis(2 /*dimension*/)));
-            } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_2") {
-                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
-            } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_3") {
-                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(2 /*dimension*/)));
-            } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="zero") {
-                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ConstantEachDimension(0, 0, 0)));
-            } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="sine") {
-                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
-            }
-        }
 
         //auto penalty = (parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/physics->_cell_particles_neighborhood->computeMaxHSupportSize(true /* global processor max */);
         //// jump errors

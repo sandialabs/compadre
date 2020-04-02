@@ -1298,7 +1298,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             contribution -= q_wt * (
                                                   (grad_v_x*j_comp_0 + grad_v_y*j_comp_1) * p );
                                         } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
-                                            if (particle_j!=0) { // q is pinned at particle 0
+                                            if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
                                                 contribution -= q_wt * (
                                                       (grad_u_x*k_comp_0 + grad_u_y*k_comp_1) * q );
                                             } 
@@ -1408,7 +1408,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 contribution += q_wt * (
                                                       avgp * (n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1) );
                                             } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
-                                                if (particle_j!=0) { // q is pinned at particle 0
+                                                if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
                                                     contribution += q_wt * (
                                                           avgq * (n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1) );
                                                 }
@@ -1616,7 +1616,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 contribution += q_wt * (
                                                       avgp * (n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1) );
                                             } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
-                                                if (particle_j!=0) { // q is pinned at particle 0
+                                                if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
                                                     contribution += q_wt * (
                                                           avgq * (n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1) );
                                                 }
@@ -1640,21 +1640,21 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     //area = t_area;
     //perimeter = t_perimeter;
     }, Kokkos::Sum<scalar_type>(area));
-    if (_st_op) {
-        // this is the pin for pressure
-        if ((field_one==field_two) && (field_one==_pressure_field_id)) {
-            local_index_type row = local_to_dof_map(0, field_one, 0);
-            double val_data[1] = {1.0};
-            int    col_data[1] = {row};
-            this->_A->sumIntoLocalValues(row, 1, &val_data[0], &col_data[0], true);//, /*atomics*/false);
-            //for (local_index_type l = 0; l < nlocal; l++) {
-            //    local_index_type row = local_to_dof_map(l, field_one, 0);
-            //    double val_data[1] = {1.0};
-            //    int    col_data[1] = {row};
-            //    this->_A->sumIntoLocalValues(row, 1, &val_data[0], &col_data[0], true);//, /*atomics*/false);
-            //}
+        if (_st_op && _use_pinning) {
+            // this is the pin for pressure
+            if ((field_one==field_two) && (field_one==_pressure_field_id)) {
+                local_index_type row = local_to_dof_map(0, field_one, 0);
+                double val_data[1] = {1.0};
+                int    col_data[1] = {row};
+                this->_A->sumIntoLocalValues(row, 1, &val_data[0], &col_data[0], true);//, /*atomics*/false);
+                //for (local_index_type l = 0; l < nlocal; l++) {
+                //    local_index_type row = local_to_dof_map(l, field_one, 0);
+                //    double val_data[1] = {1.0};
+                //    int    col_data[1] = {row};
+                //    this->_A->sumIntoLocalValues(row, 1, &val_data[0], &col_data[0], true);//, /*atomics*/false);
+                //}
+            }
         }
-    }
     } else if (field_one == _lagrange_field_id && field_two == _pressure_field_id) {
         // row all DOFs for solution against Lagrange Multiplier
         Teuchos::Array<local_index_type> col_data(nlocal * fields[field_two]->nDim());
@@ -1758,9 +1758,11 @@ const std::vector<InteractingFields> ReactionDiffusionPhysics::gatherFieldIntera
         field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _velocity_field_id, _pressure_field_id));
         field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _pressure_field_id, _velocity_field_id));
         field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _pressure_field_id));
-        //field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _lagrange_field_id, _pressure_field_id));
-        //field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _pressure_field_id, _lagrange_field_id));
-        //field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _lagrange_field_id));
+        if (_use_lm) {
+            field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _lagrange_field_id, _pressure_field_id));
+            field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _pressure_field_id, _lagrange_field_id));
+            field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _lagrange_field_id));
+        }
     }
     return field_interactions;
 }

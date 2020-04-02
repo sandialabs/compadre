@@ -16,7 +16,7 @@ void ReactionDiffusionBoundaryConditions::flagBoundaries() {
 
 void ReactionDiffusionBoundaryConditions::applyBoundaries(local_index_type field_one, local_index_type field_two, scalar_type time) {
 
-    if (field_one != _physics->_pressure_field_id) return;
+    if (field_one != _physics->_pressure_field_id || field_two != _physics->_pressure_field_id) return;
 
     // pin one DOF for pressure
     host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
@@ -24,10 +24,9 @@ void ReactionDiffusionBoundaryConditions::applyBoundaries(local_index_type field
     const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
 
-    for (local_index_type i=0; i<nlocal; ++i) { 
-        const local_index_type dof = local_to_dof_map(i, field_one, 0);
+    if (_physics->_st_op && _physics->_use_pinning) {
+        const local_index_type dof = local_to_dof_map(0, field_one, 0);
         rhs_vals(dof,0) = 0;
-        // pins first DOF in pressure to 0
     }
 
 }

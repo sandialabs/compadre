@@ -21,6 +21,9 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     if (field_one != field_two) return;
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_b==NULL, "Tpetra Multivector for RHS not yet specified.");
 
+
+    // get problem specific parameters, operators and manufactured solution functions from _physics
+ 
     bool _l2_op = _physics->_l2_op;
     bool _rd_op = _physics->_rd_op;
     bool _le_op = _physics->_le_op;
@@ -33,34 +36,10 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     int _lagrange_field_id = _physics->_lagrange_field_id;
     if (field_one == _lagrange_field_id) return; // no work to do for lagrange multiplier RHS
 
-    Teuchos::RCP<Compadre::AnalyticFunction> velocity_function;
-    Teuchos::RCP<Compadre::AnalyticFunction> pressure_function;
-    if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_1") {
-        velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::FirstOrderBasis(2 /*dimension*/)));
-    } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_2") {
-        velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
-    } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3") {
-        velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(2 /*dimension*/)));
-    } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="divfree_sinecos") {
-        velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::DivFreeSineCos(2 /*dimension*/)));
-    } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="divfree_polynomial_2") {
-        velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::DivFreeSecondOrderBasis(2 /*dimension*/)));
-    } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="sine") {
-        velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
-    }
-    if (_st_op) { // mix_le_op uses pressure from divergence of velocity
-        if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_1") {
-            pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::FirstOrderBasis(2 /*dimension*/)));
-        } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_2") {
-            pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
-        } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_3") {
-            pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(2 /*dimension*/)));
-        } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="zero") {
-            pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ConstantEachDimension(0, 0, 0)));
-        } else if (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="sine") {
-            pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
-        }
-    }
+    AnalyticFunction* velocity_function = _physics->_velocity_function;
+    AnalyticFunction* pressure_function = _physics->_pressure_function;
+
+
 
 	host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
     const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
