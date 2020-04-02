@@ -21,8 +21,10 @@ parser.add_argument('--rate-tol', dest='rate_tol', type=float, nargs='?', defaul
 
 parser.add_argument('--solution', dest='solution', type=str, nargs='?', default='polynomial', help='solution type')
 parser.add_argument('--pressure-solution', dest='pressure_solution', type=str, nargs='?', default='polynomial', help='pressure solution type')
+parser.add_argument('--pressure-null-space', dest='pressure_null_space', type=str, nargs='?', default='pinning', help='treatment of null space in pressure {"pinning", "lm", "none}')
 parser.add_argument('--operator', dest='operator', type=str, nargs='?', default='rd', help='operator for PDE solve')
 parser.add_argument('--convergence-type', dest='convergence_type', type=str, nargs='?', default='rate', help='type of convergence to test')
+parser.add_argument('--assert-rate', dest='assert_rate', type=bool, nargs='?', default=True, help='whether to assert rate is optimal')
 
 args = parser.parse_args()
 
@@ -47,6 +49,8 @@ for key2, fname in enumerate(file_names):
             p=item
         if (item.attrib['name']=="remap"):
             r=item
+        if (item.attrib['name']=="solver"):
+            s=item
     
     for item in f.getchildren():
         if (item.attrib['name']=="input file"):
@@ -77,6 +81,10 @@ for key2, fname in enumerate(file_names):
     for item in r.getchildren():
         if (item.attrib['name']=="porder"):
             item.attrib['value']=str(args.order)
+
+    for item in s.getchildren():
+        if (item.attrib['name']=="pressure null space"):
+            item.attrib['value']=str(args.pressure_null_space)
     
     tree.write(open('../test_data/parameter_lists/reactiondiffusion/parameters_generated.xml', 'wb'))
     
@@ -121,11 +129,11 @@ for key, errors in enumerate(all_errors):
     else:
         break
 
-    if (args.convergence_type.lower()=="exact"):
+    if (args.convergence_type.lower()=="exact" and args.assert_rate):
         if (abs(args.rate_tol-last_error)>args.rate_tol):
             assert False, "Last calculated error (%f) more than %f from exact solution." % (last_error, args.rate_tol,)
 
-    elif (args.convergence_type.lower()=="rate"):
+    elif (args.convergence_type.lower()=="rate" and args.assert_rate):
         if (((abs(args.order-rate)>args.rate_tol and rate<args.order) and ('l2' not in error_types[key])) or ((abs(args.order+1-rate)>args.rate_tol and rate<(args.order+1)) and ('l2' in error_types[key]))):
             assert False, "Last calculated rate (%f) more than %f from theoretical optimal rate." % (rate, args.rate_tol,)
 
