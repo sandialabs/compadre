@@ -140,7 +140,10 @@ for key, errors in enumerate(all_errors):
             assert False, "Last calculated error (%f) more than %f from exact solution." % (last_error, args.rate_tol,)
 
     elif (args.convergence_type.lower()=="rate" and args.assert_rate.lower()=="true"):
-        if (((abs(args.order-rate)>args.rate_tol and rate<args.order) and ('l2' not in error_types[key])) or ((abs(args.order+1-rate)>args.rate_tol and rate<(args.order+1)) and ('l2' in error_types[key]))):
+        rate_adjustment = 0
+        if ('l2' in error_types[key] and args.operator.lower()!="mix_le"):
+            rate_adjustment = 1
+        if (abs(args.order+rate_adjustment-rate)>args.rate_tol and rate<args.order):
             assert False, "Last calculated rate (%f) more than %f from theoretical optimal rate." % (rate, args.rate_tol,)
 
 

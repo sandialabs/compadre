@@ -625,7 +625,7 @@ int main (int argc, char* args[]) {
                 xyz_type xyz = coords->getLocalCoords(j);
                 // pressure is div of velocity
                 auto velocity_jacobian = velocity_function->evalJacobian(xyz);
-                pressure_exact = velocity_jacobian[0][0] + velocity_jacobian[1][1];
+                pressure_exact = -1*(velocity_jacobian[0][0] + velocity_jacobian[1][1]);
                 avg_pressure_exact += pressure_exact;
             }
 
@@ -635,10 +635,10 @@ int main (int argc, char* args[]) {
                 xyz_type xyz = coords->getLocalCoords(j);
                 // pressure is div of velocity
                 auto velocity_jacobian = velocity_function->evalJacobian(xyz);
-                pressure_exact = velocity_jacobian[0][0] + velocity_jacobian[1][1];
+                pressure_exact = -1*(velocity_jacobian[0][0] + velocity_jacobian[1][1]);
                 pressure_exact_view(j,0) = pressure_exact-avg_pressure_exact;
             }
-        } else if (st_op || mix_le_op) {
+        } else if (st_op) {
             for( int j =0; j<coords->nLocal(); j++){
                 xyz_type xyz = coords->getLocalCoords(j);
                 pressure_exact = pressure_function->evalScalar(xyz);
@@ -888,7 +888,7 @@ int main (int argc, char* args[]) {
                                     } else if (mix_le_op) {
                                         l2_val -= avg_pressure_computed;
                                         auto velocity_jacobian = velocity_function->evalJacobian(xyz);
-                                        double l2_exact = (velocity_jacobian[0][0] + velocity_jacobian[1][1])-avg_pressure_exact;
+                                        double l2_exact = -1*(velocity_jacobian[0][0] + velocity_jacobian[1][1])-avg_pressure_exact;
                                         l2_error_on_cell += quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
                                     }
                                 }

@@ -39,7 +39,10 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     AnalyticFunction* velocity_function = _physics->_velocity_function;
     AnalyticFunction* pressure_function = _physics->_pressure_function;
 
-
+    scalar_type pressure_coeff = 1.0;
+    if (_mix_le_op) {
+        pressure_coeff = _physics->_lambda + 2./3.*_physics->_shear;
+    }
 
 	host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
     const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
@@ -191,13 +194,13 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                     contribution -= q_wt * (
                                           2 * _physics->_shear * (n_x*v_x*(comp==0) + 0.5*n_y*(v_y*(comp==0) + v_x*(comp==1))) * exact[0]  
                                         + 2 * _physics->_shear * (n_y*v_y*(comp==1) + 0.5*n_x*(v_x*(comp==1) + v_y*(comp==0))) * exact[1]
-                                        + _physics->_lambda * (v_x*(comp==0) + v_y*(comp==1)) * (n_x*exact[0] + n_y*exact[1]));
+                                        - 2./3. * _physics->_shear * (v_x*(comp==0) + v_y*(comp==1)) * (n_x*exact[0] + n_y*exact[1]));
                                 } else if (_pressure_field_id == field_one && _pressure_field_id == field_two) {
                                     double q = (i<nlocal) ? _physics->_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, qn+1)
                                         : _physics->_halo_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
                                     auto exact = velocity_function->evalVector(pt);
                                     contribution += q_wt * (
-                                          q * ( n_x * exact[0] + n_y * exact[1] ) );
+                                          pressure_coeff * q * ( n_x * exact[0] + n_y * exact[1] ) );
                                 }
                             } else if (_vl_op) {
                                 exact_eval = velocity_function->evalScalar(pt, comp);
@@ -219,7 +222,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                         : _physics->_halo_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
                                     auto exact = velocity_function->evalVector(pt);
                                     contribution += q_wt * (
-                                          q * ( n_x * exact[0] + n_y * exact[1] ) );
+                                          pressure_coeff * q * ( n_x * exact[0] + n_y * exact[1] ) );
                                 }
                             }
                         }

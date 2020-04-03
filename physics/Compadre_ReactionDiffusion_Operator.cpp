@@ -936,7 +936,10 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     //MA END of TEUCHOS solver example ################################################################
 
 
-
+    scalar_type pressure_coeff = 1.0;
+    if (_mix_le_op) {
+        pressure_coeff = _lambda + 2./3.*_shear;
+    }
 
     if (((field_one == _velocity_field_id) || (field_one == _pressure_field_id)) && ((field_two == _velocity_field_id) || (field_two == _pressure_field_id))) {
     // loop over cells including halo cells 
@@ -1296,8 +1299,8 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                     + grad_v_x*grad_u_x*j_comp_1*k_comp_1 
                                                     + grad_v_y*grad_u_y*j_comp_1*k_comp_1 );
                                             } else if (_mix_le_op) {
-                                                contribution += q_wt * _lambda * (grad_v_x*j_comp_0 + grad_v_y*j_comp_1) 
-                                                    * (grad_u_x*k_comp_0 + grad_u_y*k_comp_1);
+                                                contribution += q_wt * ( -2./3. * _shear * (grad_v_x*j_comp_0 + grad_v_y*j_comp_1) 
+                                                    * (grad_u_x*k_comp_0 + grad_u_y*k_comp_1) );
                                        
                                                 contribution += q_wt * 2 * _shear* (
                                                       grad_v_x*grad_u_x*j_comp_0*k_comp_0 
@@ -1307,11 +1310,11 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             }
                                         } else if (_velocity_field_id==field_one && _pressure_field_id==field_two) {
                                             contribution -= q_wt * (
-                                                  (grad_v_x*j_comp_0 + grad_v_y*j_comp_1) * p );
+                                                  (grad_v_x*j_comp_0 + grad_v_y*j_comp_1) * p * pressure_coeff);
                                         } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
                                             if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
                                                 contribution -= q_wt * (
-                                                      (grad_u_x*k_comp_0 + grad_u_y*k_comp_1) * q );
+                                                      (grad_u_x*k_comp_0 + grad_u_y*k_comp_1) * q * pressure_coeff);
                                             } 
                                             //else if ((particle_j==particle_k) && (particle_j==i)) {
                                             //    contribution += 1;
@@ -1319,7 +1322,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         } else {
                                             if (_mix_le_op) {
                                                 if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
-                                                    contribution += q_wt * ( p * q );
+                                                    contribution -= q_wt * ( p * q * pressure_coeff );
                                                 } 
                                             }
                                         }
@@ -1429,21 +1432,21 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                             + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
                                                         + 2 * _shear * (n_y*avgv_y*j_comp_1 
                                                             + 0.5*n_x*(avgv_x*j_comp_1 + avgv_y*j_comp_0)) * jumpu*k_comp_1
-                                                        + _lambda*(avgv_x*j_comp_0 + avgv_y*j_comp_1)*(n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1));
+                                                        - 2./3. * _shear * (avgv_x*j_comp_0 + avgv_y*j_comp_1)*(n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1));
                                                     contribution -= q_wt * (
                                                           2 * _shear * (n_x*avgu_x*k_comp_0 
                                                             + 0.5*n_y*(avgu_y*k_comp_0 + avgu_x*k_comp_1)) * jumpv*j_comp_0  
                                                         + 2 * _shear * (n_y*avgu_y*k_comp_1 
                                                             + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
-                                                        + _lambda*(avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
+                                                        - 2./3. * _shear * (avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
                                                 }
                                             } else if (_velocity_field_id==field_one && _pressure_field_id==field_two) {
                                                 contribution += q_wt * (
-                                                      avgp * (n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1) );
+                                                      pressure_coeff * avgp * (n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1) );
                                             } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
                                                 if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
                                                     contribution += q_wt * (
-                                                          avgq * (n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1) );
+                                                          pressure_coeff * avgq * (n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1) );
                                                 }
                                             }
                                         }
@@ -1653,21 +1656,21 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                             + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
                                                         + 2 * _shear * (n_y*avgv_y*j_comp_1 
                                                             + 0.5*n_x*(avgv_x*j_comp_1 + avgv_y*j_comp_0)) * jumpu*k_comp_1
-                                                        + _lambda*(avgv_x*j_comp_0 + avgv_y*j_comp_1)*(n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1));
+                                                        - 2./3. * _shear * (avgv_x*j_comp_0 + avgv_y*j_comp_1)*(n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1));
                                                     contribution -= q_wt * (
                                                           2 * _shear * (n_x*avgu_x*k_comp_0 
                                                             + 0.5*n_y*(avgu_y*k_comp_0 + avgu_x*k_comp_1)) * jumpv*j_comp_0  
                                                         + 2 * _shear * (n_y*avgu_y*k_comp_1 
                                                             + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
-                                                        + _lambda*(avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
+                                                        - 2./3. * _shear * (avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
                                                 }
                                             } else if (_velocity_field_id==field_one && _pressure_field_id==field_two) {
                                                 contribution += q_wt * (
-                                                      avgp * (n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1) );
+                                                      pressure_coeff * avgp * (n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1) );
                                             } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
                                                 if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
                                                     contribution += q_wt * (
-                                                          avgq * (n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1) );
+                                                          pressure_coeff * avgq * (n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1) );
                                                 }
                                             }
                                         }
