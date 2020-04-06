@@ -12,27 +12,38 @@ namespace Compadre {
 // NOTE, operator() functions could be in cpp if KOKKOS_INLINE_FUNCTION permitted it
 // but it doesn't, so we leave it in here. This requires including XyzVector and CoordsT in the hpp
 
-//class CoordsT;
-//class XyzVector;
-
 class AnalyticFunction {
 
 	protected : 
 
 		typedef XyzVector xyz_type;
+
+	    const local_index_type _dim;
 	
 	public :
 
-		AnalyticFunction() {}
+		AnalyticFunction(const local_index_type dim = 3) : _dim(dim) {}
+
 		virtual ~AnalyticFunction() {}
 
-		virtual scalar_type evalScalar(const xyz_type& xyzIn) const;
+        // these are defined by deriving symbolically
+		virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+        // function of evalScalar
 		virtual xyz_type evalVector(const xyz_type& xyzIn) const;
 
-		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn) const;
+        // function of evalScalarDerivative
 		virtual std::vector<xyz_type> evalJacobian(const xyz_type& xyzIn) const;
-		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn) const;
+
+        // function of evalHessian
+		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
 		virtual xyz_type evalVectorLaplacian(const xyz_type& xyzIn) const;
+        virtual scalar_type evalScalarReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const;
+        virtual scalar_type evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type output_comp, const scalar_type shear_modulus, 
+                                                    const scalar_type lambda) const;
+
 };
 
 
@@ -127,9 +138,8 @@ class Gaussian3D : public AnalyticFunction {
 
 	public:
 
-		virtual scalar_type evalScalar(const xyz_type& xyzIn) const;
-		
-		virtual xyz_type evalVector(const xyz_type& xyzIn) const;
+		virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
 };
 
 class SphereHarmonic : public AnalyticFunction {
@@ -144,9 +154,9 @@ class SphereHarmonic : public AnalyticFunction {
 	public:
 		SphereHarmonic(const int legendreM, const int legendreN) : _m(legendreM), _n(legendreN) {};
 
-		scalar_type evalScalar(const xyz_type& xyzIn) const;
+		scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
 
-		xyz_type evalScalarDerivative(const xyz_type& xyzIn) const;
+		xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
 };
 
 class SphereTestVelocity : public AnalyticFunction {
@@ -159,6 +169,7 @@ class SphereTestVelocity : public AnalyticFunction {
 		SphereTestVelocity() {};
 
 		virtual xyz_type evalVector(const xyz_type& xyzIn) const;
+
 };
 
 class SphereRigidRotationVelocity : public AnalyticFunction {
@@ -167,9 +178,8 @@ class SphereRigidRotationVelocity : public AnalyticFunction {
 
 	public :
 
-		virtual scalar_type evalScalar(const xyz_type& xIn) const {return 0.0;}
-		
 		virtual xyz_type evalVector(const xyz_type& xIn) const;
+
 };
 
 class ShallowWaterTestCases : public AnalyticFunction {
@@ -205,7 +215,7 @@ class ShallowWaterTestCases : public AnalyticFunction {
 		};
 
 		// returns h
-		virtual scalar_type evalScalar(const xyz_type& xIn) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
 
 		// returns u, v, and w
 		virtual xyz_type evalVector(const xyz_type& xyzIn) const;
@@ -232,7 +242,7 @@ class CoriolisForce : public AnalyticFunction {
 		CoriolisForce(double Omega, double alpha = 0): _Omega(Omega), _alpha(alpha) {};
 
 		// returns f
-		virtual scalar_type evalScalar(const xyz_type& xIn) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
 };
 
 class DiscontinuousOnSphere : public AnalyticFunction {
@@ -245,7 +255,7 @@ class DiscontinuousOnSphere : public AnalyticFunction {
 		DiscontinuousOnSphere() {};
 
 		// returns f
-		virtual scalar_type evalScalar(const xyz_type& xIn) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
 };
 
 class FiveStripOnSphere : public AnalyticFunction {
@@ -258,7 +268,7 @@ class FiveStripOnSphere : public AnalyticFunction {
 		FiveStripOnSphere() {};
 
 		// returns f
-		virtual scalar_type evalScalar(const xyz_type& xIn) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
 
 		virtual xyz_type evalVector(const xyz_type& xIn) const;
 
@@ -271,7 +281,7 @@ class CylinderSinLonCosZ : public AnalyticFunction {
 
 	public :
 
-		virtual scalar_type evalScalar(const xyz_type& xIn) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
 };
 
 class CylinderSinLonCosZRHS : public AnalyticFunction {
@@ -280,37 +290,76 @@ class CylinderSinLonCosZRHS : public AnalyticFunction {
 
 	public :
 
-		virtual scalar_type evalScalar(const xyz_type& xIn) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+};
+
+class DivFreeSineCos : public AnalyticFunction {
+
+	typedef XyzVector xyz_type;
+
+	public :
+
+	    DivFreeSineCos(const local_index_type dim = 3) : AnalyticFunction(dim) {}
+
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+
+		virtual xyz_type evalScalarDerivative(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+
+		std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
 };
 
 class SineProducts : public AnalyticFunction {
 
 	typedef XyzVector xyz_type;
 
-	const int _dim;
+	public :
+
+	    SineProducts(const local_index_type dim = 3) : AnalyticFunction(dim) {}
+
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+
+		virtual xyz_type evalScalarDerivative(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+
+		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+};
+
+class FirstOrderBasis : public AnalyticFunction {
+
+	typedef XyzVector xyz_type;
 
 	public :
 
-	    SineProducts(const int dim = 3) : _dim(dim) {}
+	    FirstOrderBasis(const local_index_type dim = 3) : AnalyticFunction(dim) {}
 
-		virtual scalar_type evalScalar(const xyz_type& xIn) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
 
-		virtual xyz_type evalScalarDerivative(const xyz_type& xIn) const;
+		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
 
-		virtual xyz_type evalVectorLaplacian(const xyz_type& xyzIn) const;
+		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
 
-		virtual std::vector<xyz_type> evalJacobian(const xyz_type& xyzIn) const;
+        virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
 
-		std::vector<std::vector<xyz_type> > evalHessian(const xyz_type& xyzIn) const;
+};
 
-		virtual xyz_type evalVector(const xyz_type& xIn) const;
+class DivFreeSecondOrderBasis : public AnalyticFunction {
 
-		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn) const;
+	typedef XyzVector xyz_type;
 
-		scalar_type evalReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const;
+	public :
 
-		scalar_type evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type comp, 
-                const scalar_type shear_modulus, const scalar_type lambda) const;
+	    DivFreeSecondOrderBasis(const local_index_type dim = 3) : AnalyticFunction(dim) {}
+
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+
+		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+        virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
 
 };
 
@@ -318,30 +367,17 @@ class SecondOrderBasis : public AnalyticFunction {
 
 	typedef XyzVector xyz_type;
 
-	const int _dim;
-
 	public :
 
-	    SecondOrderBasis(const int dim = 3) : _dim(dim) {}
+	    SecondOrderBasis(const local_index_type dim = 3) : AnalyticFunction(dim) {}
 
-		virtual scalar_type evalScalar(const xyz_type& xIn) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
 
-		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn) const;
+		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
 
-		virtual xyz_type evalVectorLaplacian(const xyz_type& xyzIn) const;
+		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
 
-		virtual std::vector<xyz_type> evalJacobian(const xyz_type& xyzIn) const;
-
-		std::vector<std::vector<xyz_type> > evalHessian(const xyz_type& xyzIn) const;
-
-		virtual xyz_type evalVector(const xyz_type& xIn) const;
-
-		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn) const;
-
-		scalar_type evalReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const;
-
-		scalar_type evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type comp, 
-                const scalar_type shear_modulus, const scalar_type lambda) const;
+        virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
 
 };
 
@@ -349,30 +385,17 @@ class ThirdOrderBasis : public AnalyticFunction {
 
 	typedef XyzVector xyz_type;
 
-	const int _dim;
-
 	public :
 
-	    ThirdOrderBasis(const int dim = 3) : _dim(dim) {}
+	    ThirdOrderBasis(const local_index_type dim = 3) : AnalyticFunction(dim) {}
 
-		virtual scalar_type evalScalar(const xyz_type& xIn) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
 
-		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn) const;
+		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
 
-		virtual xyz_type evalVectorLaplacian(const xyz_type& xyzIn) const;
+		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
 
-		virtual std::vector<xyz_type> evalJacobian(const xyz_type& xyzIn) const;
-
-		std::vector<std::vector<xyz_type> > evalHessian(const xyz_type& xyzIn) const;
-
-		virtual xyz_type evalVector(const xyz_type& xIn) const;
-
-		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn) const;
-
-		scalar_type evalReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const;
-
-		scalar_type evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type comp, 
-                const scalar_type shear_modulus, const scalar_type lambda) const;
+		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
 
 };
 
@@ -394,11 +417,12 @@ class ConstantEachDimension : public AnalyticFunction {
 			_scaling_factors[2] = z_scale;
 		}
 
-		virtual scalar_type evalScalarLaplacian(const xyz_type& xIn) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
 
-		virtual scalar_type evalScalar(const xyz_type& xIn) const;
+		virtual xyz_type evalScalarDerivative(const xyz_type& xIn, const local_index_type input_comp = 0) const;
 
-		virtual xyz_type evalVector(const xyz_type& xIn) const;
+		virtual scalar_type evalScalarLaplacian(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+
 };
 
 class ScaleOfEachDimension : public AnalyticFunction {

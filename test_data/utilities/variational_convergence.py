@@ -10,6 +10,7 @@ parser = argparse.ArgumentParser(description='Run convergence tests and calculat
 
 parser.add_argument('--num-meshes', dest='num_meshes', type=int, default=3, nargs='?', help='number of meshes')
 parser.add_argument('--order', dest='order', type=int, nargs='?', default=2, help='polynomial order for basis')
+parser.add_argument('--pressure-order', dest='pressure_order', type=int, nargs='?', default=-1, help='polynomial order for pressure basis')
 
 parser.add_argument('--shear', dest='shear', type=float, nargs='?', default=1.0, help='shear modulus')
 parser.add_argument('--lambda', dest='lambda_lame', type=float, nargs='?', default=1.0, help='lambda coefficient')
@@ -20,15 +21,21 @@ parser.add_argument('--size', dest='size', type=float, nargs='?', default=1.0, h
 parser.add_argument('--rate-tol', dest='rate_tol', type=float, nargs='?', default=0.5, help='tolerance for convergence')
 
 parser.add_argument('--solution', dest='solution', type=str, nargs='?', default='polynomial', help='solution type')
+parser.add_argument('--pressure-solution', dest='pressure_solution', type=str, nargs='?', default='polynomial', help='pressure solution type')
+parser.add_argument('--pressure-null-space', dest='pressure_null_space', type=str, nargs='?', default='pinning', help='treatment of null space in pressure {"pinning", "lm", "none}')
 parser.add_argument('--operator', dest='operator', type=str, nargs='?', default='rd', help='operator for PDE solve')
 parser.add_argument('--convergence-type', dest='convergence_type', type=str, nargs='?', default='rate', help='type of convergence to test')
 
+parser.add_argument('--assert-rate', dest='assert_rate', type=str, nargs='?', default='True', help='whether to assert rate is optimal')
+
 args = parser.parse_args()
 
+if args.pressure_order<0:
+    args.pressure_order = args.order-1 # Taylor-Hood style velocity+pressure pair
 
 
 file_names = ["dg_%d.nc"%num for num in range(args.num_meshes)]
-error_types=['vel. l2','vel. h1','vel. jp','vel. sum','pr. l2','pr. jp','pr. sum']
+error_types=['vel. l2','vel. h1','vel. jp','vel. sum','pr. l2']
 all_errors = [list(), list(), list(), list(), list(), list(), list()]#list() * len(error_types)
 
 for key2, fname in enumerate(file_names):
@@ -46,6 +53,8 @@ for key2, fname in enumerate(file_names):
             p=item
         if (item.attrib['name']=="remap"):
             r=item
+        if (item.attrib['name']=="solver"):
+            s=item
     
     for item in f.getchildren():
         if (item.attrib['name']=="input file"):
@@ -58,6 +67,8 @@ for key2, fname in enumerate(file_names):
     for item in p.getchildren():
         if (item.attrib['name']=="solution"):
             item.attrib['value']=args.solution
+        if (item.attrib['name']=="pressure solution"):
+            item.attrib['value']=args.pressure_solution
         if (item.attrib['name']=="operator"):
             item.attrib['value']=args.operator
         if (item.attrib['name']=="reaction"):
@@ -74,6 +85,12 @@ for key2, fname in enumerate(file_names):
     for item in r.getchildren():
         if (item.attrib['name']=="porder"):
             item.attrib['value']=str(args.order)
+        if (item.attrib['name']=="pressure porder"):
+            item.attrib['value']=str(args.pressure_order)
+
+    for item in s.getchildren():
+        if (item.attrib['name']=="pressure null space"):
+            item.attrib['value']=str(args.pressure_null_space)
     
     tree.write(open('../test_data/parameter_lists/reactiondiffusion/parameters_generated.xml', 'wb'))
     
@@ -101,10 +118,6 @@ for key2, fname in enumerate(file_names):
         if (args.operator.lower() in ['st', 'mix_le']):
             m = re.search('(?<=Pressure L2: )[0-9]+\.?[0-9]*(?:[Ee]\ *[-+]?\ *[0-9]+)?', output)
             all_errors[4].append(float(m.group(0)))
-            m = re.search('(?<=Pressure Ju: )[0-9]+\.?[0-9]*(?:[Ee]\ *[-+]?\ *[0-9]+)?', output)
-            all_errors[5].append(float(m.group(0)))
-            m = re.search('(?<=Global Pressure Norm: )[0-9]+\.?[0-9]*(?:[Ee]\ *[-+]?\ *[0-9]+)?', output)
-            all_errors[6].append(float(m.group(0)))
     
 print(all_errors)
 for key, errors in enumerate(all_errors):
@@ -122,12 +135,15 @@ for key, errors in enumerate(all_errors):
     else:
         break
 
-    if (args.convergence_type.lower()=="exact"):
+    if (args.convergence_type.lower()=="exact" and args.assert_rate.lower()=="true"):
         if (abs(args.rate_tol-last_error)>args.rate_tol):
             assert False, "Last calculated error (%f) more than %f from exact solution." % (last_error, args.rate_tol,)
 
-    elif (args.convergence_type.lower()=="rate"):
-        if (((abs(args.order-rate)>args.rate_tol and rate<args.order) and ('l2' not in error_types[key])) or ((abs(args.order+1-rate)>args.rate_tol and rate<(args.order+1)) and ('l2' in error_types[key]))):
+    elif (args.convergence_type.lower()=="rate" and args.assert_rate.lower()=="true"):
+        rate_adjustment = 0
+        if ('l2' in error_types[key] and args.operator.lower()!="mix_le"):
+            rate_adjustment = 1
+        if (abs(args.order+rate_adjustment-rate)>args.rate_tol and rate<args.order):
             assert False, "Last calculated rate (%f) more than %f from theoretical optimal rate." % (rate, args.rate_tol,)
 
 
