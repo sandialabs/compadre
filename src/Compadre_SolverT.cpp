@@ -325,8 +325,6 @@ void SolverT::solve() {
         //}
         //printf("SUM IS: %.16f\n", sum);
 
-        //auto out = Teuchos::getFancyOStream(Teuchos::rcpFromRef(std::cout));
-        ////_A_tpetra[0][0]->describe(*out, Teuchos::VERB_EXTREME);
 
         // Constructor from Factory
         Teuchos::RCP<Amesos2::Solver<crs_matrix_type,mvec_type> > solver;
@@ -343,7 +341,12 @@ void SolverT::solve() {
         solver->solve();
         auto out = Teuchos::getFancyOStream(Teuchos::rcpFromRef(std::cout));
         //_A_tpetra[0][0]->describe(*out, Teuchos::VERB_EXTREME);
-        solver->printTiming(*out, Teuchos::VERB_LOW);
+        //_A_tpetra[1][0]->describe(*out, Teuchos::VERB_EXTREME);
+        //_A_single_block->describe(*out, Teuchos::VERB_EXTREME);
+        //solver->printTiming(*out, Teuchos::VERB_LOW);
+        //_x_single_block->describe(*out, Teuchos::VERB_EXTREME);
+        //_b_single_block->describe(*out, Teuchos::VERB_EXTREME);
+        //_b_tpetra[0]->describe(*out, Teuchos::VERB_EXTREME);
 
     } else if (_parameters->get<std::string>("type")=="iterative") {
 
@@ -440,6 +443,60 @@ void SolverT::solve() {
 //    }
 }
 
+void SolverT::residual() {
+
+    // can only be called after solve() has been called, because solve() sets up the linear operators
+    // solution on particles is imported back onto solution vector prior to this call, allowing
+    // the exact solution to be put on the particles
+
+    if (_consolidate_blocks) {
+        // move x in blocks into single block, if needed
+        for (size_t i=0; i<_A_tpetra[0].size(); ++i) {
+            _x_single_block->doExport(*(_x_tpetra[i]), *(_domain_exporters[i][i]), Tpetra::INSERT);
+        }
+    }
+
+    if (_parameters->get<std::string>("type")=="direct") {
+        if (_consolidate_blocks) {
+            _A_single_block->apply(*_x_single_block, *_b_single_block, Teuchos::NO_TRANS, 1.0, -1.0);
+        } else {
+            _A_tpetra[0][0]->apply(*_x_tpetra[0], *_b_tpetra[0], Teuchos::NO_TRANS, 1.0, -1.0);
+        }
+    } else {
+        std::vector<Teko::MultiVector> x_teko;
+        if (_consolidate_blocks) {
+            x_teko.resize(1);
+            Teuchos::RCP<const Thyra::TpetraVectorSpace<scalar_type,local_index_type,global_index_type,node_type> > domain 
+                = Thyra::tpetraVectorSpace<scalar_type>(_A_single_block->getDomainMap());
+            x_teko[0] = Thyra::tpetraVector(domain, Teuchos::rcp_static_cast<vec_scalar_type>(_x_single_block));
+            TEUCHOS_TEST_FOR_EXCEPT_MSG(x_teko[0].is_null(), "Cast failed.");
+        } else {
+            x_teko.resize(_b_thyra.size()); 
+            for (size_t i=0; i<_b_thyra.size(); i++) {
+                Teuchos::RCP<const Thyra::TpetraVectorSpace<scalar_type,local_index_type,global_index_type,node_type> > domain 
+                    = Thyra::tpetraVectorSpace<scalar_type>(_A_tpetra[i][i]->getDomainMap());
+                x_teko[i] = Thyra::tpetraVector(domain, Teuchos::rcp_static_cast<vec_scalar_type>(_x_tpetra[i]));
+                TEUCHOS_TEST_FOR_EXCEPT_MSG(x_teko[i].is_null(), "Cast failed.");
+            }
+        }
+
+        // wrap with Thyra
+        Teko::MultiVector Thyra_b = Teko::buildBlockedMultiVector(_b_thyra);
+        Teko::MultiVector Thyra_x = Teko::buildBlockedMultiVector(x_teko);
+
+        _A_thyra->apply(Thyra::NOTRANS, *Thyra_x, Thyra_b.ptr(), 1.0, -1.0);
+    }
+
+    if (_consolidate_blocks) {
+        // move solution from _x_single_block to _x_tpetra
+        for (size_t i=0; i<_x_tpetra.size(); i++) {
+            _x_tpetra[i]->doImport(*_x_single_block, *(_domain_exporters[i][i]), Tpetra::REPLACE);
+        }
+    }
+
+    if (_comm->getRank() == 0) std::cout << "WARNING: Over-writing solution variables with the residual." << std::endl;
+}
+
 Teuchos::RCP<mvec_type> SolverT::getSolution(local_index_type idx) const {
 
     Teuchos::RCP<mvec_type> return_ptr;
@@ -447,6 +504,21 @@ Teuchos::RCP<mvec_type> SolverT::getSolution(local_index_type idx) const {
 
     return return_ptr;
 
+}
+
+void SolverT::setSolution(local_index_type idx, Teuchos::RCP<mvec_type> vec) {
+
+    auto _x_tpetra_view = _x_tpetra[idx]->getLocalView<host_view_scalar_type>();
+    auto vec_view = vec->getLocalView<host_view_scalar_type>();
+
+    TEUCHOS_TEST_FOR_EXCEPT_MSG(_x_tpetra_view.extent(0)!=vec_view.extent(0), "Number of rows differs between vectors.");
+    TEUCHOS_TEST_FOR_EXCEPT_MSG(_x_tpetra_view.extent(1)!=vec_view.extent(1), "Number of cols differs between vectors.");
+
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,vec_view.extent(0)), KOKKOS_LAMBDA(const int i) {
+        for (int j=0; j<vec_view.extent(1); ++j) {
+            _x_tpetra_view(i,j) = vec_view(i,j);
+        } 
+    });
 }
 
 }
