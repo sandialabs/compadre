@@ -89,6 +89,8 @@ class ReactionDiffusionPhysics : public PhysicsT {
         local_index_type _pressure_field_id;
         local_index_type _lagrange_field_id;
 
+        local_index_type _ndim_requested;
+
 
 		ReactionDiffusionPhysics(	Teuchos::RCP<particle_type> particles, local_index_type t_Porder,
 								Teuchos::RCP<crs_graph_type> A_graph = Teuchos::null,
@@ -120,6 +122,7 @@ class ReactionDiffusionPhysics : public PhysicsT {
             _velocity_field_id = -1;
             _pressure_field_id = -1;
             _lagrange_field_id = -1;
+            _ndim_requested = -1;
                                 
         } 
 		

@@ -63,7 +63,7 @@ void ReactionDiffusionPhysics::initialize() {
     // in that case, for any neighbor j of i found, you can assume that there is some k approximately half the 
     // distance between i and j, which means that if doubling the search size is wasteful, it is barely so
  
-    local_index_type ndim_requested = _parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions");
+    _ndim_requested = _parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions");
 
 
     //
@@ -124,7 +124,7 @@ void ReactionDiffusionPhysics::initialize() {
         xyz_type coordinate = source_coords->getLocalCoords(i, true /*include halo*/, use_physical_coords);
         _kokkos_augmented_source_coordinates_host(i,0) = coordinate.x;
         _kokkos_augmented_source_coordinates_host(i,1) = coordinate.y;
-        if (ndim_requested>2) _kokkos_augmented_source_coordinates_host(i,2) = coordinate.z;
+        if (_ndim_requested>2) _kokkos_augmented_source_coordinates_host(i,2) = coordinate.z;
     });
 
     Kokkos::View<double**> kokkos_target_coordinates("target_coordinates", target_coords->nLocal(), target_coords->nDim());
@@ -134,7 +134,7 @@ void ReactionDiffusionPhysics::initialize() {
         xyz_type coordinate = target_coords->getLocalCoords(i, false /*include halo*/, use_physical_coords);
         _kokkos_target_coordinates_host(i,0) = coordinate.x;
         _kokkos_target_coordinates_host(i,1) = coordinate.y;
-        if (ndim_requested>2) _kokkos_target_coordinates_host(i,2) = coordinate.z;
+        if (_ndim_requested>2) _kokkos_target_coordinates_host(i,2) = coordinate.z;
     });
 
     auto epsilons = _cell_particles_neighborhood->getHSupportSizes()->getLocalView<const host_view_type>();
@@ -284,7 +284,7 @@ void ReactionDiffusionPhysics::initialize() {
             if (j<num_triangle_cub_points) {
                 quadrature_type(i,j) = 1;
                 quadrature_weights(i,j) = physical_triangle_cub_weights(i,j);
-                for (int k=0; k<ndim_requested; ++k) {
+                for (int k=0; k<_ndim_requested; ++k) {
                     quadrature_points(i,2*j+k) = physical_triangle_cub_points(i,j,k);
                 }
             } 
@@ -449,7 +449,7 @@ void ReactionDiffusionPhysics::initialize() {
                 xyz_type coordinate = target_coords->getLocalCoords(num_cells_local+_halo_small_to_big(i,0), true /*include halo*/, use_physical_coords);
                 kokkos_halo_target_coordinates_host(i,0) = coordinate.x;
                 kokkos_halo_target_coordinates_host(i,1) = coordinate.y;
-                if (ndim_requested>2) kokkos_halo_target_coordinates_host(i,2) = 0;//coordinate.z;
+                if (_ndim_requested>2) kokkos_halo_target_coordinates_host(i,2) = 0;//coordinate.z;
             });
 
             // make temporary particle set of halo target coordinates needed
@@ -460,12 +460,12 @@ void ReactionDiffusionPhysics::initialize() {
             //std::vector<Compadre::XyzVector> verts_to_insert(max_needed_entries);
             Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,max_needed_entries), KOKKOS_LAMBDA(const int i) {
                 XyzVector coord_i(0,0,0);
-                for (local_index_type j=0; j<ndim_requested; ++j) {
+                for (local_index_type j=0; j<_ndim_requested; ++j) {
                     coord_i[j] = kokkos_halo_target_coordinates_host(i,j);
                 }
                 halo_coords->replaceLocalCoords(i, coord_i, true);
                 halo_coords->replaceLocalCoords(i, coord_i, false);
-                //for (local_index_type j=0; j<ndim_requested; ++j) {
+                //for (local_index_type j=0; j<_ndim_requested; ++j) {
                 //    (*const_cast<Compadre::XyzVector*>(&verts_to_insert[i]))[j] = kokkos_halo_target_coordinates_host(i,j);
                 //}
             });
@@ -576,7 +576,7 @@ void ReactionDiffusionPhysics::initialize() {
     }
 
     auto num_edges = adjacent_elements.extent(1);
-    _tau = Kokkos::View<double****, Kokkos::HostSpace>("tau", num_cells_local, num_edges, ndim_requested, ndim_requested);
+    _tau = Kokkos::View<double****, Kokkos::HostSpace>("tau", num_cells_local, num_edges, _ndim_requested, _ndim_requested);
 
 
 
@@ -938,7 +938,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
     scalar_type pressure_coeff = 1.0;
     if (_mix_le_op) {
-        pressure_coeff = _lambda + 2./3.*_shear;
+        pressure_coeff = _lambda + 2./(scalar_type)(_ndim_requested)*_shear;
     }
 
     if (((field_one == _velocity_field_id) || (field_one == _pressure_field_id)) && ((field_two == _velocity_field_id) || (field_two == _pressure_field_id))) {
@@ -1299,7 +1299,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                     + grad_v_x*grad_u_x*j_comp_1*k_comp_1 
                                                     + grad_v_y*grad_u_y*j_comp_1*k_comp_1 );
                                             } else if (_mix_le_op) {
-                                                contribution += q_wt * ( -2./3. * _shear * (grad_v_x*j_comp_0 + grad_v_y*j_comp_1) 
+                                                contribution += q_wt * ( -2./(scalar_type)(_ndim_requested) * _shear * (grad_v_x*j_comp_0 + grad_v_y*j_comp_1) 
                                                     * (grad_u_x*k_comp_0 + grad_u_y*k_comp_1) );
                                        
                                                 contribution += q_wt * 2 * _shear* (
@@ -1432,13 +1432,13 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                             + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
                                                         + 2 * _shear * (n_y*avgv_y*j_comp_1 
                                                             + 0.5*n_x*(avgv_x*j_comp_1 + avgv_y*j_comp_0)) * jumpu*k_comp_1
-                                                        - 2./3. * _shear * (avgv_x*j_comp_0 + avgv_y*j_comp_1)*(n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1));
+                                                        - 2./(scalar_type)(_ndim_requested) * _shear * (avgv_x*j_comp_0 + avgv_y*j_comp_1)*(n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1));
                                                     contribution -= q_wt * (
                                                           2 * _shear * (n_x*avgu_x*k_comp_0 
                                                             + 0.5*n_y*(avgu_y*k_comp_0 + avgu_x*k_comp_1)) * jumpv*j_comp_0  
                                                         + 2 * _shear * (n_y*avgu_y*k_comp_1 
                                                             + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
-                                                        - 2./3. * _shear * (avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
+                                                        - 2./(scalar_type)(_ndim_requested) * _shear * (avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
                                                 }
                                             } else if (_velocity_field_id==field_one && _pressure_field_id==field_two) {
                                                 contribution += q_wt * (
@@ -1656,13 +1656,13 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                             + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
                                                         + 2 * _shear * (n_y*avgv_y*j_comp_1 
                                                             + 0.5*n_x*(avgv_x*j_comp_1 + avgv_y*j_comp_0)) * jumpu*k_comp_1
-                                                        - 2./3. * _shear * (avgv_x*j_comp_0 + avgv_y*j_comp_1)*(n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1));
+                                                        - 2./(scalar_type)(_ndim_requested) * _shear * (avgv_x*j_comp_0 + avgv_y*j_comp_1)*(n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1));
                                                     contribution -= q_wt * (
                                                           2 * _shear * (n_x*avgu_x*k_comp_0 
                                                             + 0.5*n_y*(avgu_y*k_comp_0 + avgu_x*k_comp_1)) * jumpv*j_comp_0  
                                                         + 2 * _shear * (n_y*avgu_y*k_comp_1 
                                                             + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
-                                                        - 2./3. * _shear * (avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
+                                                        - 2./(scalar_type)(_ndim_requested) * _shear * (avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
                                                 }
                                             } else if (_velocity_field_id==field_one && _pressure_field_id==field_two) {
                                                 contribution += q_wt * (
