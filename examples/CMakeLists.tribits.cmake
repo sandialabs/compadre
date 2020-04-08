@@ -905,55 +905,5 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
 #        ) # end set_tests_properties
 #    endif() # test created
 
-    if (Compadre_USE_PYTHON) # HOW IS THIS SET?
-      set(testName GMLS_Python_Convergence_Test_3d_Point_Reconstruction)
-      configure_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/Python_3D_Convergence.py.in
-        ${CMAKE_CURRENT_BINARY_DIR}/Python_3D_Convergence.py
-        @ONLY
-        )
-      tribits_add_test(
-        CMND
-          ${PYTHON_EXECUTABLE}
-        NAME
-          ${testName}
-        ARGS
-          "{CMAKE_CURRENT_BINARY_DIR}/Python_3D_Convergence.py --kokkos-threads=4"
-        ADDED_TESTS_NAMES_OUT ${testName}_CREATED
-        ) # end tribits_add_test
-      if (${testName}_CREATED)
-        set_tests_properties(
-          ${${testName}_CREATED}
-          PROPERTIES
-            LABELS
-              "UnitTest;unit;python;kokkos"
-            TIMEOUT
-              10
-          ) # end set_tests_properties
-      endif() # test created
-
-      if (Compadre_USE_MATLAB) # HOW IS THIS SET?
-        set(testName GMLS_Matlab_Python_Interface_1d_Point_Reconstruction)
-        tribits_add_test(
-          CMND
-            matlab
-          NAME
-            ${testName}
-          ARGS
-            "-nodisplay -nojvm -nosplash -nodesktop -r \"try, run('${SWIG_PREFIX}/Matlab_1D_Using_Python_Interface.m'), catch, exit(1), end, exit(0);\""
-          ADDED_TESTS_NAMES_OUT ${testName}_CREATED
-          ) # end tribits_add_test
-        if (${testName}_CREATED)
-          set_tests_properties(
-            ${${testName}_CREATED}
-            PROPERTIES
-              LABELS
-                "UnitTest;unit;python;kokkos;matlab"
-              TIMEOUT
-                10
-            ) # end set_tests_properties
-        endif() # test created
-      endif() # use matlab
-    endif() # use python
   endif() # tests enabled
 endif() # examples enabled
