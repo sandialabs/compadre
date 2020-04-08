@@ -1,0 +1,68 @@
+#!/bin/bash
+
+###############################################################################
+#
+# USED FOR TESTING PURPOSES.  DO NOT LEAVE IN REPOSITORY.
+#
+###############################################################################
+  
+find . ! -name '*.sh' -type f -exec rm -f {} +
+find . -mindepth 1 -type d -exec rm -rf {} +
+
+BUILD_TYPE=""
+USE_OPENMP=OFF
+NODE_TYPE=SERIAL
+
+WORKSPACE=/workspace
+INSTALL_DIR=$WORKSPACE/install
+
+TOOLCHAIN_INSTALL=/home/jmgate/toolchain/install
+NETCDF_BASE_DIR=${TOOLCHAIN_INSTALL}/netcdf-4.6.0
+BOOST_BASE_DIR=${TOOLCHAIN_INSTALL}/boost-1.66.0
+HDF_BASE_DIR=${TOOLCHAIN_INSTALL}/hdf5-1.10.1
+LAPACK_LIB=${TOOLCHAIN_INSTALL}/lapack-3.8.0/lib64/liblapack.so.3
+BLAS_LIB=${TOOLCHAIN_INSTALL}/lapack-3.8.0/lib64/libblas.so.3
+
+cmake \
+  -D Kokkos_ENABLE_COMPLEX_ALIGN:BOOL=ON \
+  -D Kokkos_ENABLE_HWLOC:BOOL=OFF \
+  -D Kokkos_ENABLE_LIBDL:BOOL=ON \
+  -D Kokkos_ENABLE_LIBNUMA:BOOL=OFF \
+  -D Kokkos_ENABLE_LIBRT:BOOL=OFF \
+  -D Kokkos_ENABLE_MEMKIND:BOOL=OFF \
+  -D Kokkos_ENABLE_OPENMP:BOOL=ON \
+  -D Kokkos_ENABLE_SERIAL:BOOL=OFF \
+  -D KokkosKernels_INST_DOUBLE:BOOL=OFF \
+  -D KokkosKernels_INST_EXECSPACE_OPENMP:BOOL=ON \
+  -D KokkosKernels_INST_EXECSPACE_SERIAL:BOOL=OFF \
+  -D KokkosKernels_INST_LAYOUTLEFT:BOOL=OFF \
+  -D KokkosKernels_INST_OFFSET_INT:BOOL=OFF \
+  -D KokkosKernels_INST_OFFSET_SIZE_T:BOOL=OFF \
+  -D KokkosKernels_INST_ORDINAL_INT:BOOL=OFF \
+  -D Trilinos_ENABLE_INSTALL_CMAKE_CONFIG_FILES:BOOL=ON \
+  -D Trilinos_ENABLE_EXAMPLES:BOOL=OFF \
+  -D Trilinos_ENABLE_TESTS:BOOL=OFF \
+  -D BUILD_SHARED_LIBS:BOOL=ON \
+  -D Trilinos_ENABLE_DEBUG:BOOL=OFF \
+  -D Trilinos_ENABLE_DEBUG_SYMBOLS:BOOL=ON \
+  -D CMAKE_BUILD_TYPE:STRING=${BUILD_TYPE} \
+  -D Trilinos_ENABLE_ALL_PACKAGES:BOOL=OFF \
+  -D Trilinos_ENABLE_ALL_OPTIONAL_PACKAGES:BOOL=OFF \
+  -D Trilinos_ENABLE_Compadre:BOOL=ON \
+  -D Compadre_ENABLE_TESTS:BOOL=ON \
+  -D Compadre_ENABLE_EXAMPLES:BOOL=ON \
+  -D MPI_EXEC:FILEPATH="$(which mpiexec)" \
+  -D CMAKE_CXX_COMPILER:FILEPATH="$(which mpicxx)" \
+  -D CMAKE_C_COMPILER:FILEPATH="$(which mpicc)" \
+  -D CMAKE_Fortran_COMPILER:FILEPATH="$(which mpif90)" \
+  -D CMAKE_VERBOSE_MAKEFILE:BOOL=OFF \
+  -D CMAKE_SKIP_RULE_DEPENDENCY:BOOL=ON \
+  -D CMAKE_INSTALL_PREFIX:FILEPATH=${INSTALL_DIR} \
+  -D Trilinos_VERBOSE_CONFIGURE:BOOL=ON \
+  -D TPL_ENABLE_MPI:BOOL=ON \
+  -D TPL_ENABLE_LAPACK:BOOL=ON \
+  -D TPL_LAPACK_LIBRARIES:FILEPATH=${LAPACK_LIB} \
+  -D TPL_ENABLE_BLAS:BOOL=ON \
+  -D TPL_BLAS_LIBRARIES:FILEPATH=${BLAS_LIB} \
+  -D Trilinos_ENABLE_OpenMP:BOOL=OFF \
+  ${WORKSPACE}/Trilinos
