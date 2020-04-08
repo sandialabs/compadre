@@ -21,6 +21,11 @@ if (${PROJECT_NAME}_TRIBITS_DIR) # TriBITS CMake Project
   #
   # B) Set up package-specific options
   #
+  set(Compadre_DEBUG ON CACHE BOOL "Run Compadre Toolkit in DEBUG mode")
+  set(Compadre_EXTREME_DEBUG OFF CACHE BOOL "Run Compadre Toolkit in EXTREME DEBUG mode")
+  set(Compadre_USE_MATLAB OFF CACHE BOOL "Don't use Matlab when building in Trilinos")
+  set(Compadre_USE_MPI ${TPL_ENABLE_MPI} CACHE BOOL "Use MPI for parallelism")
+  set(Compadre_USE_PYTHON OFF CACHE BOOL "Don't use Python when building in Trilinos")
 
   #
   # C) Add the libraries, tests, and examples
