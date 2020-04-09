@@ -459,8 +459,12 @@ void SolverT::residual() {
     if (_parameters->get<std::string>("type")=="direct") {
         if (_consolidate_blocks) {
             _A_single_block->apply(*_x_single_block, *_b_single_block, Teuchos::NO_TRANS, 1.0, -1.0);
+            // export y->x
+            _x_single_block->assign(*_b_single_block);
         } else {
             _A_tpetra[0][0]->apply(*_x_tpetra[0], *_b_tpetra[0], Teuchos::NO_TRANS, 1.0, -1.0);
+            // export y->x
+            _x_tpetra[0]->assign(*_b_tpetra[0]);
         }
     } else {
         std::vector<Teko::MultiVector> x_teko;
@@ -485,6 +489,15 @@ void SolverT::residual() {
         Teko::MultiVector Thyra_x = Teko::buildBlockedMultiVector(x_teko);
 
         _A_thyra->apply(Thyra::NOTRANS, *Thyra_x, Thyra_b.ptr(), 1.0, -1.0);
+
+        // export y->x
+        if (_consolidate_blocks) {
+            _x_single_block->assign(*_b_single_block);
+        } else {
+            for (size_t i=0; i<_b_thyra.size(); i++) {
+                _x_tpetra[i]->assign(*_b_tpetra[i]);
+            }
+        }
     }
 
     if (_consolidate_blocks) {
