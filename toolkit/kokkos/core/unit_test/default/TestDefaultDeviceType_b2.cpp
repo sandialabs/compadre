@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 2.0
-//              Copyright (2014) Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -45,18 +46,17 @@
 
 #include <Kokkos_Core.hpp>
 
-#if !defined( KOKKOS_ENABLE_CUDA ) || defined( __CUDACC__ )
+#if !defined(KOKKOS_ENABLE_CUDA) || defined(__CUDACC__)
 
 #include <default/TestDefaultDeviceType_Category.hpp>
 #include <TestReduceCombinatorical.hpp>
 
 namespace Test {
 
-TEST_F( defaultdevicetype, reduce_instantiation_b2 )
-{
+TEST(defaultdevicetype, reduce_instantiation_b2) {
   TestReduceCombinatoricalInstantiation<>::execute_b2();
 }
 
-} // namespace Test
+}  // namespace Test
 
 #endif

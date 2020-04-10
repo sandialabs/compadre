@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 2.0
-//              Copyright (2014) Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -48,10 +49,9 @@ namespace Kokkos {
 namespace Impl {
 #define KOKKOS_IMPL_VIEWCOPY_ETI_AVAIL_EXECSPACE Kokkos::ROCm
 
-#include<eti/common/Kokkos_ViewFillCopyETIDecl_Macros.hpp>
+#include <eti/common/Kokkos_ViewFillCopyETIDecl_Macros.hpp>
 
 #undef KOKKOS_IMPL_VIEWCOPY_ETI_AVAIL_EXECSPACE
-}
-}
+}  // namespace Impl
+}  // namespace Kokkos
 #endif
-

@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 2.0
-//              Copyright (2014) Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -58,14 +59,21 @@
 #ifdef KOKKOS_ENABLE_THREADS
 #include <threads/TestThreads_Category.hpp>
 #endif
+#ifdef KOKKOS_ENABLE_HPX
+#include <hpx/TestHPX_Category.hpp>
+#endif
+#ifndef TEST_EXECSPACE
+#ifdef KOKKOS_ENABLE_SERIAL
+#include <serial/TestSerial_Category.hpp>
+#endif
+#endif
+#include <TestStackTrace.hpp>
 
-#include <TestMemoryPool.hpp>
+int main(int argc, char *argv[]) {
+  Kokkos::initialize(argc, argv);
+  ::testing::InitGoogleTest(&argc, argv);
 
-int main( int argc, char *argv[] ) {
-  Kokkos::initialize(argc,argv);
-  ::testing::InitGoogleTest( &argc, argv );
-
-  int result =  RUN_ALL_TESTS();
+  int result = RUN_ALL_TESTS();
   Kokkos::finalize();
   return result;
 }

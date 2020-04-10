@@ -44,6 +44,11 @@ class XyzVector
 			  y -= other.y;
 			  z -= other.z;
 			  return *this;	}
+		inline XyzVector operator *= (const double& scaling)
+			{ x *= scaling;
+			  y *= scaling;
+			  z *= scaling;
+			  return *this;	}
 
 		inline scalar_type& operator [](const int i) {
 			switch (i) {

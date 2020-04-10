@@ -1,12 +1,33 @@
 <ParameterList name="Compadre">
+  <!-- 
+    For convergence studies, run test_data/utilities/variational_convergence.py
+  -->
   <ParameterList name="physics">
+    <!-- 
+     choices are:
+        l2 - L2 projection
+        rd - reaction diffusion
+        le - linear elasticity
+        vl - vector Laplacian
+    -->
+    <Parameter name="operator" type="string" value="le"/>
+    <!-- Used by rd -->
     <Parameter name="diffusion" type="double" value="1.0"/>
     <Parameter name="reaction" type="double" value="1.0"/>
+    <!-- Used by le and vl -->
     <Parameter name="shear" type="double" value="1.0"/>
+    <!-- Used by le -->
     <Parameter name="lambda" type="double" value="1.0"/>
+    <!-- 1.0 works for all except le, there use >= 100 -->
     <Parameter name="penalty" type="double" value="1e+0"/>
+    <!-- 
+     choices are:
+        polynomial - 2nd degree polynomial manufactured solution
+        polynomial_3 - 3rd degree polynomial manufactured solution
+        sine - product of sine functions
+    -->
     <Parameter name="solution" type="string" value="polynomial"/>
-    <Parameter name="operator" type="string" value="le"/> <!-- choices are l2, rd, and le -->
+    <Parameter name="pressure solution" type="string" value="none"/>
   </ParameterList>
   <ParameterList name="io">
     <Parameter name="input dimensions" type="int" value="2"/>
@@ -23,15 +44,19 @@
     <Parameter name="type" type="string" value="direct"/>
     <Parameter name="file" type="string" value="../test_data/parameter_lists/reactiondiffusion/solver_amg.xml"/>
     <Parameter name="blocked" type="bool" value="true"/>
+    <!-- treatment of null space in pressure can be 'pinning', 'lm' (lagrange multiplier), or 'none' -->
+    <Parameter name="pressure null space" type="string" value="pinning"/>
     <!--<Parameter name="save residual over solution" type="bool" value="true"/>-->
   </ParameterList>
   <ParameterList name="remap">
     <Parameter name="weighting power" type="int" value="1"/>
     <Parameter name="porder" type="int" value="2"/>
+    <Parameter name="pressure porder" type="int" value="1"/>
     <Parameter name="dense solver type" type="string" value="SVD"/>
   </ParameterList>
   <ParameterList name="neighborhood">
-    <Parameter name="method" type="string" value="nanoflann"/>
+    <Parameter name="search type" type="string" value="radius"/>
+    <Parameter name="size" type="double" value="1.0"/>
     <Parameter name="uniform radii" type="bool" value="true"/>
     <!-- uniform radii must be true to ensure symmetry in neighborhoods -->
     <Parameter name="cutoff multiplier" type="double" value="1.8"/>

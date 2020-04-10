@@ -6,6 +6,7 @@ import math
 import sys
 from consolidate import *
 from reorder_file_by_field import *
+import time
 
 assert len(sys.argv)>0, "Not enough arguments"
 
@@ -49,17 +50,17 @@ opt_name = opt_types[opt_num]
 
 NPTS=[16,32,64,128,256]
 
-pre_CS_name   = "../../test_data/grids/canga/Cubed-Sphere/outCSMesh_ne"
-post_CS_name  = "_TPW_CFR_TPO.g"
-pre_CVT_name  = "../../test_data/grids/canga/CVT-MPAS/outICODMesh_ne"
+pre_CS_name   = "../../test_data/grids/canga/NM8/CS_"
+post_CS_name  = ".g"
+pre_CVT_name  = "../../test_data/grids/canga/NM8/ICOD_"
 post_CVT_name = ".g"
 
 # initially set to these existing files
 CS_names = [pre_CS_name+str(i)+post_CS_name for i in NPTS]
 CVT_names = [pre_CVT_name+str(i)+post_CVT_name for i in NPTS]
 
-print(CS_names)
-print(CVT_names)
+#print(CS_names)
+#print(CVT_names)
 
 def create_XML(file1, file2, total_steps):
     e = ET.parse('../../test_data/parameter_lists/canga/parameters_comparison_template.xml').getroot()
@@ -140,15 +141,16 @@ def run_transfer(opt_name):
     try:
         if (opt_name=="OBFET"): # OBFET only works in serial
             my_env=dict(os.environ)
-            output = subprocess.check_output(["mpirun", "-np", "1", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml",":","-np", "1", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=32"], env=my_env).decode()
+            output = subprocess.check_output(["mpirun", "-np", "1", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml",":","-np", "1", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=32"], env=my_env)
         else:
             my_env=dict(os.environ)
             #my_env['OMP_PROC_BIND']='spread'
             #my_env['OMP_PLACES']='threads'
             #my_env['OMP_NUM_THREADS']='1'
-            output = subprocess.check_output(["mpirun", "--bind-to", "socket", "-np", "4", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml","--kokkos-threads=4",":","-np", "4", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=4"], env=my_env).decode()
-            #output = subprocess.check_output(["mpirun", "-np", "1", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml","--kokkos-threads=2",":","-np", "1", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=2"], env=my_env).decode()
-            print(output)
+            #output = subprocess.check_output(["mpirun", "--bind-to", "socket", "-np", "4", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml","--kokkos-threads=4",":","-np", "4", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=4"], env=my_env).decode()
+            output = subprocess.check_output(["mpirun", "--bind-to", "none", "-np", "1", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_25.xml","--kokkos-threads=7",":","-np", "1", "./cangaRemoteRemapMultiIter.exe","--i=../test_data/parameter_lists/canga/parameters_comparison_33.xml","--kokkos-threads=7"], env=my_env)
+            output_str = str(output)
+            print(output_str.replace("\\n","\n"))
     except subprocess.CalledProcessError as exc:
         print("error code", exc.returncode)
         for line in exc.output.decode().split('\n'):
@@ -158,6 +160,7 @@ def run_transfer(opt_name):
 f1 = CS_names[mesh_1]
 f2 = CVT_names[mesh_2]
 
+print(f1,f2)
 # get initial name from existing files
 current_f1_name = f1 # copies by value
 current_f2_name = f2
@@ -169,7 +172,8 @@ run_transfer(opt_name)
 # strip off pvtp and add .g to names
 f1_head, f1_tail = os.path.splitext(f1)
 f2_head, f2_tail = os.path.splitext(f2)
-print(f1_head,f2_head)
+#print(f1_head,f2_head)
+time.sleep(1)
 newname=consolidate(total_iterations, f1_head+'.g', f2_head+'.g')
 reorder_file_by_field(newname,'_remap_src')
 reorder_file_by_field(newname,'_remap_tgt')

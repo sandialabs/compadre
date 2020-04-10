@@ -58,7 +58,7 @@ PROJECT_LOGO           =
 # entered, it will be relative to the location where doxygen was started. If
 # left blank the current directory will be used.
 
-OUTPUT_DIRECTORY       = @CMAKE_CURRENT_BINARY_DIR@/doc/output
+OUTPUT_DIRECTORY       = @CMAKE_CURRENT_SOURCE_DIR@/doc
 
 # If the CREATE_SUBDIRS tag is set to YES, then doxygen will create 4096 sub-
 # directories (in 2 levels) under the output directory of each output format and
@@ -766,14 +766,12 @@ WARN_LOGFILE           =
 
 INPUT                  = @CMAKE_CURRENT_SOURCE_DIR@/toolkit/src 
 INPUT                 += @CMAKE_CURRENT_SOURCE_DIR@/toolkit/README.md
-INPUT                 += @CMAKE_CURRENT_SOURCE_DIR@/toolkit/Changelog.md
 INPUT                 += @CMAKE_CURRENT_SOURCE_DIR@/toolkit/LICENSE.md
 INPUT                 += @CMAKE_CURRENT_SOURCE_DIR@/toolkit/examples
 INPUT                 += @CMAKE_CURRENT_SOURCE_DIR@/toolkit/python
 INPUT                 += @CMAKE_CURRENT_SOURCE_DIR@/src 
 INPUT                 += @CMAKE_CURRENT_SOURCE_DIR@/physics
 INPUT                 += @CMAKE_CURRENT_SOURCE_DIR@/examples
-INPUT                 += @CMAKE_CURRENT_SOURCE_DIR@/doc/CompadreHarness-Install.md
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses

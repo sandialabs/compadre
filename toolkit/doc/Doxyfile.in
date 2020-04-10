@@ -765,9 +765,6 @@ WARN_LOGFILE           =
 
 INPUT                 += @CMAKE_CURRENT_SOURCE_DIR@/src 
 INPUT                 += @CMAKE_CURRENT_SOURCE_DIR@/README.md
-INPUT                 += @CMAKE_CURRENT_SOURCE_DIR@/doc/Kokkos-Install.md
-INPUT                 += @CMAKE_CURRENT_SOURCE_DIR@/doc/Compadre-Install.md
-INPUT                 += @CMAKE_CURRENT_SOURCE_DIR@/doc/Changelog.md
 INPUT                 += @CMAKE_CURRENT_SOURCE_DIR@/LICENSE.md
 INPUT                 += @CMAKE_CURRENT_SOURCE_DIR@/examples
 INPUT                 += @CMAKE_CURRENT_SOURCE_DIR@/python

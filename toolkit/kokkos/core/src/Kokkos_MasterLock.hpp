@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 2.0
-//              Copyright (2014) Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -46,7 +47,8 @@
 
 #include <Kokkos_Macros.hpp>
 
-namespace Kokkos { namespace Experimental {
+namespace Kokkos {
+namespace Experimental {
 
 // my be used to coordinate work between master instances
 // SHOULD NOT be used within a parallel algorithm
@@ -67,7 +69,7 @@ namespace Kokkos { namespace Experimental {
 template <typename ExecutionSpace>
 class MasterLock;
 
-}} // namespace Kokkos::Experimental
+}  // namespace Experimental
+}  // namespace Kokkos
 
-#endif //KOKKOS_MASTER_LOCK_HPP
-
+#endif  // KOKKOS_MASTER_LOCK_HPP
