@@ -383,7 +383,7 @@ void ReactionDiffusionPhysics::initialize() {
     Intrepid::FieldContainer<double> physical_basis_T6_grad_weighted(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate 
     Intrepid::FunctionSpaceTools::multiplyMeasure<double>(physical_basis_T6_grad_weighted, physical_triangle_cub_weights, physical_basis_T6_grad); //compute
     
-    // Modified bubbles (quadratic edge bubbles raised to some power)
+    // Modified bubbles (quadratic edge bubbles raised to some power). Make the power an even integer, larger than the order of the underlying polynomial approximation in GMLS
     double bub_pow = 2.0; //exponent
     Intrepid::FieldContainer<double> basis_T6_values(num_basis_functions, num_triangle_cub_points); //allocate values
     basis_T6.getValues(basis_T6_values, triangle_cub_points, Intrepid::OPERATOR_VALUE); //compute
@@ -1043,23 +1043,38 @@ void ReactionDiffusionPhysics::initialize() {
     //could parallelize outer two loops
     for (int i = 0; i < num_triangle_edges; ++i) {
 	
-	int edge_ordinal = i + 3;
+	int edge_ordinal = i + 3; // this selects the "edge bubble" function associated with the corresponding edge
         
 	for (int k = 0; k < num_cells_local; ++k) {
 	    
             Amat.putScalar(0.0);
-	    
+
+            //First, compute auxiliary quantity: inner product of bubble gradient with itself
+	    double grad_bub_2;
+	    grad_bub_2 = 0.0;
+	    for (int j1 = 0; j1 < ndim_requested; ++j1){
+                grad_bub_2 += sep_grad_grad_mat_integrals[edge_ordinal](k, j1, j1);
+	    }
+	   
+
 	    for (int j1 = 0; j1 < ndim_requested; ++j1){
 	        for (int j2 = 0; j2 < ndim_requested; ++j2) {
 		    //THIS IS TEMP (actual Amat involves material elastic parameters shear and lambda
 		    // this is A_ij = db/dx_i * db/dx_j
-		    Amat(j1, j2) = sep_grad_grad_mat_integrals[edge_ordinal](k, j1, j2);
+		    // Amat(j1, j2) = sep_grad_grad_mat_integrals[edge_ordinal](k, j1, j2);
+
+		    Amat(j1, j2) = ( _shear + _lambda / 2.0 ) * sep_grad_grad_mat_integrals[edge_ordinal](k, j1, j2);
+		    
 		}
+		Amat(j1, j1) += _shear * grad_bub_2;
 	    }
-            
+           
+
+
+
             Amat_solver.setMatrix(Teuchos::rcp(&Amat, false));
     	    auto info = Amat_solver.invert();
-	    auto Amat_inv_ptr = Amat_solver.getFactoredMatrix();
+	    //auto Amat_inv_ptr = Amat_solver.getFactoredMatrix(); //not needed
 	    //Amat is now its inverse
 	    
 	    double tempfactor = basis_T6_edge_values_pow_integrated[i](k, edge_ordinal) /
@@ -1084,6 +1099,8 @@ void ReactionDiffusionPhysics::initialize() {
     } //loop over num_triangle_edges
 
 
+    //MA print test
+    //std::cout << "num_cells_local = " << num_cells_local << std::endl;
 
     //MA CHECK
     //for (int i = 0; i < num_triangle_edges; ++i) {
@@ -1394,6 +1411,11 @@ Teuchos::RCP<crs_graph_type> ReactionDiffusionPhysics::computeGraph(local_index_
 
 void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
 
+    // #################################################
+    // MA Auxiliary temporary variable for testing
+    int tempcount = 0;
+    // #################################################
+
     bool use_physical_coords = true; // can be set on the operator in the future
 
     if (!_l2_op) {
@@ -1445,7 +1467,12 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     double perimeter = 0;
 
     //double t_area = 0; 
-    //double t_perimeter = 0; 
+    //double t_perimeter = 0;
+    
+    // MA TEST
+    //std::cout << "MA PRINT; num_edges = " << num_edges << std::endl;
+    // num_edges is number of edges per element
+    // MA END  
  
 
     // this maps should be for nLocal(true) so that it contains local neighbor lookups for owned and halo particles
@@ -1571,6 +1598,30 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                     }
                 }
             }
+	    //MA TEST/CHECK ######################################################################################
+	    if (i == 25 || i == 37) {
+	        std::cout << " " << std::endl;
+		std::cout << "MA several prints below" << std::endl;
+	        std::cout << "i = " << i << std::endl;
+		std::cout << "nLocal = " << nlocal << std::endl;
+		std::cout << "_weights_ndim = " << _weights_ndim << std::endl;
+                std::cout << "num_interior_quadrature = " << num_interior_quadrature << std::endl;
+		for (int q = 0; q < _weights_ndim; ++q) {
+		    std::cout << q << " adjacent cell index = " << adjacent_cell_local_index[q] << std::endl;
+                    //auto current_edge_num_in_cur_elem = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+		    //auto current_edge_num_in_adj_elem = (adjacent_q - num_interior_quadrature)/num_exterior_quadrature_per_edge; //adjacent_q not defined here, but it is defined below...
+		}
+		for (int z = 0; z < num_edges; ++z) {
+		    std::cout << "For elem " << i << " on edge " << z << " the adjacent elem is " << (int)(adjacent_elements(i, z)) << std::endl;
+		}
+		std::cout << " " << std::endl;
+            }
+	    //MA NOTE:
+	    // For a given element, and a given edge of that element, need to identify:
+	    //	1. the adjacent element to that edge
+	    //	2. the edge number of the adjacent element corresponding to the given edge
+	    //MA END ################################################################################################
+
             // not yet set up for MPI
             //for (int q=0; q<_weights_ndim; ++q) {
             //    if (q>=num_interior_quadrature) {
@@ -1806,6 +1857,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     grad_u_y = 0.0;
                                 }
 
+
                                 if (q_type==1) { // interior
 
                                     if (_rd_op) {
@@ -2007,7 +2059,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     
                                 }
                                 else if (q_type==0)  { // edge on interior
-                                    const double adjacent_cell_local_index_q = adjacent_cell_local_index[qn];
+                                    const double adjacent_cell_local_index_q = adjacent_cell_local_index[qn];  //MA: why double? ### 
                                     //int current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
                                     //int adjacent_cell_local_index = (int)(adjacent_elements(i, current_edge_num));
 
@@ -2048,7 +2100,14 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     ////    }
                                     ////}
                                     if (i <= adjacent_cell_local_index_q) continue;
+                                   
                                     
+				    // #########################################################################
+				    // MA NOTE: the above continues to next iter in loop over integration points.
+				    // Therefore, contribution of each interior edge is counted only once, from withing the edge with larger index!
+				    // MA END ##################################################################
+
+
                                     TEUCHOS_ASSERT(adjacent_cell_local_index_q >= 0);
                                     int j_to_adjacent_cell = -1;
                                     if (particle_to_local_neighbor_lookup[adjacent_cell_local_index_q].count(particle_j)==1) {
@@ -2074,6 +2133,17 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     // gets quadrature # on adjacent cell (enumerates quadrature on 
                                     // side_of_cell_i_to_adjacent_cell in reverse due to orientation)
                                     const int adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[qn]*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((qn-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
+                                    
+
+				    // ########################################################################################################################################################
+				    // MA NOTE: May do something like the above ("adjacent_q") to dientify the "adjacent_edge_number")
+				    // CONTEXT: For purposes of VMS-DG parameters, we need to identify the edge number of the current edge from the point of view of the adjacent element.
+				    // Recall: the current edge belongs to two elements: the current element and the adjacent element. This edge has an edge number relative to the current element,
+				    // and an edge number relative to the adjacent element. For this current edge, need to identify:
+				    // 1. Current element index, and correponding current edge number
+				    // 2. Adjacent element index, ad correspoinding current edge number.
+				    // ########################################################################################################################################################
+
 
 
                                     //int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge + ((q-num_interior_quadrature)%num_exterior_quadrature_per_edge);
@@ -2127,6 +2197,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     const double avgu_x = 0.5*(grad_u_x+other_grad_u_x);
                                     const double avgu_y = 0.5*(grad_u_y+other_grad_u_y);
 
+
                                     //double jump_u_jump_v = 0.0;
                                     //auto jump_v_x = n_x*v-n_x*other_v;
                                     //auto jump_v_y = n_y*v-n_y*other_v;
@@ -2143,8 +2214,96 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         contribution -= q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
                                     } else {
                                         if (_le_op) {
-                                            contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp); // other half will be added by other cell
-                                            contribution -= q_wt * (
+					// ############################################################################################
+					//                                                                                            #
+					// MA NOTE: INSERT computation of VMS-DG terms in here!                                       #
+                                        //                                                                                            #
+					// ############################################################################################
+                                        
+					// WARNING: This may be more costly than needed.
+					// Computing tau_edge and delta_edge for every integration point (and in for each k_comp, j_comp and other iterates in this loop)
+					// Would it be faster to compute all tau_edge and delta_edge outside loop and access them here?
+					// How to store those values? in a Kokkos::View?
+
+					//...could declare these as const...
+					int ndimtemp = fields[field_one]->nDim();
+                                        int current_edge_num_in_current_cell = (qn - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                                        int current_edge_num_in_adjacent_cell = (adjacent_q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+
+                                        Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_current_cell(ndimtemp, ndimtemp);
+                                        Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_adjacent_cell(ndimtemp, ndimtemp);
+                                        Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_edge(ndimtemp, ndimtemp);
+                                        Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> delta_current_cell(ndimtemp, ndimtemp);
+                                        Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> delta_adjacent_cell(ndimtemp, ndimtemp);
+                                        Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> delta_edge(ndimtemp, ndimtemp);
+                                        Teuchos :: SerialDenseSolver <local_index_type, scalar_type> vmsdg_solver;
+					tau_current_cell.putScalar(0.0);
+					tau_adjacent_cell.putScalar(0.0);
+					tau_edge.putScalar(0.0);
+					delta_current_cell.putScalar(0.0);
+					delta_adjacent_cell.putScalar(0.0);
+					delta_edge.putScalar(0.0);
+
+					//if (i == 37 && j_comp == 0 && k_comp == 0) {
+					//    std::cout << "MA " << i << " " << j << " " << k << " " << q << " " << _weights_ndim << " " << ndimtemp << " " << current_edge_num_in_current_cell << " " << current_edge_num_in_adjacent_cell << std::endl;
+					    //std::cout << "MA tau in second part: " << _tau(0, 0, 0, 0) << std::endl;
+					//}
+
+
+					for (int j1 = 0; j1 < ndimtemp; ++j1) {
+					    for (int j2 = 0; j2 < ndimtemp; ++j2) {
+					        tau_current_cell(j1, j2) = _tau(i, current_edge_num_in_current_cell, j1, j2);                                    //tau^(1)_s from 'current' elem
+						tau_adjacent_cell(j1, j2) = _tau( (int)adjacent_cell_local_index_q, current_edge_num_in_adjacent_cell, j1, j2);  //tau^(2)_s from 'adjacent' elem
+						tau_edge(j1, j2) = tau_current_cell(j1, j2) + tau_adjacent_cell(j1, j2);  //tau_edge is the inverse of this (inverted in-place below)
+					    }
+					}
+
+					double tempjunk = std::abs(adjacent_cell_local_index_q - (double)(int)adjacent_cell_local_index_q);
+					if (tempjunk != 0.0) {
+					    std::cout << " " << std::endl;
+					    std::cout << " " << std::endl;
+					    std::cout << "MA ERROR near line 1870!!" << std::endl;
+					    std::cout << adjacent_cell_local_index_q << " " << (int) adjacent_cell_local_index_q << std::endl;
+					    std::cout << " " << std::endl;
+					    std::cout << " " << std::endl;
+					}
+
+					// MA Check tau_edge matrix
+					if (i == 37 && j_comp == 0 && k_comp == 0 && tempcount == 0) {
+					    std::cout << "tau_edge before inversion (not yet tau_edge):" << std::endl;
+					    tau_edge.print(std::cout);
+					}
+
+					// Terms associated with current cell
+                                        vmsdg_solver.setMatrix(Teuchos::rcp(&tau_edge, false));
+					auto info = vmsdg_solver.invert();
+
+					// MA Check Matrices
+					if (i == 37 && j_comp == 0 && k_comp == 0 && tempcount == 0) {
+					    std::cout << "\ntau_edge AFTER inversion (actual tau_edge):" << std::endl;
+					    tau_edge.print(std::cout);
+					    std::cout << "\ntau_current_cell:" << std::endl;
+					    tau_current_cell.print(std::cout);
+					    std::cout << "\ntau_adjacent_cell:" << std::endl;
+					    tau_adjacent_cell.print(std::cout);
+					    tempcount += 1;
+					}
+					// ############################################################################################
+					//                                                                                            #
+					// MA END computation of VMS-DG terms
+                                        //                                                                                            #
+					// ############################################################################################
+					
+					//MA NOTE: j_comp is associated with test function (rows), and k_comp is associated with trial function (columns)
+                                        contribution += q_wt * jumpv * jumpu * tau_edge(j_comp, k_comp); //MA: VMSDG term
+                                        
+					
+					// MA NOTE: the existing line computing contribution below got replaced by contribution computed above.
+                                        //contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp); // other half will be added by other cell //MA: SIPDG term
+                                        // MA Q:Comment in line above is true?...
+					// It seems that interior edge contributions are computed only ONCE, from 'within' the element with higher number, is that the case? 
+                                           
+				       	    contribution -= q_wt * (
                                                   2 * _shear * (n_x*avgv_x*j_comp_0 
                                                     + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
                                                 + 2 * _shear * (n_y*avgv_y*j_comp_1 
@@ -2156,7 +2315,8 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 + 2 * _shear * (n_y*avgu_y*k_comp_1 
                                                     + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
                                                 + _lambda*(avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
-                                        } else if (_vl_op) {
+                                        
+					} else if (_vl_op) {
                                             contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp); // other half will be added by other cell
                                             contribution -= q_wt * (
                                                   _shear * (n_x*avgv_x*j_comp_0 
