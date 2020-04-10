@@ -101,6 +101,7 @@ class ProblemT {
 
 		void initialize(scalar_type initial_simulation_time = 0);
 		void solve();
+		void residual();
 
 	private:
 

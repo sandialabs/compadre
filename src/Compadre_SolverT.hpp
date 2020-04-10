@@ -60,7 +60,11 @@ class SolverT {
 
 		Teuchos::RCP<mvec_type> getSolution(local_index_type idx = -1) const;
 
+		void setSolution(local_index_type idx, Teuchos::RCP<mvec_type> vec);
+
 		void solve();
+
+		void residual();
 
     protected:
 

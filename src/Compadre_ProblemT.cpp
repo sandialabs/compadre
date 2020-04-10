@@ -230,10 +230,6 @@ void ProblemT::solve() {
     // build solver
     if (_solver.is_null()) buildSolver();
 
-    //Teuchos::RCP<Teuchos::FancyOStream> out2 = Teuchos::rcp(new Teuchos::FancyOStream(Teuchos::rcp(new std::ofstream("output.txt"))));
-    //_solver->getSolution()->describe(*out2,Teuchos::EVerbosityLevel::VERB_EXTREME);
-    //_A->describe(*out2,Teuchos::EVerbosityLevel::VERB_EXTREME);
-
     // run solver
     _solver->solve();
 
@@ -256,6 +252,30 @@ void ProblemT::solve() {
 //
 //    Ax->update(-1.0, *b, 1.0);
 //    if (_comm->getRank() == 0) std::cout << "WARNING: Over-writing solution variables with the exact solution residual." << std::endl;
+
+    for (InteractingFields field_interaction : _field_interactions) {
+        local_index_type field_one = field_interaction.src_fieldnum;
+
+        local_index_type row_block = _field_to_block_row_map[field_one];
+
+        _particles->getFieldManager()->updateFieldsFromVector(_solver->getSolution(row_block), field_one, _problem_dof_data);
+    }
+}
+
+void ProblemT::residual() {
+
+    TEUCHOS_TEST_FOR_EXCEPT_MSG(_solver.is_null(), "Can only be called after solve().");
+
+    for (InteractingFields field_interaction : _field_interactions) {
+        local_index_type field_one = field_interaction.src_fieldnum;
+
+        local_index_type row_block = _field_to_block_row_map[field_one];
+
+        _particles->getFieldManager()->updateVectorFromFields(_solver->getSolution(row_block), field_one, _problem_dof_data);
+    }
+
+    // generate residual, stored in solution
+    _solver->residual();
 
     for (InteractingFields field_interaction : _field_interactions) {
         local_index_type field_one = field_interaction.src_fieldnum;
