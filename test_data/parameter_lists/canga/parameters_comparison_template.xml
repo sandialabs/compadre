@@ -18,7 +18,7 @@
     <Parameter name="coordinate 1 name" type="string" value="y"/>
     <Parameter name="coordinate 2 name" type="string" value="z"/>
     <Parameter name="gids name" type="string" value="ID"/>
-    <Parameter name="preserve gids" type="bool" value="true"/>
+    <Parameter name="preserve gids" type="bool" value="false"/>
     <Parameter name="write gids" type="bool" value="true"/>
   </ParameterList>
   <ParameterList name="remap">

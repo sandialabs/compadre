@@ -50,9 +50,9 @@ opt_name = opt_types[opt_num]
 
 NPTS=[16,32,64,128,256]
 
-pre_CS_name   = "../../test_data/grids/canga/NM8/CS_"
+pre_CS_name   = "../../test_data/grids/canga/NM16/CS_"
 post_CS_name  = ".g"
-pre_CVT_name  = "../../test_data/grids/canga/NM8/ICOD_"
+pre_CVT_name  = "../../test_data/grids/canga/NM16/ICOD_"
 post_CVT_name = ".g"
 
 # initially set to these existing files

@@ -168,7 +168,7 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
 
     int ncid, retval;
     retval = nc_open(fn.c_str(), NC_NOWRITE, &ncid);
-    TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "File not opened successfully.");
+    TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "File not opened successfully: ERROR:" + std::to_string(retval) + " FILE: " + fn + ".");
 
     /* We will learn about the data file and store results in these
            program variables. */
@@ -1204,7 +1204,7 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
     // Open the file
     int ncid, retval;
     if ((retval = nc_create(fn.c_str(), NC_NETCDF4, &ncid)))
-        TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "File not opened successfully for writing.");
+        TEUCHOS_TEST_FOR_EXCEPT_MSG(retval, "File not opened successfully for writing: ERROR:" + std::to_string(retval) + " FILE: " + fn + ".");
 
     // register everything in netCDF
     local_index_type particle_dim_id;
