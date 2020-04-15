@@ -28,6 +28,9 @@ parser.add_argument('--convergence-type', dest='convergence_type', type=str, nar
 
 parser.add_argument('--assert-rate', dest='assert_rate', type=str, nargs='?', default='True', help='whether to assert rate is optimal')
 
+parser.add_argument('--output-folder', dest='output_folder', type=str, nargs='?', default='', help='where to dump data files (relative to directory this script is called from')
+parser.add_argument('--output-file', dest='output_file', type=str, nargs='?', default='', help='file name to dump data to')
+
 args = parser.parse_args()
 
 if args.pressure_order<0:
@@ -44,7 +47,7 @@ for key2, fname in enumerate(file_names):
     size_str = str(args.size/float(pow(2,key2)))
     print(size_str)
     
-    for item in e.getchildren():
+    for item in list(e):
         if (item.attrib['name']=="io"):
             f=item
         if (item.attrib['name']=="neighborhood"):
@@ -56,15 +59,15 @@ for key2, fname in enumerate(file_names):
         if (item.attrib['name']=="solver"):
             s=item
     
-    for item in f.getchildren():
+    for item in list(f):
         if (item.attrib['name']=="input file"):
             item.attrib['value']=fname
 
-    for item in n.getchildren():
+    for item in list(n):
         if (item.attrib['name']=="size"):
             item.attrib['value']=size_str
 
-    for item in p.getchildren():
+    for item in list(p):
         if (item.attrib['name']=="solution"):
             item.attrib['value']=args.solution
         if (item.attrib['name']=="pressure solution"):
@@ -82,13 +85,13 @@ for key2, fname in enumerate(file_names):
         if (item.attrib['name']=="penalty"):
             item.attrib['value']=str(args.penalty)
 
-    for item in r.getchildren():
+    for item in list(r):
         if (item.attrib['name']=="porder"):
             item.attrib['value']=str(args.order)
         if (item.attrib['name']=="pressure porder"):
             item.attrib['value']=str(args.pressure_order)
 
-    for item in s.getchildren():
+    for item in list(s):
         if (item.attrib['name']=="pressure null space"):
             item.attrib['value']=str(args.pressure_null_space)
     
@@ -118,6 +121,11 @@ for key2, fname in enumerate(file_names):
         if (args.operator.lower() in ['st', 'mix_le']):
             m = re.search('(?<=Pressure L2: )[0-9]+\.?[0-9]*(?:[Ee]\ *[-+]?\ *[0-9]+)?', output)
             all_errors[4].append(float(m.group(0)))
+
+if args.output_file!="":
+    import numpy as np
+    np_h = np.array([np.power(0.5,i+1) for i in range(len(all_errors[0]))]+[1.0,], dtype='f8')
+    np_errors_list = [None]*len(error_types)
     
 print(all_errors)
 for key, errors in enumerate(all_errors):
@@ -135,16 +143,45 @@ for key, errors in enumerate(all_errors):
     else:
         break
 
+    base_rate = 0
+    if 'pr.' in error_types[key]:
+        base_rate = args.pressure_order
+    else:
+        base_rate = args.order
+
+    rate_adjustment = 0
+    if ('l2' in error_types[key] and args.operator.lower()!="mix_le"):
+        rate_adjustment = 1
+
     if (args.convergence_type.lower()=="exact" and args.assert_rate.lower()=="true"):
         if (abs(args.rate_tol-last_error)>args.rate_tol):
             assert False, "Last calculated error (%f) more than %f from exact solution." % (last_error, args.rate_tol,)
-
     elif (args.convergence_type.lower()=="rate" and args.assert_rate.lower()=="true"):
-        rate_adjustment = 0
-        if ('l2' in error_types[key] and args.operator.lower()!="mix_le"):
-            rate_adjustment = 1
-        if (abs(args.order+rate_adjustment-rate)>args.rate_tol and rate<args.order):
+        if (abs(base_rate+rate_adjustment-rate)>args.rate_tol and rate<base_rate):
             assert False, "Last calculated rate (%f) more than %f from theoretical optimal rate." % (rate, args.rate_tol,)
 
+    if args.output_file!="":
+        # concatenate data (h size, computed error, theoretical rate line passing through )
+        np_errors_list[key] = np.zeros(shape=(len(errors)+1,), dtype='f8')
+        np_errors_list[key][0:-1] = np.array(errors, dtype='f8')
+        np_errors_list[key][-1] = base_rate + rate_adjustment
+
+if args.output_file!="":
+    import pandas as pd
+    print(np_h)
+    print(np_errors_list)
+    df = pd.DataFrame(
+                np.hstack([np.reshape(np_h,newshape=(np_h.size,1)),] + [np.reshape(array_name,newshape=(array_name.size,1)) for array_name in np_errors_list]), 
+                columns=['h',] + [column_name for column_name in error_types]
+            )
+    # store files with data
+    cwd = os.getcwd()
+    dname = "%s"%(cwd+"/"+args.output_folder)
+    if not os.path.exists(dname):
+        os.makedirs(dname)
+    fname = "%s"%(dname+"/"+args.output_file,)
+    print(fname)
+    df.to_csv(fname,index=False)
+    print(df)
 
 sys.exit(0)
