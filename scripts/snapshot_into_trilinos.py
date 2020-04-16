@@ -156,7 +156,9 @@ def create_snapshot_dir_args(orig_dir, dest_dir, dry_run=False):
     """
     args = (f"--orig-dir {orig_dir}/ "
             f"--dest-dir {dest_dir}/ "
-            "--exclude kokkos kokkos-kernels python scripts "
+            "--exclude kokkos kokkos-kernels python scripts cmake/bob.cmake "
+            "cmake/detect_trilinos_opts.cmake "
+            "examples/Python_3D_Convergence.py.in "
             "--clean-ignored-files-orig-dir")
     if dry_run:
         args += " --show-defaults"
@@ -172,7 +174,10 @@ def test_create_snapshot_dir_args():
     dest = "to_there"
     args = create_snapshot_dir_args(orig, dest)
     expected = (f"--orig-dir {orig}/ --dest-dir {dest}/ --exclude kokkos "
-                "kokkos-kernels python scripts --clean-ignored-files-orig-dir")
+                "kokkos-kernels python scripts cmake/bob.cmake "
+                "cmake/detect_trilinos_opts.cmake "
+                "examples/Python_3D_Convergence.py.in "
+                "--clean-ignored-files-orig-dir")
     assert args == expected.split()
     args = create_snapshot_dir_args(orig, dest, dry_run=True)
     expected += " --show-defaults"
