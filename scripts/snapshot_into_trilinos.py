@@ -16,6 +16,7 @@ To test this script to ensure that it's working correctly, simply use
     pytest snapshot_into_trilinos.py
 """
 import os
+import pytest
 import sys
 
 
@@ -69,7 +70,7 @@ def parse_arguments(argv):
 
 def test_parse_arguments():
     """
-    Test that the parse_arguments() function works as intended.
+    Test that the :func:`parse_arguments` function works as intended.
     """
     options = parse_arguments("--trilinos-dir /path/to/Trilinos --dry-run".
                               split())
@@ -81,6 +82,51 @@ def test_parse_arguments():
     options = parse_arguments("-t /some/other/dir".split())
     assert (options.trilinos_dir == "/some/other/dir" and
             options.dry_run == False)
+
+
+
+def check_trilinos_dir_is_root(trilinos_dir):
+    """
+    Check to ensure the Trilinos directory specified is indeed the root of the
+    Trilinos repository by ensuring it contains a ``ProjectName.cmake`` that
+    specifies Trilinos as the project name.
+    """
+    import re
+    try:
+        with open(os.path.join(trilinos_dir, "ProjectName.cmake"), "r") as f:
+            data = f.read().lower()
+            if not re.search(r"set\s*\(\s*project_name\s+trilinos\s*\)", data):
+                sys.exit(f"Error:  {trilinos_dir}/ProjectName.cmake does not "
+                         "set the project name to Trilinos.  Make sure you "
+                         "point to the root of the Trilinos repository.")
+    except FileNotFoundError:
+        sys.exit(f"Error:  {trilinos_dir} does not contain a "
+                 "ProjectName.cmake.  Make sure you point to the root of the "
+                 "Trilinos repository.")
+
+
+
+def test_check_trilinos_dir_is_root(tmpdir):
+    """
+    Test that the :func:`check_trilinos_dir_is_root` function works as
+    intended.
+    """
+    # Ensure the check fails if trilinos_dir doesn't contain ProjectName.cmake.
+    trilinos_dir = tmpdir.mkdir("trilinos_dir")
+    with pytest.raises(SystemExit):
+        check_trilinos_dir_is_root(trilinos_dir)
+
+    # Ensure the check fails if ProjectName.cmake doesn't set the project name
+    # to Trilinos.
+    file_to_check = trilinos_dir.join("ProjectName.cmake")
+    file_to_check.write("Doesn't set PROJECT_NAME to Trilinos")
+    with pytest.raises(SystemExit):
+        check_trilinos_dir_is_root(trilinos_dir)
+
+    # Ensure the check passes if ProjectName.cmake does set the project name to
+    # Trilinos.
+    file_to_check.write("SET(PROJECT_NAME Trilinos)")
+    check_trilinos_dir_is_root(trilinos_dir)
 
 
 
@@ -117,7 +163,8 @@ def create_directory_variables(trilinos_dir, verbose=False):
 
 def test_create_directory_variables(capfd):
     """
-    Test that the create_directory_variables() function works as intended.
+    Test that the :func:`create_directory_variables` function works as
+    intended.
     """
     trilinos_dir = "/path/to/Trilinos"
     compadre_dir = os.path.abspath(os.path.join(os.path.dirname(
@@ -168,7 +215,7 @@ def create_snapshot_dir_args(orig_dir, dest_dir, dry_run=False):
 
 def test_create_snapshot_dir_args():
     """
-    Test that the create_snapshot_dir_args() function works as intended.
+    Test that the :func:`create_snapshot_dir_args` function works as intended.
     """
     orig = "from_here"
     dest = "to_there"
@@ -206,6 +253,7 @@ def snapshot(snapshot_dir_args):
 
 if __name__ == "__main__":
     options = parse_arguments(sys.argv[1:])
+    check_trilinos_dir_is_root(options.trilinos_dir)
     (orig_dir, dest_dir) = create_directory_variables(options.trilinos_dir,
                                                       options.dry_run)
     success = snapshot(create_snapshot_dir_args(orig_dir, dest_dir,
