@@ -97,6 +97,7 @@ void ParameterManager::setDefaultParameters() {
 	remapList->set("porder", 2);
 	remapList->set("curvature porder", 0); // order to reconstruct manifold with when requested
 	remapList->set("dense solver type", "QR");
+	remapList->set("basis type", "scalar");
 	remapList->set("problem type", "STANDARD");
 	remapList->set("constraint type", "NO_CONSTRAINT");
 	remapList->set("weighting power", (local_index_type)8);

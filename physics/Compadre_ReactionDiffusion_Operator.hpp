@@ -85,6 +85,12 @@ class ReactionDiffusionPhysics : public PhysicsT {
         bool _use_pinning;
         bool _use_lm;
 
+        bool _velocity_basis_type_divfree;
+        bool _velocity_basis_type_vector;
+
+        bool _use_vector_gmls;
+        bool _use_vector_grad_gmls;
+
         local_index_type _velocity_field_id;
         local_index_type _pressure_field_id;
         local_index_type _lagrange_field_id;
@@ -119,6 +125,13 @@ class ReactionDiffusionPhysics : public PhysicsT {
             _mix_le_op = false;
             _use_pinning = true;
             _use_lm = false;
+
+            _velocity_basis_type_divfree = false;
+            _velocity_basis_type_vector = false;
+
+            _use_vector_gmls = false;
+            _use_vector_grad_gmls = false;
+
             _velocity_field_id = -1;
             _pressure_field_id = -1;
             _lagrange_field_id = -1;
