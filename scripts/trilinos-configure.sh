@@ -9,20 +9,6 @@
 find . ! -name '*.sh' -type f -exec rm -f {} +
 find . -mindepth 1 -type d -exec rm -rf {} +
 
-BUILD_TYPE=""
-USE_OPENMP=OFF
-NODE_TYPE=SERIAL
-
-WORKSPACE=/workspace
-INSTALL_DIR=$WORKSPACE/install
-
-TOOLCHAIN_INSTALL=/home/jmgate/toolchain/install
-NETCDF_BASE_DIR=${TOOLCHAIN_INSTALL}/netcdf-4.6.0
-BOOST_BASE_DIR=${TOOLCHAIN_INSTALL}/boost-1.66.0
-HDF_BASE_DIR=${TOOLCHAIN_INSTALL}/hdf5-1.10.1
-LAPACK_LIB=${TOOLCHAIN_INSTALL}/lapack-3.8.0/lib64/liblapack.so.3
-BLAS_LIB=${TOOLCHAIN_INSTALL}/lapack-3.8.0/lib64/libblas.so.3
-
 cmake \
   -D Kokkos_ENABLE_COMPLEX_ALIGN:BOOL=ON \
   -D Kokkos_ENABLE_HWLOC:BOOL=OFF \
@@ -45,7 +31,6 @@ cmake \
   -D BUILD_SHARED_LIBS:BOOL=ON \
   -D Trilinos_ENABLE_DEBUG:BOOL=OFF \
   -D Trilinos_ENABLE_DEBUG_SYMBOLS:BOOL=ON \
-  -D CMAKE_BUILD_TYPE:STRING=${BUILD_TYPE} \
   -D Trilinos_ENABLE_ALL_PACKAGES:BOOL=OFF \
   -D Trilinos_ENABLE_ALL_OPTIONAL_PACKAGES:BOOL=OFF \
   -D Trilinos_ENABLE_Compadre:BOOL=ON \
@@ -57,12 +42,18 @@ cmake \
   -D CMAKE_Fortran_COMPILER:FILEPATH="$(which mpif90)" \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=OFF \
   -D CMAKE_SKIP_RULE_DEPENDENCY:BOOL=ON \
-  -D CMAKE_INSTALL_PREFIX:FILEPATH=${INSTALL_DIR} \
   -D Trilinos_VERBOSE_CONFIGURE:BOOL=ON \
   -D TPL_ENABLE_MPI:BOOL=ON \
   -D TPL_ENABLE_LAPACK:BOOL=ON \
-  -D TPL_LAPACK_LIBRARIES:FILEPATH=${LAPACK_LIB} \
   -D TPL_ENABLE_BLAS:BOOL=ON \
-  -D TPL_BLAS_LIBRARIES:FILEPATH=${BLAS_LIB} \
   -D Trilinos_ENABLE_OpenMP:BOOL=OFF \
-  ${WORKSPACE}/Trilinos
+  -D TPL_LAPACK_LIBRARIES:FILEPATH=/path/to/liblapack.so.3 \
+  -D TPL_BLAS_LIBRARIES:FILEPATH=/path/to/libblas.so.3 \
+  -D CMAKE_INSTALL_PREFIX:FILEPATH=/path/to/Trilinos/install \
+  /path/to/Trilinos
+###############################################################################
+#
+# ADJUST THE PATHS IN THE PREVIOUS FOUR LINES TO POINT TO THE APPROPRIATE
+# PLACES
+#
+###############################################################################
