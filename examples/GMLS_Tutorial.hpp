@@ -143,6 +143,46 @@ double trueDivergence(double x, double y, double z, int order, int dimension) {
 }
 
 KOKKOS_INLINE_FUNCTION
+void trueHessian(double* ans, double x, double y, double z, int order, int dimension) {
+    for (int i=0; i<order+1; i++) {
+        for (int j=0; j<order+1; j++) {
+            for (int k=0; k<order+1; k++) {
+                if (i+j+k <= order) {
+                    // XX
+                    ans[0] += device_max(0,i)*device_max(0,i-1)*
+                               std::pow(x,device_max(0,i-2))*std::pow(y,j)*std::pow(z,k);
+                    if (dimension>1) {
+                        // XY
+                        ans[1] += device_max(0,i)*device_max(0,j)*
+                               std::pow(x,device_max(0,i-1))*std::pow(y,device_max(0,j-1))*std::pow(z,k);
+                        // YX = XY
+                        ans[1*dimension+0] = ans[1];
+                        // YY
+                        ans[1*dimension+1] += device_max(0,j)*device_max(0,j-1)*
+                               std::pow(x,i)*std::pow(y,device_max(0,j-2))*std::pow(z,k);
+                    }
+                    if (dimension>2) {
+                        // XZ
+                        ans[2] += device_max(0,i)*device_max(0,k)*
+                               std::pow(x,device_max(0,i-1))*std::pow(y,j)*std::pow(z,device_max(0,k-1));
+                        // YZ
+                        ans[1*dimension+2] += device_max(0,j)*device_max(0,k)*
+                               std::pow(x,i)*std::pow(y,device_max(0,j-1))*std::pow(z,device_max(0,k-1));
+                        // ZX = XZ
+                        ans[2*dimension+0] = ans[2];
+                        // ZY = YZ
+                        ans[2*dimension+1] = ans[1*dimension+2];
+                        // ZZ
+                        ans[2*dimension+2] += device_max(0,k)*device_max(0,k-1)*
+                               std::pow(x,i)*std::pow(y,j)*std::pow(z,device_max(0,k-2));
+                    }
+                }
+            }
+        }
+    }
+}
+
+KOKKOS_INLINE_FUNCTION
 double divergenceTestSamples(double x, double y, double z, int component, int dimension) {
     // solution can be captured exactly by at least 2rd order
     switch (component) {

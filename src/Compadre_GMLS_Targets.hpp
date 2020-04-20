@@ -289,6 +289,38 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     }
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+            } else if (_operations(i) == TargetOperation::GradientOfScalarPointEvaluation) {
+                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                    for (int e=0; e<num_evaluation_sites; ++e) { 
+                        int output_components = _basis_multiplier;
+                        for (int m2=0; m2<output_components; ++m2) { // output components 2
+                            int offset = getTargetOffsetIndexDevice(i, 0 /*in*/, m2 /*out*/, e);
+                            this->calcGradientPij(teamMember, t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, m2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
+                            for (int j=0; j<target_NP; ++j) {
+                                P_target_row(offset, j) = t1(j);
+                            }
+                        }
+                    }
+                });
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+            } else if (_operations(i) == TargetOperation::GradientOfVectorPointEvaluation) {
+                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                    for (int e=0; e<num_evaluation_sites; ++e) { 
+                        for (int m0=0; m0<_sampling_multiplier; ++m0) { // input components
+                            int output_components = _basis_multiplier;
+                            for (int m1=0; m1<output_components; ++m1) { // output components 1
+                                for (int m2=0; m2<output_components; ++m2) { // output components 2
+                                    int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1*output_components+m2 /*out*/, e);
+                                    this->calcGradientPij(teamMember, t1.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, m2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
+                                    for (int j=0; j<target_NP; ++j) {
+                                        P_target_row(offset, m1*target_NP + j) = t1(j);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (_operations(i) == TargetOperation::DivergenceOfVectorPointEvaluation) {
                 if (_polynomial_sampling_functional == StaggeredEdgeIntegralSample) {
                     Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
@@ -474,6 +506,21 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                             int offset = getTargetOffsetIndexDevice(i, 0, d, j);
                             auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
                             this->calcGradientPij(teamMember, row.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, d /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                        }
+                    }
+                });
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+            } else if (_operations(i) == TargetOperation::GradientOfVectorPointEvaluation) {
+                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                    for (int j=0; j<num_evaluation_sites; ++j) { 
+                        for (int m0=0; m0<_dimensions; ++m0) { // input components
+                            for (int m1=0; m1<_dimensions; ++m1) { // output components 1
+                                for (int m2=0; m2<_dimensions; ++m2) { // output componets 2
+                                    int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1*_dimensions+m2 /*out*/, j);
+                                    auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
+                                    this->calcGradientPij(teamMember, row.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, m2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                                }
+                            }
                         }
                     }
                 });
