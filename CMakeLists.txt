@@ -24,6 +24,7 @@ if (${PROJECT_NAME}_TRIBITS_DIR) # TriBITS CMake Project
   set(Compadre_USE_MATLAB OFF CACHE BOOL "Don't use Matlab when building in Trilinos")
   set(Compadre_USE_MPI ${TPL_ENABLE_MPI} CACHE BOOL "Use MPI for parallelism")
   set(Compadre_USE_PYTHON OFF CACHE BOOL "Don't use Python when building in Trilinos")
+  set(LAPACK_DECLARED_THREADSAFE ON CACHE BOOL "Is LAPACK threadsafe? If not, default to serial calls for solves.")
 
   #
   # C) Add the libraries, tests, and examples
