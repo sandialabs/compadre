@@ -358,12 +358,15 @@ void ReactionDiffusionPhysics::initialize() {
     _vel_gmls->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
     _vel_gmls->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
 
-    _vel_gmls->addTargets(TargetOperation::ScalarPointEvaluation);
-    _vel_gmls->addTargets(TargetOperation::GradientOfScalarPointEvaluation);
     if (_use_vector_gmls)
         _vel_gmls->addTargets(TargetOperation::VectorPointEvaluation);
+    else
+        _vel_gmls->addTargets(TargetOperation::ScalarPointEvaluation);
     if (_use_vector_grad_gmls)
         _vel_gmls->addTargets(TargetOperation::GradientOfVectorPointEvaluation);
+    else
+        _vel_gmls->addTargets(TargetOperation::GradientOfScalarPointEvaluation);
+
     _vel_gmls->setAdditionalEvaluationSitesData(_kokkos_quadrature_neighbor_lists_host, _kokkos_quadrature_coordinates_host);
     _vel_gmls->generateAlphas();
 
@@ -1230,15 +1233,25 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     double u, v;
                                     const auto q_wt = (i<nlocal) ? quadrature_weights(i,qn) : halo_quadrature_weights(_halo_small_to_big(halo_i,0),qn);
                                     if (j_to_cell_i>=0) {
-                                        v = (i<nlocal) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1)
-                                             : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j_to_cell_i, qn+1);
+                                        if (_use_vector_gmls) {
+                                            v = (i<nlocal) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, j_comp_out, j_to_cell_i, j_comp_in, qn+1)
+                                                 : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j_to_cell_i, qn+1);
+                                        } else {
+                                            v = (i<nlocal) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1)
+                                                 : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j_to_cell_i, qn+1);
+                                        }
                                         j_has_value = true;
                                     } else {
                                         v = 0;
                                     }
                                     if (k_to_cell_i>=0) {
-                                        u = (i<nlocal) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1)
-                                             : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, k_to_cell_i, qn+1);
+                                        if (_use_vector_gmls) {
+                                            u = (i<nlocal) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, k_comp_out, k_to_cell_i, k_comp_in, qn+1)
+                                                 : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, k_to_cell_i, qn+1);
+                                        } else {
+                                            u = (i<nlocal) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1)
+                                                 : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, k_to_cell_i, qn+1);
+                                        }
                                         k_has_value = true;
                                     } else {
                                         u = 0;

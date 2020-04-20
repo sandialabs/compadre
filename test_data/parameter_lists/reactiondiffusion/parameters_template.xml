@@ -51,6 +51,7 @@
   <ParameterList name="remap">
     <Parameter name="weighting power" type="int" value="1"/>
     <Parameter name="porder" type="int" value="2"/>
+    <Parameter name="basis type" type="string" value="scalar"/>
     <Parameter name="pressure porder" type="int" value="1"/>
     <Parameter name="dense solver type" type="string" value="SVD"/>
   </ParameterList>

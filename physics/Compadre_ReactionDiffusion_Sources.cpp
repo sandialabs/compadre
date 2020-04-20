@@ -128,8 +128,14 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                         auto q_type = (i<nlocal) ? quadrature_type(i,qn) : halo_quadrature_type(_physics->_halo_small_to_big(halo_i,0),qn);
                         if (q_type==1) { // interior
                             // integrating RHS velocity_function
-                            double v = (i<nlocal) ? _physics->_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, qn+1)
-                                : _physics->_halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
+                            double v;
+                            if (_use_vector_gmls) {
+                                v = (i<nlocal) ? _physics->_vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, comp_out, j, comp_in, qn+1)
+                                    : _physics->_halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
+                            } else {
+                                v = (i<nlocal) ? _physics->_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, qn+1)
+                                    : _physics->_halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
+                            }
 
                             xyz_type pt = (i<nlocal) ? xyz_type(quadrature_points(i,2*qn),quadrature_points(i,2*qn+1),0) 
                                 : xyz_type(halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),2*qn), 
