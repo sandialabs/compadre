@@ -10,8 +10,6 @@ endmacro()
 
 if (${PROJECT_NAME}_TRIBITS_DIR) # TriBITS CMake Project
 
-  message("ETWAS:Under Construction")
-
   #
   # A) Define the package
   #
@@ -32,7 +30,6 @@ if (${PROJECT_NAME}_TRIBITS_DIR) # TriBITS CMake Project
   #
 
   add_subdirectory(src)
-#  tribits_add_example_directories(examples) # NEED TO SEPARATE EXAMPLES AND TESTS
   tribits_add_test_directories(examples)
 
   #
