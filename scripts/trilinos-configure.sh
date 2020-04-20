@@ -11,11 +11,6 @@ find . -mindepth 1 -type d -exec rm -rf {} +
 
 cmake \
   -D Kokkos_ENABLE_COMPLEX_ALIGN:BOOL=ON \
-  -D Kokkos_ENABLE_HWLOC:BOOL=OFF \
-  -D Kokkos_ENABLE_LIBDL:BOOL=ON \
-  -D Kokkos_ENABLE_LIBNUMA:BOOL=OFF \
-  -D Kokkos_ENABLE_LIBRT:BOOL=OFF \
-  -D Kokkos_ENABLE_MEMKIND:BOOL=OFF \
   -D Kokkos_ENABLE_OPENMP:BOOL=ON \
   -D Kokkos_ENABLE_SERIAL:BOOL=OFF \
   -D KokkosKernels_INST_DOUBLE:BOOL=OFF \
