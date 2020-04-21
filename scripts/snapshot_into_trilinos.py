@@ -203,7 +203,7 @@ def create_snapshot_dir_args(orig_dir, dest_dir, dry_run=False):
     """
     args = (f"--orig-dir {orig_dir}/ "
             f"--dest-dir {dest_dir}/ "
-            "--exclude kokkos kokkos-kernels python scripts cmake/bob.cmake "
+            "--exclude kokkos kokkos-kernels python scripts "
             "cmake/detect_trilinos_opts.cmake "
             "examples/Python_3D_Convergence.py.in "
             "--clean-ignored-files-orig-dir")
