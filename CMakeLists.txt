@@ -8,12 +8,12 @@ cmake_minimum_required(VERSION 3.0.0)
 PROJECT(CompadreHarness VERSION 1.0.0 LANGUAGES CXX)
 
 # cmake helper functions
-include(${CMAKE_CURRENT_LIST_DIR}/cmake/bob.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/toolkit/cmake/bob.cmake)
 
 bob_begin_package()
 
 include(ExternalProject)
-
+bob_input(CMAKE_INSTALL_LIBDIR "${CMAKE_INSTALL_PREFIX}/lib" PATH "")
 
 ##########
 #
