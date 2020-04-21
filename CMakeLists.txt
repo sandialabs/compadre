@@ -38,7 +38,8 @@ else() # Raw CMake Project
   #
   ########## 
 
-  PROJECT(Compadre VERSION 1.0.3 LANGUAGES CXX)
+  include(${CMAKE_CURRENT_LIST_DIR}/Version.cmake)
+  PROJECT(Compadre VERSION ${Compadre_VERSION} LANGUAGES CXX)
 
   get_directory_property(Compadre_HAS_PARENT PARENT_DIRECTORY)
 
