@@ -8,6 +8,9 @@ macro(include_tribits_build)
   endif()
 endmacro()
 
+# cmake helper functions
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/bob.cmake)
+
 if (${PROJECT_NAME}_TRIBITS_DIR) # TriBITS CMake Project
 
   #
@@ -19,25 +22,13 @@ if (${PROJECT_NAME}_TRIBITS_DIR) # TriBITS CMake Project
   #
   # B) Set up package-specific options
   #
-  set(Compadre_DEBUG ON CACHE BOOL "Run Compadre Toolkit in DEBUG mode")
+  set(Compadre_DEBUG "${Trilinos_ENABLE_DEBUG}" CACHE BOOL "Run Compadre Toolkit in DEBUG mode")
   set(Compadre_EXTREME_DEBUG OFF CACHE BOOL "Run Compadre Toolkit in EXTREME DEBUG mode")
   set(Compadre_USE_MATLAB OFF CACHE BOOL "Don't use Matlab when building in Trilinos")
   set(Compadre_USE_MPI ${TPL_ENABLE_MPI} CACHE BOOL "Use MPI for parallelism")
   set(Compadre_USE_PYTHON OFF CACHE BOOL "Don't use Python when building in Trilinos")
+  set(Compadre_USE_LAPACK ON CACHE BOOL "Use LAPACK for dense matrix solves")
   set(LAPACK_DECLARED_THREADSAFE ON CACHE BOOL "Is LAPACK threadsafe? If not, default to serial calls for solves.")
-
-  #
-  # C) Add the libraries, tests, and examples
-  #
-
-  add_subdirectory(src)
-  tribits_add_test_directories(examples)
-
-  #
-  # D) Do standard postprocessing
-  #
-
-  tribits_package_postprocess()
 
 else() # Raw CMake Project
 
@@ -49,9 +40,6 @@ else() # Raw CMake Project
 
   PROJECT(Compadre VERSION 1.0.3 LANGUAGES CXX)
 
-
-  # cmake helper functions
-  include(${CMAKE_CURRENT_LIST_DIR}/cmake/bob.cmake)
   get_directory_property(Compadre_HAS_PARENT PARENT_DIRECTORY)
 
   bob_begin_package()
@@ -451,51 +439,67 @@ else() # Raw CMake Project
   bob_option(Compadre_TESTS "Compile Compadre tests" ON)
   bob_option(Compadre_EXAMPLES "Compile Compadre examples" "${Compadre_TESTS}")
 
-
-
-  ##########
-  #
-  #
-  #  PREPROCESSOR DEFINES FOR USE WHEN BUILDING CODE
-  #
-  #
-  ##########
-
-
   set(Compadre_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
-
-  set(Compadre_KEY_BOOLS
-      Compadre_DEBUG
-      Compadre_EXTREME_DEBUG
-      Compadre_USE_CUDA
-      Compadre_USE_LAPACK
-      Compadre_USE_MPI
-      Compadre_USE_PYTHON
-      LAPACK_DECLARED_THREADSAFE
-     )
-
-  set(Compadre_KEY_INTS
-      Compadre_VERSION_MAJOR
-      Compadre_VERSION_MINOR
-      Compadre_VERSION_PATCH
-     )
-
   set(Compadre_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-  set(Compadre_KEY_STRINGS
-      Compadre_SEMVER
-      Compadre_COMMIT
-      Compadre_CXX_FLAGS
-      Compadre_CMAKE_ARGS
-      GMLS_Module_DEST
-      Compadre_INSTALL_PREFIX
-  )
 
+endif() 
+
+##########
+#
+#
+#  PREPROCESSOR DEFINES FOR USE WHEN BUILDING CODE
+#
+#
+##########
+
+
+
+set(Compadre_KEY_BOOLS
+    Compadre_DEBUG
+    Compadre_EXTREME_DEBUG
+    Compadre_USE_CUDA
+    Compadre_USE_LAPACK
+    Compadre_USE_MPI
+    Compadre_USE_PYTHON
+    LAPACK_DECLARED_THREADSAFE
+   )
+
+set(Compadre_KEY_INTS
+    Compadre_VERSION_MAJOR
+    Compadre_VERSION_MINOR
+    Compadre_VERSION_PATCH
+   )
+
+set(Compadre_KEY_STRINGS
+    Compadre_SEMVER
+    Compadre_COMMIT
+    Compadre_CXX_FLAGS
+    Compadre_CMAKE_ARGS
+    GMLS_Module_DEST
+    Compadre_INSTALL_PREFIX
+)
+
+if (${PROJECT_NAME}_TRIBITS_DIR) # TriBITS CMake Project
+
+  #
+  # C) Add the libraries, tests, and examples
+  #
+
+  add_subdirectory(src)
+  tribits_add_test_directories(examples)
+
+  #
+  # D) Do standard postprocessing
+  #
+
+  tribits_package_postprocess()
+
+else() # Raw CMake Project
 
   if (NOT(PYTHON_CALLING_BUILD))
     bob_get_commit()
     bob_get_semver()
   endif()
-
 
 
   ##########
@@ -517,8 +521,6 @@ else() # Raw CMake Project
   if(Compadre_USE_PYTHON)
     add_subdirectory(python)
   endif()
-
-
 
   ##########
   #

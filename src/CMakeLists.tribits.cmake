@@ -2,7 +2,7 @@
 # A) Package-specific configuration options
 #
 
-tribits_configure_file(${PACKAGE_NAME}_Config.h)
+bob_config_header(${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}_Config.h ${PACKAGE_NAME})
 
 #
 # B) Define the header and source files (and directories)

@@ -96,6 +96,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
         LAPACK_Test
         NAME
           ${testName}
+        COMM serial mpi
+        NUM_MPI_PROCS 1
         ARGS
           "--kokkos-threads=8 --verbose --output-on-failure"
         ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -120,6 +122,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       GMLS_Host_Test
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "4 200 3 0 0 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -140,6 +144,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       GMLS_Host_Test
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "4 200 2 0 0 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -160,6 +166,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       GMLS_Host_Test
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "4 200 1 0 0 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -181,6 +189,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       GMLS_Device_Test
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "4 200 3 1 0 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -201,6 +211,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       GMLS_Device_Test
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "4 200 2 1 0 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -221,6 +233,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       GMLS_Device_Test
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "4 200 1 1 0 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -242,6 +256,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       GMLS_Device_Test
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "4 200 3 2 0 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -263,6 +279,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       GMLS_NeumannGradScalar_Test
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "3 200 3 2 0 1 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -278,26 +296,28 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
         ) # end set_tests_properties
     endif() # test created
 
-    # Device views tests with Neumann BC for STAGGERED GMLS - SVD solver
-    set(testName GMLS_StaggeredNeumannGradScalar_Dim3_SVD)
-    tribits_add_test(
-      GMLS_Staggered
-      NAME
-        ${testName}
-      ARGS
-        "3 200 3 0 0 1 --kokkos-threads=2"
-      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
-      ) # end tribits_add_test
-    if (${testName}_CREATED)
-      set_tests_properties(
-        ${${testName}_CREATED}
-        PROPERTIES
-          LABELS
-            "UnitTest;unit;kokkos;staggered"
-          TIMEOUT
-            10
-        ) # end set_tests_properties
-    endif() # test created
+#    # Device views tests with Neumann BC for STAGGERED GMLS - SVD solver
+#    set(testName GMLS_StaggeredNeumannGradScalar_Dim3_SVD)
+#    tribits_add_test(
+#      GMLS_Staggered
+#      NAME
+#        ${testName}
+#      COMM serial mpi
+#      NUM_MPI_PROCS 1
+#      ARGS
+#        "3 200 3 0 0 1 --kokkos-threads=2"
+#      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
+#      ) # end tribits_add_test
+#    if (${testName}_CREATED)
+#      set_tests_properties(
+#        ${${testName}_CREATED}
+#        PROPERTIES
+#          LABELS
+#            "UnitTest;unit;kokkos;staggered"
+#          TIMEOUT
+#            10
+#        ) # end set_tests_properties
+#    endif() # test created
 
     # Device views tests for GMLS (vector basis)
     set(testName GMLS_Vector_Dim3_QR)
@@ -305,6 +325,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       GMLS_Vector_Test
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "3 20 3 1 0 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -325,6 +347,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       GMLS_Vector_Test
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "3 20 2 1 0 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -345,6 +369,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       GMLS_Vector_Test
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "3 20 1 1 0 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -366,6 +392,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       GMLS_Vector_Test
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "3 200 3 2 0 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -387,6 +415,9 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       GMLS_SmallBatchReuse_Device_Test
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
+      COMM serial mpi
       ARGS
         "4 200 2 1 0 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -407,6 +438,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       GMLS_SmallBatchReuse_Device_Test
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "4 200 1 1 0 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -428,6 +461,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       GMLS_MultiSite_Test
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "4 200 3 1 0 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -450,6 +485,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       GMLS_Staggered
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "3 200 3 1 0 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -465,29 +502,9 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
         ) # end set_tests_properties
     endif() # test created
 
-    if (NOT ${CMAKE_BUILD_TYPE} STREQUAL DEBUG)
+    if (NOT(Compadre_DEBUG OR Compadre_EXTREME_DEBUG))
       # This test is too slow in DEBUG (3x longer than all other tests
       # combined)
-      # Multisite manifold test for GMLS
-#      set(testName GMLS_Manifold_MultiSite)
-#      tribits_add_test(
-#        GMLS_Manifold_MultiSite_Test
-#        NAME
-#          ${testName}
-#        ARGS
-#          "3 4 --kokkos-threads=2"
-#        ADDED_TESTS_NAMES_OUT ${testName}_CREATED
-#        ) # end tribits_add_test
-#      if (${testName}_CREATED)
-#        set_tests_properties(
-#          ${${testName}_CREATED}
-#          PROPERTIES
-#            LABELS
-#              "UnitTest;unit;kokkos;multi;manifold"
-#            TIMEOUT
-#              10
-#          ) # end set_tests_properties
-#      endif() # test created
 
       # Python driven test of a C++ executable (Python changes command line
       # arguments given to executable)
@@ -496,16 +513,14 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
         ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py
         @ONLY
         ) # end configure_file
-      set(testName GMLS_Manifold_MultiSite_Refinement_Study)
-      tribits_add_test(
-        CMND
-          python
-        NAME
-          ${testName}
-        ARGS
-          "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py 3 3"
-        ADDED_TESTS_NAMES_OUT ${testName}_CREATED
-        ) # end tribits_add_test
+      set(testName GMLS_Manifold_Multiple_Evaluation_Sites)
+      TRIBITS_ADD_ADVANCED_TEST(
+        ${testName}
+        TEST_0 CMND ${PYTHON_EXECUTABLE} ARGS ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py --porder=3 --grids=3 --in-trilinos=True
+        PASS_REGULAR_EXPRESSION "Passed."
+        COMM mpi serial
+        ADDED_TEST_NAME_OUT ${testName}_CREATED
+      )
       if (${testName}_CREATED)
         set_tests_properties(
           ${${testName}_CREATED}
@@ -514,7 +529,7 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
               "ConvergenceTest;convergence;manifold"
             TIMEOUT
               60
-          ) # end set_tests_properties
+        )
       endif() # test created
 
       # Divergence-free basis test for GMLS on non-manifold
@@ -524,6 +539,7 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
         GMLS_Divergence_Test
         NAME
           ${testName}
+        NUM_MPI_PROCS 1
         ARGS
           "3 200 3 0 0 0 --kokkos-threads=2"
         ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -540,27 +556,6 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       endif() # test created
     endif() # not debug
 
-    # Manifold tests for GMLS
-#    set(testName GMLS_Manifold_Dim3)
-#    tribits_add_test(
-#      GMLS_Manifold_Test
-#      NAME
-#        ${testName}
-#      ARGS
-#        "4 200 3 1 0 0 --kokkos-threads=2"
-#      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
-#      ) # end tribits_add_test
-#    if (${testName}_CREATED)
-#      set_tests_properties(
-#        ${${testName}_CREATED}
-#        PROPERTIES
-#          LABELS
-#            "UnitTest;unit;kokkos"
-#          TIMEOUT
-#            10
-#        ) # end set_tests_properties
-#    endif() # test created
-
     # Python driven test of a C++ executable (Python changes command line
     # arguments given to executable) - calling QR solver
     configure_file(
@@ -569,15 +564,13 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       @ONLY
       ) # end configure_file
     set(testName GMLS_Manifold_Refinement_Study_QR)
-    tribits_add_test(
-      CMND
-        python
-      NAME
-        ${testName}
-      ARGS
-        "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py 3 4 1"
-      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
-      ) # end tribits_add_test
+    TRIBITS_ADD_ADVANCED_TEST(
+      ${testName}
+      TEST_0 CMND ${PYTHON_EXECUTABLE} ARGS ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py --porder=3 --grids=4 --solver-type=1 --in-trilinos=True
+      PASS_REGULAR_EXPRESSION "Passed."
+      COMM mpi serial
+      ADDED_TEST_NAME_OUT ${testName}_CREATED
+    )
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
@@ -586,26 +579,19 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
             "ConvergenceTest;convergence;manifold"
           TIMEOUT
             20
-        ) # end set_tests_properties
+      )
     endif() # test created
 
     # Python driven test of a C++ executable (Python changes command line
     # arguments given to executable) - calling LU solver
-    configure_file(
-      ${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Manifold.py.in
-      ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py
-      @ONLY
-      ) # end configure_file
     set(testName GMLS_Manifold_Refinement_Study_LU)
-    tribits_add_test(
-      CMND
-        python
-      NAME
-        ${testName}
-      ARGS
-        "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py 3 4 2"
-      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
-      ) # end tribits_add_test
+    TRIBITS_ADD_ADVANCED_TEST(
+      ${testName}
+      TEST_0 CMND ${PYTHON_EXECUTABLE} ARGS ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py --porder=3 --grids=4 --solver-type=2 --in-trilinos=True
+      PASS_REGULAR_EXPRESSION "Passed."
+      COMM mpi serial
+      ADDED_TEST_NAME_OUT ${testName}_CREATED
+    )
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
@@ -614,21 +600,26 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
             "ConvergenceTest;convergence;manifold"
           TIMEOUT
             20
-        ) # end set_tests_properties
+      )
     endif() # test created
 
     # Python driven test of a C++ executable (Python changes command line
+    # arguments given to executable) - calling QR solver
+    configure_file(
+      ${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Staggered_Manifold.py.in
+      ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py
+      @ONLY
+      ) # end configure_file
+    # Python driven test of a C++ executable (Python changes command line
     # arguments given to executable)
     set(testName GMLS_Staggered_Manifold_Refinement_Study)
-    tribits_add_test(
-      CMND
-        python
-      NAME
-        ${testName}
-      ARGS
-        "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py 3 4"
-      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
-      ) # end tribits_add_test
+    TRIBITS_ADD_ADVANCED_TEST(
+      ${testName}
+      TEST_0 CMND ${PYTHON_EXECUTABLE} ARGS ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py --porder=3 --grids=4 --in-trilinos=True
+      PASS_REGULAR_EXPRESSION "Passed."
+      COMM mpi serial
+      ADDED_TEST_NAME_OUT ${testName}_CREATED
+    )
     if (${testName}_CREATED)
       set_tests_properties(
         ${${testName}_CREATED}
@@ -637,7 +628,7 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
             "ConvergenceTest;convergence;manifold;staggered"
           TIMEOUT
             20
-        ) # end set_tests_properties
+      )
     endif() # test created
 
     # Utility test - Filter By ID
@@ -646,6 +637,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       TestUtility
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "200 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -667,6 +660,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NeighborSearchTest
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "2 200 6.5 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -687,6 +682,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NeighborSearchTest
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "2 300 4.5 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -707,6 +704,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
 #      NeighborSearchTest
 #      NAME
 #        ${testName}
+#      COMM serial mpi
+#      NUM_MPI_PROCS 1
 #      ARGS
 #        "2 400 1.8 --kokkos-threads=2"
 #      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -728,6 +727,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NeighborSearchTest
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "3 100 4.5 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -748,6 +749,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NeighborSearchTest
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "3 150 3.5 0 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -768,6 +771,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
 #      NeighborSearchTest
 #      NAME
 #        ${testName}
+#      COMM serial mpi
+#      NUM_MPI_PROCS 1
 #      ARGS
 #        "3 160 1.8 --kokkos-threads=2"
 #      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -789,6 +794,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NeighborSearchTest
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "2 200 6.5 1 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -809,6 +816,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NeighborSearchTest
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "2 300 4.5 1 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -829,6 +838,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
 #      NeighborSearchTest
 #      NAME
 #        ${testName}
+#      COMM serial mpi
+#      NUM_MPI_PROCS 1
 #      ARGS
 #        "2 400 1.8 --kokkos-threads=2"
 #      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -850,6 +861,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NeighborSearchTest
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "3 100 4.5 1 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -870,6 +883,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
       NeighborSearchTest
       NAME
         ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
       ARGS
         "3 150 3.5 1 --kokkos-threads=2"
       ADDED_TESTS_NAMES_OUT ${testName}_CREATED
@@ -890,6 +905,8 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
 #      NeighborSearchTest
 #      NAME
 #        ${testName}
+#      COMM serial mpi
+#      NUM_MPI_PROCS 1
 #      ARGS
 #        "3 160 1.8 1 --kokkos-threads=2"
 #      ADDED_TESTS_NAMES_OUT ${testName}_CREATED

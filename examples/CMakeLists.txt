@@ -141,7 +141,6 @@ if (Compadre_EXAMPLES)
     SET_TESTS_PROPERTIES(GMLS_Manifold_Refinement_Study_QR PROPERTIES LABELS "ConvergenceTest;convergence;manifold" TIMEOUT 20)
 
     # Python driven test of a C++ executable (Python changes command line arguments given to executable) - calling LU solver
-    CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Manifold.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" @ONLY)
     ADD_TEST(NAME GMLS_Manifold_Refinement_Study_LU COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" "3" "4" "2")
     SET_TESTS_PROPERTIES(GMLS_Manifold_Refinement_Study_LU PROPERTIES LABELS "ConvergenceTest;convergence;manifold" TIMEOUT 20)
 
