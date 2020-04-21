@@ -29,6 +29,10 @@ case $i in
     CLEAN=YES
     shift # passed argument with no value
     ;;
+    -C|--conda)
+    CONDA=YES
+    shift # passed argument with no value
+    ;;
     -h|--help)
     HELP=YES
     shift # passed argument with no value
@@ -66,6 +70,7 @@ fi
 echo "VERSION  = ${VERSION}"
 echo "INSTALL: ${INSTALL}"
 echo "CREATE PACKAGE: ${PACKAGE}"
+echo "CONDA: ${CONDA}"
 if [ "$EXECUTABLE" == "" ]; then
     EXECUTABLE=`which python`
     echo "$0: No Python executable provided with \" -e=*\", so first python found in search path is used: $EXECUTABLE"
@@ -140,6 +145,29 @@ if [ "$PACKAGE" == "YES" ]; then
 
 fi
 
+# (NOT for users) create a conda package
+if [ "$CONDA" == "YES" ]; then
+
+    # conda activate builder
+    # conda build purge-all
+    # conda-bld should be cleared as well 
+
+    rm -rf ../build
+    rm -rf ../setup.py
+    rm -rf ../meta.yaml
+    rm -rf ../cmake_opts.txt
+
+    $EXECUTABLE insert_version.py $VERSION
+    echo "version $VERSION inserted into setup file."
+
+    cp build.sh.in ../build.sh
+    cp conda_build_config.yaml.in ../conda_build_config.yaml
+    cd ..
+    conda-build .
+    cd python
+
+fi
+
 # various commands for uploading to pypi
 
 # upload to the test pypi site
@@ -153,3 +181,9 @@ fi
 # command to install from test pypi
 #python -m pip install --index-url https://test.pypi.org/simple/ --no-deps --upgrade compadre
 
+# instructions for updating conda package
+# 1.) git fetch origin on compadre repo
+# 2.) from the root of the repo, with master checked out, run >> git merge origin/conda_files --allow-unrelated-histories
+# 3.) >> conda-build . --python=3.6 --python=3.7 --python=3.8
+# 4.) >> anaconda login
+# 5.) >> anaconda upload /some/path/to/compadre.tar.bz2

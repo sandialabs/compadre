@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.10.0 FATAL_ERROR)
 
 ##########
 #
@@ -6,7 +6,8 @@ cmake_minimum_required(VERSION 3.0.0)
 #
 ########## 
 
-PROJECT(Compadre VERSION 1.0.2 LANGUAGES CXX)
+PROJECT(Compadre VERSION 1.0.3 LANGUAGES CXX)
+
 
 # cmake helper functions
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/bob.cmake)
@@ -24,7 +25,7 @@ SET(CMAKE_CXX_STANDARD 11)
 SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
 SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
+SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_LIBDIR} ${CMAKE_INSTALL_RPATH})
 
 # RPATH should always include the folder it is called from
 bob_option(PYTHON_CALLING_BUILD "Python setuptools calling build" OFF)
@@ -365,7 +366,7 @@ if (Compadre_USE_PYTHON)
   ENDIF()
 
   set(SWIG_PREFIX "../python") # relative to examples folder
-  bob_input(GMLS_Module_DEST "lib/python/dist-packages" PATH "Path to install python module")
+  bob_input(GMLS_Module_DEST "${CMAKE_INSTALL_LIBDIR}/python/dist-packages" PATH "Path to install python module")
 
   IF(NOT EXISTS ${PYTHON_INCLUDE_DIRS})
     EXECUTE_PROCESS(

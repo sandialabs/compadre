@@ -5,17 +5,23 @@ import distutils
 import subprocess 
 import shutil
 
+#try:
+#    import cmake
+#except:
+#    print("import cmake failed")
+#    import cmake
+
 import pkg_resources
 # rather than deal with --no-build-isolation flags and other various flags to get a decent CMake build,
 # we do not use build and install requirements in pyproject.toml
 
 min_wheel_version = ['0','33','1']
-min_numpy_version = ['1','16','0']
-min_cmake_version = ['3','0','0']
+min_numpy_version = ['1','14','0']
+#min_cmake_version = ['3','0','0']
 
 min_wheel_version_str = '.'.join(min_wheel_version)
 min_numpy_version_str = '.'.join(min_numpy_version)
-min_cmake_version_str = '.'.join(min_cmake_version)
+#min_cmake_version_str = '.'.join(min_cmake_version)
 
 is_error = False
 error_msg = ""
@@ -59,21 +65,21 @@ except AssertionError:
     error_msg = error_msg + """Python 'numpy' package is too old. [%s < %s]!
         Upgrade it by running 'pip install numpy --upgrade'"""%(numpy_version_str,min_numpy_version_str,) + "\n"
 
-try:
-    import cmake
-    cmake_version = pkg_resources.get_distribution("cmake").version.split('.')
-    assert cmake_version >= min_cmake_version
-except ImportError:
-    is_error = True
-    error_msg = error_msg + """You need the Python 'cmake' package >= %s!
-        install it by running 'pip install cmake'"""%(min_cmake_version_str,) + "\n"
-except AssertionError:
-    is_error = True
-    import cmake
-    cmake_version = pkg_resources.get_distribution("cmake").version.split('.')
-    cmake_version_str = '.'.join(cmake_version)
-    error_msg = error_msg + """Python 'cmake' package is too old. [%s < %s]!
-        Upgrade it by running 'pip install cmake --upgrade'"""%(cmake_version_str,min_cmake_version_str,) + "\n"
+#try:
+#    import cmake
+#    cmake_version = pkg_resources.get_distribution("cmake").version.split('.')
+#    assert cmake_version >= min_cmake_version
+#except ImportError:
+#    is_error = True
+#    error_msg = error_msg + """You need the Python 'cmake' package >= %s!
+#        install it by running 'pip install cmake'"""%(min_cmake_version_str,) + "\n"
+#except AssertionError:
+#    is_error = True
+#    import cmake
+#    cmake_version = pkg_resources.get_distribution("cmake").version.split('.')
+#    cmake_version_str = '.'.join(cmake_version)
+#    error_msg = error_msg + """Python 'cmake' package is too old. [%s < %s]!
+#        Upgrade it by running 'pip install cmake --upgrade'"""%(cmake_version_str,min_cmake_version_str,) + "\n"
 
 if is_error:
     sys.exit(error_msg)
@@ -108,77 +114,22 @@ class CMakeExtension(Extension):
 
 class InstallCommand(install):
     user_options = install.user_options + [
-        ('use-gpu', None, None),
-        ('use-openmp', None, None),
-        ('disable-openmp', None, None),
-        ('use-pthread', None, None),
-        ('disable-pthread', None, None),
-        ('kokkos-arch=', None, None),
-        ('trilinos-prefix=', None, None),
-        ('kokkos-prefix=', None, None),
-        ('cuda-prefix=', None, None),
-        ('cuda-cublas-prefix=', None, None),
-        ('blas-prefix=', None, None),
-        ('lapack-prefix=', None, None),
+        ('cmake-file=', None, 'File declaring CMake variables, separated by new lines.'),
     ]
 
     def initialize_options(self):
         install.initialize_options(self)
-        self.use_gpu = None
-        self.use_openmp = None
-        self.disable_openmp = None
-        self.use_pthread = None
-        self.disable_pthread = None
-        self.kokkos_arch = None
-        self.trilinos_prefix = None
-        self.kokkos_prefix = None
-        self.cuda_prefix = None
-        self.cuda_cublas_prefix = None
-        self.blas_prefix = None
-        self.lapack_prefix = None
+        self.cmake_file = None
 
     def finalize_options(self):
-        print("--use-gpu:", self.use_gpu)
-        print("--use-openmp:", self.use_openmp)
-        print("--disable-openmp:", self.disable_openmp)
-        print("--use-pthread:", self.use_pthread)
-        print("--disable-pthread:", self.disable_pthread)
-        print("--kokkos-arch:", self.kokkos_arch)
-        print("--trilinos-prefix:", self.trilinos_prefix)
-        print("--kokkos-prefix:", self.kokkos_prefix)
-        print("--cuda-prefix:", self.cuda_prefix)
-        print("--cuda-cublas-prefix:", self.cuda_cublas_prefix)
-        print("--blas-prefix:", self.blas_prefix)
-        print("--lapack-prefix:", self.lapack_prefix)
+        print("--cmake-file:", self.cmake_file)
         install.finalize_options(self)
 
     def run(self):
 
-        global use_gpu
-        global use_openmp
-        global disable_openmp
-        global use_pthread
-        global disable_pthread
-        global kokkos_arch
-        global trilinos_prefix
-        global kokkos_prefix
-        global cuda_prefix
-        global cuda_cublas_prefix
-        global blas_prefix
-        global lapack_prefix
+        global cmake_file
 
-        use_gpu = self.use_gpu
-        use_openmp = self.use_openmp
-        disable_openmp = self.disable_openmp
-        use_pthread = self.use_pthread
-        disable_pthread = self.disable_pthread
-        kokkos_arch = self.kokkos_arch
-        trilinos_prefix = self.trilinos_prefix
-        kokkos_prefix = self.kokkos_prefix
-        cuda_prefix = self.cuda_prefix
-        cuda_cublas_prefix = self.cuda_cublas_prefix
-        blas_prefix = self.blas_prefix
-        lapack_prefix = self.lapack_prefix
+        cmake_file = self.cmake_file
 
         install.run(self)
 
@@ -216,136 +167,16 @@ class build_ext(build_ext_orig):
         except:
             pass # already exists
 
-
-        # Parse bool for using GPU
-        use_gpu_string = "OFF"
-        try:
-            if use_gpu != None:
-                use_gpu_string = "ON"
-                print("Compadre_USE_CUDA set to ON")
-            else:
-                print("Compadre_USE_CUDA set to OFF")
-        except:
-            print("Compadre_USE_CUDA set to OFF")
-
-        # Parse bool for using OpenMP
-        use_openmp_string = ""
-        # check if turned on
-        try:
-            if use_openmp != None:
-                use_openmp_string = "ON"
-                print("Compadre_USE_OPENMP set to ON")
-            else:
-                print("Compadre_USE_OPENMP not set by Python")
-        except:
-            print("Compadre_USE_OPENMP not set by Python")
-        # check if turned off
-        try:
-            if disable_openmp != None:
-                use_openmp_string = "OFF"
-                print("Compadre_USE_OPENMP set to OFF")
-            else:
-                print("Compadre_USE_OPENMP not set by Python")
-        except:
-            print("Compadre_USE_OPENMP not set by Python")
-
-        # Parse bool for using Pthread
-        use_pthread_string = ""
-        # check if turned on
-        try:
-            if use_pthread != None:
-                use_pthread_string = "ON"
-                print("Compadre_USE_PTHREAD set to ON")
-            else:
-                print("Compadre_USE_PTHREAD not set by Python")
-        except:
-            print("Compadre_USE_PTHREAD not set by Python")
-        # check if turned off
-        try:
-            if disable_pthread != None:
-                use_pthread_string = "OFF"
-                print("Compadre_USE_PTHREAD set to OFF")
-            else:
-                print("Compadre_USE_PTHREAD not set by Python")
-        except:
-            print("Compadre_USE_PTHREAD not set by Python")
-
         # Parse string for kokkos architecture
-        kokkos_arch_string = ""
+        cmake_file_string = ""
         try:
-            if kokkos_arch != None:
-                kokkos_arch_string = str(kokkos_arch)
-                print("KokkosCore_ARCH set to: %s"%(kokkos_arch_string,))
+            if cmake_file != None:
+                cmake_file_string = str(cmake_file)
+                print("Custom cmake args file set to: %s"%(cmake_file_string,))
             else:
-                print("KokkosCore_ARCH not set.")
+                print("Custom cmake args file not set.")
         except:
-            print("KokkosCore_ARCH not set.")
-
-        # Parse string for trilinos prefix (containing a kokkos install, optional)
-        trilinos_prefix_string = ""
-        try:
-            if trilinos_prefix != None:
-                trilinos_prefix_string = str(trilinos_prefix)
-                print("Trilinos_PREFIX set to: %s"%(trilinos_prefix_string,))
-            else:
-                print("Trilinos_PREFIX not set in Python.")
-        except:
-            print("Trilinos_PREFIX not set in Python.")
-
-        # Parse string for kokkos prefix (user installed previous to python package install, optional)
-        kokkos_prefix_string = ""
-        try:
-            if kokkos_prefix != None:
-                kokkos_prefix_string = str(kokkos_prefix)
-                print("KokkosCore_PREFIX set to: %s"%(kokkos_prefix_string,))
-            else:
-                print("KokkosCore_PREFIX not set in Python.")
-        except:
-            print("KokkosCore_PREFIX not set in Python.")
-
-        # Parse string for CUDA prefix
-        cuda_prefix_string = ""
-        try:
-            if cuda_prefix != None:
-                cuda_prefix_string = str(cuda_prefix)
-                print("CUDA_PREFIX set to: %s"%(cuda_prefix_string,))
-            else:
-                print("CUDA_PREFIX not set in Python.")
-        except:
-            print("CUDA_PREFIX not set in Python.")
-
-        # Parse string for CUDA CUBLAS prefix
-        cuda_cublas_prefix_string = ""
-        try:
-            if cuda_cublas_prefix != None:
-                cuda_cublas_prefix_string = str(cuda_cublas_prefix)
-                print("CUDA_CUBLAS_PREFIX set to: %s"%(cuda_cublas_prefix_string,))
-            else:
-                print("CUDA_CUBLAS_PREFIX not set in Python.")
-        except:
-            print("CUDA_CUBLAS_PREFIX not set in Python.")
-
-        # Parse string for BLAS prefix
-        blas_prefix_string = ""
-        try:
-            if blas_prefix != None:
-                blas_prefix_string = str(blas_prefix)
-                print("BLAS_PREFIX set to: %s"%(blas_prefix_string,))
-            else:
-                print("BLAS_PREFIX not set in Python.")
-        except:
-            print("BLAS_PREFIX not set in Python.")
-
-        # Parse string for LAPACK prefix
-        lapack_prefix_string = ""
-        try:
-            if lapack_prefix != None:
-                lapack_prefix_string = str(lapack_prefix)
-                print("LAPACK_PREFIX set to: %s"%(lapack_prefix_string,))
-            else:
-                print("LAPACK_PREFIX not set in Python.")
-        except:
-            print("LAPACK_PREFIX not set in Python.")
+            print("Custom cmake args file not set.")
 
         # Configure CMake
         config = 'Debug' if self.debug else 'Release'
@@ -362,31 +193,14 @@ class build_ext(build_ext_orig):
             '-DCompadre_EXAMPLES:BOOL=OFF',
             '-DPYTHON_CALLING_BUILD:BOOL=ON',
         ]
-        if (len(kokkos_arch_string)>0):
-            for kokkos_arch in kokkos_arch_string.split(";").lstrip().rstrip():
-                if (len(kokkos_arch)>0):
-                    cmake_args.append('-DKokkos_ARCH_%s:BOOL=ON'%(kokkos_arch,))
 
-        if use_gpu_string != "":
-            cmake_args.append('-DCompadre_USE_CUDA:BOOL=%s'%(use_gpu_string,),)
-        if use_openmp_string != "":
-            cmake_args.append('-DCompadre_USE_OPENMP:BOOL=%s'%(use_openmp_string,),)
-        if use_pthread_string != "":
-            cmake_args.append('-DCompadre_USE_PTHREAD:BOOL=%s'%(use_pthread_string,),)
-        if kokkos_prefix_string != "":
-            cmake_args.append('-DKokkosCore_PREFIX:STRING=%s'%(kokkos_prefix_string,))
-        if cuda_prefix_string != "":
-            cmake_args.append('-DKokkos_CUDA_DIR:STRING=%s'%(cuda_prefix_string,))
-        if cuda_cublas_prefix_string != "":
-            cmake_args.append('-DKokkosKernels_CUBLAS_ROOT:STRING=%s'%(cuda_cublas_prefix_string,))
-        if blas_prefix_string != "":
-            cmake_args.append('-DKokkosKernels_BLAS_ROOT:STRING=%s'%(blas_prefix_string,))
-        if lapack_prefix_string != "":
-            cmake_args.append('-DKokkosKernels_LAPACK_ROOT:STRING=%s'%(lapack_prefix_string,))
-        if trilinos_prefix_string != "":
-            cmake_args.append('-DTrilinos_PREFIX:STRING=%s'%(trilinos_prefix_string,))
-        else:
-            cmake_args.append('-DCMAKE_BUILD_TYPE=' + config)
+        cmake_file_list = list()
+        if (cmake_file_string != ""):
+            cmake_arg_list = [line.rstrip('\n') for line in open(cmake_file_string)]
+            for arg in cmake_arg_list:
+                cmake_args.append('-D'+arg)
+            print('Custom CMake Args: ', cmake_arg_list)
+
         build_args = [
             '--config', config,
             '--', '-j4'
@@ -440,11 +254,12 @@ with open("README.md", "r") as fh:
 setup(
     name="compadre",
     version="VERSION", # generated by create_package.sh argument
+    python_requires='>3.4.0',
     setup_requires=[
           "pathlib2",
           "wheel>=%s"%(min_wheel_version_str,),
           "numpy>=%s"%(min_numpy_version_str,),
-          "cmake>=%s"%(min_cmake_version_str,),
+          #"cmake>=%s"%(min_cmake_version_str,),
     ],
     install_requires=[
           "numpy>=%s"%(min_numpy_version_str,),

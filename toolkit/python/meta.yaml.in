@@ -1,0 +1,45 @@
+{% set name = "compadre" %}
+{% set version = "VERSION" %}
+
+package:
+  name: "{{ name|lower }}"
+  version: "{{ version }}"
+
+source:
+  path: .
+
+build:
+  string: _py{{ python | replace(".", "") }}
+
+requirements:
+  host:
+    - python {{ python }}
+    - "numpy>=1.14.0" # [py34]
+    - "numpy>=1.15.0" # [py35]
+    - "numpy>=1.18.0" # [py36]
+    - "numpy>=1.16.0" # [py>=37]
+    - "cmake>=3.10.0"
+    - pathlib2
+    - wheel
+    - pip
+    - setuptools
+  run:
+    - python
+    - numpy
+
+test:
+  imports:
+    - compadre
+
+about:
+  home: https://github.com/SNLComputation/compadre
+  license: BSD
+  license_family: BSD
+  license_file: LICENSE.md
+  summary: COMpatible PArticle Discretization and REmap Toolkit
+  doc_url: 
+  dev_url: 
+
+extra:
+  recipe-maintainers:
+    - kuberry
