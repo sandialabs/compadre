@@ -489,7 +489,6 @@ public:
     //! Assumptions on input data:
     //! \param output_data_block_column       [out] - 2D Kokkos View (memory space must be device_execution_space::memory_space())
     //! \param sampling_data_single_column      [in] - 1D Kokkos View (memory space must match output_data_single_column)
-    //! \param lro                              [in] - Target operation from the TargetOperation enum
     //! \param sro                              [in] - Sampling functional from the SamplingFunctional enum
     //! \param target_index                     [in] - Target # user wants to reconstruct target functional at, corresponds to row number of neighbor_lists
     //! \param output_component_axis_1          [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
@@ -500,11 +499,10 @@ public:
     //! \param pre_transform_global_index       [in] - For manifold problems, this is the global coordinate direction that sampling data can be represented in
     //! \param post_transform_local_index       [in] - For manifold problems, this is the local coordinate direction that vector output target functionals from GMLS will output into
     //! \param post_transform_global_index      [in] - For manifold problems, this is the global coordinate direction that the target functional output from GMLS will be transformed into
-    //! \param transform_output_ambient         [in] - Whether or not a 1D output from GMLS is on the manifold and needs to be mapped to ambient space
     //! \param vary_on_target                   [in] - Whether the sampling functional has a tensor to act on sampling data that varies with each target site
     //! \param vary_on_neighbor                 [in] - Whether the sampling functional has a tensor to act on sampling data that varies with each neighbor site in addition to varying wit each target site
     template <typename view_type_data_out, typename view_type_data_in>
-    void applyFullPolynomialCoefficientsBasisToDataSingleComponent(view_type_data_out output_data_block_column, view_type_data_in sampling_data_single_column, TargetOperation lro, const SamplingFunctional sro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1, bool transform_output_ambient = false, bool vary_on_target = false, bool vary_on_neighbor = false) const {
+    void applyFullPolynomialCoefficientsBasisToDataSingleComponent(view_type_data_out output_data_block_column, view_type_data_in sampling_data_single_column, const SamplingFunctional sro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1, bool vary_on_target = false, bool vary_on_neighbor = false) const {
 
         auto neighbor_lists = _gmls->getNeighborLists();
         auto coefficient_matrix_dims = _gmls->getPolynomialCoefficientsDomainRangeSize();
@@ -518,7 +516,6 @@ public:
         auto coeffs         = _gmls->getFullPolynomialCoefficientsBasis();
         auto tangent_directions = _gmls->getTangentDirections();
         auto prestencil_weights = _gmls->getPrestencilWeights();
-        auto dense_solver_type = _gmls->getDenseSolverType();
 
         const int num_targets = neighbor_lists.extent(0); // one row for each target
 
@@ -601,8 +598,7 @@ public:
                     }
                 }
 
-                double post_T = (transform_output_ambient) ? T(post_transform_local_index, post_transform_global_index) : 1.0;
-                double added_value = post_T*(pre_T*gmls_value + pre_T_staggered*staggered_value_from_targets);
+                double added_value = (pre_T*gmls_value + pre_T_staggered*staggered_value_from_targets);
                 Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
                     output_data_block_column(target_index, j) = previous_value + added_value;
                 });
@@ -621,25 +617,11 @@ public:
     //! 
     //! Assumptions on input data:
     //! \param sampling_data              [in] - 1D or 2D Kokkos View that has the layout #targets * columns of data. Memory space for data can be host or device. 
-    //! \param lro                        [in] - Target operation from the TargetOperation enum
     //! \param sro                        [in] - Sampling functional from the SamplingFunctional enum
     //! \param scalar_as_vector_if_needed [in] - If a 1D view is given, where a 2D view is expected (scalar values given where a vector was expected), then the scalar will be repeated for as many components as the vector has
     template <typename output_data_type = double**, typename output_memory_space, typename view_type_input_data, typename output_array_layout = typename view_type_input_data::array_layout>
     Kokkos::View<output_data_type, output_array_layout, output_memory_space>  // shares layout of input by default
             applyFullPolynomialCoefficientsBasisToDataAllComponents(view_type_input_data sampling_data, bool scalar_as_vector_if_needed = true) const {
-
-        // this function returns the polynomial coefficients, not the evaluation of a target operation applied to the polynomial coefficients
-        // because of this, it doesn't make sense to specify a TargetOperation, so we use the ScalarPointEvaluation because we need an lro
-        // that will index input tile sizes correctly in the GMLS object.
-
-        TargetOperation lro = TargetOperation::ScalarPointEvaluation;
-
-        // we do a quick check that the user specified ScalarPointEvaluation as one of the target operations they wanted to have
-        // performed when they created the GMLS class. If they didn't, then we have no valid index into the input and output
-        // sizes needed to determine bounds for loops
-
-        compadre_assert_release((_gmls->getTargetOperationLocalIndex(lro) >= 0) && "applyFullPolynomialCoefficientsBasisToDataAllComponents called"
-                " on a GMLS class where ScalarPointEvaluation was not among the registered TargetOperations");
 
         // output can be device or host
         // input can be device or host
@@ -647,7 +629,6 @@ public:
 
         typedef Kokkos::View<output_data_type, output_array_layout, output_memory_space> output_view_type;
 
-        auto problem_type = _gmls->getProblemType();
         auto global_dimensions = _gmls->getGlobalDimensions();
         auto output_dimension_of_reconstruction_space = _gmls->calculateBasisMultiplier(_gmls->getReconstructionSpace());
         auto input_dimension_of_reconstruction_space = _gmls->calculateSamplingMultiplier(_gmls->getReconstructionSpace(), _gmls->getPolynomialSamplingFunctional());
@@ -656,15 +637,9 @@ public:
         // gather needed information for evaluation
         auto neighbor_lists = _gmls->getNeighborLists();
 
-        // determines the number of columns needed for output after action of the target functional
-        int output_dimensions;
-        if (problem_type==MANIFOLD && TargetOutputTensorRank[(int)lro]==1) {
-            output_dimensions = global_dimensions;
-        } else {
-            output_dimensions = output_dimension_of_reconstruction_space;
-        }
+        // determines the number of columns needed for output
+        int output_dimensions = output_dimension_of_reconstruction_space;
 
-        // don't need to check for VectorPointSample and problem_type==MANIFOLD because _gmls already handled this
         const SamplingFunctional sro = _gmls->getDataSamplingFunctional();
 
         // create view on whatever memory space the user specified with their template argument when calling this function
@@ -684,7 +659,7 @@ public:
 
         // all loop logic based on transforming data under a sampling functional
         // into something that is valid input for GMLS
-        bool vary_on_target, vary_on_neighbor;
+        bool vary_on_target = false, vary_on_neighbor = false;
         auto sro_style = sro.transform_type;
         bool loop_global_dimensions = sro.input_rank>0 && sro_style!=Identity; 
 
@@ -700,8 +675,6 @@ public:
             vary_on_neighbor = true;
         }
 
-        bool transform_gmls_output_to_ambient = (problem_type==MANIFOLD && TargetOutputTensorRank[(int)lro]==1);
-
         // written for up to rank 1 to rank 0 (in / out)
         // loop over components of output of the target operation
         for (int i=0; i<output_dimension_of_reconstruction_space; ++i) {
@@ -712,46 +685,26 @@ public:
                 const int input_component_axis_1 = j;
                 const int input_component_axis_2 = 0;
 
-                if (loop_global_dimensions && transform_gmls_output_to_ambient) {
-                    for (int k=0; k<global_dimensions; ++k) { // loop for handling sampling functional
-                        for (int l=0; l<global_dimensions; ++l) { // loop for transforming output of GMLS to ambient
-                            this->applyFullPolynomialCoefficientsBasisToDataSingleComponent(
-                                    output_subview_maker.get2DView(k,_gmls->getPolynomialCoefficientsSize()), 
-                                    sampling_subview_maker.get1DView(l), 
-                                    lro, sro, output_component_axis_1, output_component_axis_2, 
-                                    input_component_axis_1, input_component_axis_2, j, k, i, l,
-                                    transform_gmls_output_to_ambient, vary_on_target, vary_on_neighbor);
-                        }
-                    }
-                } else if (transform_gmls_output_to_ambient) {
-                    for (int k=0; k<global_dimensions; ++k) { // loop for transforming output of GMLS to ambient
-                        this->applyFullPolynomialCoefficientsBasisToDataSingleComponent(
-                                output_subview_maker.get2DView(k,_gmls->getPolynomialCoefficientsSize()), 
-                                sampling_subview_maker.get1DView(j), lro, sro, 
-                                output_component_axis_1, output_component_axis_2, input_component_axis_1, 
-                                input_component_axis_2, -1, -1, i, k,
-                                transform_gmls_output_to_ambient, vary_on_target, vary_on_neighbor);
-                    }
-                } else if (loop_global_dimensions) {
+                if (loop_global_dimensions) {
                     for (int k=0; k<global_dimensions; ++k) { // loop for handling sampling functional
                         this->applyFullPolynomialCoefficientsBasisToDataSingleComponent(
                                 output_subview_maker.get2DView(i,_gmls->getPolynomialCoefficientsSize()), 
-                                sampling_subview_maker.get1DView(k), lro, sro, 
+                                sampling_subview_maker.get1DView(k), sro, 
                                 output_component_axis_1, output_component_axis_2, input_component_axis_1, 
-                                input_component_axis_2, j, k, -1, -1, transform_gmls_output_to_ambient,
+                                input_component_axis_2, j, k, -1, -1,
                                 vary_on_target, vary_on_neighbor);
                     }
                 } else if (sro_style != Identity) {
                     this->applyFullPolynomialCoefficientsBasisToDataSingleComponent(
                             output_subview_maker.get2DView(i,_gmls->getPolynomialCoefficientsSize()), 
-                            sampling_subview_maker.get1DView(j), lro, sro, 
+                            sampling_subview_maker.get1DView(j), sro, 
                             output_component_axis_1, output_component_axis_2, input_component_axis_1, 
                             input_component_axis_2, 0, 0, -1, -1,
-                            transform_gmls_output_to_ambient, vary_on_target, vary_on_neighbor);
+                            vary_on_target, vary_on_neighbor);
                 } else { // standard
                     this->applyFullPolynomialCoefficientsBasisToDataSingleComponent(
                             output_subview_maker.get2DView(i,_gmls->getPolynomialCoefficientsSize()), 
-                            sampling_subview_maker.get1DView(j), lro, sro, 
+                            sampling_subview_maker.get1DView(j), sro, 
                             output_component_axis_1, output_component_axis_2, input_component_axis_1, 
                             input_component_axis_2);
                 }
@@ -765,6 +718,6 @@ public:
 
 }; // Evaluator
 
-}; // Compadre
+} // Compadre
 
 #endif
