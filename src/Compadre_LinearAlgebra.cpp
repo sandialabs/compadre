@@ -195,9 +195,9 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
 
     Kokkos::Profiling::pushRegion("SVD::Setup(Handle)");
       cudaError_t cudaStat1 = cudaSuccess;
-      cusolverDnHandle_t * cusolver_handles = (cusolverDnHandle_t *) malloc(NUM_STREAMS*sizeof(cusolverDnHandle_t));
+      std::vector<cusolverDnHandle_t> cusolver_handles(NUM_STREAMS);
       cusolverStatus_t cusolver_stat = CUSOLVER_STATUS_SUCCESS;
-      cudaStream_t *streams = (cudaStream_t *) malloc(NUM_STREAMS*sizeof(cudaStream_t));
+      std::vector<cudaStream_t> streams(NUM_STREAMS);
       gesvdjInfo_t gesvdj_params = NULL;
     Kokkos::Profiling::popRegion();
 
@@ -344,10 +344,6 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
         cusolverDnDestroy(cusolver_handles[i]);
     }
 
-    free(streams);
-    free(cusolver_handles);
-
-
 
     Kokkos::Profiling::pushRegion("SVD::S Copy");
     // deep copy neighbor list sizes over to gpu
@@ -477,8 +473,8 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
     const int nlvl = std::max(0, int( std::log2( std::min(M,N) / (smlsiz+1) ) + 1));
     const int liwork = 3*std::min(M,N)*nlvl + 11*std::min(M,N);
 
-    int iwork[liwork];
-    double s[std::max(M,N)];
+    std::vector<int> iwork(liwork);
+    std::vector<double> s(std::max(M,N));
 
     int lwork = -1;
     double wkopt = 0;
@@ -489,8 +485,8 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
         dgelsd_( &M, &N, &NRHS, 
                  P, &lda, 
                  RHS, &ldb, 
-                 s, &rcond, &rank,
-                 &wkopt, &lwork, iwork, &info);
+                 s.data(), &rcond, &rank,
+                 &wkopt, &lwork, iwork.data(), &info);
     }
     lwork = (int)wkopt;
 
@@ -539,9 +535,9 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
 
     #else
     
-        double * scratch_work = (double *)malloc(sizeof(double)*lwork);
-        double * scratch_s = (double *)malloc(sizeof(double)*std::max(M,N));
-        int * scratch_iwork = (int *)malloc(sizeof(int)*liwork);
+        std::vector<double> scratch_work(lwork);
+        std::vector<double> scratch_s(std::max(M,N));
+        std::vector<int>    scratch_iwork(liwork);
         
         for (int i=0; i<num_matrices; ++i) {
 
@@ -559,16 +555,12 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
                 dgelsd_( const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rhs),
                          p_offset, const_cast<int*>(&lda),
                          rhs_offset, const_cast<int*>(&ldb),
-                         scratch_s, const_cast<double*>(&rcond), &i_rank,
-                         scratch_work, const_cast<int*>(&lwork), scratch_iwork, &i_info);
+                         scratch_s.data(), const_cast<double*>(&rcond), &i_rank,
+                         scratch_work.data(), const_cast<int*>(&lwork), scratch_iwork.data(), &i_info);
 
                 compadre_assert_release(i_info==0 && "dgelsd failed");
 
         }
-
-        free(scratch_work);
-        free(scratch_s);
-        free(scratch_iwork);
 
     #endif // LAPACK is not threadsafe
 
@@ -773,5 +765,5 @@ void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *R
 
 }
 
-}; // GMLS_LinearAlgebra
-}; // Compadre
+} // GMLS_LinearAlgebra
+} // Compadre
