@@ -240,7 +240,7 @@ double curlTestSolution(double x, double y, double z, int component, int dimensi
 KOKKOS_INLINE_FUNCTION
 double divfreeTestSolution(double x, double y, double z, int component, int dimension) {
     if (dimension==3) {
-        // returns curl of divergenceTestSamples
+        // returns divergenceTestSamples
         switch (component) {
         case 0:
             return 6.0*x*x*y - 9.0*x*y + 7.0*x*z*z + 6.0*y*y*z;
@@ -248,6 +248,13 @@ double divfreeTestSolution(double x, double y, double z, int component, int dime
             return 10.0*x*x*z - 7.0*y*z*z - 6.0*x*y*y;
         default:
             return -2.0*x*x*x + 9.0*x*y*y + 9.0*y*z;
+        }
+    } else if (dimension==2) {
+        switch (component) {
+        case 0:
+            return 6.0*x*x*y;
+        case 1:
+            return -6.0*x*y*y;
         }
     } else {
         return 0;
@@ -264,7 +271,7 @@ double curldivfreeTestSolution(double x, double y, double z, int component, int 
         case 1:
             return 6.0*x*x + 14.0*x*z - 3.0*y*y;
         default:
-            return -6.0*x*x + 20.0*x*z + 9.0*x - 6.0*y*y + 12.0*y*z;
+            return -6.0*x*x + 20.0*x*z + 9.0*x - 6.0*y*y - 12.0*y*z;
         }
     } else {
         return 0;
@@ -282,6 +289,13 @@ double curlcurldivfreeTestSolution(double x, double y, double z, int component, 
             return 12.0*x + 14.0*y - 20.0*z;
         default:
             return -6.0*x;
+        }
+    } else if (dimension==2) {
+        switch (component) {
+        case 0:
+            return -12.0*y;
+        case 1:
+            return 12.0*x;
         }
     } else {
         return 0;
@@ -310,6 +324,18 @@ double gradientdivfreeTestSolution(double x, double y, double z, int component, 
                 return 18.0*x*y + 9.0*z;
             case 8:
                 return 9.0*y;
+        }
+    }
+    if (dimension==2) {
+        switch (component) {
+            case 0:
+                return 12.0*x*y ;
+            case 1:
+                return 6.0*x*x;
+            case 2:
+                return -6.0*y*y;
+            case 3:
+                return -12.0*x*y;
         }
     }
     return 0.0;

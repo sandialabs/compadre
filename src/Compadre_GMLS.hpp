@@ -785,21 +785,38 @@ public:
             else if (dimension == 2) return (m+1)*(m+2)/2;
             else return m+1;
         } else {
-          switch (m) {
-              case 0:
-                  return 3;
-              case 1:
-                  return 11;
-              case 2:
-                  return 26;
-              case 3:
-                  return 50;
-              case 4:
-                  return 85;
-              default:
-                  compadre_kernel_assert_release((false) && "Divergence-free basis only supports up to 4th-order polynomials.");
-                  return 0; // avoids warning about no return
-          }
+            if (dimension == 3)
+                switch (m) {
+                    case 0:
+                        return 3;
+                    case 1:
+                        return 11;
+                    case 2:
+                        return 26;
+                    case 3:
+                        return 50;
+                    case 4:
+                        return 85;
+                    default:
+                        compadre_kernel_assert_release((false) && "Divergence-free basis only supports up to 4th-order polynomials.");
+                        return 0; // avoids warning about no return
+                }
+            if (dimension == 2) 
+                switch (m) {
+                    case 0:
+                        return 2;
+                    case 1:
+                        return 5;
+                    case 2:
+                        return 9;
+                    case 3:
+                        return 14;
+                    case 4:
+                        return 20;
+                    default:
+                        compadre_kernel_assert_release((false) && "Divergence-free basis only supports up to 4th-order polynomials.");
+                        return 0; // avoids warning about no return
+                }
         }
     }
 
@@ -1172,6 +1189,18 @@ public:
     //! Input rank for sampling operation
     int getInputRankOfSampling(SamplingFunctional sro) const {
         return sro.input_rank;
+    }
+
+    int getInputDimensionOfPolynomialBasis() {
+        if (_reconstruction_space == ReconstructionSpace::ScalarTaylorPolynomial || _reconstruction_space == ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial) {
+            return 1;
+        } else {
+            return this->getGlobalDimensions();
+        }
+    }
+
+    int getOutputDimensionOfPolynomialBasis() const {
+        return 1;
     }
 
 ///@}

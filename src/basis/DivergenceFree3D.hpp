@@ -116,6 +116,51 @@ ports up to 4th-order polynomials for now.");
                      return XYZ(0,0,0); // avoid warning about no return
         }
     }
+
+    KOKKOS_INLINE_FUNCTION
+    XYZ calDivFreeBasis(int np, const double sx, const double sy) {
+        // define one-third
+
+        switch (np) {
+            // P0
+            case 0: return XYZ(1.0,0.0,0.0);
+            case 1: return XYZ(0.0,1.0,0.0);
+
+            // P1
+            case 2: return XYZ(sy,  0, 0);
+            case 3: return XYZ( 0, sx, 0);
+            case 4: return XYZ(sx,-sy, 0);
+
+            // P2
+            case 5: return XYZ(      sy*sy,          0, 0);
+            case 6: return XYZ(          0,      sx*sx, 0);
+
+            case 7: return XYZ(      sx*sx, -2.0*sx*sy, 0);
+            case 8: return XYZ( -2.0*sx*sy,      sy*sy, 0);
+
+            // P3
+            case 9 : return XYZ(     sy*sy*sy,             0, 0);
+            case 10: return XYZ(            0,      sx*sx*sx, 0);
+
+            case 11: return XYZ(     sx*sx*sx, -3.0*sx*sx*sy, 0);
+            case 12: return XYZ(     sx*sx*sy, -1.0*sx*sy*sy, 0);
+            case 13: return XYZ(-3.0*sx*sy*sy,      sy*sy*sy, 0);
+
+            // P4
+            case 14: return XYZ(     sy*sy*sy*sy,                0, 0);
+            case 15: return XYZ(               0,      sx*sx*sx*sx, 0);
+
+            case 16: return XYZ(     sx*sx*sx*sx, -4.0*sx*sx*sx*sy, 0);
+            case 17: return XYZ( 2.0*sx*sx*sx*sy, -3.0*sx*sx*sy*sy, 0);
+            case 18: return XYZ(-3.0*sx*sx*sy*sy,  2.0*sx*sy*sy*sy, 0);
+            case 19: return XYZ(-4.0*sx*sy*sy*sy,      sy*sy*sy*sy, 0);
+
+        // default
+            default: compadre_kernel_assert_release((false) && "Divergence-free basis only sup\
+ports up to 4th-order polynomials for now.");
+                     return XYZ(0,0,0); // avoid warning about no return
+        }
+    }
 }
 
 #endif

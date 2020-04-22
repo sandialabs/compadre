@@ -772,26 +772,42 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     for (int m0=0; m0<_sampling_multiplier; ++m0) { // input components
                         for (int m1=0; m1<_sampling_multiplier; ++m1) { // output components
                             int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, 0 /*no additional*/);
-                            switch (m1) {
-                                // manually compute the output components
-                                case 0:
-                                    // output component 0
-                                    P_target_row(offset, 11) = -2.0*std::pow(_epsilons(target_index), -2);
-                                    P_target_row(offset, 12) = -2.0*std::pow(_epsilons(target_index), -2);
-                                    P_target_row(offset, 20) = -2.0*std::pow(_epsilons(target_index), -2);
-                                    break;
-                                case 1:
-                                    // output component 1
-                                    P_target_row(offset, 14) = -2.0*std::pow(_epsilons(target_index), -2);
-                                    P_target_row(offset, 15) = -2.0*std::pow(_epsilons(target_index), -2);
-                                    P_target_row(offset, 23) = -2.0*std::pow(_epsilons(target_index), -2);
-                                    break;
-                                default:
-                                    // output component 2
-                                    P_target_row(offset, 17) = -2.0*std::pow(_epsilons(target_index), -2);
-                                    P_target_row(offset, 18) = -2.0*std::pow(_epsilons(target_index), -2);
-                                    P_target_row(offset, 25) = -2.0*std::pow(_epsilons(target_index), -2);
-                                    break;
+                            if (_dimensions == 3) {
+                                switch (m1) {
+                                    // manually compute the output components
+                                    case 0:
+                                        // output component 0
+                                        P_target_row(offset, 11) = -2.0*std::pow(_epsilons(target_index), -2);
+                                        P_target_row(offset, 12) = -2.0*std::pow(_epsilons(target_index), -2);
+                                        P_target_row(offset, 20) = -2.0*std::pow(_epsilons(target_index), -2);
+                                        break;
+                                    case 1:
+                                        // output component 1
+                                        P_target_row(offset, 14) = -2.0*std::pow(_epsilons(target_index), -2);
+                                        P_target_row(offset, 15) = -2.0*std::pow(_epsilons(target_index), -2);
+                                        P_target_row(offset, 23) = -2.0*std::pow(_epsilons(target_index), -2);
+                                        break;
+                                    default:
+                                        // output component 2
+                                        P_target_row(offset, 17) = -2.0*std::pow(_epsilons(target_index), -2);
+                                        P_target_row(offset, 18) = -2.0*std::pow(_epsilons(target_index), -2);
+                                        P_target_row(offset, 25) = -2.0*std::pow(_epsilons(target_index), -2);
+                                        break;
+                                }
+                            }
+                            if (_dimensions == 2) {
+                                switch (m1) {
+                                    case 0:
+                                        // output component 0
+                                        P_target_row(offset, 5) = -2.0*std::pow(_epsilons(target_index), -2);
+                                        P_target_row(offset, 7) = -2.0*std::pow(_epsilons(target_index), -2);
+                                        break;
+                                    case 1:
+                                        // output component 1
+                                        P_target_row(offset, 6) = -2.0*std::pow(_epsilons(target_index), -2);
+                                        P_target_row(offset, 8) = -2.0*std::pow(_epsilons(target_index), -2);
+                                        break;
+                                }
                             }
                         }
                     }
@@ -802,7 +818,8 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                         for (int m1=0; m1<_sampling_multiplier; ++m1) { // output components 1
                             for (int m2=0; m2<_sampling_multiplier; ++m2) { // output componets 2
                                 int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1*_sampling_multiplier+m2 /*out*/, 0 /*no additional*/);
-                                switch (m1) {
+                                if (_dimensions == 3) {
+                                    switch (m1) {
                                     // manually compute the output components
                                     case 0:
                                         switch (m2) {
@@ -853,6 +870,32 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                                                 break;
                                         }
                                         break;
+                                    }
+                                }
+                                if (_dimensions == 2) {
+                                    switch (m1) {
+                                    // manually compute the output components
+                                    case 0:
+                                        switch (m2) {
+                                            case 0:
+                                                P_target_row(offset, 4) = std::pow(_epsilons(target_index), -1);
+                                                break;
+                                            case 1:
+                                                P_target_row(offset, 2) = std::pow(_epsilons(target_index), -1);
+                                                break;
+                                        }
+                                        break;
+                                    case 1:
+                                        switch (m2) {
+                                            case 0:
+                                                P_target_row(offset, 3) = std::pow(_epsilons(target_index), -1);
+                                                break;
+                                            case 1:
+                                                P_target_row(offset, 4) = -std::pow(_epsilons(target_index), -1);
+                                                break;
+                                        }
+                                        break;
+                                    }
                                 }
                             }
                         }
