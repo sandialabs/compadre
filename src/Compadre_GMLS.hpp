@@ -1053,6 +1053,9 @@ public:
     //! Get the data sampling functional specified at instantiation (often the same as the polynomial sampling functional)
     SamplingFunctional getDataSamplingFunctional() const { return _data_sampling_functional; }
 
+    //! Get the reconstruction space specified at instantiation
+    ReconstructionSpace getReconstructionSpace() const { return _reconstruction_space; }
+
     //! Helper function for getting alphas for scalar reconstruction from scalar data
     double getAlpha0TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int additional_evaluation_site = 0) const {
         // e.g. Dirac Delta target of a scalar field
@@ -1191,17 +1194,28 @@ public:
         return sro.input_rank;
     }
 
-    int getInputDimensionOfPolynomialBasis() {
-        if (_reconstruction_space == ReconstructionSpace::ScalarTaylorPolynomial || _reconstruction_space == ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial) {
-            return 1;
-        } else {
-            return this->getGlobalDimensions();
-        }
+    //! Calculate basis_multiplier
+    int calculateBasisMultiplier(const ReconstructionSpace rs) const {
+        // calculate the dimension of the basis 
+        // (a vector space on a manifold requires two components, for example)
+        return std::pow(_local_dimensions, ActualReconstructionSpaceRank[(int)rs]);
     }
 
-    int getOutputDimensionOfPolynomialBasis() const {
-        return 1;
+    //! Calculate sampling_multiplier
+    int calculateSamplingMultiplier(const ReconstructionSpace rs, const SamplingFunctional sro) const {
+        // this would normally be SamplingOutputTensorRank[_data_sampling_functional], but we also want to handle the
+        // case of reconstructions where a scalar basis is reused as a vector, and this handles everything
+        // this handles scalars, vectors, and scalars that are reused as vectors
+        int bm = this->calculateBasisMultiplier(rs);
+        int sm = this->getOutputDimensionOfSampling(sro);
+        if (rs == ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial) {
+            // storage and computational efficiency by reusing solution to scalar problem for 
+            // a vector problem (in 3d, 27x cheaper computation, 9x cheaper storage)
+            sm = std::min(bm,sm);
+        }
+        return sm;
     }
+
 
 ///@}
 
