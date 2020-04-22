@@ -240,7 +240,7 @@ double curlTestSolution(double x, double y, double z, int component, int dimensi
 KOKKOS_INLINE_FUNCTION
 double divfreeTestSolution(double x, double y, double z, int component, int dimension) {
     if (dimension==3) {
-        // returns divergenceTestSamples
+        // returns divfreeTestSamples
         switch (component) {
         case 0:
             return 6.0*x*x*y - 9.0*x*y + 7.0*x*z*z + 6.0*y*y*z;
