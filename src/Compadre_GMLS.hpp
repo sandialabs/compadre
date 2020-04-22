@@ -874,6 +874,28 @@ public:
         return std::sqrt(inside_val);
     }
 
+
+    //! Helper function for finding alpha coefficients
+    static int getTargetOutputIndex(const int operation_num, const int output_component_axis_1, const int output_component_axis_2, const int dimensions) {
+        const int axis_1_size = (TargetOutputTensorRank[operation_num] > 1) ? dimensions : 1;
+        return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
+    }
+
+    //! Helper function for finding alpha coefficients
+    static int getSamplingOutputIndex(const SamplingFunctional sf, const int output_component_axis_1, const int output_component_axis_2) {
+        const int axis_1_size = (sf.output_rank > 1) ? sf.output_rank : 1;
+        return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
+    }
+
+    //! Output rank for sampling operation
+    static int getOutputRankOfSampling(SamplingFunctional sro) {
+        return sro.output_rank;
+    }
+
+    //! Input rank for sampling operation
+    static int getInputRankOfSampling(SamplingFunctional sro) {
+        return sro.input_rank;
+    }
     
 
 ///@}
@@ -1183,16 +1205,6 @@ public:
     //! (always in ambient space, never local chart on a manifold)
     int getInputDimensionOfSampling(SamplingFunctional sro) const {
         return std::pow(_global_dimensions, sro.input_rank);
-    }
-
-    //! Output rank for sampling operation
-    int getOutputRankOfSampling(SamplingFunctional sro) const {
-        return sro.output_rank;
-    }
-
-    //! Input rank for sampling operation
-    int getInputRankOfSampling(SamplingFunctional sro) const {
-        return sro.input_rank;
     }
 
     //! Calculate basis_multiplier
@@ -1745,7 +1757,7 @@ public:
             _host_lro_total_offsets(i) = total_offset;
 
             // allows for a tile of the product of dimension^input_tensor_rank * dimension^output_tensor_rank * the number of neighbors
-            int output_tile_size = std::pow(_local_dimensions, TargetOutputTensorRank[(int)_lro[i]]);
+            int output_tile_size = getOutputDimensionOfOperation(_lro[i], false /* uses _local_dimension */);
 
             // the target functional input indexing is sized based on the output rank of the sampling
             // functional used
@@ -1810,7 +1822,7 @@ public:
 
 
 }; // GMLS Class
-}; // Compadre
+} // Compadre
 
 #endif
 

@@ -211,23 +211,6 @@ namespace Compadre {
         Local,   ///< a 2D manifold in 3D in local coordinates would have 2 components for a vector
     };
 
-    //! Helper function for finding alpha coefficients
-    static int getTargetOutputIndex(const int operation_num, const int output_component_axis_1, const int output_component_axis_2, const int dimensions) {
-        const int axis_1_size = (TargetOutputTensorRank[operation_num] > 1) ? dimensions : 1;
-        return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
-    }
-
-    //! Helper function for finding alpha coefficients
-    static int getSamplingOutputIndex(const SamplingFunctional sf, const int output_component_axis_1, const int output_component_axis_2) {
-        const int axis_1_size = (sf.output_rank > 1) ? sf.output_rank : 1;
-        return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
-    }
-
-    //static bool validTargetSpaceSample(TargetOperation to, ReconstructionSpace rs, SamplingFunctional sf) {
-    //    // all valid combinations to be added here
-    //    return true;
-    //}
-
     /*
        \page pageGMLSOperators GMLS Target Operations, Spaces, and Sampling Functionals
        \section sectionGMLSTarget Target Operations
@@ -238,6 +221,6 @@ namespace Compadre {
     */
 
 
-}; // Compadre
+} // Compadre
 
 #endif
