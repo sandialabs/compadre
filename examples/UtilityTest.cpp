@@ -116,19 +116,19 @@ bool all_passed = true;
 
     //! [Checking Filtered And Extracted Data]
 
-    if (filtered_flags.extent(0) != num_filtered_flags) {
+    if (filtered_flags.extent(0) != (size_t)num_filtered_flags) {
         all_passed = false;
         std::cout << "Failed - number of filtered flags not matched!" << filtered_flags.extent(0) << " " << num_filtered_flags << std::endl;
     }
-    for (int i=0; i<filtered_flags.extent(0); i++) {
+    for (size_t i=0; i<filtered_flags.extent(0); i++) {
         if (filtered_flags(i) % 2 != 0) {
             all_passed = false;
             std::cout << "Failed - incorrect filtered flags " << filtered_flags(i) << std::endl;
         }
     }
     // All values inside extracted data should now be 1
-    for (int i=0; i<extracted_data.extent(0); i++) {
-        for (int j=0; j<extracted_data.extent(1); j++) {
+    for (size_t i=0; i<extracted_data.extent(0); i++) {
+        for (size_t j=0; j<extracted_data.extent(1); j++) {
             if (extracted_data(i, j) != 1) {
                 all_passed = false;
                 std::cout << "Failed - incorrect values in extracted view at index " << i << " " << j << " " << extracted_data(i, j) << std::endl;

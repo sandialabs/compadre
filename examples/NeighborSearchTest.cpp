@@ -364,7 +364,7 @@ bool all_passed = true;
                 }
             }
             // verify k neighbors found
-            if (brute_force_neighbor_list_i.size() < min_neighbors) t_total_insufficient_neighbors++;
+            if (brute_force_neighbor_list_i.size() < (size_t)min_neighbors) t_total_insufficient_neighbors++;
         }, Kokkos::Sum<int>(total_insufficient_neighbors));
         if (total_insufficient_neighbors > 0) {
             printf("less neighbors found using kth_neighbor_distance+eps than using knn search.\n");

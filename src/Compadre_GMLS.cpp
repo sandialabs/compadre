@@ -513,7 +513,6 @@ void GMLS::operator()(const ApplyStandardTargets&, const member_type& teamMember
      *    Dimensions
      */
 
-    const int target_index = _initial_index_for_batch + teamMember.league_rank();
     const int local_index  = teamMember.league_rank();
 
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
@@ -1338,4 +1337,4 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
     teamMember.team_barrier();
 }
 
-}; // Compadre
+} // Compadre

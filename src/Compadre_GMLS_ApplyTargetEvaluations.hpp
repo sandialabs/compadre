@@ -146,5 +146,5 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
     teamMember.team_barrier();
 }
 
-}; // Compadre
+} // Compadre
 #endif

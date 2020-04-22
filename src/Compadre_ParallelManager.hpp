@@ -304,7 +304,7 @@ public:
 
 
 }; // ParallelManager Class
-}; // Compadre
+} // Compadre
 
 #endif
 

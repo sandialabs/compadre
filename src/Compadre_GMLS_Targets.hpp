@@ -1073,7 +1073,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 
                     double h = _epsilons(target_index);
-                    double a1, a2, a3, a4, a5;
+                    double a1=0, a2=0, a3=0, a4=0, a5=0;
                     if (_curvature_poly_order > 0) {
                         a1 = curvature_coefficients(1);
                         a2 = curvature_coefficients(2);
@@ -1111,7 +1111,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 
                         double h = _epsilons(target_index);
-                        double a1, a2, a3, a4, a5;
+                        double a1=0, a2=0, a3=0, a4=0, a5=0;
                         if (_curvature_poly_order > 0) {
                             a1 = curvature_coefficients(1);
                             a2 = curvature_coefficients(2);
@@ -1148,7 +1148,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 
                         double h = _epsilons(target_index);
-                        double a1, a2, a3, a4, a5;
+                        double a1=0, a2=0, a3=0, a4=0, a5=0;
                         if (_curvature_poly_order > 0) {
                             a1 = curvature_coefficients(1);
                             a2 = curvature_coefficients(2);
@@ -1184,7 +1184,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 
                         double h = _epsilons(target_index);
-                        double a1, a2, a3, a4, a5;
+                        double a1=0, a2=0, a3=0, a4=0, a5=0;
                         if (_curvature_poly_order > 0) {
                             a1 = curvature_coefficients(1);
                             a2 = curvature_coefficients(2);
@@ -1241,7 +1241,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 
                         double h = _epsilons(target_index);
-                        double a1, a2, a3, a4, a5;
+                        double a1=0, a2=0, a3=0, a4=0, a5=0;
                         if (_curvature_poly_order > 0) {
                             a1 = curvature_coefficients(1);
                             a2 = curvature_coefficients(2);
@@ -1353,7 +1353,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 
                         double h = _epsilons(target_index);
-                        double a1, a2, a3, a4, a5;
+                        double a1=0, a2=0, a3=0, a4=0, a5=0;
                         if (_curvature_poly_order > 0) {
                             a1 = curvature_coefficients(1);
                             a2 = curvature_coefficients(2);
@@ -1401,7 +1401,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 
                         double h = _epsilons(target_index);
-                        double a1, a2, a3, a4, a5;
+                        double a1=0, a2=0, a3=0, a4=0, a5=0;
                         if (_curvature_poly_order > 0) {
                             a1 = curvature_coefficients(1);
                             a2 = curvature_coefficients(2);
@@ -1449,7 +1449,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 
                         double h = _epsilons(target_index);
-                        double a1, a2, a3, a4, a5;
+                        double a1=0, a2=0, a3=0, a4=0, a5=0;
                         if (_curvature_poly_order > 0) {
                             a1 = curvature_coefficients(1);
                             a2 = curvature_coefficients(2);
@@ -1664,5 +1664,5 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
     }
 }
 
-}; // Compadre
+} // Compadre
 #endif

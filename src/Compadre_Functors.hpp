@@ -18,7 +18,7 @@ struct ConvertLayoutLeftToRight {
 
     // Constructor
     ConvertLayoutLeftToRight(const ParallelManager &pm, int rows, int cols, double* mat_ptr):
-        _pm(pm), _rows(rows), _cols(cols), _permanent_mat_ptr(mat_ptr) {};
+        _rows(rows), _cols(cols), _permanent_mat_ptr(mat_ptr), _pm(pm) {};
 
     KOKKOS_INLINE_FUNCTION
     void operator() (const member_type& teamMember) const {
@@ -58,7 +58,7 @@ struct ConvertLayoutRightToLeft {
 
     // Constructor
     ConvertLayoutRightToLeft(const ParallelManager &pm, int rows, int cols, double* mat_ptr):
-        _pm(pm), _rows(rows), _cols(cols), _permanent_mat_ptr(mat_ptr) {};
+        _rows(rows), _cols(cols), _permanent_mat_ptr(mat_ptr), _pm(pm) {};
 
     KOKKOS_INLINE_FUNCTION
     void operator() (const member_type& teamMember) const {
@@ -91,6 +91,6 @@ struct ConvertLayoutRightToLeft {
     }
 };
 
-}; // Compadre
+} // Compadre
 
 #endif

@@ -3293,7 +3293,7 @@ public:
 
 
 }; // Quadrature Class
-}; // Compadre
+} // Compadre
 
 #endif
 

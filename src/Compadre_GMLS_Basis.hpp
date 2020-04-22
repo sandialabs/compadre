@@ -834,5 +834,5 @@ void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_
     teamMember.team_barrier();
 }
 
-}; // Compadre
+} // Compadre
 #endif
