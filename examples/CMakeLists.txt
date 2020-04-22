@@ -1,3 +1,5 @@
+include_tribits_build()
+
 # ERROR MESSAGES IF A TEST IS NOT RUN
 SET(OPENBLAS_NUM_THREADS "1")
 
@@ -120,7 +122,7 @@ if (Compadre_EXAMPLES)
       #SET_TESTS_PROPERTIES(GMLS_Manifold_MultiSite PROPERTIES LABELS "UnitTest;unit;kokkos;multi;manifold" TIMEOUT 10)
       # Python driven test of a C++ executable (Python changes command line arguments given to executable)
       CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py" @ONLY)
-      ADD_TEST(NAME GMLS_Manifold_MultiSite_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py" "3" "3")
+      ADD_TEST(NAME GMLS_Manifold_MultiSite_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py" "--porder=3" "--grids=3")
       SET_TESTS_PROPERTIES(GMLS_Manifold_MultiSite_Refinement_Study PROPERTIES LABELS "ConvergenceTest;convergence;manifold" TIMEOUT 60)
 
       # Divergence-free basis test for GMLS on non-manifold
@@ -135,17 +137,16 @@ if (Compadre_EXAMPLES)
 
     # Python driven test of a C++ executable (Python changes command line arguments given to executable) - calling QR solver
     CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Manifold.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" @ONLY)
-    ADD_TEST(NAME GMLS_Manifold_Refinement_Study_QR COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" "3" "4" "1")
+    ADD_TEST(NAME GMLS_Manifold_Refinement_Study_QR COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" "--porder=3" "--grids=4" "--solver-type=1")
     SET_TESTS_PROPERTIES(GMLS_Manifold_Refinement_Study_QR PROPERTIES LABELS "ConvergenceTest;convergence;manifold" TIMEOUT 20)
 
     # Python driven test of a C++ executable (Python changes command line arguments given to executable) - calling LU solver
-    CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Manifold.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" @ONLY)
-    ADD_TEST(NAME GMLS_Manifold_Refinement_Study_LU COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" "3" "4" "2")
+    ADD_TEST(NAME GMLS_Manifold_Refinement_Study_LU COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" "--porder=3" "--grids=4" "--solver-type=2")
     SET_TESTS_PROPERTIES(GMLS_Manifold_Refinement_Study_LU PROPERTIES LABELS "ConvergenceTest;convergence;manifold" TIMEOUT 20)
 
     # Python driven test of a C++ executable (Python changes command line arguments given to executable)
     CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Staggered_Manifold.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py" @ONLY)
-    ADD_TEST(NAME GMLS_Staggered_Manifold_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py" "3" "4")
+    ADD_TEST(NAME GMLS_Staggered_Manifold_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py" "--porder=3" "--grids=4")
     SET_TESTS_PROPERTIES(GMLS_Staggered_Manifold_Refinement_Study PROPERTIES LABELS "ConvergenceTest;convergence;manifold;staggered" TIMEOUT 20)
 
     # Utility test - Filter By ID
