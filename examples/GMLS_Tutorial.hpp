@@ -253,7 +253,7 @@ double divfreeTestSolution(double x, double y, double z, int component, int dime
         switch (component) {
         case 0:
             return 6.0*x*x*y;
-        case 1:
+        default:
             return -6.0*x*y*y;
         }
     } else {
@@ -294,7 +294,7 @@ double curlcurldivfreeTestSolution(double x, double y, double z, int component, 
         switch (component) {
         case 0:
             return -12.0*y;
-        case 1:
+        default:
             return 12.0*x;
         }
     } else {
