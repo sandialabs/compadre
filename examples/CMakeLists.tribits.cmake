@@ -502,6 +502,30 @@ if (${${PACKAGE_NAME}_ENABLE_EXAMPLES})
         ) # end set_tests_properties
     endif() # test created
 
+    # Staggered scheme test for GMLS on non-manifold
+    # Note: Using even polynomial order may cause this test to fail
+    set(testName GMLS_Staggered_Dim2_QR)
+    tribits_add_test(
+      GMLS_Staggered
+      NAME
+        ${testName}
+      COMM serial mpi
+      NUM_MPI_PROCS 1
+      ARGS
+        "3 200 2 1 0 0 --kokkos-threads=2"
+      ADDED_TESTS_NAMES_OUT ${testName}_CREATED
+      ) # end tribits_add_test
+    if (${testName}_CREATED)
+      set_tests_properties(
+        ${${testName}_CREATED}
+        PROPERTIES
+          LABELS
+            "UnitTest;unit;kokkos;staggered"
+          TIMEOUT
+            10
+        ) # end set_tests_properties
+    endif() # test created
+
     if (NOT(Compadre_DEBUG OR Compadre_EXTREME_DEBUG))
       # This test is too slow in DEBUG (3x longer than all other tests
       # combined)

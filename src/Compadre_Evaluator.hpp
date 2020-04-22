@@ -512,13 +512,6 @@ public:
         auto coefficient_memory_layout_dims_device = 
             Kokkos::create_mirror_view_and_copy(device_memory_space(), coefficient_memory_layout_dims);
 
-        // alphas gracefully handle a scalar basis used repeatedly (VectorOfScalarClones) because the alphas
-        // hold a 0 when the input index is greater than 0
-        // this can be detected for the polynomial coefficients by noticing that the input_component_axis_1 is greater than 0,
-        // but the offset this would produce into the coefficients matrix is larger than its dimensions
-        auto max_num_neighbors = (neighbor_lists.extent(1) - 1);
-        if (input_component_axis_1*max_num_neighbors >= (size_t)coefficient_matrix_dims(1)) return;
-
         auto global_dimensions = _gmls->getGlobalDimensions();
 
         // gather needed information for evaluation
@@ -565,7 +558,8 @@ public:
                         prestencil_weights(0, target_index, i, pre_transform_local_index, pre_transform_global_index)
                         : 1.0;
 
-                    t_value += neighbor_varying_pre_T * sampling_data_single_column(neighbor_lists(target_index, i+1))*Coeffs(j, i);
+                    t_value += neighbor_varying_pre_T * sampling_data_single_column(neighbor_lists(target_index, i+1))
+                        *Coeffs(j, i+input_component_axis_1*neighbor_lists(target_index,0));
 
                 }, gmls_value );
 
@@ -591,7 +585,7 @@ public:
                             : 1.0;
 
                         t_value += neighbor_varying_pre_T_staggered * sampling_data_single_column(neighbor_lists(target_index, 1))
-                            *Coeffs(j, i);
+                            *Coeffs(j, i+input_component_axis_1*neighbor_lists(target_index,0));
 
                     }, staggered_value_from_targets );
 
@@ -655,8 +649,8 @@ public:
 
         auto problem_type = _gmls->getProblemType();
         auto global_dimensions = _gmls->getGlobalDimensions();
-        auto output_dimension_of_operator = _gmls->getOutputDimensionOfOperation(lro);
-        auto input_dimension_of_operator = _gmls->getInputDimensionOfOperation(lro);
+        auto output_dimension_of_reconstruction_space = _gmls->calculateBasisMultiplier(_gmls->getReconstructionSpace());
+        auto input_dimension_of_reconstruction_space = _gmls->calculateSamplingMultiplier(_gmls->getReconstructionSpace(), _gmls->getPolynomialSamplingFunctional());
         auto coefficient_matrix_dims = _gmls->getPolynomialCoefficientsDomainRangeSize();
 
         // gather needed information for evaluation
@@ -667,7 +661,7 @@ public:
         if (problem_type==MANIFOLD && TargetOutputTensorRank[(int)lro]==1) {
             output_dimensions = global_dimensions;
         } else {
-            output_dimensions = output_dimension_of_operator;
+            output_dimensions = output_dimension_of_reconstruction_space;
         }
 
         // don't need to check for VectorPointSample and problem_type==MANIFOLD because _gmls already handled this
@@ -678,7 +672,7 @@ public:
                 output_dimensions*_gmls->getPolynomialCoefficientsSize() /* number of coefficients */);
 
         // make sure input and output columns make sense under the target operation
-        compadre_assert_debug(((output_dimension_of_operator==1 && output_view_type::rank==1) || output_view_type::rank!=1) && 
+        compadre_assert_debug(((output_dimension_of_reconstruction_space==1 && output_view_type::rank==1) || output_view_type::rank!=1) && 
                 "Output view is requested as rank 1, but the target requires a rank larger than 1. Try double** as template argument.");
 
         // we need to specialize a template on the rank of the output view type and the input view type
@@ -708,13 +702,13 @@ public:
 
         bool transform_gmls_output_to_ambient = (problem_type==MANIFOLD && TargetOutputTensorRank[(int)lro]==1);
 
-        // only written for up to rank 0 to rank 0 (in / out)
+        // written for up to rank 1 to rank 0 (in / out)
         // loop over components of output of the target operation
-        for (int i=0; i<output_dimension_of_operator; ++i) {
+        for (int i=0; i<output_dimension_of_reconstruction_space; ++i) {
             const int output_component_axis_1 = i;
             const int output_component_axis_2 = 0;
             // loop over components of input of the target operation
-            for (int j=0; j<input_dimension_of_operator; ++j) {
+            for (int j=0; j<input_dimension_of_reconstruction_space; ++j) {
                 const int input_component_axis_1 = j;
                 const int input_component_axis_2 = 0;
 

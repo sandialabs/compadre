@@ -115,6 +115,11 @@ if (Compadre_EXAMPLES)
     ADD_TEST(NAME GMLS_Staggered_Dim3_QR COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Staggered "3" "200" "3" "1" "0" "0" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_Staggered_Dim3_QR PROPERTIES LABELS "UnitTest;unit;kokkos;staggered" TIMEOUT 10)
 
+    # Staggered scheme test for GMLS on non-manifold
+    # Note: Using even polynomial order may cause this test to fail
+    ADD_TEST(NAME GMLS_Staggered_Dim2_QR COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Staggered "3" "200" "2" "1" "0" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_Staggered_Dim2_QR PROPERTIES LABELS "UnitTest;unit;kokkos;staggered" TIMEOUT 10)
+
     if (NOT Compadre_DEBUG)
       # This test is too slow in DEBUG (3x longer than all other tests combined)
       # Multisite manifold test for GMLS

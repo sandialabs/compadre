@@ -142,7 +142,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
     } else if ((polynomial_sampling_functional == VectorPointSample) &&
                (reconstruction_space == DivergenceFreeVectorTaylorPolynomial)) {
         // Divergence free vector polynomial basis
-        const int dimension_offset = this->getNP(_poly_order, 3 /* dimension */, reconstruction_space);
+        const int dimension_offset = this->getNP(_poly_order, _global_dimensions, reconstruction_space);
         double cutoff_p = _epsilons(target_index);
 
         double xs = relative_coord.x/cutoff_p;
@@ -150,11 +150,21 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
         double zs = relative_coord.z/cutoff_p;
         XYZ Pn;
 
-        for (int n = 0; n < dimension_offset; n++) {
-            // Obtain the vector for the basis
-            Pn = calDivFreeBasis(n, xs, ys, zs);
-            // Then assign it to the input
-            *(delta + n) = Pn[component];
+        if (dimension == 3) {
+            for (int n = 0; n < dimension_offset; n++) {
+                // Obtain the vector for the basis
+                Pn = calDivFreeBasis(n, xs, ys, zs);
+                // Then assign it to the input
+                *(delta + n) = Pn[component];
+            }
+        }
+        if (dimension == 2) {
+            for (int n = 0; n < dimension_offset; n++) {
+                // Obtain the vector for the basis
+                Pn = calDivFreeBasis(n, xs, ys);
+                // Then assign it to the input
+                *(delta + n) = Pn[component];
+            }
         }
     } else if ((polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) &&
             (reconstruction_space == ScalarTaylorPolynomial)) {
@@ -303,50 +313,82 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
                   }
                   for (int j=0; j<_basis_multiplier; ++j) {
                       for (int n = start_index; n <= poly_order; n++) {
-                          for (alphaz = 0; alphaz <= n; alphaz++){
-                              int s = n - alphaz;
-                              for (alphay = 0; alphay <= s; alphay++){
-                                  alphax = s - alphay;
-                                  alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
+                          if (dimension == 3) {
+                            for (alphaz = 0; alphaz <= n; alphaz++){
+                                int s = n - alphaz;
+                                for (alphay = 0; alphay <= s; alphay++){
+                                    alphax = s - alphay;
+                                    alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
 
-                                  // local evaluation of vector [p, 0, 0], [0, p, 0] or [0, 0, p]
-                                  double v0, v1, v2;
-                                  switch(j) {
-                                      case 1:
-                                          v0 = 0.0;
-                                          v1 = std::pow(quadrature_coord_3d.x/cutoff_p,alphax)
-                                            *std::pow(quadrature_coord_3d.y/cutoff_p,alphay)
-                                            *std::pow(quadrature_coord_3d.z/cutoff_p,alphaz)/alphaf;
-                                          v2 = 0.0;
-                                          break;
-                                      case 2:
-                                          v0 = 0.0;
-                                          v1 = 0.0;
-                                          v2 = std::pow(quadrature_coord_3d.x/cutoff_p,alphax)
-                                            *std::pow(quadrature_coord_3d.y/cutoff_p,alphay)
-                                            *std::pow(quadrature_coord_3d.z/cutoff_p,alphaz)/alphaf;
-                                          break;
-                                      default:
-                                          v0 = std::pow(quadrature_coord_3d.x/cutoff_p,alphax)
-                                            *std::pow(quadrature_coord_3d.y/cutoff_p,alphay)
-                                            *std::pow(quadrature_coord_3d.z/cutoff_p,alphaz)/alphaf;
-                                          v1 = 0.0;
-                                          v2 = 0.0;
-                                          break;
-                                  }
+                                    // local evaluation of vector [p, 0, 0], [0, p, 0] or [0, 0, p]
+                                    double v0, v1, v2;
+                                    switch(j) {
+                                        case 1:
+                                            v0 = 0.0;
+                                            v1 = std::pow(quadrature_coord_3d.x/cutoff_p,alphax)
+                                                *std::pow(quadrature_coord_3d.y/cutoff_p,alphay)
+                                                *std::pow(quadrature_coord_3d.z/cutoff_p,alphaz)/alphaf;
+                                            v2 = 0.0;
+                                            break;
+                                        case 2:
+                                            v0 = 0.0;
+                                            v1 = 0.0;
+                                            v2 = std::pow(quadrature_coord_3d.x/cutoff_p,alphax)
+                                                *std::pow(quadrature_coord_3d.y/cutoff_p,alphay)
+                                                *std::pow(quadrature_coord_3d.z/cutoff_p,alphaz)/alphaf;
+                                            break;
+                                        default:
+                                            v0 = std::pow(quadrature_coord_3d.x/cutoff_p,alphax)
+                                                *std::pow(quadrature_coord_3d.y/cutoff_p,alphay)
+                                                *std::pow(quadrature_coord_3d.z/cutoff_p,alphaz)/alphaf;
+                                            v1 = 0.0;
+                                            v2 = 0.0;
+                                            break;
+                                    }
 
-                                  double dot_product = tangent_quadrature_coord_3d[0]*v0 + tangent_quadrature_coord_3d[1]*v1 + tangent_quadrature_coord_3d[2]*v2;
+                                    double dot_product = tangent_quadrature_coord_3d[0]*v0 + tangent_quadrature_coord_3d[1]*v1 + tangent_quadrature_coord_3d[2]*v2;
 
-                                  // multiply by quadrature weight
-                                  if (quadrature == 0) {
-                                      *(delta+i) = dot_product * _qm.getWeight(quadrature);
-                                  } else {
-                                      *(delta+i) += dot_product * _qm.getWeight(quadrature);
-                                  }
-                                  i++;
-                              }
-                          }
-                      }
+                                    // multiply by quadrature weight
+                                    if (quadrature == 0) {
+                                        *(delta+i) = dot_product * _qm.getWeight(quadrature);
+                                    } else {
+                                        *(delta+i) += dot_product * _qm.getWeight(quadrature);
+                                    }
+                                    i++;
+                                }
+                            }
+                        } else if (dimension == 2) {
+                            for (alphay = 0; alphay <= n; alphay++){
+                                alphax = n - alphay;
+                                alphaf = factorial[alphax]*factorial[alphay];
+
+                                // local evaluation of vector [p, 0] or [0, p]
+                                double v0, v1;
+                                switch(j) {
+                                    case 1:
+                                        v0 = 0.0;
+                                        v1 = std::pow(quadrature_coord_3d.x/cutoff_p,alphax)
+                                            *std::pow(quadrature_coord_3d.y/cutoff_p,alphay)/alphaf;
+                                        break;
+                                    default:
+                                        v0 = std::pow(quadrature_coord_3d.x/cutoff_p,alphax)
+                                            *std::pow(quadrature_coord_3d.y/cutoff_p,alphay)/alphaf;
+                                        v1 = 0.0;
+                                        break;
+                                }
+
+                                double dot_product = tangent_quadrature_coord_3d[0]*v0 + tangent_quadrature_coord_3d[1]*v1;
+
+                                // multiply by quadrature weight
+                                if (quadrature == 0) {
+                                    *(delta+i) = dot_product * _qm.getWeight(quadrature);
+                                } else {
+                                    *(delta+i) += dot_product * _qm.getWeight(quadrature);
+                                }
+                                i++;
+                            }
+                        }
+                    }
                   }
               }
           } // NON MANIFOLD PROBLEMS

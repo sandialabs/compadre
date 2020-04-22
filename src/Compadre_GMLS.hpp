@@ -785,21 +785,39 @@ public:
             else if (dimension == 2) return (m+1)*(m+2)/2;
             else return m+1;
         } else {
-          switch (m) {
-              case 0:
-                  return 3;
-              case 1:
-                  return 11;
-              case 2:
-                  return 26;
-              case 3:
-                  return 50;
-              case 4:
-                  return 85;
-              default:
-                  compadre_kernel_assert_release((false) && "Divergence-free basis only supports up to 4th-order polynomials.");
-                  return 0; // avoids warning about no return
-          }
+            if (dimension == 3)
+                switch (m) {
+                    case 0:
+                        return 3;
+                    case 1:
+                        return 11;
+                    case 2:
+                        return 26;
+                    case 3:
+                        return 50;
+                    case 4:
+                        return 85;
+                    default:
+                        compadre_kernel_assert_release((false) && "Divergence-free basis only supports up to 4th-order polynomials.");
+                        return 0; // avoids warning about no return
+                }
+            if (dimension == 2) 
+                switch (m) {
+                    case 0:
+                        return 2;
+                    case 1:
+                        return 5;
+                    case 2:
+                        return 9;
+                    case 3:
+                        return 14;
+                    case 4:
+                        return 20;
+                    default:
+                        compadre_kernel_assert_release((false) && "Divergence-free basis only supports up to 4th-order polynomials.");
+                        return 0; // avoids warning about no return
+                }
+            else return -1;
         }
     }
 
@@ -1036,6 +1054,9 @@ public:
     //! Get the data sampling functional specified at instantiation (often the same as the polynomial sampling functional)
     SamplingFunctional getDataSamplingFunctional() const { return _data_sampling_functional; }
 
+    //! Get the reconstruction space specified at instantiation
+    ReconstructionSpace getReconstructionSpace() const { return _reconstruction_space; }
+
     //! Helper function for getting alphas for scalar reconstruction from scalar data
     double getAlpha0TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int additional_evaluation_site = 0) const {
         // e.g. Dirac Delta target of a scalar field
@@ -1173,6 +1194,29 @@ public:
     int getInputRankOfSampling(SamplingFunctional sro) const {
         return sro.input_rank;
     }
+
+    //! Calculate basis_multiplier
+    int calculateBasisMultiplier(const ReconstructionSpace rs) const {
+        // calculate the dimension of the basis 
+        // (a vector space on a manifold requires two components, for example)
+        return std::pow(_local_dimensions, ActualReconstructionSpaceRank[(int)rs]);
+    }
+
+    //! Calculate sampling_multiplier
+    int calculateSamplingMultiplier(const ReconstructionSpace rs, const SamplingFunctional sro) const {
+        // this would normally be SamplingOutputTensorRank[_data_sampling_functional], but we also want to handle the
+        // case of reconstructions where a scalar basis is reused as a vector, and this handles everything
+        // this handles scalars, vectors, and scalars that are reused as vectors
+        int bm = this->calculateBasisMultiplier(rs);
+        int sm = this->getOutputDimensionOfSampling(sro);
+        if (rs == ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial) {
+            // storage and computational efficiency by reusing solution to scalar problem for 
+            // a vector problem (in 3d, 27x cheaper computation, 9x cheaper storage)
+            sm = std::min(bm,sm);
+        }
+        return sm;
+    }
+
 
 ///@}
 
