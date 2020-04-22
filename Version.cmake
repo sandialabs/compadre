@@ -1,5 +1,0 @@
-SET(Compadre_VERSION 1.0.3)
-SET(Compadre_MAJOR_VERSION 1)
-SET(Compadre_MAJOR_MINOR_VERSION 010003)
-SET(Compadre_VERSION_STRING "1.0.3 (Dev)")
-SET(Compadre_ENABLE_DEVELOPMENT_MODE_DEFAULT ON) # Change to 'OFF' for a release

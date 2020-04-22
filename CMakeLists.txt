@@ -1,5 +1,7 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.10.0 FATAL_ERROR)
 
+set(Compadre_VERSION "1.0.3")
+
 # Called at the top of every CMakeLists.txt file
 macro(include_tribits_build)
   if (${PROJECT_NAME}_TRIBITS_DIR)
@@ -22,13 +24,75 @@ if (${PROJECT_NAME}_TRIBITS_DIR) # TriBITS CMake Project
   #
   # B) Set up package-specific options
   #
-  set(Compadre_DEBUG "${Trilinos_ENABLE_DEBUG}" CACHE BOOL "Run Compadre Toolkit in DEBUG mode")
-  set(Compadre_EXTREME_DEBUG OFF CACHE BOOL "Run Compadre Toolkit in EXTREME DEBUG mode")
+  TRIBITS_ADD_OPTION_AND_DEFINE(${PACKAGE_NAME}_ENABLE_DEBUG
+      Compadre_DEBUG
+      "Enable debug code in compadre"
+      ${Trilinos_ENABLE_DEBUG} )
+
+  TRIBITS_ADD_OPTION_AND_DEFINE(${PACKAGE_NAME}_ENABLE_EXTREME_DEBUG
+      Compadre_EXTREME_DEBUG
+      "Enable extreme debug code in compadre"
+      OFF )
+
+  TRIBITS_ADD_OPTION_AND_DEFINE(${PACKAGE_NAME}_LAPACK_DECLARED_THREADSAFE
+      LAPACK_DECLARED_THREADSAFE
+      "Set to OFF if non-threadsafe version of LAPACK being used"
+      ON )
+
+  TRIBITS_ADD_OPTION_AND_DEFINE(${PACKAGE_NAME}_USE_LAPACK
+      Compadre_USE_LAPACK
+      "Either Compadre_USE_LAPACK, Compadre_USE_MKL, or Compadre_USE_CUDA must be set to ON. LAPACK is default."
+      OFF )
+
+  TRIBITS_ADD_OPTION_AND_DEFINE(${PACKAGE_NAME}_USE_MKL
+      Compadre_USE_MKL
+      "Either Compadre_USE_LAPACK, Compadre_USE_MKL, or Compadre_USE_CUDA must be set to ON. LAPACK is default."
+      OFF )
+
+  TRIBITS_ADD_OPTION_AND_DEFINE(${PACKAGE_NAME}_USE_CUDA
+      Compadre_USE_CUDA
+      "Either Compadre_USE_LAPACK, Compadre_USE_MKL, or Compadre_USE_CUDA must be set to ON. LAPACK is default."
+      OFF )
+
+  # ensure only one of Compadre_USE_LAPACK, Compadre_USE_MKL, or Compadre_USE_CUDA are ON
+  if (Compadre_USE_LAPACK)
+    set(Compadre_USE_MKL OFF)
+    set(Compadre_USE_CUDA OFF)
+  elseif (Compadre_USE_MKL)
+    set(Compadre_USE_CUDA OFF)
+  endif() #if Compadre_USE_CUDA, all others already set to OFF
+  # if all off (default), then set Compadre_USE_LAPACK to ON
+  if ((NOT(Compadre_USE_LAPACK) AND NOT(Compadre_USE_MKL)) AND NOT(Compadre_USE_CUDA))
+    set(Compadre_USE_LAPACK ON)
+  endif()
+
+  # ensure TPL_ENABLE_*** configured consistent with Compadre_USE_***
+  if(Compadre_USE_LAPACK AND NOT(TPL_ENABLE_LAPACK))
+    set(Trilinos_ENABLE_Compadre OFF)
+    MESSAGE("Compadre_USE_LAPACK set to ON, but TPL_ENABLE_LAPACK=OFF.")
+  endif()
+  if(Compadre_USE_MKL AND NOT(TPL_ENABLE_MKL))
+    set(Trilinos_ENABLE_Compadre OFF)
+    MESSAGE("Compadre_USE_MKL set to ON, but TPL_ENABLE_MKL=OFF.")
+  endif()
+  if(Compadre_USE_CUDA AND NOT(TPL_ENABLE_CUSOLVER))
+    set(Trilinos_ENABLE_Compadre OFF)
+    MESSAGE("Compadre_USE_CUDA set to ON, but TPL_ENABLE_CUSOLVER=OFF.")
+  endif()
+  if(Compadre_USE_CUDA AND NOT(TPL_ENABLE_CUBLAS))
+    set(Trilinos_ENABLE_Compadre OFF)
+    MESSAGE("Compadre_USE_CUDA set to ON, but TPL_ENABLE_CUBLAS=OFF.")
+  endif()
+
   set(Compadre_USE_MATLAB OFF CACHE BOOL "Don't use Matlab when building in Trilinos")
   set(Compadre_USE_MPI ${TPL_ENABLE_MPI} CACHE BOOL "Use MPI for parallelism")
   set(Compadre_USE_PYTHON OFF CACHE BOOL "Don't use Python when building in Trilinos")
-  set(Compadre_USE_LAPACK ON CACHE BOOL "Use LAPACK for dense matrix solves")
-  set(LAPACK_DECLARED_THREADSAFE ON CACHE BOOL "Is LAPACK threadsafe? If not, default to serial calls for solves.")
+
+  # breakdown Compadre_VERSION from Version.cmake for storage in Compadre_Config.h
+  string(REPLACE "." ";" VLIST ${Compadre_VERSION})
+  list(GET VLIST 0 Compadre_VERSION_MAJOR)
+  list(GET VLIST 1 Compadre_VERSION_MINOR)
+  list(GET VLIST 2 Compadre_VERSION_PATCH)
 
 else() # Raw CMake Project
 
@@ -38,7 +102,6 @@ else() # Raw CMake Project
   #
   ########## 
 
-  include(${CMAKE_CURRENT_LIST_DIR}/Version.cmake)
   PROJECT(Compadre VERSION ${Compadre_VERSION} LANGUAGES CXX)
 
   get_directory_property(Compadre_HAS_PARENT PARENT_DIRECTORY)
@@ -324,10 +387,10 @@ else() # Raw CMake Project
       if(Compadre_USE_LAPACK AND NOT(TARGET Kokkos::LAPACK))
         MESSAGE(FATAL_ERROR "Compadre_USE_LAPACK set to ON, but Kokkos::LAPACK not defined")
       endif()
-      if(Compadre_USE_BLAS AND NOT(Kokkos::BLAS))
+      if(Compadre_USE_BLAS AND NOT(TARGET Kokkos::BLAS))
         MESSAGE(FATAL_ERROR "Compadre_USE_BLAS set to ON, but Kokkos::BLAS not defined")
       endif()
-      if(Compadre_USE_CUDA AND NOT(Kokkos::CUDA))
+      if(Compadre_USE_CUDA AND NOT(TARGET Kokkos::CUDA))
         MESSAGE(FATAL_ERROR "Compadre_USE_CUDA set to ON, but Kokkos::CUDA not defined")
       endif()
       set(KOKKOSKERNELS_EXISTING_ELSEWHERE ON)
@@ -440,8 +503,6 @@ else() # Raw CMake Project
   bob_option(Compadre_TESTS "Compile Compadre tests" ON)
   bob_option(Compadre_EXAMPLES "Compile Compadre examples" "${Compadre_TESTS}")
 
-  set(Compadre_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
-  set(Compadre_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 endif() 
 
@@ -454,6 +515,8 @@ endif()
 ##########
 
 
+set(Compadre_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+set(Compadre_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
 set(Compadre_KEY_BOOLS
     Compadre_DEBUG
