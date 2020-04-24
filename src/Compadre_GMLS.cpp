@@ -212,6 +212,8 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     try {
         _RHS = Kokkos::View<double*>("RHS", max_batch_size*TO_GLOBAL(RHS_square_dim)*TO_GLOBAL(RHS_square_dim));
         _P = Kokkos::View<double*>("P", max_batch_size*TO_GLOBAL(P_dim_0)*TO_GLOBAL(P_dim_1));
+        _manifold_RHS = Kokkos::View<double*>("RHS", max_batch_size*TO_GLOBAL(RHS_square_dim)*TO_GLOBAL(RHS_square_dim));
+        _manifold_P = Kokkos::View<double*>("P", max_batch_size*TO_GLOBAL(P_dim_0)*TO_GLOBAL(P_dim_1));
         _w = Kokkos::View<double*>("w", max_batch_size*TO_GLOBAL(max_num_rows));
     } catch (std::exception &e) {
         printf("Failed to allocate space for RHS, P, and w. Consider increasing number_of_batches: \n\n%s", e.what());
@@ -302,6 +304,9 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
             // evaluates targets, applies target evaluation to polynomial coefficients for curvature
             _pm.CallFunctorWithTeamThreads<ApplyCurvatureTargets>(this_batch_size, *this);
             Kokkos::fence();
+
+            Kokkos::deep_copy(_manifold_P, _P);
+            Kokkos::deep_copy(_manifold_RHS, _RHS);
 
             // prestencil weights calculated here. appropriate because:
             // precedes polynomial reconstruction from data (replaces contents of _RHS) 

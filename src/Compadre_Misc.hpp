@@ -30,6 +30,18 @@ struct XYZ {
     }
 
     KOKKOS_INLINE_FUNCTION
+    double operator [](const int i) const {
+        switch (i) {
+            case 0:
+                return x;
+            case 1:
+                return y;
+            default:
+                return z;
+        }
+    }
+
+    KOKKOS_INLINE_FUNCTION
     XYZ operator *(double scalar) {
         XYZ result;
         result.x = scalar*x;
@@ -37,6 +49,7 @@ struct XYZ {
         result.z = scalar*z;
         return result;
     }
+
 }; // XYZ
 
 KOKKOS_INLINE_FUNCTION
