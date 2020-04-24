@@ -33,9 +33,11 @@ protected:
 
     //! P*sqrt(w) matrix for all problems
     Kokkos::View<double*> _P;
+    Kokkos::View<double*> _manifold_P;
 
     //! sqrt(w)*Identity matrix for all problems, later holds polynomial coefficients for all problems
     Kokkos::View<double*> _RHS;
+    Kokkos::View<double*> _manifold_RHS;
 
     //! Rank 3 tensor for high order approximation of tangent vectors for all problems. First rank is
     //! for the target index, the second is for the local direction to the manifolds 0..(_dimensions-1)
@@ -439,7 +441,7 @@ protected:
             XYZ target_coord = XYZ( _target_coordinates(target_index, 0), 
                                     _target_coordinates(target_index, 1), 
                                     _target_coordinates(target_index, 2));
-            return this->convertGlobalToLocalCoordinate(target_coord, dim, V);
+            return convertGlobalToLocalCoordinate(target_coord, dim, V);
         }
     }
 
@@ -456,7 +458,7 @@ protected:
             XYZ additional_target_coord = XYZ( _additional_evaluation_coordinates(additional_evaluation_index, 0),
                                                _additional_evaluation_coordinates(additional_evaluation_index, 1),
                                                _additional_evaluation_coordinates(additional_evaluation_index, 2));
-            return this->convertGlobalToLocalCoordinate(additional_target_coord, dim, V);
+            return convertGlobalToLocalCoordinate(additional_target_coord, dim, V);
         }
     }
 
@@ -469,7 +471,7 @@ protected:
             return _source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), dim);
         } else {
             XYZ neighbor_coord = XYZ(_source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), 0), _source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), 1), _source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), 2));
-            return this->convertGlobalToLocalCoordinate(neighbor_coord, dim, V);
+            return convertGlobalToLocalCoordinate(neighbor_coord, dim, V);
         }
     }
 
@@ -484,32 +486,6 @@ protected:
         if (dimension>2) coordinate_delta.z = this->getNeighborCoordinate(target_index, neighbor_list_num, 2, V) - this->getTargetCoordinate(target_index, 2, V);
 
         return coordinate_delta;
-    }
-
-    //! Returns a component of the local coordinate after transformation from global to local under the orthonormal basis V.
-    KOKKOS_INLINE_FUNCTION
-    double convertGlobalToLocalCoordinate(const XYZ global_coord, const int dim, const scratch_matrix_right_type* V) const {
-        // only written for 2d manifold in 3d space
-        double val = 0;
-        val += global_coord.x * (*V)(dim, 0);
-        val += global_coord.y * (*V)(dim, 1); // can't be called from dimension 1 problem
-        if (_dimensions>2) val += global_coord.z * (*V)(dim, 2);
-        return val;
-    }
-
-    //! Returns a component of the global coordinate after transformation from local to global under the orthonormal basis V^T.
-    KOKKOS_INLINE_FUNCTION
-    double convertLocalToGlobalCoordinate(const XYZ local_coord, const int dim, const scratch_matrix_right_type* V) const {
-        // only written for 2d manifold in 3d space
-        double val;
-        if (dim == 0 && _dimensions==2) { // 2D problem with 1D manifold
-            val = local_coord.x * (*V)(0, dim);
-        } else if (dim == 0) { // 3D problem with 2D manifold
-            val = local_coord.x * ((*V)(0, dim) + (*V)(1, dim));
-        } else if (dim == 1) { // 3D problem with 2D manifold
-            val = local_coord.y * ((*V)(0, dim) + (*V)(1, dim));
-        }
-        return val;
     }
 
     //! Handles offset from operation input/output + extra evaluation sites
@@ -855,7 +831,6 @@ public:
         }
         return std::sqrt(inside_val);
     }
-
     
 
 ///@}

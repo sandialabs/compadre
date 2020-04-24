@@ -453,40 +453,85 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
             }
         }
     } else if (polynomial_sampling_functional == ScalarFaceAverageSample) {
+
+        auto local_index = teamMember.league_rank();
+
         auto global_neighbor_index = getNeighborIndex(target_index, neighbor_index);
         double cutoff_p = _epsilons(target_index);
         int alphax, alphay, alphaz;
         double alphaf;
 
-        // global dimension cannot be determined in a constexpr way, so we use a largest case scenario
-        // of dimensions 3 for _global_dimension
-        double triangle_coords[3/*_global_dimensions*/*3];
+        double triangle_coords[_global_dimensions*3];
+        double triangle_coords_local[_local_dimensions*3];
+        double triangle_coords_local_to_global[_global_dimensions*3];
         for (int i=0; i<_global_dimensions*3; ++i) triangle_coords[i] = 0;
+        for (int i=0; i<_local_dimensions*3; ++i) triangle_coords_local[i] = 0;
+        for (int i=0; i<_global_dimensions*3; ++i) triangle_coords_local_to_global[i] = 0;
         // 3 is for # vertices in sub-triangle
         scratch_matrix_right_type triangle_coords_matrix(triangle_coords, _global_dimensions, 3); 
+        scratch_matrix_right_type triangle_coords_matrix_local(triangle_coords_local, _local_dimensions, 3); 
+        scratch_matrix_right_type triangle_coords_matrix_local_to_global(triangle_coords_local_to_global, _global_dimensions, 3); 
 
         scratch_vector_type midpoint(delta, _global_dimensions);
         getMidpointFromCellVertices(teamMember, midpoint, _source_extra_data, global_neighbor_index, _global_dimensions /*dim*/);
         for (int j=0; j<_global_dimensions; ++j) {
             triangle_coords_matrix(j, 0) = midpoint(j);
         }
+        if (_problem_type == ProblemType::MANIFOLD) {
+            // transform midpoint to local coords
+            XYZ midpoint_xyz;
+            for (int j=0; j<_global_dimensions; ++j) {
+                midpoint_xyz[j] = midpoint(j);
+            }
+            for (int j=0; j<_local_dimensions; ++j) {
+                triangle_coords_matrix_local(j, 0) = convertGlobalToLocalCoordinate(midpoint_xyz, j, V);
+            }
+            XYZ midpoint_local;
+            for (int j=0; j<_local_dimensions; ++j) {
+                midpoint_local[j] = triangle_coords_matrix_local(j, 0);
+            }
+            for (int j=0; j<_global_dimensions; ++j) {
+                triangle_coords_matrix_local_to_global(j, 0) = convertLocalToGlobalCoordinate(midpoint_local, j, _local_dimensions, V);
+            }
+        }
 
         size_t num_vertices = _source_extra_data.extent(1) / _global_dimensions;
         double reference_cell_area = 0.5;
         double entire_cell_area = 0.0;
-        auto T=triangle_coords_matrix;
+        auto T = triangle_coords_matrix;
+        auto T_local = (_problem_type == ProblemType::MANIFOLD) ? triangle_coords_matrix : triangle_coords_matrix;
 
-        for (size_t v=0; v<num_vertices; ++v) {
-            int v1 = v;
-            int v2 = (v+1) % num_vertices;
-            for (int j=0; j<_global_dimensions; ++j) {
-                triangle_coords_matrix(j,1) = _source_extra_data(global_neighbor_index, v1*_global_dimensions+j) - triangle_coords_matrix(j,0);
-                triangle_coords_matrix(j,2) = _source_extra_data(global_neighbor_index, v2*_global_dimensions+j) - triangle_coords_matrix(j,0);
-            }
-            entire_cell_area += 0.5 * getAreaFromVectors(teamMember, 
-                Kokkos::subview(T, Kokkos::ALL(), 1), Kokkos::subview(T, Kokkos::ALL(), 2));
-        }
+        //for (size_t v=0; v<num_vertices; ++v) {
+        //    int v1 = v;
+        //    int v2 = (v+1) % num_vertices;
+        //    for (int j=0; j<_global_dimensions; ++j) {
+        //        triangle_coords_matrix(j,1) = _source_extra_data(global_neighbor_index, v1*_global_dimensions+j) - triangle_coords_matrix(j,0);
+        //        triangle_coords_matrix(j,2) = _source_extra_data(global_neighbor_index, v2*_global_dimensions+j) - triangle_coords_matrix(j,0);
+        //    }
+        //    entire_cell_area += 0.5 * getAreaFromVectors(teamMember, 
+        //        Kokkos::subview(T, Kokkos::ALL(), 1), Kokkos::subview(T, Kokkos::ALL(), 2));
+        //}
 
+        const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
+        const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
+        const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
+        const int this_num_cols = _basis_multiplier*max_manifold_NP;
+        int P_dim_0, P_dim_1;
+        getPDims(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
+        int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols);
+
+    	scratch_matrix_right_type Q;
+    	if (_dense_solver_type != DenseSolverType::LU) {
+    	    // Solution from QR comes from RHS
+    	    Q = scratch_matrix_right_type(_RHS.data()
+    	        + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_square_dim)*TO_GLOBAL(RHS_square_dim), RHS_square_dim, RHS_square_dim);
+    	} else {
+    	    // Solution from LU comes from P
+    	    Q = scratch_matrix_right_type(_P.data()
+    	        + TO_GLOBAL(local_index)*TO_GLOBAL(P_dim_1)*TO_GLOBAL(P_dim_0), P_dim_1, P_dim_0);
+    	}
+
+        std::vector<double> p_eval(manifold_NP,0);
         // loop over each two vertices 
         // made for flat surfaces (either dim=2 or on a manifold)
         for (size_t v=0; v<num_vertices; ++v) {
@@ -496,6 +541,30 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
             for (int j=0; j<_global_dimensions; ++j) {
                 triangle_coords_matrix(j,1) = _source_extra_data(global_neighbor_index, v1*_global_dimensions+j) - triangle_coords_matrix(j,0);
                 triangle_coords_matrix(j,2) = _source_extra_data(global_neighbor_index, v2*_global_dimensions+j) - triangle_coords_matrix(j,0);
+            }
+            if (_problem_type == ProblemType::MANIFOLD) {
+                // transform midpoint to local coords
+                XYZ v1_xyz_global, v2_xyz_global, v1_xyz_local, v2_xyz_local, v1_xyz_local_to_global, v2_xyz_local_to_global;
+                for (int j=0; j<_global_dimensions; ++j) {
+                    v1_xyz_global[j] = _source_extra_data(global_neighbor_index, v1*_global_dimensions+j);
+                    v2_xyz_global[j] = _source_extra_data(global_neighbor_index, v2*_global_dimensions+j);
+                }
+                for (int j=0; j<_local_dimensions; ++j) {
+                    v1_xyz_local[j] = convertGlobalToLocalCoordinate(v1_xyz_global, j, V);
+                    v2_xyz_local[j] = convertGlobalToLocalCoordinate(v2_xyz_global, j, V);
+                }
+                for (int j=0; j<_local_dimensions; ++j) {
+                    triangle_coords_matrix_local(j,1) = v1_xyz_local[j] - triangle_coords_matrix_local(j,0);
+                    triangle_coords_matrix_local(j,2) = v2_xyz_local[j] - triangle_coords_matrix_local(j,0);
+                }
+                for (int j=0; j<_global_dimensions; ++j) {
+                    v1_xyz_local_to_global[j] = convertLocalToGlobalCoordinate(v1_xyz_local, j, _local_dimensions, V);
+                    v2_xyz_local_to_global[j] = convertLocalToGlobalCoordinate(v2_xyz_local, j, _local_dimensions, V);
+                }
+                for (int j=0; j<_global_dimensions; ++j) {
+                    triangle_coords_matrix_local_to_global(j,1) = v1_xyz_local_to_global[j] - triangle_coords_matrix_local_to_global(j,0);
+                    triangle_coords_matrix_local_to_global(j,2) = v2_xyz_local_to_global[j] - triangle_coords_matrix_local_to_global(j,0);
+                }
             }
             // triangle_coords now has:
             // (midpoint_x, midpoint_y, midpoint_z, 
@@ -512,23 +581,113 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
                 // half the norm of the cross-product is the area of the triangle
                 // so scaling is area / reference area (0.5) = the norm of the cross-product
                 double sub_cell_area = 0.5 * getAreaFromVectors(teamMember, 
-                        Kokkos::subview(T, Kokkos::ALL(), 1), Kokkos::subview(T, Kokkos::ALL(), 2));
+                        Kokkos::subview(T_local, Kokkos::ALL(), 1), Kokkos::subview(T_local, Kokkos::ALL(), 2));//, *V);
                 double scaling_factor = sub_cell_area / reference_cell_area;
 
                 if (_problem_type == ProblemType::MANIFOLD) {
                     XYZ qp = XYZ(transformed_qp[0], transformed_qp[1], transformed_qp[2]);
                     for (int j=0; j<2; ++j) {
                         relative_coord[j] = convertGlobalToLocalCoordinate(qp,j,V) - getTargetCoordinate(target_index,j,V); // shift quadrature point by target site
+                        //relative_coord[j] = convertGlobalToLocalCoordinate(qp,j,V) - getTargetCoordinate(target_index,j,V); // shift quadrature point by target site, what about taking difference, then shifting to V space?
                         relative_coord[2] = 0;
                     }
                 } else {
                     for (int j=0; j<dimension; ++j) {
                         relative_coord[j] = transformed_qp[j] - getTargetCoordinate(target_index,j,V); // shift quadrature point by target site
                     }
-                    for (int j=dimension; j<3; ++j) {
-                        relative_coord[j] = 0.0;
-                    }
+                    //for (int j=dimension; j<3; ++j) {
+                    //    relative_coord[j] = 0.0;
+                    //}
                 }
+
+
+                double grad_x1 = 0.0;
+                double grad_x2 = 0.0;
+                double G_determinant = 1.0;
+                //if (_problem_type == ProblemType::MANIFOLD) {
+                //    std::fill(p_eval.begin(), p_eval.end(), 0);
+                //    int partial_direction = 0;
+                //    {
+                //        int alphax, alphay, alphaz;
+                //        double alphaf;
+                //        int m = 0;
+                //        for (int n = 0; n <= _curvature_poly_order; n++){
+                //            for (alphay = 0; alphay <= n; alphay++){
+                //                alphax = n - alphay;
+
+                //                int x_pow = (partial_direction == 0) ? alphax-1 : alphax;
+                //                int y_pow = (partial_direction == 1) ? alphay-1 : alphay;
+
+                //                if (x_pow<0 || y_pow<0) {
+                //                    p_eval[m] = 0;
+                //                } else {
+                //                    alphaf = factorial[x_pow]*factorial[y_pow];
+                //                    p_eval[m] = 1./cutoff_p 
+                //                                *std::pow(relative_coord.x/cutoff_p,x_pow)
+                //                                *std::pow(relative_coord.y/cutoff_p,y_pow)/alphaf;
+                //                }
+                //                m++;
+                //            }
+                //        }
+                //    }
+                //    for (int j=0; j<this->getNNeighbors(target_index); ++j) {
+                //        double alpha_ij = 0.0;
+                //        for (int k=0; k<manifold_NP; ++k) {
+                //            alpha_ij += p_eval[k]*Q(k,j);
+                //        }
+                //        XYZ rel_coord = getRelativeCoord(target_index, j, _global_dimensions, V);
+                //        grad_x1 += alpha_ij * rel_coord[_global_dimensions-1];
+                //    }
+
+                //    std::fill(p_eval.begin(), p_eval.end(), 0);
+                //    partial_direction = 1;
+                //    {
+                //        int alphax, alphay, alphaz;
+                //        double alphaf;
+                //        int m = 0;
+                //        for (int n = 0; n <= _curvature_poly_order; n++){
+                //            for (alphay = 0; alphay <= n; alphay++){
+                //                alphax = n - alphay;
+
+                //                int x_pow = (partial_direction == 0) ? alphax-1 : alphax;
+                //                int y_pow = (partial_direction == 1) ? alphay-1 : alphay;
+
+                //                if (x_pow<0 || y_pow<0) {
+                //                    p_eval[m] = 0;
+                //                } else {
+                //                    alphaf = factorial[x_pow]*factorial[y_pow];
+                //                    p_eval[m] = 1./cutoff_p 
+                //                                *std::pow(relative_coord.x/cutoff_p,x_pow)
+                //                                *std::pow(relative_coord.y/cutoff_p,y_pow)/alphaf;
+                //                }
+                //                m++;
+                //            }
+                //        }
+                //    }
+                //    for (int j=0; j<this->getNNeighbors(target_index); ++j) {
+                //        double alpha_ij = 0.0;
+                //        for (int k=0; k<manifold_NP; ++k) {
+                //            alpha_ij += p_eval[k]*Q(k,j);
+                //        }
+                //        XYZ rel_coord = getRelativeCoord(target_index, j, _global_dimensions, V);
+                //        grad_x2 += alpha_ij * rel_coord[_global_dimensions-1];
+                //    }
+
+        		//	// need to get 2x2 matrix of metric tensor
+				//	double G_0_0, G_0_1, G_1_0, G_1_1;
+        		//	G_0_0 = 1 + grad_x1*grad_x1;
+
+        		//	if (_dimensions>2) {
+        		//	    G_0_1 = grad_x1*grad_x2;
+        		//	    G_1_0 = grad_x2*grad_x1;
+        		//	    G_1_1 = 1 + grad_x2*grad_x2;
+        		//	}
+                //    G_determinant = G_0_0*G_1_1 - G_0_1*G_1_0;
+                //    //printf("G: %f\n", G_determinant);
+                //}
+                //scaling_factor = 1.0;
+                //this->calcGradientPij(teamMember, &p_eval[0], target_index, neighbor_index, 0 /*alpha*/, 1 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
+
 
                 int k = 0;
                 const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
@@ -539,10 +698,10 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
                             for (alphay = 0; alphay <= s; alphay++){
                                 alphax = s - alphay;
                                 alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
-                                double val_to_sum = (scaling_factor * _qm.getWeight(quadrature) 
+                                double val_to_sum = std::sqrt(G_determinant) * (scaling_factor * _qm.getWeight(quadrature) 
                                         * std::pow(relative_coord.x/cutoff_p,alphax)
                                         * std::pow(relative_coord.y/cutoff_p,alphay)
-                                        * std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf) / entire_cell_area;
+                                        * std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf);// / entire_cell_area;
                                 if (quadrature==0 && v==0) *(delta+k) = val_to_sum;
                                 else *(delta+k) += val_to_sum;
                                 k++;
@@ -554,15 +713,23 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
                         for (alphay = 0; alphay <= n; alphay++){
                             alphax = n - alphay;
                             alphaf = factorial[alphax]*factorial[alphay];
-                            double val_to_sum = (scaling_factor * _qm.getWeight(quadrature) 
+                            double val_to_sum = std::sqrt(G_determinant) * (scaling_factor * _qm.getWeight(quadrature) 
                                     * std::pow(relative_coord.x/cutoff_p,alphax)
-                                    * std::pow(relative_coord.y/cutoff_p,alphay)/alphaf) / entire_cell_area;
+                                    * std::pow(relative_coord.y/cutoff_p,alphay)/alphaf);// / entire_cell_area;
                             if (quadrature==0 && v==0) *(delta+k) = val_to_sum;
                             else *(delta+k) += val_to_sum;
                             k++;
                         }
                     }
                 }
+                entire_cell_area += std::sqrt(G_determinant) * (scaling_factor * _qm.getWeight(quadrature));
+            }
+        }
+        int k = 0;
+        for (int n = 0; n <= poly_order; n++){
+            for (alphay = 0; alphay <= n; alphay++){
+                *(delta+k) /= entire_cell_area;
+                k++;
             }
         }
     } else {
