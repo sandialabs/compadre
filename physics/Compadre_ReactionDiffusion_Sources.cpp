@@ -11,6 +11,12 @@
 #include <Compadre_ReactionDiffusion_Operator.hpp>
 #include <Compadre_GMLS.hpp>
 
+// ####################################
+// MA include Teuchos headers for VMSDG
+#include <Teuchos_SerialDenseMatrix.hpp>
+#include <Teuchos_SerialDenseSolver.hpp>
+// ####################################
+
 namespace Compadre {
 
 typedef Compadre::FieldT fields_type;
@@ -18,9 +24,18 @@ typedef Compadre::XyzVector xyz_type;
 
 void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time) {
 
+    // #################################
+    // MA auxiliary variable for testing
+    //int _tempcount = 0;
+    //_tempcount = 1;
+    // #################################
+    // ADDED later: it seems that variables defined outside a Kokkos::parallel_for loop
+    // become "read-only" when KOKKOS_LAMBDA is used for the iteration index.
+    // This did not happend when defining tempcount outside Kookos::parallel_for in ...Operator.cpp file
+    // maybe because the iteration index was defined as [&](const int i) instead of defining the iteraiton index as KOKKOS_LAMBDA(const int i)?
+    
     if (field_one != field_two) return;
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_b==NULL, "Tpetra Multivector for RHS not yet specified.");
-
 
     // get problem specific parameters, operators and manufactured solution functions from _physics
  
@@ -91,6 +106,11 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(true /* include halo in count */); ++i) {
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_physics->_cells->getCoordsConst()->nLocal(true /* include halo in count */)), KOKKOS_LAMBDA(const int i) {
     //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
+
+    // ########
+    // MA Auxiliary var
+    int _tempcount = 0;
+    // ########
         for (local_index_type comp = 0; comp < fields[field_one]->nDim(); ++comp) {
 
             // filter out (skip) all halo cells that are not able to be seen from a locally owned particle
@@ -180,7 +200,54 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                 contribution += penalty * q_wt * v * exact_eval;
                                 contribution -= _physics->_diffusion * q_wt * ( n_x * v_x + n_y * v_y) * exact_eval;
                             } else if (_le_op) {
-                                exact_eval = velocity_function->evalScalar(pt, comp);
+				// ###############
+				// MA VMS TAU TEST
+                                //if (comp == 1) {
+				//    //this seems to work...
+				//    std::cout << "\nMA SOURCES: i= " << i << " qn= " << qn << " tau=" << _physics->_tau(0,0,0,0) << "\n\n";// << std::endl;
+				//}	
+				// ##############
+                                // ############################################################################################
+                                // MA NOTE: INSERT computation of VMS-DG terms in here!                                       #
+                                // SEE other notes for VMS-DG in the q_type==0 (interior edge) case further below
+                                //int ndimtemp = fields[field_one]->nDim();
+                                int current_edge_num_in_current_cell = (qn - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                                Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_edge(_ndim_requested, _ndim_requested);
+                                Teuchos :: SerialDenseSolver <local_index_type, scalar_type> vmsdg_solver;
+                                tau_edge.putScalar(0.0);
+
+                                for (int j1 = 0; j1 < _ndim_requested; ++j1) {
+                                    for (int j2 = 0; j2 < _ndim_requested; ++j2) {
+                                        tau_edge(j1, j2) = _physics->_tau(i, current_edge_num_in_current_cell, j1, j2);    //tau^(1)_s from 'current' elem
+                                    }
+                                }
+                                
+                                // MA Check tau_edge matrix
+				// Kokkos::fence();
+                                //if (comp == 0 && _tempcount == 0) {
+                                //    std::cout << "\nSOURCES EXTERIOR tau_edge before inversion (not yet tau_edge):" << std::endl;
+                                //    tau_edge.print(std::cout);
+                                //}
+  
+                                vmsdg_solver.setMatrix(Teuchos::rcp(&tau_edge, false));
+                                // Compute tau_edge (invert LHS matrix)
+                                auto info = vmsdg_solver.invert();
+                                
+                                // MA Check Matrices
+				//_tempcount += 1;
+				// Kokkos::fence();
+                                //if (comp == 0 && _tempcount == 0) {
+                                //    std::cout << "\nSOURCES EXTERIOR tau_edge AFTER inversion (actual tau_edge):" << std::endl;
+                                //    tau_edge.print(std::cout);
+                                //    _tempcount = 1;
+                                //}
+                                // MA END computation of VMS-DG terms
+                                // ############################################################################################
+                                //double vmsBCfactor = 20.0;
+				//contribution += q_wt * v * vmsBCfactor * ( tau_edge(comp, 0) * velocity_function->evalScalar(pt, 0) + 
+				//                             tau_edge(comp, 1) * velocity_function->evalScalar(pt, 1) );
+				
+				exact_eval = velocity_function->evalScalar(pt, comp);
                                 contribution += penalty * q_wt * v * exact_eval;
                                 auto exact = velocity_function->evalVector(pt);
                                 contribution -= q_wt * (
