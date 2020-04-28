@@ -2,36 +2,19 @@ include_tribits_build()
 
 bob_config_header("${CMAKE_CURRENT_BINARY_DIR}/Compadre_Config.h")
 
-set(COMPADRE_HEADERS
-  "${CMAKE_CURRENT_BINARY_DIR}/Compadre_Config.h"
-  Compadre_Functors.hpp
-  Compadre_GMLS.hpp
-  Compadre_GMLS_ApplyTargetEvaluations.hpp
-  Compadre_GMLS_Basis.hpp
-  Compadre_GMLS_Targets.hpp
-  Compadre_KokkosParser.hpp
-  Compadre_LinearAlgebra_Declarations.hpp
-  Compadre_LinearAlgebra_Definitions.hpp
-  Compadre_Misc.hpp
-  Compadre_Operators.hpp
-  Compadre_ParallelManager.hpp
-  Compadre_PointCloudSearch.hpp
-  Compadre_Quadrature.hpp
-  Compadre_Typedefs.hpp
-  Compadre_Utilities.hpp
-  Compadre_Evaluator.hpp
-  USER_StandardTargetFunctionals.hpp
-  USER_ManifoldTargetFunctionals.hpp
-  basis/DivergenceFree3D.hpp
-  basis/CreateConstraints.hpp
+set(COMPADRE_HEADERS "")
+set(COMPADRE_SOURCES "")
+set(COMPADRE_HEADERS ${COMPADRE_HEADERS}
+  ${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}_Config.h
   )
-
-
-set(COMPADRE_SOURCES
-  Compadre_GMLS.cpp
-  Compadre_KokkosParser.cpp
-  Compadre_LinearAlgebra.cpp
+append_glob(COMPADRE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp)
+list(REMOVE_ITEM COMPADRE_HEADERS
+  ${CMAKE_CURRENT_SOURCE_DIR}/Compadre_Manifold_Functions.hpp
   )
+append_glob(COMPADRE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/basis/*.hpp)
+append_glob(COMPADRE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/constraints/*.hpp)
+append_glob(COMPADRE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/tpl/*.hpp)
+append_glob(COMPADRE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 
 add_library(compadre ${COMPADRE_SOURCES})
 bob_library_includes(compadre)

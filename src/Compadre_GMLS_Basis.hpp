@@ -2,7 +2,7 @@
 #define _COMPADRE_GMLS_BASIS_HPP_
 
 #include "Compadre_GMLS.hpp"
-#include "basis/DivergenceFree3D.hpp"
+#include "basis/Compadre_DivergenceFree.hpp"
 
 namespace Compadre {
 
@@ -153,7 +153,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
         if (dimension == 3) {
             for (int n = 0; n < dimension_offset; n++) {
                 // Obtain the vector for the basis
-                Pn = calDivFreeBasis(n, xs, ys, zs);
+                Pn = calcDivFreeBasis(n, xs, ys, zs);
                 // Then assign it to the input
                 *(delta + n) = Pn[component];
             }
@@ -161,7 +161,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
         if (dimension == 2) {
             for (int n = 0; n < dimension_offset; n++) {
                 // Obtain the vector for the basis
-                Pn = calDivFreeBasis(n, xs, ys);
+                Pn = calcDivFreeBasis(n, xs, ys);
                 // Then assign it to the input
                 *(delta + n) = Pn[component];
             }
@@ -614,13 +614,27 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
 
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::calcGradientPij(const member_type& teamMember, double* delta, const int target_index, const int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_index) const {
+void GMLS::calcGradientPij(const member_type& teamMember, double* delta, const int target_index, int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_index) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
  */
+
+    const int my_num_neighbors = this->getNNeighbors(target_index);
+
     // store precalculated factorials for speedup
     const double factorial[15] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
+
+    int component = 0;
+    if (neighbor_index >= my_num_neighbors) {
+        component = neighbor_index / my_num_neighbors;
+        neighbor_index = neighbor_index % my_num_neighbors;
+    } else if (neighbor_index < 0) {
+        // -1 maps to 0 component
+        // -2 maps to 1 component
+        // -3 maps to 2 component
+        component = -(neighbor_index+1);
+    }
 
     // alpha corresponds to the linear combination of target_index and neighbor_index coordinates
     // coordinate to evaluate = alpha*(target_index's coordinate) + (1-alpha)*(neighbor_index's coordinate)
@@ -708,6 +722,33 @@ void GMLS::calcGradientPij(const member_type& teamMember, double* delta, const i
                                     *std::pow(relative_coord.x/cutoff_p,x_pow)/alphaf;
                     }
                     i++;
+            }
+        }
+    } else if ((polynomial_sampling_functional == VectorPointSample) &&
+               (reconstruction_space == DivergenceFreeVectorTaylorPolynomial)) {
+        // Divergence free vector polynomial basis
+        const int dimension_offset = this->getNP(_poly_order, _global_dimensions, reconstruction_space);
+        double cutoff_p = _epsilons(target_index);
+
+        double xs = relative_coord.x/cutoff_p;
+        double ys = relative_coord.y/cutoff_p;
+        double zs = relative_coord.z/cutoff_p;
+        XYZ Pn;
+
+        if (dimension == 3) {
+            for (int n = 0; n < dimension_offset; n++) {
+                // Obtain the vector for the basis
+                Pn = calcGradientDivFreeBasis(n, partial_direction, xs, ys, zs);
+                // Then assign it to the input
+                *(delta + n) = Pn[component];
+            }
+        }
+        if (dimension == 2) {
+            for (int n = 0; n < dimension_offset; n++) {
+                // Obtain the vector for the basis
+                Pn = calcGradientDivFreeBasis(n, partial_direction, xs, ys);
+                // Then assign it to the input
+                *(delta + n) = Pn[component];
             }
         }
     } else {
