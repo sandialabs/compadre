@@ -556,7 +556,7 @@ if (NOT(Compadre_DEBUG OR Compadre_EXTREME_DEBUG))
 
   # Divergence-free basis test for GMLS on non-manifold
   # Note: SVD is needed to be used here due to the null space introduced
-  set(testName GMLS_DivergenceFree_Dim3_SVD)
+  set(testName GMLS_DivergenceFree_Dim3_P3_SVD)
   tribits_add_test(
     GMLS_Divergence_Test
     NAME
@@ -576,6 +576,68 @@ if (NOT(Compadre_DEBUG OR Compadre_EXTREME_DEBUG))
           60
       ) # end set_tests_properties
   endif() # test created
+  #set(testName GMLS_DivergenceFree_Dim3_P2_SVD)
+  #tribits_add_test(
+  #  GMLS_Divergence_Test
+  #  NAME
+  #    ${testName}
+  #  NUM_MPI_PROCS 1
+  #  ARGS
+  #    "2 200 3 0 0 0 --kokkos-threads=2"
+  #  ADDED_TESTS_NAMES_OUT ${testName}_CREATED
+  #  ) # end tribits_add_test
+  #if (${testName}_CREATED)
+  #  set_tests_properties(
+  #    ${${testName}_CREATED}
+  #    PROPERTIES
+  #      LABELS
+  #        "UnitTest;unit;kokkos;divergencefree;svd"
+  #      TIMEOUT
+  #        60
+  #    ) # end set_tests_properties
+  #endif() # test created
+
+  # Divergence-free basis test for GMLS on non-manifold
+  set(testName GMLS_DivergenceFree_Dim2_P3_SVD)
+  tribits_add_test(
+    GMLS_Divergence_Test
+    NAME
+      ${testName}
+    NUM_MPI_PROCS 1
+    ARGS
+      "3 200 2 0 0 0 --kokkos-threads=2"
+    ADDED_TESTS_NAMES_OUT ${testName}_CREATED
+    ) # end tribits_add_test
+  if (${testName}_CREATED)
+    set_tests_properties(
+      ${${testName}_CREATED}
+      PROPERTIES
+        LABELS
+          "UnitTest;unit;kokkos;divergencefree;svd"
+        TIMEOUT
+          60
+      ) # end set_tests_properties
+  endif() # test created
+  #set(testName GMLS_DivergenceFree_Dim2_P2_SVD)
+  #tribits_add_test(
+  #  GMLS_Divergence_Test
+  #  NAME
+  #    ${testName}
+  #  NUM_MPI_PROCS 1
+  #  ARGS
+  #    "2 200 2 0 0 0 --kokkos-threads=2"
+  #  ADDED_TESTS_NAMES_OUT ${testName}_CREATED
+  #  ) # end tribits_add_test
+  #if (${testName}_CREATED)
+  #  set_tests_properties(
+  #    ${${testName}_CREATED}
+  #    PROPERTIES
+  #      LABELS
+  #        "UnitTest;unit;kokkos;divergencefree;svd"
+  #      TIMEOUT
+  #        60
+  #    ) # end set_tests_properties
+  #endif() # test created
 endif() # not debug
 
 # Python driven test of a C++ executable (Python changes command line

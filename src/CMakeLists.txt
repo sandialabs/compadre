@@ -2,19 +2,24 @@ include_tribits_build()
 
 bob_config_header("${CMAKE_CURRENT_BINARY_DIR}/Compadre_Config.h")
 
+MACRO(COMPADRE_APPEND_GLOB VAR)
+  FILE(GLOB LOCAL_TMP_VAR ${ARGN})
+  LIST(APPEND ${VAR} ${LOCAL_TMP_VAR})
+ENDMACRO()
+
 set(COMPADRE_HEADERS "")
 set(COMPADRE_SOURCES "")
 set(COMPADRE_HEADERS ${COMPADRE_HEADERS}
   ${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}_Config.h
   )
-append_glob(COMPADRE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp)
+compadre_append_glob(COMPADRE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp)
 list(REMOVE_ITEM COMPADRE_HEADERS
   ${CMAKE_CURRENT_SOURCE_DIR}/Compadre_Manifold_Functions.hpp
   )
-append_glob(COMPADRE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/basis/*.hpp)
-append_glob(COMPADRE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/constraints/*.hpp)
-append_glob(COMPADRE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/tpl/*.hpp)
-append_glob(COMPADRE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+compadre_append_glob(COMPADRE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/basis/*.hpp)
+compadre_append_glob(COMPADRE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/constraints/*.hpp)
+compadre_append_glob(COMPADRE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/tpl/*.hpp)
+compadre_append_glob(COMPADRE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 
 add_library(compadre ${COMPADRE_SOURCES})
 bob_library_includes(compadre)

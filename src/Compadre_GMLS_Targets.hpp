@@ -746,23 +746,31 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     for (int m0=0; m0<_sampling_multiplier; ++m0) { // input components
                         for (int m1=0; m1<_sampling_multiplier; ++m1) { // output components
                             int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, 0 /*no additional*/);
-                            switch (m1) {
-                                // manually compute the output components
-                                case 0:
-                                    // output component 0
-                                    P_target_row(offset, 6) = -std::pow(_epsilons(target_index), -1);
-                                    P_target_row(offset, 8) = std::pow(_epsilons(target_index), -1);
-                                    break;
-                                case 1:
-                                    // output component 1
-                                    P_target_row(offset, 7) = -std::pow(_epsilons(target_index), -1);
-                                    P_target_row(offset, 4) = std::pow(_epsilons(target_index), -1);
-                                    break;
-                                default:
-                                    // output component 2
-                                    P_target_row(offset, 3) = -std::pow(_epsilons(target_index), -1);
-                                    P_target_row(offset, 5) = std::pow(_epsilons(target_index), -1);
-                                    break;
+                            if (_dimensions==3) {
+                                switch (m1) {
+                                    // manually compute the output components
+                                    case 0:
+                                        // output component 0
+                                        P_target_row(offset, 6) = -std::pow(_epsilons(target_index), -1);
+                                        P_target_row(offset, 8) = std::pow(_epsilons(target_index), -1);
+                                        break;
+                                    case 1:
+                                        // output component 1
+                                        P_target_row(offset, 7) = -std::pow(_epsilons(target_index), -1);
+                                        P_target_row(offset, 4) = std::pow(_epsilons(target_index), -1);
+                                        break;
+                                    default:
+                                        // output component 2
+                                        P_target_row(offset, 3) = -std::pow(_epsilons(target_index), -1);
+                                        P_target_row(offset, 5) = std::pow(_epsilons(target_index), -1);
+                                        break;
+                                }
+                            } else {
+                                if (m1==0) {
+                                    // curl results in 1D output
+                                    P_target_row(offset, 2) = -std::pow(_epsilons(target_index), -1);
+                                    P_target_row(offset, 3) = std::pow(_epsilons(target_index), -1);
+                                }
                             }
                         }
                     }
@@ -816,104 +824,17 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                     for (int e=0; e<num_evaluation_sites; ++e) { 
                         for (int m0=0; m0<_sampling_multiplier; ++m0) { // input components
-                            int output_components = _basis_multiplier;
-                            for (int m1=0; m1<output_components; ++m1) { // output components 1
-                                for (int m2=0; m2<output_components; ++m2) { // output components 2
-                                    int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1*output_components+m2 /*out*/, e);
-                                    this->calcGradientPij(teamMember, t1.data(), target_index, -1-m1 /* target is neighbor */, 1 /*alpha*/, m2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, PointSample, e);
+                            for (int m1=0; m1<_sampling_multiplier; ++m1) { // output components 1
+                                for (int m2=0; m2<_sampling_multiplier; ++m2) { // output components 2
+                                    int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1*_sampling_multiplier+m2 /*out*/, e);
+                                    this->calcGradientPij(teamMember, t1.data(), target_index, -(m1+1) /* target is neighbor */, 1 /*alpha*/, m2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                     for (int j=0; j<target_NP; ++j) {
-                                        P_target_row(offset, m1*target_NP + j) = t1(j);
+                                        P_target_row(offset, j) = t1(j);
                                     }
                                 }
                             }
                         }
                     }
-                    //for (int m0=0; m0<_sampling_multiplier; ++m0) { // input components
-                    //    for (int m1=0; m1<_sampling_multiplier; ++m1) { // output components 1
-                    //        for (int m2=0; m2<_sampling_multiplier; ++m2) { // output componets 2
-                    //            int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1*_sampling_multiplier+m2 /*out*/, 0 /*no additional*/);
-                    //            if (_dimensions == 3) {
-                    //                switch (m1) {
-                    //                // manually compute the output components
-                    //                case 0:
-                    //                    switch (m2) {
-                    //                        case 0:
-                    //                            // output component 0, 0
-                    //                            P_target_row(offset, 9) = std::pow(_epsilons(target_index), -1);
-                    //                            P_target_row(offset, 10) = std::pow(_epsilons(target_index), -1);
-                    //                            break;
-                    //                        case 1:
-                    //                            // output component 0, 1
-                    //                            P_target_row(offset, 3) = std::pow(_epsilons(target_index), -1);
-                    //                            break;
-                    //                        default:
-                    //                            // output component 0, 2
-                    //                            P_target_row(offset, 4) = std::pow(_epsilons(target_index), -1);
-                    //                            break;
-                    //                    }
-                    //                    break;
-                    //                case 1:
-                    //                    switch (m2) {
-                    //                        case 0:
-                    //                            // output component 1, 0
-                    //                            P_target_row(offset, 5) = std::pow(_epsilons(target_index), -1);
-                    //                            break;
-                    //                        case 1:
-                    //                            // output component 1, 1
-                    //                            P_target_row(offset, 9) = -std::pow(_epsilons(target_index), -1);
-                    //                            break;
-                    //                        default:
-                    //                            // output component 1, 2
-                    //                            P_target_row(offset, 6) = std::pow(_epsilons(target_index), -1);
-                    //                            break;
-                    //                    }
-                    //                    break;
-                    //                default:
-                    //                    switch (m2) {
-                    //                        case 0:
-                    //                            // output component 2, 0
-                    //                            P_target_row(offset, 7) = std::pow(_epsilons(target_index), -1);
-                    //                            break;
-                    //                        case 1:
-                    //                            // output component 2, 1
-                    //                            P_target_row(offset, 8) = std::pow(_epsilons(target_index), -1);
-                    //                            break;
-                    //                        default:
-                    //                            // output component 2, 2
-                    //                            P_target_row(offset, 10) = -std::pow(_epsilons(target_index), -1);
-                    //                            break;
-                    //                    }
-                    //                    break;
-                    //                }
-                    //            }
-                    //            if (_dimensions == 2) {
-                    //                switch (m1) {
-                    //                // manually compute the output components
-                    //                case 0:
-                    //                    switch (m2) {
-                    //                        case 0:
-                    //                            P_target_row(offset, 4) = std::pow(_epsilons(target_index), -1);
-                    //                            break;
-                    //                        case 1:
-                    //                            P_target_row(offset, 2) = std::pow(_epsilons(target_index), -1);
-                    //                            break;
-                    //                    }
-                    //                    break;
-                    //                case 1:
-                    //                    switch (m2) {
-                    //                        case 0:
-                    //                            P_target_row(offset, 3) = std::pow(_epsilons(target_index), -1);
-                    //                            break;
-                    //                        case 1:
-                    //                            P_target_row(offset, 4) = -std::pow(_epsilons(target_index), -1);
-                    //                            break;
-                    //                    }
-                    //                    break;
-                    //                }
-                    //            }
-                    //        }
-                    //    }
-                    //}
                 });
             }
             additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
