@@ -89,12 +89,13 @@ namespace DivergenceFreePolynomialBasis {
             case 63: return XYZ(                   0,                   0, sx*sy*sy*sy        );
             case 64: return XYZ(                   0,                   0, sy*sy*sy*sy        );
 
-            case 65: return XYZ(sx*sx*sx*sx         ,-3.0*sx*sx*sx*sy    ,                   0);
+            case 65: return XYZ(sx*sx*sx*sx         ,-4.0*sx*sx*sx*sy    ,                   0);
             case 66: return XYZ(sx*sx*sx*sx         ,                   0, -4.0*sx*sx*sx*sz   );
             case 67: return XYZ(sx*sx*sx*sy         ,-1.5*sx*sx*sy*sy    ,                   0);
             case 68: return XYZ(sx*sx*sx*sy         ,                   0, -3.0*sx*sx*sy*sz   );
             case 69: return XYZ(sx*sx*sx*sz         ,-3.0*sx*sx*sy*sz    ,                   0);
             case 70: return XYZ(sx*sx*sx*sz         ,                   0, -1.5*sx*sx*sz*sz   );
+
             case 71: return XYZ(sx*sx*sy*sy         , -2.0*th*sx*sy*sy*sy,                   0);
             case 72: return XYZ(sx*sx*sy*sy         ,                   0, -2.0*sx*sy*sy*sz   );
             case 73: return XYZ(sx*sx*sy*sz         , -sx*sy*sy*sz       ,                   0);
@@ -247,7 +248,7 @@ ports up to 4th-order polynomials for now.");
                 case 63: return XYZ(                   0,                   0,          sy*sy*sy/h);
                 case 64: return XYZ(                   0,                   0,                   0);
 
-                case 65: return XYZ( 4*sx*sx*sx/h       ,-9.0*sx*sx*sy/h    ,                   0);
+                case 65: return XYZ( 4*sx*sx*sx/h       ,-12.0*sx*sx*sy/h    ,                   0);
                 case 66: return XYZ( 4*sx*sx*sx/h       ,                   0, -12.0*sx*sx*sz/h   );
                 case 67: return XYZ( 3*sx*sx*sy/h       ,-3.0*sx*sy*sy/h    ,                   0);
                 case 68: return XYZ( 3*sx*sx*sy/h       ,                   0, -6.0*sx*sy*sz/h   );
@@ -352,7 +353,7 @@ ports up     to 4th-order polynomials for now.");
                 case 63: return XYZ(                   0,                   0,         3*sx*sy*sy/h);
                 case 64: return XYZ(                   0,                   0,         4*sy*sy*sy/h);
 
-                case 65: return XYZ(                   0,     -3.0*sx*sx*sx/h,                   0);
+                case 65: return XYZ(                   0,     -4.0*sx*sx*sx/h,                   0);
                 case 66: return XYZ(                   0,                   0,                   0);
                 case 67: return XYZ(          sx*sx*sx/h,     -3.0*sx*sx*sy/h,                   0);
                 case 68: return XYZ(          sx*sx*sx/h,                   0,     -3.0*sx*sx*sz/h);
