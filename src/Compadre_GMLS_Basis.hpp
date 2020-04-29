@@ -3,7 +3,7 @@
 
 #include "Compadre_GMLS.hpp"
 #include "basis/Compadre_ScalarTaylorPolynomial.hpp"
-#include "basis/Compadre_DivergenceFree.hpp"
+#include "basis/Compadre_DivergenceFreePolynomial.hpp"
 
 namespace Compadre {
 
@@ -93,7 +93,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
         if (dimension == 3) {
             for (int n = 0; n < dimension_offset; n++) {
                 // Obtain the vector for the basis
-                Pn = calcDivFreeBasis(n, xs, ys, zs);
+                Pn = DivergenceFreePolynomialBasis::evaluate(n, xs, ys, zs);
                 // Then assign it to the input
                 *(delta + n) = Pn[component];
             }
@@ -101,7 +101,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
         if (dimension == 2) {
             for (int n = 0; n < dimension_offset; n++) {
                 // Obtain the vector for the basis
-                Pn = calcDivFreeBasis(n, xs, ys);
+                Pn = DivergenceFreePolynomialBasis::evaluate(n, xs, ys);
                 // Then assign it to the input
                 *(delta + n) = Pn[component];
             }
@@ -552,7 +552,7 @@ void GMLS::calcGradientPij(const member_type& teamMember, double* delta, const i
         if (dimension == 3) {
             for (int n = 0; n < dimension_offset; n++) {
                 // Obtain the vector for the basis
-                Pn = calcGradientDivFreeBasis(n, partial_direction, cutoff_p, xs, ys, zs);
+                Pn = DivergenceFreePolynomialBasis::evaluatePartialDerivative(n, partial_direction, cutoff_p, xs, ys, zs);
                 // Then assign it to the input
                 *(delta + n) = Pn[component];
             }
@@ -560,7 +560,7 @@ void GMLS::calcGradientPij(const member_type& teamMember, double* delta, const i
         if (dimension == 2) {
             for (int n = 0; n < dimension_offset; n++) {
                 // Obtain the vector for the basis
-                Pn = calcGradientDivFreeBasis(n, partial_direction, cutoff_p, xs, ys);
+                Pn = DivergenceFreePolynomialBasis::evaluatePartialDerivative(n, partial_direction, cutoff_p, xs, ys);
                 // Then assign it to the input
                 *(delta + n) = Pn[component];
             }

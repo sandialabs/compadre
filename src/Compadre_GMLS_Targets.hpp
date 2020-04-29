@@ -3,7 +3,6 @@
 
 #include "Compadre_GMLS.hpp"
 #include "Compadre_Manifold_Functions.hpp"
-#include "basis/Compadre_DivergenceFree.hpp"
 
 namespace Compadre {
 

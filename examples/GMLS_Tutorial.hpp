@@ -2,7 +2,7 @@
 #define _GMLS_TUTORIAL_HPP_
 
 #include <Kokkos_Core.hpp>
-#include <basis/Compadre_DivergenceFree.hpp>
+#include <basis/Compadre_DivergenceFreePolynomial.hpp>
 #include <Compadre_GMLS.hpp>
 
 KOKKOS_INLINE_FUNCTION
@@ -269,12 +269,12 @@ double divfreeTestSolution_span_basis(double x, double y, double z, int componen
     const int NP = Compadre::GMLS::getNP(exact_order, dimension, Compadre::ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial);
     if (dimension==3) {
         for (int i=0; i<NP; ++i) {
-            Compadre::XYZ basis_i = Compadre::calcDivFreeBasis(i, x, y, z);
+            Compadre::XYZ basis_i = Compadre::DivergenceFreePolynomialBasis::evaluate(i, x, y, z);
             val += basis_i[component];
         }
     } else {
         for (int i=0; i<NP; ++i) {
-            Compadre::XYZ basis_i = Compadre::calcDivFreeBasis(i, x, y);
+            Compadre::XYZ basis_i = Compadre::DivergenceFreePolynomialBasis::evaluate(i, x, y);
             val += basis_i[component];
         }
     }
@@ -305,20 +305,20 @@ double curldivfreeTestSolution_span_basis(double x, double y, double z, int comp
     if (dimension==3) {
         if (component==0) {
             for (int i=0; i<NP; ++i) {
-                Compadre::XYZ grad_y = Compadre::calcGradientDivFreeBasis(i, 1, 1, x, y, z);
-                Compadre::XYZ grad_z = Compadre::calcGradientDivFreeBasis(i, 2, 1, x, y, z);
+                Compadre::XYZ grad_y = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, 1, 1, x, y, z);
+                Compadre::XYZ grad_z = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, 2, 1, x, y, z);
                 val += grad_y[2] - grad_z[1];
             }
         } else if (component==1) {
             for (int i=0; i<NP; ++i) {
-                Compadre::XYZ grad_x = Compadre::calcGradientDivFreeBasis(i, 0, 1, x, y, z);
-                Compadre::XYZ grad_z = Compadre::calcGradientDivFreeBasis(i, 2, 1, x, y, z);
+                Compadre::XYZ grad_x = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, 0, 1, x, y, z);
+                Compadre::XYZ grad_z = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, 2, 1, x, y, z);
                 val += -grad_x[2] + grad_z[0];
             }
         } else if (component==2) {
             for (int i=0; i<NP; ++i) {
-                Compadre::XYZ grad_x = Compadre::calcGradientDivFreeBasis(i, 0, 1, x, y, z);
-                Compadre::XYZ grad_y = Compadre::calcGradientDivFreeBasis(i, 1, 1, x, y, z);
+                Compadre::XYZ grad_x = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, 0, 1, x, y, z);
+                Compadre::XYZ grad_y = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, 1, 1, x, y, z);
                 val += grad_x[1] - grad_y[0];
             }
         }
@@ -326,8 +326,8 @@ double curldivfreeTestSolution_span_basis(double x, double y, double z, int comp
     } else if (dimension==2) {
         if (component==0) {
             for (int i=0; i<NP; ++i) {
-                Compadre::XYZ grad_x = Compadre::calcGradientDivFreeBasis(i, 0, 1, x, y);
-                Compadre::XYZ grad_y = Compadre::calcGradientDivFreeBasis(i, 1, 1, x, y);
+                Compadre::XYZ grad_x = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, 0, 1, x, y);
+                Compadre::XYZ grad_y = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, 1, 1, x, y);
                 val += grad_x[1] - grad_y[0];
             }
             return val;
@@ -406,12 +406,12 @@ double gradientdivfreeTestSolution_span_basis(double x, double y, double z, int 
     const int NP = Compadre::GMLS::getNP(exact_order, dimension, Compadre::ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial);
     if (dimension==3) {
         for (int i=0; i<NP; ++i) {
-            Compadre::XYZ basis_i = Compadre::calcGradientDivFreeBasis(i, output_component, 1.0, x, y, z);
+            Compadre::XYZ basis_i = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, output_component, 1.0, x, y, z);
             val += basis_i[input_component];
         }
     } else {
         for (int i=0; i<NP; ++i) {
-            Compadre::XYZ basis_i = Compadre::calcGradientDivFreeBasis(i, output_component, 1.0, x, y);
+            Compadre::XYZ basis_i = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, output_component, 1.0, x, y);
             val += basis_i[input_component];
         }
     }
