@@ -24,11 +24,11 @@ namespace ScalarTaylorPolynomialBasis {
     }
 
     KOKKOS_INLINE_FUNCTION
-    void evaluate(double* delta, const int dimension, const int max_degree, const double h, const double x, const double y, const double z, const int starting_order = 0, const double weight_of_original_value = 0.0, const double weight_of_new_value = 1.0) {
+    void evaluate(double* delta, double* workspace, const int dimension, const int max_degree, const double h, const double x, const double y, const double z, const int starting_order = 0, const double weight_of_original_value = 0.0, const double weight_of_new_value = 1.0) {
         if (dimension==3) {
-            double x_over_h_to_i[max_degree+1];
-            double y_over_h_to_i[max_degree+1];
-            double z_over_h_to_i[max_degree+1];
+            scratch_vector_type x_over_h_to_i(workspace, max_degree+1);
+            scratch_vector_type y_over_h_to_i(workspace+1*(max_degree+1), max_degree+1);
+            scratch_vector_type z_over_h_to_i(workspace+2*(max_degree+1), max_degree+1);
             x_over_h_to_i[0] = 1;
             y_over_h_to_i[0] = 1;
             z_over_h_to_i[0] = 1;
@@ -53,8 +53,8 @@ namespace ScalarTaylorPolynomialBasis {
                 }
             }
         } else if (dimension==2) {
-            double x_over_h_to_i[max_degree+1];
-            double y_over_h_to_i[max_degree+1];
+            scratch_vector_type x_over_h_to_i(workspace, max_degree+1);
+            scratch_vector_type y_over_h_to_i(workspace+1*(max_degree+1), max_degree+1);
             x_over_h_to_i[0] = 1;
             y_over_h_to_i[0] = 1;
             for (int i=1; i<=max_degree; ++i) {
@@ -74,7 +74,7 @@ namespace ScalarTaylorPolynomialBasis {
                 }
             }
         } else {
-            double x_over_h_to_i[max_degree+1];
+            scratch_vector_type x_over_h_to_i(workspace, max_degree+1);
             x_over_h_to_i[0] = 1;
             for (int i=1; i<=max_degree; ++i) {
                 x_over_h_to_i[i] = x_over_h_to_i[i-1]*(x/h);
@@ -87,11 +87,11 @@ namespace ScalarTaylorPolynomialBasis {
     }
 
     KOKKOS_INLINE_FUNCTION
-    void evaluatePartialDerivative(double* delta, const int dimension, const int max_degree, const int partial_direction, const double h, const double x, const double y, const double z, const int starting_order = 0, const double weight_of_original_value = 0.0, const double weight_of_new_value = 1.0) {
+    void evaluatePartialDerivative(double* delta, double* workspace, const int dimension, const int max_degree, const int partial_direction, const double h, const double x, const double y, const double z, const int starting_order = 0, const double weight_of_original_value = 0.0, const double weight_of_new_value = 1.0) {
         if (dimension==3) {
-            double x_over_h_to_i[max_degree+1];
-            double y_over_h_to_i[max_degree+1];
-            double z_over_h_to_i[max_degree+1];
+            scratch_vector_type x_over_h_to_i(workspace, max_degree+1);
+            scratch_vector_type y_over_h_to_i(workspace+1*(max_degree+1), max_degree+1);
+            scratch_vector_type z_over_h_to_i(workspace+2*(max_degree+1), max_degree+1);
             x_over_h_to_i[0] = 1;
             y_over_h_to_i[0] = 1;
             z_over_h_to_i[0] = 1;
@@ -126,8 +126,8 @@ namespace ScalarTaylorPolynomialBasis {
                 }
             }
         } else if (dimension==2) {
-            double x_over_h_to_i[max_degree+1];
-            double y_over_h_to_i[max_degree+1];
+            scratch_vector_type x_over_h_to_i(workspace, max_degree+1);
+            scratch_vector_type y_over_h_to_i(workspace+1*(max_degree+1), max_degree+1);
             x_over_h_to_i[0] = 1;
             y_over_h_to_i[0] = 1;
             for (int i=1; i<=max_degree; ++i) {
@@ -156,7 +156,7 @@ namespace ScalarTaylorPolynomialBasis {
                 }
             }
         } else {
-            double x_over_h_to_i[max_degree+1];
+            scratch_vector_type x_over_h_to_i(workspace, max_degree+1);
             x_over_h_to_i[0] = 1;
             for (int i=1; i<=max_degree; ++i) {
                 x_over_h_to_i[i] = x_over_h_to_i[i-1]*(x/h);

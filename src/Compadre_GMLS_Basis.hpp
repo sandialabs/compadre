@@ -8,7 +8,7 @@
 namespace Compadre {
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::calcPij(const member_type& teamMember, double* delta, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_local_index) const {
+void GMLS::calcPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_local_index) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
@@ -58,7 +58,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
         double cutoff_p = _epsilons(target_index);
         const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
 
-        ScalarTaylorPolynomialBasis::evaluate(delta, dimension, poly_order, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z, start_index);
+        ScalarTaylorPolynomialBasis::evaluate(delta, thread_workspace, dimension, poly_order, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z, start_index);
 
     // basis ActualReconstructionSpaceRank is 1 (is a true vector basis) and sampling functional is traditional
     } else if ((polynomial_sampling_functional == VectorPointSample ||
@@ -72,7 +72,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
 
         for (int d=0; d<dimension; ++d) {
             if (d==component) {
-                ScalarTaylorPolynomialBasis::evaluate(delta+component*dimension_offset, dimension, poly_order, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z, start_index);
+                ScalarTaylorPolynomialBasis::evaluate(delta+component*dimension_offset, thread_workspace, dimension, poly_order, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z, start_index);
             } else {
                 for (int n=0; n<dimension_offset; ++n) {
                     *(delta+d*dimension_offset+n) = 0;
@@ -111,11 +111,11 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
         double cutoff_p = _epsilons(target_index);
         const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
         // basis is actually scalar with staggered sampling functional
-        ScalarTaylorPolynomialBasis::evaluate(delta, dimension, poly_order, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z, start_index, 0.0, -1.0);
+        ScalarTaylorPolynomialBasis::evaluate(delta, thread_workspace, dimension, poly_order, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z, start_index, 0.0, -1.0);
         relative_coord.x = 0;
         relative_coord.y = 0;
         relative_coord.z = 0;
-        ScalarTaylorPolynomialBasis::evaluate(delta, dimension, poly_order, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z, start_index, 1.0, 1.0);
+        ScalarTaylorPolynomialBasis::evaluate(delta, thread_workspace, dimension, poly_order, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z, start_index, 1.0, 1.0);
     } else if (polynomial_sampling_functional == StaggeredEdgeIntegralSample) {
           if (_problem_type == ProblemType::MANIFOLD) {
               double cutoff_p = _epsilons(target_index);
@@ -485,7 +485,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
 
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::calcGradientPij(const member_type& teamMember, double* delta, const int target_index, int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_index) const {
+void GMLS::calcGradientPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_index) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
@@ -536,7 +536,7 @@ void GMLS::calcGradientPij(const member_type& teamMember, double* delta, const i
             polynomial_sampling_functional == VaryingManifoldVectorPointSample) &&
             (reconstruction_space == ScalarTaylorPolynomial || reconstruction_space == VectorOfScalarClonesTaylorPolynomial)) {
 
-        ScalarTaylorPolynomialBasis::evaluatePartialDerivative(delta, dimension, poly_order, partial_direction, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z, start_index);
+        ScalarTaylorPolynomialBasis::evaluatePartialDerivative(delta, thread_workspace, dimension, poly_order, partial_direction, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z, start_index);
 
     } else if ((polynomial_sampling_functional == VectorPointSample) &&
                (reconstruction_space == DivergenceFreeVectorTaylorPolynomial)) {
@@ -572,7 +572,7 @@ void GMLS::calcGradientPij(const member_type& teamMember, double* delta, const i
 
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_right_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p, scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional) const {
+void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_vector_type thread_workspace, scratch_matrix_right_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p, scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional) const {
     /*
      * Creates sqrt(W)*P
      */
@@ -612,7 +612,7 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
             // generate weight vector from distances and window sizes
             w(i+my_num_neighbors*d) = this->Wab(r, _epsilons(target_index), _weighting_type, _weighting_power);
 
-            this->calcPij(teamMember, delta.data(), target_index, i + d*my_num_neighbors, 0 /*alpha*/, dimension, polynomial_order, false /*bool on only specific order*/, V, reconstruction_space, polynomial_sampling_functional);
+            this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, i + d*my_num_neighbors, 0 /*alpha*/, dimension, polynomial_order, false /*bool on only specific order*/, V, reconstruction_space, polynomial_sampling_functional);
 
             // storage_size needs to change based on the size of the basis
             int storage_size = this->getNP(polynomial_order, dimension, reconstruction_space);
@@ -647,7 +647,7 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_vector_type delta, scratch_matrix_right_type P, scratch_vector_type w, const int dimension, bool only_specific_order, scratch_matrix_right_type* V) const {
+void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_vector_type delta, scratch_vector_type thread_workspace, scratch_matrix_right_type P, scratch_vector_type w, const int dimension, bool only_specific_order, scratch_matrix_right_type* V) const {
 /*
  * This function has two purposes
  * 1.) Used to calculate specifically for 1st order polynomials, from which we can reconstruct a tangent plane
@@ -673,10 +673,10 @@ void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_
         // generate weight vector from distances and window sizes
         if (only_specific_order) {
             w(i) = this->Wab(r, _epsilons(target_index), _curvature_weighting_type, _curvature_weighting_power);
-            this->calcPij(teamMember, delta.data(), target_index, i, 0 /*alpha*/, dimension, 1, true /*bool on only specific order*/);
+            this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, i, 0 /*alpha*/, dimension, 1, true /*bool on only specific order*/);
         } else {
             w(i) = this->Wab(r, _epsilons(target_index), _curvature_weighting_type, _curvature_weighting_power);
-            this->calcPij(teamMember, delta.data(), target_index, i, 0 /*alpha*/, dimension, _curvature_poly_order, false /*bool on only specific order*/, V);
+            this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, i, 0 /*alpha*/, dimension, _curvature_poly_order, false /*bool on only specific order*/, V);
         }
 
         int storage_size = only_specific_order ? this->getNP(1, dimension)-this->getNP(0, dimension) : this->getNP(_curvature_poly_order, dimension);
