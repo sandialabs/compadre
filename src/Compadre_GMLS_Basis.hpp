@@ -2,6 +2,7 @@
 #define _COMPADRE_GMLS_BASIS_HPP_
 
 #include "Compadre_GMLS.hpp"
+#include "basis/Compadre_ScalarTaylorPolynomial.hpp"
 #include "basis/Compadre_DivergenceFree.hpp"
 
 namespace Compadre {
@@ -55,39 +56,9 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
             (reconstruction_space == ScalarTaylorPolynomial || reconstruction_space == VectorOfScalarClonesTaylorPolynomial)) {
 
         double cutoff_p = _epsilons(target_index);
-        int alphax, alphay, alphaz;
-        double alphaf;
-        int i = 0;
         const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
-        for (int n = start_index; n <= poly_order; n++){
-            if (dimension == 3) {
-                for (alphaz = 0; alphaz <= n; alphaz++){
 
-                    int s = n - alphaz;
-                    for (alphay = 0; alphay <= s; alphay++){
-                        alphax = s - alphay;
-                        alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
-                        *(delta+i) = std::pow(relative_coord.x/cutoff_p,alphax)
-                                    *std::pow(relative_coord.y/cutoff_p,alphay)
-                                    *std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf;
-                        i++;
-                    }
-                }
-            } else if (dimension == 2) {
-                for (alphay = 0; alphay <= n; alphay++){
-                    alphax = n - alphay;
-                    alphaf = factorial[alphax]*factorial[alphay];
-                    *(delta+i) = std::pow(relative_coord.x/cutoff_p,alphax)
-                                *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf;
-                    i++;
-                }
-            } else { // dimension == 1
-                    alphax = n;
-                    alphaf = factorial[alphax];
-                    *(delta+i) = std::pow(relative_coord.x/cutoff_p,alphax)/alphaf;
-                    i++;
-            }
-        }
+        ScalarTaylorPolynomialBasis::evaluate(delta, dimension, poly_order, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z, start_index);
 
     // basis ActualReconstructionSpaceRank is 1 (is a true vector basis) and sampling functional is traditional
     } else if ((polynomial_sampling_functional == VectorPointSample ||
@@ -97,42 +68,11 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
 
         const int dimension_offset = this->getNP(_poly_order, dimension, reconstruction_space);
         double cutoff_p = _epsilons(target_index);
-        int alphax, alphay, alphaz;
-        double alphaf;
-        int i = 0;
+        const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
 
         for (int d=0; d<dimension; ++d) {
             if (d==component) {
-                const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
-                for (int n = start_index; n <= poly_order; n++){
-                    if (dimension == 3) {
-                        for (alphaz = 0; alphaz <= n; alphaz++){
-
-                            int s = n - alphaz;
-                            for (alphay = 0; alphay <= s; alphay++){
-                                alphax = s - alphay;
-                                alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
-                                *(delta+component*dimension_offset+i) = std::pow(relative_coord.x/cutoff_p,alphax)
-                                            *std::pow(relative_coord.y/cutoff_p,alphay)
-                                            *std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf;
-                                i++;
-                            }
-                        }
-                    } else if (dimension == 2) {
-                        for (alphay = 0; alphay <= n; alphay++){
-                            alphax = n - alphay;
-                            alphaf = factorial[alphax]*factorial[alphay];
-                            *(delta+component*dimension_offset+i) = std::pow(relative_coord.x/cutoff_p,alphax)
-                                        *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf;
-                            i++;
-                        }
-                    } else { // dimension == 1
-                            alphax = n;
-                            alphaf = factorial[alphax];
-                            *(delta+component*dimension_offset+i) = std::pow(relative_coord.x/cutoff_p,alphax)/alphaf;
-                            i++;
-                    }
-                }
+                ScalarTaylorPolynomialBasis::evaluate(delta+component*dimension_offset, dimension, poly_order, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z, start_index);
             } else {
                 for (int n=0; n<dimension_offset; ++n) {
                     *(delta+d*dimension_offset+n) = 0;
@@ -168,83 +108,14 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
         }
     } else if ((polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) &&
             (reconstruction_space == ScalarTaylorPolynomial)) {
+        double cutoff_p = _epsilons(target_index);
+        const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
         // basis is actually scalar with staggered sampling functional
-        {
-            double cutoff_p = _epsilons(target_index);
-            int alphax, alphay, alphaz;
-            double alphaf;
-            int i = 0;
-            const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
-            for (int n = start_index; n <= poly_order; n++){
-                if (dimension == 3) {
-                    for (alphaz = 0; alphaz <= n; alphaz++){
-
-                        int s = n - alphaz;
-                        for (alphay = 0; alphay <= s; alphay++){
-                            alphax = s - alphay;
-                            alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
-                            *(delta+i) = -std::pow(relative_coord.x/cutoff_p,alphax)
-                                        *std::pow(relative_coord.y/cutoff_p,alphay)
-                                        *std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf;
-                            i++;
-                        }
-                    }
-                } else if (dimension == 2) {
-                    for (alphay = 0; alphay <= n; alphay++){
-                        alphax = n - alphay;
-                        alphaf = factorial[alphax]*factorial[alphay];
-                        *(delta+i) = -std::pow(relative_coord.x/cutoff_p,alphax)
-                                    *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf;
-                        i++;
-                    }
-                } else { // dimension == 1
-                        alphax = n;
-                        alphaf = factorial[alphax];
-                        *(delta+i) = -std::pow(relative_coord.x/cutoff_p,alphax)/alphaf;
-                        i++;
-                }
-            }
-        }
-        {
-            relative_coord.x = 0;
-            relative_coord.y = 0;
-            relative_coord.z = 0;
-
-            double cutoff_p = _epsilons(target_index);
-            int alphax, alphay, alphaz;
-            double alphaf;
-            int i = 0;
-            const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
-            for (int n = start_index; n <= poly_order; n++){
-                if (dimension == 3) {
-                    for (alphaz = 0; alphaz <= n; alphaz++){
-
-                        int s = n - alphaz;
-                        for (alphay = 0; alphay <= s; alphay++){
-                            alphax = s - alphay;
-                            alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
-                            *(delta+i) += std::pow(relative_coord.x/cutoff_p,alphax)
-                                        *std::pow(relative_coord.y/cutoff_p,alphay)
-                                        *std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf;
-                            i++;
-                        }
-                    }
-                } else if (dimension == 2) {
-                    for (alphay = 0; alphay <= n; alphay++){
-                        alphax = n - alphay;
-                        alphaf = factorial[alphax]*factorial[alphay];
-                        *(delta+i) += std::pow(relative_coord.x/cutoff_p,alphax)
-                                    *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf;
-                        i++;
-                    }
-                } else { // dimension == 1
-                        alphax = n;
-                        alphaf = factorial[alphax];
-                        *(delta+i) += std::pow(relative_coord.x/cutoff_p,alphax)/alphaf;
-                        i++;
-                }
-            }
-        }
+        ScalarTaylorPolynomialBasis::evaluate(delta, dimension, poly_order, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z, start_index, 0.0, -1.0);
+        relative_coord.x = 0;
+        relative_coord.y = 0;
+        relative_coord.z = 0;
+        ScalarTaylorPolynomialBasis::evaluate(delta, dimension, poly_order, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z, start_index, 1.0, 1.0);
     } else if (polynomial_sampling_functional == StaggeredEdgeIntegralSample) {
           if (_problem_type == ProblemType::MANIFOLD) {
               double cutoff_p = _epsilons(target_index);
@@ -657,6 +528,7 @@ void GMLS::calcGradientPij(const member_type& teamMember, double* delta, const i
     }
 
     double cutoff_p = _epsilons(target_index);
+    const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
 
     if ((polynomial_sampling_functional == PointSample ||
             polynomial_sampling_functional == VectorPointSample ||
@@ -664,66 +536,8 @@ void GMLS::calcGradientPij(const member_type& teamMember, double* delta, const i
             polynomial_sampling_functional == VaryingManifoldVectorPointSample) &&
             (reconstruction_space == ScalarTaylorPolynomial || reconstruction_space == VectorOfScalarClonesTaylorPolynomial)) {
 
-        int alphax, alphay, alphaz;
-        double alphaf;
-        int i = 0;
-        const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
+        ScalarTaylorPolynomialBasis::evaluatePartialDerivative(delta, dimension, poly_order, partial_direction, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z, start_index);
 
-        for (int n = start_index; n <= poly_order; n++){
-            if (dimension == 3) {
-                for (alphaz = 0; alphaz <= n; alphaz++){
-
-                    int s = n - alphaz;
-                    for (alphay = 0; alphay <= s; alphay++){
-                        alphax = s - alphay;
-
-                        int x_pow = (partial_direction == 0) ? alphax-1 : alphax;
-                        int y_pow = (partial_direction == 1) ? alphay-1 : alphay;
-                        int z_pow = (partial_direction == 2) ? alphaz-1 : alphaz;
-
-                        if (x_pow<0 || y_pow<0 || z_pow<0) {
-                            *(delta+i) = 0;
-                        } else {
-                            alphaf = factorial[x_pow]*factorial[y_pow]*factorial[z_pow];
-                            *(delta+i) = 1./cutoff_p 
-                                        *std::pow(relative_coord.x/cutoff_p,x_pow)
-                                        *std::pow(relative_coord.y/cutoff_p,y_pow)
-                                        *std::pow(relative_coord.z/cutoff_p,z_pow)/alphaf;
-                        }
-                        i++;
-                    }
-                }
-            } else if (dimension == 2) {
-                for (alphay = 0; alphay <= n; alphay++){
-                    alphax = n - alphay;
-
-                    int x_pow = (partial_direction == 0) ? alphax-1 : alphax;
-                    int y_pow = (partial_direction == 1) ? alphay-1 : alphay;
-
-                    if (x_pow<0 || y_pow<0) {
-                        *(delta+i) = 0;
-                    } else {
-                        alphaf = factorial[x_pow]*factorial[y_pow];
-                        *(delta+i) = 1./cutoff_p 
-                                    *std::pow(relative_coord.x/cutoff_p,x_pow)
-                                    *std::pow(relative_coord.y/cutoff_p,y_pow)/alphaf;
-                    }
-                    i++;
-                }
-            } else { // dimension == 1
-                    alphax = n;
-
-                    int x_pow = (partial_direction == 0) ? alphax-1 : alphax;
-                    if (x_pow<0) {
-                        *(delta+i) = 0;
-                    } else {
-                        alphaf = factorial[x_pow];
-                        *(delta+i) = 1./cutoff_p 
-                                    *std::pow(relative_coord.x/cutoff_p,x_pow)/alphaf;
-                    }
-                    i++;
-            }
-        }
     } else if ((polynomial_sampling_functional == VectorPointSample) &&
                (reconstruction_space == DivergenceFreeVectorTaylorPolynomial)) {
         // Divergence free vector polynomial basis
