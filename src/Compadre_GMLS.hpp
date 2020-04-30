@@ -315,6 +315,25 @@ protected:
     KOKKOS_INLINE_FUNCTION
     void calcGradientPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int additional_evaluation_local_index = 0) const;
 
+    /*! \brief Evaluates the Hessian of a polynomial basis under the Dirac Delta (pointwise) sampling function.
+        \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
+        \param thread_workspace [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
+        \param target_index         [in] - target number
+        \param neighbor_index       [in] - index of neighbor for this target with respect to local numbering [0,...,number of neighbors for target]
+        \param alpha                [in] - double to determine convex combination of target and neighbor site at which to evaluate polynomials. (1-alpha)*neighbor + alpha*target
+        \param partial_direction_1  [in] - first direction that partial is taken with respect to, e.g. 0 is x direction, 1 is y direction
+        \param partial_direction_2  [in] - second direction that partial is taken with respect to, e.g. 0 is x direction, 1 is y direction
+        \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
+        \param poly_order           [in] - polynomial basis degree
+        \param specific_order_only  [in] - boolean for only evaluating one degree of polynomial when true
+        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
+        \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
+        \param sampling_strategy    [in] - sampling functional specification
+        \param additional_evaluation_local_index [in] - local index for evaluation sites 
+    */
+    KOKKOS_INLINE_FUNCTION
+    void calcHessianPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction_1, const int partial_direction_2, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int additional_evaluation_local_index = 0) const;
+
     /*! \brief Fills the _P matrix with either P or P*sqrt(w)
         \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.

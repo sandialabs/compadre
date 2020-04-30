@@ -525,6 +525,67 @@ void GMLS::calcGradientPij(const member_type& teamMember, double* delta, double*
     }
 }
 
+KOKKOS_INLINE_FUNCTION
+void GMLS::calcHessianPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction_1, const int partial_direction_2, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_index) const {
+/*
+ * This class is under two levels of hierarchical parallelism, so we
+ * do not put in any finer grain parallelism in this function
+ */
+
+    const int my_num_neighbors = this->getNNeighbors(target_index);
+
+    int component = 0;
+    if (neighbor_index >= my_num_neighbors) {
+        component = neighbor_index / my_num_neighbors;
+        neighbor_index = neighbor_index % my_num_neighbors;
+    } else if (neighbor_index < 0) {
+        // -1 maps to 0 component
+        // -2 maps to 1 component
+        // -3 maps to 2 component
+        component = -(neighbor_index+1);
+    }
+
+    // alpha corresponds to the linear combination of target_index and neighbor_index coordinates
+    // coordinate to evaluate = alpha*(target_index's coordinate) + (1-alpha)*(neighbor_index's coordinate)
+
+    // partial_direction - 0=x, 1=y, 2=z
+    XYZ relative_coord;
+    if (neighbor_index > -1) {
+        for (int i=0; i<dimension; ++i) {
+            // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
+            relative_coord[i] = (alpha-1)*getTargetCoordinate(target_index, i, V);
+            relative_coord[i] += (1-alpha)*getNeighborCoordinate(target_index, neighbor_index, i, V);
+        }
+    } else if (additional_evaluation_index > 0) {
+        for (int i=0; i<dimension; ++i) {
+            relative_coord[i] = getTargetAuxiliaryCoordinate(target_index, additional_evaluation_index, i, V);
+            relative_coord[i] -= getTargetCoordinate(target_index, i, V);
+        }
+    } else {
+        for (int i=0; i<3; ++i) relative_coord[i] = 0;
+    }
+
+    double cutoff_p = _epsilons(target_index);
+    const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
+
+    if ((polynomial_sampling_functional == PointSample ||
+            polynomial_sampling_functional == VectorPointSample ||
+            polynomial_sampling_functional == ManifoldVectorPointSample ||
+            polynomial_sampling_functional == VaryingManifoldVectorPointSample) &&
+            (reconstruction_space == ScalarTaylorPolynomial || reconstruction_space == VectorOfScalarClonesTaylorPolynomial)) {
+
+        ScalarTaylorPolynomialBasis::evaluateSecondPartialDerivative(delta, thread_workspace, dimension, poly_order, partial_direction_1, partial_direction_2, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z);
+
+    } else if ((polynomial_sampling_functional == VectorPointSample) &&
+               (reconstruction_space == DivergenceFreeVectorTaylorPolynomial)) {
+
+        DivergenceFreePolynomialBasis::evaluateSecondPartialDerivative(delta, thread_workspace, dimension, poly_order, component, partial_direction_1, partial_direction_2, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z);
+
+    } else {
+        compadre_kernel_assert_release((false) && "Sampling and basis space combination not defined.");
+    }
+}
+
 
 KOKKOS_INLINE_FUNCTION
 void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_vector_type thread_workspace, scratch_matrix_right_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p, scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional) const {

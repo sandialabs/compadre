@@ -728,135 +728,237 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
             if (_operations(i) == TargetOperation::VectorPointEvaluation) {
                 // copied from VectorTaylorPolynomial
                 Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                    for (int m0=0; m0<_sampling_multiplier; ++m0) {
-                        for (int m1=0; m1<_sampling_multiplier; ++m1) {
+                    for (int e=0; e<num_evaluation_sites; ++e) { 
+                        for (int m0=0; m0<_sampling_multiplier; ++m0) {
+                            for (int m1=0; m1<_sampling_multiplier; ++m1) {
 
-                          this->calcPij(teamMember, t1.data(), t2.data(), target_index, -(m1+1) /* target is neighbor, but also which component */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 0 /* evaluate at target */);
+                              this->calcPij(teamMember, t1.data(), t2.data(), target_index, -(m1+1) /* target is neighbor, but also which component */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e /* evaluate at target */);
 
-                          int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, 0 /*no additional*/);
-                          for (int j=0; j<target_NP; ++j) {
-                              P_target_row(offset, j) = t1(j);
-                          }
+                              int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, e /*no additional*/);
+                              for (int j=0; j<target_NP; ++j) {
+                                  P_target_row(offset, j) = t1(j);
+                              }
+                            }
                         }
                     }
                 });
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (_operations(i) == TargetOperation::CurlOfVectorPointEvaluation) {
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                    for (int m0=0; m0<_sampling_multiplier; ++m0) { // input components
-                        for (int m1=0; m1<_sampling_multiplier; ++m1) { // output components
-                            int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, 0 /*no additional*/);
-                            if (_dimensions==3) {
-                                switch (m1) {
-                                    case 0:
-                                        // output component 0
-                                        this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 0);
-                                        // u2y
-                                        for (int j=0; j<target_NP; ++j) {
-                                            P_target_row(offset, j)  = t1(j);
-                                        }
-                                        this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 0);
-                                        // -u1z
-                                        for (int j=0; j<target_NP; ++j) {
-                                            P_target_row(offset, j) -= t1(j);
-                                        }
-                                        // u2y - u1z
-                                        break;
-                                    case 1:
-                                        // output component 1
-                                        this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 0);
-                                        // -u2x
-                                        for (int j=0; j<target_NP; ++j) {
-                                            P_target_row(offset, j)  = -t1(j);
-                                        }
-                                        this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 0);
-                                        // u0z
-                                        for (int j=0; j<target_NP; ++j) {
-                                            P_target_row(offset, j) += t1(j);
-                                        }
-                                        // -u2x + u0z
-                                        break;
-                                    default:
-                                        // output component 2
-                                        this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 0);
+                    for (int e=0; e<num_evaluation_sites; ++e) { 
+                        for (int m0=0; m0<_sampling_multiplier; ++m0) { // input components
+                            for (int m1=0; m1<_sampling_multiplier; ++m1) { // output components
+                                int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, e /*no additional*/);
+                                if (_dimensions==3) {
+                                    switch (m1) {
+                                        case 0:
+                                            // output component 0
+                                            this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // u2y
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j)  = t1(j);
+                                            }
+                                            this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // -u1z
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j) -= t1(j);
+                                            }
+                                            // u2y - u1z
+                                            break;
+                                        case 1:
+                                            // output component 1
+                                            this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // -u2x
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j)  = -t1(j);
+                                            }
+                                            this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // u0z
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j) += t1(j);
+                                            }
+                                            // -u2x + u0z
+                                            break;
+                                        default:
+                                            // output component 2
+                                            this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // u1x
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j)  = t1(j);
+                                            }
+                                            this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // -u0y
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j) -= t1(j);
+                                            }
+                                            // u1x - u0y
+                                            break;
+                                    }
+                                } else {
+                                    if (m1==0) {
+                                        // curl results in 1D output
+                                        P_target_row(offset, 2) = -std::pow(_epsilons(target_index), -1);
+                                        P_target_row(offset, 3) = std::pow(_epsilons(target_index), -1);
+
+                                        this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // u1x
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j)  = t1(j);
                                         }
-                                        this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 0);
+                                        this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // -u0y
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) -= t1(j);
                                         }
                                         // u1x - u0y
-                                        break;
-                                }
-                            } else {
-                                if (m1==0) {
-                                    // curl results in 1D output
-                                    P_target_row(offset, 2) = -std::pow(_epsilons(target_index), -1);
-                                    P_target_row(offset, 3) = std::pow(_epsilons(target_index), -1);
-
-                                    this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 0);
-                                    // u1x
-                                    for (int j=0; j<target_NP; ++j) {
-                                        P_target_row(offset, j)  = t1(j);
                                     }
-                                    this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 0);
-                                    // -u0y
-                                    for (int j=0; j<target_NP; ++j) {
-                                        P_target_row(offset, j) -= t1(j);
-                                    }
-                                    // u1x - u0y
                                 }
                             }
                         }
                     }
                 });
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (_operations(i) == TargetOperation::CurlCurlOfVectorPointEvaluation) {
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                    for (int m0=0; m0<_sampling_multiplier; ++m0) { // input components
-                        for (int m1=0; m1<_sampling_multiplier; ++m1) { // output components
-                            int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, 0 /*no additional*/);
-                            if (_dimensions == 3) {
-                                switch (m1) {
-                                    // manually compute the output components
-                                    case 0:
-                                        // output component 0
-                                        P_target_row(offset, 11) = -2.0*std::pow(_epsilons(target_index), -2);
-                                        P_target_row(offset, 12) = -2.0*std::pow(_epsilons(target_index), -2);
-                                        P_target_row(offset, 20) = -2.0*std::pow(_epsilons(target_index), -2);
-                                        break;
-                                    case 1:
-                                        // output component 1
-                                        P_target_row(offset, 14) = -2.0*std::pow(_epsilons(target_index), -2);
-                                        P_target_row(offset, 15) = -2.0*std::pow(_epsilons(target_index), -2);
-                                        P_target_row(offset, 23) = -2.0*std::pow(_epsilons(target_index), -2);
-                                        break;
-                                    default:
-                                        // output component 2
-                                        P_target_row(offset, 17) = -2.0*std::pow(_epsilons(target_index), -2);
-                                        P_target_row(offset, 18) = -2.0*std::pow(_epsilons(target_index), -2);
-                                        P_target_row(offset, 25) = -2.0*std::pow(_epsilons(target_index), -2);
-                                        break;
+                    for (int e=0; e<num_evaluation_sites; ++e) { 
+                        for (int m0=0; m0<_sampling_multiplier; ++m0) { // input components
+                            for (int m1=0; m1<_sampling_multiplier; ++m1) { // output components
+                                int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, e /*no additional*/);
+                                if (_dimensions == 3) {
+                                    switch (m1) {
+                                        // manually compute the output components
+                                        case 0:
+                                            // output component 0
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // u1xy
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j)  = t1(j);
+                                            }
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // -u0yy
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j) -= t1(j);
+                                            }
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 2 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // u2xz
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j) += t1(j);
+                                            }
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction_1*/, 2 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // -u0zz
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j) -= t1(j);
+                                            }
+                                            // u1xy - u0yy + u2xz - u0zz
+                                            break;
+                                        case 1:
+                                            // output component 1
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // -u1xx
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j)  = -t1(j);
+                                            }
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // u0yx
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j) += t1(j);
+                                            }
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 2 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // u2yz
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j) += t1(j);
+                                            }
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction_1*/, 2 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // -u1zz
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j) -= t1(j);
+                                            }
+                                            // -u1xx + u0yx + u2yz - u1zz
+                                            break;
+                                        default:
+                                            // output component 2
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // -u2xx
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j)  = -t1(j);
+                                            }
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // u0zx
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j) += t1(j);
+                                            }
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // -u2yy
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j) -= t1(j);
+                                            }
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // u1zy
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j) += t1(j);
+                                            }
+                                            // -u2xx + u0zx - u2yy + u1zy
+                                            break;
+                                    }
                                 }
-                            }
-                            if (_dimensions == 2) {
-                                switch (m1) {
-                                    case 0:
-                                        // output component 0
-                                        P_target_row(offset, 5) = -2.0*std::pow(_epsilons(target_index), -2);
-                                        P_target_row(offset, 7) = -2.0*std::pow(_epsilons(target_index), -2);
-                                        break;
-                                    case 1:
-                                        // output component 1
-                                        P_target_row(offset, 6) = -2.0*std::pow(_epsilons(target_index), -2);
-                                        P_target_row(offset, 8) = -2.0*std::pow(_epsilons(target_index), -2);
-                                        break;
+                                if (_dimensions == 2) {
+                                    // uses curl curl u = grad ( div (u) ) - laplace (u)
+                                    switch (m1) {
+                                        case 0:
+                                            // output component 0
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // u0xx
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j)  = t1(j);
+                                            }
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // u1yx
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j) += t1(j);
+                                            }
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // -u0xx
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j) -= t1(j);
+                                            }
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // -u0yy
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j) -= t1(j);
+                                            }
+                                            // u0xx + u1yx - u0xx - u0yy
+                                            break;
+                                        case 1:
+                                            // output component 1
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // u0xy
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j)  = t1(j);
+                                            }
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // u1yy
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j) += t1(j);
+                                            }
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // -u1xx
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j) -= t1(j);
+                                            }
+                                            this->calcHessianPij(teamMember, t1.data(), t2.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                            // -u1yy
+                                            for (int j=0; j<target_NP; ++j) {
+                                                P_target_row(offset, j) -= t1(j);
+                                            }
+                                            // u0xy + u1yy - u1xx - u1yy
+                                            break;
+                                    }
                                 }
                             }
                         }
                     }
                 });
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (_operations(i) == TargetOperation::GradientOfVectorPointEvaluation) {
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                     for (int e=0; e<num_evaluation_sites; ++e) { 
@@ -873,8 +975,8 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                         }
                     }
                 });
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             }
-            additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
         }  else {
           compadre_kernel_assert_release((false) && "Functionality not yet available.");
         }
