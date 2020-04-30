@@ -147,7 +147,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
 
         team_scratch_size_b += scratch_vector_type::shmem_size(max_P_row_size); // row of P matrix, one for each operator
         thread_scratch_size_b += scratch_vector_type::shmem_size(max_manifold_NP*_basis_multiplier); // delta, used for each thread
-        thread_scratch_size_b += scratch_vector_type::shmem_size(max_poly_order*_global_dimensions); // temporary space for powers in basis
+        thread_scratch_size_b += scratch_vector_type::shmem_size((max_poly_order+1)*_global_dimensions); // temporary space for powers in basis
         if (_data_sampling_functional == VaryingManifoldVectorPointSample) {
             thread_scratch_size_b += scratch_vector_type::shmem_size(_dimensions*_dimensions); // temporary tangent calculations, used for each thread
         }
@@ -173,7 +173,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
         team_scratch_size_b += scratch_vector_type::shmem_size(this_num_cols*_total_alpha_values*max_evaluation_sites); 
 
         thread_scratch_size_b += scratch_vector_type::shmem_size(this_num_cols); // delta, used for each thread
-        thread_scratch_size_b += scratch_vector_type::shmem_size(_poly_order*_global_dimensions); // temporary space for powers in basis
+        thread_scratch_size_b += scratch_vector_type::shmem_size((_poly_order+1)*_global_dimensions); // temporary space for powers in basis
     }
 #ifdef COMPADRE_USE_CUDA
     if (_basis_multiplier*_NP > 96) _pm.setThreadsPerTeam(_pm.getThreadsPerTeam() + 128);
@@ -462,7 +462,7 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
 
     // delta, used for each thread
     scratch_vector_type delta(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), this_num_cols);
-    scratch_vector_type thread_workspace(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), _poly_order*_global_dimensions);
+    scratch_vector_type thread_workspace(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), (_poly_order+1)*_global_dimensions);
 
     /*
      *    Assemble P*sqrt(W) and sqrt(w)*Identity
@@ -596,7 +596,7 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
 
     // delta, used for each thread
     scratch_vector_type delta(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), max_manifold_NP*_basis_multiplier);
-    scratch_vector_type thread_workspace(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), max_poly_order*_global_dimensions);
+    scratch_vector_type thread_workspace(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), (max_poly_order+1)*_global_dimensions);
 
     /*
      *    Determine Coarse Approximation of Manifold Tangent Plane
@@ -652,7 +652,7 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
 
     // delta, used for each thread
     scratch_vector_type delta(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), max_manifold_NP*_basis_multiplier);
-    scratch_vector_type thread_workspace(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), max_poly_order*_global_dimensions);
+    scratch_vector_type thread_workspace(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), (max_poly_order+1)*_global_dimensions);
 
 
     //
@@ -1068,7 +1068,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
 
     // delta, used for each thread
     scratch_vector_type delta(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), max_manifold_NP*_basis_multiplier);
-    scratch_vector_type thread_workspace(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), max_poly_order*_global_dimensions);
+    scratch_vector_type thread_workspace(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), (max_poly_order+1)*_global_dimensions);
 
 
     /*
@@ -1257,7 +1257,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
     } else if (_data_sampling_functional == VaryingManifoldVectorPointSample) {
 
         scratch_vector_type delta(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), manifold_NP);
-        scratch_vector_type thread_workspace(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), max_poly_order*_global_dimensions);
+        scratch_vector_type thread_workspace(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), (max_poly_order+1)*_global_dimensions);
 
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)), [&] (const int m) {
             

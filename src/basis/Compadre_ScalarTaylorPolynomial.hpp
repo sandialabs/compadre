@@ -5,9 +5,9 @@
 
 namespace Compadre {
 
+
 namespace ScalarTaylorPolynomialBasis {
 
-    const double factorial[15] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
 
     // for order P, the sum of the basis is defined by
     //
@@ -25,6 +25,7 @@ namespace ScalarTaylorPolynomialBasis {
 
     KOKKOS_INLINE_FUNCTION
     void evaluate(double* delta, double* workspace, const int dimension, const int max_degree, const double h, const double x, const double y, const double z, const int starting_order = 0, const double weight_of_original_value = 0.0, const double weight_of_new_value = 1.0) {
+        const double factorial[] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
         if (dimension==3) {
             scratch_vector_type x_over_h_to_i(workspace, max_degree+1);
             scratch_vector_type y_over_h_to_i(workspace+1*(max_degree+1), max_degree+1);
@@ -88,6 +89,7 @@ namespace ScalarTaylorPolynomialBasis {
 
     KOKKOS_INLINE_FUNCTION
     void evaluatePartialDerivative(double* delta, double* workspace, const int dimension, const int max_degree, const int partial_direction, const double h, const double x, const double y, const double z, const int starting_order = 0, const double weight_of_original_value = 0.0, const double weight_of_new_value = 1.0) {
+        const double factorial[] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
         if (dimension==3) {
             scratch_vector_type x_over_h_to_i(workspace, max_degree+1);
             scratch_vector_type y_over_h_to_i(workspace+1*(max_degree+1), max_degree+1);

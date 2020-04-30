@@ -493,9 +493,6 @@ void GMLS::calcGradientPij(const member_type& teamMember, double* delta, double*
 
     const int my_num_neighbors = this->getNNeighbors(target_index);
 
-    // store precalculated factorials for speedup
-    const double factorial[15] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
-
     int component = 0;
     if (neighbor_index >= my_num_neighbors) {
         component = neighbor_index / my_num_neighbors;
