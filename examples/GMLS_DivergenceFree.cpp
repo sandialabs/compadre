@@ -113,7 +113,7 @@ bool all_passed = true;
     const double failure_tolerance = 1e-9;
 
     // minimum neighbors for unisolvency is the same as the size of the polynomial basis
-    const int min_neighbors = Compadre::GMLS::getNP(order, dimension);
+    const int min_neighbors = Compadre::GMLS::getNP(order, dimension, DivergenceFreeVectorTaylorPolynomial);
 
     //! [Parse Command Line Arguments]
     Kokkos::Timer timer;

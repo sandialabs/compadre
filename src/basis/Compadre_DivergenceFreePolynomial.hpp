@@ -2,9 +2,17 @@
 #define _COMPADRE_GMLS_DIVFREE_BASIS_HPP_
 
 #include "Compadre_GMLS.hpp"
+#include "Compadre_ScalarTaylorPolynomial.hpp"
 
 namespace Compadre {
 namespace DivergenceFreePolynomialBasis {
+
+    KOKKOS_INLINE_FUNCTION
+    int getSize(const int degree, const int dimension) {
+        return (dimension-1)*ScalarTaylorPolynomialBasis::getSize(degree, dimension) 
+                       + ScalarTaylorPolynomialBasis::getSize(degree, dimension-1);
+    }
+
     // Calculating the basis functions
     KOKKOS_INLINE_FUNCTION
     XYZ evaluate(int np, const double sx, const double sy, const double sz) {

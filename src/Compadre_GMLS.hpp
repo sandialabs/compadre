@@ -9,6 +9,8 @@
 #include "Compadre_LinearAlgebra_Definitions.hpp"
 #include "Compadre_ParallelManager.hpp"
 #include "Compadre_Quadrature.hpp"
+#include "basis/Compadre_ScalarTaylorPolynomial.hpp"
+#include "basis/Compadre_DivergenceFreePolynomial.hpp"
 
 namespace Compadre {
 
@@ -785,43 +787,9 @@ public:
     KOKKOS_INLINE_FUNCTION
     static int getNP(const int m, const int dimension = 3, const ReconstructionSpace r_space = ReconstructionSpace::ScalarTaylorPolynomial) {
         if (r_space != ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial) {
-            if (dimension == 3) return (m+1)*(m+2)*(m+3)/6;
-            else if (dimension == 2) return (m+1)*(m+2)/2;
-            else return m+1;
+            return ScalarTaylorPolynomialBasis::getSize(m, dimension);
         } else {
-            if (dimension == 3)
-                switch (m) {
-                    case 0:
-                        return 3;
-                    case 1:
-                        return 11;
-                    case 2:
-                        return 26;
-                    case 3:
-                        return 50;
-                    case 4:
-                        return 85;
-                    default:
-                        compadre_kernel_assert_release((false) && "Divergence-free basis only supports up to 4th-order polynomials.");
-                        return 0; // avoids warning about no return
-                }
-            if (dimension == 2) 
-                switch (m) {
-                    case 0:
-                        return 2;
-                    case 1:
-                        return 5;
-                    case 2:
-                        return 9;
-                    case 3:
-                        return 14;
-                    case 4:
-                        return 20;
-                    default:
-                        compadre_kernel_assert_release((false) && "Divergence-free basis only supports up to 4th-order polynomials.");
-                        return 0; // avoids warning about no return
-                }
-            else return -1;
+            return DivergenceFreePolynomialBasis::getSize(m, dimension);
         }
     }
 

@@ -2,8 +2,6 @@
 #define _COMPADRE_GMLS_BASIS_HPP_
 
 #include "Compadre_GMLS.hpp"
-#include "basis/Compadre_ScalarTaylorPolynomial.hpp"
-#include "basis/Compadre_DivergenceFreePolynomial.hpp"
 
 namespace Compadre {
 
