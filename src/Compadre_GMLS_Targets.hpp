@@ -747,21 +747,47 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                             int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, 0 /*no additional*/);
                             if (_dimensions==3) {
                                 switch (m1) {
-                                    // manually compute the output components
                                     case 0:
                                         // output component 0
-                                        P_target_row(offset, 6) = -std::pow(_epsilons(target_index), -1);
-                                        P_target_row(offset, 8) = std::pow(_epsilons(target_index), -1);
+                                        this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 0);
+                                        // u2y
+                                        for (int j=0; j<target_NP; ++j) {
+                                            P_target_row(offset, j)  = t1(j);
+                                        }
+                                        this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 0);
+                                        // -u1z
+                                        for (int j=0; j<target_NP; ++j) {
+                                            P_target_row(offset, j) -= t1(j);
+                                        }
+                                        // u2y - u1z
                                         break;
                                     case 1:
                                         // output component 1
-                                        P_target_row(offset, 7) = -std::pow(_epsilons(target_index), -1);
-                                        P_target_row(offset, 4) = std::pow(_epsilons(target_index), -1);
+                                        this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 0);
+                                        // -u2x
+                                        for (int j=0; j<target_NP; ++j) {
+                                            P_target_row(offset, j)  = -t1(j);
+                                        }
+                                        this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 0);
+                                        // u0z
+                                        for (int j=0; j<target_NP; ++j) {
+                                            P_target_row(offset, j) += t1(j);
+                                        }
+                                        // -u2x + u0z
                                         break;
                                     default:
                                         // output component 2
-                                        P_target_row(offset, 3) = -std::pow(_epsilons(target_index), -1);
-                                        P_target_row(offset, 5) = std::pow(_epsilons(target_index), -1);
+                                        this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 0);
+                                        // u1x
+                                        for (int j=0; j<target_NP; ++j) {
+                                            P_target_row(offset, j)  = t1(j);
+                                        }
+                                        this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 0);
+                                        // -u0y
+                                        for (int j=0; j<target_NP; ++j) {
+                                            P_target_row(offset, j) -= t1(j);
+                                        }
+                                        // u1x - u0y
                                         break;
                                 }
                             } else {
@@ -769,6 +795,18 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                                     // curl results in 1D output
                                     P_target_row(offset, 2) = -std::pow(_epsilons(target_index), -1);
                                     P_target_row(offset, 3) = std::pow(_epsilons(target_index), -1);
+
+                                    this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 0);
+                                    // u1x
+                                    for (int j=0; j<target_NP; ++j) {
+                                        P_target_row(offset, j)  = t1(j);
+                                    }
+                                    this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, 0);
+                                    // -u0y
+                                    for (int j=0; j<target_NP; ++j) {
+                                        P_target_row(offset, j) -= t1(j);
+                                    }
+                                    // u1x - u0y
                                 }
                             }
                         }

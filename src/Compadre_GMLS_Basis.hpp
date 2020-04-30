@@ -80,30 +80,10 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, double* thread_
     } else if ((polynomial_sampling_functional == VectorPointSample) &&
                (reconstruction_space == DivergenceFreeVectorTaylorPolynomial)) {
         // Divergence free vector polynomial basis
-        const int dimension_offset = this->getNP(_poly_order, _global_dimensions, reconstruction_space);
         double cutoff_p = _epsilons(target_index);
 
-        double xs = relative_coord.x/cutoff_p;
-        double ys = relative_coord.y/cutoff_p;
-        double zs = relative_coord.z/cutoff_p;
-        XYZ Pn;
+        DivergenceFreePolynomialBasis::evaluate(delta, thread_workspace, dimension, poly_order, component, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z);
 
-        if (dimension == 3) {
-            for (int n = 0; n < dimension_offset; n++) {
-                // Obtain the vector for the basis
-                Pn = DivergenceFreePolynomialBasis::evaluate(n, xs, ys, zs);
-                // Then assign it to the input
-                *(delta + n) = Pn[component];
-            }
-        }
-        if (dimension == 2) {
-            for (int n = 0; n < dimension_offset; n++) {
-                // Obtain the vector for the basis
-                Pn = DivergenceFreePolynomialBasis::evaluate(n, xs, ys);
-                // Then assign it to the input
-                *(delta + n) = Pn[component];
-            }
-        }
     } else if ((polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) &&
             (reconstruction_space == ScalarTaylorPolynomial)) {
         double cutoff_p = _epsilons(target_index);
@@ -536,30 +516,10 @@ void GMLS::calcGradientPij(const member_type& teamMember, double* delta, double*
     } else if ((polynomial_sampling_functional == VectorPointSample) &&
                (reconstruction_space == DivergenceFreeVectorTaylorPolynomial)) {
         // Divergence free vector polynomial basis
-        const int dimension_offset = this->getNP(_poly_order, _global_dimensions, reconstruction_space);
         double cutoff_p = _epsilons(target_index);
 
-        double xs = relative_coord.x/cutoff_p;
-        double ys = relative_coord.y/cutoff_p;
-        double zs = relative_coord.z/cutoff_p;
-        XYZ Pn;
+        DivergenceFreePolynomialBasis::evaluatePartialDerivative(delta, thread_workspace, dimension, poly_order, component, partial_direction, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z);
 
-        if (dimension == 3) {
-            for (int n = 0; n < dimension_offset; n++) {
-                // Obtain the vector for the basis
-                Pn = DivergenceFreePolynomialBasis::evaluatePartialDerivative(n, partial_direction, cutoff_p, xs, ys, zs);
-                // Then assign it to the input
-                *(delta + n) = Pn[component];
-            }
-        }
-        if (dimension == 2) {
-            for (int n = 0; n < dimension_offset; n++) {
-                // Obtain the vector for the basis
-                Pn = DivergenceFreePolynomialBasis::evaluatePartialDerivative(n, partial_direction, cutoff_p, xs, ys);
-                // Then assign it to the input
-                *(delta + n) = Pn[component];
-            }
-        }
     } else {
         compadre_kernel_assert_release((false) && "Sampling and basis space combination not defined.");
     }
