@@ -708,6 +708,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_cols = _basis_multiplier*max_manifold_NP;
+    const int max_poly_order = (_poly_order > _curvature_poly_order) ? _poly_order : _curvature_poly_order;
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
 
@@ -732,11 +733,12 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
     scratch_matrix_right_type T(_T.data() 
             + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
 
-    scratch_vector_type t1(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
-    scratch_vector_type t2(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
     scratch_vector_type manifold_gradient(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), (_dimensions-1)*_max_num_neighbors);
     scratch_matrix_right_type P_target_row(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _total_alpha_values*max_evaluation_sites, max_manifold_NP*_basis_multiplier);
 
+    // delta, used for each thread
+    scratch_vector_type delta(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), max_manifold_NP*_basis_multiplier);
+    scratch_vector_type thread_workspace(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), (max_poly_order+1)*_global_dimensions);
 
     /*
      *    Manifold
@@ -747,7 +749,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
     //  GET TARGET COEFFICIENTS RELATED TO GRADIENT TERMS
     //
     // reconstruct grad_xi1 and grad_xi2, not used for manifold_coeffs
-    this->computeCurvatureFunctionals(teamMember, t1, t2, P_target_row, &T);
+    this->computeCurvatureFunctionals(teamMember, delta, thread_workspace, P_target_row, &T);
     teamMember.team_barrier();
 
     double grad_xi1 = 0, grad_xi2 = 0;
@@ -906,6 +908,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_cols = _basis_multiplier*max_manifold_NP;
+    const int max_poly_order = (_poly_order > _curvature_poly_order) ? _poly_order : _curvature_poly_order;
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
 
@@ -936,10 +939,12 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
     scratch_vector_type manifold_gradient_coeffs(_manifold_curvature_gradient.data() + target_index*(_dimensions-1), (_dimensions-1));
 
     scratch_matrix_right_type G(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _dimensions-1, _dimensions-1);
-    scratch_vector_type t1(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
-    scratch_vector_type t2(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
     scratch_vector_type manifold_gradient(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), (_dimensions-1)*_max_num_neighbors);
     scratch_matrix_right_type P_target_row(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _total_alpha_values*max_evaluation_sites, max_manifold_NP*_basis_multiplier);
+
+    // delta, used for each thread
+    scratch_vector_type delta(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), max_manifold_NP*_basis_multiplier);
+    scratch_vector_type thread_workspace(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), (max_poly_order+1)*_global_dimensions);
 
     /*
      *    Manifold
@@ -950,7 +955,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
     //  GET TARGET COEFFICIENTS RELATED TO GRADIENT TERMS
     //
     // reconstruct grad_xi1 and grad_xi2, not used for manifold_coeffs
-    this->computeCurvatureFunctionals(teamMember, t1, t2, P_target_row, &T);
+    this->computeCurvatureFunctionals(teamMember, delta, thread_workspace, P_target_row, &T);
     teamMember.team_barrier();
 
     Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
@@ -1120,6 +1125,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
     const int this_num_cols = _basis_multiplier*max_manifold_NP;
+    const int max_poly_order = (_poly_order > _curvature_poly_order) ? _poly_order : _curvature_poly_order;
     const int max_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
                 ? static_cast<int>(_additional_evaluation_indices.extent(1)) : 1;
 
@@ -1153,11 +1159,15 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
     scratch_vector_type t2(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
     scratch_matrix_right_type P_target_row(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _total_alpha_values*max_evaluation_sites, max_manifold_NP*_basis_multiplier);
 
+    // delta, used for each thread
+    scratch_vector_type delta(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), max_manifold_NP*_basis_multiplier);
+    scratch_vector_type thread_workspace(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), (max_poly_order+1)*_global_dimensions);
+
     /*
      *    Apply Standard Target Evaluations to Polynomial Coefficients
      */
 
-    this->computeTargetFunctionalsOnManifold(teamMember, t1, t2, P_target_row, T, G_inv, manifold_coeffs, manifold_gradient_coeffs);
+    this->computeTargetFunctionalsOnManifold(teamMember, delta, thread_workspace, P_target_row, T, G_inv, manifold_coeffs, manifold_gradient_coeffs);
     teamMember.team_barrier();
 
     this->applyTargetsToCoefficients(teamMember, t1, t2, Coeffs, w, P_target_row, _NP); 

@@ -952,7 +952,9 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, const scratch_matrix_right_type* V, const local_index_type local_neighbor_index) const {
+void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type delta, scratch_vector_type thread_workspace, scratch_matrix_right_type P_target_row, const scratch_matrix_right_type* V, const local_index_type local_neighbor_index) const {
+
+    compadre_kernel_assert_release(((int)thread_workspace.extent(0)>=(_curvature_poly_order+1)*_local_dimensions) && "Workspace thread_workspace not large enough.");
 
     const int target_index = _initial_index_for_batch + teamMember.league_rank();
 
@@ -962,6 +964,8 @@ void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_ve
             P_target_row(j,k) = 0;
         });
     });
+    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, delta.extent(0)), [&] (const int j) { delta(j) = 0; });
+    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, thread_workspace.extent(0)), [&] (const int j) { thread_workspace(j) = 0; });
     teamMember.team_barrier();
 
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
@@ -969,25 +973,25 @@ void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_ve
         if (_curvature_support_operations(i) == TargetOperation::ScalarPointEvaluation) {
             Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                 int offset = getTargetOffsetIndexDevice(i, 0, 0, 0);
-                this->calcPij(teamMember, t1.data(), t2.data(), target_index, local_neighbor_index, 0 /*alpha*/, _dimensions-1, _curvature_poly_order, false /*bool on only specific order*/, V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
+                this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, local_neighbor_index, 0 /*alpha*/, _dimensions-1, _curvature_poly_order, false /*bool on only specific order*/, V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                 for (int j=0; j<manifold_NP; ++j) {
-                    P_target_row(offset, j) = t1(j);
+                    P_target_row(offset, j) = delta(j);
                 }
             });
         } else if (_curvature_support_operations(i) == TargetOperation::GradientOfScalarPointEvaluation) {
             Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                 //int offset = i*manifold_NP;
                 int offset = getTargetOffsetIndexDevice(i, 0, 0, 0);
-                this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, local_neighbor_index, 0 /*alpha*/, 0 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
+                this->calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, local_neighbor_index, 0 /*alpha*/, 0 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                 for (int j=0; j<manifold_NP; ++j) {
-                    P_target_row(offset, j) = t1(j);
+                    P_target_row(offset, j) = delta(j);
                 }
                 if (_dimensions>2) { // _dimensions-1 > 1
                     //offset = (i+1)*manifold_NP;
                     offset = getTargetOffsetIndexDevice(i, 0, 1, 0);
-                    this->calcGradientPij(teamMember, t1.data(), t2.data(), target_index, local_neighbor_index, 0 /*alpha*/, 1 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
+                    this->calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, local_neighbor_index, 0 /*alpha*/, 1 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                     for (int j=0; j<manifold_NP; ++j) {
-                        P_target_row(offset, j) = t1(j);
+                        P_target_row(offset, j) = delta(j);
                     }
                 }
             });
@@ -998,7 +1002,9 @@ void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_ve
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, scratch_matrix_right_type V, scratch_matrix_right_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients) const {
+void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type delta, scratch_vector_type thread_workspace, scratch_matrix_right_type P_target_row, scratch_matrix_right_type V, scratch_matrix_right_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients) const {
+
+    compadre_kernel_assert_release(((int)thread_workspace.extent(0)>=(_poly_order+1)*_local_dimensions) && "Workspace thread_workspace not large enough.");
 
     // only designed for 2D manifold embedded in 3D space
     const int target_index = _initial_index_for_batch + teamMember.league_rank();
@@ -1010,6 +1016,8 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
             P_target_row(j,k) = 0;
         });
     });
+    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, delta.extent(0)), [&] (const int j) { delta(j) = 0; });
+    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, thread_workspace.extent(0)), [&] (const int j) { thread_workspace(j) = 0; });
     teamMember.team_barrier();
 
     // determine if additional evaluation sites are requested by user and handled by target operations 
@@ -1033,72 +1041,66 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
         if (!operation_handled) {
         if (_dimensions>2) {
             if (_operations(i) == TargetOperation::ScalarPointEvaluation) {
-                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                    for (int j=0; j<num_evaluation_sites; ++j) { 
-                        this->calcPij(teamMember, t1.data(), t2.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
-                        int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
-                        for (int k=0; k<target_NP; ++k) {
-                            P_target_row(offset, k) = t1(k);
-                        }
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
+                    this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                    int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
+                    for (int k=0; k<target_NP; ++k) {
+                        P_target_row(offset, k) = delta(k);
                     }
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (_operations(i) == TargetOperation::VectorPointEvaluation) {
                 // vector basis
                 if (_reconstruction_space_rank == 1) {
-                    Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                        for (int k=0; k<num_evaluation_sites; ++k) { 
-                            // output component 0
-                            this->calcPij(teamMember, t1.data(), t2.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, k);
-                            int offset = getTargetOffsetIndexDevice(i, 0, 0, k);
-                            for (int j=0; j<target_NP; ++j) {
-                                P_target_row(offset, j) = t1(j);
-                                P_target_row(offset, target_NP + j) = 0;
-                            }
-                            offset = getTargetOffsetIndexDevice(i, 1, 0, k);
-                            for (int j=0; j<target_NP; ++j) {
-                                P_target_row(offset, j) = 0;
-                                P_target_row(offset, target_NP + j) = 0;
-                            }
+                    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int k) {
+                        // output component 0
+                        this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, k);
+                        int offset = getTargetOffsetIndexDevice(i, 0, 0, k);
+                        for (int j=0; j<target_NP; ++j) {
+                            P_target_row(offset, j) = delta(j);
+                            P_target_row(offset, target_NP + j) = 0;
+                        }
+                        offset = getTargetOffsetIndexDevice(i, 1, 0, k);
+                        for (int j=0; j<target_NP; ++j) {
+                            P_target_row(offset, j) = 0;
+                            P_target_row(offset, target_NP + j) = 0;
+                        }
 
-                            // output component 1
-                            offset = getTargetOffsetIndexDevice(i, 0, 1, k);
-                            for (int j=0; j<target_NP; ++j) {
-                                P_target_row(offset, j) = 0;
-                                P_target_row(offset, target_NP + j) = 0;
-                            }
-                            offset = getTargetOffsetIndexDevice(i, 1, 1, k);
-                            for (int j=0; j<target_NP; ++j) {
-                                P_target_row(offset, j) = 0;
-                                P_target_row(offset, target_NP + j) = t1(j);
-                            }
+                        // output component 1
+                        offset = getTargetOffsetIndexDevice(i, 0, 1, k);
+                        for (int j=0; j<target_NP; ++j) {
+                            P_target_row(offset, j) = 0;
+                            P_target_row(offset, target_NP + j) = 0;
+                        }
+                        offset = getTargetOffsetIndexDevice(i, 1, 1, k);
+                        for (int j=0; j<target_NP; ++j) {
+                            P_target_row(offset, j) = 0;
+                            P_target_row(offset, target_NP + j) = delta(j);
                         }
                     });
                     additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
                 // scalar basis times number of components in the vector
                 } else if (_reconstruction_space_rank == 0) {
-                    Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                        for (int k=0; k<num_evaluation_sites; ++k) { 
-                            // output component 0
-                            this->calcPij(teamMember, t1.data(), t2.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, k);
-                            int offset = getTargetOffsetIndexDevice(i, 0, 0, k);
-                            for (int j=0; j<target_NP; ++j) {
-                                P_target_row(offset, j) = t1(j);
-                            }
-                            offset = getTargetOffsetIndexDevice(i, 1, 0, k);
-                            for (int j=0; j<target_NP; ++j) {
-                                P_target_row(offset, j) = 0;
-                            }
+                    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int k) {
+                        // output component 0
+                        this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, k);
+                        int offset = getTargetOffsetIndexDevice(i, 0, 0, k);
+                        for (int j=0; j<target_NP; ++j) {
+                            P_target_row(offset, j) = delta(j);
+                        }
+                        offset = getTargetOffsetIndexDevice(i, 1, 0, k);
+                        for (int j=0; j<target_NP; ++j) {
+                            P_target_row(offset, j) = 0;
+                        }
 
-                            // output component 1
-                            offset = getTargetOffsetIndexDevice(i, 0, 1, k);
-                            for (int j=0; j<target_NP; ++j) {
-                                P_target_row(offset, j) = 0;
-                            }
-                            offset = getTargetOffsetIndexDevice(i, 1, 1, k);
-                            for (int j=0; j<target_NP; ++j) {
-                                P_target_row(offset, j) = t1(j);
-                            }
+                        // output component 1
+                        offset = getTargetOffsetIndexDevice(i, 0, 1, k);
+                        for (int j=0; j<target_NP; ++j) {
+                            P_target_row(offset, j) = 0;
+                        }
+                        offset = getTargetOffsetIndexDevice(i, 1, 1, k);
+                        for (int j=0; j<target_NP; ++j) {
+                            P_target_row(offset, j) = delta(j);
                         }
                     });
                     additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
@@ -1232,24 +1234,24 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         double den = (h*h + a1*a1 + a2*a2);
 
                         for (int j=0; j<target_NP; ++j) {
-                            t1(j) = 0;
+                            delta(j) = 0;
                         }
 
                         // 1/Sqrt[Det[G[r, s]]])*Div[Sqrt[Det[G[r, s]]]*Inv[G]*P
                         if (_poly_order > 0 && _curvature_poly_order > 1) {
-                            t1(1) = (-a1*((h*h+a2*a2)*a3 - 2*a1*a2*a4+(h*h+a1*a1)*a5))/den/den/(h*h);
-                            t1(2) = (-a2*((h*h+a2*a2)*a3 - 2*a1*a2*a4+(h*h+a1*a1)*a5))/den/den/(h*h);
+                            delta(1) = (-a1*((h*h+a2*a2)*a3 - 2*a1*a2*a4+(h*h+a1*a1)*a5))/den/den/(h*h);
+                            delta(2) = (-a2*((h*h+a2*a2)*a3 - 2*a1*a2*a4+(h*h+a1*a1)*a5))/den/den/(h*h);
                         }
                         if (_poly_order > 1 && _curvature_poly_order > 0) {
-                            t1(3) = (h*h+a2*a2)/den/(h*h);
-                            t1(4) = -2*a1*a2/den/(h*h);
-                            t1(5) = (h*h+a1*a1)/den/(h*h);
+                            delta(3) = (h*h+a2*a2)/den/(h*h);
+                            delta(4) = -2*a1*a2/den/(h*h);
+                            delta(5) = (h*h+a1*a1)/den/(h*h);
                         }
 
                         // output component 0
                         int offset = getTargetOffsetIndexDevice(i, 0, 0, 0);
                         for (int j=0; j<target_NP; ++j) {
-                            P_target_row(offset, j) = t1(j);
+                            P_target_row(offset, j) = delta(j);
                             P_target_row(offset, target_NP + j) = 0;
                         }
                         offset = getTargetOffsetIndexDevice(i, 1, 0, 0);
@@ -1267,7 +1269,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         offset = getTargetOffsetIndexDevice(i, 1, 1, 0);
                         for (int j=0; j<target_NP; ++j) {
                             P_target_row(offset, j) = 0;
-                            P_target_row(offset, target_NP + j) = t1(j);
+                            P_target_row(offset, target_NP + j) = delta(j);
                         }
 
                     });
@@ -1289,24 +1291,24 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         double den = (h*h + a1*a1 + a2*a2);
 
                         for (int j=0; j<target_NP; ++j) {
-                            t1(j) = 0;
+                            delta(j) = 0;
                         }
 
                         // 1/Sqrt[Det[G[r, s]]])*Div[Sqrt[Det[G[r, s]]]*Inv[G]*P
                         if (_poly_order > 0 && _curvature_poly_order > 1) {
-                            t1(1) = (-a1*((h*h+a2*a2)*a3 - 2*a1*a2*a4+(h*h+a1*a1)*a5))/den/den/(h*h);
-                            t1(2) = (-a2*((h*h+a2*a2)*a3 - 2*a1*a2*a4+(h*h+a1*a1)*a5))/den/den/(h*h);
+                            delta(1) = (-a1*((h*h+a2*a2)*a3 - 2*a1*a2*a4+(h*h+a1*a1)*a5))/den/den/(h*h);
+                            delta(2) = (-a2*((h*h+a2*a2)*a3 - 2*a1*a2*a4+(h*h+a1*a1)*a5))/den/den/(h*h);
                         }
                         if (_poly_order > 1 && _curvature_poly_order > 0) {
-                            t1(3) = (h*h+a2*a2)/den/(h*h);
-                            t1(4) = -2*a1*a2/den/(h*h);
-                            t1(5) = (h*h+a1*a1)/den/(h*h);
+                            delta(3) = (h*h+a2*a2)/den/(h*h);
+                            delta(4) = -2*a1*a2/den/(h*h);
+                            delta(5) = (h*h+a1*a1)/den/(h*h);
                         }
 
                         // output component 0
                         int offset = getTargetOffsetIndexDevice(i, 0, 0, 0);
                         for (int j=0; j<target_NP; ++j) {
-                            P_target_row(offset, j) = t1(j);
+                            P_target_row(offset, j) = delta(j);
                         }
                         offset = getTargetOffsetIndexDevice(i, 1, 0, 0);
                         for (int j=0; j<target_NP; ++j) {
@@ -1320,7 +1322,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         }
                         offset = getTargetOffsetIndexDevice(i, 1, 1, 0);
                         for (int j=0; j<target_NP; ++j) {
-                            P_target_row(offset, j) = t1(j);
+                            P_target_row(offset, j) = delta(j);
                         }
                     });
                 }
@@ -1526,57 +1528,53 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
             } else if (_operations(i) == TargetOperation::GaussianCurvaturePointEvaluation) {
                 double h = _epsilons(target_index);
                 
-                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                    for (int k=0; k<num_evaluation_sites; ++k) { 
-                        XYZ relative_coord;
-                        if (k > 0) {
-                            for (int d=0; d<_dimensions-1; ++d) {
-                                relative_coord[d] = getTargetAuxiliaryCoordinate(target_index, k, d, &V);
-                                relative_coord[d] -= getTargetCoordinate(target_index, d, &V);
-                            }
-                        } else {
-                            for (int i=0; i<3; ++i) relative_coord[i] = 0;
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int k) {
+                    XYZ relative_coord;
+                    if (k > 0) {
+                        for (int d=0; d<_dimensions-1; ++d) {
+                            relative_coord[d] = getTargetAuxiliaryCoordinate(target_index, k, d, &V);
+                            relative_coord[d] -= getTargetCoordinate(target_index, d, &V);
                         }
-
-                        int offset = getTargetOffsetIndexDevice(i, 0, 0, k);
-                        P_target_row(offset, 0) = GaussianCurvature(curvature_coefficients, h, relative_coord.x, relative_coord.y);
+                    } else {
+                        for (int i=0; i<3; ++i) relative_coord[i] = 0;
                     }
+
+                    int offset = getTargetOffsetIndexDevice(i, 0, 0, k);
+                    P_target_row(offset, 0) = GaussianCurvature(curvature_coefficients, h, relative_coord.x, relative_coord.y);
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (_operations(i) == TargetOperation::CurlOfVectorPointEvaluation) {
                 double h = _epsilons(target_index);
-                int alphax, alphay;
                 
-                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                    for (int k=0; k<num_evaluation_sites; ++k) { 
-                        XYZ relative_coord;
-                        if (k > 0) {
-                            for (int d=0; d<_dimensions-1; ++d) {
-                                relative_coord[d] = getTargetAuxiliaryCoordinate(target_index, k, d, &V);
-                                relative_coord[d] -= getTargetCoordinate(target_index, d, &V);
-                            }
-                        } else {
-                            for (int i=0; i<3; ++i) relative_coord[i] = 0;
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int k) {
+                    int alphax, alphay;
+                    XYZ relative_coord;
+                    if (k > 0) {
+                        for (int d=0; d<_dimensions-1; ++d) {
+                            relative_coord[d] = getTargetAuxiliaryCoordinate(target_index, k, d, &V);
+                            relative_coord[d] -= getTargetCoordinate(target_index, d, &V);
                         }
+                    } else {
+                        for (int i=0; i<3; ++i) relative_coord[i] = 0;
+                    }
 
-                        int offset = getTargetOffsetIndexDevice(i, 0, 0, k);
-                        int index = 0;
-                        for (int n = 0; n <= _poly_order; n++){
-                            for (alphay = 0; alphay <= n; alphay++){
-                                alphax = n - alphay;
-                                P_target_row(offset, index) = SurfaceCurlOfScalar(curvature_coefficients, h, relative_coord.x, relative_coord.y, alphax, alphay, 0);
-                                index++;
-                            }
+                    int offset = getTargetOffsetIndexDevice(i, 0, 0, k);
+                    int index = 0;
+                    for (int n = 0; n <= _poly_order; n++){
+                        for (alphay = 0; alphay <= n; alphay++){
+                            alphax = n - alphay;
+                            P_target_row(offset, index) = SurfaceCurlOfScalar(curvature_coefficients, h, relative_coord.x, relative_coord.y, alphax, alphay, 0);
+                            index++;
                         }
+                    }
 
-                        offset = getTargetOffsetIndexDevice(i, 0, 1, k);
-                        index = 0;
-                        for (int n = 0; n <= _poly_order; n++){
-                            for (alphay = 0; alphay <= n; alphay++){
-                                alphax = n - alphay;
-                                P_target_row(offset, index) = SurfaceCurlOfScalar(curvature_coefficients, h, relative_coord.x, relative_coord.y, alphax, alphay, 1);
-                                index++;
-                            }
+                    offset = getTargetOffsetIndexDevice(i, 0, 1, k);
+                    index = 0;
+                    for (int n = 0; n <= _poly_order; n++){
+                        for (alphay = 0; alphay <= n; alphay++){
+                            alphax = n - alphay;
+                            P_target_row(offset, index) = SurfaceCurlOfScalar(curvature_coefficients, h, relative_coord.x, relative_coord.y, alphax, alphay, 1);
+                            index++;
                         }
                     }
                 });
@@ -1599,7 +1597,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                 // 3 is for # vertices in sub-triangle
                 scratch_matrix_right_type triangle_coords_matrix(triangle_coords, _global_dimensions, 3); 
 
-                scratch_vector_type midpoint(t1.data(), _global_dimensions);
+                scratch_vector_type midpoint(delta.data(), _global_dimensions);
                 getMidpointFromCellVertices(teamMember, midpoint, _target_extra_data, target_index, _global_dimensions /*dim*/);
                 for (int j=0; j<_global_dimensions; ++j) {
                     triangle_coords_matrix(j, 0) = midpoint(j);
@@ -1683,10 +1681,10 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     int offset = getTargetOffsetIndexDevice(i, 0, 0, 0);
                     for (int j=0; j<target_NP; ++j) {
                         P_target_row(offset, j) = 0;
-                        t1(j) = (j == 1) ? std::pow(_epsilons(target_index), -1) : 0;
+                        delta(j) = (j == 1) ? std::pow(_epsilons(target_index), -1) : 0;
                     }
                     for (int j=0; j<target_NP; ++j) {
-                        double v1 = t1(j)*G_inv(0,0);
+                        double v1 = delta(j)*G_inv(0,0);
                         P_target_row(offset, j) = v1;
                     }
                 });
