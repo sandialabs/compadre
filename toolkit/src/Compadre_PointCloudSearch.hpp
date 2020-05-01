@@ -210,7 +210,7 @@ class PointCloudSearch {
 
             compadre_assert_release((std::is_same<typename trg_view_type::memory_space, Kokkos::HostSpace>::value) &&
                     "Target coordinates view passed to generateNeighborListsFromRadiusSearch should reside on the host.");
-            compadre_assert_release((trg_pts_view.extent(1)>=_dim) &&
+            compadre_assert_release((((int)trg_pts_view.extent(1))>=_dim) &&
                     "Target coordinates view passed to generateNeighborListsFromRadiusSearch must have \
                     second dimension as large as _dim.");
             compadre_assert_release((std::is_same<typename neighbor_lists_view_type::memory_space, Kokkos::HostSpace>::value) &&
@@ -332,7 +332,7 @@ class PointCloudSearch {
 
             compadre_assert_release((std::is_same<typename trg_view_type::memory_space, Kokkos::HostSpace>::value) &&
                     "Target coordinates view passed to generateNeighborListsFromKNNSearch should reside on the host.");
-            compadre_assert_release((trg_pts_view.extent(1)>=_dim) &&
+            compadre_assert_release((((int)trg_pts_view.extent(1))>=_dim) &&
                     "Target coordinates view passed to generateNeighborListsFromRadiusSearch must have \
                     second dimension as large as _dim.");
             compadre_assert_release((std::is_same<typename neighbor_lists_view_type::memory_space, Kokkos::HostSpace>::value) &&
@@ -459,6 +459,6 @@ PointCloudSearch<view_type> CreatePointCloudSearch(view_type src_view, const loc
     return PointCloudSearch<view_type>(src_view, dimensions, max_leaf);
 }
 
-}; // Compadre
+} // Compadre
 
 #endif

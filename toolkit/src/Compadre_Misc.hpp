@@ -102,6 +102,6 @@ void getPDims(DenseSolverType dense_solver_type, ConstraintType constraint_type,
     }
 }
 
-}; // Compadre
+} // Compadre
 
 #endif

@@ -445,4 +445,4 @@ if(all_passed) {
     fprintf(stdout, "Failed test \n");
     return -1;
 }
-};
+}

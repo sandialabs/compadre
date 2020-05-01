@@ -190,8 +190,8 @@ void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, 
 
 }
 
-}; // GMLS_LinearAlgebra
-}; // Compadre
+} // GMLS_LinearAlgebra
+} // Compadre
 
 #endif
 

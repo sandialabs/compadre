@@ -406,6 +406,9 @@ bool all_passed = true;
     // retrieves polynomial coefficients instead of remapped field
     auto scalar_coefficients = gmls_evaluator.applyFullPolynomialCoefficientsBasisToDataAllComponents<double**, Kokkos::HostSpace>
             (sampling_data_device);
+
+    auto vector_coefficients = gmls_evaluator.applyFullPolynomialCoefficientsBasisToDataAllComponents<double**, Kokkos::HostSpace>
+            (gradient_sampling_data_device);
     
     //! [Apply GMLS Alphas To Data]
     
@@ -427,7 +430,7 @@ bool all_passed = true;
         // this is a test that the scalar_coefficients 2d array returned hold valid entries
         // scalar_coefficients(i,1)*1./epsilon(i) is equivalent to the target operation acting 
         // on the polynomials applied to the polynomial coefficients
-        double GMLS_GradX = output_gradient(i,0);
+        double GMLS_GradX = scalar_coefficients(i,1)*1./epsilon(i);
     
         // load partial y from gradient
         double GMLS_GradY = (dimension>1) ? output_gradient(i,1) : 0;
@@ -443,15 +446,18 @@ bool all_passed = true;
         double GMLS_CurlY = (dimension>1) ? output_curl(i,1) : 0;
         double GMLS_CurlZ = (dimension>2) ? output_curl(i,2) : 0;
     
+        auto NP = min_neighbors; // size of basis is same as # needed for unisolvency
         // load hessian
         double GMLS_GradXX = output_hessian(i,0*dimension+0);
         double GMLS_GradXY = (dimension>1) ? output_hessian(i,0*dimension+1) : 0;
         double GMLS_GradXZ = (dimension>2) ? output_hessian(i,0*dimension+2) : 0;
         double GMLS_GradYX = (dimension>1) ? output_hessian(i,1*dimension+0) : 0;
-        double GMLS_GradYY = (dimension>1) ? output_hessian(i,1*dimension+1) : 0;
+        // replace YY with with vector_coefficients as test that vector_coefficients hold valid entries
+        double GMLS_GradYY = (dimension>1) ? vector_coefficients(i,1*NP+2)*1./epsilon(i) : 0;
         double GMLS_GradYZ = (dimension>2) ? output_hessian(i,1*dimension+2) : 0;
         double GMLS_GradZX = (dimension>2) ? output_hessian(i,2*dimension+0) : 0;
-        double GMLS_GradZY = (dimension>2) ? output_hessian(i,2*dimension+1) : 0;
+        // replace ZY with with vector_coefficients as test that vector_coefficients hold valid entries
+        double GMLS_GradZY = (dimension>2) ? vector_coefficients(i,2*NP+2)*1./epsilon(i) : 0;
         double GMLS_GradZZ = (dimension>2) ? output_hessian(i,2*dimension+2) : 0;
     
         // target site i's coordinate
@@ -491,17 +497,17 @@ bool all_passed = true;
         if(std::abs(actual_Gradient[0] - GMLS_GradX) > failure_tolerance) {
             all_passed = false;
             std::cout << i << " Failed GradX by: " << std::abs(actual_Gradient[0] - GMLS_GradX) << std::endl;
-            if (dimension>1) {
-                if(std::abs(actual_Gradient[1] - GMLS_GradY) > failure_tolerance) {
-                    all_passed = false;
-                    std::cout << i << " Failed GradY by: " << std::abs(actual_Gradient[1] - GMLS_GradY) << std::endl;
-                }
+        }
+        if (dimension>1) {
+            if(std::abs(actual_Gradient[1] - GMLS_GradY) > failure_tolerance) {
+                all_passed = false;
+                std::cout << i << " Failed GradY by: " << std::abs(actual_Gradient[1] - GMLS_GradY) << std::endl;
             }
-            if (dimension>2) {
-                if(std::abs(actual_Gradient[2] - GMLS_GradZ) > failure_tolerance) {
-                    all_passed = false;
-                    std::cout << i << " Failed GradZ by: " << std::abs(actual_Gradient[2] - GMLS_GradZ) << std::endl;
-                }
+        }
+        if (dimension>2) {
+            if(std::abs(actual_Gradient[2] - GMLS_GradZ) > failure_tolerance) {
+                all_passed = false;
+                std::cout << i << " Failed GradZ by: " << std::abs(actual_Gradient[2] - GMLS_GradZ) << std::endl;
             }
         }
     
@@ -515,41 +521,41 @@ bool all_passed = true;
         if(std::abs(actual_Hessian[0] - GMLS_GradXX) > failure_tolerance) {
             all_passed = false;
             std::cout << i << " Failed GradXX by: " << std::abs(actual_Hessian[0] - GMLS_GradXX) << std::endl;
-            if (dimension>1) {
-                if(std::abs(actual_Hessian[1] - GMLS_GradXY) > failure_tolerance) {
-                    all_passed = false;
-                    std::cout << i << " Failed GradXY by: " << std::abs(actual_Hessian[1] - GMLS_GradXY) << std::endl;
-                }
-                if(std::abs(actual_Hessian[1*dimension+1] - GMLS_GradYY) > failure_tolerance) {
-                    all_passed = false;
-                    std::cout << i << " Failed GradYY by: " << std::abs(actual_Hessian[1*dimension+1] - GMLS_GradYY) << std::endl;
-                }
-                if(std::abs(actual_Hessian[1*dimension+0] - GMLS_GradYX) > failure_tolerance) {
-                    all_passed = false;
-                    std::cout << i << " Failed GradYX by: " << std::abs(actual_Hessian[1*dimension+0] - GMLS_GradYX) << std::endl;
-                }
+        }
+        if (dimension>1) {
+            if(std::abs(actual_Hessian[1] - GMLS_GradXY) > failure_tolerance) {
+                all_passed = false;
+                std::cout << i << " Failed GradXY by: " << std::abs(actual_Hessian[1] - GMLS_GradXY) << std::endl;
             }
-            if (dimension>2) {
-                if(std::abs(actual_Hessian[2] - GMLS_GradXZ) > failure_tolerance) {
-                    all_passed = false;
-                    std::cout << i << " Failed GradXZ by: " << std::abs(actual_Hessian[2] - GMLS_GradXZ) << std::endl;
-                }
-                if(std::abs(actual_Hessian[1*dimension+2] - GMLS_GradYZ) > failure_tolerance) {
-                    all_passed = false;
-                    std::cout << i << " Failed GradYZ by: " << std::abs(actual_Hessian[1*dimension+2] - GMLS_GradYZ) << std::endl;
-                }
-                if(std::abs(actual_Hessian[2*dimension+0] - GMLS_GradZX) > failure_tolerance) {
-                    all_passed = false;
-                    std::cout << i << " Failed GradZX by: " << std::abs(actual_Hessian[2*dimension+0] - GMLS_GradZX) << std::endl;
-                }
-                if(std::abs(actual_Hessian[2*dimension+1] - GMLS_GradZY) > failure_tolerance) {
-                    all_passed = false;
-                    std::cout << i << " Failed GradZY by: " << std::abs(actual_Hessian[2*dimension+1] - GMLS_GradZY) << std::endl;
-                }
-                if(std::abs(actual_Hessian[2*dimension+2] - GMLS_GradZZ) > failure_tolerance) {
-                    all_passed = false;
-                    std::cout << i << " Failed GradZZ by: " << std::abs(actual_Hessian[2*dimension+2] - GMLS_GradZZ) << std::endl;
-                }
+            if(std::abs(actual_Hessian[1*dimension+1] - GMLS_GradYY) > failure_tolerance) {
+                all_passed = false;
+                std::cout << i << " Failed GradYY by: " << std::abs(actual_Hessian[1*dimension+1] - GMLS_GradYY) << std::endl;
+            }
+            if(std::abs(actual_Hessian[1*dimension+0] - GMLS_GradYX) > failure_tolerance) {
+                all_passed = false;
+                std::cout << i << " Failed GradYX by: " << std::abs(actual_Hessian[1*dimension+0] - GMLS_GradYX) << std::endl;
+            }
+        }
+        if (dimension>2) {
+            if(std::abs(actual_Hessian[2] - GMLS_GradXZ) > failure_tolerance) {
+                all_passed = false;
+                std::cout << i << " Failed GradXZ by: " << std::abs(actual_Hessian[2] - GMLS_GradXZ) << std::endl;
+            }
+            if(std::abs(actual_Hessian[1*dimension+2] - GMLS_GradYZ) > failure_tolerance) {
+                all_passed = false;
+                std::cout << i << " Failed GradYZ by: " << std::abs(actual_Hessian[1*dimension+2] - GMLS_GradYZ) << std::endl;
+            }
+            if(std::abs(actual_Hessian[2*dimension+0] - GMLS_GradZX) > failure_tolerance) {
+                all_passed = false;
+                std::cout << i << " Failed GradZX by: " << std::abs(actual_Hessian[2*dimension+0] - GMLS_GradZX) << std::endl;
+            }
+            if(std::abs(actual_Hessian[2*dimension+1] - GMLS_GradZY) > failure_tolerance) {
+                all_passed = false;
+                std::cout << i << " Failed GradZY by: " << std::abs(actual_Hessian[2*dimension+1] - GMLS_GradZY) << std::endl;
+            }
+            if(std::abs(actual_Hessian[2*dimension+2] - GMLS_GradZZ) > failure_tolerance) {
+                all_passed = false;
+                std::cout << i << " Failed GradZZ by: " << std::abs(actual_Hessian[2*dimension+2] - GMLS_GradZZ) << std::endl;
             }
         }
     

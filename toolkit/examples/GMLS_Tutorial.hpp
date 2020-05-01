@@ -2,6 +2,8 @@
 #define _GMLS_TUTORIAL_HPP_
 
 #include <Kokkos_Core.hpp>
+#include <basis/Compadre_DivergenceFreePolynomial.hpp>
+#include <Compadre_GMLS.hpp>
 
 KOKKOS_INLINE_FUNCTION
 double device_max(double d1, double d2) {
@@ -238,9 +240,9 @@ double curlTestSolution(double x, double y, double z, int component, int dimensi
 }
 
 KOKKOS_INLINE_FUNCTION
-double divfreeTestSolution(double x, double y, double z, int component, int dimension) {
+double divfreeTestSolution_single_polynomial(double x, double y, double z, int component, int dimension) {
     if (dimension==3) {
-        // returns curl of divergenceTestSamples
+        // returns divfreeTestSamples
         switch (component) {
         case 0:
             return 6.0*x*x*y - 9.0*x*y + 7.0*x*z*z + 6.0*y*y*z;
@@ -249,13 +251,38 @@ double divfreeTestSolution(double x, double y, double z, int component, int dime
         default:
             return -2.0*x*x*x + 9.0*x*y*y + 9.0*y*z;
         }
+    } else if (dimension==2) {
+        switch (component) {
+        case 0:
+            return 6.0*x*x*y;
+        default:
+            return -6.0*x*y*y;
+        }
     } else {
-        return 0;
+        return 0.0;
     }
 }
 
 KOKKOS_INLINE_FUNCTION
-double curldivfreeTestSolution(double x, double y, double z, int component, int dimension) {
+double divfreeTestSolution_span_basis(double x, double y, double z, int component, int dimension, int exact_order) {
+    double val = 0.0;
+    const int NP = Compadre::GMLS::getNP(exact_order, dimension, Compadre::ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial);
+    if (dimension==3) {
+        for (int i=0; i<NP; ++i) {
+            Compadre::XYZ basis_i = Compadre::DivergenceFreePolynomialBasis::evaluate(i, x, y, z);
+            val += basis_i[component];
+        }
+    } else {
+        for (int i=0; i<NP; ++i) {
+            Compadre::XYZ basis_i = Compadre::DivergenceFreePolynomialBasis::evaluate(i, x, y);
+            val += basis_i[component];
+        }
+    }
+    return val;
+}
+
+KOKKOS_INLINE_FUNCTION
+double curldivfreeTestSolution_single_polynomial(double x, double y, double z, int component, int dimension) {
     if (dimension==3) {
         // returns curl of divergenceTestSamples
         switch (component) {
@@ -264,7 +291,7 @@ double curldivfreeTestSolution(double x, double y, double z, int component, int 
         case 1:
             return 6.0*x*x + 14.0*x*z - 3.0*y*y;
         default:
-            return -6.0*x*x + 20.0*x*z + 9.0*x - 6.0*y*y + 12.0*y*z;
+            return -6.0*x*x + 20.0*x*z + 9.0*x - 6.0*y*y - 12.0*y*z;
         }
     } else {
         return 0;
@@ -272,7 +299,46 @@ double curldivfreeTestSolution(double x, double y, double z, int component, int 
 }
 
 KOKKOS_INLINE_FUNCTION
-double curlcurldivfreeTestSolution(double x, double y, double z, int component, int dimension) {
+double curldivfreeTestSolution_span_basis(double x, double y, double z, int component, int dimension, int exact_order) {
+    double val = 0.0;
+    const int NP = Compadre::GMLS::getNP(exact_order, dimension, Compadre::ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial);
+    if (dimension==3) {
+        if (component==0) {
+            for (int i=0; i<NP; ++i) {
+                Compadre::XYZ grad_y = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, 1, 1, x, y, z);
+                Compadre::XYZ grad_z = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, 2, 1, x, y, z);
+                val += grad_y[2] - grad_z[1];
+            }
+        } else if (component==1) {
+            for (int i=0; i<NP; ++i) {
+                Compadre::XYZ grad_x = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, 0, 1, x, y, z);
+                Compadre::XYZ grad_z = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, 2, 1, x, y, z);
+                val += -grad_x[2] + grad_z[0];
+            }
+        } else if (component==2) {
+            for (int i=0; i<NP; ++i) {
+                Compadre::XYZ grad_x = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, 0, 1, x, y, z);
+                Compadre::XYZ grad_y = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, 1, 1, x, y, z);
+                val += grad_x[1] - grad_y[0];
+            }
+        }
+        return val;
+    } else if (dimension==2) {
+        if (component==0) {
+            for (int i=0; i<NP; ++i) {
+                Compadre::XYZ grad_x = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, 0, 1, x, y);
+                Compadre::XYZ grad_y = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, 1, 1, x, y);
+                val += grad_x[1] - grad_y[0];
+            }
+            return val;
+        } else return 0;
+    } else {
+        return 0;
+    }
+}
+
+KOKKOS_INLINE_FUNCTION
+double curlcurldivfreeTestSolution_single_polynomial(double x, double y, double z, int component, int dimension) {
     if (dimension==3) {
         // returns curl of divergenceTestSamples
         switch (component) {
@@ -283,13 +349,20 @@ double curlcurldivfreeTestSolution(double x, double y, double z, int component, 
         default:
             return -6.0*x;
         }
+    } else if (dimension==2) {
+        switch (component) {
+        case 0:
+            return -12.0*y;
+        default:
+            return 12.0*x;
+        }
     } else {
         return 0;
     }
 }
 
 KOKKOS_INLINE_FUNCTION
-double gradientdivfreeTestSolution(double x, double y, double z, int component, int dimension) {
+double gradientdivfreeTestSolution_single_polynomial(double x, double y, double z, int component, int dimension) {
     if (dimension==3) {
         switch (component) {
             case 0:
@@ -312,7 +385,37 @@ double gradientdivfreeTestSolution(double x, double y, double z, int component, 
                 return 9.0*y;
         }
     }
+    if (dimension==2) {
+        switch (component) {
+            case 0:
+                return 12.0*x*y ;
+            case 1:
+                return 6.0*x*x;
+            case 2:
+                return -6.0*y*y;
+            case 3:
+                return -12.0*x*y;
+        }
+    }
     return 0.0;
+}
+
+KOKKOS_INLINE_FUNCTION
+double gradientdivfreeTestSolution_span_basis(double x, double y, double z, int input_component, int output_component, int dimension, int exact_order) {
+    double val = 0.0;
+    const int NP = Compadre::GMLS::getNP(exact_order, dimension, Compadre::ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial);
+    if (dimension==3) {
+        for (int i=0; i<NP; ++i) {
+            Compadre::XYZ basis_i = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, output_component, 1.0, x, y, z);
+            val += basis_i[input_component];
+        }
+    } else {
+        for (int i=0; i<NP; ++i) {
+            Compadre::XYZ basis_i = Compadre::DivergenceFreePolynomialBasis::evaluatePartialDerivative(i, output_component, 1.0, x, y);
+            val += basis_i[input_component];
+        }
+    }
+    return val;
 }
 
 /** Standard GMLS Example 

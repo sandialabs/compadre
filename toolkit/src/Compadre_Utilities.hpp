@@ -12,7 +12,7 @@ Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
     auto num_nodes = cell_coordinates.extent(1)/dim;
     for (int j=0; j<dim; ++j) {
         midpoint_storage(j) = 0;
-        for (int i=0; i<num_nodes; ++i) {
+        for (size_t i=0; i<num_nodes; ++i) {
             midpoint_storage(j) += cell_coordinates(cell_num, i*dim + j) / (double)(num_nodes);
         }
     }
@@ -57,7 +57,7 @@ Kokkos::View<int*, output_array_layout, output_memory_space> // shares layout of
 
     // call device functor here
 
-    for (int i=0; i<input_data_host.extent(0); i++) {
+    for (size_t i=0; i<input_data_host.extent(0); i++) {
         if (input_data_host(i) == this_filtered_value) {
              num_count++;
         }
@@ -68,7 +68,7 @@ Kokkos::View<int*, output_array_layout, output_memory_space> // shares layout of
     Kokkos::View<int*, output_array_layout, output_memory_space> filtered_view("filterd view", num_count);
     // Gather up the indices into the new view
     int filtered_index = 0;
-    for (int i=0; i<input_data_host.extent(0); i++) {
+    for (size_t i=0; i<input_data_host.extent(0); i++) {
          if (input_data_host(i) == this_filtered_value) {
              filtered_view(filtered_index) = i;
              filtered_index++;
@@ -111,8 +111,8 @@ struct Extract {
                 index_data_host.extent(0), input_data_host.extent(1));
     
         // Loop through all the entries of index data
-        for (int i=0; i<index_data_host.extent(0); i++) {
-            for (int j=0; j<input_data_host.extent(1); j++) {
+        for (size_t i=0; i<index_data_host.extent(0); i++) {
+            for (size_t j=0; j<input_data_host.extent(1); j++) {
                 extracted_view(i, j) = input_data_host(index_data_host(i), j);
             }
         }
@@ -150,7 +150,7 @@ struct Extract {
                 index_data_host.extent(0));
     
         // Loop through all the entries of index data
-        for (int i=0; i<index_data_host.extent(0); i++) {
+        for (size_t i=0; i<index_data_host.extent(0); i++) {
             extracted_view(i) = input_data_host(index_data_host(i));
         }
     

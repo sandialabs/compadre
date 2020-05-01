@@ -576,6 +576,7 @@ scalar_type DivFreeSecondOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn, 
         } else if (input_comp==1) {
             return -4;
         }
+        return 0;
     }
 }
 

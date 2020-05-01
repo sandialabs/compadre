@@ -3,7 +3,13 @@ import os
 import re
 import math
 import sys
+import argparse
 
+parser = argparse.ArgumentParser(description='convert files by adding cell centroids and ID (for cubed-sphere)')
+parser.add_argument('--porder', dest='porder', type=int, default=3, help='polynomial degree for basis')
+parser.add_argument('--grids', dest='grids', type=int, default=2, help='number of grids for refinement sequence')
+parser.add_argument('--in-trilinos', dest='in_trilinos', type=str, default='false', help='whether being called from inside of Trilinos')
+args = parser.parse_args()
 
 def check_bounds(porder, rate):
     if (porder=="1"):
@@ -18,14 +24,8 @@ def check_bounds(porder, rate):
             return False
 
 num_target_sites = 100
-
-porder = 3
-if (len(sys.argv) > 1):
-    porder = int(sys.argv[1])
-
-grids = 2
-if (len(sys.argv) > 2):
-    grids = int(sys.argv[2])
+porder = args.porder
+grids = args.grids
 
 errors = []
 
@@ -35,7 +35,12 @@ for operator in target_operators:
 
 for grid_num in range(grids):
     with open(os.devnull, 'w') as devnull:
-        output_commands = ["@CMAKE_CURRENT_BINARY_DIR@/GMLS_Staggered_Manifold_Test","%d"%porder,"%d"%num_target_sites,"3","%d"%(20*num_target_sites*pow(4,grid_num)),"1","1","0"]
+        exe_name=""
+        if args.in_trilinos.lower()=="true":
+            exe_name = "@CMAKE_CURRENT_BINARY_DIR@/Compadre_GMLS_Staggered_Manifold_Test.exe"
+        else:
+            exe_name = "@CMAKE_CURRENT_BINARY_DIR@/GMLS_Staggered_Manifold_Test"
+        output_commands = [exe_name,"%d"%porder,"%d"%num_target_sites,"3","%d"%(20*num_target_sites*pow(4,grid_num)),"1","1","0","--kokkos-threads=4"]
         print(output_commands)
         output = subprocess.check_output(output_commands, stderr=devnull)
         #print(output)
@@ -58,5 +63,6 @@ for key, operator in enumerate(target_operators):
             assert(check_bounds(porder, rate))
         else:
             print("NaN - Division by zero")
-    
+
+print("Passed.")
 sys.exit(0)
