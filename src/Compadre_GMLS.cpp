@@ -549,12 +549,15 @@ void GMLS::operator()(const ApplyStandardTargets&, const member_type& teamMember
     scratch_vector_type t2(teamMember.team_scratch(_pm.getTeamScratchLevel(0)), max_num_rows);
     scratch_matrix_right_type P_target_row(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _total_alpha_values*max_evaluation_sites, this_num_cols);
 
+    scratch_vector_type delta(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), this_num_cols);
+    scratch_vector_type thread_workspace(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), (_poly_order+1)*_global_dimensions);
+
     /*
      *    Apply Standard Target Evaluations to Polynomial Coefficients
      */
 
     // get evaluation of target functionals
-    this->computeTargetFunctionals(teamMember, t1, t2, P_target_row);
+    this->computeTargetFunctionals(teamMember, delta, thread_workspace, P_target_row);
     teamMember.team_barrier();
 
     this->applyTargetsToCoefficients(teamMember, t1, t2, Coeffs, w, P_target_row, _NP); 

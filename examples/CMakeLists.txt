@@ -133,12 +133,12 @@ if (Compadre_EXAMPLES)
       # Divergence-free basis test for GMLS on non-manifold
       # Note: SVD is needed to be used here due to the null space introduced
       ADD_TEST(NAME GMLS_DivergenceFree_Dim3_P3_SVD COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "3" "200" "3" "0" "0" "0" "--kokkos-threads=2")
-      SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim3_P3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos;divergencefree;svd" TIMEOUT 60)
+      SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim3_P3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos;divergencefree;svd;batched" TIMEOUT 60)
       #ADD_TEST(NAME GMLS_DivergenceFree_Dim3_P2_SVD COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "2" "200" "3" "0" "0" "0" "--kokkos-threads=2")
       #SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim3_P2_SVD PROPERTIES LABELS "UnitTest;unit;kokkos;divergencefree;svd" TIMEOUT 60)
 
       ADD_TEST(NAME GMLS_DivergenceFree_Dim2_P3_SVD COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "3" "200" "2" "0" "0" "0" "--kokkos-threads=2")
-      SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim2_P3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos;divergencefree;svd" TIMEOUT 60)
+      SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim2_P3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos;divergencefree;svd;batched" TIMEOUT 60)
       #ADD_TEST(NAME GMLS_DivergenceFree_Dim2_P2_SVD COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "2" "200" "2" "0" "0" "0" "--kokkos-threads=2")
       #SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim2_P2_SVD PROPERTIES LABELS "UnitTest;unit;kokkos;divergencefree;svd" TIMEOUT 60)
     endif()

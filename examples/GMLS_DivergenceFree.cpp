@@ -335,7 +335,7 @@ bool all_passed = true;
     vector_divfree_basis_gmls.setWeightingPower(2);
 
     // generate the alphas that to be combined with data for each target operation requested in lro
-    vector_divfree_basis_gmls.generateAlphas();
+    vector_divfree_basis_gmls.generateAlphas(15 /* # batches */);
 
     //! [Setting Up The GMLS Object]
 

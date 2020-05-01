@@ -368,8 +368,8 @@ protected:
 
     /*! \brief Evaluates a polynomial basis with a target functional applied to each member of the basis
         \param teamMember                   [in] - Kokkos::TeamPolicy member type (created by parallel_for)
-        \param t1                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
-        \param t2                       [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
+        \param delta                    [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
+        \param thread_workspace         [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _poly_order*_global_dimensions.
         \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
     */
     KOKKOS_INLINE_FUNCTION

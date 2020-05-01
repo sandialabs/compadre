@@ -571,7 +571,7 @@ if (NOT(Compadre_DEBUG OR Compadre_EXTREME_DEBUG))
       ${${testName}_CREATED}
       PROPERTIES
         LABELS
-          "UnitTest;unit;kokkos;divergencefree;svd"
+          "UnitTest;unit;kokkos;divergencefree;svd;batched"
         TIMEOUT
           60
       ) # end set_tests_properties
@@ -613,7 +613,7 @@ if (NOT(Compadre_DEBUG OR Compadre_EXTREME_DEBUG))
       ${${testName}_CREATED}
       PROPERTIES
         LABELS
-          "UnitTest;unit;kokkos;divergencefree;svd"
+          "UnitTest;unit;kokkos;divergencefree;svd;batched"
         TIMEOUT
           60
       ) # end set_tests_properties
