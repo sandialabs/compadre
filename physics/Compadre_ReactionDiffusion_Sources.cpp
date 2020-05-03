@@ -243,12 +243,12 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                 //}
                                 // MA END computation of VMS-DG terms
                                 // ############################################################################################
-                                //double vmsBCfactor = 20.0;
-				//contribution += q_wt * v * vmsBCfactor * ( tau_edge(comp, 0) * velocity_function->evalScalar(pt, 0) + 
-				//                             tau_edge(comp, 1) * velocity_function->evalScalar(pt, 1) );
+                                double vmsBCfactor = 2.0;
+				contribution += q_wt * v * vmsBCfactor * ( tau_edge(comp, 0) * velocity_function->evalScalar(pt, 0) + 
+                                                                           tau_edge(comp, 1) * velocity_function->evalScalar(pt, 1) );
 				
 				exact_eval = velocity_function->evalScalar(pt, comp);
-                                contribution += penalty * q_wt * v * exact_eval;
+                                //contribution += penalty * q_wt * v * exact_eval;
                                 auto exact = velocity_function->evalVector(pt);
                                 contribution -= q_wt * (
                                       2 * _physics->_shear * (n_x*v_x*(comp==0) + 0.5*n_y*(v_y*(comp==0) + v_x*(comp==1))) * exact[0]  

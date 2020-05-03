@@ -1988,11 +1988,11 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             //MA NOTE: j_comp is associated with test function (rows), and k_comp is associated with trial function (columns)
                                             //WARNING! as of now, using VMSDG for exterior edges here results in error, likely because the VMSDG 'penlaty-like' parameter does not match the SIPDG penalty in 'sources' file
                                             //PENDING: modify ...Sources.cpp file to replace SIPDG penalty with VMSDG tau_edge
-                                            //double vmsBCfactor = 20.0;
-					    //contribution += q_wt * jumpv * jumpu * vmsBCfactor * tau_edge(j_comp, k_comp); //MA: VMSDG term
+                                            double vmsBCfactor = 2.0;
+					    contribution += q_wt * jumpv * jumpu * vmsBCfactor * tau_edge(j_comp, k_comp); //MA: VMSDG term
                                             
                                             
-                                            contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp);
+                                            //contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp);
                                             
 					    
 					    contribution -= q_wt * (
@@ -2393,41 +2393,47 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 					    // ############################################################################################
 					    // MA VMSDG contributions
 					    // MA NOTE: j_comp is associated with test function (rows), and k_comp is associated with trial function (columns)
-					    //contribution += q_wt * jumpv * jumpu * tau_edge(j_comp, k_comp); 
-                                            //  
-                                            //contribution -= q_wt * (
-                                            //    jumpv * j_comp_0 * avg_traction_u_x +
-                                            //    jumpv * j_comp_1 * avg_traction_u_y);
-                                            // 
-  					    //contribution -= q_wt * (
-                                            //    jumpu * k_comp_0 * avg_traction_v_x +
-                                            //    jumpu * k_comp_1 * avg_traction_v_y);
-                                            // 
- 					    //contribution -= q_wt * (
-                                            //    jump_traction_v_x * ( delta_edge(0, 0) * jump_traction_u_x + delta_edge(0, 1) * jump_traction_u_y ) +
-                                            //    jump_traction_v_y * ( delta_edge(1, 0) * jump_traction_u_x + delta_edge(1, 1) * jump_traction_u_y ) );
+					    contribution += q_wt * jumpv * jumpu * tau_edge(j_comp, k_comp); 
+                                              
+                                            contribution -= q_wt * (
+                                                jumpv * j_comp_0 * avg_traction_u_x +
+                                                jumpv * j_comp_1 * avg_traction_u_y);
+                                             
+  					    contribution -= q_wt * (
+                                                jumpu * k_comp_0 * avg_traction_v_x +
+                                                jumpu * k_comp_1 * avg_traction_v_y);
+                                             
+ 					    contribution -= q_wt * (
+                                                jump_traction_v_x * ( delta_edge(0, 0) * jump_traction_u_x + delta_edge(0, 1) * jump_traction_u_y ) +
+                                                jump_traction_v_y * ( delta_edge(1, 0) * jump_traction_u_x + delta_edge(1, 1) * jump_traction_u_y ) );
 					    // MA END VMSDG contributions
 					    // ############################################################################################
 					
+
+
 					    // MA NOTE: SIPG Contributions are below (use only VMSDG or SIPG, not both)
                                             // MA Q:Comment regarding firts term in SIPG contribution is true?...
 					    // It seems that interior edge contributions are computed only ONCE, from 'within' the element with higher number, is that the case? 
+					    
+					
+
+					    //contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp); // other half will be added by other cell 
                                             //
-					    contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp); // other half will be added by other cell 
-                                            
-				       	    contribution -= q_wt * (
-                                                  2 * _shear * (n_x*avgv_x*j_comp_0 
-                                                    + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
-                                                + 2 * _shear * (n_y*avgv_y*j_comp_1 
-                                                    + 0.5*n_x*(avgv_x*j_comp_1 + avgv_y*j_comp_0)) * jumpu*k_comp_1
-                                                + _lambda*(avgv_x*j_comp_0 + avgv_y*j_comp_1)*(n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1));
-                                            contribution -= q_wt * (
-                                                  2 * _shear * (n_x*avgu_x*k_comp_0 
-                                                    + 0.5*n_y*(avgu_y*k_comp_0 + avgu_x*k_comp_1)) * jumpv*j_comp_0  
-                                                + 2 * _shear * (n_y*avgu_y*k_comp_1 
-                                                    + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
-                                                + _lambda*(avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
+				       	    //contribution -= q_wt * (
+                                            //      2 * _shear * (n_x*avgv_x*j_comp_0 
+                                            //        + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
+                                            //    + 2 * _shear * (n_y*avgv_y*j_comp_1 
+                                            //        + 0.5*n_x*(avgv_x*j_comp_1 + avgv_y*j_comp_0)) * jumpu*k_comp_1
+                                            //    + _lambda*(avgv_x*j_comp_0 + avgv_y*j_comp_1)*(n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1));
+                                            //contribution -= q_wt * (
+                                            //      2 * _shear * (n_x*avgu_x*k_comp_0 
+                                            //        + 0.5*n_y*(avgu_y*k_comp_0 + avgu_x*k_comp_1)) * jumpv*j_comp_0  
+                                            //    + 2 * _shear * (n_y*avgu_y*k_comp_1 
+                                            //        + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
+                                            //    + _lambda*(avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
                                         
+					
+					
 					} else if (_vl_op) {
                                             contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp); // other half will be added by other cell
                                             contribution -= q_wt * (
