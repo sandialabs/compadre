@@ -137,9 +137,12 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                     : _physics->_halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
                             }
 
-                            xyz_type pt = (i<nlocal) ? xyz_type(quadrature_points(i,2*qn),quadrature_points(i,2*qn+1),0) 
-                                : xyz_type(halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),2*qn), 
-                                               halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),2*qn+1),0);
+                            xyz_type pt = (i<nlocal) ? xyz_type(quadrature_points(i,_ndim_requested*qn),
+                                                                quadrature_points(i,_ndim_requested*qn+1),
+                                                                (_ndim_requested==3) ? quadrature_points(i,_ndim_requested*qn+2) : 0) 
+                                : xyz_type(halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),_ndim_requested*qn), 
+                                               halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),_ndim_requested*qn+1),
+                                               (_ndim_requested==3) ? quadrature_points(i,_ndim_requested*qn+2) : 0);
 
                             double q_wt = (i<nlocal) ? quadrature_weights(i,qn) : halo_quadrature_weights(_physics->_halo_small_to_big(halo_i,0),qn);
 
@@ -159,8 +162,12 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                             : _physics->_halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
                         }
                         double q_wt = (i<nlocal) ? quadrature_weights(i,qn) : halo_quadrature_weights(_physics->_halo_small_to_big(halo_i,0),qn);
-                        xyz_type pt = (i<nlocal) ? xyz_type(quadrature_points(i,2*qn),quadrature_points(i,2*qn+1),0) 
-                            : xyz_type(halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),2*qn), halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),2*qn+1),0);
+                        xyz_type pt = (i<nlocal) ? xyz_type(quadrature_points(i,_ndim_requested*qn),
+                                                            quadrature_points(i,_ndim_requested*qn+1),
+                                                            (_ndim_requested==3) ? quadrature_points(i,_ndim_requested*qn+2) : 0) 
+                            : xyz_type(halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),_ndim_requested*qn), 
+                                       halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),_ndim_requested*qn+1),
+                                       (_ndim_requested) ? quadrature_points(i,_ndim_requested*qn+2) : 0);
 
                         if (q_type==1) { // interior
                             double rhs_eval = 0;
@@ -186,72 +193,132 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                         else if (q_type==2) { // edge on exterior
                             // DG enforcement of Dirichlet BCs
                             // penalties for edges of mass
-                            double v_x, v_y;
+                            XYZ grad_v;
                             if (_use_vector_grad_gmls) {
-                                v_x = (i<nlocal) ? _physics->_vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, comp_out, 0, j, comp_in, qn+1)
-                                    : _physics->_halo_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, halo_i, 0, j, qn+1);
-                                v_y = (i<nlocal) ? _physics->_vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, comp_out, 1, j, comp_in, qn+1)
-                                    : _physics->_halo_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, halo_i, 1, j, qn+1);
+                                for (int d=0; d<_ndim_requested; ++d) {
+                                    grad_v[d] = (i<nlocal) ? _physics->_vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, comp_out, d, j, comp_in, qn+1)
+                                        : _physics->_halo_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, halo_i, d, j, qn+1);
+                                }
                             } else {
-                                v_x = (i<nlocal) ? _physics->_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j, qn+1)
-                                    : _physics->_halo_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, halo_i, 0, j, qn+1);
-                                v_y = (i<nlocal) ? _physics->_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j, qn+1)
-                                    : _physics->_halo_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, halo_i, 1, j, qn+1);
-
+                                for (int d=0; d<_ndim_requested; ++d) {
+                                    grad_v[d] = (i<nlocal) ? _physics->_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, d, j, qn+1)
+                                        : _physics->_halo_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, halo_i, d, j, qn+1);
+                                }
                             }
-                            double n_x = (i<nlocal) ? unit_normals(i,2*qn+0) : halo_unit_normals(_physics->_halo_small_to_big(halo_i,0), 2*qn+0);
-                            double n_y = (i<nlocal) ? unit_normals(i,2*qn+1) : halo_unit_normals(_physics->_halo_small_to_big(halo_i,0), 2*qn+1);
+                            XYZ n;
+                            for (int d=0; d<_ndim_requested; ++d) {
+                                n[d] = (i<nlocal) ? unit_normals(i,_ndim_requested*qn+d) : halo_unit_normals(_physics->_halo_small_to_big(halo_i,0), _ndim_requested*qn+d);
+                            }
                             double exact_eval = 0;
 
                             if (_rd_op) {
                                 exact_eval = velocity_function->evalScalar(pt);
                                 contribution += penalty * q_wt * v * exact_eval;
-                                contribution -= _physics->_diffusion * q_wt * ( n_x * v_x + n_y * v_y) * exact_eval;
+                                double n_dot_grad = 0.0;
+                                for (int d=0; d<_ndim_requested; ++d) {
+                                    n_dot_grad += n[d]*grad_v[d];
+                                }
+                                contribution -= _physics->_diffusion * q_wt * n_dot_grad * exact_eval;
                             } else if (_le_op) {
                                 exact_eval = velocity_function->evalScalar(pt, comp_out);
                                 contribution += penalty * q_wt * v * exact_eval;
                                 auto exact = velocity_function->evalVector(pt);
-                                contribution -= q_wt * (
-                                      2 * _physics->_shear * (n_x*v_x*(comp_out==0) + 0.5*n_y*(v_y*(comp_out==0) + v_x*(comp_out==1))) * exact[0]  
-                                    + 2 * _physics->_shear * (n_y*v_y*(comp_out==1) + 0.5*n_x*(v_x*(comp_out==1) + v_y*(comp_out==0))) * exact[1]
-                                    + _physics->_lambda * (v_x*(comp_out==0) + v_y*(comp_out==1)) * (n_x*exact[0] + n_y*exact[1]));
+                                double n_dot_exact = 0.0;
+                                for (int d=0; d<_ndim_requested; ++d) {
+                                    n_dot_exact += n[d] * exact[d];
+                                }
+                                double mu_sigma_v_dot_n_dot_exact = 0.0;
+                                for (int d1=0; d1<_ndim_requested; ++d1) {
+                                    for (int d2=0; d2<_ndim_requested; ++d2) {
+                                        mu_sigma_v_dot_n_dot_exact += 0.5*n[d1]*exact[d2]*(grad_v[d1]*(comp_out==d2) + grad_v[d2]*(comp_out==d1));
+                                    }
+                                }
+                                double lambda_sigma_v_dot_n_dot_exact = 0.0;
+                                for (int d=0; d<_ndim_requested; ++d) {
+                                    lambda_sigma_v_dot_n_dot_exact += grad_v[d]*(comp_out==d) * n_dot_exact;
+                                }
+                                contribution -= q_wt * 2 * _physics->_shear * mu_sigma_v_dot_n_dot_exact;
+                                contribution -= q_wt * _physics->_lambda * lambda_sigma_v_dot_n_dot_exact;
+                                //contribution -= q_wt * (
+                                //      2 * _physics->_shear * (n[0]*grad_v[0]*(comp_out==0) + 0.5*n[1]*(grad_v[1]*(comp_out==0) + grad_v[0]*(comp_out==1))) * exact[0]  
+                                //    + 2 * _physics->_shear * (n[1]*grad_v[1]*(comp_out==1) + 0.5*n[0]*(grad_v[0]*(comp_out==1) + grad_v[1]*(comp_out==0))) * exact[1]
+                                //    + _physics->_lambda * (grad_v[0]*(comp_out==0) + grad_v[1]*(comp_out==1)) * (n[0]*exact[0] + n[1]*exact[1]));
                             } else if (_mix_le_op) {
                                 if ((_velocity_field_id == field_one) && (_velocity_field_id == field_two)) {
                                     exact_eval = velocity_function->evalScalar(pt, comp_out);
                                     contribution += penalty * q_wt * v * exact_eval;
                                     auto exact = velocity_function->evalVector(pt);
-                                    contribution -= q_wt * (
-                                          2 * _physics->_shear * (n_x*v_x*(comp_out==0) + 0.5*n_y*(v_y*(comp_out==0) + v_x*(comp_out==1))) * exact[0]  
-                                        + 2 * _physics->_shear * (n_y*v_y*(comp_out==1) + 0.5*n_x*(v_x*(comp_out==1) + v_y*(comp_out==0))) * exact[1]
-                                        - 2./(scalar_type)(_ndim_requested) * _physics->_shear * (v_x*(comp_out==0) + v_y*(comp_out==1)) * (n_x*exact[0] + n_y*exact[1]));
+                                    double n_dot_exact = 0.0;
+                                    for (int d=0; d<_ndim_requested; ++d) {
+                                        n_dot_exact += n[d] * exact[d];
+                                    }
+                                    double div_v = 0.0;
+                                    for (int d=0; d<_ndim_requested; ++d) {
+                                        div_v += grad_v[d]*(comp_out==d);
+                                    }
+                                    double mu_sigma_v_dot_n_dot_exact = 0.0;
+                                    for (int d1=0; d1<_ndim_requested; ++d1) {
+                                        for (int d2=0; d2<_ndim_requested; ++d2) {
+                                            mu_sigma_v_dot_n_dot_exact += 0.5*n[d1]*exact[d2]*(grad_v[d1]*(comp_out==d2) + grad_v[d2]*(comp_out==d1));
+                                        }
+                                    }
+                                    contribution -= q_wt * 2 * _physics->_shear * mu_sigma_v_dot_n_dot_exact;
+                                    contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _physics->_shear * div_v * n_dot_exact;
+                                    //contribution -= q_wt * (
+                                    //      2 * _physics->_shear * (n[0]*grad_v[0]*(comp_out==0) + 0.5*n[1]*(grad_v[1]*(comp_out==0) + grad_v[0]*(comp_out==1))) * exact[0]  
+                                    //    + 2 * _physics->_shear * (n[1]*grad_v[1]*(comp_out==1) + 0.5*n[0]*(grad_v[0]*(comp_out==1) + grad_v[1]*(comp_out==0))) * exact[1]
+                                    //    - 2./(scalar_type)(_ndim_requested) * _physics->_shear * (grad_v[0]*(comp_out==0) + grad_v[1]*(comp_out==1)) * (n[0]*exact[0] + n[1]*exact[1]));
                                 } else if (_pressure_field_id == field_one && _pressure_field_id == field_two) {
                                     double q = (i<nlocal) ? _physics->_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, qn+1)
                                         : _physics->_halo_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
                                     auto exact = velocity_function->evalVector(pt);
-                                    contribution += q_wt * (
-                                          pressure_coeff * q * ( n_x * exact[0] + n_y * exact[1] ) );
+                                    double n_dot_exact = 0.0;
+                                    for (int d=0; d<_ndim_requested; ++d) {
+                                        n_dot_exact += n[d] * exact[d];
+                                    }
+                                    contribution += q_wt * (pressure_coeff * q * ( n_dot_exact ) );
+                                    //contribution += q_wt * (
+                                    //      pressure_coeff * q * ( n_x * exact[0] + n_y * exact[1] ) );
                                 }
                             } else if (_vl_op) {
                                 exact_eval = velocity_function->evalScalar(pt, comp_out);
                                 contribution += penalty * q_wt * v * exact_eval;
                                 auto exact = velocity_function->evalVector(pt);
-                                contribution -= q_wt * (
-                                      _physics->_shear * (n_x*v_x*(comp_out==0) + n_y*v_y*(comp_out==0)) * exact[0]  
-                                    + _physics->_shear * (n_x*v_x*(comp_out==1) + n_y*v_y*(comp_out==1)) * exact[1] );
+                                double sigma_v_dot_n_dot_exact = 0.0;
+                                for (int d1=0; d1<_ndim_requested; ++d1) {
+                                    for (int d2=0; d2<_ndim_requested; ++d2) {
+                                        sigma_v_dot_n_dot_exact += n[d1]*grad_v[d1]*(comp_out==d2) * exact[d2];
+                                    }
+                                }
+                                contribution -= q_wt * _physics->_shear * sigma_v_dot_n_dot_exact;
+                                //contribution -= q_wt * (
+                                //      _physics->_shear * (n_x*v_x*(comp_out==0) + n_y*v_y*(comp_out==0)) * exact[0]  
+                                //    + _physics->_shear * (n_x*v_x*(comp_out==1) + n_y*v_y*(comp_out==1)) * exact[1] );
                             } else if (_st_op) {
                                 if ((_velocity_field_id == field_one) && (_velocity_field_id == field_two)) {
                                     exact_eval = velocity_function->evalScalar(pt, comp_out);
                                     contribution += penalty * q_wt * v * exact_eval;
                                     auto exact = velocity_function->evalVector(pt);
-                                    contribution -= q_wt * (
-                                          _physics->_diffusion * (n_x*v_x*(comp_out==0) + n_y*v_y*(comp_out==0)) * exact[0]  
-                                        + _physics->_diffusion * (n_x*v_x*(comp_out==1) + n_y*v_y*(comp_out==1)) * exact[1] );
+                                    double grad_v_dot_n_dot_exact = 0.0;
+                                    for (int d1=0; d1<_ndim_requested; ++d1) {
+                                        for (int d2=0; d2<_ndim_requested; ++d2) {
+                                            grad_v_dot_n_dot_exact += n[d1]*grad_v[d1]*(comp_out==d2) * exact[d2];
+                                        }
+                                    }
+                                    contribution -= q_wt * _physics->_diffusion * grad_v_dot_n_dot_exact;
+                                    //contribution -= q_wt * (
+                                    //      _physics->_diffusion * (n_x*v_x*(comp_out==0) + n_y*v_y*(comp_out==0)) * exact[0]  
+                                    //    + _physics->_diffusion * (n_x*v_x*(comp_out==1) + n_y*v_y*(comp_out==1)) * exact[1] );
                                 } else if (_pressure_field_id == field_one && _pressure_field_id == field_two) {
                                     double q = (i<nlocal) ? _physics->_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, qn+1)
                                         : _physics->_halo_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
                                     auto exact = velocity_function->evalVector(pt);
+                                    double n_dot_exact = 0.0;
+                                    for (int d=0; d<_ndim_requested; ++d) {
+                                        n_dot_exact += n[d] * exact[d];
+                                    }
                                     contribution += q_wt * (
-                                          pressure_coeff * q * ( n_x * exact[0] + n_y * exact[1] ) );
+                                          pressure_coeff * q * ( n_dot_exact ) );
                                 }
                             }
                         }
