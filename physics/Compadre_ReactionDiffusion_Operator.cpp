@@ -79,7 +79,7 @@ void ReactionDiffusionPhysics::initialize() {
         TEUCHOS_TEST_FOR_EXCEPT_MSG((max_search_size < triple_radius), "Neighbor of neighbor search results in a search radius exceeding the halo size.");
     }
 
-    auto neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
+    auto neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), _ndim_requested);
 
     _particles_triple_hop_neighborhood = Teuchos::rcp_static_cast<neighborhood_type>(Teuchos::rcp(
             new neighborhood_type(_cells, _particles.getRawPtr(), false /*material coords*/, maxLeaf)));
@@ -158,145 +158,152 @@ void ReactionDiffusionPhysics::initialize() {
 
 
 
+    // element that mesh consists of
+    shards::CellTopology element = (_ndim_requested==2) ? shards::getCellTopologyData< shards::Triangle<> >() : shards::getCellTopologyData< shards::Tetrahedron<> >();
 
-
-
-    auto cell_vertices = _cells->getFieldManager()->getFieldByName("vertex_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
-
-    // quadrature sites and weights on triangle cells
-    shards::CellTopology triangle = shards::getCellTopologyData< shards::Triangle<> >();
+    int element_dim = element.getDimension();
 
     Intrepid::DefaultCubatureFactory<double> cubature_factory;
     int cubature_degree = 2*_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder");
 
-    int num_triangle_nodes = triangle.getNodeCount();
-    int num_triangle_edges = num_triangle_nodes;
-    Teuchos::RCP<Intrepid::Cubature<double> > triangle_cubature = cubature_factory.create(triangle, cubature_degree);
-    int num_triangle_cub_points = triangle_cubature->getNumPoints();
-    int triangle_dim = triangle.getDimension();
+    int num_element_nodes = element.getNodeCount();
+    int num_element_sides = element.getSideCount();
+    Teuchos::RCP<Intrepid::Cubature<double> > element_cubature = cubature_factory.create(element, cubature_degree);
+    int num_element_cub_points = element_cubature->getNumPoints();
 
-    Intrepid::FieldContainer<double> triangle_cub_points(num_triangle_cub_points, triangle_dim);
-    Intrepid::FieldContainer<double> triangle_cub_weights(num_triangle_cub_points);
-    triangle_cubature->getCubature(triangle_cub_points, triangle_cub_weights);
+    // quadrature sites and weights on sides
+    shards::CellTopology side = (_ndim_requested==2) ? shards::getCellTopologyData< shards::Line<> >() : shards::getCellTopologyData< shards::Triangle<> >();
+    int num_side_nodes = side.getNodeCount();
+    Teuchos::RCP<Intrepid::Cubature<double> > side_cubature = cubature_factory.create(side, cubature_degree);
+    int num_side_cub_points = side_cubature->getNumPoints();
 
-    Intrepid::FieldContainer<double> triangle_nodes(num_cells_local, num_triangle_nodes, triangle_dim);
-    //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
-    for (int i=0; i<num_cells_local; ++i) {
-        for (int j=0; j<num_triangle_nodes; ++j) {
-            for (int k=0; k<triangle_dim; ++k) {
-                triangle_nodes(i, j, k) = cell_vertices(i, 2*j + k);
-            }
-        }
-    }//);
-    Intrepid::FieldContainer<double> triangle_jacobian(num_cells_local, num_triangle_cub_points, triangle_dim, triangle_dim);
-    Intrepid::FieldContainer<double> triangle_jacobian_det(num_cells_local, num_triangle_cub_points);
-    Intrepid::FieldContainer<double> physical_triangle_cub_points(num_cells_local, num_triangle_cub_points, triangle_dim);
-    Intrepid::FieldContainer<double> physical_triangle_cub_weights(num_cells_local, num_triangle_cub_points);
-
-    Intrepid::CellTools<double>::setJacobian(triangle_jacobian, triangle_cub_points, triangle_nodes, triangle);
-    Intrepid::CellTools<double>::setJacobianDet(triangle_jacobian_det, triangle_jacobian);
-    Intrepid::FunctionSpaceTools::computeCellMeasure<double>(physical_triangle_cub_weights,
-                                                             triangle_jacobian_det,
-                                                             triangle_cub_weights);
-    Intrepid::CellTools<scalar_type>::mapToPhysicalFrame(physical_triangle_cub_points,
-                                                         triangle_cub_points,
-                                                         triangle_nodes,
-                                                         triangle,
-                                                         -1);
-
-
-    // quadrature sites and weights on lines
-    shards::CellTopology line = shards::getCellTopologyData< shards::Line<> >();
-    int num_line_nodes = line.getNodeCount();
-    Teuchos::RCP<Intrepid::Cubature<double> > line_cubature = cubature_factory.create(line, cubature_degree);
-    int num_line_cub_points = line_cubature->getNumPoints();
-    int line_dim = line.getDimension();
-    Intrepid::FieldContainer<double> line_cub_points_1d(num_line_cub_points, line_dim);
-    Intrepid::FieldContainer<double> line_cub_weights(num_line_cub_points);
-    line_cubature->getCubature(line_cub_points_1d, line_cub_weights);
-
-    std::vector<Intrepid::FieldContainer<double> > line_cub_points_2d(num_triangle_edges, Intrepid::FieldContainer<double>(num_line_cub_points, triangle_dim));
-    for (int i=0; i<num_triangle_edges; ++i) {
-        Intrepid::CellTools<double>::mapToReferenceSubcell(line_cub_points_2d[i],
-                                                           line_cub_points_1d,
-                                                           line_dim,
-                                                           i,
-                                                           triangle);
-    }
-
-    std::vector<Intrepid::FieldContainer<double> > line_jacobian(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim, triangle_dim));
-    std::vector<Intrepid::FieldContainer<double> > physical_line_cub_weights(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points));
-    std::vector<Intrepid::FieldContainer<double> > physical_line_cub_points(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim));
-    std::vector<Intrepid::FieldContainer<double> > edge_normals(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim));
-    Kokkos::View<double***, Kokkos::HostSpace> edge_unit_normals("edge unit normals", num_cells_local, num_triangle_edges, triangle_dim);
-    std::vector<Intrepid::FieldContainer<double> > edge_unit_normals_int(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim));
-
-    for (int i=0; i<num_triangle_edges; ++i) {
-        Intrepid::CellTools<double>::setJacobian(line_jacobian[i], line_cub_points_2d[i], triangle_nodes, triangle);
-        Intrepid::FunctionSpaceTools::computeEdgeMeasure<double>(physical_line_cub_weights[i],
-                                                                 line_jacobian[i],
-                                                                 line_cub_weights,
-                                                                 i,
-                                                                 triangle);
-        Intrepid::CellTools<scalar_type>::mapToPhysicalFrame(physical_line_cub_points[i],
-                                                             line_cub_points_2d[i],
-                                                             triangle_nodes,
-                                                             triangle,
-                                                             -1);
-        Intrepid::CellTools<scalar_type>::getPhysicalSideNormals(edge_normals[i],
-                                                                 line_jacobian[i],
-                                                                 i,
-                                                                 triangle);
-    }
-    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), KOKKOS_LAMBDA(const int i) {
-        for (int j=0; j<num_triangle_edges; ++j) {
-            double vector_norm = 0;
-            for (int k=0; k<triangle_dim; ++k) {
-                vector_norm += edge_normals[j](i, 0, k)*edge_normals[j](i, 0, k);
-            }
-            vector_norm = std::sqrt(vector_norm);
-            for (int k=0; k<triangle_dim; ++k) {
-                edge_unit_normals(i, j, k) = edge_normals[j](i, 0, k)/vector_norm;
-            }
-        }
-    });
-
-    _weights_ndim = num_triangle_cub_points + num_triangle_edges*(num_line_cub_points);
+    _weights_ndim = num_element_cub_points + num_element_sides*(num_side_cub_points);
 
     // quantities contained on cells (mesh)
-    _cells->getFieldManager()->createField(triangle_dim*_weights_ndim, "quadrature_points");
+    _cells->getFieldManager()->createField(element_dim*_weights_ndim, "quadrature_points");
     _cells->getFieldManager()->createField(_weights_ndim, "quadrature_weights");
     _cells->getFieldManager()->createField(_weights_ndim, "interior");
-    _cells->getFieldManager()->createField(triangle_dim*_weights_ndim, "unit_normal");
+    _cells->getFieldManager()->createField(element_dim*_weights_ndim, "unit_normal");
     auto quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
     auto quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
     auto quadrature_type = _cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
     auto unit_normals = _cells->getFieldManager()->getFieldByName("unit_normal")->getMultiVectorPtr()->getLocalView<host_view_type>();
+    auto cell_vertices = _cells->getFieldManager()->getFieldByName("vertex_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
     
     // this quantity refers to global elements, so it's local number can be found by getting neighbor with same global number
     auto adjacent_elements = _cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalView<host_view_type>();
 
+    Intrepid::FieldContainer<double> element_cub_points(num_element_cub_points, element_dim);
+    Intrepid::FieldContainer<double> element_cub_weights(num_element_cub_points);
+    element_cubature->getCubature(element_cub_points, element_cub_weights);
+
+    Intrepid::FieldContainer<double> element_nodes(num_cells_local, num_element_nodes, element_dim);
+    //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
+    for (int i=0; i<num_cells_local; ++i) {
+        for (int j=0; j<num_element_nodes; ++j) {
+            for (int k=0; k<element_dim; ++k) {
+                element_nodes(i, j, k) = cell_vertices(i, _ndim_requested*j + k);
+            }
+        }
+    }//);
+    Intrepid::FieldContainer<double> element_jacobian(num_cells_local, num_element_cub_points, element_dim, element_dim);
+    Intrepid::FieldContainer<double> element_jacobian_det(num_cells_local, num_element_cub_points);
+    Intrepid::FieldContainer<double> physical_element_cub_points(num_cells_local, num_element_cub_points, element_dim);
+    Intrepid::FieldContainer<double> physical_element_cub_weights(num_cells_local, num_element_cub_points);
+
+    Intrepid::CellTools<double>::setJacobian(element_jacobian, element_cub_points, element_nodes, element);
+    Intrepid::CellTools<double>::setJacobianDet(element_jacobian_det, element_jacobian);
+    Intrepid::FunctionSpaceTools::computeCellMeasure<double>(physical_element_cub_weights,
+                                                             element_jacobian_det,
+                                                             element_cub_weights);
+    Intrepid::CellTools<scalar_type>::mapToPhysicalFrame(physical_element_cub_points,
+                                                         element_cub_points,
+                                                         element_nodes,
+                                                         element,
+                                                         -1);
+
+
+    int side_dim = side.getDimension();
+    Intrepid::FieldContainer<double> side_cub_points_nm1d(num_side_cub_points, side_dim);
+    Intrepid::FieldContainer<double> side_cub_weights(num_side_cub_points);
+    side_cubature->getCubature(side_cub_points_nm1d, side_cub_weights);
+
+    std::vector<Intrepid::FieldContainer<double> > side_cub_points_nd(num_element_sides, Intrepid::FieldContainer<double>(num_side_cub_points, element_dim));
+    for (int i=0; i<num_element_sides; ++i) {
+        Intrepid::CellTools<double>::mapToReferenceSubcell(side_cub_points_nd[i],
+                                                           side_cub_points_nm1d,
+                                                           side_dim,
+                                                           i,
+                                                           element);
+    }
+
+    std::vector<Intrepid::FieldContainer<double> > side_jacobian(num_element_sides, Intrepid::FieldContainer<double>(num_cells_local, num_side_cub_points, element_dim, element_dim));
+    std::vector<Intrepid::FieldContainer<double> > physical_side_cub_weights(num_element_sides, Intrepid::FieldContainer<double>(num_cells_local, num_side_cub_points));
+    std::vector<Intrepid::FieldContainer<double> > physical_side_cub_points(num_element_sides, Intrepid::FieldContainer<double>(num_cells_local, num_side_cub_points, element_dim));
+    std::vector<Intrepid::FieldContainer<double> > side_normals(num_element_sides, Intrepid::FieldContainer<double>(num_cells_local, num_side_cub_points, element_dim));
+    Kokkos::View<double***, Kokkos::HostSpace> side_unit_normals("side unit normals", num_cells_local, num_element_sides, element_dim);
+    std::vector<Intrepid::FieldContainer<double> > side_unit_normals_int(num_element_sides, Intrepid::FieldContainer<double>(num_cells_local, num_side_cub_points, element_dim));
+
+    for (int i=0; i<num_element_sides; ++i) {
+        Intrepid::CellTools<double>::setJacobian(side_jacobian[i], side_cub_points_nd[i], element_nodes, element);
+        if (_ndim_requested==2) {
+            Intrepid::FunctionSpaceTools::computeEdgeMeasure<double>(physical_side_cub_weights[i],
+                                                                     side_jacobian[i],
+                                                                     side_cub_weights,
+                                                                     i,
+                                                                     element);
+        } else {
+            Intrepid::FunctionSpaceTools::computeFaceMeasure<double>(physical_side_cub_weights[i],
+                                                                     side_jacobian[i],
+                                                                     side_cub_weights,
+                                                                     i,
+                                                                     element);
+        }
+        Intrepid::CellTools<scalar_type>::mapToPhysicalFrame(physical_side_cub_points[i],
+                                                             side_cub_points_nd[i],
+                                                             element_nodes,
+                                                             element,
+                                                             -1);
+        Intrepid::CellTools<scalar_type>::getPhysicalSideNormals(side_normals[i],
+                                                                 side_jacobian[i],
+                                                                 i,
+                                                                 element);
+    }
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), KOKKOS_LAMBDA(const int i) {
+        // calculated for only one cubature point per side because it is done on a simplex
+        // if ever done on non-simplicial mesh, would require normal at each cubature point.
+        for (int j=0; j<num_element_sides; ++j) {
+            double vector_norm = 0;
+            for (int k=0; k<element_dim; ++k) {
+                vector_norm += side_normals[j](i, 0, k)*side_normals[j](i, 0, k);
+            }
+            vector_norm = std::sqrt(vector_norm);
+            for (int k=0; k<element_dim; ++k) {
+                side_unit_normals(i, j, k) = side_normals[j](i, 0, k)/vector_norm;
+            }
+        }
+    });
 
     // get all quadrature put together here as auxiliary evaluation sites
     // store calculated quadrature values over fields values
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), KOKKOS_LAMBDA(const int i) {
         for (int j=0; j<_weights_ndim; ++j) {
-            if (j<num_triangle_cub_points) {
+            if (j<num_element_cub_points) {
                 quadrature_type(i,j) = 1;
-                quadrature_weights(i,j) = physical_triangle_cub_weights(i,j);
+                quadrature_weights(i,j) = physical_element_cub_weights(i,j);
                 for (int k=0; k<_ndim_requested; ++k) {
-                    quadrature_points(i,2*j+k) = physical_triangle_cub_points(i,j,k);
+                    quadrature_points(i,_ndim_requested*j+k) = physical_element_cub_points(i,j,k);
                 }
             } 
             else {
-                int current_edge_num = (j - num_triangle_cub_points)/num_line_cub_points;
-                quadrature_type(i,j) = ((int)adjacent_elements(i,current_edge_num)>-1) ? 0 : 2;
+                int current_side_num = (j - num_element_cub_points)/num_side_cub_points;
+                quadrature_type(i,j) = ((int)adjacent_elements(i,current_side_num)>-1) ? 0 : 2;
                 // reverse ordering because Intrepid does quadrature in reverse of v0->v1
-                int local_cub_num = num_line_cub_points - (j-num_triangle_cub_points)%num_line_cub_points - 1;
-                quadrature_weights(i,j) = physical_line_cub_weights[current_edge_num](i, local_cub_num);
-                for (int k=0; k<triangle_dim; ++k) {
-                    quadrature_points(i,2*j+k) = physical_line_cub_points[current_edge_num](i, local_cub_num, k);
-                    unit_normals(i,2*j+k) = edge_unit_normals(i, current_edge_num, k);
+                int local_cub_num = num_side_cub_points - (j-num_element_cub_points)%num_side_cub_points - 1;
+                quadrature_weights(i,j) = physical_side_cub_weights[current_side_num](i, local_cub_num);
+                for (int k=0; k<element_dim; ++k) {
+                    quadrature_points(i,_ndim_requested*j+k) = physical_side_cub_points[current_side_num](i, local_cub_num, k);
+                    unit_normals(i,_ndim_requested*j+k) = side_unit_normals(i, current_side_num, k);
                 }
             }
         }
@@ -308,8 +315,9 @@ void ReactionDiffusionPhysics::initialize() {
     _kokkos_quadrature_coordinates_host = Kokkos::create_mirror_view(kokkos_quadrature_coordinates);
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), KOKKOS_LAMBDA(const int i) {
         for (int j=0; j<_weights_ndim; ++j) {
-            _kokkos_quadrature_coordinates_host(i*_weights_ndim + j, 0) = quadrature_points(i,2*j+0);
-            _kokkos_quadrature_coordinates_host(i*_weights_ndim + j, 1) = quadrature_points(i,2*j+1);
+            for (int k=0; k<_ndim_requested; ++k) {
+                _kokkos_quadrature_coordinates_host(i*_weights_ndim + j, k) = quadrature_points(i,_ndim_requested*j+k);
+            }
         }
     });
 
@@ -335,19 +343,19 @@ void ReactionDiffusionPhysics::initialize() {
         _vel_gmls = Teuchos::rcp<GMLS>(new GMLS(DivergenceFreeVectorTaylorPolynomial,
                      VectorPointSample,
                      _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-                     2 /* dimension */,
+                     _ndim_requested,
                      _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"), 
                      "STANDARD", "NO_CONSTRAINT"));
     } else if (_velocity_basis_type_vector) {
         _vel_gmls = Teuchos::rcp<GMLS>(new GMLS(VectorTaylorPolynomial,
                      VectorPointSample,
                      _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-                     2 /* dimension */,
+                     _ndim_requested,
                      _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"), 
                      "STANDARD", "NO_CONSTRAINT"));
     } else {
         _vel_gmls = Teuchos::rcp<GMLS>(new GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-                     2 /* dimension */,
+                     _ndim_requested,
                      _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"), 
                      "STANDARD", "NO_CONSTRAINT"));
     }
@@ -372,7 +380,7 @@ void ReactionDiffusionPhysics::initialize() {
 
     if (_st_op || _mix_le_op) {
         _pressure_gmls = Teuchos::rcp<GMLS>(new GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("pressure porder"),
-                     2 /* dimension */,
+                     _ndim_requested,
                      _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"), 
                      "STANDARD", "NO_CONSTRAINT"));
         _pressure_gmls->setProblemData(_kokkos_neighbor_lists_host,
@@ -472,7 +480,7 @@ void ReactionDiffusionPhysics::initialize() {
                 xyz_type coordinate = target_coords->getLocalCoords(num_cells_local+_halo_small_to_big(i,0), true /*include halo*/, use_physical_coords);
                 kokkos_halo_target_coordinates_host(i,0) = coordinate.x;
                 kokkos_halo_target_coordinates_host(i,1) = coordinate.y;
-                if (_ndim_requested>2) kokkos_halo_target_coordinates_host(i,2) = 0;//coordinate.z;
+                if (_ndim_requested>2) kokkos_halo_target_coordinates_host(i,2) = coordinate.z;
             });
 
             // make temporary particle set of halo target coordinates needed
@@ -558,10 +566,10 @@ void ReactionDiffusionPhysics::initialize() {
             Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,max_needed_entries), 
                     KOKKOS_LAMBDA(const int i) {
                 for (int j=0; j<_weights_ndim; ++j) {
-                    kokkos_halo_quadrature_coordinates_host(i*_weights_ndim + j, 0) = 
-                        halo_quadrature_points(_halo_small_to_big(i,0),2*j+0);
-                    kokkos_halo_quadrature_coordinates_host(i*_weights_ndim + j, 1) = 
-                        halo_quadrature_points(_halo_small_to_big(i,0),2*j+1);
+                    for (int k=0; k<_ndim_requested; ++k) {
+                        kokkos_halo_quadrature_coordinates_host(i*_weights_ndim + j, k) = 
+                            halo_quadrature_points(_halo_small_to_big(i,0),_ndim_requested*j+k);
+                    }
                 }
             });
 
@@ -580,7 +588,7 @@ void ReactionDiffusionPhysics::initialize() {
             // need _kokkos_halo_quadrature_neighbor lists and quadrature coordinates
             // GMLS operator
             _halo_vel_gmls = Teuchos::rcp<GMLS>(new GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-                         2 /* dimension */,
+                         _ndim_requested /* dimension */,
                          _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"), 
                          "STANDARD", "NO_CONSTRAINT"));
             _halo_vel_gmls->setProblemData(kokkos_halo_neighbor_lists_host,
@@ -598,8 +606,8 @@ void ReactionDiffusionPhysics::initialize() {
         }
     }
 
-    auto num_edges = adjacent_elements.extent(1);
-    _tau = Kokkos::View<double****, Kokkos::HostSpace>("tau", num_cells_local, num_edges, _ndim_requested, _ndim_requested);
+    auto num_sides = adjacent_elements.extent(1);
+    _tau = Kokkos::View<double****, Kokkos::HostSpace>("tau", num_cells_local, num_sides, _ndim_requested, _ndim_requested);
 
 
 
@@ -900,16 +908,16 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     printf("Computed penalty parameter: %.16f\n", penalty); 
     //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")*_particles_particles_neighborhood->getMinimumHSupportSize();
 
-    // each element must have the same number of edges
-    auto num_edges = adjacent_elements.extent(1);
+    // each element must have the same number of sides
+    auto num_sides = adjacent_elements.extent(1);
     auto num_interior_quadrature = 0;
     for (int q=0; q<_weights_ndim; ++q) {
-        if (quadrature_type(0,q)!=1) { // some type of edge quadrature
+        if (quadrature_type(0,q)!=1) { // some type of side quadrature
             num_interior_quadrature = q;
             break;
         }
     }
-    auto num_exterior_quadrature_per_edge = (_weights_ndim - num_interior_quadrature)/num_edges;
+    auto num_exterior_quadrature_per_side = (_weights_ndim - num_interior_quadrature)/num_sides;
 
     double area = 0; // (good, no rewriting)
     double perimeter = 0;
@@ -1001,38 +1009,38 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
         // DIAGNOSTIC:: sum area over locally owned cells
 
-        std::vector<double> edge_lengths(3);
+        std::vector<double> side_lengths(3);
         {
-            int current_edge_num = 0;
+            int current_side_num = 0;
             for (int q=0; q<_weights_ndim; ++q) {
                 auto q_type = (i<nlocal) ? quadrature_type(i,q) 
                     : halo_quadrature_type(_halo_small_to_big(halo_i,0),q);
-                if (q_type!=1) { // edge
+                if (q_type!=1) { // side
                     auto q_wt = (i<nlocal) ? quadrature_weights(i,q) 
                         : halo_quadrature_weights(_halo_small_to_big(halo_i,0),q);
-                    int new_current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                    if (new_current_edge_num!=current_edge_num) {
-                        edge_lengths[new_current_edge_num] = q_wt;
-                        current_edge_num = new_current_edge_num;
+                    int new_current_side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
+                    if (new_current_side_num!=current_side_num) {
+                        side_lengths[new_current_side_num] = q_wt;
+                        current_side_num = new_current_side_num;
                     } else {
-                        edge_lengths[current_edge_num] += q_wt;
+                        side_lengths[current_side_num] += q_wt;
                     }
                 }
             }
         }
 
         // information needed for calculating jump terms
-        std::vector<int> current_edge_num(_weights_ndim);
+        std::vector<int> current_side_num(_weights_ndim);
         std::vector<int> side_of_cell_i_to_adjacent_cell(_weights_ndim);
         std::vector<int> adjacent_cell_local_index(_weights_ndim);
         if (!_l2_op) {
             TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
             for (int q=0; q<_weights_ndim; ++q) {
                 if (q>=num_interior_quadrature) {
-                    current_edge_num[q] = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                    adjacent_cell_local_index[q] = (int)(adjacent_elements(i, current_edge_num[q]));
+                    current_side_num[q] = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
+                    adjacent_cell_local_index[q] = (int)(adjacent_elements(i, current_side_num[q]));
                     side_of_cell_i_to_adjacent_cell[q] = -1;
-                    for (int z=0; z<num_edges; ++z) {
+                    for (int z=0; z<num_sides; ++z) {
                         auto adjacent_cell_to_adjacent_cell = (int)(adjacent_elements(adjacent_cell_local_index[q],z));
                         if (adjacent_cell_to_adjacent_cell==i) {
                             side_of_cell_i_to_adjacent_cell[q] = z;
@@ -1044,11 +1052,11 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
             // not yet set up for MPI
             //for (int q=0; q<_weights_ndim; ++q) {
             //    if (q>=num_interior_quadrature) {
-            //        current_edge_num[q] = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-            //        adjacent_cell_local_index[q] = (i<nlocal) ? (int)(adjacent_elements(i, current_edge_num[q]))
-            //            : (int)(halo_adjacent_elements(halo_i, current_edge_num[q]));
+            //        current_side_num[q] = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
+            //        adjacent_cell_local_index[q] = (i<nlocal) ? (int)(adjacent_elements(i, current_side_num[q]))
+            //            : (int)(halo_adjacent_elements(halo_i, current_side_num[q]));
             //        side_of_cell_i_to_adjacent_cell[q] = -1;
-            //        for (int z=0; z<num_exterior_quadrature_per_edge; ++z) {
+            //        for (int z=0; z<num_exterior_quadrature_per_side; ++z) {
             //            auto adjacent_cell_to_adjacent_cell = (adjacent_cell_local_index[q]<nlocal) ?
             //                (int)(adjacent_elements(adjacent_cell_local_index[q],z))
             //                : (int)(halo_adjacent_elements(adjacent_cell_local_index[q]-nlocal,z));
@@ -1062,27 +1070,27 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
         }
 
 //        //std::vector<int> adjacent_cells(3,-1); // initialize all entries to -1
-//        //int this_edge_num = -1;
+//        //int this_side_num = -1;
 //        //for (int q=0; q<_weights_ndim; ++q) {
-//        //    int new_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-//        //    if (new_edge_num != this_edge_num) {
-//        //        this_edge_num = new_edge_num;
-//        //        adjacent_cells[this_edge_num] = (int)(adjacent_elements(i, this_edge_num));
+//        //    int new_side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
+//        //    if (new_side_num != this_side_num) {
+//        //        this_side_num = new_side_num;
+//        //        adjacent_cells[this_side_num] = (int)(adjacent_elements(i, this_side_num));
 //        //    }
 //        //}
-//        //TEUCHOS_ASSERT(this_edge_num==2);
+//        //TEUCHOS_ASSERT(this_side_num==2);
 //
-//        int this_edge_num = -1;
+//        int this_side_num = -1;
 //        for (int q=0; q<_weights_ndim; ++q) {
-//            this_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-//            //printf("q: %d, e: %d\n", q, this_edge_num);
+//            this_side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
+//            //printf("q: %d, e: %d\n", q, this_side_num);
 //            if (i<nlocal) { // locally owned
 //                if (quadrature_type(i,q)==1) { // interior
 //                    //t_area += quadrature_weights(i,q);
 //                    auto x=quadrature_points(i,2*q+0);
 //                    auto y=quadrature_points(i,2*q+1);
 //                    t_area += quadrature_weights(i,q) * (2 + 3*x + 3*y);
-//                } else if (quadrature_type(i,q)==2) { // exterior quad point on exterior edge
+//                } else if (quadrature_type(i,q)==2) { // exterior quad point on exterior side
 //                    //t_perimeter += quadrature_weights(i,q);
 //                    //t_perimeter += quadrature_weights(i,q ) * (quadrature_points(i,2*q+0)*quadrature_points(i,2*q+0) + quadrature_points(i,2*q+1)*quadrature_points(i,2*q+1));
 //                    // integral of x^2 + y^2 over (0,0),(2,0),(2,2),(0,2) is
@@ -1092,16 +1100,16 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 //                    auto nx=unit_normals(i,2*q+0);
 //                    auto ny=unit_normals(i,2*q+1);
 //                    t_perimeter += quadrature_weights(i,q) * (x+x*x+x*y+y+y*y) * (nx + ny);
-//                } else if (quadrature_type(i,q)==0) { // interior quad point on exterior edge
-//                    //if (i>adjacent_elements(i,this_edge_num)) {
-//                    //    t_perimeter += quadrature_weights(i,q ) * 1 / edge_lengths[this_edge_num];
-//                    //    if (q%3==0) num_interior_edges++;
+//                } else if (quadrature_type(i,q)==0) { // interior quad point on exterior side
+//                    //if (i>adjacent_elements(i,this_side_num)) {
+//                    //    t_perimeter += quadrature_weights(i,q ) * 1 / side_lengths[this_side_num];
+//                    //    if (q%3==0) num_interior_sides++;
 //                    //}
 //                    //auto x=quadrature_points(i,2*q+0);
 //                    //auto y=quadrature_points(i,2*q+1);
 //                    //auto nx=unit_normals(i,2*q+0);
 //                    //auto ny=unit_normals(i,2*q+1);
-//                    int adjacent_cell = adjacent_elements(i,this_edge_num);
+//                    int adjacent_cell = adjacent_elements(i,this_side_num);
 //                    int side_i_to_adjacent_cell = -1;
 //                    for (int z=0; z<3; ++z) {
 //                        if ((int)adjacent_elements(adjacent_cell,z)==i) {
@@ -1109,19 +1117,19 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 //                        }
 //                    }
 //                    
-//                    int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((q-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
+//                    int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side + (num_exterior_quadrature_per_side - ((q-num_interior_quadrature)%num_exterior_quadrature_per_side) - 1);
 //
 //                    //auto x=quadrature_points(adjacent_cell, num_interior_quadrature + 2*(side_i_to_adjacent_cell+(q%3))+0);
 //                    //auto y=quadrature_points(adjacent_cell, num_interior_quadrature + 2*(side_i_to_adjacent_cell+(q%3))+1);
-//                    //auto x=quadrature_points(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge+((q-num_interior_quadrature)%num_exterior_quadrature_per_edge))+0);
-//                    //auto y=quadrature_points(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge+((q-num_interior_quadrature)%num_exterior_quadrature_per_edge))+1);
+//                    //auto x=quadrature_points(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side+((q-num_interior_quadrature)%num_exterior_quadrature_per_side))+0);
+//                    //auto y=quadrature_points(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side+((q-num_interior_quadrature)%num_exterior_quadrature_per_side))+1);
 //                    auto x=quadrature_points(adjacent_cell, 2*adjacent_q+0);
 //                    auto y=quadrature_points(adjacent_cell, 2*adjacent_q+1);
 //
 //                    //auto y=quadrature_points(adjacent_cell,2*q+1);
 //                    //
-//                    auto nx=-unit_normals(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge+((q-num_interior_quadrature)%num_exterior_quadrature_per_edge))+0);
-//                    auto ny=-unit_normals(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge+((q-num_interior_quadrature)%num_exterior_quadrature_per_edge))+1);
+//                    auto nx=-unit_normals(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side+((q-num_interior_quadrature)%num_exterior_quadrature_per_side))+0);
+//                    auto ny=-unit_normals(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side+((q-num_interior_quadrature)%num_exterior_quadrature_per_side))+1);
 //                    //auto nx=unit_normals(i,2*q+0);
 //                    //auto ny=unit_normals(i,2*q+1);
 //                    t_perimeter += quadrature_weights(i,q) * (x+x*x+x*y+y+y*y) * (nx + ny);
@@ -1143,7 +1151,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
             }
             if (!_l2_op) {
                 TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
-                for (local_index_type j=0; j<num_edges; ++j) {
+                for (local_index_type j=0; j<num_sides; ++j) {
                     int adj_el = (int)(adjacent_elements(i,j));
                     if (adj_el>=0) {
                         num_neighbors = _cell_particles_neighborhood->getNumNeighbors(adj_el);
@@ -1430,7 +1438,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         //}
                                     }
                                 } 
-                                else if (q_type==2) { // edge on exterior
+                                else if (q_type==2) { // side on exterior
 
                                     if (_rd_op) {
                                         const double jumpv = v;
@@ -1657,10 +1665,10 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     }
                                     
                                 }
-                                else if (q_type==0)  { // edge on interior
+                                else if (q_type==0)  { // side on interior
                                     const double adjacent_cell_local_index_q = adjacent_cell_local_index[qn];
-                                    //int current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                                    //int adjacent_cell_local_index = (int)(adjacent_elements(i, current_edge_num));
+                                    //int current_side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
+                                    //int adjacent_cell_local_index = (int)(adjacent_elements(i, current_side_num));
 
                                     //if (i>adjacent_cell_local_index) {
                                     //
@@ -1726,10 +1734,10 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
                                     // gets quadrature # on adjacent cell (enumerates quadrature on 
                                     // side_of_cell_i_to_adjacent_cell in reverse due to orientation)
-                                    const int adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[qn]*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((qn-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
+                                    const int adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[qn]*num_exterior_quadrature_per_side + (num_exterior_quadrature_per_side - ((qn-num_interior_quadrature)%num_exterior_quadrature_per_side) - 1);
 
 
-                                    //int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge + ((q-num_interior_quadrature)%num_exterior_quadrature_per_edge);
+                                    //int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side + ((q-num_interior_quadrature)%num_exterior_quadrature_per_side);
 
                                     //// diagnostic that quadrature matches up between adjacent_cell_local_index & adjacent_q 
                                     //// along with i & q
@@ -2123,7 +2131,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     //Teuchos::Ptr<scalar_type> global_perimeter_ptr(&global_perimeter);
     //Teuchos::reduceAll<int, scalar_type>(*(_cells->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, perimeter, global_perimeter_ptr);
     //if (_cells->getCoordsConst()->getComm()->getRank()==0) {
-    //    printf("GLOBAL PERIMETER: %.16f\n", global_perimeter);///((double)(num_interior_edges)));
+    //    printf("GLOBAL PERIMETER: %.16f\n", global_perimeter);///((double)(num_interior_sides)));
     //}
 
     TEUCHOS_ASSERT(!this->_A.is_null());
