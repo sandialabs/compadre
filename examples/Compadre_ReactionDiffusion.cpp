@@ -919,7 +919,27 @@ int main (int argc, char* args[]) {
                                         break;
                                     }
                                 }
-                                int adj_i = num_interior_quadrature + side_j_to_adjacent_cell*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((i-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
+                                //int adj_i = num_interior_quadrature + side_j_to_adjacent_cell*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((i-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
+                                int adj_i = 0;
+                                if (input_dim==2) {
+                                    adj_i = num_interior_quadrature + side_j_to_adjacent_cell*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((i-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
+                                } else {
+                                    for (int alt_i=0; alt_i<num_exterior_quadrature_per_edge; ++alt_i) {
+                                        int potential_adj_i = num_interior_quadrature + side_j_to_adjacent_cell*num_exterior_quadrature_per_edge + alt_i;
+                                        bool all_same = true;
+                                        for (int d=0; d<3; ++d) {
+                                            double diff_d = quadrature_points(side_j_to_adjacent_cell, input_dim*potential_adj_i+d) - quadrature_points(i,input_dim*i+d);
+                                            if (diff_d*diff_d > 1e-14) {
+                                                all_same = false;
+                                                break;
+                                            }
+                                        }
+                                        if (all_same) {
+                                            adj_i = potential_adj_i;
+                                            break;
+                                        }        
+                                    }
+                                }
 
                                 // needs reconstruction at this quadrature point
                                 num_neighbors = neighborhood->getNumNeighbors(adj_j);

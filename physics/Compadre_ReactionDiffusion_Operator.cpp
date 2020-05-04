@@ -298,8 +298,7 @@ void ReactionDiffusionPhysics::initialize() {
             else {
                 int current_side_num = (j - num_element_cub_points)/num_side_cub_points;
                 quadrature_type(i,j) = ((int)adjacent_elements(i,current_side_num)>-1) ? 0 : 2;
-                // reverse ordering because Intrepid does quadrature in reverse of v0->v1
-                int local_cub_num = num_side_cub_points - (j-num_element_cub_points)%num_side_cub_points - 1;
+                int local_cub_num = (j-num_element_cub_points)%num_side_cub_points;
                 quadrature_weights(i,j) = physical_side_cub_weights[current_side_num](i, local_cub_num);
                 for (int k=0; k<element_dim; ++k) {
                     quadrature_points(i,_ndim_requested*j+k) = physical_side_cub_points[current_side_num](i, local_cub_num, k);
@@ -1009,7 +1008,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
         // DIAGNOSTIC:: sum area over locally owned cells
 
-        std::vector<double> side_lengths(3);
+        std::vector<double> side_lengths(num_sides);
         {
             int current_side_num = 0;
             for (int q=0; q<_weights_ndim; ++q) {
@@ -1666,7 +1665,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     
                                 }
                                 else if (q_type==0)  { // side on interior
-                                    const double adjacent_cell_local_index_q = adjacent_cell_local_index[qn];
+                                    const int adjacent_cell_local_index_q = adjacent_cell_local_index[qn];
                                     //int current_side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
                                     //int adjacent_cell_local_index = (int)(adjacent_elements(i, current_side_num));
 
@@ -1734,21 +1733,43 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
                                     // gets quadrature # on adjacent cell (enumerates quadrature on 
                                     // side_of_cell_i_to_adjacent_cell in reverse due to orientation)
-                                    const int adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[qn]*num_exterior_quadrature_per_side + (num_exterior_quadrature_per_side - ((qn-num_interior_quadrature)%num_exterior_quadrature_per_side) - 1);
+                                    int adjacent_q = 0;
+                                    if (_ndim_requested==2) {
+                                        adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[qn]*num_exterior_quadrature_per_side + (num_exterior_quadrature_per_side - ((qn-num_interior_quadrature)%num_exterior_quadrature_per_side) - 1);
+                                    } else {
+                                        for (int alt_qn=0; alt_qn<num_exterior_quadrature_per_side; ++alt_qn) {
+                                            int potential_adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[qn]*num_exterior_quadrature_per_side + alt_qn;
+                                            bool all_same = true;
+                                            for (int d=0; d<3; ++d) {
+                                                double diff_d = quadrature_points(adjacent_cell_local_index_q, _ndim_requested*potential_adjacent_q+d) - quadrature_points(i,_ndim_requested*qn+d);
+                                                if (diff_d*diff_d > 1e-14) {
+                                                    all_same = false;
+                                                    break;
+                                                }
+                                            }
+                                            if (all_same) {
+                                                adjacent_q = potential_adjacent_q;
+                                                break;
+                                            }        
+                                        }
+                                    }
 
 
                                     //int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side + ((q-num_interior_quadrature)%num_exterior_quadrature_per_side);
 
                                     //// diagnostic that quadrature matches up between adjacent_cell_local_index & adjacent_q 
                                     //// along with i & q
-                                    //auto my_x = quadrature_points(i, 2*q+0);
+                                    //auto my_x = quadrature_points(i, _ndim_requested*qn+0);
+                                    //auto their_x = quadrature_points(adjacent_cell_local_index_q, _ndim_requested*adjacent_q+0);
+                                    //if (std::abs(my_x-their_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_x, their_x, my_x-their_x);
+                                    //auto my_y = quadrature_points(i, _ndim_requested*qn+1);
+                                    //auto their_y = quadrature_points(adjacent_cell_local_index_q, _ndim_requested*adjacent_q+1);
+                                    //if (std::abs(my_y-their_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_y, their_y, my_y-their_y);
                                     //auto my_wt = quadrature_weights(i, q);
                                     //auto their_wt = quadrature_weights(adjacent_cell_local_index, adjacent_q);
                                     //if (std::abs(my_wt-their_wt)>1e-14) printf("wm: %f, t: %f, d: %.16f\n", my_wt, their_wt, my_wt-their_wt);
                                     //auto my_y = quadrature_points(i, 2*q+1);
-                                    //auto their_x = quadrature_points(adjacent_cell_local_index, 2*adjacent_q+0);
                                     //auto their_y = quadrature_points(adjacent_cell_local_index, 2*adjacent_q+1);
-                                    //if (std::abs(my_x-their_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_x, their_x, my_x-their_x);
                                     //if (std::abs(my_y-their_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_y, their_y, my_y-their_y);
 
 
