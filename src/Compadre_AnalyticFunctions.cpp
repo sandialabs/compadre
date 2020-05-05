@@ -59,23 +59,21 @@ scalar_type AnalyticFunction::evalScalarReactionDiffusionRHS(const xyz_type& xyz
 }
 
 scalar_type AnalyticFunction::evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type output_comp, const scalar_type shear_modulus, const scalar_type lambda) const {
-    if (_dim==3) {
-        TEUCHOS_ASSERT(false);
-        return 0;
-    } else {
-        std::vector<std::vector<xyz_type> > vector_hessian(2, std::vector<xyz_type>());
-        for (local_index_type i=0; i<_dim; ++i) {
-            vector_hessian[i] = this->evalScalarHessian(xyzIn, i);
-        }
-        // - div(2*shear*D(u) + lambda* div(u))
-        if (output_comp==0) {
-            return -lambda*(vector_hessian[0][0][0] + vector_hessian[1][1][0]) 
-                - 2*shear_modulus*(vector_hessian[0][0][0] + 0.5*(vector_hessian[1][0][1]+vector_hessian[0][1][1]));
-        } else {
-            return -lambda*(vector_hessian[1][1][1] + vector_hessian[0][0][1]) 
-                - 2*shear_modulus*(vector_hessian[1][1][1] + 0.5*(vector_hessian[0][1][0]+vector_hessian[1][0][0]));
-        }
+    std::vector<std::vector<xyz_type> > vector_hessian(_dim, std::vector<xyz_type>());
+    for (local_index_type i=0; i<_dim; ++i) {
+        vector_hessian[i] = this->evalScalarHessian(xyzIn, i);
     }
+    // - div(2*shear*D(u) + lambda* div(u))
+    double lambda_val = 0;
+    for (int d=0; d<_dim; ++d) {
+        lambda_val += vector_hessian[d][d][output_comp];
+    }
+    double shear_val = 0;
+    for (int d=0; d<_dim; ++d) {
+        shear_val += 0.5*vector_hessian[output_comp][d][d];
+        shear_val += 0.5*vector_hessian[d][output_comp][d];
+    }
+    return -lambda*lambda_val -2*shear_modulus*shear_val;
 }
 
 //
