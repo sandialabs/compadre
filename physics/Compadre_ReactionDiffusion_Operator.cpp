@@ -264,149 +264,196 @@ void ReactionDiffusionPhysics::initialize() {
 
     
 
+    if (_use_vms) {
     
-    // Compute Jacobian Inverse (needed to compute gradients wrt physical coords)
-    Intrepid::FieldContainer<double> triangle_jacobian_inv(num_cells_local, num_triangle_cub_points, triangle_dim, triangle_dim); //allocate
-    Intrepid::CellTools<double>::setJacobianInv(triangle_jacobian_inv, triangle_jacobian); //compute
-    
-    // Generate Basis functions for fine scales
-    // calling entire T6 basis, (we only need a subset of it)
-    Intrepid::Basis_HGRAD_TRI_C2_FEM<double, Intrepid::FieldContainer<double> > basis_T6; // Define basis
-    int num_basis_functions = basis_T6.getCardinality(); 
-    
-    // MA NOTE: Operations that follow apply to entire T6 basis, for Tau, we only want basis functions associated with edges, with DOF ordinals (3,4,5)
-    // For now, it is easier (more efficient?) to use Intrepid to operate on the entire basis
-    // We can pull/call only the entries associated with DOF ordinals(3,4,5) (assoc. w/ edges) at the end
-    
-    // GRADS of basis functions wrt REF coords (in one ref cell)
-    Intrepid::FieldContainer<double> basis_T6_grad(num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate 
-    basis_T6.getValues(basis_T6_grad, triangle_cub_points, Intrepid::OPERATOR_GRAD); //compute
+        // Compute Jacobian Inverse (needed to compute gradients wrt physical coords)
+        Intrepid::FieldContainer<double> triangle_jacobian_inv(num_cells_local, num_triangle_cub_points, triangle_dim, triangle_dim); //allocate
+        Intrepid::CellTools<double>::setJacobianInv(triangle_jacobian_inv, triangle_jacobian); //compute
+        
+        // Generate Basis functions for fine scales
+        // calling entire T6 basis, (we only need a subset of it)
+        Intrepid::Basis_HGRAD_TRI_C2_FEM<double, Intrepid::FieldContainer<double> > basis_T6; // Define basis
+        int num_basis_functions = basis_T6.getCardinality(); 
+        
+        // MA NOTE: Operations that follow apply to entire T6 basis, for Tau, we only want basis functions associated with edges, with DOF ordinals (3,4,5)
+        // For now, it is easier (more efficient?) to use Intrepid to operate on the entire basis
+        // We can pull/call only the entries associated with DOF ordinals(3,4,5) (assoc. w/ edges) at the end
+        
+        // GRADS of basis functions wrt REF coords (in one ref cell)
+        Intrepid::FieldContainer<double> basis_T6_grad(num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate 
+        basis_T6.getValues(basis_T6_grad, triangle_cub_points, Intrepid::OPERATOR_GRAD); //compute
    
-    // GRADS of basis functions wrt PHYSICAL coords (for all cells)
-    Intrepid::FieldContainer<double> physical_basis_T6_grad(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate 
-    Intrepid::FunctionSpaceTools::HGRADtransformGRAD<double>(physical_basis_T6_grad, triangle_jacobian_inv, basis_T6_grad); //compute 
-    
-    // Multiply PHYS GRADS with CUB WEIGHTS
-    Intrepid::FieldContainer<double> physical_basis_T6_grad_weighted(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate 
-    Intrepid::FunctionSpaceTools::multiplyMeasure<double>(physical_basis_T6_grad_weighted, physical_triangle_cub_weights, physical_basis_T6_grad); //compute
-    
-    // Modified bubbles (quadratic edge bubbles raised to some power)
-    // Make the power an integer, so that the modified bubble order is larger than the order of the underlying polynomial approximation in GMLS
-    double bub_pow = 2.0; //exponent
-    Intrepid::FieldContainer<double> basis_T6_values(num_basis_functions, num_triangle_cub_points); //allocate values
-    basis_T6.getValues(basis_T6_values, triangle_cub_points, Intrepid::OPERATOR_VALUE); //compute
-    int size_basis_T6_values = basis_T6_values.size();
-    Intrepid::FieldContainer<double> basis_T6_values_pow_m1(num_basis_functions, num_triangle_cub_points); //allocate mod. vals.
-    //parallelize? (maybe compiler vectorizes loop already)
-    for (int k = 0; k < size_basis_T6_values; ++k) {
-        basis_T6_values_pow_m1[k] = std::pow(basis_T6_values[k], bub_pow - 1.0); //raise to bub_pow-1
-    }
-    
-    // GRAD of modified bubble (using chain rule): product nb^(n-1)*grad(b)
-    // Did not find a "field-field" multiply capability in Intrepid FunctionSpaceTools. Use a loop. 
-    Intrepid::FieldContainer<double> physical_basis_T6_grad_pow(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate 
-    Intrepid::FieldContainer<double> physical_basis_T6_grad_pow_weighted(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate
-    //parallelize
-    for (int k1 = 0; k1 < num_cells_local; ++k1) {
-        for (int k2 = 0; k2 < num_basis_functions; ++k2){
-            for (int k3 = 0; k3 < num_triangle_cub_points; ++k3) {
-                for (int k4 = 0; k4 < triangle_dim; ++k4) {
-                    physical_basis_T6_grad_pow(k1, k2, k3, k4) = bub_pow * basis_T6_values_pow_m1(k2, k3) * physical_basis_T6_grad(k1, k2, k3, k4); //multiply 
-                    physical_basis_T6_grad_pow_weighted(k1, k2, k3, k4) = bub_pow * basis_T6_values_pow_m1(k2, k3) * physical_basis_T6_grad_weighted(k1, k2, k3, k4); //multiply
+        // GRADS of basis functions wrt PHYSICAL coords (for all cells)
+        Intrepid::FieldContainer<double> physical_basis_T6_grad(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate 
+        Intrepid::FunctionSpaceTools::HGRADtransformGRAD<double>(physical_basis_T6_grad, triangle_jacobian_inv, basis_T6_grad); //compute 
+        
+        // Multiply PHYS GRADS with CUB WEIGHTS
+        Intrepid::FieldContainer<double> physical_basis_T6_grad_weighted(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate 
+        Intrepid::FunctionSpaceTools::multiplyMeasure<double>(physical_basis_T6_grad_weighted, physical_triangle_cub_weights, physical_basis_T6_grad); //compute
+        
+        // Modified bubbles (quadratic edge bubbles raised to some power)
+        // Make the power an integer, so that the modified bubble order is larger than the order of the underlying polynomial approximation in GMLS
+        double bub_pow = 2.0; //exponent
+        Intrepid::FieldContainer<double> basis_T6_values(num_basis_functions, num_triangle_cub_points); //allocate values
+        basis_T6.getValues(basis_T6_values, triangle_cub_points, Intrepid::OPERATOR_VALUE); //compute
+        int size_basis_T6_values = basis_T6_values.size();
+        Intrepid::FieldContainer<double> basis_T6_values_pow_m1(num_basis_functions, num_triangle_cub_points); //allocate mod. vals.
+        //parallelize? (maybe compiler vectorizes loop already)
+        for (int k = 0; k < size_basis_T6_values; ++k) {
+            basis_T6_values_pow_m1[k] = std::pow(basis_T6_values[k], bub_pow - 1.0); //raise to bub_pow-1
+        }
+        
+        // GRAD of modified bubble (using chain rule): product nb^(n-1)*grad(b)
+        // Did not find a "field-field" multiply capability in Intrepid FunctionSpaceTools. Use a loop. 
+        Intrepid::FieldContainer<double> physical_basis_T6_grad_pow(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate 
+        Intrepid::FieldContainer<double> physical_basis_T6_grad_pow_weighted(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate
+        //parallelize
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), [&](const int k1) {
+            for (int k2 = 0; k2 < num_basis_functions; ++k2){
+                for (int k3 = 0; k3 < num_triangle_cub_points; ++k3) {
+                    for (int k4 = 0; k4 < triangle_dim; ++k4) {
+                        physical_basis_T6_grad_pow(k1, k2, k3, k4) = bub_pow * basis_T6_values_pow_m1(k2, k3) * physical_basis_T6_grad(k1, k2, k3, k4); //multiply 
+                        physical_basis_T6_grad_pow_weighted(k1, k2, k3, k4) = bub_pow * basis_T6_values_pow_m1(k2, k3) * physical_basis_T6_grad_weighted(k1, k2, k3, k4); //multiply
+                    }
                 }
             }
-        }
-    }
+        });
 
-    // 'Standard' Stiffness Matrices (may be unnecessary, and may be deprecated some day) 
-    Intrepid::FieldContainer<double> Stiff_Matrices_pow(num_cells_local, num_basis_functions, num_basis_functions);
-    Intrepid::FunctionSpaceTools::integrate<double> (Stiff_Matrices_pow, physical_basis_T6_grad_pow_weighted, physical_basis_T6_grad_pow, Intrepid::COMP_CPP);
-    
-    // MA NOTE: Still need to compute terms for off-diagonal entries for tau: integral (db/dxi * db/dxj)
-    // In order to compute this integrals with Intrepid, need to restructure the arrays with GRADS of basis functions, as follows
+        // 'Standard' Stiffness Matrices (may be unnecessary, and may be deprecated some day) 
+        Intrepid::FieldContainer<double> Stiff_Matrices_pow(num_cells_local, num_basis_functions, num_basis_functions);
+        Intrepid::FunctionSpaceTools::integrate<double> (Stiff_Matrices_pow, physical_basis_T6_grad_pow_weighted, physical_basis_T6_grad_pow, Intrepid::COMP_CPP);
+        
+        // MA NOTE: Still need to compute terms for off-diagonal entries for tau: integral (db/dxi * db/dxj)
+        // In order to compute this integrals with Intrepid, need to restructure the arrays with GRADS of basis functions, as follows
  
-    // Use vector of FieldContainers, each vector entry corresponds to a finse-scale basis function. (sep: separated)
-    std::vector<Intrepid::FieldContainer<double> > sep_physical_basis_T6_grad_pow(num_basis_functions, 
-            Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, num_triangle_cub_points));
-    
-    std::vector<Intrepid::FieldContainer<double> > sep_physical_basis_T6_grad_pow_weighted(num_basis_functions, 
-            Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, num_triangle_cub_points) );
-    
-    // Restructure arrays
-    // some day, loop over only basis functions (k2) associated to edges
-    // parallelize (be careful with index reordering)
-    for (int k1 = 0; k1 < num_cells_local; ++k1) {
-        for (int k2 = 0; k2 < num_basis_functions; ++k2){
-            for (int k3 = 0; k3 < num_triangle_cub_points; ++k3) {
-                for (int k4 = 0; k4 < triangle_dim; ++k4) {
-                    sep_physical_basis_T6_grad_pow[k2](k1, k4, k3) = physical_basis_T6_grad_pow(k1, k2, k3, k4);
-                    sep_physical_basis_T6_grad_pow_weighted[k2](k1, k4, k3) = physical_basis_T6_grad_pow_weighted(k1, k2, k3, k4);
+        // Use vector of FieldContainers, each vector entry corresponds to a finse-scale basis function. (sep: separated)
+        std::vector<Intrepid::FieldContainer<double> > sep_physical_basis_T6_grad_pow(num_basis_functions, 
+                Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, num_triangle_cub_points));
+        
+        std::vector<Intrepid::FieldContainer<double> > sep_physical_basis_T6_grad_pow_weighted(num_basis_functions, 
+                Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, num_triangle_cub_points) );
+        
+        // Restructure arrays
+        // some day, loop over only basis functions (k2) associated to edges
+        // parallelize (be careful with index reordering)
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), [&](const int k1) {
+            for (int k2 = 0; k2 < num_basis_functions; ++k2){
+                for (int k3 = 0; k3 < num_triangle_cub_points; ++k3) {
+                    for (int k4 = 0; k4 < triangle_dim; ++k4) {
+                        sep_physical_basis_T6_grad_pow[k2](k1, k4, k3) = physical_basis_T6_grad_pow(k1, k2, k3, k4);
+                        sep_physical_basis_T6_grad_pow_weighted[k2](k1, k4, k3) = physical_basis_T6_grad_pow_weighted(k1, k2, k3, k4);
+                    }
                 }
             }
+        });
+
+        // Compute ndim x ndim matrices: integral (db/dxi * db/dxj)
+        std::vector<Intrepid::FieldContainer<double> > sep_grad_grad_mat_integrals(num_basis_functions,
+                Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, triangle_dim) ); //allocate
+        
+        // could parallelize loop
+        for (int k = 0; k < num_basis_functions; ++k) {
+            Intrepid::FunctionSpaceTools::operatorIntegral<double>(sep_grad_grad_mat_integrals[k], sep_physical_basis_T6_grad_pow[k], 
+                                                                   sep_physical_basis_T6_grad_pow_weighted[k], Intrepid::COMP_CPP); //integrate
         }
-    }
 
-    // Compute ndim x ndim matrices: integral (db/dxi * db/dxj)
-    std::vector<Intrepid::FieldContainer<double> > sep_grad_grad_mat_integrals(num_basis_functions,
-            Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, triangle_dim) ); //allocate
-    
-    // could parallelize loop
-    for (int k = 0; k < num_basis_functions; ++k) {
-        Intrepid::FunctionSpaceTools::operatorIntegral<double>(sep_grad_grad_mat_integrals[k], sep_physical_basis_T6_grad_pow[k], 
-                                                               sep_physical_basis_T6_grad_pow_weighted[k], Intrepid::COMP_CPP); //integrate
-    }
+        // VALUES at EDGE CUB PTS
+        std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values(num_triangle_edges, Intrepid::FieldContainer<double>(num_basis_functions, num_line_cub_points) ); //allocate 
+        //parallelize? (small loop, maybe compiler already vectorices)
+        for (int i=0; i<num_triangle_edges; ++i) {
+            basis_T6.getValues(basis_T6_edge_values[i], line_cub_points_2d[i], Intrepid::OPERATOR_VALUE);    
+        }
+        
+        // Modify bubble (raise to power)
+        std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow(num_triangle_edges, Intrepid::FieldContainer<double>(num_basis_functions, num_line_cub_points) ); //allocate
+        int size_basis_T6_edge_values_1 = num_basis_functions * num_line_cub_points;
+        //parallelize (maybe compiler already unrolls and vectorizes)
+        for (int i=0; i<num_triangle_edges; ++i) {
+            for (int k=0; k<size_basis_T6_edge_values_1; ++k) {
+                basis_T6_edge_values_pow[i][k] = std::pow(basis_T6_edge_values[i][k], bub_pow); //exponentiate: (we start with quadratic bubble, then raised to a power to make order higher than underlying GMLS)
+            }
+        }
+        
+        //Multiply CUB WEIGHTS
+        //side note: FunctionSpaceTools::multiplyMeasure is a wrappper for FunctionSpaceTools::scalarMultiplyDataField
+        //target field container can be indexed as (C,F,P) or just as (F,P) (the latter applies here) 
+        std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow_weighted(num_triangle_edges,
+            Intrepid::FieldContainer<double>(num_cells_local, num_basis_functions, num_line_cub_points) ); //allocate 
+        for (int i=0; i<num_triangle_edges; ++i) {
+            Intrepid::FunctionSpaceTools::multiplyMeasure<double>(basis_T6_edge_values_pow_weighted[i], physical_line_cub_weights[i], basis_T6_edge_values_pow[i]); //multiply
+        }
+        
+        //INTEGRATE
+        //To integrate just the value of the bubble basis, need to create a FieldContainer of only "1".
+        //couldn't integrate directly with the inputs above because both array inputs to "integrate" need to have dimension num_cells_local in their rank 0
+        std::vector<Intrepid::FieldContainer<double> > ones_for_edge_integration(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points) ); //allocate 
+        for (int i=0; i<num_triangle_edges; ++i) {
+            ones_for_edge_integration[i].initialize(1.0); //set ones
+        }
+         
+        std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow_integrated(num_triangle_edges,
+                    Intrepid::FieldContainer<double>(num_cells_local, num_basis_functions) ); //allocate 
+        for (int i=0; i<num_triangle_edges; ++i) {
+            Intrepid::FunctionSpaceTools::functionalIntegral<double>(basis_T6_edge_values_pow_integrated[i],
+                                              ones_for_edge_integration[i], basis_T6_edge_values_pow_weighted[i], Intrepid::COMP_CPP); //integrate
+        }
 
-    // VALUES at EDGE CUB PTS
-    std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values(num_triangle_edges, Intrepid::FieldContainer<double>(num_basis_functions, num_line_cub_points) ); //allocate 
-    //parallelize? (small loop, maybe compiler already vectorices)
-    for (int i=0; i<num_triangle_edges; ++i) {
-        basis_T6.getValues(basis_T6_edge_values[i], line_cub_points_2d[i], Intrepid::OPERATOR_VALUE);    
-    }
-    
-    // Modify bubble (raise to power)
-    std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow(num_triangle_edges, Intrepid::FieldContainer<double>(num_basis_functions, num_line_cub_points) ); //allocate
-    int size_basis_T6_edge_values_1 = num_basis_functions * num_line_cub_points;
-    //parallelize (maybe compiler already unrolls and vectorizes)
-    for (int i=0; i<num_triangle_edges; ++i) {
-    for (int k=0; k<size_basis_T6_edge_values_1; ++k) {
-            basis_T6_edge_values_pow[i][k] = std::pow(basis_T6_edge_values[i][k], bub_pow); //exponentiate: (we start with quadratic bubble, then raised to a power to make order higher than underlying GMLS)
-    }
-    }
-    
-    //Multiply CUB WEIGHTS
-    //side note: FunctionSpaceTools::multiplyMeasure is a wrappper for FunctionSpaceTools::scalarMultiplyDataField
-    //target field container can be indexed as (C,F,P) or just as (F,P) (the latter applies here) 
-    std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow_weighted(num_triangle_edges,
-        Intrepid::FieldContainer<double>(num_cells_local, num_basis_functions, num_line_cub_points) ); //allocate 
-    for (int i=0; i<num_triangle_edges; ++i) {
-        Intrepid::FunctionSpaceTools::multiplyMeasure<double>(basis_T6_edge_values_pow_weighted[i], physical_line_cub_weights[i], basis_T6_edge_values_pow[i]); //multiply
-    }
-    
-    //INTEGRATE
-    //To integrate just the value of the bubble basis, need to create a FieldContainer of only "1".
-    //couldn't integrate directly with the inputs above because both array inputs to "integrate" need to have dimension num_cells_local in their rank 0
-    std::vector<Intrepid::FieldContainer<double> > ones_for_edge_integration(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points) ); //allocate 
-    for (int i=0; i<num_triangle_edges; ++i) {
-        ones_for_edge_integration[i].initialize(1.0); //set ones
-    }
-     
-    std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow_integrated(num_triangle_edges,
-                Intrepid::FieldContainer<double>(num_cells_local, num_basis_functions) ); //allocate 
-    for (int i=0; i<num_triangle_edges; ++i) {
-        Intrepid::FunctionSpaceTools::functionalIntegral<double>(basis_T6_edge_values_pow_integrated[i],
-                                          ones_for_edge_integration[i], basis_T6_edge_values_pow_weighted[i], Intrepid::COMP_CPP); //integrate
-    }
+        //Edge Lengths (Measures)
+        std::vector<Intrepid::FieldContainer<double> > triangle_edge_lengths(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local) ); //allocate
+        
+        // use FunctionSpaceTools:dataIntegral
+        for (int i=0; i<num_triangle_edges; ++i) {
+            Intrepid::FunctionSpaceTools::dataIntegral<double>(triangle_edge_lengths[i], ones_for_edge_integration[i], physical_line_cub_weights[i], Intrepid::COMP_CPP); //integrate
+        }
 
-    //Edge Lengths (Measures)
-    std::vector<Intrepid::FieldContainer<double> > triangle_edge_lengths(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local) ); //allocate
-    
-    // use FunctionSpaceTools:dataIntegral
-    for (int i=0; i<num_triangle_edges; ++i) {
-        Intrepid::FunctionSpaceTools::dataIntegral<double>(triangle_edge_lengths[i], ones_for_edge_integration[i], physical_line_cub_weights[i], Intrepid::COMP_CPP); //integrate
+        auto num_edges = _ndim_requested + 1;
+        _tau = Kokkos::View<double****, Kokkos::HostSpace>("tau", num_cells_local, num_edges, _ndim_requested, _ndim_requested);
+
+        //Forming matrix Amat (for scalar problem, it is a scalar)
+        Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> Amat(_ndim_requested, _ndim_requested);
+        Teuchos :: SerialDenseSolver <local_index_type, scalar_type> Amat_solver;
+        
+        //could parallelize outer two loops
+        for (int i = 0; i < num_triangle_edges; ++i) {
+        
+            int edge_ordinal = i + 3; // this selects the "edge bubble" function associated with the corresponding edge
+                
+            for (int k = 0; k < num_cells_local; ++k) {
+                
+                Amat.putScalar(0.0);
+
+                //First, compute auxiliary quantity: inner product of bubble gradient with itself
+                double grad_bub_2;
+                grad_bub_2 = 0.0;
+                for (int j1 = 0; j1 < _ndim_requested; ++j1){
+                    grad_bub_2 += sep_grad_grad_mat_integrals[edge_ordinal](k, j1, j1);
+                }
+                for (int j1 = 0; j1 < _ndim_requested; ++j1){
+                    for (int j2 = 0; j2 < _ndim_requested; ++j2) {
+                        //THIS IS TEMP (actual Amat involves material elastic parameters shear and lambda
+                        // this is A_ij = db/dx_i * db/dx_j
+                        // Amat(j1, j2) = sep_grad_grad_mat_integrals[edge_ordinal](k, j1, j2);
+                        Amat(j1, j2) = ( _shear + _lambda / 2.0 ) * sep_grad_grad_mat_integrals[edge_ordinal](k, j1, j2);
+                    }
+                    Amat(j1, j1) += _shear * grad_bub_2;
+                }
+
+                Amat_solver.setMatrix(Teuchos::rcp(&Amat, false));
+                auto info = Amat_solver.invert();
+                //auto Amat_inv_ptr = Amat_solver.getFactoredMatrix(); //not needed
+                //Amat is now its inverse
+                
+                //MA 200413 fix: basis_t6_.. should be squared according to definition of tau in VMSDG 
+                const double tempfactor = std::pow(basis_T6_edge_values_pow_integrated[i](k, edge_ordinal), 2.0) / triangle_edge_lengths[i](k);
+
+                for (int j1 = 0; j1 < _ndim_requested; ++j1){
+                    for (int j2 = 0; j2 < _ndim_requested; ++j2) {
+                        _tau(k, i, j1, j2) = Amat(j1, j2) * tempfactor;
+                    }
+                }
+            } //loop over num_cells_local
+        } //loop over num_triangle_edges
     }
-
-
-
 
     
     
@@ -744,54 +791,6 @@ void ReactionDiffusionPhysics::initialize() {
             Kokkos::fence();
         }
     }
-
-    auto num_edges = adjacent_elements.extent(1);
-    _tau = Kokkos::View<double****, Kokkos::HostSpace>("tau", num_cells_local, num_edges, _ndim_requested, _ndim_requested);
-
-    //Forming matrix Amat (for scalar problem, it is a scalar)
-    Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> Amat(_ndim_requested, _ndim_requested);
-    Teuchos :: SerialDenseSolver <local_index_type, scalar_type> Amat_solver;
-    
-    //could parallelize outer two loops
-    for (int i = 0; i < num_triangle_edges; ++i) {
-    
-        int edge_ordinal = i + 3; // this selects the "edge bubble" function associated with the corresponding edge
-            
-        for (int k = 0; k < num_cells_local; ++k) {
-            
-            Amat.putScalar(0.0);
-
-            //First, compute auxiliary quantity: inner product of bubble gradient with itself
-            double grad_bub_2;
-            grad_bub_2 = 0.0;
-            for (int j1 = 0; j1 < _ndim_requested; ++j1){
-                grad_bub_2 += sep_grad_grad_mat_integrals[edge_ordinal](k, j1, j1);
-            }
-            for (int j1 = 0; j1 < _ndim_requested; ++j1){
-                for (int j2 = 0; j2 < _ndim_requested; ++j2) {
-                    //THIS IS TEMP (actual Amat involves material elastic parameters shear and lambda
-                    // this is A_ij = db/dx_i * db/dx_j
-                    // Amat(j1, j2) = sep_grad_grad_mat_integrals[edge_ordinal](k, j1, j2);
-                    Amat(j1, j2) = ( _shear + _lambda / 2.0 ) * sep_grad_grad_mat_integrals[edge_ordinal](k, j1, j2);
-                }
-                Amat(j1, j1) += _shear * grad_bub_2;
-            }
-
-            Amat_solver.setMatrix(Teuchos::rcp(&Amat, false));
-            auto info = Amat_solver.invert();
-            //auto Amat_inv_ptr = Amat_solver.getFactoredMatrix(); //not needed
-            //Amat is now its inverse
-            
-            //MA 200413 fix: basis_t6_.. should be squared according to definition of tau in VMSDG 
-            const double tempfactor = std::pow(basis_T6_edge_values_pow_integrated[i](k, edge_ordinal), 2.0) / triangle_edge_lengths[i](k);
-
-            for (int j1 = 0; j1 < _ndim_requested; ++j1){
-                for (int j2 = 0; j2 < _ndim_requested; ++j2) {
-                    _tau(k, i, j1, j2) = Amat(j1, j2) * tempfactor;
-                }
-            }
-        } //loop over num_cells_local
-    } //loop over num_triangle_edges
 
 
     GenerateData->stop();
