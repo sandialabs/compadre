@@ -78,7 +78,7 @@ void ReactionDiffusionPhysics::initialize() {
         TEUCHOS_TEST_FOR_EXCEPT_MSG((max_search_size < triple_radius), "Neighbor of neighbor search results in a search radius exceeding the halo size.");
     }
 
-    auto neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
+    auto neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), _ndim_requested);
 
     _particles_triple_hop_neighborhood = Teuchos::rcp_static_cast<neighborhood_type>(Teuchos::rcp(
             new neighborhood_type(_cells, _particles.getRawPtr(), false /*material coords*/, maxLeaf)));
@@ -157,118 +157,140 @@ void ReactionDiffusionPhysics::initialize() {
 
 
 
+    // element that mesh consists of
+    shards::CellTopology element = (_ndim_requested==2) ? shards::getCellTopologyData< shards::Triangle<> >() : shards::getCellTopologyData< shards::Tetrahedron<> >();
 
-
-
-    auto cell_vertices = _cells->getFieldManager()->getFieldByName("vertex_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
-
-    // quadrature sites and weights on triangle cells
-    shards::CellTopology triangle = shards::getCellTopologyData< shards::Triangle<> >();
+    int element_dim = element.getDimension();
 
     Intrepid::DefaultCubatureFactory<double> cubature_factory;
     int cubature_degree = 2*_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder");
 
-    int num_triangle_nodes = triangle.getNodeCount();
-    int num_triangle_edges = num_triangle_nodes;
-    Teuchos::RCP<Intrepid::Cubature<double> > triangle_cubature = cubature_factory.create(triangle, cubature_degree);
-    int num_triangle_cub_points = triangle_cubature->getNumPoints();
-    int triangle_dim = triangle.getDimension();
+    int num_element_nodes = element.getNodeCount();
+    int num_element_sides = element.getSideCount();
+    Teuchos::RCP<Intrepid::Cubature<double> > element_cubature = cubature_factory.create(element, cubature_degree);
+    int num_element_cub_points = element_cubature->getNumPoints();
 
-    Intrepid::FieldContainer<double> triangle_cub_points(num_triangle_cub_points, triangle_dim);
-    Intrepid::FieldContainer<double> triangle_cub_weights(num_triangle_cub_points);
-    triangle_cubature->getCubature(triangle_cub_points, triangle_cub_weights);
+    // quadrature sites and weights on sides
+    shards::CellTopology side = (_ndim_requested==2) ? shards::getCellTopologyData< shards::Line<> >() : shards::getCellTopologyData< shards::Triangle<> >();
+    int num_side_nodes = side.getNodeCount();
+    Teuchos::RCP<Intrepid::Cubature<double> > side_cubature = cubature_factory.create(side, cubature_degree);
+    int num_side_cub_points = side_cubature->getNumPoints();
 
-    Intrepid::FieldContainer<double> triangle_nodes(num_cells_local, num_triangle_nodes, triangle_dim);
+    _weights_ndim = num_element_cub_points + num_element_sides*(num_side_cub_points);
+
+    // quantities contained on cells (mesh)
+    _cells->getFieldManager()->createField(element_dim*_weights_ndim, "quadrature_points");
+    _cells->getFieldManager()->createField(_weights_ndim, "quadrature_weights");
+    _cells->getFieldManager()->createField(_weights_ndim, "interior");
+    _cells->getFieldManager()->createField(element_dim*_weights_ndim, "unit_normal");
+    auto quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
+    auto quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
+    auto quadrature_type = _cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
+    auto unit_normals = _cells->getFieldManager()->getFieldByName("unit_normal")->getMultiVectorPtr()->getLocalView<host_view_type>();
+    auto cell_vertices = _cells->getFieldManager()->getFieldByName("vertex_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
+    
+    // this quantity refers to global elements, so it's local number can be found by getting neighbor with same global number
+    auto adjacent_elements = _cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalView<host_view_type>();
+
+    Intrepid::FieldContainer<double> element_cub_points(num_element_cub_points, element_dim);
+    Intrepid::FieldContainer<double> element_cub_weights(num_element_cub_points);
+    element_cubature->getCubature(element_cub_points, element_cub_weights);
+
+    Intrepid::FieldContainer<double> element_nodes(num_cells_local, num_element_nodes, element_dim);
     //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
     for (int i=0; i<num_cells_local; ++i) {
-        for (int j=0; j<num_triangle_nodes; ++j) {
-            for (int k=0; k<triangle_dim; ++k) {
-                triangle_nodes(i, j, k) = cell_vertices(i, 2*j + k);
+        for (int j=0; j<num_element_nodes; ++j) {
+            for (int k=0; k<element_dim; ++k) {
+                element_nodes(i, j, k) = cell_vertices(i, _ndim_requested*j + k);
             }
         }
     }//);
-    Intrepid::FieldContainer<double> triangle_jacobian(num_cells_local, num_triangle_cub_points, triangle_dim, triangle_dim);
-    Intrepid::FieldContainer<double> triangle_jacobian_det(num_cells_local, num_triangle_cub_points);
-    Intrepid::FieldContainer<double> physical_triangle_cub_points(num_cells_local, num_triangle_cub_points, triangle_dim);
-    Intrepid::FieldContainer<double> physical_triangle_cub_weights(num_cells_local, num_triangle_cub_points);
+    Intrepid::FieldContainer<double> element_jacobian(num_cells_local, num_element_cub_points, element_dim, element_dim);
+    Intrepid::FieldContainer<double> element_jacobian_det(num_cells_local, num_element_cub_points);
+    Intrepid::FieldContainer<double> physical_element_cub_points(num_cells_local, num_element_cub_points, element_dim);
+    Intrepid::FieldContainer<double> physical_element_cub_weights(num_cells_local, num_element_cub_points);
 
-    Intrepid::CellTools<double>::setJacobian(triangle_jacobian, triangle_cub_points, triangle_nodes, triangle);
-    Intrepid::CellTools<double>::setJacobianDet(triangle_jacobian_det, triangle_jacobian);
-    Intrepid::FunctionSpaceTools::computeCellMeasure<double>(physical_triangle_cub_weights,
-                                                             triangle_jacobian_det,
-                                                             triangle_cub_weights);
-    Intrepid::CellTools<scalar_type>::mapToPhysicalFrame(physical_triangle_cub_points,
-                                                         triangle_cub_points,
-                                                         triangle_nodes,
-                                                         triangle,
+    Intrepid::CellTools<double>::setJacobian(element_jacobian, element_cub_points, element_nodes, element);
+    Intrepid::CellTools<double>::setJacobianDet(element_jacobian_det, element_jacobian);
+    Intrepid::FunctionSpaceTools::computeCellMeasure<double>(physical_element_cub_weights,
+                                                             element_jacobian_det,
+                                                             element_cub_weights);
+    Intrepid::CellTools<scalar_type>::mapToPhysicalFrame(physical_element_cub_points,
+                                                         element_cub_points,
+                                                         element_nodes,
+                                                         element,
                                                          -1);
 
 
-    // quadrature sites and weights on lines
-    shards::CellTopology line = shards::getCellTopologyData< shards::Line<> >();
-    int num_line_nodes = line.getNodeCount();
-    Teuchos::RCP<Intrepid::Cubature<double> > line_cubature = cubature_factory.create(line, cubature_degree);
-    int num_line_cub_points = line_cubature->getNumPoints();
-    int line_dim = line.getDimension();
-    Intrepid::FieldContainer<double> line_cub_points_1d(num_line_cub_points, line_dim);
-    Intrepid::FieldContainer<double> line_cub_weights(num_line_cub_points);
-    line_cubature->getCubature(line_cub_points_1d, line_cub_weights);
+    int side_dim = side.getDimension();
+    Intrepid::FieldContainer<double> side_cub_points_nm1d(num_side_cub_points, side_dim);
+    Intrepid::FieldContainer<double> side_cub_weights(num_side_cub_points);
+    side_cubature->getCubature(side_cub_points_nm1d, side_cub_weights);
 
-    std::vector<Intrepid::FieldContainer<double> > line_cub_points_2d(num_triangle_edges, Intrepid::FieldContainer<double>(num_line_cub_points, triangle_dim));
-    for (int i=0; i<num_triangle_edges; ++i) {
-        Intrepid::CellTools<double>::mapToReferenceSubcell(line_cub_points_2d[i],
-                                                           line_cub_points_1d,
-                                                           line_dim,
+    std::vector<Intrepid::FieldContainer<double> > side_cub_points_nd(num_element_sides, Intrepid::FieldContainer<double>(num_side_cub_points, element_dim));
+    for (int i=0; i<num_element_sides; ++i) {
+        Intrepid::CellTools<double>::mapToReferenceSubcell(side_cub_points_nd[i],
+                                                           side_cub_points_nm1d,
+                                                           side_dim,
                                                            i,
-                                                           triangle);
+                                                           element);
     }
 
-    std::vector<Intrepid::FieldContainer<double> > line_jacobian(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim, triangle_dim));
-    std::vector<Intrepid::FieldContainer<double> > physical_line_cub_weights(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points));
-    std::vector<Intrepid::FieldContainer<double> > physical_line_cub_points(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim));
-    std::vector<Intrepid::FieldContainer<double> > edge_normals(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim));
-    Kokkos::View<double***, Kokkos::HostSpace> edge_unit_normals("edge unit normals", num_cells_local, num_triangle_edges, triangle_dim);
-    std::vector<Intrepid::FieldContainer<double> > edge_unit_normals_int(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim));
+    std::vector<Intrepid::FieldContainer<double> > side_jacobian(num_element_sides, Intrepid::FieldContainer<double>(num_cells_local, num_side_cub_points, element_dim, element_dim));
+    std::vector<Intrepid::FieldContainer<double> > physical_side_cub_weights(num_element_sides, Intrepid::FieldContainer<double>(num_cells_local, num_side_cub_points));
+    std::vector<Intrepid::FieldContainer<double> > physical_side_cub_points(num_element_sides, Intrepid::FieldContainer<double>(num_cells_local, num_side_cub_points, element_dim));
+    std::vector<Intrepid::FieldContainer<double> > side_normals(num_element_sides, Intrepid::FieldContainer<double>(num_cells_local, num_side_cub_points, element_dim));
+    Kokkos::View<double***, Kokkos::HostSpace> side_unit_normals("side unit normals", num_cells_local, num_element_sides, element_dim);
+    std::vector<Intrepid::FieldContainer<double> > side_unit_normals_int(num_element_sides, Intrepid::FieldContainer<double>(num_cells_local, num_side_cub_points, element_dim));
 
-    for (int i=0; i<num_triangle_edges; ++i) {
-        Intrepid::CellTools<double>::setJacobian(line_jacobian[i], line_cub_points_2d[i], triangle_nodes, triangle);
-        Intrepid::FunctionSpaceTools::computeEdgeMeasure<double>(physical_line_cub_weights[i],
-                                                                 line_jacobian[i],
-                                                                 line_cub_weights,
-                                                                 i,
-                                                                 triangle);
-        Intrepid::CellTools<scalar_type>::mapToPhysicalFrame(physical_line_cub_points[i],
-                                                             line_cub_points_2d[i],
-                                                             triangle_nodes,
-                                                             triangle,
+    for (int i=0; i<num_element_sides; ++i) {
+        Intrepid::CellTools<double>::setJacobian(side_jacobian[i], side_cub_points_nd[i], element_nodes, element);
+        if (_ndim_requested==2) {
+            Intrepid::FunctionSpaceTools::computeEdgeMeasure<double>(physical_side_cub_weights[i],
+                                                                     side_jacobian[i],
+                                                                     side_cub_weights,
+                                                                     i,
+                                                                     element);
+        } else {
+            Intrepid::FunctionSpaceTools::computeFaceMeasure<double>(physical_side_cub_weights[i],
+                                                                     side_jacobian[i],
+                                                                     side_cub_weights,
+                                                                     i,
+                                                                     element);
+        }
+        Intrepid::CellTools<scalar_type>::mapToPhysicalFrame(physical_side_cub_points[i],
+                                                             side_cub_points_nd[i],
+                                                             element_nodes,
+                                                             element,
                                                              -1);
-        Intrepid::CellTools<scalar_type>::getPhysicalSideNormals(edge_normals[i],
-                                                                 line_jacobian[i],
+        Intrepid::CellTools<scalar_type>::getPhysicalSideNormals(side_normals[i],
+                                                                 side_jacobian[i],
                                                                  i,
-                                                                 triangle);
+                                                                 element);
     }
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), KOKKOS_LAMBDA(const int i) {
-        for (int j=0; j<num_triangle_edges; ++j) {
+        // calculated for only one cubature point per side because it is done on a simplex
+        // if ever done on non-simplicial mesh, would require normal at each cubature point.
+        for (int j=0; j<num_element_sides; ++j) {
             double vector_norm = 0;
-            for (int k=0; k<triangle_dim; ++k) {
-                vector_norm += edge_normals[j](i, 0, k)*edge_normals[j](i, 0, k);
+            for (int k=0; k<element_dim; ++k) {
+                vector_norm += side_normals[j](i, 0, k)*side_normals[j](i, 0, k);
             }
             vector_norm = std::sqrt(vector_norm);
-            for (int k=0; k<triangle_dim; ++k) {
-                edge_unit_normals(i, j, k) = edge_normals[j](i, 0, k)/vector_norm;
+            for (int k=0; k<element_dim; ++k) {
+                side_unit_normals(i, j, k) = side_normals[j](i, 0, k)/vector_norm;
             }
         }
     });
 
-    _weights_ndim = num_triangle_cub_points + num_triangle_edges*(num_line_cub_points);
 
     
 
     if (_use_vms) {
     
         // Compute Jacobian Inverse (needed to compute gradients wrt physical coords)
-        Intrepid::FieldContainer<double> triangle_jacobian_inv(num_cells_local, num_triangle_cub_points, triangle_dim, triangle_dim); //allocate
-        Intrepid::CellTools<double>::setJacobianInv(triangle_jacobian_inv, triangle_jacobian); //compute
+        Intrepid::FieldContainer<double> element_jacobian_inv(num_cells_local, num_element_cub_points, element_dim, element_dim); //allocate
+        Intrepid::CellTools<double>::setJacobianInv(element_jacobian_inv, element_jacobian); //compute
         
         // Generate Basis functions for fine scales
         // calling entire T6 basis, (we only need a subset of it)
@@ -280,24 +302,24 @@ void ReactionDiffusionPhysics::initialize() {
         // We can pull/call only the entries associated with DOF ordinals(3,4,5) (assoc. w/ edges) at the end
         
         // GRADS of basis functions wrt REF coords (in one ref cell)
-        Intrepid::FieldContainer<double> basis_T6_grad(num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate 
-        basis_T6.getValues(basis_T6_grad, triangle_cub_points, Intrepid::OPERATOR_GRAD); //compute
+        Intrepid::FieldContainer<double> basis_T6_grad(num_basis_functions, num_element_cub_points, element_dim); //allocate 
+        basis_T6.getValues(basis_T6_grad, element_cub_points, Intrepid::OPERATOR_GRAD); //compute
    
         // GRADS of basis functions wrt PHYSICAL coords (for all cells)
-        Intrepid::FieldContainer<double> physical_basis_T6_grad(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate 
-        Intrepid::FunctionSpaceTools::HGRADtransformGRAD<double>(physical_basis_T6_grad, triangle_jacobian_inv, basis_T6_grad); //compute 
+        Intrepid::FieldContainer<double> physical_basis_T6_grad(num_cells_local, num_basis_functions, num_element_cub_points, element_dim); //allocate 
+        Intrepid::FunctionSpaceTools::HGRADtransformGRAD<double>(physical_basis_T6_grad, element_jacobian_inv, basis_T6_grad); //compute 
         
         // Multiply PHYS GRADS with CUB WEIGHTS
-        Intrepid::FieldContainer<double> physical_basis_T6_grad_weighted(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate 
-        Intrepid::FunctionSpaceTools::multiplyMeasure<double>(physical_basis_T6_grad_weighted, physical_triangle_cub_weights, physical_basis_T6_grad); //compute
+        Intrepid::FieldContainer<double> physical_basis_T6_grad_weighted(num_cells_local, num_basis_functions, num_element_cub_points, element_dim); //allocate 
+        Intrepid::FunctionSpaceTools::multiplyMeasure<double>(physical_basis_T6_grad_weighted, physical_element_cub_weights, physical_basis_T6_grad); //compute
         
         // Modified bubbles (quadratic edge bubbles raised to some power)
         // Make the power an integer, so that the modified bubble order is larger than the order of the underlying polynomial approximation in GMLS
         double bub_pow = 2.0; //exponent
-        Intrepid::FieldContainer<double> basis_T6_values(num_basis_functions, num_triangle_cub_points); //allocate values
-        basis_T6.getValues(basis_T6_values, triangle_cub_points, Intrepid::OPERATOR_VALUE); //compute
+        Intrepid::FieldContainer<double> basis_T6_values(num_basis_functions, num_element_cub_points); //allocate values
+        basis_T6.getValues(basis_T6_values, element_cub_points, Intrepid::OPERATOR_VALUE); //compute
         int size_basis_T6_values = basis_T6_values.size();
-        Intrepid::FieldContainer<double> basis_T6_values_pow_m1(num_basis_functions, num_triangle_cub_points); //allocate mod. vals.
+        Intrepid::FieldContainer<double> basis_T6_values_pow_m1(num_basis_functions, num_element_cub_points); //allocate mod. vals.
         //parallelize? (maybe compiler vectorizes loop already)
         for (int k = 0; k < size_basis_T6_values; ++k) {
             basis_T6_values_pow_m1[k] = std::pow(basis_T6_values[k], bub_pow - 1.0); //raise to bub_pow-1
@@ -305,13 +327,13 @@ void ReactionDiffusionPhysics::initialize() {
         
         // GRAD of modified bubble (using chain rule): product nb^(n-1)*grad(b)
         // Did not find a "field-field" multiply capability in Intrepid FunctionSpaceTools. Use a loop. 
-        Intrepid::FieldContainer<double> physical_basis_T6_grad_pow(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate 
-        Intrepid::FieldContainer<double> physical_basis_T6_grad_pow_weighted(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate
+        Intrepid::FieldContainer<double> physical_basis_T6_grad_pow(num_cells_local, num_basis_functions, num_element_cub_points, element_dim); //allocate 
+        Intrepid::FieldContainer<double> physical_basis_T6_grad_pow_weighted(num_cells_local, num_basis_functions, num_element_cub_points, element_dim); //allocate
         //parallelize
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), [&](const int k1) {
             for (int k2 = 0; k2 < num_basis_functions; ++k2){
-                for (int k3 = 0; k3 < num_triangle_cub_points; ++k3) {
-                    for (int k4 = 0; k4 < triangle_dim; ++k4) {
+                for (int k3 = 0; k3 < num_element_cub_points; ++k3) {
+                    for (int k4 = 0; k4 < element_dim; ++k4) {
                         physical_basis_T6_grad_pow(k1, k2, k3, k4) = bub_pow * basis_T6_values_pow_m1(k2, k3) * physical_basis_T6_grad(k1, k2, k3, k4); //multiply 
                         physical_basis_T6_grad_pow_weighted(k1, k2, k3, k4) = bub_pow * basis_T6_values_pow_m1(k2, k3) * physical_basis_T6_grad_weighted(k1, k2, k3, k4); //multiply
                     }
@@ -328,18 +350,18 @@ void ReactionDiffusionPhysics::initialize() {
  
         // Use vector of FieldContainers, each vector entry corresponds to a finse-scale basis function. (sep: separated)
         std::vector<Intrepid::FieldContainer<double> > sep_physical_basis_T6_grad_pow(num_basis_functions, 
-                Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, num_triangle_cub_points));
+                Intrepid::FieldContainer<double>(num_cells_local, element_dim, num_element_cub_points));
         
         std::vector<Intrepid::FieldContainer<double> > sep_physical_basis_T6_grad_pow_weighted(num_basis_functions, 
-                Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, num_triangle_cub_points) );
+                Intrepid::FieldContainer<double>(num_cells_local, element_dim, num_element_cub_points) );
         
         // Restructure arrays
         // some day, loop over only basis functions (k2) associated to edges
         // parallelize (be careful with index reordering)
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), [&](const int k1) {
             for (int k2 = 0; k2 < num_basis_functions; ++k2){
-                for (int k3 = 0; k3 < num_triangle_cub_points; ++k3) {
-                    for (int k4 = 0; k4 < triangle_dim; ++k4) {
+                for (int k3 = 0; k3 < num_element_cub_points; ++k3) {
+                    for (int k4 = 0; k4 < element_dim; ++k4) {
                         sep_physical_basis_T6_grad_pow[k2](k1, k4, k3) = physical_basis_T6_grad_pow(k1, k2, k3, k4);
                         sep_physical_basis_T6_grad_pow_weighted[k2](k1, k4, k3) = physical_basis_T6_grad_pow_weighted(k1, k2, k3, k4);
                     }
@@ -349,7 +371,7 @@ void ReactionDiffusionPhysics::initialize() {
 
         // Compute ndim x ndim matrices: integral (db/dxi * db/dxj)
         std::vector<Intrepid::FieldContainer<double> > sep_grad_grad_mat_integrals(num_basis_functions,
-                Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, triangle_dim) ); //allocate
+                Intrepid::FieldContainer<double>(num_cells_local, element_dim, element_dim) ); //allocate
         
         // could parallelize loop
         for (int k = 0; k < num_basis_functions; ++k) {
@@ -358,17 +380,17 @@ void ReactionDiffusionPhysics::initialize() {
         }
 
         // VALUES at EDGE CUB PTS
-        std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values(num_triangle_edges, Intrepid::FieldContainer<double>(num_basis_functions, num_line_cub_points) ); //allocate 
+        std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values(num_element_sides, Intrepid::FieldContainer<double>(num_basis_functions, num_side_cub_points) ); //allocate 
         //parallelize? (small loop, maybe compiler already vectorices)
-        for (int i=0; i<num_triangle_edges; ++i) {
-            basis_T6.getValues(basis_T6_edge_values[i], line_cub_points_2d[i], Intrepid::OPERATOR_VALUE);    
+        for (int i=0; i<num_element_sides; ++i) {
+            basis_T6.getValues(basis_T6_edge_values[i], side_cub_points_nd[i], Intrepid::OPERATOR_VALUE);    
         }
         
         // Modify bubble (raise to power)
-        std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow(num_triangle_edges, Intrepid::FieldContainer<double>(num_basis_functions, num_line_cub_points) ); //allocate
-        int size_basis_T6_edge_values_1 = num_basis_functions * num_line_cub_points;
+        std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow(num_element_sides, Intrepid::FieldContainer<double>(num_basis_functions, num_side_cub_points) ); //allocate
+        int size_basis_T6_edge_values_1 = num_basis_functions * num_side_cub_points;
         //parallelize (maybe compiler already unrolls and vectorizes)
-        for (int i=0; i<num_triangle_edges; ++i) {
+        for (int i=0; i<num_element_sides; ++i) {
             for (int k=0; k<size_basis_T6_edge_values_1; ++k) {
                 basis_T6_edge_values_pow[i][k] = std::pow(basis_T6_edge_values[i][k], bub_pow); //exponentiate: (we start with quadratic bubble, then raised to a power to make order higher than underlying GMLS)
             }
@@ -377,33 +399,33 @@ void ReactionDiffusionPhysics::initialize() {
         //Multiply CUB WEIGHTS
         //side note: FunctionSpaceTools::multiplyMeasure is a wrappper for FunctionSpaceTools::scalarMultiplyDataField
         //target field container can be indexed as (C,F,P) or just as (F,P) (the latter applies here) 
-        std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow_weighted(num_triangle_edges,
-            Intrepid::FieldContainer<double>(num_cells_local, num_basis_functions, num_line_cub_points) ); //allocate 
-        for (int i=0; i<num_triangle_edges; ++i) {
-            Intrepid::FunctionSpaceTools::multiplyMeasure<double>(basis_T6_edge_values_pow_weighted[i], physical_line_cub_weights[i], basis_T6_edge_values_pow[i]); //multiply
+        std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow_weighted(num_element_sides,
+            Intrepid::FieldContainer<double>(num_cells_local, num_basis_functions, num_side_cub_points) ); //allocate 
+        for (int i=0; i<num_element_sides; ++i) {
+            Intrepid::FunctionSpaceTools::multiplyMeasure<double>(basis_T6_edge_values_pow_weighted[i], physical_side_cub_weights[i], basis_T6_edge_values_pow[i]); //multiply
         }
         
         //INTEGRATE
         //To integrate just the value of the bubble basis, need to create a FieldContainer of only "1".
         //couldn't integrate directly with the inputs above because both array inputs to "integrate" need to have dimension num_cells_local in their rank 0
-        std::vector<Intrepid::FieldContainer<double> > ones_for_edge_integration(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points) ); //allocate 
-        for (int i=0; i<num_triangle_edges; ++i) {
+        std::vector<Intrepid::FieldContainer<double> > ones_for_edge_integration(num_element_sides, Intrepid::FieldContainer<double>(num_cells_local, num_side_cub_points) ); //allocate 
+        for (int i=0; i<num_element_sides; ++i) {
             ones_for_edge_integration[i].initialize(1.0); //set ones
         }
          
-        std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow_integrated(num_triangle_edges,
+        std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow_integrated(num_element_sides,
                     Intrepid::FieldContainer<double>(num_cells_local, num_basis_functions) ); //allocate 
-        for (int i=0; i<num_triangle_edges; ++i) {
+        for (int i=0; i<num_element_sides; ++i) {
             Intrepid::FunctionSpaceTools::functionalIntegral<double>(basis_T6_edge_values_pow_integrated[i],
                                               ones_for_edge_integration[i], basis_T6_edge_values_pow_weighted[i], Intrepid::COMP_CPP); //integrate
         }
 
         //Edge Lengths (Measures)
-        std::vector<Intrepid::FieldContainer<double> > triangle_edge_lengths(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local) ); //allocate
+        std::vector<Intrepid::FieldContainer<double> > element_edge_lengths(num_element_sides, Intrepid::FieldContainer<double>(num_cells_local) ); //allocate
         
         // use FunctionSpaceTools:dataIntegral
-        for (int i=0; i<num_triangle_edges; ++i) {
-            Intrepid::FunctionSpaceTools::dataIntegral<double>(triangle_edge_lengths[i], ones_for_edge_integration[i], physical_line_cub_weights[i], Intrepid::COMP_CPP); //integrate
+        for (int i=0; i<num_element_sides; ++i) {
+            Intrepid::FunctionSpaceTools::dataIntegral<double>(element_edge_lengths[i], ones_for_edge_integration[i], physical_side_cub_weights[i], Intrepid::COMP_CPP); //integrate
         }
 
         auto num_edges = _ndim_requested + 1;
@@ -414,7 +436,7 @@ void ReactionDiffusionPhysics::initialize() {
         Teuchos :: SerialDenseSolver <local_index_type, scalar_type> Amat_solver;
         
         //could parallelize outer two loops
-        for (int i = 0; i < num_triangle_edges; ++i) {
+        for (int i = 0; i < num_element_sides; ++i) {
         
             int edge_ordinal = i + 3; // this selects the "edge bubble" function associated with the corresponding edge
                 
@@ -444,7 +466,7 @@ void ReactionDiffusionPhysics::initialize() {
                 //Amat is now its inverse
                 
                 //MA 200413 fix: basis_t6_.. should be squared according to definition of tau in VMSDG 
-                const double tempfactor = std::pow(basis_T6_edge_values_pow_integrated[i](k, edge_ordinal), 2.0) / triangle_edge_lengths[i](k);
+                const double tempfactor = std::pow(basis_T6_edge_values_pow_integrated[i](k, edge_ordinal), 2.0) / element_edge_lengths[i](k);
 
                 for (int j1 = 0; j1 < _ndim_requested; ++j1){
                     for (int j2 = 0; j2 < _ndim_requested; ++j2) {
@@ -452,45 +474,30 @@ void ReactionDiffusionPhysics::initialize() {
                     }
                 }
             } //loop over num_cells_local
-        } //loop over num_triangle_edges
+        } //loop over num_element_sides
     }
 
-    
-    
-    // quantities contained on cells (mesh)
-    _cells->getFieldManager()->createField(triangle_dim*_weights_ndim, "quadrature_points");
-    _cells->getFieldManager()->createField(_weights_ndim, "quadrature_weights");
-    _cells->getFieldManager()->createField(_weights_ndim, "interior");
-    _cells->getFieldManager()->createField(triangle_dim*_weights_ndim, "unit_normal");
-    auto quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
-    auto quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
-    auto quadrature_type = _cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
-    auto unit_normals = _cells->getFieldManager()->getFieldByName("unit_normal")->getMultiVectorPtr()->getLocalView<host_view_type>();
-    
-    // this quantity refers to global elements, so it's local number can be found by getting neighbor with same global number
-    auto adjacent_elements = _cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalView<host_view_type>();
 
-
+    
     // get all quadrature put together here as auxiliary evaluation sites
     // store calculated quadrature values over fields values
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), KOKKOS_LAMBDA(const int i) {
         for (int j=0; j<_weights_ndim; ++j) {
-            if (j<num_triangle_cub_points) {
+            if (j<num_element_cub_points) {
                 quadrature_type(i,j) = 1;
-                quadrature_weights(i,j) = physical_triangle_cub_weights(i,j);
+                quadrature_weights(i,j) = physical_element_cub_weights(i,j);
                 for (int k=0; k<_ndim_requested; ++k) {
-                    quadrature_points(i,2*j+k) = physical_triangle_cub_points(i,j,k);
+                    quadrature_points(i,_ndim_requested*j+k) = physical_element_cub_points(i,j,k);
                 }
             } 
             else {
-                int current_edge_num = (j - num_triangle_cub_points)/num_line_cub_points;
-                quadrature_type(i,j) = ((int)adjacent_elements(i,current_edge_num)>-1) ? 0 : 2;
-                // reverse ordering because Intrepid does quadrature in reverse of v0->v1
-                int local_cub_num = num_line_cub_points - (j-num_triangle_cub_points)%num_line_cub_points - 1;
-                quadrature_weights(i,j) = physical_line_cub_weights[current_edge_num](i, local_cub_num);
-                for (int k=0; k<triangle_dim; ++k) {
-                    quadrature_points(i,2*j+k) = physical_line_cub_points[current_edge_num](i, local_cub_num, k);
-                    unit_normals(i,2*j+k) = edge_unit_normals(i, current_edge_num, k);
+                int current_side_num = (j - num_element_cub_points)/num_side_cub_points;
+                quadrature_type(i,j) = ((int)adjacent_elements(i,current_side_num)>-1) ? 0 : 2;
+                int local_cub_num = (j-num_element_cub_points)%num_side_cub_points;
+                quadrature_weights(i,j) = physical_side_cub_weights[current_side_num](i, local_cub_num);
+                for (int k=0; k<element_dim; ++k) {
+                    quadrature_points(i,_ndim_requested*j+k) = physical_side_cub_points[current_side_num](i, local_cub_num, k);
+                    unit_normals(i,_ndim_requested*j+k) = side_unit_normals(i, current_side_num, k);
                 }
             }
         }
@@ -502,8 +509,9 @@ void ReactionDiffusionPhysics::initialize() {
     _kokkos_quadrature_coordinates_host = Kokkos::create_mirror_view(kokkos_quadrature_coordinates);
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), KOKKOS_LAMBDA(const int i) {
         for (int j=0; j<_weights_ndim; ++j) {
-            _kokkos_quadrature_coordinates_host(i*_weights_ndim + j, 0) = quadrature_points(i,2*j+0);
-            _kokkos_quadrature_coordinates_host(i*_weights_ndim + j, 1) = quadrature_points(i,2*j+1);
+            for (int k=0; k<_ndim_requested; ++k) {
+                _kokkos_quadrature_coordinates_host(i*_weights_ndim + j, k) = quadrature_points(i,_ndim_requested*j+k);
+            }
         }
     });
 
@@ -529,19 +537,19 @@ void ReactionDiffusionPhysics::initialize() {
         _vel_gmls = Teuchos::rcp<GMLS>(new GMLS(DivergenceFreeVectorTaylorPolynomial,
                      VectorPointSample,
                      _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-                     2 /* dimension */,
+                     _ndim_requested,
                      _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"), 
                      "STANDARD", "NO_CONSTRAINT"));
     } else if (_velocity_basis_type_vector) {
         _vel_gmls = Teuchos::rcp<GMLS>(new GMLS(VectorTaylorPolynomial,
                      VectorPointSample,
                      _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-                     2 /* dimension */,
+                     _ndim_requested,
                      _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"), 
                      "STANDARD", "NO_CONSTRAINT"));
     } else {
         _vel_gmls = Teuchos::rcp<GMLS>(new GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-                     2 /* dimension */,
+                     _ndim_requested,
                      _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"), 
                      "STANDARD", "NO_CONSTRAINT"));
     }
@@ -566,7 +574,7 @@ void ReactionDiffusionPhysics::initialize() {
 
     if (_st_op || _mix_le_op) {
         _pressure_gmls = Teuchos::rcp<GMLS>(new GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("pressure porder"),
-                     2 /* dimension */,
+                     _ndim_requested,
                      _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"), 
                      "STANDARD", "NO_CONSTRAINT"));
         _pressure_gmls->setProblemData(_kokkos_neighbor_lists_host,
@@ -666,7 +674,7 @@ void ReactionDiffusionPhysics::initialize() {
                 xyz_type coordinate = target_coords->getLocalCoords(num_cells_local+_halo_small_to_big(i,0), true /*include halo*/, use_physical_coords);
                 kokkos_halo_target_coordinates_host(i,0) = coordinate.x;
                 kokkos_halo_target_coordinates_host(i,1) = coordinate.y;
-                if (_ndim_requested>2) kokkos_halo_target_coordinates_host(i,2) = 0;//coordinate.z;
+                if (_ndim_requested>2) kokkos_halo_target_coordinates_host(i,2) = coordinate.z;
             });
 
             // make temporary particle set of halo target coordinates needed
@@ -752,10 +760,10 @@ void ReactionDiffusionPhysics::initialize() {
             Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,max_needed_entries), 
                     KOKKOS_LAMBDA(const int i) {
                 for (int j=0; j<_weights_ndim; ++j) {
-                    kokkos_halo_quadrature_coordinates_host(i*_weights_ndim + j, 0) = 
-                        halo_quadrature_points(_halo_small_to_big(i,0),2*j+0);
-                    kokkos_halo_quadrature_coordinates_host(i*_weights_ndim + j, 1) = 
-                        halo_quadrature_points(_halo_small_to_big(i,0),2*j+1);
+                    for (int k=0; k<_ndim_requested; ++k) {
+                        kokkos_halo_quadrature_coordinates_host(i*_weights_ndim + j, k) = 
+                            halo_quadrature_points(_halo_small_to_big(i,0),_ndim_requested*j+k);
+                    }
                 }
             });
 
@@ -774,7 +782,7 @@ void ReactionDiffusionPhysics::initialize() {
             // need _kokkos_halo_quadrature_neighbor lists and quadrature coordinates
             // GMLS operator
             _halo_vel_gmls = Teuchos::rcp<GMLS>(new GMLS(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"),
-                         2 /* dimension */,
+                         _ndim_requested /* dimension */,
                          _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("dense solver type"), 
                          "STANDARD", "NO_CONSTRAINT"));
             _halo_vel_gmls->setProblemData(kokkos_halo_neighbor_lists_host,
@@ -1090,16 +1098,16 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     printf("Computed penalty parameter: %.16f\n", penalty); 
     //auto penalty = _parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")*_particles_particles_neighborhood->getMinimumHSupportSize();
 
-    // each element must have the same number of edges
-    auto num_edges = adjacent_elements.extent(1);
+    // each element must have the same number of sides
+    auto num_sides = adjacent_elements.extent(1);
     auto num_interior_quadrature = 0;
     for (int q=0; q<_weights_ndim; ++q) {
-        if (quadrature_type(0,q)!=1) { // some type of edge quadrature
+        if (quadrature_type(0,q)!=1) { // some type of side quadrature
             num_interior_quadrature = q;
             break;
         }
     }
-    auto num_exterior_quadrature_per_edge = (_weights_ndim - num_interior_quadrature)/num_edges;
+    auto num_exterior_quadrature_per_side = (_weights_ndim - num_interior_quadrature)/num_sides;
 
     double area = 0; // (good, no rewriting)
     double perimeter = 0;
@@ -1133,9 +1141,24 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
     if (((field_one == _velocity_field_id) || (field_one == _pressure_field_id)) && ((field_two == _velocity_field_id) || (field_two == _pressure_field_id))) {
     // loop over cells including halo cells 
-    Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal(true)), [&](const int i, scalar_type& t_area) {
+    //Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal(true)), [&](const int i, scalar_type& t_area) {
     //for (int i=0; i<_cells->getCoordsConst()->nLocal(true); ++i) {
+    int team_scratch_size = 0;
+    team_scratch_size += host_scratch_vector_scalar_type::shmem_size(num_sides); // side lengths
+    team_scratch_size += host_scratch_vector_scalar_type::shmem_size(5*_weights_ndim); // indices
+    Kokkos::parallel_for("Assembly Routine", host_team_policy(_cells->getCoordsConst()->nLocal(true), Kokkos::AUTO)
+            .set_scratch_size(1 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)), 
+            KOKKOS_LAMBDA(const host_member_type& teamMember) {
  
+        const int i = teamMember.league_rank();
+
+        host_scratch_vector_scalar_type side_lengths(teamMember.team_scratch(0 /*shared memory*/), num_sides);
+        host_scratch_vector_local_index_type current_side_num(teamMember.team_scratch(0 /*shared memory*/), _weights_ndim);
+        host_scratch_vector_local_index_type side_of_cell_i_to_adjacent_cell(teamMember.team_scratch(0 /*shared memory*/), _weights_ndim);
+        host_scratch_vector_local_index_type adjacent_cell_local_index(teamMember.team_scratch(0 /*shared memory*/), _weights_ndim);
+        host_scratch_vector_local_index_type j_to_adjacent_cell(teamMember.team_scratch(0 /*shared memory*/), _weights_ndim);
+        host_scratch_vector_local_index_type k_to_adjacent_cell(teamMember.team_scratch(0 /*shared memory*/), _weights_ndim);
+
         //// TODO: REMOVE LATER!
         //if (_pressure_field_id==field_one || _pressure_field_id==field_two) return;
 
@@ -1168,38 +1191,38 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
         // DIAGNOSTIC:: sum area over locally owned cells
 
-        std::vector<double> edge_lengths(3);
+        //std::vector<double> side_lengths(num_sides);
         {
-            int current_edge_num = 0;
+            int current_side_num = 0;
             for (int q=0; q<_weights_ndim; ++q) {
                 auto q_type = (i<nlocal) ? quadrature_type(i,q) 
                     : halo_quadrature_type(_halo_small_to_big(halo_i,0),q);
-                if (q_type!=1) { // edge
+                if (q_type!=1) { // side
                     auto q_wt = (i<nlocal) ? quadrature_weights(i,q) 
                         : halo_quadrature_weights(_halo_small_to_big(halo_i,0),q);
-                    int new_current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                    if (new_current_edge_num!=current_edge_num) {
-                        edge_lengths[new_current_edge_num] = q_wt;
-                        current_edge_num = new_current_edge_num;
+                    int new_current_side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
+                    if (new_current_side_num!=current_side_num) {
+                        side_lengths[new_current_side_num] = q_wt;
+                        current_side_num = new_current_side_num;
                     } else {
-                        edge_lengths[current_edge_num] += q_wt;
+                        side_lengths[current_side_num] += q_wt;
                     }
                 }
             }
         }
 
         // information needed for calculating jump terms
-        std::vector<int> current_edge_num(_weights_ndim);
-        std::vector<int> side_of_cell_i_to_adjacent_cell(_weights_ndim);
-        std::vector<int> adjacent_cell_local_index(_weights_ndim);
+        //std::vector<int> current_side_num(_weights_ndim);
+        //std::vector<int> side_of_cell_i_to_adjacent_cell(_weights_ndim);
+        //std::vector<int> adjacent_cell_local_index(_weights_ndim);
         if (!_l2_op) {
             TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
-            for (int q=0; q<_weights_ndim; ++q) {
-                if (q>=num_interior_quadrature) {
-                    current_edge_num[q] = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                    adjacent_cell_local_index[q] = (int)(adjacent_elements(i, current_edge_num[q]));
+            for (int q=num_interior_quadrature; q<_weights_ndim; ++q) {
+                current_side_num[q] = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
+                adjacent_cell_local_index[q] = (int)(adjacent_elements(i, current_side_num[q]));
+                if (adjacent_cell_local_index[q]>-1) {
                     side_of_cell_i_to_adjacent_cell[q] = -1;
-                    for (int z=0; z<num_edges; ++z) {
+                    for (int z=0; z<num_sides; ++z) {
                         auto adjacent_cell_to_adjacent_cell = (int)(adjacent_elements(adjacent_cell_local_index[q],z));
                         if (adjacent_cell_to_adjacent_cell==i) {
                             side_of_cell_i_to_adjacent_cell[q] = z;
@@ -1211,11 +1234,11 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
             // not yet set up for MPI
             //for (int q=0; q<_weights_ndim; ++q) {
             //    if (q>=num_interior_quadrature) {
-            //        current_edge_num[q] = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-            //        adjacent_cell_local_index[q] = (i<nlocal) ? (int)(adjacent_elements(i, current_edge_num[q]))
-            //            : (int)(halo_adjacent_elements(halo_i, current_edge_num[q]));
+            //        current_side_num[q] = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
+            //        adjacent_cell_local_index[q] = (i<nlocal) ? (int)(adjacent_elements(i, current_side_num[q]))
+            //            : (int)(halo_adjacent_elements(halo_i, current_side_num[q]));
             //        side_of_cell_i_to_adjacent_cell[q] = -1;
-            //        for (int z=0; z<num_exterior_quadrature_per_edge; ++z) {
+            //        for (int z=0; z<num_exterior_quadrature_per_side; ++z) {
             //            auto adjacent_cell_to_adjacent_cell = (adjacent_cell_local_index[q]<nlocal) ?
             //                (int)(adjacent_elements(adjacent_cell_local_index[q],z))
             //                : (int)(halo_adjacent_elements(adjacent_cell_local_index[q]-nlocal,z));
@@ -1229,27 +1252,27 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
         }
 
 //        //std::vector<int> adjacent_cells(3,-1); // initialize all entries to -1
-//        //int this_edge_num = -1;
+//        //int this_side_num = -1;
 //        //for (int q=0; q<_weights_ndim; ++q) {
-//        //    int new_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-//        //    if (new_edge_num != this_edge_num) {
-//        //        this_edge_num = new_edge_num;
-//        //        adjacent_cells[this_edge_num] = (int)(adjacent_elements(i, this_edge_num));
+//        //    int new_side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
+//        //    if (new_side_num != this_side_num) {
+//        //        this_side_num = new_side_num;
+//        //        adjacent_cells[this_side_num] = (int)(adjacent_elements(i, this_side_num));
 //        //    }
 //        //}
-//        //TEUCHOS_ASSERT(this_edge_num==2);
+//        //TEUCHOS_ASSERT(this_side_num==2);
 //
-//        int this_edge_num = -1;
+//        int this_side_num = -1;
 //        for (int q=0; q<_weights_ndim; ++q) {
-//            this_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-//            //printf("q: %d, e: %d\n", q, this_edge_num);
+//            this_side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
+//            //printf("q: %d, e: %d\n", q, this_side_num);
 //            if (i<nlocal) { // locally owned
 //                if (quadrature_type(i,q)==1) { // interior
 //                    //t_area += quadrature_weights(i,q);
 //                    auto x=quadrature_points(i,2*q+0);
 //                    auto y=quadrature_points(i,2*q+1);
 //                    t_area += quadrature_weights(i,q) * (2 + 3*x + 3*y);
-//                } else if (quadrature_type(i,q)==2) { // exterior quad point on exterior edge
+//                } else if (quadrature_type(i,q)==2) { // exterior quad point on exterior side
 //                    //t_perimeter += quadrature_weights(i,q);
 //                    //t_perimeter += quadrature_weights(i,q ) * (quadrature_points(i,2*q+0)*quadrature_points(i,2*q+0) + quadrature_points(i,2*q+1)*quadrature_points(i,2*q+1));
 //                    // integral of x^2 + y^2 over (0,0),(2,0),(2,2),(0,2) is
@@ -1259,16 +1282,16 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 //                    auto nx=unit_normals(i,2*q+0);
 //                    auto ny=unit_normals(i,2*q+1);
 //                    t_perimeter += quadrature_weights(i,q) * (x+x*x+x*y+y+y*y) * (nx + ny);
-//                } else if (quadrature_type(i,q)==0) { // interior quad point on exterior edge
-//                    //if (i>adjacent_elements(i,this_edge_num)) {
-//                    //    t_perimeter += quadrature_weights(i,q ) * 1 / edge_lengths[this_edge_num];
-//                    //    if (q%3==0) num_interior_edges++;
+//                } else if (quadrature_type(i,q)==0) { // interior quad point on exterior side
+//                    //if (i>adjacent_elements(i,this_side_num)) {
+//                    //    t_perimeter += quadrature_weights(i,q ) * 1 / side_lengths[this_side_num];
+//                    //    if (q%3==0) num_interior_sides++;
 //                    //}
 //                    //auto x=quadrature_points(i,2*q+0);
 //                    //auto y=quadrature_points(i,2*q+1);
 //                    //auto nx=unit_normals(i,2*q+0);
 //                    //auto ny=unit_normals(i,2*q+1);
-//                    int adjacent_cell = adjacent_elements(i,this_edge_num);
+//                    int adjacent_cell = adjacent_elements(i,this_side_num);
 //                    int side_i_to_adjacent_cell = -1;
 //                    for (int z=0; z<3; ++z) {
 //                        if ((int)adjacent_elements(adjacent_cell,z)==i) {
@@ -1276,19 +1299,19 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 //                        }
 //                    }
 //                    
-//                    int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((q-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
+//                    int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side + (num_exterior_quadrature_per_side - ((q-num_interior_quadrature)%num_exterior_quadrature_per_side) - 1);
 //
 //                    //auto x=quadrature_points(adjacent_cell, num_interior_quadrature + 2*(side_i_to_adjacent_cell+(q%3))+0);
 //                    //auto y=quadrature_points(adjacent_cell, num_interior_quadrature + 2*(side_i_to_adjacent_cell+(q%3))+1);
-//                    //auto x=quadrature_points(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge+((q-num_interior_quadrature)%num_exterior_quadrature_per_edge))+0);
-//                    //auto y=quadrature_points(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge+((q-num_interior_quadrature)%num_exterior_quadrature_per_edge))+1);
+//                    //auto x=quadrature_points(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side+((q-num_interior_quadrature)%num_exterior_quadrature_per_side))+0);
+//                    //auto y=quadrature_points(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side+((q-num_interior_quadrature)%num_exterior_quadrature_per_side))+1);
 //                    auto x=quadrature_points(adjacent_cell, 2*adjacent_q+0);
 //                    auto y=quadrature_points(adjacent_cell, 2*adjacent_q+1);
 //
 //                    //auto y=quadrature_points(adjacent_cell,2*q+1);
 //                    //
-//                    auto nx=-unit_normals(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge+((q-num_interior_quadrature)%num_exterior_quadrature_per_edge))+0);
-//                    auto ny=-unit_normals(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge+((q-num_interior_quadrature)%num_exterior_quadrature_per_edge))+1);
+//                    auto nx=-unit_normals(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side+((q-num_interior_quadrature)%num_exterior_quadrature_per_side))+0);
+//                    auto ny=-unit_normals(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side+((q-num_interior_quadrature)%num_exterior_quadrature_per_side))+1);
 //                    //auto nx=unit_normals(i,2*q+0);
 //                    //auto ny=unit_normals(i,2*q+1);
 //                    t_perimeter += quadrature_weights(i,q) * (x+x*x+x*y+y+y*y) * (nx + ny);
@@ -1310,7 +1333,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
             }
             if (!_l2_op) {
                 TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
-                for (local_index_type j=0; j<num_edges; ++j) {
+                for (local_index_type j=0; j<num_sides; ++j) {
                     int adj_el = (int)(adjacent_elements(i,j));
                     if (adj_el>=0) {
                         num_neighbors = _cell_particles_neighborhood->getNumNeighbors(adj_el);
@@ -1349,48 +1372,80 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
             //    : _halo_particles_double_hop_neighborhood->getNeighbor(halo_i,j);
             // particle_j is an index from {0..nlocal+nhalo}
             if (particle_j>=nlocal /* particle is halo particle */) continue; // row should be locally owned
-            // locally owned DOF
-            for (local_index_type j_comp_out = 0; j_comp_out < fields[field_one]->nDim(); ++j_comp_out) {
-            for (local_index_type j_comp_in = 0; j_comp_in < fields[field_one]->nDim(); ++j_comp_in) {
-                if ((j_comp_out!=j_comp_in) && ((!_velocity_basis_type_vector && field_one == _velocity_field_id) || (field_one == _pressure_field_id))) continue;
 
-                bool j_comp_out_0 = (j_comp_out==0);
-                bool j_comp_out_1 = (j_comp_out==1);
+            int j_to_cell_i = -1;
+            if (particle_to_local_neighbor_lookup.at(i).count(particle_j)==1){
+                j_to_cell_i = particle_to_local_neighbor_lookup.at(i).at(particle_j);
+            }
 
-                local_index_type row = local_to_dof_map(particle_j, field_one, j_comp_in);
+            int j_has_value_from_adjacent=0;
+            if (!_l2_op) {
+                Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, _weights_ndim), [&] (const int qn, int& t_j_has_value_from_adjacent) {
+                //for (int qn=0; qn<_weights_ndim; ++qn) {
+                    const auto q_type = quadrature_type(i,qn);
+                    if (q_type==0)  { // side on interior
+                        j_to_adjacent_cell[qn] = -1;
+                        const int adjacent_cell_local_index_q = adjacent_cell_local_index[qn];
+                        //TEUCHOS_ASSERT(adjacent_cell_local_index_q >= 0);
+                        if (i <= adjacent_cell_local_index_q) return;
+                        if (particle_to_local_neighbor_lookup[adjacent_cell_local_index_q].count(particle_j)==1) {
+                            j_to_adjacent_cell[qn] = particle_to_local_neighbor_lookup.at(adjacent_cell_local_index_q).at(particle_j);
+                            t_j_has_value_from_adjacent++;
+                        }
+                    }
+                }, j_has_value_from_adjacent);
+            }
 
-                int k=-1;
-                //for (local_index_type k=0; k<num_neighbors; ++k) {
-                for (auto k_it=cell_neighbors.begin(); k_it!=cell_neighbors.end(); ++k_it) {
-                    k++;
-                    auto particle_k = k_it->first;
-                    //auto particle_k = (i<nlocal) ? _particles_double_hop_neighborhood->getNeighbor(i,k)
-                    //    : _halo_particles_double_hop_neighborhood->getNeighbor(halo_i,k);
-                    // particle_k is an index from {0..nlocal+nhalo}
+            int k=-1;
+            //for (local_index_type k=0; k<num_neighbors; ++k) {
+            for (auto k_it=cell_neighbors.begin(); k_it!=cell_neighbors.end(); ++k_it) {
+                k++;
+                auto particle_k = k_it->first;
+                //auto particle_k = (i<nlocal) ? _particles_double_hop_neighborhood->getNeighbor(i,k)
+                //    : _halo_particles_double_hop_neighborhood->getNeighbor(halo_i,k);
+                // particle_k is an index from {0..nlocal+nhalo}
+                int k_to_cell_i = -1;
+                if (particle_to_local_neighbor_lookup.at(i).count(particle_k)==1){
+                    k_to_cell_i = particle_to_local_neighbor_lookup.at(i).at(particle_k);
+                }
 
-                    // do filter out (skip) all halo particles that are not seen by local DOF
-                    // wrong thing to do, because k could be double hop through cell i
+
+                // do filter out (skip) all halo particles that are not seen by local DOF
+                // wrong thing to do, because k could be double hop through cell i
+                int k_has_value_from_adjacent=0;
+                if (!_l2_op) {
+                    Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, _weights_ndim), [&] (const int qn, int& t_k_has_value_from_adjacent) {
+                    //for (int qn=0; qn<_weights_ndim; ++qn) {
+                        const auto q_type = quadrature_type(i,qn);
+                        if (q_type==0)  { // side on interior
+                            k_to_adjacent_cell[qn] = -1;
+                            const int adjacent_cell_local_index_q = adjacent_cell_local_index[qn];
+                            //TEUCHOS_ASSERT(adjacent_cell_local_index_q >= 0);
+                            if (i <= adjacent_cell_local_index_q) return;
+                            if (particle_to_local_neighbor_lookup[adjacent_cell_local_index_q].count(particle_k)==1) {
+                                k_to_adjacent_cell[qn] = particle_to_local_neighbor_lookup.at(adjacent_cell_local_index_q).at(particle_k);
+                                t_k_has_value_from_adjacent++;
+                            }
+                        }
+                    }, k_has_value_from_adjacent);
+                    teamMember.team_barrier();
+                }
+
+                bool j_has_value = (j_to_cell_i>=0) || (j_has_value_from_adjacent>0);
+                bool k_has_value = (k_to_cell_i>=0) || (k_has_value_from_adjacent>0);
+
+                // locally owned DOF
+                for (local_index_type j_comp_out = 0; j_comp_out < fields[field_one]->nDim(); ++j_comp_out) {
+                for (local_index_type j_comp_in = 0; j_comp_in < fields[field_one]->nDim(); ++j_comp_in) {
+                    if ((j_comp_out!=j_comp_in) && ((!_velocity_basis_type_vector && field_one == _velocity_field_id) || (field_one == _pressure_field_id))) continue;
+
+                    local_index_type row = local_to_dof_map(particle_j, field_one, j_comp_in);
 
                     for (local_index_type k_comp_out = 0; k_comp_out < fields[field_two]->nDim(); ++k_comp_out) {
                     for (local_index_type k_comp_in = 0; k_comp_in < fields[field_two]->nDim(); ++k_comp_in) {
                         if ((k_comp_out!=k_comp_in) && ((!_velocity_basis_type_vector && field_two == _velocity_field_id) || (field_two == _pressure_field_id))) continue;
 
-                        bool k_comp_out_0 = (k_comp_out==0);
-                        bool k_comp_out_1 = (k_comp_out==1);
-
                         col_data[0] = local_to_dof_map(particle_k, field_two, k_comp_in);
-
-                        int j_to_cell_i = -1;
-                        if (particle_to_local_neighbor_lookup[i].count(particle_j)==1){
-                            j_to_cell_i = particle_to_local_neighbor_lookup[i][particle_j];
-                        }
-                        int k_to_cell_i = -1;
-                        if (particle_to_local_neighbor_lookup[i].count(particle_k)==1){
-                            k_to_cell_i = particle_to_local_neighbor_lookup[i][particle_k];
-                        }
-
-                        bool j_has_value = false;
-                        bool k_has_value = false;
 
                         double contribution = 0;
                         if (_l2_op) {
@@ -1407,7 +1462,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             v = (i<nlocal) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1)
                                                  : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j_to_cell_i, qn+1);
                                         }
-                                        j_has_value = true;
                                     } else {
                                         v = 0;
                                     }
@@ -1419,7 +1473,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             u = (i<nlocal) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1)
                                                  : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, k_to_cell_i, qn+1);
                                         }
-                                        k_has_value = true;
                                     } else {
                                         u = 0;
                                     }
@@ -1430,163 +1483,234 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                             }
                         } else {
                             // loop over quadrature
-                            for (int qn=0; qn<_weights_ndim; ++qn) {
+                            Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, _weights_ndim), [&] (const int qn, double& t_contribution) {
+                            //for (int qn=0; qn<_weights_ndim; ++qn) {
                                 const auto q_type = quadrature_type(i,qn);
                                 const auto q_wt = quadrature_weights(i,qn);
                                 double u, v;
-                                double grad_u_x, grad_u_y, grad_v_x, grad_v_y;
+                                XYZ grad_u, grad_v;
                                 
                                 if (j_to_cell_i>=0) {
 
                                     if (_use_vector_gmls) v = _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, j_comp_out, j_to_cell_i, j_comp_in, qn+1);
                                     else v = _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
 
-                                    if (_use_vector_grad_gmls) grad_v_x = _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, j_comp_out, 0, j_to_cell_i, j_comp_in, qn+1);
-                                    else grad_v_x = _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j_to_cell_i, qn+1);
-
-                                    if (_use_vector_grad_gmls) grad_v_y = _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, j_comp_out, 1, j_to_cell_i, j_comp_in, qn+1);
-                                    else grad_v_y = _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j_to_cell_i, qn+1);
-
-                                    j_has_value = true;
+                                    if (_use_vector_grad_gmls) {
+                                        for (int d=0; d<_ndim_requested; ++d) {
+                                            grad_v[d] = _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, j_comp_out, d, j_to_cell_i, j_comp_in, qn+1);
+                                        }
+                                    } else {
+                                        for (int d=0; d<_ndim_requested; ++d) {
+                                            grad_v[d] = _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, d, j_to_cell_i, qn+1);
+                                        }
+                                    }
                                 } else {
                                     v = 0.0;
-                                    grad_v_x = 0.0;
-                                    grad_v_y = 0.0;
+                                    // grad_v set to 0's at instantiation
                                 }
                                 if (k_to_cell_i>=0) {
 
                                     if (_use_vector_gmls) u = _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, k_comp_out, k_to_cell_i, k_comp_in, qn+1);
                                     else u = _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
 
-                                    if (_use_vector_grad_gmls) grad_u_x = _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, k_comp_out, 0, k_to_cell_i, k_comp_in, qn+1);
-                                    else grad_u_x = _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, k_to_cell_i, qn+1);
-
-                                    if (_use_vector_grad_gmls) grad_u_y = _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, k_comp_out, 1, k_to_cell_i, k_comp_in, qn+1);
-                                    else grad_u_y = _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, k_to_cell_i, qn+1);
-
-                                    k_has_value = true;
+                                    if (_use_vector_grad_gmls) {
+                                        for (int d=0; d<_ndim_requested; ++d) {
+                                            grad_u[d] = _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, k_comp_out, d, k_to_cell_i, k_comp_in, qn+1);
+                                        }
+                                    } else {
+                                        for (int d=0; d<_ndim_requested; ++d) {
+                                            grad_u[d] = _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, d, k_to_cell_i, qn+1);
+                                        }
+                                    }
                                 } else {
                                     u = 0.0;
-                                    grad_u_x = 0.0;
-                                    grad_u_y = 0.0;
+                                    // grad_u set to 0's at instantiation
                                 }
 
                                 if (q_type==1) { // interior
 
                                     if (_rd_op) {
-                                        contribution += _reaction * q_wt * u * v;
-                                        contribution += _diffusion * q_wt 
-                                            * grad_v_x * grad_u_x;
-                                        contribution += _diffusion * q_wt 
-                                            * grad_v_y * grad_u_y;
+                                        t_contribution += _reaction * q_wt * u * v;
+                                        for (int d=0; d<_ndim_requested; ++d) {
+                                            t_contribution += _diffusion * q_wt 
+                                                * grad_v[d] * grad_u[d];
+                                        }
                                     } else if (_le_op) {
-                                        contribution += q_wt * _lambda * (grad_v_x*j_comp_out_0 + grad_v_y*j_comp_out_1) 
-                                            * (grad_u_x*k_comp_out_0 + grad_u_y*k_comp_out_1);
+                                        double div_v = 0, div_u = 0;
+                                        for (int d=0; d<_ndim_requested; ++d) {
+                                            div_v += grad_v[d]*(j_comp_out==d);
+                                            div_u += grad_u[d]*(k_comp_out==d);
+                                        }
+                                        t_contribution += q_wt * _lambda * div_v * div_u;
                                        
-                                        contribution += q_wt * 2 * _shear* (
-                                              grad_v_x*grad_u_x*j_comp_out_0*k_comp_out_0 
-                                            + grad_v_y*grad_u_y*j_comp_out_1*k_comp_out_1 
-                                            + 0.5*(grad_v_y*j_comp_out_0 + grad_v_x*j_comp_out_1)*(grad_u_y*k_comp_out_0 + grad_u_x*k_comp_out_1));
+                                        double sigma_v_dot_sigma_u = 0.0;
+                                        for (int d1=0; d1<_ndim_requested; ++d1) {
+                                            for (int d2=0; d2<_ndim_requested; ++d2) {
+                                                sigma_v_dot_sigma_u += (0.5*grad_v[d1]*(j_comp_out==d2)+0.5*grad_v[d2]*(j_comp_out==d1))*(0.5*grad_u[d1]*(k_comp_out==d2)+0.5*grad_u[d2]*(k_comp_out==d1));
+                                            }
+                                        }
+                                        t_contribution += q_wt * 2 * _shear * sigma_v_dot_sigma_u;
+                                        //(
+                                        //      grad_v_x*grad_u_x*(j_comp_out==0)*(k_comp_out==0) 
+                                        //    + grad_v_y*grad_u_y*(j_comp_out==1)*(k_comp_out==1) 
+                                        //    + 0.5*(grad_v_y*(j_comp_out==0) + grad_v_x*(j_comp_out==1))*(grad_u_y*(k_comp_out==0) + grad_u_x*(k_comp_out==1)));
                                     } else if (_vl_op) {
-                                        contribution += q_wt * _shear* (
-                                              grad_v_x*grad_u_x*j_comp_out_0*k_comp_out_0 
-                                            + grad_v_y*grad_u_y*j_comp_out_0*k_comp_out_0 
-                                            + grad_v_x*grad_u_x*j_comp_out_1*k_comp_out_1 
-                                            + grad_v_y*grad_u_y*j_comp_out_1*k_comp_out_1 );
+                                        double grad_v_dot_grad_u = 0.0;
+                                        for (int d1=0; d1<_ndim_requested; ++d1) {
+                                            for (int d2=0; d2<_ndim_requested; ++d2) {
+                                                grad_v_dot_grad_u += grad_v[d1]*(j_comp_out==d2)*grad_u[d1]*(k_comp_out==d2);
+                                            }
+                                        }
+                                        t_contribution += q_wt * _shear* grad_v_dot_grad_u;
+                                        //(
+                                        //      grad_v_x*grad_u_x*(j_comp_out==0)*(k_comp_out==0) 
+                                        //    + grad_v_y*grad_u_y*(j_comp_out==0)*(k_comp_out==0) 
+                                        //    + grad_v_x*grad_u_x*(j_comp_out==1)*(k_comp_out==1) 
+                                        //    + grad_v_y*grad_u_y*(j_comp_out==1)*(k_comp_out==1) );
                                     } else if (_st_op || _mix_le_op) {
                                         double p, q;
                                         if (_pressure_field_id==field_one || _pressure_field_id==field_two) {
                                             if (j_to_cell_i>=0) {
                                                 q = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
-                                                j_has_value = true;
                                             } else {
                                                 q = 0.0;
                                             }
                                             if (k_to_cell_i>=0) {
                                                 p = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
-                                                k_has_value = true;
                                             } else {
                                                 p = 0.0;
                                             }
                                         }
                                         if (_velocity_field_id==field_one && _velocity_field_id==field_two) {
                                             if (_st_op) {
-                                                contribution += q_wt * _diffusion* (
-                                                      grad_v_x*grad_u_x*j_comp_out_0*k_comp_out_0 
-                                                    + grad_v_y*grad_u_y*j_comp_out_0*k_comp_out_0 
-                                                    + grad_v_x*grad_u_x*j_comp_out_1*k_comp_out_1 
-                                                    + grad_v_y*grad_u_y*j_comp_out_1*k_comp_out_1 );
+                                                double grad_v_dot_grad_u = 0.0;
+                                                for (int d1=0; d1<_ndim_requested; ++d1) {
+                                                    for (int d2=0; d2<_ndim_requested; ++d2) {
+                                                        grad_v_dot_grad_u += grad_v[d1]*(j_comp_out==d2)*grad_u[d1]*(k_comp_out==d2);
+                                                    }
+                                                }
+                                                t_contribution += q_wt * _diffusion* grad_v_dot_grad_u;
+                                                //(
+                                                //      grad_v_x*grad_u_x*(j_comp_out==0)*(k_comp_out==0) 
+                                                //    + grad_v_y*grad_u_y*(j_comp_out==0)*(k_comp_out==0) 
+                                                //    + grad_v_x*grad_u_x*(j_comp_out==1)*(k_comp_out==1) 
+                                                //    + grad_v_y*grad_u_y*(j_comp_out==1)*(k_comp_out==1) );
                                             } else if (_mix_le_op) {
-                                                contribution += q_wt * ( -2./(scalar_type)(_ndim_requested) * _shear * (grad_v_x*j_comp_out_0 + grad_v_y*j_comp_out_1) 
-                                                    * (grad_u_x*k_comp_out_0 + grad_u_y*k_comp_out_1) );
+                                                double div_v = 0.0, div_u = 0.0;
+                                                for (int d=0; d<_ndim_requested; ++d) {
+                                                    div_v += grad_v[d]*(j_comp_out==d);
+                                                    div_u += grad_u[d]*(k_comp_out==d);
+                                                }
+                                                t_contribution += q_wt * -2./(scalar_type)(_ndim_requested) * _shear * div_v * div_u;
+                                                //t_contribution += q_wt * ( -2./(scalar_type)(_ndim_requested) * _shear * (grad_v_x*(j_comp_out==0) + grad_v_y*(j_comp_out==1)) 
+                                                //    * (grad_u_x*(k_comp_out==0) + grad_u_y*(k_comp_out==1)) );
                                        
-                                                contribution += q_wt * 2 * _shear* (
-                                                      grad_v_x*grad_u_x*j_comp_out_0*k_comp_out_0 
-                                                    + grad_v_y*grad_u_y*j_comp_out_1*k_comp_out_1 
-                                                    + 0.5*(grad_v_y*j_comp_out_0 + grad_v_x*j_comp_out_1)*(grad_u_y*k_comp_out_0 + grad_u_x*k_comp_out_1));
+                                                double sigma_v_dot_sigma_u = 0.0;
+                                                for (int d1=0; d1<_ndim_requested; ++d1) {
+                                                    for (int d2=0; d2<_ndim_requested; ++d2) {
+                                                        sigma_v_dot_sigma_u += (0.5*grad_v[d1]*(j_comp_out==d2)+0.5*grad_v[d2]*(j_comp_out==d1))*(0.5*grad_u[d1]*(k_comp_out==d2)+0.5*grad_u[d2]*(k_comp_out==d1));
+                                                    }
+                                                }
+                                                t_contribution += q_wt * 2 * _shear * sigma_v_dot_sigma_u;
+                                                //t_contribution += q_wt * 2 * _shear* (
+                                                //      grad_v_x*grad_u_x*(j_comp_out==0)*(k_comp_out==0) 
+                                                //    + grad_v_y*grad_u_y*(j_comp_out==1)*(k_comp_out==1) 
+                                                //    + 0.5*(grad_v_y*(j_comp_out==0) + grad_v_x*(j_comp_out==1))*(grad_u_y*(k_comp_out==0) + grad_u_x*(k_comp_out==1)));
 
                                             }
                                         } else if (_velocity_field_id==field_one && _pressure_field_id==field_two) {
-                                            contribution -= q_wt * (
-                                                  (grad_v_x*j_comp_out_0 + grad_v_y*j_comp_out_1) * p * pressure_coeff);
+                                            double div_v = 0.0;
+                                            for (int d=0; d<_ndim_requested; ++d) {
+                                                div_v += grad_v[d]*(j_comp_out==d);
+                                            }
+                                            t_contribution -= q_wt * div_v * p * pressure_coeff;
+                                            //      (grad_v_x*(j_comp_out==0) + grad_v_y*(j_comp_out==1)) * p * pressure_coeff);
                                         } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
                                             if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
-                                                contribution -= q_wt * (
-                                                      (grad_u_x*k_comp_out_0 + grad_u_y*k_comp_out_1) * q * pressure_coeff);
+                                                double div_u = 0.0;
+                                                for (int d=0; d<_ndim_requested; ++d) {
+                                                    div_u += grad_u[d]*(k_comp_out==d);
+                                                }
+                                                t_contribution -= q_wt * div_u * q * pressure_coeff;
+                                                //      (grad_u_x*(k_comp_out==0) + grad_u_y*(k_comp_out==1)) * q * pressure_coeff);
                                             } 
                                             //else if ((particle_j==particle_k) && (particle_j==i)) {
-                                            //    contribution += 1;
+                                            //    t_contribution += 1;
                                             //}
                                         } else {
                                             if (_mix_le_op) {
                                                 if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
-                                                    contribution -= q_wt * ( p * q * pressure_coeff );
+                                                    t_contribution -= q_wt * ( p * q * pressure_coeff );
                                                 } 
                                             }
                                         }
                                         //else {
                                         //    if (particle_j==particle_k) {
-                                        //        contribution += 1;
+                                        //        t_contribution += 1;
                                         //    }
                                         //}
                                     }
                                 } 
-                                else if (q_type==2) { // edge on exterior
+                                else if (q_type==2) { // side on exterior
 
                                     if (_rd_op) {
                                         const double jumpv = v;
                                         const double jumpu = u;
-                                        const double avgv_x = grad_v_x;
-                                        const double avgv_y = grad_v_y;
-                                        const double avgu_x = grad_u_x;
-                                        const double avgu_y = grad_u_y;
-                                        const auto n_x = unit_normals(i,2*qn+0); // unique outward normal
-                                        const auto n_y = unit_normals(i,2*qn+1);
+                                        //const double avgv_x = grad_v_x;
+                                        //const double avgv_y = grad_v_y;
+                                        //const double avgu_x = grad_u_x;
+                                        //const double avgu_y = grad_u_y;
+                                        XYZ avg_grad_v;
+                                        XYZ avg_grad_u;
+                                        // unique outward normal
+                                        XYZ n;
+                                        for (int d=0; d<_ndim_requested; ++d) {
+                                            avg_grad_v[d] = grad_v[d];
+                                            avg_grad_u[d] = grad_u[d];
+                                            n[d] = unit_normals(i,_ndim_requested*qn+d);
+                                        }
+
+                                        //const XYZ n = XYZ(unit_normals(i,_ndim_requested*qn+0), unit_normals(i,_ndim_requested*qn+1), (_ndim_requested==3) ? unit_normals(i,_ndim_requested*qn+2) : 0);
                                         //auto jump_v_x = n_x*v;
                                         //auto jump_v_y = n_y*v;
                                         //auto jump_u_x = n_x*u;
                                         //auto jump_u_y = n_y*u;
                                         //auto jump_u_jump_v = jump_v_x*jump_u_x + jump_v_y*jump_u_y;
 
-                                        contribution += penalty * q_wt * jumpv * jumpu;
-                                        contribution -= q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
-                                        contribution -= q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
+                                        t_contribution += penalty * q_wt * jumpv * jumpu;
+
+                                        double avg_grad_v_dot_n = 0, avg_grad_u_dot_n = 0;
+                                        for (int d=0; d<_ndim_requested; ++d) {
+                                            avg_grad_v_dot_n += avg_grad_v[d] * n[d];
+                                            avg_grad_u_dot_n += avg_grad_u[d] * n[d];
+                                        }
+                                        t_contribution -= q_wt * _diffusion * avg_grad_v_dot_n * jumpu;
+                                        t_contribution -= q_wt * _diffusion * avg_grad_u_dot_n * jumpv;
                                     } else {
                                         // only jump penalization currently included
                                         const double jumpv = v;
                                         const double jumpu = u;
-                                        const double avgv_x = grad_v_x;
-                                        const double avgv_y = grad_v_y;
-                                        const double avgu_x = grad_u_x;
-                                        const double avgu_y = grad_u_y;
+                                        XYZ avg_grad_v;
+                                        XYZ avg_grad_u;
+                                        // unique outward normal
+                                        XYZ n;
+                                        for (int d=0; d<_ndim_requested; ++d) {
+                                            avg_grad_v[d] = grad_v[d];
+                                            avg_grad_u[d] = grad_u[d];
+                                            n[d] = unit_normals(i,_ndim_requested*qn+d);
+                                        }
+                                        //const double avgv_x = grad_v_x;
+                                        //const double avgv_y = grad_v_y;
+                                        //const double avgu_x = grad_u_x;
+                                        //const double avgu_y = grad_u_y;
 
-                                        const auto n_x = unit_normals(i,2*qn+0); // unique outward normal
-                                        const auto n_y = unit_normals(i,2*qn+1);
+                                        //const auto n_x = unit_normals(i,2*qn+0); // unique outward normal
+                                        //const auto n_y = unit_normals(i,2*qn+1);
 
                                         if (_le_op) {
 
                                             if (_use_vms) {
-                                                const int current_edge_num_in_current_cell = (qn - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                                                const int current_edge_num_in_current_cell = (qn - num_interior_quadrature)/num_exterior_quadrature_per_side;
                                                 Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_edge(_ndim_requested, _ndim_requested);
                                                 Teuchos :: SerialDenseSolver <local_index_type, scalar_type> vmsdg_solver;
                                                 tau_edge.putScalar(0.0);
@@ -1599,48 +1723,81 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 // Compute tau_edge (invert LHS matrix)
                                                 auto info = vmsdg_solver.invert();
                                                 double vmsBCfactor = 2.0;
-                                                contribution += q_wt * jumpv * jumpu * vmsBCfactor * tau_edge(j_comp_out, k_comp_out); //MA: VMSDG term
+                                                t_contribution += q_wt * jumpv * jumpu * vmsBCfactor * tau_edge(j_comp_out, k_comp_out); //MA: VMSDG term
                                             } else if (_use_sip) {
-                                                contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
+                                                t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
                                             }
                                             
-                                            contribution -= q_wt * (
-                                                  2 * _shear * (n_x*avgv_x*j_comp_out_0 
-                                                    + 0.5*n_y*(avgv_y*j_comp_out_0 + avgv_x*j_comp_out_1)) * jumpu*k_comp_out_0  
-                                                + 2 * _shear * (n_y*avgv_y*j_comp_out_1 
-                                                    + 0.5*n_x*(avgv_x*j_comp_out_1 + avgv_y*j_comp_out_0)) * jumpu*k_comp_out_1
-                                                + _lambda*(avgv_x*j_comp_out_0 + avgv_y*j_comp_out_1)*(n_x*jumpu*k_comp_out_0 + n_y*jumpu*k_comp_out_1));
-                                            contribution -= q_wt * (
-                                                  2 * _shear * (n_x*avgu_x*k_comp_out_0 
-                                                    + 0.5*n_y*(avgu_y*k_comp_out_0 + avgu_x*k_comp_out_1)) * jumpv*j_comp_out_0  
-                                                + 2 * _shear * (n_y*avgu_y*k_comp_out_1 
-                                                    + 0.5*n_x*(avgu_x*k_comp_out_1 + avgu_y*k_comp_out_0)) * jumpv*j_comp_out_1
-                                                + _lambda*(avgu_x*k_comp_out_0 + avgu_y*k_comp_out_1)*(n_x*jumpv*j_comp_out_0 + n_y*jumpv*j_comp_out_1));
+                                            double mu_sigma_v_dot_n_dot_jump_u = 0.0;
+                                            double mu_sigma_u_dot_n_dot_jump_v = 0.0;
+                                            for (int d1=0; d1<_ndim_requested; ++d1) {
+                                                for (int d2=0; d2<_ndim_requested; ++d2) {
+                                                    mu_sigma_v_dot_n_dot_jump_u += 0.5*n[d1]*jumpu*(k_comp_out==d2)*(avg_grad_v[d1]*(j_comp_out==d2) + avg_grad_v[d2]*(j_comp_out==d1));
+                                                    mu_sigma_u_dot_n_dot_jump_v += 0.5*n[d1]*jumpv*(j_comp_out==d2)*(avg_grad_u[d1]*(k_comp_out==d2) + avg_grad_u[d2]*(k_comp_out==d1));
+                                                }
+                                            }
+
+                                            double n_dot_jump_v = 0.0, n_dot_jump_u = 0.0;
+                                            for (int d=0; d<_ndim_requested; ++d) {
+                                                n_dot_jump_v += n[d] * jumpv * (j_comp_out==d);
+                                                n_dot_jump_u += n[d] * jumpu * (k_comp_out==d);
+                                            }
+                                            double lambda_sigma_v_dot_n_dot_jump_u = 0.0;
+                                            double lambda_sigma_u_dot_n_dot_jump_v = 0.0;
+                                            for (int d=0; d<_ndim_requested; ++d) {
+                                                lambda_sigma_v_dot_n_dot_jump_u += avg_grad_v[d]*(j_comp_out==d) * n_dot_jump_u;
+                                                lambda_sigma_u_dot_n_dot_jump_v += avg_grad_u[d]*(k_comp_out==d) * n_dot_jump_v;
+                                            }
+                                            t_contribution -= q_wt * 2 * _shear * mu_sigma_v_dot_n_dot_jump_u;
+                                            t_contribution -= q_wt * 2 * _shear * mu_sigma_u_dot_n_dot_jump_v;
+                                            t_contribution -= q_wt * _lambda * lambda_sigma_v_dot_n_dot_jump_u;
+                                            t_contribution -= q_wt * _lambda * lambda_sigma_u_dot_n_dot_jump_v;
+                                            //t_contribution -= q_wt * (
+                                            //      2 * _shear * (n_x*avgv_x*(j_comp_out==0) 
+                                            //        + 0.5*n_y*(avgv_y*(j_comp_out==0) + avgv_x*(j_comp_out==1))) * jumpu*(k_comp_out==0)  
+                                            //    + 2 * _shear * (n_y*avgv_y*(j_comp_out==1) 
+                                            //        + 0.5*n_x*(avgv_x*(j_comp_out==1) + avgv_y*(j_comp_out==0))) * jumpu*(k_comp_out==1)
+                                            //    + _lambda*(avgv_x*(j_comp_out==0) + avgv_y*(j_comp_out==1))*(n_x*jumpu*(k_comp_out==0) + n_y*jumpu*(k_comp_out==1)));
+                                            //t_contribution -= q_wt * (
+                                            //      2 * _shear * (n_x*avgu_x*(k_comp_out==0) 
+                                            //        + 0.5*n_y*(avgu_y*(k_comp_out==0) + avgu_x*(k_comp_out==1))) * jumpv*(j_comp_out==0)  
+                                            //    + 2 * _shear * (n_y*avgu_y*(k_comp_out==1) 
+                                            //        + 0.5*n_x*(avgu_x*(k_comp_out==1) + avgu_y*(k_comp_out==0))) * jumpv*(j_comp_out==1)
+                                            //    + _lambda*(avgu_x*(k_comp_out==0) + avgu_y*(k_comp_out==1))*(n_x*jumpv*(j_comp_out==0) + n_y*jumpv*(j_comp_out==1)));
                                         } else if (_vl_op) {
-                                            contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
-                                            contribution -= q_wt * (
-                                                  _shear * (n_x*avgv_x*j_comp_out_0 
-                                                    + n_y*avgv_y*j_comp_out_0) * jumpu*k_comp_out_0  
-                                                + _shear * (n_x*avgv_x*j_comp_out_1 
-                                                    + n_y*avgv_y*j_comp_out_1) * jumpu*k_comp_out_1 );
-                                            contribution -= q_wt * (
-                                                  _shear * (n_x*avgu_x*k_comp_out_0 
-                                                    + n_y*avgu_y*k_comp_out_0) * jumpv*j_comp_out_0  
-                                                + _shear * (n_x*avgu_x*k_comp_out_1 
-                                                    + n_y*avgu_y*k_comp_out_1) * jumpv*j_comp_out_1 );
+                                            t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
+
+                                            double sigma_v_dot_n_dot_jump_u = 0.0, sigma_u_dot_n_dot_jump_v = 0.0;
+                                            for (int d1=0; d1<_ndim_requested; ++d1) {
+                                                for (int d2=0; d2<_ndim_requested; ++d2) {
+                                                    sigma_v_dot_n_dot_jump_u += n[d1]*avg_grad_v[d1]*(j_comp_out==d2) * jumpu*(k_comp_out==d2);
+                                                    sigma_u_dot_n_dot_jump_v += n[d1]*avg_grad_u[d1]*(k_comp_out==d2) * jumpv*(j_comp_out==d2);
+                                                }
+                                            }
+                                            t_contribution -= q_wt * _shear * sigma_v_dot_n_dot_jump_u;
+                                            t_contribution -= q_wt * _shear * sigma_u_dot_n_dot_jump_v;
+
+                                            //t_contribution -= q_wt * (
+                                            //      _shear * (n_x*avgv_x*(j_comp_out==0) 
+                                            //        + n_y*avgv_y*(j_comp_out==0)) * jumpu*(k_comp_out==0)  
+                                            //    + _shear * (n_x*avgv_x*(j_comp_out==1) 
+                                            //        + n_y*avgv_y*(j_comp_out==1)) * jumpu*(k_comp_out==1) );
+                                            //t_contribution -= q_wt * (
+                                            //      _shear * (n_x*avgu_x*(k_comp_out==0) 
+                                            //        + n_y*avgu_y*(k_comp_out==0)) * jumpv*(j_comp_out==0)  
+                                            //    + _shear * (n_x*avgu_x*(k_comp_out==1) 
+                                            //        + n_y*avgu_y*(k_comp_out==1)) * jumpv*(j_comp_out==1) );
 
                                         } else if (_st_op || _mix_le_op) {
                                             double p, q;
                                             if (_pressure_field_id==field_one || _pressure_field_id==field_two) {
                                                 if (j_to_cell_i>=0) {
                                                     q = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
-                                                    j_has_value = true;
                                                 } else {
                                                     q = 0.0;
                                                 }
                                                 if (k_to_cell_i>=0) {
                                                     p = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
-                                                    k_has_value = true;
                                                 } else {
                                                     p = 0.0;
                                                 }
@@ -1651,49 +1808,95 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
                                             if (_velocity_field_id==field_one && _velocity_field_id==field_two) {
                                                 if (_st_op) {
-                                                    contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
-                                                    contribution -= q_wt * (
-                                                          _diffusion * (n_x*avgv_x*j_comp_out_0 
-                                                            + n_y*avgv_y*j_comp_out_0) * jumpu*k_comp_out_0  
-                                                        + _diffusion * (n_x*avgv_x*j_comp_out_1 
-                                                            + n_y*avgv_y*j_comp_out_1) * jumpu*k_comp_out_1 );
-                                                    contribution -= q_wt * (
-                                                          _diffusion * (n_x*avgu_x*k_comp_out_0 
-                                                            + n_y*avgu_y*k_comp_out_0) * jumpv*j_comp_out_0  
-                                                        + _diffusion * (n_x*avgu_x*k_comp_out_1 
-                                                            + n_y*avgu_y*k_comp_out_1) * jumpv*j_comp_out_1 );
+                                                    t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
+                                                    double sigma_v_dot_n_dot_jump_u = 0.0, sigma_u_dot_n_dot_jump_v = 0.0;
+                                                    for (int d1=0; d1<_ndim_requested; ++d1) {
+                                                        for (int d2=0; d2<_ndim_requested; ++d2) {
+                                                            sigma_v_dot_n_dot_jump_u += n[d1]*avg_grad_v[d1]*(j_comp_out==d2) * jumpu*(k_comp_out==d2);
+                                                            sigma_u_dot_n_dot_jump_v += n[d1]*avg_grad_u[d1]*(k_comp_out==d2) * jumpv*(j_comp_out==d2);
+                                                        }
+                                                    }
+                                                    t_contribution -= q_wt * _diffusion * sigma_v_dot_n_dot_jump_u;
+                                                    t_contribution -= q_wt * _diffusion * sigma_u_dot_n_dot_jump_v;
+                                                    //t_contribution -= q_wt * (
+                                                    //      _diffusion * (n_x*avgv_x*(j_comp_out==0) 
+                                                    //        + n_y*avgv_y*(j_comp_out==0)) * jumpu*(k_comp_out==0)  
+                                                    //    + _diffusion * (n_x*avgv_x*(j_comp_out==1) 
+                                                    //        + n_y*avgv_y*(j_comp_out==1)) * jumpu*(k_comp_out==1) );
+                                                    //t_contribution -= q_wt * (
+                                                    //      _diffusion * (n_x*avgu_x*(k_comp_out==0) 
+                                                    //        + n_y*avgu_y*(k_comp_out==0)) * jumpv*(j_comp_out==0)  
+                                                    //    + _diffusion * (n_x*avgu_x*(k_comp_out==1) 
+                                                    //        + n_y*avgu_y*(k_comp_out==1)) * jumpv*(j_comp_out==1) );
                                                 } else if (_mix_le_op) {
-                                                    contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
-                                                    contribution -= q_wt * (
-                                                          2 * _shear * (n_x*avgv_x*j_comp_out_0 
-                                                            + 0.5*n_y*(avgv_y*j_comp_out_0 + avgv_x*j_comp_out_1)) * jumpu*k_comp_out_0  
-                                                        + 2 * _shear * (n_y*avgv_y*j_comp_out_1 
-                                                            + 0.5*n_x*(avgv_x*j_comp_out_1 + avgv_y*j_comp_out_0)) * jumpu*k_comp_out_1
-                                                        - 2./(scalar_type)(_ndim_requested) * _shear * (avgv_x*j_comp_out_0 + avgv_y*j_comp_out_1)*(n_x*jumpu*k_comp_out_0 + n_y*jumpu*k_comp_out_1));
-                                                    contribution -= q_wt * (
-                                                          2 * _shear * (n_x*avgu_x*k_comp_out_0 
-                                                            + 0.5*n_y*(avgu_y*k_comp_out_0 + avgu_x*k_comp_out_1)) * jumpv*j_comp_out_0  
-                                                        + 2 * _shear * (n_y*avgu_y*k_comp_out_1 
-                                                            + 0.5*n_x*(avgu_x*k_comp_out_1 + avgu_y*k_comp_out_0)) * jumpv*j_comp_out_1
-                                                        - 2./(scalar_type)(_ndim_requested) * _shear * (avgu_x*k_comp_out_0 + avgu_y*k_comp_out_1)*(n_x*jumpv*j_comp_out_0 + n_y*jumpv*j_comp_out_1));
+                                                    t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
+
+                                                    double mu_sigma_v_dot_n_dot_jump_u = 0.0;
+                                                    double mu_sigma_u_dot_n_dot_jump_v = 0.0;
+                                                    for (int d1=0; d1<_ndim_requested; ++d1) {
+                                                        for (int d2=0; d2<_ndim_requested; ++d2) {
+                                                            mu_sigma_v_dot_n_dot_jump_u += 0.5*n[d1]*jumpu*(k_comp_out==d2)*(avg_grad_v[d1]*(j_comp_out==d2) + avg_grad_v[d2]*(j_comp_out==d1));
+                                                            mu_sigma_u_dot_n_dot_jump_v += 0.5*n[d1]*jumpv*(j_comp_out==d2)*(avg_grad_u[d1]*(k_comp_out==d2) + avg_grad_u[d2]*(k_comp_out==d1));
+                                                        }
+                                                    }
+
+                                                    t_contribution -= q_wt * 2 * _shear * mu_sigma_v_dot_n_dot_jump_u;
+                                                    t_contribution -= q_wt * 2 * _shear * mu_sigma_u_dot_n_dot_jump_v;
+
+                                                    double avg_div_v = 0, avg_div_u = 0;
+                                                    for (int d=0; d<_ndim_requested; ++d) {
+                                                        avg_div_v += avg_grad_v[d]*(j_comp_out==d);
+                                                        avg_div_u += avg_grad_u[d]*(k_comp_out==d);
+                                                    }
+                                                    double n_dot_jump_v = 0.0, n_dot_jump_u = 0.0;
+                                                    for (int d=0; d<_ndim_requested; ++d) {
+                                                        n_dot_jump_v += n[d] * jumpv * (j_comp_out==d);
+                                                        n_dot_jump_u += n[d] * jumpu * (k_comp_out==d);
+                                                    }
+                                                    t_contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _shear * avg_div_v * n_dot_jump_u;
+                                                    t_contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _shear * avg_div_u * n_dot_jump_v;
+
+                                                    //t_contribution -= q_wt * (
+                                                    //      2 * _shear * (n_x*avgv_x*(j_comp_out==0) 
+                                                    //        + 0.5*n_y*(avgv_y*(j_comp_out==0) + avgv_x*(j_comp_out==1))) * jumpu*(k_comp_out==0)  
+                                                    //    + 2 * _shear * (n_y*avgv_y*(j_comp_out==1) 
+                                                    //        + 0.5*n_x*(avgv_x*(j_comp_out==1) + avgv_y*(j_comp_out==0))) * jumpu*(k_comp_out==1)
+                                                    //    - 2./(scalar_type)(_ndim_requested) * _shear * (avgv_x*(j_comp_out==0) + avgv_y*(j_comp_out==1))*(n_x*jumpu*(k_comp_out==0) + n_y*jumpu*(k_comp_out==1)));
+                                                    //t_contribution -= q_wt * (
+                                                    //      2 * _shear * (n_x*avgu_x*(k_comp_out==0) 
+                                                    //        + 0.5*n_y*(avgu_y*(k_comp_out==0) + avgu_x*(k_comp_out==1))) * jumpv*(j_comp_out==0)  
+                                                    //    + 2 * _shear * (n_y*avgu_y*(k_comp_out==1) 
+                                                    //        + 0.5*n_x*(avgu_x*(k_comp_out==1) + avgu_y*(k_comp_out==0))) * jumpv*(j_comp_out==1)
+                                                    //    - 2./(scalar_type)(_ndim_requested) * _shear * (avgu_x*(k_comp_out==0) + avgu_y*(k_comp_out==1))*(n_x*jumpv*(j_comp_out==0) + n_y*jumpv*(j_comp_out==1)));
                                                 }
                                             } else if (_velocity_field_id==field_one && _pressure_field_id==field_two) {
-                                                contribution += q_wt * (
-                                                      pressure_coeff * avgp * (n_x*jumpv*j_comp_out_0 + n_y*jumpv*j_comp_out_1) );
+                                                double n_dot_jump_v = 0.0;
+                                                for (int d=0; d<_ndim_requested; ++d) {
+                                                    n_dot_jump_v += n[d] * jumpv * (j_comp_out==d);
+                                                }
+                                                t_contribution += q_wt * pressure_coeff * avgp * n_dot_jump_v;
+                                                //t_contribution += q_wt * n_dot_jump_v;
+                                                //t_contribution += q_wt * (
+                                                //      pressure_coeff * avgp * n_dot_jump_v );
                                             } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
                                                 if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
-                                                    contribution += q_wt * (
-                                                          pressure_coeff * avgq * (n_x*jumpu*k_comp_out_0 + n_y*jumpu*k_comp_out_1) );
+                                                    double n_dot_jump_u = 0.0;
+                                                    for (int d=0; d<_ndim_requested; ++d) {
+                                                        n_dot_jump_u += n[d] * jumpu * (k_comp_out==d);
+                                                    }
+                                                    t_contribution += q_wt * pressure_coeff * avgq * n_dot_jump_u;
+                                                    //t_contribution += q_wt * (
+                                                    //      pressure_coeff * avgq * (n_x*jumpu*(k_comp_out==0) + n_y*jumpu*(k_comp_out==1)) );
                                                 }
                                             }
                                         }
                                     }
                                     
                                 }
-                                else if (q_type==0)  { // edge on interior
-                                    const double adjacent_cell_local_index_q = adjacent_cell_local_index[qn];
-                                    //int current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                                    //int adjacent_cell_local_index = (int)(adjacent_elements(i, current_edge_num));
+                                else if (q_type==0)  { // side on interior
+                                    const int adjacent_cell_local_index_q = adjacent_cell_local_index[qn];
+                                    //int current_side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
+                                    //int adjacent_cell_local_index = (int)(adjacent_elements(i, current_side_num));
 
                                     //if (i>adjacent_cell_local_index) {
                                     //
@@ -1731,54 +1934,63 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     ////        printf("gid on halo %d\n", _halo_id_view(l,0));
                                     ////    }
                                     ////}
-                                    if (i <= adjacent_cell_local_index_q) continue;
-                                    TEUCHOS_ASSERT(adjacent_cell_local_index_q >= 0);
-                                    int j_to_adjacent_cell = -1;
-                                    if (particle_to_local_neighbor_lookup[adjacent_cell_local_index_q].count(particle_j)==1) {
-                                        j_to_adjacent_cell = particle_to_local_neighbor_lookup[adjacent_cell_local_index_q][particle_j];
-                                    }
-                                    int k_to_adjacent_cell = -1;
-                                    if (particle_to_local_neighbor_lookup[adjacent_cell_local_index_q].count(particle_k)==1) {
-                                        k_to_adjacent_cell = particle_to_local_neighbor_lookup[adjacent_cell_local_index_q][particle_k];
-                                    }
-                                    if (j_to_adjacent_cell>=0) {
-                                        j_has_value = true;
-                                    }
-                                    if (k_to_adjacent_cell>=0) {
-                                        k_has_value = true;
-                                    }
-                                    if (j_to_adjacent_cell<0 && k_to_adjacent_cell<0 && j_to_cell_i<0 && k_to_cell_i<0) continue;
+                                    if (i <= adjacent_cell_local_index_q) return;
+                                    
+                                    if (j_to_adjacent_cell[qn]<0 && k_to_adjacent_cell[qn]<0 && j_to_cell_i<0 && k_to_cell_i<0) return;
                                     
                                     const auto normal_direction_correction = (i > adjacent_cell_local_index_q) ? 1 : -1; 
-                                    const auto n_x = normal_direction_correction * unit_normals(i,2*qn+0);
-                                    const auto n_y = normal_direction_correction * unit_normals(i,2*qn+1);
+                                    XYZ n;
+                                    for (int d=0; d<_ndim_requested; ++d) {
+                                        n[d] = normal_direction_correction * unit_normals(i,_ndim_requested*qn+d);
+                                    }
                                     // gives a unique normal that is always outward to the cell with the lower index
 
                                     // gets quadrature # on adjacent cell (enumerates quadrature on 
                                     // side_of_cell_i_to_adjacent_cell in reverse due to orientation)
-                                    const int adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[qn]*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((qn-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
-                                    
+                                    int adjacent_q = 0;
+                                    if (_ndim_requested==2) {
+                                        adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[qn]*num_exterior_quadrature_per_side + (num_exterior_quadrature_per_side - ((qn-num_interior_quadrature)%num_exterior_quadrature_per_side) - 1);
+                                    } else {
+                                        for (int alt_qn=0; alt_qn<num_exterior_quadrature_per_side; ++alt_qn) {
+                                            int potential_adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[qn]*num_exterior_quadrature_per_side + alt_qn;
+                                            bool all_same = true;
+                                            for (int d=0; d<3; ++d) {
+                                                double diff_d = quadrature_points(adjacent_cell_local_index_q, _ndim_requested*potential_adjacent_q+d) - quadrature_points(i,_ndim_requested*qn+d);
+                                                if (diff_d*diff_d > 1e-14) {
+                                                    all_same = false;
+                                                    break;
+                                                }
+                                            }
+                                            if (all_same) {
+                                                adjacent_q = potential_adjacent_q;
+                                                break;
+                                            }        
+                                        }
+                                    }
 
 
-                                    //int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge + ((q-num_interior_quadrature)%num_exterior_quadrature_per_edge);
+                                    //int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side + ((q-num_interior_quadrature)%num_exterior_quadrature_per_side);
 
                                     //// diagnostic that quadrature matches up between adjacent_cell_local_index & adjacent_q 
                                     //// along with i & q
-                                    //auto my_x = quadrature_points(i, 2*q+0);
+                                    //auto my_x = quadrature_points(i, _ndim_requested*qn+0);
+                                    //auto their_x = quadrature_points(adjacent_cell_local_index_q, _ndim_requested*adjacent_q+0);
+                                    //if (std::abs(my_x-their_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_x, their_x, my_x-their_x);
+                                    //auto my_y = quadrature_points(i, _ndim_requested*qn+1);
+                                    //auto their_y = quadrature_points(adjacent_cell_local_index_q, _ndim_requested*adjacent_q+1);
+                                    //if (std::abs(my_y-their_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_y, their_y, my_y-their_y);
                                     //auto my_wt = quadrature_weights(i, q);
                                     //auto their_wt = quadrature_weights(adjacent_cell_local_index, adjacent_q);
                                     //if (std::abs(my_wt-their_wt)>1e-14) printf("wm: %f, t: %f, d: %.16f\n", my_wt, their_wt, my_wt-their_wt);
                                     //auto my_y = quadrature_points(i, 2*q+1);
-                                    //auto their_x = quadrature_points(adjacent_cell_local_index, 2*adjacent_q+0);
                                     //auto their_y = quadrature_points(adjacent_cell_local_index, 2*adjacent_q+1);
-                                    //if (std::abs(my_x-their_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_x, their_x, my_x-their_x);
                                     //if (std::abs(my_y-their_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_y, their_y, my_y-their_y);
 
 
                                     // diagnostics for quadrature points
-                                    //printf("b: %f\n", _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell, adjacent_q+1));
+                                    //printf("b: %f\n", _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell[qn], adjacent_q+1));
                                     //auto my_j_index = _cell_particles_neighborhood->getNeighbor(i,j_to_cell_i);
-                                    //auto their_j_index = _cell_particles_neighborhood->getNeighbor(adjacent_cell_local_index, j_to_adjacent_cell);
+                                    //auto their_j_index = _cell_particles_neighborhood->getNeighbor(adjacent_cell_local_index, j_to_adjacent_cell[qn]);
                                     //printf("xm: %d, t: %d\n", my_j_index, their_j_index);
                                     //auto my_q_x = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 0);
                                     //auto my_q_y = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 1);
@@ -1789,50 +2001,80 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
                                     //auto my_q_x = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 0);
                                     //auto my_q_y = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 1);
-                                    ////auto their_q_index = _kokkos_quadrature_neighbor_lists_host(adjacent_cell_local_index, 1+k_to_adjacent_cell);
+                                    ////auto their_q_index = _kokkos_quadrature_neighbor_lists_host(adjacent_cell_local_index, 1+k_to_adjacent_cell[qn]);
                                     //auto their_q_x = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 0);
                                     //auto their_q_y = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 1);
                                     //if (std::abs(my_q_x-their_q_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_q_x, their_q_x, my_q_x-their_q_x);
                                     //if (std::abs(my_q_y-their_q_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_q_y, their_q_y, my_q_y-their_q_y);
+                                    //
+                                    //    XYZ avg_grad_v;
+                                    //    XYZ avg_grad_u;
+                                    //    // unique outward normal
+                                    //    XYZ n;
+                                    //    for (int d=0; d<_ndim_requested; ++d) {
+                                    //        avg_grad_v[d] = grad_v[d];
+                                    //        avg_grad_u[d] = grad_u[d];
+                                    //        n[d] = unit_normals(i,_ndim_requested*qn+d);
+                                    //    }
  
                                     double other_v, other_u;
-                                    if (_use_vector_gmls) other_v = (j_to_adjacent_cell>=0) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, j_to_adjacent_cell, j_comp_in, adjacent_q+1) : 0.0;
-                                    else other_v = (j_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    if (_use_vector_gmls) other_v = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, j_to_adjacent_cell[qn], j_comp_in, adjacent_q+1) : 0.0;
+                                    else other_v = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
                                     const double jumpv = normal_direction_correction*(v-other_v);
 
-                                    if (_use_vector_gmls) other_u = (k_to_adjacent_cell>=0) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, k_to_adjacent_cell, k_comp_in, adjacent_q+1) : 0.0;
-                                    else other_u = (k_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    if (_use_vector_gmls) other_u = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, k_to_adjacent_cell[qn], k_comp_in, adjacent_q+1) : 0.0;
+                                    else other_u = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
                                     const double jumpu = normal_direction_correction*(u-other_u);
 
 
-                                    double other_grad_v_x, other_grad_v_y, other_grad_u_x, other_grad_u_y;
+                                    //double other_grad_v_x, other_grad_v_y, other_grad_u_x, other_grad_u_y;
+                                    XYZ other_grad_v, other_grad_u;
                                     if (_use_vector_grad_gmls) {
-                                        other_grad_v_x = (j_to_adjacent_cell>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, 0, j_to_adjacent_cell, j_comp_in, adjacent_q+1) : 0.0;
-                                        other_grad_v_y = (j_to_adjacent_cell>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, 1, j_to_adjacent_cell, j_comp_in, adjacent_q+1) : 0.0;
-                                        other_grad_u_x = (k_to_adjacent_cell>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, 0, k_to_adjacent_cell, k_comp_in, adjacent_q+1) : 0.0;
-                                        other_grad_u_y = (k_to_adjacent_cell>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, 1, k_to_adjacent_cell, k_comp_in, adjacent_q+1) : 0.0;
+                                        for (int d=0; d<_ndim_requested; ++d) {
+                                            other_grad_v[d] = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, d, j_to_adjacent_cell[qn], j_comp_in, adjacent_q+1) : 0.0;
+                                            other_grad_u[d] = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, d, k_to_adjacent_cell[qn], k_comp_in, adjacent_q+1) : 0.0;
+                                            //other_grad_v_y = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, 1, j_to_adjacent_cell[qn], j_comp_in, adjacent_q+1) : 0.0;
+                                            //other_grad_u_x = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, 0, k_to_adjacent_cell[qn], k_comp_in, adjacent_q+1) : 0.0;
+                                            //other_grad_u_y = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, 1, k_to_adjacent_cell[qn], k_comp_in, adjacent_q+1) : 0.0;
+                                        }
                                     } else {
-                                        other_grad_v_x = (j_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, j_to_adjacent_cell, adjacent_q+1) : 0.0;
-                                        other_grad_v_y = (j_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, j_to_adjacent_cell, adjacent_q+1) : 0.0;
-                                        other_grad_u_x = (k_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, k_to_adjacent_cell, adjacent_q+1) : 0.0;
-                                        other_grad_u_y = (k_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, k_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                        for (int d=0; d<_ndim_requested; ++d) {
+                                            other_grad_v[d] = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, d, j_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
+                                            other_grad_u[d] = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, d, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
+                                        }
+                                        //other_grad_v_y = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, j_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
+                                        //other_grad_u_x = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
+                                        //other_grad_u_y = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
 
                                     }
 
-                                    const double avgv_x = 0.5*(grad_v_x+other_grad_v_x);
-                                    const double avgv_y = 0.5*(grad_v_y+other_grad_v_y);
-                                    const double avgu_x = 0.5*(grad_u_x+other_grad_u_x);
-                                    const double avgu_y = 0.5*(grad_u_y+other_grad_u_y);
+                                    XYZ avg_grad_v, avg_grad_u;
+                                    for (int d=0; d<_ndim_requested; ++d) {
+                                        avg_grad_v[d] = 0.5*(grad_v[d] + other_grad_v[d]);
+                                        avg_grad_u[d] = 0.5*(grad_u[d] + other_grad_u[d]);
+                                    }
+                                    //const double avgv_x = 0.5*(grad_v_x+other_grad_v_x);
+                                    //const double avgv_y = 0.5*(grad_v_y+other_grad_v_y);
+                                    //const double avgu_x = 0.5*(grad_u_x+other_grad_u_x);
+                                    //const double avgu_y = 0.5*(grad_u_y+other_grad_u_y);
 
                                     if (_rd_op) {
-                                        contribution += penalty * q_wt * jumpv * jumpu; // other half will be added by other cell
-                                        contribution -= q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
-                                        contribution -= q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
+                                        t_contribution += penalty * q_wt * jumpv * jumpu; // other half will be added by other cell
+
+                                        double avg_grad_v_dot_n = 0, avg_grad_u_dot_n = 0;
+                                        for (int d=0; d<_ndim_requested; ++d) {
+                                            avg_grad_v_dot_n += avg_grad_v[d] * n[d];
+                                            avg_grad_u_dot_n += avg_grad_u[d] * n[d];
+                                        }
+                                        t_contribution -= q_wt * _diffusion * avg_grad_v_dot_n * jumpu;
+                                        t_contribution -= q_wt * _diffusion * avg_grad_u_dot_n * jumpv;
+                                        //t_contribution -= q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
+                                        //t_contribution -= q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
                                     } else {
                                         if (_le_op) {
                                             if (_use_vms) {
-                                                const int current_edge_num_in_current_cell = (qn - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                                                const int current_edge_num_in_adjacent_cell = (adjacent_q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                                                const int current_edge_num_in_current_cell = (qn - num_interior_quadrature)/num_exterior_quadrature_per_side;
+                                                const int current_edge_num_in_adjacent_cell = (adjacent_q - num_interior_quadrature)/num_exterior_quadrature_per_side;
 
                                                 Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_current_cell(_ndim_requested, _ndim_requested);
                                                 Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_adjacent_cell(_ndim_requested, _ndim_requested);
@@ -1861,22 +2103,22 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 delta_adjacent_cell.multiply( Teuchos::NO_TRANS, Teuchos::NO_TRANS, 1.0, tau_edge, tau_adjacent_cell, 0.0 );
                                                 delta_edge.multiply( Teuchos::NO_TRANS, Teuchos::NO_TRANS, 1.0, tau_current_cell, delta_adjacent_cell, 0.0 );
 
-                                                const double traction_u_current_x = n_x * ( _lambda * (k_comp_out_0*grad_u_x + k_comp_out_1*grad_u_y) + 2.0*_shear * k_comp_out_0*grad_u_x ) +
-                                                                                    n_y * _shear * (k_comp_out_0*grad_u_y + k_comp_out_1*grad_u_x);
-                                                const double traction_u_current_y = n_y * ( _lambda * (k_comp_out_0*grad_u_x + k_comp_out_1*grad_u_y) + 2.0*_shear * k_comp_out_1*grad_u_y ) +
-                                                                                    n_x * _shear * (k_comp_out_0*grad_u_y + k_comp_out_1*grad_u_x);
-                                                const double traction_u_adjacent_x = n_x * ( _lambda * (k_comp_out_0*other_grad_u_x + k_comp_out_1*other_grad_u_y) + 2.0*_shear * k_comp_out_0*other_grad_u_x ) +
-                                                                                     n_y * _shear * (k_comp_out_0*other_grad_u_y + k_comp_out_1*other_grad_u_x);
-                                                const double traction_u_adjacent_y = n_y * ( _lambda * (k_comp_out_0*other_grad_u_x + k_comp_out_1*other_grad_u_y) + 2.0*_shear * k_comp_out_1*other_grad_u_y ) +
-                                                                                     n_x * _shear * (k_comp_out_0*other_grad_u_y + k_comp_out_1*other_grad_u_x);
-                                                const double traction_v_current_x = n_x * ( _lambda * (j_comp_out_0*grad_v_x + j_comp_out_1*grad_v_y) + 2.0*_shear * j_comp_out_0*grad_v_x ) +
-                                                                                    n_y * _shear * (j_comp_out_0*grad_v_y + j_comp_out_1*grad_v_x);
-                                                const double traction_v_current_y = n_y * ( _lambda * (j_comp_out_0*grad_v_x + j_comp_out_1*grad_v_y) + 2.0*_shear * j_comp_out_1*grad_v_y ) +
-                                                                                    n_x * _shear * (j_comp_out_0*grad_v_y + j_comp_out_1*grad_v_x);
-                                                const double traction_v_adjacent_x = n_x * ( _lambda * (j_comp_out_0*other_grad_v_x + j_comp_out_1*other_grad_v_y) + 2.0*_shear * j_comp_out_0*other_grad_v_x ) +
-                                                                                     n_y * _shear * (j_comp_out_0*other_grad_v_y + j_comp_out_1*other_grad_v_x);
-                                                const double traction_v_adjacent_y = n_y * ( _lambda * (j_comp_out_0*other_grad_v_x + j_comp_out_1*other_grad_v_y) + 2.0*_shear * j_comp_out_1*other_grad_v_y ) +
-                                                                                     n_x * _shear * (j_comp_out_0*other_grad_v_y + j_comp_out_1*other_grad_v_x);
+                                                const double traction_u_current_x = n[0] * ( _lambda * ((k_comp_out==0)*grad_u[0] + (k_comp_out==1)*grad_u[1]) + 2.0*_shear * (k_comp_out==0)*grad_u[0] ) +
+                                                                                    n[1] * _shear * ((k_comp_out==0)*grad_u[1] + (k_comp_out==1)*grad_u[0]);
+                                                const double traction_u_current_y = n[1] * ( _lambda * ((k_comp_out==0)*grad_u[0] + (k_comp_out==1)*grad_u[1]) + 2.0*_shear * (k_comp_out==1)*grad_u[1] ) +
+                                                                                    n[0] * _shear * ((k_comp_out==0)*grad_u[1] + (k_comp_out==1)*grad_u[0]);
+                                                const double traction_u_adjacent_x = n[0] * ( _lambda * ((k_comp_out==0)*other_grad_u[0] + (k_comp_out==1)*other_grad_u[1]) + 2.0*_shear * (k_comp_out==0)*other_grad_u[0] ) +
+                                                                                     n[1] * _shear * ((k_comp_out==0)*other_grad_u[1] + (k_comp_out==1)*other_grad_u[0]);
+                                                const double traction_u_adjacent_y = n[1] * ( _lambda * ((k_comp_out==0)*other_grad_u[0] + (k_comp_out==1)*other_grad_u[1]) + 2.0*_shear * (k_comp_out==1)*other_grad_u[1] ) +
+                                                                                     n[0] * _shear * ((k_comp_out==0)*other_grad_u[1] + (k_comp_out==1)*other_grad_u[0]);
+                                                const double traction_v_current_x = n[0] * ( _lambda * ((j_comp_out==0)*grad_v[0] + (j_comp_out==1)*grad_v[1]) + 2.0*_shear * (j_comp_out==0)*grad_v[0] ) +
+                                                                                    n[1] * _shear * ((j_comp_out==0)*grad_v[1] + (j_comp_out==1)*grad_v[0]);
+                                                const double traction_v_current_y = n[1] * ( _lambda * ((j_comp_out==0)*grad_v[0] + (j_comp_out==1)*grad_v[1]) + 2.0*_shear * (j_comp_out==1)*grad_v[1] ) +
+                                                                                    n[0] * _shear * ((j_comp_out==0)*grad_v[1] + (j_comp_out==1)*grad_v[0]);
+                                                const double traction_v_adjacent_x = n[0] * ( _lambda * ((j_comp_out==0)*other_grad_v[0] + (j_comp_out==1)*other_grad_v[1]) + 2.0*_shear * (j_comp_out==0)*other_grad_v[0] ) +
+                                                                                     n[1] * _shear * ((j_comp_out==0)*other_grad_v[1] + (j_comp_out==1)*other_grad_v[0]);
+                                                const double traction_v_adjacent_y = n[1] * ( _lambda * ((j_comp_out==0)*other_grad_v[0] + (j_comp_out==1)*other_grad_v[1]) + 2.0*_shear * (j_comp_out==1)*other_grad_v[1] ) +
+                                                                                     n[0] * _shear * ((j_comp_out==0)*other_grad_v[1] + (j_comp_out==1)*other_grad_v[0]);
                         
                                                 const double avg_traction_u_x = delta_current_cell(0, 0) * traction_u_current_x +
                                                                                 delta_current_cell(0, 1) * traction_u_current_y +
@@ -1903,109 +2145,192 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 const double jump_traction_v_x = traction_v_current_x - traction_v_adjacent_x;
                                                 const double jump_traction_v_y = traction_v_current_y - traction_v_adjacent_y;
 
-                                                contribution += q_wt * jumpv * jumpu * tau_edge(j_comp_out, k_comp_out); 
+                                                t_contribution += q_wt * jumpv * jumpu * tau_edge(j_comp_out, k_comp_out); 
                                                                       
-                                                contribution -= q_wt * (
-                                                                        jumpv * j_comp_out_0 * avg_traction_u_x +
-                                                                        jumpv * j_comp_out_1 * avg_traction_u_y);
+                                                t_contribution -= q_wt * (
+                                                                        jumpv * (j_comp_out==0) * avg_traction_u_x +
+                                                                        jumpv * (j_comp_out==1) * avg_traction_u_y);
                                                                      
-                                                contribution -= q_wt * (
-                                                                        jumpu * k_comp_out_0 * avg_traction_v_x +
-                                                                        jumpu * k_comp_out_1 * avg_traction_v_y);
+                                                t_contribution -= q_wt * (
+                                                                        jumpu * (k_comp_out==0) * avg_traction_v_x +
+                                                                        jumpu * (k_comp_out==1) * avg_traction_v_y);
                                                                      
-                                                contribution -= q_wt * (
+                                                t_contribution -= q_wt * (
                                                                         jump_traction_v_x * ( delta_edge(0, 0) * jump_traction_u_x + delta_edge(0, 1) * jump_traction_u_y ) +
                                                                         jump_traction_v_y * ( delta_edge(1, 0) * jump_traction_u_x + delta_edge(1, 1) * jump_traction_u_y ) );
                                             } else if (_use_sip) {
-                                                contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out); // other half will be added by other cell
-                                                contribution -= q_wt * (
-                                                      2 * _shear * (n_x*avgv_x*j_comp_out_0 
-                                                        + 0.5*n_y*(avgv_y*j_comp_out_0 + avgv_x*j_comp_out_1)) * jumpu*k_comp_out_0  
-                                                    + 2 * _shear * (n_y*avgv_y*j_comp_out_1 
-                                                        + 0.5*n_x*(avgv_x*j_comp_out_1 + avgv_y*j_comp_out_0)) * jumpu*k_comp_out_1
-                                                    + _lambda*(avgv_x*j_comp_out_0 + avgv_y*j_comp_out_1)*(n_x*jumpu*k_comp_out_0 + n_y*jumpu*k_comp_out_1));
-                                                contribution -= q_wt * (
-                                                      2 * _shear * (n_x*avgu_x*k_comp_out_0 
-                                                        + 0.5*n_y*(avgu_y*k_comp_out_0 + avgu_x*k_comp_out_1)) * jumpv*j_comp_out_0  
-                                                    + 2 * _shear * (n_y*avgu_y*k_comp_out_1 
-                                                        + 0.5*n_x*(avgu_x*k_comp_out_1 + avgu_y*k_comp_out_0)) * jumpv*j_comp_out_1
-                                                    + _lambda*(avgu_x*k_comp_out_0 + avgu_y*k_comp_out_1)*(n_x*jumpv*j_comp_out_0 + n_y*jumpv*j_comp_out_1));
+                                                t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
+
+                                                double mu_sigma_v_dot_n_dot_jump_u = 0.0;
+                                                double mu_sigma_u_dot_n_dot_jump_v = 0.0;
+                                                for (int d1=0; d1<_ndim_requested; ++d1) {
+                                                    for (int d2=0; d2<_ndim_requested; ++d2) {
+                                                        mu_sigma_v_dot_n_dot_jump_u += 0.5*n[d1]*jumpu*(k_comp_out==d2)*(avg_grad_v[d1]*(j_comp_out==d2) + avg_grad_v[d2]*(j_comp_out==d1));
+                                                        mu_sigma_u_dot_n_dot_jump_v += 0.5*n[d1]*jumpv*(j_comp_out==d2)*(avg_grad_u[d1]*(k_comp_out==d2) + avg_grad_u[d2]*(k_comp_out==d1));
+                                                    }
+                                                }
+
+                                                double n_dot_jump_v = 0.0, n_dot_jump_u = 0.0;
+                                                for (int d=0; d<_ndim_requested; ++d) {
+                                                    n_dot_jump_v += n[d] * jumpv * (j_comp_out==d);
+                                                    n_dot_jump_u += n[d] * jumpu * (k_comp_out==d);
+                                                }
+                                                double lambda_sigma_v_dot_n_dot_jump_u = 0.0;
+                                                double lambda_sigma_u_dot_n_dot_jump_v = 0.0;
+                                                for (int d=0; d<_ndim_requested; ++d) {
+                                                    lambda_sigma_v_dot_n_dot_jump_u += avg_grad_v[d]*(j_comp_out==d) * n_dot_jump_u;
+                                                    lambda_sigma_u_dot_n_dot_jump_v += avg_grad_u[d]*(k_comp_out==d) * n_dot_jump_v;
+                                                }
+                                                t_contribution -= q_wt * 2 * _shear * mu_sigma_v_dot_n_dot_jump_u;
+                                                t_contribution -= q_wt * 2 * _shear * mu_sigma_u_dot_n_dot_jump_v;
+                                                t_contribution -= q_wt * _lambda * lambda_sigma_v_dot_n_dot_jump_u;
+                                                t_contribution -= q_wt * _lambda * lambda_sigma_u_dot_n_dot_jump_v;
+                                                //t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out); // other half will be added by other cell
+                                                //t_contribution -= q_wt * (
+                                                //      2 * _shear * (n_x*avgv_x*(j_comp_out==0) 
+                                                //        + 0.5*n_y*(avgv_y*(j_comp_out==0) + avgv_x*(j_comp_out==1))) * jumpu*(k_comp_out==0)  
+                                                //    + 2 * _shear * (n_y*avgv_y*(j_comp_out==1) 
+                                                //        + 0.5*n_x*(avgv_x*(j_comp_out==1) + avgv_y*(j_comp_out==0))) * jumpu*(k_comp_out==1)
+                                                //    + _lambda*(avgv_x*(j_comp_out==0) + avgv_y*(j_comp_out==1))*(n_x*jumpu*(k_comp_out==0) + n_y*jumpu*(k_comp_out==1)));
+                                                //t_contribution -= q_wt * (
+                                                //      2 * _shear * (n_x*avgu_x*(k_comp_out==0) 
+                                                //        + 0.5*n_y*(avgu_y*(k_comp_out==0) + avgu_x*(k_comp_out==1))) * jumpv*(j_comp_out==0)  
+                                                //    + 2 * _shear * (n_y*avgu_y*(k_comp_out==1) 
+                                                //        + 0.5*n_x*(avgu_x*(k_comp_out==1) + avgu_y*(k_comp_out==0))) * jumpv*(j_comp_out==1)
+                                                //    + _lambda*(avgu_x*(k_comp_out==0) + avgu_y*(k_comp_out==1))*(n_x*jumpv*(j_comp_out==0) + n_y*jumpv*(j_comp_out==1)));
                                             }
                                         } else if (_vl_op) {
-                                            contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out); // other half will be added by other cell
-                                            contribution -= q_wt * (
-                                                  _shear * (n_x*avgv_x*j_comp_out_0 
-                                                    + n_y*avgv_y*j_comp_out_0) * jumpu*k_comp_out_0  
-                                                + _shear * (n_x*avgv_x*j_comp_out_1 
-                                                    + n_y*avgv_y*j_comp_out_1) * jumpu*k_comp_out_1 );
-                                            contribution -= q_wt * (
-                                                  _shear * (n_x*avgu_x*k_comp_out_0 
-                                                    + n_y*avgu_y*k_comp_out_0) * jumpv*j_comp_out_0  
-                                                + _shear * (n_x*avgu_x*k_comp_out_1 
-                                                    + n_y*avgu_y*k_comp_out_1) * jumpv*j_comp_out_1 );
+                                            t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
+
+                                            double sigma_v_dot_n_dot_jump_u = 0.0, sigma_u_dot_n_dot_jump_v = 0.0;
+                                            for (int d1=0; d1<_ndim_requested; ++d1) {
+                                                for (int d2=0; d2<_ndim_requested; ++d2) {
+                                                    sigma_v_dot_n_dot_jump_u += n[d1]*avg_grad_v[d1]*(j_comp_out==d2) * jumpu*(k_comp_out==d2);
+                                                    sigma_u_dot_n_dot_jump_v += n[d1]*avg_grad_u[d1]*(k_comp_out==d2) * jumpv*(j_comp_out==d2);
+                                                }
+                                            }
+                                            t_contribution -= q_wt * _shear * sigma_v_dot_n_dot_jump_u;
+                                            t_contribution -= q_wt * _shear * sigma_u_dot_n_dot_jump_v;
+                                            //t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out); // other half will be added by other cell
+                                            //t_contribution -= q_wt * (
+                                            //      _shear * (n_x*avgv_x*(j_comp_out==0) 
+                                            //        + n_y*avgv_y*(j_comp_out==0)) * jumpu*(k_comp_out==0)  
+                                            //    + _shear * (n_x*avgv_x*(j_comp_out==1) 
+                                            //        + n_y*avgv_y*(j_comp_out==1)) * jumpu*(k_comp_out==1) );
+                                            //t_contribution -= q_wt * (
+                                            //      _shear * (n_x*avgu_x*(k_comp_out==0) 
+                                            //        + n_y*avgu_y*(k_comp_out==0)) * jumpv*(j_comp_out==0)  
+                                            //    + _shear * (n_x*avgu_x*(k_comp_out==1) 
+                                            //        + n_y*avgu_y*(k_comp_out==1)) * jumpv*(j_comp_out==1) );
                                         } else if (_st_op || _mix_le_op) {
                                             double p, q;
                                             if (_pressure_field_id==field_one || _pressure_field_id==field_two) {
                                                 if (j_to_cell_i>=0) {
                                                     q = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
-                                                    j_has_value = true;
                                                 } else {
                                                     q = 0.0;
                                                 }
                                                 if (k_to_cell_i>=0) {
                                                     p = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
-                                                    k_has_value = true;
                                                 } else {
                                                     p = 0.0;
                                                 }
                                             }
-                                            const double other_q = (j_to_adjacent_cell>=0) ? _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell, adjacent_q+1) : 0.0;
-                                            const double other_p = (k_to_adjacent_cell>=0) ? _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                            const double other_q = (j_to_adjacent_cell[qn]>=0) ? _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
+                                            const double other_p = (k_to_adjacent_cell[qn]>=0) ? _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
                                             const double avgp = 0.5*(p+other_p);
                                             const double avgq = 0.5*(q+other_q);
 
                                             if (_velocity_field_id==field_one && _velocity_field_id==field_two) {
                                                 if (_st_op) {
-                                                    contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out); // other half will be added by other cell
-                                                    contribution -= q_wt * (
-                                                          _diffusion * (n_x*avgv_x*j_comp_out_0 
-                                                            + n_y*avgv_y*j_comp_out_0) * jumpu*k_comp_out_0  
-                                                        + _diffusion * (n_x*avgv_x*j_comp_out_1 
-                                                            + n_y*avgv_y*j_comp_out_1) * jumpu*k_comp_out_1 );
-                                                    contribution -= q_wt * (
-                                                          _diffusion * (n_x*avgu_x*k_comp_out_0 
-                                                            + n_y*avgu_y*k_comp_out_0) * jumpv*j_comp_out_0  
-                                                        + _diffusion * (n_x*avgu_x*k_comp_out_1 
-                                                            + n_y*avgu_y*k_comp_out_1) * jumpv*j_comp_out_1 );
+                                                    t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
+                                                    double sigma_v_dot_n_dot_jump_u = 0.0, sigma_u_dot_n_dot_jump_v = 0.0;
+                                                    for (int d1=0; d1<_ndim_requested; ++d1) {
+                                                        for (int d2=0; d2<_ndim_requested; ++d2) {
+                                                            sigma_v_dot_n_dot_jump_u += n[d1]*avg_grad_v[d1]*(j_comp_out==d2) * jumpu*(k_comp_out==d2);
+                                                            sigma_u_dot_n_dot_jump_v += n[d1]*avg_grad_u[d1]*(k_comp_out==d2) * jumpv*(j_comp_out==d2);
+                                                        }
+                                                    }
+                                                    t_contribution -= q_wt * _diffusion * sigma_v_dot_n_dot_jump_u;
+                                                    t_contribution -= q_wt * _diffusion * sigma_u_dot_n_dot_jump_v;
+                                                    //t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out); // other half will be added by other cell
+                                                    //t_contribution -= q_wt * (
+                                                    //      _diffusion * (n_x*avgv_x*(j_comp_out==0) 
+                                                    //        + n_y*avgv_y*(j_comp_out==0)) * jumpu*(k_comp_out==0)  
+                                                    //    + _diffusion * (n_x*avgv_x*(j_comp_out==1) 
+                                                    //        + n_y*avgv_y*(j_comp_out==1)) * jumpu*(k_comp_out==1) );
+                                                    //t_contribution -= q_wt * (
+                                                    //      _diffusion * (n_x*avgu_x*(k_comp_out==0) 
+                                                    //        + n_y*avgu_y*(k_comp_out==0)) * jumpv*(j_comp_out==0)  
+                                                    //    + _diffusion * (n_x*avgu_x*(k_comp_out==1) 
+                                                    //        + n_y*avgu_y*(k_comp_out==1)) * jumpv*(j_comp_out==1) );
                                                 } else if (_mix_le_op) {
-                                                    contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out); // other half will be added by other cell
-                                                    contribution -= q_wt * (
-                                                          2 * _shear * (n_x*avgv_x*j_comp_out_0 
-                                                            + 0.5*n_y*(avgv_y*j_comp_out_0 + avgv_x*j_comp_out_1)) * jumpu*k_comp_out_0  
-                                                        + 2 * _shear * (n_y*avgv_y*j_comp_out_1 
-                                                            + 0.5*n_x*(avgv_x*j_comp_out_1 + avgv_y*j_comp_out_0)) * jumpu*k_comp_out_1
-                                                        - 2./(scalar_type)(_ndim_requested) * _shear * (avgv_x*j_comp_out_0 + avgv_y*j_comp_out_1)*(n_x*jumpu*k_comp_out_0 + n_y*jumpu*k_comp_out_1));
-                                                    contribution -= q_wt * (
-                                                          2 * _shear * (n_x*avgu_x*k_comp_out_0 
-                                                            + 0.5*n_y*(avgu_y*k_comp_out_0 + avgu_x*k_comp_out_1)) * jumpv*j_comp_out_0  
-                                                        + 2 * _shear * (n_y*avgu_y*k_comp_out_1 
-                                                            + 0.5*n_x*(avgu_x*k_comp_out_1 + avgu_y*k_comp_out_0)) * jumpv*j_comp_out_1
-                                                        - 2./(scalar_type)(_ndim_requested) * _shear * (avgu_x*k_comp_out_0 + avgu_y*k_comp_out_1)*(n_x*jumpv*j_comp_out_0 + n_y*jumpv*j_comp_out_1));
+                                                    t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
+
+                                                    double mu_sigma_v_dot_n_dot_jump_u = 0.0;
+                                                    double mu_sigma_u_dot_n_dot_jump_v = 0.0;
+                                                    for (int d1=0; d1<_ndim_requested; ++d1) {
+                                                        for (int d2=0; d2<_ndim_requested; ++d2) {
+                                                            mu_sigma_v_dot_n_dot_jump_u += 0.5*n[d1]*jumpu*(k_comp_out==d2)*(avg_grad_v[d1]*(j_comp_out==d2) + avg_grad_v[d2]*(j_comp_out==d1));
+                                                            mu_sigma_u_dot_n_dot_jump_v += 0.5*n[d1]*jumpv*(j_comp_out==d2)*(avg_grad_u[d1]*(k_comp_out==d2) + avg_grad_u[d2]*(k_comp_out==d1));
+                                                        }
+                                                    }
+
+                                                    t_contribution -= q_wt * 2 * _shear * mu_sigma_v_dot_n_dot_jump_u;
+                                                    t_contribution -= q_wt * 2 * _shear * mu_sigma_u_dot_n_dot_jump_v;
+
+                                                    double avg_div_v = 0, avg_div_u = 0;
+                                                    for (int d=0; d<_ndim_requested; ++d) {
+                                                        avg_div_v += avg_grad_v[d]*(j_comp_out==d);
+                                                        avg_div_u += avg_grad_u[d]*(k_comp_out==d);
+                                                    }
+                                                    double n_dot_jump_v = 0.0, n_dot_jump_u = 0.0;
+                                                    for (int d=0; d<_ndim_requested; ++d) {
+                                                        n_dot_jump_v += n[d] * jumpv * (j_comp_out==d);
+                                                        n_dot_jump_u += n[d] * jumpu * (k_comp_out==d);
+                                                    }
+                                                    t_contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _shear * avg_div_v * n_dot_jump_u;
+                                                    t_contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _shear * avg_div_u * n_dot_jump_v;
+                                                    //t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out); // other half will be added by other cell
+                                                    //t_contribution -= q_wt * (
+                                                    //      2 * _shear * (n_x*avgv_x*(j_comp_out==0) 
+                                                    //        + 0.5*n_y*(avgv_y*(j_comp_out==0) + avgv_x*(j_comp_out==1))) * jumpu*(k_comp_out==0)  
+                                                    //    + 2 * _shear * (n_y*avgv_y*(j_comp_out==1) 
+                                                    //        + 0.5*n_x*(avgv_x*(j_comp_out==1) + avgv_y*(j_comp_out==0))) * jumpu*(k_comp_out==1)
+                                                    //    - 2./(scalar_type)(_ndim_requested) * _shear * (avgv_x*(j_comp_out==0) + avgv_y*(j_comp_out==1))*(n_x*jumpu*(k_comp_out==0) + n_y*jumpu*(k_comp_out==1)));
+                                                    //t_contribution -= q_wt * (
+                                                    //      2 * _shear * (n_x*avgu_x*(k_comp_out==0) 
+                                                    //        + 0.5*n_y*(avgu_y*(k_comp_out==0) + avgu_x*(k_comp_out==1))) * jumpv*(j_comp_out==0)  
+                                                    //    + 2 * _shear * (n_y*avgu_y*(k_comp_out==1) 
+                                                    //        + 0.5*n_x*(avgu_x*(k_comp_out==1) + avgu_y*(k_comp_out==0))) * jumpv*(j_comp_out==1)
+                                                    //    - 2./(scalar_type)(_ndim_requested) * _shear * (avgu_x*(k_comp_out==0) + avgu_y*(k_comp_out==1))*(n_x*jumpv*(j_comp_out==0) + n_y*jumpv*(j_comp_out==1)));
                                                 }
                                             } else if (_velocity_field_id==field_one && _pressure_field_id==field_two) {
-                                                contribution += q_wt * (
-                                                      pressure_coeff * avgp * (n_x*jumpv*j_comp_out_0 + n_y*jumpv*j_comp_out_1) );
+                                                double n_dot_jump_v = 0.0;
+                                                for (int d=0; d<_ndim_requested; ++d) {
+                                                    n_dot_jump_v += n[d] * jumpv * (j_comp_out==d);
+                                                }
+                                                t_contribution += q_wt * pressure_coeff * avgp * n_dot_jump_v;
+                                                //t_contribution += q_wt * (
+                                                //      pressure_coeff * avgp * (n_x*jumpv*(j_comp_out==0) + n_y*jumpv*(j_comp_out==1)) );
                                             } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
                                                 if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
-                                                    contribution += q_wt * (
-                                                          pressure_coeff * avgq * (n_x*jumpu*k_comp_out_0 + n_y*jumpu*k_comp_out_1) );
+                                                    double n_dot_jump_u = 0.0;
+                                                    for (int d=0; d<_ndim_requested; ++d) {
+                                                        n_dot_jump_u += n[d] * jumpu * (k_comp_out==d);
+                                                    }
+                                                    t_contribution += q_wt * pressure_coeff * avgq * n_dot_jump_u;
+                                                    //t_contribution += q_wt * (
+                                                    //      pressure_coeff * avgq * (n_x*jumpu*(k_comp_out==0) + n_y*jumpu*(k_comp_out==1)) );
                                                 }
                                             }
                                         }
                                     }
                                 }
-                                compadre_assert_debug(contribution==contribution && "NaN encountered in contribution.");
-                            }
+                                compadre_assert_debug(t_contribution==t_contribution && "NaN encountered in t_contribution.");
+                            //}
+                            }, contribution);
+                            teamMember.team_barrier();
                         }
 
                         val_data[0] = contribution;
@@ -2021,7 +2346,9 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     //}
     //area = t_area;
     //perimeter = t_perimeter;
-    }, Kokkos::Sum<scalar_type>(area));
+    //}, Kokkos::Sum<scalar_type>(area));
+    });
+    Kokkos::fence();
         if ((_st_op || _mix_le_op) && _use_pinning) {
             // this is the pin for pressure
             if ((field_one==field_two) && (field_one==_pressure_field_id)) {
@@ -2119,7 +2446,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     //Teuchos::Ptr<scalar_type> global_perimeter_ptr(&global_perimeter);
     //Teuchos::reduceAll<int, scalar_type>(*(_cells->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, perimeter, global_perimeter_ptr);
     //if (_cells->getCoordsConst()->getComm()->getRank()==0) {
-    //    printf("GLOBAL PERIMETER: %.16f\n", global_perimeter);///((double)(num_interior_edges)));
+    //    printf("GLOBAL PERIMETER: %.16f\n", global_perimeter);///((double)(num_interior_sides)));
     //}
 
     TEUCHOS_ASSERT(!this->_A.is_null());

@@ -289,6 +289,51 @@ if (CompadreHarness_EXAMPLES)
         ADD_TEST(NAME REBAR_MixLE_Convergence_Test COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=mix_le" "--solution=sine" "--num-meshes=3" "--order=3" "--size=1.5" "--penalty=100.0")
         SET_TESTS_PROPERTIES(REBAR_MixLE_Convergence_Test PROPERTIES LABELS "rebar;REBAR;Rebar")
 
+
+
+
+
+
+
+
+        # L2 projection
+        ADD_TEST(NAME REBAR_L2_Exact_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=l2" "--solution=polynomial_2" "--num-meshes=1" "--penalty=1.0" "--order=2" "--size=1.0" "--convergence-type=exact" "--rate-tol=1e-11" "--dim=3" "--kokkos-threads=16")
+        SET_TESTS_PROPERTIES(REBAR_L2_Exact_Test_3D PROPERTIES LABELS "rebar;REBAR;Rebar")
+        ADD_TEST(NAME REBAR_L2_Convergence_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=l2" "--solution=sine" "--num-meshes=3" "--penalty=1.0" "--order=4" "--size=1.0" "--dim=3" "--kokkos-threads=16")
+        SET_TESTS_PROPERTIES(REBAR_L2_Convergence_Test_3D PROPERTIES LABELS "rebar;REBAR;Rebar")
+
+        # Reaction Diffusion
+        ADD_TEST(NAME REBAR_RD_Exact_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=rd" "--solution=polynomial_2" "--num-meshes=1" "--penalty=1.0" "--order=2" "--size=1.0" "--convergence-type=exact" "--rate-tol=1e-10" "--dim=3" "--kokkos-threads=16")
+        SET_TESTS_PROPERTIES(REBAR_RD_Exact_Test_3D PROPERTIES LABELS "rebar;REBAR;Rebar")
+        ADD_TEST(NAME REBAR_RD_Convergence_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=rd" "--solution=sine" "--num-meshes=3" "--penalty=1.0" "--order=2" "--size=1.0" "--dim=3" "--kokkos-threads=16")
+        SET_TESTS_PROPERTIES(REBAR_RD_Convergence_Test_3D PROPERTIES LABELS "rebar;REBAR;Rebar")
+
+        # Linear Elasticity
+        ADD_TEST(NAME REBAR_LE_Exact_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=le" "--solution=polynomial_2" "--num-meshes=1" "--order=2" "--size=1.0" "--convergence-type=exact" "--rate-tol=1e-11" "--penalty=100.0" "--dim=3" "--kokkos-threads=16")
+        SET_TESTS_PROPERTIES(REBAR_LE_Exact_Test PROPERTIES LABELS "rebar;REBAR;Rebar")
+        ADD_TEST(NAME REBAR_LE_Convergence_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=le" "--solution=sine" "--num-meshes=4" "--order=2" "--size=1.0" "--penalty=100.0" "--dim=3" "--kokkos-threads=16")
+        SET_TESTS_PROPERTIES(REBAR_LE_Convergence_Test PROPERTIES LABELS "rebar;REBAR;Rebar")
+
+        # Vector Laplacian
+        ADD_TEST(NAME REBAR_VL_Exact_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=vl" "--solution=polynomial_2" "--num-meshes=1" "--order=2" "--size=1.0" "--convergence-type=exact" "--rate-tol=1e-11" "--penalty=100.0" "--dim=3" "--kokkos-threads=16")
+        SET_TESTS_PROPERTIES(REBAR_VL_Exact_Test_3D PROPERTIES LABELS "rebar;REBAR;Rebar")
+        ADD_TEST(NAME REBAR_VL_Convergence_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=vl" "--solution=sine" "--num-meshes=3" "--order=4" "--size=1.0" "--penalty=100.0" "--dim=3" "--kokkos-threads=16")
+        SET_TESTS_PROPERTIES(REBAR_VL_Convergence_Test_3D PROPERTIES LABELS "rebar;REBAR;Rebar")
+
+        # Stokes Flow
+        ADD_TEST(NAME REBAR_ST_Exact_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=st" "--solution=divfree_polynomial_2" "--pressure-solution=polynomial_1" "--num-meshes=1" "--order=2" "--size=1.0" "--convergence-type=exact" "--rate-tol=1e-11" "--penalty=10.0" "--dim=3" "--kokkos-threads=16")
+        SET_TESTS_PROPERTIES(REBAR_ST_Exact_Test_3D PROPERTIES LABELS "rebar;REBAR;Rebar")
+        ADD_TEST(NAME REBAR_ST_Convergence_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=st" "--solution=divfree_sinecos" "--pressure-solution=polynomial_3" "--num-meshes=3" "--order=4" "--size=1.5" "--penalty=10.0" "--dim=3" "--kokkos-threads=16")
+        SET_TESTS_PROPERTIES(REBAR_ST_Convergence_Test_3D PROPERTIES LABELS "rebar;REBAR;Rebar")
+
+        # Mixed Linear Elasticity
+        ADD_TEST(NAME REBAR_MixLE_DivFree_Exact_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=mix_le" "--solution=divfree_polynomial_2" "--pressure-solution=polynomial_1" "--num-meshes=1" "--order=2" "--size=1.0" "--convergence-type=exact" "--rate-tol=1e-11" "--penalty=100.0" "--dim=3" "--kokkos-threads=16")
+        SET_TESTS_PROPERTIES(REBAR_MixLE_DivFree_Exact_Test_3D PROPERTIES LABELS "rebar;REBAR;Rebar")
+        ADD_TEST(NAME REBAR_MixLE_Exact_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=mix_le" "--solution=polynomial_2" "--pressure-solution=polynomial_1" "--num-meshes=1" "--order=2" "--size=1.0" "--convergence-type=exact" "--rate-tol=1e-11" "--penalty=100.0" "--dim=3" "--kokkos-threads=16")
+        SET_TESTS_PROPERTIES(REBAR_MixLE_Exact_Test_3D PROPERTIES LABELS "rebar;REBAR;Rebar")
+        ADD_TEST(NAME REBAR_MixLE_Convergence_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=mix_le" "--solution=sine" "--num-meshes=3" "--order=3" "--size=1.5" "--penalty=100.0" "--dim=3" "--kokkos-threads=16")
+        SET_TESTS_PROPERTIES(REBAR_MixLE_Convergence_Test_3D PROPERTIES LABELS "rebar;REBAR;Rebar")
+
     ENDIF()
     
     ## SHALLOW WATER TESTS

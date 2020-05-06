@@ -3,47 +3,32 @@ import sys
 import vtk
 import numpy as np
 from netCDF4 import Dataset
+import argparse
 
-# reads in netcdf files
-# all other fields copied exactly as they are to pvtp, pvtu, or vtk
-# default for coordinates is that they are stored in field variables 'x', 'y', and 'z' 
-# (can be modified with command line arguments)
+parser = argparse.ArgumentParser(description='reads in netcdf files\
+    all other fields copied exactly as they are to pvtp, pvtu, or vtk\
+    default for coordinates is that they are stored in field variables \'x\', \'y\', and \'z\'\
+    (can be modified with command line argumentstake diff of field on file1 and file2 and store in new-file')
 
-assert len(sys.argv) > 2, "Not enough input arguments"
+parser.add_argument('--file-in', dest='file_in', type=str, help='file in name')
+parser.add_argument('--file-out', dest='file_out', type=str, help='file out name')
+parser.add_argument('--binary', dest='to_binary', type=str, default='true', help='save to binary?')
+parser.add_argument('--xyz-type', dest='xyz_type', type=str, default='separate', help='{\'separate\',\'joint\'}')
+parser.add_argument('--xyz-name', dest='xyz_name', type=str, default='x', help='xyz_name (if xyz_joint chosen), or x name')
+parser.add_argument('--y-name', dest='y_name', type=str, default='y', help='y name (if xyz_separate chosen) or unused')
+parser.add_argument('--z-name', dest='z_name', type=str, default='z', help='z name (if xyz_separate chosen) or unused')
+parser.add_argument('--drop-fields-if-unrecognized', dest='drop_fields', type=str, default='false', help='allow to drop a field if data type is unrecognized')
+args = parser.parse_args()
 
-# choose how coordinates are layed out with xyz_type of 0) xyz_separate('x':x, 'y':y, 'z':z) or 1) xyz_joint('xyz':(x,y,z) 
-# argument 1: (string) file in name
-# argument 2: (string) file out name
-# argument 3: (bool) save to binary?
-# argument 3: (int) xyz_type
-# argument 4: (string) xyz_name (if xyz_joint chosen), or x name 
-# argument 5: (string) y name (if xyz_separate chosen) or unused
-# argument 6: (string) z name (if xyz_separate chosen) or unused
-
-
-file_in = ""
-file_out = ""
-to_binary = True
-xyz_type = 0
-x_name = "x"
-y_name = "y"
-z_name = "z"
-
-if (len(sys.argv) > 1):
-    file_in = sys.argv[1]
-if (len(sys.argv) > 2):
-    file_out = sys.argv[2]
-if (len(sys.argv) > 3):
-    to_binary = bool(sys.argv[3])
-if (len(sys.argv) > 4):
-    xyz_type = int(sys.argv[4])
-if (len(sys.argv) > 5):
-    x_name = sys.argv[5]
-if (len(sys.argv) > 6):
-    y_name = sys.argv[6]
-if (len(sys.argv) > 7):
-    z_name = sys.argv[7]
-
+file_in = args.file_in
+file_out = args.file_out
+to_binary = args.to_binary.lower()=="true"
+xyz_types = ['separate','joint']
+xyz_type = xyz_types.index(args.xyz_type)
+x_name = args.xyz_name
+y_name = args.y_name
+z_name = args.z_name
+drop_fields = args.drop_fields.lower()=="true"
 
 dataset = Dataset(file_in, "r", format="NETCDF4")
 dimensions = dataset.dimensions
@@ -110,6 +95,10 @@ def np_2_vtk_array(np_array):
         vtk_array = vtk.vtkLongLongArray()
     else:
         assert False, "Invalid dtype for np_array given to np_2_vtk_array."
+
+    if (np_array.size<2):
+        assert False, "No data or singe data value in field."
+
     
     if np_array.ndim < 2:
       vtk_array.SetNumberOfComponents(1)
@@ -122,9 +111,13 @@ def np_2_vtk_array(np_array):
     return vtk_array
 
 for field in fields:
-    vtk_array = np_2_vtk_array(fields[field])
-    vtk_array.SetName(field)
-    pointdata.AddArray(vtk_array)
+    try:
+        vtk_array = np_2_vtk_array(fields[field])
+        vtk_array.SetName(field)
+        pointdata.AddArray(vtk_array)
+    except Exception as e:
+        if not drop_fields:
+            raise e
 
 # get ending of input filename
 filename, file_extension = os.path.splitext(file_out)
@@ -146,7 +139,9 @@ polydata.Modified()
 
 writer.SetInputData(polydata)
 writer.SetFileName(file_out)
-#if to_binary:
-#    writer.SetFileTypeToBinary()
+if to_binary:
+    writer.SetDataModeToBinary()
+else:
+    writer.SetDataModeToAscii()
 writer.Update()
 writer.Write()

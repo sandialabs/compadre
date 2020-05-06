@@ -34,7 +34,6 @@
     <Parameter name="input dimensions" type="int" value="2"/>
     <Parameter name="input file prefix" type="string" value="../test_data/grids/"/>
     <Parameter name="input file" type="string" value="dg_0.nc"/>
-    <Parameter name="input dimensions" type="int" value="2" />
     <Parameter name="output file prefix" type="string" value="../test_data/"/>
     <Parameter name="output file" type="string" value="dg_out.nc"/>
     <Parameter name="preserve gids" type="bool" value="true"/>

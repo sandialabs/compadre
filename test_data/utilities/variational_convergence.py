@@ -11,6 +11,8 @@ parser = argparse.ArgumentParser(description='Run convergence tests and calculat
 parser.add_argument('--num-meshes', dest='num_meshes', type=int, default=3, nargs='?', help='number of meshes')
 parser.add_argument('--order', dest='order', type=int, nargs='?', default=2, help='polynomial order for basis')
 parser.add_argument('--pressure-order', dest='pressure_order', type=int, nargs='?', default=-1, help='polynomial order for pressure basis')
+parser.add_argument('--dim', dest='dim', type=int, nargs='?', default=2, help='spatial dimension of problem')
+parser.add_argument('--kokkos-threads', dest='kokkos_threads', type=int, nargs='?', default=4, help='threads for kokkos')
 
 parser.add_argument('--shear', dest='shear', type=float, nargs='?', default=1.0, help='shear modulus')
 parser.add_argument('--lambda', dest='lambda_lame', type=float, nargs='?', default=1.0, help='lambda coefficient')
@@ -37,7 +39,10 @@ if args.pressure_order<0:
     args.pressure_order = args.order-1 # Taylor-Hood style velocity+pressure pair
 
 
-file_names = ["dg_%d.nc"%num for num in range(args.num_meshes)]
+if (args.dim==2):
+    file_names = ["dg_%d.nc"%num for num in range(args.num_meshes)]
+else:
+    file_names = ["cube_%d.nc"%num for num in range(args.num_meshes)]
 error_types=['vel. l2','vel. h1','vel. jp','vel. sum','pr. l2']
 all_errors = [list(), list(), list(), list(), list(), list(), list()]#list() * len(error_types)
 
@@ -62,6 +67,8 @@ for key2, fname in enumerate(file_names):
     for item in list(f):
         if (item.attrib['name']=="input file"):
             item.attrib['value']=fname
+        if (item.attrib['name']=="input dimensions"):
+            item.attrib['value']=str(args.dim)
 
     for item in list(n):
         if (item.attrib['name']=="size"):
@@ -99,7 +106,7 @@ for key2, fname in enumerate(file_names):
     
     with open(os.devnull, 'w') as devnull:
 
-        commands = ["./reactionDiffusion.exe","--i=../test_data/parameter_lists/reactiondiffusion/parameters_generated.xml","--kokkos-threads=8"]
+        commands = ["./reactionDiffusion.exe","--i=../test_data/parameter_lists/reactiondiffusion/parameters_generated.xml","--kokkos-threads=%s"%(args.kokkos_threads,)]
         print(" ".join(commands))
         try:
             output = subprocess.check_output(commands, stderr=devnull).decode()
