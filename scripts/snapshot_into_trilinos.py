@@ -221,7 +221,7 @@ def test_create_snapshot_dir_args():
     dest = "to_there"
     args = create_snapshot_dir_args(orig, dest)
     expected = (f"--orig-dir {orig}/ --dest-dir {dest}/ --exclude kokkos "
-                "kokkos-kernels python scripts cmake/bob.cmake "
+                "kokkos-kernels python scripts "
                 "cmake/detect_trilinos_opts.cmake "
                 "examples/Python_3D_Convergence.py.in "
                 "--clean-ignored-files-orig-dir")
