@@ -31,6 +31,9 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     bool _st_op = _physics->_st_op;
     bool _mix_le_op = _physics->_mix_le_op;
 
+    bool _use_sip = _physics->_use_sip;
+    bool _use_vms = _physics->_use_vms;
+
     int _velocity_field_id = _physics->_velocity_field_id;
     int _pressure_field_id = _physics->_pressure_field_id;
     int _lagrange_field_id = _physics->_lagrange_field_id;
@@ -182,7 +185,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                             } else if (_le_op) {
                                 auto exact = velocity_function->evalVector(pt);
 
-                                //if (use_VMS) {
+                                if (_use_vms) {
                                     int current_edge_num_in_current_cell = (qn - num_interior_quadrature)/num_exterior_quadrature_per_edge;
                                     Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_edge(_ndim_requested, _ndim_requested);
                                     Teuchos :: SerialDenseSolver <local_index_type, scalar_type> vmsdg_solver;
@@ -197,9 +200,9 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                     double vmsBCfactor = 2.0;
                                     contribution += q_wt * v * vmsBCfactor * ( tau_edge(comp, 0) * velocity_function->evalScalar(pt, 0) + 
                                                                                tau_edge(comp, 1) * velocity_function->evalScalar(pt, 1) );
-                                //} else if (use_SIP) {
-                                //    contribution += penalty * q_wt * v * exact[comp];
-                                //}
+                                } else if (_use_sip) {
+                                    contribution += penalty * q_wt * v * exact[comp];
+                                }
                 
                                 contribution -= q_wt * (
                                       2 * _physics->_shear * (n_x*v_x*(comp==0) + 0.5*n_y*(v_y*(comp==0) + v_x*(comp==1))) * exact[0]  

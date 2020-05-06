@@ -84,6 +84,8 @@ class ReactionDiffusionPhysics : public PhysicsT {
         bool _mix_le_op;
         bool _use_pinning;
         bool _use_lm;
+        bool _use_sip;
+        bool _use_vms;
 
         local_index_type _velocity_field_id;
         local_index_type _pressure_field_id;
@@ -119,6 +121,8 @@ class ReactionDiffusionPhysics : public PhysicsT {
             _mix_le_op = false;
             _use_pinning = true;
             _use_lm = false;
+            _use_sip = false;
+            _use_vms = false;
             _velocity_field_id = -1;
             _pressure_field_id = -1;
             _lagrange_field_id = -1;

@@ -263,18 +263,6 @@ void ReactionDiffusionPhysics::initialize() {
     _weights_ndim = num_triangle_cub_points + num_triangle_edges*(num_line_cub_points);
 
     
-    //std::cout << physical_line_cub_points[0] << std::endl;
-    //std::cout << physical_line_cub_points[1] << std::endl;
-    //std::cout << physical_line_cub_points[2] << std::endl;
-
-
-
-
-
-
-
-
-
 
     
     // Compute Jacobian Inverse (needed to compute gradients wrt physical coords)
@@ -1198,7 +1186,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                     }
                 }
             }
-
             // not yet set up for MPI
             //for (int q=0; q<_weights_ndim; ++q) {
             //    if (q>=num_interior_quadrature) {
@@ -1656,7 +1643,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     
                                 }
                                 else if (q_type==0)  { // edge on interior
-                                    const double adjacent_cell_local_index_q = adjacent_cell_local_index[qn];  //MA: why double? ### 
+                                    const double adjacent_cell_local_index_q = adjacent_cell_local_index[qn];
                                     //int current_edge_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
                                     //int adjacent_cell_local_index = (int)(adjacent_elements(i, current_edge_num));
 
