@@ -366,7 +366,6 @@ scalar_type SineProducts::evalScalar(const xyz_type& xyzIn, const local_index_ty
 
 xyz_type SineProducts::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp) const {
     if (_dim==3) {
-        TEUCHOS_ASSERT(input_comp==0);
         if (input_comp==0) {
             return xyz_type(cos(xyzIn.x)*sin(xyzIn.y)*sin(xyzIn.z),
                             sin(xyzIn.x)*cos(xyzIn.y)*sin(xyzIn.z),
