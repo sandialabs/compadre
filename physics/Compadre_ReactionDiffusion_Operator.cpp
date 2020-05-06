@@ -9,8 +9,6 @@
 #include <Compadre_MultiJumpNeighborhood.hpp>
 #include <Compadre_XyzVector.hpp>
 
-#include <Teuchos_SerialDenseMatrix.hpp>
-#include <Teuchos_SerialDenseSolver.hpp>
 #include <Compadre_GMLS.hpp>
 
 #ifdef TRILINOS_DISCRETIZATION
@@ -180,7 +178,6 @@ void ReactionDiffusionPhysics::initialize() {
     Intrepid::FieldContainer<double> triangle_cub_weights(num_triangle_cub_points);
     triangle_cubature->getCubature(triangle_cub_points, triangle_cub_weights);
 
-
     Intrepid::FieldContainer<double> triangle_nodes(num_cells_local, num_triangle_nodes, triangle_dim);
     //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
     for (int i=0; i<num_cells_local; ++i) {
@@ -250,7 +247,6 @@ void ReactionDiffusionPhysics::initialize() {
                                                                  i,
                                                                  triangle);
     }
-
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), KOKKOS_LAMBDA(const int i) {
         for (int j=0; j<num_triangle_edges; ++j) {
             double vector_norm = 0;
@@ -280,83 +276,6 @@ void ReactionDiffusionPhysics::initialize() {
 
 
 
-
-
-
-
-    //############################################################################################
-    //
-    //  MA BEGIN INTREPID
-    //  MA NOTE: INSERT Intrepid calls for tau computation 
-    //
-    //############################################################################################
-    // For reference example on Intrepid see https://docs.trilinos.org/dev/packages/intrepid/doc/html/index.html
-    // Also see https://cfwebprod.sandia.gov/cfdocs/CompResearch/docs/intrepid_sp_main.pdf
-    // Links to documentation of relevant Intrepid Classes:
-    // FieldContainer: https://docs.trilinos.org/dev/packages/intrepid/doc/html/classIntrepid_1_1FieldContainer.html
-    // Basis (HGRA_TRI_C2 used here): https://docs.trilinos.org/dev/packages/intrepid/doc/html/classIntrepid_1_1Basis__HGRAD__TRI__C2__FEM.html
-    // FunctionSpaceTools: https://docs.trilinos.org/dev/packages/intrepid/doc/html/classIntrepid_1_1FunctionSpaceTools.html
-    // CellTools: https://docs.trilinos.org/dev/packages/intrepid/doc/html/classIntrepid_1_1CellTools.html   
-    //
-    // *** Some useful variables already defined by Paul ***
-    // num_cells_local: number of cells (for multiple MPI processes, it is num of cells in this process)
-    // triangle_dim: number of spatial dimensions of cell (for triangles=2)
-    // num_triangle_nodes: number of cell vertices
-    // num_triangle_cub_points: number of cubature points for triangle
-    // triangle_cub_points(num_triangle_cub_points, triangle_dim): cubature points in reference coords
-    // triangle_cub_weights(num_triangle_cub_points): cubature weights (for reference domain)
-    // physical_triangle_cub_weights(num_triangle_cub_points): cubature weights (for physical domain)
-    // physical_triangle_cub_points(num_cells_local, num_triangle_cub_points, triangle_dim): cubature points in physical coords
-    // triangle_nodes(num_cells_local, num_triangle_nodes, triangle_dim):  vertices coords for all cells
-    
-    // Declare some temp variables for testing below 
-    double junk;
-    int temprank;
-    
-    // MA TEMP: first test and try printing some info from shards and Intrepid to get familiar **********
-    // Operations with FieldContainer Arrays
-    //Intrepid::FieldContainer<double> myField1(3,3,3); // create a 3x3x3 MDarray, initialized to zero
-    //Intrepid::FieldContainer<double> myField2(3,3,3); // create a 3x3x3 MDarray, initialized to zero
-    //Intrepid::FieldContainer<double> myField3(3,3,3); // create a 3x3x3 MDarray, initialized to zero
-    //myField1.initialize(2.5); //set all entries to 2.5
-    //myField2.initialize(3.0);
-    //double valf1 = myField1(1,2,0);
-    //double valf2 = myField1[6];
-    //int mysize = myField1.size();   
-    //std::cout << "MAprint valf1=" << valf1 << " "  << valf2 << std::endl;
-    //std::cout << "MAprint size=" << mysize << std::endl;
-    ////myField1 = myField1 + myField2; //This does not work! Add with a loop
-    //for (int k = 0; k < mysize; ++k){
-    //    myField1[k] = myField1[k] + myField2[k];
-    //}
-    //valf1 = myField1[6];
-    //std::cout << "MAprint valf1=" << valf1 << std::endl;
-    //const bool rd_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="rd");
-    //const bool le_op = (_parameters->get<Teuchos::ParameterList>("physics").get<std::string>("operator")=="le");
-    //std::cout << "MAprint rd_op=" << rd_op << std::endl;
-    //std::cout << "MAprint le_op=" << le_op << std::endl;
-    //std::cout << "MAprint diffusion=" << _diffusion << std::endl;
-    //std::cout << "MAprint shear=" << _shear << std::endl;
-    // END TEMP **************************************************************************************
-    
-
-    // MA Intrepid Integration over cell INTERIORS ###############################################
-    // *** Some useful Intrepid commands/quantities from above (by Paul) ***
-    //Intrepid::FieldContainer<double> triangle_jacobian(num_cells_local, num_triangle_cub_points, triangle_dim, triangle_dim);
-    //Intrepid::FieldContainer<double> triangle_jacobian_det(num_cells_local, num_triangle_cub_points);
-    //Intrepid::FieldContainer<double> physical_triangle_cub_points(num_cells_local, num_triangle_cub_points, triangle_dim);
-    //Intrepid::FieldContainer<double> physical_triangle_cub_weights(num_cells_local, num_triangle_cub_points);
-    //Intrepid::CellTools<double>::setJacobian(triangle_jacobian, triangle_cub_points, triangle_nodes, triangle);
-    //Intrepid::CellTools<double>::setJacobianDet(triangle_jacobian_det, triangle_jacobian);
-    //Intrepid::FunctionSpaceTools::computeCellMeasure<double>(physical_triangle_cub_weights,
-    //                                                         triangle_jacobian_det,
-    //                                                         triangle_cub_weights);
-    //Intrepid::CellTools<scalar_type>::mapToPhysicalFrame(physical_triangle_cub_points,
-    //                                                     triangle_cub_points,
-    //                                                     triangle_nodes,
-    //                                                     triangle,
-    //                                                     -1);
-    // *** end of list ***
     
     // Compute Jacobian Inverse (needed to compute gradients wrt physical coords)
     Intrepid::FieldContainer<double> triangle_jacobian_inv(num_cells_local, num_triangle_cub_points, triangle_dim, triangle_dim); //allocate
@@ -392,31 +311,23 @@ void ReactionDiffusionPhysics::initialize() {
     Intrepid::FieldContainer<double> basis_T6_values_pow_m1(num_basis_functions, num_triangle_cub_points); //allocate mod. vals.
     //parallelize? (maybe compiler vectorizes loop already)
     for (int k = 0; k < size_basis_T6_values; ++k) {
-	basis_T6_values_pow_m1[k] = std::pow(basis_T6_values[k], bub_pow - 1.0); //raise to bub_pow-1
+        basis_T6_values_pow_m1[k] = std::pow(basis_T6_values[k], bub_pow - 1.0); //raise to bub_pow-1
     }
     
-    // MA CHECK fine scale basis for when exponent is 2.0
-    //double junk = 0.0;
-    //for (int k = 0; k < size_basis_T6_values; ++k){
-    // 	junk += basis_T6_values_pow_m1[k] - basis_T6_values[k]; 	
-    //}
-    //std::cout << "MAprint basis exponent check = " << junk << std::endl;
-   
-
     // GRAD of modified bubble (using chain rule): product nb^(n-1)*grad(b)
     // Did not find a "field-field" multiply capability in Intrepid FunctionSpaceTools. Use a loop. 
     Intrepid::FieldContainer<double> physical_basis_T6_grad_pow(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate 
     Intrepid::FieldContainer<double> physical_basis_T6_grad_pow_weighted(num_cells_local, num_basis_functions, num_triangle_cub_points, triangle_dim); //allocate
     //parallelize
     for (int k1 = 0; k1 < num_cells_local; ++k1) {
-	for (int k2 = 0; k2 < num_basis_functions; ++k2){
+        for (int k2 = 0; k2 < num_basis_functions; ++k2){
             for (int k3 = 0; k3 < num_triangle_cub_points; ++k3) {
-		for (int k4 = 0; k4 < triangle_dim; ++k4) {
-		    physical_basis_T6_grad_pow(k1, k2, k3, k4) = bub_pow * basis_T6_values_pow_m1(k2, k3) * physical_basis_T6_grad(k1, k2, k3, k4); //multiply 
-		    physical_basis_T6_grad_pow_weighted(k1, k2, k3, k4) = bub_pow * basis_T6_values_pow_m1(k2, k3) * physical_basis_T6_grad_weighted(k1, k2, k3, k4); //multiply
-		}
-	    }
-	}
+                for (int k4 = 0; k4 < triangle_dim; ++k4) {
+                    physical_basis_T6_grad_pow(k1, k2, k3, k4) = bub_pow * basis_T6_values_pow_m1(k2, k3) * physical_basis_T6_grad(k1, k2, k3, k4); //multiply 
+                    physical_basis_T6_grad_pow_weighted(k1, k2, k3, k4) = bub_pow * basis_T6_values_pow_m1(k2, k3) * physical_basis_T6_grad_weighted(k1, k2, k3, k4); //multiply
+                }
+            }
+        }
     }
 
     // 'Standard' Stiffness Matrices (may be unnecessary, and may be deprecated some day) 
@@ -428,130 +339,40 @@ void ReactionDiffusionPhysics::initialize() {
  
     // Use vector of FieldContainers, each vector entry corresponds to a finse-scale basis function. (sep: separated)
     std::vector<Intrepid::FieldContainer<double> > sep_physical_basis_T6_grad_pow(num_basis_functions, 
-		Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, num_triangle_cub_points));
+            Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, num_triangle_cub_points));
     
     std::vector<Intrepid::FieldContainer<double> > sep_physical_basis_T6_grad_pow_weighted(num_basis_functions, 
-	        Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, num_triangle_cub_points) );
+            Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, num_triangle_cub_points) );
     
     // Restructure arrays
     // some day, loop over only basis functions (k2) associated to edges
     // parallelize (be careful with index reordering)
     for (int k1 = 0; k1 < num_cells_local; ++k1) {
-	for (int k2 = 0; k2 < num_basis_functions; ++k2){
+        for (int k2 = 0; k2 < num_basis_functions; ++k2){
             for (int k3 = 0; k3 < num_triangle_cub_points; ++k3) {
-		for (int k4 = 0; k4 < triangle_dim; ++k4) {
-		    sep_physical_basis_T6_grad_pow[k2](k1, k4, k3) = physical_basis_T6_grad_pow(k1, k2, k3, k4);
-		    sep_physical_basis_T6_grad_pow_weighted[k2](k1, k4, k3) = physical_basis_T6_grad_pow_weighted(k1, k2, k3, k4);
-		}
-	    }
-	}
+                for (int k4 = 0; k4 < triangle_dim; ++k4) {
+                    sep_physical_basis_T6_grad_pow[k2](k1, k4, k3) = physical_basis_T6_grad_pow(k1, k2, k3, k4);
+                    sep_physical_basis_T6_grad_pow_weighted[k2](k1, k4, k3) = physical_basis_T6_grad_pow_weighted(k1, k2, k3, k4);
+                }
+            }
+        }
     }
 
     // Compute ndim x ndim matrices: integral (db/dxi * db/dxj)
     std::vector<Intrepid::FieldContainer<double> > sep_grad_grad_mat_integrals(num_basis_functions,
-    		Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, triangle_dim) ); //allocate
+            Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, triangle_dim) ); //allocate
     
     // could parallelize loop
     for (int k = 0; k < num_basis_functions; ++k) {
-        Intrepid::FunctionSpaceTools::operatorIntegral<double>(sep_grad_grad_mat_integrals[k],
-	          sep_physical_basis_T6_grad_pow[k], sep_physical_basis_T6_grad_pow_weighted[k], Intrepid::COMP_CPP); //integrate
+        Intrepid::FunctionSpaceTools::operatorIntegral<double>(sep_grad_grad_mat_integrals[k], sep_physical_basis_T6_grad_pow[k], 
+                                                               sep_physical_basis_T6_grad_pow_weighted[k], Intrepid::COMP_CPP); //integrate
     }
 
-    // **** TESTS ****
-    //temprank = sep_grad_grad_mat_integrals[0].rank();
-    //std::cout << "MAprint grad grad rank= "<< temprank << std::endl;
-    //for (int k = 0; k < temprank; ++k) {
-    //    int sizedim = sep_grad_grad_mat_integrals[0].dimension(k);
-    //    std::cout << "MAprint grad grad dim = " << k << " size = "<< sizedim << std::endl;
-    //}
-    // *** END ****
-
-    // MA CHECK equivalency of integrals
-    //junk = 0.0;
-    //for (int k1 = 0; k1 < num_cells_local; ++k1) {
-    //    for (int k2 = 0; k2 < num_basis_functions; ++k2) {
-    //	      double temptrace = 0.0;
-    //        for (int k3 =0; k3 < triangle_dim; ++k3) {
-    //	          temptrace += sep_grad_grad_mat_integrals[k2](k1, k3, k3);
-    //	      }
-    //	      junk += std::abs(temptrace - Stiff_Matrices_pow(k1, k2, k2));
-    //    }
-    //}
-    //std::cout << "MA test intrepid integrals eq: " << junk << std::endl;
-    //std::cout << "MA ref value for test Kmat[0,0] for element 0: " << Stiff_Matrices_pow(0, 0, 0) 
-    //          << " for edge bub: " << Stiff_Matrices_pow(0, 3, 3) << std::endl;
-
-    // MA END Intrepid Integration over cell INTERIORS ###############################################
-
-
-
-
-
-    // MA Intrepid Integration over cell EDGES ##############################################
-    //
-    // *** Some useful qunatities defined above (by Paul) *** 
-    //
-    //shards::CellTopology line = shards::getCellTopologyData< shards::Line<> >();
-    //int num_line_nodes = line.getNodeCount();
-    //Teuchos::RCP<Intrepid::Cubature<double> > line_cubature = cubature_factory.create(line, cubature_degree);
-    //int num_line_cub_points = line_cubature->getNumPoints();
-    //int line_dim = line.getDimension();
-    //Intrepid::FieldContainer<double> line_cub_points_1d(num_line_cub_points, line_dim);
-    //Intrepid::FieldContainer<double> line_cub_weights(num_line_cub_points);
-    //line_cubature->getCubature(line_cub_points_1d, line_cub_weights); 
-    //
-    //std::vector<Intrepid::FieldContainer<double> > line_cub_points_2d(num_triangle_edges, Intrepid::FieldContainer<double>(num_line_cub_points, triangle_dim));
-    //for (int i=0; i<num_triangle_edges; ++i) {
-    //    Intrepid::CellTools<double>::mapToReferenceSubcell(line_cub_points_2d[i],
-    //                                                       line_cub_points_1d,
-    //                                                       line_dim,
-    //                                                       i,
-    //                                                       triangle);
-    //}
-    //
-    //std::vector<Intrepid::FieldContainer<double> > line_jacobian(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim, triangle_dim));
-    //std::vector<Intrepid::FieldContainer<double> > physical_line_cub_weights(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points));
-    //std::vector<Intrepid::FieldContainer<double> > physical_line_cub_points(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim));
-    //std::vector<Intrepid::FieldContainer<double> > edge_normals(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim));
-    //Kokkos::View<double***, Kokkos::HostSpace> edge_unit_normals("edge unit normals", num_cells_local, num_triangle_edges, triangle_dim);
-    //std::vector<Intrepid::FieldContainer<double> > edge_unit_normals_int(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local, num_line_cub_points, triangle_dim));
-    //for (int i=0; i<num_triangle_edges; ++i) {
-    //    Intrepid::CellTools<double>::setJacobian(line_jacobian[i], line_cub_points_2d[i], triangle_nodes, triangle);
-    //    Intrepid::FunctionSpaceTools::computeEdgeMeasure<double>(physical_line_cub_weights[i],
-    //                                                             line_jacobian[i],
-    //                                                             line_cub_weights,
-    //                                                             i,
-    //                                                             triangle);
-    //    Intrepid::CellTools<scalar_type>::mapToPhysicalFrame(physical_line_cub_points[i],
-    //                                                         line_cub_points_2d[i],
-    //                                                         triangle_nodes,
-    //                                                         triangle,
-    //                                                         -1);
-    //    Intrepid::CellTools<scalar_type>::getPhysicalSideNormals(edge_normals[i],
-    //                                                             line_jacobian[i],
-    //                                                             i,
-    //                                                             triangle);
-    //}
-    // *** end list ***
-    
-    // MA CHECK check coords of line cubatures
-    //std::cout << "ma line dim= " << line_dim  << std::endl;
-    //for (int k = 0; k < num_line_cub_points; ++k) {
-    //	std::cout << "ma line cub pt " << line_cub_points_1d(k, 0) << std::endl;
-    //}
-
-    // MA CHECK line_cub_points_2d contains the cub sites for the edges in ref Triangle coords
-    //for (int i = 0; i < num_triangle_edges; ++i) {
-    //	for (int k = 0; k < num_line_cub_points; ++k) {
-    //	    std::cout << "in edge i=" << i << ", cub pt=" << k << ", coords:" << line_cub_points_2d[i](k, 0) << ", " <<line_cub_points_2d[i](k, 1) <<std::endl;
-    //	}
-    //}
-    
     // VALUES at EDGE CUB PTS
     std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values(num_triangle_edges, Intrepid::FieldContainer<double>(num_basis_functions, num_line_cub_points) ); //allocate 
     //parallelize? (small loop, maybe compiler already vectorices)
     for (int i=0; i<num_triangle_edges; ++i) {
-        basis_T6.getValues(basis_T6_edge_values[i], line_cub_points_2d[i], Intrepid::OPERATOR_VALUE);	
+        basis_T6.getValues(basis_T6_edge_values[i], line_cub_points_2d[i], Intrepid::OPERATOR_VALUE);    
     }
     
     // Modify bubble (raise to power)
@@ -559,16 +380,16 @@ void ReactionDiffusionPhysics::initialize() {
     int size_basis_T6_edge_values_1 = num_basis_functions * num_line_cub_points;
     //parallelize (maybe compiler already unrolls and vectorizes)
     for (int i=0; i<num_triangle_edges; ++i) {
-	for (int k=0; k<size_basis_T6_edge_values_1; ++k) {
+    for (int k=0; k<size_basis_T6_edge_values_1; ++k) {
             basis_T6_edge_values_pow[i][k] = std::pow(basis_T6_edge_values[i][k], bub_pow); //exponentiate: (we start with quadratic bubble, then raised to a power to make order higher than underlying GMLS)
-	}
+    }
     }
     
     //Multiply CUB WEIGHTS
     //side note: FunctionSpaceTools::multiplyMeasure is a wrappper for FunctionSpaceTools::scalarMultiplyDataField
     //target field container can be indexed as (C,F,P) or just as (F,P) (the latter applies here) 
     std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow_weighted(num_triangle_edges,
-		Intrepid::FieldContainer<double>(num_cells_local, num_basis_functions, num_line_cub_points) ); //allocate 
+        Intrepid::FieldContainer<double>(num_cells_local, num_basis_functions, num_line_cub_points) ); //allocate 
     for (int i=0; i<num_triangle_edges; ++i) {
         Intrepid::FunctionSpaceTools::multiplyMeasure<double>(basis_T6_edge_values_pow_weighted[i], physical_line_cub_weights[i], basis_T6_edge_values_pow[i]); //multiply
     }
@@ -584,104 +405,17 @@ void ReactionDiffusionPhysics::initialize() {
     std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow_integrated(num_triangle_edges,
                 Intrepid::FieldContainer<double>(num_cells_local, num_basis_functions) ); //allocate 
     for (int i=0; i<num_triangle_edges; ++i) {
-	    Intrepid::FunctionSpaceTools::functionalIntegral<double>(basis_T6_edge_values_pow_integrated[i],
+        Intrepid::FunctionSpaceTools::functionalIntegral<double>(basis_T6_edge_values_pow_integrated[i],
                                           ones_for_edge_integration[i], basis_T6_edge_values_pow_weighted[i], Intrepid::COMP_CPP); //integrate
     }
-
-    // MA CHECK
-    //for (int k=0; k < num_cells_local; ++k){
-    //    for (int i=0; i<num_triangle_edges; ++i) {
-    //	      std::cout << "cell " << k << " edge " << i << " integrals:";
-    //        for (int j = 0; j < num_basis_functions; ++j) {
-    //            std::cout << " " << basis_T6_edge_values_pow_integrated[i](k, j);
-    //	      }
-    //	      std::cout << std::endl;
-    //    }
-    //}
 
     //Edge Lengths (Measures)
     std::vector<Intrepid::FieldContainer<double> > triangle_edge_lengths(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local) ); //allocate
     
-    // Approach 1: use FunctionSpaceTools:dataIntegral
+    // use FunctionSpaceTools:dataIntegral
     for (int i=0; i<num_triangle_edges; ++i) {
         Intrepid::FunctionSpaceTools::dataIntegral<double>(triangle_edge_lengths[i], ones_for_edge_integration[i], physical_line_cub_weights[i], Intrepid::COMP_CPP); //integrate
     }
-    
-    // Aproach 2: sum weights. DEPRECATE, may be more efficient to contract indices using Intrepid (and already have array of ones) 
-    //std::vector<Intrepid::FieldContainer<double> > triangle_edge_lengths_alt(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local) ); // this is already initialized by 0
-    //for (int i=0; i<num_triangle_edges; ++i) {
-    //    for (int k=0; k<num_cells_local; ++k) {
-    //        for (int j=0; j<num_line_cub_points; ++j) {
-    //            triangle_edge_lengths_alt[i](k) += physical_line_cub_weights[i](k, j);
-    //        }
-    //    }
-    //}
-    
-    //MA CHECK equivalency of integrals
-    //junk = 0.0;
-    //for (int i=0; i<num_triangle_edges; ++i) {
-    //    for (int k=0; k<num_cells_local; ++k) {
-    //        junk += std::abs( triangle_edge_lengths[i](k) - triangle_edge_lengths_alt[i](k)  );
-    //        std::cout << "elem: " << k << " edge: " << i << " length: "  << triangle_edge_lengths_alt[i](k) << std::endl;
-    //    }
-    //}
-    //std::cout << "ma print check edge length integrals equivalency: " << junk << std::endl;
-
-    // MA END Intrepid Integration over cell EDGES ###############################################
-    
-    
-    // **** TESTS ****
-    //int rankbasisvals = basis_T6_values.rank();
-    //std::cout << "MAprint rank= "<< rankbasisvals << std::endl;
-    //for (int k = 0; k < rankbasisvals; ++k) {
-    //    int sizedim = basis_T6_values.dimension(k);
-    //    std::cout << "MAprint dim = " << k << " size = "<< sizedim << std::endl;
-    //}
-    //int rankcubpts = triangle_cub_points.rank();
-    //std::cout << "MAprint rank cub pts= "<< rankcubpts << std::endl;
-    //for (int k = 0; k < rankcubpts; ++k) {
-    //    int sizedim = triangle_cub_points.dimension(k);
-    //    std::cout << "MAprint cub pts dim = " << k << " size = "<< sizedim << std::endl;
-    //}
-    // 
-    //std::cout << "x,y,val" << std::endl;
-    //for (int k = 0; k < num_triangle_cub_points; ++k) {
-    //    int dof = 3;
-    //    double x = triangle_cub_points(k,0);
-    //    double y = triangle_cub_points(k,1);
-    //    double val = basis_T6_values(dof, k);
-    //    std::cout << k << "," << dof << std::endl;
-    //    std::cout << x << "," << y << ","<< val << std::endl;
-    //}
-    // **** END TESTS ****
-    
-
-    //###########################################################################################
-    // MA NOTE: list of quantities computed above that are needed for tau
-    //
-    // 1. sep_grad_grad_mat_integrals
-    // 2. basis_T6_edge_values_pow_integrated
-    // 3. triangle_edge_lengths
-    //
-    // see below for their type and dimensions:
-    //std::vector<Intrepid::FieldContainer<double> > sep_grad_grad_mat_integrals(num_basis_functions,
-    //		  Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, triangle_dim) ); 
-    //std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow_integrated(num_triangle_edges,
-    //            Intrepid::FieldContainer<double>(num_cells_local, num_basis_functions) ); 
-    //std::vector<Intrepid::FieldContainer<double> > triangle_edge_lengths(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local) );
-    //
-    //############################################################################################
-    //
-    //  MA END INTREPID
-    //
-    //############################################################################################
-
-
-
-
-
-
-
 
 
 
@@ -1003,153 +737,50 @@ void ReactionDiffusionPhysics::initialize() {
     auto num_edges = adjacent_elements.extent(1);
     _tau = Kokkos::View<double****, Kokkos::HostSpace>("tau", num_cells_local, num_edges, _ndim_requested, _ndim_requested);
 
-
-    //############################################################################################
-    //
-    //  MA BEGIN Tau Computation
-    //
-    //############################################################################################ 
-    //  MA NOTES:
-    //  * _tau Kokkos::view could be restructured to have dim num_edges and num_cells_local in rank 1 and rank 2, respectively.
-    //      (would it help)? 
-    //  * Use quantities computed with Intrepid above
-    //  * Tau computed here is for every edge, from each element
-    //  * tau^(e)_s is a quantitiy associated with edge s (from the set of all edges) and element e
-    //  (in 2D there are only two options for e, only to elements associated with edge s, one at either side).
-    //
-    //############################################################################################
-    // USEFUL:
-    //
-    //std::vector<Intrepid::FieldContainer<double> > sep_grad_grad_mat_integrals(num_basis_functions,
-    //		  Intrepid::FieldContainer<double>(num_cells_local, triangle_dim, triangle_dim) ); 
-    //std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow_integrated(num_triangle_edges,
-    //            Intrepid::FieldContainer<double>(num_cells_local, num_basis_functions) ); 
-    //std::vector<Intrepid::FieldContainer<double> > triangle_edge_lengths(num_triangle_edges, Intrepid::FieldContainer<double>(num_cells_local) );
-    //____________________________________________________________________________________________
-
-
-    //MA TEST: intuition with _tau kokos view
-    // Accessing entries of _tau
-    //junk = _tau(0,0,0,0);
-    //std::cout << "ma check _tau(0,0,0,0)= " << junk << std::endl;
-    //
-    //_tau(0,0,0,0) = 2.5;
-    //junk = _tau(0,0,0,0);
-    //std::cout << "ma check _tau(0,0,0,0)= " << junk << std::endl;
-
     //Forming matrix Amat (for scalar problem, it is a scalar)
     Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> Amat(_ndim_requested, _ndim_requested);
     Teuchos :: SerialDenseSolver <local_index_type, scalar_type> Amat_solver;
     
     //could parallelize outer two loops
     for (int i = 0; i < num_triangle_edges; ++i) {
-	
-	int edge_ordinal = i + 3; // this selects the "edge bubble" function associated with the corresponding edge
-        
-	for (int k = 0; k < num_cells_local; ++k) {
-	    
+    
+        int edge_ordinal = i + 3; // this selects the "edge bubble" function associated with the corresponding edge
+            
+        for (int k = 0; k < num_cells_local; ++k) {
+            
             Amat.putScalar(0.0);
 
             //First, compute auxiliary quantity: inner product of bubble gradient with itself
-	    double grad_bub_2;
-	    grad_bub_2 = 0.0;
-	    for (int j1 = 0; j1 < _ndim_requested; ++j1){
+            double grad_bub_2;
+            grad_bub_2 = 0.0;
+            for (int j1 = 0; j1 < _ndim_requested; ++j1){
                 grad_bub_2 += sep_grad_grad_mat_integrals[edge_ordinal](k, j1, j1);
-	    }
-	   
-
-	    for (int j1 = 0; j1 < _ndim_requested; ++j1){
-	        for (int j2 = 0; j2 < _ndim_requested; ++j2) {
-		    //THIS IS TEMP (actual Amat involves material elastic parameters shear and lambda
-		    // this is A_ij = db/dx_i * db/dx_j
-		    // Amat(j1, j2) = sep_grad_grad_mat_integrals[edge_ordinal](k, j1, j2);
-
-		    Amat(j1, j2) = ( _shear + _lambda / 2.0 ) * sep_grad_grad_mat_integrals[edge_ordinal](k, j1, j2);
-		    
-		}
-		Amat(j1, j1) += _shear * grad_bub_2;
-	    }
-           
-
-
+            }
+            for (int j1 = 0; j1 < _ndim_requested; ++j1){
+                for (int j2 = 0; j2 < _ndim_requested; ++j2) {
+                    //THIS IS TEMP (actual Amat involves material elastic parameters shear and lambda
+                    // this is A_ij = db/dx_i * db/dx_j
+                    // Amat(j1, j2) = sep_grad_grad_mat_integrals[edge_ordinal](k, j1, j2);
+                    Amat(j1, j2) = ( _shear + _lambda / 2.0 ) * sep_grad_grad_mat_integrals[edge_ordinal](k, j1, j2);
+                }
+                Amat(j1, j1) += _shear * grad_bub_2;
+            }
 
             Amat_solver.setMatrix(Teuchos::rcp(&Amat, false));
-    	    auto info = Amat_solver.invert();
-	    //auto Amat_inv_ptr = Amat_solver.getFactoredMatrix(); //not needed
-	    //Amat is now its inverse
-	    
-	    //MA 200413 fix: basis_t6_.. should be squared according to definition of tau in VMSDG 
-	    const double tempfactor = std::pow(basis_T6_edge_values_pow_integrated[i](k, edge_ordinal), 2.0) /
-		                triangle_edge_lengths[i](k);
+            auto info = Amat_solver.invert();
+            //auto Amat_inv_ptr = Amat_solver.getFactoredMatrix(); //not needed
+            //Amat is now its inverse
+            
+            //MA 200413 fix: basis_t6_.. should be squared according to definition of tau in VMSDG 
+            const double tempfactor = std::pow(basis_T6_edge_values_pow_integrated[i](k, edge_ordinal), 2.0) / triangle_edge_lengths[i](k);
 
-	    for (int j1 = 0; j1 < _ndim_requested; ++j1){
-	        for (int j2 = 0; j2 < _ndim_requested; ++j2) {
-	            _tau(k, i, j1, j2) = Amat(j1, j2) * tempfactor;
-		}
-	    }
-
-	    //MA CHECK inverse
-	    //std::cout << "ma check print Amat BEFORE inversion" << std::endl;
-            //Amat.print(std::cout);
-            //Amat_solver.setMatrix(Teuchos::rcp(&Amat, false));
-	    //auto info = Amat_solver.invert();
-	    //auto Amat_inv_ptr = Amat_solver.getFactoredMatrix();
-	    //std::cout << "ma check print Amat AFTER inversion" << std::endl;
-            //Amat.print(std::cout); //THIS IS THE INVERSE NOW!
-        
-	} //loop over num_cells_local
+            for (int j1 = 0; j1 < _ndim_requested; ++j1){
+                for (int j2 = 0; j2 < _ndim_requested; ++j2) {
+                    _tau(k, i, j1, j2) = Amat(j1, j2) * tempfactor;
+                }
+            }
+        } //loop over num_cells_local
     } //loop over num_triangle_edges
-
-
-    //MA print test
-    //std::cout << "num_cells_local = " << num_cells_local << std::endl;
-
-    //MA CHECK
-    //for (int i = 0; i < num_triangle_edges; ++i) {
-    //    for (int k = 0; k < num_cells_local; ++k) {
-    //    for (int j1 = 0; j1 < ndim_requested; ++j1){
-    //        for (int j2 = 0; j2 < ndim_requested; ++j2) {
-    //
-    //            std::cout << "ma check _tau(" << k <<"," << i << "," << j1 <<"," << j2 << ")= " 
-    //                      << _tau(k,i,j1,j2) << std::endl;
-    //             }
-    //        }
-    //    }
-    //}
-   
-
-    // MA 200219 - TEUCHOS SOLVER for AX = B ######################################################
-    //Adapted from online example at https://www.icl.utk.edu/files/publications/2017/icl-utk-1031-2017.pdf   
-    //Also see example at https://docs.trilinos.org/dev/packages/teuchos/doc/html/DenseMatrix_2cxx_main_8cpp-example.html.   
-    //Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> A(3, 3), X(3, 1), B(3, 1);
-    //Teuchos :: SerialDenseSolver <local_index_type, scalar_type> solver;
-    //solver.setMatrix( Teuchos ::rcp( &A,false) );
-    //solver.setVectors( Teuchos ::rcp( &X,false), Teuchos ::rcp( &B,false) );    
-    //A.putScalar(0.0);
-    //B.putScalar(0.0);
-    //X.putScalar(0.0);
-    //A(0,0) = 10.0;
-    //A(1,1) = 1.0;
-    //A(2,2) = 2.0;
-    //B(0,0) = 2.0; 
-    //B(2,0) = 4.0;
-    //auto info = solver.factor();
-    //info = solver.solve();
-    //A.print(std::cout);
-    //B.print(std::cout);
-    //X.print(std::cout);  //should be X = [0.2, 0.0. 2]^T 
-    //MA END of TEUCHOS solver example ################################################################
-
-
-    //############################################################################################
-    //
-    //  MA END Tau Computation (for every edge, from each element)
-    //
-    //############################################################################################
-
-
-
-
 
 
     GenerateData->stop();
@@ -1413,11 +1044,6 @@ Teuchos::RCP<crs_graph_type> ReactionDiffusionPhysics::computeGraph(local_index_
 
 void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
 
-    // #################################################
-    // MA Auxiliary temporary variable for testing
-    int tempcount = 0;
-    // #################################################
-
     bool use_physical_coords = true; // can be set on the operator in the future
 
     if (!_l2_op) {
@@ -1470,11 +1096,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
     //double t_area = 0; 
     //double t_perimeter = 0;
-    
-    // MA TEST
-    //std::cout << "MA PRINT; num_edges = " << num_edges << std::endl;
-    // num_edges is number of edges per element
-    // MA END  
 
     // this maps should be for nLocal(true) so that it contains local neighbor lookups for owned and halo particles
     std::vector<std::map<local_index_type, local_index_type> > particle_to_local_neighbor_lookup(_cells->getCoordsConst()->nLocal(true), std::map<local_index_type, local_index_type>());
@@ -1577,29 +1198,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                     }
                 }
             }
-	    //MA TEST/CHECK ######################################################################################
-	    if (i == 25 || i == 37) {
-	        std::cout << " " << std::endl;
-		std::cout << "MA several prints below" << std::endl;
-	        std::cout << "i = " << i << std::endl;
-		std::cout << "nLocal = " << nlocal << std::endl;
-		std::cout << "_weights_ndim = " << _weights_ndim << std::endl;
-                std::cout << "num_interior_quadrature = " << num_interior_quadrature << std::endl;
-		for (int q = 0; q < _weights_ndim; ++q) {
-		    std::cout << q << " adjacent cell index = " << adjacent_cell_local_index[q] << std::endl;
-                    //auto current_edge_num_in_cur_elem = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-		    //auto current_edge_num_in_adj_elem = (adjacent_q - num_interior_quadrature)/num_exterior_quadrature_per_edge; //adjacent_q not defined here, but it is defined below...
-		}
-		for (int z = 0; z < num_edges; ++z) {
-		    std::cout << "For elem " << i << " on edge " << z << " the adjacent elem is " << (int)(adjacent_elements(i, z)) << std::endl;
-		}
-		std::cout << " " << std::endl;
-            }
-	    //MA NOTE:
-	    // For a given element, and a given edge of that element, need to identify:
-	    //	1. the adjacent element to that edge
-	    //	2. the edge number of the adjacent element corresponding to the given edge
-	    //MA END ################################################################################################
 
             // not yet set up for MPI
             //for (int q=0; q<_weights_ndim; ++q) {
@@ -1836,7 +1434,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     grad_u_y = 0.0;
                                 }
 
-
                                 if (q_type==1) { // interior
 
                                     if (_rd_op) {
@@ -1950,52 +1547,29 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         const auto n_y = unit_normals(i,2*qn+1);
 
                                         if (_le_op) {
-                                            
-                                            // ############################################################################################
-                                            // MA NOTE: INSERT computation of VMS-DG terms in here!                                       #
-                                            // SEE other notes for VMS-DG in the q_type==0 (interior edge) case further below
-                                            //int ndimtemp = fields[field_one]->nDim();
-                                            const int current_edge_num_in_current_cell = (qn - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                                            Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_edge(_ndim_requested, _ndim_requested);
-                                            Teuchos :: SerialDenseSolver <local_index_type, scalar_type> vmsdg_solver;
-                                            tau_edge.putScalar(0.0);
-
-                                            for (int j1 = 0; j1 < _ndim_requested; ++j1) {
-                                                for (int j2 = 0; j2 < _ndim_requested; ++j2) {
-                                                    tau_edge(j1, j2) = _tau(i, current_edge_num_in_current_cell, j1, j2);    //tau^(1)_s from 'current' elem
+                                            //if (use_VMS) {
+                                                const int current_edge_num_in_current_cell = (qn - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                                                Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_edge(_ndim_requested, _ndim_requested);
+                                                Teuchos :: SerialDenseSolver <local_index_type, scalar_type> vmsdg_solver;
+                                                tau_edge.putScalar(0.0);
+                                                for (int j1 = 0; j1 < _ndim_requested; ++j1) {
+                                                    for (int j2 = 0; j2 < _ndim_requested; ++j2) {
+                                                        tau_edge(j1, j2) = _tau(i, current_edge_num_in_current_cell, j1, j2);    //tau^(1)_s from 'current' elem
+                                                    }
                                                 }
-                                            }
-                                            
-                                            // MA Check tau_edge matrix
-                                            if (j_comp == 0 && k_comp == 0 && tempcount == 1) {
-                                                std::cout << "\nEXTERIOR tau_edge before inversion (not yet tau_edge):" << std::endl;
-                                                tau_edge.print(std::cout);
-                                            }
-  
-                                            vmsdg_solver.setMatrix(Teuchos::rcp(&tau_edge, false));
-                                            // Compute tau_edge (invert LHS matrix)
-                                            auto info = vmsdg_solver.invert();
-                                            
-                                            // MA Check Matrices
-                                            if (j_comp == 0 && k_comp == 0 && tempcount == 1) {
-                                                std::cout << "\nEXTERIOR tau_edge AFTER inversion (actual tau_edge):" << std::endl;
-                                                tau_edge.print(std::cout);
-                                                tempcount += 1;
-                                            }
-                                            // MA END computation of VMS-DG terms
-                                            // ############################################################################################
- 
-                                            //MA NOTE: j_comp is associated with test function (rows), and k_comp is associated with trial function (columns)
-                                            //WARNING! as of now, using VMSDG for exterior edges here results in error, likely because the VMSDG 'penlaty-like' parameter does not match the SIPDG penalty in 'sources' file
-                                            //PENDING: modify ...Sources.cpp file to replace SIPDG penalty with VMSDG tau_edge
-                                            double vmsBCfactor = 2.0;
-					    contribution += q_wt * jumpv * jumpu * vmsBCfactor * tau_edge(j_comp, k_comp); //MA: VMSDG term
+                                                vmsdg_solver.setMatrix(Teuchos::rcp(&tau_edge, false));
+                                                // Compute tau_edge (invert LHS matrix)
+                                                auto info = vmsdg_solver.invert();
+                                                double vmsBCfactor = 2.0;
+                                                contribution += q_wt * jumpv * jumpu * vmsBCfactor * tau_edge(j_comp, k_comp); //MA: VMSDG term
+                                            //} else if (use_SIP) {
+                                            //    contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp);
+                                            //}
                                             
                                             
-                                            //contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp);
                                             
-					    
-					    contribution -= q_wt * (
+                        
+                                            contribution -= q_wt * (
                                                   2 * _shear * (n_x*avgv_x*j_comp_0 
                                                     + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
                                                 + 2 * _shear * (n_y*avgv_y*j_comp_1 
@@ -2123,14 +1697,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     ////    }
                                     ////}
                                     if (i <= adjacent_cell_local_index_q) continue;
-                                   
-                                    
-				    // #########################################################################
-				    // MA NOTE: the above continues to next iter in loop over integration points.
-				    // Therefore, contribution of each interior edge is counted only once, from withing the edge with larger index!
-				    // MA END ##################################################################
-
-
                                     TEUCHOS_ASSERT(adjacent_cell_local_index_q >= 0);
                                     int j_to_adjacent_cell = -1;
                                     if (particle_to_local_neighbor_lookup[adjacent_cell_local_index_q].count(particle_j)==1) {
@@ -2158,52 +1724,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     const int adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[qn]*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((qn-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
                                     
 
-				    // ########################################################################################################################################################
-				    // MA NOTE: May do something like the above ("adjacent_q") to dientify the "adjacent_edge_number")
-				    // CONTEXT: For purposes of VMS-DG parameters, we need to identify the edge number of the current edge from the point of view of the adjacent element.
-				    // Recall: the current edge belongs to two elements: the current element and the adjacent element. This edge has an edge number relative to the current element,
-				    // and an edge number relative to the adjacent element. For this current edge, need to identify:
-				    // 1. Current element index, and correponding current edge number
-				    // 2. Adjacent element index, ad correspoinding current edge number.
-				    // ########################################################################################################################################################
-
-
-
-                                    //int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_edge + ((q-num_interior_quadrature)%num_exterior_quadrature_per_edge);
-
-                                    //// diagnostic that quadrature matches up between adjacent_cell_local_index & adjacent_q 
-                                    //// along with i & q
-                                    //auto my_x = quadrature_points(i, 2*q+0);
-                                    //auto my_wt = quadrature_weights(i, q);
-                                    //auto their_wt = quadrature_weights(adjacent_cell_local_index, adjacent_q);
-                                    //if (std::abs(my_wt-their_wt)>1e-14) printf("wm: %f, t: %f, d: %.16f\n", my_wt, their_wt, my_wt-their_wt);
-                                    //auto my_y = quadrature_points(i, 2*q+1);
-                                    //auto their_x = quadrature_points(adjacent_cell_local_index, 2*adjacent_q+0);
-                                    //auto their_y = quadrature_points(adjacent_cell_local_index, 2*adjacent_q+1);
-                                    //if (std::abs(my_x-their_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_x, their_x, my_x-their_x);
-                                    //if (std::abs(my_y-their_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_y, their_y, my_y-their_y);
-
-
-                                    // diagnostics for quadrature points
-                                    //printf("b: %f\n", _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell, adjacent_q+1));
-                                    //auto my_j_index = _cell_particles_neighborhood->getNeighbor(i,j_to_cell_i);
-                                    //auto their_j_index = _cell_particles_neighborhood->getNeighbor(adjacent_cell_local_index, j_to_adjacent_cell);
-                                    //printf("xm: %d, t: %d\n", my_j_index, their_j_index);
-                                    //auto my_q_x = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 0);
-                                    //auto my_q_y = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 1);
-                                    //auto their_q_x = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 0);
-                                    //auto their_q_y = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 1);
-                                    //if (std::abs(my_q_x-their_q_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_q_x, their_q_x, my_q_x-their_q_x);
-                                    //if (std::abs(my_q_y-their_q_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_q_y, their_q_y, my_q_y-their_q_y);
-
-                                    //auto my_q_x = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 0);
-                                    //auto my_q_y = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 1);
-                                    ////auto their_q_index = _kokkos_quadrature_neighbor_lists_host(adjacent_cell_local_index, 1+k_to_adjacent_cell);
-                                    //auto their_q_x = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 0);
-                                    //auto their_q_y = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 1);
-                                    //if (std::abs(my_q_x-their_q_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_q_x, their_q_x, my_q_x-their_q_x);
-                                    //if (std::abs(my_q_y-their_q_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_q_y, their_q_y, my_q_y-their_q_y);
- 
                                     const double other_v = (j_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell, adjacent_q+1) : 0.0;
                                     const double jumpv = normal_direction_correction*(v-other_v);
 
@@ -2220,221 +1740,116 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     const double avgu_x = 0.5*(grad_u_x+other_grad_u_x);
                                     const double avgu_y = 0.5*(grad_u_y+other_grad_u_y);
 
-
-                                    //double jump_u_jump_v = 0.0;
-                                    //auto jump_v_x = n_x*v-n_x*other_v;
-                                    //auto jump_v_y = n_y*v-n_y*other_v;
-                                    //auto jump_u_x = n_x*u-n_x*other_u;
-                                    //auto jump_u_y = n_y*u-n_y*other_u;
-                                    //jump_u_jump_v = jump_v_x*jump_u_x + jump_v_y*jump_u_y;
-
-                                    //contribution += 0.5 * penalty * q_wt * jumpv * jumpu; // other half will be added by other cell
-                                    //contribution -= 0.5 * q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
-                                    //contribution -= 0.5 * q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
                                     if (_rd_op) {
                                         contribution += penalty * q_wt * jumpv * jumpu; // other half will be added by other cell
                                         contribution -= q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
                                         contribution -= q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
                                     } else {
                                         if (_le_op) {
-                                       
-					    // ############################################################################################
-                                            //                                                                                            #
-					    // MA NOTE: INSERT computation of VMS-DG terms in here!                                       #
-                                            //                                                                                            #
-					    // ############################################################################################
-					    // WARNING: This may be more costly than needed.
-					    // Computing tau_edge and delta_edge for every integration point (and in for each k_comp, j_comp and other iterates in this loop)
-					    // Would it be faster to compute all tau_edge and delta_edge outside loop and access them here?
-					    // How to store those values? in a Kokkos::View?
+                                            //if (use_VMS) {
+                                                const int current_edge_num_in_current_cell = (qn - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                                                const int current_edge_num_in_adjacent_cell = (adjacent_q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
 
-					    //...could declare these as const...
-					    // int ndimtemp = fields[field_one]->nDim();
-                                            const int current_edge_num_in_current_cell = (qn - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                                            const int current_edge_num_in_adjacent_cell = (adjacent_q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                                                Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_current_cell(_ndim_requested, _ndim_requested);
+                                                Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_adjacent_cell(_ndim_requested, _ndim_requested);
+                                                Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_edge(_ndim_requested, _ndim_requested);
+                                                Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> delta_current_cell(_ndim_requested, _ndim_requested);
+                                                Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> delta_adjacent_cell(_ndim_requested, _ndim_requested);
+                                                Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> delta_edge(_ndim_requested, _ndim_requested);
+                                                Teuchos :: SerialDenseSolver <local_index_type, scalar_type> vmsdg_solver;
 
-                                            Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_current_cell(_ndim_requested, _ndim_requested);
-                                            Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_adjacent_cell(_ndim_requested, _ndim_requested);
-                                            Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_edge(_ndim_requested, _ndim_requested);
-                                            Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> delta_current_cell(_ndim_requested, _ndim_requested);
-                                            Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> delta_adjacent_cell(_ndim_requested, _ndim_requested);
-                                            Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> delta_edge(_ndim_requested, _ndim_requested);
-                                            Teuchos :: SerialDenseSolver <local_index_type, scalar_type> vmsdg_solver;
-					    tau_current_cell.putScalar(0.0);
-					    tau_adjacent_cell.putScalar(0.0);
-					    tau_edge.putScalar(0.0);
-					    delta_current_cell.putScalar(0.0);
-					    delta_adjacent_cell.putScalar(0.0);
-					    delta_edge.putScalar(0.0);
+                                                tau_current_cell.putScalar(0.0);
+                                                tau_adjacent_cell.putScalar(0.0);
+                                                tau_edge.putScalar(0.0);
+                                                delta_current_cell.putScalar(0.0);
+                                                delta_adjacent_cell.putScalar(0.0);
+                                                delta_edge.putScalar(0.0);
+                                                for (int j1 = 0; j1 < _ndim_requested; ++j1) {
+                                                    for (int j2 = 0; j2 < _ndim_requested; ++j2) {
+                                                        tau_current_cell(j1, j2) = _tau(i, current_edge_num_in_current_cell, j1, j2);                                    //tau^(1)_s from 'current' elem
+                                                        tau_adjacent_cell(j1, j2) = _tau( (int)adjacent_cell_local_index_q, current_edge_num_in_adjacent_cell, j1, j2);  //tau^(2)_s from 'adjacent' elem
+                                                        tau_edge(j1, j2) = tau_current_cell(j1, j2) + tau_adjacent_cell(j1, j2);  //tau_edge is the inverse of this (inverted in-place below)
+                                                    }
+                                                }
+                                                vmsdg_solver.setMatrix(Teuchos::rcp(&tau_edge, false));
+                                                auto info = vmsdg_solver.invert();
+                                                delta_current_cell.multiply( Teuchos::NO_TRANS, Teuchos::NO_TRANS, 1.0, tau_edge, tau_current_cell, 0.0 );
+                                                delta_adjacent_cell.multiply( Teuchos::NO_TRANS, Teuchos::NO_TRANS, 1.0, tau_edge, tau_adjacent_cell, 0.0 );
+                                                delta_edge.multiply( Teuchos::NO_TRANS, Teuchos::NO_TRANS, 1.0, tau_current_cell, delta_adjacent_cell, 0.0 );
 
-					    //if (i == 37 && j_comp == 0 && k_comp == 0) {
-					    //    std::cout << "MA " << i << " " << j << " " << k << " " << q << " " << _weights_ndim << " " << ndimtemp << " " << current_edge_num_in_current_cell << " " << current_edge_num_in_adjacent_cell << std::endl;
-					        //std::cout << "MA tau in second part: " << _tau(0, 0, 0, 0) << std::endl;
-					    //}
+                                                const double traction_u_current_x = n_x * ( _lambda * (k_comp_0*grad_u_x + k_comp_1*grad_u_y) + 2.0*_shear * k_comp_0*grad_u_x ) +
+                                                                                    n_y * _shear * (k_comp_0*grad_u_y + k_comp_1*grad_u_x);
+                                                const double traction_u_current_y = n_y * ( _lambda * (k_comp_0*grad_u_x + k_comp_1*grad_u_y) + 2.0*_shear * k_comp_1*grad_u_y ) +
+                                                                                    n_x * _shear * (k_comp_0*grad_u_y + k_comp_1*grad_u_x);
+                                                const double traction_u_adjacent_x = n_x * ( _lambda * (k_comp_0*other_grad_u_x + k_comp_1*other_grad_u_y) + 2.0*_shear * k_comp_0*other_grad_u_x ) +
+                                                                                     n_y * _shear * (k_comp_0*other_grad_u_y + k_comp_1*other_grad_u_x);
+                                                const double traction_u_adjacent_y = n_y * ( _lambda * (k_comp_0*other_grad_u_x + k_comp_1*other_grad_u_y) + 2.0*_shear * k_comp_1*other_grad_u_y ) +
+                                                                                     n_x * _shear * (k_comp_0*other_grad_u_y + k_comp_1*other_grad_u_x);
+                                                const double traction_v_current_x = n_x * ( _lambda * (j_comp_0*grad_v_x + j_comp_1*grad_v_y) + 2.0*_shear * j_comp_0*grad_v_x ) +
+                                                                                    n_y * _shear * (j_comp_0*grad_v_y + j_comp_1*grad_v_x);
+                                                const double traction_v_current_y = n_y * ( _lambda * (j_comp_0*grad_v_x + j_comp_1*grad_v_y) + 2.0*_shear * j_comp_1*grad_v_y ) +
+                                                                                    n_x * _shear * (j_comp_0*grad_v_y + j_comp_1*grad_v_x);
+                                                const double traction_v_adjacent_x = n_x * ( _lambda * (j_comp_0*other_grad_v_x + j_comp_1*other_grad_v_y) + 2.0*_shear * j_comp_0*other_grad_v_x ) +
+                                                                                     n_y * _shear * (j_comp_0*other_grad_v_y + j_comp_1*other_grad_v_x);
+                                                const double traction_v_adjacent_y = n_y * ( _lambda * (j_comp_0*other_grad_v_x + j_comp_1*other_grad_v_y) + 2.0*_shear * j_comp_1*other_grad_v_y ) +
+                                                                                     n_x * _shear * (j_comp_0*other_grad_v_y + j_comp_1*other_grad_v_x);
+                        
+                                                const double avg_traction_u_x = delta_current_cell(0, 0) * traction_u_current_x +
+                                                                                delta_current_cell(0, 1) * traction_u_current_y +
+                                                                                delta_adjacent_cell(0, 0) * traction_u_adjacent_x +
+                                                                                delta_adjacent_cell(0, 1) * traction_u_adjacent_y;
 
-					    for (int j1 = 0; j1 < _ndim_requested; ++j1) {
-					        for (int j2 = 0; j2 < _ndim_requested; ++j2) {
-					            tau_current_cell(j1, j2) = _tau(i, current_edge_num_in_current_cell, j1, j2);                                    //tau^(1)_s from 'current' elem
-                                                    tau_adjacent_cell(j1, j2) = _tau( (int)adjacent_cell_local_index_q, current_edge_num_in_adjacent_cell, j1, j2);  //tau^(2)_s from 'adjacent' elem
-					    	    tau_edge(j1, j2) = tau_current_cell(j1, j2) + tau_adjacent_cell(j1, j2);  //tau_edge is the inverse of this (inverted in-place below)
-					        }
-					    }
-
-					    // Ma check type casting of adjacent_Cell_local_index_q
-					    //double tempjunk = std::abs(adjacent_cell_local_index_q - (double)(int)adjacent_cell_local_index_q);
-					    //if (tempjunk != 0.0) {
-					    //    std::cout << " " << std::endl;
-					    //    std::cout << " " << std::endl;
-					    //    std::cout << "MA ERROR near line 1870!!" << std::endl;
-					    //    std::cout << adjacent_cell_local_index_q << " " << (int) adjacent_cell_local_index_q << std::endl;
-					    //    std::cout << " " << std::endl;
-					    //    std::cout << " " << std::endl;
-					    //}
-
-					    // MA Check tau_edge matrix
-					    if (i == 37 && j_comp == 0 && k_comp == 0 && tempcount == 0) {
-					        std::cout << "tau_edge before inversion (not yet tau_edge):" << std::endl;
-					        tau_edge.print(std::cout);
-					    }
-
-					    // MA DEPRECATED, using solve requires equilibration for fine meshes, which interferes with in-place computation of inverse.
-					    // A warning about needing equilibration was thrown by Teuchos solver if flag "factorWithEquilibration" was not set to true.
-					    // Given that we want to compute the inverse anyway, simply compute it and use matrix multiplication after.
-					    //// Terms associated with current cell
-                                            //vmsdg_solver.setMatrix(Teuchos::rcp(&tau_edge, false));
-                                            //vmsdg_solver.setVectors(Teuchos::rcp(&delta_current_cell, false), Teuchos::rcp(&tau_current_cell, false));
-                                            //vmsdg_solver.factorWithEquilibration(true); //Testing this line for solve, but not for invert.
-					    //auto info = vmsdg_solver.solve();
-                                            //// Terms associated with adjacent cell
-                                            //vmsdg_solver.setVectors(Teuchos::rcp(&delta_adjacent_cell, false), Teuchos::rcp(&tau_adjacent_cell, false));
-                                            //info = vmsdg_solver.solve();
-                                            //// Compute tau_edge (invert LHS matrix)
-                                            //info = vmsdg_solver.invert();
-                                            //// Compute delta_edge (tau_current_cell*delta_adjacent_cell or equivalently tau_adjacent_cell*delta_current_cell)
-                                            //delta_edge.multiply( Teuchos::NO_TRANS, Teuchos::NO_TRANS, 1.0, tau_current_cell, delta_adjacent_cell, 0.0 );
-
-					    // ALTERNATIVE matrix operations (no solve, only inverse and multiplication)
-                                            vmsdg_solver.setMatrix(Teuchos::rcp(&tau_edge, false));
-                                            auto info = vmsdg_solver.invert();
-                                            delta_current_cell.multiply( Teuchos::NO_TRANS, Teuchos::NO_TRANS, 1.0, tau_edge, tau_current_cell, 0.0 );
-                                            delta_adjacent_cell.multiply( Teuchos::NO_TRANS, Teuchos::NO_TRANS, 1.0, tau_edge, tau_adjacent_cell, 0.0 );
-                                            delta_edge.multiply( Teuchos::NO_TRANS, Teuchos::NO_TRANS, 1.0, tau_current_cell, delta_adjacent_cell, 0.0 );
-					    
-					    // MA Check Matrices
-					    if (i == 37 && j_comp == 0 && k_comp == 0 && tempcount == 0) {
-					        std::cout << "\ntau_edge AFTER inversion (actual tau_edge):" << std::endl;
-					        tau_edge.print(std::cout);
-					        std::cout << "\ntau_current_cell:" << std::endl;
-					        tau_current_cell.print(std::cout);
-					        std::cout << "\ntau_adjacent_cell:" << std::endl;
-					        tau_adjacent_cell.print(std::cout);
-                                                std::cout << "\ndelta_current_cell ( = tau_edge * tau_current_cell):" << std::endl;
-                                                delta_current_cell.print(std::cout);
-                                                std::cout << "\ndelta_adjacent_cell ( = tau_edge * tau_adjacent_cell):" << std::endl;
-                                                delta_adjacent_cell.print(std::cout);
-                                                std::cout << "\ndelta_edge:" << std::endl;
-                                                delta_edge.print(std::cout);
-                                                // TEMP! check delta_edge with other definition (this line is only for checking, DO NOT run as part of problem solve)
-                                                //delta_edge.multiply( Teuchos::NO_TRANS, Teuchos::NO_TRANS, -1.0, tau_adjacent_cell, delta_current_cell, 1.0 );
-                                                //std::cout << "\ndelta_edge check (should be zeros):" << std::endl;
-                                                //delta_edge.print(std::cout);
-					        tempcount += 1;
-					    }
-                    
-                                            // MA compute 'average' quantities for VMSDG
-  					    // NOTE: cannot directly use avgu_x (and similar) for VMSDG; instead, 'avg' quantities rely on delta_current and delta_adjacent terms.
-  					    const double traction_u_current_x = n_x * ( _lambda * (k_comp_0*grad_u_x + k_comp_1*grad_u_y) + 2.0*_shear * k_comp_0*grad_u_x ) +
-  					    	                                n_y * _shear * (k_comp_0*grad_u_y + k_comp_1*grad_u_x);
-  					    const double traction_u_current_y = n_y * ( _lambda * (k_comp_0*grad_u_x + k_comp_1*grad_u_y) + 2.0*_shear * k_comp_1*grad_u_y ) +
-  					    	                                n_x * _shear * (k_comp_0*grad_u_y + k_comp_1*grad_u_x);
-  					    const double traction_u_adjacent_x = n_x * ( _lambda * (k_comp_0*other_grad_u_x + k_comp_1*other_grad_u_y) + 2.0*_shear * k_comp_0*other_grad_u_x ) +
-  					    	                                 n_y * _shear * (k_comp_0*other_grad_u_y + k_comp_1*other_grad_u_x);
-  					    const double traction_u_adjacent_y = n_y * ( _lambda * (k_comp_0*other_grad_u_x + k_comp_1*other_grad_u_y) + 2.0*_shear * k_comp_1*other_grad_u_y ) +
-  					    	                                 n_x * _shear * (k_comp_0*other_grad_u_y + k_comp_1*other_grad_u_x);
-  					    const double traction_v_current_x = n_x * ( _lambda * (j_comp_0*grad_v_x + j_comp_1*grad_v_y) + 2.0*_shear * j_comp_0*grad_v_x ) +
-  					    	                                n_y * _shear * (j_comp_0*grad_v_y + j_comp_1*grad_v_x);
-  					    const double traction_v_current_y = n_y * ( _lambda * (j_comp_0*grad_v_x + j_comp_1*grad_v_y) + 2.0*_shear * j_comp_1*grad_v_y ) +
-  					    	                                n_x * _shear * (j_comp_0*grad_v_y + j_comp_1*grad_v_x);
-  					    const double traction_v_adjacent_x = n_x * ( _lambda * (j_comp_0*other_grad_v_x + j_comp_1*other_grad_v_y) + 2.0*_shear * j_comp_0*other_grad_v_x ) +
-  					    	                                 n_y * _shear * (j_comp_0*other_grad_v_y + j_comp_1*other_grad_v_x);
-  					    const double traction_v_adjacent_y = n_y * ( _lambda * (j_comp_0*other_grad_v_x + j_comp_1*other_grad_v_y) + 2.0*_shear * j_comp_1*other_grad_v_y ) +
-  					    	                                 n_x * _shear * (j_comp_0*other_grad_v_y + j_comp_1*other_grad_v_x);
-					    
-					    const double avg_traction_u_x = delta_current_cell(0, 0) * traction_u_current_x +
-  					    	                        delta_current_cell(0, 1) * traction_u_current_y +
-  					    			        delta_adjacent_cell(0, 0) * traction_u_adjacent_x +
-  					    			        delta_adjacent_cell(0, 1) * traction_u_adjacent_y;
-  					    const double avg_traction_u_y = delta_current_cell(1, 0) * traction_u_current_x +
-  					    	                        delta_current_cell(1, 1) * traction_u_current_y +
-  					    			        delta_adjacent_cell(1, 0) * traction_u_adjacent_x +
-  					    			        delta_adjacent_cell(1, 1) * traction_u_adjacent_y;
+                                                const double avg_traction_u_y = delta_current_cell(1, 0) * traction_u_current_x +
+                                                                                delta_current_cell(1, 1) * traction_u_current_y +
+                                                                                delta_adjacent_cell(1, 0) * traction_u_adjacent_x +
+                                                                                delta_adjacent_cell(1, 1) * traction_u_adjacent_y;
   
-  					    const double avg_traction_v_x = delta_current_cell(0, 0) * traction_v_current_x +
-  					    	                        delta_current_cell(0, 1) * traction_v_current_y +
-  					    			        delta_adjacent_cell(0, 0) * traction_v_adjacent_x +
-  					    			        delta_adjacent_cell(0, 1) * traction_v_adjacent_y;
-  					    const double avg_traction_v_y = delta_current_cell(1, 0) * traction_v_current_x +
-  					    	                        delta_current_cell(1, 1) * traction_v_current_y +
-  					    			        delta_adjacent_cell(1, 0) * traction_v_adjacent_x +
-  					    			        delta_adjacent_cell(1, 1) * traction_v_adjacent_y;
+                                                const double avg_traction_v_x = delta_current_cell(0, 0) * traction_v_current_x +
+                                                                                delta_current_cell(0, 1) * traction_v_current_y +
+                                                                                delta_adjacent_cell(0, 0) * traction_v_adjacent_x +
+                                                                                delta_adjacent_cell(0, 1) * traction_v_adjacent_y;
+
+                                                const double avg_traction_v_y = delta_current_cell(1, 0) * traction_v_current_x +
+                                                                                delta_current_cell(1, 1) * traction_v_current_y +
+                                                                                delta_adjacent_cell(1, 0) * traction_v_adjacent_x +
+                                                                                delta_adjacent_cell(1, 1) * traction_v_adjacent_y;
   
-  					    const double jump_traction_u_x = traction_u_current_x - traction_u_adjacent_x;
-  					    const double jump_traction_u_y = traction_u_current_y - traction_u_adjacent_y;
-  					    const double jump_traction_v_x = traction_v_current_x - traction_v_adjacent_x;
-  					    const double jump_traction_v_y = traction_v_current_y - traction_v_adjacent_y;
-                                            // ############################################################################################
-					    //
-					    // MA END computation of VMS-DG terms
-					    //
-					    // ############################################################################################
-					
+                                                const double jump_traction_u_x = traction_u_current_x - traction_u_adjacent_x;
+                                                const double jump_traction_u_y = traction_u_current_y - traction_u_adjacent_y;
+                                                const double jump_traction_v_x = traction_v_current_x - traction_v_adjacent_x;
+                                                const double jump_traction_v_y = traction_v_current_y - traction_v_adjacent_y;
 
-
-					    // ############################################################################################
-					    // MA VMSDG contributions
-					    // MA NOTE: j_comp is associated with test function (rows), and k_comp is associated with trial function (columns)
-					    contribution += q_wt * jumpv * jumpu * tau_edge(j_comp, k_comp); 
-                                              
-                                            contribution -= q_wt * (
-                                                jumpv * j_comp_0 * avg_traction_u_x +
-                                                jumpv * j_comp_1 * avg_traction_u_y);
-                                             
-  					    contribution -= q_wt * (
-                                                jumpu * k_comp_0 * avg_traction_v_x +
-                                                jumpu * k_comp_1 * avg_traction_v_y);
-                                             
- 					    contribution -= q_wt * (
-                                                jump_traction_v_x * ( delta_edge(0, 0) * jump_traction_u_x + delta_edge(0, 1) * jump_traction_u_y ) +
-                                                jump_traction_v_y * ( delta_edge(1, 0) * jump_traction_u_x + delta_edge(1, 1) * jump_traction_u_y ) );
-					    // MA END VMSDG contributions
-					    // ############################################################################################
-					
-
-
-					    // MA NOTE: SIPG Contributions are below (use only VMSDG or SIPG, not both)
-                                            // MA Q:Comment regarding firts term in SIPG contribution is true?...
-					    // It seems that interior edge contributions are computed only ONCE, from 'within' the element with higher number, is that the case? 
-					    
-					
-
-					    //contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp); // other half will be added by other cell 
-                                            //
-				       	    //contribution -= q_wt * (
-                                            //      2 * _shear * (n_x*avgv_x*j_comp_0 
-                                            //        + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
-                                            //    + 2 * _shear * (n_y*avgv_y*j_comp_1 
-                                            //        + 0.5*n_x*(avgv_x*j_comp_1 + avgv_y*j_comp_0)) * jumpu*k_comp_1
-                                            //    + _lambda*(avgv_x*j_comp_0 + avgv_y*j_comp_1)*(n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1));
-                                            //contribution -= q_wt * (
-                                            //      2 * _shear * (n_x*avgu_x*k_comp_0 
-                                            //        + 0.5*n_y*(avgu_y*k_comp_0 + avgu_x*k_comp_1)) * jumpv*j_comp_0  
-                                            //    + 2 * _shear * (n_y*avgu_y*k_comp_1 
-                                            //        + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
-                                            //    + _lambda*(avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
+                                                contribution += q_wt * jumpv * jumpu * tau_edge(j_comp, k_comp); 
+                                                                      
+                                                contribution -= q_wt * (
+                                                                        jumpv * j_comp_0 * avg_traction_u_x +
+                                                                        jumpv * j_comp_1 * avg_traction_u_y);
+                                                                     
+                                                contribution -= q_wt * (
+                                                                        jumpu * k_comp_0 * avg_traction_v_x +
+                                                                        jumpu * k_comp_1 * avg_traction_v_y);
+                                                                     
+                                                contribution -= q_wt * (
+                                                                        jump_traction_v_x * ( delta_edge(0, 0) * jump_traction_u_x + delta_edge(0, 1) * jump_traction_u_y ) +
+                                                                        jump_traction_v_y * ( delta_edge(1, 0) * jump_traction_u_x + delta_edge(1, 1) * jump_traction_u_y ) );
+                                            //} else if (use_SIP) {
                                         
-					
-					
-					} else if (_vl_op) {
+                                            //    contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp);
+ 
+                                            //    contribution -= q_wt * (
+                                            //          2 * _shear * (n_x*avgv_x*j_comp_0 
+                                            //            + 0.5*n_y*(avgv_y*j_comp_0 + avgv_x*j_comp_1)) * jumpu*k_comp_0  
+                                            //        + 2 * _shear * (n_y*avgv_y*j_comp_1 
+                                            //            + 0.5*n_x*(avgv_x*j_comp_1 + avgv_y*j_comp_0)) * jumpu*k_comp_1
+                                            //        + _lambda*(avgv_x*j_comp_0 + avgv_y*j_comp_1)*(n_x*jumpu*k_comp_0 + n_y*jumpu*k_comp_1));
+                                            //    contribution -= q_wt * (
+                                            //          2 * _shear * (n_x*avgu_x*k_comp_0 
+                                            //            + 0.5*n_y*(avgu_y*k_comp_0 + avgu_x*k_comp_1)) * jumpv*j_comp_0  
+                                            //        + 2 * _shear * (n_y*avgu_y*k_comp_1 
+                                            //            + 0.5*n_x*(avgu_x*k_comp_1 + avgu_y*k_comp_0)) * jumpv*j_comp_1
+                                            //        + _lambda*(avgu_x*k_comp_0 + avgu_y*k_comp_1)*(n_x*jumpv*j_comp_0 + n_y*jumpv*j_comp_1));
+                                            //}
+                                        } else if (_vl_op) {
                                             contribution += penalty * q_wt * jumpv*jumpu*(j_comp==k_comp); // other half will be added by other cell
                                             contribution -= q_wt * (
                                                   _shear * (n_x*avgv_x*j_comp_0 

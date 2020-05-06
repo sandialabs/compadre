@@ -6,6 +6,8 @@
 #include <Teuchos_CommHelpers.hpp>
 #include <Teuchos_ArrayView.hpp>
 #include <Teuchos_ParameterList.hpp>
+#include <Teuchos_SerialDenseMatrix.hpp>
+#include <Teuchos_SerialDenseSolver.hpp>
 
 #include <Tpetra_Map.hpp>
 #include <Tpetra_MultiVector.hpp>
