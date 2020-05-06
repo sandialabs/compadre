@@ -34,6 +34,8 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
 
     bool _use_vector_gmls = _physics->_use_vector_gmls;
     bool _use_vector_grad_gmls = _physics->_use_vector_grad_gmls;
+    bool _use_sip = _physics->_use_sip;
+    bool _use_vms = _physics->_use_vms;
 
     int _velocity_field_id = _physics->_velocity_field_id;
     int _pressure_field_id = _physics->_pressure_field_id;
@@ -49,7 +51,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
         pressure_coeff = _physics->_lambda + 2./(scalar_type)(_ndim_requested)*_physics->_shear;
     }
 
-	host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
+    host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
     const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
     const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
@@ -208,9 +210,27 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                 contribution += penalty * q_wt * v * exact_eval;
                                 contribution -= _physics->_diffusion * q_wt * ( n_x * v_x + n_y * v_y) * exact_eval;
                             } else if (_le_op) {
-                                exact_eval = velocity_function->evalScalar(pt, comp_out);
-                                contribution += penalty * q_wt * v * exact_eval;
                                 auto exact = velocity_function->evalVector(pt);
+
+                                if (_use_vms) {
+                                    int current_edge_num_in_current_cell = (qn - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                                    Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_edge(_ndim_requested, _ndim_requested);
+                                    Teuchos :: SerialDenseSolver <local_index_type, scalar_type> vmsdg_solver;
+                                    tau_edge.putScalar(0.0);
+                                    for (int j1 = 0; j1 < _ndim_requested; ++j1) {
+                                        for (int j2 = 0; j2 < _ndim_requested; ++j2) {
+                                            tau_edge(j1, j2) = _physics->_tau(i, current_edge_num_in_current_cell, j1, j2);    //tau^(1)_s from 'current' elem
+                                        }
+                                    }
+                                    vmsdg_solver.setMatrix(Teuchos::rcp(&tau_edge, false));
+                                    auto info = vmsdg_solver.invert();
+                                    double vmsBCfactor = 2.0;
+                                    contribution += q_wt * v * vmsBCfactor * ( tau_edge(comp, 0) * velocity_function->evalScalar(pt, 0) + 
+                                                                               tau_edge(comp, 1) * velocity_function->evalScalar(pt, 1) );
+                                } else if (_use_sip) {
+                                    contribution += penalty * q_wt * v * exact[comp_out];
+                                }
+                
                                 contribution -= q_wt * (
                                       2 * _physics->_shear * (n_x*v_x*(comp_out==0) + 0.5*n_y*(v_y*(comp_out==0) + v_x*(comp_out==1))) * exact[0]  
                                     + 2 * _physics->_shear * (n_y*v_y*(comp_out==1) + 0.5*n_x*(v_x*(comp_out==1) + v_y*(comp_out==0))) * exact[1]
@@ -297,9 +317,9 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     //        local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
     //        force += rhs_vals(row,0);
     //    }
-	//    scalar_type global_force;
-	//    Teuchos::Ptr<scalar_type> global_force_ptr(&global_force);
-	//    Teuchos::reduceAll<int, scalar_type>(*(_physics->_cells->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, force, global_force_ptr);
+    //    scalar_type global_force;
+    //    Teuchos::Ptr<scalar_type> global_force_ptr(&global_force);
+    //    Teuchos::reduceAll<int, scalar_type>(*(_physics->_cells->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, force, global_force_ptr);
     //    if (_physics->_cells->getCoordsConst()->getComm()->getRank()==0) {
     //        printf("Global RHS SUM calculated: %.16f, reference RHS SUM: %.16f\n", global_force, reference_global_force);
     //    }
@@ -307,9 +327,9 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
 }
 
 std::vector<InteractingFields> ReactionDiffusionSources::gatherFieldInteractions() {
-	std::vector<InteractingFields> field_interactions;
+    std::vector<InteractingFields> field_interactions;
     //field_interactions.push_back(InteractingFields(op_needing_interaction::source, _particles->getFieldManagerConst()->getIDOfFieldFromName("solution")));
-	return field_interactions;
+    return field_interactions;
 }
 
 }

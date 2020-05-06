@@ -107,6 +107,18 @@ int main (int argc, char* args[]) {
         }
     }
 
+    bool use_sip = false, use_vms = false;
+    if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("dg stabilization")=="sip") {
+        use_sip = true;
+        use_vms = false;
+    } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("dg stabilization")=="vms") {
+        use_sip = false;
+        use_vms = true;
+    } else {
+        use_sip = false;
+        use_vms = false;
+    }
+
     {
         const std::string testfilename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + "/" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file");
 
@@ -279,6 +291,9 @@ int main (int argc, char* args[]) {
         // treatment of null space in pressure 
         physics->_use_pinning = use_pinning;
         physics->_use_lm = use_lm;
+
+        physics->_use_sip = use_sip;
+        physics->_use_vms = use_vms;
 
         physics->_velocity_name = velocity_name;
         physics->_pressure_name = pressure_name;

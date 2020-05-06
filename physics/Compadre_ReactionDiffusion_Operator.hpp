@@ -84,6 +84,8 @@ class ReactionDiffusionPhysics : public PhysicsT {
         bool _mix_le_op;
         bool _use_pinning;
         bool _use_lm;
+        bool _use_sip;
+        bool _use_vms;
 
         bool _velocity_basis_type_divfree;
         bool _velocity_basis_type_vector;
@@ -131,6 +133,9 @@ class ReactionDiffusionPhysics : public PhysicsT {
 
             _use_vector_gmls = false;
             _use_vector_grad_gmls = false;
+
+            _use_sip = false;
+            _use_vms = false;
 
             _velocity_field_id = -1;
             _pressure_field_id = -1;
