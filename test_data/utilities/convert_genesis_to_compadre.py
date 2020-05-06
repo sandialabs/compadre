@@ -17,6 +17,12 @@ def getNewMidpoints(i, new_data, coords, connect, nod_size):
         for k in range(3):
             new_data[k] += coords[connect[i,j]-1, k] / float(nod_size)
 
+#@jit(nopython=True,parallel=False)
+#def getAdjacentCells(i, new_data, coords, connect, nod_size):
+#    for j in range(nod_size):
+#        for k in range(3):
+#            new_data[k] += coords[connect[i,j]-1, k] / float(nod_size)
+
 parser = argparse.ArgumentParser(description='reads in genesis files\
     default for coordinates is that they are stored in field variables \'x\', \'y\', and \'z\'\
     (can be modified with command line argumentstake diff of field on file1 and file2 and store in new-file')
@@ -103,8 +109,72 @@ print(vertex_coordinates)
 
 # only works for simplices
 adjacent_elements = -np.ones(shape=(el_size, args.dim+1),dtype='i8') 
+# loop over all elements
+for i in range(el_size):
+    # grab two nodes at a time
+    for j in range(nod_size):
+        # if adjacent cell is -1
+        if (adjacent_elements[i, j]==-1):
+            i_verts = [connect[i,j], connect[i,(j+1)%nod_size]]
+            i_verts.sort()
+            # loop all other elements
+            for k in range(i+1,el_size):
+                # grab two nodes at a time
+                for l in range(nod_size):
+                    k_verts = [connect[k,l], connect[k,(l+1)%nod_size]]
+                    k_verts.sort()
+                    # if same, mark this cell as that cells adjacent
+                    # and mark that cell as our adjacent
+                    if (i_verts==k_verts):
+                        adjacent_elements[i, j] = k
+                        adjacent_elements[k, l] = i
+print(adjacent_elements)
 
-new_ID = np.arange(el_size)
+# all point data now collected (cell centers + vertices oordinates + adjacencies to cells through sides)
+# write solution to netcdf
+dataset = Dataset(file_out, mode="w", clobber=True, diskless=False,\
+                   persist=False, keepweakref=False, format='NETCDF4')
 
+dataset.createDimension('num_entities', size=el_size)
+dataset.createDimension('num_sides', size=args.dim+1)
+dataset.createDimension('num_vertex_coords', size=nod_size*args.dim)
+dataset.createDimension('spatial_dimension', size=args.dim)
+dataset.createDimension('scalar_dim', size=1) 
 
+dataset.createVariable('x', datatype='d', dimensions=('num_entities'), zlib=True, complevel=8,\
+                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                       endian='native', least_significant_digit=None, fill_value=None)
 
+if (args.dim>1):
+    dataset.createVariable('y', datatype='d', dimensions=('num_entities'), zlib=True, complevel=8,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
+
+if (args.dim>2):
+    dataset.createVariable('z', datatype='d', dimensions=('num_entities'), zlib=True, complevel=8,\
+                           shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                           endian='native', least_significant_digit=None, fill_value=None)
+
+dataset.createVariable('vertex_points', datatype='d', dimensions=('num_entities','num_vertex_coords'), zlib=True, complevel=8,\
+                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                       endian='native', least_significant_digit=None, fill_value=None)
+
+dataset.createVariable('adjacent_elements', datatype='int', dimensions=('num_entities','num_sides'), zlib=True, complevel=8,\
+                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                       endian='native', least_significant_digit=None, fill_value=None)
+
+dataset.createVariable('ID', datatype='int', dimensions=('num_entities'), zlib=True, complevel=8,\
+                       shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
+                       endian='native', least_significant_digit=None, fill_value=None)
+
+dataset.variables['x'][:]=midpoints[:,0]
+if (args.dim>1):
+    dataset.variables['y'][:]=midpoints[:,1]
+if (args.dim>2):
+    dataset.variables['z'][:]=midpoints[:,2]
+
+dataset.variables['vertex_points'][:,:]=vertex_coordinates[:,:]
+dataset.variables['adjacent_elements'][:,:]=adjacent_elements[:,:]
+dataset.variables['ID'][:]=np.arange(el_size)
+
+dataset.close()
