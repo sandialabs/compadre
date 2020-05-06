@@ -1204,42 +1204,80 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
             //    : _halo_particles_double_hop_neighborhood->getNeighbor(halo_i,j);
             // particle_j is an index from {0..nlocal+nhalo}
             if (particle_j>=nlocal /* particle is halo particle */) continue; // row should be locally owned
-            // locally owned DOF
-            for (local_index_type j_comp_out = 0; j_comp_out < fields[field_one]->nDim(); ++j_comp_out) {
-            for (local_index_type j_comp_in = 0; j_comp_in < fields[field_one]->nDim(); ++j_comp_in) {
-                if ((j_comp_out!=j_comp_in) && ((!_velocity_basis_type_vector && field_one == _velocity_field_id) || (field_one == _pressure_field_id))) continue;
 
-                local_index_type row = local_to_dof_map(particle_j, field_one, j_comp_in);
+            int j_to_cell_i = -1;
+            if (particle_to_local_neighbor_lookup.at(i).count(particle_j)==1){
+                j_to_cell_i = particle_to_local_neighbor_lookup.at(i).at(particle_j);
+            }
 
-                int k=-1;
-                //for (local_index_type k=0; k<num_neighbors; ++k) {
-                for (auto k_it=cell_neighbors.begin(); k_it!=cell_neighbors.end(); ++k_it) {
-                    k++;
-                    auto particle_k = k_it->first;
-                    //auto particle_k = (i<nlocal) ? _particles_double_hop_neighborhood->getNeighbor(i,k)
-                    //    : _halo_particles_double_hop_neighborhood->getNeighbor(halo_i,k);
-                    // particle_k is an index from {0..nlocal+nhalo}
+            int j_has_value_from_adjacent=0;
+            if (!_l2_op) {
+                Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, _weights_ndim), [&] (const int qn, int& t_j_has_value_from_adjacent) {
+                //for (int qn=0; qn<_weights_ndim; ++qn) {
+                    const auto q_type = quadrature_type(i,qn);
+                    if (q_type==0)  { // side on interior
+                        j_to_adjacent_cell[qn] = -1;
+                        const int adjacent_cell_local_index_q = adjacent_cell_local_index[qn];
+                        //TEUCHOS_ASSERT(adjacent_cell_local_index_q >= 0);
+                        if (i <= adjacent_cell_local_index_q) return;
+                        if (particle_to_local_neighbor_lookup[adjacent_cell_local_index_q].count(particle_j)==1) {
+                            j_to_adjacent_cell[qn] = particle_to_local_neighbor_lookup.at(adjacent_cell_local_index_q).at(particle_j);
+                            t_j_has_value_from_adjacent++;
+                        }
+                    }
+                }, j_has_value_from_adjacent);
+            }
 
-                    // do filter out (skip) all halo particles that are not seen by local DOF
-                    // wrong thing to do, because k could be double hop through cell i
+            int k=-1;
+            //for (local_index_type k=0; k<num_neighbors; ++k) {
+            for (auto k_it=cell_neighbors.begin(); k_it!=cell_neighbors.end(); ++k_it) {
+                k++;
+                auto particle_k = k_it->first;
+                //auto particle_k = (i<nlocal) ? _particles_double_hop_neighborhood->getNeighbor(i,k)
+                //    : _halo_particles_double_hop_neighborhood->getNeighbor(halo_i,k);
+                // particle_k is an index from {0..nlocal+nhalo}
+                int k_to_cell_i = -1;
+                if (particle_to_local_neighbor_lookup.at(i).count(particle_k)==1){
+                    k_to_cell_i = particle_to_local_neighbor_lookup.at(i).at(particle_k);
+                }
+
+
+                // do filter out (skip) all halo particles that are not seen by local DOF
+                // wrong thing to do, because k could be double hop through cell i
+                int k_has_value_from_adjacent=0;
+                if (!_l2_op) {
+                    Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, _weights_ndim), [&] (const int qn, int& t_k_has_value_from_adjacent) {
+                    //for (int qn=0; qn<_weights_ndim; ++qn) {
+                        const auto q_type = quadrature_type(i,qn);
+                        if (q_type==0)  { // side on interior
+                            k_to_adjacent_cell[qn] = -1;
+                            const int adjacent_cell_local_index_q = adjacent_cell_local_index[qn];
+                            //TEUCHOS_ASSERT(adjacent_cell_local_index_q >= 0);
+                            if (i <= adjacent_cell_local_index_q) return;
+                            if (particle_to_local_neighbor_lookup[adjacent_cell_local_index_q].count(particle_k)==1) {
+                                k_to_adjacent_cell[qn] = particle_to_local_neighbor_lookup.at(adjacent_cell_local_index_q).at(particle_k);
+                                t_k_has_value_from_adjacent++;
+                            }
+                        }
+                    }, k_has_value_from_adjacent);
+                    teamMember.team_barrier();
+                }
+
+                bool j_has_value = (j_to_cell_i>=0) || (j_has_value_from_adjacent>0);
+                bool k_has_value = (k_to_cell_i>=0) || (k_has_value_from_adjacent>0);
+
+                // locally owned DOF
+                for (local_index_type j_comp_out = 0; j_comp_out < fields[field_one]->nDim(); ++j_comp_out) {
+                for (local_index_type j_comp_in = 0; j_comp_in < fields[field_one]->nDim(); ++j_comp_in) {
+                    if ((j_comp_out!=j_comp_in) && ((!_velocity_basis_type_vector && field_one == _velocity_field_id) || (field_one == _pressure_field_id))) continue;
+
+                    local_index_type row = local_to_dof_map(particle_j, field_one, j_comp_in);
 
                     for (local_index_type k_comp_out = 0; k_comp_out < fields[field_two]->nDim(); ++k_comp_out) {
                     for (local_index_type k_comp_in = 0; k_comp_in < fields[field_two]->nDim(); ++k_comp_in) {
                         if ((k_comp_out!=k_comp_in) && ((!_velocity_basis_type_vector && field_two == _velocity_field_id) || (field_two == _pressure_field_id))) continue;
 
                         col_data[0] = local_to_dof_map(particle_k, field_two, k_comp_in);
-
-                        int j_to_cell_i = -1;
-                        if (particle_to_local_neighbor_lookup.at(i).count(particle_j)==1){
-                            j_to_cell_i = particle_to_local_neighbor_lookup.at(i).at(particle_j);
-                        }
-                        int k_to_cell_i = -1;
-                        if (particle_to_local_neighbor_lookup.at(i).count(particle_k)==1){
-                            k_to_cell_i = particle_to_local_neighbor_lookup.at(i).at(particle_k);
-                        }
-
-                        bool j_has_value = false;
-                        bool k_has_value = false;
 
                         double contribution = 0;
                         if (_l2_op) {
@@ -1256,7 +1294,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             v = (i<nlocal) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1)
                                                  : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j_to_cell_i, qn+1);
                                         }
-                                        j_has_value = true;
                                     } else {
                                         v = 0;
                                     }
@@ -1268,7 +1305,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             u = (i<nlocal) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1)
                                                  : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, k_to_cell_i, qn+1);
                                         }
-                                        k_has_value = true;
                                     } else {
                                         u = 0;
                                     }
@@ -1299,8 +1335,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             grad_v[d] = _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, d, j_to_cell_i, qn+1);
                                         }
                                     }
-
-                                    j_has_value = true;
                                 } else {
                                     v = 0.0;
                                     // grad_v set to 0's at instantiation
@@ -1319,8 +1353,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             grad_u[d] = _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, d, k_to_cell_i, qn+1);
                                         }
                                     }
-
-                                    k_has_value = true;
                                 } else {
                                     u = 0.0;
                                     // grad_u set to 0's at instantiation
@@ -1371,13 +1403,11 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         if (_pressure_field_id==field_one || _pressure_field_id==field_two) {
                                             if (j_to_cell_i>=0) {
                                                 q = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
-                                                j_has_value = true;
                                             } else {
                                                 q = 0.0;
                                             }
                                             if (k_to_cell_i>=0) {
                                                 p = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
-                                                k_has_value = true;
                                             } else {
                                                 p = 0.0;
                                             }
@@ -1577,13 +1607,11 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             if (_pressure_field_id==field_one || _pressure_field_id==field_two) {
                                                 if (j_to_cell_i>=0) {
                                                     q = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
-                                                    j_has_value = true;
                                                 } else {
                                                     q = 0.0;
                                                 }
                                                 if (k_to_cell_i>=0) {
                                                     p = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
-                                                    k_has_value = true;
                                                 } else {
                                                     p = 0.0;
                                                 }
@@ -1722,22 +1750,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     ////}
                                     if (i <= adjacent_cell_local_index_q) continue;
                                     
-                                    TEUCHOS_ASSERT(adjacent_cell_local_index_q >= 0);
-                                    int j_to_adjacent_cell = -1;
-                                    if (particle_to_local_neighbor_lookup.at(adjacent_cell_local_index_q).count(particle_j)==1) {
-                                        j_to_adjacent_cell = particle_to_local_neighbor_lookup.at(adjacent_cell_local_index_q).at(particle_j);
-                                    }
-                                    int k_to_adjacent_cell = -1;
-                                    if (particle_to_local_neighbor_lookup.at(adjacent_cell_local_index_q).count(particle_k)==1) {
-                                        k_to_adjacent_cell = particle_to_local_neighbor_lookup.at(adjacent_cell_local_index_q).at(particle_k);
-                                    }
-                                    if (j_to_adjacent_cell>=0) {
-                                        j_has_value = true;
-                                    }
-                                    if (k_to_adjacent_cell>=0) {
-                                        k_has_value = true;
-                                    }
-                                    if (j_to_adjacent_cell<0 && k_to_adjacent_cell<0 && j_to_cell_i<0 && k_to_cell_i<0) continue;
+                                    if (j_to_adjacent_cell[qn]<0 && k_to_adjacent_cell[qn]<0 && j_to_cell_i<0 && k_to_cell_i<0) continue;
                                     
                                     const auto normal_direction_correction = (i > adjacent_cell_local_index_q) ? 1 : -1; 
                                     XYZ n;
@@ -1789,9 +1802,9 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
 
                                     // diagnostics for quadrature points
-                                    //printf("b: %f\n", _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell, adjacent_q+1));
+                                    //printf("b: %f\n", _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell[qn], adjacent_q+1));
                                     //auto my_j_index = _cell_particles_neighborhood->getNeighbor(i,j_to_cell_i);
-                                    //auto their_j_index = _cell_particles_neighborhood->getNeighbor(adjacent_cell_local_index, j_to_adjacent_cell);
+                                    //auto their_j_index = _cell_particles_neighborhood->getNeighbor(adjacent_cell_local_index, j_to_adjacent_cell[qn]);
                                     //printf("xm: %d, t: %d\n", my_j_index, their_j_index);
                                     //auto my_q_x = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 0);
                                     //auto my_q_y = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 1);
@@ -1802,7 +1815,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
                                     //auto my_q_x = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 0);
                                     //auto my_q_y = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 1);
-                                    ////auto their_q_index = _kokkos_quadrature_neighbor_lists_host(adjacent_cell_local_index, 1+k_to_adjacent_cell);
+                                    ////auto their_q_index = _kokkos_quadrature_neighbor_lists_host(adjacent_cell_local_index, 1+k_to_adjacent_cell[qn]);
                                     //auto their_q_x = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 0);
                                     //auto their_q_y = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 1);
                                     //if (std::abs(my_q_x-their_q_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_q_x, their_q_x, my_q_x-their_q_x);
@@ -1819,12 +1832,12 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     //    }
  
                                     double other_v, other_u;
-                                    if (_use_vector_gmls) other_v = (j_to_adjacent_cell>=0) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, j_to_adjacent_cell, j_comp_in, adjacent_q+1) : 0.0;
-                                    else other_v = (j_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    if (_use_vector_gmls) other_v = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, j_to_adjacent_cell[qn], j_comp_in, adjacent_q+1) : 0.0;
+                                    else other_v = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
                                     const double jumpv = normal_direction_correction*(v-other_v);
 
-                                    if (_use_vector_gmls) other_u = (k_to_adjacent_cell>=0) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, k_to_adjacent_cell, k_comp_in, adjacent_q+1) : 0.0;
-                                    else other_u = (k_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                    if (_use_vector_gmls) other_u = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, k_to_adjacent_cell[qn], k_comp_in, adjacent_q+1) : 0.0;
+                                    else other_u = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
                                     const double jumpu = normal_direction_correction*(u-other_u);
 
 
@@ -1832,20 +1845,20 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     XYZ other_grad_v, other_grad_u;
                                     if (_use_vector_grad_gmls) {
                                         for (int d=0; d<_ndim_requested; ++d) {
-                                            other_grad_v[d] = (j_to_adjacent_cell>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, d, j_to_adjacent_cell, j_comp_in, adjacent_q+1) : 0.0;
-                                            other_grad_u[d] = (k_to_adjacent_cell>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, d, k_to_adjacent_cell, k_comp_in, adjacent_q+1) : 0.0;
-                                            //other_grad_v_y = (j_to_adjacent_cell>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, 1, j_to_adjacent_cell, j_comp_in, adjacent_q+1) : 0.0;
-                                            //other_grad_u_x = (k_to_adjacent_cell>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, 0, k_to_adjacent_cell, k_comp_in, adjacent_q+1) : 0.0;
-                                            //other_grad_u_y = (k_to_adjacent_cell>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, 1, k_to_adjacent_cell, k_comp_in, adjacent_q+1) : 0.0;
+                                            other_grad_v[d] = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, d, j_to_adjacent_cell[qn], j_comp_in, adjacent_q+1) : 0.0;
+                                            other_grad_u[d] = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, d, k_to_adjacent_cell[qn], k_comp_in, adjacent_q+1) : 0.0;
+                                            //other_grad_v_y = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, 1, j_to_adjacent_cell[qn], j_comp_in, adjacent_q+1) : 0.0;
+                                            //other_grad_u_x = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, 0, k_to_adjacent_cell[qn], k_comp_in, adjacent_q+1) : 0.0;
+                                            //other_grad_u_y = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, 1, k_to_adjacent_cell[qn], k_comp_in, adjacent_q+1) : 0.0;
                                         }
                                     } else {
                                         for (int d=0; d<_ndim_requested; ++d) {
-                                            other_grad_v[d] = (j_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, d, j_to_adjacent_cell, adjacent_q+1) : 0.0;
-                                            other_grad_u[d] = (k_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, d, k_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                            other_grad_v[d] = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, d, j_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
+                                            other_grad_u[d] = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, d, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
                                         }
-                                        //other_grad_v_y = (j_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, j_to_adjacent_cell, adjacent_q+1) : 0.0;
-                                        //other_grad_u_x = (k_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, k_to_adjacent_cell, adjacent_q+1) : 0.0;
-                                        //other_grad_u_y = (k_to_adjacent_cell>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, k_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                        //other_grad_v_y = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, j_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
+                                        //other_grad_u_x = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
+                                        //other_grad_u_y = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
 
                                     }
 
@@ -1950,19 +1963,17 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             if (_pressure_field_id==field_one || _pressure_field_id==field_two) {
                                                 if (j_to_cell_i>=0) {
                                                     q = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
-                                                    j_has_value = true;
                                                 } else {
                                                     q = 0.0;
                                                 }
                                                 if (k_to_cell_i>=0) {
                                                     p = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
-                                                    k_has_value = true;
                                                 } else {
                                                     p = 0.0;
                                                 }
                                             }
-                                            const double other_q = (j_to_adjacent_cell>=0) ? _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell, adjacent_q+1) : 0.0;
-                                            const double other_p = (k_to_adjacent_cell>=0) ? _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell, adjacent_q+1) : 0.0;
+                                            const double other_q = (j_to_adjacent_cell[qn]>=0) ? _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
+                                            const double other_p = (k_to_adjacent_cell[qn]>=0) ? _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
                                             const double avgp = 0.5*(p+other_p);
                                             const double avgq = 0.5*(q+other_q);
 
