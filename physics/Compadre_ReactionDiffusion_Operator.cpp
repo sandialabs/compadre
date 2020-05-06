@@ -1862,22 +1862,22 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 delta_adjacent_cell.multiply( Teuchos::NO_TRANS, Teuchos::NO_TRANS, 1.0, tau_edge, tau_adjacent_cell, 0.0 );
                                                 delta_edge.multiply( Teuchos::NO_TRANS, Teuchos::NO_TRANS, 1.0, tau_current_cell, delta_adjacent_cell, 0.0 );
 
-                                                const double traction_u_current_x = n_x * ( _lambda * (k_comp_0*grad_u_x + k_comp_1*grad_u_y) + 2.0*_shear * k_comp_0*grad_u_x ) +
-                                                                                    n_y * _shear * (k_comp_0*grad_u_y + k_comp_1*grad_u_x);
-                                                const double traction_u_current_y = n_y * ( _lambda * (k_comp_0*grad_u_x + k_comp_1*grad_u_y) + 2.0*_shear * k_comp_1*grad_u_y ) +
-                                                                                    n_x * _shear * (k_comp_0*grad_u_y + k_comp_1*grad_u_x);
-                                                const double traction_u_adjacent_x = n_x * ( _lambda * (k_comp_0*other_grad_u_x + k_comp_1*other_grad_u_y) + 2.0*_shear * k_comp_0*other_grad_u_x ) +
-                                                                                     n_y * _shear * (k_comp_0*other_grad_u_y + k_comp_1*other_grad_u_x);
-                                                const double traction_u_adjacent_y = n_y * ( _lambda * (k_comp_0*other_grad_u_x + k_comp_1*other_grad_u_y) + 2.0*_shear * k_comp_1*other_grad_u_y ) +
-                                                                                     n_x * _shear * (k_comp_0*other_grad_u_y + k_comp_1*other_grad_u_x);
-                                                const double traction_v_current_x = n_x * ( _lambda * (j_comp_0*grad_v_x + j_comp_1*grad_v_y) + 2.0*_shear * j_comp_0*grad_v_x ) +
-                                                                                    n_y * _shear * (j_comp_0*grad_v_y + j_comp_1*grad_v_x);
-                                                const double traction_v_current_y = n_y * ( _lambda * (j_comp_0*grad_v_x + j_comp_1*grad_v_y) + 2.0*_shear * j_comp_1*grad_v_y ) +
-                                                                                    n_x * _shear * (j_comp_0*grad_v_y + j_comp_1*grad_v_x);
-                                                const double traction_v_adjacent_x = n_x * ( _lambda * (j_comp_0*other_grad_v_x + j_comp_1*other_grad_v_y) + 2.0*_shear * j_comp_0*other_grad_v_x ) +
-                                                                                     n_y * _shear * (j_comp_0*other_grad_v_y + j_comp_1*other_grad_v_x);
-                                                const double traction_v_adjacent_y = n_y * ( _lambda * (j_comp_0*other_grad_v_x + j_comp_1*other_grad_v_y) + 2.0*_shear * j_comp_1*other_grad_v_y ) +
-                                                                                     n_x * _shear * (j_comp_0*other_grad_v_y + j_comp_1*other_grad_v_x);
+                                                const double traction_u_current_x = n_x * ( _lambda * (k_comp_out_0*grad_u_x + k_comp_out_1*grad_u_y) + 2.0*_shear * k_comp_out_0*grad_u_x ) +
+                                                                                    n_y * _shear * (k_comp_out_0*grad_u_y + k_comp_out_1*grad_u_x);
+                                                const double traction_u_current_y = n_y * ( _lambda * (k_comp_out_0*grad_u_x + k_comp_out_1*grad_u_y) + 2.0*_shear * k_comp_out_1*grad_u_y ) +
+                                                                                    n_x * _shear * (k_comp_out_0*grad_u_y + k_comp_out_1*grad_u_x);
+                                                const double traction_u_adjacent_x = n_x * ( _lambda * (k_comp_out_0*other_grad_u_x + k_comp_out_1*other_grad_u_y) + 2.0*_shear * k_comp_out_0*other_grad_u_x ) +
+                                                                                     n_y * _shear * (k_comp_out_0*other_grad_u_y + k_comp_out_1*other_grad_u_x);
+                                                const double traction_u_adjacent_y = n_y * ( _lambda * (k_comp_out_0*other_grad_u_x + k_comp_out_1*other_grad_u_y) + 2.0*_shear * k_comp_out_1*other_grad_u_y ) +
+                                                                                     n_x * _shear * (k_comp_out_0*other_grad_u_y + k_comp_out_1*other_grad_u_x);
+                                                const double traction_v_current_x = n_x * ( _lambda * (j_comp_out_0*grad_v_x + j_comp_out_1*grad_v_y) + 2.0*_shear * j_comp_out_0*grad_v_x ) +
+                                                                                    n_y * _shear * (j_comp_out_0*grad_v_y + j_comp_out_1*grad_v_x);
+                                                const double traction_v_current_y = n_y * ( _lambda * (j_comp_out_0*grad_v_x + j_comp_out_1*grad_v_y) + 2.0*_shear * j_comp_out_1*grad_v_y ) +
+                                                                                    n_x * _shear * (j_comp_out_0*grad_v_y + j_comp_out_1*grad_v_x);
+                                                const double traction_v_adjacent_x = n_x * ( _lambda * (j_comp_out_0*other_grad_v_x + j_comp_out_1*other_grad_v_y) + 2.0*_shear * j_comp_out_0*other_grad_v_x ) +
+                                                                                     n_y * _shear * (j_comp_out_0*other_grad_v_y + j_comp_out_1*other_grad_v_x);
+                                                const double traction_v_adjacent_y = n_y * ( _lambda * (j_comp_out_0*other_grad_v_x + j_comp_out_1*other_grad_v_y) + 2.0*_shear * j_comp_out_1*other_grad_v_y ) +
+                                                                                     n_x * _shear * (j_comp_out_0*other_grad_v_y + j_comp_out_1*other_grad_v_x);
                         
                                                 const double avg_traction_u_x = delta_current_cell(0, 0) * traction_u_current_x +
                                                                                 delta_current_cell(0, 1) * traction_u_current_y +
@@ -1904,15 +1904,15 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 const double jump_traction_v_x = traction_v_current_x - traction_v_adjacent_x;
                                                 const double jump_traction_v_y = traction_v_current_y - traction_v_adjacent_y;
 
-                                                contribution += q_wt * jumpv * jumpu * tau_edge(j_comp, k_comp); 
+                                                contribution += q_wt * jumpv * jumpu * tau_edge(j_comp_out, k_comp_out); 
                                                                       
                                                 contribution -= q_wt * (
-                                                                        jumpv * j_comp_0 * avg_traction_u_x +
-                                                                        jumpv * j_comp_1 * avg_traction_u_y);
+                                                                        jumpv * j_comp_out_0 * avg_traction_u_x +
+                                                                        jumpv * j_comp_out_1 * avg_traction_u_y);
                                                                      
                                                 contribution -= q_wt * (
-                                                                        jumpu * k_comp_0 * avg_traction_v_x +
-                                                                        jumpu * k_comp_1 * avg_traction_v_y);
+                                                                        jumpu * k_comp_out_0 * avg_traction_v_x +
+                                                                        jumpu * k_comp_out_1 * avg_traction_v_y);
                                                                      
                                                 contribution -= q_wt * (
                                                                         jump_traction_v_x * ( delta_edge(0, 0) * jump_traction_u_x + delta_edge(0, 1) * jump_traction_u_y ) +
