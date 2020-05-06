@@ -1315,7 +1315,8 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                             }
                         } else {
                             // loop over quadrature
-                            for (int qn=0; qn<_weights_ndim; ++qn) {
+                            Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, _weights_ndim), [&] (const int qn, double& t_contribution) {
+                            //for (int qn=0; qn<_weights_ndim; ++qn) {
                                 const auto q_type = quadrature_type(i,qn);
                                 const auto q_wt = quadrature_weights(i,qn);
                                 double u, v;
@@ -1361,9 +1362,9 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                 if (q_type==1) { // interior
 
                                     if (_rd_op) {
-                                        contribution += _reaction * q_wt * u * v;
+                                        t_contribution += _reaction * q_wt * u * v;
                                         for (int d=0; d<_ndim_requested; ++d) {
-                                            contribution += _diffusion * q_wt 
+                                            t_contribution += _diffusion * q_wt 
                                                 * grad_v[d] * grad_u[d];
                                         }
                                     } else if (_le_op) {
@@ -1372,7 +1373,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             div_v += grad_v[d]*(j_comp_out==d);
                                             div_u += grad_u[d]*(k_comp_out==d);
                                         }
-                                        contribution += q_wt * _lambda * div_v * div_u;
+                                        t_contribution += q_wt * _lambda * div_v * div_u;
                                        
                                         double sigma_v_dot_sigma_u = 0.0;
                                         for (int d1=0; d1<_ndim_requested; ++d1) {
@@ -1380,7 +1381,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 sigma_v_dot_sigma_u += (0.5*grad_v[d1]*(j_comp_out==d2)+0.5*grad_v[d2]*(j_comp_out==d1))*(0.5*grad_u[d1]*(k_comp_out==d2)+0.5*grad_u[d2]*(k_comp_out==d1));
                                             }
                                         }
-                                        contribution += q_wt * 2 * _shear * sigma_v_dot_sigma_u;
+                                        t_contribution += q_wt * 2 * _shear * sigma_v_dot_sigma_u;
                                         //(
                                         //      grad_v_x*grad_u_x*(j_comp_out==0)*(k_comp_out==0) 
                                         //    + grad_v_y*grad_u_y*(j_comp_out==1)*(k_comp_out==1) 
@@ -1392,7 +1393,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 grad_v_dot_grad_u += grad_v[d1]*(j_comp_out==d2)*grad_u[d1]*(k_comp_out==d2);
                                             }
                                         }
-                                        contribution += q_wt * _shear* grad_v_dot_grad_u;
+                                        t_contribution += q_wt * _shear* grad_v_dot_grad_u;
                                         //(
                                         //      grad_v_x*grad_u_x*(j_comp_out==0)*(k_comp_out==0) 
                                         //    + grad_v_y*grad_u_y*(j_comp_out==0)*(k_comp_out==0) 
@@ -1420,7 +1421,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                         grad_v_dot_grad_u += grad_v[d1]*(j_comp_out==d2)*grad_u[d1]*(k_comp_out==d2);
                                                     }
                                                 }
-                                                contribution += q_wt * _diffusion* grad_v_dot_grad_u;
+                                                t_contribution += q_wt * _diffusion* grad_v_dot_grad_u;
                                                 //(
                                                 //      grad_v_x*grad_u_x*(j_comp_out==0)*(k_comp_out==0) 
                                                 //    + grad_v_y*grad_u_y*(j_comp_out==0)*(k_comp_out==0) 
@@ -1432,8 +1433,8 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                     div_v += grad_v[d]*(j_comp_out==d);
                                                     div_u += grad_u[d]*(k_comp_out==d);
                                                 }
-                                                contribution += q_wt * -2./(scalar_type)(_ndim_requested) * _shear * div_v * div_u;
-                                                //contribution += q_wt * ( -2./(scalar_type)(_ndim_requested) * _shear * (grad_v_x*(j_comp_out==0) + grad_v_y*(j_comp_out==1)) 
+                                                t_contribution += q_wt * -2./(scalar_type)(_ndim_requested) * _shear * div_v * div_u;
+                                                //t_contribution += q_wt * ( -2./(scalar_type)(_ndim_requested) * _shear * (grad_v_x*(j_comp_out==0) + grad_v_y*(j_comp_out==1)) 
                                                 //    * (grad_u_x*(k_comp_out==0) + grad_u_y*(k_comp_out==1)) );
                                        
                                                 double sigma_v_dot_sigma_u = 0.0;
@@ -1442,8 +1443,8 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                         sigma_v_dot_sigma_u += (0.5*grad_v[d1]*(j_comp_out==d2)+0.5*grad_v[d2]*(j_comp_out==d1))*(0.5*grad_u[d1]*(k_comp_out==d2)+0.5*grad_u[d2]*(k_comp_out==d1));
                                                     }
                                                 }
-                                                contribution += q_wt * 2 * _shear * sigma_v_dot_sigma_u;
-                                                //contribution += q_wt * 2 * _shear* (
+                                                t_contribution += q_wt * 2 * _shear * sigma_v_dot_sigma_u;
+                                                //t_contribution += q_wt * 2 * _shear* (
                                                 //      grad_v_x*grad_u_x*(j_comp_out==0)*(k_comp_out==0) 
                                                 //    + grad_v_y*grad_u_y*(j_comp_out==1)*(k_comp_out==1) 
                                                 //    + 0.5*(grad_v_y*(j_comp_out==0) + grad_v_x*(j_comp_out==1))*(grad_u_y*(k_comp_out==0) + grad_u_x*(k_comp_out==1)));
@@ -1454,7 +1455,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             for (int d=0; d<_ndim_requested; ++d) {
                                                 div_v += grad_v[d]*(j_comp_out==d);
                                             }
-                                            contribution -= q_wt * div_v * p * pressure_coeff;
+                                            t_contribution -= q_wt * div_v * p * pressure_coeff;
                                             //      (grad_v_x*(j_comp_out==0) + grad_v_y*(j_comp_out==1)) * p * pressure_coeff);
                                         } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
                                             if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
@@ -1462,22 +1463,22 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 for (int d=0; d<_ndim_requested; ++d) {
                                                     div_u += grad_u[d]*(k_comp_out==d);
                                                 }
-                                                contribution -= q_wt * div_u * q * pressure_coeff;
+                                                t_contribution -= q_wt * div_u * q * pressure_coeff;
                                                 //      (grad_u_x*(k_comp_out==0) + grad_u_y*(k_comp_out==1)) * q * pressure_coeff);
                                             } 
                                             //else if ((particle_j==particle_k) && (particle_j==i)) {
-                                            //    contribution += 1;
+                                            //    t_contribution += 1;
                                             //}
                                         } else {
                                             if (_mix_le_op) {
                                                 if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
-                                                    contribution -= q_wt * ( p * q * pressure_coeff );
+                                                    t_contribution -= q_wt * ( p * q * pressure_coeff );
                                                 } 
                                             }
                                         }
                                         //else {
                                         //    if (particle_j==particle_k) {
-                                        //        contribution += 1;
+                                        //        t_contribution += 1;
                                         //    }
                                         //}
                                     }
@@ -1508,15 +1509,15 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         //auto jump_u_y = n_y*u;
                                         //auto jump_u_jump_v = jump_v_x*jump_u_x + jump_v_y*jump_u_y;
 
-                                        contribution += penalty * q_wt * jumpv * jumpu;
+                                        t_contribution += penalty * q_wt * jumpv * jumpu;
 
                                         double avg_grad_v_dot_n = 0, avg_grad_u_dot_n = 0;
                                         for (int d=0; d<_ndim_requested; ++d) {
                                             avg_grad_v_dot_n += avg_grad_v[d] * n[d];
                                             avg_grad_u_dot_n += avg_grad_u[d] * n[d];
                                         }
-                                        contribution -= q_wt * _diffusion * avg_grad_v_dot_n * jumpu;
-                                        contribution -= q_wt * _diffusion * avg_grad_u_dot_n * jumpv;
+                                        t_contribution -= q_wt * _diffusion * avg_grad_v_dot_n * jumpu;
+                                        t_contribution -= q_wt * _diffusion * avg_grad_u_dot_n * jumpv;
                                     } else {
                                         // only jump penalization currently included
                                         const double jumpv = v;
@@ -1540,7 +1541,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
                                         if (_le_op) {
 
-                                            contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
+                                            t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
 
                                             double mu_sigma_v_dot_n_dot_jump_u = 0.0;
                                             double mu_sigma_u_dot_n_dot_jump_v = 0.0;
@@ -1562,24 +1563,24 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 lambda_sigma_v_dot_n_dot_jump_u += avg_grad_v[d]*(j_comp_out==d) * n_dot_jump_u;
                                                 lambda_sigma_u_dot_n_dot_jump_v += avg_grad_u[d]*(k_comp_out==d) * n_dot_jump_v;
                                             }
-                                            contribution -= q_wt * 2 * _shear * mu_sigma_v_dot_n_dot_jump_u;
-                                            contribution -= q_wt * 2 * _shear * mu_sigma_u_dot_n_dot_jump_v;
-                                            contribution -= q_wt * _lambda * lambda_sigma_v_dot_n_dot_jump_u;
-                                            contribution -= q_wt * _lambda * lambda_sigma_u_dot_n_dot_jump_v;
-                                            //contribution -= q_wt * (
+                                            t_contribution -= q_wt * 2 * _shear * mu_sigma_v_dot_n_dot_jump_u;
+                                            t_contribution -= q_wt * 2 * _shear * mu_sigma_u_dot_n_dot_jump_v;
+                                            t_contribution -= q_wt * _lambda * lambda_sigma_v_dot_n_dot_jump_u;
+                                            t_contribution -= q_wt * _lambda * lambda_sigma_u_dot_n_dot_jump_v;
+                                            //t_contribution -= q_wt * (
                                             //      2 * _shear * (n_x*avgv_x*(j_comp_out==0) 
                                             //        + 0.5*n_y*(avgv_y*(j_comp_out==0) + avgv_x*(j_comp_out==1))) * jumpu*(k_comp_out==0)  
                                             //    + 2 * _shear * (n_y*avgv_y*(j_comp_out==1) 
                                             //        + 0.5*n_x*(avgv_x*(j_comp_out==1) + avgv_y*(j_comp_out==0))) * jumpu*(k_comp_out==1)
                                             //    + _lambda*(avgv_x*(j_comp_out==0) + avgv_y*(j_comp_out==1))*(n_x*jumpu*(k_comp_out==0) + n_y*jumpu*(k_comp_out==1)));
-                                            //contribution -= q_wt * (
+                                            //t_contribution -= q_wt * (
                                             //      2 * _shear * (n_x*avgu_x*(k_comp_out==0) 
                                             //        + 0.5*n_y*(avgu_y*(k_comp_out==0) + avgu_x*(k_comp_out==1))) * jumpv*(j_comp_out==0)  
                                             //    + 2 * _shear * (n_y*avgu_y*(k_comp_out==1) 
                                             //        + 0.5*n_x*(avgu_x*(k_comp_out==1) + avgu_y*(k_comp_out==0))) * jumpv*(j_comp_out==1)
                                             //    + _lambda*(avgu_x*(k_comp_out==0) + avgu_y*(k_comp_out==1))*(n_x*jumpv*(j_comp_out==0) + n_y*jumpv*(j_comp_out==1)));
                                         } else if (_vl_op) {
-                                            contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
+                                            t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
 
                                             double sigma_v_dot_n_dot_jump_u = 0.0, sigma_u_dot_n_dot_jump_v = 0.0;
                                             for (int d1=0; d1<_ndim_requested; ++d1) {
@@ -1588,15 +1589,15 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                     sigma_u_dot_n_dot_jump_v += n[d1]*avg_grad_u[d1]*(k_comp_out==d2) * jumpv*(j_comp_out==d2);
                                                 }
                                             }
-                                            contribution -= q_wt * _shear * sigma_v_dot_n_dot_jump_u;
-                                            contribution -= q_wt * _shear * sigma_u_dot_n_dot_jump_v;
+                                            t_contribution -= q_wt * _shear * sigma_v_dot_n_dot_jump_u;
+                                            t_contribution -= q_wt * _shear * sigma_u_dot_n_dot_jump_v;
 
-                                            //contribution -= q_wt * (
+                                            //t_contribution -= q_wt * (
                                             //      _shear * (n_x*avgv_x*(j_comp_out==0) 
                                             //        + n_y*avgv_y*(j_comp_out==0)) * jumpu*(k_comp_out==0)  
                                             //    + _shear * (n_x*avgv_x*(j_comp_out==1) 
                                             //        + n_y*avgv_y*(j_comp_out==1)) * jumpu*(k_comp_out==1) );
-                                            //contribution -= q_wt * (
+                                            //t_contribution -= q_wt * (
                                             //      _shear * (n_x*avgu_x*(k_comp_out==0) 
                                             //        + n_y*avgu_y*(k_comp_out==0)) * jumpv*(j_comp_out==0)  
                                             //    + _shear * (n_x*avgu_x*(k_comp_out==1) 
@@ -1622,7 +1623,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
                                             if (_velocity_field_id==field_one && _velocity_field_id==field_two) {
                                                 if (_st_op) {
-                                                    contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
+                                                    t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
                                                     double sigma_v_dot_n_dot_jump_u = 0.0, sigma_u_dot_n_dot_jump_v = 0.0;
                                                     for (int d1=0; d1<_ndim_requested; ++d1) {
                                                         for (int d2=0; d2<_ndim_requested; ++d2) {
@@ -1630,20 +1631,20 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                             sigma_u_dot_n_dot_jump_v += n[d1]*avg_grad_u[d1]*(k_comp_out==d2) * jumpv*(j_comp_out==d2);
                                                         }
                                                     }
-                                                    contribution -= q_wt * _diffusion * sigma_v_dot_n_dot_jump_u;
-                                                    contribution -= q_wt * _diffusion * sigma_u_dot_n_dot_jump_v;
-                                                    //contribution -= q_wt * (
+                                                    t_contribution -= q_wt * _diffusion * sigma_v_dot_n_dot_jump_u;
+                                                    t_contribution -= q_wt * _diffusion * sigma_u_dot_n_dot_jump_v;
+                                                    //t_contribution -= q_wt * (
                                                     //      _diffusion * (n_x*avgv_x*(j_comp_out==0) 
                                                     //        + n_y*avgv_y*(j_comp_out==0)) * jumpu*(k_comp_out==0)  
                                                     //    + _diffusion * (n_x*avgv_x*(j_comp_out==1) 
                                                     //        + n_y*avgv_y*(j_comp_out==1)) * jumpu*(k_comp_out==1) );
-                                                    //contribution -= q_wt * (
+                                                    //t_contribution -= q_wt * (
                                                     //      _diffusion * (n_x*avgu_x*(k_comp_out==0) 
                                                     //        + n_y*avgu_y*(k_comp_out==0)) * jumpv*(j_comp_out==0)  
                                                     //    + _diffusion * (n_x*avgu_x*(k_comp_out==1) 
                                                     //        + n_y*avgu_y*(k_comp_out==1)) * jumpv*(j_comp_out==1) );
                                                 } else if (_mix_le_op) {
-                                                    contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
+                                                    t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
 
                                                     double mu_sigma_v_dot_n_dot_jump_u = 0.0;
                                                     double mu_sigma_u_dot_n_dot_jump_v = 0.0;
@@ -1654,8 +1655,8 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                         }
                                                     }
 
-                                                    contribution -= q_wt * 2 * _shear * mu_sigma_v_dot_n_dot_jump_u;
-                                                    contribution -= q_wt * 2 * _shear * mu_sigma_u_dot_n_dot_jump_v;
+                                                    t_contribution -= q_wt * 2 * _shear * mu_sigma_v_dot_n_dot_jump_u;
+                                                    t_contribution -= q_wt * 2 * _shear * mu_sigma_u_dot_n_dot_jump_v;
 
                                                     double avg_div_v = 0, avg_div_u = 0;
                                                     for (int d=0; d<_ndim_requested; ++d) {
@@ -1667,16 +1668,16 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                         n_dot_jump_v += n[d] * jumpv * (j_comp_out==d);
                                                         n_dot_jump_u += n[d] * jumpu * (k_comp_out==d);
                                                     }
-                                                    contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _shear * avg_div_v * n_dot_jump_u;
-                                                    contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _shear * avg_div_u * n_dot_jump_v;
+                                                    t_contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _shear * avg_div_v * n_dot_jump_u;
+                                                    t_contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _shear * avg_div_u * n_dot_jump_v;
 
-                                                    //contribution -= q_wt * (
+                                                    //t_contribution -= q_wt * (
                                                     //      2 * _shear * (n_x*avgv_x*(j_comp_out==0) 
                                                     //        + 0.5*n_y*(avgv_y*(j_comp_out==0) + avgv_x*(j_comp_out==1))) * jumpu*(k_comp_out==0)  
                                                     //    + 2 * _shear * (n_y*avgv_y*(j_comp_out==1) 
                                                     //        + 0.5*n_x*(avgv_x*(j_comp_out==1) + avgv_y*(j_comp_out==0))) * jumpu*(k_comp_out==1)
                                                     //    - 2./(scalar_type)(_ndim_requested) * _shear * (avgv_x*(j_comp_out==0) + avgv_y*(j_comp_out==1))*(n_x*jumpu*(k_comp_out==0) + n_y*jumpu*(k_comp_out==1)));
-                                                    //contribution -= q_wt * (
+                                                    //t_contribution -= q_wt * (
                                                     //      2 * _shear * (n_x*avgu_x*(k_comp_out==0) 
                                                     //        + 0.5*n_y*(avgu_y*(k_comp_out==0) + avgu_x*(k_comp_out==1))) * jumpv*(j_comp_out==0)  
                                                     //    + 2 * _shear * (n_y*avgu_y*(k_comp_out==1) 
@@ -1688,9 +1689,9 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 for (int d=0; d<_ndim_requested; ++d) {
                                                     n_dot_jump_v += n[d] * jumpv * (j_comp_out==d);
                                                 }
-                                                contribution += q_wt * pressure_coeff * avgp * n_dot_jump_v;
-                                                //contribution += q_wt * n_dot_jump_v;
-                                                //contribution += q_wt * (
+                                                t_contribution += q_wt * pressure_coeff * avgp * n_dot_jump_v;
+                                                //t_contribution += q_wt * n_dot_jump_v;
+                                                //t_contribution += q_wt * (
                                                 //      pressure_coeff * avgp * n_dot_jump_v );
                                             } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
                                                 if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
@@ -1698,8 +1699,8 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                     for (int d=0; d<_ndim_requested; ++d) {
                                                         n_dot_jump_u += n[d] * jumpu * (k_comp_out==d);
                                                     }
-                                                    contribution += q_wt * pressure_coeff * avgq * n_dot_jump_u;
-                                                    //contribution += q_wt * (
+                                                    t_contribution += q_wt * pressure_coeff * avgq * n_dot_jump_u;
+                                                    //t_contribution += q_wt * (
                                                     //      pressure_coeff * avgq * (n_x*jumpu*(k_comp_out==0) + n_y*jumpu*(k_comp_out==1)) );
                                                 }
                                             }
@@ -1748,9 +1749,9 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     ////        printf("gid on halo %d\n", _halo_id_view(l,0));
                                     ////    }
                                     ////}
-                                    if (i <= adjacent_cell_local_index_q) continue;
+                                    if (i <= adjacent_cell_local_index_q) return;
                                     
-                                    if (j_to_adjacent_cell[qn]<0 && k_to_adjacent_cell[qn]<0 && j_to_cell_i<0 && k_to_cell_i<0) continue;
+                                    if (j_to_adjacent_cell[qn]<0 && k_to_adjacent_cell[qn]<0 && j_to_cell_i<0 && k_to_cell_i<0) return;
                                     
                                     const auto normal_direction_correction = (i > adjacent_cell_local_index_q) ? 1 : -1; 
                                     XYZ n;
@@ -1879,24 +1880,24 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     //auto jump_u_y = n_y*u-n_y*other_u;
                                     //jump_u_jump_v = jump_v_x*jump_u_x + jump_v_y*jump_u_y;
 
-                                    //contribution += 0.5 * penalty * q_wt * jumpv * jumpu; // other half will be added by other cell
-                                    //contribution -= 0.5 * q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
-                                    //contribution -= 0.5 * q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
+                                    //t_contribution += 0.5 * penalty * q_wt * jumpv * jumpu; // other half will be added by other cell
+                                    //t_contribution -= 0.5 * q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
+                                    //t_contribution -= 0.5 * q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
                                     if (_rd_op) {
-                                        contribution += penalty * q_wt * jumpv * jumpu; // other half will be added by other cell
+                                        t_contribution += penalty * q_wt * jumpv * jumpu; // other half will be added by other cell
 
                                         double avg_grad_v_dot_n = 0, avg_grad_u_dot_n = 0;
                                         for (int d=0; d<_ndim_requested; ++d) {
                                             avg_grad_v_dot_n += avg_grad_v[d] * n[d];
                                             avg_grad_u_dot_n += avg_grad_u[d] * n[d];
                                         }
-                                        contribution -= q_wt * _diffusion * avg_grad_v_dot_n * jumpu;
-                                        contribution -= q_wt * _diffusion * avg_grad_u_dot_n * jumpv;
-                                        //contribution -= q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
-                                        //contribution -= q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
+                                        t_contribution -= q_wt * _diffusion * avg_grad_v_dot_n * jumpu;
+                                        t_contribution -= q_wt * _diffusion * avg_grad_u_dot_n * jumpv;
+                                        //t_contribution -= q_wt * _diffusion * (avgv_x * n_x + avgv_y * n_y) * jumpu;
+                                        //t_contribution -= q_wt * _diffusion * (avgu_x * n_x + avgu_y * n_y) * jumpv;
                                     } else {
                                         if (_le_op) {
-                                            contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
+                                            t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
 
                                             double mu_sigma_v_dot_n_dot_jump_u = 0.0;
                                             double mu_sigma_u_dot_n_dot_jump_v = 0.0;
@@ -1918,25 +1919,25 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 lambda_sigma_v_dot_n_dot_jump_u += avg_grad_v[d]*(j_comp_out==d) * n_dot_jump_u;
                                                 lambda_sigma_u_dot_n_dot_jump_v += avg_grad_u[d]*(k_comp_out==d) * n_dot_jump_v;
                                             }
-                                            contribution -= q_wt * 2 * _shear * mu_sigma_v_dot_n_dot_jump_u;
-                                            contribution -= q_wt * 2 * _shear * mu_sigma_u_dot_n_dot_jump_v;
-                                            contribution -= q_wt * _lambda * lambda_sigma_v_dot_n_dot_jump_u;
-                                            contribution -= q_wt * _lambda * lambda_sigma_u_dot_n_dot_jump_v;
-                                            //contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out); // other half will be added by other cell
-                                            //contribution -= q_wt * (
+                                            t_contribution -= q_wt * 2 * _shear * mu_sigma_v_dot_n_dot_jump_u;
+                                            t_contribution -= q_wt * 2 * _shear * mu_sigma_u_dot_n_dot_jump_v;
+                                            t_contribution -= q_wt * _lambda * lambda_sigma_v_dot_n_dot_jump_u;
+                                            t_contribution -= q_wt * _lambda * lambda_sigma_u_dot_n_dot_jump_v;
+                                            //t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out); // other half will be added by other cell
+                                            //t_contribution -= q_wt * (
                                             //      2 * _shear * (n_x*avgv_x*(j_comp_out==0) 
                                             //        + 0.5*n_y*(avgv_y*(j_comp_out==0) + avgv_x*(j_comp_out==1))) * jumpu*(k_comp_out==0)  
                                             //    + 2 * _shear * (n_y*avgv_y*(j_comp_out==1) 
                                             //        + 0.5*n_x*(avgv_x*(j_comp_out==1) + avgv_y*(j_comp_out==0))) * jumpu*(k_comp_out==1)
                                             //    + _lambda*(avgv_x*(j_comp_out==0) + avgv_y*(j_comp_out==1))*(n_x*jumpu*(k_comp_out==0) + n_y*jumpu*(k_comp_out==1)));
-                                            //contribution -= q_wt * (
+                                            //t_contribution -= q_wt * (
                                             //      2 * _shear * (n_x*avgu_x*(k_comp_out==0) 
                                             //        + 0.5*n_y*(avgu_y*(k_comp_out==0) + avgu_x*(k_comp_out==1))) * jumpv*(j_comp_out==0)  
                                             //    + 2 * _shear * (n_y*avgu_y*(k_comp_out==1) 
                                             //        + 0.5*n_x*(avgu_x*(k_comp_out==1) + avgu_y*(k_comp_out==0))) * jumpv*(j_comp_out==1)
                                             //    + _lambda*(avgu_x*(k_comp_out==0) + avgu_y*(k_comp_out==1))*(n_x*jumpv*(j_comp_out==0) + n_y*jumpv*(j_comp_out==1)));
                                         } else if (_vl_op) {
-                                            contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
+                                            t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
 
                                             double sigma_v_dot_n_dot_jump_u = 0.0, sigma_u_dot_n_dot_jump_v = 0.0;
                                             for (int d1=0; d1<_ndim_requested; ++d1) {
@@ -1945,15 +1946,15 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                     sigma_u_dot_n_dot_jump_v += n[d1]*avg_grad_u[d1]*(k_comp_out==d2) * jumpv*(j_comp_out==d2);
                                                 }
                                             }
-                                            contribution -= q_wt * _shear * sigma_v_dot_n_dot_jump_u;
-                                            contribution -= q_wt * _shear * sigma_u_dot_n_dot_jump_v;
-                                            //contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out); // other half will be added by other cell
-                                            //contribution -= q_wt * (
+                                            t_contribution -= q_wt * _shear * sigma_v_dot_n_dot_jump_u;
+                                            t_contribution -= q_wt * _shear * sigma_u_dot_n_dot_jump_v;
+                                            //t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out); // other half will be added by other cell
+                                            //t_contribution -= q_wt * (
                                             //      _shear * (n_x*avgv_x*(j_comp_out==0) 
                                             //        + n_y*avgv_y*(j_comp_out==0)) * jumpu*(k_comp_out==0)  
                                             //    + _shear * (n_x*avgv_x*(j_comp_out==1) 
                                             //        + n_y*avgv_y*(j_comp_out==1)) * jumpu*(k_comp_out==1) );
-                                            //contribution -= q_wt * (
+                                            //t_contribution -= q_wt * (
                                             //      _shear * (n_x*avgu_x*(k_comp_out==0) 
                                             //        + n_y*avgu_y*(k_comp_out==0)) * jumpv*(j_comp_out==0)  
                                             //    + _shear * (n_x*avgu_x*(k_comp_out==1) 
@@ -1979,7 +1980,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
                                             if (_velocity_field_id==field_one && _velocity_field_id==field_two) {
                                                 if (_st_op) {
-                                                    contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
+                                                    t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
                                                     double sigma_v_dot_n_dot_jump_u = 0.0, sigma_u_dot_n_dot_jump_v = 0.0;
                                                     for (int d1=0; d1<_ndim_requested; ++d1) {
                                                         for (int d2=0; d2<_ndim_requested; ++d2) {
@@ -1987,21 +1988,21 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                             sigma_u_dot_n_dot_jump_v += n[d1]*avg_grad_u[d1]*(k_comp_out==d2) * jumpv*(j_comp_out==d2);
                                                         }
                                                     }
-                                                    contribution -= q_wt * _diffusion * sigma_v_dot_n_dot_jump_u;
-                                                    contribution -= q_wt * _diffusion * sigma_u_dot_n_dot_jump_v;
-                                                    //contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out); // other half will be added by other cell
-                                                    //contribution -= q_wt * (
+                                                    t_contribution -= q_wt * _diffusion * sigma_v_dot_n_dot_jump_u;
+                                                    t_contribution -= q_wt * _diffusion * sigma_u_dot_n_dot_jump_v;
+                                                    //t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out); // other half will be added by other cell
+                                                    //t_contribution -= q_wt * (
                                                     //      _diffusion * (n_x*avgv_x*(j_comp_out==0) 
                                                     //        + n_y*avgv_y*(j_comp_out==0)) * jumpu*(k_comp_out==0)  
                                                     //    + _diffusion * (n_x*avgv_x*(j_comp_out==1) 
                                                     //        + n_y*avgv_y*(j_comp_out==1)) * jumpu*(k_comp_out==1) );
-                                                    //contribution -= q_wt * (
+                                                    //t_contribution -= q_wt * (
                                                     //      _diffusion * (n_x*avgu_x*(k_comp_out==0) 
                                                     //        + n_y*avgu_y*(k_comp_out==0)) * jumpv*(j_comp_out==0)  
                                                     //    + _diffusion * (n_x*avgu_x*(k_comp_out==1) 
                                                     //        + n_y*avgu_y*(k_comp_out==1)) * jumpv*(j_comp_out==1) );
                                                 } else if (_mix_le_op) {
-                                                    contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
+                                                    t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
 
                                                     double mu_sigma_v_dot_n_dot_jump_u = 0.0;
                                                     double mu_sigma_u_dot_n_dot_jump_v = 0.0;
@@ -2012,8 +2013,8 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                         }
                                                     }
 
-                                                    contribution -= q_wt * 2 * _shear * mu_sigma_v_dot_n_dot_jump_u;
-                                                    contribution -= q_wt * 2 * _shear * mu_sigma_u_dot_n_dot_jump_v;
+                                                    t_contribution -= q_wt * 2 * _shear * mu_sigma_v_dot_n_dot_jump_u;
+                                                    t_contribution -= q_wt * 2 * _shear * mu_sigma_u_dot_n_dot_jump_v;
 
                                                     double avg_div_v = 0, avg_div_u = 0;
                                                     for (int d=0; d<_ndim_requested; ++d) {
@@ -2025,16 +2026,16 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                         n_dot_jump_v += n[d] * jumpv * (j_comp_out==d);
                                                         n_dot_jump_u += n[d] * jumpu * (k_comp_out==d);
                                                     }
-                                                    contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _shear * avg_div_v * n_dot_jump_u;
-                                                    contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _shear * avg_div_u * n_dot_jump_v;
-                                                    //contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out); // other half will be added by other cell
-                                                    //contribution -= q_wt * (
+                                                    t_contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _shear * avg_div_v * n_dot_jump_u;
+                                                    t_contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _shear * avg_div_u * n_dot_jump_v;
+                                                    //t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out); // other half will be added by other cell
+                                                    //t_contribution -= q_wt * (
                                                     //      2 * _shear * (n_x*avgv_x*(j_comp_out==0) 
                                                     //        + 0.5*n_y*(avgv_y*(j_comp_out==0) + avgv_x*(j_comp_out==1))) * jumpu*(k_comp_out==0)  
                                                     //    + 2 * _shear * (n_y*avgv_y*(j_comp_out==1) 
                                                     //        + 0.5*n_x*(avgv_x*(j_comp_out==1) + avgv_y*(j_comp_out==0))) * jumpu*(k_comp_out==1)
                                                     //    - 2./(scalar_type)(_ndim_requested) * _shear * (avgv_x*(j_comp_out==0) + avgv_y*(j_comp_out==1))*(n_x*jumpu*(k_comp_out==0) + n_y*jumpu*(k_comp_out==1)));
-                                                    //contribution -= q_wt * (
+                                                    //t_contribution -= q_wt * (
                                                     //      2 * _shear * (n_x*avgu_x*(k_comp_out==0) 
                                                     //        + 0.5*n_y*(avgu_y*(k_comp_out==0) + avgu_x*(k_comp_out==1))) * jumpv*(j_comp_out==0)  
                                                     //    + 2 * _shear * (n_y*avgu_y*(k_comp_out==1) 
@@ -2046,8 +2047,8 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 for (int d=0; d<_ndim_requested; ++d) {
                                                     n_dot_jump_v += n[d] * jumpv * (j_comp_out==d);
                                                 }
-                                                contribution += q_wt * pressure_coeff * avgp * n_dot_jump_v;
-                                                //contribution += q_wt * (
+                                                t_contribution += q_wt * pressure_coeff * avgp * n_dot_jump_v;
+                                                //t_contribution += q_wt * (
                                                 //      pressure_coeff * avgp * (n_x*jumpv*(j_comp_out==0) + n_y*jumpv*(j_comp_out==1)) );
                                             } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
                                                 if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
@@ -2055,16 +2056,18 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                     for (int d=0; d<_ndim_requested; ++d) {
                                                         n_dot_jump_u += n[d] * jumpu * (k_comp_out==d);
                                                     }
-                                                    contribution += q_wt * pressure_coeff * avgq * n_dot_jump_u;
-                                                    //contribution += q_wt * (
+                                                    t_contribution += q_wt * pressure_coeff * avgq * n_dot_jump_u;
+                                                    //t_contribution += q_wt * (
                                                     //      pressure_coeff * avgq * (n_x*jumpu*(k_comp_out==0) + n_y*jumpu*(k_comp_out==1)) );
                                                 }
                                             }
                                         }
                                     }
                                 }
-                                compadre_assert_debug(contribution==contribution && "NaN encountered in contribution.");
-                            }
+                                compadre_assert_debug(t_contribution==t_contribution && "NaN encountered in t_contribution.");
+                            //}
+                            }, contribution);
+                            teamMember.team_barrier();
                         }
 
                         val_data[0] = contribution;
