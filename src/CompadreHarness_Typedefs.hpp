@@ -34,6 +34,8 @@
 #include <fstream>
 #include <utility>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace Compadre {
 

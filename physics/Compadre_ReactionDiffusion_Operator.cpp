@@ -1116,10 +1116,10 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     //double t_perimeter = 0;
 
     // this maps should be for nLocal(true) so that it contains local neighbor lookups for owned and halo particles
-    std::vector<std::map<local_index_type, local_index_type> > particle_to_local_neighbor_lookup(_cells->getCoordsConst()->nLocal(true), std::map<local_index_type, local_index_type>());
+    std::vector<std::unordered_map<local_index_type, local_index_type> > particle_to_local_neighbor_lookup(_cells->getCoordsConst()->nLocal(true), std::unordered_map<local_index_type, local_index_type>());
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal(true)), [&](const int i) {
     //for (int i=0; i<_cells->getCoordsConst()->nLocal(true); ++i) {
-        std::map<local_index_type, local_index_type>* i_map = const_cast<std::map<local_index_type, local_index_type>* >(&particle_to_local_neighbor_lookup[i]);
+        std::unordered_map<local_index_type, local_index_type>* i_map = const_cast<std::unordered_map<local_index_type, local_index_type>* >(&particle_to_local_neighbor_lookup[i]);
         auto halo_i = (i<nlocal) ? -1 : _halo_big_to_small(i-nlocal,0);
         if (i>=nlocal /* halo */  && halo_i<0 /* not one found within max_h of locally owned particles */) return;
         local_index_type num_neighbors = (i<nlocal) ? _cell_particles_neighborhood->getNumNeighbors(i)
@@ -1162,7 +1162,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
         //// TODO: REMOVE LATER!
         //if (_pressure_field_id==field_one || _pressure_field_id==field_two) return;
 
-        std::map<local_index_type, local_index_type> cell_neighbors;
+        std::unordered_set<local_index_type> cell_neighbors;
 
         double val_data[1] = {0};
         int    col_data[1] = {-1};
@@ -1329,7 +1329,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                 //auto particle_j = _cell_particles_neighborhood->getNeighbor(i,j);
                 auto particle_j = (i<nlocal) ? _cell_particles_neighborhood->getNeighbor(i,j)
                     : _halo_cell_particles_neighborhood->getNeighbor(halo_i,j);
-                cell_neighbors[particle_j] = 1;
+                cell_neighbors.insert(particle_j);
             }
             if (!_l2_op) {
                 TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
@@ -1339,7 +1339,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                         num_neighbors = _cell_particles_neighborhood->getNumNeighbors(adj_el);
                         for (local_index_type k=0; k<num_neighbors; ++k) {
                             auto particle_k = _cell_particles_neighborhood->getNeighbor(adj_el,k);
-                            cell_neighbors[particle_k] = 1;
+                            cell_neighbors.insert(particle_k);
                         }
                     }
                 }
@@ -1367,7 +1367,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
         //for (local_index_type j=0; j<num_neighbors; ++j) {
         for (auto j_it=cell_neighbors.begin(); j_it!=cell_neighbors.end(); ++j_it) {
             j++;
-            auto particle_j = j_it->first;
+            auto particle_j = *j_it;
             //auto particle_j = (i<nlocal) ? _particles_double_hop_neighborhood->getNeighbor(i,j)
             //    : _halo_particles_double_hop_neighborhood->getNeighbor(halo_i,j);
             // particle_j is an index from {0..nlocal+nhalo}
@@ -1400,7 +1400,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
             //for (local_index_type k=0; k<num_neighbors; ++k) {
             for (auto k_it=cell_neighbors.begin(); k_it!=cell_neighbors.end(); ++k_it) {
                 k++;
-                auto particle_k = k_it->first;
+                auto particle_k = *k_it;
                 //auto particle_k = (i<nlocal) ? _particles_double_hop_neighborhood->getNeighbor(i,k)
                 //    : _halo_particles_double_hop_neighborhood->getNeighbor(halo_i,k);
                 // particle_k is an index from {0..nlocal+nhalo}
