@@ -1141,26 +1141,20 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
     if (((field_one == _velocity_field_id) || (field_one == _pressure_field_id)) && ((field_two == _velocity_field_id) || (field_two == _pressure_field_id))) {
     // loop over cells including halo cells 
-    //Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal(true)), [&](const int i, scalar_type& t_area) {
-    //for (int i=0; i<_cells->getCoordsConst()->nLocal(true); ++i) {
     int team_scratch_size = 0;
     team_scratch_size += host_scratch_vector_scalar_type::shmem_size(num_sides); // side lengths
-    team_scratch_size += host_scratch_vector_scalar_type::shmem_size(5*_weights_ndim); // indices
+    team_scratch_size += host_scratch_vector_scalar_type::shmem_size(4*_weights_ndim); // indices
     Kokkos::parallel_for("Assembly Routine", host_team_policy(_cells->getCoordsConst()->nLocal(true), Kokkos::AUTO)
-            .set_scratch_size(1 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)), 
+            .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)), 
             KOKKOS_LAMBDA(const host_member_type& teamMember) {
  
         const int i = teamMember.league_rank();
 
         host_scratch_vector_scalar_type side_lengths(teamMember.team_scratch(0 /*shared memory*/), num_sides);
-        host_scratch_vector_local_index_type current_side_num(teamMember.team_scratch(0 /*shared memory*/), _weights_ndim);
         host_scratch_vector_local_index_type side_of_cell_i_to_adjacent_cell(teamMember.team_scratch(0 /*shared memory*/), _weights_ndim);
         host_scratch_vector_local_index_type adjacent_cell_local_index(teamMember.team_scratch(0 /*shared memory*/), _weights_ndim);
         host_scratch_vector_local_index_type j_to_adjacent_cell(teamMember.team_scratch(0 /*shared memory*/), _weights_ndim);
         host_scratch_vector_local_index_type k_to_adjacent_cell(teamMember.team_scratch(0 /*shared memory*/), _weights_ndim);
-
-        //// TODO: REMOVE LATER!
-        //if (_pressure_field_id==field_one || _pressure_field_id==field_two) return;
 
         std::unordered_set<local_index_type> cell_neighbors;
 
@@ -1189,48 +1183,42 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
         //    }
         //}
 
-        // DIAGNOSTIC:: sum area over locally owned cells
-
-        //std::vector<double> side_lengths(num_sides);
         {
-            int current_side_num = 0;
-            for (int q=0; q<_weights_ndim; ++q) {
-                auto q_type = (i<nlocal) ? quadrature_type(i,q) 
-                    : halo_quadrature_type(_halo_small_to_big(halo_i,0),q);
-                if (q_type!=1) { // side
-                    auto q_wt = (i<nlocal) ? quadrature_weights(i,q) 
-                        : halo_quadrature_weights(_halo_small_to_big(halo_i,0),q);
-                    int new_current_side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
-                    if (new_current_side_num!=current_side_num) {
-                        side_lengths[new_current_side_num] = q_wt;
-                        current_side_num = new_current_side_num;
-                    } else {
-                        side_lengths[current_side_num] += q_wt;
+            for (int current_side_num = 0; current_side_num < num_sides; ++current_side_num) {
+               Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, _weights_ndim), [&] (const int q, double& t_length_this_side) {
+                    auto q_type = (i<nlocal) ? quadrature_type(i,q) 
+                        : halo_quadrature_type(_halo_small_to_big(halo_i,0),q);
+                    if (q_type!=1) { // side
+                        auto q_wt = (i<nlocal) ? quadrature_weights(i,q) 
+                            : halo_quadrature_weights(_halo_small_to_big(halo_i,0),q);
+                        int side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
+                        if (side_num==current_side_num) {
+                            t_length_this_side += q_wt;
+                        }
                     }
-                }
+                }, side_lengths[current_side_num]);
             }
         }
 
         // information needed for calculating jump terms
-        //std::vector<int> current_side_num(_weights_ndim);
-        //std::vector<int> side_of_cell_i_to_adjacent_cell(_weights_ndim);
-        //std::vector<int> adjacent_cell_local_index(_weights_ndim);
         if (!_l2_op) {
             TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
-            for (int q=num_interior_quadrature; q<_weights_ndim; ++q) {
-                current_side_num[q] = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
-                adjacent_cell_local_index[q] = (int)(adjacent_elements(i, current_side_num[q]));
-                if (adjacent_cell_local_index[q]>-1) {
-                    side_of_cell_i_to_adjacent_cell[q] = -1;
-                    for (int z=0; z<num_sides; ++z) {
-                        auto adjacent_cell_to_adjacent_cell = (int)(adjacent_elements(adjacent_cell_local_index[q],z));
-                        if (adjacent_cell_to_adjacent_cell==i) {
-                            side_of_cell_i_to_adjacent_cell[q] = z;
-                            break;
+            Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, _weights_ndim), [&] (const int q) {
+                if (q>=num_interior_quadrature) {
+                    auto current_side_num_q = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
+                    adjacent_cell_local_index[q] = (int)(adjacent_elements(i, current_side_num_q));
+                    if (adjacent_cell_local_index[q]>-1) {
+                        side_of_cell_i_to_adjacent_cell[q] = -1;
+                        for (int z=0; z<num_sides; ++z) {
+                            auto adjacent_cell_to_adjacent_cell = (int)(adjacent_elements(adjacent_cell_local_index[q],z));
+                            if (adjacent_cell_to_adjacent_cell==i) {
+                                side_of_cell_i_to_adjacent_cell[q] = z;
+                                break;
+                            }
                         }
                     }
                 }
-            }
+            });
             // not yet set up for MPI
             //for (int q=0; q<_weights_ndim; ++q) {
             //    if (q>=num_interior_quadrature) {
@@ -1250,6 +1238,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
             //    }
             //}
         }
+        teamMember.team_barrier();
 
 //        //std::vector<int> adjacent_cells(3,-1); // initialize all entries to -1
 //        //int this_side_num = -1;
@@ -1487,7 +1476,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                             //for (int qn=0; qn<_weights_ndim; ++qn) {
                                 const auto q_type = quadrature_type(i,qn);
                                 const auto q_wt = quadrature_weights(i,qn);
-                                double u, v;
+                                double u=0, v=0;
                                 XYZ grad_u, grad_v;
                                 
                                 if (j_to_cell_i>=0) {
@@ -1504,9 +1493,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             grad_v[d] = _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, d, j_to_cell_i, qn+1);
                                         }
                                     }
-                                } else {
-                                    v = 0.0;
-                                    // grad_v set to 0's at instantiation
                                 }
                                 if (k_to_cell_i>=0) {
 
@@ -1522,9 +1508,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             grad_u[d] = _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, d, k_to_cell_i, qn+1);
                                         }
                                     }
-                                } else {
-                                    u = 0.0;
-                                    // grad_u set to 0's at instantiation
                                 }
 
                                 if (q_type==1) { // interior
@@ -2328,14 +2311,15 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     }
                                 }
                                 compadre_assert_debug(t_contribution==t_contribution && "NaN encountered in t_contribution.");
-                            //}
                             }, contribution);
                             teamMember.team_barrier();
                         }
 
                         val_data[0] = contribution;
                         if (j_has_value && k_has_value) {
-                            this->_A->sumIntoLocalValues(row, 1, &val_data[0], &col_data[0], true);//, /*atomics*/false);
+                            Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                                this->_A->sumIntoLocalValues(row, 1, &val_data[0], &col_data[0], true);//, /*atomics*/false);
+                            });
                         }
                     }
                     }
@@ -2343,10 +2327,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
             }
             }
         }
-    //}
-    //area = t_area;
-    //perimeter = t_perimeter;
-    //}, Kokkos::Sum<scalar_type>(area));
     });
     Kokkos::fence();
         if ((_st_op || _mix_le_op) && _use_pinning) {
