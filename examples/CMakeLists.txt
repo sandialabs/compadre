@@ -254,7 +254,7 @@ if (CompadreHarness_EXAMPLES)
         # L2 projection
         ADD_TEST(NAME REBAR_L2_Exact_Test COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=l2" "--solution=polynomial_2" "--num-meshes=1" "--penalty=1.0" "--order=2" "--size=1.0" "--convergence-type=exact" "--rate-tol=1e-11")
         SET_TESTS_PROPERTIES(REBAR_L2_Exact_Test PROPERTIES LABELS "rebar;REBAR;Rebar")
-        ADD_TEST(NAME REBAR_L2_Convergence_Test COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=l2" "--solution=sine" "--num-meshes=3" "--penalty=1.0" "--order=4" "--size=1.0")
+        ADD_TEST(NAME REBAR_L2_Convergence_Test COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=l2" "--solution=sine" "--num-meshes=3" "--penalty=1.0" "--order=4" "--size=1.25")
         SET_TESTS_PROPERTIES(REBAR_L2_Convergence_Test PROPERTIES LABELS "rebar;REBAR;Rebar")
 
         # Reaction Diffusion
@@ -270,9 +270,9 @@ if (CompadreHarness_EXAMPLES)
         SET_TESTS_PROPERTIES(REBAR_LE_Convergence_Test PROPERTIES LABELS "rebar;REBAR;Rebar")
 
         # Vector Laplacian
-        ADD_TEST(NAME REBAR_VL_Exact_Test COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=vl" "--solution=polynomial_2" "--num-meshes=1" "--order=2" "--size=1.0" "--convergence-type=exact" "--rate-tol=1e-11" "--penalty=100.0")
+        ADD_TEST(NAME REBAR_VL_Exact_Test COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=vl" "--solution=polynomial_2" "--num-meshes=1" "--order=2" "--size=1.0" "--convergence-type=exact" "--rate-tol=1e-11" "--penalty=1.0")
         SET_TESTS_PROPERTIES(REBAR_VL_Exact_Test PROPERTIES LABELS "rebar;REBAR;Rebar")
-        ADD_TEST(NAME REBAR_VL_Convergence_Test COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=vl" "--solution=sine" "--num-meshes=3" "--order=4" "--size=1.0" "--penalty=100.0")
+        ADD_TEST(NAME REBAR_VL_Convergence_Test COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=vl" "--solution=sine" "--num-meshes=3" "--order=4" "--size=1.5" "--penalty=1.0")
         SET_TESTS_PROPERTIES(REBAR_VL_Convergence_Test PROPERTIES LABELS "rebar;REBAR;Rebar")
 
         # Stokes Flow

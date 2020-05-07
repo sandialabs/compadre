@@ -1109,11 +1109,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     }
     auto num_exterior_quadrature_per_side = (_weights_ndim - num_interior_quadrature)/num_sides;
 
-    double area = 0; // (good, no rewriting)
-    double perimeter = 0;
-
-    //double t_area = 0; 
-    //double t_perimeter = 0;
 
     // this maps should be for nLocal(true) so that it contains local neighbor lookups for owned and halo particles
     std::vector<std::unordered_map<local_index_type, local_index_type> > particle_to_local_neighbor_lookup(_cells->getCoordsConst()->nLocal(true), std::unordered_map<local_index_type, local_index_type>());
@@ -1156,12 +1151,26 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
         host_scratch_vector_local_index_type j_to_adjacent_cell(teamMember.team_scratch(0 /*shared memory*/), _weights_ndim);
         host_scratch_vector_local_index_type k_to_adjacent_cell(teamMember.team_scratch(0 /*shared memory*/), _weights_ndim);
 
+        // creates a map that contains all neighbors from cell i plus any neighbors of cells
+        // adjacent to cell i not contained in cell i's neighbor list
         std::unordered_set<local_index_type> cell_neighbors;
+        for (const auto& pair : particle_to_local_neighbor_lookup.at(i)) {
+            cell_neighbors.insert(pair.first);
+        }
+        if (!_l2_op) {
+            TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
+            for (local_index_type j=0; j<num_sides; ++j) {
+                int adj_el = (int)(adjacent_elements(i,j));
+                if (adj_el>=0) {
+                    for (const auto& pair : particle_to_local_neighbor_lookup.at(adj_el)) {
+                        cell_neighbors.insert(pair.first);
+                    }
+                }
+            }
+        }
 
         double val_data[1] = {0};
         int    col_data[1] = {-1};
-
-        double t_perimeter = 0; 
 
         // filter out (skip) all halo cells that are not able to be seen from a locally owned particle
         // dictionary needs created of halo_particle
@@ -1169,19 +1178,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
         auto halo_i = (i<nlocal) ? -1 : _halo_big_to_small(i-nlocal,0);
         if (i>=nlocal /* halo */  && halo_i<0 /* not one found within max_h of locally owned particles */) return;//continue;
 
-        //auto window_size = _cell_particles_neighborhood->getHSupportSize(i);
-        ////auto less_than = 0;
-        //for (int j=0; j<_cell_particles_neighborhood->getNumNeighbors(i); ++j) {
-        //    auto this_i = _cells->getCoordsConst()->getLocalCoords(_cell_particles_neighborhood->getNeighbor(i,0));
-        //    auto this_j = _cells->getCoordsConst()->getLocalCoords(_cell_particles_neighborhood->getNeighbor(i,j));
-        //    auto diff = std::sqrt(pow(this_i[0]-this_j[0],2) + pow(this_i[1]-this_j[1],2) + pow(this_i[2]-this_j[2],2));
-        //    if (diff > window_size) {
-        //        //printf("diff: %.16f\n", std::sqrt(pow(this_i[0]-this_j[0],2) + pow(this_i[1]-this_j[1],2)));
-        //        more_than(j) = 1;
-        //    } else {
-        //        more_than(j) = 0;
-        //    }
-        //}
 
         {
             for (int current_side_num = 0; current_side_num < num_sides; ++current_side_num) {
@@ -1219,146 +1215,14 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                     }
                 }
             });
-            // not yet set up for MPI
-            //for (int q=0; q<_weights_ndim; ++q) {
-            //    if (q>=num_interior_quadrature) {
-            //        current_side_num[q] = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
-            //        adjacent_cell_local_index[q] = (i<nlocal) ? (int)(adjacent_elements(i, current_side_num[q]))
-            //            : (int)(halo_adjacent_elements(halo_i, current_side_num[q]));
-            //        side_of_cell_i_to_adjacent_cell[q] = -1;
-            //        for (int z=0; z<num_exterior_quadrature_per_side; ++z) {
-            //            auto adjacent_cell_to_adjacent_cell = (adjacent_cell_local_index[q]<nlocal) ?
-            //                (int)(adjacent_elements(adjacent_cell_local_index[q],z))
-            //                : (int)(halo_adjacent_elements(adjacent_cell_local_index[q]-nlocal,z));
-            //            if (adjacent_cell_to_adjacent_cell==i) {
-            //                side_of_cell_i_to_adjacent_cell[q] = z;
-            //                break;
-            //            }
-            //        }
-            //    }
-            //}
         }
         teamMember.team_barrier();
 
-//        //std::vector<int> adjacent_cells(3,-1); // initialize all entries to -1
-//        //int this_side_num = -1;
-//        //for (int q=0; q<_weights_ndim; ++q) {
-//        //    int new_side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
-//        //    if (new_side_num != this_side_num) {
-//        //        this_side_num = new_side_num;
-//        //        adjacent_cells[this_side_num] = (int)(adjacent_elements(i, this_side_num));
-//        //    }
-//        //}
-//        //TEUCHOS_ASSERT(this_side_num==2);
-//
-//        int this_side_num = -1;
-//        for (int q=0; q<_weights_ndim; ++q) {
-//            this_side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
-//            //printf("q: %d, e: %d\n", q, this_side_num);
-//            if (i<nlocal) { // locally owned
-//                if (quadrature_type(i,q)==1) { // interior
-//                    //t_area += quadrature_weights(i,q);
-//                    auto x=quadrature_points(i,2*q+0);
-//                    auto y=quadrature_points(i,2*q+1);
-//                    t_area += quadrature_weights(i,q) * (2 + 3*x + 3*y);
-//                } else if (quadrature_type(i,q)==2) { // exterior quad point on exterior side
-//                    //t_perimeter += quadrature_weights(i,q);
-//                    //t_perimeter += quadrature_weights(i,q ) * (quadrature_points(i,2*q+0)*quadrature_points(i,2*q+0) + quadrature_points(i,2*q+1)*quadrature_points(i,2*q+1));
-//                    // integral of x^2 + y^2 over (0,0),(2,0),(2,2),(0,2) is
-//                    // 4*8/3+2*8 = 26.666666
-//                    auto x=quadrature_points(i,2*q+0);
-//                    auto y=quadrature_points(i,2*q+1);
-//                    auto nx=unit_normals(i,2*q+0);
-//                    auto ny=unit_normals(i,2*q+1);
-//                    t_perimeter += quadrature_weights(i,q) * (x+x*x+x*y+y+y*y) * (nx + ny);
-//                } else if (quadrature_type(i,q)==0) { // interior quad point on exterior side
-//                    //if (i>adjacent_elements(i,this_side_num)) {
-//                    //    t_perimeter += quadrature_weights(i,q ) * 1 / side_lengths[this_side_num];
-//                    //    if (q%3==0) num_interior_sides++;
-//                    //}
-//                    //auto x=quadrature_points(i,2*q+0);
-//                    //auto y=quadrature_points(i,2*q+1);
-//                    //auto nx=unit_normals(i,2*q+0);
-//                    //auto ny=unit_normals(i,2*q+1);
-//                    int adjacent_cell = adjacent_elements(i,this_side_num);
-//                    int side_i_to_adjacent_cell = -1;
-//                    for (int z=0; z<3; ++z) {
-//                        if ((int)adjacent_elements(adjacent_cell,z)==i) {
-//                            side_i_to_adjacent_cell = z;
-//                        }
-//                    }
-//                    
-//                    int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side + (num_exterior_quadrature_per_side - ((q-num_interior_quadrature)%num_exterior_quadrature_per_side) - 1);
-//
-//                    //auto x=quadrature_points(adjacent_cell, num_interior_quadrature + 2*(side_i_to_adjacent_cell+(q%3))+0);
-//                    //auto y=quadrature_points(adjacent_cell, num_interior_quadrature + 2*(side_i_to_adjacent_cell+(q%3))+1);
-//                    //auto x=quadrature_points(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side+((q-num_interior_quadrature)%num_exterior_quadrature_per_side))+0);
-//                    //auto y=quadrature_points(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side+((q-num_interior_quadrature)%num_exterior_quadrature_per_side))+1);
-//                    auto x=quadrature_points(adjacent_cell, 2*adjacent_q+0);
-//                    auto y=quadrature_points(adjacent_cell, 2*adjacent_q+1);
-//
-//                    //auto y=quadrature_points(adjacent_cell,2*q+1);
-//                    //
-//                    auto nx=-unit_normals(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side+((q-num_interior_quadrature)%num_exterior_quadrature_per_side))+0);
-//                    auto ny=-unit_normals(adjacent_cell, 2*(num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side+((q-num_interior_quadrature)%num_exterior_quadrature_per_side))+1);
-//                    //auto nx=unit_normals(i,2*q+0);
-//                    //auto ny=unit_normals(i,2*q+1);
-//                    t_perimeter += quadrature_weights(i,q) * (x+x*x+x*y+y+y*y) * (nx + ny);
-//                }
-//            }
-//        }
-
-        // creates a map that contains all neighbors from cell i plus any neighbors of cells
-        // adjacent to cell i not contained in cell i's neighbor list
-        {
-            //local_index_type num_neighbors = _cell_particles_neighborhood->getNumNeighbors(i);
-            local_index_type num_neighbors = (i<nlocal) ? _cell_particles_neighborhood->getNumNeighbors(i)
-                : _halo_cell_particles_neighborhood->getNumNeighbors(halo_i);
-            for (local_index_type j=0; j<num_neighbors; ++j) {
-                //auto particle_j = _cell_particles_neighborhood->getNeighbor(i,j);
-                auto particle_j = (i<nlocal) ? _cell_particles_neighborhood->getNeighbor(i,j)
-                    : _halo_cell_particles_neighborhood->getNeighbor(halo_i,j);
-                cell_neighbors.insert(particle_j);
-            }
-            if (!_l2_op) {
-                TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
-                for (local_index_type j=0; j<num_sides; ++j) {
-                    int adj_el = (int)(adjacent_elements(i,j));
-                    if (adj_el>=0) {
-                        num_neighbors = _cell_particles_neighborhood->getNumNeighbors(adj_el);
-                        for (local_index_type k=0; k<num_neighbors; ++k) {
-                            auto particle_k = _cell_particles_neighborhood->getNeighbor(adj_el,k);
-                            cell_neighbors.insert(particle_k);
-                        }
-                    }
-                }
-                // not yet set up for MPI
-                //for (local_index_type j=0; j<3; ++j) {
-                //    int adj_el = (i<nlocal) ? (int)(adjacent_elements(i,j)) : (int)(halo_adjacent_elements(i-nlocal,j));
-                //    if (adj_el>=0) {
-                //        num_neighbors = (adj_el<nlocal) ? _cell_particles_neighborhood->getNumNeighbors(adj_el)
-                //            : _halo_cell_particles_neighborhood->getNumNeighbors(adj_el);
-                //        for (local_index_type k=0; k<num_neighbors; ++k) {
-                //            auto particle_k = (adj_el<nlocal) ? _cell_particles_neighborhood->getNeighbor(adj_el,k)
-                //                : _halo_cell_particles_neighborhood->getNeighbor(adj_el-nlocal,k);
-                //            cell_neighbors[particle_k] = 1;
-                //        }
-                //    }
-                //}
-            }
-        }
-
-        local_index_type num_neighbors = cell_neighbors.size();
-        //local_index_type num_neighbors = (i<nlocal) ? _particles_double_hop_neighborhood->getNumNeighbors(i)
-        //    : _halo_particles_double_hop_neighborhood->getNumNeighbors(halo_i);
 
         int j=-1;
-        //for (local_index_type j=0; j<num_neighbors; ++j) {
         for (auto j_it=cell_neighbors.begin(); j_it!=cell_neighbors.end(); ++j_it) {
             j++;
             auto particle_j = *j_it;
-            //auto particle_j = (i<nlocal) ? _particles_double_hop_neighborhood->getNeighbor(i,j)
-            //    : _halo_particles_double_hop_neighborhood->getNeighbor(halo_i,j);
             // particle_j is an index from {0..nlocal+nhalo}
             if (particle_j>=nlocal /* particle is halo particle */) continue; // row should be locally owned
 
@@ -1386,12 +1250,9 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
             }
 
             int k=-1;
-            //for (local_index_type k=0; k<num_neighbors; ++k) {
             for (auto k_it=cell_neighbors.begin(); k_it!=cell_neighbors.end(); ++k_it) {
                 k++;
                 auto particle_k = *k_it;
-                //auto particle_k = (i<nlocal) ? _particles_double_hop_neighborhood->getNeighbor(i,k)
-                //    : _halo_particles_double_hop_neighborhood->getNeighbor(halo_i,k);
                 // particle_k is an index from {0..nlocal+nhalo}
                 int k_to_cell_i = -1;
                 if (particle_to_local_neighbor_lookup.at(i).count(particle_k)==1){
