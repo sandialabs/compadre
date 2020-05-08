@@ -371,6 +371,7 @@ int main (int argc, char* args[]) {
 
         //solving
         SolvingTime->start();
+        if (input_dim==3) printf("Solve started.\n");
         problem->solve();
 
         //// test that gradient of vector does the same thing as gradient of scalar (repeated for each component)
@@ -402,6 +403,7 @@ int main (int argc, char* args[]) {
         particles->getFieldManager()->updateFieldsHaloData();
 
 
+        if (input_dim==3) printf("Exact solution started.\n");
         double avg_pressure_computed = 0.0;
         // post process solution ( modal DOF -> cell centered value )
         {

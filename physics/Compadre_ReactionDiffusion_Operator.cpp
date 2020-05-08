@@ -58,6 +58,7 @@ void ReactionDiffusionPhysics::initialize() {
     // could have reconstruction space as third argument
     auto neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), _ndim_requested);
 
+    if (_ndim_requested==3) printf("Neighbor search started.\n");
     _cell_particles_neighborhood = Teuchos::rcp_static_cast<neighborhood_type>(Teuchos::rcp(
             new neighborhood_type(_cells, _particles.getRawPtr(), false /*material coords*/, maxLeaf)));
     _cell_particles_neighborhood->constructAllNeighborLists(_cells->getCoordsConst()->getHaloSize(),
@@ -87,6 +88,7 @@ void ReactionDiffusionPhysics::initialize() {
     // this quantity refers to global elements, so it's local number can be found by getting neighbor with same global number
     auto adjacent_elements = _cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalView<host_view_type>();
     auto num_sides = adjacent_elements.extent(1);
+    TEUCHOS_TEST_FOR_EXCEPT_MSG(adjacent_elements.extent(1)!=(size_t)(_ndim_requested+1), "'adjacent_elements' field in file has wrong number of columns. Should be 'input dimension' + 1.");
 
     // this maps should be for nLocal(true) so that it contains local neighbor lookups for owned and halo particles
     // this can be queried for any cell about a particle to see if the particle exists as a neighbor of the cell (and holds the particle's local number to the cell)
@@ -123,6 +125,7 @@ void ReactionDiffusionPhysics::initialize() {
     };
   
 
+    if (_ndim_requested==3) printf("Merge started.\n");
     // have particles -> cells neighborhood in _particle_cells_neighborhood, then have adjacent_cells to loop over plus the neighbor cell
     // merging all particles adjacent to those cells as contained in _particle_to_local_neighbor_lookup
     TEUCHOS_ASSERT(_cells->getCoordsConst()->getComm()->getSize()==1);
@@ -147,10 +150,11 @@ void ReactionDiffusionPhysics::initialize() {
             }
         }
         t_max_particle_particle_neighbors = std::max(t_max_particle_particle_neighbors, (local_index_type)i_set->size());
-    }, Kokkos::Max<int>(max_particle_particle_neighbors));
+    }, Kokkos::Max<local_index_type>(max_particle_particle_neighbors));
     Kokkos::fence();
 
 
+    if (_ndim_requested==3) printf("Conversion started.\n");
     auto particles_triple_hop_neighborhood = Teuchos::rcp(new ParticleToParticleThroughCellPlusAdjacentCellsNeighborhood(num_particles_local, max_particle_particle_neighbors));
     Kokkos::parallel_for("convert particles to particles to neighbor list", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_particles->getCoordsConst()->nLocal(true)), [&](const int i) {
         std::unordered_set<local_index_type>* i_set = const_cast<std::unordered_set<local_index_type>* >(&particle_neighbors_of_particles[i]);
@@ -162,7 +166,16 @@ void ReactionDiffusionPhysics::initialize() {
         }
     });
     Kokkos::fence();
+
+    local_index_type min_particle_particle_neighbors = 0;
+    Kokkos::parallel_reduce("get min P->P neighbors", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_particles->getCoordsConst()->nLocal(true)), [&](const int i, local_index_type& t_min) {
+        std::unordered_set<local_index_type>* i_set = const_cast<std::unordered_set<local_index_type>* >(&particle_neighbors_of_particles[i]);
+        t_min = std::min(t_min, (local_index_type)i_set->size());
+    }, Kokkos::Min<local_index_type>(min_particle_particle_neighbors));
+
+    printf("Min P->P neighbors %d \n", min_particle_particle_neighbors);
     particles_triple_hop_neighborhood->setMaxNumNeighbors(max_particle_particle_neighbors);
+    printf("Max P->P neighbors %d \n", max_particle_particle_neighbors);
     _particles_triple_hop_neighborhood = Teuchos::rcp_static_cast<neighborhood_type>(particles_triple_hop_neighborhood);
 
     // cell k can see particle i and cell k can see particle i
@@ -220,6 +233,8 @@ void ReactionDiffusionPhysics::initialize() {
 
     _cell_particles_max_num_neighbors = 
         _cell_particles_neighborhood->computeMaxNumNeighbors(false /*local processor max*/);
+    printf("Min C->P neighbors %d \n", _cell_particles_neighborhood->computeMinNumNeighbors(false /*local processor max*/));
+    printf("Max C->P neighbors %d \n", _cell_particles_max_num_neighbors);
 
     Kokkos::View<int**> kokkos_neighbor_lists("neighbor lists", target_coords->nLocal(), _cell_particles_max_num_neighbors+1);
     _kokkos_neighbor_lists_host = Kokkos::create_mirror_view(kokkos_neighbor_lists);
@@ -268,6 +283,7 @@ void ReactionDiffusionPhysics::initialize() {
 
 
 
+    if (_ndim_requested==3) printf("Intrepid started.\n");
 
 
 
@@ -644,6 +660,7 @@ void ReactionDiffusionPhysics::initialize() {
     // End of data copying
     //
     //****************
+    if (_ndim_requested==3) printf("GMLS started.\n");
 
     // GMLS operator
     if (_velocity_basis_type_divfree) {
@@ -958,6 +975,7 @@ Teuchos::RCP<crs_graph_type> ReactionDiffusionPhysics::computeGraph(local_index_
     if (field_two == -1) {
         field_two = field_one;
     }
+    if (_ndim_requested==3) printf("Graph started.\n");
 
     const local_index_type num_particles_local = static_cast<local_index_type>(this->_coords->nLocal());
 
@@ -1227,6 +1245,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     if (_mix_le_op) {
         pressure_coeff = _lambda + 2./(scalar_type)(_ndim_requested)*_shear;
     }
+    if (_ndim_requested==3) printf("Assembly started.\n");
 
     if (((field_one == _velocity_field_id) || (field_one == _pressure_field_id)) && ((field_two == _velocity_field_id) || (field_two == _pressure_field_id))) {
     // loop over cells including halo cells 

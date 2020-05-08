@@ -71,6 +71,8 @@ class NeighborhoodT {
             return _neighbor_lists(idx, local_neighbor_number+1);
         }
 
+        local_index_type computeMinNumNeighbors(const bool global) const;
+
         local_index_type computeMaxNumNeighbors(const bool global) const;
 
         scalar_type computeMinHSupportSize(const bool global) const;

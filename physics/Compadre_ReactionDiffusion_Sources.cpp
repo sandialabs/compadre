@@ -48,6 +48,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     AnalyticFunction* pressure_function = _physics->_pressure_function;
 
     local_index_type _ndim_requested = _physics->_ndim_requested;
+    if (_ndim_requested==3) printf("RHS started.\n");
     scalar_type pressure_coeff = 1.0;
     if (_mix_le_op) {
         pressure_coeff = _physics->_lambda + 2./(scalar_type)(_ndim_requested)*_physics->_shear;
