@@ -107,7 +107,7 @@ void ReactionDiffusionPhysics::initialize() {
 
     class ParticleToParticleThroughCellPlusAdjacentCellsNeighborhood : public NeighborhoodT {
         public:
-            ParticleToParticleThroughCellPlusAdjacentCellsNeighborhood(const local_index_type num_target_sites, const local_index_type max_neighbors) {
+            ParticleToParticleThroughCellPlusAdjacentCellsNeighborhood(const local_index_type num_target_sites, const local_index_type max_neighbors) : NeighborhoodT(0) {
                 _neighbor_lists = host_view_local_index_type("neighbor lists", num_target_sites, max_neighbors+1);
             };
             virtual ~ParticleToParticleThroughCellPlusAdjacentCellsNeighborhood() {};
