@@ -36,6 +36,7 @@ parser.add_argument('--assert-rate', dest='assert_rate', type=str, nargs='?', de
 
 parser.add_argument('--output-folder', dest='output_folder', type=str, nargs='?', default='', help='where to dump data files (relative to directory this script is called from')
 parser.add_argument('--output-file', dest='output_file', type=str, nargs='?', default='', help='file name to dump data to')
+parser.add_argument('--exec-mpi', dest='exec_mpi', type=str, nargs='?', default='false', help='use mpirun instead of calling executable directly')
 
 args = parser.parse_args()
 
@@ -114,7 +115,10 @@ for key2, fname in enumerate(file_names):
     
     with open(os.devnull, 'w') as devnull:
 
-        commands = ["./reactionDiffusion.exe","--i=../test_data/parameter_lists/reactiondiffusion/parameters_generated.xml","--kokkos-threads=%s"%(args.kokkos_threads,)]
+        if (args.exec_mpi.lower()=="true"):
+            commands = ["mpirun", "--bind-to", "none", "-np", "1", "./reactionDiffusion.exe","--i=../test_data/parameter_lists/reactiondiffusion/parameters_generated.xml","--kokkos-threads=%s"%(args.kokkos_threads,)]
+        else:
+            commands = ["./reactionDiffusion.exe","--i=../test_data/parameter_lists/reactiondiffusion/parameters_generated.xml","--kokkos-threads=%s"%(args.kokkos_threads,)]
         print(" ".join(commands))
         try:
             output = subprocess.check_output(commands, stderr=devnull).decode()
