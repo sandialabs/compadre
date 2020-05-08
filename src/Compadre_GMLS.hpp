@@ -213,6 +213,9 @@ protected:
     //! this is false, and so the _RHS matrix can not be stored or requested
     bool _entire_batch_computed_at_once;
 
+    //! whether polynomial coefficients were requested to be stored (in a state not yet applied to data)
+    bool _store_PTWP_inv_PTW;
+
     //! initial index for current batch
     int _initial_index_for_batch;
 
@@ -670,6 +673,7 @@ public:
         _reference_outward_normal_direction_provided = false;
         _use_reference_outward_normal_direction_provided_to_orient_surface = false;
         _entire_batch_computed_at_once = true;
+        _store_PTWP_inv_PTW = false;
 
         _initial_index_for_batch = 0;
 
@@ -916,6 +920,8 @@ public:
         auto M_by_N = this->getPolynomialCoefficientsDomainRangeSize();
         compadre_assert_release(_entire_batch_computed_at_once 
                 && "Entire batch not computed at once, so getFullPolynomialCoefficientsBasis() can not be called.");
+        compadre_assert_release(_store_PTWP_inv_PTW
+                && "generateAlphas() called with keep_coefficients set to false.");
         host_managed_local_index_type sizes("sizes", 2);
         if ((_constraint_type == ConstraintType::NO_CONSTRAINT) && (_dense_solver_type != DenseSolverType::LU)) {
             int rhsdim = getRHSSquareDim(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, M_by_N[1], M_by_N[0]);
@@ -1054,6 +1060,8 @@ public:
     decltype(_RHS) getFullPolynomialCoefficientsBasis() const { 
         compadre_assert_release(_entire_batch_computed_at_once 
                 && "Entire batch not computed at once, so getFullPolynomialCoefficientsBasis() can not be called.");
+        compadre_assert_release(_store_PTWP_inv_PTW
+                && "generateAlphas() called with keep_coefficients set to false.");
         if ((_constraint_type == ConstraintType::NO_CONSTRAINT) && (_dense_solver_type != DenseSolverType::LU)) {
             return _RHS; 
         } else {
@@ -1797,15 +1805,17 @@ public:
     //! that can later be contracted against data or degrees of freedom to form a
     //! global linear system.
     //! \param number_of_batches    [in] - how many batches to break up the total workload into (for storage)
+    //! \param keep_coefficients    [in] - whether to store (P^T W P)^-1 * P^T * W
     */
-    void generatePolynomialCoefficients(const int number_of_batches = 1);
+    void generatePolynomialCoefficients(const int number_of_batches = 1, const bool keep_coefficients = false);
 
     /*! \brief Meant to calculate target operations and apply the evaluations to the previously 
     //! constructed polynomial coefficients. But now that is inside of generatePolynomialCoefficients because
     //! it must be to handle number_of_batches>1. Effectively, this just calls generatePolynomialCoefficients.
     //! \param number_of_batches    [in] - how many batches to break up the total workload into (for storage)
+    //! \param keep_coefficients    [in] - whether to store (P^T W P)^-1 * P^T * W
     */
-    void generateAlphas(const int number_of_batches = 1);
+    void generateAlphas(const int number_of_batches = 1, const bool keep_coefficients = false);
 
 ///@}
 

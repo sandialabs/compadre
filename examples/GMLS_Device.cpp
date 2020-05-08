@@ -365,7 +365,7 @@ bool all_passed = true;
     my_GMLS.setWeightingPower(2);
     
     // generate the alphas that to be combined with data for each target operation requested in lro
-    my_GMLS.generateAlphas(number_of_batches);
+    my_GMLS.generateAlphas(number_of_batches, true /* keep polynomial coefficients, only needed for a test later in this program */);
     
     
     //! [Setting Up The GMLS Object]
