@@ -41,6 +41,8 @@ class NeighborhoodT {
 
     public:
 
+        NeighborhoodT(){};
+
         NeighborhoodT(const particles_type* source_particles, const particles_type* target_particles = NULL, 
                 const bool use_physical_coords = true, const local_index_type max_leaf = 10);
 

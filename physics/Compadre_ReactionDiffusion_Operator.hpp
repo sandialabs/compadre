@@ -17,12 +17,11 @@ class AnalyticFunction;
 
 class ReactionDiffusionPhysics : public PhysicsT {
 
-	protected:
+    protected:
 
-		typedef Compadre::ParticlesT particle_type;
+        typedef Compadre::ParticlesT particle_type;
         typedef Compadre::XyzVector xyz_type;
         typedef Compadre::NeighborhoodT neighborhood_type;
-		local_index_type Porder;
 
     public:
 
@@ -40,18 +39,19 @@ class ReactionDiffusionPhysics : public PhysicsT {
         AnalyticFunction* _velocity_function;
         AnalyticFunction* _pressure_function;
 
-		Teuchos::RCP<neighborhood_type> _particles_particles_neighborhood;
-		Teuchos::RCP<neighborhood_type> _particle_cells_neighborhood;
-		Teuchos::RCP<neighborhood_type> _cell_particles_neighborhood;
-		Teuchos::RCP<neighborhood_type> _halo_cell_particles_neighborhood;
+        Teuchos::RCP<neighborhood_type> _particles_particles_neighborhood;
+        Teuchos::RCP<neighborhood_type> _particle_cells_neighborhood;
+        Teuchos::RCP<neighborhood_type> _cell_particles_neighborhood;
+        Teuchos::RCP<neighborhood_type> _halo_cell_particles_neighborhood;
 
-		Teuchos::RCP<neighborhood_type> _particles_triple_hop_neighborhood;
+        Teuchos::RCP<neighborhood_type> _particles_triple_hop_neighborhood;
+        std::vector<std::unordered_map<local_index_type, local_index_type> > _particle_to_local_neighbor_lookup;
 
-		size_t _particles_particles_max_num_neighbors;
-		size_t _cell_particles_max_num_neighbors;
-		size_t _particle_cells_max_num_neighbors;
+        size_t _particles_particles_max_num_neighbors;
+        size_t _cell_particles_max_num_neighbors;
+        size_t _particle_cells_max_num_neighbors;
         size_t _weights_ndim;
-		scalar_type _cell_particles_max_h;
+        scalar_type _cell_particles_max_h;
 
         Teuchos::RCP<GMLS> _vel_gmls;
         Teuchos::RCP<GMLS> _halo_vel_gmls;
@@ -84,14 +84,18 @@ class ReactionDiffusionPhysics : public PhysicsT {
         bool _mix_le_op;
         bool _use_pinning;
         bool _use_lm;
+
         bool _use_sip;
         bool _use_vms;
+        bool _use_side_weighting;
+        bool _use_neighbor_weighting;
 
         bool _velocity_basis_type_divfree;
         bool _velocity_basis_type_vector;
 
         bool _use_vector_gmls;
         bool _use_vector_grad_gmls;
+
 
         local_index_type _velocity_field_id;
         local_index_type _pressure_field_id;
@@ -100,10 +104,10 @@ class ReactionDiffusionPhysics : public PhysicsT {
         local_index_type _ndim_requested;
 
 
-		ReactionDiffusionPhysics(	Teuchos::RCP<particle_type> particles, local_index_type t_Porder,
-								Teuchos::RCP<crs_graph_type> A_graph = Teuchos::null,
-								Teuchos::RCP<crs_matrix_type> A = Teuchos::null) :
-									PhysicsT(particles, A_graph, A), Porder(t_Porder) {
+        ReactionDiffusionPhysics(   Teuchos::RCP<particle_type> particles,
+                                    Teuchos::RCP<crs_graph_type> A_graph = Teuchos::null,
+                                    Teuchos::RCP<crs_matrix_type> A = Teuchos::null) :
+                                PhysicsT(particles, A_graph, A) {
 
             _reaction = 0; 
             _diffusion = 0;
@@ -128,14 +132,16 @@ class ReactionDiffusionPhysics : public PhysicsT {
             _use_pinning = true;
             _use_lm = false;
 
+            _use_sip = false;
+            _use_vms = false;
+            _use_neighbor_weighting = false;
+            _use_side_weighting = false;
+
             _velocity_basis_type_divfree = false;
             _velocity_basis_type_vector = false;
 
             _use_vector_gmls = false;
             _use_vector_grad_gmls = false;
-
-            _use_sip = false;
-            _use_vms = false;
 
             _velocity_field_id = -1;
             _pressure_field_id = -1;
@@ -143,14 +149,14 @@ class ReactionDiffusionPhysics : public PhysicsT {
             _ndim_requested = -1;
                                 
         } 
-		
-		virtual ~ReactionDiffusionPhysics() {}
-		
-		virtual Teuchos::RCP<crs_graph_type> computeGraph(local_index_type field_one, local_index_type field_two = -1);
+        
+        virtual ~ReactionDiffusionPhysics() {}
+        
+        virtual Teuchos::RCP<crs_graph_type> computeGraph(local_index_type field_one, local_index_type field_two = -1);
 
-		virtual void computeMatrix(local_index_type field_one, local_index_type field_two = -1, scalar_type time = 0.0);
+        virtual void computeMatrix(local_index_type field_one, local_index_type field_two = -1, scalar_type time = 0.0);
 
-		virtual const std::vector<InteractingFields> gatherFieldInteractions();
+        virtual const std::vector<InteractingFields> gatherFieldInteractions();
 
         void setReaction(const scalar_type reaction) {
             _reaction = reaction;

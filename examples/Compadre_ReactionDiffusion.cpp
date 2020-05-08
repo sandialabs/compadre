@@ -119,30 +119,62 @@ int main (int argc, char* args[]) {
         use_vms = false;
     }
 
+    bool use_neighbor_weighting = false, use_side_weighting = false;
+    if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("penalty weighting")=="neighbor") {
+        use_neighbor_weighting = true;
+        use_side_weighting = false;
+    } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("penalty weighting")=="side") {
+        use_neighbor_weighting = false;
+        use_side_weighting = true;
+    } else {
+        if (!use_vms) compadre_assert_release(false && "Illegal choice for \"penalty weighting\".");
+    }
+
     {
-        const std::string testfilename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + "/" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file");
+        const std::string cells_testfilename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + "/" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file");
+        std::string particles_testfilename;
+        try {
+            particles_testfilename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + "/" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("particles input file");
+        } catch (...) {
+            particles_testfilename = cells_testfilename;
+        }
 
         //
         // GMLS Test
         //
-        int Porder = parameters->get<Teuchos::ParameterList>("remap").get<int>("porder");
         double h_size = 1./12.;
 
         TEUCHOS_TEST_FOR_EXCEPT_MSG(input_dim<2, "Only supported for A-D problem in 2 or 3D.");
               
+        Teuchos::RCP<Compadre::ParticlesT> particles;
         Teuchos::RCP<Compadre::ParticlesT> cells =
                 Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, input_dim));
         const CT * coords = (CT*)(cells->getCoordsConst());
-
-        //Read in data file. Needs to be a file with one scalar field.
-        FirstReadTime->start();
-        Compadre::FileManager fm;
-        fm.setReader(testfilename, cells);
-        fm.read();
-        FirstReadTime->stop();
+        
+        //Read in data file
+        {
+            FirstReadTime->start();
+            Compadre::FileManager fm;
+            fm.setReader(cells_testfilename, cells);
+            fm.read();
+            FirstReadTime->stop();
+        }
 
         cells->zoltan2Initialize();
 
+        if (particles_testfilename != cells_testfilename) {
+            //Read in data file
+            FirstReadTime->start();
+            Compadre::FileManager fm;
+            fm.setReader(particles_testfilename, particles);
+            fm.read();
+            FirstReadTime->stop();
+
+            particles->zoltan2Initialize();
+        } else {
+            // particles are cell midpoints
+            particles = cells;
+        }
 
         ST halo_size;
         std::string velocity_name;
@@ -154,32 +186,22 @@ int main (int argc, char* args[]) {
                 halo_size = parameters->get<Teuchos::ParameterList>("halo").get<double>("size");
             }
             cells->buildHalo(halo_size);
+            if (particles!=cells) particles->buildHalo(halo_size);
             if (st_op || mix_le_op) { 
                 velocity_name = "solution_velocity";
                 pressure_name = "solution_pressure";
-                cells->getFieldManager()->createField(input_dim, velocity_name, "m/s");
-                cells->getFieldManager()->createField(1, pressure_name, "m/s");
-				if (use_lm) cells->getFieldManager()->createField(1, "lagrange multiplier", "NA");
+                particles->getFieldManager()->createField(input_dim, velocity_name, "m/s");
+                particles->getFieldManager()->createField(1, pressure_name, "m/s");
+				if (use_lm) particles->getFieldManager()->createField(1, "lagrange multiplier", "NA");
             } else if (le_op || vl_op) {
                 velocity_name = "solution";
-                cells->getFieldManager()->createField(input_dim, velocity_name, "m/s");
+                particles->getFieldManager()->createField(input_dim, velocity_name, "m/s");
             } else {
                 velocity_name = "solution";
-                cells->getFieldManager()->createField(1, velocity_name, "m/s");
+                particles->getFieldManager()->createField(1, velocity_name, "m/s");
             }
-            cells->createDOFManager();
+            particles->createDOFManager();
 
-
-            auto neighbors_needed = GMLS::getNP(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), input_dim);
-             cells->createNeighborhood();
-             cells->getNeighborhood()->constructAllNeighborLists(cells->getCoordsConst()->getHaloSize(),
-                parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
-                true /*dry run for sizes*/,
-                neighbors_needed+1,
-                parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
-                parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
-                parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
-                parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
 
             ////Set the radius for the neighbor list:
              //ST h_support;
@@ -272,15 +294,15 @@ int main (int argc, char* args[]) {
         //}
 
         // Iterative solver for the problem
-        Teuchos::RCP<Compadre::ProblemT> problem = Teuchos::rcp( new Compadre::ProblemT(cells));
+        Teuchos::RCP<Compadre::ProblemT> problem = Teuchos::rcp( new Compadre::ProblemT(particles));
 
         // construct physics, sources, and boundary conditions
         Teuchos::RCP<Compadre::ReactionDiffusionPhysics> physics =
-          Teuchos::rcp( new Compadre::ReactionDiffusionPhysics(cells, Porder));
+          Teuchos::rcp( new Compadre::ReactionDiffusionPhysics(particles));
         Teuchos::RCP<Compadre::ReactionDiffusionSources> source =
-            Teuchos::rcp( new Compadre::ReactionDiffusionSources(cells));
+            Teuchos::rcp( new Compadre::ReactionDiffusionSources(particles));
         Teuchos::RCP<Compadre::ReactionDiffusionBoundaryConditions> bcs =
-            Teuchos::rcp( new Compadre::ReactionDiffusionBoundaryConditions(cells));
+            Teuchos::rcp( new Compadre::ReactionDiffusionBoundaryConditions(particles));
 
 
         physics->_velocity_basis_type_divfree = velocity_basis_type_divfree;
@@ -295,6 +317,9 @@ int main (int argc, char* args[]) {
         physics->_use_sip = use_sip;
         physics->_use_vms = use_vms;
 
+        physics->_use_neighbor_weighting = use_neighbor_weighting;
+        physics->_use_side_weighting = use_side_weighting;
+
         physics->_velocity_name = velocity_name;
         physics->_pressure_name = pressure_name;
 
@@ -308,10 +333,10 @@ int main (int argc, char* args[]) {
         physics->_st_op = st_op;
         physics->_mix_le_op = mix_le_op;
 
-        physics->_velocity_field_id = cells->getFieldManagerConst()->getIDOfFieldFromName(velocity_name);
+        physics->_velocity_field_id = particles->getFieldManagerConst()->getIDOfFieldFromName(velocity_name);
         if (st_op || mix_le_op) {
-            physics->_pressure_field_id = cells->getFieldManagerConst()->getIDOfFieldFromName(pressure_name);
-            if (use_lm) physics->_lagrange_field_id = cells->getFieldManagerConst()->getIDOfFieldFromName("lagrange multiplier");
+            physics->_pressure_field_id = particles->getFieldManagerConst()->getIDOfFieldFromName(pressure_name);
+            if (use_lm) physics->_lagrange_field_id = particles->getFieldManagerConst()->getIDOfFieldFromName("lagrange multiplier");
         }
 
         // set physics, sources, and boundary conditions in the problem
@@ -374,7 +399,7 @@ int main (int argc, char* args[]) {
         //}
         //}
         SolvingTime->stop();
-        cells->getFieldManager()->updateFieldsHaloData();
+        particles->getFieldManager()->updateFieldsHaloData();
 
 
         double avg_pressure_computed = 0.0;
@@ -391,16 +416,16 @@ int main (int argc, char* args[]) {
                 cells->getFieldManager()->createField(1, "processed_"+velocity_name, "m/s");
             }
             auto velocity_processed_view = cells->getFieldManager()->getFieldByName("processed_"+velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-            auto velocity_dof_view = cells->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-            auto velocity_halo_dof_view = cells->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            auto velocity_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            auto velocity_halo_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 
             decltype(velocity_processed_view) pressure_processed_view;
             decltype(velocity_dof_view) pressure_dof_view;
             decltype(velocity_halo_dof_view) pressure_halo_dof_view;
             if (st_op || mix_le_op) {
                 pressure_processed_view = cells->getFieldManager()->getFieldByName("processed_"+pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-                pressure_dof_view = cells->getFieldManager()->getFieldByName(pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-                pressure_halo_dof_view = cells->getFieldManager()->getFieldByName(pressure_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                pressure_dof_view = particles->getFieldManager()->getFieldByName(pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                pressure_halo_dof_view = particles->getFieldManager()->getFieldByName(pressure_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
             }
 
             auto neighborhood = physics->_cell_particles_neighborhood;
@@ -723,8 +748,8 @@ int main (int argc, char* args[]) {
             auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
             auto neighborhood = physics->_cell_particles_neighborhood;
             auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
-            auto dof_view = cells->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-            auto halo_dof_view = cells->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            auto dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            auto halo_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
             auto gmls = physics->_vel_gmls;
             particles_new =
                 Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, input_dim));
@@ -787,14 +812,14 @@ int main (int argc, char* args[]) {
                 auto neighborhood = physics->_cell_particles_neighborhood;
                 auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
 
-                auto velocity_dof_view = cells->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-                auto velocity_halo_dof_view = cells->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                auto velocity_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                auto velocity_halo_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 
                 decltype(velocity_dof_view) pressure_dof_view;
                 decltype(velocity_halo_dof_view) pressure_halo_dof_view;
                 if (st_op || mix_le_op) {
-                    pressure_dof_view = cells->getFieldManager()->getFieldByName(pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-                    pressure_halo_dof_view = cells->getFieldManager()->getFieldByName(pressure_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                    pressure_dof_view = particles->getFieldManager()->getFieldByName(pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                    pressure_halo_dof_view = particles->getFieldManager()->getFieldByName(pressure_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
                 }
 
                 auto adjacent_elements = cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalView<host_view_type>();
@@ -1045,6 +1070,7 @@ int main (int argc, char* args[]) {
 
         {
             WriteTime->start();
+            Compadre::FileManager fm;
             std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
             fm.setWriter(output_filename, cells);
             fm.write();

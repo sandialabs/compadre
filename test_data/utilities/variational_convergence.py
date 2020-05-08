@@ -22,6 +22,10 @@ parser.add_argument('--penalty', dest='penalty', type=float, nargs='?', default=
 parser.add_argument('--size', dest='size', type=float, nargs='?', default=1.0, help='first mesh search size (halfed each refinement)')
 parser.add_argument('--rate-tol', dest='rate_tol', type=float, nargs='?', default=0.5, help='tolerance for convergence')
 
+parser.add_argument('--dg-stabilization', dest='dg_stabilization', type=str, nargs='?', default='sip', help='stabilization type {"sip","vms"}')
+parser.add_argument('--penalty-weighting', dest='penalty_weighting', type=str, nargs='?', default='neighbor', help='penalty weighting |e| {"neighbor","side"}\
+        "neighbor" uses neighbor search window size as |e|, while "side" uses edge length/side area.')
+
 parser.add_argument('--solution', dest='solution', type=str, nargs='?', default='polynomial', help='solution type')
 parser.add_argument('--pressure-solution', dest='pressure_solution', type=str, nargs='?', default='polynomial', help='pressure solution type')
 parser.add_argument('--pressure-null-space', dest='pressure_null_space', type=str, nargs='?', default='pinning', help='treatment of null space in pressure {"pinning", "lm", "none}')
@@ -91,6 +95,10 @@ for key2, fname in enumerate(file_names):
             item.attrib['value']=str(args.lambda_lame)
         if (item.attrib['name']=="penalty"):
             item.attrib['value']=str(args.penalty)
+        if (item.attrib['name']=="dg stabilization"):
+            item.attrib['value']=str(args.dg_stabilization.lower())
+        if (item.attrib['name']=="penalty weighting"):
+            item.attrib['value']=str(args.penalty_weighting.lower())
 
     for item in list(r):
         if (item.attrib['name']=="porder"):

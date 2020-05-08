@@ -299,13 +299,13 @@ if (CompadreHarness_EXAMPLES)
         # L2 projection
         ADD_TEST(NAME REBAR_L2_Exact_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=l2" "--solution=polynomial_2" "--num-meshes=1" "--penalty=1.0" "--order=2" "--size=1.0" "--convergence-type=exact" "--rate-tol=1e-11" "--dim=3" "--kokkos-threads=16")
         SET_TESTS_PROPERTIES(REBAR_L2_Exact_Test_3D PROPERTIES LABELS "rebar;REBAR;Rebar")
-        ADD_TEST(NAME REBAR_L2_Convergence_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=l2" "--solution=sine" "--num-meshes=3" "--penalty=1.0" "--order=4" "--size=1.0" "--dim=3" "--kokkos-threads=16")
+        ADD_TEST(NAME REBAR_L2_Convergence_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=l2" "--solution=sine" "--num-meshes=2" "--penalty=1.0" "--order=4" "--size=1.0" "--dim=3" "--kokkos-threads=16")
         SET_TESTS_PROPERTIES(REBAR_L2_Convergence_Test_3D PROPERTIES LABELS "rebar;REBAR;Rebar")
 
         # Reaction Diffusion
         ADD_TEST(NAME REBAR_RD_Exact_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=rd" "--solution=polynomial_2" "--num-meshes=1" "--penalty=1.0" "--order=2" "--size=1.0" "--convergence-type=exact" "--rate-tol=1e-10" "--dim=3" "--kokkos-threads=16")
         SET_TESTS_PROPERTIES(REBAR_RD_Exact_Test_3D PROPERTIES LABELS "rebar;REBAR;Rebar")
-        ADD_TEST(NAME REBAR_RD_Convergence_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=rd" "--solution=sine" "--num-meshes=3" "--penalty=1.0" "--order=2" "--size=1.0" "--dim=3" "--kokkos-threads=16")
+        ADD_TEST(NAME REBAR_RD_Convergence_Test_3D COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=rd" "--solution=sine" "--num-meshes=2" "--penalty=1.0" "--order=2" "--size=1.0" "--dim=3" "--kokkos-threads=16")
         SET_TESTS_PROPERTIES(REBAR_RD_Convergence_Test_3D PROPERTIES LABELS "rebar;REBAR;Rebar")
 
         # Linear Elasticity

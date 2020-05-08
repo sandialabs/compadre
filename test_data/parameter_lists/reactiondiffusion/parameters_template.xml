@@ -29,6 +29,7 @@
     <Parameter name="solution" type="string" value="polynomial"/>
     <Parameter name="pressure solution" type="string" value="none"/>
     <Parameter name="dg stabilization" type="string" value="sip"/>
+    <Parameter name="penalty weighting" type="string" value="neighbor"/>
   </ParameterList>
   <ParameterList name="io">
     <Parameter name="input dimensions" type="int" value="2"/>

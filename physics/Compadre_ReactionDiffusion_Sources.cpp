@@ -36,6 +36,8 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     bool _use_vector_grad_gmls = _physics->_use_vector_grad_gmls;
     bool _use_sip = _physics->_use_sip;
     bool _use_vms = _physics->_use_vms;
+    bool _use_neighbor_weighting = _physics->_use_neighbor_weighting;
+    bool _use_side_weighting = _physics->_use_side_weighting;
 
     int _velocity_field_id = _physics->_velocity_field_id;
     int _pressure_field_id = _physics->_pressure_field_id;
@@ -70,17 +72,20 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     auto halo_unit_normals = _physics->_cells->getFieldManager()->getFieldByName("unit_normal")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
     auto halo_adjacent_elements = _physics->_cells->getFieldManager()->getFieldByName("adjacent_elements")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
 
-    auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_physics->_cell_particles_max_h;
-    // each element must have the same number of edges
-    auto num_edges = adjacent_elements.extent(1);
+    auto base_penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty");
+    if (_use_neighbor_weighting) base_penalty /= (_ndim_requested==2) ? _physics->_cell_particles_max_h : 1.772453850905516*_physics->_cell_particles_max_h; // either h or sqrt(pi)*h
+
+    // each element must have the same number of sides
+    auto num_sides = adjacent_elements.extent(1);
     auto num_interior_quadrature = 0;
-    for (int q=0; q<_physics->_weights_ndim; ++q) {
-        if (quadrature_type(0,q)!=1) { // some type of edge quadrature
+    int _weights_ndim = _physics->_weights_ndim;
+    for (int q=0; q<_weights_ndim; ++q) {
+        if (quadrature_type(0,q)!=1) { // some type of side quadrature
             num_interior_quadrature = q;
             break;
         }
     }
-    auto num_exterior_quadrature_per_edge = (_physics->_weights_ndim - num_interior_quadrature)/num_edges;
+    auto num_exterior_quadrature_per_side = (_weights_ndim - num_interior_quadrature)/num_sides;
 
     //if (field_one == field_two && field_one == _velocity_field_id) {
     //    // zero out rhs before starting
@@ -97,6 +102,21 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(true /* include halo in count */); ++i) {
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_physics->_cells->getCoordsConst()->nLocal(true /* include halo in count */)), KOKKOS_LAMBDA(const int i) {
     //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
+        std::vector<double> side_lengths(num_sides);
+        {
+            for (int current_side_num = 0; current_side_num < num_sides; ++current_side_num) {
+               for (int q=0; q<_weights_ndim; ++q) {
+                    auto q_type = quadrature_type(i,q);
+                    if (q_type!=1) { // side
+                        auto q_wt = quadrature_weights(i,q);
+                        int side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
+                        if (side_num==current_side_num) {
+                            side_lengths[current_side_num] += q_wt;
+                        }
+                    }
+                }
+            }
+        }
         for (local_index_type comp_out = 0; comp_out < fields[field_one]->nDim(); ++comp_out) {
         for (local_index_type comp_in = 0; comp_in < fields[field_one]->nDim(); ++comp_in) {
             if ((comp_out!=comp_in) && ((!_velocity_basis_type_vector && field_one == _velocity_field_id) || (field_one == _pressure_field_id))) continue;
@@ -126,7 +146,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                 // add the contribution to the row for the particle
                 double contribution = 0;
                 if (_l2_op) {
-                    for (int qn=0; qn<_physics->_weights_ndim; ++qn) {
+                    for (int qn=0; qn<_weights_ndim; ++qn) {
                         auto q_type = (i<nlocal) ? quadrature_type(i,qn) : halo_quadrature_type(_physics->_halo_small_to_big(halo_i,0),qn);
                         if (q_type==1) { // interior
                             // integrating RHS velocity_function
@@ -152,7 +172,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                         } 
                     }
                 } else {
-                    for (int qn=0; qn<_physics->_weights_ndim; ++qn) {
+                    for (int qn=0; qn<_weights_ndim; ++qn) {
                         auto q_type = (i<nlocal) ? quadrature_type(i,qn) : halo_quadrature_type(_physics->_halo_small_to_big(halo_i,0),qn);
                         double v;
                         if (_use_vector_gmls) {
@@ -192,9 +212,11 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                             }
                             contribution += q_wt * v * rhs_eval;
                         } 
-                        else if (q_type==2) { // edge on exterior
+                        else if (q_type==2) { // side on exterior
+                            int current_side_num = (qn - num_interior_quadrature)/num_exterior_quadrature_per_side;
+                            double penalty = (_use_side_weighting) ? base_penalty/side_lengths[current_side_num] : base_penalty;
                             // DG enforcement of Dirichlet BCs
-                            // penalties for edges of mass
+                            // penalties for sides of mass
                             XYZ grad_v;
                             if (_use_vector_grad_gmls) {
                                 for (int d=0; d<_ndim_requested; ++d) {
@@ -225,20 +247,20 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                 auto exact = velocity_function->evalVector(pt);
 
                                 if (_use_vms) {
-                                    int current_edge_num_in_current_cell = (qn - num_interior_quadrature)/num_exterior_quadrature_per_edge;
-                                    Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_edge(_ndim_requested, _ndim_requested);
+                                    int current_side_num_in_current_cell = (qn - num_interior_quadrature)/num_exterior_quadrature_per_side;
+                                    Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_side(_ndim_requested, _ndim_requested);
                                     Teuchos :: SerialDenseSolver <local_index_type, scalar_type> vmsdg_solver;
-                                    tau_edge.putScalar(0.0);
+                                    tau_side.putScalar(0.0);
                                     for (int j1 = 0; j1 < _ndim_requested; ++j1) {
                                         for (int j2 = 0; j2 < _ndim_requested; ++j2) {
-                                            tau_edge(j1, j2) = _physics->_tau(i, current_edge_num_in_current_cell, j1, j2);    //tau^(1)_s from 'current' elem
+                                            tau_side(j1, j2) = _physics->_tau(i, current_side_num_in_current_cell, j1, j2);    //tau^(1)_s from 'current' elem
                                         }
                                     }
-                                    vmsdg_solver.setMatrix(Teuchos::rcp(&tau_edge, false));
+                                    vmsdg_solver.setMatrix(Teuchos::rcp(&tau_side, false));
                                     auto info = vmsdg_solver.invert();
                                     double vmsBCfactor = 2.0;
-                                    contribution += q_wt * v * vmsBCfactor * ( tau_edge(comp_out, 0) * velocity_function->evalScalar(pt, 0) + 
-                                                                               tau_edge(comp_out, 1) * velocity_function->evalScalar(pt, 1) );
+                                    contribution += q_wt * v * vmsBCfactor * ( tau_side(comp_out, 0) * velocity_function->evalScalar(pt, 0) + 
+                                                                               tau_side(comp_out, 1) * velocity_function->evalScalar(pt, 1) );
                                 } else if (_use_sip) {
                                     contribution += penalty * q_wt * v * exact[comp_out];
                                 }
