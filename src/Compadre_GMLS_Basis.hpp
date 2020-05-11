@@ -461,19 +461,28 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
         int alphax, alphay, alphaz;
         double alphaf;
 
+        double G_data[_global_dimensions*3];
+
         double triangle_coords[_global_dimensions*3];
         double triangle_coords_local[_local_dimensions*3];
         double triangle_coords_local_to_global[_global_dimensions*3];
+        for (int i=0; i<_global_dimensions*3; ++i) G_data[i] = 0;
         for (int i=0; i<_global_dimensions*3; ++i) triangle_coords[i] = 0;
         for (int i=0; i<_local_dimensions*3; ++i) triangle_coords_local[i] = 0;
         for (int i=0; i<_global_dimensions*3; ++i) triangle_coords_local_to_global[i] = 0;
         // 3 is for # vertices in sub-triangle
+ 
+        scratch_matrix_right_type G(G_data, _global_dimensions, 3); 
+
         scratch_matrix_right_type triangle_coords_matrix(triangle_coords, _global_dimensions, 3); 
         scratch_matrix_right_type triangle_coords_matrix_local(triangle_coords_local, _local_dimensions, 3); 
         scratch_matrix_right_type triangle_coords_matrix_local_to_global(triangle_coords_local_to_global, _global_dimensions, 3); 
 
         scratch_vector_type midpoint(delta, _global_dimensions);
-        getMidpointFromCellVertices(teamMember, midpoint, _source_extra_data, global_neighbor_index, _global_dimensions /*dim*/);
+        //getMidpointFromCellVertices(teamMember, midpoint, _source_extra_data, global_neighbor_index, _global_dimensions /*dim*/);
+        for (int j=0; j<_global_dimensions; ++j) {
+            midpoint[j] = getNeighborCoordinate(target_index, neighbor_index, j);
+        }
         for (int j=0; j<_global_dimensions; ++j) {
             triangle_coords_matrix(j, 0) = midpoint(j);
         }
@@ -499,7 +508,9 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
         double reference_cell_area = 0.5;
         double entire_cell_area = 0.0;
         auto T = triangle_coords_matrix;
-        auto T_local = (_problem_type == ProblemType::MANIFOLD) ? triangle_coords_matrix : triangle_coords_matrix;
+        //auto T_local = (_problem_type == ProblemType::MANIFOLD) ? triangle_coords_matrix : triangle_coords_matrix;
+        auto T_local = (_problem_type == ProblemType::MANIFOLD) ? triangle_coords_matrix_local : triangle_coords_matrix;
+        //auto T_local = (_problem_type == ProblemType::MANIFOLD) ? triangle_coords_matrix_local_to_global : triangle_coords_matrix;
 
         //for (size_t v=0; v<num_vertices; ++v) {
         //    int v1 = v;
@@ -578,31 +589,53 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
                     }
                     transformed_qp[j] += T(j,0);
                 }
+
+                double transformed_qp_norm = 0;
+                for (int j=0; j<_global_dimensions; ++j) {
+                    transformed_qp_norm += transformed_qp[j]*transformed_qp[j];
+                }
+                transformed_qp_norm = std::sqrt(transformed_qp_norm);
+
+                // project back onto sphere
+                for (int j=0; j<_global_dimensions; ++j) {
+                    transformed_qp[j] /= transformed_qp_norm;
+                }
+
+                //double transformed_qp[3] = {0,0,0};
+                //for (int j=0; j<_global_dimensions; ++j) {
+                //    for (int k=1; k<3; ++k) { // 3 is for # vertices in subtriangle
+                //        transformed_qp[j] += T(j,k)*_qm.getSite(quadrature, k-1);
+                //    }
+                //    transformed_qp[j] += T(j,0);
+                //}
                 // half the norm of the cross-product is the area of the triangle
                 // so scaling is area / reference area (0.5) = the norm of the cross-product
-                double sub_cell_area = 0.5 * getAreaFromVectors(teamMember, 
-                        Kokkos::subview(T_local, Kokkos::ALL(), 1), Kokkos::subview(T_local, Kokkos::ALL(), 2));//, *V);
-                double scaling_factor = sub_cell_area / reference_cell_area;
+                //double sub_cell_area = 0.5 * getAreaFromVectors(teamMember, 
+                //        Kokkos::subview(T, Kokkos::ALL(), 1), Kokkos::subview(T, Kokkos::ALL(), 2));//, *V);
+                //double scaling_factor = sub_cell_area / reference_cell_area;
+                double scaling_factor = 1.0;
 
                 if (_problem_type == ProblemType::MANIFOLD) {
                     XYZ qp = XYZ(transformed_qp[0], transformed_qp[1], transformed_qp[2]);
                     for (int j=0; j<2; ++j) {
                         relative_coord[j] = convertGlobalToLocalCoordinate(qp,j,V) - getTargetCoordinate(target_index,j,V); // shift quadrature point by target site
+                        //relative_coord[j] = transformed_qp[j] - getTargetCoordinate(target_index,j,V); // shift quadrature point by target site
                         //relative_coord[j] = convertGlobalToLocalCoordinate(qp,j,V) - getTargetCoordinate(target_index,j,V); // shift quadrature point by target site, what about taking difference, then shifting to V space?
-                        relative_coord[2] = 0;
                     }
+                    relative_coord[2] = 0;
                 } else {
                     for (int j=0; j<dimension; ++j) {
                         relative_coord[j] = transformed_qp[j] - getTargetCoordinate(target_index,j,V); // shift quadrature point by target site
                     }
+                    //relative_coord[2] = 0;
                     //for (int j=dimension; j<3; ++j) {
                     //    relative_coord[j] = 0.0;
                     //}
                 }
 
 
-                double grad_x1 = 0.0;
-                double grad_x2 = 0.0;
+                //double grad_x1 = 0.0;
+                //double grad_x2 = 0.0;
                 double G_determinant = 1.0;
                 //if (_problem_type == ProblemType::MANIFOLD) {
                 //    std::fill(p_eval.begin(), p_eval.end(), 0);
@@ -673,7 +706,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
                 //        grad_x2 += alpha_ij * rel_coord[_global_dimensions-1];
                 //    }
 
-        		//	// need to get 2x2 matrix of metric tensor
+        		//	//// need to get 2x2 matrix of metric tensor
 				//	double G_0_0, G_0_1, G_1_0, G_1_1;
         		//	G_0_0 = 1 + grad_x1*grad_x1;
 
@@ -682,12 +715,47 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
         		//	    G_1_0 = grad_x2*grad_x1;
         		//	    G_1_1 = 1 + grad_x2*grad_x2;
         		//	}
-                //    G_determinant = G_0_0*G_1_1 - G_0_1*G_1_0;
+                //    G_determinant = std::sqrt(G_0_0*G_1_1 - G_0_1*G_1_0);
+                //    //G_determinant = 1+grad_x1*grad_x1+grad_x2*grad_x2;
                 //    //printf("G: %f\n", G_determinant);
+                //    //host_managed_vector_type r1("r1", _global_dimensions);
+                //    //host_managed_vector_type r2("r2", _global_dimensions);
+                //    //printf("size: %d %d\n", (*V).extent(0), (*V).extent(1));
+                //    //for (int j=0; j<_global_dimensions; ++j) {
+                //    //    r1[j]=(*V)(0,j)+grad_x1*(*V)(2,j);
+                //    //    r2[j]=(*V)(1,j)+grad_x2*(*V)(2,j);
+                //    //}
+                //    //G_determinant = getAreaFromVectors(teamMember, r1, r2);
+                //    //double r1[_global_dimensions];
+                //    //double r2[_global_dimensions];
+                //    //scratch_vector_type kr1(r1, _global_dimensions); 
+                //    //scratch_vector_type kr2(r2, _global_dimensions); 
+                //    //for (int j=0; j<_global_dimensions; ++j) {
+                //    //    kr1[j]=(*V)(0,j)+grad_x1*(*V)(2,j);
+                //    //    kr2[j]=(*V)(1,j)+grad_x2*(*V)(2,j);
+                //    //}
+                //    //G_determinant = getAreaFromVectors(teamMember, kr1, kr2);
                 //}
                 //scaling_factor = 1.0;
                 //this->calcGradientPij(teamMember, &p_eval[0], target_index, neighbor_index, 0 /*alpha*/, 1 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
-
+                double qp_norm_sq = transformed_qp_norm*transformed_qp_norm;
+                for (int j=0; j<_global_dimensions; ++j) {
+                    G(j,1) = T(j,1)/transformed_qp_norm;
+                    G(j,2) = T(j,2)/transformed_qp_norm;
+                    for (int k=0; k<_global_dimensions; ++k) {
+                        G(j,1) += transformed_qp[j]*(-0.5)*std::pow(qp_norm_sq,-1.5)*2*(transformed_qp[k]*T(k,1));
+                        G(j,2) += transformed_qp[j]*(-0.5)*std::pow(qp_norm_sq,-1.5)*2*(transformed_qp[k]*T(k,2));
+                    }
+                    //for (int k=0; k<_global_dimensions; ++k) {
+                    //    G(j,k) = 2*transformed_qp[j]*(-0.5*transformed_qp[k]*std::pow(transformed_qp[0]*transformed_qp[0]+transformed_qp[1]*transformed_qp[1]+transformed_qp[2]*transformed_qp[2], -1.5)) + (j==k)*std::pow(transformed_qp[0]*transformed_qp[0]+transformed_qp[1]*transformed_qp[1]+transformed_qp[2]*transformed_qp[2], -0.5);
+                    //}
+                }
+                G_determinant = getAreaFromVectors(teamMember, 
+                        Kokkos::subview(G, Kokkos::ALL(), 1), Kokkos::subview(G, Kokkos::ALL(), 2));//, *V);
+                //G_determinant = G(0,0)*(G(1,1)*G(2,2)-G(1,2)*G(2,1)) - G(1,1)*(G(0,0)*G(2,2)-G(0,2)*G(2,0)) + G(2,2)*(G(0,0)*G(1,1)-G(0,1)*G(1,0));
+                //        G_determinant = G(0,0)*(G(1,1)*G(2,2)-G(1,2)*G(2,1)) - G(0,1)*(G(1,0)*G(2,2)-G(2,0)*G(1,2)) + G(0,2)*(G(1,0)*G(2,1)-G(2,0)*G(1,1));
+                //G_determinant = std::sqrt(abs(G_determinant));
+                //G_determinant = 1./std::pow(std::sqrt(transformed_qp[0]*transformed_qp[0]+transformed_qp[1]*transformed_qp[1]+transformed_qp[2]*transformed_qp[2]),2);
 
                 int k = 0;
                 const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
@@ -698,7 +766,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
                             for (alphay = 0; alphay <= s; alphay++){
                                 alphax = s - alphay;
                                 alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
-                                double val_to_sum = std::sqrt(G_determinant) * (scaling_factor * _qm.getWeight(quadrature) 
+                                double val_to_sum = G_determinant * (scaling_factor * _qm.getWeight(quadrature) 
                                         * std::pow(relative_coord.x/cutoff_p,alphax)
                                         * std::pow(relative_coord.y/cutoff_p,alphay)
                                         * std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf);// / entire_cell_area;
@@ -713,7 +781,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
                         for (alphay = 0; alphay <= n; alphay++){
                             alphax = n - alphay;
                             alphaf = factorial[alphax]*factorial[alphay];
-                            double val_to_sum = std::sqrt(G_determinant) * (scaling_factor * _qm.getWeight(quadrature) 
+                            double val_to_sum = G_determinant * (scaling_factor * _qm.getWeight(quadrature) 
                                     * std::pow(relative_coord.x/cutoff_p,alphax)
                                     * std::pow(relative_coord.y/cutoff_p,alphay)/alphaf);// / entire_cell_area;
                             if (quadrature==0 && v==0) *(delta+k) = val_to_sum;
@@ -722,7 +790,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, const int targe
                         }
                     }
                 }
-                entire_cell_area += std::sqrt(G_determinant) * (scaling_factor * _qm.getWeight(quadrature));
+                entire_cell_area += G_determinant * (scaling_factor * _qm.getWeight(quadrature));
             }
         }
         int k = 0;
