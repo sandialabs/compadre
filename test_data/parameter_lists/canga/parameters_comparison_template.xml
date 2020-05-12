@@ -3,10 +3,13 @@
   <Parameter name="peer coloring" type="int" value="33"/>
   <Parameter name="initial step" type="int" value="1"/>
   <Parameter name="final step" type="int" value="1000"/>
-  <Parameter name="print norms" type="bool" value="true"/>
+  <Parameter name="save every" type="int" value="1"/>
+  <Parameter name="print norms" type="bool" value="false"/>
   <ParameterList name="io">
     <Parameter name="input file prefix" type="string" value="../test_data/grids/canga/Cubed-Sphere/"/>
     <Parameter name="input file" type="string" value="outCSMesh_ne16_TPW_CFR_TPO.g"/>
+    <Parameter name="input file 1" type="string" value="outCSMesh_ne16_TPW_CFR_TPO.g"/>
+    <Parameter name="input file 2" type="string" value="outCSMesh_ne16_TPW_CFR_TPO.g"/>
     <Parameter name="target file prefix" type="string" value="../test_data/grids/canga/CVT-MPAS/"/>
     <Parameter name="target file" type="string" value="outICODMesh_ne16.g"/>
     <Parameter name="output file prefix" type="string" value="../test_data/"/>
@@ -28,6 +31,7 @@
     <Parameter name="curvature weighting parameter 0" type="int" value="4"/>
     <Parameter name="quadrature points" type="int" value="3"/>
     <Parameter name="optimization algorithm" type="string" value="CAAS"/>
+    <Parameter name="preserve bounds" type="bool" value="false"/>
     <Parameter name="source weighting field name" type="string" value="cell_area"/>
     <Parameter name="target weighting field name" type="string" value="cell_area"/>
     <Parameter name="dense solver type" type="string" value="QR"/>

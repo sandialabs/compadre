@@ -27,14 +27,14 @@ namespace Compadre {
 void OptimizationManager::solveAndUpdate() {
 if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE) {
 
-    // all algorithms != NONE use single linear bound (conservation)
+	OptimizationTime->start();
+
+    // current algorithms are written for a single linear bound and with bounds preservation
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_optimization_object._single_linear_bound_constraint==false, "Only algorithms with single linear bound constraint == true are supported.");
 
     // verify weighting field name specified
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_source_weighting_name.length()==0, "Source weighting field name not specified.");
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_target_weighting_name.length()==0, "Target weighting field name not specified.");
-
-    OptimizationTime->start();
 
     // weights
     Compadre::host_view_type source_grid_weighting_field = _source_particles->getFieldManagerConst()->getFieldByName(_source_weighting_name)->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
@@ -112,7 +112,6 @@ if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE)
             });
             Kokkos::fence();
 
-
             if (_optimization_object._optimization_algorithm==OptimizationAlgorithm::OBFET) {
 
                 // written for serial
@@ -188,7 +187,7 @@ if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE)
                     std::cout << "Residual        ... " << residual << "\n";
                 }
                 TEUCHOS_TEST_FOR_EXCEPT_MSG(out_of_bounds!=0, "At least one constructed value out of bounds after bounds preservation enforced.");
-#endif // DE    BUG
+#endif // DEBUG
 #else
                 TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Compose package called but not built. Enable with '-D CompadreHarness_USE_Compose:BOOL=ON'.");
 #endif // COMPADREHARNESS_USE_COMPOSE
@@ -197,7 +196,7 @@ if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE)
             for (local_index_type j=0; j<_target_particles->getCoordsConst()->nLocal(); ++j) {
                 target_solution_data(j,i) = updated_target_values[j];
             }
-        } else {
+        } else { // algorithm != NONE && NOT _optimization_object._local_bounds_preservation, so global_bounds_preservation
 
             // can handle a lower bound, an upper bound, or no bounds, but not both lower and upper bounds
             //TEUCHOS_TEST_FOR_EXCEPT_MSG(use_global_lower_bound && use_global_upper_bound, "Simultaneously supporting lower and upper global bounds without local bounds preservation is not currently supported.");

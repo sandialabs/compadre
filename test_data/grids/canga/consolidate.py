@@ -68,7 +68,7 @@ def copy_variables_from_source_except_data(filename_source, dataset, new_fields,
 
     f.close()
 
-def filter_fields_in_file_sequence(iters, reference_file, file_prefix, fields):
+def filter_fields_in_file_sequence(file_prefix, fields):
     # make sure all requested fields exist in file sequence (e.g. Smooth may not)
     updated_fields = list()
     f = Dataset(file_prefix+str(1)+".g", "r", format="NETCDF4")
@@ -80,7 +80,7 @@ def filter_fields_in_file_sequence(iters, reference_file, file_prefix, fields):
     f.close()
     return updated_fields
 
-def get_data_from_file_sequence(iters, reference_file, file_prefix, fields):
+def get_data_from_file_sequence(iters, save_every, reference_file, file_prefix, fields):
     concatenated_data = {}
     for field in fields:
         if (field=="ID"):
@@ -89,21 +89,22 @@ def get_data_from_file_sequence(iters, reference_file, file_prefix, fields):
             concatenated_data[field]=np.zeros(shape=(0,0),dtype='f8')
 
     for i in range(iters):
-        f = Dataset(file_prefix+str(i+1)+".g", "r", format="NETCDF4")
-        for varname,ncvar in f.variables.items():
-            if (varname in fields):
-                if (varname != "ID"):
-                    #print("%s, %s time_step: %d"%(file_prefix, varname, i))
-                    if (concatenated_data[varname].shape[0]==0):
-                        concatenated_data[varname]=np.zeros(shape=(ncvar.shape[0],iters+1), dtype='f8')
-                        concatenated_data[varname][:,1]=ncvar[:].flatten()
-                    else:
-                        concatenated_data[varname][:,i+1] = ncvar[:].flatten()
-                elif (varname=="ID" and i==1):
-                    # take care of ID here on first step
-                    concatenated_data[varname]=np.zeros(shape=(ncvar.shape[0],), dtype='i8')
-                    concatenated_data[varname][:]=ncvar[:].flatten()
-        f.close()
+        if ((i+1)%save_every==0):
+            f = Dataset(file_prefix+str(i+1)+".g", "r", format="NETCDF4")
+            for varname,ncvar in f.variables.items():
+                if (varname in fields):
+                    if (varname != "ID"):
+                        #print("%s, %s time_step: %d"%(file_prefix, varname, i))
+                        if (concatenated_data[varname].shape[0]==0):
+                            concatenated_data[varname]=np.zeros(shape=(ncvar.shape[0],iters//save_every+1), dtype='f8')
+                            concatenated_data[varname][:,1]=ncvar[:].flatten()
+                        else:
+                            concatenated_data[varname][:,i//save_every+1] = ncvar[:].flatten()
+                    elif (varname=="ID" and i//save_every==1):
+                        # take care of ID here on first step
+                        concatenated_data[varname]=np.zeros(shape=(ncvar.shape[0],), dtype='i8')
+                        concatenated_data[varname][:]=ncvar[:].flatten()
+            f.close()
 
     # if reference_file didn't have this field, then it will have zeros for that time_step
     ref = Dataset(reference_file, "r", format="NETCDF4")
@@ -115,52 +116,43 @@ def get_data_from_file_sequence(iters, reference_file, file_prefix, fields):
 
     return concatenated_data
 
-def consolidate(iters, file1, file2):
+def consolidate(iters, save_every, ref_file1, ref_file2, data_prefix):
 
     original_field_names = ["ID","TotalPrecipWater","CloudFraction","Topography","Smooth","AnalyticalFun1","AnalyticalFun2"]
-    field_names = filter_fields_in_file_sequence(iters, file1, "forward_", original_field_names)
+    field_names = filter_fields_in_file_sequence(data_prefix+"/forward_", original_field_names)
 
-    head, tail = os.path.split(file1)
-    file1_short = tail
+    head, tail = os.path.split(ref_file1)
+    ref_file1_short = tail
 
-    head, tail = os.path.split(file2)
-    file2_short = tail
+    head, tail = os.path.split(ref_file2)
+    ref_file2_short = tail
 
     # new output file name
-    new_filename = file1_short + "-" + file2_short
+    new_filename = ref_file1_short + "-" + ref_file2_short
 
     # get data from various data files
-    field_dictionary = get_data_from_file_sequence(iters, file1, "backward_", field_names)
+    field_dictionary = get_data_from_file_sequence(iters, save_every, ref_file1, data_prefix+"/backward_", field_names)
 
     # create an empty dataset
-    dataset1 = Dataset(new_filename, "w", format="NETCDF4")
+    dataset1 = Dataset(data_prefix+"/"+new_filename, "w", format="NETCDF4")
 
     # fill in dataset from source file
     # but not copying TotalPrecWater, etc....
-    copy_variables_from_source_except_data(file1, dataset1, field_dictionary, "_remap_src")
+    copy_variables_from_source_except_data(ref_file1, dataset1, field_dictionary, "_remap_src")
 
-    # close file we are writing to
-    #dataset1.close()
+    # all steps need duplicated, and called with "forward_" with ref_file1+2 reversed
+    head, tail = os.path.split(ref_file1)
+    ref_file1_short = tail
 
-    # all steps need duplicated, and called with "forward_" with file1+2 reversed
-    head, tail = os.path.split(file1)
-    file1_short = tail
-
-    head, tail = os.path.split(file2)
-    file2_short = tail
-
-    # new output file name
-    #new_filename = file2_short + "-" + file1_short
+    head, tail = os.path.split(ref_file2)
+    ref_file2_short = tail
 
     # get data from various data files
-    field_dictionary = get_data_from_file_sequence(iters, file2, "forward_", field_names)
-
-    # create an empty dataset
-    #dataset2 = Dataset(new_filename, "w", format="NETCDF4")
+    field_dictionary = get_data_from_file_sequence(iters, save_every, ref_file2, data_prefix+"/forward_", field_names)
 
     # fill in dataset from source file
     # but not copying TotalPrecWater, etc....
-    copy_variables_from_source_except_data(file2, dataset1, field_dictionary, "_remap_tgt")
+    copy_variables_from_source_except_data(ref_file2, dataset1, field_dictionary, "_remap_tgt")
 
     # close file we are writing to
     dataset1.close()
@@ -177,7 +169,7 @@ if __name__ == '__main__':
     file2=""
     if (len(sys.argv) > 3):
         file2 = str(sys.argv[3])
-    consolidate(iters, file1, file2)
+    consolidate(iters, 1, file1, file2)
 
 #test_file_1 = "../../test_data/grids/canga/Cubed-Sphere/outCSMesh_ne16_TPW_CFR_TPO.g"
 #test_file_2 = "../../test_data/grids/canga/Cubed-Sphere/outCSMesh_ne16_TPW_CFR_TPO.g"

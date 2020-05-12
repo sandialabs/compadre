@@ -159,6 +159,7 @@ int main (int argc, char* args[]) {
     //*********
  
     local_index_type initial_step_to_compute = parameters->get<local_index_type>("initial step");
+    local_index_type save_every = parameters->get<local_index_type>("save every");
 
     const LO my_coloring = parameters->get<LO>("my coloring");
     const LO peer_coloring = parameters->get<LO>("peer coloring");
@@ -364,13 +365,10 @@ int main (int argc, char* args[]) {
 
                 remoteDataManager->remapData(remap_vec, parameters, particles.getRawPtr(), peer_processors_particles.getRawPtr(), halo_size, false /* use physical coords*/, true /* keep neighborhoods*/);
                 // data is now on 33
-                if (my_coloring == 33) {
+                if (my_coloring == 33 && (i%save_every==0 || i==1)) {
                     WriteTime->start();
-                    std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "forward_" + std::to_string(i) + ".nc";
                     Compadre::FileManager fm2;
-                    fm2.setWriter(output_filename, particles);
-                    fm2.write();
-                    output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "forward_" + std::to_string(i) + ".g";
+                    std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "forward_" + std::to_string(i) + ".g";
                     fm2.setWriter(output_filename, particles);
                     fm2.write();
                     WriteTime->stop();
@@ -448,13 +446,10 @@ int main (int argc, char* args[]) {
 
                 remoteDataManager->remapData(remap_vec, parameters, particles.getRawPtr(), peer_processors_particles.getRawPtr(), halo_size, false /* use physical coords*/, true /* keep neighborhoods*/);
                 // data is now on 25
-                if (my_coloring == 25) {
+                if (my_coloring == 25 && (i%save_every==0 || i==1)) {
                     WriteTime->start();
-                    std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "backward_" + std::to_string(i) + ".nc";
                     Compadre::FileManager fm2;
-                    fm2.setWriter(output_filename, particles);
-                    fm2.write();
-                    output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "backward_" + std::to_string(i) + ".g";
+                    std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + "backward_" + std::to_string(i) + ".g";
                     fm2.setWriter(output_filename, particles);
                     fm2.write();
                     WriteTime->stop();

@@ -13,9 +13,11 @@ print(args)
 target_data = None
 for fname in args.source_files:
     if (target_data is None):
-        target_data = pd.read_csv(fname) 
+        target_data = pd.read_csv(fname)
+        target_data = target_data.drop(target_data.index[0:-1])
     else:
         new_data = pd.read_csv(fname)
+        new_data = new_data.drop(new_data.index[0:-1])
         target_data = pd.concat([target_data, new_data], axis=0)
 with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
     print(target_data)
