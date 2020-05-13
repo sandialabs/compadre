@@ -18,6 +18,7 @@
 #include <Thyra_PreconditionerFactoryHelpers.hpp>
 #include <Thyra_MueLuPreconditionerFactory.hpp>
 #include <Thyra_Ifpack2PreconditionerFactory.hpp>
+//#include <MatrixMarket_Tpetra.hpp>
 
 
 #include <Stratimikos_MueLuHelpers.hpp>
@@ -340,6 +341,7 @@ void SolverT::solve() {
         }
         solver->solve();
         auto out = Teuchos::getFancyOStream(Teuchos::rcpFromRef(std::cout));
+        //Tpetra::MatrixMarket::Writer<crs_matrix_type>::writeSparseFile("mm.txt", _A_tpetra[0][0]);
         //_A_tpetra[0][0]->describe(*out, Teuchos::VERB_EXTREME);
         //_A_tpetra[1][0]->describe(*out, Teuchos::VERB_EXTREME);
         //_A_single_block->describe(*out, Teuchos::VERB_EXTREME);

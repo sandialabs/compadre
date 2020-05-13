@@ -194,8 +194,7 @@ def convert(file_in, file_out, dim, coordinates_scale, verbose, max_verbose):
 
 if __name__== "__main__":
 
-    parser = argparse.ArgumentParser(description='reads in VTK files\
-        (can be modified with command line argumentstake diff of field on file1 and file2 and store in new-file')
+    parser = argparse.ArgumentParser(description='reads in VTK files and converts them to Compadre-REBAR style netCDF files')
     
     parser.add_argument('--file-in', dest='file_in', type=str, help='file in name')
     parser.add_argument('--file-out', dest='file_out', type=str, help='file out name')
