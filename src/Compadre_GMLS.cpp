@@ -392,7 +392,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
         }
         Kokkos::fence();
         _initial_index_for_batch += this_batch_size;
-        if (_initial_index_for_batch == _target_coordinates.extent(0)) break;
+        if ((size_t)_initial_index_for_batch == _target_coordinates.extent(0)) break;
     } // end of batch loops
 
     // deallocate _P and _w

@@ -37,11 +37,12 @@ struct SubviewND {
             compadre_assert_debug(((size_t)((column_num+1)*block_size-1)<_data_in.extent(1)) 
                     && "Subview asked for column > second dimension of input data.");
         }
-        if ((size_t)((column_num+1)*block_size-1)<_data_in.extent(1))
+        if ((size_t)((column_num+1)*block_size-1)<_data_in.extent(1)) {
             return Kokkos::subview(_data_in, Kokkos::ALL, Kokkos::make_pair(column_num*block_size, (column_num+1)*block_size));
-        else
+        } else {
             compadre_assert_debug(((size_t)(block_size-1)<_data_in.extent(1)) && "Subview asked for column > second dimension of input data.");
             return Kokkos::subview(_data_in, Kokkos::ALL, Kokkos::make_pair(0,block_size));
+        }
     }
 
     T2 copyToAndReturnOriginalView() {
