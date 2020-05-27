@@ -2,7 +2,7 @@
 #define _COMPADRE_POINTCLOUDSEARCH_HPP_
 
 #include "Compadre_Typedefs.hpp"
-#include <tpl/nanoflann.hpp>
+#include "nanoflann.hpp"
 #include <Kokkos_Core.hpp>
 #include <memory>
 

@@ -69,6 +69,10 @@ else() # Raw CMake Project
 
   get_directory_property(Compadre_HAS_PARENT PARENT_DIRECTORY)
 
+  if (NOT Compadre_HAS_PARENT)
+    include(GNUInstallDirs)
+  endif()
+
   bob_begin_package()
 
   # Set to OFF for significantly faster performance and ON for error tracking
