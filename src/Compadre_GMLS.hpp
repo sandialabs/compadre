@@ -9,8 +9,8 @@
 #include "Compadre_LinearAlgebra_Definitions.hpp"
 #include "Compadre_ParallelManager.hpp"
 #include "Compadre_Quadrature.hpp"
-#include "basis/Compadre_ScalarTaylorPolynomial.hpp"
-#include "basis/Compadre_DivergenceFreePolynomial.hpp"
+#include "Compadre_ScalarTaylorPolynomial.hpp"
+#include "Compadre_DivergenceFreePolynomial.hpp"
 
 namespace Compadre {
 

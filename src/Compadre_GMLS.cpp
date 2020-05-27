@@ -4,7 +4,7 @@
 #include "Compadre_Quadrature.hpp"
 #include "Compadre_GMLS_Targets.hpp"
 #include "Compadre_Functors.hpp"
-#include "constraints/Compadre_CreateConstraints.hpp"
+#include "Compadre_CreateConstraints.hpp"
 
 namespace Compadre {
 
