@@ -1274,7 +1274,7 @@ public:
         _host_neighbor_lists = Kokkos::create_mirror_view(_neighbor_lists);
 
         typedef typename view_type::memory_space input_array_memory_space;
-        if (std::is_same<input_array_memory_space, device_execution_space::memory_space>::value) {
+        if (std::is_same<input_array_memory_space, device_memory_space>::value) {
             // check if on the device, then copy directly
             // if it is, then it doesn't match the internal layout we use
             // then copy to the host mirror
@@ -1330,7 +1330,7 @@ public:
                 source_coordinates.extent(0), source_coordinates.extent(1));
 
         typedef typename view_type::memory_space input_array_memory_space;
-        if (std::is_same<input_array_memory_space, device_execution_space::memory_space>::value) {
+        if (std::is_same<input_array_memory_space, device_memory_space>::value) {
             // check if on the device, then copy directly
             // if it is, then it doesn't match the internal layout we use
             // then copy to the host mirror
@@ -1365,7 +1365,7 @@ public:
                 target_coordinates.extent(0), target_coordinates.extent(1));
 
         typedef typename view_type::memory_space input_array_memory_space;
-        if (std::is_same<input_array_memory_space, device_execution_space::memory_space>::value) {
+        if (std::is_same<input_array_memory_space, device_memory_space>::value) {
             // check if on the device, then copy directly
             // if it is, then it doesn't match the internal layout we use
             // then copy to the host mirror
@@ -1537,7 +1537,7 @@ public:
             evaluation_coordinates.extent(0), evaluation_coordinates.extent(1));
 
         typedef typename view_type::memory_space input_array_memory_space;
-        if (std::is_same<input_array_memory_space, device_execution_space::memory_space>::value) {
+        if (std::is_same<input_array_memory_space, device_memory_space>::value) {
             // check if on the device, then copy directly
             // if it is, then it doesn't match the internal layout we use
             // then copy to the host mirror
@@ -1577,7 +1577,7 @@ public:
         _host_additional_evaluation_indices = Kokkos::create_mirror_view(_additional_evaluation_indices);
 
         typedef typename view_type::memory_space input_array_memory_space;
-        if (std::is_same<input_array_memory_space, device_execution_space::memory_space>::value) {
+        if (std::is_same<input_array_memory_space, device_memory_space>::value) {
             // check if on the device, then copy directly
             // if it is, then it doesn't match the internal layout we use
             // then copy to the host mirror

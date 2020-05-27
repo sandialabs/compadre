@@ -152,8 +152,8 @@ class PointCloudSearch {
                 : _src_pts_view(src_pts_view), 
                   _dim((dimension < 0) ? src_pts_view.extent(1) : dimension),
                   _max_leaf((max_leaf < 0) ? 10 : max_leaf) {
-            compadre_assert_release((std::is_same<typename view_type::memory_space, Kokkos::HostSpace>::value) &&
-                    "Views passed to PointCloudSearch at construction should reside on the host.");
+            compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename view_type::memory_space>::accessible==1)
+                    && "Views passed to PointCloudSearch at construction should be accessible from the host.");
         };
     
         ~PointCloudSearch() {};
