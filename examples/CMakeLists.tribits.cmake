@@ -486,7 +486,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "3 200 3 1 0 0 --kokkos-threads=2"
+    "3 100 3 1 0 0 --kokkos-threads=4"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
