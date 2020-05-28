@@ -129,12 +129,16 @@ if [ "$PACKAGE" == "YES" ]; then
 
     rm -rf compadre.egg-info
     
-    $EXECUTABLE setup.py bdist_wheel sdist
-    echo "bdist_wheel and sdist complete."
+    #$EXECUTABLE setup.py bdist_wheel sdist
+    #echo "bdist_wheel and sdist complete."
+    #rm -rf build/ && cd dist && tar -xzvf compadre-$VERSION.tar.gz && cd compadre-$VERSION && cp PKG-INFO ../.. && cd ../.. && rm -rf dist 
+
+    $EXECUTABLE setup.py sdist
+    echo "sdist complete."
     
-    rm -rf build/ && cd dist && tar -xzvf compadre-$VERSION.tar.gz && cd compadre-$VERSION && cp PKG-INFO ../.. && cd ../.. && rm -rf dist 
-    echo "files copied from dist."
-    
+    cp compadre.egg-info/PKG-INFO .
+    rm -rf build/
+
     tar -czvf compadre-$VERSION.tar.gz *
     echo "files tar balled."
     
