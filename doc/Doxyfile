@@ -764,6 +764,8 @@ WARN_LOGFILE           =
 # Note: If this tag is empty the current directory is searched.
 
 INPUT                 += ../src 
+INPUT                 += ../src/basis
+INPUT                 += ../src/constraints
 INPUT                 += ../README.md
 INPUT                 += ../LICENSE.md
 INPUT                 += ../examples
@@ -849,6 +851,7 @@ RECURSIVE              = NO
 EXCLUDE                = ../python/GMLS_Module_wrap.cxx
 EXCLUDE               += ../python/__init__.py.in
 EXCLUDE               += ../python/GMLS_Module.py.in
+EXCLUDE               += ../python/insert_version.py
 
 # The EXCLUDE_SYMLINKS tag can be used to select whether or not files or
 # directories that are symbolic links (a Unix file system feature) are excluded
