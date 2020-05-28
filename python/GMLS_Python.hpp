@@ -87,6 +87,10 @@ public:
         gmls_object->setWeightingPower(regular_weight);
     }
 
+    void setWeightingType( const std::string &wt) {
+        gmls_object->setWeightingType(wt);
+    }
+
     void setNeighbors(PyObject* pyObjectArray_in) {
         // cast as a numpy array
         PyArrayObject *np_arr_in = reinterpret_cast<PyArrayObject*>(pyObjectArray_in);
@@ -298,7 +302,7 @@ public:
         return pyObjectArray_out;
     }
 
-    void generatePointEvaluationStencil() {
+    void generatePointEvaluationStencil(const int number_of_batches=1, const bool keep_coefficients=false) {
         gmls_object->addTargets(Compadre::TargetOperation::ScalarPointEvaluation);
         gmls_object->addTargets(Compadre::TargetOperation::PartialXOfScalarPointEvaluation);
         if (gmls_object->getGlobalDimensions() > 1) {
@@ -307,7 +311,7 @@ public:
         if (gmls_object->getGlobalDimensions() > 2) {
             gmls_object->addTargets(Compadre::TargetOperation::PartialZOfScalarPointEvaluation);
         }
-        gmls_object->generateAlphas();
+        gmls_object->generateAlphas(number_of_batches, keep_coefficients);
     }
 
     PyObject* getPolynomialCoefficients(PyObject* pyObjectArray_in) {

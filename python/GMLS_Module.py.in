@@ -128,8 +128,8 @@ class GMLS_Python(_object):
     __getattr__ = lambda self, name: _swig_getattr(self, GMLS_Python, name)
     __repr__ = _swig_repr
 
-    def __init__(self, poly_order, dense_solver_type, curvature_poly_order, dimensions):
-        this = _GMLS_Module.new_GMLS_Python(poly_order, dense_solver_type, curvature_poly_order, dimensions)
+    def __init__(self, *args):
+        this = _GMLS_Module.new_GMLS_Python(*args)
         try:
             self.this.append(this)
         except __builtin__.Exception:
@@ -139,6 +139,9 @@ class GMLS_Python(_object):
 
     def setWeightingOrder(self, regular_weight, curvature_weight=-1):
         return _GMLS_Module.GMLS_Python_setWeightingOrder(self, regular_weight, curvature_weight)
+
+    def setWeightingType(self, wt):
+        return _GMLS_Module.GMLS_Python_setWeightingType(self, wt)
 
     def setNeighbors(self, pyObjectArray_in):
         return _GMLS_Module.GMLS_Python_setNeighbors(self, pyObjectArray_in)
@@ -164,8 +167,8 @@ class GMLS_Python(_object):
     def getWindowSizes(self):
         return _GMLS_Module.GMLS_Python_getWindowSizes(self)
 
-    def generatePointEvaluationStencil(self):
-        return _GMLS_Module.GMLS_Python_generatePointEvaluationStencil(self)
+    def generatePointEvaluationStencil(self, number_of_batches=1, keep_coefficients=False):
+        return _GMLS_Module.GMLS_Python_generatePointEvaluationStencil(self, number_of_batches, keep_coefficients)
 
     def getPolynomialCoefficients(self, pyObjectArray_in):
         return _GMLS_Module.GMLS_Python_getPolynomialCoefficients(self, pyObjectArray_in)
