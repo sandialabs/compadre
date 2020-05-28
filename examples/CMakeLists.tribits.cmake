@@ -133,7 +133,7 @@ if (${testName}_CREATED)
       LABELS
         "UnitTest;unit;kokkos"
       TIMEOUT
-        20
+        60
     ) # end set_tests_properties
 endif() # test created
 
@@ -496,7 +496,7 @@ if (${testName}_CREATED)
       LABELS
         "UnitTest;unit;kokkos;staggered"
       TIMEOUT
-        20
+        60
     ) # end set_tests_properties
 endif() # test created
 

@@ -55,7 +55,7 @@ if (Compadre_EXAMPLES)
 
     # Host views tests for GMLS
     ADD_TEST(NAME GMLS_Host_Dim3_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "4" "200" "3" "0" "0" "0" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_Host_Dim3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 20)
+    SET_TESTS_PROPERTIES(GMLS_Host_Dim3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 60)
     
     ADD_TEST(NAME GMLS_Host_Dim2_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "4" "200" "2" "0" "0" "0" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_Host_Dim2_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 20)
@@ -113,7 +113,7 @@ if (Compadre_EXAMPLES)
     # Staggered scheme test for GMLS on non-manifold
     # Note: Using even polynomial order may cause this test to fail
     ADD_TEST(NAME GMLS_Staggered_Dim3_QR COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Staggered "3" "100" "3" "1" "0" "0" "--kokkos-threads=4")
-    SET_TESTS_PROPERTIES(GMLS_Staggered_Dim3_QR PROPERTIES LABELS "UnitTest;unit;kokkos;staggered" TIMEOUT 20)
+    SET_TESTS_PROPERTIES(GMLS_Staggered_Dim3_QR PROPERTIES LABELS "UnitTest;unit;kokkos;staggered" TIMEOUT 60)
 
     # Staggered scheme test for GMLS on non-manifold
     # Note: Using even polynomial order may cause this test to fail
