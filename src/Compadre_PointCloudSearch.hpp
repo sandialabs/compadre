@@ -208,15 +208,15 @@ class PointCloudSearch {
 
             // function does not populate epsilons, they must be prepopulated
 
-            compadre_assert_release((std::is_same<typename trg_view_type::memory_space, Kokkos::HostSpace>::value) &&
-                    "Target coordinates view passed to generateNeighborListsFromRadiusSearch should reside on the host.");
+            compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename trg_view_type::memory_space>::accessible==1) &&
+                    "Target coordinates view passed to generateNeighborListsFromRadiusSearch should be accessible from the host.");
             compadre_assert_release((((int)trg_pts_view.extent(1))>=_dim) &&
                     "Target coordinates view passed to generateNeighborListsFromRadiusSearch must have \
                     second dimension as large as _dim.");
-            compadre_assert_release((std::is_same<typename neighbor_lists_view_type::memory_space, Kokkos::HostSpace>::value) &&
-                    "Views passed to generateNeighborListsFromKNNSearch should reside on the host.");
-            compadre_assert_release((std::is_same<typename epsilons_view_type::memory_space, Kokkos::HostSpace>::value) &&
-                    "Views passed to generateNeighborListsFromKNNSearch should reside on the host.");
+            compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename neighbor_lists_view_type::memory_space>::accessible==1) &&
+                    "Views passed to generateNeighborListsFromKNNSearch should be accessible from the host.");
+            compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename epsilons_view_type::memory_space>::accessible==1) &&
+                    "Views passed to generateNeighborListsFromKNNSearch should be accessible from the host.");
 
             // loop size
             const int num_target_sites = trg_pts_view.extent(0);
