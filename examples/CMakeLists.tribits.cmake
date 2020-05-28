@@ -88,7 +88,7 @@ tribits_add_executable(
 
 
 # Test if LAPACK+BLAS are compatible for use in the toolkit
-if (${TPL_ENABLE_LAPACK})
+if(Compadre_USE_LAPACK)
   set(testName LAPACK_THREADSAFE)
   tribits_add_test(
     LAPACK_Test
@@ -112,7 +112,7 @@ if (${TPL_ENABLE_LAPACK})
           77
       ) # end set_tests_properties
   endif() # test created
-endif() # LAPACK enabled
+endif() # LAPACK being used
 
 # Host views tests for GMLS
 set(testName GMLS_Host_Dim3_SVD)
