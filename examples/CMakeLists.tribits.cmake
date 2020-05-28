@@ -1,12 +1,12 @@
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
-if (${TPL_ENABLE_LAPACK})
+if(Compadre_USE_LAPACK)
   tribits_add_executable(
     LAPACK_Test
     SOURCES
       UnitTest_ThreadedLapack.cpp
     ) # end tribits_add_executable
-endif() # LAPACK enabled
+endif()
 
 tribits_add_executable(
   GMLS_Host_Test
