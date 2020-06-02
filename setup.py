@@ -201,5 +201,6 @@ setup(
         'build_ext': CMakeBuild,
         'install': InstallCommand
     },
+    include_package_data=True,
     zip_safe=False,
 )
