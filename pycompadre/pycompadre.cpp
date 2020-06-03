@@ -460,59 +460,6 @@ PYBIND11_MODULE(pycompadre, m) {
 
     )pbdoc";
 
-    // helper functions
-    py::class_<ParticleHelper>(m, "ParticleHelper", R"pbdoc(
-        Class to manage calling PointCloudSearch, moving data to/from Numpy arrays in Kokkos::Views,
-        and applying GMLS solutions to multidimensional data arrays
-    )pbdoc")
-    .def(py::init<GMLS&>(),py::arg("gmls_instance"))
-    .def("generateKDTree", &ParticleHelper::generateKDTree)
-    .def("generateNeighborListsFromKNNSearchAndSet", &ParticleHelper::generateNeighborListsFromKNNSearchAndSet, 
-            py::arg("target_sites"), py::arg("poly_order"), py::arg("dimension") = 3, py::arg("epsilon_multiplier") = 1.6, 
-            py::arg("maximum_neighbors_storage_multiplier") = 1.0, py::arg("max_search_radius") = 0.0)
-    .def("setNeighbors", &ParticleHelper::setNeighbors)
-    .def("getNeighbors", &ParticleHelper::getNeighbors, py::return_value_policy::move)
-    .def("setWindowSizes", &ParticleHelper::setWindowSizes)
-    .def("getWindowSizes", &ParticleHelper::getWindowSizes, py::return_value_policy::move)
-    .def("setSourceSites", &ParticleHelper::setSourceSites)
-    .def("getSourceSites", &ParticleHelper::getSourceSites, py::return_value_policy::move)
-    .def("setTargetSites", &ParticleHelper::setTargetSites)
-    .def("getTargetSites", &ParticleHelper::getTargetSites, py::return_value_policy::move)
-    .def("getPolynomialCoefficients", &ParticleHelper::getPolynomialCoefficients, py::return_value_policy::move)
-    .def("applyStencil", &ParticleHelper::applyStencil,py::return_value_policy::move);
-    
-
-    py::class_<GMLS>(m, "GMLS")
-    .def(py::init<int,int,std::string,std::string,std::string,int>(),
-            py::arg("poly_order"),py::arg("dimension")=3,py::arg("dense_solver_type")="QR", 
-            py::arg("problem_type")="STANDARD", py::arg("constraint_type")="NO_CONSTRAINT", 
-            py::arg("curvature_poly_order")=2)
-    .def(py::init<ReconstructionSpace,SamplingFunctional,int,int,std::string,std::string,std::string,int>(),
-            py::arg("reconstruction_space"),py::arg("sampling_functional"),
-            py::arg("poly_order"),py::arg("dimension")=3,py::arg("dense_solver_type")="QR", 
-            py::arg("problem_type")="STANDARD", py::arg("constraint_type")="NO_CONSTRAINT", 
-            py::arg("curvature_poly_order")=2)
-    .def("setWeightingPower", &GMLS::setWeightingPower)
-    .def("setWeightingType", overload_cast_<const std::string&>()(&GMLS::setWeightingType), "Set the weighting type.")
-    //.def("setWeightingType", overload_cast_<WeightingType>()(&GMLS::setWeightingType), "Set the weighting type.")
-    .def("addTargets", overload_cast_<TargetOperation>()(&GMLS::addTargets), "Add a target operation.")
-    .def("addTargets", overload_cast_<std::vector<TargetOperation> >()(&GMLS::addTargets), "Add a list of target operations.")
-    .def("generateAlphas", &GMLS::generateAlphas)
-    .def("getNP", &GMLS::getNP, "Get size of basis.")
-    .def("getNN", &GMLS::getNN, "Heuristic number of neighbors.");
-
-
-    py::class_<KokkosParser>(m, "KokkosParser")
-    .def(py::init<int,int,int,int,bool>());
-
-    m.def("getNP", &GMLS::getNP, R"pbdoc(
-        Get size of basis.
-    )pbdoc");
-
-    m.def("getNN", &GMLS::getNN, R"pbdoc(
-        Heuristic number of neighbors.
-    )pbdoc");
-
     py::class_<SamplingFunctional>(m, "SamplingFunctional");
     py::dict sampling_functional;
     sampling_functional["PointSample"] = PointSample;
@@ -553,6 +500,59 @@ PYBIND11_MODULE(pycompadre, m) {
     .value("VectorOfScalarClonesTaylorPolynomial", ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial)
     .value("DivergenceFreeVectorTaylorPolynomial", ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial)
     .export_values();
+
+    // helper functions
+    py::class_<ParticleHelper>(m, "ParticleHelper", R"pbdoc(
+        Class to manage calling PointCloudSearch, moving data to/from Numpy arrays in Kokkos::Views,
+        and applying GMLS solutions to multidimensional data arrays
+    )pbdoc")
+    .def(py::init<GMLS&>(),py::arg("gmls_instance"))
+    .def("generateKDTree", &ParticleHelper::generateKDTree)
+    .def("generateNeighborListsFromKNNSearchAndSet", &ParticleHelper::generateNeighborListsFromKNNSearchAndSet, 
+            py::arg("target_sites"), py::arg("poly_order"), py::arg("dimension") = 3, py::arg("epsilon_multiplier") = 1.6, 
+            py::arg("maximum_neighbors_storage_multiplier") = 1.0, py::arg("max_search_radius") = 0.0)
+    .def("setNeighbors", &ParticleHelper::setNeighbors, py::arg("neighbor_lists"))
+    .def("getNeighbors", &ParticleHelper::getNeighbors, py::return_value_policy::take_ownership)
+    .def("setWindowSizes", &ParticleHelper::setWindowSizes, py::arg("window_sizes"))
+    .def("getWindowSizes", &ParticleHelper::getWindowSizes, py::return_value_policy::take_ownership)
+    .def("setSourceSites", &ParticleHelper::setSourceSites, py::arg("source_coordinates"))
+    .def("getSourceSites", &ParticleHelper::getSourceSites, py::return_value_policy::take_ownership)
+    .def("setTargetSites", &ParticleHelper::setTargetSites, py::arg("target_coordinates"))
+    .def("getTargetSites", &ParticleHelper::getTargetSites, py::return_value_policy::take_ownership)
+    .def("getPolynomialCoefficients", &ParticleHelper::getPolynomialCoefficients, py::arg("input_data"), py::return_value_policy::take_ownership)
+    .def("applyStencil", &ParticleHelper::applyStencil, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::return_value_policy::take_ownership);
+    
+
+    py::class_<GMLS>(m, "GMLS")
+    .def(py::init<int,int,std::string,std::string,std::string,int>(),
+            py::arg("poly_order"),py::arg("dimension")=3,py::arg("dense_solver_type")="QR", 
+            py::arg("problem_type")="STANDARD", py::arg("constraint_type")="NO_CONSTRAINT", 
+            py::arg("curvature_poly_order")=2)
+    .def(py::init<ReconstructionSpace,SamplingFunctional,int,int,std::string,std::string,std::string,int>(),
+            py::arg("reconstruction_space"),py::arg("sampling_functional"),
+            py::arg("poly_order"),py::arg("dimension")=3,py::arg("dense_solver_type")="QR", 
+            py::arg("problem_type")="STANDARD", py::arg("constraint_type")="NO_CONSTRAINT", 
+            py::arg("curvature_poly_order")=2)
+    .def("setWeightingPower", &GMLS::setWeightingPower)
+    .def("setWeightingType", overload_cast_<const std::string&>()(&GMLS::setWeightingType), "Set the weighting type.")
+    //.def("setWeightingType", overload_cast_<WeightingType>()(&GMLS::setWeightingType), "Set the weighting type.")
+    .def("addTargets", overload_cast_<TargetOperation>()(&GMLS::addTargets), "Add a target operation.")
+    .def("addTargets", overload_cast_<std::vector<TargetOperation> >()(&GMLS::addTargets), "Add a list of target operations.")
+    .def("generateAlphas", &GMLS::generateAlphas)
+    .def("getNP", &GMLS::getNP, "Get size of basis.")
+    .def("getNN", &GMLS::getNN, "Heuristic number of neighbors.");
+
+
+    py::class_<KokkosParser>(m, "KokkosParser")
+    .def(py::init<int,int,int,int,bool>());
+
+    m.def("getNP", &GMLS::getNP, R"pbdoc(
+        Get size of basis.
+    )pbdoc");
+
+    m.def("getNN", &GMLS::getNN, R"pbdoc(
+        Heuristic number of neighbors.
+    )pbdoc");
 
 #ifdef COMPADRE_SEMVER
     m.attr("__version__") = COMPADRE_SEMVER;
