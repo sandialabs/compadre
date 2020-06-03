@@ -1,4 +1,3 @@
-#$PYTHON $SRC_DIR/update_conda_cmake.py $SRC_DIR/python/cmake_opts.txt.in $SRC_DIR/cmake_opts.txt
 echo "Compadre_USE_MPI:BOOL=OFF" > $RECIPE_DIR/cmake_opts.txt
 echo "PYTHON_EXECUTABLE=$PYTHON" >> $RECIPE_DIR/cmake_opts.txt
 if [ "$OSX_ARCH" != "" ]; then

@@ -1,25 +1,34 @@
 {% set name = "pycompadre" %}
-{% set version = "1.0.6" %}
 
 package:
   name: "{{ name|lower }}"
-  version: "{{ version }}"
+  version: 1.0.7
+  #version: {{ environ.get('GIT_DESCRIBE_TAG', 'dev') }}
+
+build:
+  number: 0
+  #number: {{ environ.get('GIT_DESCRIBE_NUMBER', 0) }}
+  #{% if environ.get('GIT_DESCRIBE_NUMBER', '0') == '0' %}string: py{{ environ.get('PY_VER').replace('.', '') }}_0
+  #{% else %}string: py{{ environ.get('PY_VER').replace('.', '') }}_{{ environ.get('GIT_BUILD_STR', 'GIT_STUB') }}{% endif %}
+  ignore_run_exports:
+    - python
 
 source:
   path: .
-
- #build:
- #  string: _py{{ python | replace(".", "") }}
+  #  git_url: .
 
 requirements:
   build:
+    - {{ compiler('cxx') }}
     - python
-    - wheel
-    - pip
     - setuptools
+    - pybind11
     - cmake
   host:
     - python
+  run:
+    - python
+    - vs2015_runtime  # [win]
 
 test:
   imports:
@@ -30,9 +39,9 @@ about:
   license: BSD
   license_family: BSD
   license_file: LICENSE.md
-  summary: COMpatible PArticle Discretization and REmap Toolkit
-  doc_url: 
-  dev_url: 
+  summary: COMpatible PArticle Discretization and REmap Toolkit for Python
+  doc_url: https://snlcomputation.github.io/compadre 
+  dev_url: https://github.com/SNLComputation/compadre 
 
 extra:
   recipe-maintainers:

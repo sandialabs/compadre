@@ -1,5 +1,4 @@
 #!/bin/bash
-DEFAULT_VERSION="1.0.23"
 
 # if looking to install the package, just run 'pip install .' from the root directory of the repo.
 
@@ -15,10 +14,6 @@ DEFAULT_VERSION="1.0.23"
 for i in "$@"
 do
 case $i in
-    -v=*|--version=*)
-    VERSION="${i#*=}"
-    shift # passed argument=value
-    ;;
     -e=*|--executable=*)
     EXECUTABLE="${i#*=}"
     shift # passed argument=value
@@ -65,23 +60,12 @@ if [ "$CLEAN" == "YES" ]; then
 fi
 
 # output variables used
-echo "VERSION  = ${VERSION}"
 echo "CONDA: ${CONDA}"
 if [ "$EXECUTABLE" == "" ]; then
     EXECUTABLE=`which python`
     echo "$0: No Python executable provided with \" -e=*\", so first python found in search path is used: $EXECUTABLE"
 fi
 echo "PYTHON EXECUTABLE: ${EXECUTABLE}"
-
-# handle version argument for packaging and install
-if [ "$VERSION" == "" ] && [ "$CONDA" == "YES" ]; then
-    echo "$0: A version number is required to be provided for packaging. \" -v=*\""
-    exit 1
-fi
-if [ "$VERSION" == "" ]; then
-    echo "$0: A version number was not provided, so version number set to DEFAULT_VERSION of $DEFAULT_VERSION"
-    VERSION="$DEFAULT_VERSION"
-fi
 
 # (NOT for users) create a python package that can be uploaded to pypi 
 if [ "$PACKAGE" == "YES" ]; then
@@ -112,19 +96,22 @@ if [ "$CONDA" == "YES" ]; then
     # conda-bld should be cleared as well 
 
     
+    rm -rf ../dist
     rm -rf ../build
     rm -rf ../meta.yaml
-    rm -rf ../cmake_opts.txt
-
-    $EXECUTABLE insert_version.py $VERSION
-    echo "version $VERSION inserted into setup file."
+    rm -rf ../build.sh
+    rm -rf ../pycompadre.egg-info
+    cp cmake_opts.txt ..
 
     #cp update_conda_cmake.py ../update_conda_cmake.py
+    # named *.in so that they are not picked up by conda in the pycompadre folder
     cp meta.yaml.in ../meta.yaml
-    cp build.sh ..
+    cp build.sh.in ../build.sh
     #cp conda_build_config.yaml.in ../conda_build_config.yaml
     cd ..
-    conda-build . --python=3.7
+    conda-build . 
+    #--python=3.5
+    #--python=3.7
     # --python=3.6 --python=3.7
     cd pycompadre
 
