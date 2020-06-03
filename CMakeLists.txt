@@ -94,6 +94,15 @@ else() # Raw CMake Project
   bob_option(Compadre_USE_MATLAB "Use MATLAB interface for PYTHON" OFF)
   set(PYTHON_LIBRARY_PREFIX "..") # relative to examples folder
   if (Compadre_USE_PYTHON)
+    bob_input(PYTHON_EXECUTABLE "" PATH "Python executable location")
+    IF(NOT(PYTHON_EXECUTABLE))
+      MESSAGE(STATUS "Python executable location PYTHON_EXECUTABLE not given. Search made using 'which python'")
+      EXECUTE_PROCESS(
+        COMMAND which "python"
+        OUTPUT_VARIABLE PYTHON_EXECUTABLE
+        OUTPUT_STRIP_TRAILING_WHITESPACE )
+    ENDIF()
+    MESSAGE(STATUS "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
     if (APPLE)
       SET(CMAKE_BUILD_RPATH ${CMAKE_BUILD_RPATH} "@loader_path/")
       SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} "@loader_path/")
