@@ -475,8 +475,8 @@ else() # Raw CMake Project
   endif()
 
   if(Compadre_USE_PYTHON)
-    add_subdirectory(python/pybind11)
-    pybind11_add_module(pycompadre python/pycompadre.cpp)
+    add_subdirectory(pycompadre/pybind11)
+    pybind11_add_module(pycompadre pycompadre/pycompadre.cpp)
     target_link_libraries(pycompadre PUBLIC compadre)
   endif()
 

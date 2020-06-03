@@ -73,8 +73,7 @@
 # This file is a modification of the setup.py found at:
 # https://github.com/pybind/cmake_example/blob/master/setup.py
 #
-# InstallCommand and significant portions of CMakeBuild::build_extension have been
-# added, as well as setup.
+# Significant portions of CMakeBuild::build_extension have been added, as well as setup.
 
 import os
 import re
@@ -93,24 +92,6 @@ class CMakeExtension(Extension):
         Extension.__init__(self, name, sources=[])
         self.sourcedir = os.path.abspath(sourcedir)
 
-class InstallCommand(install):
-    user_options = install.user_options + [
-        ('cmake-file=', None, 'File declaring CMake variables, separated by new lines.'),
-    ]
-
-    def initialize_options(self):
-        self.cmake_file = None
-        install.initialize_options(self)
-
-    def finalize_options(self):
-        print("--cmake-file:", self.cmake_file)
-        install.finalize_options(self)
-
-    def run(self):
-        global cmake_file
-        cmake_file = self.cmake_file
-        install.run(self)
-
 class CMakeBuild(build_ext):
     def run(self):
         try:
@@ -128,21 +109,30 @@ class CMakeBuild(build_ext):
             self.build_extension(ext)
 
     def build_extension(self, ext):
+        print("build_extension called.")
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
         # required for auto-detection of auxiliary "native" libs
         if not extdir.endswith(os.path.sep):
             extdir += os.path.sep
 
         # Parse string for kokkos architecture
-        cmake_file_string = ""
-        try:
-            if cmake_file != None:
-                cmake_file_string = str(cmake_file)
-                print("Custom cmake args file set to: %s"%(cmake_file_string,))
-            else:
-                print("Custom cmake args file not set.")
-        except:
+
+        cmake_config = os.getenv("CMAKE_CONFIG_FILE")
+        if cmake_config:
+            print("Custom cmake args file set to: %s"%(cmake_config,))
+        else:
+            cmake_config = ""
             print("Custom cmake args file not set.")
+
+        #cmake_file_string = ""
+        #try:
+        #    if cmake_file != None:
+        #        cmake_file_string = str(cmake_file)
+        #        print("Custom cmake args file set to: %s"%(cmake_file_string,))
+        #    else:
+        #        print("Custom cmake args file not set.")
+        #except:
+        #    print("Custom cmake args file not set.")
 
         # Configure CMake
         #config = 'Debug' if self.debug else 'Release'
@@ -155,6 +145,15 @@ class CMakeBuild(build_ext):
                       '-DCompadre_USE_MATLAB:BOOL=ON',
                       '-DCompadre_EXAMPLES:BOOL=OFF',
                       '-DPYTHON_CALLING_BUILD:BOOL=ON',]
+
+        cmake_file_list = list()
+        #if (cmake_file_string != ""):
+        if (cmake_config != ""):
+            #cmake_arg_list = [line.rstrip('\n') for line in open(cmake_file_string)]
+            cmake_arg_list = [line.rstrip('\n') for line in open(cmake_config)]
+            for arg in cmake_arg_list:
+                cmake_args.append('-D'+arg)
+            print('Custom CMake Args: ', cmake_arg_list)
 
         cfg = 'Debug' if self.debug else 'Release'
         build_args = ['--config', cfg]
@@ -196,10 +195,9 @@ setup(
         "License :: OSI Approved :: BSD License",
         "Operating System :: Unix",
     ],
-    ext_modules=[CMakeExtension('pycompadre')],
+    ext_modules=[CMakeExtension('pycompadre'),],
     cmdclass={
         'build_ext': CMakeBuild,
-        'install': InstallCommand
     },
     include_package_data=True,
     zip_safe=False,

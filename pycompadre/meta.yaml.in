@@ -1,5 +1,5 @@
-{% set name = "compadre" %}
-{% set version = "VERSION" %}
+{% set name = "pycompadre" %}
+{% set version = "1.0.6" %}
 
 package:
   name: "{{ name|lower }}"
@@ -8,28 +8,22 @@ package:
 source:
   path: .
 
-build:
-  string: _py{{ python | replace(".", "") }}
+ #build:
+ #  string: _py{{ python | replace(".", "") }}
 
 requirements:
-  host:
-    - python {{ python }}
-    - "numpy>=1.14.0" # [py34]
-    - "numpy>=1.15.0" # [py35]
-    - "numpy>=1.18.0" # [py36]
-    - "numpy>=1.16.0" # [py>=37]
-    - "cmake>=3.10.0"
-    - pathlib2
+  build:
+    - python
     - wheel
     - pip
     - setuptools
-  run:
+    - cmake
+  host:
     - python
-    - numpy
 
 test:
   imports:
-    - compadre
+    - pycompadre
 
 about:
   home: https://github.com/SNLComputation/compadre
