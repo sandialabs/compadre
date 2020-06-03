@@ -26,6 +26,10 @@ case $i in
     PACKAGE=YES
     shift # passed argument with no value
     ;;
+    -P|--PACKAGE)
+    PACKAGE=YES
+    shift # passed argument with no value
+    ;;
     -C|--conda)
     CONDA=YES
     shift # passed argument with no value
@@ -109,7 +113,7 @@ if [ "$CONDA" == "YES" ]; then
     cp build.sh.in ../build.sh
     #cp conda_build_config.yaml.in ../conda_build_config.yaml
     cd ..
-    conda-build . 
+    conda-build . --python=2.7 --python=3.5 --python=3.6 --python=3.7 --python=3.8
     #--python=3.5
     #--python=3.7
     # --python=3.6 --python=3.7
