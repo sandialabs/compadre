@@ -27,6 +27,10 @@ case $i in
     CLEAN=YES
     shift # passed argument with no value
     ;;
+    -p|--package)
+    PACKAGE=YES
+    shift # passed argument with no value
+    ;;
     -C|--conda)
     CONDA=YES
     shift # passed argument with no value
@@ -46,6 +50,7 @@ if [ "$HELP" == "YES" ]; then
 
     echo "-e  | --executable  Python executable to be used for package installation"
     echo "-c  | --clean       Removes temporary files created by packaging and installation"
+    echo "-p  | --package     Create a python package that can be uploaded to Pypi"
     echo "-h  | --help        See the help  screen that you are currently reading"
     echo "-v= | --version=    (OPTIONAL UNLESS PACKAGING)"
     exit 0
@@ -76,6 +81,27 @@ fi
 if [ "$VERSION" == "" ]; then
     echo "$0: A version number was not provided, so version number set to DEFAULT_VERSION of $DEFAULT_VERSION"
     VERSION="$DEFAULT_VERSION"
+fi
+
+# (NOT for users) create a python package that can be uploaded to pypi 
+if [ "$PACKAGE" == "YES" ]; then
+
+
+    rm -rf ../dist
+    rm -rf ../build
+    rm -rf ../meta.yaml
+    rm -rf ../build.sh
+    rm -rf ../pycompadre.egg-info
+    cp cmake_opts.txt ..
+
+    cd ..
+
+    CMAKE_CONFIG_FILE=cmake_opts.txt $EXECUTABLE setup.py bdist_wheel sdist
+    echo "bdist_wheel and sdist complete."
+
+    cd pycompadre
+    # follow up with twine upload ../dist/*
+
 fi
 
 # (NOT for users) create a conda package
