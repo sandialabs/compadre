@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Create a snapshot from the Compadre repository containing this script into the
-Trilinos repository pointed to, omitting the kokkos, kokkos-kernels, python,
+Trilinos repository pointed to, omitting the kokkos, kokkos-kernels, pycompadre,
 and scripts directories.
 
 Note:  This will assert that both repositories are in a clean state.
@@ -203,7 +203,7 @@ def create_snapshot_dir_args(orig_dir, dest_dir, dry_run=False):
     """
     args = (f"--orig-dir {orig_dir}/ "
             f"--dest-dir {dest_dir}/ "
-            "--exclude kokkos kokkos-kernels python scripts "
+            "--exclude kokkos kokkos-kernels pycompadre scripts "
             "cmake/detect_trilinos_opts.cmake "
             "examples/Python_3D_Convergence.py.in "
             "--clean-ignored-files-orig-dir")
@@ -221,7 +221,7 @@ def test_create_snapshot_dir_args():
     dest = "to_there"
     args = create_snapshot_dir_args(orig, dest)
     expected = (f"--orig-dir {orig}/ --dest-dir {dest}/ --exclude kokkos "
-                "kokkos-kernels python scripts "
+                "kokkos-kernels pycompadre scripts "
                 "cmake/detect_trilinos_opts.cmake "
                 "examples/Python_3D_Convergence.py.in "
                 "--clean-ignored-files-orig-dir")
