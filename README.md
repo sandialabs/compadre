@@ -57,5 +57,5 @@ If you write a paper using results obtained with the help of the Compadre Toolki
 
 If you would like to export the reference information to either CSL, DataCite, Dublin, Core, JSON, JSON-LD, MARCXML, or Mendeley, please find the export section at the bottom-right corner once you follow the link below:
 
-<a href="https://doi.org/10.5281/zenodo.3338664" target="_blank"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.3703333.svg"></a>
+<a href="https://doi.org/10.5281/zenodo.3876465" target="_blank"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.3876465.svg"></a>
 
