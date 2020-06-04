@@ -14,10 +14,10 @@ end
 np = py.importlib.import_module('numpy');
 
 % import Compadre Toolkit
-py.importlib.import_module('GMLS_Module');
+py.importlib.import_module('pycompadre');
 
 % initialize Kokkos
-py.GMLS_Module.initializeKokkos();
+py.pycompadre.KokkosParser();
 
 % set the polynomial order for the basis and the curvature polynomial order
 % (if on a manifold)
@@ -30,7 +30,7 @@ dense_solver_type = py.str("QR");
 spatial_dimensions = py.int(1);
 
 % initialize and instance of the GMLS class in Compadre Toolkit
-my_gmls = py.GMLS_Module.GMLS_Python(poly_order, dense_solver_type, curvature_poly_order, spatial_dimensions);
+my_gmls = py.pycompadre.GMLS_Python(poly_order, dense_solver_type, spatial_dimensions);
 
 % set the weighting order
 regular_weight = py.int(12);
@@ -82,7 +82,6 @@ assert(abs(computed_answer-1)<tolerance, 'Computed answer should be 1, but it is
 
 % finalize kokkos
 clear my_gmls
-py.GMLS_Module.finalizeKokkos();
 
 
 % if needed, py.reload(compadre_py_util);
