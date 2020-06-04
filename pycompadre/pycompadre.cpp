@@ -554,8 +554,8 @@ PYBIND11_MODULE(pycompadre, m) {
         Heuristic number of neighbors.
     )pbdoc");
 
-#ifdef COMPADRE_SEMVER
-    m.attr("__version__") = COMPADRE_SEMVER;
+#ifdef COMPADRE_VERSION_MAJOR
+    m.attr("__version__") = std::to_string(COMPADRE_VERSION_MAJOR) + "." + std::to_string(COMPADRE_VERSION_MINOR) + "." + std::to_string(COMPADRE_VERSION_PATCH);
 #else
     m.attr("__version__") = "dev";
 #endif
