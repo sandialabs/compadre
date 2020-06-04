@@ -140,7 +140,7 @@ class CMakeBuild(build_ext):
                       '-DPYTHON_EXECUTABLE=' + sys.executable,
                       '-DGMLS_Module_DEST=' + extdir,
                       '-DCMAKE_INSTALL_PREFIX=' + extdir,
-                      '-DCMAKE_OSX_DEPLOYMENT_TARGET=10.11',
+                      '-DCMAKE_OSX_DEPLOYMENT_TARGET=10.9',
                       '-DCompadre_USE_PYTHON:BOOL=ON',
                       '-DCompadre_USE_MATLAB:BOOL=ON',
                       '-DCompadre_EXAMPLES:BOOL=OFF',
@@ -195,10 +195,13 @@ setup(
         "License :: OSI Approved :: BSD License",
         "Operating System :: Unix",
     ],
+    install_requires=['cmake>=3.10.0',],
     ext_modules=[CMakeExtension('pycompadre'),],
     cmdclass={
         'build_ext': CMakeBuild,
     },
+    tests_require=['nose','numpy'],
+    test_suite='nose.collector',
     include_package_data=True,
     zip_safe=False,
 )

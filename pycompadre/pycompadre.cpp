@@ -544,7 +544,7 @@ PYBIND11_MODULE(pycompadre, m) {
 
 
     py::class_<KokkosParser>(m, "KokkosParser")
-    .def(py::init<int,int,int,int,bool>());
+    .def(py::init<int,int,int,int,bool>(), py::arg("num_threads") = -1, py::arg("numa") = -1, py::arg("device") = -1, py::arg("ngpu") = -1, py::arg("print") = false);
 
     m.def("getNP", &GMLS::getNP, R"pbdoc(
         Get size of basis.
