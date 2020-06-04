@@ -41,17 +41,17 @@ To compile from source: 1.) install doxygen software on your computer, 2.) execu
 If you write a paper using results obtained with the help of the Compadre Toolkit, please cite the following reference:
 
 ```
-@software{paul_kuberry_2020_3703333,
+@software{paul_kuberry_2020_3876465,
   author       = {Paul Kuberry and
                   Peter Bosler and
                   Nathaniel Trask},
   title        = {Compadre Toolkit},
-  month        = mar,
+  month        = jun,
   year         = 2020,
   publisher    = {Zenodo},
-  version      = {v1.0.3},
-  doi          = {10.5281/zenodo.3703333},
-  url          = {https://doi.org/10.5281/zenodo.3703333}
+  version      = {v1.1.0},
+  doi          = {10.5281/zenodo.3876465},
+  url          = {https://doi.org/10.5281/zenodo.3876465}
 }
 ```
 
