@@ -5,15 +5,44 @@
 #include "Compadre_ScalarTaylorPolynomial.hpp"
 
 namespace Compadre {
+/*!  \brief Definition of the divergence-free polynomial basis
+ *
+   Let \f$NB_d=\f$ the number of basis components in the scalar Taylor polynomial basis, for the same dimension \f$d\f$ and up to the same degree of polynomial. 
+   Let \f$NB_{(d-1)/v}=\f$ the number of basis components in the scalar Taylor polynomial basis, for one dimension lower \f$(d-1)\f$ that does not use same contain the direction v.
+   \li in 1D) No definition.
+   \li in 2D) The first \f$NB_d\f$ elements are \f[\begin{bmatrix}b_i\\ -\int \frac{\partial}{\partial x}(b_i)\; dy\end{bmatrix},\f] where \f$i\f$ is the basis element number for the divergence-free polynomial basis.\newline
+   The next \f$NB_{(d-1)/y}\f$ elements are \f[\begin{bmatrix}0\\b_j\end{bmatrix},\f] where \f$j\f$ is the basis element number for the divergence-free polynomial basis of one dimension lower using only the variable \f$x\f$.
+   \li in 3D) The first \f$NB_d\f$ elements are \f[\begin{bmatrix}b_i\\ 0 \\-\int \frac{\partial}{\partial x}(b_i)\; dz\end{bmatrix},\f] where \f$i\f$ is the basis element number for the divergence-free polynomial basis.\newline
+   The next \f$NB_d\f$ elements are \f[\begin{bmatrix}0\\ b_i \\-\int \frac{\partial}{\partial y}(b_i)\; dz\end{bmatrix},\f] where \f$i\f$ is the basis element number for the divergence-free polynomial basis.\newline
+   The next \f$NB_{(d-1)/z}\f$ elements are \f[\begin{bmatrix}0\\0\\b_j\end{bmatrix},\f] where \f$j\f$ is the basis element number for the divergence-free polynomial basis of one dimension lower using only the variables \f$x\f$ and \f$y\f$.
+
+*/
 namespace DivergenceFreePolynomialBasis {
 
+    /*! \brief Returns size of basis
+        \param degree               [in] - highest degree of polynomial
+        \param dimension            [in] - spatial dimension to evaluate
+    */
     KOKKOS_INLINE_FUNCTION
     int getSize(const int degree, const int dimension) {
         return (dimension-1)*ScalarTaylorPolynomialBasis::getSize(degree, dimension) 
                        + ScalarTaylorPolynomialBasis::getSize(degree, dimension-1);
     }
 
-    // Calculating the basis functions
+    /*! \brief Evaluates the divergence-free polynomial basis
+     *  delta[j] = weight_of_original_value * delta[j] + weight_of_new_value * (calculation of this function)
+        \param delta                [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _basis_multipler*the dimension of the polynomial basis.
+        \param workspace            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
+        \param dimension                [in] - spatial dimension to evaluate
+        \param max_degree               [in] - highest degree of polynomial
+        \param h                        [in] - epsilon/window size
+        \param x                        [in] - x coordinate (already shifted by target)
+        \param y                        [in] - y coordinate (already shifted by target)
+        \param z                        [in] - z coordinate (already shifted by target)
+        \param starting_order           [in] - polynomial order to start with (default=0)
+        \param weight_of_original_value [in] - weighting to assign to original value in delta (default=0, replace, 1-increment current value)
+        \param weight_of_new_value      [in] - weighting to assign to new contribution        (default=1, add to/replace)
+    */
     KOKKOS_INLINE_FUNCTION
     void evaluate(const member_type& teamMember, double* delta, double* workspace, const int dimension, const int max_degree, const int component, const double h, const double x, const double y, const double z, const int starting_order = 0, const double weight_of_original_value = 0.0, const double weight_of_new_value = 1.0) {
         Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
@@ -171,6 +200,21 @@ namespace DivergenceFreePolynomialBasis {
         });
     }
 
+    /*! \brief Evaluates the first partial derivatives of the divergence-free polynomial basis
+     *  delta[j] = weight_of_original_value * delta[j] + weight_of_new_value * (calculation of this function)
+        \param delta                [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _basis_multipler*the dimension of the polynomial basis.
+        \param workspace            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
+        \param dimension                [in] - spatial dimension to evaluate
+        \param max_degree               [in] - highest degree of polynomial
+        \param partial_direction        [in] - direction in which to take partial derivative
+        \param h                        [in] - epsilon/window size
+        \param x                        [in] - x coordinate (already shifted by target)
+        \param y                        [in] - y coordinate (already shifted by target)
+        \param z                        [in] - z coordinate (already shifted by target)
+        \param starting_order           [in] - polynomial order to start with (default=0)
+        \param weight_of_original_value [in] - weighting to assign to original value in delta (default=0, replace, 1-increment current value)
+        \param weight_of_new_value      [in] - weighting to assign to new contribution        (default=1, add to/replace)
+    */
     KOKKOS_INLINE_FUNCTION
     void evaluatePartialDerivative(const member_type& teamMember, double* delta, double* workspace, const int dimension, const int max_degree, const int component, const int partial_direction, const double h, const double x, const double y, const double z, const int starting_order = 0, const double weight_of_original_value = 0.0, const double weight_of_new_value = 1.0) {
         Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
@@ -374,6 +418,22 @@ namespace DivergenceFreePolynomialBasis {
         });
     }
 
+    /*! \brief Evaluates the second partial derivatives of the divergence-free polynomial basis
+     *  delta[j] = weight_of_original_value * delta[j] + weight_of_new_value * (calculation of this function)
+        \param delta                [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _basis_multipler*the dimension of the polynomial basis.
+        \param workspace            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
+        \param dimension                [in] - spatial dimension to evaluate
+        \param max_degree               [in] - highest degree of polynomial
+        \param partial_direction_1      [in] - direction in which to take first partial derivative
+        \param partial_direction_2      [in] - direction in which to take second partial derivative
+        \param h                        [in] - epsilon/window size
+        \param x                        [in] - x coordinate (already shifted by target)
+        \param y                        [in] - y coordinate (already shifted by target)
+        \param z                        [in] - z coordinate (already shifted by target)
+        \param starting_order           [in] - polynomial order to start with (default=0)
+        \param weight_of_original_value [in] - weighting to assign to original value in delta (default=0, replace, 1-increment current value)
+        \param weight_of_new_value      [in] - weighting to assign to new contribution        (default=1, add to/replace)
+    */
     KOKKOS_INLINE_FUNCTION
     void evaluateSecondPartialDerivative(const member_type& teamMember, double* delta, double* workspace, const int dimension, const int max_degree, const int component, const int partial_direction_1, const int partial_direction_2, const double h, const double x, const double y, const double z, const int starting_order = 0, const double weight_of_original_value = 0.0, const double weight_of_new_value = 1.0) {
         Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
@@ -583,7 +643,15 @@ namespace DivergenceFreePolynomialBasis {
         });
     }
 
-    // Calculating the basis functions
+    /*! \brief Evaluates the hard-coded divergence-free polynomial basis up to order 4 for 3D
+     *
+        Polynomial degree is inferred from np
+        \warning This function is deprecated.
+        \param np                        [in] - basis component number
+        \param sx                        [in] - x coordinate (already shifted by target and scaled)
+        \param sy                        [in] - y coordinate (already shifted by target and scaled)
+        \param sz                        [in] - z coordinate (already shifted by target and scaled)
+    */
     KOKKOS_INLINE_FUNCTION
     XYZ evaluate(int np, const double sx, const double sy, const double sz) {
         // define one-third
@@ -696,6 +764,14 @@ ports up to 4th-order polynomials for now.");
         }
     }
 
+    /*! \brief Evaluates the hard-coded divergence-free polynomial basis up to order 4 for 2D
+     *
+        Polynomial degree is inferred from np
+        \warning This function is deprecated.
+        \param np                        [in] - basis component number
+        \param sx                        [in] - x coordinate (already shifted by target and scaled)
+        \param sy                        [in] - y coordinate (already shifted by target and scaled)
+    */
     KOKKOS_INLINE_FUNCTION
     XYZ evaluate(int np, const double sx, const double sy) {
         // define one-third
@@ -741,7 +817,16 @@ ports up to 4th-order polynomials for now.");
         }
     }
 
-    // Calculating the basis functions
+    /*! \brief Evaluates the hard-coded first partial derivative of the divergence-free polynomial basis up to order 4 for 3D
+     *
+        Polynomial degree is inferred from np
+        \warning This function is deprecated.
+        \param np                        [in] - basis component number
+        \param partial_direction         [in] - partial derivative direction
+        \param sx                        [in] - x coordinate (already shifted by target and scaled)
+        \param sy                        [in] - y coordinate (already shifted by target and scaled)
+        \param sz                        [in] - z coordinate (already shifted by target and scaled)
+    */
     KOKKOS_INLINE_FUNCTION
     XYZ evaluatePartialDerivative(int np, const int partial_direction, const double h, const double sx, const double sy, const double sz) {
         // define one-third
@@ -1065,6 +1150,15 @@ ports up     to 4th-order polynomials for now.");
         }
     }
 
+    /*! \brief Evaluates the hard-coded first partial derivative of the divergence-free polynomial basis up to order 4 for 2D
+     *
+        Polynomial degree is inferred from np
+        \warning This function is deprecated.
+        \param np                        [in] - basis component number
+        \param partial_direction         [in] - partial derivative direction
+        \param sx                        [in] - x coordinate (already shifted by target and scaled)
+        \param sy                        [in] - y coordinate (already shifted by target and scaled)
+    */
     KOKKOS_INLINE_FUNCTION
     XYZ evaluatePartialDerivative(int np, const int partial_direction, const double h, const double sx, const double sy) {
         // define one-third

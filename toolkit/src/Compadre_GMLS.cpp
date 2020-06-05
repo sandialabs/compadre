@@ -4,11 +4,14 @@
 #include "Compadre_Quadrature.hpp"
 #include "Compadre_GMLS_Targets.hpp"
 #include "Compadre_Functors.hpp"
-#include "constraints/Compadre_CreateConstraints.hpp"
+#include "Compadre_CreateConstraints.hpp"
 
 namespace Compadre {
 
-void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
+void GMLS::generatePolynomialCoefficients(const int number_of_batches, const bool keep_coefficients) {
+
+    compadre_assert_release( (keep_coefficients==false || number_of_batches==1)
+                && "keep_coefficients is set to true, but number of batches exceeds 1.");
 
     /*
      *    Generate Quadrature
@@ -23,13 +26,23 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
     _operations = decltype(_operations)("operations", _lro.size());
     _host_operations = Kokkos::create_mirror_view(_operations);
     
-    compadre_assert_release((_max_num_neighbors >= 0) && "Neighbor lists not set in GMLS class before calling generatePolynomialCoefficients");
+    // make sure at least one target operation specified
+    compadre_assert_release((_lro.size() > 0) 
+            && "No target operations added to GMLS class before calling generatePolynomialCoefficients().");
     
     // loop through list of linear reconstruction operations to be performed and set them on the host
     for (size_t i=0; i<_lro.size(); ++i) _host_operations(i) = _lro[i];
 
     // get copy of operations on the device
     Kokkos::deep_copy(_operations, _host_operations);
+
+    // check that if any target sites added, that neighbors_lists has equal rows
+    compadre_assert_release((_neighbor_lists.extent(0)==_target_coordinates.extent(0)) 
+            && "Neighbor lists not set in GMLS class before calling generatePolynomialCoefficients.");
+
+    // check that if any target sites are greater than zero (could be zero), then there are more than zero source sites
+    compadre_assert_release((_source_coordinates.extent(0)>0 || _target_coordinates.extent(0)==0) 
+            && "Source coordinates not set in GMLS class before calling generatePolynomialCoefficients.");
 
     /*
      *    Initialize Alphas and Prestencil Weights
@@ -388,7 +401,8 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
 
         }
         Kokkos::fence();
-        _initial_index_for_batch += max_batch_size;
+        _initial_index_for_batch += this_batch_size;
+        if ((size_t)_initial_index_for_batch == _target_coordinates.extent(0)) break;
     } // end of batch loops
 
     // deallocate _P and _w
@@ -396,16 +410,21 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
     if (number_of_batches > 1) { // no reason to keep coefficients if they aren't all in memory
         _RHS = Kokkos::View<double*>("RHS",0);
         _P = Kokkos::View<double*>("P",0);
+        _entire_batch_computed_at_once = false;
     } else {
         if (_constraint_type != ConstraintType::NO_CONSTRAINT) {
             _RHS = Kokkos::View<double*>("RHS", 0);
+            if (!keep_coefficients) _P = Kokkos::View<double*>("P", 0);
         } else {
             if (_dense_solver_type != DenseSolverType::LU) {
                 _P = Kokkos::View<double*>("P", 0);
+                if (!keep_coefficients) _RHS = Kokkos::View<double*>("RHS", 0);
             } else {
                 _RHS = Kokkos::View<double*>("RHS", 0);
+                if (!keep_coefficients) _P = Kokkos::View<double*>("P", 0);
             }
         }
+        if (keep_coefficients) _store_PTWP_inv_PTW = true;
     }
 
     /*
@@ -424,9 +443,9 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
 
 }
 
-void GMLS::generateAlphas(const int number_of_batches) {
+void GMLS::generateAlphas(const int number_of_batches, const bool keep_coefficients) {
 
-    this->generatePolynomialCoefficients(number_of_batches);
+    this->generatePolynomialCoefficients(number_of_batches, keep_coefficients);
 
 }
 

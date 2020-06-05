@@ -798,19 +798,16 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                                         this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // -u0yy
                                         for (int j=0; j<target_NP; ++j) {
-                                            auto val = P_target_row(offset, j);
                                             P_target_row(offset, j) -= delta(j);
                                         }
                                         this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 2 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // u2xz
                                         for (int j=0; j<target_NP; ++j) {
-                                            auto val = P_target_row(offset, j);
                                             P_target_row(offset, j) += delta(j);
                                         }
                                         this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction_1*/, 2 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // -u0zz
                                         for (int j=0; j<target_NP; ++j) {
-                                            auto val = P_target_row(offset, j);
                                             P_target_row(offset, j) -= delta(j);
                                         }
                                         // u1xy - u0yy + u2xz - u0zz
