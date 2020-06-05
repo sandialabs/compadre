@@ -150,40 +150,43 @@ print(all_errors)
 for key, errors in enumerate(all_errors):
     rate = 0
     last_error = 0
-    if (args.num_meshes>1 and len(errors)>0):
-        print("\n\nerror rates: type:%s\n============="%(error_types[key],))
-        for i in range(1,len(errors)):
-            if (errors[i]!=0):
-                rate = math.log(errors[i]/errors[i-1])/math.log(.5)
-                last_error = errors[i]
-                print(str(rate) + ", " + str(errors[i]) + ", " + str(errors[i-1]))
-            else:
-                print("NaN - Division by zero")
-    else:
-        break
+    if (len(errors)>0):
+        if (args.num_meshes>1 and len(errors)>0):
+            print("\n\nerror rates: type:%s\n============="%(error_types[key],))
+            for i in range(1,len(errors)):
+                if (errors[i]!=0):
+                    rate = math.log(errors[i]/errors[i-1])/math.log(.5)
+                    last_error = errors[i]
+                    print(str(rate) + ", " + str(errors[i]) + ", " + str(errors[i-1]))
+                else:
+                    print("NaN - Division by zero")
+        elif (args.num_meshes==1 and args.convergence_type.lower()=="exact"):
+            last_error = errors[0]
+        else:
+            break
 
-    base_rate = 0
-    if 'pr.' in error_types[key]:
-        base_rate = args.pressure_order
-    else:
-        base_rate = args.order
+        base_rate = 0
+        if 'pr.' in error_types[key]:
+            base_rate = args.pressure_order
+        else:
+            base_rate = args.order
 
-    rate_adjustment = 0
-    if ('l2' in error_types[key] and args.operator.lower()!="mix_le"):
-        rate_adjustment = 1
+        rate_adjustment = 0
+        if ('l2' in error_types[key] and args.operator.lower()!="mix_le"):
+            rate_adjustment = 1
 
-    if (args.convergence_type.lower()=="exact" and args.assert_rate.lower()=="true"):
-        if (abs(args.rate_tol-last_error)>args.rate_tol):
-            assert False, "Last calculated error (%f) more than %f from exact solution." % (last_error, args.rate_tol,)
-    elif (args.convergence_type.lower()=="rate" and args.assert_rate.lower()=="true"):
-        if (abs(base_rate+rate_adjustment-rate)>args.rate_tol and rate<base_rate):
-            assert False, "Last calculated rate (%f) more than %f from theoretical optimal rate." % (rate, args.rate_tol,)
+        if (args.convergence_type.lower()=="exact" and args.assert_rate.lower()=="true"):
+            if (abs(args.rate_tol-last_error)>args.rate_tol):
+                assert False, "Last calculated error (%g) more than %g from exact solution." % (last_error, args.rate_tol,)
+        elif (args.convergence_type.lower()=="rate" and args.assert_rate.lower()=="true"):
+            if (abs(base_rate+rate_adjustment-rate)>args.rate_tol and rate<base_rate):
+                assert False, "Last calculated rate (%f) more than %f from theoretical optimal rate." % (rate, args.rate_tol,)
 
-    if args.output_file!="":
-        # concatenate data (h size, computed error, theoretical rate line passing through )
-        np_errors_list[key] = np.zeros(shape=(len(errors)+1,), dtype='f8')
-        np_errors_list[key][0:-1] = np.array(errors, dtype='f8')
-        np_errors_list[key][-1] = base_rate + rate_adjustment
+        if args.output_file!="" and args.convergence_type.lower()!="exact":
+            # concatenate data (h size, computed error, theoretical rate line passing through )
+            np_errors_list[key] = np.zeros(shape=(len(errors)+1,), dtype='f8')
+            np_errors_list[key][0:-1] = np.array(errors, dtype='f8')
+            np_errors_list[key][-1] = base_rate + rate_adjustment
 
 if args.output_file!="":
     import pandas as pd

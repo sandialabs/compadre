@@ -12,9 +12,9 @@ def getFlattenCellVertices(i, new_data, coords, connect, nod_size, dim):
             new_data[dim*j+k] = coords[connect[i][j]-1,k]
 
 @jit(nopython=True,parallel=False)
-def getNewMidpoints(i, new_data, coords, connect, nod_size):
+def getNewMidpoints(i, new_data, coords, connect, nod_size, dim):
     for j in range(nod_size):
-        for k in range(3):
+        for k in range(dim):
             new_data[k] += coords[connect[i,j]-1, k] / float(nod_size)
 
 @jit(nopython=True,parallel=False)
@@ -33,7 +33,12 @@ def getAdjacentCell(i, vert_indices, connect, el_size, nod_size, dim):
                 return (k, l)
     return (-1, -1)
 
-def convert(file_in, file_out, xyz_type_str, x_name, y_name, z_name, cell_to_vertex_field_name, dimension_nodes_per_element_name, dim, coordinates_scale, verbose, max_verbose):
+def convert(file_in, file_out, xyz_type_str, x_name, y_name, z_name, cell_to_vertex_field_name, dimension_nodes_per_element_name, dim, coordinates_scale, verbose, max_verbose, num_blocks = 1, cell_to_vertex_field_name2="", dimension_nodes_per_element_name2=""):
+    if cell_to_vertex_field_name2=="": 
+        cell_to_vertex_field_name2 = cell_to_vertex_field_name
+    if dimension_nodes_per_element_name2=="": 
+        dimension_nodes_per_element_name2 = dimension_nodes_per_element_name
+
     xyz_types = ['separate','joint']
     xyz_type = xyz_types.index(xyz_type_str)
     max_verbose = (max_verbose.lower()=="true")
@@ -85,48 +90,68 @@ def convert(file_in, file_out, xyz_type_str, x_name, y_name, z_name, cell_to_ver
     # scaling of coordinates
     if (coordinates_scale!=1.0):
         coords = coords * coordinates_scale
+
+    list_of_midpoints_blocks = [None,]*num_blocks
+    list_of_vertex_coordinates_blocks = [None,]*num_blocks
+    list_of_adjacent_elements_blocks = [None,]*num_blocks
+    for block_num in range(num_blocks):
+        if block_num==0:
+            tmp_cell_to_vertex_field_name = cell_to_vertex_field_name
+            tmp_dimension_nodes_per_element_name = dimension_nodes_per_element_name
+        if block_num==1:
+            tmp_cell_to_vertex_field_name = cell_to_vertex_field_name2
+            tmp_dimension_nodes_per_element_name = dimension_nodes_per_element_name2
     
-    #print(coords)
-    connect = np.array(variables[cell_to_vertex_field_name])
-    el_size = connect.shape[0]
-    nod_size = int(dimensions[dimension_nodes_per_element_name].size)
-    
-    # get cell centers from coordinates
-    midpoints = np.zeros(shape=(el_size,3), dtype='f8')
-    for i in range(el_size):
-        this_new_midpoint_coords = np.zeros(3)
-        getNewMidpoints(i, this_new_midpoint_coords, coords, connect, nod_size)
-        midpoints[i,:] = this_new_midpoint_coords
-    if max_verbose:
-        print(midpoints)
-    
-    vertex_coordinates = np.zeros(shape=(el_size, dim*nod_size),dtype='f8')
-    for i in range(el_size):
-        this_extra_data = np.zeros(dim*nod_size)
-        getFlattenCellVertices(i, this_extra_data, coords, connect, nod_size, dim)
-        vertex_coordinates[i,:] = this_extra_data
-    if max_verbose:
-        print(vertex_coordinates)
-    
-    if (dim==2):
-        # only works for simplices
-        adjacent_elements = -np.ones(shape=(el_size, dim+1),dtype='i8') 
-        # loop over all elements
-        i_verts = np.ones(shape=(2,), dtype='i4')
+        #print(coords)
+        connect = np.array(variables[tmp_cell_to_vertex_field_name])
+        el_size = connect.shape[0]
+        nod_size = int(dimensions[tmp_dimension_nodes_per_element_name].size)
+        
+        # get cell centers from coordinates
+        midpoints = np.zeros(shape=(el_size,3), dtype='f8')
         for i in range(el_size):
-            # grab two nodes at a time
-            for j in range(nod_size):
-                #i_verts = [connect[i,j], connect[i,(j+1)%nod_size]]
-                #i_verts.sort()
-                if (adjacent_elements[i, j]==-1):
-                    i_verts[0] = min(connect[i,j], connect[i,(j+1)%nod_size])
-                    i_verts[1] = max(connect[i,j], connect[i,(j+1)%nod_size])
-                    (element, edge) = getAdjacentCell(i, i_verts, connect, el_size, nod_size, dim)
-                    if (element>-1):
-                        adjacent_elements[i, j] = element
-                        adjacent_elements[element, edge] = i
+            this_new_midpoint_coords = np.zeros(3)
+            getNewMidpoints(i, this_new_midpoint_coords, coords, connect, nod_size, dim)
+            midpoints[i,:] = this_new_midpoint_coords
         if max_verbose:
-            print(adjacent_elements)
+            print(midpoints)
+        list_of_midpoints_blocks[block_num] = midpoints
+        
+        vertex_coordinates = np.zeros(shape=(el_size, dim*nod_size),dtype='f8')
+        for i in range(el_size):
+            this_extra_data = np.zeros(dim*nod_size)
+            getFlattenCellVertices(i, this_extra_data, coords, connect, nod_size, dim)
+            vertex_coordinates[i,:] = this_extra_data
+        if max_verbose:
+            print(vertex_coordinates)
+        list_of_vertex_coordinates_blocks[block_num] = vertex_coordinates
+        
+        if (dim==2):
+            # only works for simplices
+            adjacent_elements = -np.ones(shape=(el_size, dim+1),dtype='i8') 
+            # loop over all elements
+            i_verts = np.ones(shape=(2,), dtype='i4')
+            for i in range(el_size):
+                # grab two nodes at a time
+                for j in range(nod_size):
+                    #i_verts = [connect[i,j], connect[i,(j+1)%nod_size]]
+                    #i_verts.sort()
+                    if (adjacent_elements[i, j]==-1):
+                        i_verts[0] = min(connect[i,j], connect[i,(j+1)%nod_size])
+                        i_verts[1] = max(connect[i,j], connect[i,(j+1)%nod_size])
+                        (element, edge) = getAdjacentCell(i, i_verts, connect, el_size, nod_size, dim)
+                        if (element>-1):
+                            adjacent_elements[i, j] = element
+                            adjacent_elements[element, edge] = i
+            if max_verbose:
+                print(adjacent_elements)
+            list_of_adjacent_elements_blocks[block_num] = adjacent_elements
+
+    # merge all blocks info
+    midpoints = np.vstack(list_of_midpoints_blocks)
+    vertex_coordinates = np.vstack(list_of_vertex_coordinates_blocks)
+    adjacent_elements = np.vstack(list_of_adjacent_elements_blocks)
+    el_size = midpoints.shape[0]
     
     # all point data now collected (cell centers + vertices oordinates + adjacencies to cells through sides)
     # write solution to netcdf
@@ -195,10 +220,13 @@ if __name__== "__main__":
     parser.add_argument('--z-name', dest='z_name', type=str, default='z', help='z name (if xyz_separate chosen) or unused')
     parser.add_argument('--cell-to-vertex-field-name', dest='cell_to_vertex_field_name', type=str, default='connect1', help='name for dimension of cells')
     parser.add_argument('--dimension-nodes-per-element-name', dest='dimension_nodes_per_element_name', type=str, default='num_nod_per_el1', help='name for dimension of nodes per element')
+    parser.add_argument('--cell-to-vertex-field-name2', dest='cell_to_vertex_field_name2', type=str, default='connect1', help='name for dimension of cells')
+    parser.add_argument('--dimension-nodes-per-element-name2', dest='dimension_nodes_per_element_name2', type=str, default='num_nod_per_el1', help='name for dimension of nodes per element')
     parser.add_argument('--dim', dest='dim', type=int, default=3, help='spatial dimension')
+    parser.add_argument('--num-blocks', dest='num_blocks', type=int, default=1, help='num blocks (default 1)')
     parser.add_argument('--coordinates-scale', dest='coordinates_scale', type=float, default=1.0, help='scaling of coordinates, >1 is dilation, <1 is contraction, 1 is identity')
     parser.add_argument('--verbose', dest='verbose', type=str, default='false', help='display filenames being converted')
     parser.add_argument('--max-verbose', dest='max_verbose', type=str, default='false', help='display results of conversion')
     args = parser.parse_args()
 
-    convert(args.file_in, args.file_out, args.xyz_type, args.xyz_name, args.y_name, args.z_name, args.cell_to_vertex_field_name, args.dimension_nodes_per_element_name, args.dim, args.coordinates_scale, args.verbose, args.max_verbose)
+    convert(args.file_in, args.file_out, args.xyz_type, args.xyz_name, args.y_name, args.z_name, args.cell_to_vertex_field_name, args.dimension_nodes_per_element_name, args.dim, args.coordinates_scale, args.verbose, args.max_verbose, args.num_blocks, args.cell_to_vertex_field_name2, args.dimension_nodes_per_element_name2)
