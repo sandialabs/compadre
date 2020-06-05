@@ -84,8 +84,10 @@ if [ "$PACKAGE" == "YES" ]; then
 
     cd ..
 
-    CMAKE_CONFIG_FILE=cmake_opts.txt $EXECUTABLE setup.py bdist_wheel sdist
-    echo "bdist_wheel and sdist complete."
+    #CMAKE_CONFIG_FILE=cmake_opts.txt $EXECUTABLE setup.py bdist_wheel sdist
+    CMAKE_CONFIG_FILE=cmake_opts.txt $EXECUTABLE setup.py sdist
+    #echo "bdist_wheel and sdist complete."
+    echo "sdist complete."
 
     cd pycompadre
     # follow up with twine upload ../dist/*
