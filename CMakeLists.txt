@@ -331,8 +331,6 @@ else() # Raw CMake Project
       # both are required to be sure it finds it
       OPTION(KokkosKernels_ENABLE_TPL_LAPACK "" "${Compadre_USE_LAPACK}")
       SET(KokkosKernels_ENABLE_TPL_LAPACK "${Compadre_USE_LAPACK}")
-      OPTION(KokkosKernels_ENABLE_TPL_BLAS "" "${Compadre_USE_LAPACK}")
-      SET(KokkosKernels_ENABLE_TPL_BLAS "${Compadre_USE_LAPACK}")
       OPTION(KokkosKernels_ENABLE_TPL_CUSPARSE "" "${Compadre_USE_CUDA}")
       SET(KokkosKernels_ENABLE_TPL_CUSPARSE "${Compadre_USE_CUDA}")
       OPTION(KokkosKernels_ENABLE_TPL_CUBLAS "" "${Compadre_USE_CUDA}")
