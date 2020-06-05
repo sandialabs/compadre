@@ -73,7 +73,7 @@ scalar_type AnalyticFunction::evalLinearElasticityRHS(const xyz_type& xyzIn, con
         shear_val += 0.5*vector_hessian[output_comp][d][d];
         shear_val += 0.5*vector_hessian[d][output_comp][d];
     }
-    return -lambda*lambda_val -2*shear_modulus*shear_val;
+    return (lambda!=std::numeric_limits<scalar_type>::infinity()) ? -lambda*lambda_val -2*shear_modulus*shear_val : -2*shear_modulus*shear_val;
 }
 
 //
@@ -846,6 +846,56 @@ xyz_type ConstantEachDimension::evalScalarDerivative(const xyz_type& xyzIn, cons
 
 scalar_type ConstantEachDimension::evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp) const {
 	return 0;
+}
+
+//
+// Timoshenko
+//
+
+scalar_type Timoshenko::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+    double x=xyzIn.x;
+    double y=xyzIn.y;
+    if (input_comp==0) {
+        return -_P*y*(x*(6*_L - 3*x) + (-0.25*_D*_D + y*y)*(_nu + 2))/(6*_E*_I);
+    } else {
+        return _P*(0.25*_D*_D*x*(5*_nu + 4) + 3*_nu*y*y*(_L - x) + x*x*(3*_L - x))/(6*_E*_I);
+    }
+}
+
+xyz_type Timoshenko::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp) const {
+    double x=xyzIn.x;
+    double y=xyzIn.y;
+    if (input_comp==0) {
+        return xyz_type(-_P*y*(6*_L - 6*x)/(6*_E*_I),
+                        -_P*y*y*(_nu + 2)/(3*_E*_I) - _P*(x*(6*_L - 3*x) + (-0.25*_D*_D + y*y)*(_nu + 2))/(6*_E*_I));
+    } else {
+        return xyz_type(_P*(0.25*_D*_D*(5*_nu + 4) - 3*_nu*y*y - x*x + 2*x*(3*_L - x))/(6*_E*_I),
+                        _P*_nu*y*(_L - x)/(_E*_I));
+    }
+}
+
+std::vector<xyz_type> Timoshenko::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp) const {
+    double x=xyzIn.x;
+    double y=xyzIn.y;
+    std::vector<xyz_type> hessian(_dim);
+    if (input_comp==0) {
+        // first component
+        // u_xd = (u_xx, u_xy)
+        xyz_type u_xd(_P*y/(_E*_I), -_P*(6*_L - 6*x)/(6*_E*_I));
+        // u_yd = (u_yx, u_yy)
+        xyz_type u_yd(-_P*(6*_L - 6*x)/(6*_E*_I), -_P*y*(_nu + 2)/(_E*_I));
+        hessian[0] = u_xd;
+        hessian[1] = u_yd;
+    } else {
+        // second component
+        // u_xd = (u_xx, u_xy)
+        xyz_type u_xd(_P*(6*_L - 6*x)/(6*_E*_I), -_P*_nu*y/(_E*_I));
+        // u_yd = (u_yx, u_yy)
+        xyz_type u_yd(-_P*_nu*y/(_E*_I), _P*_nu*(_L - x)/(_E*_I));
+        hessian[0] = u_xd;
+        hessian[1] = u_yd;
+    }
+    return hessian;
 }
 
 //
