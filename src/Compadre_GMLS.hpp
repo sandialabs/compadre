@@ -845,10 +845,16 @@ public:
     static double Wab(const double r, const double h, const WeightingFunctionType& weighting_type, const int power) {
         if (weighting_type == WeightingFunctionType::Power) {
             return std::pow(1.0-std::abs(r/h), power) * double(1.0-std::abs(r/h)>0.0);
-        } else { // Gaussian
+        } else if (weighting_type == WeightingFunctionType::Gaussian) {
             // 2.5066282746310002416124 = sqrt(2*pi)
             double h_over_3 = h/3.0;
             return 1./( h_over_3 * 2.5066282746310002416124 ) * std::exp(-.5*r*r/(h_over_3*h_over_3));
+        } else if (weighting_type == WeightingFunctionType::CubicSpline) {
+            double x = r/h;
+            return ((1-x)+x*(1-x)*(1-2*x)) * double(r<=h);
+        } else { // no weighting power specified
+            compadre_kernel_assert_release(false && "Invalid WeightingFunctionType selected.");
+            return 0; 
         }
     }
 
@@ -1626,10 +1632,17 @@ public:
 
     //! Type for weighting kernel for GMLS problem
     void setWeightingType( const std::string &wt) {
-        if (wt == "power") {
+        std::string wt_to_lower = wt;
+        transform(wt_to_lower.begin(), wt_to_lower.end(), wt_to_lower.begin(), ::tolower);
+        if (wt_to_lower == "power") {
             _weighting_type = WeightingFunctionType::Power;
-        } else {
+        } else if (wt_to_lower == "gaussian") {
             _weighting_type = WeightingFunctionType::Gaussian;
+        } else if (wt_to_lower == "cubicspline") {
+            _weighting_type = WeightingFunctionType::CubicSpline;
+        } else {
+            // Power is default
+            _weighting_type = WeightingFunctionType::Power;
         }
         this->resetCoefficientData();
     }
@@ -1642,10 +1655,17 @@ public:
 
     //! Type for weighting kernel for curvature 
     void setCurvatureWeightingType( const std::string &wt) {
-        if (wt == "power") {
+        std::string wt_to_lower = wt;
+        transform(wt_to_lower.begin(), wt_to_lower.end(), wt_to_lower.begin(), ::tolower);
+        if (wt_to_lower == "power") {
             _curvature_weighting_type = WeightingFunctionType::Power;
-        } else {
+        } else if (wt_to_lower == "gaussian") {
             _curvature_weighting_type = WeightingFunctionType::Gaussian;
+        } else if (wt_to_lower == "cubicspline") {
+            _curvature_weighting_type = WeightingFunctionType::CubicSpline;
+        } else {
+            // Power is default
+            _curvature_weighting_type = WeightingFunctionType::Power;
         }
         this->resetCoefficientData();
     }
