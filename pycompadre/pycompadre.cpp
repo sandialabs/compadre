@@ -247,6 +247,7 @@ public:
         point_cloud_search = std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> >(new Compadre::PointCloudSearch<double_2d_view_type>(source_coords, gmls_object->getGlobalDimensions()));
 
         _source_coords = source_coords;
+        gmls_object->setSourceSites(source_coords);
     }
 
     void generateNeighborListsFromKNNSearchAndSet(py::array_t<double> input, int poly_order, int dimension = 3, double epsilon_multiplier = 1.6, double maximum_neighbors_storage_multiplier = 1.0, double max_search_radius = 0.0) {
@@ -538,7 +539,7 @@ PYBIND11_MODULE(pycompadre, m) {
     //.def("setWeightingType", overload_cast_<WeightingType>()(&GMLS::setWeightingType), "Set the weighting type.")
     .def("addTargets", overload_cast_<TargetOperation>()(&GMLS::addTargets), "Add a target operation.")
     .def("addTargets", overload_cast_<std::vector<TargetOperation> >()(&GMLS::addTargets), "Add a list of target operations.")
-    .def("generateAlphas", &GMLS::generateAlphas)
+    .def("generateAlphas", &GMLS::generateAlphas, py::arg("number_of_batches")=1, py::arg("keep_coefficients")=false)
     .def("getNP", &GMLS::getNP, "Get size of basis.")
     .def("getNN", &GMLS::getNN, "Heuristic number of neighbors.");
 
