@@ -1,8 +1,9 @@
 % check version to see if compatible
 V=regexp(version,'\d*','Match');
-if (str2num(V{length(V)}) < 2017)
-    fprintf('Error: Matlab version is too old to interface correctly to Python. Try Matlab 2017a or newer.')
-    throw()
+if (str2num(V{length(V)}) > 2000 && str2num(V{length(V)}) < 2017)
+    error('Error: Matlab version is too old to interface correctly to Python. Try Matlab 2017a or newer.')
+elseif (str2num(V{length(V)}) < 2000 && str2num(V{length(V)-1}) < 2017)
+    error('Error: Matlab version is too old to interface correctly to Python. Try Matlab 2017a or newer.')
 end
 
 % add current folder to path
@@ -14,75 +15,72 @@ end
 np = py.importlib.import_module('numpy');
 
 % import Compadre Toolkit
-py.importlib.import_module('GMLS_Module');
+py.importlib.import_module('pycompadre');
 
 % initialize Kokkos
-py.GMLS_Module.initializeKokkos();
+py.pycompadre.KokkosParser();
 
-% set the polynomial order for the basis and the curvature polynomial order
-% (if on a manifold)
+% polynomial degree of reconstruction
 poly_order = py.int(2);
-curvature_poly_order = py.int(2);
-
-dense_solver_type = py.str("QR");
 
 % spatial dimension for polynomial reconstruction
 spatial_dimensions = py.int(1);
 
 % initialize and instance of the GMLS class in Compadre Toolkit
-my_gmls = py.GMLS_Module.GMLS_Python(poly_order, dense_solver_type, curvature_poly_order, spatial_dimensions);
+my_gmls = py.pycompadre.GMLS(poly_order, spatial_dimensions, py.str("QR"), py.str("STANDARD"));
+% initialize a helper that manipulates the GMLS class (neighbor search, transforming data, applying solution to data, etc...)
+gmls_helper = py.pycompadre.ParticleHelper(my_gmls);
 
 % set the weighting order
-regular_weight = py.int(12);
-my_gmls.setWeightingOrder(regular_weight);
+regular_weight = py.int(4);
+my_gmls.setWeightingPower(regular_weight);
 
-% import the compadre_py_util module which uses kdtree in scipy
-compadre_py_util = py.importlib.import_module('compadre_py_util');
-
-% generate some 1d source points and a single target site
+% generate some 1d source points and three target sites
 x=-10:.001:10;
-x=[x' zeros(length(x),2)];
-y=0;
-y=[y' zeros(length(y),2)];
-
-% flatten data to a 1D vector to be compatible with Matlab/Python 2017
-flat_x = x(:)';
-flat_y = y(:)';
+y=[-1 0 1];
 
 % reshape data inside of python
-np_x = compadre_py_util.get_2D_numpy_array(flat_x, py.int(length(flat_x)/3), py.int(3));
-np_y = compadre_py_util.get_2D_numpy_array(flat_y, py.int(length(flat_y)/3), py.int(3));
+np_x = np.array(x);
+np_x = np_x.reshape(py.list({py.int(length(x)),py.int(1)}));
+np_y = np.array(y);
+np_y = np_y.reshape(py.list({py.int(length(y)),py.int(1)}));
 
 % returns a dictionary with epsilons and with neighbor_lists
 epsilon_multiplier = 1.5;
-my_gmls.generateKDTree(np_x)
-my_gmls.generateNeighborListsFromKNNSearchAndSet(np_y, poly_order, spatial_dimensions, epsilon_multiplier)
-% this command also performs:
-% my_gmls.setTargetSites(np_y);
-% my_gmls.setWindowSizes(epsilons);
-% my_gmls.setNeighbors(neighbor_lists);
 
-% set source, targets, window sizes, and neighbor lists
-my_gmls.setSourceSites(np_x);
+% generate a KD tree from source sites and also sets source sites for GMLS class
+gmls_helper.generateKDTree(np_x);
 
-% generates stencil
-my_gmls.generatePointEvaluationStencil();
+% do a neighbor search for target sites
+gmls_helper.generateNeighborListsFromKNNSearchAndSet(np_y, poly_order, spatial_dimensions, epsilon_multiplier, 2);
 
-% apply stencil to sample data for all targets
-data_vector = ones(size(x,1),1);
-np_data_vector = np.array(data_vector');
-np_computed_answer = my_gmls.applyStencil(np_data_vector)
-computed_answer = double(py.array.array('d',py.numpy.nditer(np_computed_answer)));
+% add TargetOperation 0 and 9 from ENUM which are ScalarPointEvaluation and PartialXDerivativePointEvaluation
+my_gmls.addTargets(py.pycompadre.TargetOperation(py.int(0)));
+my_gmls.addTargets(py.pycompadre.TargetOperation(py.int(9)));
+
+% generate alphas in 1 batch and don't keept the polynomial coefficients (not needed)
+my_gmls.generateAlphas();
+
+% generate data value for each source site (1 at each site)
+np_data_vector = np.array(ones(1,length(x)));
+np_data_vector = np_data_vector.reshape(py.list({py.int(length(x)),py.int(1)}));
+
+% apply GMLS solution to data through helper
+np_computed_answer = gmls_helper.applyStencil(np_data_vector,py.pycompadre.TargetOperation(py.int(0)));
+
+computed_answers = double(py.array.array('d',py.numpy.nditer(np_computed_answer)));
 
 % check that answer is correct
 tolerance = 1e-14;
-assert(abs(computed_answer-1)<tolerance, 'Computed answer should be 1, but it is not')
+assert(norm(computed_answers-1)<tolerance, 'Failed test : computed answers should be 1, but at least one is not')
+fprintf("Passed test.\n")
 
 
 
-% finalize kokkos
+% delete gmls_helper (which uses gmls), then GMLS instance
+clear gmls_helper
 clear my_gmls
-py.GMLS_Module.finalizeKokkos();
 
+% KokkosParser cleans up when it goes out of scope
 
 % if needed, py.reload(compadre_py_util);
