@@ -77,7 +77,10 @@ protected:
     Kokkos::View<int**, layout_right>::HostMirror _host_neighbor_lists;
 
     //! contains the # of neighbors for each target (host)
-    Kokkos::View<int*, Kokkos::HostSpace> _number_of_neighbors_list; 
+    Kokkos::View<int*, host_memory_space> _number_of_neighbors_list; 
+
+    //! contains the # of neighbors for each target (host)
+    Kokkos::View<int*, host_memory_space> _neighbors_lists_row_offsets; 
 
     //! all coordinates for the source for which _neighbor_lists refers (device)
     Kokkos::View<double**, layout_right> _source_coordinates; 
@@ -92,10 +95,10 @@ protected:
     Kokkos::View<double*>::HostMirror _host_epsilons; 
 
     //! generated alpha coefficients (device)
-    Kokkos::View<double***, layout_right> _alphas; 
+    Kokkos::View<double*, layout_right> _alphas; 
 
     //! generated alpha coefficients (host)
-    Kokkos::View<const double***, layout_right>::HostMirror _host_alphas;
+    Kokkos::View<double*, layout_right, host_memory_space> _host_alphas;
     
     //! generated weights for nontraditional samples required to transform data into expected sampling 
     //! functional form (device). 
@@ -222,6 +225,9 @@ protected:
     //! maximum number of neighbors over all target sites
     int _max_num_neighbors;
 
+    //! maximum number of evaluation sites for each target (includes target site)
+    int _max_evaluation_sites_per_target;
+
     //! vector of user requested target operations
     std::vector<TargetOperation> _lro; 
 
@@ -261,6 +267,9 @@ protected:
 
     //! used for sizing P_target_row and the _alphas view
     int _total_alpha_values;
+
+    //! additional alpha coefficients due to constraints
+    int _added_alpha_size;
 
     //! determines scratch level spaces and is used to call kernels
     ParallelManager _pm;
@@ -439,11 +448,17 @@ protected:
         return _max_num_neighbors;
     }
 
+    //! Returns the maximum number of evaluation sites over all target sites (target sites are included in total)
+    KOKKOS_INLINE_FUNCTION
+    int getMaxEvaluationSitesPerTarget() const {
+        return _max_evaluation_sites_per_target;
+    }
+
     //! (OPTIONAL)
     //! Returns number of additional evaluation sites for a particular target
     KOKKOS_INLINE_FUNCTION
-    int getNAdditionalEvaluationCoordinates(const int target_index) const {
-        return _additional_evaluation_indices(target_index,0);
+    int getNEvaluationSitesPerTarget(const int target_index) const {
+        return _number_of_additional_evaluation_indices(target_index)+1;
     }
 
     //! (OPTIONAL)
@@ -678,6 +693,7 @@ public:
         _initial_index_for_batch = 0;
 
         _max_num_neighbors = 0;
+        _max_evaluation_sites_per_target = 1;
 
         _global_dimensions = dimensions;
         if (_problem_type == ProblemType::MANIFOLD) {
@@ -1134,6 +1150,15 @@ public:
         return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
     }
 
+    //! Gives index into alphas given two axes, which when incremented by the neighbor number transforms access into
+    //! alphas from a rank 1 view into a rank 3 view.
+    local_index_type getAlphaIndex(const int target_index, const int alpha_column_offset) const {
+
+        return target_index*_total_alpha_values*_max_evaluation_sites_per_target*(_max_num_neighbors + _added_alpha_size) 
+                   + alpha_column_offset*(_max_num_neighbors + _added_alpha_size);
+
+    }
+
     //! Underlying function all interface helper functions call to retrieve alpha values
     double getAlpha(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int additional_evaluation_site = 0) const {
         // lro - the operator from TargetOperations
@@ -1159,7 +1184,8 @@ public:
         const int alpha_column_offset = this->getAlphaColumnOffset( lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
 
-        return _host_alphas(target_index, alpha_column_offset, neighbor_index);
+        auto alphas_index = this->getAlphaIndex(target_index, alpha_column_offset);
+        return _host_alphas(alphas_index + neighbor_index);
     }
 
     //! Returns a stencil to transform data from its existing state into the input expected 
@@ -1298,12 +1324,20 @@ public:
         }
 
         _number_of_neighbors_list = Kokkos::View<int*, Kokkos::HostSpace>("number of neighbors", neighbor_lists.extent(0));
+        _neighbors_lists_row_offsets = Kokkos::View<int*, Kokkos::HostSpace>("neighbors list row offsets", neighbor_lists.extent(0));
+
+        Kokkos::parallel_scan("number of neighbors offsets", Kokkos::RangePolicy<host_execution_space>(0, _host_neighbor_lists.extent(0)), KOKKOS_LAMBDA(const int i, int& lsum, bool final) {
+            _neighbors_lists_row_offsets(i) = lsum;
+            lsum += _host_neighbor_lists(i,0);
+            _number_of_neighbors_list(i) = _host_neighbor_lists(i,0);
+        });
+        Kokkos::fence();
 
         _max_num_neighbors = 0;
-        for (size_t i=0; i<_neighbor_lists.extent(0); ++i) {
-            _number_of_neighbors_list(i) = _host_neighbor_lists(i,0);
-            _max_num_neighbors = (_number_of_neighbors_list(i) > _max_num_neighbors) ? _number_of_neighbors_list(i) : _max_num_neighbors;
-        }
+        Kokkos::parallel_reduce("max number of neighbors", Kokkos::RangePolicy<host_execution_space>(0, _host_neighbor_lists.extent(0)), KOKKOS_LAMBDA(const int i, int& t_max_num_neighbors) {
+            t_max_num_neighbors = (_number_of_neighbors_list(i) > t_max_num_neighbors) ? _number_of_neighbors_list(i) : t_max_num_neighbors;
+        }, _max_num_neighbors);
+        Kokkos::fence();
         this->resetCoefficientData();
     }
 
@@ -1318,11 +1352,21 @@ public:
         Kokkos::deep_copy(_host_neighbor_lists, _neighbor_lists);
 
         _number_of_neighbors_list = Kokkos::View<int*, Kokkos::HostSpace>("number of neighbors", neighbor_lists.extent(0));
-        _max_num_neighbors = 0;
-        for (int i=0; i<_neighbor_lists.extent(0); ++i) {
+        _neighbors_lists_row_offsets = Kokkos::View<int*, Kokkos::HostSpace>("neighbors list row offsets", neighbor_lists.extent(0));
+
+        //_max_num_neighbors = 0;
+        Kokkos::parallel_scan("tally number of neighbors", Kokkos::RangePolicy<host_execution_space>(0, _host_neighbor_lists.extent(0)), KOKKOS_LAMBDA(const int i, int& lsum, bool final) {
+            _neighbors_lists_row_offsets(i) = lsum;
+            lsum += _host_neighbor_lists(i,0);
             _number_of_neighbors_list(i) = _host_neighbor_lists(i,0);
-            _max_num_neighbors = (_number_of_neighbors_list(i) > _max_num_neighbors) ? _number_of_neighbors_list(i) : _max_num_neighbors;
-        }
+        });
+        Kokkos::fence();
+
+        _max_num_neighbors = 0;
+        Kokkos::parallel_reduce("max number of neighbors", Kokkos::RangePolicy<host_execution_space>(0, _host_neighbor_lists.extent(0)), KOKKOS_LAMBDA(const int i, int& t_max_num_neighbors) {
+            t_max_num_neighbors = (_number_of_neighbors_list(i) > t_max_num_neighbors) ? _number_of_neighbors_list(i) : t_max_num_neighbors;
+        }, _max_num_neighbors);
+        Kokkos::fence();
         this->resetCoefficientData();
     }
 
@@ -1386,6 +1430,9 @@ public:
             // switches memory spaces
             Kokkos::deep_copy(_target_coordinates, host_target_coordinates);
         }
+        _number_of_additional_evaluation_indices 
+            = Kokkos::View<int*, Kokkos::HostSpace>("number of additional evaluation indices", target_coordinates.extent(0));
+        Kokkos::deep_copy(_number_of_additional_evaluation_indices, 0);
         this->resetCoefficientData();
     }
 
@@ -1394,6 +1441,9 @@ public:
     void setTargetSites(decltype(_target_coordinates) target_coordinates) {
         // allocate memory on device
         _target_coordinates = target_coordinates;
+        _number_of_additional_evaluation_indices 
+            = Kokkos::View<int*, Kokkos::HostSpace>("number of additional evaluation indices", target_coordinates.extent(0));
+        Kokkos::deep_copy(_number_of_additional_evaluation_indices, 0);
         this->resetCoefficientData();
     }
 
@@ -1599,11 +1649,10 @@ public:
             Kokkos::deep_copy(_additional_evaluation_indices, _host_additional_evaluation_indices);
         }
 
-        _number_of_additional_evaluation_indices 
-            = Kokkos::View<int*, Kokkos::HostSpace>("number of additional evaluation indices", indices_lists.extent(0));
-
+        _max_evaluation_sites_per_target = 1;
         for (size_t i=0; i<_additional_evaluation_indices.extent(0); ++i) {
             _number_of_additional_evaluation_indices(i) = _host_additional_evaluation_indices(i,0);
+            _max_evaluation_sites_per_target = (_number_of_additional_evaluation_indices(i)+1 > _max_evaluation_sites_per_target) ? _number_of_additional_evaluation_indices(i)+1 : _max_evaluation_sites_per_target;
         }
         this->resetCoefficientData();
     }
@@ -1620,11 +1669,10 @@ public:
         // copy data from host to device
         Kokkos::deep_copy(_host_additional_evaluation_indices, _additional_evaluation_indices);
 
-        _number_of_additional_evaluation_indices 
-            = Kokkos::View<int*, Kokkos::HostSpace>("number of additional evaluation indices", indices_lists.extent(0));
-
+        _max_evaluation_sites_per_target = 1;
         for (int i=0; i<_additional_evaluation_indices.extent(0); ++i) {
             _number_of_additional_evaluation_indices(i) = _host_additional_evaluation_indices(i,0);
+            _max_evaluation_sites_per_target = (_number_of_additional_evaluation_indices(i)+1 > _max_evaluation_sites_per_target) ? _number_of_additional_evaluation_indices(i)+1 : _max_evaluation_sites_per_target;
         }
         this->resetCoefficientData();
     }

@@ -160,6 +160,7 @@ public:
         auto neighbor_lists_lengths = _gmls->getNeighborListsLengths();
         auto sampling_data_device = sampling_subview_maker.get1DView(column_of_input);
         
+        auto alpha_index = _gmls->getAlphaIndex(target_index, alpha_input_output_component_index);
         // loop through neighbor list for this target_index
         // grabbing data from that entry of data
         Kokkos::parallel_reduce("applyAlphasToData::Device", 
@@ -167,7 +168,7 @@ public:
                 KOKKOS_LAMBDA(const int i, double& t_value) {
 
             t_value += sampling_data_device(neighbor_lists(target_index, i+1))
-                *alphas(target_index, alpha_input_output_component_index, i);
+                *alphas(alpha_index + i);
 
         }, value );
         Kokkos::fence();
@@ -232,6 +233,7 @@ public:
             const double previous_value = output_data_single_column(target_index);
 
             // loops over neighbors of target_index
+            auto alpha_index = _gmls->getAlphaIndex(target_index, alpha_input_output_component_index);
             double gmls_value = 0;
             Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, neighbor_lists(target_index,0)), [=](const int i, double& t_value) {
                 const double neighbor_varying_pre_T =  (weight_with_pre_T && vary_on_neighbor) ?
@@ -239,7 +241,7 @@ public:
                     : 1.0;
 
                 t_value += neighbor_varying_pre_T * sampling_data_single_column(neighbor_lists(target_index, i+1))
-                    *alphas(target_index, alpha_input_output_component_index, i);
+                    *alphas(alpha_index + i);
 
             }, gmls_value );
 
@@ -257,6 +259,7 @@ public:
 
             double staggered_value_from_targets = 0;
             double pre_T_staggered = 1.0;
+            auto alpha_index2 = _gmls->getAlphaIndex(target_index, alpha_input_output_component_index2);
             // loops over target_index for each neighbor for staggered approaches
             if (target_plus_neighbor_staggered_schema) {
                 Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, neighbor_lists(target_index,0)), [=](const int i, double& t_value) {
@@ -265,7 +268,7 @@ public:
                         : 1.0;
 
                     t_value += neighbor_varying_pre_T_staggered * sampling_data_single_column(neighbor_lists(target_index, 1))
-                        *alphas(target_index, alpha_input_output_component_index2, i);
+                        *alphas(alpha_index2 + i);
 
                 }, staggered_value_from_targets );
 
