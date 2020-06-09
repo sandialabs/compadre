@@ -61,7 +61,9 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
 
     // initialize all alpha values to be used for taking the dot product with data to get a reconstruction 
     try {
-        _alphas = decltype(_alphas)("alphas", _neighbor_lists.extent(0)*_total_alpha_values*_max_evaluation_sites_per_target*(_max_num_neighbors + _added_alpha_size));
+        int total_neighbors = _neighbors_lists_row_offsets(_neighbors_lists_row_offsets.extent(0)-1) + _number_of_neighbors_list(_neighbors_lists_row_offsets.extent(0)-1);
+        int total_added_alphas = _target_coordinates.extent(0)*_added_alpha_size;
+        _alphas = decltype(_alphas)("alphas", (total_neighbors + total_added_alphas)*_total_alpha_values*_max_evaluation_sites_per_target);
     } catch(std::exception &e) {
        printf("Insufficient memory to store alphas: \n\n%s", e.what()); 
        throw e;

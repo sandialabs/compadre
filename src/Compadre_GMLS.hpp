@@ -1154,8 +1154,13 @@ public:
     //! alphas from a rank 1 view into a rank 3 view.
     local_index_type getAlphaIndex(const int target_index, const int alpha_column_offset) const {
 
-        return target_index*_total_alpha_values*_max_evaluation_sites_per_target*(_max_num_neighbors + _added_alpha_size) 
-                   + alpha_column_offset*(_max_num_neighbors + _added_alpha_size);
+        int total_neighbors_before_target = _neighbors_lists_row_offsets(target_index);
+        int total_added_alphas_before_target = target_index*_added_alpha_size;
+
+        int alphas_per_tile_per_target = _number_of_neighbors_list(target_index) + _added_alpha_size;
+
+        return (total_neighbors_before_target+total_added_alphas_before_target)*_total_alpha_values*_max_evaluation_sites_per_target
+                   + alpha_column_offset*alphas_per_tile_per_target;
 
     }
 
