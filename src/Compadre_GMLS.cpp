@@ -161,7 +161,9 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
 
 
         // allocate data on the device (initialized to zero)
-        _T = Kokkos::View<double*>("tangent approximation",_target_coordinates.extent(0)*_dimensions*_dimensions);
+        if (!_orthonormal_tangent_space_provided) { // user did not specify orthonormal tangent directions, so we approximate them first
+            _T = Kokkos::View<double*>("tangent approximation",_target_coordinates.extent(0)*_dimensions*_dimensions);
+        }
         _manifold_metric_tensor_inverse = Kokkos::View<double*>("manifold metric tensor inverse",_target_coordinates.extent(0)*(_dimensions-1)*(_dimensions-1));
         _manifold_curvature_coefficients = Kokkos::View<double*>("manifold curvature coefficients",_target_coordinates.extent(0)*manifold_NP);
         _manifold_curvature_gradient = Kokkos::View<double*>("manifold curvature gradient",_target_coordinates.extent(0)*(_dimensions-1));
@@ -205,8 +207,6 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
     try {
         _RHS = Kokkos::View<double*>("RHS", max_batch_size*TO_GLOBAL(RHS_square_dim)*TO_GLOBAL(RHS_square_dim));
         _P = Kokkos::View<double*>("P", max_batch_size*TO_GLOBAL(P_dim_0)*TO_GLOBAL(P_dim_1));
-        _manifold_RHS = Kokkos::View<double*>("RHS", max_batch_size*TO_GLOBAL(RHS_square_dim)*TO_GLOBAL(RHS_square_dim));
-        _manifold_P = Kokkos::View<double*>("P", max_batch_size*TO_GLOBAL(P_dim_0)*TO_GLOBAL(P_dim_1));
         _w = Kokkos::View<double*>("w", max_batch_size*TO_GLOBAL(max_num_rows));
     } catch (std::exception &e) {
         printf("Failed to allocate space for RHS, P, and w. Consider increasing number_of_batches: \n\n%s", e.what());
@@ -228,9 +228,16 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
     for (int batch_num=0; batch_num<number_of_batches; ++batch_num) {
 
         auto this_batch_size = std::min(_target_coordinates.extent(0)-_initial_index_for_batch, max_batch_size);
-        Kokkos::deep_copy(_RHS, 0.0);
-        Kokkos::deep_copy(_P, 0.0);
-        Kokkos::deep_copy(_w, 0.0);
+        Kokkos::parallel_for(Kokkos::RangePolicy<device_execution_space>(0,_RHS.extent(0)), [&] (const int i) {
+                _RHS[i] = 0.0;
+        });
+        Kokkos::parallel_for(Kokkos::RangePolicy<device_execution_space>(0,_P.extent(0)), [&] (const int i) {
+                _P[i] = 0.0;
+        });
+        Kokkos::parallel_for(Kokkos::RangePolicy<device_execution_space>(0,_w.extent(0)), [&] (const int i) {
+                _w[i] = 0.0;
+        });
+        Kokkos::fence();
         
         if (_problem_type == ProblemType::MANIFOLD) {
 
@@ -298,8 +305,6 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
             _pm.CallFunctorWithTeamThreads<ApplyCurvatureTargets>(this_batch_size, *this);
             Kokkos::fence();
 
-            Kokkos::deep_copy(_manifold_P, _P);
-            Kokkos::deep_copy(_manifold_RHS, _RHS);
 
             // prestencil weights calculated here. appropriate because:
             // precedes polynomial reconstruction from data (replaces contents of _RHS) 
@@ -399,7 +404,8 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches) {
 
         }
         Kokkos::fence();
-        _initial_index_for_batch += max_batch_size;
+        _initial_index_for_batch += this_batch_size;
+        if (_initial_index_for_batch == _target_coordinates.extent(0)) break;
     } // end of batch loops
 
     // deallocate _P and _w
