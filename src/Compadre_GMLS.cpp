@@ -312,7 +312,6 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
             _pm.CallFunctorWithTeamThreads<ApplyCurvatureTargets>(this_batch_size, *this);
             Kokkos::fence();
 
-
             // prestencil weights calculated here. appropriate because:
             // precedes polynomial reconstruction from data (replaces contents of _RHS) 
             // follows reconstruction of geometry

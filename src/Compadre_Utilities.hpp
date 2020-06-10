@@ -47,43 +47,9 @@ Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
 });
 }
 
-//template <typename view_type_1, typename view_type_2, typename matrix_view_type=scratch_matrix_right_type>
-template <typename view_type_1, typename view_type_2>//, typename matrix_view_type=scratch_matrix_right_type>
+template <typename view_type_1, typename view_type_2>
 KOKKOS_INLINE_FUNCTION
-double getAreaFromVectors(const member_type& teamMember, view_type_1 v1, view_type_2 v2) {//, matrix_view_type T = scratch_matrix_right_type(NULL)) {
-    //if (T.extent(0)>0) {
-    //    //double area = 0;
-    //    //double val = v1[1]*v2[2] - v1[2]*v2[1];
-    //    //area += val*val;
-    //    //val = v1[2]*v2[0] - v1[0]*v2[2];
-    //    //area += val*val;
-    //    //val = v1[0]*v2[1] - v1[1]*v2[0];
-    //    //area += val*val;
-    //    //printf("area will be %e\n", std::sqrt(area));
-    //    if (v1.extent(0)==3) {
-    //        XYZ old_v1, old_v2;
-    //        for (int i=0; i<v1.extent(1); ++i) {
-    //            old_v1[i] = v1(i);
-    //            old_v2[i] = v2(i);
-    //        }
-    //        XYZ new_v1, new_v2;
-    //        // convert from global to local coordinates under Transformation in T
-    //        new_v1[0] = convertGlobalToLocalCoordinate(old_v1, 0, &T);
-    //        new_v1[1] = convertGlobalToLocalCoordinate(old_v1, 1, &T);
-    //        new_v2[0] = convertGlobalToLocalCoordinate(old_v2, 0, &T);
-    //        new_v2[1] = convertGlobalToLocalCoordinate(old_v2, 1, &T);
-
-    //        double area = 0;
-    //        double val = new_v1[0]*new_v2[1] - new_v1[1]*new_v2[0];
-    //        area += val*val;
-
-    //        //printf("1 %f %f %e\n", new_v1[0], new_v1[1], std::sqrt(area));
-    //        //printf("2 %f %f %e\n", new_v2[0], new_v2[1], std::sqrt(area));
-    //        return std::sqrt(area);
-    //    }
-    //    compadre_kernel_assert_debug(false && "v1 in getAreaFromVectors has length != 3 while also providing transformation matrix");
-    //    return 0.0;
-    //}
+double getAreaFromVectors(const member_type& teamMember, view_type_1 v1, view_type_2 v2) {
     if (v1.extent(0)==3) {
         double area = 0;
         double val = v1[1]*v2[2] - v1[2]*v2[1];

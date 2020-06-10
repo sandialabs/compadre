@@ -35,11 +35,9 @@ protected:
 
     //! P*sqrt(w) matrix for all problems
     Kokkos::View<double*> _P;
-    Kokkos::View<double*> _manifold_P;
 
     //! sqrt(w)*Identity matrix for all problems, later holds polynomial coefficients for all problems
     Kokkos::View<double*> _RHS;
-    Kokkos::View<double*> _manifold_RHS;
 
     //! Rank 3 tensor for high order approximation of tangent vectors for all problems. First rank is
     //! for the target index, the second is for the local direction to the manifolds 0..(_dimensions-1)
