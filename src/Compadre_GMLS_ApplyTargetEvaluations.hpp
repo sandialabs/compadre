@@ -12,6 +12,12 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
 #ifdef COMPADRE_USE_LAPACK
 
     // CPU
+    const int alphas_per_tile_per_target = _number_of_neighbors_list(target_index) + _added_alpha_size;
+    const int base_offset_index_jmke = getTargetOffsetIndexDevice(0,0,0,0);
+    const int base_alphas_index = getAlphaIndex(target_index, base_offset_index_jmke);
+
+    scratch_matrix_right_type this_alphas(_alphas.data() + TO_GLOBAL(base_alphas_index), _total_alpha_values*_max_evaluation_sites_per_target, alphas_per_tile_per_target);
+
     for (int e=0; e<this->getNEvaluationSitesPerTarget(target_index); ++e) {
         // evaluating alpha_ij
             for (size_t j=0; j<_operations.size(); ++j) {
@@ -19,7 +25,8 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
                     for (int m=0; m<_lro_input_tile_size[j]; ++m) {
                         double alpha_ij = 0;
                         int offset_index_jmke = getTargetOffsetIndexDevice(j,m,k,e);
-                        const int alphas_index = getAlphaIndex(target_index, offset_index_jmke);
+                        //const int alphas_index = getAlphaIndex(target_index, offset_index_jmke);
+                        //const int alphas_index = base_alphas_index + offset_index_jmke*alphas_per_tile_per_target;
         for (int i=0; i<this->getNNeighbors(target_index) + _added_alpha_size; ++i) {
                         Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
                             _basis_multiplier*target_NP), [&] (const int l, double &talpha_ij) {
@@ -46,7 +53,8 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
                             }
                         }, alpha_ij);
                         Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                            _alphas(alphas_index+i) = alpha_ij;
+                            //_alphas(alphas_index+i) = alpha_ij;
+                            this_alphas(offset_index_jmke,i) = alpha_ij;
                             compadre_kernel_assert_extreme_debug(alpha_ij==alpha_ij && "NaN in alphas.");
                         });
         }

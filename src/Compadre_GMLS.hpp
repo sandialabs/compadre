@@ -1152,6 +1152,7 @@ public:
 
     //! Gives index into alphas given two axes, which when incremented by the neighbor number transforms access into
     //! alphas from a rank 1 view into a rank 3 view.
+    KOKKOS_INLINE_FUNCTION
     local_index_type getAlphaIndex(const int target_index, const int alpha_column_offset) const {
 
         int total_neighbors_before_target = _neighbors_lists_row_offsets(target_index);
