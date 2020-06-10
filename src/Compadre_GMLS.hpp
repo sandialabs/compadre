@@ -1397,10 +1397,46 @@ public:
     //! (OPTIONAL)
     //! Sets orthonormal tangent directions for reconstruction on a manifold. The first rank of this 2D array 
     //! corresponds to the target indices, i.e., rows of the neighbor lists 2D array. The second rank is the 
+    //! ordinal of the tangent direction (spatial dimensions-1 are tangent, last one is normal) offset by the 
+    //! the spatial dimension.
+    template<typename view_type>
+    typename std::enable_if<view_type::rank==2, void>::type setTangentBundle(view_type tangent_directions) {
+        // accept input from user as a rank 2 tensor = number of targets x (_dimensions x _dimensions)
+        // but convert data to a rank 2 tensor with the last rank of dimension = _dimensions x _dimensions
+        // this allows for nonstrided views on the device later
+
+        // allocate memory on device
+        _T = decltype(_T)("device tangent directions", _target_coordinates.extent(0)*_dimensions*_dimensions);
+
+        compadre_assert_release( (std::is_same<decltype(_T)::memory_space, typename view_type::memory_space>::value) &&
+                "Memory space does not match between _T and tangent_directions");
+
+        auto this_dimensions = _dimensions;
+        auto this_T = _T;
+        // rearrange data on device from data given on host
+        Kokkos::parallel_for("copy tangent vectors", Kokkos::RangePolicy<device_execution_space>(0, _target_coordinates.extent(0)), KOKKOS_LAMBDA(const int i) {
+            scratch_matrix_right_type T(this_T.data() + i*this_dimensions*this_dimensions, this_dimensions, this_dimensions);
+            for (int j=0; j<this_dimensions; ++j) {
+                for (int k=0; k<this_dimensions; ++k) {
+                    T(j,k) = tangent_directions(i, j*this_dimensions + k);
+                }
+            }
+        });
+        _orthonormal_tangent_space_provided = true;
+
+        // copy data from device back to host in rearranged format
+        _host_T = Kokkos::create_mirror_view(_T);
+        Kokkos::deep_copy(_host_T, _T);
+        this->resetCoefficientData();
+    }
+
+    //! (OPTIONAL)
+    //! Sets orthonormal tangent directions for reconstruction on a manifold. The first rank of this 3D array 
+    //! corresponds to the target indices, i.e., rows of the neighbor lists 2D array. The second rank is the 
     //! ordinal of the tangent direction (spatial dimensions-1 are tangent, last one is normal), and the third 
     //! rank is indices into the spatial dimension.
     template<typename view_type>
-    void setTangentBundle(view_type tangent_directions) {
+    typename std::enable_if<view_type::rank==3, void>::type setTangentBundle(view_type tangent_directions) {
         // accept input from user as a rank 3 tensor
         // but convert data to a rank 2 tensor with the last rank of dimension = _dimensions x _dimensions
         // this allows for nonstrided views on the device later

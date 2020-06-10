@@ -397,7 +397,8 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, double* thread_
             }
         }
 
-        size_t num_vertices = _source_extra_data.extent(1) / _global_dimensions;
+        // NaN in last _global_dimensions indicates fewer vertices for this cell
+        size_t num_vertices = (_source_extra_data(global_neighbor_index, _source_extra_data.extent(1)-1)!=_source_extra_data(global_neighbor_index, _source_extra_data.extent(1)-1)) ? _source_extra_data.extent(1) / _global_dimensions - 1 : _source_extra_data.extent(1) / _global_dimensions;
         double reference_cell_area = 0.5;
         double entire_cell_area = 0.0;
         auto T = triangle_coords_matrix;
@@ -424,16 +425,16 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, double* thread_
         getPDims(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
         int RHS_square_dim = getRHSSquareDim(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, max_num_rows, this_num_cols);
 
-    	scratch_matrix_right_type Q;
-    	if (_dense_solver_type != DenseSolverType::LU) {
-    	    // Solution from QR comes from RHS
-    	    Q = scratch_matrix_right_type(_RHS.data()
-    	        + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_square_dim)*TO_GLOBAL(RHS_square_dim), RHS_square_dim, RHS_square_dim);
-    	} else {
-    	    // Solution from LU comes from P
-    	    Q = scratch_matrix_right_type(_P.data()
-    	        + TO_GLOBAL(local_index)*TO_GLOBAL(P_dim_1)*TO_GLOBAL(P_dim_0), P_dim_1, P_dim_0);
-    	}
+    	//scratch_matrix_right_type Q;
+    	//if (_dense_solver_type != DenseSolverType::LU) {
+    	//    // Solution from QR comes from RHS
+    	//    Q = scratch_matrix_right_type(_RHS.data()
+    	//        + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_square_dim)*TO_GLOBAL(RHS_square_dim), RHS_square_dim, RHS_square_dim);
+    	//} else {
+    	//    // Solution from LU comes from P
+    	//    Q = scratch_matrix_right_type(_P.data()
+    	//        + TO_GLOBAL(local_index)*TO_GLOBAL(P_dim_1)*TO_GLOBAL(P_dim_0), P_dim_1, P_dim_0);
+    	//}
 
         std::vector<double> p_eval(manifold_NP,0);
         // loop over each two vertices 
