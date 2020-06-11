@@ -145,24 +145,11 @@ public:
         _number_of_targets = 0;
     }
 
-    NeighborListAccessor(view_type cr_neighbor_lists, view_type number_of_neighbors_list, view_type neighbor_lists_row_offsets, bool compute_max = false) {
+    NeighborListAccessor(view_type cr_neighbor_lists, view_type number_of_neighbors_list, view_type neighbor_lists_row_offsets, bool compute_max = true) {
         compadre_assert_release((view_type::rank==1) && "cr_neighbor_lists and number_neighbors_list and neighbor_lists_row_offsets must be a 1D Kokkos view.");
 
-        if (compute_max) {
-            _max_neighbor_list_row_storage_size = 0;
-            Kokkos::parallel_reduce("max number of neighbors", Kokkos::RangePolicy<typename view_type::execution_space>(0, number_of_neighbors_list.extent(0)), KOKKOS_LAMBDA(const int i, int& t_max_num_neighbors) {
-                t_max_num_neighbors = (number_of_neighbors_list(i) > t_max_num_neighbors) ? number_of_neighbors_list(i) : t_max_num_neighbors;
-            }, Kokkos::Max<int>(_max_neighbor_list_row_storage_size));
-            Kokkos::fence();
-        } else {
-            _max_neighbor_list_row_storage_size = -1;
-        }
-
-        //check neighbor_lists is large enough
-        compadre_assert_release(((size_t)(number_of_neighbors_list(number_of_neighbors_list.size()-1)+neighbor_lists_row_offsets(number_of_neighbors_list.size()-1))<=cr_neighbor_lists.extent(0)) && "neighbor_lists is not large enough to store all neighbors.");
-
-        _cr_neighbor_lists = cr_neighbor_lists;
         _number_of_neighbors_list = number_of_neighbors_list;
+        _cr_neighbor_lists = cr_neighbor_lists;
         _row_offsets = neighbor_lists_row_offsets;
 
         _host_cr_neighbor_lists = Kokkos::create_mirror_view(_cr_neighbor_lists);
@@ -174,31 +161,28 @@ public:
         Kokkos::deep_copy(_host_row_offsets, _row_offsets);
         Kokkos::fence();
 
+        if (compute_max) {
+            computeMaxNumNeighbors();
+        } else {
+            _max_neighbor_list_row_storage_size = -1;
+        }
+
+        //check neighbor_lists is large enough
+        compadre_assert_release(((size_t)(this->getTotalNeighborsOverAllListsHost())<=cr_neighbor_lists.extent(0)) 
+                && "neighbor_lists is not large enough to store all neighbors.");
+
         _needs_sync_to_host = false;
         _number_of_targets = number_of_neighbors_list.extent(0);
     }
 
     NeighborListAccessor(view_type cr_neighbor_lists, view_type number_of_neighbors_list) {
-        compadre_assert_release((view_type::rank==1) && "cr_neighbor_lists and number_neighbors_list must be a 1D Kokkos view.");
+
+        compadre_assert_release((view_type::rank==1) 
+                && "cr_neighbor_lists and number_neighbors_list must be a 1D Kokkos view.");
+
         _row_offsets = view_type("row offsets", number_of_neighbors_list.extent(0));
-
-        Kokkos::parallel_scan("number of neighbors offsets", Kokkos::RangePolicy<typename view_type::execution_space>(0, number_of_neighbors_list.extent(0)), KOKKOS_LAMBDA(const int i, int& lsum, bool final) {
-            _row_offsets(i) = lsum;
-            lsum += number_of_neighbors_list(i);
-        });
-        Kokkos::fence();
-
-        _max_neighbor_list_row_storage_size = 0;
-        Kokkos::parallel_reduce("max number of neighbors", Kokkos::RangePolicy<typename view_type::execution_space>(0, number_of_neighbors_list.extent(0)), KOKKOS_LAMBDA(const int i, int& t_max_num_neighbors) {
-            t_max_num_neighbors = (number_of_neighbors_list(i) > t_max_num_neighbors) ? number_of_neighbors_list(i) : t_max_num_neighbors;
-        }, Kokkos::Max<int>(_max_neighbor_list_row_storage_size));
-        Kokkos::fence();
-
-        //check neighbor_lists is large enough
-        compadre_assert_release(((size_t)(number_of_neighbors_list(number_of_neighbors_list.size()-1)+_row_offsets(number_of_neighbors_list.size()-1))<=cr_neighbor_lists.extent(0)) && "neighbor_lists is not large enough to store all neighbors.");
-
-        _cr_neighbor_lists = cr_neighbor_lists;
         _number_of_neighbors_list = number_of_neighbors_list;
+        _cr_neighbor_lists = cr_neighbor_lists;
 
         _host_cr_neighbor_lists = Kokkos::create_mirror_view(_cr_neighbor_lists);
         _host_number_of_neighbors_list = Kokkos::create_mirror_view(_number_of_neighbors_list);
@@ -208,6 +192,13 @@ public:
         Kokkos::deep_copy(_host_number_of_neighbors_list, _number_of_neighbors_list);
         Kokkos::deep_copy(_host_row_offsets, _row_offsets);
         Kokkos::fence();
+
+        computeRowOffsets();
+        computeMaxNumNeighbors();
+
+        //check neighbor_lists is large enough
+        compadre_assert_release(((size_t)(this->getTotalNeighborsOverAllListsHost())<=cr_neighbor_lists.extent(0)) 
+                && "neighbor_lists is not large enough to store all neighbors.");
 
         _needs_sync_to_host = false;
         _number_of_targets = number_of_neighbors_list.extent(0);
@@ -270,6 +261,32 @@ public:
         return _max_neighbor_list_row_storage_size;
     }
 
+    //! Calculate the maximum number of neighbors of all targets' neighborhoods
+    void computeMaxNumNeighbors() {
+        _max_neighbor_list_row_storage_size = 0;
+        auto number_of_neighbors_list = _number_of_neighbors_list;
+        Kokkos::parallel_reduce("max number of neighbors", 
+                Kokkos::RangePolicy<typename view_type::execution_space>(0, _number_of_neighbors_list.extent(0)), 
+                KOKKOS_LAMBDA(const int i, int& t_max_num_neighbors) {
+            t_max_num_neighbors = (number_of_neighbors_list(i) > t_max_num_neighbors) ? number_of_neighbors_list(i) : t_max_num_neighbors;
+        }, Kokkos::Max<int>(_max_neighbor_list_row_storage_size));
+        Kokkos::fence();
+    }
+
+    //! Calculate the row offsets for each target's neighborhood
+    void computeRowOffsets() {
+        printf("size is: %lu,%lu\n", _number_of_neighbors_list.extent(0), _row_offsets.extent(0));
+        auto number_of_neighbors_list = _number_of_neighbors_list;
+        auto row_offsets = _row_offsets;
+        Kokkos::parallel_scan("number of neighbors offsets", 
+                Kokkos::RangePolicy<typename view_type::execution_space>(0, _number_of_neighbors_list.extent(0)), 
+                KOKKOS_LAMBDA(const int i, int& lsum, bool final) {
+            row_offsets(i) = lsum;
+            lsum += number_of_neighbors_list(i);
+        });
+        Kokkos::fence();
+    }
+
     //! Get the sum of the number of neighbors of all targets' neighborhoods (host)
     int getTotalNeighborsOverAllListsHost() const {
         return this->getNumberOfNeighborsHost(this->getNumberOfTargets()-1) + this->getRowOffsetHost(this->getNumberOfTargets()-1);
@@ -329,13 +346,26 @@ NeighborListAccessor<view_type_1d> Convert2DToCompressedRowNeighborLists(view_ty
     auto nla(CreateNeighborListAccessor(new_cr_neighbor_lists, new_number_of_neighbors_list));
     auto cr_data = nla.getNeighborLists();
 
-    compadre_assert_release((Kokkos::SpaceAccessibility<device_execution_space, typename view_type_2d::memory_space>::accessible==1) && "was only written to call setNeighborDevice");
-    Kokkos::parallel_for("copy neighbor lists to compressed row", Kokkos::RangePolicy<typename view_type_1d::execution_space>(0, neighbor_lists.extent(0)), 
-            KOKKOS_LAMBDA(const int i) {
-        for (int j=0; j<neighbor_lists(i,0); ++j) {
-            cr_data(nla.getRowOffsetDevice(i)+j) = neighbor_lists(i,j+1);
-        }
-    });
+    // if device_execution_space can access this view, then write directly into the view
+    // if the view_type_2d happens to be different, and on host, then the lambda will capture it
+    if (Kokkos::SpaceAccessibility<device_execution_space, typename view_type_1d::memory_space>::accessible==1) {
+        Kokkos::parallel_for("copy neighbor lists to compressed row", Kokkos::RangePolicy<typename view_type_1d::execution_space>(0, neighbor_lists.extent(0)), 
+                KOKKOS_LAMBDA(const int i) {
+            for (int j=0; j<neighbor_lists(i,0); ++j) {
+                cr_data(nla.getRowOffsetDevice(i)+j) = neighbor_lists(i,j+1);
+            }
+        });
+    }
+    // otherwise we are writing to a view that can't be seen from device (must be host space), so we can do a parallel_for over the host_execution_space
+    // if the view_type_2d happens to be different, on device, then the lambda will capture it
+    else {
+        Kokkos::parallel_for("copy neighbor lists to compressed row", Kokkos::RangePolicy<host_execution_space>(0, neighbor_lists.extent(0)), 
+                KOKKOS_LAMBDA(const int i) {
+            for (int j=0; j<neighbor_lists(i,0); ++j) {
+                cr_data(nla.getRowOffsetDevice(i)+j) = neighbor_lists(i,j+1);
+            }
+        });
+    }
     nla.CopyDeviceDataToHost(); // has a fence at the end
 
     return nla;
