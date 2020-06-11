@@ -164,8 +164,6 @@ bool all_passed = true;
             // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
             auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
 
-            //Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace> neighbor_lists("neighbor lists", 
-            //        number_target_coords, 2); // first column is # of neighbors
             Kokkos::View<int*, Kokkos::DefaultHostExecutionSpace> neighbor_lists("neighbor lists", 
                     number_target_coords); // first column is # of neighbors
             Kokkos::View<int*, Kokkos::DefaultHostExecutionSpace> number_neighbors_list("number of neighbors list", 
@@ -186,17 +184,12 @@ bool all_passed = true;
             // query the point cloud to generate the neighbor lists using a radius search
 
             // start with a dry-run, but without enough room to store the results
-            //auto max_num_neighbors = point_cloud_search.generateNeighborListsFromRadiusSearch(true /* dry run */,
-            //    target_coords, neighbor_lists, number_neighbors_list, epsilon);
             size_t total_num_neighbors = point_cloud_search.generateCRNeighborListsFromRadiusSearch(true /* dry run */,
                 target_coords, neighbor_lists, number_neighbors_list, epsilon);
             printf("total num neighbors: %lu\n", total_num_neighbors);
 
-            Kokkos::resize(neighbor_lists, total_num_neighbors);
-
             // resize neighbor lists to be large enough to hold the results
-            //neighbor_lists = Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace>("neighbor lists", 
-            //    number_target_coords, 1+max_num_neighbors); // first column is # of neighbors
+            Kokkos::resize(neighbor_lists, total_num_neighbors);
 
             // search again, now that we know that there is enough room to store the results
             point_cloud_search.generateCRNeighborListsFromRadiusSearch(false /* dry run */,
@@ -213,10 +206,8 @@ bool all_passed = true;
             Kokkos::parallel_for("point search conversion", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
                     (0,number_target_coords), [&](const int i) {
                 auto &point_cloud_neighbor_list_i = const_cast<std::map<int, double>& >(point_cloud_neighbor_list[i]);
-                //for (int j=1; j<=neighbor_lists(i,0); ++j) {
-                for (int j=1; j<=nla(i,0); ++j) {
-                    //point_cloud_neighbor_list_i[neighbor_lists(i,j)] = 1.0;
-                    point_cloud_neighbor_list_i[nla(i,j)] = 1.0;
+                for (int j=0; j<nla.getNumberOfNeighborsHost(i); ++j) {
+                    point_cloud_neighbor_list_i[nla.getNeighborHost(i,j)] = 1.0;
                 }
             });
             double point_cloud_convert_time = timer.seconds();
@@ -269,11 +260,8 @@ bool all_passed = true;
             Kokkos::parallel_reduce("original in brute force search", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
                     (0,number_target_coords), KOKKOS_LAMBDA(const int i, int& t_num_passed) {
                 bool all_found = true;
-                //for (int j=1; j<=neighbor_lists(i,0); ++j) {
-                for (int j=1; j<=nla(i,0); ++j) {
-                    //if (brute_force_neighbor_list[i].count(neighbor_lists(i,j))!=1) {
-                    //if (brute_force_neighbor_list[i].count(neighbor_lists(i,j))!=1) {
-                    if (brute_force_neighbor_list[i].count(nla(i,j))!=1) {
+                for (int j=0; j<nla.getNumberOfNeighborsHost(i); ++j) {
+                    if (brute_force_neighbor_list[i].count(nla.getNeighborHost(i,j))!=1) {
                         all_found = false;
                     }
                 }
@@ -452,8 +440,8 @@ bool all_passed = true;
             Kokkos::parallel_for("point search conversion", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
                     (0,number_target_coords), [&](const int i) {
                 auto &point_cloud_neighbor_list_i = const_cast<std::map<int, double>& >(point_cloud_neighbor_list[i]);
-                for (int j=1; j<=nla(i,0); ++j) {
-                    point_cloud_neighbor_list_i[nla(i,j)] = 1.0;
+                for (int j=0; j<nla.getNumberOfNeighborsHost(i); ++j) {
+                    point_cloud_neighbor_list_i[nla.getNeighborHost(i,j)] = 1.0;
                 }
             });
             double point_cloud_convert_time = timer.seconds();
@@ -506,8 +494,8 @@ bool all_passed = true;
             Kokkos::parallel_reduce("original in brute force search", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
                     (0,number_target_coords), KOKKOS_LAMBDA(const int i, int& t_num_passed) {
                 bool all_found = true;
-                for (int j=1; j<=nla(i,0); ++j) {
-                    if (brute_force_neighbor_list[i].count(nla(i,j))!=1) {
+                for (int j=0; j<nla.getNumberOfNeighborsHost(i); ++j) {
+                    if (brute_force_neighbor_list[i].count(nla.getNeighborHost(i,j))!=1) {
                         all_found = false;
                     }
                 }
@@ -564,13 +552,13 @@ bool all_passed = true;
             Kokkos::parallel_for("point search conversion", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
                     (0,number_target_coords), [&](const int i) {
                 auto &point_cloud_neighbor_list_i = const_cast<std::map<int, double>& >(point_cloud_neighbor_list[i]);
-                for (int j=1; j<=nla(i,0); ++j) {
+                for (int j=0; j<nla.getNumberOfNeighborsHost(i); ++j) {
                     double dist = 0;
                     for (int k=0; k<dimension; ++k) {
-                        dist += (target_coords(i,k)-source_coords(nla(i,j),k))*(target_coords(i,k)-source_coords(nla(i,j),k));
+                        dist += (target_coords(i,k)-source_coords(nla.getNeighborHost(i,j),k))*(target_coords(i,k)-source_coords(nla.getNeighborHost(i,j),k));
                     }
                     dist = std::sqrt(dist);
-                    point_cloud_neighbor_list_i[nla(i,j)] = dist;
+                    point_cloud_neighbor_list_i[nla.getNeighborHost(i,j)] = dist;
                 }
             });
             double point_cloud_convert_time = timer.seconds();
@@ -648,7 +636,6 @@ bool all_passed = true;
             Kokkos::View<double*, Kokkos::DefaultHostExecutionSpace> epsilon("h supports", number_target_coords);
             
             // query the point cloud to generate the neighbor lists using a KNN search
-
             // start with a dry-run, but without enough room to store the results
             auto max_num_neighbors = point_cloud_search.generate2DNeighborListsFromKNNSearch(true /* dry-run for sizes */,
                     target_coords, neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
@@ -751,7 +738,6 @@ bool all_passed = true;
             Kokkos::View<double*, Kokkos::DefaultHostExecutionSpace> epsilon("h supports", number_target_coords);
             
             // query the point cloud to generate the neighbor lists using a KNN search
-
             // start with a dry-run, but without enough room to store the results
             auto max_num_neighbors = point_cloud_search.generate2DNeighborListsFromKNNSearch(true /* dry-run for sizes */,
                     target_coords, neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
@@ -772,13 +758,13 @@ bool all_passed = true;
             Kokkos::parallel_for("point search conversion", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
                     (0,number_target_coords), [&](const int i) {
                 auto &point_cloud_neighbor_list_i = const_cast<std::map<int, double>& >(point_cloud_neighbor_list[i]);
-                for (int j=1; j<=nla(i,0); ++j) {
+                for (int j=0; j<nla.getNumberOfNeighborsHost(i); ++j) {
                     double dist = 0;
                     for (int k=0; k<dimension; ++k) {
-                        dist += (target_coords(i,k)-source_coords(nla(i,j),k))*(target_coords(i,k)-source_coords(nla(i,j),k));
+                        dist += (target_coords(i,k)-source_coords(nla.getNeighborHost(i,j),k))*(target_coords(i,k)-source_coords(nla.getNeighborHost(i,j),k));
                     }
                     dist = std::sqrt(dist);
-                    point_cloud_neighbor_list_i[nla(i,j)] = dist;
+                    point_cloud_neighbor_list_i[nla.getNeighborHost(i,j)] = dist;
                 }
             });
             double point_cloud_convert_time = timer.seconds();

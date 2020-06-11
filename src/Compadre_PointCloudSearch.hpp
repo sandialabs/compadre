@@ -126,11 +126,57 @@ class NeighborListAccessor {
 protected:
 
     int _max_neighbor_list_row_storage_size;
+    bool _needs_sync_to_host;
+    int _number_of_targets;
+
     view_type _row_offsets;
     view_type _cr_neighbor_lists;
     view_type _number_of_neighbors_list;
 
+    typename view_type::HostMirror _host_row_offsets;
+    typename view_type::HostMirror _host_cr_neighbor_lists;
+    typename view_type::HostMirror _host_number_of_neighbors_list;
+
 public:
+
+    NeighborListAccessor() {
+        _max_neighbor_list_row_storage_size = -1;
+        _needs_sync_to_host = true;
+        _number_of_targets = 0;
+    }
+
+    NeighborListAccessor(view_type cr_neighbor_lists, view_type number_of_neighbors_list, view_type neighbor_lists_row_offsets, bool compute_max = false) {
+        compadre_assert_release((view_type::rank==1) && "cr_neighbor_lists and number_neighbors_list and neighbor_lists_row_offsets must be a 1D Kokkos view.");
+
+        if (compute_max) {
+            _max_neighbor_list_row_storage_size = 0;
+            Kokkos::parallel_reduce("max number of neighbors", Kokkos::RangePolicy<typename view_type::execution_space>(0, number_of_neighbors_list.extent(0)), KOKKOS_LAMBDA(const int i, int& t_max_num_neighbors) {
+                t_max_num_neighbors = (number_of_neighbors_list(i) > t_max_num_neighbors) ? number_of_neighbors_list(i) : t_max_num_neighbors;
+            }, Kokkos::Max<int>(_max_neighbor_list_row_storage_size));
+            Kokkos::fence();
+        } else {
+            _max_neighbor_list_row_storage_size = -1;
+        }
+
+        //check neighbor_lists is large enough
+        compadre_assert_release(((size_t)(number_of_neighbors_list(number_of_neighbors_list.size()-1)+neighbor_lists_row_offsets(number_of_neighbors_list.size()-1))<=cr_neighbor_lists.extent(0)) && "neighbor_lists is not large enough to store all neighbors.");
+
+        _cr_neighbor_lists = cr_neighbor_lists;
+        _number_of_neighbors_list = number_of_neighbors_list;
+        _row_offsets = neighbor_lists_row_offsets;
+
+        _host_cr_neighbor_lists = Kokkos::create_mirror_view(_cr_neighbor_lists);
+        _host_number_of_neighbors_list = Kokkos::create_mirror_view(_number_of_neighbors_list);
+        _host_row_offsets = Kokkos::create_mirror_view(_row_offsets);
+
+        Kokkos::deep_copy(_host_cr_neighbor_lists, _cr_neighbor_lists);
+        Kokkos::deep_copy(_host_number_of_neighbors_list, _number_of_neighbors_list);
+        Kokkos::deep_copy(_host_row_offsets, _row_offsets);
+        Kokkos::fence();
+
+        _needs_sync_to_host = false;
+        _number_of_targets = number_of_neighbors_list.extent(0);
+    }
 
     NeighborListAccessor(view_type cr_neighbor_lists, view_type number_of_neighbors_list) {
         compadre_assert_release((view_type::rank==1) && "cr_neighbor_lists and number_neighbors_list must be a 1D Kokkos view.");
@@ -153,37 +199,98 @@ public:
 
         _cr_neighbor_lists = cr_neighbor_lists;
         _number_of_neighbors_list = number_of_neighbors_list;
+
+        _host_cr_neighbor_lists = Kokkos::create_mirror_view(_cr_neighbor_lists);
+        _host_number_of_neighbors_list = Kokkos::create_mirror_view(_number_of_neighbors_list);
+        _host_row_offsets = Kokkos::create_mirror_view(_row_offsets);
+
+        Kokkos::deep_copy(_host_cr_neighbor_lists, _cr_neighbor_lists);
+        Kokkos::deep_copy(_host_number_of_neighbors_list, _number_of_neighbors_list);
+        Kokkos::deep_copy(_host_row_offsets, _row_offsets);
+        Kokkos::fence();
+
+        _needs_sync_to_host = false;
+        _number_of_targets = number_of_neighbors_list.extent(0);
     }
 
-    //! Offers traditional N(i,j) indexing where N(i,0) is number of neighbors for target i
-    //! and where N(i,j+1) is the index of the jth neighbor of i
+    //! Get number of total targets having neighborhoods.
     KOKKOS_INLINE_FUNCTION
-    int operator() (int target_index, int neighbor_num) const {
-        if (neighbor_num == 0) {
-            return _number_of_neighbors_list(target_index);
-        } else {
-            return _cr_neighbor_lists(_row_offsets(target_index)+neighbor_num-1);
-        }
+    int getNumberOfTargets() const {
+        return _number_of_targets;
     }
 
-    //! Setter function offering traditional N(i,j) indexing where N(i,0) is number of neighbors for target i
-    //! and where N(i,j+1) is the index of the jth neighbor of i
+    //! Get number of neighbors for a given target (host)
+    int getNumberOfNeighborsHost(int target_index) const {
+        return _host_number_of_neighbors_list(target_index);
+    }
+
+    //! Get number of neighbors for a given target (device)
     KOKKOS_INLINE_FUNCTION
-    void set(int target_index, int neighbor_num, int new_value) const {
-        if (neighbor_num == 0) {
-            compadre_assert_release(false && "Can not change number of neighbors through set."); 
-        } else {
-            _cr_neighbor_lists(_row_offsets(target_index)+neighbor_num-1) = new_value;
-        }
+    int getNumberOfNeighborsDevice(int target_index) const {
+        return _number_of_neighbors_list(target_index);
     }
 
+    //! Get offset into compressed row neighbor lists (host)
+    int getRowOffsetHost(int target_index) const {
+        return _host_row_offsets(target_index);
+    }
+
+    //! Get offset into compressed row neighbor lists (device)
+    KOKKOS_INLINE_FUNCTION
+    int getRowOffsetDevice(int target_index) const {
+        return _row_offsets(target_index);
+    }
+
+    int getNeighborHost(int target_index, int neighbor_num) const {
+        if (_needs_sync_to_host) {
+            compadre_assert_debug((!_needs_sync_to_host) 
+                    && "Stale information in host_cr_neighbor_lists. Call CopyDeviceDataToHost() to refresh.");
+        }
+        return _host_cr_neighbor_lists(_row_offsets(target_index)+neighbor_num);
+    }
+
+    //! Offers N(i,j) indexing where N(i,j) is the index of the jth neighbor of i
+    KOKKOS_INLINE_FUNCTION
+    int getNeighborDevice(int target_index, int neighbor_num) const {
+        return _cr_neighbor_lists(_row_offsets(target_index)+neighbor_num);
+    }
+
+    //! Setter function for N(i,j) indexing where N(i,j) is the index of the jth neighbor of i
+    KOKKOS_INLINE_FUNCTION
+    void setNeighborDevice(int target_index, int neighbor_num, int new_value) {
+        _cr_neighbor_lists(_row_offsets(target_index)+neighbor_num) = new_value;
+        // indicate that host view is now out of sync with device
+        _needs_sync_to_host |= true;
+    }
+
+    //! Get the maximum number of neighbors of all targets' neighborhoods
     KOKKOS_INLINE_FUNCTION
     int getMaxNumNeighbors() const {
+        compadre_assert_debug((_max_neighbor_list_row_storage_size > -1) && "getMaxNumNeighbors() called but maximum never calculated.");
         return _max_neighbor_list_row_storage_size;
     }
 
-    view_type getRowOffsets() const {
-        return _row_offsets;
+    //! Get the sum of the number of neighbors of all targets' neighborhoods (host)
+    int getTotalNeighborsOverAllListsHost() const {
+        return this->getNumberOfNeighborsHost(this->getNumberOfTargets()-1) + this->getRowOffsetHost(this->getNumberOfTargets()-1);
+    }
+
+    //! Get the sum of the number of neighbors of all targets' neighborhoods (device)
+    KOKKOS_INLINE_FUNCTION
+    int getTotalNeighborsOverAllListsDevice() const {
+        return this->getNumberOfNeighborsDevice(this->getNumberOfTargets()-1) + this->getRowOffsetDevice(this->getNumberOfTargets()-1);
+    }
+
+    //! Sync the host from the device (copy device data to host)
+    void CopyDeviceDataToHost() {
+        Kokkos::deep_copy(_host_cr_neighbor_lists, _cr_neighbor_lists);
+        Kokkos::fence();
+        _needs_sync_to_host = false;
+    }
+
+    //! Device view into neighbor lists data (use with caution)
+    view_type getNeighborLists() {
+        return _cr_neighbor_lists;
     }
 
 }; // NeighborListAccessor
@@ -194,11 +301,15 @@ NeighborListAccessor<view_type> CreateNeighborListAccessor(view_type neighbor_li
     return NeighborListAccessor<view_type>(neighbor_lists, number_of_neighbors_list);
 }
 
+//! CreateNeighborListAccessor allows for the construction of an object of type NeighborListAccessor with template deduction
+template <typename view_type>
+NeighborListAccessor<view_type> CreateNeighborListAccessor(view_type neighbor_lists, view_type number_of_neighbors_list, view_type neighbor_lists_row_offsets) {
+    return NeighborListAccessor<view_type>(neighbor_lists, number_of_neighbors_list, neighbor_lists_row_offsets);
+}
+
 //! Converts 2D neighbor lists to compressed row neighbor lists
-template <typename view_type_2d>
-auto Convert2DToCompressedRowNeighborLists(view_type_2d neighbor_lists) -> NeighborListAccessor<Kokkos::View<int*, typename view_type_2d::array_layout, typename view_type_2d::memory_space, typename view_type_2d::memory_traits> > {
-//void Convert2DToCompressedRowNeighborLists(view_type_2d neighbor_lists) {
-    typedef Kokkos::View<int*, typename view_type_2d::array_layout, typename view_type_2d::memory_space, typename view_type_2d::memory_traits> view_type_1d;
+template <typename view_type_2d, typename view_type_1d = Kokkos::View<int*, typename view_type_2d::memory_space, typename view_type_2d::memory_traits> >
+NeighborListAccessor<view_type_1d> Convert2DToCompressedRowNeighborLists(view_type_2d neighbor_lists) {
 
     int total_storage_size = 0;
     Kokkos::parallel_reduce("total number of neighbors over all lists", Kokkos::RangePolicy<typename view_type_2d::execution_space>(0, neighbor_lists.extent(0)), 
@@ -209,20 +320,23 @@ auto Convert2DToCompressedRowNeighborLists(view_type_2d neighbor_lists) -> Neigh
 
     view_type_1d new_cr_neighbor_lists("compressed row neighbor lists", total_storage_size);
     view_type_1d new_number_of_neighbors_list("number of neighbors list", neighbor_lists.extent(0));
-    Kokkos::parallel_for("copy number of neighbors to compressed row", Kokkos::RangePolicy<typename view_type_2d::execution_space>(0, neighbor_lists.extent(0)), 
+    Kokkos::parallel_for("copy number of neighbors to compressed row", Kokkos::RangePolicy<typename view_type_1d::execution_space>(0, neighbor_lists.extent(0)), 
             KOKKOS_LAMBDA(const int i) {
         new_number_of_neighbors_list(i) = neighbor_lists(i,0);
     });
     Kokkos::fence();
 
     auto nla(CreateNeighborListAccessor(new_cr_neighbor_lists, new_number_of_neighbors_list));
-    Kokkos::parallel_for("copy neighbor lists to compressed row", Kokkos::RangePolicy<typename view_type_2d::execution_space>(0, neighbor_lists.extent(0)), 
+    auto cr_data = nla.getNeighborLists();
+
+    compadre_assert_release((Kokkos::SpaceAccessibility<device_execution_space, typename view_type_2d::memory_space>::accessible==1) && "was only written to call setNeighborDevice");
+    Kokkos::parallel_for("copy neighbor lists to compressed row", Kokkos::RangePolicy<typename view_type_1d::execution_space>(0, neighbor_lists.extent(0)), 
             KOKKOS_LAMBDA(const int i) {
-        for (int j=1; j<=neighbor_lists(i,0); ++j) {
-            nla.set(i,j,neighbor_lists(i,j));
+        for (int j=0; j<neighbor_lists(i,0); ++j) {
+            cr_data(nla.getRowOffsetDevice(i)+j) = neighbor_lists(i,j+1);
         }
     });
-    Kokkos::fence();
+    nla.CopyDeviceDataToHost(); // has a fence at the end
 
     return nla;
 }
@@ -409,7 +523,6 @@ class PointCloudSearch {
                 });
                 teamMember.team_barrier();
 
-                //    std::vector<std::pair<size_t, double> > neighbors;
                 Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                     // target_coords is LayoutLeft on device and its HostMirror, so giving a pointer to 
                     // this data would lead to a wrong result if the device is a GPU
@@ -445,6 +558,7 @@ class PointCloudSearch {
                         // cast to an whatever data type the 2D array of neighbor lists is using
                         neighbor_lists(i,j+1) = static_cast<typename std::remove_pointer<typename std::remove_pointer<typename neighbor_lists_view_type::data_type>::type>::type>(neighbor_indices(j));
                     });
+                    teamMember.team_barrier();
                 }
 
             }, Kokkos::Max<size_t>(max_num_neighbors) );
@@ -502,7 +616,11 @@ class PointCloudSearch {
             if (!is_dry_run) {
                 auto nla(CreateNeighborListAccessor(neighbor_lists, number_of_neighbors_list));
                 max_neighbor_list_row_storage_size = nla.getMaxNumNeighbors();
-                row_offsets = nla.getRowOffsets();
+                Kokkos::resize(row_offsets, num_target_sites);
+                Kokkos::parallel_for(Kokkos::RangePolicy<host_execution_space>(0,num_target_sites), [&](const int i) {
+                    row_offsets(i) = nla.getRowOffsetHost(i); 
+                });
+                Kokkos::fence();
             }
 
             compadre_assert_release((epsilons.extent(0)==(size_t)num_target_sites)
@@ -547,7 +665,6 @@ class PointCloudSearch {
                 });
                 teamMember.team_barrier();
 
-                //    std::vector<std::pair<size_t, double> > neighbors;
                 Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                     // target_coords is LayoutLeft on device and its HostMirror, so giving a pointer to 
                     // this data would lead to a wrong result if the device is a GPU
@@ -586,6 +703,7 @@ class PointCloudSearch {
                         // cast to an whatever data type the 2D array of neighbor lists is using
                         neighbor_lists(row_offsets(i)+j) = static_cast<typename std::remove_pointer<typename std::remove_pointer<typename neighbor_lists_view_type::data_type>::type>::type>(neighbor_indices(j));
                     });
+                    teamMember.team_barrier();
                 }
 
             });
@@ -787,13 +905,13 @@ class PointCloudSearch {
                         && "number_of_neighbors_list or neighbor lists View does not have large enough dimensions");
             compadre_assert_release((neighbor_lists_view_type::rank==1) && "neighbor_lists must be a 1D Kokkos view.");
 
-            neighbor_lists_view_type row_offsets;
+            int last_row_offset = 0;
             // if dry-run, neighbors_needed, else max over previous dry-run
             int max_neighbor_list_row_storage_size = neighbors_needed;
             if (!is_dry_run) {
                 auto nla(CreateNeighborListAccessor(neighbor_lists, number_of_neighbors_list));
                 max_neighbor_list_row_storage_size = nla.getMaxNumNeighbors();
-                row_offsets = nla.getRowOffsets();
+                last_row_offset = nla.getRowOffsetHost(num_target_sites-1);
             }
 
             compadre_assert_release((epsilons.extent(0)==(size_t)num_target_sites)
@@ -898,7 +1016,7 @@ class PointCloudSearch {
                 Kokkos::fence();
                 return (size_t)(total_storage_size);
             } else {
-                return (size_t)(number_of_neighbors_list(num_target_sites-1)+row_offsets(num_target_sites-1));
+                return (size_t)(number_of_neighbors_list(num_target_sites-1)+last_row_offset);
             }
         }
 }; // PointCloudSearch

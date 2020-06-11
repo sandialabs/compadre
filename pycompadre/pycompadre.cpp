@@ -293,7 +293,7 @@ public:
         
         // call point_cloud_search using targets
         // use these neighbor lists and epsilons to set the gmls object
-        point_cloud_search->generateNeighborListsFromKNNSearch(false /* not a dry run*/, target_coords, neighbor_lists, 
+        point_cloud_search->generate2DNeighborListsFromKNNSearch(false /* not a dry run*/, target_coords, neighbor_lists, 
                 epsilon, neighbors_needed, epsilon_multiplier, max_search_radius);
 
         Kokkos::fence();
@@ -337,7 +337,7 @@ public:
         // get polynomial coefficient size
         const int NP = gmls_object->getPolynomialCoefficientsSize();
         // get number of target sites
-        const int NT = gmls_object->getNeighborLists().extent(0);
+        const int NT = gmls_object->getNeighborListAccessor().getNumberOfTargets();
 
         Compadre::Evaluator gmls_evaluator(gmls_object);
         auto polynomial_coefficients = gmls_evaluator.applyFullPolynomialCoefficientsBasisToDataAllComponents<double**, Kokkos::HostSpace>

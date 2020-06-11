@@ -11,6 +11,7 @@
 #include "Compadre_Quadrature.hpp"
 #include "Compadre_ScalarTaylorPolynomial.hpp"
 #include "Compadre_DivergenceFreePolynomial.hpp"
+#include "Compadre_PointCloudSearch.hpp"
 
 namespace Compadre {
 
@@ -69,29 +70,22 @@ protected:
     //! Extra data available to target operations (optional)
     Kokkos::View<double**, layout_right> _target_extra_data;
 
+    //! Accessor to get neighbor list data, offset data, and number of neighbors per target
+    NeighborListAccessor<Kokkos::View<int*> > _neighbor_list_accessor; 
     
-    //! contains local IDs of neighbors to get coordinates from _source_coordinates (device)
-    Kokkos::View<int**, layout_right> _neighbor_lists; 
-
-    //! contains local IDs of neighbors to get coordinates from _source_coordinates (host)
-    Kokkos::View<int**, layout_right>::HostMirror _host_neighbor_lists;
-
-    //! contains the # of neighbors for each target (host)
-    Kokkos::View<int*, host_memory_space> _number_of_neighbors_list; 
-
-    //! contains the # of neighbors for each target (host)
-    Kokkos::View<int*, host_memory_space> _neighbors_lists_row_offsets; 
+    //! convenient copy on host of number of neighbors
+    Kokkos::View<int*, host_memory_space> _host_number_of_neighbors_list; 
 
     //! all coordinates for the source for which _neighbor_lists refers (device)
     Kokkos::View<double**, layout_right> _source_coordinates; 
 
-    //! coordinates for target sites for reconstruction same number of rows as _neighbor_lists (device)
+    //! coordinates for target sites for reconstruction (device)
     Kokkos::View<double**, layout_right> _target_coordinates; 
 
-    //! h supports determined through neighbor search, same number of rows as _neighbor_lists (device)
+    //! h supports determined through neighbor search (device)
     Kokkos::View<double*> _epsilons; 
 
-    //! h supports determined through neighbor search, same number of rows as _neighbor_lists (host)
+    //! h supports determined through neighbor search (host)
     Kokkos::View<double*>::HostMirror _host_epsilons; 
 
     //! generated alpha coefficients (device)
@@ -432,20 +426,20 @@ protected:
     //! Returns number of neighbors for a particular target
     KOKKOS_INLINE_FUNCTION
     int getNNeighbors(const int target_index) const {
-        return _neighbor_lists(target_index, 0);
+        return _neighbor_list_accessor.getNumberOfNeighborsDevice(target_index);
     }
 
     //! Mapping from [0,number of neighbors for a target] to the row that contains the source coordinates for
     //! that neighbor
     KOKKOS_INLINE_FUNCTION
     int getNeighborIndex(const int target_index, const int neighbor_list_num) const {
-        return _neighbor_lists(target_index, neighbor_list_num+1);
+        return _neighbor_list_accessor.getNeighborDevice(target_index, neighbor_list_num);
     }
 
     //! Returns the maximum neighbor lists size over all target sites
     KOKKOS_INLINE_FUNCTION
     int getMaxNNeighbors() const {
-        return _max_num_neighbors;
+        return _neighbor_list_accessor.getMaxNumNeighbors();
     }
 
     //! Returns the maximum number of evaluation sites over all target sites (target sites are included in total)
@@ -997,14 +991,8 @@ public:
     //! Type of quadrature points
     std::string getQuadratureType() const { return _quadrature_type; }
 
-    //! Get a view (host) of the length of each neighbor list. 
-    //! Each entry corresponds to a row of _neighbor_lists.
-    decltype(_number_of_neighbors_list) getNeighborListsLengths() const { 
-        return _number_of_neighbors_list; 
-    }
-
-    //! Get a view (device) of all neighbor lists. First column is the number of neighbors for that row's list.
-    decltype(_neighbor_lists) getNeighborLists() const { return _neighbor_lists; }
+    //! Get neighbor list accessor
+    decltype(_neighbor_list_accessor)& getNeighborListAccessor() { return _neighbor_list_accessor; }
 
     //! Get a view (device) of all tangent direction bundles.
     decltype(_T) getTangentDirections() const { return _T; }
@@ -1153,12 +1141,26 @@ public:
     //! Gives index into alphas given two axes, which when incremented by the neighbor number transforms access into
     //! alphas from a rank 1 view into a rank 3 view.
     KOKKOS_INLINE_FUNCTION
-    local_index_type getAlphaIndex(const int target_index, const int alpha_column_offset) const {
+    local_index_type getAlphaIndexDevice(const int target_index, const int alpha_column_offset) const {
 
-        int total_neighbors_before_target = _neighbors_lists_row_offsets(target_index);
+        int total_neighbors_before_target = _neighbor_list_accessor.getRowOffsetDevice(target_index);
         int total_added_alphas_before_target = target_index*_added_alpha_size;
 
-        int alphas_per_tile_per_target = _number_of_neighbors_list(target_index) + _added_alpha_size;
+        int alphas_per_tile_per_target = _neighbor_list_accessor.getNumberOfNeighborsDevice(target_index) + _added_alpha_size;
+
+        return (total_neighbors_before_target+total_added_alphas_before_target)*_total_alpha_values*_max_evaluation_sites_per_target
+                   + alpha_column_offset*alphas_per_tile_per_target;
+
+    }
+
+    //! Gives index into alphas given two axes, which when incremented by the neighbor number transforms access into
+    //! alphas from a rank 1 view into a rank 3 view.
+    local_index_type getAlphaIndexHost(const int target_index, const int alpha_column_offset) const {
+
+        int total_neighbors_before_target = _neighbor_list_accessor.getRowOffsetHost(target_index);
+        int total_added_alphas_before_target = target_index*_added_alpha_size;
+
+        int alphas_per_tile_per_target = _neighbor_list_accessor.getNumberOfNeighborsHost(target_index) + _added_alpha_size;
 
         return (total_neighbors_before_target+total_added_alphas_before_target)*_total_alpha_values*_max_evaluation_sites_per_target
                    + alpha_column_offset*alphas_per_tile_per_target;
@@ -1190,7 +1192,7 @@ public:
         const int alpha_column_offset = this->getAlphaColumnOffset( lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
 
-        auto alphas_index = this->getAlphaIndex(target_index, alpha_column_offset);
+        auto alphas_index = this->getAlphaIndexHost(target_index, alpha_column_offset);
         return _host_alphas(alphas_index + neighbor_index);
     }
 
@@ -1302,78 +1304,69 @@ public:
         this->setAuxiliaryEvaluationCoordinates<view_type_2>(additional_evaluation_coordinates);
     }
 
+    //! Sets neighbor list information from compressed row neighborhood lists.
+    template <typename view_type>
+    typename std::enable_if<view_type::rank==1&&Kokkos::SpaceAccessibility<device_execution_space, typename view_type::memory_space>::accessible==1, void>::type 
+        setNeighborLists(view_type neighbor_lists, view_type number_of_neighbors_list) {
+
+        //// allocate memory on device
+        //_neighbor_lists = neighbor_lists;
+        //_host_neighbor_lists = Kokkos::create_mirror_view(_neighbor_lists);
+
+        //_number_of_neighbors_list = number_of_neighbors_list;
+        //_host_number_of_neighbors_list = Kokkos::create_mirror_view(_number_of_neighbors_list);
+
+        //_neighbor_lists_row_offsets = Kokkos::View<int*>("device neighbors list row offsets", number_of_neighbors_list.extent(0));
+        //_host_neighbor_lists_row_offsets = Kokkos::create_mirror_view(_neighbor_lists_row_offsets);
+
+        //auto nla(CreateNeighborListAccessor(neighbor_lists, number_of_neighbors_list));
+        //_neighbor_lists_row_offsets = nla.getNeighborListsRowOffsets();
+        //_max_num_neighbors = nla.getMaxNumNeighbors();
+
+        //Kokkos::fence();
+        //this->resetCoefficientData();
+    }
+
+    //! Sets neighbor list information from compressed row neighborhood lists.
+    template <typename view_type>
+    typename std::enable_if<view_type::rank==1&&Kokkos::SpaceAccessibility<device_execution_space, typename view_type::memory_space>::accessible==0, void>::type 
+        setNeighborLists(view_type neighbor_lists, view_type number_of_neighbors_list) {
+
+        //// allocate memory on device
+        //_neighbor_lists = decltype(_neighbor_lists)("device neighbor lists", neighbor_lists.extent(0));
+        //_host_neighbor_lists = Kokkos::create_mirror_view(_neighbor_lists);
+        //Kokkos::deep_copy(_host_neighbor_lists, neighbor_lists);
+
+        //_number_of_neighbors_list = decltype(_number_of_neighbors_list)("device number of neighbors list", number_of_neighbors_list.extent(0));
+        //_host_number_of_neighbors_list = Kokkos::create_mirror_view(_number_of_neighbors_list);
+        //Kokkos::deep_copy(_host_neighbor_lists, neighbor_lists);
+
+        //_neighbor_lists_row_offsets = Kokkos::View<int*>("device neighbors list row offsets", number_of_neighbors_list.extent(0));
+        //_host_neighbor_lists_row_offsets = Kokkos::create_mirror_view(_neighbor_lists_row_offsets);
+
+        //auto nla(CreateNeighborListAccessor(_host_neighbor_lists, _host_number_of_neighbors_list));
+        //auto tmp_neighbor_lists_row_offsets = nla.getNeighborListsRowOffsets();
+        //Kokkos::deep_copy(_host_neighbor_lists_row_offsets, tmp_neighbor_lists_row_offsets);
+        //Kokkos::deep_copy(_neighbor_lists_row_offsets, _host_neighbor_lists_row_offsets);
+        //_max_num_neighbors = nla.getMaxNumNeighbors();
+
+        //Kokkos::fence();
+        //this->resetCoefficientData();
+    }
+
     //! Sets neighbor list information. Should be # targets x maximum number of neighbors for any target + 1.
     //! first entry in ever row should be the number of neighbors for the corresponding target.
     template <typename view_type>
-    void setNeighborLists(view_type neighbor_lists) {
-        // allocate memory on device
-        _neighbor_lists = decltype(_neighbor_lists)("device neighbor lists",
-            neighbor_lists.extent(0), neighbor_lists.extent(1));
-        _host_neighbor_lists = Kokkos::create_mirror_view(_neighbor_lists);
-
-        typedef typename view_type::memory_space input_array_memory_space;
-        if (std::is_same<input_array_memory_space, device_memory_space>::value) {
-            // check if on the device, then copy directly
-            // if it is, then it doesn't match the internal layout we use
-            // then copy to the host mirror
-            // switches potential layout mismatches
-            Kokkos::deep_copy(_neighbor_lists, neighbor_lists);
-            // switches memory spaces
-            Kokkos::deep_copy(_host_neighbor_lists, _neighbor_lists);
-        } else {
-            // if is on the host, copy to the host mirror
-            // then copy to the device
-            // switches potential layout mismatches
-            Kokkos::deep_copy(_host_neighbor_lists, neighbor_lists);
-            // switches memory spaces
-            Kokkos::deep_copy(_neighbor_lists, _host_neighbor_lists);
-        }
-
-        _number_of_neighbors_list = Kokkos::View<int*, Kokkos::HostSpace>("number of neighbors", neighbor_lists.extent(0));
-        _neighbors_lists_row_offsets = Kokkos::View<int*, Kokkos::HostSpace>("neighbors list row offsets", neighbor_lists.extent(0));
-
-        Kokkos::parallel_scan("number of neighbors offsets", Kokkos::RangePolicy<host_execution_space>(0, _host_neighbor_lists.extent(0)), KOKKOS_LAMBDA(const int i, int& lsum, bool final) {
-            _neighbors_lists_row_offsets(i) = lsum;
-            lsum += _host_neighbor_lists(i,0);
-            _number_of_neighbors_list(i) = _host_neighbor_lists(i,0);
+    typename std::enable_if<view_type::rank==2, void>::type setNeighborLists(view_type neighbor_lists) {
+    
+        _neighbor_list_accessor = Convert2DToCompressedRowNeighborLists<decltype(neighbor_lists), Kokkos::View<int*> >(neighbor_lists);
+        _max_num_neighbors = _neighbor_list_accessor.getMaxNumNeighbors();
+        _host_number_of_neighbors_list = decltype(_host_number_of_neighbors_list)("host number of neighbors list", _neighbor_list_accessor.getNumberOfTargets());
+        Kokkos::parallel_for("copy neighbor list sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_neighbors_list.extent(0)), KOKKOS_LAMBDA(const int i) {
+            _host_number_of_neighbors_list(i) = _neighbor_list_accessor.getNumberOfNeighborsHost(i);
         });
         Kokkos::fence();
 
-        _max_num_neighbors = 0;
-        Kokkos::parallel_reduce("max number of neighbors", Kokkos::RangePolicy<host_execution_space>(0, _host_neighbor_lists.extent(0)), KOKKOS_LAMBDA(const int i, int& t_max_num_neighbors) {
-            t_max_num_neighbors = (_number_of_neighbors_list(i) > t_max_num_neighbors) ? _number_of_neighbors_list(i) : t_max_num_neighbors;
-        }, _max_num_neighbors);
-        Kokkos::fence();
-        this->resetCoefficientData();
-    }
-
-    //! Sets neighbor list information. 2D array should be # targets x maximum number of neighbors for any target + 1.
-    //! first entry in ever row should be the number of neighbors for the corresponding target.
-    template <typename view_type>
-    void setNeighborLists(decltype(_neighbor_lists) neighbor_lists) {
-        _neighbor_lists = neighbor_lists;
-
-        _host_neighbor_lists = Kokkos::create_mirror_view(_neighbor_lists);
-        // copy data from host to device
-        Kokkos::deep_copy(_host_neighbor_lists, _neighbor_lists);
-
-        _number_of_neighbors_list = Kokkos::View<int*, Kokkos::HostSpace>("number of neighbors", neighbor_lists.extent(0));
-        _neighbors_lists_row_offsets = Kokkos::View<int*, Kokkos::HostSpace>("neighbors list row offsets", neighbor_lists.extent(0));
-
-        //_max_num_neighbors = 0;
-        Kokkos::parallel_scan("tally number of neighbors", Kokkos::RangePolicy<host_execution_space>(0, _host_neighbor_lists.extent(0)), KOKKOS_LAMBDA(const int i, int& lsum, bool final) {
-            _neighbors_lists_row_offsets(i) = lsum;
-            lsum += _host_neighbor_lists(i,0);
-            _number_of_neighbors_list(i) = _host_neighbor_lists(i,0);
-        });
-        Kokkos::fence();
-
-        _max_num_neighbors = 0;
-        Kokkos::parallel_reduce("max number of neighbors", Kokkos::RangePolicy<host_execution_space>(0, _host_neighbor_lists.extent(0)), KOKKOS_LAMBDA(const int i, int& t_max_num_neighbors) {
-            t_max_num_neighbors = (_number_of_neighbors_list(i) > t_max_num_neighbors) ? _number_of_neighbors_list(i) : t_max_num_neighbors;
-        }, _max_num_neighbors);
-        Kokkos::fence();
-        this->resetCoefficientData();
     }
 
     //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries

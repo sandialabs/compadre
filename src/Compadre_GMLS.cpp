@@ -37,7 +37,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     Kokkos::deep_copy(_operations, _host_operations);
 
     // check that if any target sites added, that neighbors_lists has equal rows
-    compadre_assert_release((_neighbor_lists.extent(0)==_target_coordinates.extent(0)) 
+    compadre_assert_release((_neighbor_list_accessor.getNumberOfTargets()==_target_coordinates.extent(0)) 
             && "Neighbor lists not set in GMLS class before calling generatePolynomialCoefficients.");
 
     // check that if any target sites are greater than zero (could be zero), then there are more than zero source sites
@@ -61,7 +61,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
 
     // initialize all alpha values to be used for taking the dot product with data to get a reconstruction 
     try {
-        int total_neighbors = _neighbors_lists_row_offsets(_neighbors_lists_row_offsets.extent(0)-1) + _number_of_neighbors_list(_neighbors_lists_row_offsets.extent(0)-1);
+        int total_neighbors = _neighbor_list_accessor.getTotalNeighborsOverAllListsHost();
         int total_added_alphas = _target_coordinates.extent(0)*_added_alpha_size;
         _alphas = decltype(_alphas)("alphas", (total_neighbors + total_added_alphas)*_total_alpha_values*_max_evaluation_sites_per_target);
     } catch(std::exception &e) {
@@ -77,7 +77,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
                 std::pow(2,sro.use_target_site_weights), 
                 (sro.transform_type==DifferentEachTarget 
                         || sro.transform_type==DifferentEachNeighbor) ?
-                    _neighbor_lists.extent(0) : 1,
+                    _neighbor_list_accessor.getNumberOfTargets() : 1,
                 (sro.transform_type==DifferentEachNeighbor) ?
                     _max_num_neighbors : 1,
                 (sro.output_rank>0) ?
@@ -260,12 +260,12 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
                 if (_dense_solver_type == DenseSolverType::LU) {
                     // solves P^T*P against P^T*W with LU, stored in P
                     Kokkos::Profiling::pushRegion("Curvature LU Factorization");
-                    GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_square_dim, RHS_square_dim, _P.data(), P_dim_1, P_dim_0, manifold_NP, manifold_NP, _max_num_neighbors, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                    GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_square_dim, RHS_square_dim, _P.data(), P_dim_1, P_dim_0, manifold_NP, manifold_NP, _max_num_neighbors, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _host_number_of_neighbors_list.data());
                     Kokkos::Profiling::popRegion();
                 } else {
                     // solves P*sqrt(weights) against sqrt(weights)*Identity with QR, stored in RHS
                     Kokkos::Profiling::pushRegion("Curvature QR Factorization");
-                    GMLS_LinearAlgebra::batchQRFactorize(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_square_dim, RHS_square_dim, _max_num_neighbors, manifold_NP, _max_num_neighbors, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                    GMLS_LinearAlgebra::batchQRFactorize(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_square_dim, RHS_square_dim, _max_num_neighbors, manifold_NP, _max_num_neighbors, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _host_number_of_neighbors_list.data());
                     Kokkos::Profiling::popRegion();
                 }
 
@@ -289,12 +289,12 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
             if (_dense_solver_type == DenseSolverType::LU) {
                 // solves P^T*P against P^T*W with LU, stored in P
                 Kokkos::Profiling::pushRegion("Curvature LU Factorization");
-                GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_square_dim, RHS_square_dim, _P.data(), P_dim_1, P_dim_0, manifold_NP, manifold_NP, _max_num_neighbors, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_square_dim, RHS_square_dim, _P.data(), P_dim_1, P_dim_0, manifold_NP, manifold_NP, _max_num_neighbors, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _host_number_of_neighbors_list.data());
                 Kokkos::Profiling::popRegion();
             } else {
                  // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
                 Kokkos::Profiling::pushRegion("Curvature QR Factorization");
-                GMLS_LinearAlgebra::batchQRFactorize(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_square_dim, RHS_square_dim, _max_num_neighbors, manifold_NP, _max_num_neighbors, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                GMLS_LinearAlgebra::batchQRFactorize(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_square_dim, RHS_square_dim, _max_num_neighbors, manifold_NP, _max_num_neighbors, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _host_number_of_neighbors_list.data());
                 Kokkos::Profiling::popRegion();
            }
 
@@ -318,15 +318,15 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
             // uses SVD if necessary or if explicitly asked to do so (much slower than QR)
             if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
                 Kokkos::Profiling::pushRegion("Manifold SVD Factorization");
-                GMLS_LinearAlgebra::batchSVDFactorize(_pm, true, _P.data(), P_dim_0, P_dim_1, true, _RHS.data(), RHS_square_dim, RHS_square_dim, max_num_rows, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                GMLS_LinearAlgebra::batchSVDFactorize(_pm, true, _P.data(), P_dim_0, P_dim_1, true, _RHS.data(), RHS_square_dim, RHS_square_dim, max_num_rows, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _host_number_of_neighbors_list.data());
                 Kokkos::Profiling::popRegion();
             } else if (_dense_solver_type == DenseSolverType::LU) {
                 Kokkos::Profiling::pushRegion("Manifold LU Factorization");
-                GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_square_dim, RHS_square_dim, _P.data(), P_dim_1, P_dim_0, this_num_cols, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_square_dim, RHS_square_dim, _P.data(), P_dim_1, P_dim_0, this_num_cols, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _host_number_of_neighbors_list.data());
                 Kokkos::Profiling::popRegion();
             } else {
                 Kokkos::Profiling::pushRegion("Manifold QR Factorization");
-                GMLS_LinearAlgebra::batchQRFactorize(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_square_dim, RHS_square_dim, max_num_rows, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                GMLS_LinearAlgebra::batchQRFactorize(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_square_dim, RHS_square_dim, max_num_rows, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _host_number_of_neighbors_list.data());
                 Kokkos::Profiling::popRegion();
             }
             Kokkos::fence();
@@ -351,22 +351,22 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
                      Kokkos::Profiling::popRegion();
                 } else {
                      Kokkos::Profiling::pushRegion("LU Factorization");
-                     GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_square_dim, RHS_square_dim, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + _added_alpha_size, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                     GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_square_dim, RHS_square_dim, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + _added_alpha_size, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _host_number_of_neighbors_list.data());
                      Kokkos::Profiling::popRegion();
                 }
             } else {
                 // Solve normally for no-constraint cases
                 if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
                     Kokkos::Profiling::pushRegion("SVD Factorization");
-                    GMLS_LinearAlgebra::batchSVDFactorize(_pm, true, _P.data(), P_dim_0, P_dim_1, true, _RHS.data(), RHS_square_dim, RHS_square_dim, max_num_rows, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                    GMLS_LinearAlgebra::batchSVDFactorize(_pm, true, _P.data(), P_dim_0, P_dim_1, true, _RHS.data(), RHS_square_dim, RHS_square_dim, max_num_rows, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _host_number_of_neighbors_list.data());
                     Kokkos::Profiling::popRegion();
                 } else if (_dense_solver_type == DenseSolverType::LU) {
                     Kokkos::Profiling::pushRegion("LU Factorization");
-                    GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_square_dim, RHS_square_dim, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + _added_alpha_size, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                    GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_square_dim, RHS_square_dim, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + _added_alpha_size, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _host_number_of_neighbors_list.data());
                     Kokkos::Profiling::popRegion();
                 } else {
                     Kokkos::Profiling::pushRegion("QR Factorization");
-                    GMLS_LinearAlgebra::batchQRFactorize(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_square_dim, RHS_square_dim, max_num_rows, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _number_of_neighbors_list.data());
+                    GMLS_LinearAlgebra::batchQRFactorize(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_square_dim, RHS_square_dim, max_num_rows, this_num_cols, max_num_rows, this_batch_size, _max_num_neighbors, _initial_index_for_batch, _host_number_of_neighbors_list.data());
                     Kokkos::Profiling::popRegion();
                 }
             }
