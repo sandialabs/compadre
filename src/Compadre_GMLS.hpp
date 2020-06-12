@@ -1295,6 +1295,20 @@ public:
         this->setWindowSizes<view_type_4>(epsilons);
     }
 
+    //! Sets basic problem data (neighbor lists data, number of neighbors list, source coordinates, and target coordinates)
+    template<typename view_type_1, typename view_type_2, typename view_type_3, typename view_type_4>
+    void setProblemData(
+            view_type_1 cr_neighbor_lists,
+            view_type_1 number_of_neighbors_list,
+            view_type_2 source_coordinates,
+            view_type_3 target_coordinates,
+            view_type_4 epsilons) {
+        this->setNeighborLists<view_type_1>(cr_neighbor_lists, number_of_neighbors_list);
+        this->setSourceSites<view_type_2>(source_coordinates);
+        this->setTargetSites<view_type_3>(target_coordinates);
+        this->setWindowSizes<view_type_4>(epsilons);
+    }
+
     //! (OPTIONAL) Sets additional evaluation sites for each target site
     template<typename view_type_1, typename view_type_2>
     void setAdditionalEvaluationSitesData(
@@ -1304,54 +1318,42 @@ public:
         this->setAuxiliaryEvaluationCoordinates<view_type_2>(additional_evaluation_coordinates);
     }
 
-    //! Sets neighbor list information from compressed row neighborhood lists.
+    //! Sets neighbor list information from compressed row neighborhood lists data (if same view_type).
     template <typename view_type>
-    typename std::enable_if<view_type::rank==1&&Kokkos::SpaceAccessibility<device_execution_space, typename view_type::memory_space>::accessible==1, void>::type 
-        setNeighborLists(view_type neighbor_lists, view_type number_of_neighbors_list) {
+    typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_neighbor_lists)::internal_view_type,view_type>::value==1, void>::type 
+            setNeighborLists(view_type neighbor_lists, view_type number_of_neighbors_list) {
 
-        //// allocate memory on device
-        //_neighbor_lists = neighbor_lists;
-        //_host_neighbor_lists = Kokkos::create_mirror_view(_neighbor_lists);
+        _neighbor_lists = NeighborLists<view_type>(neighbor_lists, number_of_neighbors_list);
+        _max_num_neighbors = _neighbor_lists.getMaxNumNeighbors();
+        _host_number_of_neighbors_list = decltype(_host_number_of_neighbors_list)("host number of neighbors list", _neighbor_lists.getNumberOfTargets());
+        Kokkos::parallel_for("copy neighbor list sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_neighbors_list.extent(0)), KOKKOS_LAMBDA(const int i) {
+            _host_number_of_neighbors_list(i) = _neighbor_lists.getNumberOfNeighborsHost(i);
+        });
+        Kokkos::fence();
+        this->resetCoefficientData();
 
-        //_number_of_neighbors_list = number_of_neighbors_list;
-        //_host_number_of_neighbors_list = Kokkos::create_mirror_view(_number_of_neighbors_list);
-
-        //_neighbor_lists_row_offsets = Kokkos::View<int*>("device neighbors list row offsets", number_of_neighbors_list.extent(0));
-        //_host_neighbor_lists_row_offsets = Kokkos::create_mirror_view(_neighbor_lists_row_offsets);
-
-        //auto nla(CreateNeighborLists(neighbor_lists, number_of_neighbors_list));
-        //_neighbor_lists_row_offsets = nla.getNeighborListsRowOffsets();
-        //_max_num_neighbors = nla.getMaxNumNeighbors();
-
-        //Kokkos::fence();
-        //this->resetCoefficientData();
     }
 
-    //! Sets neighbor list information from compressed row neighborhood lists.
+    //! Sets neighbor list information from compressed row neighborhood lists data (if different view_type).
     template <typename view_type>
-    typename std::enable_if<view_type::rank==1&&Kokkos::SpaceAccessibility<device_execution_space, typename view_type::memory_space>::accessible==0, void>::type 
-        setNeighborLists(view_type neighbor_lists, view_type number_of_neighbors_list) {
+    typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_neighbor_lists)::internal_view_type,view_type>::value==0, void>::type 
+            setNeighborLists(view_type neighbor_lists, view_type number_of_neighbors_list) {
 
-        //// allocate memory on device
-        //_neighbor_lists = decltype(_neighbor_lists)("device neighbor lists", neighbor_lists.extent(0));
-        //_host_neighbor_lists = Kokkos::create_mirror_view(_neighbor_lists);
-        //Kokkos::deep_copy(_host_neighbor_lists, neighbor_lists);
-
-        //_number_of_neighbors_list = decltype(_number_of_neighbors_list)("device number of neighbors list", number_of_neighbors_list.extent(0));
-        //_host_number_of_neighbors_list = Kokkos::create_mirror_view(_number_of_neighbors_list);
-        //Kokkos::deep_copy(_host_neighbor_lists, neighbor_lists);
-
-        //_neighbor_lists_row_offsets = Kokkos::View<int*>("device neighbors list row offsets", number_of_neighbors_list.extent(0));
-        //_host_neighbor_lists_row_offsets = Kokkos::create_mirror_view(_neighbor_lists_row_offsets);
-
-        //auto nla(CreateNeighborLists(_host_neighbor_lists, _host_number_of_neighbors_list));
-        //auto tmp_neighbor_lists_row_offsets = nla.getNeighborListsRowOffsets();
-        //Kokkos::deep_copy(_host_neighbor_lists_row_offsets, tmp_neighbor_lists_row_offsets);
-        //Kokkos::deep_copy(_neighbor_lists_row_offsets, _host_neighbor_lists_row_offsets);
-        //_max_num_neighbors = nla.getMaxNumNeighbors();
-
-        //Kokkos::fence();
-        //this->resetCoefficientData();
+        typedef decltype(_neighbor_lists)::internal_view_type gmls_view_type;
+        gmls_view_type d_neighbor_lists("compressed row neighbor lists data", neighbor_lists.extent(0));
+        gmls_view_type d_number_of_neighbors_list("number of neighbors list", number_of_neighbors_list.extent(0));
+        Kokkos::deep_copy(d_neighbor_lists, neighbor_lists);
+        Kokkos::deep_copy(d_number_of_neighbors_list, number_of_neighbors_list);
+        Kokkos::fence();
+        _neighbor_lists = NeighborLists<gmls_view_type>(d_neighbor_lists, d_number_of_neighbors_list);
+        _max_num_neighbors = _neighbor_lists.getMaxNumNeighbors();
+        _host_number_of_neighbors_list = decltype(_host_number_of_neighbors_list)("host number of neighbors list", _neighbor_lists.getNumberOfTargets());
+        Kokkos::parallel_for("copy neighbor list sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_neighbors_list.extent(0)), KOKKOS_LAMBDA(const int i) {
+            _host_number_of_neighbors_list(i) = _neighbor_lists.getNumberOfNeighborsHost(i);
+        });
+        Kokkos::fence();
+        this->resetCoefficientData();
+            
     }
 
     //! Sets neighbor list information. Should be # targets x maximum number of neighbors for any target + 1.
