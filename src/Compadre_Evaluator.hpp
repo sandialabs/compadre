@@ -156,7 +156,7 @@ public:
 
         
         // gather needed information for evaluation
-        auto nla = _gmls->getNeighborListAccessor();
+        auto nla = *(_gmls->getNeighborListAccessor());
         auto alphas = _gmls->getAlphas();
         auto sampling_data_device = sampling_subview_maker.get1DView(column_of_input);
         
@@ -209,7 +209,8 @@ public:
         const int alpha_input_output_component_index2 = alpha_input_output_component_index;
 
         // gather needed information for evaluation
-        auto nla = _gmls->getNeighborListAccessor();
+        auto gmls = *(_gmls);
+        auto nla = *(_gmls->getNeighborListAccessor());
         auto alphas = _gmls->getAlphas();
         auto prestencil_weights = _gmls->getPrestencilWeights();
 
@@ -233,7 +234,7 @@ public:
             const double previous_value = output_data_single_column(target_index);
 
             // loops over neighbors of target_index
-            auto alpha_index = _gmls->getAlphaIndexDevice(target_index, alpha_input_output_component_index);
+            auto alpha_index = gmls.getAlphaIndexDevice(target_index, alpha_input_output_component_index);
             double gmls_value = 0;
             Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, nla.getNumberOfNeighborsDevice(target_index)), [=](const int i, double& t_value) {
                 const double neighbor_varying_pre_T =  (weight_with_pre_T && vary_on_neighbor) ?
@@ -259,7 +260,7 @@ public:
 
             double staggered_value_from_targets = 0;
             double pre_T_staggered = 1.0;
-            auto alpha_index2 = _gmls->getAlphaIndexDevice(target_index, alpha_input_output_component_index2);
+            auto alpha_index2 = gmls.getAlphaIndexDevice(target_index, alpha_input_output_component_index2);
             // loops over target_index for each neighbor for staggered approaches
             if (target_plus_neighbor_staggered_schema) {
                 Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, nla.getNumberOfNeighborsDevice(target_index)), [=](const int i, double& t_value) {
@@ -310,7 +311,7 @@ public:
         auto global_dimensions = _gmls->getGlobalDimensions();
 
         // gather needed information for evaluation
-        auto nla = _gmls->getNeighborListAccessor();
+        auto nla = *(_gmls->getNeighborListAccessor());
         const int num_targets = nla.getNumberOfTargets();
 
         auto tangent_directions = _gmls->getTangentDirections();
@@ -373,7 +374,7 @@ public:
         auto input_dimension_of_operator = _gmls->getInputDimensionOfOperation(lro);
 
         // gather needed information for evaluation
-        auto nla = _gmls->getNeighborListAccessor();
+        auto nla = *(_gmls->getNeighborListAccessor());
 
         // determines the number of columns needed for output after action of the target functional
         int output_dimensions = _gmls->getOutputDimensionOfOperation(lro);
@@ -508,7 +509,7 @@ public:
     template <typename view_type_data_out, typename view_type_data_in>
     void applyFullPolynomialCoefficientsBasisToDataSingleComponent(view_type_data_out output_data_block_column, view_type_data_in sampling_data_single_column, const SamplingFunctional sro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1, bool vary_on_target = false, bool vary_on_neighbor = false) const {
 
-        auto nla = _gmls->getNeighborListAccessor();
+        auto nla = *(_gmls->getNeighborListAccessor());
 
         auto coefficient_matrix_dims = _gmls->getPolynomialCoefficientsDomainRangeSize();
         auto coefficient_memory_layout_dims = _gmls->getPolynomialCoefficientsMemorySize();
@@ -640,7 +641,7 @@ public:
         auto coefficient_matrix_dims = _gmls->getPolynomialCoefficientsDomainRangeSize();
 
         // gather needed information for evaluation
-        auto nla = _gmls->getNeighborListAccessor();
+        auto nla = *(_gmls->getNeighborListAccessor());
 
         // determines the number of columns needed for output
         int output_dimensions = output_dimension_of_reconstruction_space;

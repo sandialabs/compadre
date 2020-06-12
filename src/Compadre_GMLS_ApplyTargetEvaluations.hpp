@@ -108,7 +108,7 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
             for (int k=0; k<_lro_output_tile_size[j]; ++k) {
                 for (int m=0; m<_lro_input_tile_size[j]; ++m) {
                     int offset_index_jmke = getTargetOffsetIndexDevice(j,m,k,e);
-                    int alphas_index = getAlphaIndex(target_index, offset_index_jmke);
+                    int alphas_index = getAlphaIndexDevice(target_index, offset_index_jmke);
                     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,
                             this->getNNeighbors(target_index) + _added_alpha_size), [&] (const int i) {
                         double alpha_ij = 0;

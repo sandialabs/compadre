@@ -111,8 +111,8 @@ protected:
     //! (OPTIONAL) contains indices of entries in the _additional_evaluation_coordinates view (host)
     Kokkos::View<int**, layout_right>::HostMirror _host_additional_evaluation_indices;
 
-    //! (OPTIONAL) contains the # of additional coordinate indices for each target (host)
-    Kokkos::View<int*, Kokkos::HostSpace> _number_of_additional_evaluation_indices; 
+    //! (OPTIONAL) contains the # of additional coordinate indices for each target
+    Kokkos::View<int*> _number_of_additional_evaluation_indices; 
 
 
     //! order of basis for polynomial reconstruction
@@ -992,7 +992,7 @@ public:
     std::string getQuadratureType() const { return _quadrature_type; }
 
     //! Get neighbor list accessor
-    decltype(_neighbor_list_accessor)& getNeighborListAccessor() { return _neighbor_list_accessor; }
+    decltype(_neighbor_list_accessor)* getNeighborListAccessor() { return &_neighbor_list_accessor; }
 
     //! Get a view (device) of all tangent direction bundles.
     decltype(_T) getTangentDirections() const { return _T; }
@@ -1366,6 +1366,7 @@ public:
             _host_number_of_neighbors_list(i) = _neighbor_list_accessor.getNumberOfNeighborsHost(i);
         });
         Kokkos::fence();
+        this->resetCoefficientData();
 
     }
 
@@ -1430,7 +1431,7 @@ public:
             Kokkos::deep_copy(_target_coordinates, host_target_coordinates);
         }
         _number_of_additional_evaluation_indices 
-            = Kokkos::View<int*, Kokkos::HostSpace>("number of additional evaluation indices", target_coordinates.extent(0));
+            = decltype(_number_of_additional_evaluation_indices)("number of additional evaluation indices", target_coordinates.extent(0));
         Kokkos::deep_copy(_number_of_additional_evaluation_indices, 0);
         this->resetCoefficientData();
     }
@@ -1441,7 +1442,7 @@ public:
         // allocate memory on device
         _target_coordinates = target_coordinates;
         _number_of_additional_evaluation_indices 
-            = Kokkos::View<int*, Kokkos::HostSpace>("number of additional evaluation indices", target_coordinates.extent(0));
+            = decltype(_number_of_additional_evaluation_indices)("number of additional evaluation indices", target_coordinates.extent(0));
         Kokkos::deep_copy(_number_of_additional_evaluation_indices, 0);
         this->resetCoefficientData();
     }
@@ -1649,10 +1650,16 @@ public:
         }
 
         _max_evaluation_sites_per_target = 1;
-        for (size_t i=0; i<_additional_evaluation_indices.extent(0); ++i) {
-            _number_of_additional_evaluation_indices(i) = _host_additional_evaluation_indices(i,0);
-            _max_evaluation_sites_per_target = (_number_of_additional_evaluation_indices(i)+1 > _max_evaluation_sites_per_target) ? _number_of_additional_evaluation_indices(i)+1 : _max_evaluation_sites_per_target;
-        }
+        auto number_of_additional_evaluation_indices = _number_of_additional_evaluation_indices;
+        auto additional_evaluation_indices = _additional_evaluation_indices;
+        Kokkos::parallel_reduce("additional evaluation indices", 
+                Kokkos::RangePolicy<device_execution_space>(0, _additional_evaluation_indices.extent(0)), 
+                KOKKOS_LAMBDA(const int i, int& t_max_evaluation_sites_per_target) {
+            number_of_additional_evaluation_indices(i) = additional_evaluation_indices(i,0);
+            t_max_evaluation_sites_per_target = (t_max_evaluation_sites_per_target > number_of_additional_evaluation_indices(i)+1) 
+                                                ? t_max_evaluation_sites_per_target : number_of_additional_evaluation_indices(i)+1;
+        }, Kokkos::Max<int>(_max_evaluation_sites_per_target));
+        Kokkos::fence();
         this->resetCoefficientData();
     }
 
@@ -1669,10 +1676,16 @@ public:
         Kokkos::deep_copy(_host_additional_evaluation_indices, _additional_evaluation_indices);
 
         _max_evaluation_sites_per_target = 1;
-        for (int i=0; i<_additional_evaluation_indices.extent(0); ++i) {
-            _number_of_additional_evaluation_indices(i) = _host_additional_evaluation_indices(i,0);
-            _max_evaluation_sites_per_target = (_number_of_additional_evaluation_indices(i)+1 > _max_evaluation_sites_per_target) ? _number_of_additional_evaluation_indices(i)+1 : _max_evaluation_sites_per_target;
-        }
+        auto number_of_additional_evaluation_indices = _number_of_additional_evaluation_indices;
+        auto additional_evaluation_indices = _additional_evaluation_indices;
+        Kokkos::parallel_reduce("additional evaluation indices", 
+                Kokkos::RangePolicy<device_execution_space>(0, _additional_evaluation_indices.extent(0)), 
+                KOKKOS_LAMBDA(const int i, int& t_max_evaluation_sites_per_target) {
+            number_of_additional_evaluation_indices(i) = additional_evaluation_indices(i,0);
+            t_max_evaluation_sites_per_target = (t_max_evaluation_sites_per_target > number_of_additional_evaluation_indices(i)+1) 
+                                                ? t_max_evaluation_sites_per_target : number_of_additional_evaluation_indices(i)+1;
+        }, Kokkos::Max<int>(_max_evaluation_sites_per_target));
+        Kokkos::fence();
         this->resetCoefficientData();
     }
 
