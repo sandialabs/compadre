@@ -20,14 +20,12 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
 
     for (int e=0; e<this->getNEvaluationSitesPerTarget(target_index); ++e) {
         // evaluating alpha_ij
-            for (size_t j=0; j<_operations.size(); ++j) {
-                for (int k=0; k<_lro_output_tile_size[j]; ++k) {
-                    for (int m=0; m<_lro_input_tile_size[j]; ++m) {
-                        double alpha_ij = 0;
-                        int offset_index_jmke = getTargetOffsetIndexDevice(j,m,k,e);
-                        //const int alphas_index = getAlphaIndex(target_index, offset_index_jmke);
-                        //const int alphas_index = base_alphas_index + offset_index_jmke*alphas_per_tile_per_target;
-        for (int i=0; i<this->getNNeighbors(target_index) + _added_alpha_size; ++i) {
+        for (size_t j=0; j<_operations.size(); ++j) {
+            for (int k=0; k<_lro_output_tile_size[j]; ++k) {
+                for (int m=0; m<_lro_input_tile_size[j]; ++m) {
+                    double alpha_ij = 0;
+                    int offset_index_jmke = getTargetOffsetIndexDevice(j,m,k,e);
+                    for (int i=0; i<this->getNNeighbors(target_index) + _added_alpha_size; ++i) {
                         Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
                             _basis_multiplier*target_NP), [&] (const int l, double &talpha_ij) {
                             if (_sampling_multiplier>1 && m<_sampling_multiplier) {
@@ -53,14 +51,13 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
                             }
                         }, alpha_ij);
                         Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                            //_alphas(alphas_index+i) = alpha_ij;
                             this_alphas(offset_index_jmke,i) = alpha_ij;
                             compadre_kernel_assert_extreme_debug(alpha_ij==alpha_ij && "NaN in alphas.");
                         });
-        }
                     }
                 }
             }
+        }
     }
 #elif defined(COMPADRE_USE_CUDA)
 //        // GPU

@@ -20,13 +20,18 @@ namespace py = pybind11;
 
 
 class ParticleHelper {
+public:
+
+    typedef Kokkos::View<double**, Kokkos::HostSpace> double_2d_view_type;
+    typedef Kokkos::View<int**, Kokkos::HostSpace> int_2d_view_type;
+    typedef Kokkos::View<double*, Kokkos::HostSpace> double_1d_view_type;
+    typedef Kokkos::View<int*, Kokkos::HostSpace> int_1d_view_type;
+    typedef Kokkos::View<int*> int_1d_view_type_in_gmls;
 
 private:
 
     Compadre::GMLS* gmls_object;
-    typedef Kokkos::View<double**, Kokkos::HostSpace> double_2d_view_type;
-    typedef Kokkos::View<int**, Kokkos::HostSpace> int_2d_view_type;
-    typedef Kokkos::View<double*, Kokkos::HostSpace> double_1d_view_type;
+    Compadre::NeighborLists<int_1d_view_type_in_gmls>* nl;
 
     typedef nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<double, Compadre::PointCloudSearch<double_2d_view_type> >, 
             Compadre::PointCloudSearch<double_2d_view_type>, 3> tree_type;
@@ -34,7 +39,6 @@ private:
 
     double_2d_view_type _source_coords;
     double_2d_view_type _target_coords;
-    int_2d_view_type _neighbor_lists;
     double_1d_view_type _epsilon;
 
 public:
@@ -65,26 +69,12 @@ public:
     
         // set values from Kokkos View
         gmls_object->setNeighborLists(neighbor_lists);
-        _neighbor_lists = neighbor_lists;
+        nl = gmls_object->getNeighborLists();
     }
 
-    py::array_t<local_index_type> getNeighbors() {
-        compadre_assert_release((_neighbor_lists.extent(0)>0) && "getNeighborLists() called, but neighbor lists were never set.");
-
-        auto dim_out_0 = _neighbor_lists.extent(0);
-        auto dim_out_1 = _neighbor_lists.extent(1);
-
-        auto result = py::array_t<local_index_type>(dim_out_0*dim_out_1);
-        py::buffer_info buf_out = result.request();
-
-        local_index_type *ptr = (local_index_type *) buf_out.ptr;
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0*dim_out_1), [&](int i) {
-            ptr[i] = *(_neighbor_lists.data()+i);
-        });
-        Kokkos::fence();
-
-        result.resize({dim_out_0,dim_out_1});
-        return result;
+    decltype(nl) getNeighborLists() {
+        compadre_assert_release((nl->getNumberOfTargets()>0) && "getNeighborLists() called, but neighbor lists were never set.");
+        return gmls_object->getNeighborLists();
     }
 
     void setSourceSites(py::array_t<double> input) {
@@ -250,7 +240,7 @@ public:
         gmls_object->setSourceSites(source_coords);
     }
 
-    void generateNeighborListsFromKNNSearchAndSet(py::array_t<double> input, int poly_order, int dimension = 3, double epsilon_multiplier = 1.6, double maximum_neighbors_storage_multiplier = 1.0, double max_search_radius = 0.0) {
+    void generateNeighborListsFromKNNSearchAndSet(py::array_t<double> input, int poly_order, int dimension = 3, double epsilon_multiplier = 1.6, double max_search_radius = 0.0) {
 
         int neighbors_needed = Compadre::GMLS::getNP(poly_order, dimension);
 
@@ -279,32 +269,34 @@ public:
         // how many target sites
         int number_target_coords = target_coords.extent(0);
 
-        // estimate storage requirements, but if storage_multiplier <= 0, then allocate as many entries as there are neighbors
-        int estimated_upper_bound_number_neighbors = (maximum_neighbors_storage_multiplier > 0) ?
-            (int)(maximum_neighbors_storage_multiplier*point_cloud_search->getEstimatedNumberNeighborsUpperBound(neighbors_needed, dimension, epsilon_multiplier))
-            : _source_coords.extent(0)+1; // +1 for # of neighbors value
+        // make empty neighbor list kokkos view
+        int_1d_view_type neighbor_lists("neighbor lists", 0);
         
-        // make neighbor list kokkos view
-        int_2d_view_type neighbor_lists("neighbor lists", 
-                number_target_coords, estimated_upper_bound_number_neighbors); // first column is # of neighbors
+        // holds number of neighbors for each target
+        int_1d_view_type number_of_neighbors_list("number of neighbors list", number_target_coords);
         
         // make epsilons kokkos view
         double_1d_view_type epsilon("h supports", number_target_coords);
         
         // call point_cloud_search using targets
         // use these neighbor lists and epsilons to set the gmls object
-        point_cloud_search->generate2DNeighborListsFromKNNSearch(false /* not a dry run*/, target_coords, neighbor_lists, 
-                epsilon, neighbors_needed, epsilon_multiplier, max_search_radius);
+        size_t total_storage = point_cloud_search->generateCRNeighborListsFromKNNSearch(true /* is a dry run*/, target_coords, neighbor_lists, 
+                number_of_neighbors_list, epsilon, neighbors_needed, epsilon_multiplier, max_search_radius);
 
+        Kokkos::resize(neighbor_lists, total_storage);
+        Kokkos::fence();
+
+        total_storage = point_cloud_search->generateCRNeighborListsFromKNNSearch(false /* not a dry run*/, target_coords, neighbor_lists, 
+                number_of_neighbors_list, epsilon, neighbors_needed, epsilon_multiplier, max_search_radius);
         Kokkos::fence();
 
         // set these views in the GMLS object
         gmls_object->setTargetSites(target_coords);
-        gmls_object->setNeighborLists(neighbor_lists);
+        gmls_object->setNeighborLists(neighbor_lists, number_of_neighbors_list);
         gmls_object->setWindowSizes(epsilon);
+        nl = gmls_object->getNeighborLists();
 
         _target_coords = target_coords;
-        _neighbor_lists = neighbor_lists;
         _epsilon = epsilon;
 
     }
@@ -511,9 +503,10 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("generateKDTree", &ParticleHelper::generateKDTree)
     .def("generateNeighborListsFromKNNSearchAndSet", &ParticleHelper::generateNeighborListsFromKNNSearchAndSet, 
             py::arg("target_sites"), py::arg("poly_order"), py::arg("dimension") = 3, py::arg("epsilon_multiplier") = 1.6, 
-            py::arg("maximum_neighbors_storage_multiplier") = 1.0, py::arg("max_search_radius") = 0.0)
-    .def("setNeighbors", &ParticleHelper::setNeighbors, py::arg("neighbor_lists"))
-    .def("getNeighbors", &ParticleHelper::getNeighbors, py::return_value_policy::take_ownership)
+            py::arg("max_search_radius") = 0.0)
+    .def("setNeighbors", &ParticleHelper::setNeighbors, py::arg("neighbor_lists"), 
+            "Sets neighbor lists from 2D array where first column is number of neighbors for corresponding row's target site.")
+    .def("getNeighborLists", &ParticleHelper::getNeighborLists, py::return_value_policy::reference_internal)
     .def("setWindowSizes", &ParticleHelper::setWindowSizes, py::arg("window_sizes"))
     .def("getWindowSizes", &ParticleHelper::getWindowSizes, py::return_value_policy::take_ownership)
     .def("setSourceSites", &ParticleHelper::setSourceSites, py::arg("source_coordinates"))
@@ -543,6 +536,8 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("getNP", &GMLS::getNP, "Get size of basis.")
     .def("getNN", &GMLS::getNN, "Heuristic number of neighbors.");
 
+    py::class_<NeighborLists<ParticleHelper::int_1d_view_type_in_gmls> >(m, "NeighborLists")
+    .def("getNumberOfTargets", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getNumberOfTargets, "Number of targets.");
 
     py::class_<KokkosParser>(m, "KokkosParser")
     .def(py::init<int,int,int,int,bool>(), py::arg("num_threads") = -1, py::arg("numa") = -1, py::arg("device") = -1, py::arg("ngpu") = -1, py::arg("print") = false);
