@@ -268,12 +268,12 @@ bool all_passed = true;
     // neighbor_lists_device will contain all neighbor lists (for each target site) in a compressed row format
     // Initially, we do a dry-run to calculate neighborhood sizes before actually storing the result. This is 
     // why we can start with a neighbor_lists_device size of 0.
-    Kokkos::View<int*, Kokkos::DefaultExecutionSpace> neighbor_lists_device("neighbor lists", 
+    Kokkos::View<int*> neighbor_lists_device("neighbor lists", 
             0); // first column is # of neighbors
     Kokkos::View<int*>::HostMirror neighbor_lists = Kokkos::create_mirror_view(neighbor_lists_device);
     // number_of_neighbors_list must be the same size as the number of target sites so that it can be populated
     // with the number of neighbors for each target site.
-    Kokkos::View<int*, Kokkos::DefaultExecutionSpace> number_of_neighbors_list_device("number of neighbor lists", 
+    Kokkos::View<int*> number_of_neighbors_list_device("number of neighbor lists", 
             number_target_coords); // first column is # of neighbors
     Kokkos::View<int*>::HostMirror number_of_neighbors_list = Kokkos::create_mirror_view(number_of_neighbors_list_device);
     
@@ -286,7 +286,7 @@ bool all_passed = true;
     // each target to the view for epsilon
     //
     // This dry run populates number_of_neighbors_list with neighborhood sizes
-    size_t storage_size = point_cloud_search.generateCRNeighborListsFromKNNSearch(true /*not dry run*/, target_coords, neighbor_lists, 
+    size_t storage_size = point_cloud_search.generateCRNeighborListsFromKNNSearch(true /*dry run*/, target_coords, neighbor_lists, 
             number_of_neighbors_list, epsilon, min_neighbors, epsilon_multiplier);
 
     // resize neighbor_lists_device so as to be large enough to contain all neighborhoods
@@ -311,6 +311,7 @@ bool all_passed = true;
     // and used these instead, and then the copying of data to the device
     // would be performed in the GMLS class
     Kokkos::deep_copy(neighbor_lists_device, neighbor_lists);
+    Kokkos::deep_copy(number_of_neighbors_list_device, number_of_neighbors_list);
     Kokkos::deep_copy(epsilon_device, epsilon);
     
     // solver name for passing into the GMLS class
