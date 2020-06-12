@@ -3,7 +3,7 @@
 
 #include "Compadre_Typedefs.hpp"
 #include "Compadre_GMLS.hpp"
-#include "Compadre_PointCloudSearch.hpp"
+#include "Compadre_NeighborLists.hpp"
 
 namespace Compadre {
 
@@ -156,7 +156,7 @@ public:
 
         
         // gather needed information for evaluation
-        auto nla = *(_gmls->getNeighborListAccessor());
+        auto nla = *(_gmls->getNeighborLists());
         auto alphas = _gmls->getAlphas();
         auto sampling_data_device = sampling_subview_maker.get1DView(column_of_input);
         
@@ -210,7 +210,7 @@ public:
 
         // gather needed information for evaluation
         auto gmls = *(_gmls);
-        auto nla = *(_gmls->getNeighborListAccessor());
+        auto nla = *(_gmls->getNeighborLists());
         auto alphas = _gmls->getAlphas();
         auto prestencil_weights = _gmls->getPrestencilWeights();
 
@@ -311,7 +311,7 @@ public:
         auto global_dimensions = _gmls->getGlobalDimensions();
 
         // gather needed information for evaluation
-        auto nla = *(_gmls->getNeighborListAccessor());
+        auto nla = *(_gmls->getNeighborLists());
         const int num_targets = nla.getNumberOfTargets();
 
         auto tangent_directions = _gmls->getTangentDirections();
@@ -374,7 +374,7 @@ public:
         auto input_dimension_of_operator = _gmls->getInputDimensionOfOperation(lro);
 
         // gather needed information for evaluation
-        auto nla = *(_gmls->getNeighborListAccessor());
+        auto nla = *(_gmls->getNeighborLists());
 
         // determines the number of columns needed for output after action of the target functional
         int output_dimensions = _gmls->getOutputDimensionOfOperation(lro);
@@ -509,7 +509,7 @@ public:
     template <typename view_type_data_out, typename view_type_data_in>
     void applyFullPolynomialCoefficientsBasisToDataSingleComponent(view_type_data_out output_data_block_column, view_type_data_in sampling_data_single_column, const SamplingFunctional sro, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1, bool vary_on_target = false, bool vary_on_neighbor = false) const {
 
-        auto nla = *(_gmls->getNeighborListAccessor());
+        auto nla = *(_gmls->getNeighborLists());
 
         auto coefficient_matrix_dims = _gmls->getPolynomialCoefficientsDomainRangeSize();
         auto coefficient_memory_layout_dims = _gmls->getPolynomialCoefficientsMemorySize();
@@ -641,7 +641,7 @@ public:
         auto coefficient_matrix_dims = _gmls->getPolynomialCoefficientsDomainRangeSize();
 
         // gather needed information for evaluation
-        auto nla = *(_gmls->getNeighborListAccessor());
+        auto nla = *(_gmls->getNeighborLists());
 
         // determines the number of columns needed for output
         int output_dimensions = output_dimension_of_reconstruction_space;

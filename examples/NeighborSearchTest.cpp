@@ -195,7 +195,7 @@ bool all_passed = true;
             point_cloud_search.generateCRNeighborListsFromRadiusSearch(false /* dry run */,
                 target_coords, neighbor_lists, number_neighbors_list, epsilon);
 
-            auto nla(CreateNeighborListAccessor(neighbor_lists, number_neighbors_list));
+            auto nla(CreateNeighborLists(neighbor_lists, number_neighbors_list));
 
             double radius_search_time = timer.seconds();
             printf("nanoflann search time: %f s\n", radius_search_time);
@@ -544,7 +544,7 @@ bool all_passed = true;
             point_cloud_search.generateCRNeighborListsFromKNNSearch(false /*not dry run*/, 
                     target_coords, neighbor_lists, number_neighbors_list, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
 
-            auto nla(CreateNeighborListAccessor(neighbor_lists, number_neighbors_list));
+            auto nla(CreateNeighborLists(neighbor_lists, number_neighbors_list));
 
             // convert point cloud search to vector of maps
             timer.reset();

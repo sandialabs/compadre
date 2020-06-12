@@ -12,7 +12,7 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
 #ifdef COMPADRE_USE_LAPACK
 
     // CPU
-    const int alphas_per_tile_per_target = _neighbor_list_accessor.getNumberOfNeighborsDevice(target_index) + _added_alpha_size;
+    const int alphas_per_tile_per_target = _neighbor_lists.getNumberOfNeighborsDevice(target_index) + _added_alpha_size;
     const int base_offset_index_jmke = getTargetOffsetIndexDevice(0,0,0,0);
     const int base_alphas_index = getAlphaIndexDevice(target_index, base_offset_index_jmke);
 
