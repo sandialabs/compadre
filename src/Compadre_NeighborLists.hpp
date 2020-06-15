@@ -9,24 +9,29 @@ namespace Compadre {
 //!  NeighborLists assists in accessing entries of compressed row neighborhood lists
 template <typename view_type>
 class NeighborLists {
+public:
+
+    typedef view_type internal_view_type;
+    typedef Kokkos::View<global_index_type*, typename view_type::array_layout, 
+            typename view_type::memory_space, typename view_type::memory_traits> internal_row_offsets_view_type;
+
 protected:
+
 
     int _max_neighbor_list_row_storage_size;
     bool _needs_sync_to_host;
     int _number_of_targets;
 
-    view_type _row_offsets;
+    internal_row_offsets_view_type _row_offsets;
     view_type _cr_neighbor_lists;
     view_type _number_of_neighbors_list;
 
-    typename view_type::HostMirror _host_row_offsets;
+    typename internal_row_offsets_view_type::HostMirror _host_row_offsets;
     typename view_type::HostMirror _host_cr_neighbor_lists;
     typename view_type::HostMirror _host_number_of_neighbors_list;
 
 
 public:
-
-    typedef view_type internal_view_type;
 
 /** @name Constructors
  *  Ways to initialize a NeighborLists object
@@ -43,7 +48,8 @@ public:
     /*! \brief Constructor for when compressed row `cr_neighbor_lists` is preallocated/populated, 
      *  `number_of_neighbors_list` and `neighbor_lists_row_offsets` have already been populated.
      */
-    NeighborLists(view_type cr_neighbor_lists, view_type number_of_neighbors_list, view_type neighbor_lists_row_offsets, bool compute_max = true) {
+    NeighborLists(view_type cr_neighbor_lists, view_type number_of_neighbors_list, 
+            internal_row_offsets_view_type neighbor_lists_row_offsets, bool compute_max = true) {
         compadre_assert_release((view_type::rank==1) && 
                 "cr_neighbor_lists and number_neighbors_list and neighbor_lists_row_offsets must be a 1D Kokkos view.");
 
@@ -83,7 +89,7 @@ public:
 
         _number_of_targets = number_of_neighbors_list.extent(0);
 
-        _row_offsets = view_type("row offsets", number_of_neighbors_list.extent(0));
+        _row_offsets = internal_row_offsets_view_type("row offsets", number_of_neighbors_list.extent(0));
         _number_of_neighbors_list = number_of_neighbors_list;
         _cr_neighbor_lists = cr_neighbor_lists;
 
@@ -116,7 +122,7 @@ public:
 
         _number_of_targets = number_of_neighbors_list.extent(0);
 
-        _row_offsets = view_type("row offsets", number_of_neighbors_list.extent(0));
+        _row_offsets = internal_row_offsets_view_type("row offsets", number_of_neighbors_list.extent(0));
         _number_of_neighbors_list = number_of_neighbors_list;
 
         _host_number_of_neighbors_list = Kokkos::create_mirror_view(_number_of_neighbors_list);
@@ -168,7 +174,7 @@ public:
         auto row_offsets = _row_offsets;
         Kokkos::parallel_scan("number of neighbors offsets", 
                 Kokkos::RangePolicy<typename view_type::execution_space>(0, _number_of_neighbors_list.extent(0)), 
-                KOKKOS_LAMBDA(const int i, int& lsum, bool final) {
+                KOKKOS_LAMBDA(const int i, global_index_type& lsum, bool final) {
             row_offsets(i) = lsum;
             lsum += number_of_neighbors_list(i);
         });
@@ -210,13 +216,13 @@ public:
     }
 
     //! Get offset into compressed row neighbor lists (host)
-    int getRowOffsetHost(int target_index) const {
+    global_index_type getRowOffsetHost(int target_index) const {
         return _host_row_offsets(target_index);
     }
 
     //! Get offset into compressed row neighbor lists (device)
     KOKKOS_INLINE_FUNCTION
-    int getRowOffsetDevice(int target_index) const {
+    global_index_type getRowOffsetDevice(int target_index) const {
         return _row_offsets(target_index);
     }
 
@@ -243,14 +249,14 @@ public:
     }
 
     //! Get the sum of the number of neighbors of all targets' neighborhoods (host)
-    int getTotalNeighborsOverAllListsHost() const {
-        return this->getNumberOfNeighborsHost(this->getNumberOfTargets()-1) + this->getRowOffsetHost(this->getNumberOfTargets()-1);
+    global_index_type getTotalNeighborsOverAllListsHost() const {
+        return TO_GLOBAL(this->getNumberOfNeighborsHost(this->getNumberOfTargets()-1)) + this->getRowOffsetHost(this->getNumberOfTargets()-1);
     }
 
     //! Get the sum of the number of neighbors of all targets' neighborhoods (device)
     KOKKOS_INLINE_FUNCTION
-    int getTotalNeighborsOverAllListsDevice() const {
-        return this->getNumberOfNeighborsDevice(this->getNumberOfTargets()-1) + this->getRowOffsetDevice(this->getNumberOfTargets()-1);
+    global_index_type getTotalNeighborsOverAllListsDevice() const {
+        return TO_GLOBAL(this->getNumberOfNeighborsDevice(this->getNumberOfTargets()-1)) + this->getRowOffsetDevice(this->getNumberOfTargets()-1);
     }
 ///@}
 

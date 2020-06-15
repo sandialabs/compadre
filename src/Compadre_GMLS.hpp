@@ -1141,29 +1141,31 @@ public:
     //! Gives index into alphas given two axes, which when incremented by the neighbor number transforms access into
     //! alphas from a rank 1 view into a rank 3 view.
     KOKKOS_INLINE_FUNCTION
-    local_index_type getAlphaIndexDevice(const int target_index, const int alpha_column_offset) const {
+    global_index_type getAlphaIndexDevice(const int target_index, const int alpha_column_offset) const {
 
-        int total_neighbors_before_target = _neighbor_lists.getRowOffsetDevice(target_index);
+        global_index_type total_neighbors_before_target = _neighbor_lists.getRowOffsetDevice(target_index);
         int total_added_alphas_before_target = target_index*_added_alpha_size;
 
         int alphas_per_tile_per_target = _neighbor_lists.getNumberOfNeighborsDevice(target_index) + _added_alpha_size;
 
-        return (total_neighbors_before_target+total_added_alphas_before_target)*_total_alpha_values*_max_evaluation_sites_per_target
-                   + alpha_column_offset*alphas_per_tile_per_target;
+        return (total_neighbors_before_target+TO_GLOBAL(total_added_alphas_before_target))
+                 *TO_GLOBAL(_total_alpha_values)*TO_GLOBAL(_max_evaluation_sites_per_target)
+                   + TO_GLOBAL(alpha_column_offset*alphas_per_tile_per_target);
 
     }
 
     //! Gives index into alphas given two axes, which when incremented by the neighbor number transforms access into
     //! alphas from a rank 1 view into a rank 3 view.
-    local_index_type getAlphaIndexHost(const int target_index, const int alpha_column_offset) const {
+    global_index_type getAlphaIndexHost(const int target_index, const int alpha_column_offset) const {
 
-        int total_neighbors_before_target = _neighbor_lists.getRowOffsetHost(target_index);
+        global_index_type total_neighbors_before_target = _neighbor_lists.getRowOffsetHost(target_index);
         int total_added_alphas_before_target = target_index*_added_alpha_size;
 
         int alphas_per_tile_per_target = _neighbor_lists.getNumberOfNeighborsHost(target_index) + _added_alpha_size;
 
-        return (total_neighbors_before_target+total_added_alphas_before_target)*_total_alpha_values*_max_evaluation_sites_per_target
-                   + alpha_column_offset*alphas_per_tile_per_target;
+        return (total_neighbors_before_target+TO_GLOBAL(total_added_alphas_before_target))
+                 *TO_GLOBAL(_total_alpha_values)*TO_GLOBAL(_max_evaluation_sites_per_target)
+                   + TO_GLOBAL(alpha_column_offset*alphas_per_tile_per_target);
 
     }
 
