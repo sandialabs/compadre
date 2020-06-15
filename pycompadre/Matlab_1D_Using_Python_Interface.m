@@ -52,7 +52,7 @@ epsilon_multiplier = 1.5;
 gmls_helper.generateKDTree(np_x);
 
 % do a neighbor search for target sites
-gmls_helper.generateNeighborListsFromKNNSearchAndSet(np_y, poly_order, spatial_dimensions, epsilon_multiplier, 2);
+gmls_helper.generateNeighborListsFromKNNSearchAndSet(np_y, poly_order, spatial_dimensions, epsilon_multiplier);
 
 % add TargetOperation 0 and 9 from ENUM which are ScalarPointEvaluation and PartialXDerivativePointEvaluation
 my_gmls.addTargets(py.pycompadre.TargetOperation(py.int(0)));
