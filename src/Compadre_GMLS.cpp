@@ -37,7 +37,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     Kokkos::deep_copy(_operations, _host_operations);
 
     // check that if any target sites added, that neighbors_lists has equal rows
-    compadre_assert_release((_neighbor_lists.getNumberOfTargets()==_target_coordinates.extent(0)) 
+    compadre_assert_release(((size_t)_neighbor_lists.getNumberOfTargets()==_target_coordinates.extent(0)) 
             && "Neighbor lists not set in GMLS class before calling generatePolynomialCoefficients.");
 
     // check that if any target sites are greater than zero (could be zero), then there are more than zero source sites
@@ -61,9 +61,10 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
 
     // initialize all alpha values to be used for taking the dot product with data to get a reconstruction 
     try {
-        int total_neighbors = _neighbor_lists.getTotalNeighborsOverAllListsHost();
+        global_index_type total_neighbors = _neighbor_lists.getTotalNeighborsOverAllListsHost();
         int total_added_alphas = _target_coordinates.extent(0)*_added_alpha_size;
-        _alphas = decltype(_alphas)("alphas", (total_neighbors + total_added_alphas)*_total_alpha_values*_max_evaluation_sites_per_target);
+        _alphas = decltype(_alphas)("alphas", (total_neighbors + TO_GLOBAL(total_added_alphas))
+                    *TO_GLOBAL(_total_alpha_values)*TO_GLOBAL(_max_evaluation_sites_per_target));
     } catch(std::exception &e) {
        printf("Insufficient memory to store alphas: \n\n%s", e.what()); 
        throw e;

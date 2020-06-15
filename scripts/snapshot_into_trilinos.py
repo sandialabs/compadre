@@ -208,6 +208,8 @@ def create_snapshot_dir_args(orig_dir, dest_dir, dry_run=False):
             "MANIFEST.in "
             "cmake/detect_trilinos_opts.cmake "
             "examples/Python_3D_Convergence.py.in "
+            "examples/__init__.py "
+            "examples/test_pycompadre.py "
             "--clean-ignored-files-orig-dir")
     if dry_run:
         args += " --show-defaults"
@@ -228,6 +230,8 @@ def test_create_snapshot_dir_args():
                 "MANIFEST.in "
                 "cmake/detect_trilinos_opts.cmake "
                 "examples/Python_3D_Convergence.py.in "
+                "examples/__init__.py "
+                "examples/test_pycompadre.py "
                 "--clean-ignored-files-orig-dir")
     assert args == expected.split()
     args = create_snapshot_dir_args(orig, dest, dry_run=True)
