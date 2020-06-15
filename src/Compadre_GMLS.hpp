@@ -92,7 +92,7 @@ protected:
     Kokkos::View<double*, layout_right> _alphas; 
 
     //! generated alpha coefficients (host)
-    Kokkos::View<double*, layout_right, host_memory_space> _host_alphas;
+    Kokkos::View<const double*, layout_right>::HostMirror _host_alphas;
     
     //! generated weights for nontraditional samples required to transform data into expected sampling 
     //! functional form (device). 
