@@ -234,7 +234,6 @@ int main (int argc, char* args[]) {
 			LO neighbors_needed = Compadre::GMLS::getNP(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
  		    particles->getNeighborhood()->constructAllNeighborLists(particles->getCoordsConst()->getHaloSize(),
                 parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
-                true /*dry run for sizes*/,
                 neighbors_needed,
                 parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
                 parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),

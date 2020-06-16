@@ -1,6 +1,9 @@
 #ifndef _COMPADRE_HARNESS_TYPEDEFS_HPP_
 #define _COMPADRE_HARNESS_TYPEDEFS_HPP_
 
+// get typedefs from Compadre toolkit
+#include <Compadre_Typedefs.hpp>
+
 #include <Teuchos_RCP.hpp>
 #include <Teuchos_Comm.hpp>
 #include <Teuchos_CommHelpers.hpp>
@@ -70,8 +73,6 @@ namespace Compadre {
     typedef typename dual_view_local_index_type::t_host host_view_local_index_type;
     typedef typename dual_view_global_index_type::t_host host_view_global_index_type;
     typedef host_view_scalar_type host_view_type;
-
-    typedef typename dual_view_type::host_mirror_space host_execution_space;
 
     typedef Tpetra::Operator<scalar_type, local_index_type,
                                 global_index_type, node_type> op_type;

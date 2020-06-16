@@ -56,7 +56,6 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
 
             _neighborhoodInfo->constructAllNeighborLists(_max_radius, 
                     _parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
-                    true /*dry run for sizes*/,
                     neighbors_needed,
                     _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
                     _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
@@ -81,19 +80,6 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
             //  Copying data from particles (std::vector's, multivectors, etc....) to views used by local reconstruction class
             //
             //****************
-    
-            size_t max_num_neighbors = _neighborhoodInfo->computeMaxNumNeighbors(false /*local processor maximum*/);
-            kokkos_neighbor_lists = Kokkos::View<int**>("neighbor lists", target_coords->nLocal(), max_num_neighbors+1);
-            Kokkos::View<int**>::HostMirror kokkos_neighbor_lists_host = Kokkos::create_mirror_view(kokkos_neighbor_lists);
-            // fill in the neighbor lists into a kokkos view. First entry is # of neighbors for that target
-            Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
-                const int num_i_neighbors = _neighborhoodInfo->getNumNeighbors(i);
-                for (int j=1; j<num_i_neighbors+1; ++j) {
-                    kokkos_neighbor_lists_host(i,j) = _neighborhoodInfo->getNeighbor(i,j-1);
-                }
-                kokkos_neighbor_lists_host(i,0) = num_i_neighbors;
-            });
-            Kokkos::deep_copy(kokkos_neighbor_lists, kokkos_neighbor_lists_host);
     
             kokkos_augmented_source_coordinates = Kokkos::View<double**>("source_coordinates", source_coords->nLocal(true /* include halo in count */), source_coords->nDim());
             Kokkos::View<double**>::HostMirror kokkos_augmented_source_coordinates_host = Kokkos::create_mirror_view(kokkos_augmented_source_coordinates);
@@ -157,7 +143,8 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                             _parameters->get<Teuchos::ParameterList>("remap").get<std::string>("constraint type"),
                             _parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature porder")));
     
-                    _GMLS->setProblemData(kokkos_neighbor_lists,
+                    _GMLS->setProblemData(_neighborhoodInfo->getNeighborListsView(),
+                            _neighborhoodInfo->getNumberOfNeighborsListView(),
                             kokkos_augmented_source_coordinates,
                             kokkos_target_coordinates,
                             kokkos_epsilons);
@@ -216,7 +203,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                     }
     
                     _GMLS->addTargets(lro);
-                    _GMLS->generateAlphas(); // all operations requested
+                    _GMLS->generateAlphas(_parameters->get<Teuchos::ParameterList>("remap").get<int>("number of batches"));
     
                 }
             }
@@ -327,6 +314,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                         target_values(j,k) = output_vector(j,k);
                     }
                 });
+                Kokkos::fence();
     
     
                 // optional OBFET
@@ -385,6 +373,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                         kokkos_source_values(j,k) = source_halo_values_holder(j-num_local_particles,k);
                     }
                 });
+                Kokkos::fence();
     
     
     
@@ -402,6 +391,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                         target_values(j,k) = output_vector(j,k);
                     }
                 });
+                Kokkos::fence();
     
             }
         }

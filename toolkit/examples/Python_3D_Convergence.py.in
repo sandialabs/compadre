@@ -1,16 +1,15 @@
 import sys 
 
 # installation folder
-gmls_python_installation_path = "@SWIG_PREFIX@"
+gmls_python_installation_path = "@PYTHON_LIBRARY_PREFIX@"
 sys.path.append(gmls_python_installation_path)
 
-import GMLS_Module
+import pycompadre
 
 # import other relevant models
 import numpy as np
 import math
 import random
-import scipy.spatial.kdtree as kdtree
 
 import argparse
 parser = argparse.ArgumentParser()
@@ -46,8 +45,9 @@ def test1(ND):
     dimensions = 3
 
     # initialize 3rd order reconstruction using 2nd order basis in 3D (GMLS)
-    gmls_obj=GMLS_Module.GMLS_Python(polyOrder, "QR", manifoldPolyOrder, dimensions)
-    gmls_obj.setWeightingOrder(10)
+    gmls_obj=pycompadre.GMLS(polyOrder, dimensions, "QR", "STANDARD")
+    gmls_obj.setWeightingPower(10)
+    gmls_obj.setWeightingType("power")
 
     NT = 100 # Targets
     nx, ny, nz = (ND, ND, ND)
@@ -84,18 +84,23 @@ def test1(ND):
 
     # neighbor search
     epsilon_multiplier = 1.5
-    gmls_obj.generateKDTree(source_sites)
-    gmls_obj.generateNeighborListsFromKNNSearchAndSet(target_sites, polyOrder, dimensions, epsilon_multiplier)
+    gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+    gmls_helper.generateKDTree(source_sites)
+    gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_sites, polyOrder, dimensions, epsilon_multiplier)
 
     # set data in gmls object
-    gmls_obj.setSourceSites(source_sites)
+    gmls_helper.setSourceSites(source_sites)
 
     # used in combination with polynomial coefficients
-    epsilons = gmls_obj.getWindowSizes()
+    epsilons = gmls_helper.getWindowSizes()
     
+    gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
+    gmls_obj.addTargets(pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+    (dimensions>1) and gmls_obj.addTargets(pycompadre.TargetOperation.PartialYOfScalarPointEvaluation) 
+    (dimensions>2) and gmls_obj.addTargets(pycompadre.TargetOperation.PartialYOfScalarPointEvaluation) 
 
-    # generate stencil
-    gmls_obj.generatePointEvaluationStencil()
+    # generate stencil with number of batches set to 1, and keeping coefficients (not necessary)
+    gmls_obj.generateAlphas(1, True)
 
    
     # create sample data at source sites
@@ -105,7 +110,7 @@ def test1(ND):
     data_vector = np.array(data_vector, dtype=np.dtype('d'))
     
     # apply stencil to sample data for all targets
-    computed_answer = gmls_obj.applyStencil(data_vector)
+    computed_answer = gmls_helper.applyStencil(data_vector, pycompadre.TargetOperation.ScalarPointEvaluation)
 
     l2_error = 0
     for i in range(NT):
@@ -113,7 +118,7 @@ def test1(ND):
     l2_error = math.sqrt(l2_error/float(NT))  
 
     # get polynomial coefficients
-    polynomial_coefficients = gmls_obj.getPolynomialCoefficients(data_vector)
+    polynomial_coefficients = gmls_helper.getPolynomialCoefficients(data_vector)
 
     # alternative way to compute h1 semi norm
     # could remap using the gradient operator, but instead this uses calculated polynomial coefficients and applies
@@ -129,9 +134,9 @@ def test1(ND):
     
     return (l2_error, h1_seminorm_error)
 
-kokkos_obj=GMLS_Module.Kokkos_Python(int(args.kokkos_threads), int(args.kokkos_numa),
-                                     int(args.kokkos_device), int(args.kokkos_ngpus),
-                                     True) # print state after initializing
+kokkos_obj=pycompadre.KokkosParser(int(args.kokkos_threads), int(args.kokkos_numa),
+                                    int(args.kokkos_device), int(args.kokkos_ngpus),
+                                    True) # print state after initializing
 
 # of points in each dimension to run the test over
 ND = [5, 10, 20, 40]

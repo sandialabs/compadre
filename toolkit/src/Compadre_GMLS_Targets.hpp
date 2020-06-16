@@ -36,8 +36,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
     teamMember.team_barrier();
 
     const int target_NP = this->getNP(_poly_order, _dimensions, _reconstruction_space);
-    const int num_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
-                ? static_cast<int>(getNAdditionalEvaluationCoordinates(target_index)+1) : 1;
+    const int num_evaluation_sites = getNEvaluationSitesPerTarget(target_index);
 
     for (size_t i=0; i<_operations.size(); ++i) {
 
@@ -798,19 +797,16 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                                         this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // -u0yy
                                         for (int j=0; j<target_NP; ++j) {
-                                            auto val = P_target_row(offset, j);
                                             P_target_row(offset, j) -= delta(j);
                                         }
                                         this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 2 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // u2xz
                                         for (int j=0; j<target_NP; ++j) {
-                                            auto val = P_target_row(offset, j);
                                             P_target_row(offset, j) += delta(j);
                                         }
                                         this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction_1*/, 2 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // -u0zz
                                         for (int j=0; j<target_NP; ++j) {
-                                            auto val = P_target_row(offset, j);
                                             P_target_row(offset, j) -= delta(j);
                                         }
                                         // u1xy - u0yy + u2xz - u0zz
@@ -1024,8 +1020,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
     bool additional_evaluation_sites_need_handled = 
         (_additional_evaluation_coordinates.extent(0) > 0) ? true : false; // additional evaluation sites are specified
 
-    const int num_evaluation_sites = (static_cast<int>(_additional_evaluation_indices.extent(1)) > 1) 
-                ? static_cast<int>(getNAdditionalEvaluationCoordinates(target_index)+1) : 1;
+    const int num_evaluation_sites = getNEvaluationSitesPerTarget(target_index);
 
     for (size_t i=0; i<_operations.size(); ++i) {
 

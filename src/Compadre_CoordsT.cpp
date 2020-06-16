@@ -511,7 +511,7 @@ void CoordsT::syncMemory() {
 	}
 }
 
-bool CoordsT::hostNeedsUpdate() const {return pts->need_sync<host_execution_space>(); }
+bool CoordsT::hostNeedsUpdate() const {return pts->need_sync<host_memory_space>(); }
 bool CoordsT::deviceNeedsUpdate() const {return pts->need_sync<device_view_type>();}
 
 void CoordsT::zoltan2Init(bool use_physical_coords) {
@@ -669,10 +669,11 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
 
     auto source_sites = host_view_type("source sites", comm->getSize(), _nDim);
     auto target_sites = host_view_type("target sites", 1, _nDim);
-    auto neighbor_lists = host_view_local_index_type("neighbor lists", 
-            1, 1+(_nDim+2)*(_nDim+2)*(_nDim+2)-1 /* 2 layer max halo in Nd */);
     auto epsilons = host_vector_scalar_type("epsilons", 1);
     
+    auto neighbor_lists = host_vector_local_index_type("neighbor list", 0);
+    auto number_of_neighbors_list = host_vector_local_index_type("number of neighbors list", 1);
+
     std::set<local_index_type> proc_neighbors;
     auto comm_size = comm->getSize();
     auto comm_rank = comm->getRank();
@@ -697,11 +698,16 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
                                 target_sites(0,2) = (c==0) ? mins[2] : maxs[2];
                                 // do 3d search here
                                 auto point_cloud_search(CreatePointCloudSearch(source_sites, _nDim));
-                                point_cloud_search.generateNeighborListsFromRadiusSearch(false /*not dry run*/, target_sites, 
-                                        neighbor_lists, epsilons, h_size);
-                                for (local_index_type m=1; m<=neighbor_lists(0,0); ++m) {
-                                    if (neighbor_lists(0,m)!=comm_rank)
-                                        proc_neighbors.insert(neighbor_lists(0,m));   
+                                auto storage_size = point_cloud_search.generateCRNeighborListsFromRadiusSearch(true /*dry run*/, target_sites, 
+                                        neighbor_lists, number_of_neighbors_list, epsilons, h_size);
+                                if (storage_size!=neighbor_lists.extent(0))
+                                    Kokkos::resize(neighbor_lists, storage_size);
+                                point_cloud_search.generateCRNeighborListsFromRadiusSearch(false /*not dry run*/, target_sites, 
+                                        neighbor_lists, number_of_neighbors_list, epsilons, h_size);
+                                auto neighbor_list(CreateNeighborLists(neighbor_lists, number_of_neighbors_list));
+                                for (local_index_type m=0; m<neighbor_list.getNumberOfNeighborsHost(0); ++m) {
+                                    if (neighbor_list.getNeighborHost(0,m)!=comm_rank)
+                                        proc_neighbors.insert(neighbor_list.getNeighborHost(0,m));   
                                 } 
                             }
                         }
@@ -726,11 +732,16 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
                         target_sites(0,1) = (b==0) ? mins[1] : maxs[1];
                         // do 2d search here
                         auto point_cloud_search(CreatePointCloudSearch(source_sites, _nDim));
-                        point_cloud_search.generateNeighborListsFromRadiusSearch(false /*not dry run*/, target_sites, 
-                                neighbor_lists, epsilons, h_size);
-                        for (local_index_type m=1; m<=neighbor_lists(0,0); ++m) {
-                            if (neighbor_lists(0,m)!=comm_rank)
-                                proc_neighbors.insert(neighbor_lists(0,m));   
+                        auto storage_size = point_cloud_search.generateCRNeighborListsFromRadiusSearch(true /*dry run*/, target_sites, 
+                                neighbor_lists, number_of_neighbors_list, epsilons, h_size);
+                        if (storage_size!=neighbor_lists.extent(0))
+                            Kokkos::resize(neighbor_lists, storage_size);
+                        point_cloud_search.generateCRNeighborListsFromRadiusSearch(false /*not dry run*/, target_sites, 
+                                neighbor_lists, number_of_neighbors_list, epsilons, h_size);
+                        auto neighbor_list(CreateNeighborLists(neighbor_lists, number_of_neighbors_list));
+                        for (local_index_type m=0; m<neighbor_list.getNumberOfNeighborsHost(0); ++m) {
+                            if (neighbor_list.getNeighborHost(0,m)!=comm_rank)
+                                proc_neighbors.insert(neighbor_list.getNeighborHost(0,m));   
                         } 
                     }
                 }
@@ -749,11 +760,16 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
                 target_sites(0,0) = (a==0) ? mins[0] : maxs[0];
                 // do 1d search here
                 auto point_cloud_search(CreatePointCloudSearch(source_sites, _nDim));
-                point_cloud_search.generateNeighborListsFromRadiusSearch(false /*not dry run*/, target_sites, 
-                        neighbor_lists, epsilons, h_size);
-                for (local_index_type m=1; m<=neighbor_lists(0,0); ++m) {
-                    if (neighbor_lists(0,m)!=comm_rank)
-                        proc_neighbors.insert(neighbor_lists(0,m));   
+                auto storage_size = point_cloud_search.generateCRNeighborListsFromRadiusSearch(true /*dry run*/, target_sites, 
+                        neighbor_lists, number_of_neighbors_list, epsilons, h_size);
+                if (storage_size!=neighbor_lists.extent(0))
+                    Kokkos::resize(neighbor_lists, storage_size);
+                point_cloud_search.generateCRNeighborListsFromRadiusSearch(false /*not dry run*/, target_sites, 
+                        neighbor_lists, number_of_neighbors_list, epsilons, h_size);
+                auto neighbor_list(CreateNeighborLists(neighbor_lists, number_of_neighbors_list));
+                for (local_index_type m=0; m<neighbor_list.getNumberOfNeighborsHost(0); ++m) {
+                    if (neighbor_list.getNeighborHost(0,m)!=comm_rank)
+                        proc_neighbors.insert(neighbor_list.getNeighborHost(0,m));   
                 } 
             }
         }

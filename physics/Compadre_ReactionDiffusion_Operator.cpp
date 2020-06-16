@@ -85,7 +85,6 @@ void ReactionDiffusionPhysics::initialize() {
             new neighborhood_type(_cells, _particles.getRawPtr(), false /*material coords*/, maxLeaf)));
     _particles_triple_hop_neighborhood->constructAllNeighborLists(max_search_size,
         "radius",
-        true /*dry run for sizes*/,
         neighbors_needed+1,
         0.0, /* cutoff multiplier */
         triple_radius, /* search size */
@@ -507,7 +506,6 @@ void ReactionDiffusionPhysics::initialize() {
                     new neighborhood_type(_cells, halo_particles.getRawPtr(), false /*material coords*/, maxLeaf)));
             _halo_cell_particles_neighborhood->constructAllNeighborLists(max_search_size /* we know we have enough halo info */,
                 "radius",
-                true /*dry run for sizes*/,
                 neighbors_needed+1,
                 0.0, /* cutoff multiplier */
                 _cell_particles_max_h, /* search size */
