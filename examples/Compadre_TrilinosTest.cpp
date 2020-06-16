@@ -202,7 +202,6 @@ int main (int argc, char* args[]) {
          particles->getNeighborhood()->setAllHSupportSizes(h_support);
          particles->getNeighborhood()->constructAllNeighborLists(particles->getCoordsConst()->getHaloSize(),
             parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
-            true /*dry run for sizes*/,
             7 /* neighbors needed */,
             parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
             parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
@@ -275,7 +274,6 @@ int main (int argc, char* args[]) {
                 particles->getNeighborhood()->setAllHSupportSizes(h_support);
                  particles->getNeighborhood()->constructAllNeighborLists(particles->getCoordsConst()->getHaloSize(),
                     parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
-                    true /*dry run for sizes*/,
                     4 /* neighbors needed */,
                     parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
                     parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),

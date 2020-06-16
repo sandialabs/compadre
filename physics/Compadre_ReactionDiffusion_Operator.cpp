@@ -221,6 +221,7 @@ void ReactionDiffusionPhysics::initialize() {
     //    _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
     // Kokkos::fence();
 
+
     //****************
     //
     //  Copying data from particles (std::vector's, multivectors, etc....) to views used by local reconstruction class
@@ -929,6 +930,7 @@ void ReactionDiffusionPhysics::initialize() {
     //        Kokkos::fence();
     //    }
     //}
+
 
 
     GenerateData->stop();

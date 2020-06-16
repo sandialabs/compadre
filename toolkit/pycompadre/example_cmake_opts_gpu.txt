@@ -1,0 +1,9 @@
+CMAKE_CXX_COMPILER=/absolute/path/to/compadre_repo/kokkos/bin/nvcc_wrapper
+CMAKE_CXX_FLAGS="-std=c++14"
+Compadre_USE_PYTHON:BOOL=ON
+Compadre_DEBUG:BOOL=OFF
+Compadre_EXTREME_DEBUG:BOOL=OFF
+Kokkos_ENABLE_PTHREAD:BOOL=OFF
+Kokkos_ENABLE_CUDA:BOOL=ON
+Kokkos_ARCH_MAXWELL50:BOOL=ON
+Compadre_USE_MPI:BOOL=OFF

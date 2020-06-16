@@ -1,6 +1,9 @@
-toolkit/doc/Doxyfile
+toolkit/cmake/Dependencies.cmake
 toolkit/examples/GMLS_Vector.cpp.new
+toolkit/examples/CMakeLists.tribits.cmake
 toolkit/kokkos/bin/nvcc_wrapper
 toolkit/kokkos/doc/Kokkos_PG.pdf
 toolkit/kokkos/doc/SAND2017-10464-Kokkos-Task-DAG.pdf
+toolkit/scripts/trilinos-configure.sh
+toolkit/src/CMakeLists.tribits.cmake
 build/*

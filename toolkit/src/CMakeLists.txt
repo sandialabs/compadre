@@ -24,6 +24,11 @@ compadre_append_glob(COMPADRE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 add_library(compadre ${COMPADRE_SOURCES})
 bob_library_includes(compadre)
 
+# allows us to use flat directory includes when building, since that will be the file structure once installed
+target_include_directories(compadre PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/basis>)
+target_include_directories(compadre PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/constraints>)
+target_include_directories(compadre PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/tpl>)
+
 # openmp if needed
 if (Compadre_USE_OPENMP)
   find_package(OpenMP QUIET)

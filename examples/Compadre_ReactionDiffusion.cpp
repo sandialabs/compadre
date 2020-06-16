@@ -203,6 +203,7 @@ int main (int argc, char* args[]) {
             particles->createDOFManager();
 
 
+
             ////Set the radius for the neighbor list:
              //ST h_support;
              //if (parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("dynamic radius")) {

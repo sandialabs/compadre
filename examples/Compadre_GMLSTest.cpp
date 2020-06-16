@@ -141,7 +141,6 @@ int main (int argc, char* args[]) {
 
  		        particles->getNeighborhood()->constructAllNeighborLists(particles->getCoordsConst()->getHaloSize(),
                     parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
-                    true /*dry run for sizes*/,
                     neighbors_needed,
                     parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
                     parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),

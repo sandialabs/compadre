@@ -132,7 +132,7 @@ void LagCoordsT::syncMemory() {
     lagPts->sync<host_view_type>();
 }
 
-bool LagCoordsT::hostNeedsUpdate() const {return lagPts->need_sync<host_execution_space>();}
+bool LagCoordsT::hostNeedsUpdate() const {return lagPts->need_sync<host_memory_space>();}
 bool LagCoordsT::deviceNeedsUpdate() const {return lagPts->need_sync<device_view_type>();}
 
 void LagCoordsT::buildHalo() {

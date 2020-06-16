@@ -1,0 +1,6 @@
+include *
+recursive-include * *
+prune .git
+prune .eggs
+prune build
+prune dist
