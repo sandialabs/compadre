@@ -871,7 +871,6 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 				local_index_type neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
 				_particles->getNeighborhood()->constructAllNeighborLists(_particles->getCoordsConst()->getHaloSize(), 
                         _parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"), 
-                        true /*dry run for sizes*/, 
                         neighbors_needed,
                         _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
                         _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),

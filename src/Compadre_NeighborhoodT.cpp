@@ -89,6 +89,7 @@ scalar_type NeighborhoodT::computeMinHSupportSize(const bool global) const {
             KOKKOS_LAMBDA (const int i, scalar_type &myVal) {
         myVal = hsupportView(i,0)<myVal ? hsupportView(i,0) : myVal;
     }, Kokkos::Min<scalar_type>(local_processor_min_radius));
+    Kokkos::fence();
 
     if (global) {
         // collect min radius from all processors
@@ -112,6 +113,7 @@ scalar_type NeighborhoodT::computeMaxHSupportSize(const bool global) const {
             KOKKOS_LAMBDA (const int i, scalar_type &myVal) {
         myVal = hsupportView(i,0)>myVal ? hsupportView(i,0) : myVal;
     }, Kokkos::Max<scalar_type>(local_processor_max_radius));
+    Kokkos::fence();
 
     if (global) {
         // collect max radius from all processors
@@ -129,8 +131,8 @@ scalar_type NeighborhoodT::computeMaxHSupportSize(const bool global) const {
 
 
 void NeighborhoodT::constructAllNeighborLists(const scalar_type halo_max_search_size, std::string search_type, 
-        bool do_dry_run_for_sizes, const local_index_type knn_needed, const scalar_type cutoff_multiplier, 
-        const scalar_type radius, const bool equal_radii, const scalar_type post_search_radii_scaling, bool use_physical_coords) {
+        const local_index_type knn_needed, const scalar_type cutoff_multiplier, const scalar_type radius, 
+        const bool equal_radii, const scalar_type post_search_radii_scaling, bool use_physical_coords) {
 
     NeighborSearchTime->start();
 
@@ -161,21 +163,20 @@ void NeighborhoodT::constructAllNeighborLists(const scalar_type halo_max_search_
     // get search_type to lowercase
     transform(search_type.begin(), search_type.end(), search_type.begin(), ::tolower);
 
+    _neighbor_lists = int_1d_view_type("neighbor lists", 0);
+    _number_of_neighbors_list = int_1d_view_type("number of neighbors list", h_support_view.extent(0));
+
     // do dry run to figure out how many neighbors are needed
     // optimal for storage, not for computation (2x the work)
-    if (do_dry_run_for_sizes) {
-        _neighbor_lists = host_view_local_index_type("neighbor lists", h_support_view.extent(0), 1);
-
-        size_t max_num_neighbors;
+    {
+        size_t total_storage = 0;
         if (search_type=="knn") {
-            _neighbor_lists = host_view_local_index_type("neighbor lists", h_support_view.extent(0), 1+knn_needed);
-            max_num_neighbors = _point_cloud_search->generateNeighborListsFromKNNSearch(do_dry_run_for_sizes, 
-                    target_pts_view, _neighbor_lists, epsilons, knn_needed, cutoff_multiplier, 
+            total_storage = _point_cloud_search->generateCRNeighborListsFromKNNSearch(true /* do dry run for sizes*/, 
+                    target_pts_view, _neighbor_lists, _number_of_neighbors_list, epsilons, knn_needed, cutoff_multiplier, 
                     recalculated_halo_max_search_size);
         } else if (search_type=="radius") {
-            _neighbor_lists = host_view_local_index_type("neighbor lists", h_support_view.extent(0), 1);
-            max_num_neighbors = _point_cloud_search->generateNeighborListsFromRadiusSearch(do_dry_run_for_sizes, 
-                    target_pts_view, _neighbor_lists, epsilons, radius, recalculated_halo_max_search_size);
+            total_storage = _point_cloud_search->generateCRNeighborListsFromRadiusSearch(true /* do dry run for sizes*/, 
+                    target_pts_view, _neighbor_lists, _number_of_neighbors_list, epsilons, radius, recalculated_halo_max_search_size);
         }
 
         // at this point, h_supports contains all search sizes
@@ -185,41 +186,37 @@ void NeighborhoodT::constructAllNeighborLists(const scalar_type halo_max_search_
             auto max_h = this->computeMaxHSupportSize(global_reduction);
 
             // perform a radius search with max_h
-            max_num_neighbors = _point_cloud_search->generateNeighborListsFromRadiusSearch(do_dry_run_for_sizes, 
-                    target_pts_view, _neighbor_lists, epsilons, max_h, recalculated_halo_max_search_size);
+            total_storage = _point_cloud_search->generateCRNeighborListsFromRadiusSearch(true /* do dry run for sizes*/, 
+                    target_pts_view, _neighbor_lists, _number_of_neighbors_list, epsilons, max_h, recalculated_halo_max_search_size);
         }
 
         // follow up by figuring out max num neighbors resize neighbor_lists to that large
-        Kokkos::resize(_neighbor_lists, _neighbor_lists.extent(0), 1+max_num_neighbors);
-    } else {
-        // use storage multiplier times estimated number to figure out sizes
-        int estimated_upper_bound_number_neighbors = 
-            (int)(_storage_multiplier*_point_cloud_search->getEstimatedNumberNeighborsUpperBound(knn_needed, 
-                        _n_dim, cutoff_multiplier));
-        _neighbor_lists = host_view_local_index_type("neighbor lists", h_support_view.extent(0), 
-                estimated_upper_bound_number_neighbors);
+        Kokkos::resize(_neighbor_lists, total_storage);
     }
 
-    // neighbor search with storage
-    // determine which type of search to perform and take into consideration constraints
-    if (search_type=="knn") {
-        _local_max_num_neighbors = _point_cloud_search->generateNeighborListsFromKNNSearch(false /*not dry run*/, 
-                target_pts_view, _neighbor_lists, epsilons, knn_needed, cutoff_multiplier, 
-                recalculated_halo_max_search_size);
-    } else if (search_type=="radius") {
-        _local_max_num_neighbors = _point_cloud_search->generateNeighborListsFromRadiusSearch(false /*not dry run*/, 
-                target_pts_view, _neighbor_lists, epsilons, radius, recalculated_halo_max_search_size);
-    }
+    // actual neighbor search with storage of results
+    {
+        if (equal_radii) {
+            // get max h size
+            auto max_h = this->computeMaxHSupportSize(global_reduction);
 
-    // at this point, h_supports contains all search sizes
-    // if needed, do a follow up radius search to ensure uniform search radii
-    if (equal_radii) {
-        // get max h size
-        auto max_h = this->computeMaxHSupportSize(global_reduction);
-
-        // perform a radius search with max_h
-        _local_max_num_neighbors = _point_cloud_search->generateNeighborListsFromRadiusSearch(false /*not dry run*/, 
-                target_pts_view, _neighbor_lists, epsilons, max_h, recalculated_halo_max_search_size);
+            // perform a radius search with max_h
+            _point_cloud_search->generateCRNeighborListsFromRadiusSearch(false /*not dry run*/, 
+                    target_pts_view, _neighbor_lists, _number_of_neighbors_list, epsilons, max_h, recalculated_halo_max_search_size);
+        } else {
+            // neighbor search with storage
+            // determine which type of search to perform and take into consideration constraints
+            if (search_type=="knn") {
+                _point_cloud_search->generateCRNeighborListsFromKNNSearch(false /*not dry run*/, 
+                        target_pts_view, _neighbor_lists, _number_of_neighbors_list, epsilons, knn_needed, cutoff_multiplier, 
+                        recalculated_halo_max_search_size);
+            } else if (search_type=="radius") {
+                _point_cloud_search->generateCRNeighborListsFromRadiusSearch(false /*not dry run*/, 
+                        target_pts_view, _neighbor_lists, _number_of_neighbors_list, epsilons, radius, recalculated_halo_max_search_size);
+            }
+        }
+        // at this point, h_supports contains all search sizes
+        // if needed, do a follow up radius search to ensure uniform search radii
     }
 
     if (post_search_radii_scaling != 1.0) {
@@ -228,6 +225,12 @@ void NeighborhoodT::constructAllNeighborLists(const scalar_type halo_max_search_
             h_support_view(i,0) *= post_search_radii_scaling;
         });
     }
+
+    // store solution as NeighborLists object
+    _nl = Teuchos::rcp(new NeighborLists<int_1d_view_type>(_neighbor_lists, _number_of_neighbors_list));
+
+    // calculate _local_max_num_neighbors
+    _local_max_num_neighbors = _nl->getMaxNumNeighbors();
 
     NeighborSearchTime->stop();
 }

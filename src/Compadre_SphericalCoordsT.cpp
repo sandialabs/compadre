@@ -78,7 +78,7 @@ void SphericalCoordsT::initRandom(const scalar_type s, const local_index_type i,
 		generate_random_sphere(ptsView, s, i) );
 		this->setLocalN(this->nLocalMax());
 		pts_vec->modify<device_view_type>();
-		pts_vec->sync<host_execution_space>();
+		pts_vec->sync<host_memory_space>();
 }
 
 }
