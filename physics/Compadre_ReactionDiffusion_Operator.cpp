@@ -63,7 +63,6 @@ void ReactionDiffusionPhysics::initialize() {
             new neighborhood_type(_cells, _particles.getRawPtr(), false /*material coords*/, maxLeaf)));
     _cell_particles_neighborhood->constructAllNeighborLists(_cells->getCoordsConst()->getHaloSize(),
        _parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
-       true /*dry run for sizes*/,
        neighbors_needed+1,
        _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
        _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
@@ -75,7 +74,6 @@ void ReactionDiffusionPhysics::initialize() {
                 new neighborhood_type(_particles.getRawPtr(), _cells, false /*material coords*/, maxLeaf)));
         _particle_cells_neighborhood->constructAllNeighborLists(_particles->getCoordsConst()->getHaloSize(),
            _parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
-           true /*dry run for sizes*/,
            neighbors_needed+1,
            _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
            _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
@@ -110,14 +108,22 @@ void ReactionDiffusionPhysics::initialize() {
     class ParticleToParticleThroughCellPlusAdjacentCellsNeighborhood : public NeighborhoodT {
         public:
             ParticleToParticleThroughCellPlusAdjacentCellsNeighborhood(const local_index_type num_target_sites, const local_index_type max_neighbors) : NeighborhoodT(0) {
-                _neighbor_lists = host_view_local_index_type("neighbor lists", num_target_sites, max_neighbors+1);
+                _neighbor_lists = NeighborhoodT::int_1d_view_type("neighbor lists", num_target_sites*(max_neighbors+1));
+                _number_of_neighbors_list = NeighborhoodT::int_1d_view_type("number of neighbors list", num_target_sites);
             };
             virtual ~ParticleToParticleThroughCellPlusAdjacentCellsNeighborhood() {};
-            void setNeighbor(const local_index_type idx, const local_index_type local_neighbor_number, const local_index_type neighbor_number) {
-                _neighbor_lists(idx, local_neighbor_number+1) = neighbor_number;
-            }
             void setNumNeighbors(const local_index_type idx, const local_index_type num_neighbors) {
-                _neighbor_lists(idx, 0) = num_neighbors;
+                _number_of_neighbors_list(idx) =  num_neighbors;
+            }
+            void finalizeSize() {
+                // store solution as NeighborLists object
+                _nl = Teuchos::rcp(new NeighborLists<int_1d_view_type>(_number_of_neighbors_list));
+            }
+            void setNeighbor(const local_index_type idx, const local_index_type local_neighbor_number, const local_index_type neighbor_number) {
+                _nl->setNeighborDevice(idx, local_neighbor_number, neighbor_number);
+            }
+            void finalizeData() {
+                //_nl->copyDeviceDataToHost();
             }
             void setMaxNumNeighbors(const local_index_type max_num_neighbors) {
                 _local_max_num_neighbors = max_num_neighbors;
@@ -156,9 +162,14 @@ void ReactionDiffusionPhysics::initialize() {
 
     if (_ndim_requested==3) printf("Conversion started.\n");
     auto particles_triple_hop_neighborhood = Teuchos::rcp(new ParticleToParticleThroughCellPlusAdjacentCellsNeighborhood(num_particles_local, max_particle_particle_neighbors));
-    Kokkos::parallel_for("convert particles to particles to neighbor list", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_particles->getCoordsConst()->nLocal(true)), [&](const int i) {
+    Kokkos::parallel_for("convert particles to particles counts to neighbor list", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_particles->getCoordsConst()->nLocal(true)), [&](const int i) {
         std::unordered_set<local_index_type>* i_set = const_cast<std::unordered_set<local_index_type>* >(&particle_neighbors_of_particles[i]);
         particles_triple_hop_neighborhood->setNumNeighbors(i, i_set->size());
+    });
+    Kokkos::fence();
+    particles_triple_hop_neighborhood->finalizeSize();
+    Kokkos::parallel_for("convert particles to particles indices to neighbor list", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_particles->getCoordsConst()->nLocal(true)), [&](const int i) {
+        std::unordered_set<local_index_type>* i_set = const_cast<std::unordered_set<local_index_type>* >(&particle_neighbors_of_particles[i]);
         int count = 0;
         for (const auto& val : (*i_set)) {
             particles_triple_hop_neighborhood->setNeighbor(i, count, val);
@@ -166,6 +177,7 @@ void ReactionDiffusionPhysics::initialize() {
         }
     });
     Kokkos::fence();
+    particles_triple_hop_neighborhood->finalizeData();
 
     local_index_type min_particle_particle_neighbors = 0;
     Kokkos::parallel_reduce("get min P->P neighbors", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_particles->getCoordsConst()->nLocal(true)), [&](const int i, local_index_type& t_min) {
