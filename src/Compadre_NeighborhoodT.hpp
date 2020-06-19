@@ -75,6 +75,8 @@ class NeighborhoodT {
             return _nl->getNeighborHost(idx, local_neighbor_number);
         }
 
+        local_index_type computeMinNumNeighbors(const bool global) const;
+
         local_index_type computeMaxNumNeighbors(const bool global) const;
 
         scalar_type computeMinHSupportSize(const bool global) const;

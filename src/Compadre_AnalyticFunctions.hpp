@@ -425,6 +425,35 @@ class ConstantEachDimension : public AnalyticFunction {
 
 };
 
+class Timoshenko : public AnalyticFunction {
+
+	typedef XyzVector xyz_type;
+
+    scalar_type _P;
+    scalar_type _D;
+    scalar_type _L;
+    scalar_type _nu;
+    scalar_type _E;
+    scalar_type _I;
+
+	public :
+
+	    Timoshenko(const scalar_type shear_modulus, const scalar_type lambda, const local_index_type dim = 2) 
+                : AnalyticFunction(dim), _P(1000.0), _D(12.0), _L(48.0) {
+            TEUCHOS_TEST_FOR_EXCEPT_MSG(dim!=2, "Timoshenko only defined for 2D.\n");
+            _nu = (lambda==std::numeric_limits<scalar_type>::infinity()) ? 0.5             : lambda / (2*(lambda + shear_modulus));
+            _E  = (lambda==std::numeric_limits<scalar_type>::infinity()) ? 3*shear_modulus : shear_modulus*(3*lambda + 2*shear_modulus) / (lambda + shear_modulus);
+            _I  = _D*_D*_D/12.0;
+        }
+
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+
+		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+};
+
 class ScaleOfEachDimension : public AnalyticFunction {
 
 	typedef XyzVector xyz_type;

@@ -11,6 +11,8 @@ parser = argparse.ArgumentParser(description='Run convergence tests and calculat
 parser.add_argument('--num-meshes', dest='num_meshes', type=int, default=3, nargs='?', help='number of meshes')
 parser.add_argument('--order', dest='order', type=int, nargs='?', default=2, help='polynomial order for basis')
 parser.add_argument('--pressure-order', dest='pressure_order', type=int, nargs='?', default=-1, help='polynomial order for pressure basis')
+parser.add_argument('--dim', dest='dim', type=int, nargs='?', default=2, help='spatial dimension of problem')
+parser.add_argument('--kokkos-threads', dest='kokkos_threads', type=int, nargs='?', default=4, help='threads for kokkos')
 
 parser.add_argument('--shear', dest='shear', type=float, nargs='?', default=1.0, help='shear modulus')
 parser.add_argument('--lambda', dest='lambda_lame', type=float, nargs='?', default=1.0, help='lambda coefficient')
@@ -19,6 +21,10 @@ parser.add_argument('--diffusion', dest='diffusion', type=float, nargs='?', defa
 parser.add_argument('--penalty', dest='penalty', type=float, nargs='?', default=1.0, help='penalty coefficient')
 parser.add_argument('--size', dest='size', type=float, nargs='?', default=1.0, help='first mesh search size (halfed each refinement)')
 parser.add_argument('--rate-tol', dest='rate_tol', type=float, nargs='?', default=0.5, help='tolerance for convergence')
+
+parser.add_argument('--dg-stabilization', dest='dg_stabilization', type=str, nargs='?', default='sip', help='stabilization type {"sip","vms"}')
+parser.add_argument('--penalty-weighting', dest='penalty_weighting', type=str, nargs='?', default='neighbor', help='penalty weighting |e| {"neighbor","side"}\
+        "neighbor" uses neighbor search window size as |e|, while "side" uses edge length/side area.')
 
 parser.add_argument('--solution', dest='solution', type=str, nargs='?', default='polynomial', help='solution type')
 parser.add_argument('--pressure-solution', dest='pressure_solution', type=str, nargs='?', default='polynomial', help='pressure solution type')
@@ -30,6 +36,7 @@ parser.add_argument('--assert-rate', dest='assert_rate', type=str, nargs='?', de
 
 parser.add_argument('--output-folder', dest='output_folder', type=str, nargs='?', default='', help='where to dump data files (relative to directory this script is called from')
 parser.add_argument('--output-file', dest='output_file', type=str, nargs='?', default='', help='file name to dump data to')
+parser.add_argument('--exec-mpi', dest='exec_mpi', type=str, nargs='?', default='false', help='use mpirun instead of calling executable directly')
 
 args = parser.parse_args()
 
@@ -37,7 +44,10 @@ if args.pressure_order<0:
     args.pressure_order = args.order-1 # Taylor-Hood style velocity+pressure pair
 
 
-file_names = ["dg_%d.nc"%num for num in range(args.num_meshes)]
+if (args.dim==2):
+    file_names = ["dg_%d.nc"%num for num in range(args.num_meshes)]
+else:
+    file_names = ["cube_%d.nc"%num for num in range(args.num_meshes)]
 error_types=['vel. l2','vel. h1','vel. jp','vel. sum','pr. l2']
 all_errors = [list(), list(), list(), list(), list(), list(), list()]#list() * len(error_types)
 
@@ -62,6 +72,8 @@ for key2, fname in enumerate(file_names):
     for item in list(f):
         if (item.attrib['name']=="input file"):
             item.attrib['value']=fname
+        if (item.attrib['name']=="input dimensions"):
+            item.attrib['value']=str(args.dim)
 
     for item in list(n):
         if (item.attrib['name']=="size"):
@@ -84,6 +96,10 @@ for key2, fname in enumerate(file_names):
             item.attrib['value']=str(args.lambda_lame)
         if (item.attrib['name']=="penalty"):
             item.attrib['value']=str(args.penalty)
+        if (item.attrib['name']=="dg stabilization"):
+            item.attrib['value']=str(args.dg_stabilization.lower())
+        if (item.attrib['name']=="penalty weighting"):
+            item.attrib['value']=str(args.penalty_weighting.lower())
 
     for item in list(r):
         if (item.attrib['name']=="porder"):
@@ -99,7 +115,10 @@ for key2, fname in enumerate(file_names):
     
     with open(os.devnull, 'w') as devnull:
 
-        commands = ["./reactionDiffusion.exe","--i=../test_data/parameter_lists/reactiondiffusion/parameters_generated.xml","--kokkos-threads=8"]
+        if (args.exec_mpi.lower()=="true"):
+            commands = ["mpirun", "--bind-to", "none", "-np", "1", "./reactionDiffusion.exe","--i=../test_data/parameter_lists/reactiondiffusion/parameters_generated.xml","--kokkos-threads=%s"%(args.kokkos_threads,)]
+        else:
+            commands = ["./reactionDiffusion.exe","--i=../test_data/parameter_lists/reactiondiffusion/parameters_generated.xml","--kokkos-threads=%s"%(args.kokkos_threads,)]
         print(" ".join(commands))
         try:
             output = subprocess.check_output(commands, stderr=devnull).decode()
@@ -131,40 +150,43 @@ print(all_errors)
 for key, errors in enumerate(all_errors):
     rate = 0
     last_error = 0
-    if (args.num_meshes>1 and len(errors)>0):
-        print("\n\nerror rates: type:%s\n============="%(error_types[key],))
-        for i in range(1,len(errors)):
-            if (errors[i]!=0):
-                rate = math.log(errors[i]/errors[i-1])/math.log(.5)
-                last_error = errors[i]
-                print(str(rate) + ", " + str(errors[i]) + ", " + str(errors[i-1]))
-            else:
-                print("NaN - Division by zero")
-    else:
-        break
+    if (len(errors)>0):
+        if (args.num_meshes>1 and len(errors)>0):
+            print("\n\nerror rates: type:%s\n============="%(error_types[key],))
+            for i in range(1,len(errors)):
+                if (errors[i]!=0):
+                    rate = math.log(errors[i]/errors[i-1])/math.log(.5)
+                    last_error = errors[i]
+                    print(str(rate) + ", " + str(errors[i]) + ", " + str(errors[i-1]))
+                else:
+                    print("NaN - Division by zero")
+        elif (args.num_meshes==1 and args.convergence_type.lower()=="exact"):
+            last_error = errors[0]
+        else:
+            break
 
-    base_rate = 0
-    if 'pr.' in error_types[key]:
-        base_rate = args.pressure_order
-    else:
-        base_rate = args.order
+        base_rate = 0
+        if 'pr.' in error_types[key]:
+            base_rate = args.pressure_order
+        else:
+            base_rate = args.order
 
-    rate_adjustment = 0
-    if ('l2' in error_types[key] and args.operator.lower()!="mix_le"):
-        rate_adjustment = 1
+        rate_adjustment = 0
+        if ('l2' in error_types[key] and args.operator.lower()!="mix_le"):
+            rate_adjustment = 1
 
-    if (args.convergence_type.lower()=="exact" and args.assert_rate.lower()=="true"):
-        if (abs(args.rate_tol-last_error)>args.rate_tol):
-            assert False, "Last calculated error (%f) more than %f from exact solution." % (last_error, args.rate_tol,)
-    elif (args.convergence_type.lower()=="rate" and args.assert_rate.lower()=="true"):
-        if (abs(base_rate+rate_adjustment-rate)>args.rate_tol and rate<base_rate):
-            assert False, "Last calculated rate (%f) more than %f from theoretical optimal rate." % (rate, args.rate_tol,)
+        if (args.convergence_type.lower()=="exact" and args.assert_rate.lower()=="true"):
+            if (abs(args.rate_tol-last_error)>args.rate_tol):
+                assert False, "Last calculated error (%g) more than %g from exact solution." % (last_error, args.rate_tol,)
+        elif (args.convergence_type.lower()=="rate" and args.assert_rate.lower()=="true"):
+            if (abs(base_rate+rate_adjustment-rate)>args.rate_tol and rate<base_rate):
+                assert False, "Last calculated rate (%f) more than %f from theoretical optimal rate." % (rate, args.rate_tol,)
 
-    if args.output_file!="":
-        # concatenate data (h size, computed error, theoretical rate line passing through )
-        np_errors_list[key] = np.zeros(shape=(len(errors)+1,), dtype='f8')
-        np_errors_list[key][0:-1] = np.array(errors, dtype='f8')
-        np_errors_list[key][-1] = base_rate + rate_adjustment
+        if args.output_file!="" and args.convergence_type.lower()!="exact":
+            # concatenate data (h size, computed error, theoretical rate line passing through )
+            np_errors_list[key] = np.zeros(shape=(len(errors)+1,), dtype='f8')
+            np_errors_list[key][0:-1] = np.array(errors, dtype='f8')
+            np_errors_list[key][-1] = base_rate + rate_adjustment
 
 if args.output_file!="":
     import pandas as pd

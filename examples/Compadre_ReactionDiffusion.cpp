@@ -107,30 +107,74 @@ int main (int argc, char* args[]) {
         }
     }
 
+    bool use_sip = false, use_vms = false;
+    if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("dg stabilization")=="sip") {
+        use_sip = true;
+        use_vms = false;
+    } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("dg stabilization")=="vms") {
+        use_sip = false;
+        use_vms = true;
+    } else {
+        use_sip = false;
+        use_vms = false;
+    }
+
+    bool use_neighbor_weighting = false, use_side_weighting = false;
+    if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("penalty weighting")=="neighbor") {
+        use_neighbor_weighting = true;
+        use_side_weighting = false;
+    } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("penalty weighting")=="side") {
+        use_neighbor_weighting = false;
+        use_side_weighting = true;
+    } else {
+        //if (!use_vms) compadre_assert_release(false && "Illegal choice for \"penalty weighting\".");
+    }
+
     {
-        const std::string testfilename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + "/" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file");
+        const std::string cells_testfilename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + "/" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file");
+        std::string particles_testfilename;
+        try {
+            particles_testfilename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input file prefix") + "/" + parameters->get<Teuchos::ParameterList>("io").get<std::string>("particles input file");
+        } catch (...) {
+            particles_testfilename = cells_testfilename;
+        }
 
         //
         // GMLS Test
         //
-        int Porder = parameters->get<Teuchos::ParameterList>("remap").get<int>("porder");
         double h_size = 1./12.;
 
         TEUCHOS_TEST_FOR_EXCEPT_MSG(input_dim<2, "Only supported for A-D problem in 2 or 3D.");
               
+        Teuchos::RCP<Compadre::ParticlesT> particles;
         Teuchos::RCP<Compadre::ParticlesT> cells =
                 Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, input_dim));
         const CT * coords = (CT*)(cells->getCoordsConst());
-
-        //Read in data file. Needs to be a file with one scalar field.
-        FirstReadTime->start();
-        Compadre::FileManager fm;
-        fm.setReader(testfilename, cells);
-        fm.read();
-        FirstReadTime->stop();
+        
+        //Read in data file
+        {
+            FirstReadTime->start();
+            Compadre::FileManager fm;
+            fm.setReader(cells_testfilename, cells);
+            fm.read();
+            FirstReadTime->stop();
+        }
 
         cells->zoltan2Initialize();
 
+        if (particles_testfilename != cells_testfilename) {
+            //Read in data file
+            FirstReadTime->start();
+            Compadre::FileManager fm;
+            fm.setReader(particles_testfilename, particles);
+            fm.read();
+            FirstReadTime->stop();
+
+            particles->zoltan2Initialize();
+        } else {
+            // particles are cell midpoints
+            particles = cells;
+        }
 
         ST halo_size;
         std::string velocity_name;
@@ -142,31 +186,23 @@ int main (int argc, char* args[]) {
                 halo_size = parameters->get<Teuchos::ParameterList>("halo").get<double>("size");
             }
             cells->buildHalo(halo_size);
+            if (particles!=cells) particles->buildHalo(halo_size);
             if (st_op || mix_le_op) { 
                 velocity_name = "solution_velocity";
                 pressure_name = "solution_pressure";
-                cells->getFieldManager()->createField(2, velocity_name, "m/s");
-                cells->getFieldManager()->createField(1, pressure_name, "m/s");
-				if (use_lm) cells->getFieldManager()->createField(1, "lagrange multiplier", "NA");
+                particles->getFieldManager()->createField(input_dim, velocity_name, "m/s");
+                particles->getFieldManager()->createField(1, pressure_name, "m/s");
+				if (use_lm) particles->getFieldManager()->createField(1, "lagrange multiplier", "NA");
             } else if (le_op || vl_op) {
                 velocity_name = "solution";
-                cells->getFieldManager()->createField(2, velocity_name, "m/s");
+                particles->getFieldManager()->createField(input_dim, velocity_name, "m/s");
             } else {
                 velocity_name = "solution";
-                cells->getFieldManager()->createField(1, velocity_name, "m/s");
+                particles->getFieldManager()->createField(1, velocity_name, "m/s");
             }
-            cells->createDOFManager();
+            particles->createDOFManager();
 
 
-            auto neighbors_needed = GMLS::getNP(parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
-             cells->createNeighborhood();
-             cells->getNeighborhood()->constructAllNeighborLists(cells->getCoordsConst()->getHaloSize(),
-                parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
-                neighbors_needed+1,
-                parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
-                parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
-                parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
-                parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
 
             ////Set the radius for the neighbor list:
              //ST h_support;
@@ -178,7 +214,7 @@ int main (int argc, char* args[]) {
              //cells->createNeighborhood();
              //cells->getNeighborhood()->setAllHSupportSizes(h_support);
 
-             //LO neighbors_needed = Compadre::GMLS::getNP(Porder, 2 /*dimension*/);
+             //LO neighbors_needed = Compadre::GMLS::getNP(Porder, input_dim /*dimension*/);
 
             //LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
             //cells->getNeighborhood()->constructAllNeighborList(cells->getCoordsConst()->getHaloSize(), extra_neighbors);
@@ -188,29 +224,34 @@ int main (int argc, char* args[]) {
         Teuchos::RCP<Compadre::AnalyticFunction> velocity_function;
         Teuchos::RCP<Compadre::AnalyticFunction> pressure_function;
         if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_1") {
-            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::FirstOrderBasis(2 /*dimension*/)));
+            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::FirstOrderBasis(input_dim /*dimension*/)));
         } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_2") {
-            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
+            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(input_dim /*dimension*/)));
         } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_3") {
-            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(2 /*dimension*/)));
+            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(input_dim /*dimension*/)));
         } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="divfree_sinecos") {
-            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::DivFreeSineCos(2 /*dimension*/)));
+            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::DivFreeSineCos(input_dim /*dimension*/)));
         } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="divfree_polynomial_2") {
-            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::DivFreeSecondOrderBasis(2 /*dimension*/)));
+            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::DivFreeSecondOrderBasis(input_dim /*dimension*/)));
         } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="sine") {
-            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
+            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(input_dim /*dimension*/)));
+        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="timoshenko") {
+            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::Timoshenko(
+                            parameters->get<Teuchos::ParameterList>("physics").get<double>("shear"),
+                            parameters->get<Teuchos::ParameterList>("physics").get<double>("lambda"), 
+                            input_dim /*dimension*/)));
         }
         if (st_op) { // mix_le_op uses pressure from divergence of velocity
             if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_1") {
-                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::FirstOrderBasis(2 /*dimension*/)));
+                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::FirstOrderBasis(input_dim /*dimension*/)));
             } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_2") {
-                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(2 /*dimension*/)));
+                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(input_dim /*dimension*/)));
             } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_3") {
-                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(2 /*dimension*/)));
+                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(input_dim /*dimension*/)));
             } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="zero") {
                 pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ConstantEachDimension(0, 0, 0)));
             } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="sine") {
-                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2 /*dimension*/)));
+                pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(input_dim /*dimension*/)));
             }
         }
 
@@ -251,7 +292,7 @@ int main (int argc, char* args[]) {
          //    //particles->createNeighborhood();
          //    //particles->getNeighborhood()->setAllHSupportSizes(h_support);
 
-         //    //LO neighbors_needed = Compadre::GMLS::getNP(Porder, 2 /*dimension*/);
+         //    //LO neighbors_needed = Compadre::GMLS::getNP(Porder, input_dim /*dimension*/);
 
         //    //LO extra_neighbors = parameters->get<Teuchos::ParameterList>("remap").get<double>("neighbors needed multiplier") * neighbors_needed;
         //    //particles->getNeighborhood()->constructAllNeighborList(particles->getCoordsConst()->getHaloSize(), extra_neighbors);
@@ -259,15 +300,15 @@ int main (int argc, char* args[]) {
         //}
 
         // Iterative solver for the problem
-        Teuchos::RCP<Compadre::ProblemT> problem = Teuchos::rcp( new Compadre::ProblemT(cells));
+        Teuchos::RCP<Compadre::ProblemT> problem = Teuchos::rcp( new Compadre::ProblemT(particles));
 
         // construct physics, sources, and boundary conditions
         Teuchos::RCP<Compadre::ReactionDiffusionPhysics> physics =
-          Teuchos::rcp( new Compadre::ReactionDiffusionPhysics(cells, Porder));
+          Teuchos::rcp( new Compadre::ReactionDiffusionPhysics(particles));
         Teuchos::RCP<Compadre::ReactionDiffusionSources> source =
-            Teuchos::rcp( new Compadre::ReactionDiffusionSources(cells));
+            Teuchos::rcp( new Compadre::ReactionDiffusionSources(particles));
         Teuchos::RCP<Compadre::ReactionDiffusionBoundaryConditions> bcs =
-            Teuchos::rcp( new Compadre::ReactionDiffusionBoundaryConditions(cells));
+            Teuchos::rcp( new Compadre::ReactionDiffusionBoundaryConditions(particles));
 
 
         physics->_velocity_basis_type_divfree = velocity_basis_type_divfree;
@@ -278,6 +319,12 @@ int main (int argc, char* args[]) {
         // treatment of null space in pressure 
         physics->_use_pinning = use_pinning;
         physics->_use_lm = use_lm;
+
+        physics->_use_sip = use_sip;
+        physics->_use_vms = use_vms;
+
+        physics->_use_neighbor_weighting = use_neighbor_weighting;
+        physics->_use_side_weighting = use_side_weighting;
 
         physics->_velocity_name = velocity_name;
         physics->_pressure_name = pressure_name;
@@ -292,10 +339,10 @@ int main (int argc, char* args[]) {
         physics->_st_op = st_op;
         physics->_mix_le_op = mix_le_op;
 
-        physics->_velocity_field_id = cells->getFieldManagerConst()->getIDOfFieldFromName(velocity_name);
+        physics->_velocity_field_id = particles->getFieldManagerConst()->getIDOfFieldFromName(velocity_name);
         if (st_op || mix_le_op) {
-            physics->_pressure_field_id = cells->getFieldManagerConst()->getIDOfFieldFromName(pressure_name);
-            if (use_lm) physics->_lagrange_field_id = cells->getFieldManagerConst()->getIDOfFieldFromName("lagrange multiplier");
+            physics->_pressure_field_id = particles->getFieldManagerConst()->getIDOfFieldFromName(pressure_name);
+            if (use_lm) physics->_lagrange_field_id = particles->getFieldManagerConst()->getIDOfFieldFromName("lagrange multiplier");
         }
 
         // set physics, sources, and boundary conditions in the problem
@@ -330,6 +377,7 @@ int main (int argc, char* args[]) {
 
         //solving
         SolvingTime->start();
+        if (input_dim==3) printf("Solve started.\n");
         problem->solve();
 
         //// test that gradient of vector does the same thing as gradient of scalar (repeated for each component)
@@ -358,33 +406,43 @@ int main (int argc, char* args[]) {
         //}
         //}
         SolvingTime->stop();
-        cells->getFieldManager()->updateFieldsHaloData();
+        particles->getFieldManager()->updateFieldsHaloData();
 
 
+        if (input_dim==3) printf("Exact solution started.\n");
         double avg_pressure_computed = 0.0;
         // post process solution ( modal DOF -> cell centered value )
         {
-            auto vel_gmls = physics->_vel_gmls;
-            auto pressure_gmls = physics->_pressure_gmls;
             if (st_op || mix_le_op) { 
-                cells->getFieldManager()->createField(2, "processed_"+velocity_name, "m/s");
+                cells->getFieldManager()->createField(input_dim, "processed_"+velocity_name, "m/s");
                 cells->getFieldManager()->createField(1, "processed_"+pressure_name, "m/s");
+                cells->getFieldManager()->createField(input_dim, "diff_"+velocity_name, "m/s");
+                cells->getFieldManager()->createField(1, "diff_"+pressure_name, "m/s");
             } else if (le_op || vl_op) { 
-                cells->getFieldManager()->createField(2, "processed_"+velocity_name, "m/s");
+                cells->getFieldManager()->createField(input_dim, "processed_"+velocity_name, "m/s");
+                cells->getFieldManager()->createField(input_dim, "diff_"+velocity_name, "m/s");
             } else {
                 cells->getFieldManager()->createField(1, "processed_"+velocity_name, "m/s");
+                cells->getFieldManager()->createField(1, "diff_"+velocity_name, "m/s");
             }
-            auto velocity_processed_view = cells->getFieldManager()->getFieldByName("processed_"+velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-            auto velocity_dof_view = cells->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-            auto velocity_halo_dof_view = cells->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        }
+        auto velocity_processed_view = cells->getFieldManager()->getFieldByName("processed_"+velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        decltype(velocity_processed_view) pressure_processed_view;
+        if (st_op || mix_le_op) {
+            pressure_processed_view = cells->getFieldManager()->getFieldByName("processed_"+pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        }
+        {
+            auto vel_gmls = physics->_vel_gmls;
+            auto pressure_gmls = physics->_pressure_gmls;
 
-            decltype(velocity_processed_view) pressure_processed_view;
+            auto velocity_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            auto velocity_halo_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+
             decltype(velocity_dof_view) pressure_dof_view;
             decltype(velocity_halo_dof_view) pressure_halo_dof_view;
             if (st_op || mix_le_op) {
-                pressure_processed_view = cells->getFieldManager()->getFieldByName("processed_"+pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-                pressure_dof_view = cells->getFieldManager()->getFieldByName(pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-                pressure_halo_dof_view = cells->getFieldManager()->getFieldByName(pressure_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                pressure_dof_view = particles->getFieldManager()->getFieldByName(pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                pressure_halo_dof_view = particles->getFieldManager()->getFieldByName(pressure_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
             }
 
             auto neighborhood = physics->_cell_particles_neighborhood;
@@ -636,17 +694,20 @@ int main (int argc, char* args[]) {
         //}
  
         if (st_op || mix_le_op) { 
-            cells->getFieldManager()->createField(2, "exact_"+velocity_name, "m/s");
+            cells->getFieldManager()->createField(input_dim, "exact_"+velocity_name, "m/s");
             cells->getFieldManager()->createField(1, "exact_"+pressure_name, "m/s");
         } else if (le_op || vl_op) { 
-            cells->getFieldManager()->createField(2, "exact_"+velocity_name, "m/s");
+            cells->getFieldManager()->createField(input_dim, "exact_"+velocity_name, "m/s");
         } else {
             cells->getFieldManager()->createField(1, "exact_"+velocity_name, "m/s");
         }
 
         auto velocity_exact_view = cells->getFieldManager()->getFieldByName("exact_"+velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        auto velocity_diff_view = cells->getFieldManager()->getFieldByName("diff_"+velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
         decltype(velocity_exact_view) pressure_exact_view;
         if (st_op || mix_le_op) pressure_exact_view = cells->getFieldManager()->getFieldByName("exact_"+pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        decltype(velocity_exact_view) pressure_diff_view;
+        if (st_op || mix_le_op) pressure_diff_view = cells->getFieldManager()->getFieldByName("diff_"+pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 
         // store exact velocity as a field
         if (le_op || vl_op || st_op || mix_le_op) { 
@@ -655,6 +716,7 @@ int main (int argc, char* args[]) {
                     xyz_type xyz = coords->getLocalCoords(j);
                     auto exacts = velocity_function->evalVector(xyz);
                     velocity_exact_view(j,k) = exacts[k];
+                    velocity_diff_view(j,k) = velocity_exact_view(j,k)-velocity_processed_view(j,k);
                 }
             }
         } else {
@@ -662,15 +724,17 @@ int main (int argc, char* args[]) {
                 xyz_type xyz = coords->getLocalCoords(j);
                 velocity_exact = velocity_function->evalScalar(xyz);
                 velocity_exact_view(j,0) = velocity_exact;
+                velocity_diff_view(j,0) = velocity_exact_view(j,0)-velocity_processed_view(j,0);
             }
         }
         // store exact pressure as a field
         if (mix_le_op) {
+            double t_lambda_coeff = (lambda_coeff==std::numeric_limits<scalar_type>::infinity()) ? 0.0 : lambda_coeff;
             for( int j =0; j<coords->nLocal(); j++){
                 xyz_type xyz = coords->getLocalCoords(j);
                 // pressure is div of velocity
                 auto velocity_jacobian = velocity_function->evalJacobian(xyz);
-                pressure_exact = -1*(velocity_jacobian[0][0] + velocity_jacobian[1][1]);
+                pressure_exact = 1*(t_lambda_coeff+shear_coeff)*(velocity_jacobian[0][0] + velocity_jacobian[1][1]);
                 avg_pressure_exact += pressure_exact;
             }
 
@@ -680,8 +744,9 @@ int main (int argc, char* args[]) {
                 xyz_type xyz = coords->getLocalCoords(j);
                 // pressure is div of velocity
                 auto velocity_jacobian = velocity_function->evalJacobian(xyz);
-                pressure_exact = -1*(velocity_jacobian[0][0] + velocity_jacobian[1][1]);
+                pressure_exact = 1*(t_lambda_coeff+shear_coeff)*(velocity_jacobian[0][0] + velocity_jacobian[1][1]);
                 pressure_exact_view(j,0) = pressure_exact-avg_pressure_exact;
+                pressure_diff_view(j,0) = pressure_exact_view(j,0) - pressure_processed_view(j,0);
             }
         } else if (st_op) {
             for( int j =0; j<coords->nLocal(); j++){
@@ -696,6 +761,7 @@ int main (int argc, char* args[]) {
                 xyz_type xyz = coords->getLocalCoords(j);
                 pressure_exact = pressure_function->evalScalar(xyz);
                 pressure_exact_view(j,0) = pressure_exact-avg_pressure_exact;
+                pressure_diff_view(j,0) = pressure_exact_view(j,0) - pressure_processed_view(j,0);
             }
         }
 
@@ -707,8 +773,8 @@ int main (int argc, char* args[]) {
             auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
             auto neighborhood = physics->_cell_particles_neighborhood;
             auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
-            auto dof_view = cells->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-            auto halo_dof_view = cells->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            auto dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            auto halo_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
             auto gmls = physics->_vel_gmls;
             particles_new =
                 Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, input_dim));
@@ -717,7 +783,11 @@ int main (int argc, char* args[]) {
             // put real quadrature points here
             for( int j =0; j<coords->nLocal(); j++){
                 for (int i=0; i<quadrature_weights.extent(1); ++i) {
-                    verts_to_insert.push_back(Compadre::XyzVector(quadrature_points(j,2*i+0), quadrature_points(j,2*i+1),0));
+                    if (input_dim==2) {
+                        verts_to_insert.push_back(Compadre::XyzVector(quadrature_points(j,input_dim*i+0), quadrature_points(j,input_dim*i+1), 0));
+                    } else {
+                        verts_to_insert.push_back(Compadre::XyzVector(quadrature_points(j,input_dim*i+0), quadrature_points(j,input_dim*i+1), quadrature_points(j,input_dim*i+2)));
+                    }
                 }
             }
             new_coords->insertCoords(verts_to_insert);
@@ -750,7 +820,8 @@ int main (int argc, char* args[]) {
             double pressure_l2_error = 0.0;
             //double pressure_h1_error = 0.0;
 
-            double penalty = (parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/physics->_cell_particles_neighborhood->computeMaxHSupportSize(true /* global processor max */);
+            auto base_penalty = (parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty");
+            if (use_neighbor_weighting) base_penalty /= (input_dim==2) ? physics->_cell_particles_max_h : 1.772453850905516*physics->_cell_particles_max_h; // either h or sqrt(pi)*h
 
             host_view_type l2_view, h1_view, jump_view;
             if (plot_quadrature) {
@@ -767,14 +838,14 @@ int main (int argc, char* args[]) {
                 auto neighborhood = physics->_cell_particles_neighborhood;
                 auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
 
-                auto velocity_dof_view = cells->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-                auto velocity_halo_dof_view = cells->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                auto velocity_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                auto velocity_halo_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 
                 decltype(velocity_dof_view) pressure_dof_view;
                 decltype(velocity_halo_dof_view) pressure_halo_dof_view;
                 if (st_op || mix_le_op) {
-                    pressure_dof_view = cells->getFieldManager()->getFieldByName(pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-                    pressure_halo_dof_view = cells->getFieldManager()->getFieldByName(pressure_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                    pressure_dof_view = particles->getFieldManager()->getFieldByName(pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                    pressure_halo_dof_view = particles->getFieldManager()->getFieldByName(pressure_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
                 }
 
                 auto adjacent_elements = cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalView<host_view_type>();
@@ -792,6 +863,22 @@ int main (int argc, char* args[]) {
                 auto num_exterior_quadrature_per_edge = (quadrature_weights.extent(1) - num_interior_quadrature)/num_edges;
 
                 for( int j =0; j<coords->nLocal(); j++){
+                    auto num_sides = adjacent_elements.extent(1);
+                    std::vector<double> side_lengths(num_sides);
+                    {
+                        for (int current_side_num = 0; current_side_num < num_sides; ++current_side_num) {
+                           for (int q=0; q<quadrature_weights.extent(1); ++q) {
+                                auto q_type = quadrature_type(j,q);
+                                if (q_type!=1) { // side
+                                    auto q_wt = quadrature_weights(j,q);
+                                    int side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                                    if (side_num==current_side_num) {
+                                        side_lengths[current_side_num] += q_wt;
+                                    }
+                                }
+                            }
+                        }
+                    }
                     double l2_error_on_cell = 0.0;
                     double h1_error_on_cell = 0.0;
                     double jump_error_on_cell = 0.0;
@@ -800,8 +887,7 @@ int main (int argc, char* args[]) {
                         for (int i=0; i<quadrature_weights.extent(1); ++i) {
                             if (quadrature_type(j,i)==1) { // interior
                                 double l2_val = 0.0;
-                                double h1_val_x = 0.0;
-                                double h1_val_y = 0.0;
+                                XYZ h1_val;
                                 // needs reconstruction at this quadrature point
                                 LO num_neighbors = neighborhood->getNumNeighbors(j);
                                 // loop over particles neighbor to the cell
@@ -811,49 +897,60 @@ int main (int argc, char* args[]) {
                                         auto particle_l = neighborhood->getNeighbor(j,l);
                                         auto dof_val = (particle_l<nlocal) ? velocity_dof_view(particle_l,m_in) : velocity_halo_dof_view(particle_l-nlocal,m_in);
                                         double v, v_x, v_y;
+                                        XYZ v_grad;
                                         if (use_vector_gmls) v = vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, j, m_out, l, m_in, i+1);
                                         else v = vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
                                         if (use_vector_grad_gmls) {
-                                            v_x = vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, j, m_out, 0, l, m_in, i+1);
-                                            v_y = vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, j, m_out, 1, l, m_in, i+1);
+                                            for (int d=0; d<input_dim; ++d) {
+                                                v_grad[d] = vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, j, m_out, d, l, m_in, i+1);
+                                            }
                                         } else {
-                                            v_x = vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, j, 0, l, i+1);
-                                            v_y = vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, j, 1, l, i+1);
+                                            for (int d=0; d<input_dim; ++d) {
+                                                v_grad[d] = vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, j, d, l, i+1);
+                                            }
                                         }
                                         l2_val += dof_val * v;
-                                        h1_val_x += dof_val * v_x;
-                                        h1_val_y += dof_val * v_y;
+                                        for (int d=0; d<input_dim; ++d) {
+                                            h1_val[d] += dof_val * v_grad[d];
+                                        }
                                     }
                                 }
-                                auto xyz = Compadre::XyzVector(quadrature_points(j,2*i+0), quadrature_points(j,2*i+1),0);
+                                auto xyz = Compadre::XyzVector(quadrature_points(j,input_dim*i+0), quadrature_points(j,input_dim*i+1), (input_dim==3) ? quadrature_points(j,input_dim*i+2): 0);
                                 if (rd_op) {
                                     double l2_exact = velocity_function->evalScalar(xyz);
                                     xyz_type h1_exact = velocity_function->evalScalarDerivative(xyz);
                                     l2_error_on_cell += reaction_coeff * quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
-                                    h1_error_on_cell += diffusion_coeff * quadrature_weights(j,i) * (h1_val_x - h1_exact[0]) * (h1_val_x - h1_exact[0]);
-                                    h1_error_on_cell += diffusion_coeff * quadrature_weights(j,i) * (h1_val_y - h1_exact[1]) * (h1_val_y - h1_exact[1]);
+                                    for (int d=0; d<input_dim; ++d) {
+                                        h1_error_on_cell += diffusion_coeff * quadrature_weights(j,i) * (h1_val[d] - h1_exact[d]) * (h1_val[d] - h1_exact[d]);
+                                    }
                                 } else if (le_op || vl_op || mix_le_op) {
                                     double l2_exact = velocity_function->evalVector(xyz)[m_out];
                                     xyz_type h1_exact = velocity_function->evalJacobian(xyz)[m_out];
                                     // still needs customized to LE stress tensor
                                     l2_error_on_cell += quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
-                                    h1_error_on_cell += shear_coeff * quadrature_weights(j,i) * (h1_val_x - h1_exact[0]) * (h1_val_x - h1_exact[0]);
-                                    h1_error_on_cell += shear_coeff * quadrature_weights(j,i) * (h1_val_y - h1_exact[1]) * (h1_val_y - h1_exact[1]);
+                                    for (int d=0; d<input_dim; ++d) {
+                                        h1_error_on_cell += shear_coeff * quadrature_weights(j,i) * (h1_val[d] - h1_exact[d]) * (h1_val[d] - h1_exact[d]);
+                                    }
                                     if (plot_quadrature) {
                                         // only for velocity
                                         l2_view(count+i,m_out) += quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
-                                        h1_view(count+i,m_out) += shear_coeff * quadrature_weights(j,i) * (h1_val_x - h1_exact[0]) * (h1_val_x - h1_exact[0]);
-                                        h1_view(count+i,m_out) += shear_coeff * quadrature_weights(j,i) * (h1_val_y - h1_exact[1]) * (h1_val_y - h1_exact[1]);
+                                        for (int d=0; d<input_dim; ++d) {
+                                            h1_view(count+i,m_out) += shear_coeff * quadrature_weights(j,i) * (h1_val[d] - h1_exact[d]) * (h1_val[d] - h1_exact[d]);
+                                        }
                                     }
                                 } else if (st_op) {
                                     double l2_exact = velocity_function->evalVector(xyz)[m_out];
                                     xyz_type h1_exact = velocity_function->evalJacobian(xyz)[m_out];
                                     // still needs customized to LE stress tensor
                                     l2_error_on_cell += quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
-                                    h1_error_on_cell += diffusion_coeff * quadrature_weights(j,i) * (h1_val_x - h1_exact[0]) * (h1_val_x - h1_exact[0]);
-                                    h1_error_on_cell += diffusion_coeff * quadrature_weights(j,i) * (h1_val_y - h1_exact[1]) * (h1_val_y - h1_exact[1]);
+                                    for (int d=0; d<input_dim; ++d) {
+                                        h1_error_on_cell += diffusion_coeff * quadrature_weights(j,i) * (h1_val[d] - h1_exact[d]) * (h1_val[d] - h1_exact[d]);
+                                    }
                                 }
                             } else if (quadrature_type(j,i)==2) { // exterior edge
+                                int current_side_num = (i - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                                double penalty = (use_side_weighting) ? base_penalty/side_lengths[current_side_num] : base_penalty;
+
                                 double u_val = 0.0;
                                 // needs reconstruction at this quadrature point
                                 LO num_neighbors = neighborhood->getNumNeighbors(j);
@@ -869,7 +966,7 @@ int main (int argc, char* args[]) {
                                         u_val += dof_val * v;
                                     }
                                 }
-                                auto xyz = Compadre::XyzVector(quadrature_points(j,2*i+0), quadrature_points(j,2*i+1),0);
+                                auto xyz = Compadre::XyzVector(quadrature_points(j,input_dim*i+0), quadrature_points(j,input_dim*i+1), (input_dim==3) ? quadrature_points(j,input_dim*i+2): 0);
                                 double u_exact = 0;
                                 if (rd_op) {
                                     u_exact = velocity_function->evalScalar(xyz);
@@ -881,6 +978,8 @@ int main (int argc, char* args[]) {
                                     jump_view(count+i,m_out) += penalty * quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);
                                 }
                             } else if (quadrature_type(j,i)==0) { // interior edge
+                                int current_side_num = (i - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                                double penalty = (use_side_weighting) ? base_penalty/side_lengths[current_side_num] : base_penalty;
                                 double u_val = 0.0;
                                 double other_u_val = 0.0;
                                 // needs reconstruction at this quadrature point
@@ -907,7 +1006,27 @@ int main (int argc, char* args[]) {
                                         break;
                                     }
                                 }
-                                int adj_i = num_interior_quadrature + side_j_to_adjacent_cell*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((i-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
+                                //int adj_i = num_interior_quadrature + side_j_to_adjacent_cell*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((i-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
+                                int adj_i = 0;
+                                if (input_dim==2) {
+                                    adj_i = num_interior_quadrature + side_j_to_adjacent_cell*num_exterior_quadrature_per_edge + (num_exterior_quadrature_per_edge - ((i-num_interior_quadrature)%num_exterior_quadrature_per_edge) - 1);
+                                } else {
+                                    for (int alt_i=0; alt_i<num_exterior_quadrature_per_edge; ++alt_i) {
+                                        int potential_adj_i = num_interior_quadrature + side_j_to_adjacent_cell*num_exterior_quadrature_per_edge + alt_i;
+                                        bool all_same = true;
+                                        for (int d=0; d<3; ++d) {
+                                            double diff_d = quadrature_points(side_j_to_adjacent_cell, input_dim*potential_adj_i+d) - quadrature_points(i,input_dim*i+d);
+                                            if (diff_d*diff_d > 1e-14) {
+                                                all_same = false;
+                                                break;
+                                            }
+                                        }
+                                        if (all_same) {
+                                            adj_i = potential_adj_i;
+                                            break;
+                                        }        
+                                    }
+                                }
 
                                 // needs reconstruction at this quadrature point
                                 num_neighbors = neighborhood->getNumNeighbors(adj_j);
@@ -951,7 +1070,7 @@ int main (int argc, char* args[]) {
                                         auto v = pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
                                         l2_val += dof_val * v;
                                     }
-                                    auto xyz = Compadre::XyzVector(quadrature_points(j,2*i+0), quadrature_points(j,2*i+1),0);
+                                    auto xyz = Compadre::XyzVector(quadrature_points(j,input_dim*i+0), quadrature_points(j,input_dim*i+1), (input_dim==3) ? quadrature_points(j,input_dim*i+2): 0);
                                     if (st_op) {
                                         l2_val -= avg_pressure_computed;
                                         double l2_exact = pressure_function->evalScalar(xyz)-avg_pressure_exact;
@@ -959,7 +1078,8 @@ int main (int argc, char* args[]) {
                                     } else if (mix_le_op) {
                                         l2_val -= avg_pressure_computed;
                                         auto velocity_jacobian = velocity_function->evalJacobian(xyz);
-                                        double l2_exact = -1*(velocity_jacobian[0][0] + velocity_jacobian[1][1])-avg_pressure_exact;
+                                        double t_lambda_coeff = (lambda_coeff==std::numeric_limits<scalar_type>::infinity()) ? 0.0 : lambda_coeff;
+                                        double l2_exact = -1*(t_lambda_coeff + shear_coeff)*(velocity_jacobian[0][0] + velocity_jacobian[1][1])-avg_pressure_exact;
                                         l2_error_on_cell += quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
                                     }
                                 }
@@ -998,6 +1118,7 @@ int main (int argc, char* args[]) {
 
         {
             WriteTime->start();
+            Compadre::FileManager fm;
             std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
             fm.setWriter(output_filename, cells);
             fm.write();

@@ -69,6 +69,27 @@ void NeighborhoodT::setAllHSupportSizes(const scalar_type val) {
     });
 }
 
+local_index_type NeighborhoodT::computeMinNumNeighbors(const bool global) const {
+
+    local_index_type local_min_num_neighbors;
+    Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_target_coords->nLocal()),
+            KOKKOS_LAMBDA (const int i, local_index_type &myVal) {
+        local_index_type nn = this->getNumNeighbors(i);
+        myVal = std::min(nn,myVal);
+    }, Kokkos::Min<local_index_type>(local_min_num_neighbors));
+    Kokkos::fence();
+
+    if (global) {
+        local_index_type global_processor_min_num_neighbors;
+        Teuchos::Ptr<local_index_type> global_processor_min_num_neighbors_ptr(&global_processor_min_num_neighbors);
+        Teuchos::reduceAll<local_index_type, local_index_type>(*(_target_coords->getComm()), Teuchos::REDUCE_MAX,
+                local_min_num_neighbors, global_processor_min_num_neighbors_ptr);
+        return global_processor_min_num_neighbors;
+    } else {
+        return local_min_num_neighbors;
+    }
+}
+
 local_index_type NeighborhoodT::computeMaxNumNeighbors(const bool global) const {
     if (!global) {
         return _local_max_num_neighbors;

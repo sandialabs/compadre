@@ -18,6 +18,7 @@ typedef Compadre::XyzVector xyz_type;
 
 void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time) {
 
+    auto cell_vertices = _physics->_cells->getFieldManager()->getFieldByName("vertex_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
     if (field_one != field_two) return;
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_b==NULL, "Tpetra Multivector for RHS not yet specified.");
 
@@ -34,6 +35,10 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
 
     bool _use_vector_gmls = _physics->_use_vector_gmls;
     bool _use_vector_grad_gmls = _physics->_use_vector_grad_gmls;
+    bool _use_sip = _physics->_use_sip;
+    bool _use_vms = _physics->_use_vms;
+    bool _use_neighbor_weighting = _physics->_use_neighbor_weighting;
+    bool _use_side_weighting = _physics->_use_side_weighting;
 
     int _velocity_field_id = _physics->_velocity_field_id;
     int _pressure_field_id = _physics->_pressure_field_id;
@@ -44,12 +49,9 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     AnalyticFunction* pressure_function = _physics->_pressure_function;
 
     local_index_type _ndim_requested = _physics->_ndim_requested;
-    scalar_type pressure_coeff = 1.0;
-    if (_mix_le_op) {
-        pressure_coeff = _physics->_lambda + 2./(scalar_type)(_ndim_requested)*_physics->_shear;
-    }
+    if (_ndim_requested==3) printf("RHS started.\n");
 
-	host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
+    host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
     const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
     const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
@@ -68,17 +70,20 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     auto halo_unit_normals = _physics->_cells->getFieldManager()->getFieldByName("unit_normal")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
     auto halo_adjacent_elements = _physics->_cells->getFieldManager()->getFieldByName("adjacent_elements")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
 
-    auto penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/_physics->_cell_particles_max_h;
-    // each element must have the same number of edges
-    auto num_edges = adjacent_elements.extent(1);
+    auto base_penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty");
+    if (_use_neighbor_weighting) base_penalty /= (_ndim_requested==2) ? _physics->_cell_particles_max_h : 1.772453850905516*_physics->_cell_particles_max_h; // either h or sqrt(pi)*h
+
+    // each element must have the same number of sides
+    auto num_sides = adjacent_elements.extent(1);
     auto num_interior_quadrature = 0;
-    for (int q=0; q<_physics->_weights_ndim; ++q) {
-        if (quadrature_type(0,q)!=1) { // some type of edge quadrature
+    int _weights_ndim = _physics->_weights_ndim;
+    for (int q=0; q<_weights_ndim; ++q) {
+        if (quadrature_type(0,q)!=1) { // some type of side quadrature
             num_interior_quadrature = q;
             break;
         }
     }
-    auto num_exterior_quadrature_per_edge = (_physics->_weights_ndim - num_interior_quadrature)/num_edges;
+    auto num_exterior_quadrature_per_side = (_weights_ndim - num_interior_quadrature)/num_sides;
 
     //if (field_one == field_two && field_one == _velocity_field_id) {
     //    // zero out rhs before starting
@@ -95,6 +100,21 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(true /* include halo in count */); ++i) {
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_physics->_cells->getCoordsConst()->nLocal(true /* include halo in count */)), KOKKOS_LAMBDA(const int i) {
     //for (int i=0; i<_physics->_cells->getCoordsConst()->nLocal(); ++i) {
+        std::vector<double> side_lengths(num_sides);
+        {
+            for (int current_side_num = 0; current_side_num < num_sides; ++current_side_num) {
+               for (int q=0; q<_weights_ndim; ++q) {
+                    auto q_type = quadrature_type(i,q);
+                    if (q_type!=1) { // side
+                        auto q_wt = quadrature_weights(i,q);
+                        int side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
+                        if (side_num==current_side_num) {
+                            side_lengths[current_side_num] += q_wt;
+                        }
+                    }
+                }
+            }
+        }
         for (local_index_type comp_out = 0; comp_out < fields[field_one]->nDim(); ++comp_out) {
         for (local_index_type comp_in = 0; comp_in < fields[field_one]->nDim(); ++comp_in) {
             if ((comp_out!=comp_in) && ((!_velocity_basis_type_vector && field_one == _velocity_field_id) || (field_one == _pressure_field_id))) continue;
@@ -124,7 +144,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                 // add the contribution to the row for the particle
                 double contribution = 0;
                 if (_l2_op) {
-                    for (int qn=0; qn<_physics->_weights_ndim; ++qn) {
+                    for (int qn=0; qn<_weights_ndim; ++qn) {
                         auto q_type = (i<nlocal) ? quadrature_type(i,qn) : halo_quadrature_type(_physics->_halo_small_to_big(halo_i,0),qn);
                         if (q_type==1) { // interior
                             // integrating RHS velocity_function
@@ -137,9 +157,12 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                     : _physics->_halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
                             }
 
-                            xyz_type pt = (i<nlocal) ? xyz_type(quadrature_points(i,2*qn),quadrature_points(i,2*qn+1),0) 
-                                : xyz_type(halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),2*qn), 
-                                               halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),2*qn+1),0);
+                            xyz_type pt = (i<nlocal) ? xyz_type(quadrature_points(i,_ndim_requested*qn),
+                                                                quadrature_points(i,_ndim_requested*qn+1),
+                                                                (_ndim_requested==3) ? quadrature_points(i,_ndim_requested*qn+2) : 0) 
+                                : xyz_type(halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),_ndim_requested*qn), 
+                                               halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),_ndim_requested*qn+1),
+                                               (_ndim_requested==3) ? quadrature_points(i,_ndim_requested*qn+2) : 0);
 
                             double q_wt = (i<nlocal) ? quadrature_weights(i,qn) : halo_quadrature_weights(_physics->_halo_small_to_big(halo_i,0),qn);
 
@@ -147,7 +170,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                         } 
                     }
                 } else {
-                    for (int qn=0; qn<_physics->_weights_ndim; ++qn) {
+                    for (int qn=0; qn<_weights_ndim; ++qn) {
                         auto q_type = (i<nlocal) ? quadrature_type(i,qn) : halo_quadrature_type(_physics->_halo_small_to_big(halo_i,0),qn);
                         double v;
                         if (_use_vector_gmls) {
@@ -159,8 +182,12 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                             : _physics->_halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
                         }
                         double q_wt = (i<nlocal) ? quadrature_weights(i,qn) : halo_quadrature_weights(_physics->_halo_small_to_big(halo_i,0),qn);
-                        xyz_type pt = (i<nlocal) ? xyz_type(quadrature_points(i,2*qn),quadrature_points(i,2*qn+1),0) 
-                            : xyz_type(halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),2*qn), halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),2*qn+1),0);
+                        xyz_type pt = (i<nlocal) ? xyz_type(quadrature_points(i,_ndim_requested*qn),
+                                                            quadrature_points(i,_ndim_requested*qn+1),
+                                                            (_ndim_requested==3) ? quadrature_points(i,_ndim_requested*qn+2) : 0) 
+                            : xyz_type(halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),_ndim_requested*qn), 
+                                       halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),_ndim_requested*qn+1),
+                                       (_ndim_requested) ? quadrature_points(i,_ndim_requested*qn+2) : 0);
 
                         if (q_type==1) { // interior
                             double rhs_eval = 0;
@@ -183,75 +210,155 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                             }
                             contribution += q_wt * v * rhs_eval;
                         } 
-                        else if (q_type==2) { // edge on exterior
-                            // DG enforcement of Dirichlet BCs
-                            // penalties for edges of mass
-                            double v_x, v_y;
-                            if (_use_vector_grad_gmls) {
-                                v_x = (i<nlocal) ? _physics->_vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, comp_out, 0, j, comp_in, qn+1)
-                                    : _physics->_halo_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, halo_i, 0, j, qn+1);
-                                v_y = (i<nlocal) ? _physics->_vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, comp_out, 1, j, comp_in, qn+1)
-                                    : _physics->_halo_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, halo_i, 1, j, qn+1);
-                            } else {
-                                v_x = (i<nlocal) ? _physics->_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 0, j, qn+1)
-                                    : _physics->_halo_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, halo_i, 0, j, qn+1);
-                                v_y = (i<nlocal) ? _physics->_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, 1, j, qn+1)
-                                    : _physics->_halo_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, halo_i, 1, j, qn+1);
+                        else if (q_type==2) { // side on exterior
+                            int current_side_num = (qn - num_interior_quadrature)/num_exterior_quadrature_per_side;
+                            double penalty = (_use_side_weighting) ? base_penalty/side_lengths[current_side_num] : base_penalty;
 
+                            // DG enforcement of Dirichlet BCs
+                            XYZ grad_v;
+                            if (_use_vector_grad_gmls) {
+                                for (int d=0; d<_ndim_requested; ++d) {
+                                    grad_v[d] = (i<nlocal) ? _physics->_vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, comp_out, d, j, comp_in, qn+1)
+                                        : _physics->_halo_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, halo_i, d, j, qn+1);
+                                }
+                            } else {
+                                for (int d=0; d<_ndim_requested; ++d) {
+                                    grad_v[d] = (i<nlocal) ? _physics->_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, d, j, qn+1)
+                                        : _physics->_halo_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, halo_i, d, j, qn+1);
+                                }
                             }
-                            double n_x = (i<nlocal) ? unit_normals(i,2*qn+0) : halo_unit_normals(_physics->_halo_small_to_big(halo_i,0), 2*qn+0);
-                            double n_y = (i<nlocal) ? unit_normals(i,2*qn+1) : halo_unit_normals(_physics->_halo_small_to_big(halo_i,0), 2*qn+1);
+                            XYZ n;
+                            for (int d=0; d<_ndim_requested; ++d) {
+                                n[d] = (i<nlocal) ? unit_normals(i,_ndim_requested*qn+d) : halo_unit_normals(_physics->_halo_small_to_big(halo_i,0), _ndim_requested*qn+d);
+                            }
                             double exact_eval = 0;
 
                             if (_rd_op) {
                                 exact_eval = velocity_function->evalScalar(pt);
                                 contribution += penalty * q_wt * v * exact_eval;
-                                contribution -= _physics->_diffusion * q_wt * ( n_x * v_x + n_y * v_y) * exact_eval;
+                                double n_dot_grad = 0.0;
+                                for (int d=0; d<_ndim_requested; ++d) {
+                                    n_dot_grad += n[d]*grad_v[d];
+                                }
+                                contribution -= _physics->_diffusion * q_wt * n_dot_grad * exact_eval;
                             } else if (_le_op) {
-                                exact_eval = velocity_function->evalScalar(pt, comp_out);
-                                contribution += penalty * q_wt * v * exact_eval;
                                 auto exact = velocity_function->evalVector(pt);
-                                contribution -= q_wt * (
-                                      2 * _physics->_shear * (n_x*v_x*(comp_out==0) + 0.5*n_y*(v_y*(comp_out==0) + v_x*(comp_out==1))) * exact[0]  
-                                    + 2 * _physics->_shear * (n_y*v_y*(comp_out==1) + 0.5*n_x*(v_x*(comp_out==1) + v_y*(comp_out==0))) * exact[1]
-                                    + _physics->_lambda * (v_x*(comp_out==0) + v_y*(comp_out==1)) * (n_x*exact[0] + n_y*exact[1]));
+
+                                if (_use_vms) {
+                                    int current_side_num_in_current_cell = (qn - num_interior_quadrature)/num_exterior_quadrature_per_side;
+                                    Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_side(_ndim_requested, _ndim_requested);
+                                    Teuchos :: SerialDenseSolver <local_index_type, scalar_type> vmsdg_solver;
+                                    tau_side.putScalar(0.0);
+                                    for (int j1 = 0; j1 < _ndim_requested; ++j1) {
+                                        for (int j2 = 0; j2 < _ndim_requested; ++j2) {
+                                            tau_side(j1, j2) = _physics->_tau(i, current_side_num_in_current_cell, j1, j2);    //tau^(1)_s from 'current' elem
+                                        }
+                                    }
+                                    vmsdg_solver.setMatrix(Teuchos::rcp(&tau_side, false));
+                                    auto info = vmsdg_solver.invert();
+                                    double vmsBCfactor = 2.0;
+                                    contribution += q_wt * v * vmsBCfactor * ( tau_side(comp_out, 0) * velocity_function->evalScalar(pt, 0) + 
+                                                                               tau_side(comp_out, 1) * velocity_function->evalScalar(pt, 1) );
+                                } else if (_use_sip) {
+                                    contribution += penalty * q_wt * v * exact[comp_out];
+                                }
+
+                                double n_dot_exact = 0.0;
+                                for (int d=0; d<_ndim_requested; ++d) {
+                                    n_dot_exact += n[d] * exact[d];
+                                }
+                                double mu_sigma_v_dot_n_dot_exact = 0.0;
+                                for (int d1=0; d1<_ndim_requested; ++d1) {
+                                    for (int d2=0; d2<_ndim_requested; ++d2) {
+                                        mu_sigma_v_dot_n_dot_exact += 0.5*n[d1]*exact[d2]*(grad_v[d1]*(comp_out==d2) + grad_v[d2]*(comp_out==d1));
+                                    }
+                                }
+                                double lambda_sigma_v_dot_n_dot_exact = 0.0;
+                                for (int d=0; d<_ndim_requested; ++d) {
+                                    lambda_sigma_v_dot_n_dot_exact += grad_v[d]*(comp_out==d) * n_dot_exact;
+                                }
+                                contribution -= q_wt * 2 * _physics->_shear * mu_sigma_v_dot_n_dot_exact;
+                                contribution -= q_wt * _physics->_lambda * lambda_sigma_v_dot_n_dot_exact;
+                                //contribution -= q_wt * (
+                                //      2 * _physics->_shear * (n[0]*grad_v[0]*(comp_out==0) + 0.5*n[1]*(grad_v[1]*(comp_out==0) + grad_v[0]*(comp_out==1))) * exact[0]  
+                                //    + 2 * _physics->_shear * (n[1]*grad_v[1]*(comp_out==1) + 0.5*n[0]*(grad_v[0]*(comp_out==1) + grad_v[1]*(comp_out==0))) * exact[1]
+                                //    + _physics->_lambda * (grad_v[0]*(comp_out==0) + grad_v[1]*(comp_out==1)) * (n[0]*exact[0] + n[1]*exact[1]));
                             } else if (_mix_le_op) {
                                 if ((_velocity_field_id == field_one) && (_velocity_field_id == field_two)) {
                                     exact_eval = velocity_function->evalScalar(pt, comp_out);
                                     contribution += penalty * q_wt * v * exact_eval;
                                     auto exact = velocity_function->evalVector(pt);
-                                    contribution -= q_wt * (
-                                          2 * _physics->_shear * (n_x*v_x*(comp_out==0) + 0.5*n_y*(v_y*(comp_out==0) + v_x*(comp_out==1))) * exact[0]  
-                                        + 2 * _physics->_shear * (n_y*v_y*(comp_out==1) + 0.5*n_x*(v_x*(comp_out==1) + v_y*(comp_out==0))) * exact[1]
-                                        - 2./(scalar_type)(_ndim_requested) * _physics->_shear * (v_x*(comp_out==0) + v_y*(comp_out==1)) * (n_x*exact[0] + n_y*exact[1]));
+                                    double n_dot_exact = 0.0;
+                                    for (int d=0; d<_ndim_requested; ++d) {
+                                        n_dot_exact += n[d] * exact[d];
+                                    }
+                                    double mu_sigma_v_dot_n_dot_exact = 0.0;
+                                    for (int d1=0; d1<_ndim_requested; ++d1) {
+                                        for (int d2=0; d2<_ndim_requested; ++d2) {
+                                            mu_sigma_v_dot_n_dot_exact += 0.5*n[d1]*exact[d2]*(grad_v[d1]*(comp_out==d2) + grad_v[d2]*(comp_out==d1));
+                                        }
+                                    }
+                                    double lambda_sigma_v_dot_n_dot_exact = 0.0;
+                                    for (int d=0; d<_ndim_requested; ++d) {
+                                        lambda_sigma_v_dot_n_dot_exact += grad_v[d]*(comp_out==d) * n_dot_exact;
+                                    }
+                                    contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _physics->_shear * lambda_sigma_v_dot_n_dot_exact;
+                                    contribution -= q_wt * 2 * _physics->_shear * mu_sigma_v_dot_n_dot_exact;
+                                    //contribution -= q_wt * (
+                                    //      2 * _physics->_shear * (n[0]*grad_v[0]*(comp_out==0) + 0.5*n[1]*(grad_v[1]*(comp_out==0) + grad_v[0]*(comp_out==1))) * exact[0]  
+                                    //    + 2 * _physics->_shear * (n[1]*grad_v[1]*(comp_out==1) + 0.5*n[0]*(grad_v[0]*(comp_out==1) + grad_v[1]*(comp_out==0))) * exact[1]
+                                    //    - 2./(scalar_type)(_ndim_requested) * _physics->_shear * (grad_v[0]*(comp_out==0) + grad_v[1]*(comp_out==1)) * (n[0]*exact[0] + n[1]*exact[1]));
                                 } else if (_pressure_field_id == field_one && _pressure_field_id == field_two) {
                                     double q = (i<nlocal) ? _physics->_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, qn+1)
                                         : _physics->_halo_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
                                     auto exact = velocity_function->evalVector(pt);
-                                    contribution += q_wt * (
-                                          pressure_coeff * q * ( n_x * exact[0] + n_y * exact[1] ) );
+                                    double n_dot_exact = 0.0;
+                                    for (int d=0; d<_ndim_requested; ++d) {
+                                        n_dot_exact += n[d] * exact[d];
+                                    }
+                                    contribution += q_wt * ( q * ( n_dot_exact ) );
+                                    //contribution += q_wt * (
+                                    //      pressure_coeff * q * ( n_x * exact[0] + n_y * exact[1] ) );
                                 }
                             } else if (_vl_op) {
                                 exact_eval = velocity_function->evalScalar(pt, comp_out);
                                 contribution += penalty * q_wt * v * exact_eval;
                                 auto exact = velocity_function->evalVector(pt);
-                                contribution -= q_wt * (
-                                      _physics->_shear * (n_x*v_x*(comp_out==0) + n_y*v_y*(comp_out==0)) * exact[0]  
-                                    + _physics->_shear * (n_x*v_x*(comp_out==1) + n_y*v_y*(comp_out==1)) * exact[1] );
+                                double sigma_v_dot_n_dot_exact = 0.0;
+                                for (int d1=0; d1<_ndim_requested; ++d1) {
+                                    for (int d2=0; d2<_ndim_requested; ++d2) {
+                                        sigma_v_dot_n_dot_exact += n[d1]*grad_v[d1]*(comp_out==d2) * exact[d2];
+                                    }
+                                }
+                                contribution -= q_wt * _physics->_shear * sigma_v_dot_n_dot_exact;
+                                //contribution -= q_wt * (
+                                //      _physics->_shear * (n_x*v_x*(comp_out==0) + n_y*v_y*(comp_out==0)) * exact[0]  
+                                //    + _physics->_shear * (n_x*v_x*(comp_out==1) + n_y*v_y*(comp_out==1)) * exact[1] );
                             } else if (_st_op) {
                                 if ((_velocity_field_id == field_one) && (_velocity_field_id == field_two)) {
                                     exact_eval = velocity_function->evalScalar(pt, comp_out);
                                     contribution += penalty * q_wt * v * exact_eval;
                                     auto exact = velocity_function->evalVector(pt);
-                                    contribution -= q_wt * (
-                                          _physics->_diffusion * (n_x*v_x*(comp_out==0) + n_y*v_y*(comp_out==0)) * exact[0]  
-                                        + _physics->_diffusion * (n_x*v_x*(comp_out==1) + n_y*v_y*(comp_out==1)) * exact[1] );
+                                    double grad_v_dot_n_dot_exact = 0.0;
+                                    for (int d1=0; d1<_ndim_requested; ++d1) {
+                                        for (int d2=0; d2<_ndim_requested; ++d2) {
+                                            grad_v_dot_n_dot_exact += n[d1]*grad_v[d1]*(comp_out==d2) * exact[d2];
+                                        }
+                                    }
+                                    contribution -= q_wt * _physics->_diffusion * grad_v_dot_n_dot_exact;
+                                    //contribution -= q_wt * (
+                                    //      _physics->_diffusion * (n_x*v_x*(comp_out==0) + n_y*v_y*(comp_out==0)) * exact[0]  
+                                    //    + _physics->_diffusion * (n_x*v_x*(comp_out==1) + n_y*v_y*(comp_out==1)) * exact[1] );
                                 } else if (_pressure_field_id == field_one && _pressure_field_id == field_two) {
                                     double q = (i<nlocal) ? _physics->_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, qn+1)
                                         : _physics->_halo_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
                                     auto exact = velocity_function->evalVector(pt);
+                                    double n_dot_exact = 0.0;
+                                    for (int d=0; d<_ndim_requested; ++d) {
+                                        n_dot_exact += n[d] * exact[d];
+                                    }
                                     contribution += q_wt * (
-                                          pressure_coeff * q * ( n_x * exact[0] + n_y * exact[1] ) );
+                                          q * ( n_dot_exact ) );
                                 }
                             }
                         }
@@ -297,9 +404,9 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     //        local_index_type row = local_to_dof_map(i, field_one, 0 /* component 0*/);
     //        force += rhs_vals(row,0);
     //    }
-	//    scalar_type global_force;
-	//    Teuchos::Ptr<scalar_type> global_force_ptr(&global_force);
-	//    Teuchos::reduceAll<int, scalar_type>(*(_physics->_cells->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, force, global_force_ptr);
+    //    scalar_type global_force;
+    //    Teuchos::Ptr<scalar_type> global_force_ptr(&global_force);
+    //    Teuchos::reduceAll<int, scalar_type>(*(_physics->_cells->getCoordsConst()->getComm()), Teuchos::REDUCE_SUM, force, global_force_ptr);
     //    if (_physics->_cells->getCoordsConst()->getComm()->getRank()==0) {
     //        printf("Global RHS SUM calculated: %.16f, reference RHS SUM: %.16f\n", global_force, reference_global_force);
     //    }
@@ -307,9 +414,9 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
 }
 
 std::vector<InteractingFields> ReactionDiffusionSources::gatherFieldInteractions() {
-	std::vector<InteractingFields> field_interactions;
+    std::vector<InteractingFields> field_interactions;
     //field_interactions.push_back(InteractingFields(op_needing_interaction::source, _particles->getFieldManagerConst()->getIDOfFieldFromName("solution")));
-	return field_interactions;
+    return field_interactions;
 }
 
 }
