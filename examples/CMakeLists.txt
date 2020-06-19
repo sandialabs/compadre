@@ -276,17 +276,17 @@ if (CompadreHarness_EXAMPLES)
         SET_TESTS_PROPERTIES(REBAR_VL_Convergence_Test PROPERTIES LABELS "rebar;REBAR;Rebar")
 
         # Stokes Flow
-        ADD_TEST(NAME REBAR_ST_Exact_Test COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=st" "--solution=divfree_polynomial_2" "--pressure-solution=polynomial_1" "--num-meshes=1" "--order=2" "--size=1.0" "--convergence-type=exact" "--rate-tol=1e-10" "--penalty=10.0")
+        ADD_TEST(NAME REBAR_ST_Exact_Test COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=st" "--solution=divfree_polynomial_2" "--pressure-solution=polynomial_1" "--num-meshes=1" "--order=2" "--size=1.0" "--convergence-type=exact" "--rate-tol=1e-10" "--penalty=10.0" "--pressure-null-space=none")
         SET_TESTS_PROPERTIES(REBAR_ST_Exact_Test PROPERTIES LABELS "rebar;REBAR;Rebar")
-        ADD_TEST(NAME REBAR_ST_Convergence_Test COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=st" "--solution=divfree_sinecos" "--pressure-solution=polynomial_3" "--num-meshes=3" "--order=2" "--size=1.5" "--penalty=10.0")
+        ADD_TEST(NAME REBAR_ST_Convergence_Test COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=st" "--solution=divfree_sinecos" "--pressure-solution=polynomial_3" "--num-meshes=3" "--order=2" "--size=1.5" "--penalty=10.0" "--pressure-null-space=none")
         SET_TESTS_PROPERTIES(REBAR_ST_Convergence_Test PROPERTIES LABELS "rebar;REBAR;Rebar")
 
         # Mixed Linear Elasticity
-        ADD_TEST(NAME REBAR_MixLE_DivFree_Exact_Test COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=mix_le" "--solution=divfree_polynomial_2" "--pressure-solution=polynomial_1" "--num-meshes=1" "--order=2" "--size=1.0" "--convergence-type=exact" "--rate-tol=1e-11" "--penalty=100.0")
+        ADD_TEST(NAME REBAR_MixLE_DivFree_Exact_Test COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=mix_le" "--solution=divfree_polynomial_2" "--pressure-solution=polynomial_1" "--num-meshes=1" "--order=2" "--size=1.0" "--convergence-type=exact" "--rate-tol=1e-11" "--penalty=100.0" "--pressure-null-space=none")
         SET_TESTS_PROPERTIES(REBAR_MixLE_DivFree_Exact_Test PROPERTIES LABELS "rebar;REBAR;Rebar")
-        ADD_TEST(NAME REBAR_MixLE_Exact_Test COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=mix_le" "--solution=polynomial_2" "--pressure-solution=polynomial_1" "--num-meshes=1" "--order=2" "--size=1.0" "--convergence-type=exact" "--rate-tol=1e-11" "--penalty=100.0")
+        ADD_TEST(NAME REBAR_MixLE_Exact_Test COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=mix_le" "--solution=polynomial_2" "--pressure-solution=polynomial_1" "--num-meshes=1" "--order=2" "--size=1.0" "--convergence-type=exact" "--rate-tol=1e-11" "--penalty=100.0" "--pressure-null-space=none")
         SET_TESTS_PROPERTIES(REBAR_MixLE_Exact_Test PROPERTIES LABELS "rebar;REBAR;Rebar")
-        ADD_TEST(NAME REBAR_MixLE_Convergence_Test COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=mix_le" "--solution=sine" "--num-meshes=3" "--order=2" "--size=1.5" "--penalty=100.0")
+        ADD_TEST(NAME REBAR_MixLE_Convergence_Test COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../../test_data/utilities/variational_convergence.py" "--operator=mix_le" "--solution=sine" "--num-meshes=3" "--order=2" "--size=1.2" "--penalty=20.0" "--pressure-null-space=none")
         SET_TESTS_PROPERTIES(REBAR_MixLE_Convergence_Test PROPERTIES LABELS "rebar;REBAR;Rebar")
 
 

@@ -127,7 +127,7 @@ int main (int argc, char* args[]) {
         use_neighbor_weighting = false;
         use_side_weighting = true;
     } else {
-        if (!use_vms) compadre_assert_release(false && "Illegal choice for \"penalty weighting\".");
+        //if (!use_vms) compadre_assert_release(false && "Illegal choice for \"penalty weighting\".");
     }
 
     {
@@ -234,6 +234,11 @@ int main (int argc, char* args[]) {
             velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::DivFreeSecondOrderBasis(input_dim /*dimension*/)));
         } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="sine") {
             velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(input_dim /*dimension*/)));
+        } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="timoshenko") {
+            velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::Timoshenko(
+                            parameters->get<Teuchos::ParameterList>("physics").get<double>("shear"),
+                            parameters->get<Teuchos::ParameterList>("physics").get<double>("lambda"), 
+                            input_dim /*dimension*/)));
         }
         if (st_op) { // mix_le_op uses pressure from divergence of velocity
             if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_1") {
@@ -407,25 +412,34 @@ int main (int argc, char* args[]) {
         double avg_pressure_computed = 0.0;
         // post process solution ( modal DOF -> cell centered value )
         {
-            auto vel_gmls = physics->_vel_gmls;
-            auto pressure_gmls = physics->_pressure_gmls;
             if (st_op || mix_le_op) { 
                 cells->getFieldManager()->createField(input_dim, "processed_"+velocity_name, "m/s");
                 cells->getFieldManager()->createField(1, "processed_"+pressure_name, "m/s");
+                cells->getFieldManager()->createField(input_dim, "diff_"+velocity_name, "m/s");
+                cells->getFieldManager()->createField(1, "diff_"+pressure_name, "m/s");
             } else if (le_op || vl_op) { 
                 cells->getFieldManager()->createField(input_dim, "processed_"+velocity_name, "m/s");
+                cells->getFieldManager()->createField(input_dim, "diff_"+velocity_name, "m/s");
             } else {
                 cells->getFieldManager()->createField(1, "processed_"+velocity_name, "m/s");
+                cells->getFieldManager()->createField(1, "diff_"+velocity_name, "m/s");
             }
-            auto velocity_processed_view = cells->getFieldManager()->getFieldByName("processed_"+velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        }
+        auto velocity_processed_view = cells->getFieldManager()->getFieldByName("processed_"+velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        decltype(velocity_processed_view) pressure_processed_view;
+        if (st_op || mix_le_op) {
+            pressure_processed_view = cells->getFieldManager()->getFieldByName("processed_"+pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        }
+        {
+            auto vel_gmls = physics->_vel_gmls;
+            auto pressure_gmls = physics->_pressure_gmls;
+
             auto velocity_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
             auto velocity_halo_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 
-            decltype(velocity_processed_view) pressure_processed_view;
             decltype(velocity_dof_view) pressure_dof_view;
             decltype(velocity_halo_dof_view) pressure_halo_dof_view;
             if (st_op || mix_le_op) {
-                pressure_processed_view = cells->getFieldManager()->getFieldByName("processed_"+pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
                 pressure_dof_view = particles->getFieldManager()->getFieldByName(pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
                 pressure_halo_dof_view = particles->getFieldManager()->getFieldByName(pressure_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
             }
@@ -688,8 +702,11 @@ int main (int argc, char* args[]) {
         }
 
         auto velocity_exact_view = cells->getFieldManager()->getFieldByName("exact_"+velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        auto velocity_diff_view = cells->getFieldManager()->getFieldByName("diff_"+velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
         decltype(velocity_exact_view) pressure_exact_view;
         if (st_op || mix_le_op) pressure_exact_view = cells->getFieldManager()->getFieldByName("exact_"+pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        decltype(velocity_exact_view) pressure_diff_view;
+        if (st_op || mix_le_op) pressure_diff_view = cells->getFieldManager()->getFieldByName("diff_"+pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 
         // store exact velocity as a field
         if (le_op || vl_op || st_op || mix_le_op) { 
@@ -698,6 +715,7 @@ int main (int argc, char* args[]) {
                     xyz_type xyz = coords->getLocalCoords(j);
                     auto exacts = velocity_function->evalVector(xyz);
                     velocity_exact_view(j,k) = exacts[k];
+                    velocity_diff_view(j,k) = velocity_exact_view(j,k)-velocity_processed_view(j,k);
                 }
             }
         } else {
@@ -705,15 +723,17 @@ int main (int argc, char* args[]) {
                 xyz_type xyz = coords->getLocalCoords(j);
                 velocity_exact = velocity_function->evalScalar(xyz);
                 velocity_exact_view(j,0) = velocity_exact;
+                velocity_diff_view(j,0) = velocity_exact_view(j,0)-velocity_processed_view(j,0);
             }
         }
         // store exact pressure as a field
         if (mix_le_op) {
+            double t_lambda_coeff = (lambda_coeff==std::numeric_limits<scalar_type>::infinity()) ? 0.0 : lambda_coeff;
             for( int j =0; j<coords->nLocal(); j++){
                 xyz_type xyz = coords->getLocalCoords(j);
                 // pressure is div of velocity
                 auto velocity_jacobian = velocity_function->evalJacobian(xyz);
-                pressure_exact = -1*(velocity_jacobian[0][0] + velocity_jacobian[1][1]);
+                pressure_exact = 1*(t_lambda_coeff+shear_coeff)*(velocity_jacobian[0][0] + velocity_jacobian[1][1]);
                 avg_pressure_exact += pressure_exact;
             }
 
@@ -723,8 +743,9 @@ int main (int argc, char* args[]) {
                 xyz_type xyz = coords->getLocalCoords(j);
                 // pressure is div of velocity
                 auto velocity_jacobian = velocity_function->evalJacobian(xyz);
-                pressure_exact = -1*(velocity_jacobian[0][0] + velocity_jacobian[1][1]);
+                pressure_exact = 1*(t_lambda_coeff+shear_coeff)*(velocity_jacobian[0][0] + velocity_jacobian[1][1]);
                 pressure_exact_view(j,0) = pressure_exact-avg_pressure_exact;
+                pressure_diff_view(j,0) = pressure_exact_view(j,0) - pressure_processed_view(j,0);
             }
         } else if (st_op) {
             for( int j =0; j<coords->nLocal(); j++){
@@ -739,6 +760,7 @@ int main (int argc, char* args[]) {
                 xyz_type xyz = coords->getLocalCoords(j);
                 pressure_exact = pressure_function->evalScalar(xyz);
                 pressure_exact_view(j,0) = pressure_exact-avg_pressure_exact;
+                pressure_diff_view(j,0) = pressure_exact_view(j,0) - pressure_processed_view(j,0);
             }
         }
 
@@ -797,7 +819,8 @@ int main (int argc, char* args[]) {
             double pressure_l2_error = 0.0;
             //double pressure_h1_error = 0.0;
 
-            double penalty = (parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty")/physics->_cell_particles_neighborhood->computeMaxHSupportSize(true /* global processor max */);
+            auto base_penalty = (parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty");
+            if (use_neighbor_weighting) base_penalty /= (input_dim==2) ? physics->_cell_particles_max_h : 1.772453850905516*physics->_cell_particles_max_h; // either h or sqrt(pi)*h
 
             host_view_type l2_view, h1_view, jump_view;
             if (plot_quadrature) {
@@ -839,6 +862,22 @@ int main (int argc, char* args[]) {
                 auto num_exterior_quadrature_per_edge = (quadrature_weights.extent(1) - num_interior_quadrature)/num_edges;
 
                 for( int j =0; j<coords->nLocal(); j++){
+                    auto num_sides = adjacent_elements.extent(1);
+                    std::vector<double> side_lengths(num_sides);
+                    {
+                        for (int current_side_num = 0; current_side_num < num_sides; ++current_side_num) {
+                           for (int q=0; q<quadrature_weights.extent(1); ++q) {
+                                auto q_type = quadrature_type(j,q);
+                                if (q_type!=1) { // side
+                                    auto q_wt = quadrature_weights(j,q);
+                                    int side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                                    if (side_num==current_side_num) {
+                                        side_lengths[current_side_num] += q_wt;
+                                    }
+                                }
+                            }
+                        }
+                    }
                     double l2_error_on_cell = 0.0;
                     double h1_error_on_cell = 0.0;
                     double jump_error_on_cell = 0.0;
@@ -908,6 +947,9 @@ int main (int argc, char* args[]) {
                                     }
                                 }
                             } else if (quadrature_type(j,i)==2) { // exterior edge
+                                int current_side_num = (i - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                                double penalty = (use_side_weighting) ? base_penalty/side_lengths[current_side_num] : base_penalty;
+
                                 double u_val = 0.0;
                                 // needs reconstruction at this quadrature point
                                 LO num_neighbors = neighborhood->getNumNeighbors(j);
@@ -935,6 +977,8 @@ int main (int argc, char* args[]) {
                                     jump_view(count+i,m_out) += penalty * quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);
                                 }
                             } else if (quadrature_type(j,i)==0) { // interior edge
+                                int current_side_num = (i - num_interior_quadrature)/num_exterior_quadrature_per_edge;
+                                double penalty = (use_side_weighting) ? base_penalty/side_lengths[current_side_num] : base_penalty;
                                 double u_val = 0.0;
                                 double other_u_val = 0.0;
                                 // needs reconstruction at this quadrature point
@@ -1033,7 +1077,8 @@ int main (int argc, char* args[]) {
                                     } else if (mix_le_op) {
                                         l2_val -= avg_pressure_computed;
                                         auto velocity_jacobian = velocity_function->evalJacobian(xyz);
-                                        double l2_exact = -1*(velocity_jacobian[0][0] + velocity_jacobian[1][1])-avg_pressure_exact;
+                                        double t_lambda_coeff = (lambda_coeff==std::numeric_limits<scalar_type>::infinity()) ? 0.0 : lambda_coeff;
+                                        double l2_exact = -1*(t_lambda_coeff + shear_coeff)*(velocity_jacobian[0][0] + velocity_jacobian[1][1])-avg_pressure_exact;
                                         l2_error_on_cell += quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
                                     }
                                 }
