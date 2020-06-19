@@ -997,6 +997,7 @@ Teuchos::RCP<crs_graph_type> ReactionDiffusionPhysics::computeGraph(local_index_
     ComputeGraphTime->start();
     TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_A_graph.is_null(), "Tpetra CrsGraph for Physics not yet specified.");
 
+
     if (field_one == _lagrange_field_id && field_two == _pressure_field_id) {
         // row all DOFs for solution against Lagrange Multiplier
 
@@ -1254,12 +1255,16 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     auto num_exterior_quadrature_per_side = (_weights_ndim - num_interior_quadrature)/num_sides;
 
 
+    // set to just print out mass matrix
+    bool le_mass = _parameters->get<Teuchos::ParameterList>("solver").get<bool>("le mass");
 
-    scalar_type pressure_coeff = 1.0;
+    scalar_type pressure_coeff = std::numeric_limits<scalar_type>::infinity();
     if (_mix_le_op) {
         pressure_coeff = _lambda + 2./(scalar_type)(_ndim_requested)*_shear;
     }
     if (_ndim_requested==3) printf("Assembly started.\n");
+
+    auto cell_vertices = _cells->getFieldManager()->getFieldByName("vertex_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
 
     if (((field_one == _velocity_field_id) || (field_one == _pressure_field_id)) && ((field_two == _velocity_field_id) || (field_two == _pressure_field_id))) {
     // loop over cells including halo cells 
@@ -1497,7 +1502,12 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         }
                                     }
                                 }
-
+                                if (le_mass) {
+                                    // this is only for getting a mass matrix for analysis (not PDE solution)
+                                    if (q_type==1) { // interior
+                                        t_contribution += q_wt * u * v * (k_comp_out==j_comp_out);
+                                    }
+                                } else {
                                 if (q_type==1) { // interior
 
                                     if (_rd_op) {
@@ -1594,7 +1604,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             for (int d=0; d<_ndim_requested; ++d) {
                                                 div_v += grad_v[d]*(j_comp_out==d);
                                             }
-                                            t_contribution -= q_wt * div_v * p * pressure_coeff;
+                                            t_contribution -= q_wt * div_v * p;
                                             //      (grad_v_x*(j_comp_out==0) + grad_v_y*(j_comp_out==1)) * p * pressure_coeff);
                                         } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
                                             if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
@@ -1602,7 +1612,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 for (int d=0; d<_ndim_requested; ++d) {
                                                     div_u += grad_u[d]*(k_comp_out==d);
                                                 }
-                                                t_contribution -= q_wt * div_u * q * pressure_coeff;
+                                                t_contribution -= q_wt * div_u * q;
                                                 //      (grad_u_x*(k_comp_out==0) + grad_u_y*(k_comp_out==1)) * q * pressure_coeff);
                                             } 
                                             //else if ((particle_j==particle_k) && (particle_j==i)) {
@@ -1611,7 +1621,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         } else {
                                             if (_mix_le_op) {
                                                 if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
-                                                    t_contribution -= q_wt * ( p * q * pressure_coeff );
+                                                    t_contribution -= q_wt * ( 1./pressure_coeff * p * q );
                                                 } 
                                             }
                                         }
@@ -1816,19 +1826,19 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                     t_contribution -= q_wt * 2 * _shear * mu_sigma_v_dot_n_dot_jump_u;
                                                     t_contribution -= q_wt * 2 * _shear * mu_sigma_u_dot_n_dot_jump_v;
 
-                                                    double avg_div_v = 0, avg_div_u = 0;
-                                                    for (int d=0; d<_ndim_requested; ++d) {
-                                                        avg_div_v += avg_grad_v[d]*(j_comp_out==d);
-                                                        avg_div_u += avg_grad_u[d]*(k_comp_out==d);
-                                                    }
                                                     double n_dot_jump_v = 0.0, n_dot_jump_u = 0.0;
                                                     for (int d=0; d<_ndim_requested; ++d) {
                                                         n_dot_jump_v += n[d] * jumpv * (j_comp_out==d);
                                                         n_dot_jump_u += n[d] * jumpu * (k_comp_out==d);
                                                     }
-                                                    t_contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _shear * avg_div_v * n_dot_jump_u;
-                                                    t_contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _shear * avg_div_u * n_dot_jump_v;
-
+                                                    double lambda_sigma_v_dot_n_dot_jump_u = 0.0;
+                                                    double lambda_sigma_u_dot_n_dot_jump_v = 0.0;
+                                                    for (int d=0; d<_ndim_requested; ++d) {
+                                                        lambda_sigma_v_dot_n_dot_jump_u += avg_grad_v[d]*(j_comp_out==d) * n_dot_jump_u;
+                                                        lambda_sigma_u_dot_n_dot_jump_v += avg_grad_u[d]*(k_comp_out==d) * n_dot_jump_v;
+                                                    }
+                                                    t_contribution += q_wt * 2.0/(scalar_type)(_ndim_requested) * _shear * lambda_sigma_v_dot_n_dot_jump_u;
+                                                    t_contribution += q_wt * 2.0/(scalar_type)(_ndim_requested) * _shear * lambda_sigma_u_dot_n_dot_jump_v;
                                                     //t_contribution -= q_wt * (
                                                     //      2 * _shear * (n_x*avgv_x*(j_comp_out==0) 
                                                     //        + 0.5*n_y*(avgv_y*(j_comp_out==0) + avgv_x*(j_comp_out==1))) * jumpu*(k_comp_out==0)  
@@ -1847,7 +1857,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 for (int d=0; d<_ndim_requested; ++d) {
                                                     n_dot_jump_v += n[d] * jumpv * (j_comp_out==d);
                                                 }
-                                                t_contribution += q_wt * pressure_coeff * avgp * n_dot_jump_v;
+                                                t_contribution += q_wt * avgp * n_dot_jump_v;
                                                 //t_contribution += q_wt * n_dot_jump_v;
                                                 //t_contribution += q_wt * (
                                                 //      pressure_coeff * avgp * n_dot_jump_v );
@@ -1857,7 +1867,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                     for (int d=0; d<_ndim_requested; ++d) {
                                                         n_dot_jump_u += n[d] * jumpu * (k_comp_out==d);
                                                     }
-                                                    t_contribution += q_wt * pressure_coeff * avgq * n_dot_jump_u;
+                                                    t_contribution += q_wt * avgq * n_dot_jump_u;
                                                     //t_contribution += q_wt * (
                                                     //      pressure_coeff * avgq * (n_x*jumpu*(k_comp_out==0) + n_y*jumpu*(k_comp_out==1)) );
                                                 }
@@ -1867,50 +1877,15 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     
                                 }
                                 else if (q_type==0)  { // side on interior
+
                                     const int adjacent_cell_local_index_q = adjacent_cell_local_index[qn];
                                     int current_side_num = (qn - num_interior_quadrature)/num_exterior_quadrature_per_side;
                                     double penalty = (_use_side_weighting) ? base_penalty/side_lengths[current_side_num] : base_penalty;
-                                    //int current_side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
-                                    //int adjacent_cell_local_index = (int)(adjacent_elements(i, current_side_num));
 
-                                    //if (i>adjacent_cell_local_index) {
-                                    //
-                                    //////printf("size is %lu\n", _halo_id_view.extent(0));
-                                    //int adjacent_cell_local_index = -1;
-                                    ////// loop all of i's neighbors to get local index
-                                    ////for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(i); ++l) {
-                                    ////    auto this_neighbor_local_index = _cell_particles_neighborhood->getNeighbor(i,l);
-                                    ////    scalar_type gid;
-                                    ////    if (this_neighbor_local_index < nlocal) {
-                                    ////        gid = static_cast<scalar_type>(_id_view(this_neighbor_local_index,0));
-                                    ////    } else {
-                                    ////        gid = static_cast<scalar_type>(_halo_id_view(this_neighbor_local_index-nlocal,0));
-                                    ////    }
-                                    ////    //printf("gid %lu\n", gid);
-                                    ////    if (adjacent_cell_global_index==gid) {
-                                    ////        adjacent_cell_local_index = this_neighbor_local_index;
-                                    ////        break;
-                                    ////    }
-                                    ////}
-                                    ////if (adjacent_cell_local_index < 0) {
-                                    ////    std::cout << "looking for " << adjacent_cell_global_index << std::endl;
-                                    ////    for (int l=0; l<_cell_particles_neighborhood->getNumNeighbors(i); ++l) {
-                                    ////        auto this_neighbor_local_index = _cell_particles_neighborhood->getNeighbor(i,l);
-                                    ////        scalar_type gid;
-                                    ////        if (this_neighbor_local_index < nlocal) {
-                                    ////            gid = static_cast<scalar_type>(_id_view(this_neighbor_local_index,0));
-                                    ////        } else {
-                                    ////            gid = static_cast<scalar_type>(_halo_id_view(this_neighbor_local_index-nlocal,0));
-                                    ////        }
-                                    ////        //printf("gid %lu\n", gid);
-                                    ////        std::cout << "see gid " << gid << std::endl;
-                                    ////    }
-                                    ////    for (int l=0; l<_halo_id_view.extent(0); ++l) {
-                                    ////        printf("gid on halo %d\n", _halo_id_view(l,0));
-                                    ////    }
-                                    ////}
+                                    // only integrate on one side of edge
                                     if (i <= adjacent_cell_local_index_q) return;
                                     
+                                    // check that particle j or k have support on this cell
                                     if (j_to_adjacent_cell[qn]<0 && k_to_adjacent_cell[qn]<0 && j_to_cell_i<0 && k_to_cell_i<0) return;
                                     
                                     const auto normal_direction_correction = (i > adjacent_cell_local_index_q) ? 1 : -1; 
@@ -1942,55 +1917,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             }        
                                         }
                                     }
-
-
-                                    //int adjacent_q = num_interior_quadrature + side_i_to_adjacent_cell*num_exterior_quadrature_per_side + ((q-num_interior_quadrature)%num_exterior_quadrature_per_side);
-
-                                    //// diagnostic that quadrature matches up between adjacent_cell_local_index & adjacent_q 
-                                    //// along with i & q
-                                    //auto my_x = quadrature_points(i, _ndim_requested*qn+0);
-                                    //auto their_x = quadrature_points(adjacent_cell_local_index_q, _ndim_requested*adjacent_q+0);
-                                    //if (std::abs(my_x-their_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_x, their_x, my_x-their_x);
-                                    //auto my_y = quadrature_points(i, _ndim_requested*qn+1);
-                                    //auto their_y = quadrature_points(adjacent_cell_local_index_q, _ndim_requested*adjacent_q+1);
-                                    //if (std::abs(my_y-their_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_y, their_y, my_y-their_y);
-                                    //auto my_wt = quadrature_weights(i, q);
-                                    //auto their_wt = quadrature_weights(adjacent_cell_local_index, adjacent_q);
-                                    //if (std::abs(my_wt-their_wt)>1e-14) printf("wm: %f, t: %f, d: %.16f\n", my_wt, their_wt, my_wt-their_wt);
-                                    //auto my_y = quadrature_points(i, 2*q+1);
-                                    //auto their_y = quadrature_points(adjacent_cell_local_index, 2*adjacent_q+1);
-                                    //if (std::abs(my_y-their_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_y, their_y, my_y-their_y);
-
-
-                                    // diagnostics for quadrature points
-                                    //printf("b: %f\n", _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index, j_to_adjacent_cell[qn], adjacent_q+1));
-                                    //auto my_j_index = _cell_particles_neighborhood->getNeighbor(i,j_to_cell_i);
-                                    //auto their_j_index = _cell_particles_neighborhood->getNeighbor(adjacent_cell_local_index, j_to_adjacent_cell[qn]);
-                                    //printf("xm: %d, t: %d\n", my_j_index, their_j_index);
-                                    //auto my_q_x = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 0);
-                                    //auto my_q_y = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 1);
-                                    //auto their_q_x = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 0);
-                                    //auto their_q_y = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 1);
-                                    //if (std::abs(my_q_x-their_q_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_q_x, their_q_x, my_q_x-their_q_x);
-                                    //if (std::abs(my_q_y-their_q_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_q_y, their_q_y, my_q_y-their_q_y);
-
-                                    //auto my_q_x = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 0);
-                                    //auto my_q_y = _kokkos_quadrature_coordinates_host(i*_weights_ndim + q, 1);
-                                    ////auto their_q_index = _kokkos_quadrature_neighbor_lists_host(adjacent_cell_local_index, 1+k_to_adjacent_cell[qn]);
-                                    //auto their_q_x = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 0);
-                                    //auto their_q_y = _kokkos_quadrature_coordinates_host(adjacent_cell_local_index*_weights_ndim + adjacent_q, 1);
-                                    //if (std::abs(my_q_x-their_q_x)>1e-14) printf("xm: %f, t: %f, d: %.16f\n", my_q_x, their_q_x, my_q_x-their_q_x);
-                                    //if (std::abs(my_q_y-their_q_y)>1e-14) printf("ym: %f, t: %f, d: %.16f\n", my_q_y, their_q_y, my_q_y-their_q_y);
-                                    //
-                                    //    XYZ avg_grad_v;
-                                    //    XYZ avg_grad_u;
-                                    //    // unique outward normal
-                                    //    XYZ n;
-                                    //    for (int d=0; d<_ndim_requested; ++d) {
-                                    //        avg_grad_v[d] = grad_v[d];
-                                    //        avg_grad_u[d] = grad_u[d];
-                                    //        n[d] = unit_normals(i,_ndim_requested*qn+d);
-                                    //    }
  
                                     double other_v, other_u;
                                     if (_use_vector_gmls) other_v = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, j_to_adjacent_cell[qn], j_comp_in, adjacent_q+1) : 0.0;
@@ -2215,6 +2141,8 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             const double other_p = (k_to_adjacent_cell[qn]>=0) ? _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
                                             const double avgp = 0.5*(p+other_p);
                                             const double avgq = 0.5*(q+other_q);
+                                            const double jumpp = normal_direction_correction*(p-other_p);
+                                            const double jumpq = normal_direction_correction*(q-other_q);
 
                                             if (_velocity_field_id==field_one && _velocity_field_id==field_two) {
                                                 if (_st_op) {
@@ -2254,18 +2182,19 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                     t_contribution -= q_wt * 2 * _shear * mu_sigma_v_dot_n_dot_jump_u;
                                                     t_contribution -= q_wt * 2 * _shear * mu_sigma_u_dot_n_dot_jump_v;
 
-                                                    double avg_div_v = 0, avg_div_u = 0;
-                                                    for (int d=0; d<_ndim_requested; ++d) {
-                                                        avg_div_v += avg_grad_v[d]*(j_comp_out==d);
-                                                        avg_div_u += avg_grad_u[d]*(k_comp_out==d);
-                                                    }
                                                     double n_dot_jump_v = 0.0, n_dot_jump_u = 0.0;
                                                     for (int d=0; d<_ndim_requested; ++d) {
                                                         n_dot_jump_v += n[d] * jumpv * (j_comp_out==d);
                                                         n_dot_jump_u += n[d] * jumpu * (k_comp_out==d);
                                                     }
-                                                    t_contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _shear * avg_div_v * n_dot_jump_u;
-                                                    t_contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _shear * avg_div_u * n_dot_jump_v;
+                                                    double lambda_sigma_v_dot_n_dot_jump_u = 0.0;
+                                                    double lambda_sigma_u_dot_n_dot_jump_v = 0.0;
+                                                    for (int d=0; d<_ndim_requested; ++d) {
+                                                        lambda_sigma_v_dot_n_dot_jump_u += avg_grad_v[d]*(j_comp_out==d) * n_dot_jump_u;
+                                                        lambda_sigma_u_dot_n_dot_jump_v += avg_grad_u[d]*(k_comp_out==d) * n_dot_jump_v;
+                                                    }
+                                                    t_contribution += q_wt * 2.0/(scalar_type)(_ndim_requested) * _shear * lambda_sigma_v_dot_n_dot_jump_u;
+                                                    t_contribution += q_wt * 2.0/(scalar_type)(_ndim_requested) * _shear * lambda_sigma_u_dot_n_dot_jump_v;
                                                     //t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out); // other half will be added by other cell
                                                     //t_contribution -= q_wt * (
                                                     //      2 * _shear * (n_x*avgv_x*(j_comp_out==0) 
@@ -2285,7 +2214,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 for (int d=0; d<_ndim_requested; ++d) {
                                                     n_dot_jump_v += n[d] * jumpv * (j_comp_out==d);
                                                 }
-                                                t_contribution += q_wt * pressure_coeff * avgp * n_dot_jump_v;
+                                                t_contribution += q_wt * avgp * n_dot_jump_v;
                                                 //t_contribution += q_wt * (
                                                 //      pressure_coeff * avgp * (n_x*jumpv*(j_comp_out==0) + n_y*jumpv*(j_comp_out==1)) );
                                             } else if (_pressure_field_id==field_one && _velocity_field_id==field_two) {
@@ -2294,13 +2223,22 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                     for (int d=0; d<_ndim_requested; ++d) {
                                                         n_dot_jump_u += n[d] * jumpu * (k_comp_out==d);
                                                     }
-                                                    t_contribution += q_wt * pressure_coeff * avgq * n_dot_jump_u;
+                                                    t_contribution += q_wt * avgq * n_dot_jump_u;
                                                     //t_contribution += q_wt * (
                                                     //      pressure_coeff * avgq * (n_x*jumpu*(k_comp_out==0) + n_y*jumpu*(k_comp_out==1)) );
                                                 }
+                                            } else {
+                                                // DG stabilization for inf-sup unstable pairs
+                                                // should be added as an option later
+                                                //if (_st_op) {
+                                                //    if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
+                                                //        t_contribution -= q_wt * ( _cell_particles_max_h * jumpp * jumpq );
+                                                //    } 
+                                                //}
                                             }
                                         }
                                     }
+                                }
                                 }
                                 compadre_assert_debug(t_contribution==t_contribution && "NaN encountered in t_contribution.");
                             }, contribution);

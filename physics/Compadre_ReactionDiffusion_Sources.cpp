@@ -18,6 +18,7 @@ typedef Compadre::XyzVector xyz_type;
 
 void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time) {
 
+    auto cell_vertices = _physics->_cells->getFieldManager()->getFieldByName("vertex_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
     if (field_one != field_two) return;
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_b==NULL, "Tpetra Multivector for RHS not yet specified.");
 
@@ -49,10 +50,6 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
 
     local_index_type _ndim_requested = _physics->_ndim_requested;
     if (_ndim_requested==3) printf("RHS started.\n");
-    scalar_type pressure_coeff = 1.0;
-    if (_mix_le_op) {
-        pressure_coeff = _physics->_lambda + 2./(scalar_type)(_ndim_requested)*_physics->_shear;
-    }
 
     host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
     const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
@@ -216,8 +213,8 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                         else if (q_type==2) { // side on exterior
                             int current_side_num = (qn - num_interior_quadrature)/num_exterior_quadrature_per_side;
                             double penalty = (_use_side_weighting) ? base_penalty/side_lengths[current_side_num] : base_penalty;
+
                             // DG enforcement of Dirichlet BCs
-                            // penalties for sides of mass
                             XYZ grad_v;
                             if (_use_vector_grad_gmls) {
                                 for (int d=0; d<_ndim_requested; ++d) {
@@ -295,18 +292,18 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                     for (int d=0; d<_ndim_requested; ++d) {
                                         n_dot_exact += n[d] * exact[d];
                                     }
-                                    double div_v = 0.0;
-                                    for (int d=0; d<_ndim_requested; ++d) {
-                                        div_v += grad_v[d]*(comp_out==d);
-                                    }
                                     double mu_sigma_v_dot_n_dot_exact = 0.0;
                                     for (int d1=0; d1<_ndim_requested; ++d1) {
                                         for (int d2=0; d2<_ndim_requested; ++d2) {
                                             mu_sigma_v_dot_n_dot_exact += 0.5*n[d1]*exact[d2]*(grad_v[d1]*(comp_out==d2) + grad_v[d2]*(comp_out==d1));
                                         }
                                     }
+                                    double lambda_sigma_v_dot_n_dot_exact = 0.0;
+                                    for (int d=0; d<_ndim_requested; ++d) {
+                                        lambda_sigma_v_dot_n_dot_exact += grad_v[d]*(comp_out==d) * n_dot_exact;
+                                    }
+                                    contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _physics->_shear * lambda_sigma_v_dot_n_dot_exact;
                                     contribution -= q_wt * 2 * _physics->_shear * mu_sigma_v_dot_n_dot_exact;
-                                    contribution += q_wt * 2./(scalar_type)(_ndim_requested) * _physics->_shear * div_v * n_dot_exact;
                                     //contribution -= q_wt * (
                                     //      2 * _physics->_shear * (n[0]*grad_v[0]*(comp_out==0) + 0.5*n[1]*(grad_v[1]*(comp_out==0) + grad_v[0]*(comp_out==1))) * exact[0]  
                                     //    + 2 * _physics->_shear * (n[1]*grad_v[1]*(comp_out==1) + 0.5*n[0]*(grad_v[0]*(comp_out==1) + grad_v[1]*(comp_out==0))) * exact[1]
@@ -319,7 +316,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                     for (int d=0; d<_ndim_requested; ++d) {
                                         n_dot_exact += n[d] * exact[d];
                                     }
-                                    contribution += q_wt * (pressure_coeff * q * ( n_dot_exact ) );
+                                    contribution += q_wt * ( q * ( n_dot_exact ) );
                                     //contribution += q_wt * (
                                     //      pressure_coeff * q * ( n_x * exact[0] + n_y * exact[1] ) );
                                 }
@@ -361,7 +358,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                         n_dot_exact += n[d] * exact[d];
                                     }
                                     contribution += q_wt * (
-                                          pressure_coeff * q * ( n_dot_exact ) );
+                                          q * ( n_dot_exact ) );
                                 }
                             }
                         }
