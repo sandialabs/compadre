@@ -537,7 +537,11 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("getNN", &GMLS::getNN, "Heuristic number of neighbors.");
 
     py::class_<NeighborLists<ParticleHelper::int_1d_view_type_in_gmls> >(m, "NeighborLists")
-    .def("getNumberOfTargets", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getNumberOfTargets, "Number of targets.");
+    .def("getNumberOfTargets", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getNumberOfTargets, "Number of targets.")
+    .def("getNumberOfNeighbors", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getNumberOfNeighborsHost, py::arg("target index"), "Get number of neighbors for target.")
+    .def("getNeighbor", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getNeighborHost, py::arg("target index"), py::arg("local neighbor number"), "Get neighbor index from target index and local neighbor number.")
+    .def("getMaxNumNeighbors", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getMaxNumNeighbors, "Get maximum number of neighbors over all neighborhoods.")
+    .def("getTotalNeighborsOverAllLists", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getTotalNeighborsOverAllListsHost, "Get total storage size of all neighbor lists combined.");
 
     py::class_<KokkosParser>(m, "KokkosParser")
     .def(py::init<int,int,int,int,bool>(), py::arg("num_threads") = -1, py::arg("numa") = -1, py::arg("device") = -1, py::arg("ngpu") = -1, py::arg("print") = false);
