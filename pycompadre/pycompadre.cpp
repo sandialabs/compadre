@@ -623,8 +623,8 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("getTargetSites", &ParticleHelper::getTargetSites, py::return_value_policy::take_ownership)
     .def("setTangentBundle", &ParticleHelper::setTangentBundle, py::arg("tangent_bundle"))
     .def("getTangentBundle", &ParticleHelper::getTangentBundle, py::return_value_policy::take_ownership)
-    .def("setReferenceOutwardNormalDirectionsetTangentBundle", &ParticleHelper::setReferenceOutwardNormalDirection, py::arg("reference_normal_directions"), py::arg("use_to_orient_surface") = true)
-    .def("getReferenceOutwardNormalDirectiongetTangentBundle", &ParticleHelper::getReferenceOutwardNormalDirection, py::return_value_policy::take_ownership)
+    .def("setReferenceOutwardNormalDirection", &ParticleHelper::setReferenceOutwardNormalDirection, py::arg("reference_normal_directions"), py::arg("use_to_orient_surface") = true)
+    .def("getReferenceOutwardNormalDirection", &ParticleHelper::getReferenceOutwardNormalDirection, py::return_value_policy::take_ownership)
     .def("getPolynomialCoefficients", &ParticleHelper::getPolynomialCoefficients, py::arg("input_data"), py::return_value_policy::take_ownership)
     .def("applyStencil", &ParticleHelper::applyStencil, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::return_value_policy::take_ownership);
     
