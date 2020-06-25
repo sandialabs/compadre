@@ -13,6 +13,12 @@ struct XYZ {
     KOKKOS_INLINE_FUNCTION
     XYZ(double _x, double _y, double _z) : x(_x), y(_y), z(_z) {}
 
+    KOKKOS_INLINE_FUNCTION
+    XYZ(double _x, double _y) : x(_x), y(_y), z(0) {}
+
+    KOKKOS_INLINE_FUNCTION
+    XYZ(double _x) : x(_x), y(0), z(0) {}
+
     double x;
     double y;
     double z;
@@ -38,6 +44,18 @@ struct XYZ {
         return result;
     }
 }; // XYZ
+
+//! Returns a component of the local coordinate after transformation from global to local under the orthonormal basis V.
+KOKKOS_INLINE_FUNCTION
+double convertGlobalToLocalCoordinate(const XYZ global_coord, const int dim, const scratch_matrix_right_type* V) {
+    // only written for up n-1 dim manifold in [n<=3] space
+    double val = 0;
+    val += global_coord.x * (*V)(dim, 0);
+    if ((*V).extent(0)>1) val += global_coord.y * (*V)(dim, 1);
+    if ((*V).extent(0)>2) val += global_coord.z * (*V)(dim, 2);
+    return val;
+}
+
 
 KOKKOS_INLINE_FUNCTION
 int getAdditionalAlphaSizeFromConstraint(DenseSolverType dense_solver_type, ConstraintType constraint_type) {
