@@ -30,8 +30,7 @@ protected:
 
         _coordinates = coordinates;
 
-        _host_coordinates = _coordinates;
-
+        _host_coordinates = Kokkos::create_mirror_view(_coordinates);
         Kokkos::deep_copy(_host_coordinates, _coordinates);
         Kokkos::fence();
 
@@ -64,8 +63,29 @@ public:
 
     }
 
-    //! \brief Constructor for coordinates type NOT matching internal view type
-    template<typename view_type_2, typename std::enable_if<view_type_2::rank==2&&std::is_same<view_type,view_type_2>::value==0, int>::type = 0 >
+    //! \brief Constructor for coordinates type NOT matching internal view type (same memory space)
+    template<typename view_type_2, typename std::enable_if<view_type_2::rank==2
+                                                           &&std::is_same<view_type,view_type_2>::value==0
+                                                           &&Kokkos::SpaceAccessibility<typename view_type::execution_space, typename view_type_2::memory_space>::accessible==0, 
+                                                                int>::type = 0 >
+    PointData(view_type_2 coordinates) {
+
+        decltype(_coordinates) tmp_coordinates(coordinates.label(), coordinates.extent(0), coordinates.extent(1));
+        auto view_2_space_mirror = Kokkos::create_mirror_view(typename view_type_2::memory_space(), tmp_coordinates);
+        Kokkos::deep_copy(view_2_space_mirror, coordinates);
+        Kokkos::fence();
+        Kokkos::deep_copy(tmp_coordinates, view_2_space_mirror);
+        Kokkos::fence();
+
+        this->initialize(tmp_coordinates);
+
+    }
+
+    //! \brief Constructor for coordinates type NOT matching internal view type (different memory space)
+    template<typename view_type_2, typename std::enable_if<view_type_2::rank==2
+                                                           &&std::is_same<view_type,view_type_2>::value==0
+                                                           &&Kokkos::SpaceAccessibility<typename view_type::execution_space, typename view_type_2::memory_space>::accessible==1, 
+                                                                int>::type = 0 >
     PointData(view_type_2 coordinates) {
 
         decltype(_coordinates) tmp_coordinates(coordinates.label(), coordinates.extent(0), coordinates.extent(1));
