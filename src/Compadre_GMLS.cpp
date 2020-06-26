@@ -1261,7 +1261,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
                 for (int quadrature = 0; quadrature<_qm.getNumberOfQuadraturePoints(); ++quadrature) {
                     XYZ tangent_quadrature_coord_2d;
                     for (int j=0; j<_dimensions-1; ++j) {
-                        tangent_quadrature_coord_2d[j] = getTargetCoordinate(target_index, j, &T);
+                        tangent_quadrature_coord_2d[j] = _target_point_data.getCoordinateDevice(target_index, j, &T);
                         tangent_quadrature_coord_2d[j] -= getNeighborCoordinate(target_index, m, j, &T);
                     }
                     double tangent_vector[3];

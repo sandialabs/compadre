@@ -96,8 +96,32 @@ public:
 
     }
 
+    double getCoordinateHost(const int index, const int dim, const scratch_matrix_right_type* V = NULL) const {
+        compadre_kernel_assert_debug((_number_of_coordinates >= index) && "Index is out of range for coordinates.");
+        if (V==NULL) {
+            return _host_coordinates(index, dim);
+        } else {
+            XYZ coord;
+            switch ((*V).extent(0)) {
+                case 3:
+                    coord = XYZ( _host_coordinates(index, 0),
+                                 _host_coordinates(index, 1),
+                                 _host_coordinates(index, 2) );
+                    return convertGlobalToLocalCoordinate(coord, dim, V);
+                case 2:
+                    coord = XYZ( _host_coordinates(index, 0),
+                                 _host_coordinates(index, 1) );
+                    return convertGlobalToLocalCoordinate(coord, dim, V);
+                default:
+                    coord = XYZ( _host_coordinates(index, 0) );
+                    return convertGlobalToLocalCoordinate(coord, dim, V);
+
+            }
+        }
+    }
+
     KOKKOS_INLINE_FUNCTION
-    double getCoordinate(const int index, const int dim, const scratch_matrix_right_type* V = NULL) const {
+    double getCoordinateDevice(const int index, const int dim, const scratch_matrix_right_type* V = NULL) const {
         compadre_kernel_assert_debug((_number_of_coordinates >= index) && "Index is out of range for coordinates.");
         if (V==NULL) {
             return _coordinates(index, dim);

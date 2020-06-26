@@ -32,14 +32,14 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, double* thread_
       // Evaluate at neighbor site
         for (int i=0; i<dimension; ++i) {
             // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
-            relative_coord[i] = (alpha-1)*getTargetCoordinate(target_index, i, V);
+            relative_coord[i] = (alpha-1)*_target_point_data.getCoordinateDevice(target_index, i, V);
             relative_coord[i] += (1-alpha)*getNeighborCoordinate(target_index, neighbor_index, i, V);
         }
     } else if (additional_evaluation_local_index > 0) {
       // Extra evaluation site
         for (int i=0; i<dimension; ++i) {
             relative_coord[i] = getTargetAuxiliaryCoordinate(target_index, additional_evaluation_local_index, i, V);
-            relative_coord[i] -= getTargetCoordinate(target_index, i, V);
+            relative_coord[i] -= _target_point_data.getCoordinateDevice(target_index, i, V);
         }
     } else {
       // Evaluate at the target site
@@ -110,9 +110,9 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, double* thread_
                     XYZ quadrature_coord_2d;
                     for (int j=0; j<dimension; ++j) {
                         // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
-                      quadrature_coord_2d[j] = (_qm.getSite(quadrature,0)-1)*getTargetCoordinate(target_index, j, V);
+                      quadrature_coord_2d[j] = (_qm.getSite(quadrature,0)-1)*_target_point_data.getCoordinateDevice(target_index, j, V);
                       quadrature_coord_2d[j] += (1-_qm.getSite(quadrature,0))*getNeighborCoordinate(target_index, neighbor_index, j, V);
-                      tangent_quadrature_coord_2d[j] = getTargetCoordinate(target_index, j, V);
+                      tangent_quadrature_coord_2d[j] = _target_point_data.getCoordinateDevice(target_index, j, V);
                       tangent_quadrature_coord_2d[j] += -getNeighborCoordinate(target_index, neighbor_index, j, V);
                     }
                     for (int j=0; j<_basis_multiplier; ++j) {
@@ -156,9 +156,9 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, double* thread_
                     XYZ tangent_quadrature_coord_3d;
                     for (int j=0; j<dimension; ++j) {
                         // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
-                      quadrature_coord_3d[j] = (_qm.getSite(quadrature,0)-1)*getTargetCoordinate(target_index, j, NULL);
+                      quadrature_coord_3d[j] = (_qm.getSite(quadrature,0)-1)*_target_point_data.getCoordinateDevice(target_index, j, NULL);
                       quadrature_coord_3d[j] += (1-_qm.getSite(quadrature,0))*getNeighborCoordinate(target_index, neighbor_index, j, NULL);
-                      tangent_quadrature_coord_3d[j] = getTargetCoordinate(target_index, j, NULL);
+                      tangent_quadrature_coord_3d[j] = _target_point_data.getCoordinateDevice(target_index, j, NULL);
                       tangent_quadrature_coord_3d[j] += -getNeighborCoordinate(target_index, neighbor_index, j, NULL);
                     }
                     for (int j=0; j<_basis_multiplier; ++j) {
@@ -292,7 +292,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, double* thread_
                     // quadrature coord site
                     quadrature_coord_2d[j] = _qm.getSite(quadrature,0)*_source_extra_data(neighbor_index_in_source, j);
                     quadrature_coord_2d[j] += (1-_qm.getSite(quadrature,0))*_source_extra_data(neighbor_index_in_source, j+2);
-                    quadrature_coord_2d[j] -= getTargetCoordinate(target_index, j);
+                    quadrature_coord_2d[j] -= _target_point_data.getCoordinateDevice(target_index, j);
                 } else {
                     // traditional coord
                     quadrature_coord_2d[j] = relative_coord[j];
@@ -411,12 +411,12 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, double* thread_
                 if (_problem_type == ProblemType::MANIFOLD) {
                     XYZ qp = XYZ(transformed_qp[0], transformed_qp[1], transformed_qp[2]);
                     for (int j=0; j<2; ++j) {
-                        relative_coord[j] = convertGlobalToLocalCoordinate(qp,j,V) - getTargetCoordinate(target_index,j,V); // shift quadrature point by target site
+                        relative_coord[j] = convertGlobalToLocalCoordinate(qp,j,V) - _target_point_data.getCoordinateDevice(target_index,j,V); // shift quadrature point by target site
                         relative_coord[2] = 0;
                     }
                 } else {
                     for (int j=0; j<dimension; ++j) {
-                        relative_coord[j] = transformed_qp[j] - getTargetCoordinate(target_index,j,V); // shift quadrature point by target site
+                        relative_coord[j] = transformed_qp[j] - _target_point_data.getCoordinateDevice(target_index,j,V); // shift quadrature point by target site
                     }
                     for (int j=dimension; j<3; ++j) {
                         relative_coord[j] = 0.0;
@@ -492,13 +492,13 @@ void GMLS::calcGradientPij(const member_type& teamMember, double* delta, double*
     if (neighbor_index > -1) {
         for (int i=0; i<dimension; ++i) {
             // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
-            relative_coord[i] = (alpha-1)*getTargetCoordinate(target_index, i, V);
+            relative_coord[i] = (alpha-1)*_target_point_data.getCoordinateDevice(target_index, i, V);
             relative_coord[i] += (1-alpha)*getNeighborCoordinate(target_index, neighbor_index, i, V);
         }
     } else if (additional_evaluation_index > 0) {
         for (int i=0; i<dimension; ++i) {
             relative_coord[i] = getTargetAuxiliaryCoordinate(target_index, additional_evaluation_index, i, V);
-            relative_coord[i] -= getTargetCoordinate(target_index, i, V);
+            relative_coord[i] -= _target_point_data.getCoordinateDevice(target_index, i, V);
         }
     } else {
         for (int i=0; i<3; ++i) relative_coord[i] = 0;
@@ -555,13 +555,13 @@ void GMLS::calcHessianPij(const member_type& teamMember, double* delta, double* 
     if (neighbor_index > -1) {
         for (int i=0; i<dimension; ++i) {
             // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
-            relative_coord[i] = (alpha-1)*getTargetCoordinate(target_index, i, V);
+            relative_coord[i] = (alpha-1)*_target_point_data.getCoordinateDevice(target_index, i, V);
             relative_coord[i] += (1-alpha)*getNeighborCoordinate(target_index, neighbor_index, i, V);
         }
     } else if (additional_evaluation_index > 0) {
         for (int i=0; i<dimension; ++i) {
             relative_coord[i] = getTargetAuxiliaryCoordinate(target_index, additional_evaluation_index, i, V);
-            relative_coord[i] -= getTargetCoordinate(target_index, i, V);
+            relative_coord[i] -= _target_point_data.getCoordinateDevice(target_index, i, V);
         }
     } else {
         for (int i=0; i<3; ++i) relative_coord[i] = 0;

@@ -186,7 +186,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                                 Kokkos::subview(T, Kokkos::ALL(), 1), Kokkos::subview(T, Kokkos::ALL(), 2));
 
                         for (int j=0; j<3; ++j) {
-                            relative_coord[j] = transformed_qp[j] - getTargetCoordinate(target_index, j); // shift quadrature point by target site
+                            relative_coord[j] = transformed_qp[j] - _target_point_data.getCoordinateDevice(target_index, j); // shift quadrature point by target site
                         }
 
                         int k = 0;
@@ -1528,7 +1528,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     if (k > 0) {
                         for (int d=0; d<_dimensions-1; ++d) {
                             relative_coord[d] = getTargetAuxiliaryCoordinate(target_index, k, d, &V);
-                            relative_coord[d] -= getTargetCoordinate(target_index, d, &V);
+                            relative_coord[d] -= _target_point_data.getCoordinateDevice(target_index, d, &V);
                         }
                     } else {
                         for (int i=0; i<3; ++i) relative_coord[i] = 0;
@@ -1547,7 +1547,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     if (k > 0) {
                         for (int d=0; d<_dimensions-1; ++d) {
                             relative_coord[d] = getTargetAuxiliaryCoordinate(target_index, k, d, &V);
-                            relative_coord[d] -= getTargetCoordinate(target_index, d, &V);
+                            relative_coord[d] -= _target_point_data.getCoordinateDevice(target_index, d, &V);
                         }
                     } else {
                         for (int i=0; i<3; ++i) relative_coord[i] = 0;
@@ -1644,7 +1644,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
 
                         XYZ qp = XYZ(transformed_qp[0], transformed_qp[1], transformed_qp[2]);
                         for (int j=0; j<2; ++j) {
-                            relative_coord[j] = convertGlobalToLocalCoordinate(qp,j,&V) - getTargetCoordinate(target_index,j,&V); // shift quadrature point by target site
+                            relative_coord[j] = convertGlobalToLocalCoordinate(qp,j,&V) - _target_point_data.getCoordinateDevice(target_index,j,&V); // shift quadrature point by target site
                             relative_coord[2] = 0;
                         }
 

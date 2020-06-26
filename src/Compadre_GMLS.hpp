@@ -469,19 +469,19 @@ protected:
 
     //! Returns one component of the target coordinate for a particular target. Whether global or local coordinates 
     //! depends upon V being specified
-    KOKKOS_INLINE_FUNCTION
-    double getTargetCoordinate(const int target_index, const int dim, const scratch_matrix_right_type* V = NULL) const {
-        return _target_point_data.getCoordinate(target_index, dim, V);
-        //compadre_kernel_assert_debug((_target_coordinates.extent(0) >= (size_t)target_index) && "Target index is out of range for _target_coordinates.");
-        //if (V==NULL) {
-        //    return _target_coordinates(target_index, dim);
-        //} else {
-        //    XYZ target_coord = XYZ( _target_coordinates(target_index, 0), 
-        //                            _target_coordinates(target_index, 1), 
-        //                            _target_coordinates(target_index, 2));
-        //    return convertGlobalToLocalCoordinate(target_coord, dim, V);
-        //}
-    }
+    //KOKKOS_INLINE_FUNCTION
+    //double getTargetCoordinate(const int target_index, const int dim, const scratch_matrix_right_type* V = NULL) const {
+    //    return _target_point_data.getCoordinate(target_index, dim, V);
+    //    //compadre_kernel_assert_debug((_target_coordinates.extent(0) >= (size_t)target_index) && "Target index is out of range for _target_coordinates.");
+    //    //if (V==NULL) {
+    //    //    return _target_coordinates(target_index, dim);
+    //    //} else {
+    //    //    XYZ target_coord = XYZ( _target_coordinates(target_index, 0), 
+    //    //                            _target_coordinates(target_index, 1), 
+    //    //                            _target_coordinates(target_index, 2));
+    //    //    return convertGlobalToLocalCoordinate(target_coord, dim, V);
+    //    //}
+    //}
 
     //! (OPTIONAL)
     //! Returns one component of the additional evaluation coordinates. Whether global or local coordinates 
@@ -519,9 +519,9 @@ protected:
     XYZ getRelativeCoord(const int target_index, const int neighbor_list_num, const int dimension, const scratch_matrix_right_type* V = NULL) const {
         XYZ coordinate_delta;
 
-        coordinate_delta.x = this->getNeighborCoordinate(target_index, neighbor_list_num, 0, V) - this->getTargetCoordinate(target_index, 0, V);
-        if (dimension>1) coordinate_delta.y = this->getNeighborCoordinate(target_index, neighbor_list_num, 1, V) - this->getTargetCoordinate(target_index, 1, V);
-        if (dimension>2) coordinate_delta.z = this->getNeighborCoordinate(target_index, neighbor_list_num, 2, V) - this->getTargetCoordinate(target_index, 2, V);
+        coordinate_delta.x = this->getNeighborCoordinate(target_index, neighbor_list_num, 0, V) - this->_target_point_data.getCoordinateDevice(target_index, 0, V);
+        if (dimension>1) coordinate_delta.y = this->getNeighborCoordinate(target_index, neighbor_list_num, 1, V) - this->_target_point_data.getCoordinateDevice(target_index, 1, V);
+        if (dimension>2) coordinate_delta.z = this->getNeighborCoordinate(target_index, neighbor_list_num, 2, V) - this->_target_point_data.getCoordinateDevice(target_index, 2, V);
 
         return coordinate_delta;
     }
