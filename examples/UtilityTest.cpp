@@ -159,8 +159,14 @@ bool all_passed = true;
     PointData<decltype(source_coords_device)> pd6(pd3);
     printf("pd7: copy const device->mirror.\n");
     PointData<decltype(source_coords)> pd7(pd2);
-    printf("pd8: assignment device->mirror.\n");
-    pd1=pd2;
+    printf("pd8: assignment mirror->device.\n");
+    pd1=pd3;
+    printf("pd9: assignment device->mirror.\n");
+    pd4=pd2;
+    printf("pd10: assignment device->device.\n");
+    pd2=pd1;
+    printf("pd11: assignment mirror->mirror.\n");
+    pd4=pd3;
 
 } // end of code block to reduce scope, causing Kokkos View de-allocations
 // otherwise, Views may be deallocating when we call Kokkos finalize() later

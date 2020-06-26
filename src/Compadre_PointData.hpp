@@ -13,10 +13,11 @@ public:
 
     typedef view_type internal_view_type;
 
+protected:
+
+    // needed for copy constructor between template types
     template<class view_type_2>
     friend class PointData;
-
-protected:
 
     bool _needs_sync_to_host;
     int _number_of_coordinates;
@@ -102,6 +103,9 @@ public:
 
     }
 
+    //! \brief Default copy constructor for same template, same class (shallow copy)
+    PointData(const PointData&) = default;
+
     //! \brief Copy constructor for another template instantiation of same class
     //  Intentionally const because the end result will be deep-copied coordinate data.
     template<typename view_type_2, typename std::enable_if<std::is_same<view_type,view_type_2>::value==0, int>::type = 0>
@@ -114,9 +118,13 @@ public:
     
     }
 
+    //! \brief Default assignment operator for same template, same class (shallow copy)
+    PointData& operator=(const PointData&) = default;
+
     //! \brief Assignment operator for another template instantiation of same class
+    //  Intentionally const because the end result will be deep-copied coordinate data.
     template<typename view_type_2, typename std::enable_if<std::is_same<view_type,view_type_2>::value==0, int>::type = 0>
-    PointData& operator=( const PointData<view_type_2>& other ) {
+    PointData& operator=(const PointData<view_type_2>& other) {
     
         printf("two instance assignment operator called.\n");
         PointData<view_type> pd(other._coordinates);
