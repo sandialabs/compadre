@@ -105,12 +105,24 @@ public:
     //! \brief Copy constructor for another template instantiation of same class
     //  Intentionally const because the end result will be deep-copied coordinate data.
     template<typename view_type_2, typename std::enable_if<std::is_same<view_type,view_type_2>::value==0, int>::type = 0>
-    PointData(const PointData<view_type_2>& other)
-    {
+    PointData(const PointData<view_type_2>& other) {
     
         printf("two instance copy constructor called.\n");
         PointData<view_type> pd(other._coordinates);
+        // default assignment operator (same template type)
         *this = pd;
+    
+    }
+
+    //! \brief Assignment operator for another template instantiation of same class
+    template<typename view_type_2, typename std::enable_if<std::is_same<view_type,view_type_2>::value==0, int>::type = 0>
+    PointData& operator=( const PointData<view_type_2>& other ) {
+    
+        printf("two instance assignment operator called.\n");
+        PointData<view_type> pd(other._coordinates);
+        // default assignment operator (same template type)
+        *this = pd;
+        return *this;
     
     }
 
