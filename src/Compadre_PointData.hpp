@@ -54,7 +54,7 @@ public:
 
         _needs_sync_to_host = true;
         _number_of_coordinates = 0;
-        _dimension = 3;
+        _dimension = 0;
 
     }
 
@@ -103,6 +103,7 @@ public:
     }
 
     //! \brief Copy constructor for another template instantiation of same class
+    //  Intentionally const because the end result will be deep-copied coordinate data.
     template<typename view_type_2, typename std::enable_if<std::is_same<view_type,view_type_2>::value==0, int>::type = 0>
     PointData(const PointData<view_type_2>& other)
     {
