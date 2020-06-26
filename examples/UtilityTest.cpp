@@ -11,6 +11,7 @@
 #include <Compadre_Evaluator.hpp>
 #include <Compadre_PointCloudSearch.hpp>
 #include <Compadre_KokkosParser.hpp>
+#include <Compadre_PointData.hpp>
 
 #include "GMLS_Tutorial.hpp"
 
@@ -140,6 +141,24 @@ bool all_passed = true;
     // stop timing comparison loop
     Kokkos::Profiling::popRegion();
     //! [Finalize Program]
+    
+    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> source_coords_device("source coords", num_flags, 3);
+    Kokkos::View<double**>::HostMirror source_coords = Kokkos::create_mirror_view(source_coords_device);
+    // Test that build works for device/mirror combinations
+    printf("pd1: same type\n");
+    PointData<decltype(source_coords_device)> pd1(source_coords_device);
+    printf("pd2: host -> device\n");
+    PointData<decltype(source_coords_device)> pd2(source_coords);
+    printf("pd3: hostmirror -> hostmirror\n");
+    PointData<decltype(source_coords)> pd3(source_coords);
+    printf("pd4: device to hostmirror.\n");
+    PointData<decltype(source_coords)> pd4(source_coords_device);
+    printf("pd5: copy const mirror->mirror (same).\n");
+    PointData<decltype(source_coords)> pd5(pd3);
+    printf("pd6: copy const mirror->device.\n");
+    PointData<decltype(source_coords_device)> pd6(pd3);
+    printf("pd7: copy const device->mirror.\n");
+    PointData<decltype(source_coords)> pd7(pd2);
 
 } // end of code block to reduce scope, causing Kokkos View de-allocations
 // otherwise, Views may be deallocating when we call Kokkos finalize() later

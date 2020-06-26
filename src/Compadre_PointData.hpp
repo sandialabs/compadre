@@ -13,6 +13,9 @@ public:
 
     typedef view_type internal_view_type;
 
+    template<class view_type_2>
+    friend class PointData;
+
 protected:
 
     bool _needs_sync_to_host;
@@ -59,17 +62,19 @@ public:
     template<typename view_type_2, typename std::enable_if<view_type_2::rank==2&&std::is_same<view_type,view_type_2>::value==1, int>::type = 0 > 
     PointData(view_type_2 coordinates) {
 
+        printf("same view type.\n");
         this->initialize(coordinates);
 
     }
 
-    //! \brief Constructor for coordinates type NOT matching internal view type (same memory space)
+    //! \brief Constructor for coordinates type NOT matching internal view type (different memory space)
     template<typename view_type_2, typename std::enable_if<view_type_2::rank==2
                                                            &&std::is_same<view_type,view_type_2>::value==0
                                                            &&Kokkos::SpaceAccessibility<typename view_type::execution_space, typename view_type_2::memory_space>::accessible==0, 
                                                                 int>::type = 0 >
     PointData(view_type_2 coordinates) {
 
+        printf("called for diff space.\n");
         decltype(_coordinates) tmp_coordinates(coordinates.label(), coordinates.extent(0), coordinates.extent(1));
         auto view_2_space_mirror = Kokkos::create_mirror_view(typename view_type_2::memory_space(), tmp_coordinates);
         Kokkos::deep_copy(view_2_space_mirror, coordinates);
@@ -81,13 +86,14 @@ public:
 
     }
 
-    //! \brief Constructor for coordinates type NOT matching internal view type (different memory space)
+    //! \brief Constructor for coordinates type NOT matching internal view type (same/accessible memory space)
     template<typename view_type_2, typename std::enable_if<view_type_2::rank==2
                                                            &&std::is_same<view_type,view_type_2>::value==0
                                                            &&Kokkos::SpaceAccessibility<typename view_type::execution_space, typename view_type_2::memory_space>::accessible==1, 
                                                                 int>::type = 0 >
     PointData(view_type_2 coordinates) {
 
+        printf("called for same space.\n");
         decltype(_coordinates) tmp_coordinates(coordinates.label(), coordinates.extent(0), coordinates.extent(1));
         Kokkos::deep_copy(tmp_coordinates, coordinates);
         Kokkos::fence();
@@ -96,6 +102,22 @@ public:
 
     }
 
+    //! \brief Copy constructor for another template instantiation of same class
+    template<typename view_type_2, typename std::enable_if<std::is_same<view_type,view_type_2>::value==0, int>::type = 0>
+    PointData(const PointData<view_type_2>& other)
+    {
+    
+        printf("two instance copy constructor called.\n");
+        PointData<view_type> pd(other._coordinates);
+        *this = pd;
+    
+    }
+
+///@}
+
+/** @name Public accessors
+ */
+///@{
     double getCoordinateHost(const int index, const int dim, const scratch_matrix_right_type* V = NULL) const {
         compadre_kernel_assert_debug((_number_of_coordinates >= index) && "Index is out of range for coordinates.");
         if (V==NULL) {
@@ -150,7 +172,9 @@ public:
         return _number_of_coordinates;
     }
 
-};
+///@}
+
+}; // PointData
 
 } // Compadre
 
