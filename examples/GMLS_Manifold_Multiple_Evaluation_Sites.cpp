@@ -385,7 +385,9 @@ Kokkos::initialize(argc, args);
     //      dimensions: (# number of target sites) X (dimension)
     //                  # of target sites is same as # of rows of neighbor lists
     //
-    my_GMLS_scalar.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    auto source_point_data = GMLS::pointdata_type(source_coords_device);
+    auto target_point_data = GMLS::pointdata_type(target_coords_device);
+    my_GMLS_scalar.setProblemData(neighbor_lists_device, source_point_data, target_point_data, epsilon_device);
 
     // set up additional sites to evaluate target operators
     // these sites will be the neighbors of the target site
@@ -430,7 +432,7 @@ Kokkos::initialize(argc, args);
                           solver_name.c_str(), problem_name.c_str(), constraint_name.c_str(),
                           order /*manifold order*/);
 
-    my_GMLS_vector.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    my_GMLS_vector.setProblemData(neighbor_lists_device, source_point_data, target_point_data, epsilon_device);
     my_GMLS_vector.setAdditionalEvaluationSitesData(neighbor_lists_device, source_coords_device);
     std::vector<TargetOperation> lro_vector(2);
     lro_vector[0] = VectorPointEvaluation;

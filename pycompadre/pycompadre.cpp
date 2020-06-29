@@ -32,7 +32,7 @@ public:
 private:
 
     Compadre::GMLS* gmls_object;
-    Compadre::NeighborLists<int_1d_view_type_in_gmls>* nl;
+    Compadre::GMLS::neighborlists_type* nl;
 
     typedef nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<double, Compadre::PointCloudSearch<double_2d_view_type> >, 
             Compadre::PointCloudSearch<double_2d_view_type>, 3> tree_type;
@@ -74,12 +74,12 @@ public:
     
         // set values from Kokkos View
         gmls_object->setNeighborLists(neighbor_lists);
-        nl = gmls_object->getNeighborLists();
+        nl = const_cast<decltype(nl)>(gmls_object->getNeighborLists());
     }
 
     decltype(nl) getNeighborLists() {
         compadre_assert_release((nl->getNumberOfTargets()>0) && "getNeighborLists() called, but neighbor lists were never set.");
-        return gmls_object->getNeighborLists();
+        return const_cast<decltype(nl)>(gmls_object->getNeighborLists());
     }
 
     void setSourceSites(py::array_t<double> input) {
@@ -107,7 +107,7 @@ public:
         Kokkos::fence();
         
         // set values from Kokkos View
-        gmls_object->setSourceSites(source_coords);
+        gmls_object->setSourceSites(GMLS::pointdata_type(source_coords));
         _source_coords = source_coords;
     }
 
@@ -345,7 +345,7 @@ public:
         point_cloud_search = std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> >(new Compadre::PointCloudSearch<double_2d_view_type>(source_coords, gmls_object->getGlobalDimensions()));
 
         _source_coords = source_coords;
-        gmls_object->setSourceSites(source_coords);
+        gmls_object->setSourceSites(GMLS::pointdata_type(source_coords));
     }
 
     void generateNeighborListsFromKNNSearchAndSet(py::array_t<double> input, int poly_order, int dimension = 3, double epsilon_multiplier = 1.6, double max_search_radius = 0.0) {
@@ -402,7 +402,7 @@ public:
         gmls_object->setTargetSites(target_coords);
         gmls_object->setNeighborLists(neighbor_lists, number_of_neighbors_list);
         gmls_object->setWindowSizes(epsilon);
-        nl = gmls_object->getNeighborLists();
+        nl = const_cast<decltype(nl)>(gmls_object->getNeighborLists());
 
         _target_coords = target_coords;
         _epsilon = epsilon;

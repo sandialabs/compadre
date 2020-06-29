@@ -347,7 +347,9 @@ bool all_passed = true;
     //      dimensions: (# number of target sites) X (dimension)
     //                  # of target sites is same as # of rows of neighbor lists
     //
-    my_GMLS.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    auto source_point_data = GMLS::pointdata_type(source_coords_device);
+    auto target_point_data = GMLS::pointdata_type(target_coords_device);
+    my_GMLS.setProblemData(neighbor_lists_device, source_point_data, target_point_data, epsilon_device);
     my_GMLS.setTangentBundle(tangent_bundles_device);
 
     // create a vector of target operations

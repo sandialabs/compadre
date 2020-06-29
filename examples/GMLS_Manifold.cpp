@@ -356,7 +356,9 @@ Kokkos::initialize(argc, args);
     //      dimensions: (# number of target sites) X (dimension)
     //                  # of target sites is same as # of rows of neighbor lists
     //
-    my_GMLS_scalar.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    auto source_point_data = GMLS::pointdata_type(source_coords_device);
+    auto target_point_data = GMLS::pointdata_type(target_coords_device);
+    my_GMLS_scalar.setProblemData(neighbor_lists_device, source_point_data, target_point_data, epsilon_device);
 
     // set a reference outward normal direction, causing a surface orientation after
     // the GMLS instance computes an approximate tangent bundle
@@ -438,7 +440,7 @@ Kokkos::initialize(argc, args);
                                          solver_name.c_str(), problem_name.c_str(), constraint_name.c_str(),
                                          order /*manifold order*/);
 
-    my_GMLS_vector_of_scalar_clones.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    my_GMLS_vector_of_scalar_clones.setProblemData(neighbor_lists_device, source_point_data, target_point_data, epsilon_device);
     std::vector<TargetOperation> lro_vector_of_scalar_clones(2);
     lro_vector_of_scalar_clones[0] = VectorPointEvaluation;
     lro_vector_of_scalar_clones[1] = DivergenceOfVectorPointEvaluation;

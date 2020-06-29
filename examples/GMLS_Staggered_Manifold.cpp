@@ -331,7 +331,9 @@ Kokkos::initialize(argc, args);
     //      dimensions: (# number of target sites) X (dimension)
     //                  # of target sites is same as # of rows of neighbor lists
     //
-    my_GMLS_vector_1.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    auto source_point_data = GMLS::pointdata_type(source_coords_device);
+    auto target_point_data = GMLS::pointdata_type(target_coords_device);
+    my_GMLS_vector_1.setProblemData(neighbor_lists_device, source_point_data, target_point_data, epsilon_device);
     
     // create a vector of target operations
     std::vector<TargetOperation> lro_vector_1(1);
@@ -368,7 +370,7 @@ Kokkos::initialize(argc, args);
                           solver_name.c_str(), problem_name.c_str(), constraint_name.c_str(),
                           order /*manifold order*/);
 
-    my_GMLS_vector_2.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    my_GMLS_vector_2.setProblemData(neighbor_lists_device, source_point_data, target_point_data, epsilon_device);
     std::vector<TargetOperation> lro_vector_2(2);
     lro_vector_2[0] = ChainedStaggeredLaplacianOfScalarPointEvaluation;
     lro_vector_2[1] = DivergenceOfVectorPointEvaluation;
@@ -390,7 +392,7 @@ Kokkos::initialize(argc, args);
                         solver_name.c_str(), problem_name.c_str(), constraint_name.c_str(),
                         order /*manifold order*/);
 
-    my_GMLS_scalar.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    my_GMLS_scalar.setProblemData(neighbor_lists_device, source_point_data, target_point_data, epsilon_device);
 
     std::vector<TargetOperation> lro_scalar(1);
     lro_scalar[0] = ChainedStaggeredLaplacianOfScalarPointEvaluation;

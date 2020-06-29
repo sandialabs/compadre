@@ -154,7 +154,9 @@ class PointCloudSearch {
     protected:
 
         //! source site coordinates
-        view_type _src_pts_view;
+        //view_type _src_pts_view;
+        //PointData<view_type> _src_pts_view;
+        PointData<view_type> _src_pts;
         const local_index_type _dim;
         const local_index_type _max_leaf;
 
@@ -164,9 +166,20 @@ class PointCloudSearch {
 
     public:
 
+        // takes PointData as input
+        PointCloudSearch(PointData<view_type> src_pts, const local_index_type dimension = -1,
+                const local_index_type max_leaf = -1) 
+                : _src_pts(src_pts), 
+                  _dim((dimension < 0) ? src_pts.getDimension() : dimension),
+                  _max_leaf((max_leaf < 0) ? 10 : max_leaf) {
+            compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename view_type::memory_space>::accessible==1)
+                    && "Views passed to PointCloudSearch at construction should be accessible from the host.");
+        };
+
+        // takes Kokkos view as input
         PointCloudSearch(view_type src_pts_view, const local_index_type dimension = -1,
                 const local_index_type max_leaf = -1) 
-                : _src_pts_view(src_pts_view), 
+                : _src_pts(src_pts_view), 
                   _dim((dimension < 0) ? src_pts_view.extent(1) : dimension),
                   _max_leaf((max_leaf < 0) ? 10 : max_leaf) {
             compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename view_type::memory_space>::accessible==1)
@@ -188,17 +201,17 @@ class PointCloudSearch {
         template <class BBOX> bool kdtree_get_bbox(BBOX& bb) const {return false;}
 
         //! Returns the number of source sites
-        inline int kdtree_get_point_count() const {return _src_pts_view.extent(0);}
+        inline int kdtree_get_point_count() const {return _src_pts.getNumberOfPoints();}
 
         //! Returns the coordinate value of a point
-        inline double kdtree_get_pt(const int idx, int dim) const {return _src_pts_view(idx,dim);}
+        inline double kdtree_get_pt(const int idx, int dim) const {return _src_pts.getValueOnHost(idx,dim);}
 
         //! Returns the distance between a point and a source site, given its index
         inline double kdtree_distance(const double* queryPt, const int idx, long long sz) const {
 
             double distance = 0;
             for (int i=0; i<_dim; ++i) {
-                distance += (_src_pts_view(idx,i)-queryPt[i])*(_src_pts_view(idx,i)-queryPt[i]);
+                distance += (_src_pts.getValueOnHost(idx,i)-queryPt[i])*(_src_pts.getValueOnHost(idx,i)-queryPt[i]);
             }
             return std::sqrt(distance);
 
@@ -788,6 +801,14 @@ template <typename view_type>
 PointCloudSearch<view_type> CreatePointCloudSearch(view_type src_view, const local_index_type dimensions = -1, const local_index_type max_leaf = -1) { 
     return PointCloudSearch<view_type>(src_view, dimensions, max_leaf);
 }
+
+////! CreatePointCloudSearch allows for the construction of an object of type PointCloudSearch with template deduction
+//template <typename view_type>
+//PointCloudSearch<view_type> CreatePointCloudSearch(PointData<view_type> src_view, const local_index_type dimensions = -1, const local_index_type max_leaf = -1) { 
+//    return PointCloudSearch<view_type>(src_view, dimensions, max_leaf);
+//}
+
+
 
 } // Compadre
 

@@ -37,11 +37,11 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     Kokkos::deep_copy(_operations, _host_operations);
 
     // check that if any target sites added, that neighbors_lists has equal rows
-    compadre_assert_release(((size_t)_neighbor_lists.getNumberOfTargets()==_target_point_data.getNumberOfCoordinates()) 
+    compadre_assert_release(((size_t)_neighbor_lists.getNumberOfTargets()==_target_point_data.getNumberOfPoints()) 
             && "Neighbor lists not set in GMLS class before calling generatePolynomialCoefficients.");
 
     // check that if any target sites are greater than zero (could be zero), then there are more than zero source sites
-    compadre_assert_release((_source_coordinates.extent(0)>0 || _target_point_data.getNumberOfCoordinates()==0) 
+    compadre_assert_release((_source_point_data.getNumberOfPoints()>0 || _target_point_data.getNumberOfPoints()==0) 
             && "Source coordinates not set in GMLS class before calling generatePolynomialCoefficients.");
 
     /*
@@ -62,7 +62,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     // initialize all alpha values to be used for taking the dot product with data to get a reconstruction 
     try {
         global_index_type total_neighbors = _neighbor_lists.getTotalNeighborsOverAllListsHost();
-        int total_added_alphas = _target_point_data.getNumberOfCoordinates()*_added_alpha_size;
+        int total_added_alphas = _target_point_data.getNumberOfPoints()*_added_alpha_size;
         _alphas = decltype(_alphas)("alphas", (total_neighbors + TO_GLOBAL(total_added_alphas))
                     *TO_GLOBAL(_total_alpha_values)*TO_GLOBAL(_max_evaluation_sites_per_target));
     } catch(std::exception &e) {
@@ -167,10 +167,10 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
 
 
         // allocate data on the device (initialized to zero)
-        _T = Kokkos::View<double*>("tangent approximation",_target_point_data.getNumberOfCoordinates()*_dimensions*_dimensions);
-        _manifold_metric_tensor_inverse = Kokkos::View<double*>("manifold metric tensor inverse",_target_point_data.getNumberOfCoordinates()*(_dimensions-1)*(_dimensions-1));
-        _manifold_curvature_coefficients = Kokkos::View<double*>("manifold curvature coefficients",_target_point_data.getNumberOfCoordinates()*manifold_NP);
-        _manifold_curvature_gradient = Kokkos::View<double*>("manifold curvature gradient",_target_point_data.getNumberOfCoordinates()*(_dimensions-1));
+        _T = Kokkos::View<double*>("tangent approximation",_target_point_data.getNumberOfPoints()*_dimensions*_dimensions);
+        _manifold_metric_tensor_inverse = Kokkos::View<double*>("manifold metric tensor inverse",_target_point_data.getNumberOfPoints()*(_dimensions-1)*(_dimensions-1));
+        _manifold_curvature_coefficients = Kokkos::View<double*>("manifold curvature coefficients",_target_point_data.getNumberOfPoints()*manifold_NP);
+        _manifold_curvature_gradient = Kokkos::View<double*>("manifold curvature gradient",_target_point_data.getNumberOfPoints()*(_dimensions-1));
 
     } else  { // Standard GMLS
 
@@ -208,7 +208,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
      *    Allocate Global Device Storage of Data Needed Over Multiple Calls
      */
 
-    global_index_type max_batch_size = (_target_point_data.getNumberOfCoordinates() + TO_GLOBAL(number_of_batches) - 1) / TO_GLOBAL(number_of_batches);
+    global_index_type max_batch_size = (_target_point_data.getNumberOfPoints() + TO_GLOBAL(number_of_batches) - 1) / TO_GLOBAL(number_of_batches);
     try {
         _RHS = Kokkos::View<double*>("RHS", max_batch_size*TO_GLOBAL(RHS_square_dim)*TO_GLOBAL(RHS_square_dim));
         _P = Kokkos::View<double*>("P", max_batch_size*TO_GLOBAL(P_dim_0)*TO_GLOBAL(P_dim_1));
@@ -232,7 +232,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     _initial_index_for_batch = 0;
     for (int batch_num=0; batch_num<number_of_batches; ++batch_num) {
 
-        auto this_batch_size = std::min(_target_point_data.getNumberOfCoordinates()-_initial_index_for_batch, max_batch_size);
+        auto this_batch_size = std::min(_target_point_data.getNumberOfPoints()-_initial_index_for_batch, max_batch_size);
         Kokkos::deep_copy(_RHS, 0.0);
         Kokkos::deep_copy(_P, 0.0);
         Kokkos::deep_copy(_w, 0.0);
@@ -402,7 +402,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
         }
         Kokkos::fence();
         _initial_index_for_batch += this_batch_size;
-        if ((size_t)_initial_index_for_batch == _target_point_data.getNumberOfCoordinates()) break;
+        if ((size_t)_initial_index_for_batch == _target_point_data.getNumberOfPoints()) break;
     } // end of batch loops
 
     // deallocate _P and _w

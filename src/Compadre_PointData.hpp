@@ -19,7 +19,9 @@ protected:
     template<class view_type_2>
     friend class PointData;
 
-    bool _needs_sync_to_host;
+    bool _host_fill;
+    bool _device_fill;
+
     int _number_of_coordinates;
     int _dimension;
 
@@ -38,9 +40,11 @@ protected:
         Kokkos::deep_copy(_host_coordinates, _coordinates);
         Kokkos::fence();
 
-        _needs_sync_to_host = false;
+        _host_fill = false;
+        _device_fill = false;
 
     }
+
    
 
 public:
@@ -53,9 +57,20 @@ public:
     //! \brief Default constructor for the purpose of classes who have PointData as a member object
     PointData() {
 
-        _needs_sync_to_host = true;
+        _host_fill = false;
+        _device_fill = false;
         _number_of_coordinates = 0;
         _dimension = 0;
+
+    }
+
+    //! \bried Constructor for certain size
+    PointData(const std::string& label, size_t dimension_1, size_t dimension_2) {
+
+        decltype(_coordinates) tmp_coordinates(label, dimension_1, dimension_2);
+        Kokkos::deep_copy(tmp_coordinates, 0.0);
+        Kokkos::fence();
+        this->initialize(tmp_coordinates);
 
     }
 
@@ -136,6 +151,100 @@ public:
 
 ///@}
 
+/** @name Public modifiers
+ */
+///@{
+    
+    // philosophy is that setting values on device should be fast, because these are called from a device kernel and the user
+    // who will call this is likely interested in speed
+    // setting and accessing values on host can be slower (check that info is synced with device), because the fact that it is
+    // being called from host default execution space already indicates less interest in performance
+    //
+    // for the reasons above, resumeFill must be called to fill values on this host (and will be checked for all
+    // set functions on host).
+    // 
+    // when running in debug mode, fill modes are checked for both host and device
+  
+    void resumeFillOnHost() {
+        compadre_assert_release(!_device_fill && "resumeFillOnHost() called while resumeFillOnDevice() still active\n");
+        _host_fill = true;
+    }
+
+    void resumeFillOnDevice() {
+        compadre_assert_release(!_host_fill && "resumeFillOnDevice() called while resumeFillOnHost() still active\n");
+        _device_fill = true;
+    }
+
+    void fillCompleteOnHost() {
+        compadre_assert_release(_host_fill && "fillCompleteOnHost() called while before / multiple times after call to resumeFillOnHost()\n");
+        Kokkos::deep_copy(_coordinates, _host_coordinates);
+        Kokkos::fence();
+        _host_fill = false;
+    }
+
+    void fillCompleteOnDevice() {
+        compadre_assert_release(_device_fill && "fillCompleteOnDevice() called while before / multiple times after call to resumeFillOnDevice()\n");
+        Kokkos::deep_copy(_host_coordinates, _coordinates);
+        Kokkos::fence();
+        _device_fill = false;
+    }
+
+    typename std::enable_if<view_type::rank==2, void>::type setValueOnHost(int i, int j, typename view_type::value_type k) {
+        compadre_assert_release(_host_fill && "setValueOnHost called without resumeFillOnHost() being active\n");
+        _host_coordinates(i,j) = k;
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    typename std::enable_if<view_type::rank==2, void>::type setValueOnDevice(int i, int j, typename view_type::value_type k) {
+        compadre_kernel_assert_debug(_device_fill && "setValueOnDevice called without resumeFillOnDevice() being active\n");
+        _coordinates(i,j) = k;
+    }
+
+    void replaceWith(std::vector<std::vector<typename view_type::data_type> > std_vec_values, const std::string& label = std::string()) {
+
+        compadre_assert_release((view_type::rank==2) && "Invalid input to replaceWith for relative to rank of PointData\n");
+
+        decltype(_coordinates) tmp_coordinates(label, std_vec_values.size(), std_vec_values[0].size());
+        auto tmp_coordinates_mirror = create_mirror_view(tmp_coordinates);
+        for (size_t i=0; i<std_vec_values.size(); ++i) {
+            for (size_t j=0; j<std_vec_values[0].size(); ++j) {
+                tmp_coordinates_mirror(i,j) = std_vec_values[i][j];
+            }
+        }
+        Kokkos::deep_copy(tmp_coordinates, tmp_coordinates_mirror);
+        Kokkos::fence();
+        this->initialize(tmp_coordinates);
+
+    }
+
+    void replaceWith(std::vector<std::vector<std::vector<typename view_type::data_type> > > std_vec_values, const std::string& label = std::string()) {
+
+        compadre_assert_release((view_type::rank==3) && "Invalid input to replaceWith for relative to rank of PointData\n");
+
+        decltype(_coordinates) tmp_coordinates(label, std_vec_values.size(), std_vec_values[0].size(), std_vec_values[0][0].size());
+        auto tmp_coordinates_mirror = create_mirror_view(tmp_coordinates);
+        for (size_t i=0; i<std_vec_values.size(); ++i) {
+            for (size_t j=0; j<std_vec_values[0].size(); ++j) {
+                for (size_t k=0; k<std_vec_values[0][0].size(); ++k) {
+                    tmp_coordinates_mirror(i,j,k) = std_vec_values[i][j][k];
+                }
+            }
+        }
+        Kokkos::deep_copy(tmp_coordinates, tmp_coordinates_mirror);
+        Kokkos::fence();
+        this->initialize(tmp_coordinates);
+
+    }
+
+    void replaceWith(view_type coordinates) {
+
+        this->initialize(coordinates);
+
+    }
+
+
+///@}
+
 /** @name Public accessors
  */
 ///@{
@@ -189,9 +298,30 @@ public:
     }
 
     KOKKOS_INLINE_FUNCTION
-    size_t getNumberOfCoordinates() const {
+    size_t getNumberOfPoints() const {
         return _number_of_coordinates;
     }
+
+    typename std::enable_if<view_type::rank==2, typename view_type::value_type>::type getValueOnHost(int i, int j) const {
+        compadre_assert_release((!_host_fill && !_device_fill) && "getValueOnHost called while resumeFillOnHost() or resumeFillOnDevice() being active\n");
+        return _host_coordinates(i,j);
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    typename std::enable_if<view_type::rank==2, typename view_type::value_type>::type getValueOnDevice(int i, int j) const {
+        compadre_kernel_assert_debug((!_host_fill && !_device_fill) && "getValueOnHost called while resumeFillOnHost() or resumeFillOnDevice() being active\n");
+        return _coordinates(i,j);
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    int getDimension() const {
+        return _dimension;
+    }
+
+    decltype(_coordinates) getTMPCOORDS() {
+        return _coordinates;
+    }
+
 
 ///@}
 

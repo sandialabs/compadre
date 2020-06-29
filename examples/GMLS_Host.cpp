@@ -193,7 +193,9 @@ bool all_passed = true;
     GMLS my_GMLS(order, dimension,
                  solver_name.c_str(), problem_name.c_str(), constraint_name.c_str(),
                  2 /*manifold order*/);
-    my_GMLS.setProblemData(neighbor_lists, source_coords, target_coords, epsilon);
+    auto source_point_data = GMLS::pointdata_type(source_coords);
+    auto target_point_data = GMLS::pointdata_type(target_coords);
+    my_GMLS.setProblemData(neighbor_lists, source_point_data, target_point_data, epsilon);
     my_GMLS.setWeightingPower(10);
 
     std::vector<TargetOperation> lro(5);

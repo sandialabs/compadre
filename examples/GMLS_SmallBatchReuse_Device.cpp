@@ -298,7 +298,7 @@ bool all_passed = true;
     my_GMLS.setWeightingPower(2);
 
     // set source sites once for all targets
-    my_GMLS.setSourceSites(source_coords_device);
+    my_GMLS.setSourceSites(GMLS::pointdata_type(source_coords_device));
 
         
     // Point cloud construction for neighbor search
@@ -369,7 +369,7 @@ bool all_passed = true;
         
         // Create temporary small views to hold just one target's information at a time
         my_GMLS.setNeighborLists(single_neighbor_lists_device);
-        my_GMLS.setTargetSites(single_target_coords_device);
+        my_GMLS.setTargetSites(GMLS::pointdata_type(single_target_coords_device));
         my_GMLS.setWindowSizes(single_epsilon_device);
         
         

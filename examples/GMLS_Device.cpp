@@ -142,19 +142,22 @@ bool all_passed = true;
     // number of source coordinate sites that will fill a box of [-1,1]x[-1,1]x[-1,1] with a spacing approximately h
     const int number_source_coords = std::pow(n_neg1_to_1, dimension);
     
+
+    // we get the PointData<template T> type from GMLS, which ensures compatibility and no deep-copy necessary later
     // coordinates of source sites
-    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> source_coords_device("source coordinates", 
-            number_source_coords, 3);
-    Kokkos::View<double**>::HostMirror source_coords = Kokkos::create_mirror_view(source_coords_device);
+    GMLS::pointdata_type source_coords("source coordinates", number_source_coords, 3);
     
     // coordinates of target sites
-    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> target_coords_device ("target coordinates", number_target_coords, 3);
-    Kokkos::View<double**>::HostMirror target_coords = Kokkos::create_mirror_view(target_coords_device);
-    
+    GMLS::pointdata_type target_coords("target coordinates", number_target_coords, 3);
     
     // fill source coordinates with a uniform grid
+    // demonstration of  filling PointData on host
     int source_index = 0;
     double this_coord[3] = {0,0,0};
+
+    // required call to modify values in source_coords
+    source_coords.resumeFillOnHost();
+
     for (int i=-n_neg1_to_1/2; i<n_neg1_to_1/2+1; ++i) {
         this_coord[0] = i*h_spacing;
         for (int j=-n_neg1_to_1/2; j<n_neg1_to_1/2+1; ++j) {
@@ -162,29 +165,37 @@ bool all_passed = true;
             for (int k=-n_neg1_to_1/2; k<n_neg1_to_1/2+1; ++k) {
                 this_coord[2] = k*h_spacing;
                 if (dimension==3) {
-                    source_coords(source_index,0) = this_coord[0]; 
-                    source_coords(source_index,1) = this_coord[1]; 
-                    source_coords(source_index,2) = this_coord[2]; 
+                    source_coords.setValueOnHost(source_index, 0, this_coord[0]); 
+                    source_coords.setValueOnHost(source_index, 1, this_coord[1]); 
+                    source_coords.setValueOnHost(source_index, 2, this_coord[2]); 
                     source_index++;
                 }
             }
             if (dimension==2) {
-                source_coords(source_index,0) = this_coord[0]; 
-                source_coords(source_index,1) = this_coord[1]; 
-                source_coords(source_index,2) = 0;
+                source_coords.setValueOnHost(source_index, 0, this_coord[0]); 
+                source_coords.setValueOnHost(source_index, 1, this_coord[1]); 
+                source_coords.setValueOnHost(source_index, 2, 0);
                 source_index++;
             }
         }
         if (dimension==1) {
-            source_coords(source_index,0) = this_coord[0]; 
-            source_coords(source_index,1) = 0;
-            source_coords(source_index,2) = 0;
+            source_coords.setValueOnHost(source_index,0, this_coord[0]); 
+            source_coords.setValueOnHost(source_index,1, 0);
+            source_coords.setValueOnHost(source_index,2, 0);
             source_index++;
         }
     }
+
+    // required call to ensure values just set can be used 
+    source_coords.fillCompleteOnHost();
     
+    // required call to modify values in target_coords
+    target_coords.resumeFillOnDevice();
+
+    // demonstration of filling coordinates on device
     // fill target coords somewhere inside of [-0.5,0.5]x[-0.5,0.5]x[-0.5,0.5]
-    for(int i=0; i<number_target_coords; i++){
+    Kokkos::parallel_for("Fill target coords", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>
+            (0,number_target_coords), [&](const int i) {
     
         // first, we get a uniformly random distributed direction
         double rand_dir[3] = {0,0,0};
@@ -196,10 +207,14 @@ bool all_passed = true;
     
         // then we get a uniformly random radius
         for (int j=0; j<dimension; ++j) {
-            target_coords(i,j) = rand_dir[j];
+            target_coords.setValueOnDevice(i, j, rand_dir[j]);
         }
     
-    }
+    });
+    Kokkos::fence();
+
+    // required call to ensure values just set can be used 
+    target_coords.fillCompleteOnDevice();
     
     
     //! [Setting Up The Point Cloud]
@@ -210,29 +225,23 @@ bool all_passed = true;
     //! [Creating The Data]
     
     
-    // source coordinates need copied to device before using to construct sampling data
-    Kokkos::deep_copy(source_coords_device, source_coords);
-    
-    // target coordinates copied next, because it is a convenient time to send them to device
-    Kokkos::deep_copy(target_coords_device, target_coords);
-    
     // need Kokkos View storing true solution
     Kokkos::View<double*, Kokkos::DefaultExecutionSpace> sampling_data_device("samples of true solution", 
-            source_coords_device.extent(0));
+            source_coords.getNumberOfPoints());
     
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> gradient_sampling_data_device("samples of true gradient", 
-            source_coords_device.extent(0), dimension);
+            source_coords.getNumberOfPoints(), dimension);
     
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> divergence_sampling_data_device
-            ("samples of true solution for divergence test", source_coords_device.extent(0), dimension);
+            ("samples of true solution for divergence test", source_coords.getNumberOfPoints(), dimension);
     
     Kokkos::parallel_for("Sampling Manufactured Solutions", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>
-            (0,source_coords.extent(0)), KOKKOS_LAMBDA(const int i) {
+            (0,source_coords.getNumberOfPoints()), KOKKOS_LAMBDA(const int i) {
     
         // coordinates of source site i
-        double xval = source_coords_device(i,0);
-        double yval = (dimension>1) ? source_coords_device(i,1) : 0;
-        double zval = (dimension>2) ? source_coords_device(i,2) : 0;
+        double xval = source_coords.getValueOnDevice(i,0);
+        double yval = (dimension>1) ? source_coords.getValueOnDevice(i,1) : 0;
+        double zval = (dimension>2) ? source_coords.getValueOnDevice(i,2) : 0;
     
         // data for targets with scalar input
         sampling_data_device(i) = trueSolution(xval, yval, zval, order, dimension);
@@ -261,7 +270,8 @@ bool all_passed = true;
     
     // Point cloud construction for neighbor search
     // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
-    auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
+    //auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
+    auto point_cloud_search = PointCloudSearch<GMLS::pointdata_type::internal_view_type>(source_coords, dimension);
 
     double epsilon_multiplier = 1.5;
 
@@ -286,7 +296,7 @@ bool all_passed = true;
     // each target to the view for epsilon
     //
     // This dry run populates number_of_neighbors_list with neighborhood sizes
-    size_t storage_size = point_cloud_search.generateCRNeighborListsFromKNNSearch(true /*dry run*/, target_coords, neighbor_lists, 
+    size_t storage_size = point_cloud_search.generateCRNeighborListsFromKNNSearch(true /*dry run*/, target_coords.getTMPCOORDS(), neighbor_lists, 
             number_of_neighbors_list, epsilon, min_neighbors, epsilon_multiplier);
 
     // resize neighbor_lists_device so as to be large enough to contain all neighborhoods
@@ -294,7 +304,7 @@ bool all_passed = true;
     neighbor_lists = Kokkos::create_mirror_view(neighbor_lists_device);
     
     // query the point cloud a second time, but this time storing results into neighbor_lists
-    point_cloud_search.generateCRNeighborListsFromKNNSearch(false /*not dry run*/, target_coords, neighbor_lists, 
+    point_cloud_search.generateCRNeighborListsFromKNNSearch(false /*not dry run*/, target_coords.getTMPCOORDS(), neighbor_lists, 
             number_of_neighbors_list, epsilon, min_neighbors, epsilon_multiplier);
     
     //! [Performing Neighbor Search]
@@ -363,7 +373,7 @@ bool all_passed = true;
     //      dimensions: (# number of target sites) X (dimension)
     //                  # of target sites is same as # of rows of neighbor lists
     //
-    my_GMLS.setProblemData(neighbor_lists_device, number_of_neighbors_list_device, source_coords_device, target_coords_device, epsilon_device);
+    my_GMLS.setProblemData(neighbor_lists_device, number_of_neighbors_list_device, source_coords, target_coords, epsilon_device);
     
     // create a vector of target operations
     std::vector<TargetOperation> lro(5);
@@ -470,9 +480,9 @@ bool all_passed = true;
     
     
         // target site i's coordinate
-        double xval = target_coords(i,0);
-        double yval = (dimension>1) ? target_coords(i,1) : 0;
-        double zval = (dimension>2) ? target_coords(i,2) : 0;
+        double xval = target_coords.getValueOnHost(i,0);
+        double yval = (dimension>1) ? target_coords.getValueOnHost(i,1) : 0;
+        double zval = (dimension>2) ? target_coords.getValueOnHost(i,2) : 0;
     
         // evaluation of various exact solutions
         double actual_value = trueSolution(xval, yval, zval, order, dimension);
