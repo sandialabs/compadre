@@ -189,15 +189,21 @@ public:
         _device_fill = false;
     }
 
-    typename std::enable_if<view_type::rank==2, void>::type setValueOnHost(int i, int j, typename view_type::value_type k) {
+    typename std::enable_if<view_type::rank==2, void>::type 
+            setValueOnHost(int i, int j, typename view_type::value_type k) {
+
         compadre_assert_release(_host_fill && "setValueOnHost called without resumeFillOnHost() being active\n");
         _host_coordinates(i,j) = k;
+
     }
 
     KOKKOS_INLINE_FUNCTION
-    typename std::enable_if<view_type::rank==2, void>::type setValueOnDevice(int i, int j, typename view_type::value_type k) {
+    typename std::enable_if<view_type::rank==2, void>::type 
+            setValueOnDevice(int i, int j, typename view_type::value_type k) {
+
         compadre_kernel_assert_debug(_device_fill && "setValueOnDevice called without resumeFillOnDevice() being active\n");
         _coordinates(i,j) = k;
+
     }
 
     void replaceWith(std::vector<std::vector<typename view_type::data_type> > std_vec_values, const std::string& label = std::string()) {
@@ -318,8 +324,8 @@ public:
         return _dimension;
     }
 
-    decltype(_coordinates) getTMPCOORDS() {
-        return _coordinates;
+    size_t extent(int i) const {
+        _coordinates.extent(i);
     }
 
 

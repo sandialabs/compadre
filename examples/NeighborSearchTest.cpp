@@ -185,7 +185,7 @@ bool all_passed = true;
 
             // start with a dry-run, but without enough room to store the results
             size_t total_num_neighbors = point_cloud_search.generateCRNeighborListsFromRadiusSearch(true /* dry run */,
-                target_coords, neighbor_lists, number_neighbors_list, epsilon);
+                GMLS::pointdata_type(target_coords), neighbor_lists, number_neighbors_list, epsilon);
             printf("total num neighbors: %lu\n", total_num_neighbors);
 
             // resize neighbor lists to be large enough to hold the results
@@ -193,7 +193,7 @@ bool all_passed = true;
 
             // search again, now that we know that there is enough room to store the results
             point_cloud_search.generateCRNeighborListsFromRadiusSearch(false /* dry run */,
-                target_coords, neighbor_lists, number_neighbors_list, epsilon);
+                GMLS::pointdata_type(target_coords), neighbor_lists, number_neighbors_list, epsilon);
 
             auto nla(CreateNeighborLists(neighbor_lists, number_neighbors_list));
 
@@ -302,7 +302,7 @@ bool all_passed = true;
 
             // start with a dry-run, but without enough room to store the results
             auto max_num_neighbors = point_cloud_search.generate2DNeighborListsFromRadiusSearch(true /* dry run */,
-                target_coords, neighbor_lists, epsilon);
+                GMLS::pointdata_type(target_coords), neighbor_lists, epsilon);
             printf("max num neighbors: %lu\n", max_num_neighbors);
 
             // resize neighbor lists to be large enough to hold the results
@@ -311,7 +311,7 @@ bool all_passed = true;
 
             // search again, now that we know that there is enough room to store the results
             max_num_neighbors = point_cloud_search.generate2DNeighborListsFromRadiusSearch(false /* dry run */,
-                target_coords, neighbor_lists, epsilon);
+                GMLS::pointdata_type(target_coords), neighbor_lists, epsilon);
 
             double radius_search_time = timer.seconds();
             printf("nanoflann search time: %f s\n", radius_search_time);
@@ -418,7 +418,7 @@ bool all_passed = true;
 
             // start with a dry-run, but without enough room to store the results
             auto max_num_neighbors = point_cloud_search.generate2DNeighborListsFromRadiusSearch(true /* dry run */,
-                target_coords, neighbor_lists, epsilon);
+                GMLS::pointdata_type(target_coords), neighbor_lists, epsilon);
             printf("max num neighbors: %lu\n", max_num_neighbors);
 
             // resize neighbor lists to be large enough to hold the results
@@ -427,7 +427,7 @@ bool all_passed = true;
 
             // search again, now that we know that there is enough room to store the results
             max_num_neighbors = point_cloud_search.generate2DNeighborListsFromRadiusSearch(false /* dry run */,
-                target_coords, neighbor_lists, epsilon);
+                GMLS::pointdata_type(target_coords), neighbor_lists, epsilon);
 
             auto nla = Convert2DToCompressedRowNeighborLists(neighbor_lists);
 
@@ -534,7 +534,7 @@ bool all_passed = true;
 
             // start with a dry-run, but without enough room to store the results
             auto total_num_neighbors = point_cloud_search.generateCRNeighborListsFromKNNSearch(true /* dry-run for sizes */,
-                    target_coords, neighbor_lists, number_neighbors_list, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
+                    GMLS::pointdata_type(target_coords), neighbor_lists, number_neighbors_list, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
             printf("total num neighbors: %lu\n", total_num_neighbors);
 
             // resize with room to store results
@@ -542,7 +542,7 @@ bool all_passed = true;
 
             // real knn search with space to store
             point_cloud_search.generateCRNeighborListsFromKNNSearch(false /*not dry run*/, 
-                    target_coords, neighbor_lists, number_neighbors_list, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
+                    GMLS::pointdata_type(target_coords), neighbor_lists, number_neighbors_list, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
 
             auto nla(CreateNeighborLists(neighbor_lists, number_neighbors_list));
 
@@ -638,7 +638,7 @@ bool all_passed = true;
             // query the point cloud to generate the neighbor lists using a KNN search
             // start with a dry-run, but without enough room to store the results
             auto max_num_neighbors = point_cloud_search.generate2DNeighborListsFromKNNSearch(true /* dry-run for sizes */,
-                    target_coords, neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
+                    GMLS::pointdata_type(target_coords), neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
             printf("max num neighbors: %lu\n", max_num_neighbors);
 
             // resize with room to store results
@@ -646,7 +646,7 @@ bool all_passed = true;
 
             // real knn search with space to store
             max_num_neighbors = point_cloud_search.generate2DNeighborListsFromKNNSearch(false /*not dry run*/, 
-                    target_coords, neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
+                    GMLS::pointdata_type(target_coords), neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
 
             // convert point cloud search to vector of maps
             timer.reset();
@@ -740,7 +740,7 @@ bool all_passed = true;
             // query the point cloud to generate the neighbor lists using a KNN search
             // start with a dry-run, but without enough room to store the results
             auto max_num_neighbors = point_cloud_search.generate2DNeighborListsFromKNNSearch(true /* dry-run for sizes */,
-                    target_coords, neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
+                    GMLS::pointdata_type(target_coords), neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
             printf("max num neighbors: %lu\n", max_num_neighbors);
 
             // resize with room to store results
@@ -748,7 +748,7 @@ bool all_passed = true;
 
             // real knn search with space to store
             max_num_neighbors = point_cloud_search.generate2DNeighborListsFromKNNSearch(false /*not dry run*/, 
-                    target_coords, neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
+                    GMLS::pointdata_type(target_coords), neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
 
             auto nla = Convert2DToCompressedRowNeighborLists(neighbor_lists);
 

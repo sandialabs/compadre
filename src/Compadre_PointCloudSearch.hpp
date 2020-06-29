@@ -154,8 +154,6 @@ class PointCloudSearch {
     protected:
 
         //! source site coordinates
-        //view_type _src_pts_view;
-        //PointData<view_type> _src_pts_view;
         PointData<view_type> _src_pts;
         const local_index_type _dim;
         const local_index_type _max_leaf;
@@ -172,8 +170,6 @@ class PointCloudSearch {
                 : _src_pts(src_pts), 
                   _dim((dimension < 0) ? src_pts.getDimension() : dimension),
                   _max_leaf((max_leaf < 0) ? 10 : max_leaf) {
-            compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename view_type::memory_space>::accessible==1)
-                    && "Views passed to PointCloudSearch at construction should be accessible from the host.");
         };
 
         // takes Kokkos view as input
@@ -182,8 +178,6 @@ class PointCloudSearch {
                 : _src_pts(src_pts_view), 
                   _dim((dimension < 0) ? src_pts_view.extent(1) : dimension),
                   _max_leaf((max_leaf < 0) ? 10 : max_leaf) {
-            compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename view_type::memory_space>::accessible==1)
-                    && "Views passed to PointCloudSearch at construction should be accessible from the host.");
         };
     
         ~PointCloudSearch() {};
@@ -235,22 +229,20 @@ class PointCloudSearch {
             If uniform_radius is given, then this overrides the epsilons view radii sizes.
             Accepts 2D neighbor_lists without number_of_neighbors_list.
             \param is_dry_run               [in] - whether to do a dry-run (find neighbors, but don't store)
-            \param trg_pts_view             [in] - target coordinates from which to seek neighbors
+            \param trg_pts                  [in] - target coordinates from which to seek neighbors
             \param neighbor_lists           [out] - 2D view of neighbor lists to be populated from search
             \param epsilons                 [in/out] - radius to search, overwritten if uniform_radius != 0
             \param uniform_radius           [in] - double != 0 determines whether to overwrite all epsilons for uniform search
             \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
         */
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generate2DNeighborListsFromRadiusSearch(bool is_dry_run, trg_view_type trg_pts_view, 
+        size_t generate2DNeighborListsFromRadiusSearch(bool is_dry_run, trg_view_type trg_pts, 
                 neighbor_lists_view_type neighbor_lists, epsilons_view_type epsilons, 
                 const double uniform_radius = 0.0, double max_search_radius = 0.0) {
 
             // function does not populate epsilons, they must be prepopulated
 
-            compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename trg_view_type::memory_space>::accessible==1) &&
-                    "Target coordinates view passed to generate2DNeighborListsFromRadiusSearch should be accessible from the host.");
-            compadre_assert_release((((int)trg_pts_view.extent(1))>=_dim) &&
+            compadre_assert_release((((int)trg_pts.extent(1))>=_dim) &&
                     "Target coordinates view passed to generate2DNeighborListsFromRadiusSearch must have \
                     second dimension as large as _dim.");
             compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename neighbor_lists_view_type::memory_space>::accessible==1) &&
@@ -259,7 +251,7 @@ class PointCloudSearch {
                     "Views passed to generate2DNeighborListsFromRadiusSearch should be accessible from the host.");
 
             // loop size
-            const int num_target_sites = trg_pts_view.extent(0);
+            const int num_target_sites = trg_pts.extent(0);
 
             if ((!_tree_1d && _dim==1) || (!_tree_2d && _dim==2) || (!_tree_3d && _dim==3)) {
                 this->generateKDTree();
@@ -320,7 +312,7 @@ class PointCloudSearch {
                     // this data would lead to a wrong result if the device is a GPU
 
                     for (int j=0; j<_dim; ++j) {
-                        this_target_coord(j) = trg_pts_view(i,j);
+                        this_target_coord(j) = trg_pts.getValueOnHost(i,j);
                     }
 
                     nanoflann::SearchParams sp; // default parameters
@@ -368,7 +360,7 @@ class PointCloudSearch {
             If uniform_radius is given, then this overrides the epsilons view radii sizes.
             Accepts 1D neighbor_lists with 1D number_of_neighbors_list.
             \param is_dry_run               [in] - whether to do a dry-run (find neighbors, but don't store)
-            \param trg_pts_view             [in] - target coordinates from which to seek neighbors
+            \param trg_pts                  [in] - target coordinates from which to seek neighbors
             \param neighbor_lists           [out] - 1D view of neighbor lists to be populated from search
             \param number_of_neighbors_list [in/out] - number of neighbors for each target site
             \param epsilons                 [in/out] - radius to search, overwritten if uniform_radius != 0
@@ -376,15 +368,13 @@ class PointCloudSearch {
             \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
         */
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generateCRNeighborListsFromRadiusSearch(bool is_dry_run, trg_view_type trg_pts_view, 
+        size_t generateCRNeighborListsFromRadiusSearch(bool is_dry_run, trg_view_type trg_pts, 
                 neighbor_lists_view_type neighbor_lists, neighbor_lists_view_type number_of_neighbors_list, 
                 epsilons_view_type epsilons, const double uniform_radius = 0.0, double max_search_radius = 0.0) {
 
             // function does not populate epsilons, they must be prepopulated
 
-            compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename trg_view_type::memory_space>::accessible==1) &&
-                    "Target coordinates view passed to generateCRNeighborListsFromRadiusSearch should be accessible from the host.");
-            compadre_assert_release((((int)trg_pts_view.extent(1))>=_dim) &&
+            compadre_assert_release((((int)trg_pts.extent(1))>=_dim) &&
                     "Target coordinates view passed to generateCRNeighborListsFromRadiusSearch must have \
                     second dimension as large as _dim.");
             compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename neighbor_lists_view_type::memory_space>::accessible==1) &&
@@ -393,7 +383,7 @@ class PointCloudSearch {
                     "Views passed to generateCRNeighborListsFromRadiusSearch should be accessible from the host.");
 
             // loop size
-            const int num_target_sites = trg_pts_view.extent(0);
+            const int num_target_sites = trg_pts.extent(0);
 
             if ((!_tree_1d && _dim==1) || (!_tree_2d && _dim==2) || (!_tree_3d && _dim==3)) {
                 this->generateKDTree();
@@ -465,7 +455,7 @@ class PointCloudSearch {
                     // this data would lead to a wrong result if the device is a GPU
 
                     for (int j=0; j<_dim; ++j) {
-                        this_target_coord(j) = trg_pts_view(i,j);
+                        this_target_coord(j) = trg_pts.getValueOnHost(i,j);
                     }
 
                     nanoflann::SearchParams sp; // default parameters
@@ -512,7 +502,7 @@ class PointCloudSearch {
         /*! \brief Generates neighbor lists as 2D view by performing a k-nearest neighbor search
             Only accepts 2D neighbor_lists without number_of_neighbors_list.
             \param is_dry_run               [in] - whether to do a dry-run (find neighbors, but don't store)
-            \param trg_pts_view             [in] - target coordinates from which to seek neighbors
+            \param trg_pts                  [in] - target coordinates from which to seek neighbors
             \param neighbor_lists           [out] - 2D view of neighbor lists to be populated from search
             \param epsilons                 [in/out] - radius to search, overwritten if uniform_radius != 0
             \param neighbors_needed         [in] - k neighbors needed as a minimum
@@ -520,16 +510,14 @@ class PointCloudSearch {
             \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
         */
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generate2DNeighborListsFromKNNSearch(bool is_dry_run, trg_view_type trg_pts_view, 
+        size_t generate2DNeighborListsFromKNNSearch(bool is_dry_run, trg_view_type trg_pts, 
                 neighbor_lists_view_type neighbor_lists, epsilons_view_type epsilons, 
                 const int neighbors_needed, const double epsilon_multiplier = 1.6, 
                 double max_search_radius = 0.0) {
 
             // First, do a knn search (removes need for guessing initial search radius)
 
-            compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename trg_view_type::memory_space>::accessible==1) &&
-                    "Target coordinates view passed to generate2DNeighborListsFromKNNSearch should be accessible from the host.");
-            compadre_assert_release((((int)trg_pts_view.extent(1))>=_dim) &&
+            compadre_assert_release((((int)trg_pts.extent(1))>=_dim) &&
                     "Target coordinates view passed to generate2DNeighborListsFromRadiusSearch must have \
                     second dimension as large as _dim.");
             compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename neighbor_lists_view_type::memory_space>::accessible==1) &&
@@ -538,7 +526,7 @@ class PointCloudSearch {
                     "Views passed to generate2DNeighborListsFromKNNSearch should be accessible from the host.");
 
             // loop size
-            const int num_target_sites = trg_pts_view.extent(0);
+            const int num_target_sites = trg_pts.extent(0);
 
             if ((!_tree_1d && _dim==1) || (!_tree_2d && _dim==2) || (!_tree_3d && _dim==3)) {
                 this->generateKDTree();
@@ -599,7 +587,7 @@ class PointCloudSearch {
                     // this data would lead to a wrong result if the device is a GPU
 
                     for (int j=0; j<_dim; ++j) { 
-                        this_target_coord(j) = trg_pts_view(i,j);
+                        this_target_coord(j) = trg_pts.getValueOnHost(i,j);
                     }
 
                     if (_dim==1) {
@@ -644,16 +632,17 @@ class PointCloudSearch {
                     && "Neighbor search failed to find number of neighbors needed for unisolvency.");
             
             // call a radius search using values now stored in epsilons
-            size_t max_num_neighbors = generate2DNeighborListsFromRadiusSearch(is_dry_run, trg_pts_view, neighbor_lists, 
+            size_t max_num_neighbors = generate2DNeighborListsFromRadiusSearch(is_dry_run, trg_pts, neighbor_lists, 
                     epsilons, 0.0 /*don't set uniform radius*/, max_search_radius);
 
             return max_num_neighbors;
         }
 
+
         /*! \brief Generates compressed row neighbor lists by performing a k-nearest neighbor search
             Only accepts 1D neighbor_lists with 1D number_of_neighbors_list.
             \param is_dry_run               [in] - whether to do a dry-run (find neighbors, but don't store)
-            \param trg_pts_view             [in] - target coordinates from which to seek neighbors
+            \param trg_pts                  [in] - target coordinates from which to seek neighbors
             \param neighbor_lists           [out] - 1D view of neighbor lists to be populated from search
             \param number_of_neighbors_list [in/out] - number of neighbors for each target site
             \param epsilons                 [in/out] - radius to search, overwritten if uniform_radius != 0
@@ -662,16 +651,14 @@ class PointCloudSearch {
             \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
         */
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generateCRNeighborListsFromKNNSearch(bool is_dry_run, trg_view_type trg_pts_view, 
+        size_t generateCRNeighborListsFromKNNSearch(bool is_dry_run, PointData<trg_view_type> trg_pts, 
                 neighbor_lists_view_type neighbor_lists, neighbor_lists_view_type number_of_neighbors_list,
                 epsilons_view_type epsilons, const int neighbors_needed, const double epsilon_multiplier = 1.6, 
                 double max_search_radius = 0.0) {
 
             // First, do a knn search (removes need for guessing initial search radius)
 
-            compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename trg_view_type::memory_space>::accessible==1) &&
-                    "Target coordinates view passed to generateCRNeighborListsFromKNNSearch should be accessible from the host.");
-            compadre_assert_release((((int)trg_pts_view.extent(1))>=_dim) &&
+            compadre_assert_release((((int)trg_pts.extent(1))>=_dim) &&
                     "Target coordinates view passed to generateCRNeighborListsFromRadiusSearch must have \
                     second dimension as large as _dim.");
             compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename neighbor_lists_view_type::memory_space>::accessible==1) &&
@@ -680,7 +667,7 @@ class PointCloudSearch {
                     "Views passed to generateCRNeighborListsFromKNNSearch should be accessible from the host.");
 
             // loop size
-            const int num_target_sites = trg_pts_view.extent(0);
+            const int num_target_sites = trg_pts.extent(0);
 
             if ((!_tree_1d && _dim==1) || (!_tree_2d && _dim==2) || (!_tree_3d && _dim==3)) {
                 this->generateKDTree();
@@ -746,7 +733,7 @@ class PointCloudSearch {
                     // this data would lead to a wrong result if the device is a GPU
 
                     for (int j=0; j<_dim; ++j) { 
-                        this_target_coord(j) = trg_pts_view(i,j);
+                        this_target_coord(j) = trg_pts.getValueOnHost(i,j);
                     }
 
                     if (_dim==1) {
@@ -788,7 +775,7 @@ class PointCloudSearch {
                     && "Neighbor search failed to find number of neighbors needed for unisolvency.");
             
             // call a radius search using values now stored in epsilons
-            generateCRNeighborListsFromRadiusSearch(is_dry_run, trg_pts_view, neighbor_lists, 
+            generateCRNeighborListsFromRadiusSearch(is_dry_run, trg_pts, neighbor_lists, 
                     number_of_neighbors_list, epsilons, 0.0 /*don't set uniform radius*/, max_search_radius);
 
             auto nla(CreateNeighborLists(number_of_neighbors_list));
@@ -799,7 +786,7 @@ class PointCloudSearch {
 //! CreatePointCloudSearch allows for the construction of an object of type PointCloudSearch with template deduction
 template <typename view_type>
 PointCloudSearch<view_type> CreatePointCloudSearch(view_type src_view, const local_index_type dimensions = -1, const local_index_type max_leaf = -1) { 
-    return PointCloudSearch<view_type>(src_view, dimensions, max_leaf);
+    return PointCloudSearch<view_type>(PointData<view_type>(src_view), dimensions, max_leaf);
 }
 
 ////! CreatePointCloudSearch allows for the construction of an object of type PointCloudSearch with template deduction

@@ -388,13 +388,13 @@ public:
         
         // call point_cloud_search using targets
         // use these neighbor lists and epsilons to set the gmls object
-        size_t total_storage = point_cloud_search->generateCRNeighborListsFromKNNSearch(true /* is a dry run*/, target_coords, neighbor_lists, 
+        size_t total_storage = point_cloud_search->generateCRNeighborListsFromKNNSearch(true /* is a dry run*/, GMLS::pointdata_type(target_coords), neighbor_lists, 
                 number_of_neighbors_list, epsilon, neighbors_needed, epsilon_multiplier, max_search_radius);
 
         Kokkos::resize(neighbor_lists, total_storage);
         Kokkos::fence();
 
-        total_storage = point_cloud_search->generateCRNeighborListsFromKNNSearch(false /* not a dry run*/, target_coords, neighbor_lists, 
+        total_storage = point_cloud_search->generateCRNeighborListsFromKNNSearch(false /* not a dry run*/, GMLS::pointdata_type(target_coords), neighbor_lists, 
                 number_of_neighbors_list, epsilon, neighbors_needed, epsilon_multiplier, max_search_radius);
         Kokkos::fence();
 

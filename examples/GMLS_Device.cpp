@@ -190,12 +190,15 @@ bool all_passed = true;
     source_coords.fillCompleteOnHost();
     
     // required call to modify values in target_coords
-    target_coords.resumeFillOnDevice();
+    target_coords.resumeFillOnHost();
 
-    // demonstration of filling coordinates on device
+    // demonstration of filling coordinates on host
     // fill target coords somewhere inside of [-0.5,0.5]x[-0.5,0.5]x[-0.5,0.5]
-    Kokkos::parallel_for("Fill target coords", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>
-            (0,number_target_coords), [&](const int i) {
+    Kokkos::parallel_for("Fill target coords", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
+            (0,number_target_coords), KOKKOS_LAMBDA(const int i) {
+
+        // cast away the constness, then dereference to get back original object
+        auto t_target_coords = *const_cast<GMLS::pointdata_type*>(&target_coords);
     
         // first, we get a uniformly random distributed direction
         double rand_dir[3] = {0,0,0};
@@ -207,14 +210,14 @@ bool all_passed = true;
     
         // then we get a uniformly random radius
         for (int j=0; j<dimension; ++j) {
-            target_coords.setValueOnDevice(i, j, rand_dir[j]);
+            t_target_coords.setValueOnHost(i, j, rand_dir[j]);
         }
     
     });
     Kokkos::fence();
 
     // required call to ensure values just set can be used 
-    target_coords.fillCompleteOnDevice();
+    target_coords.fillCompleteOnHost();
     
     
     //! [Setting Up The Point Cloud]
@@ -296,7 +299,7 @@ bool all_passed = true;
     // each target to the view for epsilon
     //
     // This dry run populates number_of_neighbors_list with neighborhood sizes
-    size_t storage_size = point_cloud_search.generateCRNeighborListsFromKNNSearch(true /*dry run*/, target_coords.getTMPCOORDS(), neighbor_lists, 
+    size_t storage_size = point_cloud_search.generateCRNeighborListsFromKNNSearch(true /*dry run*/, target_coords, neighbor_lists, 
             number_of_neighbors_list, epsilon, min_neighbors, epsilon_multiplier);
 
     // resize neighbor_lists_device so as to be large enough to contain all neighborhoods
@@ -304,7 +307,7 @@ bool all_passed = true;
     neighbor_lists = Kokkos::create_mirror_view(neighbor_lists_device);
     
     // query the point cloud a second time, but this time storing results into neighbor_lists
-    point_cloud_search.generateCRNeighborListsFromKNNSearch(false /*not dry run*/, target_coords.getTMPCOORDS(), neighbor_lists, 
+    point_cloud_search.generateCRNeighborListsFromKNNSearch(false /*not dry run*/, target_coords, neighbor_lists, 
             number_of_neighbors_list, epsilon, min_neighbors, epsilon_multiplier);
     
     //! [Performing Neighbor Search]
