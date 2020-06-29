@@ -490,7 +490,7 @@ public:
     //    return pyObjectArray_out;
     //}
  
-    py::array_t<double> applyStencil(py::array_t<double> input, TargetOperation lro) {
+    py::array_t<double> applyStencil(py::array_t<double> input, TargetOperation lro, SamplingFunctional sro) {
         py::buffer_info buf = input.request();
  
         // create Kokkos View on host to copy into
@@ -521,7 +521,7 @@ public:
             compadre_assert_release((gmls_object->getGlobalDimensions() > 2) && "Partial derivative w.r.t. z requested, but less than 3D problem.");
         }
         auto output_values = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (source_data, lro);
+            (source_data, lro, sro);
 
         auto dim_out_0 = output_values.extent(0);
         auto dim_out_1 = output_values.extent(1);
@@ -626,7 +626,7 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("setReferenceOutwardNormalDirection", &ParticleHelper::setReferenceOutwardNormalDirection, py::arg("reference_normal_directions"), py::arg("use_to_orient_surface") = true)
     .def("getReferenceOutwardNormalDirection", &ParticleHelper::getReferenceOutwardNormalDirection, py::return_value_policy::take_ownership)
     .def("getPolynomialCoefficients", &ParticleHelper::getPolynomialCoefficients, py::arg("input_data"), py::return_value_policy::take_ownership)
-    .def("applyStencil", &ParticleHelper::applyStencil, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::return_value_policy::take_ownership);
+    .def("applyStencil", &ParticleHelper::applyStencil, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::return_value_policy::take_ownership);
     
 
     py::class_<GMLS>(m, "GMLS")
