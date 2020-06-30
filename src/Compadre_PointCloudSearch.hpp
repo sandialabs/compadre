@@ -155,7 +155,7 @@ class PointCloudSearch {
 
         //! source sites
         //  would be const PointData& except KDTreeSingleIndexAdaptor captures by values 
-        const PointData<view_type>& _src_pts;
+        const PointData<view_type> _src_pts;
         const local_index_type _dim;
         const local_index_type _max_leaf;
 
