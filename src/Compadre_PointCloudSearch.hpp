@@ -777,7 +777,7 @@ class PointCloudSearch {
 
 //! CreatePointCloudSearch allows for the construction of an object of type PointCloudSearch with template deduction
 template <typename view_type>
-PointCloudSearch<view_type> CreatePointCloudSearch(PointData<view_type> src_view, const local_index_type dimensions = -1, const local_index_type max_leaf = -1) { 
+PointCloudSearch<view_type> CreatePointCloudSearch(const PointData<view_type>& src_view, const local_index_type dimensions = -1, const local_index_type max_leaf = -1) { 
     return PointCloudSearch<view_type>(src_view, dimensions, max_leaf);
 }
 
