@@ -153,8 +153,9 @@ class PointCloudSearch {
 
     protected:
 
-        //! source site coordinates
-        PointData<view_type> _src_pts;
+        //! source sites
+        //  would be const PointData& except KDTreeSingleIndexAdaptor captures by values 
+        const PointData<view_type>& _src_pts;
         const local_index_type _dim;
         const local_index_type _max_leaf;
 
@@ -165,22 +166,12 @@ class PointCloudSearch {
     public:
 
         // takes PointData as input
-        PointCloudSearch(PointData<view_type> src_pts, const local_index_type dimension = -1,
+        PointCloudSearch(const PointData<view_type>& src_pts, const local_index_type dimension = -1,
                 const local_index_type max_leaf = -1) 
                 : _src_pts(src_pts), 
                   _dim((dimension < 0) ? src_pts.getDimension() : dimension),
                   _max_leaf((max_leaf < 0) ? 10 : max_leaf) {
         };
-
-        // takes Kokkos view as input
-        PointCloudSearch(view_type src_pts_view, const local_index_type dimension = -1,
-                const local_index_type max_leaf = -1) 
-                : _src_pts(src_pts_view), 
-                  _dim((dimension < 0) ? src_pts_view.extent(1) : dimension),
-                  _max_leaf((max_leaf < 0) ? 10 : max_leaf) {
-        };
-    
-        ~PointCloudSearch() {};
 
         //! Returns a liberal estimated upper bound on number of neighbors to be returned by a neighbor search
         //! for a given choice of dimension, basis size, and epsilon_multiplier. Assumes quasiuniform distribution
@@ -235,8 +226,8 @@ class PointCloudSearch {
             \param uniform_radius           [in] - double != 0 determines whether to overwrite all epsilons for uniform search
             \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
         */
-        template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generate2DNeighborListsFromRadiusSearch(bool is_dry_run, trg_view_type trg_pts, 
+        template <typename trg_pts_type, typename neighbor_lists_view_type, typename epsilons_view_type>
+        size_t generate2DNeighborListsFromRadiusSearch(bool is_dry_run, const trg_pts_type& trg_pts, 
                 neighbor_lists_view_type neighbor_lists, epsilons_view_type epsilons, 
                 const double uniform_radius = 0.0, double max_search_radius = 0.0) {
 
@@ -367,8 +358,8 @@ class PointCloudSearch {
             \param uniform_radius           [in] - double != 0 determines whether to overwrite all epsilons for uniform search
             \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
         */
-        template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generateCRNeighborListsFromRadiusSearch(bool is_dry_run, trg_view_type trg_pts, 
+        template <typename trg_pts_type, typename neighbor_lists_view_type, typename epsilons_view_type>
+        size_t generateCRNeighborListsFromRadiusSearch(bool is_dry_run, const trg_pts_type& trg_pts, 
                 neighbor_lists_view_type neighbor_lists, neighbor_lists_view_type number_of_neighbors_list, 
                 epsilons_view_type epsilons, const double uniform_radius = 0.0, double max_search_radius = 0.0) {
 
@@ -509,8 +500,8 @@ class PointCloudSearch {
             \param epsilon_multiplier       [in] - distance to kth neighbor multiplied by epsilon_multiplier for follow-on radius search
             \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
         */
-        template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generate2DNeighborListsFromKNNSearch(bool is_dry_run, trg_view_type trg_pts, 
+        template <typename trg_pts_type, typename neighbor_lists_view_type, typename epsilons_view_type>
+        size_t generate2DNeighborListsFromKNNSearch(bool is_dry_run, const trg_pts_type& trg_pts, 
                 neighbor_lists_view_type neighbor_lists, epsilons_view_type epsilons, 
                 const int neighbors_needed, const double epsilon_multiplier = 1.6, 
                 double max_search_radius = 0.0) {
@@ -650,8 +641,8 @@ class PointCloudSearch {
             \param epsilon_multiplier       [in] - distance to kth neighbor multiplied by epsilon_multiplier for follow-on radius search
             \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
         */
-        template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generateCRNeighborListsFromKNNSearch(bool is_dry_run, PointData<trg_view_type> trg_pts, 
+        template <typename trg_pts_type, typename neighbor_lists_view_type, typename epsilons_view_type>
+        size_t generateCRNeighborListsFromKNNSearch(bool is_dry_run, const trg_pts_type& trg_pts, 
                 neighbor_lists_view_type neighbor_lists, neighbor_lists_view_type number_of_neighbors_list,
                 epsilons_view_type epsilons, const int neighbors_needed, const double epsilon_multiplier = 1.6, 
                 double max_search_radius = 0.0) {
@@ -783,18 +774,12 @@ class PointCloudSearch {
         }
 }; // PointCloudSearch
 
+
 //! CreatePointCloudSearch allows for the construction of an object of type PointCloudSearch with template deduction
 template <typename view_type>
-PointCloudSearch<view_type> CreatePointCloudSearch(view_type src_view, const local_index_type dimensions = -1, const local_index_type max_leaf = -1) { 
-    return PointCloudSearch<view_type>(PointData<view_type>(src_view), dimensions, max_leaf);
+PointCloudSearch<view_type> CreatePointCloudSearch(PointData<view_type> src_view, const local_index_type dimensions = -1, const local_index_type max_leaf = -1) { 
+    return PointCloudSearch<view_type>(src_view, dimensions, max_leaf);
 }
-
-////! CreatePointCloudSearch allows for the construction of an object of type PointCloudSearch with template deduction
-//template <typename view_type>
-//PointCloudSearch<view_type> CreatePointCloudSearch(PointData<view_type> src_view, const local_index_type dimensions = -1, const local_index_type max_leaf = -1) { 
-//    return PointCloudSearch<view_type>(src_view, dimensions, max_leaf);
-//}
-
 
 
 } // Compadre

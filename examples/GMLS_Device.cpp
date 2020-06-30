@@ -273,8 +273,7 @@ bool all_passed = true;
     
     // Point cloud construction for neighbor search
     // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
-    //auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
-    auto point_cloud_search = PointCloudSearch<GMLS::pointdata_type::internal_view_type>(source_coords, dimension);
+    auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
 
     double epsilon_multiplier = 1.5;
 

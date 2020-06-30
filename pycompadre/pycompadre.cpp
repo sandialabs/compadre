@@ -34,12 +34,13 @@ private:
     Compadre::GMLS* gmls_object;
     Compadre::GMLS::neighborlists_type* nl;
 
-    typedef nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<double, Compadre::PointCloudSearch<double_2d_view_type> >, 
-            Compadre::PointCloudSearch<double_2d_view_type>, 3> tree_type;
-    std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> > point_cloud_search;
+    typedef nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<double, Compadre::PointCloudSearch<Compadre::GMLS::pointdata_type::internal_view_type> >, 
+            Compadre::PointCloudSearch<Compadre::GMLS::pointdata_type::internal_view_type>, 3> tree_type;
+    std::shared_ptr<Compadre::PointCloudSearch<Compadre::GMLS::pointdata_type::internal_view_type> > point_cloud_search;
 
-    double_2d_view_type _source_coords;
-    double_2d_view_type _target_coords;
+    Compadre::GMLS::pointdata_type _source_coords;
+    Compadre::GMLS::pointdata_type _target_coords;
+    
     double_1d_view_type _epsilon;
 
     // optional
@@ -93,18 +94,18 @@ public:
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
         
-        // create Kokkos View on host to copy into
-        Kokkos::View<double**, Kokkos::HostSpace> source_coords("neighbor coordinates", input.shape(0), input.shape(1));
-        
+        // create PointData to copy into
+        Compadre::GMLS::pointdata_type source_coords("neighbor coordinates", input.shape(0), input.shape(1));
+        source_coords.resumeFillOnHost();
         // overwrite existing data assuming a 2D layout
         auto data = input.unchecked<2>();
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,input.shape(0)), [=](int i) {
-            for (int j = 0; j < input.shape(1); ++j)
-            {
-                source_coords(i, j) = data(i, j);
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,input.shape(0)), [&](int i) {
+            for (int j = 0; j < input.shape(1); ++j) {
+                source_coords.setValueOnHost(i, j, data(i, j));
             }
         });
         Kokkos::fence();
+        source_coords.fillCompleteOnHost();
         
         // set values from Kokkos View
         gmls_object->setSourceSites(GMLS::pointdata_type(source_coords));
@@ -118,15 +119,15 @@ public:
         auto dim_out_1 = _source_coords.extent(1);
 
         auto result = py::array_t<double>(dim_out_0*dim_out_1);
-        py::buffer_info buf_out = result.request();
-
-        double *ptr = (double *) buf_out.ptr;
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0*dim_out_1), [&](int i) {
-            ptr[i] = *(_source_coords.data()+i);
+        result.resize({dim_out_0,dim_out_1});
+        auto result_data = result.mutable_unchecked<2>();
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
+            for (int j = 0; j < dim_out_1; ++j) {
+                result_data(i,j) = _source_coords.getValueOnHost(i,j);
+            }
         });
         Kokkos::fence();
 
-        result.resize({dim_out_0,dim_out_1});
         return result;
     }
 
@@ -141,18 +142,19 @@ public:
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
         
-        // create Kokkos View on host to copy into
-        Kokkos::View<double**, Kokkos::HostSpace> target_coords("target coordinates", input.shape(0), input.shape(1));
-        
+        // create PointData to copy into
+        Compadre::GMLS::pointdata_type target_coords("target coordinates", input.shape(0), input.shape(1));
+        target_coords.resumeFillOnHost();
         // overwrite existing data assuming a 2D layout
         auto data = input.unchecked<2>();
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,input.shape(0)), [=](int i) {
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,input.shape(0)), [&](int i) {
             for (int j = 0; j < input.shape(1); ++j)
             {
-                target_coords(i, j) = data(i, j);
+                target_coords.setValueOnHost(i, j, data(i, j));
             }
         });
         Kokkos::fence();
+        target_coords.fillCompleteOnHost();
         
         // set values from Kokkos View
         gmls_object->setTargetSites(target_coords);
@@ -166,15 +168,15 @@ public:
         auto dim_out_1 = _target_coords.extent(1);
 
         auto result = py::array_t<double>(dim_out_0*dim_out_1);
-        py::buffer_info buf_out = result.request();
-
-        double *ptr = (double *) buf_out.ptr;
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0*dim_out_1), [&](int i) {
-            ptr[i] = *(_target_coords.data()+i);
+        result.resize({dim_out_0,dim_out_1});
+        auto result_data = result.mutable_unchecked<2>();
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
+            for (int j = 0; j < dim_out_1; ++j) {
+                result_data(i,j) = _target_coords.getValueOnHost(i,j);
+            }
         });
         Kokkos::fence();
 
-        result.resize({dim_out_0,dim_out_1});
         return result;
     }
 
@@ -331,21 +333,10 @@ public:
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
 
-        // create Kokkos View on host to copy into
-        Kokkos::View<double**, Kokkos::HostSpace> source_coords("neighbor coordinates", input.shape(0), input.shape(1));
-        
-        // overwrite existing data assuming a 2D layout
-        auto data = input.unchecked<2>();
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, input.shape(0)), [=](int i) {
-            for (int j = 0; j < input.shape(1); ++j)
-            {
-                source_coords(i, j) = data(i, j);
-            }
-        });
-        point_cloud_search = std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> >(new Compadre::PointCloudSearch<double_2d_view_type>(source_coords, gmls_object->getGlobalDimensions()));
+        this->setSourceSites(input);
 
-        _source_coords = source_coords;
-        gmls_object->setSourceSites(GMLS::pointdata_type(source_coords));
+        point_cloud_search = std::shared_ptr<Compadre::PointCloudSearch<Compadre::GMLS::pointdata_type::internal_view_type> >(new Compadre::PointCloudSearch<Compadre::GMLS::pointdata_type::internal_view_type>(_source_coords, gmls_object->getGlobalDimensions()));
+
     }
 
     void generateNeighborListsFromKNNSearchAndSet(py::array_t<double> input, int poly_order, int dimension = 3, double epsilon_multiplier = 1.6, double max_search_radius = 0.0) {
@@ -362,20 +353,10 @@ public:
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
         
-        // create Kokkos View on host to copy into
-        Kokkos::View<double**, Kokkos::HostSpace> target_coords("target site coordinates", input.shape(0), input.shape(1));
-        
-        // overwrite existing data assuming a 2D layout
-        auto data = input.unchecked<2>();
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,input.shape(0)), [=](int i) {
-            for (int j = 0; j < input.shape(1); ++j)
-            {
-                target_coords(i, j) = data(i, j);
-            }
-        });
+        this->setTargetSites(input);
 
         // how many target sites
-        int number_target_coords = target_coords.extent(0);
+        int number_target_coords = _target_coords.extent(0);
 
         // make empty neighbor list kokkos view
         int_1d_view_type neighbor_lists("neighbor lists", 0);
@@ -388,23 +369,23 @@ public:
         
         // call point_cloud_search using targets
         // use these neighbor lists and epsilons to set the gmls object
-        size_t total_storage = point_cloud_search->generateCRNeighborListsFromKNNSearch(true /* is a dry run*/, GMLS::pointdata_type(target_coords), neighbor_lists, 
+        size_t total_storage = point_cloud_search->generateCRNeighborListsFromKNNSearch(true /* is a dry run*/, _target_coords, neighbor_lists, 
                 number_of_neighbors_list, epsilon, neighbors_needed, epsilon_multiplier, max_search_radius);
 
         Kokkos::resize(neighbor_lists, total_storage);
         Kokkos::fence();
 
-        total_storage = point_cloud_search->generateCRNeighborListsFromKNNSearch(false /* not a dry run*/, GMLS::pointdata_type(target_coords), neighbor_lists, 
+        total_storage = point_cloud_search->generateCRNeighborListsFromKNNSearch(false /* not a dry run*/, _target_coords, neighbor_lists, 
                 number_of_neighbors_list, epsilon, neighbors_needed, epsilon_multiplier, max_search_radius);
         Kokkos::fence();
 
         // set these views in the GMLS object
-        gmls_object->setTargetSites(target_coords);
+        //gmls_object->setTargetSites(target_coords);
         gmls_object->setNeighborLists(neighbor_lists, number_of_neighbors_list);
         gmls_object->setWindowSizes(epsilon);
         nl = const_cast<decltype(nl)>(gmls_object->getNeighborLists());
 
-        _target_coords = target_coords;
+        //_target_coords = target_coords;
         _epsilon = epsilon;
 
     }
@@ -647,6 +628,17 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("generateAlphas", &GMLS::generateAlphas, py::arg("number_of_batches")=1, py::arg("keep_coefficients")=false)
     .def("getNP", &GMLS::getNP, "Get size of basis.")
     .def("getNN", &GMLS::getNN, "Heuristic number of neighbors.");
+
+    py::class_<Compadre::GMLS::pointdata_type>(m, "PointData")
+    .def(py::init<std::string,size_t,size_t>(),
+            py::arg("label"),
+            py::arg("dimension 0 size"),
+            py::arg("dimension 1 size"))
+    .def("extent", &Compadre::GMLS::pointdata_type::extent, "Get extents.")
+    .def("resumeFill", &Compadre::GMLS::pointdata_type::resumeFillOnHost, "Begin filling view.")
+    .def("fillComplete", &Compadre::GMLS::pointdata_type::fillCompleteOnHost, "Finish filling view and sync to device.")
+    .def("setValue", &Compadre::GMLS::pointdata_type::setValueOnHost, "Sets (i,j) value on host.")
+    .def("getValue", &Compadre::GMLS::pointdata_type::getValueOnHost, "Gets (i,j) value on host.");
 
     py::class_<NeighborLists<ParticleHelper::int_1d_view_type_in_gmls> >(m, "NeighborLists")
     .def("getNumberOfTargets", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getNumberOfTargets, "Number of targets.")

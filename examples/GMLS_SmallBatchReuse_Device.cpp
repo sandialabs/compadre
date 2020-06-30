@@ -207,6 +207,13 @@ bool all_passed = true;
     
     // target coordinates copied next, because it is a convenient time to send them to device
     Kokkos::deep_copy(target_coords_device, target_coords);
+
+    // ensure that source coordinates are sent to device before evaluating sampling data based on them
+    Kokkos::fence(); 
+
+    // move coordinate data into a PointData instance
+    auto source_point_data = GMLS::pointdata_type(source_coords_device);
+    auto target_point_data = GMLS::pointdata_type(target_coords_device);
     
     // need Kokkos View storing true solution
     Kokkos::View<double*, Kokkos::DefaultExecutionSpace> sampling_data_device("samples of true solution", 
@@ -298,12 +305,12 @@ bool all_passed = true;
     my_GMLS.setWeightingPower(2);
 
     // set source sites once for all targets
-    my_GMLS.setSourceSites(GMLS::pointdata_type(source_coords_device));
+    my_GMLS.setSourceSites(source_point_data);
 
         
     // Point cloud construction for neighbor search
     // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
-    auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
+    auto point_cloud_search(CreatePointCloudSearch(source_point_data, dimension));
 
     // loop through the target sites
     for (int i=0; i<number_target_coords; i++) {
@@ -325,14 +332,12 @@ bool all_passed = true;
         
         
         // coordinates of single target sites
-        Kokkos::View<double**, Kokkos::DefaultExecutionSpace> single_target_coords_device ("single target coordinates", 1, 3);
-        Kokkos::View<double**>::HostMirror single_target_coords = Kokkos::create_mirror_view(single_target_coords_device);
+        GMLS::pointdata_type single_target_point_data ("single target coordinates", 1, 3);
+        single_target_point_data.resumeFillOnHost();
         for (int j=0; j<3; ++j) {
-            single_target_coords(0,j) = target_coords(i,j);
+            single_target_point_data.setValueOnHost(0, j , target_point_data.getValueOnHost(i,j));
         }
-        // target coordinates copied next, because it is a convenient time to send them to device
-        Kokkos::deep_copy(single_target_coords_device, single_target_coords);
-        Kokkos::fence();
+        single_target_point_data.fillCompleteOnHost();
     
         //! [Performing Neighbor Search]
 
@@ -353,7 +358,7 @@ bool all_passed = true;
         // query the point cloud to generate the neighbor lists using a kdtree to produce the n nearest neighbor
         // to each target site, adding (epsilon_multiplier-1)*100% to whatever the distance away the further neighbor used is from
         // each target to the view for epsilon
-        point_cloud_search.generate2DNeighborListsFromKNNSearch(false /*not dry run*/, GMLS::pointdata_type(single_target_coords), 
+        point_cloud_search.generate2DNeighborListsFromKNNSearch(false /*not dry run*/, single_target_point_data, 
                 single_neighbor_lists, single_epsilon, min_neighbors, epsilon_multiplier);
         
         //! [Performing Neighbor Search]
@@ -369,7 +374,7 @@ bool all_passed = true;
         
         // Create temporary small views to hold just one target's information at a time
         my_GMLS.setNeighborLists(single_neighbor_lists_device);
-        my_GMLS.setTargetSites(GMLS::pointdata_type(single_target_coords_device));
+        my_GMLS.setTargetSites(single_target_point_data);
         my_GMLS.setWindowSizes(single_epsilon_device);
         
         

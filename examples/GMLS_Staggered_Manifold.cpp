@@ -205,6 +205,10 @@ Kokkos::initialize(argc, args);
     // ensure that source coordinates are sent to device before evaluating sampling data based on them
     Kokkos::fence(); 
 
+    // move coordinate data into a PointData instance
+    auto source_point_data = GMLS::pointdata_type(source_coords_device);
+    auto target_point_data = GMLS::pointdata_type(target_coords_device);
+
     
     // need Kokkos View storing true solution (for samples)
     Kokkos::View<double*, Kokkos::DefaultExecutionSpace> sampling_data_device("samples of true solution", 
@@ -245,7 +249,7 @@ Kokkos::initialize(argc, args);
     
     // Point cloud construction for neighbor search
     // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
-    auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
+    auto point_cloud_search(CreatePointCloudSearch(source_point_data, dimension));
 
     // each row is a neighbor list for a target site, with the first column of each row containing
     // the number of neighbors for that rows corresponding target site
@@ -264,7 +268,7 @@ Kokkos::initialize(argc, args);
     // query the point cloud to generate the neighbor lists using a kdtree to produce the n nearest neighbor
     // to each target site, adding (epsilon_multiplier-1)*100% to whatever the distance away the further neighbor used is from
     // each target to the view for epsilon
-    point_cloud_search.generate2DNeighborListsFromKNNSearch(false /*not dry run*/, GMLS::pointdata_type(target_coords), neighbor_lists, 
+    point_cloud_search.generate2DNeighborListsFromKNNSearch(false /*not dry run*/, target_point_data, neighbor_lists, 
             epsilon, min_neighbors, epsilon_multiplier);
 
 
@@ -331,8 +335,6 @@ Kokkos::initialize(argc, args);
     //      dimensions: (# number of target sites) X (dimension)
     //                  # of target sites is same as # of rows of neighbor lists
     //
-    auto source_point_data = GMLS::pointdata_type(source_coords_device);
-    auto target_point_data = GMLS::pointdata_type(target_coords_device);
     my_GMLS_vector_1.setProblemData(neighbor_lists_device, source_point_data, target_point_data, epsilon_device);
     
     // create a vector of target operations

@@ -156,13 +156,17 @@ bool all_passed = true;
     
     }
 
+    // move coordinate data into a PointData instance
+    auto source_point_data = GMLS::pointdata_type(source_coords);
+    auto target_point_data = GMLS::pointdata_type(target_coords);
+
     if (do_radius_search) {
         timer.reset();
         { // 1D compressed row neighbor lists
             printf("\n1D compressed row neighbor lists:\n");
             // Point cloud construction for neighbor search
             // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
-            auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
+            auto point_cloud_search(CreatePointCloudSearch(source_point_data, dimension));
 
             Kokkos::View<int*, Kokkos::DefaultHostExecutionSpace> neighbor_lists("neighbor lists", 
                     number_target_coords); // first column is # of neighbors
@@ -185,7 +189,7 @@ bool all_passed = true;
 
             // start with a dry-run, but without enough room to store the results
             size_t total_num_neighbors = point_cloud_search.generateCRNeighborListsFromRadiusSearch(true /* dry run */,
-                GMLS::pointdata_type(target_coords), neighbor_lists, number_neighbors_list, epsilon);
+                target_point_data, neighbor_lists, number_neighbors_list, epsilon);
             printf("total num neighbors: %lu\n", total_num_neighbors);
 
             // resize neighbor lists to be large enough to hold the results
@@ -193,7 +197,7 @@ bool all_passed = true;
 
             // search again, now that we know that there is enough room to store the results
             point_cloud_search.generateCRNeighborListsFromRadiusSearch(false /* dry run */,
-                GMLS::pointdata_type(target_coords), neighbor_lists, number_neighbors_list, epsilon);
+                target_point_data, neighbor_lists, number_neighbors_list, epsilon);
 
             auto nla(CreateNeighborLists(neighbor_lists, number_neighbors_list));
 
@@ -223,7 +227,7 @@ bool all_passed = true;
                 for (int j=0; j<number_source_coords; ++j) {
                     double dist = 0;
                     for (int k=0; k<dimension; ++k) {
-                        dist += (target_coords(i,k)-source_coords(j,k))*(target_coords(i,k)-source_coords(j,k));
+                        dist += (target_coords(i,k)-source_point_data.getValueOnHost(j,k))*(target_coords(i,k)-source_point_data.getValueOnHost(j,k));
                     }
                     dist = std::sqrt(dist);
 
@@ -281,7 +285,7 @@ bool all_passed = true;
             printf("\n2D neighbor lists:\n");
             // Point cloud construction for neighbor search
             // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
-            auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
+            auto point_cloud_search(CreatePointCloudSearch(source_point_data, dimension));
 
             Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace> neighbor_lists("neighbor lists", 
                     number_target_coords, 2); // first column is # of neighbors
@@ -302,7 +306,7 @@ bool all_passed = true;
 
             // start with a dry-run, but without enough room to store the results
             auto max_num_neighbors = point_cloud_search.generate2DNeighborListsFromRadiusSearch(true /* dry run */,
-                GMLS::pointdata_type(target_coords), neighbor_lists, epsilon);
+                target_point_data, neighbor_lists, epsilon);
             printf("max num neighbors: %lu\n", max_num_neighbors);
 
             // resize neighbor lists to be large enough to hold the results
@@ -311,7 +315,7 @@ bool all_passed = true;
 
             // search again, now that we know that there is enough room to store the results
             max_num_neighbors = point_cloud_search.generate2DNeighborListsFromRadiusSearch(false /* dry run */,
-                GMLS::pointdata_type(target_coords), neighbor_lists, epsilon);
+                target_point_data, neighbor_lists, epsilon);
 
             double radius_search_time = timer.seconds();
             printf("nanoflann search time: %f s\n", radius_search_time);
@@ -339,7 +343,7 @@ bool all_passed = true;
                 for (int j=0; j<number_source_coords; ++j) {
                     double dist = 0;
                     for (int k=0; k<dimension; ++k) {
-                        dist += (target_coords(i,k)-source_coords(j,k))*(target_coords(i,k)-source_coords(j,k));
+                        dist += (target_coords(i,k)-source_point_data.getValueOnHost(j,k))*(target_coords(i,k)-source_point_data.getValueOnHost(j,k));
                     }
                     dist = std::sqrt(dist);
 
@@ -397,7 +401,7 @@ bool all_passed = true;
             printf("\n2D neighbor lists converted to 1D compressed row neighbor lists:\n");
             // Point cloud construction for neighbor search
             // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
-            auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
+            auto point_cloud_search(CreatePointCloudSearch(source_point_data, dimension));
 
             Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace> neighbor_lists("neighbor lists", 
                     number_target_coords, 2); // first column is # of neighbors
@@ -418,7 +422,7 @@ bool all_passed = true;
 
             // start with a dry-run, but without enough room to store the results
             auto max_num_neighbors = point_cloud_search.generate2DNeighborListsFromRadiusSearch(true /* dry run */,
-                GMLS::pointdata_type(target_coords), neighbor_lists, epsilon);
+                target_point_data, neighbor_lists, epsilon);
             printf("max num neighbors: %lu\n", max_num_neighbors);
 
             // resize neighbor lists to be large enough to hold the results
@@ -427,7 +431,7 @@ bool all_passed = true;
 
             // search again, now that we know that there is enough room to store the results
             max_num_neighbors = point_cloud_search.generate2DNeighborListsFromRadiusSearch(false /* dry run */,
-                GMLS::pointdata_type(target_coords), neighbor_lists, epsilon);
+                target_point_data, neighbor_lists, epsilon);
 
             auto nla = Convert2DToCompressedRowNeighborLists(neighbor_lists);
 
@@ -457,7 +461,7 @@ bool all_passed = true;
                 for (int j=0; j<number_source_coords; ++j) {
                     double dist = 0;
                     for (int k=0; k<dimension; ++k) {
-                        dist += (target_coords(i,k)-source_coords(j,k))*(target_coords(i,k)-source_coords(j,k));
+                        dist += (target_coords(i,k)-source_point_data.getValueOnHost(j,k))*(target_coords(i,k)-source_point_data.getValueOnHost(j,k));
                     }
                     dist = std::sqrt(dist);
 
@@ -519,7 +523,7 @@ bool all_passed = true;
             printf("\n1D compressed row neighbor lists:\n");
             // Point cloud construction for neighbor search
             // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
-            auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
+            auto point_cloud_search(CreatePointCloudSearch(source_point_data, dimension));
 
             const int min_neighbors = Compadre::GMLS::getNP(3, dimension);
             Kokkos::View<int*, Kokkos::DefaultHostExecutionSpace> neighbor_lists("neighbor lists", 
@@ -534,7 +538,7 @@ bool all_passed = true;
 
             // start with a dry-run, but without enough room to store the results
             auto total_num_neighbors = point_cloud_search.generateCRNeighborListsFromKNNSearch(true /* dry-run for sizes */,
-                    GMLS::pointdata_type(target_coords), neighbor_lists, number_neighbors_list, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
+                    target_point_data, neighbor_lists, number_neighbors_list, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
             printf("total num neighbors: %lu\n", total_num_neighbors);
 
             // resize with room to store results
@@ -542,7 +546,7 @@ bool all_passed = true;
 
             // real knn search with space to store
             point_cloud_search.generateCRNeighborListsFromKNNSearch(false /*not dry run*/, 
-                    GMLS::pointdata_type(target_coords), neighbor_lists, number_neighbors_list, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
+                    target_point_data, neighbor_lists, number_neighbors_list, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
 
             auto nla(CreateNeighborLists(neighbor_lists, number_neighbors_list));
 
@@ -555,7 +559,7 @@ bool all_passed = true;
                 for (int j=0; j<nla.getNumberOfNeighborsHost(i); ++j) {
                     double dist = 0;
                     for (int k=0; k<dimension; ++k) {
-                        dist += (target_coords(i,k)-source_coords(nla.getNeighborHost(i,j),k))*(target_coords(i,k)-source_coords(nla.getNeighborHost(i,j),k));
+                        dist += (target_coords(i,k)-source_point_data.getValueOnHost(nla.getNeighborHost(i,j),k))*(target_coords(i,k)-source_point_data.getValueOnHost(nla.getNeighborHost(i,j),k));
                     }
                     dist = std::sqrt(dist);
                     point_cloud_neighbor_list_i[nla.getNeighborHost(i,j)] = dist;
@@ -601,7 +605,7 @@ bool all_passed = true;
                 for (int j=0; j<number_source_coords; ++j) {
                     double dist = 0;
                     for (int k=0; k<dimension; ++k) {
-                        dist += (target_coords(i,k)-source_coords(j,k))*(target_coords(i,k)-source_coords(j,k));
+                        dist += (target_coords(i,k)-source_point_data.getValueOnHost(j,k))*(target_coords(i,k)-source_point_data.getValueOnHost(j,k));
                     }
                     dist = std::sqrt(dist);
 
@@ -626,7 +630,7 @@ bool all_passed = true;
             printf("\n2D neighbor lists:\n");
             // Point cloud construction for neighbor search
             // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
-            auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
+            auto point_cloud_search(CreatePointCloudSearch(source_point_data, dimension));
 
             const int min_neighbors = Compadre::GMLS::getNP(3, dimension);
             Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace> neighbor_lists("neighbor lists", 
@@ -638,7 +642,7 @@ bool all_passed = true;
             // query the point cloud to generate the neighbor lists using a KNN search
             // start with a dry-run, but without enough room to store the results
             auto max_num_neighbors = point_cloud_search.generate2DNeighborListsFromKNNSearch(true /* dry-run for sizes */,
-                    GMLS::pointdata_type(target_coords), neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
+                    target_point_data, neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
             printf("max num neighbors: %lu\n", max_num_neighbors);
 
             // resize with room to store results
@@ -646,7 +650,7 @@ bool all_passed = true;
 
             // real knn search with space to store
             max_num_neighbors = point_cloud_search.generate2DNeighborListsFromKNNSearch(false /*not dry run*/, 
-                    GMLS::pointdata_type(target_coords), neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
+                    target_point_data, neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
 
             // convert point cloud search to vector of maps
             timer.reset();
@@ -657,7 +661,7 @@ bool all_passed = true;
                 for (int j=1; j<=neighbor_lists(i,0); ++j) {
                     double dist = 0;
                     for (int k=0; k<dimension; ++k) {
-                        dist += (target_coords(i,k)-source_coords(neighbor_lists(i,j),k))*(target_coords(i,k)-source_coords(neighbor_lists(i,j),k));
+                        dist += (target_coords(i,k)-source_point_data.getValueOnHost(neighbor_lists(i,j),k))*(target_coords(i,k)-source_point_data.getValueOnHost(neighbor_lists(i,j),k));
                     }
                     dist = std::sqrt(dist);
                     point_cloud_neighbor_list_i[neighbor_lists(i,j)] = dist;
@@ -703,7 +707,7 @@ bool all_passed = true;
                 for (int j=0; j<number_source_coords; ++j) {
                     double dist = 0;
                     for (int k=0; k<dimension; ++k) {
-                        dist += (target_coords(i,k)-source_coords(j,k))*(target_coords(i,k)-source_coords(j,k));
+                        dist += (target_coords(i,k)-source_point_data.getValueOnHost(j,k))*(target_coords(i,k)-source_point_data.getValueOnHost(j,k));
                     }
                     dist = std::sqrt(dist);
 
@@ -728,7 +732,7 @@ bool all_passed = true;
             printf("\n2D neighbor lists converted to 1D compressed row neighbor lists:\n");
             // Point cloud construction for neighbor search
             // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
-            auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
+            auto point_cloud_search(CreatePointCloudSearch(source_point_data, dimension));
 
             const int min_neighbors = Compadre::GMLS::getNP(3, dimension);
             Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace> neighbor_lists("neighbor lists", 
@@ -740,7 +744,7 @@ bool all_passed = true;
             // query the point cloud to generate the neighbor lists using a KNN search
             // start with a dry-run, but without enough room to store the results
             auto max_num_neighbors = point_cloud_search.generate2DNeighborListsFromKNNSearch(true /* dry-run for sizes */,
-                    GMLS::pointdata_type(target_coords), neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
+                    target_point_data, neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
             printf("max num neighbors: %lu\n", max_num_neighbors);
 
             // resize with room to store results
@@ -748,7 +752,7 @@ bool all_passed = true;
 
             // real knn search with space to store
             max_num_neighbors = point_cloud_search.generate2DNeighborListsFromKNNSearch(false /*not dry run*/, 
-                    GMLS::pointdata_type(target_coords), neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
+                    target_point_data, neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
 
             auto nla = Convert2DToCompressedRowNeighborLists(neighbor_lists);
 
@@ -761,7 +765,7 @@ bool all_passed = true;
                 for (int j=0; j<nla.getNumberOfNeighborsHost(i); ++j) {
                     double dist = 0;
                     for (int k=0; k<dimension; ++k) {
-                        dist += (target_coords(i,k)-source_coords(nla.getNeighborHost(i,j),k))*(target_coords(i,k)-source_coords(nla.getNeighborHost(i,j),k));
+                        dist += (target_coords(i,k)-source_point_data.getValueOnHost(nla.getNeighborHost(i,j),k))*(target_coords(i,k)-source_point_data.getValueOnHost(nla.getNeighborHost(i,j),k));
                     }
                     dist = std::sqrt(dist);
                     point_cloud_neighbor_list_i[nla.getNeighborHost(i,j)] = dist;
@@ -807,7 +811,7 @@ bool all_passed = true;
                 for (int j=0; j<number_source_coords; ++j) {
                     double dist = 0;
                     for (int k=0; k<dimension; ++k) {
-                        dist += (target_coords(i,k)-source_coords(j,k))*(target_coords(i,k)-source_coords(j,k));
+                        dist += (target_coords(i,k)-source_point_data.getValueOnHost(j,k))*(target_coords(i,k)-source_point_data.getValueOnHost(j,k));
                     }
                     dist = std::sqrt(dist);
 

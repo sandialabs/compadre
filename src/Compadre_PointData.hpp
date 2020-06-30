@@ -325,13 +325,37 @@ public:
     }
 
     size_t extent(int i) const {
-        _coordinates.extent(i);
+        return _coordinates.extent(i);
+    }
+
+    bool isFillActiveOnHost() const {
+        return _host_fill;
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    bool isFillActiveOnDevice() const {
+        return _device_fill;
+    }
+
+    std::string getLabel() const {
+        return _coordinates.label();
     }
 
 
 ///@}
 
 }; // PointData
+
+template <typename view_type>
+std::ostream& operator << ( std::ostream& os, const PointData<view_type>& pd ) {
+    os << "Details for PointData(" << pd.getLabel() << "):" << std::endl;
+    os << "======================================================" << std::endl;
+    os << "_host_fill: " << pd.isFillActiveOnHost() << std::endl;
+    os << "_device_fill: " << pd.isFillActiveOnDevice() << std::endl;
+    os << "address in memory: " << &pd << std::endl;
+    os << "length: " << pd.getNumberOfPoints() << std::endl;
+    return os; 
+}
 
 } // Compadre
 

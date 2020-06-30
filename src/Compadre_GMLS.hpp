@@ -1296,8 +1296,8 @@ public:
             view_type_3 target_coordinates,
             view_type_4 epsilons) {
         this->setNeighborLists<view_type_1>(neighbor_lists);
-        this->setSourceSites<view_type_2>(source_coordinates);
-        this->setTargetSites<view_type_3>(target_coordinates);
+        this->setSourceSites(source_coordinates);
+        this->setTargetSites(target_coordinates);
         this->setWindowSizes<view_type_4>(epsilons);
     }
 
@@ -1310,8 +1310,8 @@ public:
             view_type_3 target_coordinates,
             view_type_4 epsilons) {
         this->setNeighborLists<view_type_1>(cr_neighbor_lists, number_of_neighbors_list);
-        this->setSourceSites<view_type_2>(source_coordinates);
-        this->setTargetSites<view_type_3>(target_coordinates);
+        this->setSourceSites(source_coordinates);
+        this->setTargetSites(target_coordinates);
         this->setWindowSizes<view_type_4>(epsilons);
     }
 
@@ -1378,94 +1378,22 @@ public:
 
     }
 
-    //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries
-    //! of the neighbor lists 2D array.
-    template<typename view_type>
-    void setSourceSites(view_type source_coordinates) {
-
-        //// allocate memory on device
-        //_source_coordinates = decltype(_source_coordinates)("device neighbor coordinates",
-        //        source_coordinates.extent(0), source_coordinates.extent(1));
-
-        //typedef typename view_type::memory_space input_array_memory_space;
-        //if (std::is_same<input_array_memory_space, device_memory_space>::value) {
-        //    // check if on the device, then copy directly
-        //    // if it is, then it doesn't match the internal layout we use
-        //    // then copy to the host mirror
-        //    // switches potential layout mismatches
-        //    Kokkos::deep_copy(_source_coordinates, source_coordinates);
-        //} else {
-        //    // if is on the host, copy to the host mirror
-        //    // then copy to the device
-        //    // switches potential layout mismatches
-        //    auto host_source_coordinates = Kokkos::create_mirror_view(_source_coordinates);
-        //    Kokkos::deep_copy(host_source_coordinates, source_coordinates);
-        //    // switches memory spaces
-        //    Kokkos::deep_copy(_source_coordinates, host_source_coordinates);
-        //}
-
-        _source_point_data = pointdata_type(source_coordinates);
-        this->resetCoefficientData();
-    }
-
-    //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries
-    //! of the neighbor lists 2D array.
-    template<typename view_type>
-    void setSourceSites(decltype(_source_point_data) source_coordinates) {
+    //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs from NeighborLists
+    void setSourceSites(pointdata_type source_coordinates) {
         // allocate memory on device
         _source_point_data = source_coordinates;
         this->resetCoefficientData();
     }
 
-    ////! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries
-    ////! of the neighbor lists 2D array.
-    //template<typename view_type>
-    //void setSourceSites(decltype(_source_coordinates) source_coordinates) {
-    //    // allocate memory on device
-    //    _source_coordinates = source_coordinates;
-    //    this->resetCoefficientData();
-    //}
-
-    //! Sets target coordinate information. Rows of this 2D-array should correspond to rows of the neighbor lists.
-    template<typename view_type>
-    void setTargetSites(view_type target_coordinates) {
-        _target_point_data = target_coordinates;
-        //// allocate memory on device
-        //_target_coordinates = decltype(_target_coordinates)("device target coordinates",
-        //        target_coordinates.extent(0), target_coordinates.extent(1));
-
-        //typedef typename view_type::memory_space input_array_memory_space;
-        //if (std::is_same<input_array_memory_space, device_memory_space>::value) {
-        //    // check if on the device, then copy directly
-        //    // if it is, then it doesn't match the internal layout we use
-        //    // then copy to the host mirror
-        //    // switches potential layout mismatches
-        //    Kokkos::deep_copy(_target_coordinates, target_coordinates);
-        //} else {
-        //    // if is on the host, copy to the host mirror
-        //    // then copy to the device
-        //    // switches potential layout mismatches
-        //    auto host_target_coordinates = Kokkos::create_mirror_view(_target_coordinates);
-        //    Kokkos::deep_copy(host_target_coordinates, target_coordinates);
-        //    // switches memory spaces
-        //    Kokkos::deep_copy(_target_coordinates, host_target_coordinates);
-        //}
+    //! Sets target coordinate information. Rows of this 2D-array should correspond to target sites.
+    void setTargetSites(pointdata_type target_point_data) {
+        // allocate memory on device
+        _target_point_data = target_point_data;
         _number_of_additional_evaluation_indices 
-            = decltype(_number_of_additional_evaluation_indices)("number of additional evaluation indices", _target_point_data.getNumberOfPoints());
+            = decltype(_number_of_additional_evaluation_indices)("number of additional evaluation indices", target_point_data.extent(0));
         Kokkos::deep_copy(_number_of_additional_evaluation_indices, 0);
         this->resetCoefficientData();
     }
-
-    ////! Sets target coordinate information. Rows of this 2D-array should correspond to rows of the neighbor lists.
-    //template<typename view_type>
-    //void setTargetSites(decltype(_target_coordinates) target_coordinates) {
-    //    // allocate memory on device
-    //    _target_coordinates = target_coordinates;
-    //    _number_of_additional_evaluation_indices 
-    //        = decltype(_number_of_additional_evaluation_indices)("number of additional evaluation indices", target_coordinates.extent(0));
-    //    Kokkos::deep_copy(_number_of_additional_evaluation_indices, 0);
-    //    this->resetCoefficientData();
-    //}
 
     //! Sets window sizes, also called the support of the kernel
     template<typename view_type>

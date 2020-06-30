@@ -43,7 +43,12 @@ struct XYZ {
         result.z = scalar*z;
         return result;
     }
+
 }; // XYZ
+
+std::ostream& operator << ( std::ostream& os, const XYZ& vec ) {
+    os << "(" << vec.x << ", " << vec.y << ", " << vec.z << ")" ; return os; 
+}
 
 //! Returns a component of the local coordinate after transformation from global to local under the orthonormal basis V.
 KOKKOS_INLINE_FUNCTION
