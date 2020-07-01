@@ -6,20 +6,38 @@
 
 namespace Compadre {
 
-//!  PointData assists in setting/accessing point data
+/*!  \brief PointData assists in setting/accessing point data
+
+   PointData can either own a device and host mirror view on its own,
+   or one can be passed to it, either by construction, copy, assignment,
+   or replaceBy() methods.
+
+   With the exception of constructing of an object of a certain size, all
+   other methods will shallow copy the Kokkos view. 
+
+   It is intended that this class can be passed by value, without reproducing
+   the underlying data on device. 
+
+   If this class is modified after after a copy is made, modifications will 
+   be realized in copies as well.
+*/
 template <typename view_type>
 class PointData {
 public:
 
     typedef view_type internal_view_type;
 
+    static const int rank = view_type::rank;
+
 protected:
 
-    // needed for copy constructor between template types
+    // needed for deep_copy between template types
     template<class view_type_2>
     friend class PointData;
 
+    // whether host is actively filling data
     bool _host_fill;
+    // whether device is actively filling data
     bool _device_fill;
 
     int _number_of_coordinates;
@@ -42,7 +60,6 @@ protected:
 
         _host_fill = false;
         _device_fill = false;
-
     }
 
    
@@ -59,6 +76,7 @@ public:
 
         _host_fill = false;
         _device_fill = false;
+
         _number_of_coordinates = 0;
         _dimension = 0;
 
@@ -118,28 +136,16 @@ public:
 
     }
 
-    //! \brief Default copy constructor for same template, same class (shallow copy)
+    //! \brief Shallow copy
     PointData(const PointData&) = default;
-
-    //! \brief Copy constructor for another template instantiation of same class
-    //  Intentionally const because the end result will be deep-copied coordinate data.
-    template<typename view_type_2, typename std::enable_if<std::is_same<view_type,view_type_2>::value==0, int>::type = 0>
-    PointData(const PointData<view_type_2>& other) {
     
-        printf("two instance copy constructor called.\n");
-        PointData<view_type> pd(other._coordinates);
-        // default assignment operator (same template type)
-        *this = pd;
-    
-    }
-
-    //! \brief Default assignment operator for same template, same class (shallow copy)
+    //! \brief Shallow assignment copy
     PointData& operator=(const PointData&) = default;
 
     //! \brief Assignment operator for another template instantiation of same class
     //  Intentionally const because the end result will be deep-copied coordinate data.
     template<typename view_type_2, typename std::enable_if<std::is_same<view_type,view_type_2>::value==0, int>::type = 0>
-    PointData& operator=(const PointData<view_type_2>& other) {
+    PointData& deep_copy(const PointData<view_type_2>& other) {
     
         printf("two instance assignment operator called.\n");
         PointData<view_type> pd(other._coordinates);
@@ -167,11 +173,13 @@ public:
   
     void resumeFillOnHost() {
         compadre_assert_release(!_device_fill && "resumeFillOnHost() called while resumeFillOnDevice() still active\n");
+        // if modifying after sharing, orphan existing data in valid state and allocate new data (and copy existing data)
         _host_fill = true;
     }
 
     void resumeFillOnDevice() {
         compadre_assert_release(!_host_fill && "resumeFillOnDevice() called while resumeFillOnHost() still active\n");
+        // if modifying after sharing, orphan existing data in valid state and allocate new data (and copy existing data)
         _device_fill = true;
     }
 
@@ -189,7 +197,8 @@ public:
         _device_fill = false;
     }
 
-    typename std::enable_if<view_type::rank==2, void>::type 
+    template<typename view_type_2 = view_type>
+    typename std::enable_if<view_type_2::rank==2, void>::type 
             setValueOnHost(int i, int j, typename view_type::value_type k) {
 
         compadre_assert_release(_host_fill && "setValueOnHost called without resumeFillOnHost() being active\n");
@@ -197,8 +206,9 @@ public:
 
     }
 
+    template<typename view_type_2 = view_type>
     KOKKOS_INLINE_FUNCTION
-    typename std::enable_if<view_type::rank==2, void>::type 
+    typename std::enable_if<view_type_2::rank==2, void>::type 
             setValueOnDevice(int i, int j, typename view_type::value_type k) {
 
         compadre_kernel_assert_debug(_device_fill && "setValueOnDevice called without resumeFillOnDevice() being active\n");
@@ -206,9 +216,22 @@ public:
 
     }
 
-    void replaceWith(std::vector<std::vector<typename view_type::data_type> > std_vec_values, const std::string& label = std::string()) {
+    template<typename view_type_2 = view_type>
+    typename std::enable_if<view_type_2::rank==1, void>::type replaceWith(std::vector<typename view_type::data_type> std_vec_values, const std::string& label = std::string()) {
 
-        compadre_assert_release((view_type::rank==2) && "Invalid input to replaceWith for relative to rank of PointData\n");
+        decltype(_coordinates) tmp_coordinates(label, std_vec_values.size());
+        auto tmp_coordinates_mirror = create_mirror_view(tmp_coordinates);
+        for (size_t i=0; i<std_vec_values.size(); ++i) {
+            tmp_coordinates_mirror(i) = std_vec_values[i];
+        }
+        Kokkos::deep_copy(tmp_coordinates, tmp_coordinates_mirror);
+        Kokkos::fence();
+        this->initialize(tmp_coordinates);
+
+    }
+
+    template<typename view_type_2 = view_type>
+    typename std::enable_if<view_type_2::rank==2, void>::type replaceWith(std::vector<std::vector<typename view_type::data_type> > std_vec_values, const std::string& label = std::string()) {
 
         decltype(_coordinates) tmp_coordinates(label, std_vec_values.size(), std_vec_values[0].size());
         auto tmp_coordinates_mirror = create_mirror_view(tmp_coordinates);
@@ -223,9 +246,8 @@ public:
 
     }
 
-    void replaceWith(std::vector<std::vector<std::vector<typename view_type::data_type> > > std_vec_values, const std::string& label = std::string()) {
-
-        compadre_assert_release((view_type::rank==3) && "Invalid input to replaceWith for relative to rank of PointData\n");
+    template<typename view_type_2 = view_type>
+    typename std::enable_if<view_type_2::rank==3, void>::type replaceWith(std::vector<std::vector<std::vector<typename view_type::data_type> > > std_vec_values, const std::string& label = std::string()) {
 
         decltype(_coordinates) tmp_coordinates(label, std_vec_values.size(), std_vec_values[0].size(), std_vec_values[0][0].size());
         auto tmp_coordinates_mirror = create_mirror_view(tmp_coordinates);
@@ -248,13 +270,31 @@ public:
 
     }
 
+    //! \brief Allocates space exactly the same size as the current allocation, then copies the data
+    //  This should be used if this object has shared its data through a copy, and now wants to modify
+    //  its state while leaving the copy in a a valid state.
+    template<typename view_type_2 = view_type>
+    typename std::enable_if<view_type_2::rank==2, PointData&>::type createDeepCopy() {
+
+        printf("allocate and copy called.\n");
+        decltype(_coordinates) tmp_coordinates(_coordinates.label(), _coordinates.extent(0), _coordinates.extent(1));
+        Kokkos::deep_copy(tmp_coordinates, _coordinates);
+        Kokkos::fence();
+        this->initialize(tmp_coordinates);
+        return *this;
+
+    }
+
 
 ///@}
 
 /** @name Public accessors
  */
 ///@{
-    double getCoordinateHost(const int index, const int dim, const scratch_matrix_right_type* V = NULL) const {
+
+    // Gets coordinate (only for rank==2), possibly under transformation V
+    template<typename view_type_2 = view_type>
+    typename std::enable_if<view_type_2::rank==2, typename view_type::value_type>::type getCoordinateHost(const int index, const int dim, const scratch_matrix_right_type* V = NULL) const {
         compadre_kernel_assert_debug((_number_of_coordinates >= index) && "Index is out of range for coordinates.");
         if (V==NULL) {
             return _host_coordinates(index, dim);
@@ -278,8 +318,10 @@ public:
         }
     }
 
+    // Gets coordinate (only for rank==2), possibly under transformation V
+    template<typename view_type_2 = view_type>
     KOKKOS_INLINE_FUNCTION
-    double getCoordinateDevice(const int index, const int dim, const scratch_matrix_right_type* V = NULL) const {
+    typename std::enable_if<view_type_2::rank==2, typename view_type::value_type>::type getCoordinateDevice(const int index, const int dim, const scratch_matrix_right_type* V = NULL) const {
         compadre_kernel_assert_debug((_number_of_coordinates >= index) && "Index is out of range for coordinates.");
         if (V==NULL) {
             return _coordinates(index, dim);
@@ -308,20 +350,23 @@ public:
         return _number_of_coordinates;
     }
 
-    typename std::enable_if<view_type::rank==2, typename view_type::value_type>::type getValueOnHost(int i, int j) const {
+    template<typename view_type_2 = view_type>
+    typename std::enable_if<view_type_2::rank==1, typename view_type::value_type>::type getValueOnHost(int i) const {
+        compadre_assert_release((!_host_fill && !_device_fill) && "getValueOnHost called while resumeFillOnHost() or resumeFillOnDevice() being active\n");
+        return _host_coordinates(i);
+    }
+
+    template<typename view_type_2 = view_type>
+    typename std::enable_if<view_type_2::rank==2, typename view_type::value_type>::type getValueOnHost(int i, int j) const {
         compadre_assert_release((!_host_fill && !_device_fill) && "getValueOnHost called while resumeFillOnHost() or resumeFillOnDevice() being active\n");
         return _host_coordinates(i,j);
     }
 
+    template<typename view_type_2 = view_type>
     KOKKOS_INLINE_FUNCTION
-    typename std::enable_if<view_type::rank==2, typename view_type::value_type>::type getValueOnDevice(int i, int j) const {
+    typename std::enable_if<view_type_2::rank==2, typename view_type::value_type>::type getValueOnDevice(int i, int j) const {
         compadre_kernel_assert_debug((!_host_fill && !_device_fill) && "getValueOnHost called while resumeFillOnHost() or resumeFillOnDevice() being active\n");
         return _coordinates(i,j);
-    }
-
-    KOKKOS_INLINE_FUNCTION
-    int getDimension() const {
-        return _dimension;
     }
 
     size_t extent(int i) const {
@@ -341,21 +386,29 @@ public:
         return _coordinates.label();
     }
 
+    friend std::ostream& operator << (std::ostream& os, const PointData& pd) {
+        os << std::endl;
+        os << "Details for PointData(" << pd.getLabel() << "):" << std::endl;
+        os << "======================================================" << std::endl;
+        os << "_host_fill: " << pd.isFillActiveOnHost() << std::endl;
+        os << "_device_fill: " << pd.isFillActiveOnDevice() << std::endl;
+        os << "object address in memory: " << &pd << std::endl;
+        os << "kokkos view (device) address in memory: " << pd._coordinates.data() << std::endl;
+        os << "kokkos view (host)   address in memory: " << pd._host_coordinates.data() << std::endl;
+        os << "rank: " << PointData::rank << std::endl;
+        for (int i=0; i<PointData::rank; ++i) {
+            os << "extent(" << i << "): " << pd.extent(i) << std::endl;
+        }
+        os << std::endl;
+        return os; 
+    }
+
+
 
 ///@}
 
 }; // PointData
 
-template <typename view_type>
-std::ostream& operator << ( std::ostream& os, const PointData<view_type>& pd ) {
-    os << "Details for PointData(" << pd.getLabel() << "):" << std::endl;
-    os << "======================================================" << std::endl;
-    os << "_host_fill: " << pd.isFillActiveOnHost() << std::endl;
-    os << "_device_fill: " << pd.isFillActiveOnDevice() << std::endl;
-    os << "address in memory: " << &pd << std::endl;
-    os << "length: " << pd.getNumberOfPoints() << std::endl;
-    return os; 
-}
 
 } // Compadre
 

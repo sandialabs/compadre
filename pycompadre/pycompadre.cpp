@@ -637,8 +637,8 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("extent", &Compadre::GMLS::pointdata_type::extent, "Get extents.")
     .def("resumeFill", &Compadre::GMLS::pointdata_type::resumeFillOnHost, "Begin filling view.")
     .def("fillComplete", &Compadre::GMLS::pointdata_type::fillCompleteOnHost, "Finish filling view and sync to device.")
-    .def("setValue", &Compadre::GMLS::pointdata_type::setValueOnHost, "Sets (i,j) value on host.")
-    .def("getValue", &Compadre::GMLS::pointdata_type::getValueOnHost, "Gets (i,j) value on host.");
+    .def("setValue", &Compadre::GMLS::pointdata_type::setValueOnHost<Compadre::GMLS::pointdata_type::internal_view_type>, "Sets (i,j) value on host.")
+    .def("getValue", &Compadre::GMLS::pointdata_type::getValueOnHost<Compadre::GMLS::pointdata_type::internal_view_type>, "Gets (i,j) value on host.");
 
     py::class_<NeighborLists<ParticleHelper::int_1d_view_type_in_gmls> >(m, "NeighborLists")
     .def("getNumberOfTargets", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getNumberOfTargets, "Number of targets.")

@@ -142,31 +142,91 @@ bool all_passed = true;
     Kokkos::Profiling::popRegion();
     //! [Finalize Program]
     
+
+    class MyFunctor {
+
+        public:
+
+        //const PointData<Kokkos::View<double**> >& t_bah;
+        PointData<Kokkos::View<double**> > t_bah;
+
+        struct Test{};
+
+        Kokkos::View<double*> vals;
+
+        MyFunctor(PointData<Kokkos::View<double**> > _t_bah) : t_bah(_t_bah) {
+            vals = Kokkos::View<double*>("vals", 100);
+            Kokkos::deep_copy(vals, 0.0);
+            Kokkos::fence();
+        }
+
+        //KOKKOS_INLINE_FUNCTION
+        //void operator() (const Test&, const int i) const;
+        KOKKOS_INLINE_FUNCTION
+        void operator() (const Test&, const int i) const {
+            auto m_t_bah = *(const_cast<PointData<Kokkos::View<double**> >* >(&t_bah));
+            vals(i) += 10;
+            m_t_bah.setValueOnHost(i,0,10);
+        }
+
+        KOKKOS_INLINE_FUNCTION
+        void operator() (const int i) const {
+            // unconst
+            auto m_t_bah = *(const_cast<PointData<Kokkos::View<double**> >* >(&t_bah));
+            vals(i) += 1;
+            m_t_bah.setValueOnHost(i,0,2);
+        }
+
+    };
+
+    //KOKKOS_INLINE_FUNCTION
+    //void MyFunctor::operator()(const Test&, const int i) const {
+    //    vals(i) += 1;
+    //}
+    PointData<Kokkos::View<double**> > bah1("label", 100, 1);
+    bah1.resumeFillOnHost();
+
+    const PointData<Kokkos::View<double**> >* bah2 = &bah1;
+
+    MyFunctor myf(*bah2);
+    Kokkos::parallel_for("blah", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace,MyFunctor::Test>(0,100), myf);
+    Kokkos::fence();
+
+    bah1.fillCompleteOnHost();
+
+    for (int i=0; i<100; ++i) {
+
+        printf("val(%d): %f\n", i, bah1.getValueOnHost(i,0));
+        //printf("val(%d): %f\n", i, bah1.getValueOnHost(i,0)myf.vals(i));
+
+    }
+
+
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> source_coords_device("source coords", num_flags, 3);
     Kokkos::View<double**>::HostMirror source_coords = Kokkos::create_mirror_view(source_coords_device);
     // Test that build works for device/mirror combinations
     printf("pd1: same type\n");
     PointData<decltype(source_coords_device)> pd1(source_coords_device);
-    printf("pd2: host -> device\n");
-    PointData<decltype(source_coords_device)> pd2(source_coords);
+    //printf("pd2: host -> device\n");
+    //PointData<decltype(source_coords_device)> pd2(source_coords);
     printf("pd3: hostmirror -> hostmirror\n");
     PointData<decltype(source_coords)> pd3(source_coords);
-    printf("pd4: device to hostmirror.\n");
-    PointData<decltype(source_coords)> pd4(source_coords_device);
+    //printf("pd4: device to hostmirror.\n");
+    //PointData<decltype(source_coords)> pd4(source_coords_device);
     printf("pd5: copy const mirror->mirror (same).\n");
     PointData<decltype(source_coords)> pd5(pd3);
-    printf("pd6: copy const mirror->device.\n");
-    PointData<decltype(source_coords_device)> pd6(pd3);
-    printf("pd7: copy const device->mirror.\n");
-    PointData<decltype(source_coords)> pd7(pd2);
+    //printf("pd6: copy const mirror->device.\n");
+    //PointData<decltype(source_coords_device)> pd6(pd3);
+    //printf("pd7: copy const device->mirror.\n");
+    //PointData<decltype(source_coords)> pd7(pd2);
     printf("pd8: assignment mirror->device.\n");
-    pd1=pd3;
-    printf("pd9: assignment device->mirror.\n");
-    pd4=pd2;
-    printf("pd10: assignment device->device.\n");
-    pd2=pd1;
-    printf("pd11: assignment mirror->mirror.\n");
-    pd4=pd3;
+    pd1.deep_copy(pd3);
+    //printf("pd9: assignment device->mirror.\n");
+    //pd4.deep_copy(pd2);
+    //printf("pd10: assignment device->device.\n");
+    //pd2.deep_copy(pd1);
+    //printf("pd11: assignment mirror->mirror.\n");
+    //pd4.deep_copy(pd3);
 
 } // end of code block to reduce scope, causing Kokkos View de-allocations
 // otherwise, Views may be deallocating when we call Kokkos finalize() later

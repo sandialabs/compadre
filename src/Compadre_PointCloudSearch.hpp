@@ -169,7 +169,7 @@ class PointCloudSearch {
         PointCloudSearch(const PointData<view_type>& src_pts, const local_index_type dimension = -1,
                 const local_index_type max_leaf = -1) 
                 : _src_pts(src_pts), 
-                  _dim((dimension < 0) ? src_pts.getDimension() : dimension),
+                  _dim((dimension < 0) ? src_pts.extent(1) : dimension),
                   _max_leaf((max_leaf < 0) ? 10 : max_leaf) {
         };
 
