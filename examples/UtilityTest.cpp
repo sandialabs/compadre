@@ -24,6 +24,42 @@
 
 using namespace Compadre;
 
+class MyFunctor {
+
+    public:
+
+    //const PointData<Kokkos::View<double**> >& t_bah;
+    PointData<Kokkos::View<double**> >* t_bah;
+
+    struct Test{};
+
+    Kokkos::View<double*> vals;
+
+    MyFunctor(PointData<Kokkos::View<double**> >* _t_bah) : t_bah(_t_bah) {
+        vals = Kokkos::View<double*>("vals", 100);
+        Kokkos::deep_copy(vals, 0.0);
+        Kokkos::fence();
+    }
+
+    //KOKKOS_INLINE_FUNCTION
+    //void operator() (const Test&, const int i) const;
+    KOKKOS_INLINE_FUNCTION
+    void operator() (const Test&, const int i) const {
+        //auto m_t_bah = *(const_cast<PointData<Kokkos::View<double**> >* >(&t_bah));
+        vals(i) += 10;
+        t_bah->setValueOnHost(i,0,10);
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    void operator() (const int i) const {
+        // unconst
+        //auto m_t_bah = *(const_cast<PointData<Kokkos::View<double**> >* >(&t_bah));
+        vals(i) += 1;
+        t_bah->setValueOnHost(i,0,2);
+    }
+
+};
+
 //! [Parse Command Line Arguments]
 
 // called from command line
@@ -143,41 +179,6 @@ bool all_passed = true;
     //! [Finalize Program]
     
 
-    class MyFunctor {
-
-        public:
-
-        //const PointData<Kokkos::View<double**> >& t_bah;
-        PointData<Kokkos::View<double**> > t_bah;
-
-        struct Test{};
-
-        Kokkos::View<double*> vals;
-
-        MyFunctor(PointData<Kokkos::View<double**> > _t_bah) : t_bah(_t_bah) {
-            vals = Kokkos::View<double*>("vals", 100);
-            Kokkos::deep_copy(vals, 0.0);
-            Kokkos::fence();
-        }
-
-        //KOKKOS_INLINE_FUNCTION
-        //void operator() (const Test&, const int i) const;
-        KOKKOS_INLINE_FUNCTION
-        void operator() (const Test&, const int i) const {
-            auto m_t_bah = *(const_cast<PointData<Kokkos::View<double**> >* >(&t_bah));
-            vals(i) += 10;
-            m_t_bah.setValueOnHost(i,0,10);
-        }
-
-        KOKKOS_INLINE_FUNCTION
-        void operator() (const int i) const {
-            // unconst
-            auto m_t_bah = *(const_cast<PointData<Kokkos::View<double**> >* >(&t_bah));
-            vals(i) += 1;
-            m_t_bah.setValueOnHost(i,0,2);
-        }
-
-    };
 
     //KOKKOS_INLINE_FUNCTION
     //void MyFunctor::operator()(const Test&, const int i) const {
@@ -186,9 +187,9 @@ bool all_passed = true;
     PointData<Kokkos::View<double**> > bah1("label", 100, 1);
     bah1.resumeFillOnHost();
 
-    const PointData<Kokkos::View<double**> >* bah2 = &bah1;
+    //const PointData<Kokkos::View<double**> >* bah2 = &bah1;
 
-    MyFunctor myf(*bah2);
+    MyFunctor myf(&bah1);
     Kokkos::parallel_for("blah", Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace,MyFunctor::Test>(0,100), myf);
     Kokkos::fence();
 
