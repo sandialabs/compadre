@@ -1,0 +1,34 @@
+%YAML 1.1
+---
+Compadre:
+  'solution type': 'sine'
+  'loop size': 3
+  'io':
+    # source file for coords and normal vectors
+    'input file prefix': '../test_data/grids/cube_with_normals_'
+    'input file': ''
+    # output file location
+    'output file prefix': '../test_data/amg_stokes_'
+    # data reconstructed on target
+    'output file': '.nc'
+    # turn off mesh produced by vtk
+    'vtk produce mesh': false
+  'solver':
+    'type': 'iterative'
+    'file': '../test_data/parameter_lists/gmls_stokes/solver_amg.xml'
+    'blocked': true
+  'remap':
+    'weighting power': 4
+    'porder': 2
+    'quadrature order': 2
+    'quadrature dimension': 1
+    'quadrature type': 'line'
+    'number of batches': 1
+  'neighborhood':
+    'method': nanoflann
+    'cutoff multiplier': 1.2
+    'uniform radii': true
+  'halo':
+    'dynamic': true
+    'multiplier': 12.0
+...
