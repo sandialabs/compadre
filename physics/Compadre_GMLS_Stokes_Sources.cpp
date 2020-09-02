@@ -19,11 +19,7 @@ typedef Compadre::NeighborhoodT neighborhood_type;
 
 void GMLS_StokesSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time) {
     Teuchos::RCP<Compadre::AnalyticFunction> velocity_function, velocity_true_function, pressure_function;
-    if (_parameters->get<std::string>("solution type")=="tanh") {
-        velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::StokesVelocityTestRHS));
-        velocity_true_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::StokesVelocityTest));
-        pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::StokesPressureTest));
-    } else if (_parameters->get<std::string>("solution type")=="sine") {
+    if (_parameters->get<std::string>("solution type")=="sine") {
         velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::CurlCurlSineTestRHS));
         velocity_true_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::CurlCurlSineTest));
         pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts));

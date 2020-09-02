@@ -525,37 +525,5 @@ class CurlCurlPolyTest : public AnalyticFunction {
 		virtual xyz_type evalVector(const xyz_type& xyzIn) const;
 };
 
-class StokesVelocityTestRHS : public AnalyticFunction {
-
-	typedef XyzVector xyz_type;
-
-	public :
-
-		virtual xyz_type evalVector(const xyz_type& xyzIn) const;
-};
-
-class StokesVelocityTest : public AnalyticFunction {
-
-	typedef XyzVector xyz_type;
-
-	public :
-
-		virtual xyz_type evalVector(const xyz_type& xyzIn) const;
-};
-
-class StokesPressureTest : public AnalyticFunction {
-
-	typedef XyzVector xyz_type;
-
-	public :
-
-		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
-
-		virtual xyz_type evalScalarDerivative(const xyz_type& xIn, const local_index_type input_comp = 0) const;
-
-		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
-
-};
-
 }
 #endif 
