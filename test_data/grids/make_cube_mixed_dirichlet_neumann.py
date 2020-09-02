@@ -7,7 +7,7 @@ from netCDF4 import Dataset
 min_coord, max_coord = -1.0, 1.0
 
 # Number of points in each direction
-N = 24
+N = 6
 
 # Generate the 1D spacing
 X = np.linspace(min_coord, max_coord, N)
@@ -24,9 +24,9 @@ flag = np.zeros(len(x)).astype(int)
 # Loop through and set the normal vectors for each point
 for i in range(len(x)):
     # Set the components for the normals
-    xtemp = (abs(x[i]) == max_coord)*x[i]
-    ytemp = (abs(y[i]) == max_coord)*y[i]
-    ztemp = (abs(z[i]) == max_coord)*z[i]
+    xtemp = (abs(x[i]) == 1.0)*x[i]
+    ytemp = (abs(y[i]) == 1.0)*y[i]
+    ztemp = (abs(z[i]) == 1.0)*z[i]
     # Normalize vector
     if ( (xtemp == 0.0) and (ytemp == 0.0) and (ztemp == 0.0)):
         nx[i], ny[i], nz[i] = 0.0, 0.0, 0.0
@@ -35,17 +35,18 @@ for i in range(len(x)):
         ny[i] = ytemp / np.sqrt(xtemp**2 + ytemp**2 + ztemp**2)
         nz[i] = ztemp / np.sqrt(xtemp**2 + ytemp**2 + ztemp**2)
     # Set up flags
-    bc_flags = 0 + (z[i] == min_coord) + (x[i] == min_coord) + (y[i] == min_coord) + (x[i] == max_coord) + (y[i] == max_coord) + (z[i] == max_coord)
+    bc_check = 0 + (abs(x[i]) == 1.0) + (abs(y[i]) == 1.0) + (abs(z[i]) == 1.0)
     # Set values for flags, 1 being Dirichlet points, 2 being Neumann points
     # and the rest are flagged as 0
-    if (bc_flags >= 1):
+    if (bc_check > 1):
         flag[i] = 1
+    elif (bc_check == 1):
+        flag[i] = 2
     else:
         flag[i] = 0
-    print(x[i], y[i], z[i], flag[i], nx[i], ny[i], nz[i])
 
 # Write into file
-dataset = Dataset('cube_with_normals_%d.nc'%N, mode='w', clobber=True, diskless=False,
+dataset = Dataset('cube_mixed_dirichlet_neumann_%d.nc'%N, mode='w', clobber=True, diskless=False,
         persist=False, keepweakref=False, format='NETCDF4')
 
 # Create dimension for number of points
