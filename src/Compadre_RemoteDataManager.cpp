@@ -1089,7 +1089,7 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 	// exchange information about using Optimization in reconstruction
     std::vector<int> peer_optimization_algorithm(peer_num_fields_for_swap,0);
     std::vector<int> peer_single_linear_bound_constraint(peer_num_fields_for_swap,0);
-    std::vector<int> peer_bounds_preservation(peer_num_fields_for_swap,0);
+    std::vector<int> peer_local_bounds_preservation(peer_num_fields_for_swap,0);
     std::vector<double> peer_global_lower_bound(peer_num_fields_for_swap,0);
     std::vector<double> peer_global_upper_bound(peer_num_fields_for_swap,0);
 	for (local_index_type i=0; i<std::max((local_index_type)(peer_optimization_algorithm.size()), my_num_fields_for_swap); ++i) {
@@ -1099,12 +1099,12 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 			if (i < my_num_fields_for_swap && _local_comm->getRank()==0) {
 				int optimization_algorithm = (int)(remap_vector[i]._optimization_object._optimization_algorithm);
 				int single_linear_bound_constraint = (int)(remap_vector[i]._optimization_object._single_linear_bound_constraint);
-				int bounds_preservation = (int)(remap_vector[i]._optimization_object._bounds_preservation);
+				int local_bounds_preservation = (int)(remap_vector[i]._optimization_object._local_bounds_preservation);
 				double global_lower_bound = (double)(remap_vector[i]._optimization_object._global_lower_bound);
 				double global_upper_bound = (double)(remap_vector[i]._optimization_object._global_upper_bound);
 				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &optimization_algorithm);
 				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &single_linear_bound_constraint);
-				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &bounds_preservation);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &local_bounds_preservation);
 				Teuchos::broadcast<local_index_type, double>(*_lower_root_plus_upper_all_comm, 0, 1, &global_lower_bound);
 				Teuchos::broadcast<local_index_type, double>(*_lower_root_plus_upper_all_comm, 0, 1, &global_upper_bound);
 			}
@@ -1112,7 +1112,7 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 			if ((size_t)i < peer_field_names.size()) {
 				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_optimization_algorithm[i]);
 				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_single_linear_bound_constraint[i]);
-				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_bounds_preservation[i]);
+				Teuchos::broadcast<local_index_type, int>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_local_bounds_preservation[i]);
 				Teuchos::broadcast<local_index_type, double>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_global_lower_bound[i]);
 				Teuchos::broadcast<local_index_type, double>(*_lower_root_plus_upper_all_comm, 0, 1, &peer_global_upper_bound[i]);
 			}
@@ -1121,7 +1121,7 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 			if ((size_t)i < peer_field_names.size()) {
 				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_optimization_algorithm[i]);
 				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_single_linear_bound_constraint[i]);
-				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_bounds_preservation[i]);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_local_bounds_preservation[i]);
 				Teuchos::broadcast<local_index_type, double>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_global_lower_bound[i]);
 				Teuchos::broadcast<local_index_type, double>(*_upper_root_plus_lower_all_comm, 0, 1, &peer_global_upper_bound[i]);
 			}
@@ -1130,13 +1130,13 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 				//int optimization_algorithm = (int)(remap_vector[i]._optimization_object._optimization_algorithm);
 				int optimization_algorithm = (int)(remap_vector[i]._optimization_object._optimization_algorithm);
 				int single_linear_bound_constraint = (int)(remap_vector[i]._optimization_object._single_linear_bound_constraint);
-				int bounds_preservation = (int)(remap_vector[i]._optimization_object._bounds_preservation);
+				int local_bounds_preservation = (int)(remap_vector[i]._optimization_object._local_bounds_preservation);
 				double global_lower_bound = (double)(remap_vector[i]._optimization_object._global_lower_bound);
 				double global_upper_bound = (double)(remap_vector[i]._optimization_object._global_upper_bound);
 				//Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &optimization_algorithm);
 				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &optimization_algorithm);
 				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &single_linear_bound_constraint);
-				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &bounds_preservation);
+				Teuchos::broadcast<local_index_type, int>(*_upper_root_plus_lower_all_comm, 0, 1, &local_bounds_preservation);
 				Teuchos::broadcast<local_index_type, double>(*_upper_root_plus_lower_all_comm, 0, 1, &global_lower_bound);
 				Teuchos::broadcast<local_index_type, double>(*_upper_root_plus_lower_all_comm, 0, 1, &global_upper_bound);
 			}
@@ -1174,7 +1174,7 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
                         static_cast<ReconstructionSpace>(peer_reconstruction_space[i]), 
                         peer_polynomial_sampling_functional[i], peer_data_sampling_functional[i]);
                 if (peer_optimization_algorithm[i] > 0) {
-                    OptimizationObject optimization_object((OptimizationAlgorithm)peer_optimization_algorithm[i],(bool)peer_single_linear_bound_constraint[i],(bool)peer_bounds_preservation[i],peer_global_lower_bound[i],peer_global_upper_bound[i]);
+                    OptimizationObject optimization_object((OptimizationAlgorithm)peer_optimization_algorithm[i],(bool)peer_single_linear_bound_constraint[i],(bool)peer_local_bounds_preservation[i],peer_global_lower_bound[i],peer_global_upper_bound[i]);
             	    ro.setOptimizationObject(optimization_object);
                 }
                 if (_extra_data_for_remap_field_name != "") {

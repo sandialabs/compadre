@@ -153,7 +153,8 @@ public:
     void setNeighborDevice(int target_index, int neighbor_num, int new_value) {
         _cr_neighbor_lists(_row_offsets(target_index)+neighbor_num) = new_value;
         // indicate that host view is now out of sync with device
-        _needs_sync_to_host |= true;
+        // but only in debug mode (notice the next line is both setting the variable and checking it was set)
+        compadre_assert_debug(_needs_sync_to_host=true); 
     }
 
     //! Calculate the maximum number of neighbors of all targets' neighborhoods (host)
@@ -231,10 +232,8 @@ public:
 
     //! Offers N(i,j) indexing where N(i,j) is the index of the jth neighbor of i (host)
     int getNeighborHost(int target_index, int neighbor_num) const {
-        if (_needs_sync_to_host) {
-            compadre_assert_debug((!_needs_sync_to_host) 
-                    && "Stale information in host_cr_neighbor_lists. Call CopyDeviceDataToHost() to refresh.");
-        }
+        compadre_assert_debug((!_needs_sync_to_host) 
+                && "Stale information in host_cr_neighbor_lists. Call CopyDeviceDataToHost() to refresh.");
         return _host_cr_neighbor_lists(_row_offsets(target_index)+neighbor_num);
     }
 
