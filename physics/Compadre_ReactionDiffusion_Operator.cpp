@@ -123,7 +123,7 @@ void ReactionDiffusionPhysics::initialize() {
                 _nl->setNeighborDevice(idx, local_neighbor_number, neighbor_number);
             }
             void finalizeData() {
-                //_nl->copyDeviceDataToHost();
+                _nl->copyDeviceDataToHost();
             }
             void setMaxNumNeighbors(const local_index_type max_num_neighbors) {
                 _local_max_num_neighbors = max_num_neighbors;

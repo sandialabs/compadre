@@ -919,9 +919,9 @@ int main (int argc, char* args[]) {
                                 if (rd_op) {
                                     double l2_exact = velocity_function->evalScalar(xyz);
                                     xyz_type h1_exact = velocity_function->evalScalarDerivative(xyz);
-                                    l2_error_on_cell += reaction_coeff * quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
+                                    l2_error_on_cell += quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
                                     for (int d=0; d<input_dim; ++d) {
-                                        h1_error_on_cell += diffusion_coeff * quadrature_weights(j,i) * (h1_val[d] - h1_exact[d]) * (h1_val[d] - h1_exact[d]);
+                                        h1_error_on_cell += quadrature_weights(j,i) * (h1_val[d] - h1_exact[d]) * (h1_val[d] - h1_exact[d]);
                                     }
                                 } else if (le_op || vl_op || mix_le_op) {
                                     double l2_exact = velocity_function->evalVector(xyz)[m_out];
@@ -929,13 +929,13 @@ int main (int argc, char* args[]) {
                                     // still needs customized to LE stress tensor
                                     l2_error_on_cell += quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
                                     for (int d=0; d<input_dim; ++d) {
-                                        h1_error_on_cell += shear_coeff * quadrature_weights(j,i) * (h1_val[d] - h1_exact[d]) * (h1_val[d] - h1_exact[d]);
+                                        h1_error_on_cell += quadrature_weights(j,i) * (h1_val[d] - h1_exact[d]) * (h1_val[d] - h1_exact[d]);
                                     }
                                     if (plot_quadrature) {
                                         // only for velocity
                                         l2_view(count+i,m_out) += quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
                                         for (int d=0; d<input_dim; ++d) {
-                                            h1_view(count+i,m_out) += shear_coeff * quadrature_weights(j,i) * (h1_val[d] - h1_exact[d]) * (h1_val[d] - h1_exact[d]);
+                                            h1_view(count+i,m_out) += quadrature_weights(j,i) * (h1_val[d] - h1_exact[d]) * (h1_val[d] - h1_exact[d]);
                                         }
                                     }
                                 } else if (st_op) {
@@ -944,7 +944,7 @@ int main (int argc, char* args[]) {
                                     // still needs customized to LE stress tensor
                                     l2_error_on_cell += quadrature_weights(j,i) * (l2_val - l2_exact) * (l2_val - l2_exact);
                                     for (int d=0; d<input_dim; ++d) {
-                                        h1_error_on_cell += diffusion_coeff * quadrature_weights(j,i) * (h1_val[d] - h1_exact[d]) * (h1_val[d] - h1_exact[d]);
+                                        h1_error_on_cell += quadrature_weights(j,i) * (h1_val[d] - h1_exact[d]) * (h1_val[d] - h1_exact[d]);
                                     }
                                 }
                             } else if (quadrature_type(j,i)==2) { // exterior edge
@@ -1095,7 +1095,21 @@ int main (int argc, char* args[]) {
             if (st_op || mix_le_op) {
                 printf("Pressure L2: %.5e\n", sqrt(pressure_l2_error));
             }
-            velocity_norm = velocity_jump_error + velocity_l2_error + velocity_h1_error;
+            double velocity_l2_coeff=0, velocity_h1_coeff=0, pressure_l2_coeff=0;
+            if (rd_op) {
+                velocity_l2_coeff = reaction_coeff;
+                velocity_h1_coeff = diffusion_coeff;
+            } else if (le_op || vl_op || mix_le_op) {
+                velocity_l2_coeff = shear_coeff;
+                if (mix_le_op) {
+                    pressure_l2_coeff = 0; // double check SIPG norm
+                }
+            } else if (st_op) {
+                velocity_h1_coeff = diffusion_coeff;
+                pressure_l2_coeff = 0; // double check SIPG norm
+            }
+            // SIPG norm
+            velocity_norm = velocity_jump_error + velocity_l2_coeff*velocity_l2_error + velocity_h1_coeff*velocity_h1_error + pressure_l2_coeff*pressure_l2_error;
         }
 
         //// DIAGNOSTIC:: get solution at quadrature pts
