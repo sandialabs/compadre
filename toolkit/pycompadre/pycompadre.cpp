@@ -22,6 +22,7 @@ namespace py = pybind11;
 class ParticleHelper {
 public:
 
+    typedef Kokkos::View<double***, Kokkos::HostSpace> double_3d_view_type;
     typedef Kokkos::View<double**, Kokkos::HostSpace> double_2d_view_type;
     typedef Kokkos::View<int**, Kokkos::HostSpace> int_2d_view_type;
     typedef Kokkos::View<double*, Kokkos::HostSpace> double_1d_view_type;
@@ -40,6 +41,10 @@ private:
     double_2d_view_type _source_coords;
     double_2d_view_type _target_coords;
     double_1d_view_type _epsilon;
+
+    // optional
+    double_3d_view_type _tangent_bundle;
+    double_2d_view_type _reference_normal_directions;
 
 public:
 
@@ -209,6 +214,109 @@ public:
         });
         Kokkos::fence();
 
+        return result;
+    }
+
+    void setTangentBundle(py::array_t<double> input) {
+        py::buffer_info buf = input.request();
+
+        if (buf.ndim != 3) {
+            throw std::runtime_error("Number of dimensions must be three");
+        }
+
+        if (gmls_object->getGlobalDimensions()!=input.shape(1)) {
+            throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
+        }
+
+        if (gmls_object->getGlobalDimensions()!=input.shape(2)) {
+            throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
+        }
+        
+        // create Kokkos View on host to copy into
+        Kokkos::View<double***, Kokkos::HostSpace> tangent_bundle("tangent bundle", input.shape(0), input.shape(1), input.shape(2));
+        
+        // overwrite existing data assuming a 2D layout
+        auto data = input.unchecked<3>();
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,input.shape(0)), [=](int i) {
+            for (int j = 0; j < input.shape(1); ++j)
+            {
+                for (int k = 0; k < input.shape(2); ++k) {
+                    tangent_bundle(i, j, k) = data(i, j, k);
+                }
+            }
+        });
+        Kokkos::fence();
+        
+        // set values from Kokkos View
+        gmls_object->setTangentBundle(tangent_bundle);
+        _tangent_bundle = tangent_bundle;
+    }
+
+    py::array_t<double> getTangentBundle() {
+        compadre_assert_release((_tangent_bundle.extent(0)>0) && "getTangentBundle() called, but tangent bundle was never set.");
+
+        auto dim_out_0 = _tangent_bundle.extent(0);
+        auto dim_out_1 = _tangent_bundle.extent(1);
+        auto dim_out_2 = _tangent_bundle.extent(2);
+
+        auto result = py::array_t<double>(dim_out_0*dim_out_1*dim_out_2);
+        py::buffer_info buf_out = result.request();
+
+        double *ptr = (double *) buf_out.ptr;
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0*dim_out_1*dim_out_2), [&](int i) {
+            ptr[i] = *(_tangent_bundle.data()+i);
+        });
+        Kokkos::fence();
+
+        result.resize({dim_out_0,dim_out_1,dim_out_2});
+        return result;
+    }
+
+    void setReferenceOutwardNormalDirection(py::array_t<double> input, bool use_to_orient_surface = true) {
+        py::buffer_info buf = input.request();
+
+        if (buf.ndim != 2) {
+            throw std::runtime_error("Number of dimensions must be two");
+        }
+
+        if (gmls_object->getGlobalDimensions()!=input.shape(1)) {
+            throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
+        }
+        
+        // create Kokkos View on host to copy into
+        Kokkos::View<double**, Kokkos::HostSpace> reference_normal_directions("reference normal directions", input.shape(0), input.shape(1));
+        
+        // overwrite existing data assuming a 2D layout
+        auto data = input.unchecked<2>();
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,input.shape(0)), [=](int i) {
+            for (int j = 0; j < input.shape(1); ++j)
+            {
+                reference_normal_directions(i, j) = data(i, j);
+            }
+        });
+        Kokkos::fence();
+        
+        // set values from Kokkos View
+        gmls_object->setReferenceOutwardNormalDirection(reference_normal_directions, true /* use to orient surface*/);
+        _reference_normal_directions = reference_normal_directions;
+    }
+
+    py::array_t<double> getReferenceOutwardNormalDirection() {
+        compadre_assert_release((_reference_normal_directions.extent(0)>0) && "getReferenceNormalDirections() called, but normal directions were never set.");
+
+        auto dim_out_0 = _reference_normal_directions.extent(0);
+        auto dim_out_1 = _reference_normal_directions.extent(1);
+
+        auto result = py::array_t<double>(dim_out_0*dim_out_1);
+        py::buffer_info buf_out = result.request();
+
+        double *ptr = (double *) buf_out.ptr;
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0*dim_out_1), [&](int i) {
+            ptr[i] = *(_reference_normal_directions.data()+i);
+        });
+        Kokkos::fence();
+
+        result.resize({dim_out_0,dim_out_1});
         return result;
     }
 
@@ -382,7 +490,7 @@ public:
     //    return pyObjectArray_out;
     //}
  
-    py::array_t<double> applyStencil(py::array_t<double> input, TargetOperation lro) {
+    py::array_t<double> applyStencil(py::array_t<double> input, TargetOperation lro, SamplingFunctional sro) {
         py::buffer_info buf = input.request();
  
         // create Kokkos View on host to copy into
@@ -413,7 +521,7 @@ public:
             compadre_assert_release((gmls_object->getGlobalDimensions() > 2) && "Partial derivative w.r.t. z requested, but less than 3D problem.");
         }
         auto output_values = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (source_data, lro);
+            (source_data, lro, sro);
 
         auto dim_out_0 = output_values.extent(0);
         auto dim_out_1 = output_values.extent(1);
@@ -513,8 +621,12 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("getSourceSites", &ParticleHelper::getSourceSites, py::return_value_policy::take_ownership)
     .def("setTargetSites", &ParticleHelper::setTargetSites, py::arg("target_coordinates"))
     .def("getTargetSites", &ParticleHelper::getTargetSites, py::return_value_policy::take_ownership)
+    .def("setTangentBundle", &ParticleHelper::setTangentBundle, py::arg("tangent_bundle"))
+    .def("getTangentBundle", &ParticleHelper::getTangentBundle, py::return_value_policy::take_ownership)
+    .def("setReferenceOutwardNormalDirection", &ParticleHelper::setReferenceOutwardNormalDirection, py::arg("reference_normal_directions"), py::arg("use_to_orient_surface") = true)
+    .def("getReferenceOutwardNormalDirection", &ParticleHelper::getReferenceOutwardNormalDirection, py::return_value_policy::take_ownership)
     .def("getPolynomialCoefficients", &ParticleHelper::getPolynomialCoefficients, py::arg("input_data"), py::return_value_policy::take_ownership)
-    .def("applyStencil", &ParticleHelper::applyStencil, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::return_value_policy::take_ownership);
+    .def("applyStencil", &ParticleHelper::applyStencil, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::return_value_policy::take_ownership);
     
 
     py::class_<GMLS>(m, "GMLS")
@@ -537,7 +649,11 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("getNN", &GMLS::getNN, "Heuristic number of neighbors.");
 
     py::class_<NeighborLists<ParticleHelper::int_1d_view_type_in_gmls> >(m, "NeighborLists")
-    .def("getNumberOfTargets", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getNumberOfTargets, "Number of targets.");
+    .def("getNumberOfTargets", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getNumberOfTargets, "Number of targets.")
+    .def("getNumberOfNeighbors", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getNumberOfNeighborsHost, py::arg("target index"), "Get number of neighbors for target.")
+    .def("getNeighbor", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getNeighborHost, py::arg("target index"), py::arg("local neighbor number"), "Get neighbor index from target index and local neighbor number.")
+    .def("getMaxNumNeighbors", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getMaxNumNeighbors, "Get maximum number of neighbors over all neighborhoods.")
+    .def("getTotalNeighborsOverAllLists", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getTotalNeighborsOverAllListsHost, "Get total storage size of all neighbor lists combined.");
 
     py::class_<KokkosParser>(m, "KokkosParser")
     .def(py::init<int,int,int,int,bool>(), py::arg("num_threads") = -1, py::arg("numa") = -1, py::arg("device") = -1, py::arg("ngpu") = -1, py::arg("print") = false);
