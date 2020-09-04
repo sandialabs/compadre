@@ -2,6 +2,26 @@
 SET(SOLVER_SUPPORT_ISSUE "Missing Trilinos linear solver support.")
 
 ###############
+# Custom additional examples/tests
+###############
+#
+# CompadreHarness_CANGA_ENABLED - CANGA project remap (local/remote)
+#
+# CompadreHarness_REBAR_ENABLED - Discontinuous Galerkin basis generated
+#      by GMLS with SIPG/VMS penalization.
+#      1.) Go to REPO/test_data/grids
+#      2.) Run >> python make_DG_grids.py
+#      3.) Reconfigure from build or just copy dg_* to the build directory
+#
+# CompadreHarness_STAGGERED_ENABLED - Staggered formulation for solution of
+#                                     Stokes/Poisson
+#      1.) Go to REPO/test_data/grids
+#      2.) Run >> python make_cube_with_normals.py
+#      3.) Run >> python make_cube_mixed_dirichlet_neumann.py
+#      4.) Reconfigure from build or just copy cube_* to the build directory
+
+
+###############
 #
 #
 # Template Functions
@@ -31,13 +51,15 @@ if (CompadreHarness_TESTS)
 endif()
 
 if (CompadreHarness_EXAMPLES)
-  add_exe_w_compadre(CompadreGMLSStaggeredAnalyticTest Compadre_GMLSStaggeredAnalyticTest.cpp)
-  add_exe_w_compadre(CompadreGMLSStaggeredIntegralTest Compadre_GMLSStaggeredIntegralTest.cpp)
-  add_exe_w_compadre(CompadreGMLSCurlCurlTest Compadre_GMLSCurlCurlTest.cpp)
   add_exe_w_compadre(CompadreGMLSTest Compadre_GMLSTest.cpp)
-  add_exe_w_compadre(CompadreGMLSPoissonNeumann Compadre_GMLSPoissonNeumannTest.cpp)
-  add_exe_w_compadre(CompadreGMLSStaggeredPoissonNeumann Compadre_GMLSStaggeredPoissonNeumannTest.cpp)
-  add_exe_w_compadre(CompadreGMLSStokes Compadre_GMLSStokesTest.cpp)
+  IF (CompadreHarness_STAGGERED_ENABLED)
+    add_exe_w_compadre(CompadreGMLSStaggeredAnalyticTest Compadre_GMLSStaggeredAnalyticTest.cpp)
+    add_exe_w_compadre(CompadreGMLSStaggeredIntegralTest Compadre_GMLSStaggeredIntegralTest.cpp)
+    add_exe_w_compadre(CompadreGMLSCurlCurlTest Compadre_GMLSCurlCurlTest.cpp)
+    add_exe_w_compadre(CompadreGMLSPoissonNeumann Compadre_GMLSPoissonNeumannTest.cpp)
+    add_exe_w_compadre(CompadreGMLSStaggeredPoissonNeumann Compadre_GMLSStaggeredPoissonNeumannTest.cpp)
+    add_exe_w_compadre(CompadreGMLSStokes Compadre_GMLSStokesTest.cpp)
+  ENDIF()
   add_exe_w_compadre(tpetraCoordsTest.exe Compadre_TrilinosTest.cpp)
   #add_exe_w_compadre(spherePoisson.exe Compadre_SpherePoissonTest.cpp)
   add_exe_w_compadre(kdtreeTest.exe Compadre_KdTreeTest.cpp)
@@ -50,7 +72,9 @@ if (CompadreHarness_EXAMPLES)
   add_exe_w_compadre(lagrangianTest.exe Compadre_LagrangianTest.cpp)
   add_exe_w_compadre(remoteRemapTest.exe Compadre_RemoteRemapTest.cpp)
   add_exe_w_compadre(laplaceBeltrami.exe Compadre_LaplaceBeltrami.cpp)
-  add_exe_w_compadre(reactionDiffusion.exe Compadre_ReactionDiffusion.cpp)
+  IF (CompadreHarness_REBAR_ENABLED)
+    add_exe_w_compadre(reactionDiffusion.exe Compadre_ReactionDiffusion.cpp)
+  ENDIF()
   IF(CompadreHarness_CANGA_ENABLED)
     add_exe_w_compadre(cangaTestRemoteRemap.exe Canga_Test_RemoteRemap.cpp)
     add_exe_w_compadre(cangaTestIntercomparison.exe Canga_Test_Intercomparison.cpp)
@@ -91,37 +115,43 @@ if (CompadreHarness_EXAMPLES)
     ADD_TEST(NAME GMLSTest4x1amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_amg.xml" "--kokkos-threads=1")
     SET_TESTS_PROPERTIES(GMLSTest4x1amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;four")
 
-    # GMLS STAGGERED ANALYTIC LAPLACIAN
+    # STAGGERED TESTS
 
-    ADD_TEST(NAME GMLSStaggeredAnalyticSineTest4x1amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStaggeredAnalyticTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_amg.xml" "--kokkos-threads=1")
-    SET_TESTS_PROPERTIES(GMLSStaggeredAnalyticSineTest4x1amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;four;staggered")
+    IF (CompadreHarness_STAGGERED_ENABLED)
 
-    # GMLS STAGGERED INTEGRAL LAPLACIAN
+        # GMLS STAGGERED ANALYTIC LAPLACIAN
 
-    ADD_TEST(NAME GMLSStaggeredIntegralSineTest4x1amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStaggeredIntegralTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_amg.xml" "--kokkos-threads=1")
-    SET_TESTS_PROPERTIES(GMLSStaggeredIntegralSineTest4x1amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;four;staggered")
+        ADD_TEST(NAME GMLSStaggeredAnalyticSineTest4x1amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStaggeredAnalyticTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_amg.xml" "--kokkos-threads=1")
+        SET_TESTS_PROPERTIES(GMLSStaggeredAnalyticSineTest4x1amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;four;staggered")
 
-    # GMLS CURL CURL TEST
+        # GMLS STAGGERED INTEGRAL LAPLACIAN
 
-    ADD_TEST(NAME CompadreGMLSCurlCurlPolyTest4x1amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSCurlCurlTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_curlcurl/parameters_amg.xml" "--kokkos-threads=1")
-    SET_TESTS_PROPERTIES(CompadreGMLSCurlCurlPolyTest4x1amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;four")
+        ADD_TEST(NAME GMLSStaggeredIntegralSineTest4x1amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStaggeredIntegralTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_laplacian/parameters_amg.xml" "--kokkos-threads=1")
+        SET_TESTS_PROPERTIES(GMLSStaggeredIntegralSineTest4x1amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;four;staggered")
 
-    ADD_TEST(NAME CompadreGMLSCurlCurlSineTest4x1amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSCurlCurlTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_curlcurl/parameters_amg_sine.xml" "--kokkos-threads=1")
-    SET_TESTS_PROPERTIES(CompadreGMLSCurlCurlSineTest4x1amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;four")
+        # GMLS CURL CURL TEST
+
+        ADD_TEST(NAME CompadreGMLSCurlCurlPolyTest4x1amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSCurlCurlTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_curlcurl/parameters_amg.xml" "--kokkos-threads=1")
+        SET_TESTS_PROPERTIES(CompadreGMLSCurlCurlPolyTest4x1amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;four")
+
+        ADD_TEST(NAME CompadreGMLSCurlCurlSineTest4x1amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSCurlCurlTest "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_curlcurl/parameters_amg_sine.xml" "--kokkos-threads=1")
+        SET_TESTS_PROPERTIES(CompadreGMLSCurlCurlSineTest4x1amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;four")
 
 
-    # GMLS LAPLACIAN WITH NEUMANN TEST
+        # GMLS LAPLACIAN WITH NEUMANN TEST
 
-    ADD_TEST(NAME CompadreGMLSPoissonNeumannSineTest2x2amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSPoissonNeumann "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_neumann/parameters_amg.yml" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(CompadreGMLSPoissonNeumannSineTest2x2amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls")
+        ADD_TEST(NAME CompadreGMLSPoissonNeumannSineTest2x2amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSPoissonNeumann "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_neumann/parameters_amg.yml" "--kokkos-threads=2")
+        SET_TESTS_PROPERTIES(CompadreGMLSPoissonNeumannSineTest2x2amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls")
 
-    ADD_TEST(NAME CompadreGMLSStaggeredPoissonNeumannSineTest2x2amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStaggeredPoissonNeumann "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_neumann/parameters_amg.yml" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(CompadreGMLSStaggeredPoissonNeumannSineTest2x2amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;staggered")
+        ADD_TEST(NAME CompadreGMLSStaggeredPoissonNeumannSineTest2x2amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStaggeredPoissonNeumann "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_neumann/parameters_amg.yml" "--kokkos-threads=2")
+        SET_TESTS_PROPERTIES(CompadreGMLSStaggeredPoissonNeumannSineTest2x2amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;staggered")
 
-    # GMLS STOKE'S SOLVER
+        # GMLS STOKE'S SOLVER
 
-    ADD_TEST(NAME CompadreGMLSStokesSineTest2x2amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStokes "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_stokes/parameters_amg.yml" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(CompadreGMLSPoissonNeumannSineTest2x2amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;stokes")
+        ADD_TEST(NAME CompadreGMLSStokesSineTest2x2amg COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/CompadreGMLSStokes "--i=${CMAKE_CURRENT_BINARY_DIR}/../test_data/parameter_lists/gmls_stokes/parameters_amg.yml" "--kokkos-threads=2")
+        SET_TESTS_PROPERTIES(CompadreGMLSPoissonNeumannSineTest2x2amg PROPERTIES LABELS "ConvergenceTest;convergence;GMLS;gmls;stokes")
+
+    ENDIF()
 
     # GRAPH LAPLACIAN
 
@@ -242,8 +272,9 @@ if (CompadreHarness_EXAMPLES)
     #SET_TESTS_PROPERTIES(ReactionDiffusionTestConv PROPERTIES LABELS "reaction;diffusion;dg;variational;weakform;")
     
     # CANGA TESTS
-    
+
     IF (CompadreHarness_CANGA_ENABLED)
+
         ADD_TEST(NAME CangaTestRemoteRemap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/cangaTestRemoteRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_lower.xml" "--kokkos-threads=1" ":" "-np" 5 ${CMAKE_CURRENT_BINARY_DIR}/cangaTestRemoteRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/canga/parameters_upper.xml" "--kokkos-threads=1")
         SET_TESTS_PROPERTIES(CangaTestRemoteRemap PROPERTIES LABELS "Canga;canga;remote")
         
