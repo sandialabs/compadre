@@ -7,9 +7,14 @@ set(Physics_HEADERS
   Compadre_GMLS_PoissonNeumann_Operator.hpp
   Compadre_GMLS_PoissonNeumann_BoundaryConditions.hpp
   Compadre_GMLS_PoissonNeumann_Sources.hpp
+  Compadre_GMLS_Staggered_PoissonNeumann_Operator.hpp
+  Compadre_GMLS_Staggered_PoissonNeumann_Sources.hpp
   Compadre_GMLS_CurlCurl_BoundaryConditions.hpp
   Compadre_GMLS_CurlCurl_Operator.hpp
   Compadre_GMLS_CurlCurl_Sources.hpp
+  Compadre_GMLS_Stokes_Operator.hpp
+  Compadre_GMLS_Stokes_BoundaryConditions.hpp
+  Compadre_GMLS_Stokes_Sources.hpp
   Compadre_LagrangianShallowWater_BoundaryConditions.hpp
   Compadre_LagrangianShallowWater_Operator.hpp
   Compadre_LagrangianShallowWater_Sources.hpp
@@ -34,9 +39,14 @@ set(Physics_SOURCES
   Compadre_GMLS_PoissonNeumann_Operator.cpp
   Compadre_GMLS_PoissonNeumann_BoundaryConditions.cpp
   Compadre_GMLS_PoissonNeumann_Sources.cpp
+  Compadre_GMLS_Staggered_PoissonNeumann_Operator.cpp
+  Compadre_GMLS_Staggered_PoissonNeumann_Sources.cpp
   Compadre_GMLS_CurlCurl_BoundaryConditions.cpp
   Compadre_GMLS_CurlCurl_Operator.cpp
   Compadre_GMLS_CurlCurl_Sources.cpp
+  Compadre_GMLS_Stokes_Operator.cpp
+  Compadre_GMLS_Stokes_BoundaryConditions.cpp
+  Compadre_GMLS_Stokes_Sources.cpp
   Compadre_LagrangianShallowWater_BoundaryConditions.cpp
   Compadre_LagrangianShallowWater_Operator.cpp
   Compadre_LagrangianShallowWater_Sources.cpp
