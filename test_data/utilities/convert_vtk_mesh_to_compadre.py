@@ -198,7 +198,7 @@ if __name__== "__main__":
     
     parser.add_argument('--file-in', dest='file_in', type=str, help='file in name')
     parser.add_argument('--file-out', dest='file_out', type=str, help='file out name')
-    parser.add_argument('--dim', dest='dim', type=int, default=3, help='spatial dimension')
+    parser.add_argument('--dim', dest='dim', type=int, default=2, help='spatial dimension')
     parser.add_argument('--coordinates-scale', dest='coordinates_scale', type=float, default=1.0, help='scaling of coordinates, >1 is dilation, <1 is contraction, 1 is identity')
     parser.add_argument('--verbose', dest='verbose', type=str, default='false', help='display filenames being converted')
     parser.add_argument('--max-verbose', dest='max_verbose', type=str, default='false', help='display results of conversion')
