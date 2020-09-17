@@ -45,7 +45,7 @@ if args.pressure_order<0:
 
 
 if (args.dim==2):
-    #file_names = ["dg_%d.nc"%num for num in range(args.num_meshes)]
+    file_names = ["dg_%d.nc"%num for num in range(args.num_meshes)]
     #file_names = ["shear_annulus_tf0_n%d.nc"%num for num in range(args.num_meshes)]
     #file_names = ["shear_annulus_tf1_n%d.nc"%num for num in range(args.num_meshes)]
     #file_names = ["shear_annulus_tf1.795_n%d.nc"%num for num in range(args.num_meshes)]
@@ -61,8 +61,8 @@ if (args.dim==2):
     #file_names = ["box_n%d.nc"%num for num in range(args.num_meshes)]
 
     # for stokes
-    file_names = ["timoshenko_regular_mesh_scaled_%d.nc"%num for num in range(args.num_meshes)]
-    particle_file_names = ["timoshenko_regular_mesh_scaled_%d.nc"%num for num in range(args.num_meshes)]
+    #file_names = ["timoshenko_regular_mesh_scaled_%d.nc"%num for num in range(args.num_meshes)]
+    #particle_file_names = ["timoshenko_regular_mesh_scaled_%d.nc"%num for num in range(args.num_meshes)]
 else:
     file_names = ["cube_%d.nc"%num for num in range(args.num_meshes)]
 
