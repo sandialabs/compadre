@@ -45,9 +45,31 @@ if args.pressure_order<0:
 
 
 if (args.dim==2):
-    file_names = ["dg_%d.nc"%num for num in range(args.num_meshes)]
+    #file_names = ["dg_%d.nc"%num for num in range(args.num_meshes)]
+    #file_names = ["shear_annulus_tf0_n%d.nc"%num for num in range(args.num_meshes)]
+    #file_names = ["shear_annulus_tf1_n%d.nc"%num for num in range(args.num_meshes)]
+    #file_names = ["shear_annulus_tf1.795_n%d.nc"%num for num in range(args.num_meshes)]
+    #particle_file_names = ["shear_annulus_tf1.795_n%d.nc"%num for num in range(args.num_meshes)]
+    #file_names = ["shear_annulus_tf0_n%d.nc"%num for num in range(args.num_meshes)]
+    #particle_file_names = ["shear_annulus_tf0_n%d.nc"%num for num in range(args.num_meshes)]
+    #particle_file_names = ["shear_annulus_tf1.795_n%d.nc"%num for num in range(args.num_meshes)]
+    #file_names = ["dg_%d.nc"%num for num in range(args.num_meshes)]
+    #file_names = ["transformed_box_n%d.nc"%num for num in range(args.num_meshes)]
+    #file_names = ["box_n%d.nc"%num for num in range(args.num_meshes)]
+    #particle_file_names = ["transformed_box_n%d.nc"%num for num in range(args.num_meshes)]
+    #particle_file_names = ["box_n%d.nc"%num for num in range(args.num_meshes)]
+    #file_names = ["box_n%d.nc"%num for num in range(args.num_meshes)]
+
+    # for stokes
+    file_names = ["timoshenko_regular_mesh_scaled_%d.nc"%num for num in range(args.num_meshes)]
+    particle_file_names = ["timoshenko_regular_mesh_scaled_%d.nc"%num for num in range(args.num_meshes)]
 else:
     file_names = ["cube_%d.nc"%num for num in range(args.num_meshes)]
+
+# if particle set not something different from mesh, then just use mesh for centroids as particle set
+if 'particle_file_names' not in locals():
+    particle_file_names = file_names
+
 error_types=['vel. l2','vel. h1','vel. jp','vel. sum','pr. l2']
 all_errors = [list(), list(), list(), list(), list(), list(), list()]#list() * len(error_types)
 
@@ -71,7 +93,9 @@ for key2, fname in enumerate(file_names):
     
     for item in list(f):
         if (item.attrib['name']=="input file"):
-            item.attrib['value']=fname
+            item.attrib['value']=file_names[key2]
+        if (item.attrib['name']=="particles input file"):
+            item.attrib['value']=particle_file_names[key2]
         if (item.attrib['name']=="input dimensions"):
             item.attrib['value']=str(args.dim)
 

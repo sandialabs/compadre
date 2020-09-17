@@ -166,6 +166,7 @@ int main (int argc, char* args[]) {
             //Read in data file
             FirstReadTime->start();
             Compadre::FileManager fm;
+            particles = Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, input_dim));
             fm.setReader(particles_testfilename, particles);
             fm.read();
             FirstReadTime->stop();
@@ -448,8 +449,9 @@ int main (int argc, char* args[]) {
             auto neighborhood = physics->_cell_particles_neighborhood;
             auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
 
-            auto nlocal = coords->nLocal();
-            for(int j=0; j<nlocal; j++){
+            auto nlocal_cells = coords->nLocal();
+            auto nlocal_particles = particles->getCoords()->nLocal();
+            for(int j=0; j<nlocal_cells; j++){
                 LO num_neighbors = neighborhood->getNumNeighbors(j);
                 // loop over particles neighbor to the cell
                 for (LO l = 0; l < num_neighbors; l++) {
@@ -460,7 +462,7 @@ int main (int argc, char* args[]) {
                         double v;
                         if (use_vector_gmls) v = vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, j, k_out, l, k_in, 0);
                         else v = vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, 0);
-                        auto dof_val = (particle_l<nlocal) ? velocity_dof_view(particle_l,k_in) : velocity_halo_dof_view(particle_l-nlocal,k_in);
+                        auto dof_val = (particle_l<nlocal_particles) ? velocity_dof_view(particle_l,k_in) : velocity_halo_dof_view(particle_l-nlocal_particles,k_in);
                         velocity_processed_view(j,k_out) += dof_val * v;
                     }
                     }
@@ -468,7 +470,7 @@ int main (int argc, char* args[]) {
                         for (LO k = 0; k < pressure_processed_view.extent(1); ++k) {
                             auto particle_l = neighborhood->getNeighbor(j,l);
                             auto v = pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, 0);
-                            auto dof_val = (particle_l<nlocal) ? pressure_dof_view(particle_l,k) : pressure_halo_dof_view(particle_l-nlocal,k);
+                            auto dof_val = (particle_l<nlocal_particles) ? pressure_dof_view(particle_l,k) : pressure_halo_dof_view(particle_l-nlocal_particles,k);
                             // assumes pressure has same basis as velocity
                             pressure_processed_view(j,k) += dof_val * v;
                         }
@@ -477,8 +479,8 @@ int main (int argc, char* args[]) {
                 if (st_op || mix_le_op) avg_pressure_computed += pressure_processed_view(j,0);
             }
             if (st_op || mix_le_op) {
-                avg_pressure_computed /= nlocal;
-                for(int j=0; j<nlocal; j++){
+                avg_pressure_computed /= nlocal_cells;
+                for(int j=0; j<nlocal_cells; j++){
                     for (LO k = 0; k < pressure_processed_view.extent(1); ++k) {
                         pressure_processed_view(j,k) -= avg_pressure_computed;
                     }
@@ -851,7 +853,6 @@ int main (int argc, char* args[]) {
                 auto adjacent_elements = cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalView<host_view_type>();
                 auto vel_gmls = physics->_vel_gmls;
                 auto pressure_gmls = physics->_pressure_gmls;
-                auto nlocal = coords->nLocal();
                 auto num_edges = adjacent_elements.extent(1);
                 auto num_interior_quadrature = 0;
                 for (int q=0; q<quadrature_weights.extent(1); ++q) {
@@ -861,7 +862,8 @@ int main (int argc, char* args[]) {
                     }
                 }
                 auto num_exterior_quadrature_per_edge = (quadrature_weights.extent(1) - num_interior_quadrature)/num_edges;
-
+                auto nlocal_cells = coords->nLocal();
+                auto nlocal_particles = particles->getCoords()->nLocal();
                 for( int j =0; j<coords->nLocal(); j++){
                     auto num_sides = adjacent_elements.extent(1);
                     std::vector<double> side_lengths(num_sides);
@@ -895,7 +897,7 @@ int main (int argc, char* args[]) {
                                     if (m_out!=m_in && !velocity_basis_type_vector) continue;
                                     for (LO l = 0; l < num_neighbors; l++) {
                                         auto particle_l = neighborhood->getNeighbor(j,l);
-                                        auto dof_val = (particle_l<nlocal) ? velocity_dof_view(particle_l,m_in) : velocity_halo_dof_view(particle_l-nlocal,m_in);
+                                        auto dof_val = (particle_l<nlocal_particles) ? velocity_dof_view(particle_l,m_in) : velocity_halo_dof_view(particle_l-nlocal_particles,m_in);
                                         double v, v_x, v_y;
                                         XYZ v_grad;
                                         if (use_vector_gmls) v = vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, j, m_out, l, m_in, i+1);
@@ -959,7 +961,7 @@ int main (int argc, char* args[]) {
                                     if (m_out!=m_in && !velocity_basis_type_vector) continue;
                                     for (LO l = 0; l < num_neighbors; l++) {
                                         auto particle_l = neighborhood->getNeighbor(j,l);
-                                        auto dof_val = (particle_l<nlocal) ? velocity_dof_view(particle_l,m_in) : velocity_halo_dof_view(particle_l-nlocal,m_in);
+                                        auto dof_val = (particle_l<nlocal_particles) ? velocity_dof_view(particle_l,m_in) : velocity_halo_dof_view(particle_l-nlocal_particles,m_in);
                                         double v;
                                         if (use_vector_gmls) v = vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, j, m_out, l, m_in, i+1);
                                         else v = vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
@@ -989,7 +991,7 @@ int main (int argc, char* args[]) {
                                     if (m_out!=m_in && !velocity_basis_type_vector) continue;
                                     for (LO l = 0; l < num_neighbors; l++) {
                                         auto particle_l = neighborhood->getNeighbor(j,l);
-                                        auto dof_val = (particle_l<nlocal) ? velocity_dof_view(particle_l,m_in) : velocity_halo_dof_view(particle_l-nlocal,m_in);
+                                        auto dof_val = (particle_l<nlocal_particles) ? velocity_dof_view(particle_l,m_in) : velocity_halo_dof_view(particle_l-nlocal_particles,m_in);
                                         double v;
                                         if (use_vector_gmls) v = vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, j, m_out, l, m_in, i+1);
                                         else v = vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
@@ -1035,7 +1037,7 @@ int main (int argc, char* args[]) {
                                     if (m_out!=m_in && !velocity_basis_type_vector) continue;
                                     for (LO l = 0; l < num_neighbors; l++) {
                                         auto particle_l = neighborhood->getNeighbor(adj_j,l);
-                                        auto dof_val = (particle_l<nlocal) ? velocity_dof_view(particle_l,m_in) : velocity_halo_dof_view(particle_l-nlocal,m_in);
+                                        auto dof_val = (particle_l<nlocal_particles) ? velocity_dof_view(particle_l,m_in) : velocity_halo_dof_view(particle_l-nlocal_particles,m_in);
                                         double v;
                                         if (use_vector_gmls) v = vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, adj_j, m_out, l, m_in, adj_i+1);
                                         else v = vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adj_j, l, adj_i+1);
@@ -1066,7 +1068,7 @@ int main (int argc, char* args[]) {
                                     // loop over particles neighbor to the cell
                                     for (LO l = 0; l < num_neighbors; l++) {
                                         auto particle_l = neighborhood->getNeighbor(j,l);
-                                        auto dof_val = (particle_l<nlocal) ? pressure_dof_view(particle_l,m) : pressure_halo_dof_view(particle_l-nlocal,m);
+                                        auto dof_val = (particle_l<nlocal_particles) ? pressure_dof_view(particle_l,m) : pressure_halo_dof_view(particle_l-nlocal_particles,m);
                                         auto v = pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
                                         l2_val += dof_val * v;
                                     }
