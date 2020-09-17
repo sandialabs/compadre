@@ -60,7 +60,7 @@ void ReactionDiffusionPhysics::initialize() {
 
     if (_ndim_requested==3) printf("Neighbor search started.\n");
     _cell_particles_neighborhood = Teuchos::rcp_static_cast<neighborhood_type>(Teuchos::rcp(
-            new neighborhood_type(_cells, _particles.getRawPtr(), false /*material coords*/, maxLeaf)));
+            new neighborhood_type(_particles.getRawPtr(), _cells, false /*material coords*/, maxLeaf)));
     _cell_particles_neighborhood->constructAllNeighborLists(_cells->getCoordsConst()->getHaloSize(),
        _parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
        neighbors_needed+1,
@@ -68,10 +68,11 @@ void ReactionDiffusionPhysics::initialize() {
        _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
        _parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
        _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
+    Kokkos::fence();
 
     if (_cells!=_particles.getRawPtr()) {
         _particle_cells_neighborhood = Teuchos::rcp_static_cast<neighborhood_type>(Teuchos::rcp(
-                new neighborhood_type(_particles.getRawPtr(), _cells, false /*material coords*/, maxLeaf)));
+                new neighborhood_type(_cells, _particles.getRawPtr(), false /*material coords*/, maxLeaf)));
         _particle_cells_neighborhood->constructAllNeighborLists(_particles->getCoordsConst()->getHaloSize(),
            _parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"),
            neighbors_needed+1,
@@ -79,6 +80,7 @@ void ReactionDiffusionPhysics::initialize() {
            _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
            _parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
            _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
+        Kokkos::fence();
     } else {
         _particle_cells_neighborhood = _cell_particles_neighborhood;
     }
@@ -143,7 +145,7 @@ void ReactionDiffusionPhysics::initialize() {
         local_index_type num_cell_neighbors_for_particle_i = _particle_cells_neighborhood->getNumNeighbors(i);
         for (local_index_type j=0; j<num_cell_neighbors_for_particle_i; ++j) {
             auto cell_j = _particle_cells_neighborhood->getNeighbor(i,j);
-            for (const auto& pair : _particle_to_local_neighbor_lookup.at(i)) {
+            for (const auto& pair : _particle_to_local_neighbor_lookup.at(cell_j)) {
                 i_set->insert(pair.first);
             }
             for (local_index_type k=0; k<num_sides; ++k) {
@@ -184,6 +186,7 @@ void ReactionDiffusionPhysics::initialize() {
         std::unordered_set<local_index_type>* i_set = const_cast<std::unordered_set<local_index_type>* >(&particle_neighbors_of_particles[i]);
         t_min = std::min(t_min, (local_index_type)i_set->size());
     }, Kokkos::Min<local_index_type>(min_particle_particle_neighbors));
+    Kokkos::fence();
 
     printf("Min P->P neighbors %d \n", min_particle_particle_neighbors);
     particles_triple_hop_neighborhood->setMaxNumNeighbors(max_particle_particle_neighbors);
@@ -241,24 +244,27 @@ void ReactionDiffusionPhysics::initialize() {
     //****************
 
     // generate the interpolation operator and call the coefficients needed (storing them)
-    const coords_type* target_coords = this->_coords;
-    const coords_type* source_coords = this->_coords;
+    const coords_type* target_coords = _cells->getCoords();
+    const coords_type* source_coords = _particles->getCoords();
 
     _cell_particles_max_num_neighbors = 
         _cell_particles_neighborhood->computeMaxNumNeighbors(false /*local processor max*/);
     printf("Min C->P neighbors %d \n", _cell_particles_neighborhood->computeMinNumNeighbors(false /*local processor max*/));
     printf("Max C->P neighbors %d \n", _cell_particles_max_num_neighbors);
+    printf("Min P->C neighbors %d \n", _particle_cells_neighborhood->computeMinNumNeighbors(false /*local processor max*/));
+    printf("Max P->C neighbors %d \n", _particle_cells_neighborhood->computeMaxNumNeighbors(false /*local processor max*/));
 
-    Kokkos::View<int**> kokkos_neighbor_lists("neighbor lists", target_coords->nLocal(), _cell_particles_max_num_neighbors+1);
+    Kokkos::View<int**> kokkos_neighbor_lists("neighbor lists", num_cells_local, _cell_particles_max_num_neighbors+1);
     _kokkos_neighbor_lists_host = Kokkos::create_mirror_view(kokkos_neighbor_lists);
     // fill in the neighbor lists into a kokkos view. First entry is # of neighbors for that target
-    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), KOKKOS_LAMBDA(const int i) {
         const int num_i_neighbors = _cell_particles_neighborhood->getNumNeighbors(i);
         for (int j=1; j<num_i_neighbors+1; ++j) {
             _kokkos_neighbor_lists_host(i,j) = _cell_particles_neighborhood->getNeighbor(i,j-1);
         }
         _kokkos_neighbor_lists_host(i,0) = num_i_neighbors;
     });
+    Kokkos::fence();
 
     Kokkos::View<double**> kokkos_augmented_source_coordinates("source_coordinates", source_coords->nLocal(true /* include halo in count */), source_coords->nDim());
     _kokkos_augmented_source_coordinates_host = Kokkos::create_mirror_view(kokkos_augmented_source_coordinates);
@@ -269,6 +275,7 @@ void ReactionDiffusionPhysics::initialize() {
         _kokkos_augmented_source_coordinates_host(i,1) = coordinate.y;
         if (_ndim_requested>2) _kokkos_augmented_source_coordinates_host(i,2) = coordinate.z;
     });
+    Kokkos::fence();
 
     Kokkos::View<double**> kokkos_target_coordinates("target_coordinates", target_coords->nLocal(), target_coords->nDim());
     _kokkos_target_coordinates_host = Kokkos::create_mirror_view(kokkos_target_coordinates);
@@ -279,6 +286,7 @@ void ReactionDiffusionPhysics::initialize() {
         _kokkos_target_coordinates_host(i,1) = coordinate.y;
         if (_ndim_requested>2) _kokkos_target_coordinates_host(i,2) = coordinate.z;
     });
+    Kokkos::fence();
 
     auto epsilons = _cell_particles_neighborhood->getHSupportSizes()->getLocalView<const host_view_type>();
     Kokkos::View<double*> kokkos_epsilons("epsilons", target_coords->nLocal());
@@ -286,6 +294,7 @@ void ReactionDiffusionPhysics::initialize() {
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
         _kokkos_epsilons_host(i) = epsilons(i,0);
     });
+    Kokkos::fence();
 
 
 
@@ -424,6 +433,7 @@ void ReactionDiffusionPhysics::initialize() {
             }
         }
     });
+    Kokkos::fence();
 
 
     
@@ -510,6 +520,7 @@ void ReactionDiffusionPhysics::initialize() {
                 }
             }
         });
+        Kokkos::fence();
 
         // Compute ndim x ndim matrices: integral (db/dxi * db/dxj)
         std::vector<Intrepid::FieldContainer<double> > sep_grad_grad_mat_integrals(num_basis_functions,
@@ -656,6 +667,7 @@ void ReactionDiffusionPhysics::initialize() {
             }
         }
     });
+    Kokkos::fence();
 
     // get cell neighbors of particles, and add indices to these for quadrature
     // loop over particles, get cells in neighborhood and get their quadrature
@@ -667,6 +679,7 @@ void ReactionDiffusionPhysics::initialize() {
             _kokkos_quadrature_neighbor_lists_host(i, 1+j) = i*_weights_ndim + j;
         }
     });
+    Kokkos::fence();
 
     //****************
     //
@@ -1221,7 +1234,8 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
     //Loop over all particles, convert to GMLS data types, solve problem, and insert into matrix:
 
-    const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
+    const local_index_type nlocal_cells = static_cast<local_index_type>(_cells->getCoords()->nLocal());
+    const local_index_type nlocal_particles = static_cast<local_index_type>(_particles->getCoords()->nLocal());
     const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
     const host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
@@ -1268,6 +1282,25 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
     if (((field_one == _velocity_field_id) || (field_one == _pressure_field_id)) && ((field_two == _velocity_field_id) || (field_two == _pressure_field_id))) {
     // loop over cells including halo cells 
+  
+    //
+    // Fill Identity Matrix
+    //
+    //int team_scratch_size = 0;
+    //team_scratch_size += host_scratch_vector_scalar_type::shmem_size(num_sides); // side lengths
+    //team_scratch_size += host_scratch_vector_scalar_type::shmem_size(4*_weights_ndim); // indices
+    //Kokkos::parallel_for("Assembly Routine", host_team_policy(_particles->getCoordsConst()->nLocal(), Kokkos::AUTO)
+    //        .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)), 
+    //        KOKKOS_LAMBDA(const host_member_type& teamMember) {
+    //    const int i = teamMember.league_rank();
+    //    double row = i;
+    //    double val_data[1] = {1};
+    //    int col_data[1] = {0};
+    //    col_data[0] = i;
+    //    this->_A->sumIntoLocalValues(row, 1, &val_data[0], &col_data[0], true);//, /*atomics*/false);
+    //});
+    //Kokkos::fence();
+
     int team_scratch_size = 0;
     team_scratch_size += host_scratch_vector_scalar_type::shmem_size(num_sides); // side lengths
     team_scratch_size += host_scratch_vector_scalar_type::shmem_size(4*_weights_ndim); // indices
@@ -1307,17 +1340,17 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
         // filter out (skip) all halo cells that are not able to be seen from a locally owned particle
         // dictionary needs created of halo_particle
         // halo_big_to_small 
-        auto halo_i = (i<nlocal) ? -1 : _halo_big_to_small(i-nlocal,0);
-        if (i>=nlocal /* halo */  && halo_i<0 /* not one found within max_h of locally owned particles */) return;//continue;
+        auto halo_i = (i<nlocal_cells) ? -1 : _halo_big_to_small(i-nlocal_cells,0);
+        if (i>=nlocal_cells /* halo */  && halo_i<0 /* not one found within max_h of locally owned particles */) return;//continue;
 
 
         {
             for (int current_side_num = 0; current_side_num < num_sides; ++current_side_num) {
                Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, _weights_ndim), [&] (const int q, double& t_length_this_side) {
-                    auto q_type = (i<nlocal) ? quadrature_type(i,q) 
+                    auto q_type = (i<nlocal_cells) ? quadrature_type(i,q) 
                         : halo_quadrature_type(_halo_small_to_big(halo_i,0),q);
                     if (q_type!=1) { // side
-                        auto q_wt = (i<nlocal) ? quadrature_weights(i,q) 
+                        auto q_wt = (i<nlocal_cells) ? quadrature_weights(i,q) 
                             : halo_quadrature_weights(_halo_small_to_big(halo_i,0),q);
                         int side_num = (q - num_interior_quadrature)/num_exterior_quadrature_per_side;
                         if (side_num==current_side_num) {
@@ -1356,7 +1389,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
             j++;
             auto particle_j = *j_it;
             // particle_j is an index from {0..nlocal+nhalo}
-            if (particle_j>=nlocal /* particle is halo particle */) continue; // row should be locally owned
+            if (particle_j>=nlocal_particles /* particle is halo particle */) continue; // row should be locally owned
 
             int j_to_cell_i = -1;
             if (_particle_to_local_neighbor_lookup.at(i).count(particle_j)==1){
@@ -1432,16 +1465,16 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                         double contribution = 0;
                         if (_l2_op) {
                             for (int qn=0; qn<_weights_ndim; ++qn) {
-                                const auto q_type = (i<nlocal) ? quadrature_type(i,qn) : halo_quadrature_type(_halo_small_to_big(halo_i,0),qn);
+                                const auto q_type = (i<nlocal_cells) ? quadrature_type(i,qn) : halo_quadrature_type(_halo_small_to_big(halo_i,0),qn);
                                 if (q_type==1) { // interior
                                     double u, v;
-                                    const auto q_wt = (i<nlocal) ? quadrature_weights(i,qn) : halo_quadrature_weights(_halo_small_to_big(halo_i,0),qn);
+                                    const auto q_wt = (i<nlocal_cells) ? quadrature_weights(i,qn) : halo_quadrature_weights(_halo_small_to_big(halo_i,0),qn);
                                     if (j_to_cell_i>=0) {
                                         if (_use_vector_gmls) {
-                                            v = (i<nlocal) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, j_comp_out, j_to_cell_i, j_comp_in, qn+1)
+                                            v = (i<nlocal_cells) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, j_comp_out, j_to_cell_i, j_comp_in, qn+1)
                                                  : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j_to_cell_i, qn+1);
                                         } else {
-                                            v = (i<nlocal) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1)
+                                            v = (i<nlocal_cells) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1)
                                                  : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j_to_cell_i, qn+1);
                                         }
                                     } else {
@@ -1449,10 +1482,10 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     }
                                     if (k_to_cell_i>=0) {
                                         if (_use_vector_gmls) {
-                                            u = (i<nlocal) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, k_comp_out, k_to_cell_i, k_comp_in, qn+1)
+                                            u = (i<nlocal_cells) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, k_comp_out, k_to_cell_i, k_comp_in, qn+1)
                                                  : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, k_to_cell_i, qn+1);
                                         } else {
-                                            u = (i<nlocal) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1)
+                                            u = (i<nlocal_cells) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1)
                                                  : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, k_to_cell_i, qn+1);
                                         }
                                     } else {
@@ -2232,7 +2265,11 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 // should be added as an option later
                                                 //if (_st_op) {
                                                 //    if (!_use_pinning || particle_j!=0) { // q is pinned at particle 0
-                                                //        t_contribution -= q_wt * ( _cell_particles_max_h * jumpp * jumpq );
+                                                //        double h_weighting = _cell_particles_max_h;
+                                                //        if (_use_side_weighting) {
+                                                //            h_weighting = side_lengths[current_side_num];
+                                                //        }
+                                                //        t_contribution -= q_wt * ( h_weighting * jumpp * jumpq );
                                                 //    } 
                                                 //}
                                             }
@@ -2270,12 +2307,12 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
         }
     } else if (field_one == _lagrange_field_id && field_two == _pressure_field_id) {
         // row all DOFs for solution against Lagrange Multiplier
-        Teuchos::Array<local_index_type> col_data(nlocal * fields[field_two]->nDim());
-        Teuchos::Array<scalar_type> val_data(nlocal * fields[field_two]->nDim());
+        Teuchos::Array<local_index_type> col_data(nlocal_particles * fields[field_two]->nDim());
+        Teuchos::Array<scalar_type> val_data(nlocal_particles * fields[field_two]->nDim());
         Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
         Teuchos::ArrayView<scalar_type> vals = Teuchos::ArrayView<scalar_type>(val_data);
     
-        for (local_index_type l = 0; l < nlocal; l++) {
+        for (local_index_type l = 0; l < nlocal_particles; l++) {
             for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
                 cols[l*fields[field_two]->nDim() + n] = local_to_dof_map(l, field_two, n);
                 vals[l*fields[field_two]->nDim() + n] = 1;
@@ -2287,14 +2324,14 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
             this->_A->sumIntoLocalValues(0, cols, vals);
         } else {
             // local index 0 is the shared global id for the lagrange multiplier
-            this->_A->sumIntoLocalValues(nlocal, cols, vals);
+            this->_A->sumIntoLocalValues(nlocal_particles, cols, vals);
         }
     } else if (field_one == _pressure_field_id && field_two == _lagrange_field_id) {
     
         // col all DOFs for solution against Lagrange Multiplier
         auto comm = this->_particles->getCoordsConst()->getComm();
         //if (comm->getRank() == 0) {
-            for(local_index_type i = 0; i < nlocal; i++) {
+            for(local_index_type i = 0; i < nlocal_particles; i++) {
                 for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
                     local_index_type row = local_to_dof_map(i, field_one, k);
     
@@ -2306,7 +2343,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                     if (comm->getRank() == 0) {
                         cols[0] = 0; // local index 0 is global shared index
                     } else {
-                        cols[0] = nlocal;
+                        cols[0] = nlocal_particles;
                     }
                     vals[0] = 1;
                     this->_A->sumIntoLocalValues(row, cols, vals);
@@ -2315,11 +2352,11 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
         //}
     } else if (field_one == _lagrange_field_id && field_two == _lagrange_field_id) {
         // identity on all DOFs for Lagrange Multiplier (even DOFs not really used, since we only use first LM dof for now)
-        scalar_type eps_penalty = nlocal; // would be nglobal but problem is serial
+        scalar_type eps_penalty = nlocal_particles; // would be nglobal but problem is serial
         //scalar_type eps_penalty = 1e-5;
     
         auto comm = this->_particles->getCoordsConst()->getComm();
-        for(local_index_type i = 0; i < nlocal; i++) {
+        for(local_index_type i = 0; i < nlocal_particles; i++) {
             for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
                 local_index_type row = local_to_dof_map(i, field_one, k);
     

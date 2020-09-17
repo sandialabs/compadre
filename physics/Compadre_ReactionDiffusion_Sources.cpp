@@ -52,7 +52,8 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
     if (_ndim_requested==3) printf("RHS started.\n");
 
     host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
-    const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
+    const local_index_type nlocal_cells = static_cast<local_index_type>(_physics->_cells->getCoords()->nLocal());
+    const local_index_type nlocal_particles = static_cast<local_index_type>(_physics->getParticles()->getCoords()->nLocal());
     const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
     const host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
@@ -120,23 +121,23 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
             if ((comp_out!=comp_in) && ((!_velocity_basis_type_vector && field_one == _velocity_field_id) || (field_one == _pressure_field_id))) continue;
 
             // filter out (skip) all halo cells that are not able to be seen from a locally owned particle
-            auto halo_i = (i<nlocal) ? -1 : _physics->_halo_big_to_small(i-nlocal,0);
-            if (i>=nlocal /* halo */  && halo_i<0 /* not one found within max_h of locally owned particles */) return;//continue;
+            auto halo_i = (i<nlocal_cells) ? -1 : _physics->_halo_big_to_small(i-nlocal_cells,0);
+            if (i>=nlocal_cells /* halo */  && halo_i<0 /* not one found within max_h of locally owned particles */) return;//continue;
 
             //TEUCHOS_ASSERT(i<nlocal);
             // need to have a halo gmls object that can be queried for cells that do not live on processor
             // this is also needed for the operator file in order to finish jump terms
 
             // loop over cells touching that particle
-            local_index_type num_neighbors = (i<nlocal) ? _physics->_cell_particles_neighborhood->getNumNeighbors(i)
+            local_index_type num_neighbors = (i<nlocal_cells) ? _physics->_cell_particles_neighborhood->getNumNeighbors(i)
                 : _physics->_halo_cell_particles_neighborhood->getNumNeighbors(halo_i);
             for (local_index_type j=0; j<num_neighbors; ++j) {
-                auto particle_j = (i<nlocal) ? _physics->_cell_particles_neighborhood->getNeighbor(i,j)
+                auto particle_j = (i<nlocal_cells) ? _physics->_cell_particles_neighborhood->getNeighbor(i,j)
                     : _physics->_halo_cell_particles_neighborhood->getNeighbor(halo_i,j);
                 // particle_j is an index from 0..nlocal+nhalo
 
                 // filter out (skip) all halo particles that are not a local DOF
-                if (particle_j >= nlocal) continue; // particle is in halo region, but we only want dofs that are rows (locally owned))
+                if (particle_j >= nlocal_particles) continue; // particle is in halo region, but we only want dofs that are rows (locally owned))
 
 
                 local_index_type row = local_to_dof_map(particle_j, field_one, comp_in);
@@ -145,44 +146,44 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                 double contribution = 0;
                 if (_l2_op) {
                     for (int qn=0; qn<_weights_ndim; ++qn) {
-                        auto q_type = (i<nlocal) ? quadrature_type(i,qn) : halo_quadrature_type(_physics->_halo_small_to_big(halo_i,0),qn);
+                        auto q_type = (i<nlocal_cells) ? quadrature_type(i,qn) : halo_quadrature_type(_physics->_halo_small_to_big(halo_i,0),qn);
                         if (q_type==1) { // interior
                             // integrating RHS velocity_function
                             double v;
                             if (_use_vector_gmls) {
-                                v = (i<nlocal) ? _physics->_vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, comp_out, j, comp_in, qn+1)
+                                v = (i<nlocal_cells) ? _physics->_vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, comp_out, j, comp_in, qn+1)
                                     : _physics->_halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
                             } else {
-                                v = (i<nlocal) ? _physics->_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, qn+1)
+                                v = (i<nlocal_cells) ? _physics->_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, qn+1)
                                     : _physics->_halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
                             }
 
-                            xyz_type pt = (i<nlocal) ? xyz_type(quadrature_points(i,_ndim_requested*qn),
+                            xyz_type pt = (i<nlocal_cells) ? xyz_type(quadrature_points(i,_ndim_requested*qn),
                                                                 quadrature_points(i,_ndim_requested*qn+1),
                                                                 (_ndim_requested==3) ? quadrature_points(i,_ndim_requested*qn+2) : 0) 
                                 : xyz_type(halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),_ndim_requested*qn), 
                                                halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),_ndim_requested*qn+1),
                                                (_ndim_requested==3) ? quadrature_points(i,_ndim_requested*qn+2) : 0);
 
-                            double q_wt = (i<nlocal) ? quadrature_weights(i,qn) : halo_quadrature_weights(_physics->_halo_small_to_big(halo_i,0),qn);
+                            double q_wt = (i<nlocal_cells) ? quadrature_weights(i,qn) : halo_quadrature_weights(_physics->_halo_small_to_big(halo_i,0),qn);
 
                             contribution += q_wt * v * velocity_function->evalScalar(pt);
                         } 
                     }
                 } else {
                     for (int qn=0; qn<_weights_ndim; ++qn) {
-                        auto q_type = (i<nlocal) ? quadrature_type(i,qn) : halo_quadrature_type(_physics->_halo_small_to_big(halo_i,0),qn);
+                        auto q_type = (i<nlocal_cells) ? quadrature_type(i,qn) : halo_quadrature_type(_physics->_halo_small_to_big(halo_i,0),qn);
                         double v;
                         if (_use_vector_gmls) {
-                            v = (i<nlocal) ? _physics->_vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, comp_out, j, comp_in, qn+1)
+                            v = (i<nlocal_cells) ? _physics->_vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, comp_out, j, comp_in, qn+1)
                             : _physics->_halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
                         }
                         else {
-                            v = (i<nlocal) ? _physics->_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, qn+1)
+                            v = (i<nlocal_cells) ? _physics->_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, qn+1)
                             : _physics->_halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
                         }
-                        double q_wt = (i<nlocal) ? quadrature_weights(i,qn) : halo_quadrature_weights(_physics->_halo_small_to_big(halo_i,0),qn);
-                        xyz_type pt = (i<nlocal) ? xyz_type(quadrature_points(i,_ndim_requested*qn),
+                        double q_wt = (i<nlocal_cells) ? quadrature_weights(i,qn) : halo_quadrature_weights(_physics->_halo_small_to_big(halo_i,0),qn);
+                        xyz_type pt = (i<nlocal_cells) ? xyz_type(quadrature_points(i,_ndim_requested*qn),
                                                             quadrature_points(i,_ndim_requested*qn+1),
                                                             (_ndim_requested==3) ? quadrature_points(i,_ndim_requested*qn+2) : 0) 
                             : xyz_type(halo_quadrature_points(_physics->_halo_small_to_big(halo_i,0),_ndim_requested*qn), 
@@ -218,18 +219,18 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                             XYZ grad_v;
                             if (_use_vector_grad_gmls) {
                                 for (int d=0; d<_ndim_requested; ++d) {
-                                    grad_v[d] = (i<nlocal) ? _physics->_vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, comp_out, d, j, comp_in, qn+1)
+                                    grad_v[d] = (i<nlocal_cells) ? _physics->_vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, comp_out, d, j, comp_in, qn+1)
                                         : _physics->_halo_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, halo_i, d, j, qn+1);
                                 }
                             } else {
                                 for (int d=0; d<_ndim_requested; ++d) {
-                                    grad_v[d] = (i<nlocal) ? _physics->_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, d, j, qn+1)
+                                    grad_v[d] = (i<nlocal_cells) ? _physics->_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, d, j, qn+1)
                                         : _physics->_halo_vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, halo_i, d, j, qn+1);
                                 }
                             }
                             XYZ n;
                             for (int d=0; d<_ndim_requested; ++d) {
-                                n[d] = (i<nlocal) ? unit_normals(i,_ndim_requested*qn+d) : halo_unit_normals(_physics->_halo_small_to_big(halo_i,0), _ndim_requested*qn+d);
+                                n[d] = (i<nlocal_cells) ? unit_normals(i,_ndim_requested*qn+d) : halo_unit_normals(_physics->_halo_small_to_big(halo_i,0), _ndim_requested*qn+d);
                             }
                             double exact_eval = 0;
 
@@ -309,7 +310,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                     //    + 2 * _physics->_shear * (n[1]*grad_v[1]*(comp_out==1) + 0.5*n[0]*(grad_v[0]*(comp_out==1) + grad_v[1]*(comp_out==0))) * exact[1]
                                     //    - 2./(scalar_type)(_ndim_requested) * _physics->_shear * (grad_v[0]*(comp_out==0) + grad_v[1]*(comp_out==1)) * (n[0]*exact[0] + n[1]*exact[1]));
                                 } else if (_pressure_field_id == field_one && _pressure_field_id == field_two) {
-                                    double q = (i<nlocal) ? _physics->_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, qn+1)
+                                    double q = (i<nlocal_cells) ? _physics->_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, qn+1)
                                         : _physics->_halo_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
                                     auto exact = velocity_function->evalVector(pt);
                                     double n_dot_exact = 0.0;
@@ -350,7 +351,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                     //      _physics->_diffusion * (n_x*v_x*(comp_out==0) + n_y*v_y*(comp_out==0)) * exact[0]  
                                     //    + _physics->_diffusion * (n_x*v_x*(comp_out==1) + n_y*v_y*(comp_out==1)) * exact[1] );
                                 } else if (_pressure_field_id == field_one && _pressure_field_id == field_two) {
-                                    double q = (i<nlocal) ? _physics->_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, qn+1)
+                                    double q = (i<nlocal_cells) ? _physics->_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j, qn+1)
                                         : _physics->_halo_pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j, qn+1);
                                     auto exact = velocity_function->evalVector(pt);
                                     double n_dot_exact = 0.0;

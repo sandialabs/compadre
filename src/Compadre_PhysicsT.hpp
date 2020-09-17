@@ -81,6 +81,10 @@ class PhysicsT {
         // default comes from particles class 
         virtual local_index_type getMaxNumNeighbors();
 
+        particle_type* getParticles() {
+            return _particles.getRawPtr();
+        }
+
 };
 
 }
