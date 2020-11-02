@@ -162,25 +162,21 @@ void ProblemExplicitTransientT::initialize() {
 		}
 	}
 
-	// now that we know actual # of blocks, we can set up the graphs, and row and column maps
-	if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
-		_b.resize(row_count);
-//		_A = std::vector<std::vector<Teuchos::RCP<crs_matrix_type> > > (row_count, std::vector<Teuchos::RCP<crs_matrix_type> > (col_count, Teuchos::null));
-//		A_graph = std::vector<std::vector<Teuchos::RCP<crs_graph_type> > > (row_count, std::vector<Teuchos::RCP<crs_graph_type> > (col_count, Teuchos::null));
-		row_map = std::vector<Teuchos::RCP<const map_type> > (row_count, Teuchos::null);
-		col_map = std::vector<Teuchos::RCP<const map_type> > (col_count, Teuchos::null);
+    // now that we know actual # of blocks we can build a DOF data with the DOF manager
+    // regenerate DOF information, because we have a local ordering specific to our field interactions
+    _problem_dof_data = _particles->getDOFManager()->generateDOFMap(_block_row_to_field_map);
 
-		for (InteractingFields field_interaction : _field_interactions) {
-			buildMaps(field_interaction.src_fieldnum, field_interaction.trg_fieldnum);
-		}
-	} else {
-		_b.resize(1);
-//		_A = std::vector<std::vector<Teuchos::RCP<crs_matrix_type> > > (1, std::vector<Teuchos::RCP<crs_matrix_type> > (1, Teuchos::null));
-//		A_graph = std::vector<std::vector<Teuchos::RCP<crs_graph_type> > > (1, std::vector<Teuchos::RCP<crs_graph_type> > (1, Teuchos::null));
-		row_map = std::vector<Teuchos::RCP<const map_type> > (1, Teuchos::null);
-		col_map = std::vector<Teuchos::RCP<const map_type> > (1, Teuchos::null);
+    // now that we know actual # of blocks, we can set up the graphs, and row and column maps
+    row_map.resize(row_count);
+    col_map.resize(col_count);
+    _b.resize(row_count);
+    //_A = std::vector<std::vector<Teuchos::RCP<crs_matrix_type> > > (row_count, std::vector<Teuchos::RCP<crs_matrix_type> > (col_count, Teuchos::null));
+    //A_graph = std::vector<std::vector<Teuchos::RCP<crs_graph_type> > > (row_count, std::vector<Teuchos::RCP<crs_graph_type> > (col_count, Teuchos::null));
+    row_map = std::vector<Teuchos::RCP<const map_type> > (row_count, Teuchos::null);
+    col_map = std::vector<Teuchos::RCP<const map_type> > (col_count, Teuchos::null);
 
-		buildMaps();
+	for (InteractingFields field_interaction : _field_interactions) {
+		buildMaps(field_interaction.src_fieldnum, field_interaction.trg_fieldnum);
 	}
 
 //	// first is graph construction
@@ -304,7 +300,7 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 				updated_solution[row_block] = Teuchos::rcp(new mvec_type(row_map[row_block], 1, setToZero));
 				rk_offsets[row_block] = Teuchos::rcp(new mvec_type(row_map[row_block], 1, setToZero));
 				// get solution from _particles and put it in reference_solution
-				_particles->getFieldManagerConst()->updateVectorFromFields(reference_solution[row_block], field_one);
+				_particles->getFieldManagerConst()->updateVectorFromFields(reference_solution[row_block], field_one, _problem_dof_data);
 
 				// copy this to updated_solution so that it starts in the right place
 				host_view_type updated_data = updated_solution[row_block]->getLocalView<host_view_type>();
@@ -321,7 +317,7 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 			updated_solution[0] = Teuchos::rcp(new mvec_type(row_map[0], 1, setToZero));
 			rk_offsets[0] = Teuchos::rcp(new mvec_type(row_map[0], 1, setToZero));
 			// get solution from _particles and put it in reference_solution
-			_particles->getFieldManagerConst()->updateVectorFromFields(reference_solution[0]);
+			_particles->getFieldManagerConst()->updateVectorFromFields(reference_solution[0], -1, _problem_dof_data);
 
 			// copy this to updated_solution so that it starts in the right place
 			host_view_type updated_data = updated_solution[0]->getLocalView<host_view_type>();
@@ -423,11 +419,11 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 				// update _particles with reference data plus RK addition
 				if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
 
-					_particles->getFieldManager()->updateFieldsFromVector(rk_offsets[row_block], field_one);
+					_particles->getFieldManager()->updateFieldsFromVector(rk_offsets[row_block], field_one, _problem_dof_data);
 
 				} else {
 
-					_particles->getFieldManager()->updateFieldsFromVector(rk_offsets[0], field_one);
+					_particles->getFieldManager()->updateFieldsFromVector(rk_offsets[0], field_one, _problem_dof_data);
 
 				}
 			}
@@ -646,9 +642,9 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 					local_index_type row_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_row_map[field_one] : 0;
 
 					if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
-						_particles->getFieldManager()->updateFieldsFromVector(reference_solution[row_block], field_one);
+						_particles->getFieldManager()->updateFieldsFromVector(reference_solution[row_block], field_one, _problem_dof_data);
 					} else {
-						_particles->getFieldManager()->updateFieldsFromVector(reference_solution[0], field_one);
+						_particles->getFieldManager()->updateFieldsFromVector(reference_solution[0], field_one, _problem_dof_data);
 					}
 				}
 
@@ -671,9 +667,9 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 					local_index_type row_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_row_map[field_one] : 0;
 
 					if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
-						_particles->getFieldManager()->updateFieldsFromVector(reference_solution[row_block], field_one);
+						_particles->getFieldManager()->updateFieldsFromVector(reference_solution[row_block], field_one, _problem_dof_data);
 					} else {
-						_particles->getFieldManager()->updateFieldsFromVector(reference_solution[0], field_one);
+						_particles->getFieldManager()->updateFieldsFromVector(reference_solution[0], field_one, _problem_dof_data);
 					}
 
 					displacement_data_moved_to_fields = true;
@@ -794,7 +790,7 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 									reference_solution[row_block]->scale(0);
 									rk_offsets[row_block]->scale(0);
 									updated_solution[row_block]->scale(0);
-									_particles->getFieldManager()->updateFieldsFromVector(reference_solution[row_block], field_one);
+									_particles->getFieldManager()->updateFieldsFromVector(reference_solution[row_block], field_one, _problem_dof_data);
 								} else {
 									host_view_type reference_data = reference_solution[0]->getLocalView<host_view_type>();
 									host_view_type rk_offsets_data = rk_offsets[0]->getLocalView<host_view_type>();
@@ -811,7 +807,7 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 											updated_data(vdof,0) = 0;
 										}
 									}
-									_particles->getFieldManager()->updateFieldsFromVector(reference_solution[0], field_one);
+									_particles->getFieldManager()->updateFieldsFromVector(reference_solution[0], field_one, _problem_dof_data);
 								}
 			
 								displacement_data_moved_to_fields = true;
@@ -892,9 +888,9 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 		local_index_type row_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_row_map[field_one] : 0;
 
 		if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
-			_particles->getFieldManager()->updateFieldsFromVector(reference_solution[row_block], field_one);
+			_particles->getFieldManager()->updateFieldsFromVector(reference_solution[row_block], field_one, _problem_dof_data);
 		} else {
-			_particles->getFieldManager()->updateFieldsFromVector(reference_solution[0], field_one);
+			_particles->getFieldManager()->updateFieldsFromVector(reference_solution[0], field_one, _problem_dof_data);
 		}
 	}
 

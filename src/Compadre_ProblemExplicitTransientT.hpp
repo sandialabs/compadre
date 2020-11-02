@@ -15,6 +15,7 @@ class PhysicsT;
 class SourcesT;
 class BoundaryConditionsT;
 class ParameterManager;
+class DOFData;
 
 
 
@@ -63,6 +64,8 @@ class ProblemExplicitTransientT {
 		std::vector<local_index_type> _field_to_block_col_map;
 		std::vector<local_index_type> _block_row_to_field_map;
 		std::vector<local_index_type> _block_col_to_field_map;
+
+		Teuchos::RCP<const DOFData> _problem_dof_data;
 
 		// starts with initial fields already populated at time t0
 

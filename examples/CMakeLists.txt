@@ -378,12 +378,12 @@ if (CompadreHarness_EXAMPLES)
     ENDIF()
     
     ## SHALLOW WATER TESTS
-    #
-    #ADD_TEST(NAME LagrangianShallowWater2 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/lagrangianShallowWater.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/shallow_water/parameters_case2.xml" "--kokkos-threads=2")
-    #SET_TESTS_PROPERTIES(LagrangianShallowWater2 PROPERTIES LABELS "shallow;case2")
-    #
-    #ADD_TEST(NAME LagrangianShallowWater5 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/lagrangianShallowWater.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/shallow_water/parameters_case5.xml" "--kokkos-threads=2")
-    #SET_TESTS_PROPERTIES(LagrangianShallowWater5 PROPERTIES LABELS "shallow;case5")
+    
+    ADD_TEST(NAME LagrangianShallowWater2 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/lagrangianShallowWater.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/shallow_water/parameters_case2.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(LagrangianShallowWater2 PROPERTIES LABELS "shallow;case2")
+    
+    ADD_TEST(NAME LagrangianShallowWater5 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/lagrangianShallowWater.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/shallow_water/parameters_case5.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(LagrangianShallowWater5 PROPERTIES LABELS "shallow;case5")
 
 
     ## RT0 REMAP TO VECTOR TEST

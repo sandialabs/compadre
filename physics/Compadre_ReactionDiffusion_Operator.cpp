@@ -250,7 +250,7 @@ void ReactionDiffusionPhysics::initialize() {
     _cell_particles_max_num_neighbors = 
         _cell_particles_neighborhood->computeMaxNumNeighbors(false /*local processor max*/);
     printf("Min C->P neighbors %d \n", _cell_particles_neighborhood->computeMinNumNeighbors(false /*local processor max*/));
-    printf("Max C->P neighbors %d \n", _cell_particles_max_num_neighbors);
+    printf("Max C->P neighbors %lu \n", _cell_particles_max_num_neighbors);
     printf("Min P->C neighbors %d \n", _particle_cells_neighborhood->computeMinNumNeighbors(false /*local processor max*/));
     printf("Max P->C neighbors %d \n", _particle_cells_neighborhood->computeMaxNumNeighbors(false /*local processor max*/));
 
@@ -1019,10 +1019,7 @@ Teuchos::RCP<crs_graph_type> ReactionDiffusionPhysics::computeGraph(local_index_
         auto existing_row_map = _row_map;
         auto existing_col_map = _col_map;
 
-        size_t max_entries_per_row;
-        Teuchos::ArrayRCP<const size_t> empty_array;
-        bool bound_same_for_all_local_rows = true;
-        this->_A_graph->getNumEntriesPerLocalRowUpperBound(empty_array, max_entries_per_row, bound_same_for_all_local_rows);
+        size_t max_entries_per_row = this->_A_graph->getNodeMaxNumRowEntries();
 
         auto row_map_index_base = existing_row_map->getIndexBase();
         auto row_map_entries = existing_row_map->getMyGlobalIndices();
@@ -1077,10 +1074,7 @@ Teuchos::RCP<crs_graph_type> ReactionDiffusionPhysics::computeGraph(local_index_
         auto existing_row_map = _row_map;
         auto existing_col_map = _col_map;
 
-        size_t max_entries_per_row;
-        Teuchos::ArrayRCP<const size_t> empty_array;
-        bool bound_same_for_all_local_rows = true;
-        this->_A_graph->getNumEntriesPerLocalRowUpperBound(empty_array, max_entries_per_row, bound_same_for_all_local_rows);
+        size_t max_entries_per_row = this->_A_graph->getNodeMaxNumRowEntries();
 
         auto col_map_index_base = existing_col_map->getIndexBase();
         auto col_map_entries = existing_col_map->getMyGlobalIndices();
