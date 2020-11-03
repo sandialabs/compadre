@@ -16,6 +16,7 @@ class SourcesT;
 class BoundaryConditionsT;
 class ParameterManager;
 class DOFData;
+class InteractingFields;
 
 
 /*

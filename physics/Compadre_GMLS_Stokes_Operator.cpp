@@ -268,10 +268,7 @@ Teuchos::RCP<crs_graph_type> GMLS_StokesPhysics::computeGraph(local_index_type f
         auto existing_row_map = _row_map;
         auto existing_col_map = _col_map;
 
-        size_t max_entries_per_row;
-        Teuchos::ArrayRCP<const size_t> empty_array;
-        bool bound_same_for_all_local_rows = true;
-        this->_A_graph->getNumEntriesPerLocalRowUpperBound(empty_array, max_entries_per_row, bound_same_for_all_local_rows);
+        size_t max_entries_per_row = this->_A_graph->getNodeMaxNumRowEntries();
 
         auto row_map_index_base = existing_row_map->getIndexBase();
         auto row_map_entries = existing_row_map->getMyGlobalIndices();
@@ -321,10 +318,7 @@ Teuchos::RCP<crs_graph_type> GMLS_StokesPhysics::computeGraph(local_index_type f
         auto existing_row_map = _row_map;
         auto existing_col_map = _col_map;
 
-        size_t max_entries_per_row;
-        Teuchos::ArrayRCP<const size_t> empty_array;
-        bool bound_same_for_all_local_rows = true;
-        this->_A_graph->getNumEntriesPerLocalRowUpperBound(empty_array, max_entries_per_row, bound_same_for_all_local_rows);
+        size_t max_entries_per_row = this->_A_graph->getNodeMaxNumRowEntries();
 
         auto col_map_index_base = existing_col_map->getIndexBase();
         auto col_map_entries = existing_col_map->getMyGlobalIndices();

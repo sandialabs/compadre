@@ -34,7 +34,7 @@
     <Parameter name="coordinates layout" type="string" value="lat_lon_separate"/>
     <Parameter name="output file prefix" type="string" value="../test_data/"/>
     <Parameter name="output file" type="string" value="shallow_water.nc"/>
-    <Parameter name="write every" type="int" value="1"/>
+    <Parameter name="write every" type="int" value="20"/>
     <Parameter name="keep original lat lon" type="bool" value="true"/>
     <Parameter name="coordinate 0 name" type="string" value="grid_center_lat"/>
     <Parameter name="coordinate 1 name" type="string" value="grid_center_lon"/>
