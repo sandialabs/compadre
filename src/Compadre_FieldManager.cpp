@@ -11,6 +11,39 @@
 
 namespace Compadre {
 
+InteractingFields::InteractingFields(op_needing_interaction op, const local_index_type source_num, const local_index_type target_num) {
+            src_fieldnum = source_num;
+            if (target_num < 0) trg_fieldnum = source_num;
+            else trg_fieldnum = target_num;
+            ops_needing.push_back(op);
+}
+
+bool InteractingFields::operator== (const InteractingFields& other) const
+{
+    if (this->src_fieldnum == other.src_fieldnum &&  this->trg_fieldnum == other.trg_fieldnum)
+        return true;
+    return false;
+}
+
+void InteractingFields::operator+= (const InteractingFields& other)  {
+    // performs a merge of the ops_needing from both objects
+    // if they share the same source and target fields
+    for (op_needing_interaction an_op:other.ops_needing) {
+        // check if an_op already exists, and if not push it
+        bool found = false;
+        for (op_needing_interaction my_op:this->ops_needing) {
+            if (my_op==an_op) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            this->ops_needing.push_back(an_op);
+        }
+    }
+}
+
+
 FieldManager::FieldManager ( const particles_type* particles, Teuchos::RCP<Teuchos::ParameterList> parameters ) :
 			_parameters(parameters), _particles(particles), total_field_offsets(0), max_num_field_dimensions(0)
 {}

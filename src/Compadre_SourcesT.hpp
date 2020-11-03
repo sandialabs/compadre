@@ -10,6 +10,7 @@ class CoordsT;
 class ParticlesT;
 class FieldT;
 class DOFData;
+class InteractingFields;
 
 class SourcesT {
 

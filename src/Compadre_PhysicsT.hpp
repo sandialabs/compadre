@@ -9,6 +9,7 @@ namespace Compadre {
 class CoordsT;
 class ParticlesT;
 class DOFData;
+class InteractingFields;
 
 class PhysicsT {
 

@@ -112,55 +112,6 @@ namespace Compadre {
     typedef typename z2_scalar_adapter_type::part_t z2_partition_type;
     typedef std::remove_reference<decltype(std::declval<z2_problem_type>().getSolution().getPartBoxesView()[0])>::type z2_box_type;
 
-    enum op_needing_interaction { bc, source, physics };
-
-    //! Whether DOF interactions in a field are global or locally supported
-    enum FieldSparsityType {
-        //! Locally supported DOF interaction leading to a banded matrix
-        Banded,
-        //! Globally supported DOF interaction leading to completely filled row or column of a matrix
-        Global
-    };
-
-    struct InteractingFields {
-        public:
-            std::string src_fieldname;
-            std::string trg_fieldname;
-            local_index_type src_fieldnum;
-            local_index_type trg_fieldnum;
-            std::vector<op_needing_interaction> ops_needing;
-
-            InteractingFields(op_needing_interaction op, const local_index_type source_num, const local_index_type target_num = -1) {
-                src_fieldnum = source_num;
-                if (target_num < 0) trg_fieldnum = source_num;
-                else trg_fieldnum = target_num;
-                ops_needing.push_back(op);
-            }
-
-            bool operator== (const InteractingFields& other) const
-            {
-                if (this->src_fieldnum == other.src_fieldnum &&  this->trg_fieldnum == other.trg_fieldnum)
-                    return true;
-                return false;
-            }
-
-            void operator+= (const InteractingFields& other)  {
-                // performs a merge of the ops_needing from both objects
-                for (op_needing_interaction an_op:other.ops_needing) {
-                    // check if an_op already exists, and if not push it
-                    bool found = false;
-                    for (op_needing_interaction my_op:this->ops_needing) {
-                        if (my_op==an_op) {
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found) this->ops_needing.push_back(an_op);
-                }
-            }
-
-    };
-
 }
 
 #endif

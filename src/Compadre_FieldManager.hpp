@@ -3,17 +3,41 @@
 
 #include "CompadreHarness_Config.h"
 #include "CompadreHarness_Typedefs.hpp"
+#include "Compadre_FieldSparsity.hpp"
 
 namespace Compadre {
 
-/*
-*  This class wraps coordinates, fields, dof manager and manages them
-*/
 class CoordsT;
 class ParticlesT;
 class FieldT;
 class XyzVector;
 class DOFData;
+
+// which operation requires interaction between fields
+enum op_needing_interaction { bc, source, physics };
+
+struct InteractingFields {
+
+    public:
+
+        std::string src_fieldname;
+        std::string trg_fieldname;
+        local_index_type src_fieldnum;
+        local_index_type trg_fieldnum;
+        std::vector<op_needing_interaction> ops_needing;
+
+        InteractingFields(op_needing_interaction op, const local_index_type source_num, const local_index_type target_num = -1);
+
+        bool operator== (const InteractingFields& other) const;
+
+        void operator+= (const InteractingFields& other);
+
+};
+
+
+/*
+*  This class wraps coordinates, fields, dof manager and manages them
+*/
 
 class FieldManager {
 

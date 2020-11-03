@@ -3,6 +3,7 @@
 
 #include "CompadreHarness_Config.h"
 #include "CompadreHarness_Typedefs.hpp"
+#include "Compadre_FieldSparsity.hpp"
 
 namespace Compadre {
 
