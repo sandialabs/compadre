@@ -123,7 +123,8 @@ void ProblemT::initialize(scalar_type initial_simulation_time) {
     for (InteractingFields interaction:_field_interactions) {
         if (interaction.src_fieldnum > max_blocks) {
             max_blocks = interaction.src_fieldnum;
-        } else if (interaction.trg_fieldnum > max_blocks) {
+        } 
+        if (interaction.trg_fieldnum > max_blocks) {
             max_blocks = interaction.trg_fieldnum;
         }
     }

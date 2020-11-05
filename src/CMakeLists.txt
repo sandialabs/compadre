@@ -70,6 +70,7 @@ set(CompadreHarness_HEADERS
   Compadre_DOFManager.hpp            
   Compadre_EuclideanCoordsT.hpp      
   Compadre_FieldManager.hpp          
+  Compadre_FieldSparsity.hpp
   Compadre_FieldT.hpp                
   Compadre_FileIO.hpp                
   Compadre_GlobalConstants.hpp       
