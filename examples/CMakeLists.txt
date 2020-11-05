@@ -84,6 +84,7 @@ if (CompadreHarness_EXAMPLES)
     add_exe_w_compadre(cangaFileConverter.exe Canga_FileConverter.cpp)
   ENDIF()
   add_exe_w_compadre(lagrangianShallowWater.exe Compadre_LagrangianShallowWater.cpp)
+  add_exe_w_compadre(explicitTimeDependent.exe Compadre_ExplicitTimeDependent.cpp)
   add_exe_w_compadre(RT0Remap.exe Compadre_RT0_Remap.cpp)
   add_exe_w_compadre(FVRemap.exe Compadre_FV_Remap.cpp)
   
@@ -379,11 +380,19 @@ if (CompadreHarness_EXAMPLES)
     
     ## SHALLOW WATER TESTS
     
-    ADD_TEST(NAME LagrangianShallowWater2 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 2 ${CMAKE_CURRENT_BINARY_DIR}/lagrangianShallowWater.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/shallow_water/parameters_case2.xml" "--kokkos-threads=2")
+    ADD_TEST(NAME LagrangianShallowWater2 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${CMAKE_CURRENT_BINARY_DIR}/lagrangianShallowWater.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/shallow_water/parameters_case2.xml" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(LagrangianShallowWater2 PROPERTIES LABELS "shallow;case2")
     
-    ADD_TEST(NAME LagrangianShallowWater5 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/lagrangianShallowWater.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/shallow_water/parameters_case5.xml" "--kokkos-threads=2")
+    ADD_TEST(NAME LagrangianShallowWater5 COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${CMAKE_CURRENT_BINARY_DIR}/lagrangianShallowWater.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/shallow_water/parameters_case5.xml" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(LagrangianShallowWater5 PROPERTIES LABELS "shallow;case5")
+
+    ## EXPLICIT TIME DEPENDENT TESTS
+    
+    ADD_TEST(NAME ExplicitTimeDependentExact COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${CMAKE_CURRENT_BINARY_DIR}/explicitTimeDependent.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_exact.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(ExplicitTimeDependentExact PROPERTIES LABELS "explicit;exact")
+    
+    ADD_TEST(NAME ExplicitTimeDependentAnalytical COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${CMAKE_CURRENT_BINARY_DIR}/explicitTimeDependent.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_analytical.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(ExplicitTimeDependentAnalytical PROPERTIES LABELS "explicit;analytical")
 
 
     ## RT0 REMAP TO VECTOR TEST

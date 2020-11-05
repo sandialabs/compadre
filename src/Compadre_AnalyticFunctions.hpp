@@ -525,5 +525,35 @@ class CurlCurlPolyTest : public AnalyticFunction {
 		virtual xyz_type evalVector(const xyz_type& xyzIn) const;
 };
 
+class SinT : public AnalyticFunction {
+
+	typedef XyzVector xyz_type;
+
+	public :
+
+        scalar_type _t;
+        scalar_type _multiplier;
+
+        SinT(const scalar_type t, const scalar_type multiplier) : _t(t), _multiplier(multiplier) {}
+
+        virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const;
+
+};
+
+class CosT : public AnalyticFunction {
+
+	typedef XyzVector xyz_type;
+
+	public :
+
+        scalar_type _t;
+        scalar_type _multiplier;
+
+        CosT(const scalar_type t, const scalar_type multiplier) : _t(t), _multiplier(multiplier) {}
+
+        virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const;
+
+};
+
 }
 #endif 

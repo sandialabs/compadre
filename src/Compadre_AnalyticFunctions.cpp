@@ -944,4 +944,12 @@ xyz_type CurlCurlPolyTest::evalVector(const xyz_type& xyzIn) const {
                     -2.0*xyzIn.x*xyzIn.x*xyzIn.x);
 } 
 
+scalar_type SinT::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+    return _multiplier*std::sin(_t);
+}
+
+scalar_type CosT::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+    return _multiplier*std::cos(_t);
+}
+
 }

@@ -97,6 +97,13 @@ void ProblemExplicitTransientT::registerFieldInteractions(const std::vector<Inte
         // sort ops_needing list for each field interaction
         std::sort(fi.ops_needing.begin(), fi.ops_needing.end());
     }
+    //for (InteractingFields& fi : _field_interactions) {
+    //    std::sort(fi.ops_needing.begin(), fi.ops_needing.end());
+    //    printf("fieldnum: (%d,%d), ops_needing size: %d\n", fi.src_fieldnum, fi.trg_fieldnum, fi.ops_needing.size());
+    //    for (auto op : fi.ops_needing) {
+    //        printf("fieldnum: (%d,%d), ops_needing: %d\n", fi.src_fieldnum, fi.trg_fieldnum, op);
+    //    }
+    //}
 }
 
 Teuchos::RCP<const crs_matrix_type> ProblemExplicitTransientT::getA(local_index_type row_block, local_index_type col_block) const {
@@ -120,7 +127,8 @@ void ProblemExplicitTransientT::initialize() {
     for (InteractingFields interaction:_field_interactions) {
         if (interaction.src_fieldnum > max_blocks) {
             max_blocks = interaction.src_fieldnum;
-        } else if (interaction.trg_fieldnum > max_blocks) {
+        } 
+        if (interaction.trg_fieldnum > max_blocks) {
             max_blocks = interaction.trg_fieldnum;
         }
     }
@@ -466,9 +474,8 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 
             RKAdvanceTime->start();
 
-            // print ordering of field interactions with their operations
+            //// print ordering of field interactions with their operations
             //for (InteractingFields& fi : _field_interactions) {
-            //    std::sort(fi.ops_needing.begin(), fi.ops_needing.end());
             //    printf("fieldnum: %d, ops_needing size: %d\n", fi.src_fieldnum, fi.ops_needing.size());
             //    for (auto op : fi.ops_needing) {
             //        printf("fieldnum: %d, ops_needing: %d\n", fi.src_fieldnum, op);
@@ -546,12 +553,18 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
                     host_view_type updated_data = updated_solution[row_block]->getLocalView<host_view_type>();
                     host_view_type step_data = _b[row_block]->getLocalView<host_view_type>();
 
+                    // deal with Dirichlet boundary conditions
+	                host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
                     for (size_t k=0; k<rk_offsets_data.extent(0); ++k) {
-                        rk_offsets_data(k,0) = reference_data(k,0);
-                        if (j<(rk_order-1))
-                            rk_offsets_data(k,0) += internal_dt * a[j+1][j] * step_data(k,0); // previous steps contribution
-
-                        updated_data(k,0) += internal_dt * b[j] * step_data(k,0);
+                        if (bc_id(k,0)==0) {
+                            rk_offsets_data(k,0) = reference_data(k,0);
+                            if (j<(rk_order-1)) {
+                                rk_offsets_data(k,0) += internal_dt * a[j+1][j] * step_data(k,0); // previous steps contribution
+                            }
+                            updated_data(k,0) += internal_dt * b[j] * step_data(k,0);
+                        } else {
+                            updated_data(k,0) = step_data(k,0);
+                        }
                         step_data(k,0) = 0;
                     }
                 } else {
@@ -1025,20 +1038,11 @@ void ProblemExplicitTransientT::buildMaps(local_index_type field_one, local_inde
     local_index_type row_block = _field_to_block_row_map[field_one];
     local_index_type col_block = _field_to_block_col_map[field_two];
 
-    if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
-        if (row_map[row_block].is_null()) {
-            row_map[row_block] = _particles->getDOFManagerConst()->getRowMap(field_one);
-        }
-        if (col_map[col_block].is_null()) {
-            col_map[col_block] = _particles->getDOFManagerConst()->getColMap(field_two);
-        }
-    } else {
-        if (row_map[0].is_null()) {
-            row_map[0] = _particles->getDOFManagerConst()->getRowMap(); // get all dofs
-        }
-        if (col_map[0].is_null()) {
-            col_map[0] = _particles->getDOFManagerConst()->getColMap();
-        }
+    if (row_map[row_block].is_null()) {
+        row_map[row_block] = _problem_dof_data->getRowMap(row_block);
+    }
+    if (col_map[col_block].is_null()) {
+        col_map[col_block] = _problem_dof_data->getColMap(col_block);
     }
 }
 

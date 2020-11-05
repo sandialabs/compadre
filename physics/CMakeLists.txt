@@ -18,6 +18,9 @@ set(Physics_HEADERS
   Compadre_LagrangianShallowWater_BoundaryConditions.hpp
   Compadre_LagrangianShallowWater_Operator.hpp
   Compadre_LagrangianShallowWater_Sources.hpp
+  Compadre_ExplicitTimeDependent_BoundaryConditions.hpp
+  Compadre_ExplicitTimeDependent_Operator.hpp
+  Compadre_ExplicitTimeDependent_Sources.hpp
   Compadre_LaplaceBeltrami_BoundaryConditions.hpp
   Compadre_LaplaceBeltrami_Operator.hpp
   Compadre_LaplaceBeltrami_Sources.hpp
@@ -50,6 +53,9 @@ set(Physics_SOURCES
   Compadre_LagrangianShallowWater_BoundaryConditions.cpp
   Compadre_LagrangianShallowWater_Operator.cpp
   Compadre_LagrangianShallowWater_Sources.cpp
+  Compadre_ExplicitTimeDependent_BoundaryConditions.cpp
+  Compadre_ExplicitTimeDependent_Operator.cpp
+  Compadre_ExplicitTimeDependent_Sources.cpp
   Compadre_LaplaceBeltrami_BoundaryConditions.cpp
   Compadre_LaplaceBeltrami_Operator.cpp
   Compadre_LaplaceBeltrami_Sources.cpp
