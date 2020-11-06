@@ -77,6 +77,114 @@ scalar_type AnalyticFunction::evalLinearElasticityRHS(const xyz_type& xyzIn, con
 }
 
 //
+// Composition functions for putting multiple AnalyticFunctions together
+//
+
+scalar_type Add::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+    return _func_1->evalScalar(xyzIn, input_comp) + _func_2->evalScalar(xyzIn, input_comp);
+}
+
+xyz_type Add::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp) const { 
+    return _func_1->evalScalarDerivative(xyzIn, input_comp) + _func_2->evalScalarDerivative(xyzIn, input_comp);
+}
+
+std::vector<xyz_type> Add::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp) const { 
+    auto h1 = _func_1->evalScalarHessian(xyzIn, input_comp);
+    auto h2 = _func_2->evalScalarHessian(xyzIn, input_comp);
+    for (int i=0; i<_dim; ++i) h1[i] += h2[i];
+    return h1;
+}
+
+scalar_type Multiply::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+    return _func_1->evalScalar(xyzIn, input_comp) * _func_2->evalScalar(xyzIn, input_comp);
+}
+
+xyz_type Multiply::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp) const { 
+    return _func_1->evalScalarDerivative(xyzIn, input_comp)*_func_2->evalScalar(xyzIn, input_comp) 
+        + _func_2->evalScalarDerivative(xyzIn, input_comp)*_func_1->evalScalar(xyzIn, input_comp);
+}
+
+std::vector<xyz_type> Multiply::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp) const { 
+    auto s1 = _func_1->evalScalar(xyzIn, input_comp);
+    auto s2 = _func_2->evalScalar(xyzIn, input_comp);
+    auto j1 = _func_1->evalScalarDerivative(xyzIn, input_comp);
+    auto j2 = _func_2->evalScalarDerivative(xyzIn, input_comp);
+    auto h1 = _func_1->evalScalarHessian(xyzIn, input_comp);
+    auto h2 = _func_2->evalScalarHessian(xyzIn, input_comp);
+    auto result = std::vector<xyz_type>(h1.size());
+    for (int i=0; i<_dim; ++i) {
+        // i is first derivative direction
+        for (int j=0; j<_dim; ++j) {
+            result[i][j] = h1[i][j]*s2 + j2[j]*j1[i] + h2[i][j]*s1 + j1[j]*j2[i];
+        }
+    }
+    return result;
+}
+
+Teuchos::RCP<Add> operator + ( AnalyticFunction& func_1, AnalyticFunction& func_2 ) { 
+    TEUCHOS_ASSERT(func_1._dim==func_2._dim);
+    return Teuchos::rcp(new Add(func_1,func_2)); 
+}
+Teuchos::RCP<Add> operator + ( Teuchos::RCP<AnalyticFunction> func_1, AnalyticFunction& func_2 ) { 
+    TEUCHOS_ASSERT(func_1->_dim==func_2._dim);
+    return Teuchos::rcp(new Add(func_1,func_2)); 
+}
+Teuchos::RCP<Add> operator + ( AnalyticFunction& func_1, Teuchos::RCP<AnalyticFunction> func_2 ) { 
+    TEUCHOS_ASSERT(func_1._dim==func_2->_dim);
+    return Teuchos::rcp(new Add(func_1,func_2)); 
+}
+Teuchos::RCP<Add> operator + ( Teuchos::RCP<AnalyticFunction> func_1, Teuchos::RCP<AnalyticFunction> func_2 ) { 
+    TEUCHOS_ASSERT(func_1->_dim==func_2->_dim);
+    return Teuchos::rcp(new Add(func_1,func_2)); 
+}
+
+Teuchos::RCP<Add> operator + ( scalar_type val, AnalyticFunction& func ) { 
+    return Teuchos::rcp(new Add(Teuchos::rcp<AnalyticFunction>(new ConstantEachDimension(val,func._dim)), func)); 
+}
+Teuchos::RCP<Add> operator + ( scalar_type val, Teuchos::RCP<AnalyticFunction> func ) { 
+    return Teuchos::rcp(new Add(Teuchos::rcp<AnalyticFunction>(new ConstantEachDimension(val,func->_dim)), func)); 
+}
+
+Teuchos::RCP<Add> operator + ( AnalyticFunction& func, scalar_type val ) { 
+    return val + func;
+}
+Teuchos::RCP<Add> operator + ( Teuchos::RCP<AnalyticFunction> func, scalar_type val ) { 
+    return val + func;
+}
+
+Teuchos::RCP<Multiply> operator * ( AnalyticFunction& func_1, AnalyticFunction& func_2 ) { 
+    TEUCHOS_ASSERT(func_1._dim==func_2._dim);
+    return Teuchos::rcp(new Multiply(func_1,func_2)); 
+}
+Teuchos::RCP<Multiply> operator * ( Teuchos::RCP<AnalyticFunction> func_1, AnalyticFunction& func_2 ) { 
+    TEUCHOS_ASSERT(func_1->_dim==func_2._dim);
+    return Teuchos::rcp(new Multiply(func_1,func_2)); 
+}
+Teuchos::RCP<Multiply> operator * ( AnalyticFunction& func_1, Teuchos::RCP<AnalyticFunction> func_2 ) { 
+    TEUCHOS_ASSERT(func_1._dim==func_2->_dim);
+    return Teuchos::rcp(new Multiply(func_1,func_2)); 
+}
+Teuchos::RCP<Multiply> operator * ( Teuchos::RCP<AnalyticFunction> func_1, Teuchos::RCP<AnalyticFunction> func_2 ) { 
+    TEUCHOS_ASSERT(func_1->_dim==func_2->_dim);
+    return Teuchos::rcp(new Multiply(func_1,func_2)); 
+}
+
+Teuchos::RCP<Multiply> operator * ( scalar_type val, AnalyticFunction& func ) { 
+    return Teuchos::rcp(new Multiply(Teuchos::rcp<AnalyticFunction>(new ConstantEachDimension(val,func._dim)), func)); 
+}
+Teuchos::RCP<Multiply> operator * ( scalar_type val, Teuchos::RCP<AnalyticFunction> func ) { 
+    return Teuchos::rcp(new Multiply(Teuchos::rcp<AnalyticFunction>(new ConstantEachDimension(val,func->_dim)), func)); 
+}
+
+Teuchos::RCP<Multiply> operator * ( AnalyticFunction& func, scalar_type val ) { 
+    return val * func;
+}
+Teuchos::RCP<Multiply> operator * ( Teuchos::RCP<AnalyticFunction> func, scalar_type val ) { 
+    return val * func;
+}
+
+
+//
 // Gaussian3D
 //
 
@@ -951,5 +1059,6 @@ scalar_type SinT::evalScalar(const xyz_type& xyzIn, const local_index_type input
 scalar_type CosT::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
     return _multiplier*std::cos(_t);
 }
+
 
 }

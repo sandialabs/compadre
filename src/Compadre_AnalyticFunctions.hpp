@@ -13,12 +13,13 @@ namespace Compadre {
 // but it doesn't, so we leave it in here. This requires including XyzVector and CoordsT in the hpp
 
 class AnalyticFunction {
+	public :
+
+	    const local_index_type _dim;
 
 	protected : 
 
 		typedef XyzVector xyz_type;
-
-	    const local_index_type _dim;
 	
 	public :
 
@@ -405,6 +406,11 @@ class ConstantEachDimension : public AnalyticFunction {
 	std::vector<scalar_type> _scaling_factors;
 
 	public :
+		ConstantEachDimension(scalar_type value_for_each_dimension, const local_index_type num_dims = 3) {
+			_scaling_factors = std::vector<scalar_type>(num_dims);
+            for (auto& i : _scaling_factors) i = value_for_each_dimension;
+		}
+
 		ConstantEachDimension(std::vector<scalar_type> scaling_factors) {
 			TEUCHOS_TEST_FOR_EXCEPT_MSG(scaling_factors.size()==3, "std::vector should be of length 3.");
 			_scaling_factors = scaling_factors;
@@ -554,6 +560,70 @@ class CosT : public AnalyticFunction {
         virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const;
 
 };
+
+class Add : public AnalyticFunction {
+
+    Teuchos::RCP<AnalyticFunction> _func_1;
+    Teuchos::RCP<AnalyticFunction> _func_2;
+
+    public:
+
+        Add(AnalyticFunction& func_1, AnalyticFunction& func_2) : _func_1(Teuchos::rcp(&func_1,false)), _func_2(Teuchos::rcp(&func_2,false)) {}
+        Add(Teuchos::RCP<AnalyticFunction> func_1, AnalyticFunction& func_2) : _func_1(func_1), _func_2(Teuchos::rcp(&func_2,false)) {}
+        Add(AnalyticFunction& func_1, Teuchos::RCP<AnalyticFunction> func_2) : _func_1(Teuchos::rcp(&func_1,false)), _func_2(func_2) {}
+        Add(Teuchos::RCP<AnalyticFunction> func_1, Teuchos::RCP<AnalyticFunction> func_2) : _func_1(func_1), _func_2(func_2) {}
+
+        virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+	    virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+	    virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+};
+
+class Multiply : public AnalyticFunction {
+
+    Teuchos::RCP<AnalyticFunction> _func_1;
+    Teuchos::RCP<AnalyticFunction> _func_2;
+
+    public:
+
+        Multiply(AnalyticFunction& func_1, AnalyticFunction& func_2) : _func_1(Teuchos::rcp(&func_1,false)), _func_2(Teuchos::rcp(&func_2,false)) {}
+        Multiply(Teuchos::RCP<AnalyticFunction> func_1, AnalyticFunction& func_2) : _func_1(func_1), _func_2(Teuchos::rcp(&func_2,false)) {}
+        Multiply(AnalyticFunction& func_1, Teuchos::RCP<AnalyticFunction> func_2) : _func_1(Teuchos::rcp(&func_1,false)), _func_2(func_2) {}
+        Multiply(Teuchos::RCP<AnalyticFunction> func_1, Teuchos::RCP<AnalyticFunction> func_2) : _func_1(func_1), _func_2(func_2) {}
+
+        virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+	    virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+	    virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+
+};
+
+Teuchos::RCP<Add> operator + ( AnalyticFunction& func_1, AnalyticFunction& func_2 );
+Teuchos::RCP<Add> operator + ( Teuchos::RCP<AnalyticFunction> func_1, AnalyticFunction& func_2 );
+Teuchos::RCP<Add> operator + ( AnalyticFunction& func_1, Teuchos::RCP<AnalyticFunction> func_2 );
+Teuchos::RCP<Add> operator + ( Teuchos::RCP<AnalyticFunction> func_1, Teuchos::RCP<AnalyticFunction> func_2 );
+
+Teuchos::RCP<Add> operator + ( scalar_type val, AnalyticFunction& func );
+Teuchos::RCP<Add> operator + ( scalar_type val, Teuchos::RCP<AnalyticFunction> func );
+
+Teuchos::RCP<Add> operator + ( AnalyticFunction& func, scalar_type val );
+Teuchos::RCP<Add> operator + ( Teuchos::RCP<AnalyticFunction> func, scalar_type val );
+
+Teuchos::RCP<Multiply> operator * ( AnalyticFunction& func_1, AnalyticFunction& func_2 );
+Teuchos::RCP<Multiply> operator * ( Teuchos::RCP<AnalyticFunction> func_1, AnalyticFunction& func_2 );
+Teuchos::RCP<Multiply> operator * ( AnalyticFunction& func_1, Teuchos::RCP<AnalyticFunction> func_2 );
+Teuchos::RCP<Multiply> operator * ( Teuchos::RCP<AnalyticFunction> func_1, Teuchos::RCP<AnalyticFunction> func_2 );
+
+Teuchos::RCP<Multiply> operator * ( scalar_type val, AnalyticFunction& func );
+Teuchos::RCP<Multiply> operator * ( scalar_type val, Teuchos::RCP<AnalyticFunction> func );
+
+Teuchos::RCP<Multiply> operator * ( AnalyticFunction& func, scalar_type val );
+Teuchos::RCP<Multiply> operator * ( Teuchos::RCP<AnalyticFunction> func, scalar_type val );
+
+
 
 }
 #endif 
