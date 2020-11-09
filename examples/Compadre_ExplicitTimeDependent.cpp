@@ -101,10 +101,10 @@ int main (int argc, char* args[]) {
         if (solution_type=="polynomial time" && simulation_type=="eulerian") {
             // exact solution is t^5/5 + 2*t - (t0^5/5 + 2*t0), rhs is: t^4 + 2
             Teuchos::RCP<Compadre::AnalyticFunction> t = Teuchos::rcp<Compadre::AnalyticFunction>(new Compadre::LinearInT());
-            vel_source_function = t*t*t*t + 2;//zero_function;
-            vel_boundary_function = .2*t*t*t*t*t + 2*t - (pow(t0,5)/5.0 + 2.0*t0);// (t/zero_function;
+            vel_source_function = pow(t,4) + 2;//zero_function;
+            vel_boundary_function = .2*pow(t,5) + 2*t - (pow(t0,5)/5.0 + 2.0*t0);// (t/zero_function;
             // exact solution is t^3/3 - 10*t - (t0^3/3 - 10*t0), rhs is: t^2 - 10
-            h_boundary_function = 1.0/3.0*t*t*t - 10*t - (pow(t0,3)/3.0 - 10.0*t0);//zero_function;
+            h_boundary_function = pow(t,3)/3 - 10*t - (pow(t0,3)/3.0 - 10.0*t0);//zero_function;
             h_source_function = t*t - 10;//zero_function;
         }
         else if (solution_type=="nonpolynomial time" && simulation_type=="eulerian") {

@@ -121,6 +121,12 @@ std::vector<xyz_type> Multiply::evalScalarHessian(const xyz_type& xyzIn, const l
     return result;
 }
 
+scalar_type Pow::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
+    return std::pow(_func_1->evalScalar(xyzIn, input_comp, time), _func_2->evalScalar(xyzIn, input_comp, time));
+}
+
+// derivatives intentionally not specified
+
 Teuchos::RCP<Add> operator + ( AnalyticFunction& func_1, AnalyticFunction& func_2 ) { 
     TEUCHOS_ASSERT(func_1._dim==func_2._dim);
     return Teuchos::rcp(new Add(func_1,func_2)); 
@@ -212,6 +218,20 @@ Teuchos::RCP<Multiply> operator * ( AnalyticFunction& func, scalar_type val ) {
 }
 Teuchos::RCP<Multiply> operator * ( Teuchos::RCP<AnalyticFunction> func, scalar_type val ) { 
     return val * func;
+}
+
+Teuchos::RCP<Multiply> operator / ( AnalyticFunction& func, scalar_type val ) { 
+    return func * (1.0/val);
+}
+Teuchos::RCP<Multiply> operator / ( Teuchos::RCP<AnalyticFunction> func, scalar_type val ) { 
+    return func * (1.0/val);
+}
+
+Teuchos::RCP<Pow> pow( AnalyticFunction& func, scalar_type val ) { 
+    return Teuchos::rcp(new Pow(func, Teuchos::rcp<AnalyticFunction>(new ConstantEachDimension(val,func._dim)))); 
+}
+Teuchos::RCP<Pow> pow( Teuchos::RCP<AnalyticFunction> func, scalar_type val ) { 
+    return Teuchos::rcp(new Pow(func, Teuchos::rcp<AnalyticFunction>(new ConstantEachDimension(val,func->_dim)))); 
 }
 
 

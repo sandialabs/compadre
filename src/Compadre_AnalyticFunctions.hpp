@@ -595,6 +595,22 @@ class Multiply : public AnalyticFunction {
 
 };
 
+class Pow : public AnalyticFunction {
+
+    Teuchos::RCP<AnalyticFunction> _func_1;
+    Teuchos::RCP<AnalyticFunction> _func_2;
+
+    public:
+
+        Pow(AnalyticFunction& func_1, AnalyticFunction& func_2) : _func_1(Teuchos::rcp(&func_1,false)), _func_2(Teuchos::rcp(&func_2,false)) {}
+        Pow(Teuchos::RCP<AnalyticFunction> func_1, AnalyticFunction& func_2) : _func_1(func_1), _func_2(Teuchos::rcp(&func_2,false)) {}
+        Pow(AnalyticFunction& func_1, Teuchos::RCP<AnalyticFunction> func_2) : _func_1(Teuchos::rcp(&func_1,false)), _func_2(func_2) {}
+        Pow(Teuchos::RCP<AnalyticFunction> func_1, Teuchos::RCP<AnalyticFunction> func_2) : _func_1(func_1), _func_2(func_2) {}
+
+        virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+
+};
+
 class LinearInT : public AnalyticFunction {
 
     public:
@@ -636,7 +652,11 @@ Teuchos::RCP<Multiply> operator * ( scalar_type val, Teuchos::RCP<AnalyticFuncti
 Teuchos::RCP<Multiply> operator * ( AnalyticFunction& func, scalar_type val );
 Teuchos::RCP<Multiply> operator * ( Teuchos::RCP<AnalyticFunction> func, scalar_type val );
 
+Teuchos::RCP<Multiply> operator / ( AnalyticFunction& func, scalar_type val );
+Teuchos::RCP<Multiply> operator / ( Teuchos::RCP<AnalyticFunction> func, scalar_type val );
 
+Teuchos::RCP<Pow> pow( AnalyticFunction& func, scalar_type val );
+Teuchos::RCP<Pow> pow( Teuchos::RCP<AnalyticFunction> func, scalar_type val );
 
 }
 #endif 
