@@ -5,11 +5,15 @@
 
 namespace Compadre {
 
+class ExplicitTimeDependentPhysics;
+
 class ExplicitTimeDependentSources : public SourcesT {
 
 	protected:
 
 		typedef Compadre::ParticlesT particle_type;
+
+        ExplicitTimeDependentPhysics* _physics;
 
 	public:
 
@@ -23,6 +27,8 @@ class ExplicitTimeDependentSources : public SourcesT {
 		virtual void evaluateRHS(local_index_type field_one, local_index_type field_two = -1, scalar_type time = 0.0);
 
 		virtual std::vector<InteractingFields> gatherFieldInteractions();
+
+        void setPhysics(Teuchos::RCP<ExplicitTimeDependentPhysics> physics) { _physics = physics.getRawPtr(); }
 
 };
 

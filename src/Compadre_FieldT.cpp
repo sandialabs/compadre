@@ -98,25 +98,25 @@ void FieldT::updateHalo() {
 //	if (_coords->getMapConst(true).getRawPtr()==_halo_vals->getMap().getRawPtr()) std::cout << "halo maps are the same." << std::endl;
 }
 
-void FieldT::localInitFromScalarFunction(function_type* fn, bool use_physical_coords) {
+void FieldT::localInitFromScalarFunction(function_type* fn, const scalar_type time, bool use_physical_coords) {
 	host_view_type fieldView = this->_vals->getLocalView<host_view_type>();
 	host_view_type coordsView = _coords->getPts(false /*halo*/, use_physical_coords)->getLocalView<host_view_type>();
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,this->_coords->nLocalMax()),
-		evaluateScalar(fieldView, coordsView, fn));
+		evaluateScalar(fieldView, coordsView, fn, time));
 }
 
-void FieldT::localInitFromScalarFunctionGradient(function_type* fn, bool use_physical_coords) {
+void FieldT::localInitFromScalarFunctionGradient(function_type* fn, const scalar_type time, bool use_physical_coords) {
 	host_view_type fieldView = this->_vals->getLocalView<host_view_type>();
 	host_view_type coordsView = _coords->getPts(false /*halo*/, use_physical_coords)->getLocalView<host_view_type>();
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,this->_coords->nLocalMax()),
-		evaluateVector(fieldView, coordsView, fn, 1));
+		evaluateVector(fieldView, coordsView, fn, 1, time));
 }
 
-void FieldT::localInitFromVectorFunction(function_type* fn, bool use_physical_coords) {
+void FieldT::localInitFromVectorFunction(function_type* fn, const scalar_type time, bool use_physical_coords) {
 	host_view_type fieldView = this->_vals->getLocalView<host_view_type>();
 	host_view_type coordsView = _coords->getPts(false /*halo*/, use_physical_coords)->getLocalView<host_view_type>();
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,this->_coords->nLocalMax()),
-		evaluateVector(fieldView, coordsView, fn));
+		evaluateVector(fieldView, coordsView, fn, time));
 }
 
 device_view_type FieldT::getDeviceView() {

@@ -63,6 +63,9 @@ int main (int argc, char* args[]) {
     Teuchos::RCP<Teuchos::Time> WriteTime = Teuchos::TimeMonitor::getNewCounter ("Write Time");
     Teuchos::RCP<Teuchos::Time> NormTime = Teuchos::TimeMonitor::getNewCounter ("Norm calculation");
 
+    auto solution_type = parameters->get<std::string>("solution type");
+    auto simulation_type = parameters->get<std::string>("simulation type");
+
     {
 
         typedef Compadre::EuclideanCoordsT CT;
@@ -90,12 +93,33 @@ int main (int argc, char* args[]) {
 
         // resize to a sphere of Earth's radius
 
-        //Compadre::ShallowWaterTestCases vel_function = Compadre::Monomial(4,parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
-        //Compadre::ShallowWaterTestCases h_function = Compadre::Monomial(4,parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
-        auto vel_function = Compadre::SinT(parameters->get<Teuchos::ParameterList>("time").get<double>("t0"),1);
-        auto h_function = Compadre::SinT(parameters->get<Teuchos::ParameterList>("time").get<double>("t0"),1);
+        Teuchos::RCP<Compadre::AnalyticFunction> vel_source_function, h_source_function;
+        Teuchos::RCP<Compadre::AnalyticFunction> vel_boundary_function, h_boundary_function;
 
-         Compadre::ConstantEachDimension zero_function = Compadre::ConstantEachDimension(0,0,0);
+        Teuchos::RCP<Compadre::AnalyticFunction> zero_function = Teuchos::rcp<Compadre::AnalyticFunction>(new Compadre::ConstantEachDimension(0,0,0));
+        ST t0 = parameters->get<Teuchos::ParameterList>("time").get<double>("t0");
+        if (solution_type=="polynomial time" && simulation_type=="eulerian") {
+            // exact solution is t^5/5 + 2*t - (t0^5/5 + 2*t0), rhs is: t^4 + 2
+            Teuchos::RCP<Compadre::AnalyticFunction> t = Teuchos::rcp<Compadre::AnalyticFunction>(new Compadre::LinearInT());
+            vel_source_function = t*t*t*t + 2;//zero_function;
+            vel_boundary_function = .2*t*t*t*t*t + 2*t - (pow(t0,5)/5.0 + 2.0*t0);// (t/zero_function;
+            // exact solution is t^3/3 - 10*t - (t0^3/3 - 10*t0), rhs is: t^2 - 10
+            h_boundary_function = 1.0/3.0*t*t*t - 10*t - (pow(t0,3)/3.0 - 10.0*t0);//zero_function;
+            h_source_function = t*t - 10;//zero_function;
+        }
+        else if (solution_type=="nonpolynomial time" && simulation_type=="eulerian") {
+            // exact solution is -cos(t)+cos(t0)
+            Teuchos::RCP<Compadre::AnalyticFunction> cos_t = Teuchos::rcp<Compadre::AnalyticFunction>(new Compadre::CosT());
+            Teuchos::RCP<Compadre::AnalyticFunction> sin_t = Teuchos::rcp<Compadre::AnalyticFunction>(new Compadre::SinT());
+            vel_source_function = sin_t;
+            vel_boundary_function = -1*cos_t + std::cos(t0);//zero_function;
+            // exact solution is sin(t)-sin(t0)
+            h_boundary_function = sin_t - std::sin(t0);
+            h_source_function = cos_t;
+        } else {
+            TEUCHOS_ASSERT(false); // invalid choice
+        }
+
 
 
         //particles->getCoords()->getPts(false /*not halo*/, true)->scale(sw_function.getRadius());
@@ -121,9 +145,11 @@ int main (int argc, char* args[]) {
 
 
             particles->getFieldManager()->getFieldByName("velocity")->
-                    localInitFromScalarFunction(&vel_function);
+                    //localInitFromScalarFunction(zero_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
+                    localInitFromScalarFunction(vel_boundary_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
             particles->getFieldManager()->getFieldByName("height")->
-                    localInitFromScalarFunction(&h_function);
+                    //localInitFromScalarFunction(zero_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
+                    localInitFromScalarFunction(h_boundary_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
             //if (parameters->get<int>("shallow water test case") == 2) {
             //    particles->getFieldManager()->getFieldByName("height")->
             //            scale(1./sw_function.getGravity());
@@ -198,7 +224,7 @@ int main (int argc, char* args[]) {
 
              particles->getFieldManager()->createField(3, "displacement", "m/s");
             particles->getFieldManager()->getFieldByName("displacement")->
-                    localInitFromVectorFunction(&zero_function);
+                    localInitFromVectorFunction(zero_function.getRawPtr());
 
 //            particles->getFieldManager()->updateFieldsHaloData();
 //            {
@@ -264,7 +290,13 @@ int main (int argc, char* args[]) {
 
 
             // set physics, sources, and boundary conditions in the problem
+            physics->vel_source_function = vel_source_function;
+            physics->h_source_function = h_source_function;
+            physics->vel_boundary_function = vel_boundary_function;
+            physics->h_boundary_function = h_boundary_function;
             problem->setPhysics(physics);
+            source->setPhysics(physics);
+            bcs->setPhysics(physics);
             problem->setSources(source);
             problem->setBCS(bcs);
 
@@ -349,16 +381,19 @@ int main (int argc, char* args[]) {
             //auto integral_h_function = Compadre::CosT(parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"),-1)+1;
             //auto integral_vel_function = 1+Compadre::CosT(parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"),-1);
             //auto integral_h_function = 1+Compadre::CosT(parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"),-1);
-            auto v1 = Compadre::CosT(parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"),-1);
-            auto v2 = Compadre::CosT(parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"),-1);
-            auto integral_vel_function = v1+1;//Compadre::CosT(parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"),-1);
-            auto integral_h_function = v2+1;//Compadre::CosT(parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"),-1);
+            //auto v1 = Compadre::CosT();//(parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"),-1);
+            //auto v2 = Compadre::CosT();//(parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"),-1);
+            auto integral_vel_function = vel_boundary_function;//-1*v1+1;//Compadre::CosT(parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"),-1);
+            auto integral_h_function = h_boundary_function;//-1*v2+1;//Compadre::CosT(parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"),-1);
 
             for(int j =0; j<coords->nLocal(); j++){
 
                 xyz_type xyz = coords->getLocalCoords(j, true /* use_halo */, true);
-                xyz_type exact = integral_vel_function->evalScalar(xyz,parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"));
-                ST exact_height = integral_h_function->evalScalar(xyz,parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"));
+                xyz_type exact = integral_vel_function->evalScalar(xyz,0,parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"));
+                ST exact_height = integral_h_function->evalScalar(xyz,0,parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"));
+                //printf("%f vs %f\n", -std::cos(parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"))+1, exact.x);
+                //auto t_end = parameters->get<Teuchos::ParameterList>("time").get<double>("t_end");
+                //printf("%f vs %f\n", pow(t_end,5)/5.0 + 2*t_end, exact.x);
 
                 velocity_error_weighted_l2_norm += (disp_field(j,0) - exact.x)*(disp_field(j,0) - exact.x);
                 //velocity_error_weighted_l2_norm += (disp_field(j,1) - exact.y)*(disp_field(j,1) - exact.y)*grid_area_field(j,0);

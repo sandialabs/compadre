@@ -7,6 +7,7 @@
 #include <Compadre_ParticlesT.hpp>
 #include <Compadre_AnalyticFunctions.hpp>
 #include <Compadre_XyzVector.hpp>
+#include <Compadre_ExplicitTimeDependent_Operator.hpp>
 
 namespace Compadre {
 
@@ -15,10 +16,13 @@ typedef Compadre::XyzVector xyz_type;
 
 void ExplicitTimeDependentSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time) {
 
+    bool is_velocity = (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("velocity"));
+    bool is_height = (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("height"));
+
     //if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("velocity")) {
-	Teuchos::RCP<Compadre::AnalyticFunction> function;
-	//function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ConstantEachDimension(1,2,3)));
-    function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SinT(time,1.0)));
+	//Teuchos::RCP<Compadre::AnalyticFunction> function;
+	////function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ConstantEachDimension(1,2,3)));
+    //function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SinT()));
 
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(_b==NULL, "Tpetra Multivector for RHS not yet specified.");
 	if (field_two == -1) {
@@ -41,7 +45,12 @@ void ExplicitTimeDependentSources::evaluateRHS(local_index_type field_one, local
 			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
                 const local_index_type dof = local_to_dof_map(i, field_one, k);
 				xyz_type pt(pts(i, 0), pts(i, 1), pts(i, 2));
-				rhs_vals(dof,0) = function->evalScalar(pt);
+				//rhs_vals(dof,0) = function->evalScalar(pt);
+                if (is_velocity) {
+                    rhs_vals(dof,0) = _physics->vel_source_function->evalScalar(pt, 0, time);
+                } else {
+                    rhs_vals(dof,0) = _physics->h_source_function->evalScalar(pt, 0, time);
+                }
 				//xyz_type bdry_val = function->evalVector(pt);
 				//rhs_vals(dof,0) = bdry_val[k]*time*time*time; // just for testing purposes
 			}

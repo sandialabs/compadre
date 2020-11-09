@@ -6,38 +6,38 @@ namespace Compadre {
 typedef XyzVector xyz_type;
 
 // must be defined for each function
-scalar_type AnalyticFunction::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const { 
+scalar_type AnalyticFunction::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const { 
     TEUCHOS_ASSERT(false); return 0.0; 
 }
 
-xyz_type AnalyticFunction::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp) const { 
+xyz_type AnalyticFunction::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const { 
     TEUCHOS_ASSERT(false); return xyz_type();
 }
 
-std::vector<xyz_type> AnalyticFunction::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp) const { 
+std::vector<xyz_type> AnalyticFunction::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const { 
     TEUCHOS_ASSERT(false); std::vector<xyz_type>();
 }
 
 // products of the previous three functions
 
-xyz_type AnalyticFunction::evalVector(const xyz_type& xyzIn) const { 
+xyz_type AnalyticFunction::evalVector(const xyz_type& xyzIn, const scalar_type time) const { 
     xyz_type return_vec;
     for (local_index_type i=0; i<_dim; ++i) {
-        return_vec[i] = this->evalScalar(xyzIn, i);
+        return_vec[i] = this->evalScalar(xyzIn, i, time);
     }    
     return return_vec;
 }
 
-std::vector<xyz_type> AnalyticFunction::evalJacobian(const xyz_type& xyzIn) const { 
+std::vector<xyz_type> AnalyticFunction::evalJacobian(const xyz_type& xyzIn, const scalar_type time) const { 
     std::vector<xyz_type> return_vec(_dim);
     for (local_index_type i=0; i<_dim; ++i) {
-        return_vec[i] = this->evalScalarDerivative(xyzIn, i);
+        return_vec[i] = this->evalScalarDerivative(xyzIn, i, time);
     }    
     return return_vec;
 }
 
-scalar_type AnalyticFunction::evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp) const { 
-    auto this_scalar_hessian = this->evalScalarHessian(xyzIn, input_comp);
+scalar_type AnalyticFunction::evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const { 
+    auto this_scalar_hessian = this->evalScalarHessian(xyzIn, input_comp, time);
     scalar_type return_val = 0.0;
     for (local_index_type i=0; i<_dim; ++i) {
         return_val += this_scalar_hessian[i][i];
@@ -45,23 +45,23 @@ scalar_type AnalyticFunction::evalScalarLaplacian(const xyz_type& xyzIn, const l
     return return_val;
 }
 
-xyz_type AnalyticFunction::evalVectorLaplacian(const xyz_type& xyzIn) const{ 
+xyz_type AnalyticFunction::evalVectorLaplacian(const xyz_type& xyzIn, const scalar_type time) const{ 
     xyz_type return_vec;
     for (local_index_type i=0; i<_dim; ++i) {
-        return_vec[i] = this->evalScalarLaplacian(xyzIn, i);
+        return_vec[i] = this->evalScalarLaplacian(xyzIn, i, time);
     }    
     return return_vec;
 }
 
-scalar_type AnalyticFunction::evalScalarReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const {
-    auto laplace_u = this->evalScalarLaplacian(xyzIn, 0);
-    return -diffusion*laplace_u + reaction*this->evalScalar(xyzIn, 0);
+scalar_type AnalyticFunction::evalScalarReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion, const scalar_type time) const {
+    auto laplace_u = this->evalScalarLaplacian(xyzIn, 0, time);
+    return -diffusion*laplace_u + reaction*this->evalScalar(xyzIn, 0, time);
 }
 
-scalar_type AnalyticFunction::evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type output_comp, const scalar_type shear_modulus, const scalar_type lambda) const {
+scalar_type AnalyticFunction::evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type output_comp, const scalar_type shear_modulus, const scalar_type lambda, const scalar_type time) const {
     std::vector<std::vector<xyz_type> > vector_hessian(_dim, std::vector<xyz_type>());
     for (local_index_type i=0; i<_dim; ++i) {
-        vector_hessian[i] = this->evalScalarHessian(xyzIn, i);
+        vector_hessian[i] = this->evalScalarHessian(xyzIn, i, time);
     }
     // - div(2*shear*D(u) + lambda* div(u))
     double lambda_val = 0;
@@ -80,37 +80,37 @@ scalar_type AnalyticFunction::evalLinearElasticityRHS(const xyz_type& xyzIn, con
 // Composition functions for putting multiple AnalyticFunctions together
 //
 
-scalar_type Add::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
-    return _func_1->evalScalar(xyzIn, input_comp) + _func_2->evalScalar(xyzIn, input_comp);
+scalar_type Add::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
+    return _func_1->evalScalar(xyzIn, input_comp, time) + _func_2->evalScalar(xyzIn, input_comp, time);
 }
 
-xyz_type Add::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp) const { 
-    return _func_1->evalScalarDerivative(xyzIn, input_comp) + _func_2->evalScalarDerivative(xyzIn, input_comp);
+xyz_type Add::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const { 
+    return _func_1->evalScalarDerivative(xyzIn, input_comp, time) + _func_2->evalScalarDerivative(xyzIn, input_comp, time);
 }
 
-std::vector<xyz_type> Add::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp) const { 
-    auto h1 = _func_1->evalScalarHessian(xyzIn, input_comp);
-    auto h2 = _func_2->evalScalarHessian(xyzIn, input_comp);
+std::vector<xyz_type> Add::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const { 
+    auto h1 = _func_1->evalScalarHessian(xyzIn, input_comp, time);
+    auto h2 = _func_2->evalScalarHessian(xyzIn, input_comp, time);
     for (int i=0; i<_dim; ++i) h1[i] += h2[i];
     return h1;
 }
 
-scalar_type Multiply::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
-    return _func_1->evalScalar(xyzIn, input_comp) * _func_2->evalScalar(xyzIn, input_comp);
+scalar_type Multiply::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
+    return _func_1->evalScalar(xyzIn, input_comp, time) * _func_2->evalScalar(xyzIn, input_comp, time);
 }
 
-xyz_type Multiply::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp) const { 
-    return _func_1->evalScalarDerivative(xyzIn, input_comp)*_func_2->evalScalar(xyzIn, input_comp) 
-        + _func_2->evalScalarDerivative(xyzIn, input_comp)*_func_1->evalScalar(xyzIn, input_comp);
+xyz_type Multiply::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const { 
+    return _func_1->evalScalarDerivative(xyzIn, input_comp, time)*_func_2->evalScalar(xyzIn, input_comp, time) 
+        + _func_2->evalScalarDerivative(xyzIn, input_comp, time)*_func_1->evalScalar(xyzIn, input_comp, time);
 }
 
-std::vector<xyz_type> Multiply::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp) const { 
-    auto s1 = _func_1->evalScalar(xyzIn, input_comp);
-    auto s2 = _func_2->evalScalar(xyzIn, input_comp);
-    auto j1 = _func_1->evalScalarDerivative(xyzIn, input_comp);
-    auto j2 = _func_2->evalScalarDerivative(xyzIn, input_comp);
-    auto h1 = _func_1->evalScalarHessian(xyzIn, input_comp);
-    auto h2 = _func_2->evalScalarHessian(xyzIn, input_comp);
+std::vector<xyz_type> Multiply::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const { 
+    auto s1 = _func_1->evalScalar(xyzIn, input_comp, time);
+    auto s2 = _func_2->evalScalar(xyzIn, input_comp, time);
+    auto j1 = _func_1->evalScalarDerivative(xyzIn, input_comp, time);
+    auto j2 = _func_2->evalScalarDerivative(xyzIn, input_comp, time);
+    auto h1 = _func_1->evalScalarHessian(xyzIn, input_comp, time);
+    auto h2 = _func_2->evalScalarHessian(xyzIn, input_comp, time);
     auto result = std::vector<xyz_type>(h1.size());
     for (int i=0; i<_dim; ++i) {
         // i is first derivative direction
@@ -152,6 +152,37 @@ Teuchos::RCP<Add> operator + ( Teuchos::RCP<AnalyticFunction> func, scalar_type 
     return val + func;
 }
 
+Teuchos::RCP<Add> operator - ( AnalyticFunction& func_1, AnalyticFunction& func_2 ) { 
+    TEUCHOS_ASSERT(func_1._dim==func_2._dim);
+    return Teuchos::rcp(new Add(func_1,-1*func_2)); 
+}
+Teuchos::RCP<Add> operator - ( Teuchos::RCP<AnalyticFunction> func_1, AnalyticFunction& func_2 ) { 
+    TEUCHOS_ASSERT(func_1->_dim==func_2._dim);
+    return Teuchos::rcp(new Add(func_1,-1*func_2)); 
+}
+Teuchos::RCP<Add> operator - ( AnalyticFunction& func_1, Teuchos::RCP<AnalyticFunction> func_2 ) { 
+    TEUCHOS_ASSERT(func_1._dim==func_2->_dim);
+    return Teuchos::rcp(new Add(func_1,-1*func_2)); 
+}
+Teuchos::RCP<Add> operator - ( Teuchos::RCP<AnalyticFunction> func_1, Teuchos::RCP<AnalyticFunction> func_2 ) { 
+    TEUCHOS_ASSERT(func_1->_dim==func_2->_dim);
+    return Teuchos::rcp(new Add(func_1,-1*func_2)); 
+}
+
+Teuchos::RCP<Add> operator - ( scalar_type val, AnalyticFunction& func ) { 
+    return Teuchos::rcp(new Add(Teuchos::rcp<AnalyticFunction>(new ConstantEachDimension(-val,func._dim)), func)); 
+}
+Teuchos::RCP<Add> operator - ( scalar_type val, Teuchos::RCP<AnalyticFunction> func ) { 
+    return Teuchos::rcp(new Add(Teuchos::rcp<AnalyticFunction>(new ConstantEachDimension(-val,func->_dim)), func)); 
+}
+
+Teuchos::RCP<Add> operator - ( AnalyticFunction& func, scalar_type val ) { 
+    return val - func;
+}
+Teuchos::RCP<Add> operator - ( Teuchos::RCP<AnalyticFunction> func, scalar_type val ) { 
+    return val - func;
+}
+
 Teuchos::RCP<Multiply> operator * ( AnalyticFunction& func_1, AnalyticFunction& func_2 ) { 
     TEUCHOS_ASSERT(func_1._dim==func_2._dim);
     return Teuchos::rcp(new Multiply(func_1,func_2)); 
@@ -188,7 +219,7 @@ Teuchos::RCP<Multiply> operator * ( Teuchos::RCP<AnalyticFunction> func, scalar_
 // Gaussian3D
 //
 
-scalar_type Gaussian3D::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+scalar_type Gaussian3D::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
 	const scalar_type x0 = 1.0;
 	const scalar_type y0 = 1.0;
 	const scalar_type z0 = 1.0;
@@ -204,12 +235,12 @@ scalar_type legendre54(const scalar_type& z) {
     return z * (  z * z - 1.0 ) * ( z * z - 1.0 );
 }
 
-scalar_type SphereHarmonic::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+scalar_type SphereHarmonic::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     const scalar_type lon = xyzIn.longitude();
     return 30.0 * std::cos(4.0 * lon) * legendre54(xyzIn.z);
 }
 
-xyz_type SphereHarmonic::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp) const {
+xyz_type SphereHarmonic::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
 	const scalar_type lat = xyzIn.latitude(); // phi
 	const scalar_type lon = xyzIn.longitude(); // lambda
 
@@ -225,7 +256,7 @@ xyz_type SphereHarmonic::evalScalarDerivative(const xyz_type& xyzIn, const local
 // SphereTestVelocity
 //
 
-xyz_type SphereTestVelocity::evalVector(const xyz_type& xyzIn) const {
+xyz_type SphereTestVelocity::evalVector(const xyz_type& xyzIn, const scalar_type time) const {
 	const scalar_type lat = xyzIn.latitude(); // phi
 	const scalar_type lon = xyzIn.longitude(); // lambda
 
@@ -241,7 +272,7 @@ xyz_type SphereTestVelocity::evalVector(const xyz_type& xyzIn) const {
 // SphereRigidRotationVelocity
 //
 
-xyz_type SphereRigidRotationVelocity::evalVector(const xyz_type& xIn) const {
+xyz_type SphereRigidRotationVelocity::evalVector(const xyz_type& xIn, const scalar_type time) const {
 	return xyz_type(-xIn.y, xIn.x, 0.0);
 }
 
@@ -249,7 +280,7 @@ xyz_type SphereRigidRotationVelocity::evalVector(const xyz_type& xIn) const {
 // ShallowWaterTestCases
 //
 
-double ShallowWaterTestCases::evalScalar(const xyz_type& xIn, const local_index_type input_comp) const {
+double ShallowWaterTestCases::evalScalar(const xyz_type& xIn, const local_index_type input_comp, const scalar_type time) const {
 	double return_val = 0;
 	if (_test_case == 2) {
 		// gh
@@ -298,7 +329,7 @@ double ShallowWaterTestCases::evalScalar(const xyz_type& xIn, const local_index_
 	return return_val;
 }
 
-xyz_type ShallowWaterTestCases::evalVector(const xyz_type& xIn) const {
+xyz_type ShallowWaterTestCases::evalVector(const xyz_type& xIn, const scalar_type time) const {
 	// u, v, w
 	const scalar_type lat = xIn.latitude(); // phi
 	const scalar_type lon = xIn.longitude(); // lambda
@@ -315,7 +346,7 @@ xyz_type ShallowWaterTestCases::evalVector(const xyz_type& xIn) const {
 // CoriolisForce
 //
 
-double CoriolisForce::evalScalar(const xyz_type& xIn, const local_index_type input_comp) const {
+double CoriolisForce::evalScalar(const xyz_type& xIn, const local_index_type input_comp, const scalar_type time) const {
 	// f
 	const scalar_type lat = xIn.latitude(); // phi
 	const scalar_type lon = xIn.longitude(); // lambda
@@ -327,7 +358,7 @@ double CoriolisForce::evalScalar(const xyz_type& xIn, const local_index_type inp
 // DiscontinuousOnSphere
 //
 
-double DiscontinuousOnSphere::evalScalar(const xyz_type& xIn, const local_index_type input_comp) const {
+double DiscontinuousOnSphere::evalScalar(const xyz_type& xIn, const local_index_type input_comp, const scalar_type time) const {
 	const scalar_type lon = xIn.longitude(); // lambda
 	const scalar_type eps = 0;
 
@@ -338,13 +369,13 @@ double DiscontinuousOnSphere::evalScalar(const xyz_type& xIn, const local_index_
 // FiveStripOnSphere
 //
 
-scalar_type FiveStripOnSphere::evalScalar(const xyz_type& xIn, const local_index_type input_comp) const {
+scalar_type FiveStripOnSphere::evalScalar(const xyz_type& xIn, const local_index_type input_comp, const scalar_type time) const {
 	xyz_type temp_xyz(xIn.x, xIn.y, 0);
 	const scalar_type lon = temp_xyz.longitude(); // lambda
 	return lon;
 }
 
-scalar_type FiveStripOnSphere::evalDiffusionCoefficient(const xyz_type& xIn) const {
+scalar_type FiveStripOnSphere::evalDiffusionCoefficient(const xyz_type& xIn, const scalar_type time) const {
 	if (xIn.z < .4) { // 1st slice
 		return 16;
 	} else if (xIn.z < .8) { // 2nd slice
@@ -358,7 +389,7 @@ scalar_type FiveStripOnSphere::evalDiffusionCoefficient(const xyz_type& xIn) con
 	}
 }
 
-xyz_type  FiveStripOnSphere::evalVector(const xyz_type& xIn) const {
+xyz_type  FiveStripOnSphere::evalVector(const xyz_type& xIn, const scalar_type time) const {
 	const scalar_type lon = xIn.longitude(); // lambda
 	double kappa = 0;
 	if (xIn.z < .4) { // 1st slice
@@ -381,11 +412,11 @@ xyz_type  FiveStripOnSphere::evalVector(const xyz_type& xIn) const {
 // CylinderSinLonCosZ
 //
 
-scalar_type CylinderSinLonCosZ::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+scalar_type CylinderSinLonCosZ::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
 	return xyzIn.x*cos(xyzIn.z);
 }
 
-scalar_type CylinderSinLonCosZRHS::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+scalar_type CylinderSinLonCosZRHS::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
 	const scalar_type s = xyzIn.z;
 	const scalar_type denom = std::sqrt(xyzIn.x*xyzIn.x+xyzIn.y*xyzIn.y);
 	// only negatived because drivers expect a negated version of the laplacian rhs
@@ -396,7 +427,7 @@ scalar_type CylinderSinLonCosZRHS::evalScalar(const xyz_type& xyzIn, const local
 // DivFreeSineCos
 //
 
-scalar_type DivFreeSineCos::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+scalar_type DivFreeSineCos::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     if (_dim==3) {
         TEUCHOS_ASSERT(false);
         return 0;
@@ -409,7 +440,7 @@ scalar_type DivFreeSineCos::evalScalar(const xyz_type& xyzIn, const local_index_
     }
 }
 
-xyz_type DivFreeSineCos::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp) const {
+xyz_type DivFreeSineCos::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     if (_dim==3) {
         TEUCHOS_ASSERT(false);
         return xyz_type();
@@ -424,7 +455,7 @@ xyz_type DivFreeSineCos::evalScalarDerivative(const xyz_type& xyzIn, const local
     }
 }
 
-std::vector<xyz_type> DivFreeSineCos::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp) const {
+std::vector<xyz_type> DivFreeSineCos::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     std::vector<xyz_type> hessian(_dim);
     if (_dim==3) {
         TEUCHOS_ASSERT(false);
@@ -454,7 +485,7 @@ std::vector<xyz_type> DivFreeSineCos::evalScalarHessian(const xyz_type& xyzIn, c
 // SineProducts
 //
 
-scalar_type SineProducts::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+scalar_type SineProducts::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     if (_dim==3) {
         if (input_comp==0) {
             return sin(xyzIn.x)*sin(xyzIn.y)*sin(xyzIn.z);
@@ -472,7 +503,7 @@ scalar_type SineProducts::evalScalar(const xyz_type& xyzIn, const local_index_ty
     }
 }
 
-xyz_type SineProducts::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp) const {
+xyz_type SineProducts::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     if (_dim==3) {
         if (input_comp==0) {
             return xyz_type(cos(xyzIn.x)*sin(xyzIn.y)*sin(xyzIn.z),
@@ -498,7 +529,7 @@ xyz_type SineProducts::evalScalarDerivative(const xyz_type& xyzIn, const local_i
     }
 }
 
-std::vector<xyz_type> SineProducts::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp) const {
+std::vector<xyz_type> SineProducts::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     std::vector<xyz_type> hessian(_dim);
     if (_dim==3) {
         // first component
@@ -538,7 +569,7 @@ std::vector<xyz_type> SineProducts::evalScalarHessian(const xyz_type& xyzIn, con
     return hessian;
 }
 
-scalar_type SineProducts::evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp) const {
+scalar_type SineProducts::evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     if (input_comp==0) {
         if (_dim==3) {
             return -3*sin(xyzIn.x)*sin(xyzIn.y)*sin(xyzIn.z);
@@ -564,7 +595,7 @@ scalar_type SineProducts::evalScalarLaplacian(const xyz_type& xyzIn, const local
 // FirstOrderBasis
 //
 
-scalar_type FirstOrderBasis::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+scalar_type FirstOrderBasis::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     if (_dim==3) {
         if (input_comp==0) {
             return 2*xyzIn.x + xyzIn.y + xyzIn.z;
@@ -585,7 +616,7 @@ scalar_type FirstOrderBasis::evalScalar(const xyz_type& xyzIn, const local_index
     }
 }
 
-xyz_type FirstOrderBasis::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp) const {
+xyz_type FirstOrderBasis::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     if (_dim==3) {
         if (input_comp==0) {
             return xyz_type(2,1,1);
@@ -603,7 +634,7 @@ xyz_type FirstOrderBasis::evalScalarDerivative(const xyz_type& xyzIn, const loca
     }
 }
 
-std::vector<xyz_type> FirstOrderBasis::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp) const {
+std::vector<xyz_type> FirstOrderBasis::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     std::vector<xyz_type> hessian(_dim);
     if (_dim==3) {
         xyz_type u_xd;
@@ -629,7 +660,7 @@ std::vector<xyz_type> FirstOrderBasis::evalScalarHessian(const xyz_type& xyzIn, 
     return hessian;
 }
 
-scalar_type FirstOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp) const {
+scalar_type FirstOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     return 0;
 }
 
@@ -637,7 +668,7 @@ scalar_type FirstOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn, const lo
 // Divergence Free SecondOrderBasis
 //
 
-scalar_type DivFreeSecondOrderBasis::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+scalar_type DivFreeSecondOrderBasis::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
 
     if (_dim==3) {
         TEUCHOS_ASSERT(false);
@@ -656,7 +687,7 @@ scalar_type DivFreeSecondOrderBasis::evalScalar(const xyz_type& xyzIn, const loc
     }
 }
 
-xyz_type DivFreeSecondOrderBasis::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp) const {
+xyz_type DivFreeSecondOrderBasis::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     if (_dim==3) {
         TEUCHOS_ASSERT(false);
         return xyz_type();
@@ -671,7 +702,7 @@ xyz_type DivFreeSecondOrderBasis::evalScalarDerivative(const xyz_type& xyzIn, co
     }
 }
 
-std::vector<xyz_type> DivFreeSecondOrderBasis::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp) const {
+std::vector<xyz_type> DivFreeSecondOrderBasis::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     std::vector<xyz_type> hessian(_dim);
     if (_dim==3) {
         TEUCHOS_ASSERT(false);
@@ -693,7 +724,7 @@ std::vector<xyz_type> DivFreeSecondOrderBasis::evalScalarHessian(const xyz_type&
     return hessian;
 }
 
-scalar_type DivFreeSecondOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp) const {
+scalar_type DivFreeSecondOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     if (_dim==3) {
         TEUCHOS_ASSERT(false);
         return 0;
@@ -711,7 +742,7 @@ scalar_type DivFreeSecondOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn, 
 // SecondOrderBasis
 //
 
-scalar_type SecondOrderBasis::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+scalar_type SecondOrderBasis::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     if (_dim==3) {
         if (input_comp==0) {
             return xyzIn.x*(1 + xyzIn.x + xyzIn.y + xyzIn.z) + xyzIn.y*(1 + xyzIn.y + xyzIn.z) + xyzIn.z*(1 + xyzIn.z);
@@ -732,7 +763,7 @@ scalar_type SecondOrderBasis::evalScalar(const xyz_type& xyzIn, const local_inde
     }
 }
 
-xyz_type SecondOrderBasis::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp) const {
+xyz_type SecondOrderBasis::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     if (_dim==3) {
         if (input_comp==0) {
             return xyz_type((1 + 2*xyzIn.x + xyzIn.y + xyzIn.z),
@@ -758,7 +789,7 @@ xyz_type SecondOrderBasis::evalScalarDerivative(const xyz_type& xyzIn, const loc
     }
 }
 
-std::vector<xyz_type> SecondOrderBasis::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp) const {
+std::vector<xyz_type> SecondOrderBasis::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     std::vector<xyz_type> hessian(_dim);
     if (_dim==3) {
         // first component
@@ -798,7 +829,7 @@ std::vector<xyz_type> SecondOrderBasis::evalScalarHessian(const xyz_type& xyzIn,
     return hessian;
 }
 
-scalar_type SecondOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp) const {
+scalar_type SecondOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     if (input_comp==0) {
         if (_dim==3) {
             return 6;
@@ -820,7 +851,7 @@ scalar_type SecondOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn, const l
 // ThirdOrderBasis
 //
 
-scalar_type ThirdOrderBasis::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+scalar_type ThirdOrderBasis::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     scalar_type x = xyzIn.x;
     scalar_type y = xyzIn.y;
     scalar_type z = xyzIn.z;
@@ -844,7 +875,7 @@ scalar_type ThirdOrderBasis::evalScalar(const xyz_type& xyzIn, const local_index
     }
 }
 
-xyz_type ThirdOrderBasis::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp) const {
+xyz_type ThirdOrderBasis::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     scalar_type x = xyzIn.x;
     scalar_type y = xyzIn.y;
     scalar_type z = xyzIn.z;
@@ -874,7 +905,7 @@ xyz_type ThirdOrderBasis::evalScalarDerivative(const xyz_type& xyzIn, const loca
     }
 }
 
-std::vector<xyz_type> ThirdOrderBasis::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp) const {
+std::vector<xyz_type> ThirdOrderBasis::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     scalar_type x = xyzIn.x;
     scalar_type y = xyzIn.y;
     scalar_type z = xyzIn.z;
@@ -915,7 +946,7 @@ std::vector<xyz_type> ThirdOrderBasis::evalScalarHessian(const xyz_type& xyzIn, 
     return hessian;
 }
 
-scalar_type ThirdOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp) const {
+scalar_type ThirdOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     scalar_type x = xyzIn.x;
     scalar_type y = xyzIn.y;
     scalar_type z = xyzIn.z;
@@ -944,15 +975,15 @@ scalar_type ThirdOrderBasis::evalScalarLaplacian(const xyz_type& xyzIn, const lo
 // ConstantEachDimension
 //
 
-scalar_type ConstantEachDimension::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+scalar_type ConstantEachDimension::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     return _scaling_factors[input_comp];
 }
 
-xyz_type ConstantEachDimension::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp) const {
+xyz_type ConstantEachDimension::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
 	return xyz_type(); // zero vector
 }
 
-scalar_type ConstantEachDimension::evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp) const {
+scalar_type ConstantEachDimension::evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
 	return 0;
 }
 
@@ -960,7 +991,7 @@ scalar_type ConstantEachDimension::evalScalarLaplacian(const xyz_type& xyzIn, co
 // Timoshenko
 //
 
-scalar_type Timoshenko::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
+scalar_type Timoshenko::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     double x=xyzIn.x;
     double y=xyzIn.y;
     if (input_comp==0) {
@@ -970,7 +1001,7 @@ scalar_type Timoshenko::evalScalar(const xyz_type& xyzIn, const local_index_type
     }
 }
 
-xyz_type Timoshenko::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp) const {
+xyz_type Timoshenko::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     double x=xyzIn.x;
     double y=xyzIn.y;
     if (input_comp==0) {
@@ -982,7 +1013,7 @@ xyz_type Timoshenko::evalScalarDerivative(const xyz_type& xyzIn, const local_ind
     }
 }
 
-std::vector<xyz_type> Timoshenko::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp) const {
+std::vector<xyz_type> Timoshenko::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     double x=xyzIn.x;
     double y=xyzIn.y;
     std::vector<xyz_type> hessian(_dim);
@@ -1010,7 +1041,7 @@ std::vector<xyz_type> Timoshenko::evalScalarHessian(const xyz_type& xyzIn, const
 // ScaleOfEachDimension
 //
 
-xyz_type ScaleOfEachDimension::evalVector(const xyz_type& xyzIn) const {
+xyz_type ScaleOfEachDimension::evalVector(const xyz_type& xyzIn, const scalar_type time) const {
     return xyz_type(_scaling_factors[0]*xyzIn.x,_scaling_factors[1]*xyzIn.y,_scaling_factors[2]*xyzIn.z);
 }
 
@@ -1018,7 +1049,7 @@ xyz_type ScaleOfEachDimension::evalVector(const xyz_type& xyzIn) const {
 // CangaSphereTransform
 //
 
-xyz_type CangaSphereTransform::evalVector(const xyz_type& latLonIn) const {
+xyz_type CangaSphereTransform::evalVector(const xyz_type& latLonIn, const scalar_type time) const {
 	const double lat = (_in_degrees) ? latLonIn.x * _gc.Pi() / 180.0 : latLonIn.x;
 	const double lon = (_in_degrees) ? latLonIn.y * _gc.Pi() / 180.0 : latLonIn.y;
     return xyz_type(cos(lon)*cos(lat), sin(lon)*cos(lat), sin(lat));
@@ -1028,36 +1059,40 @@ xyz_type CangaSphereTransform::evalVector(const xyz_type& latLonIn) const {
 // CurlCurlSineTest
 //
 
-xyz_type CurlCurlSineTestRHS::evalVector(const xyz_type& xyzIn) const {
+xyz_type CurlCurlSineTestRHS::evalVector(const xyz_type& xyzIn, const scalar_type time) const {
     return xyz_type(2.0*sin(xyzIn.y)*sin(xyzIn.z),
                     2.0*sin(xyzIn.x)*sin(xyzIn.z),
                     2.0*sin(xyzIn.x)*sin(xyzIn.y));
 }
 
-xyz_type CurlCurlSineTest::evalVector(const xyz_type& xyzIn) const {
+xyz_type CurlCurlSineTest::evalVector(const xyz_type& xyzIn, const scalar_type time) const {
     return xyz_type(sin(xyzIn.y)*sin(xyzIn.z),
                     sin(xyzIn.x)*sin(xyzIn.z),
                     sin(xyzIn.x)*sin(xyzIn.y));
 }
 
-xyz_type CurlCurlPolyTestRHS::evalVector(const xyz_type& xyzIn) const {
+xyz_type CurlCurlPolyTestRHS::evalVector(const xyz_type& xyzIn, const scalar_type time) const {
     return xyz_type(-14.0*xyzIn.x - 12.0*xyzIn.z,
                     14.0*xyzIn.y,
                     12.0*xyzIn.x);
 }
 
-xyz_type CurlCurlPolyTest::evalVector(const xyz_type& xyzIn) const {
+xyz_type CurlCurlPolyTest::evalVector(const xyz_type& xyzIn, const scalar_type time) const {
     return xyz_type(7.0*xyzIn.x*xyzIn.z*xyzIn.z + 6.0*xyzIn.y*xyzIn.y*xyzIn.z,
                     -7.0*xyzIn.y*xyzIn.z*xyzIn.z,
                     -2.0*xyzIn.x*xyzIn.x*xyzIn.x);
 } 
 
-scalar_type SinT::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
-    return _multiplier*std::sin(_t);
+scalar_type SinT::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
+    return std::sin(time);
 }
 
-scalar_type CosT::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const {
-    return _multiplier*std::cos(_t);
+scalar_type CosT::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
+    return std::cos(time);
+}
+
+scalar_type LinearInT::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
+    return time;
 }
 
 

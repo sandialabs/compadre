@@ -60,15 +60,15 @@ class FieldT {
 
 		void updateHalo();
 
-		void localInitFromScalarFunction(function_type* fn, bool use_physical_coords = true);
+		void localInitFromScalarFunction(function_type* fn, const scalar_type time = 0.0, bool use_physical_coords = true);
 		
-		void localInitFromScalarFunctionGradient(function_type* fn, bool use_physical_coords = true);
+		void localInitFromScalarFunctionGradient(function_type* fn, const scalar_type time = 0.0, bool use_physical_coords = true);
 
 		std::vector<scalar_type> normInf() const;
 		
 		std::vector<scalar_type> norm2() const;
 		
-		void localInitFromVectorFunction(function_type* fn, bool use_physical_coords = true);
+		void localInitFromVectorFunction(function_type* fn, const scalar_type time = 0.0, bool use_physical_coords = true);
 		
 		scalar_type getLocalScalarVal(const local_index_type idx, const local_index_type component = 0, bool for_halo = false) const;
 

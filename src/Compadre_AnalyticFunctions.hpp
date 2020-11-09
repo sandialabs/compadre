@@ -15,7 +15,7 @@ namespace Compadre {
 class AnalyticFunction {
 	public :
 
-	    const local_index_type _dim;
+	    local_index_type _dim;
 
 	protected : 
 
@@ -28,22 +28,23 @@ class AnalyticFunction {
 		virtual ~AnalyticFunction() {}
 
         // these are defined by deriving symbolically
-		virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
-		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
-		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
         // function of evalScalar
-		virtual xyz_type evalVector(const xyz_type& xyzIn) const;
+		virtual xyz_type evalVector(const xyz_type& xyzIn, const scalar_type time = 0.0) const;
 
         // function of evalScalarDerivative
-		virtual std::vector<xyz_type> evalJacobian(const xyz_type& xyzIn) const;
+		virtual std::vector<xyz_type> evalJacobian(const xyz_type& xyzIn, const scalar_type time = 0.0) const;
 
         // function of evalHessian
-		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
-		virtual xyz_type evalVectorLaplacian(const xyz_type& xyzIn) const;
-        virtual scalar_type evalScalarReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion) const;
+		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+		virtual xyz_type evalVectorLaplacian(const xyz_type& xyzIn, const scalar_type time = 0.0) const;
+        virtual scalar_type evalScalarReactionDiffusionRHS(const xyz_type& xyzIn, const scalar_type reaction, const scalar_type diffusion, 
+                                                    const scalar_type time = 0.0) const;
         virtual scalar_type evalLinearElasticityRHS(const xyz_type& xyzIn, const local_index_type output_comp, const scalar_type shear_modulus, 
-                                                    const scalar_type lambda) const;
+                                                    const scalar_type lambda, const scalar_type time = 0.0) const;
 
 };
 
@@ -56,16 +57,17 @@ struct evaluateScalar {
 	device_view_type vals;
 	function_type* fn;
 	device_view_type coords;
+    const scalar_type time;
 	
-	evaluateScalar(device_view_type vals_, device_view_type coords_, function_type* fn_) :
-		vals(vals_), fn(fn_), coords(coords_) {};
+	evaluateScalar(device_view_type vals_, device_view_type coords_, function_type* fn_, const scalar_type time_ = 0.0) :
+		vals(vals_), fn(fn_), coords(coords_), time(time_) {};
 
 	void operator() (int i) const {
 		xyz_type xyz;
 		xyz.x = coords(i,0);
 		xyz.y = coords(i,1);
 		xyz.z = coords(i,2);
-		vals(i,0) = fn->evalScalar(xyz);
+		vals(i,0) = fn->evalScalar(xyz, 0 /* default input component */, time);
 	}
 };
 
@@ -79,9 +81,10 @@ struct evaluateVector {
 	function_type* fn;
 	device_view_type coords;
 	const int operation_type;
+    const scalar_type time;
 	
-	evaluateVector(device_view_type vals_, device_view_type coords_, function_type* fn_, const int operation_type_ = 0) :
-		vals(vals_), fn(fn_), coords(coords_), operation_type(operation_type_) {};
+	evaluateVector(device_view_type vals_, device_view_type coords_, function_type* fn_, const int operation_type_ = 0, const scalar_type time_ = 0.0) :
+		vals(vals_), fn(fn_), coords(coords_), operation_type(operation_type_), time(time_) {};
 
 	void operator() (int i) const {
 		xyz_type xyz;
@@ -91,10 +94,10 @@ struct evaluateVector {
 		xyz_type vecval;
 		switch (operation_type) {
 		case 1:
-			vecval = fn->evalScalarDerivative(xyz);
+			vecval = fn->evalScalarDerivative(xyz, 0 /* default input component */, time);
 			break;
 		default:
-			vecval = fn->evalVector(xyz);
+			vecval = fn->evalVector(xyz, time);
 		}
 		switch (vals.extent(1)) {
 		case 3:
@@ -117,16 +120,17 @@ struct incrementByEvaluateVector {
 	device_view_type vals;
 	function_type* fn;
 	device_view_type coords;
+    const scalar_type time;
 
-	incrementByEvaluateVector(device_view_type vals_, device_view_type coords_, function_type* fn_) :
-		vals(vals_), fn(fn_), coords(coords_) {};
+	incrementByEvaluateVector(device_view_type vals_, device_view_type coords_, function_type* fn_, const scalar_type time_ = 0.0) :
+		vals(vals_), fn(fn_), coords(coords_), time(time_) {};
 
 	void operator() (int i) const {
 		xyz_type xyz;
 		xyz.x = coords(i,0);
 		xyz.y = coords(i,1);
 		xyz.z = coords(i,2);
-		const xyz_type vecval = fn->evalVector(xyz);
+		const xyz_type vecval = fn->evalVector(xyz, time);
 		vals(i,0) += vecval.x;
 		vals(i,1) += vecval.y;
 		vals(i,2) += vecval.z;
@@ -139,7 +143,7 @@ class Gaussian3D : public AnalyticFunction {
 
 	public:
 
-		virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
 };
 
@@ -155,9 +159,9 @@ class SphereHarmonic : public AnalyticFunction {
 	public:
 		SphereHarmonic(const int legendreM, const int legendreN) : _m(legendreM), _n(legendreN) {};
 
-		scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 };
 
 class SphereTestVelocity : public AnalyticFunction {
@@ -169,7 +173,7 @@ class SphereTestVelocity : public AnalyticFunction {
 	public:
 		SphereTestVelocity() {};
 
-		virtual xyz_type evalVector(const xyz_type& xyzIn) const;
+		virtual xyz_type evalVector(const xyz_type& xyzIn, const scalar_type time = 0.0) const;
 
 };
 
@@ -179,7 +183,7 @@ class SphereRigidRotationVelocity : public AnalyticFunction {
 
 	public :
 
-		virtual xyz_type evalVector(const xyz_type& xIn) const;
+		virtual xyz_type evalVector(const xyz_type& xIn, const scalar_type time = 0.0) const;
 
 };
 
@@ -216,10 +220,10 @@ class ShallowWaterTestCases : public AnalyticFunction {
 		};
 
 		// returns h
-		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
 		// returns u, v, and w
-		virtual xyz_type evalVector(const xyz_type& xyzIn) const;
+		virtual xyz_type evalVector(const xyz_type& xyzIn, const scalar_type time = 0.0) const;
 
 		double getOmega() const { return _Omega; }
 
@@ -243,7 +247,7 @@ class CoriolisForce : public AnalyticFunction {
 		CoriolisForce(double Omega, double alpha = 0): _Omega(Omega), _alpha(alpha) {};
 
 		// returns f
-		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 };
 
 class DiscontinuousOnSphere : public AnalyticFunction {
@@ -256,7 +260,7 @@ class DiscontinuousOnSphere : public AnalyticFunction {
 		DiscontinuousOnSphere() {};
 
 		// returns f
-		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 };
 
 class FiveStripOnSphere : public AnalyticFunction {
@@ -269,11 +273,11 @@ class FiveStripOnSphere : public AnalyticFunction {
 		FiveStripOnSphere() {};
 
 		// returns f
-		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		virtual xyz_type evalVector(const xyz_type& xIn) const;
+		virtual xyz_type evalVector(const xyz_type& xIn, const scalar_type time = 0.0) const;
 
-		scalar_type evalDiffusionCoefficient(const xyz_type& xIn) const;
+		scalar_type evalDiffusionCoefficient(const xyz_type& xIn, const scalar_type time = 0.0) const;
 };
 
 class CylinderSinLonCosZ : public AnalyticFunction {
@@ -282,7 +286,7 @@ class CylinderSinLonCosZ : public AnalyticFunction {
 
 	public :
 
-		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 };
 
 class CylinderSinLonCosZRHS : public AnalyticFunction {
@@ -291,7 +295,7 @@ class CylinderSinLonCosZRHS : public AnalyticFunction {
 
 	public :
 
-		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 };
 
 class DivFreeSineCos : public AnalyticFunction {
@@ -302,11 +306,11 @@ class DivFreeSineCos : public AnalyticFunction {
 
 	    DivFreeSineCos(const local_index_type dim = 3) : AnalyticFunction(dim) {}
 
-		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		virtual xyz_type evalScalarDerivative(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+		virtual xyz_type evalScalarDerivative(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
 };
 
@@ -318,13 +322,13 @@ class SineProducts : public AnalyticFunction {
 
 	    SineProducts(const local_index_type dim = 3) : AnalyticFunction(dim) {}
 
-		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		virtual xyz_type evalScalarDerivative(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+		virtual xyz_type evalScalarDerivative(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
 };
 
@@ -336,13 +340,13 @@ class FirstOrderBasis : public AnalyticFunction {
 
 	    FirstOrderBasis(const local_index_type dim = 3) : AnalyticFunction(dim) {}
 
-		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-        virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+        virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
 };
 
@@ -354,13 +358,13 @@ class DivFreeSecondOrderBasis : public AnalyticFunction {
 
 	    DivFreeSecondOrderBasis(const local_index_type dim = 3) : AnalyticFunction(dim) {}
 
-		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-        virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+        virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
 };
 
@@ -372,13 +376,13 @@ class SecondOrderBasis : public AnalyticFunction {
 
 	    SecondOrderBasis(const local_index_type dim = 3) : AnalyticFunction(dim) {}
 
-		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-        virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+        virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
 };
 
@@ -390,13 +394,13 @@ class ThirdOrderBasis : public AnalyticFunction {
 
 	    ThirdOrderBasis(const local_index_type dim = 3) : AnalyticFunction(dim) {}
 
-		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
 };
 
@@ -423,11 +427,11 @@ class ConstantEachDimension : public AnalyticFunction {
 			_scaling_factors[2] = z_scale;
 		}
 
-		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		virtual xyz_type evalScalarDerivative(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+		virtual xyz_type evalScalarDerivative(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		virtual scalar_type evalScalarLaplacian(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalarLaplacian(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
 };
 
@@ -452,11 +456,11 @@ class Timoshenko : public AnalyticFunction {
             _I  = _D*_D*_D/12.0;
         }
 
-		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0) const;
+		virtual scalar_type evalScalar(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
 };
 
@@ -478,7 +482,7 @@ class ScaleOfEachDimension : public AnalyticFunction {
 			_scaling_factors[2] = z_scale;
 		}
 
-		virtual xyz_type evalVector(const xyz_type& xIn) const;
+		virtual xyz_type evalVector(const xyz_type& xIn, const scalar_type time = 0.0) const;
 };
 
 class CangaSphereTransform : public AnalyticFunction {
@@ -492,7 +496,7 @@ class CangaSphereTransform : public AnalyticFunction {
 
 		CangaSphereTransform(bool in_degrees = false) : _in_degrees(in_degrees) {}
 
-		virtual xyz_type evalVector(const xyz_type& latLonIn) const;
+		virtual xyz_type evalVector(const xyz_type& latLonIn, const scalar_type time = 0.0) const;
 };
 
 class CurlCurlSineTestRHS : public AnalyticFunction {
@@ -501,7 +505,7 @@ class CurlCurlSineTestRHS : public AnalyticFunction {
 
 	public :
 
-		virtual xyz_type evalVector(const xyz_type& xyzIn) const;
+		virtual xyz_type evalVector(const xyz_type& xyzIn, const scalar_type time = 0.0) const;
 };
 
 class CurlCurlSineTest : public AnalyticFunction {
@@ -510,7 +514,7 @@ class CurlCurlSineTest : public AnalyticFunction {
 
 	public :
 
-		virtual xyz_type evalVector(const xyz_type& xyzIn) const;
+		virtual xyz_type evalVector(const xyz_type& xyzIn, const scalar_type time = 0.0) const;
 };
 
 class CurlCurlPolyTestRHS : public AnalyticFunction {
@@ -519,7 +523,7 @@ class CurlCurlPolyTestRHS : public AnalyticFunction {
 
 	public :
 
-		virtual xyz_type evalVector(const xyz_type& xyzIn) const;
+		virtual xyz_type evalVector(const xyz_type& xyzIn, const scalar_type time = 0.0) const;
 };
 
 class CurlCurlPolyTest : public AnalyticFunction {
@@ -528,7 +532,7 @@ class CurlCurlPolyTest : public AnalyticFunction {
 
 	public :
 
-		virtual xyz_type evalVector(const xyz_type& xyzIn) const;
+		virtual xyz_type evalVector(const xyz_type& xyzIn, const scalar_type time = 0.0) const;
 };
 
 class SinT : public AnalyticFunction {
@@ -537,12 +541,7 @@ class SinT : public AnalyticFunction {
 
 	public :
 
-        scalar_type _t;
-        scalar_type _multiplier;
-
-        SinT(const scalar_type t, const scalar_type multiplier) : _t(t), _multiplier(multiplier) {}
-
-        virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const;
+        virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time = 0.0) const;
 
 };
 
@@ -552,12 +551,7 @@ class CosT : public AnalyticFunction {
 
 	public :
 
-        scalar_type _t;
-        scalar_type _multiplier;
-
-        CosT(const scalar_type t, const scalar_type multiplier) : _t(t), _multiplier(multiplier) {}
-
-        virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp) const;
+        virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time = 0.0) const;
 
 };
 
@@ -573,11 +567,11 @@ class Add : public AnalyticFunction {
         Add(AnalyticFunction& func_1, Teuchos::RCP<AnalyticFunction> func_2) : _func_1(Teuchos::rcp(&func_1,false)), _func_2(func_2) {}
         Add(Teuchos::RCP<AnalyticFunction> func_1, Teuchos::RCP<AnalyticFunction> func_2) : _func_1(func_1), _func_2(func_2) {}
 
-        virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+        virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-	    virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+	    virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-	    virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+	    virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
 };
 
@@ -593,11 +587,19 @@ class Multiply : public AnalyticFunction {
         Multiply(AnalyticFunction& func_1, Teuchos::RCP<AnalyticFunction> func_2) : _func_1(Teuchos::rcp(&func_1,false)), _func_2(func_2) {}
         Multiply(Teuchos::RCP<AnalyticFunction> func_1, Teuchos::RCP<AnalyticFunction> func_2) : _func_1(func_1), _func_2(func_2) {}
 
-        virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+        virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-	    virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+	    virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
-	    virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0) const;
+	    virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+
+};
+
+class LinearInT : public AnalyticFunction {
+
+    public:
+
+        virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
 };
 
@@ -611,6 +613,17 @@ Teuchos::RCP<Add> operator + ( scalar_type val, Teuchos::RCP<AnalyticFunction> f
 
 Teuchos::RCP<Add> operator + ( AnalyticFunction& func, scalar_type val );
 Teuchos::RCP<Add> operator + ( Teuchos::RCP<AnalyticFunction> func, scalar_type val );
+
+Teuchos::RCP<Add> operator - ( AnalyticFunction& func_1, AnalyticFunction& func_2 );
+Teuchos::RCP<Add> operator - ( Teuchos::RCP<AnalyticFunction> func_1, AnalyticFunction& func_2 );
+Teuchos::RCP<Add> operator - ( AnalyticFunction& func_1, Teuchos::RCP<AnalyticFunction> func_2 );
+Teuchos::RCP<Add> operator - ( Teuchos::RCP<AnalyticFunction> func_1, Teuchos::RCP<AnalyticFunction> func_2 );
+
+Teuchos::RCP<Add> operator - ( scalar_type val, AnalyticFunction& func );
+Teuchos::RCP<Add> operator - ( scalar_type val, Teuchos::RCP<AnalyticFunction> func );
+
+Teuchos::RCP<Add> operator - ( AnalyticFunction& func, scalar_type val );
+Teuchos::RCP<Add> operator - ( Teuchos::RCP<AnalyticFunction> func, scalar_type val );
 
 Teuchos::RCP<Multiply> operator * ( AnalyticFunction& func_1, AnalyticFunction& func_2 );
 Teuchos::RCP<Multiply> operator * ( Teuchos::RCP<AnalyticFunction> func_1, AnalyticFunction& func_2 );

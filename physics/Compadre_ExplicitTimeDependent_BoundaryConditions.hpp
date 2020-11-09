@@ -7,11 +7,15 @@ namespace Compadre {
 
 class ParticlesT;
 
+class ExplicitTimeDependentPhysics;
+
 class ExplicitTimeDependentBoundaryConditions : public BoundaryConditionsT {
 
 	protected:
 
 		typedef Compadre::ParticlesT particle_type;
+
+        ExplicitTimeDependentPhysics* _physics;
 
 	public:
 
@@ -27,6 +31,9 @@ class ExplicitTimeDependentBoundaryConditions : public BoundaryConditionsT {
 		virtual void applyBoundaries(local_index_type field_one, local_index_type field_two = -1, scalar_type time = 0.0);
 
 		virtual std::vector<InteractingFields> gatherFieldInteractions();
+
+        void setPhysics(Teuchos::RCP<ExplicitTimeDependentPhysics> physics) { _physics = physics.getRawPtr(); }
+
 };
 
 }

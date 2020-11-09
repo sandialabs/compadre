@@ -29,7 +29,7 @@ class FieldOne : public Compadre::AnalyticFunction {
 
 		FieldOne() {}
 
-		virtual ST evalScalar(const xyz_type& xIn, const local_index_type input_comp=0) const {
+		virtual ST evalScalar(const xyz_type& xIn, const local_index_type input_comp=0, const scalar_type time=0.0) const {
 			const ST lat = xIn.latitude(); // phi
 			const ST lon = xIn.longitude(); // lambda
 
@@ -43,7 +43,7 @@ class FieldTwo : public Compadre::AnalyticFunction {
 
 		FieldTwo() {}
 
-		virtual ST evalScalar(const xyz_type& xIn, const local_index_type input_comp=0) const {
+		virtual ST evalScalar(const xyz_type& xIn, const local_index_type input_comp=0, const scalar_type time=0.0) const {
 			const ST lat = xIn.latitude(); // phi
 			const ST lon = xIn.longitude(); // lambda
 
@@ -57,7 +57,7 @@ class FieldThree : public Compadre::AnalyticFunction {
 
 		FieldThree() {}
 
-		virtual ST evalScalar(const xyz_type& xIn, const local_index_type input_comp=0) const {
+		virtual ST evalScalar(const xyz_type& xIn, const local_index_type input_comp=0, const scalar_type time=0.0) const {
 			const ST lat = xIn.latitude(); // theta
 			const ST lon = xIn.longitude(); // lambda
 

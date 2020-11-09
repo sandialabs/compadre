@@ -10,6 +10,7 @@
 namespace Compadre {
 
 class ParticlesT;
+class AnalyticFunction;
 
 class ExplicitTimeDependentPhysics : public PhysicsT {
 
@@ -20,6 +21,11 @@ class ExplicitTimeDependentPhysics : public PhysicsT {
 		double _gravity;
 
 	public:
+
+        Teuchos::RCP<AnalyticFunction> vel_source_function;
+        Teuchos::RCP<AnalyticFunction> vel_boundary_function;
+        Teuchos::RCP<AnalyticFunction> h_source_function;
+        Teuchos::RCP<AnalyticFunction> h_boundary_function;
 
 		ExplicitTimeDependentPhysics(	Teuchos::RCP<particle_type> particles,
 								Teuchos::RCP<crs_graph_type> A_graph = Teuchos::null,

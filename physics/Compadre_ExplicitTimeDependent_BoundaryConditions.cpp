@@ -7,6 +7,7 @@
 #include <Compadre_DOFManager.hpp>
 #include <Compadre_XyzVector.hpp>
 #include <Compadre_AnalyticFunctions.hpp>
+#include <Compadre_ExplicitTimeDependent_Operator.hpp>
 
 namespace Compadre {
 
@@ -29,9 +30,8 @@ void ExplicitTimeDependentBoundaryConditions::flagBoundaries() {
 
 void ExplicitTimeDependentBoundaryConditions::applyBoundaries(local_index_type field_one, local_index_type field_two, scalar_type time) {
 
-    //if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("velocity")) {
-    auto f1 = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::CosT(time,-1.0)));
-    Teuchos::RCP<Compadre::AnalyticFunction> function = f1 + 1;
+    bool is_velocity = (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("velocity"));
+    bool is_height = (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("height"));
 
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_b==NULL, "Tpetra Multivector for BCS not yet specified.");
     if (field_two == -1) {
@@ -52,7 +52,13 @@ void ExplicitTimeDependentBoundaryConditions::applyBoundaries(local_index_type f
     	for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
     		const local_index_type dof = local_to_dof_map(i, field_one, k);
     		xyz_type pt(pts(i, 0), pts(i, 1), pts(i, 2));
-    		if (bc_id(i,0)==1) rhs_vals(dof,0) = function->evalScalar(pt);
+    		if (bc_id(i,0)==1) {
+                if (is_velocity) {
+                    rhs_vals(dof,0) = _physics->vel_boundary_function->evalScalar(pt, 0, time);
+                } else {
+                    rhs_vals(dof,0) = _physics->h_boundary_function->evalScalar(pt, 0, time);
+                }
+            }
     	}
     }
 
