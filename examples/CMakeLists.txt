@@ -87,6 +87,7 @@ if (CompadreHarness_EXAMPLES)
   add_exe_w_compadre(explicitTimeDependent.exe Compadre_ExplicitTimeDependent.cpp)
   add_exe_w_compadre(RT0Remap.exe Compadre_RT0_Remap.cpp)
   add_exe_w_compadre(FVRemap.exe Compadre_FV_Remap.cpp)
+  add_exe_w_compadre(unitTests.exe Compadre_UnitTests.cpp)
   
   if (CompadreHarness_TESTS)
 
@@ -392,6 +393,11 @@ if (CompadreHarness_EXAMPLES)
     SET_TESTS_PROPERTIES(ExplicitTimeDependentExact PROPERTIES LABELS "explicit;exact")
     
     ADD_TEST(NAME ExplicitTimeDependentAnalytical COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${CMAKE_CURRENT_BINARY_DIR}/explicitTimeDependent.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_analytical.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(ExplicitTimeDependentAnalytical PROPERTIES LABELS "explicit;analytical")
+
+    ## UNIT TESTS
+
+    ADD_TEST(NAME UnitTests COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${CMAKE_CURRENT_BINARY_DIR}/unitTests.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_unittests.xml" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(ExplicitTimeDependentAnalytical PROPERTIES LABELS "explicit;analytical")
 
 

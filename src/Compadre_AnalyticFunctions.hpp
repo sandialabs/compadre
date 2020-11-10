@@ -431,6 +431,8 @@ class ConstantEachDimension : public AnalyticFunction {
 
 		virtual xyz_type evalScalarDerivative(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
+		virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+
 		virtual scalar_type evalScalarLaplacian(const xyz_type& xIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
 };
@@ -602,12 +604,28 @@ class Pow : public AnalyticFunction {
 
     public:
 
-        Pow(AnalyticFunction& func_1, AnalyticFunction& func_2) : _func_1(Teuchos::rcp(&func_1,false)), _func_2(Teuchos::rcp(&func_2,false)) {}
-        Pow(Teuchos::RCP<AnalyticFunction> func_1, AnalyticFunction& func_2) : _func_1(func_1), _func_2(Teuchos::rcp(&func_2,false)) {}
-        Pow(AnalyticFunction& func_1, Teuchos::RCP<AnalyticFunction> func_2) : _func_1(Teuchos::rcp(&func_1,false)), _func_2(func_2) {}
-        Pow(Teuchos::RCP<AnalyticFunction> func_1, Teuchos::RCP<AnalyticFunction> func_2) : _func_1(func_1), _func_2(func_2) {}
+        Pow(AnalyticFunction& func_1, AnalyticFunction& func_2) : _func_1(Teuchos::rcp(&func_1,false)), _func_2(Teuchos::rcp(&func_2,false)) {
+            // ensure second function (the power) is actually a constant
+            TEUCHOS_ASSERT(dynamic_cast<ConstantEachDimension*>(&func_2));
+        }
+        Pow(Teuchos::RCP<AnalyticFunction> func_1, AnalyticFunction& func_2) : _func_1(func_1), _func_2(Teuchos::rcp(&func_2,false)) {
+            // ensure second function (the power) is actually a constant
+            TEUCHOS_ASSERT(dynamic_cast<ConstantEachDimension*>(&func_2));
+        }
+        Pow(AnalyticFunction& func_1, Teuchos::RCP<AnalyticFunction> func_2) : _func_1(Teuchos::rcp(&func_1,false)), _func_2(func_2) {
+            // ensure second function (the power) is actually a constant
+            TEUCHOS_ASSERT(Teuchos::rcp_dynamic_cast<ConstantEachDimension>(func_2));
+        }
+        Pow(Teuchos::RCP<AnalyticFunction> func_1, Teuchos::RCP<AnalyticFunction> func_2) : _func_1(func_1), _func_2(func_2) {
+            // ensure second function (the power) is actually a constant
+            TEUCHOS_ASSERT(Teuchos::rcp_dynamic_cast<ConstantEachDimension>(func_2));
+        }
 
         virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+
+	    virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+
+	    virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
 };
 
@@ -616,6 +634,46 @@ class LinearInT : public AnalyticFunction {
     public:
 
         virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+
+	    virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+
+	    virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+
+};
+
+class LinearInX : public AnalyticFunction {
+
+    public:
+
+        virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+
+	    virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+
+	    virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+
+};
+
+class LinearInY : public AnalyticFunction {
+
+    public:
+
+        virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+
+	    virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+
+	    virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+
+};
+
+class LinearInZ : public AnalyticFunction {
+
+    public:
+
+        virtual scalar_type evalScalar(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+
+	    virtual xyz_type evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
+
+	    virtual std::vector<xyz_type> evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp = 0, const scalar_type time = 0.0) const;
 
 };
 

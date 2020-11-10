@@ -870,9 +870,10 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 
 const std::vector<InteractingFields> LagrangianShallowWaterPhysics::gatherFieldInteractions() {
 	std::vector<InteractingFields> field_interactions;
+	field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _particles->getFieldManagerConst()->getIDOfFieldFromName("velocity"), _particles->getFieldManagerConst()->getIDOfFieldFromName("height")));
 //	field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _particles->getFieldManagerConst()->getIDOfFieldFromName("displacement"), _particles->getFieldManagerConst()->getIDOfFieldFromName("displacement")));
-	field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _particles->getFieldManagerConst()->getIDOfFieldFromName("height")));
-	field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _particles->getFieldManagerConst()->getIDOfFieldFromName("velocity")));
+	//field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _particles->getFieldManagerConst()->getIDOfFieldFromName("height")));
+	//field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _particles->getFieldManagerConst()->getIDOfFieldFromName("velocity")));
 	if (_particles->getCoordsConst()->isLagrangian())
 		field_interactions.push_back(InteractingFields(op_needing_interaction::physics, _particles->getFieldManagerConst()->getIDOfFieldFromName("displacement")));
 

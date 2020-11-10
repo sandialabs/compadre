@@ -7,14 +7,17 @@ typedef XyzVector xyz_type;
 
 // must be defined for each function
 scalar_type AnalyticFunction::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const { 
+    std::cout << "Undefined function evalScalar called from " << typeid(*this).name() << std::endl;
     TEUCHOS_ASSERT(false); return 0.0; 
 }
 
 xyz_type AnalyticFunction::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const { 
+    std::cout << "Undefined function evalScalarDerivative called from " << typeid(*this).name() << std::endl;
     TEUCHOS_ASSERT(false); return xyz_type();
 }
 
 std::vector<xyz_type> AnalyticFunction::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const { 
+    std::cout << "Undefined function evalScalarHessian called from " << typeid(*this).name() << std::endl;
     TEUCHOS_ASSERT(false); std::vector<xyz_type>();
 }
 
@@ -123,6 +126,28 @@ std::vector<xyz_type> Multiply::evalScalarHessian(const xyz_type& xyzIn, const l
 
 scalar_type Pow::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
     return std::pow(_func_1->evalScalar(xyzIn, input_comp, time), _func_2->evalScalar(xyzIn, input_comp, time));
+}
+
+xyz_type Pow::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const { 
+    return _func_2->evalScalar(xyzIn, input_comp, time)
+        *std::pow(_func_1->evalScalar(xyzIn, input_comp, time), _func_2->evalScalar(xyzIn, input_comp, time)-1)
+        *_func_1->evalScalarDerivative(xyzIn, input_comp, time);
+}
+
+std::vector<xyz_type> Pow::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const { 
+    // hessian of u^constant = constant(constant-1)(du/d1)(du/d2)
+    auto constant = _func_2->evalScalar(xyzIn, input_comp, time);
+    auto j1 = _func_1->evalScalarDerivative(xyzIn, input_comp, time);
+    auto h1 = _func_1->evalScalarHessian(xyzIn, input_comp, time);
+    auto result = std::vector<xyz_type>(h1.size());
+    for (int i=0; i<_dim; ++i) {
+        // i is first derivative direction
+        for (int j=0; j<_dim; ++j) {
+            result[i][j] = constant*(constant-1.0)*std::pow(_func_1->evalScalar(xyzIn, input_comp, time), constant-2.0)*j1[i]*j1[j] 
+                + constant*std::pow(_func_1->evalScalar(xyzIn, input_comp, time), constant-1.0)*h1[i][j];
+        }
+    }
+    return result;
 }
 
 // derivatives intentionally not specified
@@ -1003,6 +1028,10 @@ xyz_type ConstantEachDimension::evalScalarDerivative(const xyz_type& xyzIn, cons
 	return xyz_type(); // zero vector
 }
 
+std::vector<xyz_type> ConstantEachDimension::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
+    return std::vector<xyz_type>(_dim,xyz_type());
+}
+
 scalar_type ConstantEachDimension::evalScalarLaplacian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
 	return 0;
 }
@@ -1115,5 +1144,49 @@ scalar_type LinearInT::evalScalar(const xyz_type& xyzIn, const local_index_type 
     return time;
 }
 
+xyz_type LinearInT::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
+    return xyz_type();
+}
+
+std::vector<xyz_type> LinearInT::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
+    printf("T\n");
+    return std::vector<xyz_type>(_dim,xyz_type());
+}
+
+scalar_type LinearInX::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
+    return xyzIn.x;
+}
+
+xyz_type LinearInX::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const { 
+    return xyz_type(1,0,0);
+}
+
+std::vector<xyz_type> LinearInX::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
+    return std::vector<xyz_type>(_dim,xyz_type());
+}
+
+scalar_type LinearInY::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
+    return xyzIn.y;
+}
+
+xyz_type LinearInY::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const { 
+    return xyz_type(0,1,0);
+}
+
+std::vector<xyz_type> LinearInY::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
+    return std::vector<xyz_type>(_dim,xyz_type());
+}
+
+scalar_type LinearInZ::evalScalar(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
+    return xyzIn.z;
+}
+
+xyz_type LinearInZ::evalScalarDerivative(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const { 
+    return xyz_type(0,0,1);
+}
+
+std::vector<xyz_type> LinearInZ::evalScalarHessian(const xyz_type& xyzIn, const local_index_type input_comp, const scalar_type time) const {
+    return std::vector<xyz_type>(_dim,xyz_type());
+}
 
 }
