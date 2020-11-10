@@ -181,7 +181,7 @@ class PointCloudSearch {
         static inline int getEstimatedNumberNeighborsUpperBound(int unisolvency_size, const int dimension, const double epsilon_multiplier) {
             int multiplier = 1;
             if (dimension==1) multiplier = 2;
-            return multiplier * 2.0 * unisolvency_size * pow(epsilon_multiplier, dimension) + 1; // +1 is for the number of neighbors entry needed in the first entry of each row
+            return multiplier * 2.0 * unisolvency_size * std::pow(epsilon_multiplier, dimension) + 1; // +1 is for the number of neighbors entry needed in the first entry of each row
         }
     
         //! Bounding box query method required by Nanoflann.

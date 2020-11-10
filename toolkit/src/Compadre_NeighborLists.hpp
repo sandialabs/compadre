@@ -154,7 +154,7 @@ public:
         _cr_neighbor_lists(_row_offsets(target_index)+neighbor_num) = new_value;
         // indicate that host view is now out of sync with device
         // but only in debug mode (notice the next line is both setting the variable and checking it was set)
-        compadre_assert_debug(_needs_sync_to_host=true); 
+        compadre_assert_debug((_needs_sync_to_host=true)==true); 
     }
 
     //! Calculate the maximum number of neighbors of all targets' neighborhoods (host)
