@@ -16,9 +16,9 @@ namespace KokkosBatched {
   /// A(m x m), B(m x n)
 
 #if                                                     \
-  defined(__KOKKOSBATCHED_INTEL_MKL__) &&               \
-  defined(__KOKKOSBATCHED_INTEL_MKL_BATCHED__) &&       \
-  defined(__KOKKOSBATCHED_INTEL_MKL_COMPACT_BATCHED__)    
+  defined(__KOKKOSBATCHED_ENABLE_INTEL_MKL__) &&               \
+  defined(__KOKKOSBATCHED_ENABLE_INTEL_MKL_BATCHED__) &&       \
+  defined(__KOKKOSBATCHED_ENABLE_INTEL_MKL_COMPACT_BATCHED__)    
   template<typename ArgDiag>
   struct SerialTrsm<Side::Left,Uplo::Lower,Trans::NoTranspose,ArgDiag,Algo::Trsm::CompactMKL> {
     template<typename ScalarType,
@@ -33,8 +33,8 @@ namespace KokkosBatched {
       //typedef typename vector_type::value_type value_type;
         
       const int
-        m = B.dimension(0),
-        n = B.dimension(1);
+        m = B.extent(0),
+        n = B.extent(1);
 
       static_assert(is_vector<vector_type>::value, "value type is not vector type");      
       static_assert(vector_type::vector_length == 4 || vector_type::vector_length == 8, 
@@ -111,9 +111,9 @@ namespace KokkosBatched {
   /// B := (alpha*B) inv(triu(A))
   /// A(n x n), B(m x n)
 #if                                                     \
-  defined(__KOKKOSBATCHED_INTEL_MKL__) &&               \
-  defined(__KOKKOSBATCHED_INTEL_MKL_BATCHED__) &&       \
-  defined(__KOKKOSBATCHED_INTEL_MKL_COMPACT_BATCHED__)
+  defined(__KOKKOSBATCHED_ENABLE_INTEL_MKL__) &&               \
+  defined(__KOKKOSBATCHED_ENABLE_INTEL_MKL_BATCHED__) &&       \
+  defined(__KOKKOSBATCHED_ENABLE_INTEL_MKL_COMPACT_BATCHED__)
   template<typename ArgDiag>
   struct SerialTrsm<Side::Right,Uplo::Upper,Trans::NoTranspose,ArgDiag,Algo::Trsm::CompactMKL> {
     template<typename ScalarType,
@@ -128,8 +128,8 @@ namespace KokkosBatched {
       //typedef typename vector_type::value_type value_type;
         
       const int
-        m = B.dimension(0),
-        n = B.dimension(1);
+        m = B.extent(0),
+        n = B.extent(1);
 
       static_assert(is_vector<vector_type>::value, "value type is not vector type");      
       static_assert(vector_type::vector_length == 4 || vector_type::vector_length == 8, 
@@ -206,9 +206,9 @@ namespace KokkosBatched {
   /// B := inv(triu(A)) (alpha*B) 
   /// A(m x m), B(m x n)
 #if                                                     \
-  defined(__KOKKOSBATCHED_INTEL_MKL__) &&               \
-  defined(__KOKKOSBATCHED_INTEL_MKL_BATCHED__) &&       \
-  defined(__KOKKOSBATCHED_INTEL_MKL_COMPACT_BATCHED__)
+  defined(__KOKKOSBATCHED_ENABLE_INTEL_MKL__) &&               \
+  defined(__KOKKOSBATCHED_ENABLE_INTEL_MKL_BATCHED__) &&       \
+  defined(__KOKKOSBATCHED_ENABLE_INTEL_MKL_COMPACT_BATCHED__)
   template<typename ArgDiag>
   struct SerialTrsm<Side::Left,Uplo::Upper,Trans::NoTranspose,ArgDiag,Algo::Trsm::CompactMKL> {
     template<typename ScalarType,
@@ -223,8 +223,8 @@ namespace KokkosBatched {
       //typedef typename vector_type::value_type value_type;
         
       const int
-        m = B.dimension(0),
-        n = B.dimension(1);
+        m = B.extent(0),
+        n = B.extent(1);
 
       static_assert(is_vector<vector_type>::value, "value type is not vector type");      
       static_assert(vector_type::vector_length == 4 || vector_type::vector_length == 8, 
@@ -302,9 +302,9 @@ namespace KokkosBatched {
   /// A(m x m), B(m x n)
 
 #if                                                     \
-  defined(__KOKKOSBATCHED_INTEL_MKL__) &&               \
-  defined(__KOKKOSBATCHED_INTEL_MKL_BATCHED__) &&       \
-  defined(__KOKKOSBATCHED_INTEL_MKL_COMPACT_BATCHED__)    
+  defined(__KOKKOSBATCHED_ENABLE_INTEL_MKL__) &&               \
+  defined(__KOKKOSBATCHED_ENABLE_INTEL_MKL_BATCHED__) &&       \
+  defined(__KOKKOSBATCHED_ENABLE_INTEL_MKL_COMPACT_BATCHED__)    
   template<typename ArgDiag>
   struct SerialTrsm<Side::Left,Uplo::Lower,Trans::Transpose,ArgDiag,Algo::Trsm::CompactMKL> {
     template<typename ScalarType,
@@ -319,8 +319,8 @@ namespace KokkosBatched {
       //typedef typename vector_type::value_type value_type;
         
       const int
-        m = B.dimension(0),
-        n = B.dimension(1);
+        m = B.extent(0),
+        n = B.extent(1);
 
       static_assert(is_vector<vector_type>::value, "value type is not vector type");      
       static_assert(vector_type::vector_length == 4 || vector_type::vector_length == 8, 
@@ -396,9 +396,9 @@ namespace KokkosBatched {
   /// B := inv(triu(AT)) (alpha*B) 
   /// A(m x m), B(m x n)
 #if                                                     \
-  defined(__KOKKOSBATCHED_INTEL_MKL__) &&               \
-  defined(__KOKKOSBATCHED_INTEL_MKL_BATCHED__) &&       \
-  defined(__KOKKOSBATCHED_INTEL_MKL_COMPACT_BATCHED__)
+  defined(__KOKKOSBATCHED_ENABLE_INTEL_MKL__) &&               \
+  defined(__KOKKOSBATCHED_ENABLE_INTEL_MKL_BATCHED__) &&       \
+  defined(__KOKKOSBATCHED_ENABLE_INTEL_MKL_COMPACT_BATCHED__)
   template<typename ArgDiag>
   struct SerialTrsm<Side::Left,Uplo::Upper,Trans::Transpose,ArgDiag,Algo::Trsm::CompactMKL> {
     template<typename ScalarType,
@@ -413,8 +413,8 @@ namespace KokkosBatched {
       //typedef typename vector_type::value_type value_type;
         
       const int
-        m = B.dimension(0),
-        n = B.dimension(1);
+        m = B.extent(0),
+        n = B.extent(1);
 
       static_assert(is_vector<vector_type>::value, "value type is not vector type");      
       static_assert(vector_type::vector_length == 4 || vector_type::vector_length == 8, 
