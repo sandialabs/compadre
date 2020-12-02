@@ -136,15 +136,34 @@ printf("W, ws0, ws1: %d %d\n", ws0, ws1);
 	// T is matrix_rank x matrix_rank
 	// V is matrix_rank x n
 	// W = U^T B
+    //for (int i=0; i<m; ++i) {
+    //    for (int j=0; j<nrhs; ++j) {
+    //        W[i*ws0+j]=0.0;
+    //    }
+    //}
 	TeamVectorGemmInternal<Algo::Gemm::Unblocked>
 	  ::invoke(member,
-		   //matrix_rank, nrhs, m,
 		   matrix_rank, nrhs, m,
 		   one,
 		   U, us1, us0,
 		   B, bs0, bs1,
 		   zero,
 		   W, ws0, ws1);
+    //member.team_barrier();
+      if (do_print) {
+      printf("W=zeros(%d,%d);\n", m, nrhs);
+    for (int i=0; i<m; ++i) {
+        for (int j=0; j<nrhs; ++j) {
+            printf("W(%d,%d)= %f;\n", i+1,j+1,W[i*ws0+j]);
+        }
+    }
+      printf("B=zeros(%d,%d);\n", m, nrhs);
+    for (int i=0; i<m; ++i) {
+        for (int j=0; j<nrhs; ++j) {
+            printf("B(%d,%d)= %f;\n", i+1,j+1,B[i*bs0+j]);
+        }
+    }
+      }
 
 	/// W = T^{-1} W
 	TeamVectorTrsmInternalLeftLower<Algo::Trsm::Unblocked>
@@ -154,6 +173,15 @@ printf("W, ws0, ws1: %d %d\n", ws0, ws1);
 		   one,
 		   T, ts0, ts1,
 		   W, ws0, ws1);
+
+      if (do_print) {
+      printf("W=zeros(%d,%d);\n", m, nrhs);
+    for (int i=0; i<m; ++i) {
+        for (int j=0; j<nrhs; ++j) {
+            printf("W(%d,%d)= %f;\n", i+1,j+1,W[i*ws0+j]);
+        }
+    }
+      }
 	
 	/// X = V^T W
 	TeamVectorGemmInternal<Algo::Gemm::Unblocked>
@@ -164,6 +192,14 @@ printf("W, ws0, ws1: %d %d\n", ws0, ws1);
 		   W, ws0, ws1,
 		   zero,
 		   X, xs0, xs1);
+      if (do_print) {
+      printf("X=zeros(%d,%d);\n", n, nrhs);
+    for (int i=0; i<n; ++i) {
+        for (int j=0; j<nrhs; ++j) {
+            printf("X(%d,%d)= %f;\n", i+1,j+1,X[i*xs0+j]);
+        }
+    }
+      }
       } else {
           if (do_print) printf("ELSE\n");
 	/// W = U^T B
@@ -174,7 +210,7 @@ printf("W, ws0, ws1: %d %d\n", ws0, ws1);
 		   U, us1, us0,
 		   B, bs0, bs1,
 		   zero,
-		   X, ws0, ws1);
+		   X, xs0, xs1);
 
       if (do_print) {
     printf("m=zeros(%d,%d);\n", matrix_rank, nrhs);
@@ -213,11 +249,11 @@ printf("W, ws0, ws1: %d %d\n", ws0, ws1);
 		   one,
 		   T, ts0, ts1,
 		   X, xs0, xs1);		
-    for (int i=matrix_rank; i<n; ++i) {
-        for (int j=0; j<nrhs; ++j) {
-            X[i*ws0+j] = 0;
-        }
-    }
+    //for (int i=matrix_rank; i<n; ++i) {
+    //    for (int j=0; j<nrhs; ++j) {
+    //        X[i*ws0+j] = 0;
+    //    }
+    //}
       if (do_print) {
     printf("x=zeros(%d,%d);\n", n, nrhs);
     for (int i=0; i<n; ++i) {
@@ -245,12 +281,12 @@ printf("W, ws0, ws1: %d %d\n", ws0, ws1);
 	//	   W, ws0, ws1,
 	//	   zero,
 	//	   X, xs0, xs1);
-      }
+    }
       
       ///// X = P^T X
       TeamVectorApplyPivotMatrixBackwardInternal
       	::invoke(member,
-      		 nrhs, n,
+      		 nrhs, matrix_rank,
       		 p, ps0,
       		 X, xs0, xs1);
       if (do_print) printf("done!\n");
