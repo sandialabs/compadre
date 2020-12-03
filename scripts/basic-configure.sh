@@ -20,6 +20,7 @@ INSTALL_PREFIX="./install"
 
 cmake \
     -D CMAKE_CXX_COMPILER="$MY_CXX_COMPILER" \
+    -D CMAKE_CXX_FLAGS=" -O3 " \
     -D CMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
     -D Compadre_USE_PYTHON:BOOL=OFF \
     \
