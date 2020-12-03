@@ -82,14 +82,14 @@ namespace GMLS_LinearAlgebra {
       if (do_print) {
         Kokkos::single(Kokkos::PerTeam(member), [&] () {
           //print a
-          printf("a=zeros(%d,%d);\n", aa.extent(0), aa.extent(1));
+          printf("a=zeros(%lu,%lu);\n", aa.extent(0), aa.extent(1));
               for (int j=0; j<aa.extent(0); ++j) {
                   for (int k=0; k<aa.extent(1); ++k) {
                       printf("a(%d,%d)= %f;\n", j+1,k+1, aa(j,k));
                   }
               }
           //print b
-          printf("b=zeros(%d,%d);\n", bb.extent(0), bb.extent(1));
+          printf("b=zeros(%lu,%lu);\n", bb.extent(0), bb.extent(1));
               for (int j=0; j<bb.extent(0); ++j) {
                   for (int k=0; k<bb.extent(1); ++k) {
                       printf("b(%d,%d)= %f;\n", j+1,k+1, bb(j,k));
@@ -121,7 +121,7 @@ namespace GMLS_LinearAlgebra {
         Kokkos::single(Kokkos::PerTeam(member), [&] () {
         printf("matrix_rank: %d\n", matrix_rank);
         //print u
-        printf("u=zeros(%d,%d);\n", uu.extent(0), uu.extent(1));
+        printf("u=zeros(%lu,%lu);\n", uu.extent(0), uu.extent(1));
         for (int j=0; j<uu.extent(0); ++j) {
             for (int k=0; k<uu.extent(1); ++k) {
                 printf("u(%d,%d)= %f;\n", j+1,k+1, uu(j,k));
