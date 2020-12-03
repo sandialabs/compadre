@@ -74,11 +74,11 @@ namespace KokkosBatched {
     }
       printf("t=zeros(%d);\n", m);
     for (int i=0; i<m; ++i) {
-        printf("t(%d)= %d;\n", i+1,t[i]);
+        printf("t(%d)= %f;\n", i+1,t[i]);
     }
       printf("w=zeros(%d);\n", m);
     for (int i=0; i<m; ++i) {
-        printf("w(%d)= %d;\n", i+1,w[i]);
+        printf("w(%d)= %f;\n", i+1,w[i]);
     }
     printf("m(%d), n(%d), matrix_rank(%d)\n", m, n, matrix_rank);
         });
