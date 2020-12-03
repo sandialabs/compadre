@@ -45,13 +45,13 @@ namespace GMLS_LinearAlgebra {
       scratch_vector_type ww_fast(member.team_scratch(_pm_getTeamScratchLevel_0), 3*_M);
       scratch_vector_type ww_slow(member.team_scratch(_pm_getTeamScratchLevel_1), _N*_NRHS);
 
-      auto aaa = scratch_matrix_right_type(_a.data() + TO_GLOBAL(k)*TO_GLOBAL(_a.extent(1))*TO_GLOBAL(_a.extent(2)), _a.extent(1), _a.extent(2));
-      scratch_matrix_right_type aa(member.team_scratch(_pm_getTeamScratchLevel_1), _M, _N);
-      Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_M),[&](const int &i) {
-        Kokkos::parallel_for(Kokkos::ThreadVectorRange(member,0,_N),[&](const int &j) {
-            aa(i,j) = aaa(i,j);
-        });
-      });
+      auto aa = scratch_matrix_right_type(_a.data() + TO_GLOBAL(k)*TO_GLOBAL(_a.extent(1))*TO_GLOBAL(_a.extent(2)), _a.extent(1), _a.extent(2));
+      //scratch_matrix_right_type aa(member.team_scratch(_pm_getTeamScratchLevel_1), _M, _N);
+      //Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_M),[&](const int &i) {
+      //  Kokkos::parallel_for(Kokkos::ThreadVectorRange(member,0,_N),[&](const int &j) {
+      //      aa(i,j) = aaa(i,j);
+      //  });
+      //});
 
       //auto bbb_right = scratch_matrix_right_type(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), _b.extent(1), _b.extent(2));
       //double* b_data = _b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2));
@@ -74,6 +74,26 @@ namespace GMLS_LinearAlgebra {
       //        _N, _NRHS);
 
       //double* bb_data = bb.data();
+
+      // if sizes don't match extents, then copy to a view with extents matching sizes
+      if (_M!=_a.extent(1) || _N!=_a.extent(2)) {
+        scratch_matrix_right_type tmp(ww_slow.data(), _M, _N);
+        auto aaa = scratch_matrix_right_type(_a.data() + TO_GLOBAL(k)*TO_GLOBAL(_a.extent(1))*TO_GLOBAL(_a.extent(2)), _M, _N);
+        // copy A to W, then back to A
+        Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_M),[&](const int &i) {
+          Kokkos::parallel_for(Kokkos::ThreadVectorRange(member,0,_N),[&](const int &j) {
+              tmp(i,j) = aa(i,j);
+          });
+        });
+        member.team_barrier();
+        Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_M),[&](const int &i) {
+          Kokkos::parallel_for(Kokkos::ThreadVectorRange(member,0,_N),[&](const int &j) {
+              aaa(i,j) = tmp(i,j);
+          });
+        });
+        member.team_barrier();
+        aa = aaa;
+      }
 
       if (_M==_N) {
         scratch_matrix_right_type tmp(ww_slow.data(), _N, _NRHS);
@@ -185,7 +205,7 @@ namespace GMLS_LinearAlgebra {
       
       int scratch_size = scratch_matrix_right_type::shmem_size(_N, _N); // V
       scratch_size += scratch_matrix_right_type::shmem_size(_M, _N /* only N columns of U are filled, maximum */); // U
-      scratch_size += scratch_matrix_right_type::shmem_size(_M,_N); // A (temporary)
+      //scratch_size += scratch_matrix_right_type::shmem_size(_M,_N); // A (temporary)
       //if (_M==_N) {
       //  scratch_size += scratch_matrix_right_type::shmem_size(_N /* will hold solution */,_NRHS); // B (temporary)
       //}
