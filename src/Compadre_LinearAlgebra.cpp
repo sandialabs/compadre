@@ -205,6 +205,8 @@ namespace GMLS_LinearAlgebra {
       
       int scratch_size = scratch_matrix_right_type::shmem_size(_N, _N); // V
       scratch_size += scratch_matrix_right_type::shmem_size(_M, _N /* only N columns of U are filled, maximum */); // U
+      scratch_size += scratch_vector_type::shmem_size(_N*_NRHS); // W (for SolveUTV)
+
       //scratch_size += scratch_matrix_right_type::shmem_size(_M,_N); // A (temporary)
       //if (_M==_N) {
       //  scratch_size += scratch_matrix_right_type::shmem_size(_N /* will hold solution */,_NRHS); // B (temporary)
@@ -213,9 +215,6 @@ namespace GMLS_LinearAlgebra {
 
       int l0_scratch_size = scratch_vector_type::shmem_size(_N); // P (temporary)
       l0_scratch_size += scratch_vector_type::shmem_size(3*_M); // W (for UTV)
-      if (3*_M < _N*_NRHS) {
-        scratch_size += scratch_vector_type::shmem_size(_N*_NRHS); // W (for SolveUTV)
-      }
 
       pm.clearScratchSizes();
       pm.setTeamScratchSize(0, l0_scratch_size);
