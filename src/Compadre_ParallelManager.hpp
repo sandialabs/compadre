@@ -6,7 +6,6 @@
 
 namespace Compadre {
 
-
 //!  Parallel Manager
 /*!
 *  This class sets and manages thread / teams levels, scratch memory sizes, and kernel executions.
@@ -254,6 +253,47 @@ public:
         }
     }
 
+    template<typename Tag, class C>
+    void CallFunctorSingleSerial(C functor, std::string functor_name = typeid(C).name()) const {
+#ifdef KOKKOS_ENABLE_SERIAL
+        if ( (_scratch_team_level_a != _scratch_team_level_b) && (_scratch_thread_level_a != _scratch_thread_level_b) ) {
+                // all levels of each type need specified separately
+                Kokkos::parallel_for(
+                    Kokkos::TeamPolicy<Kokkos::Serial,Tag>(1, 1, 1)
+                    .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(_team_scratch_size_a))
+                    .set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(_team_scratch_size_b))
+                    .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(_thread_scratch_size_a))
+                    .set_scratch_size(_scratch_thread_level_b, Kokkos::PerThread(_thread_scratch_size_b)),
+                    functor, typeid(Tag).name());
+        } else if (_scratch_team_level_a != _scratch_team_level_b) {
+            // scratch thread levels are the same
+            Kokkos::parallel_for(
+                Kokkos::TeamPolicy<Kokkos::Serial,Tag>(1, 1, 1)
+                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(_team_scratch_size_a))
+                .set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(_team_scratch_size_b))
+                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(_thread_scratch_size_a + _thread_scratch_size_b)),
+                functor, typeid(Tag).name());
+        } else if (_scratch_thread_level_a != _scratch_thread_level_b) {
+            // scratch team levels are the same
+            Kokkos::parallel_for(
+                Kokkos::TeamPolicy<Kokkos::Serial,Tag>(1, 1, 1)
+                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(_team_scratch_size_a + _team_scratch_size_b))
+                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(_thread_scratch_size_a))
+                .set_scratch_size(_scratch_thread_level_b, Kokkos::PerThread(_thread_scratch_size_b)),
+                functor, typeid(Tag).name());
+        } else {
+            // scratch team levels and thread levels are the same
+            Kokkos::parallel_for(
+                Kokkos::TeamPolicy<Kokkos::Serial,Tag>(1, 1, 1)
+                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(_team_scratch_size_a + _team_scratch_size_b))
+                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(_thread_scratch_size_a + _thread_scratch_size_b)),
+                functor, typeid(Tag).name());
+        }
+#else
+        compadre_assert_release(false && "CallFunctorSingleSerial called without Kokkos built with Kokkos_ENABLE_SERIAL.\n");
+#endif
+    }
+
     //! Calls a parallel_for
     //! parallel_for will break out over loops over teams with each vector lane executing code be default
     template<class C>
@@ -395,6 +435,47 @@ public:
                     functor, functor_name);
             }
         }
+    }
+
+    template<class C>
+    void CallFunctorSingleSerial(C functor, std::string functor_name = typeid(C).name()) const {
+#ifdef KOKKOS_ENABLE_SERIAL
+        if ( (_scratch_team_level_a != _scratch_team_level_b) && (_scratch_thread_level_a != _scratch_thread_level_b) ) {
+            // all levels of each type need specified separately
+            Kokkos::parallel_for(
+                Kokkos::TeamPolicy<Kokkos::Serial>(1, 1, 1)
+                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(_team_scratch_size_a))
+                .set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(_team_scratch_size_b))
+                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(_thread_scratch_size_a))
+                .set_scratch_size(_scratch_thread_level_b, Kokkos::PerThread(_thread_scratch_size_b)),
+                functor, functor_name);
+        } else if (_scratch_team_level_a != _scratch_team_level_b) {
+            // scratch thread levels are the same
+            Kokkos::parallel_for(
+                Kokkos::TeamPolicy<Kokkos::Serial>(1, 1, 1)
+                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(_team_scratch_size_a))
+                .set_scratch_size(_scratch_team_level_b, Kokkos::PerTeam(_team_scratch_size_b))
+                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(_thread_scratch_size_a + _thread_scratch_size_b)),
+                functor, functor_name);
+        } else if (_scratch_thread_level_a != _scratch_thread_level_b) {
+            // scratch team levels are the same
+            Kokkos::parallel_for(
+                Kokkos::TeamPolicy<Kokkos::Serial>(1, 1, 1)
+                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(_team_scratch_size_a + _team_scratch_size_b))
+                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(_thread_scratch_size_a))
+                .set_scratch_size(_scratch_thread_level_b, Kokkos::PerThread(_thread_scratch_size_b)),
+                functor, functor_name);
+        } else {
+            // scratch team levels and thread levels are the same
+            Kokkos::parallel_for(
+                Kokkos::TeamPolicy<Kokkos::Serial>(1, 1, 1)
+                .set_scratch_size(_scratch_team_level_a, Kokkos::PerTeam(_team_scratch_size_a + _team_scratch_size_b))
+                .set_scratch_size(_scratch_thread_level_a, Kokkos::PerThread(_thread_scratch_size_a + _thread_scratch_size_b)),
+                functor, functor_name);
+        }
+#else
+        compadre_assert_release(false && "CallFunctorSingleSerial called without Kokkos built with Kokkos_ENABLE_SERIAL.\n");
+#endif
     }
 
     //! Calls a parallel_for
