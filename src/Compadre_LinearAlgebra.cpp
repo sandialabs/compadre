@@ -74,8 +74,11 @@ namespace GMLS_LinearAlgebra {
 
       int max_ww_size = (3*_M > _N*_NRHS) ? 3*_M : _N*_NRHS;
       int scratchLevelToUse = (3*_M > _N*_NRHS) ? _pm_getTeamScratchLevel_0 : _pm_getTeamScratchLevel_1;
-      scratch_vector_type ww(member.team_scratch(scratchLevelToUse), max_ww_size);
-
+      scratch_vector_type ww_a(member.team_scratch(_pm_getTeamScratchLevel_0), 3*_M);
+      scratch_vector_type ww_b;
+      if (_N*_NRHS > 3*_M) {
+        ww_b = scratch_vector_type(member.team_scratch(_pm_getTeamScratchLevel_1), _N*_NRHS);
+      }
       scratch_local_index_type pp(member.team_scratch(_pm_getTeamScratchLevel_0), _N);
 
       bool do_print = false;
@@ -107,7 +110,7 @@ namespace GMLS_LinearAlgebra {
       int matrix_rank(0);
       member.team_barrier();
       TeamVectorUTV<MemberType,AlgoTagType>
-        ::invoke(member, aa, pp, uu, vv, ww, matrix_rank);
+        ::invoke(member, aa, pp, uu, vv, ww_a, matrix_rank);
       member.team_barrier();
 
       Kokkos::parallel_for(Kokkos::TeamThreadRange(member,matrix_rank,_N),[&](const int &i) {
@@ -129,8 +132,13 @@ namespace GMLS_LinearAlgebra {
         }
         });
       }
-      TeamVectorSolveUTVCompadre<MemberType,AlgoTagType>
-        ::invoke(member, matrix_rank, uu, aa, vv, pp, xx, bb, ww);
+      if (_N*_NRHS > 3*_M) {
+        TeamVectorSolveUTVCompadre<MemberType,AlgoTagType>
+          ::invoke(member, matrix_rank, uu, aa, vv, pp, xx, bb, ww_b);
+      } else {
+        TeamVectorSolveUTVCompadre<MemberType,AlgoTagType>
+          ::invoke(member, matrix_rank, uu, aa, vv, pp, xx, bb, ww_a);
+      }
       member.team_barrier();
 
       Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_N),[&](const int &i) {
@@ -163,15 +171,14 @@ namespace GMLS_LinearAlgebra {
       scratch_size += scratch_matrix_right_type::shmem_size(_N,_NRHS); // X (temporary)
 
       int l0_scratch_size = scratch_vector_type::shmem_size(_N); // P (temporary)
-      if (3*_M > _N*_NRHS) {
-        l0_scratch_size += scratch_vector_type::shmem_size(std::max(3*_M, _N*_NRHS)); // W
-      } else {
-        scratch_size += scratch_vector_type::shmem_size(std::max(3*_M, _N*_NRHS)); // W
+      l0_scratch_size += scratch_vector_type::shmem_size(3*_M); // W (for UTV)
+      if (3*_M < _N*_NRHS) {
+        scratch_size += scratch_vector_type::shmem_size(_N*_NRHS); // W (for SolveUTV)
       }
 
       pm.clearScratchSizes();
-      pm.setTeamScratchSize(1, scratch_size);
       pm.setTeamScratchSize(0, l0_scratch_size);
+      pm.setTeamScratchSize(1, scratch_size);
 
       pm.CallFunctorWithTeamThreadsAndVectors(*this, _a.extent(0));
       Kokkos::fence();
