@@ -41,6 +41,10 @@ namespace GMLS_LinearAlgebra {
 
       const int k = member.league_rank();
 
+      // workspace vectors
+      scratch_vector_type ww_fast(member.team_scratch(_pm_getTeamScratchLevel_0), 3*_M);
+      scratch_vector_type ww_slow(member.team_scratch(_pm_getTeamScratchLevel_1), _N*_NRHS);
+
       auto aaa = scratch_matrix_right_type(_a.data() + TO_GLOBAL(k)*TO_GLOBAL(_a.extent(1))*TO_GLOBAL(_a.extent(2)), _a.extent(1), _a.extent(2));
       scratch_matrix_right_type aa(member.team_scratch(_pm_getTeamScratchLevel_1), _M, _N);
       Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_M),[&](const int &i) {
@@ -49,31 +53,56 @@ namespace GMLS_LinearAlgebra {
         });
       });
 
-      auto bbb_right = scratch_matrix_right_type(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), _b.extent(1), _b.extent(2));
-      double* b_data = _b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2));
-      auto bbb_left = scratch_matrix_left_type(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), _b.extent(1), _b.extent(2));
-      scratch_matrix_right_type bb(member.team_scratch(_pm_getTeamScratchLevel_1), _N, _NRHS);
-      double* bb_data = bb.data();
+      //auto bbb_right = scratch_matrix_right_type(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), _b.extent(1), _b.extent(2));
+      //double* b_data = _b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2));
+      //scratch_matrix_right_type bb = (_M==_N) ? 
+      //    scratch_matrix_right_type(member.team_scratch(_pm_getTeamScratchLevel_1), _N, _NRHS)
+      //    : scratch_matrix_right_type(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
+      //            _b.extent(1), _b.extent(2));
+      //    : scratch_matrix_right_type(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
 
-      if (std::is_same<typename decltype(_b)::array_layout, layout_left>::value) {
+
+      // for QR&SVD style, b just holds first m entries, so extents are irrelevant.
+      // for LU style, b is n x nrhs in size, but data has extents (_N, _NRHS) while final solution in b
+      // is expecting extents (_b.extent(1) x _b.extent(2))
+      //scratch_matrix_right_type bb_small(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
+      //        _N, _NRHS);
+      scratch_matrix_right_type bb(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
+              _b.extent(1), _b.extent(2));
+
+      //scratch_matrix_right_type bb_out(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
+      //        _N, _NRHS);
+
+      //double* bb_data = bb.data();
+
+      if (_M==_N) {
+        scratch_matrix_right_type tmp(ww_slow.data(), _N, _NRHS);
         // coming from LU
+        // then copy B to W, then back to B
+        auto bb_left = 
+            scratch_matrix_left_type(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
+                    _b.extent(1), _b.extent(2));
         Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_N),[&](const int &i) {
           Kokkos::parallel_for(Kokkos::ThreadVectorRange(member,0,_NRHS),[&](const int &j) {
-              bb(i,j) = bbb_left(i,j);
+              tmp(i,j) = bb_left(i,j);
           });
         });
-      } else {
-        Kokkos::parallel_for(Kokkos::TeamVectorRange(member,0,_M),[&](const int &i) {
-          bb_data[i] = b_data[i];
+        member.team_barrier();
+        Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_N),[&](const int &i) {
+          Kokkos::parallel_for(Kokkos::ThreadVectorRange(member,0,_NRHS),[&](const int &j) {
+              bb(i,j) = tmp(i,j);
+          });
         });
-      }
+      } //else {
+      //  Kokkos::parallel_for(Kokkos::TeamVectorRange(member,0,_M),[&](const int &i) {
+      //    bb_data[i] = b_data[i];
+      //  });
+      //}
 
       scratch_matrix_right_type uu(member.team_scratch(_pm_getTeamScratchLevel_1), _M, _N /* only N columns of U are filled, maximum */);
       scratch_matrix_right_type vv(member.team_scratch(_pm_getTeamScratchLevel_1), _N, _N);
       //scratch_matrix_right_type xx(member.team_scratch(_pm_getTeamScratchLevel_1), _N, _NRHS);
 
-      scratch_vector_type ww_a(member.team_scratch(_pm_getTeamScratchLevel_0), 3*_M);
-      scratch_vector_type ww_b(member.team_scratch(_pm_getTeamScratchLevel_1), _N*_NRHS);
       scratch_local_index_type pp(member.team_scratch(_pm_getTeamScratchLevel_0), _N);
 
       bool do_print = false;
@@ -105,7 +134,7 @@ namespace GMLS_LinearAlgebra {
       int matrix_rank(0);
       member.team_barrier();
       TeamVectorUTV<MemberType,AlgoTagType>
-        ::invoke(member, aa, pp, uu, vv, ww_a, matrix_rank);
+        ::invoke(member, aa, pp, uu, vv, ww_fast, matrix_rank);
       member.team_barrier();
 
       //Kokkos::parallel_for(Kokkos::TeamThreadRange(member,matrix_rank,_N),[&](const int &i) {
@@ -128,15 +157,15 @@ namespace GMLS_LinearAlgebra {
         });
       }
       TeamVectorSolveUTVCompadre<MemberType,AlgoTagType>
-        ::invoke(member, matrix_rank, uu, aa, vv, pp, bb, bb, ww_b, ww_a);
+        ::invoke(member, matrix_rank, _M, _N, _NRHS, uu, aa, vv, pp, bb, bb, ww_slow, ww_fast);
       member.team_barrier();
 
-      Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_N),[&](const int &i) {
-        Kokkos::parallel_for(Kokkos::ThreadVectorRange(member,0,_NRHS),[&](const int &j) {
-            bbb_right(i,j) = bb(i,j);
-        });
-      });
-      member.team_barrier();
+      //Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_N),[&](const int &i) {
+      //  Kokkos::parallel_for(Kokkos::ThreadVectorRange(member,0,_NRHS),[&](const int &j) {
+      //      bbb_right(i,j) = bb(i,j);
+      //  });
+      //});
+      //member.team_barrier();
 
     }
 
@@ -157,7 +186,9 @@ namespace GMLS_LinearAlgebra {
       int scratch_size = scratch_matrix_right_type::shmem_size(_N, _N); // V
       scratch_size += scratch_matrix_right_type::shmem_size(_M, _N /* only N columns of U are filled, maximum */); // U
       scratch_size += scratch_matrix_right_type::shmem_size(_M,_N); // A (temporary)
-      scratch_size += scratch_matrix_right_type::shmem_size(_N /* will hold solution */,_NRHS); // B (temporary)
+      //if (_M==_N) {
+      //  scratch_size += scratch_matrix_right_type::shmem_size(_N /* will hold solution */,_NRHS); // B (temporary)
+      //}
       //scratch_size += scratch_matrix_right_type::shmem_size(_N,_NRHS); // X (temporary)
 
       int l0_scratch_size = scratch_vector_type::shmem_size(_N); // P (temporary)
@@ -181,7 +212,7 @@ namespace GMLS_LinearAlgebra {
 
 void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
 
-    //printf("lda: %d, nda %d, ldb %d, ndb %d, M %d, N %d, NRHS %d\n", lda, nda, ldb, ndb, M, N, NRHS);
+    printf("lda: %d, nda %d, ldb %d, ndb %d, M %d, N %d, NRHS %d\n", lda, nda, ldb, ndb, M, N, NRHS);
     typedef Algo::UTV::Unblocked algo_tag_type;
     typedef Kokkos::View<double***, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
                     MatrixViewType;
@@ -202,7 +233,7 @@ void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *R
 
 void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int lda, int nda, bool swap_layout_RHS, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
 
-    //printf("lda: %d, nda %d, ldb %d, ndb %d, M %d, N %d, NRHS %d\n", lda, nda, ldb, ndb, M, N, NRHS);
+    printf("lda: %d, nda %d, ldb %d, ndb %d, M %d, N %d, NRHS %d\n", lda, nda, ldb, ndb, M, N, NRHS);
     typedef Algo::UTV::Unblocked algo_tag_type;
     typedef Kokkos::View<double***, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
                     MatrixViewType;
@@ -231,7 +262,7 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
 
 void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
 
-    //printf("lda: %d, nda %d, ldb %d, ndb %d, M %d, N %d, NRHS %d\n", lda, nda, ldb, ndb, M, N, NRHS);
+    printf("lda: %d, nda %d, ldb %d, ndb %d, M %d, N %d, NRHS %d\n", lda, nda, ldb, ndb, M, N, NRHS);
     typedef Algo::UTV::Unblocked algo_tag_type;
     typedef Kokkos::View<double***, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
                     MatrixViewType;

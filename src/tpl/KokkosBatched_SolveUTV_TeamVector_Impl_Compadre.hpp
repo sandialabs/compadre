@@ -22,6 +22,9 @@ namespace KokkosBatched {
         static int
         invoke(const MemberType &member, 
              const int matrix_rank,
+             const int m,
+             const int n,
+             const int nrhs,
                  const UViewType &U,
              const TViewType &T,
              const VViewType &V,
@@ -32,8 +35,7 @@ namespace KokkosBatched {
                  const wViewType &w_b) {
               TeamVectorSolveUTV_Internal_Compadre::
                 invoke(member,
-                   matrix_rank, 
-                   T.extent(0), V.extent(0), B.extent(1),
+                   matrix_rank, m, n, nrhs,
                    U.data(), U.stride(0), U.stride(1),
                    T.data(), T.stride(0), T.stride(1),
                    V.data(), V.stride(0), V.stride(1),

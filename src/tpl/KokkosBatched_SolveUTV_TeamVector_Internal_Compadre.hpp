@@ -49,7 +49,7 @@ namespace KokkosBatched {
         value_type * W = w; /// m x nrhs
         value_type * WQ = wq; /// 3m
         //const int ws0 = xs0 < xs1 ? 1 : nrhs, ws1 = xs0 < xs1 ? m : 1;
-        const int ws0 = bs0, ws1=bs1;//xs0 < xs1 ? 1 : nrhs, ws1 = xs0 < xs1 ? m : 1;
+        const int ws0 = nrhs, ws1=1;//xs0 < xs1 ? 1 : nrhs, ws1 = xs0 < xs1 ? m : 1;
     
         bool do_print = false;
         if (do_print) {
