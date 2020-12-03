@@ -40,14 +40,16 @@ namespace KokkosBatched {
            const IntType   * p, const int ps0,
            /* */ ValueType * X, const int xs0, const int xs1,
            /* */ ValueType * B, const int bs0, const int bs1,
-           /* */ ValueType * w) {
+           /* */ ValueType * w, ValueType * wq) {
     
         typedef ValueType value_type;
     
         const value_type one(1), zero(0);
     
         value_type * W = w; /// m x nrhs
-        const int ws0 = xs0 < xs1 ? 1 : nrhs, ws1 = xs0 < xs1 ? m : 1;
+        value_type * WQ = wq; /// 3m
+        //const int ws0 = xs0 < xs1 ? 1 : nrhs, ws1 = xs0 < xs1 ? m : 1;
+        const int ws0 = bs0, ws1=bs1;//xs0 < xs1 ? 1 : nrhs, ws1 = xs0 < xs1 ? m : 1;
     
         bool do_print = false;
         if (do_print) {
@@ -142,7 +144,7 @@ namespace KokkosBatched {
                    V, vs1, vs0,
                    W, ws0, ws1,
                    zero,
-                   X, xs0, xs1);
+                   B, bs0, bs1);
             member.team_barrier();
     
             if (do_print) {
@@ -165,16 +167,39 @@ namespace KokkosBatched {
                        U, us1, us0,
                        B, bs0, bs1,
                        zero,
-                       X, xs0, xs1);
-            } else {
+                       W, ws0, ws1);
+                member.team_barrier();
+                // copy W to B
                 Kokkos::parallel_for
                 (Kokkos::ThreadVectorRange(member,nrhs),
                  [&](const int &j) {
                   Kokkos::parallel_for
                     (Kokkos::TeamThreadRange(member,matrix_rank),
                       [&](const int &i) {                                   
-                        X[i*xs0+j*xs1] = U[j*us0+i*us1] * B[j];
+                        B[i*bs0+j*bs1] = W[i*ws0+j*ws1];
                   });
+               });
+            } else {
+                Kokkos::parallel_for
+                (Kokkos::TeamVectorRange(member,nrhs),
+                 [&](const int &i) {
+                    WQ[i] = B[i];    
+                });
+                member.team_barrier();
+
+                Kokkos::parallel_for
+                (Kokkos::ThreadVectorRange(member,nrhs),
+                 [&](const int &j) {
+                  Kokkos::parallel_for
+                    (Kokkos::TeamThreadRange(member,matrix_rank),
+                      [&](const int &i) {                                   
+                        B[i*bs0+j*bs1] = U[j*us0+i*us1] * WQ[j];
+                  });
+                  //Kokkos::parallel_for
+                  //  (Kokkos::TeamThreadRange(member,matrix_rank,n),
+                  //    [&](const int &i) {                                   
+                  //      B[i*bs0+j*bs1] = 0;
+                  //});
                });
             }
             member.team_barrier();
@@ -208,7 +233,7 @@ namespace KokkosBatched {
                    matrix_rank, nrhs,
                    one,
                    T, ts0, ts1,
-                   X, xs0, xs1);        
+                   B, bs0, bs1);        
             member.team_barrier();
     
             if (do_print) {
@@ -228,7 +253,7 @@ namespace KokkosBatched {
             ::invoke(member,
                  nrhs, matrix_rank,
                  p, ps0,
-                 X, xs0, xs1);
+                 B, bs0, bs1);
         if (do_print) {
             Kokkos::single(Kokkos::PerTeam(member), [&] () {
                 printf("X=zeros(%d,%d);\n", n, nrhs);

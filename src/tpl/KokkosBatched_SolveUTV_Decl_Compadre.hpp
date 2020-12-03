@@ -47,7 +47,8 @@ namespace KokkosBatched {
        const pViewType &p,
        const XViewType &X,
        const BViewType &B,
-           const wViewType &w);
+       const wViewType &w_a,
+           const wViewType &w_b);
   };
 
 }

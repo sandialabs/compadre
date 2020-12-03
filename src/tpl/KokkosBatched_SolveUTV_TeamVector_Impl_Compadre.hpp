@@ -28,7 +28,8 @@ namespace KokkosBatched {
              const pViewType &p,
              const XViewType &X,
              const BViewType &B,
-                 const wViewType &w) {
+             const wViewType &w_a,
+                 const wViewType &w_b) {
               TeamVectorSolveUTV_Internal_Compadre::
                 invoke(member,
                    matrix_rank, 
@@ -39,7 +40,7 @@ namespace KokkosBatched {
                    p.data(), p.stride(0),
                    X.data(), X.stride(0), X.stride(1),
                    B.data(), B.stride(0), B.stride(1),
-                   w.data());
+                   w_a.data(), w_b.data());
                 return 0;
         }
     };
