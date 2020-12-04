@@ -139,7 +139,7 @@ namespace GMLS_LinearAlgebra {
         });
       }
       TeamVectorSolveUTVCompadre<MemberType,AlgoTagType>
-        ::invoke(member, matrix_rank, _M, _N, _NRHS, uu, aa, vv, pp, bb, bb, ww_slow, ww_fast);
+        ::invoke(member, matrix_rank, _M, _N, _NRHS, uu, aa, vv, pp, bb, ww_slow, ww_fast);
       member.team_barrier();
 
     }

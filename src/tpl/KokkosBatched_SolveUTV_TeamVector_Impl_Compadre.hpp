@@ -15,7 +15,6 @@ namespace KokkosBatched {
              typename TViewType,
              typename VViewType,
              typename pViewType,
-             typename XViewType,
              typename BViewType,
                  typename wViewType>
         KOKKOS_INLINE_FUNCTION
@@ -29,7 +28,6 @@ namespace KokkosBatched {
              const TViewType &T,
              const VViewType &V,
              const pViewType &p,
-             const XViewType &X,
              const BViewType &B,
              const wViewType &w_a,
                  const wViewType &w_b) {
@@ -40,7 +38,6 @@ namespace KokkosBatched {
                    T.data(), T.stride(0), T.stride(1),
                    V.data(), V.stride(0), V.stride(1),
                    p.data(), p.stride(0),
-                   X.data(), X.stride(0), X.stride(1),
                    B.data(), B.stride(0), B.stride(1),
                    w_a.data(), w_b.data());
                 return 0;

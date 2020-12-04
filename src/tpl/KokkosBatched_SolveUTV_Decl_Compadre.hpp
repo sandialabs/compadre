@@ -34,7 +34,6 @@ namespace KokkosBatched {
          typename TViewType,
          typename VViewType,
          typename pViewType,
-         typename XViewType,
          typename BViewType,
              typename wViewType>
     KOKKOS_INLINE_FUNCTION
@@ -45,7 +44,6 @@ namespace KokkosBatched {
        const TViewType &T,
        const VViewType &V,
        const pViewType &p,
-       const XViewType &X,
        const BViewType &B,
        const wViewType &w_a,
            const wViewType &w_b);

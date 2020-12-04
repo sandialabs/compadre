@@ -38,7 +38,6 @@ namespace KokkosBatched {
            const ValueType * T, const int ts0, const int ts1,
            const ValueType * V, const int vs0, const int vs1,
            const IntType   * p, const int ps0,
-           /* */ ValueType * X, const int xs0, const int xs1,
            /* */ ValueType * B, const int bs0, const int bs1,
            /* */ ValueType * w, ValueType * wq) {
     
@@ -46,6 +45,8 @@ namespace KokkosBatched {
     
         const value_type one(1), zero(0);
     
+        value_type * X = B;
+        const int xs0 = bs0, xs1 = bs1;
         value_type * W = w; /// m x nrhs
         value_type * WQ = wq; /// 3m
         const int ws0 = nrhs, ws1=1; // only works with w layout right
@@ -57,7 +58,6 @@ namespace KokkosBatched {
                 printf("U, us1, us0: %d %d\n", us1, us0);
                 printf("T, ts0, ts1: %d %d\n", ts0, ts1);
                 printf("B, bs0, bs1: %d %d\n", bs0, bs1);
-                printf("X, xs0, xs1: %d %d\n", xs0, xs1);
                 printf("W, ws0, ws1: %d %d\n", ws0, ws1);
                 printf("B=zeros(%d,%d);\n", m, nrhs);
                 for (int i=0; i<m; ++i) {
