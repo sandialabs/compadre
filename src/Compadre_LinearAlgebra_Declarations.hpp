@@ -33,10 +33,8 @@ namespace GMLS_LinearAlgebra {
         \param M                    [in] - number of rows containing data (maximum rows over everything in batch)
         \param N                    [in] - number of columns containing data
         \param num_matrices         [in] - number of target (GMLS problems to be solved)
-        \param max_neighbors        [in] - integer for maximum neighbor over all targets
-        \param neighbor_list_sizes  [in] - pointer to all neighbor list sizes for each target
     */
-    void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors = 0, const int initial_index_of_batch = 0, int * neighbor_list_sizes = NULL);
+    void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices);
 
     /*! \brief Solves a batch of SVD problems
 
@@ -44,21 +42,17 @@ namespace GMLS_LinearAlgebra {
          RHS contains num_matrices * ldn * ndb data which is num_matrices different matrix right hand sides.
 
         \param pm                   [in] - manager class for team and thread parallelism
-        \param swap_layout_P        [in] - boolean to check if layout of P will need to be swapped or not
         \param P                [in/out] - evaluation of sampling functional on polynomial basis (in), meaningless workspace output (out)
         \param lda                  [in] - row dimension of each matrix in P
         \param nda                  [in] - columns dimension of each matrix in P
-        \param swap_layout_RHS      [in] - boolean to check if layout of RHS will need to be swapped or not
         \param RHS              [in/out] - basis to invert P against (in), polynomial coefficients (out)
         \param ldb                  [in] - row dimension of each matrix in RHS
         \param ndb                  [in] - column dimension of each matrix in RHS
         \param M                    [in] - number of rows containing data (maximum rows over everything in batch)
         \param N                    [in] - number of columns containing data
         \param num_matrices         [in] - number of target (GMLS problems to be solved)
-        \param max_neighbors        [in] - integer for maximum neighbor over all targets
-        \param neighbor_list_sizes  [in] - pointer to all neighbor list sizes for each target
     */
-    void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int lda, int nda, bool swap_layout_RHS, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors = 0, const int initial_index_of_batch = 0, int * neighbor_list_sizes = NULL);
+    void batchSVDFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices);
 
     /*! \brief Solves a batch of LU problems
 
@@ -75,10 +69,8 @@ namespace GMLS_LinearAlgebra {
         \param M                    [in] - number of rows containing data (maximum rows over everything in batch)
         \param N                    [in] - number of columns containing data
         \param num_matrices         [in] - number of target (GMLS problems to be solved)
-        \param max_neighbors        [in] - integer for maximum neighbor over all targets
-        \param neighbor_list_sizes  [in] - pointer to all neighbor list sizes for each target
     */
-    void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors = 0, const int initial_index_of_batch = 0, int * neighbor_list_sizes = NULL);
+    void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices);
 
 } // GMLS_LinearAlgebra
 } // Compadre

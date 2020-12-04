@@ -178,7 +178,7 @@ namespace GMLS_LinearAlgebra {
 
 
 
-void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
+void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices) {
 
     //printf("lda: %d, nda %d, ldb %d, ndb %d, M %d, N %d, NRHS %d\n", lda, nda, ldb, ndb, M, N, NRHS);
     typedef Algo::UTV::Unblocked algo_tag_type;
@@ -199,7 +199,7 @@ void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *R
 
 }
 
-void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int lda, int nda, bool swap_layout_RHS, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
+void batchSVDFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices) {
 
     //printf("lda: %d, nda %d, ldb %d, ndb %d, M %d, N %d, NRHS %d\n", lda, nda, ldb, ndb, M, N, NRHS);
     typedef Algo::UTV::Unblocked algo_tag_type;
@@ -212,23 +212,15 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
                     PivViewType;
 
 
-    if (swap_layout_P) {
-        typedef Kokkos::View<double***, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
-                        VectorViewType;
-        VectorViewType B(RHS, num_matrices, ldb, ndb);
-        Functor_TestBatchedTeamVectorSolveUTV
-          <device_execution_space, algo_tag_type, MatrixViewType, PivViewType, VectorViewType>(M,N,NRHS,A,B).run(pm);
-    } else {
-        typedef Kokkos::View<double***, layout_left, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
-                        VectorViewType;
-        VectorViewType B(RHS, num_matrices, ldb, ndb);
-        Functor_TestBatchedTeamVectorSolveUTV
-          <device_execution_space, algo_tag_type, MatrixViewType, PivViewType, VectorViewType>(M,N,NRHS,A,B).run(pm);
-    }
+    typedef Kokkos::View<double***, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
+                    VectorViewType;
+    VectorViewType B(RHS, num_matrices, ldb, ndb);
+    Functor_TestBatchedTeamVectorSolveUTV
+      <device_execution_space, algo_tag_type, MatrixViewType, PivViewType, VectorViewType>(M,N,NRHS,A,B).run(pm);
 
 }
 
-void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors, const int initial_index_of_batch, int * neighbor_list_sizes) {
+void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices) {
 
     //printf("lda: %d, nda %d, ldb %d, ndb %d, M %d, N %d, NRHS %d\n", lda, nda, ldb, ndb, M, N, NRHS);
     typedef Algo::UTV::Unblocked algo_tag_type;
