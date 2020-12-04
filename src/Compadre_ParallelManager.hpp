@@ -14,9 +14,9 @@ namespace Compadre {
 *  Compadre::ConvertLayoutLeftToRight clr;
 *  Compadre::ParallelManager pm;
 *  // no tag specified
-*  pm.CallFunctorWithTeamThreads(100, clr, "MyFunctorName");
+*  pm.CallFunctorWithTeamThreads(clr, 100, "MyFunctorName");
 *  // some tag specified
-*  pm.CallFunctorWithTeamThreads<DefaultTag>(100, clr);
+*  pm.CallFunctorWithTeamThreads<DefaultTag>(clr, 100);
 */
 class ParallelManager {
 protected:
@@ -93,7 +93,7 @@ public:
         if (const char* env_vector_lanes = std::getenv("VECTORLANES")) {
             _default_vector_lanes = std::atoi(env_vector_lanes);
         }
-        printf("default threads: %d, default vector lanes: %d\n", _default_threads, _default_vector_lanes);
+        printf("threads per team: %d, vector lanes per team: %d\n", _default_threads, _default_vector_lanes);
     }
 
 ///@}

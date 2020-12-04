@@ -48,8 +48,7 @@ namespace KokkosBatched {
     
         value_type * W = w; /// m x nrhs
         value_type * WQ = wq; /// 3m
-        //const int ws0 = xs0 < xs1 ? 1 : nrhs, ws1 = xs0 < xs1 ? m : 1;
-        const int ws0 = nrhs, ws1=1;//xs0 < xs1 ? 1 : nrhs, ws1 = xs0 < xs1 ? m : 1;
+        const int ws0 = nrhs, ws1=1; // only works with w layout right
     
         bool do_print = false;
         if (do_print) {
@@ -195,11 +194,6 @@ namespace KokkosBatched {
                       [&](const int &i) {                                   
                         B[i*bs0+j*bs1] = U[j*us0+i*us1] * WQ[j];
                   });
-                  //Kokkos::parallel_for
-                  //  (Kokkos::TeamThreadRange(member,matrix_rank,n),
-                  //    [&](const int &i) {                                   
-                  //      B[i*bs0+j*bs1] = 0;
-                  //});
                });
             }
             member.team_barrier();
