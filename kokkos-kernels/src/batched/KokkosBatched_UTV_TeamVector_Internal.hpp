@@ -120,7 +120,7 @@ namespace KokkosBatched {
     // triu
 	TeamVectorSetLowerTriangularInternal
 	  ::invoke(member,
-		   m, n,
+		   matrix_rank, matrix_rank,
 		   1, zero,
 		   A, as0, as1);
       if (do_print) {
@@ -137,7 +137,7 @@ namespace KokkosBatched {
     // A' now contains [q,r]=qr(triu(R'))
 	TeamVectorQR_Internal
 	  ::invoke(member,
-		   n, n,
+		   n, matrix_rank,
 		   A, as1, as0,
 		   t, ts0,
 		   work);
@@ -157,7 +157,7 @@ namespace KokkosBatched {
 	
 	TeamVectorQR_FormQ_Internal
 	  ::invoke(member,
-		   n, n, n,
+		   n, matrix_rank, matrix_rank,
 		   A, as1, as0,
 		   t, ts0,
 		   V, vs1, vs0,
