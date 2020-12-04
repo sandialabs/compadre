@@ -85,6 +85,7 @@ else() # Raw CMake Project
   bob_option(PYTHON_CALLING_BUILD "Python setuptools calling build" OFF)
   bob_option(Compadre_USE_PYTHON "Use PYTHON" OFF)
   bob_option(Compadre_USE_MATLAB "Use MATLAB interface for PYTHON" OFF)
+  bob_option(Compadre_USE_MPI "Use MPI (not needed for Compadre toolkit)" OFF)
   set(PYTHON_LIBRARY_PREFIX "..") # relative to examples folder
   if (Compadre_USE_PYTHON)
     bob_input(PYTHON_EXECUTABLE "" PATH "Python executable location")
