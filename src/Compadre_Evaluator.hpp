@@ -429,11 +429,11 @@ public:
 
         compadre_assert_debug(target_output.extent(0)==(size_t)nla.getNumberOfTargets() 
                 && "First dimension of target_output is incorrect size.\n");
-        compadre_assert_debug(target_output.extent(1)==(size_t)output_dimension 
+        compadre_assert_debug(target_output.extent(1)==(size_t)output_dimensions 
                 && "Second dimension of target_output is incorrect size.\n");
 
         // make sure input and output columns make sense under the target operation
-        compadre_assert_debug(((output_dimensions==1 && output_view_type::rank==1) || output_view_type::rank!=1) && 
+        compadre_assert_debug(((output_dimensions==1 && view_type_output_data::rank==1) || view_type_output_data::rank!=1) && 
                 "Output view is requested as rank 1, but the target requires a rank larger than 1. Try double** as template argument.");
 
         // we need to specialize a template on the rank of the output view type and the input view type
