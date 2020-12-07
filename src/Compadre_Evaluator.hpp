@@ -724,14 +724,13 @@ public:
         // gather needed information for evaluation
         auto nla = *(_gmls->getNeighborLists());
 
-        // determines the number of columns needed for output
-        int output_dimensions = output_dimension_of_reconstruction_space;
-
         const SamplingFunctional sro = _gmls->getDataSamplingFunctional();
 
         compadre_assert_debug(coefficient_output.extent(0)==(size_t)nla.getNumberOfTargets() 
                 && "First dimension of coefficient_output is incorrect size.\n");
-        compadre_assert_debug(coefficient_output.extent(1)==(size_t)output_dimensions*_gmls->getPolynomialCoefficientsSize() 
+        // determines the number of columns needed for output
+        compadre_assert_debug(
+                &&coefficient_output.extent(1)==(size_t)output_dimension_of_reconstruction_space*_gmls->getPolynomialCoefficientsSize() 
                 /* number of coefficients */ && "Second dimension of coefficient_output is incorrect size.\n");
 
         // make sure input and output columns make sense under the target operation
