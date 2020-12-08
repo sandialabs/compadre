@@ -730,7 +730,7 @@ public:
                 && "First dimension of coefficient_output is incorrect size.\n");
         // determines the number of columns needed for output
         compadre_assert_debug(
-                &&coefficient_output.extent(1)==(size_t)output_dimension_of_reconstruction_space*_gmls->getPolynomialCoefficientsSize() 
+                coefficient_output.extent(1)==(size_t)output_dimension_of_reconstruction_space*_gmls->getPolynomialCoefficientsSize() 
                 /* number of coefficients */ && "Second dimension of coefficient_output is incorrect size.\n");
 
         // make sure input and output columns make sense under the target operation
