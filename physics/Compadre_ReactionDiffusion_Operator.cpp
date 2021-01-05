@@ -1298,9 +1298,14 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     int team_scratch_size = 0;
     team_scratch_size += host_scratch_vector_scalar_type::shmem_size(num_sides); // side lengths
     team_scratch_size += host_scratch_vector_scalar_type::shmem_size(4*_weights_ndim); // indices
-    Kokkos::parallel_for("Assembly Routine", host_team_policy(_cells->getCoordsConst()->nLocal(true), Kokkos::AUTO)
-            .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)), 
-            KOKKOS_LAMBDA(const host_member_type& teamMember) {
+    // Kokkos::parallel_for("Assembly Routine", host_team_policy(_cells->getCoordsConst()->nLocal(true), Kokkos::AUTO)
+    //         .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)),
+    //         KOKKOS_LAMBDA(const host_member_type& teamMember) {
+
+    double volume_check = 0.0;
+    Kokkos::parallel_reduce("Volume Check Routine", host_team_policy(_cells->getCoordsConst()->nLocal(true), Kokkos::AUTO)
+            .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)),
+            KOKKOS_LAMBDA(const host_member_type& teamMember, double& local_volume) {
  
         const int i = teamMember.league_rank();
 
@@ -2284,12 +2289,18 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                         }
                     }
                     }
+                    local_volume += 1;
                 }
             }
             }
         }
-    });
+    }, Kokkos::Sum<double>(volume_check));
+
+    // });
+
     Kokkos::fence();
+    printf("volume check result: %lf\n", volume_check);
+
         if ((_st_op || _mix_le_op) && _use_pinning) {
             // this is the pin for pressure
             if ((field_one==field_two) && (field_one==_pressure_field_id)) {
