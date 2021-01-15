@@ -317,7 +317,8 @@ void ReactionDiffusionPhysics::initialize() {
     int element_dim = element.getDimension();
 
     Intrepid::DefaultCubatureFactory<double> cubature_factory;
-    int cubature_degree = 2*_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder");
+    // int cubature_degree = 2*_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder");
+    int cubature_degree = 2;
 
     int num_element_nodes = element.getNodeCount();
     int num_element_sides = element.getSideCount();
@@ -349,6 +350,7 @@ void ReactionDiffusionPhysics::initialize() {
 
     Intrepid::FieldContainer<double> element_nodes(num_cells_local, num_element_nodes, element_dim);
     //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_cells->getCoordsConst()->nLocal()), KOKKOS_LAMBDA(const int i) {
+    printf("Num element nodes: %d \n", num_element_nodes);
     for (int i=0; i<num_cells_local; ++i) {
         for (int j=0; j<num_element_nodes; ++j) {
             for (int k=0; k<element_dim; ++k) {
@@ -1916,7 +1918,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
                                     // only integrate on one side of edge
                                     if (i <= adjacent_cell_local_index_q) return;
-                                    
+
                                     // check that particle j or k have support on this cell
                                     if (j_to_adjacent_cell[qn]<0 && k_to_adjacent_cell[qn]<0 && j_to_cell_i<0 && k_to_cell_i<0) return;
                                     
@@ -1929,25 +1931,88 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
                                     // gets quadrature # on adjacent cell (enumerates quadrature on 
                                     // side_of_cell_i_to_adjacent_cell in reverse due to orientation)
-                                    int adjacent_q = 0;
+                                    if (i == 10) {
+                                        int side_i_check = 0;
+                                        printf("Cell i = %d \n", i);
+                                        for (int j=0; j<4; ++j) {
+                                            for (int k=0; k<3; ++k) {
+                                                 printf("%f ", cell_vertices(i, 3*j + k));
+                                            }
+                                            printf("\n");
+                                        }
+                                        auto adjacent_cell_zero = (int)(adjacent_elements(i, 0));
+                                        printf("Adjacent cell through side %d of i =  %d \n", side_i_check, adjacent_cell_zero);
+                                        for (int j=0; j<4; ++j) {
+                                            for (int k=0; k<3; ++k) {
+                                                 printf("%f ", cell_vertices(adjacent_cell_zero, 3*j + k));
+                                            }
+                                            printf("\n");
+                                        }
+                                        printf("Quad points on side %d of cell i \n", side_i_check);
+                                        for (int alt_qn=0; alt_qn<num_exterior_quadrature_per_side; ++alt_qn) {
+                                            for (int dd=0; dd<3; ++dd) {
+                                                printf("%f ", quadrature_points(i, 3*(num_interior_quadrature + 0*num_exterior_quadrature_per_side + alt_qn) + dd));
+                                            }
+                                            printf("\n");
+                                        }
+
+                                        printf("Cell j = %d \n", adjacent_cell_zero);
+                                        // Find the local index of which side of j match i
+                                        int local_side_i_adj_of_j = -1;
+                                        for (int ji=0; ji<4; ji++) {
+                                            if ((int)adjacent_elements(adjacent_cell_zero, ji) == i) {
+                                                local_side_i_adj_of_j = ji;
+                                                break;
+                                            }
+                                        }
+                                        printf("Adjacent cell through side %d of j =  %d \n", local_side_i_adj_of_j, (int)adjacent_elements(adjacent_cell_zero, local_side_i_adj_of_j));
+                                        printf("Quad points on side %d of cell %d \n", local_side_i_adj_of_j, (int)adjacent_elements(adjacent_cell_zero, local_side_i_adj_of_j));
+                                        for (int alt_qn=0; alt_qn<num_exterior_quadrature_per_side; ++alt_qn) {
+                                            for (int dd=0; dd<3; ++dd) {
+                                                printf("%f ", quadrature_points(adjacent_cell_zero,
+                                                            3*(num_interior_quadrature + local_side_i_adj_of_j*num_exterior_quadrature_per_side + alt_qn) + dd));
+                                            }
+                                            printf("\n");
+                                        }
+                                        printf("\n");
+                                    }
+
+                                    // return;
+
+                                    int adjacent_q = -1;
                                     if (_ndim_requested==2) {
                                         adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[qn]*num_exterior_quadrature_per_side + (num_exterior_quadrature_per_side - ((qn-num_interior_quadrature)%num_exterior_quadrature_per_side) - 1);
                                     } else {
+                                        // double min_diff_d_sq = 100.0;
+
                                         for (int alt_qn=0; alt_qn<num_exterior_quadrature_per_side; ++alt_qn) {
                                             int potential_adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[qn]*num_exterior_quadrature_per_side + alt_qn;
+
                                             bool all_same = true;
+                                            double point_diff_d_sq = 0.0;
                                             for (int d=0; d<3; ++d) {
                                                 double diff_d = quadrature_points(adjacent_cell_local_index_q, _ndim_requested*potential_adjacent_q+d) - quadrature_points(i,_ndim_requested*qn+d);
+                                                // printf("%d %d %f %f \n", i, d, quadrature_points(i, _ndim_requested*qn+d), quadrature_points(adjacent_cell_local_index_q, _ndim_requested*potential_adjacent_q+d));
                                                 if (diff_d*diff_d > 1e-14) {
+                                                    // printf("ERROR NOT MATCH POINT - DIFF COMPONENT %d BY %.14g \n", d, diff_d*diff_d);
                                                     all_same = false;
                                                     break;
                                                 }
+                                                point_diff_d_sq += diff_d*diff_d;
                                             }
+                                            // if (point_diff_d_sq < min_diff_d_sq) {
+                                            //     min_diff_d_sq = point_diff_d_sq;
+                                            // }
                                             if (all_same) {
+                                                // printf("MATCH POINT FOUND! \n");
                                                 adjacent_q = potential_adjacent_q;
                                                 break;
                                             }        
                                         }
+                                        // if (adjacent_q == -1) {
+                                        //     printf("NO MATCHING QUAD POINT FOUND!! \n");
+                                        //     printf("Min diff d sq: %.14g adjacent_q %d \n", min_diff_d_sq, adjacent_q);
+                                        // }
                                     }
  
                                     double other_v, other_u;
