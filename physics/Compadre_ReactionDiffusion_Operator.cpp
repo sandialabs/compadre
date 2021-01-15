@@ -1931,8 +1931,8 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
                                     // gets quadrature # on adjacent cell (enumerates quadrature on 
                                     // side_of_cell_i_to_adjacent_cell in reverse due to orientation)
-                                    if (i == 10) {
-                                        int side_i_check = 2;
+                                    if (i == 15) {
+                                        int side_i_check = 3;
                                         printf("Cell i = %d \n", i);
                                         for (int j=0; j<4; ++j) {
                                             for (int k=0; k<3; ++k) {
@@ -1940,15 +1940,15 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             }
                                             printf("\n");
                                         }
-                                        auto adjacent_cell_zero = (int)(adjacent_elements(i, side_i_check));
-                                        printf("Adjacent cell through side %d of i =  %d \n", side_i_check, adjacent_cell_zero);
+                                        auto adjacent_cell_j = (int)(adjacent_elements(i, side_i_check));
+                                        printf("Adjacent cell through side %d of i =  %d \n", side_i_check, adjacent_cell_j);
                                         for (int j=0; j<4; ++j) {
                                             for (int k=0; k<3; ++k) {
-                                                 printf("%f ", cell_vertices(adjacent_cell_zero, 3*j + k));
+                                                 printf("%f ", cell_vertices(adjacent_cell_j, 3*j + k));
                                             }
                                             printf("\n");
                                         }
-                                        printf("Quad points on side %d of cell i \n", side_i_check);
+                                        printf("Quad points on side %d of cell %d \n", side_i_check, i);
                                         for (int alt_qn=0; alt_qn<num_exterior_quadrature_per_side; ++alt_qn) {
                                             for (int dd=0; dd<3; ++dd) {
                                                 printf("%f ", quadrature_points(i, 3*(num_interior_quadrature + side_i_check*num_exterior_quadrature_per_side + alt_qn) + dd));
@@ -1956,20 +1956,20 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             printf("\n");
                                         }
 
-                                        printf("Cell j = %d \n", adjacent_cell_zero);
+                                        printf("Cell j = %d \n", adjacent_cell_j);
                                         // Find the local index of which side of j match i
                                         int local_side_i_adj_of_j = -1;
                                         for (int ji=0; ji<4; ji++) {
-                                            if ((int)adjacent_elements(adjacent_cell_zero, ji) == i) {
+                                            if ((int)adjacent_elements(adjacent_cell_j, ji) == i) {
                                                 local_side_i_adj_of_j = ji;
                                                 break;
                                             }
                                         }
-                                        printf("Adjacent cell through side %d of j =  %d \n", local_side_i_adj_of_j, (int)adjacent_elements(adjacent_cell_zero, local_side_i_adj_of_j));
-                                        printf("Quad points on side %d of cell %d \n", local_side_i_adj_of_j, (int)adjacent_elements(adjacent_cell_zero, local_side_i_adj_of_j));
+                                        printf("Adjacent cell through side %d of j =  %d \n", local_side_i_adj_of_j, (int)adjacent_elements(adjacent_cell_j, local_side_i_adj_of_j));
+                                        printf("Quad points on side %d of cell %d \n", local_side_i_adj_of_j, adjacent_cell_j);
                                         for (int alt_qn=0; alt_qn<num_exterior_quadrature_per_side; ++alt_qn) {
                                             for (int dd=0; dd<3; ++dd) {
-                                                printf("%f ", quadrature_points(adjacent_cell_zero,
+                                                printf("%f ", quadrature_points(adjacent_cell_j,
                                                             3*(num_interior_quadrature + local_side_i_adj_of_j*num_exterior_quadrature_per_side + alt_qn) + dd));
                                             }
                                             printf("\n");
