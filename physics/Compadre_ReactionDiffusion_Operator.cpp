@@ -1932,7 +1932,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     // gets quadrature # on adjacent cell (enumerates quadrature on 
                                     // side_of_cell_i_to_adjacent_cell in reverse due to orientation)
                                     if (i == 10) {
-                                        int side_i_check = 0;
+                                        int side_i_check = 2;
                                         printf("Cell i = %d \n", i);
                                         for (int j=0; j<4; ++j) {
                                             for (int k=0; k<3; ++k) {
@@ -1940,7 +1940,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             }
                                             printf("\n");
                                         }
-                                        auto adjacent_cell_zero = (int)(adjacent_elements(i, 0));
+                                        auto adjacent_cell_zero = (int)(adjacent_elements(i, side_i_check));
                                         printf("Adjacent cell through side %d of i =  %d \n", side_i_check, adjacent_cell_zero);
                                         for (int j=0; j<4; ++j) {
                                             for (int k=0; k<3; ++k) {
@@ -1951,7 +1951,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         printf("Quad points on side %d of cell i \n", side_i_check);
                                         for (int alt_qn=0; alt_qn<num_exterior_quadrature_per_side; ++alt_qn) {
                                             for (int dd=0; dd<3; ++dd) {
-                                                printf("%f ", quadrature_points(i, 3*(num_interior_quadrature + 0*num_exterior_quadrature_per_side + alt_qn) + dd));
+                                                printf("%f ", quadrature_points(i, 3*(num_interior_quadrature + side_i_check*num_exterior_quadrature_per_side + alt_qn) + dd));
                                             }
                                             printf("\n");
                                         }
