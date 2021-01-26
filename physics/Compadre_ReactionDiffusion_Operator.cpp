@@ -331,6 +331,7 @@ void ReactionDiffusionPhysics::initialize() {
     int num_side_cub_points = side_cubature->getNumPoints();
 
     _weights_ndim = num_element_cub_points + num_element_sides*(num_side_cub_points);
+    printf("weights ndim %d \n", _weights_ndim);
 
     // quantities contained on cells (mesh)
     _cells->getFieldManager()->createField(element_dim*_weights_ndim, "quadrature_points");

@@ -6,17 +6,24 @@ namespace Compadre {
 
 KOKKOS_INLINE_FUNCTION
 void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type Q, scratch_vector_type w, scratch_matrix_right_type P_target_row, const int target_NP) const {
+    printf("INSIDE applyTargetsToCoefficients \n");
 
     const int target_index = _initial_index_for_batch + teamMember.league_rank();
 
 #ifdef COMPADRE_USE_LAPACK
 
     // CPU
-    const int alphas_per_tile_per_target = _neighbor_lists.getNumberOfNeighborsDevice(target_index) + _added_alpha_size;
-    const int base_offset_index_jmke = getTargetOffsetIndexDevice(0,0,0,0);
-    const int base_alphas_index = getAlphaIndexDevice(target_index, base_offset_index_jmke);
+    const unsigned long int alphas_per_tile_per_target = _neighbor_lists.getNumberOfNeighborsDevice(target_index) + _added_alpha_size;
+    const unsigned long int base_offset_index_jmke = getTargetOffsetIndexDevice(0,0,0,0);
+    const unsigned long int base_alphas_index = getAlphaIndexDevice(target_index, base_offset_index_jmke);
 
+    // printf("BEFORE VIEW CAST \n");
+    printf("base_alphas_index %lu \n", TO_GLOBAL(base_alphas_index));
+    printf("total alpha values %lu \n", TO_GLOBAL(_total_alpha_values));
+    printf("max evaluation sites per target %lu \n", TO_GLOBAL(_max_evaluation_sites_per_target));
+    printf("max evaluation sites per target %lu \n", TO_GLOBAL(alphas_per_tile_per_target));
     scratch_matrix_right_type this_alphas(_alphas.data() + TO_GLOBAL(base_alphas_index), _total_alpha_values*_max_evaluation_sites_per_target, alphas_per_tile_per_target);
+    // printf("AFTER VIEW CAST \n");
 
     for (int e=0; e<this->getNEvaluationSitesPerTarget(target_index); ++e) {
         // evaluating alpha_ij
@@ -50,8 +57,12 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
                                 talpha_ij += 0;
                             }
                         }, alpha_ij);
+                        // printf("alpha_ij %f \n", alpha_ij);
                         Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                             this_alphas(offset_index_jmke,i) = alpha_ij;
+                            // if (this_alphas(offset_index_jmke, i) == NULL) {
+                            //     printf("OH NO at offset_index_jmke %d i %d! \n", offset_index_jmke, i);
+                            // }
                             compadre_kernel_assert_extreme_debug(alpha_ij==alpha_ij && "NaN in alphas.");
                         });
                     }
