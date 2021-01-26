@@ -21,7 +21,7 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
     printf("base_alphas_index %lu \n", TO_GLOBAL(base_alphas_index));
     printf("total alpha values %lu \n", TO_GLOBAL(_total_alpha_values));
     printf("max evaluation sites per target %lu \n", TO_GLOBAL(_max_evaluation_sites_per_target));
-    printf("max evaluation sites per target %lu \n", TO_GLOBAL(alphas_per_tile_per_target));
+    printf("alphas per title per target %lu \n", TO_GLOBAL(alphas_per_tile_per_target));
     scratch_matrix_right_type this_alphas(_alphas.data() + TO_GLOBAL(base_alphas_index), _total_alpha_values*_max_evaluation_sites_per_target, alphas_per_tile_per_target);
     // printf("AFTER VIEW CAST \n");
 
