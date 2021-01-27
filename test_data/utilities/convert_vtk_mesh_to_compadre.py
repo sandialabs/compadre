@@ -5,25 +5,28 @@ import numpy as np
 from netCDF4 import Dataset
 import argparse
 from numba import jit
+from scipy.spatial import KDTree
 
-@jit(nopython=True,parallel=False)
+# @jit(nopython=True,parallel=False)
 def getFlattenCellVertices(i, new_data, coords, nodes, dim):
     nod_size = len(nodes)
     for j in range(nod_size):
         for k in range(dim):
             new_data[dim*j+k] = coords[nodes[j],k]
 
-@jit(nopython=True,parallel=False)
+# @jit(nopython=True,parallel=False)
 def getNewMidpoints(i, new_data, coords, nodes):
     nod_size = len(nodes)
     for j in range(nod_size):
         for k in range(3):
             new_data[k] += coords[nodes[j], k] / float(nod_size)
 
-@jit(nopython=True,parallel=False)
-def getAdjacentCell(i, vert_indices, connect, el_size, nod_size, dim):
-    # loop all other elements
-    for k in range(i+1,el_size):
+# @jit(nopython=True,parallel=False)
+def getAdjacentCell(i, vert_indices, connect, el_size, nod_size, dim, tree, midpoints, radius):
+    # Obtain query from the KDtree
+    neighbors = tree.query_ball_point(midpoints[i], radius)
+    # Go through the neighbours
+    for k in neighbors:
         if (dim==2):
             # grab two nodes at a time
             for l in range(nod_size):
@@ -36,22 +39,23 @@ def getAdjacentCell(i, vert_indices, connect, el_size, nod_size, dim):
                 if same:
                     return (k, l)
         elif (dim==3):
-            # for 3D, you have to extract the vertices for each side
-            # based on order inside Trilinos/Intrepid
-            vertice_order_for_side = [[0, 1, 3], [1, 2, 3], [0, 3, 2], [0, 2, 1]]
-            # loop through all the possible combination of the cell
-            for l in range(nod_size):
-                # numa error if you do list indexing
-                neighbor_verts = [connect[k][vertice_order_for_side[l][0]],
-                                  connect[k][vertice_order_for_side[l][1]],
-                                  connect[k][vertice_order_for_side[l][2]]]
-                neighbor_verts.sort()
-                same = True
-                for m in range(dim):
-                    if vert_indices[m]!=neighbor_verts[m]:
-                        same = False
-                if same:
-                    return (k, l)
+            if (k > i):
+                # for 3D, you have to extract the vertices for each side
+                # based on order inside Trilinos/Intrepid
+                vertice_order_for_side = [[0, 1, 3], [1, 2, 3], [0, 3, 2], [0, 2, 1]]
+                # loop through all the possible combination of the cell
+                for l in range(nod_size):
+                    # numa error if you do list indexing
+                    neighbor_verts = [connect[k][vertice_order_for_side[l][0]],
+                                      connect[k][vertice_order_for_side[l][1]],
+                                      connect[k][vertice_order_for_side[l][2]]]
+                    neighbor_verts.sort()
+                    same = True
+                    for m in range(dim):
+                        if vert_indices[m]!=neighbor_verts[m]:
+                            same = False
+                    if same:
+                        return (k, l)
     return (-1, -1)
 
 # reads in pvtp, pvtu, or vtk meshes
@@ -95,6 +99,7 @@ def convert(file_in, file_out, dim, coordinates_scale, verbose, max_verbose):
         xyz_val = data.GetPoint(i)
         coords[i,:] = xyz_val
     print(coords)
+    print(len(coords))
 
     # scaling of coordinates
     if (coordinates_scale!=1.0):
@@ -134,6 +139,13 @@ def convert(file_in, file_out, dim, coordinates_scale, verbose, max_verbose):
     if max_verbose:
         print(midpoints)
 
+    # building a kd tree here for mid points
+    tree = KDTree(midpoints, leafsize=5)
+    # obtain a very rough radius between the first two points
+    radius = 3.0*(np.linalg.norm(midpoints[0] - midpoints[1]))
+    # print(tree.query_ball_point(midpoints[0], radius))
+    # exit(0)
+
     vertex_coordinates = np.zeros(shape=(el_size, dim*nod_size),dtype='f8')
     for i in range(el_size):
         this_extra_data = np.zeros(dim*nod_size)
@@ -153,7 +165,7 @@ def convert(file_in, file_out, dim, coordinates_scale, verbose, max_verbose):
                 if (adjacent_elements[i, j]==-1):
                     i_verts[0] = min(connect[i,j], connect[i,(j+1)%nod_size])
                     i_verts[1] = max(connect[i,j], connect[i,(j+1)%nod_size])
-                    (element, edge) = getAdjacentCell(i, i_verts, connect, el_size, nod_size, dim)
+                    (element, edge) = getAdjacentCell(i, i_verts, connect, el_size, nod_size, dim, tree, midpoints, radius)
                     if (element>-1):
                         adjacent_elements[i, j] = element
                         adjacent_elements[element, edge] = i
@@ -167,10 +179,12 @@ def convert(file_in, file_out, dim, coordinates_scale, verbose, max_verbose):
         vertice_order_for_side = [[0, 1, 3], [1, 2, 3], [0, 3, 2], [0, 2, 1]]
         # loop over all elements
         for i in range(el_size):
+            if (i % 500 == 0):
+                print("Procressing element {} of total {}".format(i, el_size))
             for j in range(nod_size):
                 i_verts = connect[i][vertice_order_for_side[j]]
                 i_verts.sort()
-                (element, side) = getAdjacentCell(i, i_verts, connect, el_size, nod_size, dim)
+                (element, side) = getAdjacentCell(i, i_verts, connect, el_size, nod_size, dim, tree, midpoints, radius)
                 if (element>-1):
                     adjacent_elements[i, j] = element
                     adjacent_elements[element, side] = i
