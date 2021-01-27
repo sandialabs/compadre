@@ -2,27 +2,32 @@
 // to generate the VTK tetrahedral mesh from this script using
 // FreeFEM++. Then convert the generated VTK mesh into COMPADRE's
 // nc file using:
-//    python3 convert_vtk_to_compadre_mesh.py 
+//    python3 convert_vtk_to_compadre_mesh.py
 //        --file-in=cube_0.vtk --file-out=cube_0.nc --dim=3
 //
-// You would have to do it for up to the refinement levels you 
+// You would have to do it for up to the refinement levels you
 // want to test, i.e. by changing the value of n and the file name
 // cube_%d.nc accordingly.
 
 load "msh3"
 load "iovtk"
 
+// Lower left point of the cube
 real x0 = 0.0;
 real y0 = 0.0;
 real z0 = 0.0;
 
+// Upper right point of the cube
 real x1 = 2.0;
 real y1 = 2.0;
 real z1 = 2.0;
 
+// Number of points on each edge
 int n=6;
 
+// Generate the tetrahedral mesh
 mesh3 Th1 = cube(n, n, n, [x0+(x1-x0)*x, y0+(y1-y0)*y, z0+(z1-z0)*z]);
  
+// Plot and save
 // plot(Th1, wait=1);
 savevtk("cube_0.vtk", Th1);
