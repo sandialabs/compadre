@@ -331,7 +331,6 @@ void ReactionDiffusionPhysics::initialize() {
     int num_side_cub_points = side_cubature->getNumPoints();
 
     _weights_ndim = num_element_cub_points + num_element_sides*(num_side_cub_points);
-    printf("weights ndim %d \n", _weights_ndim);
 
     // quantities contained on cells (mesh)
     _cells->getFieldManager()->createField(element_dim*_weights_ndim, "quadrature_points");
@@ -1945,10 +1944,6 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             }
                                         }
                                     }
-                                    // Debugging purpose
-                                    // if (adjacent_q == -1) {
-                                    //     printf("ASSEMBLY - NOT FOUND ADJACENCY for element %d side %d! \n", i, current_side_num);
-                                    // }
  
                                     double other_v, other_u;
                                     if (_use_vector_gmls) other_v = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, j_to_adjacent_cell[qn], j_comp_in, adjacent_q+1) : 0.0;
