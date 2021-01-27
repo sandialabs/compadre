@@ -60,24 +60,11 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     const int added_coeff_size = getAdditionalCoeffSizeFromConstraintAndSpace(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions);
 
     // initialize all alpha values to be used for taking the dot product with data to get a reconstruction 
-    printf("max num neighbors %lu \n", _max_num_neighbors);
-    printf("number of targets %lu \n", _neighbor_lists.getNumberOfTargets());
     try {
         global_index_type total_neighbors = _neighbor_lists.getTotalNeighborsOverAllListsHost();
         int total_added_alphas = _target_coordinates.extent(0)*_added_alpha_size;
-        printf("total neighbours: %lu \n", TO_GLOBAL(total_neighbors));
-        printf("total added alphas: %lu \n", TO_GLOBAL(total_added_alphas));
-        printf("total alpha values: %lu \n", TO_GLOBAL(_total_alpha_values));
-        printf("max evaluation sites per target: %lu \n", TO_GLOBAL(_max_evaluation_sites_per_target));
-        unsigned long int num_alphas = (TO_GLOBAL(total_neighbors) + TO_GLOBAL(total_added_alphas))*TO_GLOBAL(_total_alpha_values)*TO_GLOBAL(_max_evaluation_sites_per_target);
-        printf("num_alphas %lu \n", num_alphas);
-        // _alphas = decltype(_alphas)("alphas", (total_neighbors + TO_GLOBAL(total_added_alphas))
-        //             *TO_GLOBAL(_total_alpha_values)*TO_GLOBAL(_max_evaluation_sites_per_target));
-        _alphas = decltype(_alphas)("alphas", num_alphas);
-        Kokkos::deep_copy(_alphas, 0.0);
-        // for (int i=0; i<num_alphas; i++) {
-        //     printf("_alphas(%d) %f \n", i, _alphas(i));
-        // }
+        _alphas = decltype(_alphas)("alphas", (total_neighbors + TO_GLOBAL(total_added_alphas))
+                    *TO_GLOBAL(_total_alpha_values)*TO_GLOBAL(_max_evaluation_sites_per_target));
     } catch(std::exception &e) {
        printf("Insufficient memory to store alphas: \n\n%s", e.what()); 
        throw e;
