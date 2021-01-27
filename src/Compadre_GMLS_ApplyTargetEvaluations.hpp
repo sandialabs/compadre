@@ -13,7 +13,7 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
 
     // CPU
     const int alphas_per_tile_per_target = _neighbor_lists.getNumberOfNeighborsDevice(target_index) + _added_alpha_size;
-    const int base_offset_index_jmke = getTargetOffsetIndexDevice(0,0,0,0);
+    const global_index_type base_offset_index_jmke = getTargetOffsetIndexDevice(0,0,0,0);
     const int base_alphas_index = getAlphaIndexDevice(target_index, base_offset_index_jmke);
 
     scratch_matrix_right_type this_alphas(_alphas.data() + TO_GLOBAL(base_alphas_index), _total_alpha_values*_max_evaluation_sites_per_target, alphas_per_tile_per_target);
