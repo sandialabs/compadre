@@ -44,7 +44,7 @@
   </ParameterList>
   <ParameterList name="solver">
     <Parameter name="le mass" type="bool" value="false"/>
-    <Parameter name="type" type="string" value="iterative"/>
+    <Parameter name="type" type="string" value="direct"/>
     <Parameter name="file" type="string" value="../test_data/parameter_lists/reactiondiffusion/solver_amg.xml"/>
     <Parameter name="blocked" type="bool" value="true"/>
     <!-- treatment of null space in pressure can be 'pinning', 'lm' (lagrange multiplier), or 'none' -->
