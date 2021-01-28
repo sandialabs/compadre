@@ -490,7 +490,7 @@ public:
     //    return pyObjectArray_out;
     //}
  
-    py::array_t<double> applyStencil(py::array_t<double> input, TargetOperation lro, SamplingFunctional sro) {
+    py::array_t<double> applyStencil(const py::array_t<double> input, const TargetOperation lro, const SamplingFunctional sro) const {
         py::buffer_info buf = input.request();
  
         // create Kokkos View on host to copy into
@@ -527,18 +527,39 @@ public:
         auto dim_out_1 = output_values.extent(1);
 
         auto result = py::array_t<double>(dim_out_0*dim_out_1);
-        py::buffer_info buf_out = result.request();
 
-        double *ptr = (double *) buf_out.ptr;
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0*dim_out_1), [&](int i) {
-            ptr[i] = *(output_values.data()+i);
-        });
-        Kokkos::fence();
-
-        if (dim_out_1>1) {
+        if (dim_out_1==2) {
             result.resize({dim_out_0,dim_out_1});
+            auto result_data = result.mutable_unchecked<2>();
+            Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
+                for (size_t j=0; j<dim_out_1; ++j) {
+                    result_data(i,j) = output_values(i,j);
+                }
+            });
+            Kokkos::fence();
         }
+        else if (dim_out_1==1) {
+            auto result_data = result.mutable_unchecked<1>();
+            Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
+                result_data(i) = output_values(i,0);
+            });
+            Kokkos::fence();
+        }
+
         return result;
+    }
+
+    double applyStencilSingleTarget(const py::array_t<double, py::array::f_style | py::array::forcecast> input, const TargetOperation lro, const SamplingFunctional sro) const {
+        py::buffer_info buf = input.request();
+ 
+        // create Kokkos View on host to copy into
+        Kokkos::View<double**, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > source_data((double *) buf.ptr, input.shape(0), (buf.ndim>1) ? input.shape(1) : 1); 
+
+        compadre_assert_release(buf.ndim==1 && "Input given with dimensions > 1");
+
+        Compadre::Evaluator gmls_evaluator(gmls_object);
+
+        return gmls_evaluator.applyAlphasToDataSingleComponentSingleTargetSite(source_data, 0, lro, 0, 0, 0, 0, 0, 0, false);
     }
 };
 
@@ -626,6 +647,7 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("setReferenceOutwardNormalDirection", &ParticleHelper::setReferenceOutwardNormalDirection, py::arg("reference_normal_directions"), py::arg("use_to_orient_surface") = true)
     .def("getReferenceOutwardNormalDirection", &ParticleHelper::getReferenceOutwardNormalDirection, py::return_value_policy::take_ownership)
     .def("getPolynomialCoefficients", &ParticleHelper::getPolynomialCoefficients, py::arg("input_data"), py::return_value_policy::take_ownership)
+    .def("applyStencilSingleTarget", &ParticleHelper::applyStencilSingleTarget, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample)
     .def("applyStencil", &ParticleHelper::applyStencil, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::return_value_policy::take_ownership);
     
 
