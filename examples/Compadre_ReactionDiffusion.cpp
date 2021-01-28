@@ -1029,10 +1029,6 @@ int main (int argc, char* args[]) {
                                         }        
                                     }
                                 }
-                                // Debugging purpose
-                                // if (adj_i == -1) {
-                                //     printf("NOT FOUND IN DRIVER! \n");
-                                // }
 
                                 // needs reconstruction at this quadrature point
                                 num_neighbors = neighborhood->getNumNeighbors(adj_j);
