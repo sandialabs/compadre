@@ -65,7 +65,9 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
         int total_added_alphas = _target_coordinates.extent(0)*_added_alpha_size;
         _alphas = decltype(_alphas)("alphas", (total_neighbors + TO_GLOBAL(total_added_alphas))
                     *TO_GLOBAL(_total_alpha_values)*TO_GLOBAL(_max_evaluation_sites_per_target));
-        Kokkos::deep_copy(_alphas, 0.0);
+        // this deep copy writes to all theoretically allocated memory,
+        // ensuring that allocation attempted was successful
+        compadre_assert_debug((deep_copy(_alphas, 0.0), true));
     } catch(std::exception &e) {
        printf("Insufficient memory to store alphas: \n\n%s", e.what()); 
        throw e;
