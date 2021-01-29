@@ -38,10 +38,24 @@ To compile from source: 1.) install doxygen software on your computer, 2.) execu
 
 ## Citing the Software
 
-If you write a paper using results obtained with the help of the Compadre Toolkit, please cite the following reference:
+If you write a paper using results obtained with the help of the Compadre Toolkit, please cite the following reference which is applicable to every version of the Compadre Toolkit:
 
 ```
-@software{paul_kuberry_2020_3876465,
+@software{compadre_toolkit,
+  author       = {Paul Kuberry and
+                  Peter Bosler and
+                  Nathaniel Trask},
+  title        = {Compadre Toolkit},
+  month        = jan, 
+  year         = 2019,
+  doi          = {10.11578/dc.20190411.1},
+  url          = {https://github.com/SNLComputation/compadre}
+}
+```
+
+If you are using a particular release of the Compadre Toolkit and would like to help others to reproduce your results, please cite that release specifically. A reference to the most recent release is:
+```
+@software{compadre_toolkit_v1_1_0,
   author       = {Paul Kuberry and
                   Peter Bosler and
                   Nathaniel Trask},
@@ -55,7 +69,6 @@ If you write a paper using results obtained with the help of the Compadre Toolki
 }
 ```
 
-If you would like to export the reference information to either CSL, DataCite, Dublin, Core, JSON, JSON-LD, MARCXML, or Mendeley, please find the export section at the bottom-right corner once you follow the link below:
-
-<a href="https://doi.org/10.5281/zenodo.3876465" target="_blank"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.3876465.svg"></a>
-
+```diff
+! DOI: 10.11578/dc.20190411.1
+```
