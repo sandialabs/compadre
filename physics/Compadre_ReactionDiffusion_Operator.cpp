@@ -1924,7 +1924,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
 
                                     // gets quadrature # on adjacent cell (enumerates quadrature on 
                                     // side_of_cell_i_to_adjacent_cell in reverse due to orientation)
-                                    int adjacent_q = 0;
+                                    int adjacent_q = -1;
                                     if (_ndim_requested==2) {
                                         adjacent_q = num_interior_quadrature + side_of_cell_i_to_adjacent_cell[qn]*num_exterior_quadrature_per_side + (num_exterior_quadrature_per_side - ((qn-num_interior_quadrature)%num_exterior_quadrature_per_side) - 1);
                                     } else {
@@ -1941,7 +1941,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             if (all_same) {
                                                 adjacent_q = potential_adjacent_q;
                                                 break;
-                                            }        
+                                            }
                                         }
                                     }
  
