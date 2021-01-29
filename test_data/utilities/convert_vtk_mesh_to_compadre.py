@@ -106,7 +106,6 @@ def convert(file_in, file_out, dim, coordinates_scale, verbose, max_verbose):
     el_size = 0
     n_any_kind_of_cell = data.GetNumberOfCells()
     for i in range(n_any_kind_of_cell):
-        # print(data.GetCellType(i))
         if data.GetCell(i).GetCellType()==5 and dim==2: # triangle
             el_size += 1
         if data.GetCell(i).GetCellType()==10 and dim==3: # tet
@@ -140,6 +139,7 @@ def convert(file_in, file_out, dim, coordinates_scale, verbose, max_verbose):
     # building a kd tree here for mid points
     tree = KDTree(midpoints, leafsize=5)
     # obtain a very rough radius between the first two points
+    # TODO: replace with a more robust calculation for h
     radius = 3.0*(np.linalg.norm(midpoints[0] - midpoints[1]))
 
     vertex_coordinates = np.zeros(shape=(el_size, dim*nod_size),dtype='f8')
