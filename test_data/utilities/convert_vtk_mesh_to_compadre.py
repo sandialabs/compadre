@@ -7,14 +7,14 @@ import argparse
 from numba import jit
 from scipy.spatial import KDTree
 
-# @jit(nopython=True,parallel=False)
+@jit(nopython=True,parallel=False)
 def getFlattenCellVertices(i, new_data, coords, nodes, dim):
     nod_size = len(nodes)
     for j in range(nod_size):
         for k in range(dim):
             new_data[dim*j+k] = coords[nodes[j],k]
 
-# @jit(nopython=True,parallel=False)
+@jit(nopython=True,parallel=False)
 def getNewMidpoints(i, new_data, coords, nodes):
     nod_size = len(nodes)
     for j in range(nod_size):
@@ -98,8 +98,6 @@ def convert(file_in, file_out, dim, coordinates_scale, verbose, max_verbose):
     for i in range(n_xyz):
         xyz_val = data.GetPoint(i)
         coords[i,:] = xyz_val
-    print(coords)
-    print(len(coords))
 
     # scaling of coordinates
     if (coordinates_scale!=1.0):
@@ -143,8 +141,6 @@ def convert(file_in, file_out, dim, coordinates_scale, verbose, max_verbose):
     tree = KDTree(midpoints, leafsize=5)
     # obtain a very rough radius between the first two points
     radius = 3.0*(np.linalg.norm(midpoints[0] - midpoints[1]))
-    # print(tree.query_ball_point(midpoints[0], radius))
-    # exit(0)
 
     vertex_coordinates = np.zeros(shape=(el_size, dim*nod_size),dtype='f8')
     for i in range(el_size):
@@ -179,8 +175,9 @@ def convert(file_in, file_out, dim, coordinates_scale, verbose, max_verbose):
         vertice_order_for_side = [[0, 1, 3], [1, 2, 3], [0, 3, 2], [0, 2, 1]]
         # loop over all elements
         for i in range(el_size):
-            if (i % 500 == 0):
-                print("Procressing element {} of total {}".format(i, el_size))
+            if max_verbose:
+                if (i % 500 == 0):
+                    print("Procressing element {} of total {}".format(i, el_size))
             for j in range(nod_size):
                 i_verts = connect[i][vertice_order_for_side[j]]
                 i_verts.sort()
@@ -220,7 +217,7 @@ def convert(file_in, file_out, dim, coordinates_scale, verbose, max_verbose):
                            shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                            endian='native', least_significant_digit=None, fill_value=None)
     
-    if (dim>=2):
+    if (dim==2 or dim==3):
         dataset.createVariable('adjacent_elements', datatype='int', dimensions=('num_entities','num_sides'), zlib=True, complevel=8,\
                                shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                                endian='native', least_significant_digit=None, fill_value=None)
@@ -236,7 +233,7 @@ def convert(file_in, file_out, dim, coordinates_scale, verbose, max_verbose):
         dataset.variables['z'][:]=midpoints[:,2]
     
     dataset.variables['vertex_points'][:,:]=vertex_coordinates[:,:]
-    if (dim>=2):
+    if (dim==2 or dim==3):
         dataset.variables['adjacent_elements'][:,:]=adjacent_elements[:,:]
     dataset.variables['ID'][:]=np.arange(el_size)
     
