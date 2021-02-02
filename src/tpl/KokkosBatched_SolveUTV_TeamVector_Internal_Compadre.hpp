@@ -46,7 +46,7 @@ namespace KokkosBatched {
         const value_type one(1), zero(0);
     
         value_type * X = B;
-        const int xs0 = bs0, xs1 = bs1;
+        const int xs0 = bs0;
         value_type * W = w; /// m x nrhs
         value_type * WQ = wq; /// 3m
         const int ws0 = nrhs, ws1=1; // only works with w layout right
