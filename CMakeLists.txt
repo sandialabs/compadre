@@ -240,6 +240,11 @@ else() # Raw CMake Project
       set(Compadre_USE_PTHREAD ON)
     endif()
 
+    FIND_PACKAGE(Kokkos)
+    if (Kokkos_VERSION VERSION_LESS "3.3")
+        message(FATAL_ERROR "${Kokkos_VERSION}: Requires Trilinos with Kokkos version 3.3.01 or greater")
+    endif()
+
   ENDIF()
 
   if (KOKKOS_IN_TRILINOS)
@@ -278,6 +283,9 @@ else() # Raw CMake Project
       # Existing KokkosCore indicated by user by setting KokkosCore_PREFIX, so we look for it
       # where specified (only)
       find_package(Kokkos PATHS "${KokkosCore_PREFIX}" NO_DEFAULT_PATH REQUIRED)
+      if (Kokkos_VERSION VERSION_LESS "3.3")
+          message(FATAL_ERROR "${Kokkos_VERSION}: Requires Trilinos with Kokkos version 3.3.01 or greater")
+      endif()
       set(KOKKOS_EXISTING_ELSEWHERE ON)
       # set Compadre_USE_ to whatever is enabled in Kokkos build
       if (TARGET Kokkos::OPENMP)
@@ -459,3 +467,14 @@ else() # Raw CMake Project
     bob_end_package()
   endif()
 endif()
+
+## print variables beginning with some string
+#function (getListOfVarsStartingWith _prefix _varResult)
+#  get_cmake_property(_vars VARIABLES)
+#  string (REGEX MATCHALL "(^|;)${_prefix}[A-Za-z0-9_]*" _matchedVars "${_vars}")
+#  set (${_varResult} ${_matchedVars} PARENT_SCOPE)
+#endfunction()
+#getListOfVarsStartingWith("SomeString" matchedVars)
+#foreach (_var IN LISTS matchedVars)
+#    message("${_var}=${${_var}}")
+#endforeach()
