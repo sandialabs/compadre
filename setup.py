@@ -137,6 +137,7 @@ class CMakeBuild(build_ext):
         # Configure CMake
         #config = 'Debug' if self.debug else 'Release'
         cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir,
+                      '-DCMAKE_CXX_FLAGS= -O3 ',
                       '-DPYTHON_EXECUTABLE=' + sys.executable,
                       '-DGMLS_Module_DEST=' + extdir,
                       '-DCMAKE_INSTALL_PREFIX=' + extdir,

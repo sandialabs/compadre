@@ -1,13 +1,5 @@
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
-if(Compadre_USE_LAPACK)
-  tribits_add_executable(
-    LAPACK_Test
-    SOURCES
-      UnitTest_ThreadedLapack.cpp
-    ) # end tribits_add_executable
-endif()
-
 tribits_add_executable(
   GMLS_Host_Test
   SOURCES
@@ -86,33 +78,6 @@ tribits_add_executable(
     NeighborSearchTest.cpp
   ) # end tribits_add_executable
 
-
-# Test if LAPACK+BLAS are compatible for use in the toolkit
-if(Compadre_USE_LAPACK)
-  set(testName LAPACK_THREADSAFE)
-  tribits_add_test(
-    LAPACK_Test
-    NAME
-      ${testName}
-    COMM serial mpi
-    NUM_MPI_PROCS 1
-    ARGS
-      "--kokkos-threads=8 --verbose --output-on-failure"
-    ADDED_TESTS_NAMES_OUT ${testName}_CREATED
-    ) # end tribits_add_test
-  if (${testName}_CREATED)
-    set_tests_properties(
-      ${${testName}_CREATED}
-      PROPERTIES
-        LABELS
-          "UnitTest;unit;lapack;Lapack;LAPACK;kokkos"
-        TIMEOUT
-          5
-        SKIP_RETURN_CODE
-          77
-      ) # end set_tests_properties
-  endif() # test created
-endif() # LAPACK being used
 
 # Host views tests for GMLS
 set(testName GMLS_Host_Dim3_SVD)

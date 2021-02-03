@@ -263,7 +263,7 @@ bool all_passed = true;
     // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
     auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
 
-    double epsilon_multiplier = 1.5;
+    double epsilon_multiplier = 1.4;
 
     // neighbor_lists_device will contain all neighbor lists (for each target site) in a compressed row format
     // Initially, we do a dry-run to calculate neighborhood sizes before actually storing the result. This is 
