@@ -23,6 +23,7 @@ INSTALL_PREFIX="./install"
 # python executable, and from that sitepackages and libraries are inferred.
 cmake \
     -D CMAKE_CXX_COMPILER="$MY_CXX_COMPILER" \
+    -D CMAKE_CXX_FLAGS=" -O3 " \
     -D CMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
     -D Compadre_USE_PYTHON:BOOL=ON \
     -D Compadre_USE_MATLAB:BOOL=ON \

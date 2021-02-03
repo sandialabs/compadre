@@ -331,6 +331,7 @@ bob_get_semver()
 bob_option(CompadreHarness_DEBUG "Debug Mode" ON)
 bob_option(Compadre_DEBUG "Debug Mode" "${CompadreHarness_DEBUG}")
 option(Compadre_USE_Trilinos "" ON)
+option(Compadre_USE_MPI "" ON)
 add_subdirectory(toolkit)
 
 # RPATH related settings
