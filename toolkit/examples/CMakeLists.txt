@@ -27,9 +27,6 @@ endfunction(add_exe_w_compadre)
 ###############
 if (Compadre_EXAMPLES)
 
-  if(Compadre_USE_LAPACK)
-    add_exe_w_compadre(LAPACK_Test UnitTest_ThreadedLapack.cpp) 
-  endif()
   add_exe_w_compadre(GMLS_Host_Test GMLS_Host.cpp)
   add_exe_w_compadre(GMLS_Device_Test GMLS_Device.cpp)
   add_exe_w_compadre(GMLS_NeumannGradScalar_Test GMLS_NeumannGradScalar.cpp)
@@ -45,13 +42,6 @@ if (Compadre_EXAMPLES)
   add_exe_w_compadre(NeighborSearchTest NeighborSearchTest.cpp)
 
   if (Compadre_TESTS)
-
-    if(Compadre_USE_LAPACK)
-      # Test if LAPACK+BLAS are compatible for use in the toolkit
-      ADD_TEST(NAME LAPACK_THREADSAFE COMMAND ${CMAKE_CURRENT_BINARY_DIR}/LAPACK_Test "--kokkos-threads=8" --verbose --output-on-failure)
-      SET_TESTS_PROPERTIES(LAPACK_THREADSAFE PROPERTIES LABELS "UnitTest;unit;lapack;Lapack;LAPACK;kokkos" TIMEOUT 5)
-      SET_TESTS_PROPERTIES(LAPACK_THREADSAFE PROPERTIES SKIP_RETURN_CODE 77)
-    endif()
 
     # Host views tests for GMLS
     ADD_TEST(NAME GMLS_Host_Dim3_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "4" "200" "3" "0" "0" "0" "--kokkos-threads=2")
