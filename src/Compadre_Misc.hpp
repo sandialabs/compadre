@@ -7,18 +7,50 @@ namespace Compadre {
 
 struct XYZ {
 
-    KOKKOS_INLINE_FUNCTION
-    XYZ() : x(0), y(0), z(0) {}
-
-    KOKKOS_INLINE_FUNCTION
-    XYZ(double _x, double _y, double _z) : x(_x), y(_y), z(_z) {}
-
     double x;
     double y;
     double z;
 
     KOKKOS_INLINE_FUNCTION
-    double& operator [](const int i) {
+    XYZ(double _x = 0.0, double _y = 0.0, double _z = 0.0) : x(_x), y(_y), z(_z) {}
+
+    KOKKOS_INLINE_FUNCTION
+    XYZ(const scalar_type* arry) : x(arry[0]), y(arry[1]), z(arry[2]) {};
+    
+    XYZ(const std::vector<scalar_type>& vec) : x(vec[0]), y(vec[1]), z(vec[2]) {};
+    
+    KOKKOS_INLINE_FUNCTION
+    XYZ operator += (const XYZ& other)
+        { x += other.x;
+          y += other.y;
+          z += other.z;
+          return *this;    }
+    KOKKOS_INLINE_FUNCTION
+    XYZ operator += (XYZ& other)
+        { x += other.x;
+          y += other.y;
+          z += other.z;
+          return *this;    }
+    KOKKOS_INLINE_FUNCTION
+    XYZ operator -= (const XYZ& other)
+        { x -= other.x;
+          y -= other.y;
+          z -= other.z;
+          return *this;    }
+    KOKKOS_INLINE_FUNCTION
+    XYZ operator -= (XYZ& other)
+        { x -= other.x;
+          y -= other.y;
+          z -= other.z;
+          return *this;    }
+    KOKKOS_INLINE_FUNCTION
+    XYZ operator *= (const double& scaling)
+        { x *= scaling;
+          y *= scaling;
+          z *= scaling;
+          return *this;    }
+    KOKKOS_INLINE_FUNCTION
+    scalar_type& operator [](const int i) {
         switch (i) {
             case 0:
                 return x;
@@ -28,7 +60,17 @@ struct XYZ {
                 return z;
         }
     }
-
+    KOKKOS_INLINE_FUNCTION
+    scalar_type operator [](const int i) const {
+        switch (i) {
+            case 0:
+                return x;
+            case 1:
+                return y;
+            default:
+                return z;
+        }
+    }
     KOKKOS_INLINE_FUNCTION
     XYZ operator *(double scalar) {
         XYZ result;
@@ -38,6 +80,51 @@ struct XYZ {
         return result;
     }
 }; // XYZ
+
+
+KOKKOS_INLINE_FUNCTION
+XYZ operator + ( const XYZ& vecA, const XYZ& vecB ) {
+    return XYZ( vecA.x + vecB.x, vecA.y + vecB.y, vecA.z + vecB.z); }
+
+    KOKKOS_INLINE_FUNCTION
+XYZ operator - ( const XYZ& vecA, const XYZ& vecB ) {
+    return XYZ( vecA.x - vecB.x, vecA.y - vecB.y, vecA.z - vecB.z); }
+    
+KOKKOS_INLINE_FUNCTION
+XYZ operator * ( const XYZ& vecA, const XYZ& vecB ) {
+    return XYZ( vecA.x * vecB.x, vecA.y * vecB.y, vecA.z * vecB.z); }
+
+KOKKOS_INLINE_FUNCTION
+XYZ operator + ( const XYZ& vecA, const scalar_type& constant ) {
+    return XYZ( vecA.x + constant, vecA.y + constant, vecA.z + constant); }
+
+KOKKOS_INLINE_FUNCTION
+XYZ operator + ( const scalar_type& constant, const XYZ& vecA ) {
+    return XYZ( vecA.x + constant, vecA.y + constant, vecA.z + constant); }
+
+KOKKOS_INLINE_FUNCTION
+XYZ operator - ( const XYZ& vecA, const scalar_type& constant ) {
+    return XYZ( vecA.x - constant, vecA.y - constant, vecA.z - constant); }
+
+KOKKOS_INLINE_FUNCTION
+XYZ operator - ( const scalar_type& constant,  const XYZ& vecA ) {
+    return XYZ( vecA.x - constant, vecA.y - constant, vecA.z - constant); }
+
+KOKKOS_INLINE_FUNCTION
+XYZ operator * ( const XYZ& vecA, const scalar_type& constant ) {
+    return XYZ( vecA.x * constant, vecA.y * constant, vecA.z * constant); }
+
+KOKKOS_INLINE_FUNCTION
+XYZ operator * (const scalar_type& constant, const XYZ& vecA) {
+    return XYZ( vecA.x * constant, vecA.y * constant, vecA.z * constant); }
+
+KOKKOS_INLINE_FUNCTION
+XYZ operator / ( const XYZ& vecA, const scalar_type& constant ) {
+    return XYZ( vecA.x / constant, vecA.y / constant, vecA.z / constant); }
+
+KOKKOS_INLINE_FUNCTION
+std::ostream& operator << ( std::ostream& os, const XYZ& vec ) {
+    os << "(" << vec.x << ", " << vec.y << ", " << vec.z << ")" ; return os; }
 
 KOKKOS_INLINE_FUNCTION
 int getAdditionalAlphaSizeFromConstraint(DenseSolverType dense_solver_type, ConstraintType constraint_type) {

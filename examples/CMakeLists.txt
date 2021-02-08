@@ -43,6 +43,11 @@ if (Compadre_EXAMPLES)
 
   if (Compadre_TESTS)
 
+    add_exe_w_compadre(UnitTests Compadre_UnitTests.cpp)
+    TARGET_LINK_LIBRARIES(UnitTests PRIVATE gtest)
+    ADD_TEST(UnitTests UnitTests)
+    SET_TESTS_PROPERTIES(UnitTests PROPERTIES LABELS "UnitTest;unittest;Unit;unit")
+
     # Host views tests for GMLS
     ADD_TEST(NAME GMLS_Host_Dim3_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "4" "200" "3" "0" "0" "0" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_Host_Dim3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 60)
