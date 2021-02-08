@@ -450,6 +450,16 @@ else() # Raw CMake Project
   # compadre library
   add_subdirectory(src)
 
+  if (Compadre_EXAMPLES AND Compadre_TESTS)
+    if (NOT TARGET gtest)
+      # gtest from kokkos
+      add_library(gtest
+          kokkos/tpls/gtest/gtest/gtest-all.cc
+      )
+      target_include_directories(gtest PUBLIC kokkos/tpls/gtest)
+    endif()
+  endif()
+
   if(Compadre_EXAMPLES)
     add_subdirectory(examples)
   endif()

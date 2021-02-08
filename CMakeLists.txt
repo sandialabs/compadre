@@ -1,11 +1,11 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.14.0)
 
 ##########
 #
 #   CompadreHarness Details
 #
 ########## 
-PROJECT(CompadreHarness VERSION 1.0.0 LANGUAGES CXX)
+PROJECT(CompadreHarness VERSION 1.3.1 LANGUAGES CXX)
 
 # cmake helper functions
 include(${CMAKE_CURRENT_LIST_DIR}/toolkit/cmake/bob.cmake)
