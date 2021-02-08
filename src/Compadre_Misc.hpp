@@ -108,7 +108,7 @@ XYZ operator - ( const XYZ& vecA, const scalar_type& constant ) {
 
 KOKKOS_INLINE_FUNCTION
 XYZ operator - ( const scalar_type& constant,  const XYZ& vecA ) {
-    return XYZ( vecA.x - constant, vecA.y - constant, vecA.z - constant); }
+    return XYZ( constant - vecA.x, constant - vecA.y, constant - vecA.z); }
 
 KOKKOS_INLINE_FUNCTION
 XYZ operator * ( const XYZ& vecA, const scalar_type& constant ) {
