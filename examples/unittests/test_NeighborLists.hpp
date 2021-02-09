@@ -10,11 +10,9 @@ using namespace Compadre;
 class NeighborListsTest: public ::testing::Test {
 public:
     Kokkos::View<double**, host_execution_space> source_coords, target_coords;
-    const int number_source_coords;
-    const int number_target_coords;
     Kokkos::View<int**, host_execution_space> internal_2d_nl_view;
 
-    NeighborListsTest( ) : number_source_coords(5), number_target_coords(2) {
+    NeighborListsTest( ) {
         // initialization
     }
 

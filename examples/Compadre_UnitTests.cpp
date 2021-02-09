@@ -2,6 +2,7 @@
 #include <Compadre_KokkosParser.hpp>
 #include "unittests/test_XYZ.hpp"
 #include "unittests/test_NeighborLists.hpp"
+#include "unittests/test_PointCloudSearch.hpp"
 #ifdef COMPADRE_USE_MPI
 #include <mpi.h>
 #endif
