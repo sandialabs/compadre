@@ -266,6 +266,8 @@ else() # Raw CMake Project
         bob_option(Kokkos_ENABLE_OPENMP "Whether to use OPENMP" ON)
         bob_option(Kokkos_ENABLE_PTHREAD "Whether to use PTHREAD" OFF)
       endif()
+      option(Kokkos_ENABLE_DEBUG "" "${Compadre_DEBUG}")
+      option(Kokkos_ENABLE_DEBUG_BOUNDS_CHECK "" "${Compadre_EXTREME_DEBUG}")
       option(Kokkos_ENABLE_CUDA_LAMBDA "" "${Kokkos_ENABLE_CUDA}")
       option(Kokkos_ENABLE_TESTS "" OFF)
       option(Kokkos_ENABLE_EXAMPLES "" OFF)

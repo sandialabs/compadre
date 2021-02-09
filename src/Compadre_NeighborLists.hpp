@@ -234,6 +234,8 @@ public:
     int getNeighborHost(int target_index, int neighbor_num) const {
         compadre_assert_debug((!_needs_sync_to_host) 
                 && "Stale information in host_cr_neighbor_lists. Call CopyDeviceDataToHost() to refresh.");
+        compadre_assert_debug((neighbor_num<_number_of_neighbors_list(target_index))
+                && "neighor_num exceeds number of neighbors for this target_index.");
         return _host_cr_neighbor_lists(_row_offsets(target_index)+neighbor_num);
     }
 
