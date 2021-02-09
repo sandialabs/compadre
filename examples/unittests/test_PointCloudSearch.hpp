@@ -184,14 +184,4 @@ TEST_F (PointCloudSearchTest, 1D_Dynamic_Search) {
     ASSERT_TRUE(t1_neighbors.find(1) != t1_neighbors.end());
 }
 
-//#ifdef COMPADRE_EXTREME_DEBUG
-//TEST_F (PointCloudSearchTest, 2D_to_CompressedRow_EXTREME_DEBUG) {
-//    auto nl_f_2d = Convert2DToCompressedRowNeighborLists(internal_2d_nl_view);
-//    ASSERT_THROW(nl_f_2d.getNumberOfNeighborsHost(4), std::exception);
-//    ASSERT_THROW(nl_f_2d.getRowOffsetHost(4), std::exception);
-//    ASSERT_THROW(nl_f_2d.getNeighborHost(0,1), std::exception);
-//    ASSERT_THROW(nl_f_2d.getNeighborHost(4,0), std::exception);
-//}
-//#endif
-
 #endif
