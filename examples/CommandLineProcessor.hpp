@@ -38,8 +38,10 @@ struct CommandLineProcessor {
         }
 
         if (print) {
+            std::cout << "************************************************************************" << std::endl;
             std::cout << "order: " << order << ", dimension: " << dimension << ", number_target_coords: " << number_target_coords << std::endl;
             std::cout << "solver: " << solver_name << ", problem: " << problem_name << ", constraint: " << constraint_name << std::endl;
+            std::cout << "************************************************************************" << std::endl;
 
         }
     }
