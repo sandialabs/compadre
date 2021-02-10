@@ -76,7 +76,7 @@ if (Compadre_EXAMPLES)
     ADD_TEST(NAME GMLS_NeumannGradScalar_Dim3_LU COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_NeumannGradScalar_Test "--p" "3" "--nt" "200" "--d" "3" "--solver" "LU" "--constraint" "NEUMANN_GRAD_SCALAR" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_NeumannGradScalar_Dim3_LU PROPERTIES LABELS "IntegrationTest;integration;kokkos" TIMEOUT 10)
 
-    # Device views tests with Neumann BC for STAGGERED GMLS - SVD solver
+    # Device views tests with Neumann BC for STAGGERED GMLS
     ADD_TEST(NAME GMLS_StaggeredNeumannGradScalar_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered "--p" "3" "--nt" "200" "--d" "3" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_StaggeredNeumannGradScalar_Dim3_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos;staggered" TIMEOUT 10)
 
@@ -126,16 +126,15 @@ if (Compadre_EXAMPLES)
       SET_TESTS_PROPERTIES(GMLS_Manifold_MultiSite_Refinement_Study PROPERTIES LABELS "ConvergenceTest;convergence;manifold" TIMEOUT 60)
 
       # Divergence-free basis test for GMLS on non-manifold
-      # Note: SVD is needed to be used here due to the null space introduced
-      ADD_TEST(NAME GMLS_DivergenceFree_Dim3_P3_SVD COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "3" "200" "3" "0" "0" "0" "--kokkos-threads=2")
-      SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim3_P3_SVD PROPERTIES LABELS "IntegrationTest;integration;kokkos;divergencefree;svd;batched" TIMEOUT 60)
-      #ADD_TEST(NAME GMLS_DivergenceFree_Dim3_P2_SVD COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "2" "200" "3" "0" "0" "0" "--kokkos-threads=2")
-      #SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim3_P2_SVD PROPERTIES LABELS "IntegrationTest;integration;kokkos;divergencefree;svd" TIMEOUT 60)
+      ADD_TEST(NAME GMLS_DivergenceFree_Dim3_P3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "--p" "3" "--nt" "200" "--d" "3" "--kokkos-threads=2")
+      SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim3_P3_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos;divergencefree;qr;batched" TIMEOUT 60)
+      #ADD_TEST(NAME GMLS_DivergenceFree_Dim3_P2_QR COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "2" "200" "3" "0" "0" "0" "--kokkos-threads=2")
+      #SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim3_P2_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos;divergencefree;qr" TIMEOUT 60)
 
-      ADD_TEST(NAME GMLS_DivergenceFree_Dim2_P3_SVD COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "3" "200" "2" "0" "0" "0" "--kokkos-threads=2")
-      SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim2_P3_SVD PROPERTIES LABELS "IntegrationTest;integration;kokkos;divergencefree;svd;batched" TIMEOUT 60)
-      #ADD_TEST(NAME GMLS_DivergenceFree_Dim2_P2_SVD COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "2" "200" "2" "0" "0" "0" "--kokkos-threads=2")
-      #SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim2_P2_SVD PROPERTIES LABELS "IntegrationTest;integration;kokkos;divergencefree;svd" TIMEOUT 60)
+      ADD_TEST(NAME GMLS_DivergenceFree_Dim2_P3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "--p" "3" "--nt" "200" "--d" "2" "--kokkos-threads=2")
+      SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim2_P3_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos;divergencefree;qr;batched" TIMEOUT 60)
+      #ADD_TEST(NAME GMLS_DivergenceFree_Dim2_P2_QR COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "2" "200" "2" "0" "0" "0" "--kokkos-threads=2")
+      #SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim2_P2_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos;divergencefree;qr" TIMEOUT 60)
     endif()
 
     #    # Manifold tests for GMLS
