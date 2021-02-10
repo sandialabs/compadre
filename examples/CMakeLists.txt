@@ -49,27 +49,27 @@ if (Compadre_EXAMPLES)
     SET_TESTS_PROPERTIES(UnitTests PROPERTIES LABELS "UnitTest;unittest;Unit;unit")
 
     # Host views tests for GMLS
-    ADD_TEST(NAME GMLS_Host_Dim3_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "4" "200" "3" "0" "0" "0" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_Host_Dim3_SVD PROPERTIES LABELS "IntegrationTest;integration;kokkos" TIMEOUT 60)
+    ADD_TEST(NAME GMLS_Host_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "--p" "4" "--nt" "200" "--d" "3" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_Host_Dim3_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos" TIMEOUT 60)
     
-    ADD_TEST(NAME GMLS_Host_Dim2_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "4" "200" "2" "0" "0" "0" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_Host_Dim2_SVD PROPERTIES LABELS "IntegrationTest;integration;kokkos" TIMEOUT 20)
+    ADD_TEST(NAME GMLS_Host_Dim2_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "--p" "4" "--nt" "200" "--d" "2" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_Host_Dim2_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos" TIMEOUT 20)
     
-    ADD_TEST(NAME GMLS_Host_Dim1_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "4" "200" "1" "0" "0" "0" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_Host_Dim1_SVD PROPERTIES LABELS "IntegrationTest;integration;kokkos" TIMEOUT 20)
+    ADD_TEST(NAME GMLS_Host_Dim1_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "--p" "4" "--nt" "200" "--d" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_Host_Dim1_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos" TIMEOUT 20)
 
     # Device views tests for GMLS
-    ADD_TEST(NAME GMLS_Device_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "4" "200" "3" "1" "0" "0" "--kokkos-threads=2")
+    ADD_TEST(NAME GMLS_Device_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "--p" "4" "--nt" "200" "--d" "3" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_Device_Dim3_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos" TIMEOUT 10)
     
-    ADD_TEST(NAME GMLS_Device_Dim2_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "4" "200" "2" "1" "0" "0" "--kokkos-threads=2")
+    ADD_TEST(NAME GMLS_Device_Dim2_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "--p" "4" "--nt" "200" "--d" "2" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_Device_Dim2_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos;batch" TIMEOUT 10)
     
-    ADD_TEST(NAME GMLS_Device_Dim1_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "4" "200" "1" "1" "0" "0" "--kokkos-threads=2")
+    ADD_TEST(NAME GMLS_Device_Dim1_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "--p" "4" "--nt" "200" "--d" "1" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_Device_Dim1_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos" TIMEOUT 10)
 
     # Device views tests for GMLS - LU solver
-    ADD_TEST(NAME GMLS_Device_Dim3_LU COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "4" "200" "3" "2" "0" "0" "--kokkos-threads=2")
+    ADD_TEST(NAME GMLS_Device_Dim3_LU COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "--p" "4" "--nt" "200" "--d" "3" "--solver" "LU" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(GMLS_Device_Dim3_LU PROPERTIES LABELS "IntegrationTest;integration;kokkos" TIMEOUT 10)
 
     # Device views tests with Neumann BC for GMLS - LU solver
@@ -77,8 +77,8 @@ if (Compadre_EXAMPLES)
     SET_TESTS_PROPERTIES(GMLS_NeumannGradScalar_Dim3_LU PROPERTIES LABELS "IntegrationTest;integration;kokkos" TIMEOUT 10)
 
     # Device views tests with Neumann BC for STAGGERED GMLS - SVD solver
-    ADD_TEST(NAME GMLS_StaggeredNeumannGradScalar_Dim3_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered "3" "200" "3" "0" "0" "1" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_StaggeredNeumannGradScalar_Dim3_SVD PROPERTIES LABELS "IntegrationTest;integration;kokkos;staggered" TIMEOUT 10)
+    ADD_TEST(NAME GMLS_StaggeredNeumannGradScalar_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered "3" "200" "3" "0" "0" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_StaggeredNeumannGradScalar_Dim3_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos;staggered" TIMEOUT 10)
 
     # Device views tests for GMLS (vector basis)
     ADD_TEST(NAME GMLS_Vector_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Vector_Test "3" "20" "3" "1" "0" "0" "--kokkos-threads=2")

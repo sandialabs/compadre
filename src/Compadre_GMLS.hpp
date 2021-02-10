@@ -577,9 +577,7 @@ protected:
     static DenseSolverType parseSolverType(const std::string& dense_solver_type) {
         std::string solver_type_to_lower = dense_solver_type;
         transform(solver_type_to_lower.begin(), solver_type_to_lower.end(), solver_type_to_lower.begin(), ::tolower);
-        if (solver_type_to_lower == "svd") {
-            return DenseSolverType::SVD;
-        } else if (solver_type_to_lower == "lu") {
+        if (solver_type_to_lower == "lu") {
             return DenseSolverType::LU;
         } else {
             return DenseSolverType::QR;

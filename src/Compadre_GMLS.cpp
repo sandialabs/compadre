@@ -269,7 +269,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
                     Kokkos::Profiling::popRegion();
                 } else {
                     // solves P*sqrt(weights) against sqrt(weights)*Identity with QR, stored in RHS
-                    Kokkos::Profiling::pushRegion("Curvature QR Factorization");
+                    Kokkos::Profiling::pushRegion("Curvature QR+Pivoting Factorization");
                     GMLS_LinearAlgebra::batchQRFactorize(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, _max_num_neighbors, manifold_NP, _max_num_neighbors, this_batch_size);
                     Kokkos::Profiling::popRegion();
                 }
@@ -298,7 +298,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
                 Kokkos::Profiling::popRegion();
             } else {
                  // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
-                Kokkos::Profiling::pushRegion("Curvature QR Factorization");
+                Kokkos::Profiling::pushRegion("Curvature QR+Pivoting Factorization");
                 GMLS_LinearAlgebra::batchQRFactorize(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, _max_num_neighbors, manifold_NP, _max_num_neighbors, this_batch_size);
                 Kokkos::Profiling::popRegion();
            }
@@ -320,17 +320,12 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
             _pm.CallFunctorWithTeamThreads<AssembleManifoldPsqrtW>(*this, this_batch_size);
 
             // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
-            // uses SVD if necessary or if explicitly asked to do so (much slower than QR)
-            if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
-                Kokkos::Profiling::pushRegion("Manifold SVD Factorization");
-                GMLS_LinearAlgebra::batchSVDFactorize(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, max_num_rows, this_num_cols, max_num_rows, this_batch_size);
-                Kokkos::Profiling::popRegion();
-            } else if (_dense_solver_type == DenseSolverType::LU) {
+            if (_dense_solver_type == DenseSolverType::LU) {
                 Kokkos::Profiling::pushRegion("Manifold LU Factorization");
                 GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, this_num_cols, this_num_cols, max_num_rows, this_batch_size);
                 Kokkos::Profiling::popRegion();
             } else {
-                Kokkos::Profiling::pushRegion("Manifold QR Factorization");
+                Kokkos::Profiling::pushRegion("Manifold QR+Pivoting Factorization");
                 GMLS_LinearAlgebra::batchQRFactorize(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, max_num_rows, this_num_cols, max_num_rows, this_batch_size);
                 Kokkos::Profiling::popRegion();
             }
@@ -348,32 +343,18 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
             Kokkos::fence();
 
             // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
-            // uses SVD if necessary or if explicitly asked to do so (much slower than QR)
-            if (_constraint_type != ConstraintType::NO_CONSTRAINT) {
-                if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
-                     Kokkos::Profiling::pushRegion("SVD Factorization");
-                     GMLS_LinearAlgebra::batchSVDFactorize(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + _added_alpha_size, this_batch_size);
-                     Kokkos::Profiling::popRegion();
-                } else {
-                     Kokkos::Profiling::pushRegion("LU Factorization");
-                     GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + _added_alpha_size, this_batch_size);
-                     Kokkos::Profiling::popRegion();
-                }
-            } else {
-                // Solve normally for no-constraint cases
-                if (_nontrivial_nullspace || _dense_solver_type == DenseSolverType::SVD) {
-                    Kokkos::Profiling::pushRegion("SVD Factorization");
-                    GMLS_LinearAlgebra::batchSVDFactorize(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, max_num_rows, this_num_cols, max_num_rows, this_batch_size);
-                    Kokkos::Profiling::popRegion();
-                } else if (_dense_solver_type == DenseSolverType::LU) {
+            if (_dense_solver_type == DenseSolverType::LU) {
                     Kokkos::Profiling::pushRegion("LU Factorization");
                     GMLS_LinearAlgebra::batchLUFactorize(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + _added_alpha_size, this_batch_size);
                     Kokkos::Profiling::popRegion();
+            } else {
+                Kokkos::Profiling::pushRegion("QR+Pivoting Factorization");
+                if (_constraint_type != ConstraintType::NO_CONSTRAINT) {
+                     GMLS_LinearAlgebra::batchQRFactorize(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + _added_alpha_size, this_batch_size);
                 } else {
-                    Kokkos::Profiling::pushRegion("QR Factorization");
                     GMLS_LinearAlgebra::batchQRFactorize(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, max_num_rows, this_num_cols, max_num_rows, this_batch_size);
-                    Kokkos::Profiling::popRegion();
                 }
+                Kokkos::Profiling::popRegion();
             }
 
             _pm.CallFunctorWithTeamThreadsAndVectors<ComputePrestencilWeights>(*this, this_batch_size);

@@ -199,27 +199,6 @@ void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *R
 
 }
 
-void batchSVDFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices) {
-
-    //printf("lda: %d, nda %d, ldb %d, ndb %d, M %d, N %d, NRHS %d\n", lda, nda, ldb, ndb, M, N, NRHS);
-    typedef Algo::UTV::Unblocked algo_tag_type;
-    typedef Kokkos::View<double***, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
-                    MatrixViewType;
-
-    MatrixViewType A(P, num_matrices, lda, nda);
-
-    typedef Kokkos::View<int**, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
-                    PivViewType;
-
-
-    typedef Kokkos::View<double***, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
-                    VectorViewType;
-    VectorViewType B(RHS, num_matrices, ldb, ndb);
-    Functor_TestBatchedTeamVectorSolveUTV
-      <device_execution_space, algo_tag_type, MatrixViewType, PivViewType, VectorViewType>(M,N,NRHS,A,B).run(pm);
-
-}
-
 void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices) {
 
     //printf("lda: %d, nda %d, ldb %d, ndb %d, M %d, N %d, NRHS %d\n", lda, nda, ldb, ndb, M, N, NRHS);
