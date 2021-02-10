@@ -3,7 +3,7 @@
 
 struct CommandLineProcessor {
 
-    int order, dimension, number_target_coords, number_of_batches;
+    int order, dimension, number_target_coords, number_source_coords, number_of_batches;
     std::string constraint_name, solver_name, problem_name;
 
     CommandLineProcessor(int argc, char* args[], const bool print=true) {
@@ -11,6 +11,7 @@ struct CommandLineProcessor {
         order = 2;
         dimension = 3;
         number_target_coords = 200; 
+        number_source_coords = -1; 
         number_of_batches = 1; 
     
         constraint_name = "NO_CONSTRAINT"; // "NEUMANN_GRAD_SCALAR"
@@ -25,6 +26,8 @@ struct CommandLineProcessor {
                    dimension = atoi(args[i+1]); 
                 } else if (std::string(args[i]) == "--nt") {
                    number_target_coords = atoi(args[i+1]); 
+                } else if (std::string(args[i]) == "--ns") {
+                   number_source_coords = atoi(args[i+1]); 
                 } else if (std::string(args[i]) == "--nb") {
                    number_of_batches = atoi(args[i+1]); 
                 } else if (std::string(args[i]) == "--solver") {
