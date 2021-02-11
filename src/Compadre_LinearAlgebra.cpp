@@ -70,7 +70,7 @@ namespace GMLS_LinearAlgebra {
         aa = aaa;
       }
 
-      if (_M==_N) {
+      if (std::is_same<typename VectorViewType::array_layout, layout_left>::value) {
         scratch_matrix_right_type tmp(ww_slow.data(), _N, _NRHS);
         // coming from LU
         // then copy B to W, then back to B
