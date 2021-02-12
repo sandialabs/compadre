@@ -31,80 +31,42 @@ public:
         Kokkos::deep_copy(B, 0.0);
 
         if (M==N) { // square case
+            std::vector<int> a_i, a_j, b_i, b_j;
+            std::vector<double> a_k, b_k;
             if (rank==M) { // full rank
                 // fill in A matrices
                 // A = [[-4, 1, 0], [1, -4, 1], [0, 1 -4]]
-                std::vector<int>    a_i ={0,0,1,1,1,2,2};
-                std::vector<int>    a_j ={0,1,0,1,2,1,2};
-                std::vector<double> a_k ={-4,1,1,-4,1,1,-4};
+                a_i ={0,0,1,1,1,2,2};
+                a_j ={0,1,0,1,2,1,2};
+                a_k ={-4,1,1,-4,1,1,-4};
 
-                for (int mat_num=0; mat_num<num_matrices; ++mat_num) {
-                    host_scratch_matrix_right_type this_A(A.data() + mat_num*lda*nda, lda, nda);
-                    for (int ind=0; ind<a_i.size(); ++ind) {
-                        this_A(a_i[ind], a_j[ind]) = a_k[ind];
-                    }
-                }
-
-                std::vector<int> b_i, b_j;
-                std::vector<double> b_k;
-                if (NRHS==M) {
-                    // B = [[0, 0, 0], [0, 1, 0], [0, 0, 2]]
-                    b_i ={0,1,2};
-                    b_j ={0,1,2};
-                    b_k ={0,1,2};
-                } else {
-                    // B = [[0, 0, 0, 0], [0, 1, 0, 0], [0, 0, 2, 3]]
-                    b_i ={0,1,2,2};
-                    b_j ={0,1,2,3};
-                    b_k ={0,1,2,3};
-                }
-                for (int mat_num=0; mat_num<num_matrices; ++mat_num) {
-                    // note that ndb and ldb ordering is reversed
-                    // this is because ldb and ndb are specified w.r.t. a layout right matrix
-                    // which when viewed as layout left swaps the ordering
-                    host_scratch_matrix_left_type this_B(B.data() + mat_num*ldb*ndb, ndb, ldb);
-                    for (int ind=0; ind<b_i.size(); ++ind) {
-                        this_B(b_i[ind], b_j[ind]) = b_k[ind];
-                    }
-                }
-            } else { // rank deficient
+            } else if (rank==N-1) { // rank deficient by one
                 // fill in A matrices
                 // A= [[-4, -8, 0], [1, 2, 1], [0, 0 -4]]
-                std::vector<int>    a_i ={0,0,1,1,1,2};
-                std::vector<int>    a_j ={0,1,0,1,2,2};
-                std::vector<double> a_k ={-4,-8,1,2,1,-4};
-
-                for (int mat_num=0; mat_num<num_matrices; ++mat_num) {
-                    host_scratch_matrix_right_type this_A(A.data() + mat_num*lda*nda, lda, nda);
-                    for (int ind=0; ind<a_i.size(); ++ind) {
-                        this_A(a_i[ind], a_j[ind]) = a_k[ind];
-                    }
+                a_i ={0,0,1,1,1,2};
+                a_j ={0,1,0,1,2,2};
+                a_k ={-4,-8,1,2,1,-4};
+            }
+            if (NRHS==M) {
+                // B = [[0, 0, 0], [0, 1, 0], [0, 0, 2]]
+                b_i ={0,1,2};
+                b_j ={0,1,2};
+                b_k ={0,1,2};
+            } else if (NRHS==M+1) {
+                // B = [[0, 0, 0, 0], [0, 1, 0, 0], [0, 0, 2, 3]]
+                b_i ={0,1,2,2};
+                b_j ={0,1,2,3};
+                b_k ={0,1,2,3};
+            }
+            for (int mat_num=0; mat_num<num_matrices; ++mat_num) {
+                host_scratch_matrix_right_type this_A(A.data() + mat_num*lda*nda, lda, nda);
+                for (int ind=0; ind<a_i.size(); ++ind) {
+                    this_A(a_i[ind], a_j[ind]) = a_k[ind];
                 }
-
-                // B 
-                std::vector<int> b_i, b_j;
-                std::vector<double> b_k;
-                if (NRHS==M) {
-                    // B = [[0, 0, 0], [0, 1, 0], [0, 0, 2]]
-                    b_i ={0,1,2};
-                    b_j ={0,1,2};
-                    b_k ={0,1,2};
-                } else {
-                    // B = [[0, 0, 0, 0], [0, 1, 0, 0], [0, 0, 2, 3]]
-                    b_i ={0,1,2,2};
-                    b_j ={0,1,2,3};
-                    b_k ={0,1,2,3};
+                host_scratch_matrix_left_type this_B(B.data() + mat_num*ldb*ndb, ldb, ndb);
+                for (int ind=0; ind<b_i.size(); ++ind) {
+                    this_B(b_i[ind], b_j[ind]) = b_k[ind];
                 }
-                for (int mat_num=0; mat_num<num_matrices; ++mat_num) {
-                    // note that ndb and ldb ordering is reversed
-                    // this is because ldb and ndb are specified w.r.t. a layout right matrix
-                    // which when viewed as layout left swaps the ordering
-                    host_scratch_matrix_left_type this_B(B.data() + mat_num*ldb*ndb, ndb, ldb);
-                    for (int ind=0; ind<b_i.size(); ++ind) {
-                        this_B(b_i[ind], b_j[ind]) = b_k[ind];
-                    }
-                }
-
             }
         }
     }
@@ -123,10 +85,9 @@ public:
 TEST_F (LinearAlgebraTest, Square_FullRank_batchLUFactorize_Same_LDA_NDA) {
     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
     int lda=3, nda=3;
-    int ldb=3, ndb=3; // relative to layout right
+    int ldb=3, ndb=3;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank);
-    // LU expects layout left B, so ndb and ldb reverse ordered
-    GMLS_LinearAlgebra::batchLUFactorize(pm, A.data(), lda, nda, B.data(), ndb, ldb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
     // solution: X = [
     //                   0  -0.071428571428571  -0.035714285714286
     //                   0  -0.285714285714286  -0.142857142857143
@@ -138,7 +99,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchLUFactorize_Same_LDA_NDA) {
     //    }
     //}
     //for (int i=0; i<ldb*ndb; ++i) printf("Bi(%d): %.16f\n", i, B(i));
-    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ndb, ldb);
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
@@ -153,16 +114,16 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchLUFactorize_Same_LDA_NDA) {
 TEST_F (LinearAlgebraTest, Square_FullRank_batchLUFactorize_Same_LDA_NDA_Larger_NRHS) {
     int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
     int lda=3, nda=3;
-    int ldb=4, ndb=3; // relative to layout right
+    int ldb=3, ndb=4;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank);
     // LU expects layout left B, so ndb and ldb reverse ordered
-    GMLS_LinearAlgebra::batchLUFactorize(pm, A.data(), lda, nda, B.data(), ndb, ldb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
     // solution: X = [
     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
     //                  0  -0.071428571428571  -0.535714285714286  -0.803571428571429
     //               ]
-    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ndb, ldb);
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
@@ -181,16 +142,15 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchLUFactorize_Larger_LDA_NDA) {
     // lda and nda larger than M and N
     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
     int lda=7, nda=12;
-    int ldb=3, ndb=3; // relative to layout right
+    int ldb=3, ndb=3;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank);
-    // LU expects layout left B, so ndb and ldb reverse ordered
-    GMLS_LinearAlgebra::batchLUFactorize(pm, A.data(), lda, nda, B.data(), ndb, ldb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
     // solution: X = [
     //                   0  -0.071428571428571  -0.035714285714286
     //                   0  -0.285714285714286  -0.142857142857143
     //                   0  -0.071428571428571  -0.535714285714286
     //               ]
-    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ndb, ldb);
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
@@ -206,16 +166,15 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchLUFactorize_Larger_LDB_NDB) {
     // lda and nda larger than M and N
     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
     int lda=3, nda=3;
-    int ldb=7, ndb=13; // relative to layout right
+    int ldb=7, ndb=13;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank);
-    // LU expects layout left B, so ndb and ldb reverse ordered
-    GMLS_LinearAlgebra::batchLUFactorize(pm, A.data(), lda, nda, B.data(), ndb, ldb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
     // solution: X = [
     //                   0  -0.071428571428571  -0.035714285714286
     //                   0  -0.285714285714286  -0.142857142857143
     //                   0  -0.071428571428571  -0.535714285714286
     //               ]
-    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ndb, ldb);
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
@@ -230,16 +189,15 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchLUFactorize_Larger_LDB_NDB) {
 TEST_F (LinearAlgebraTest, Square_FullRank_batchLUFactorize_Larger_LDB_NDB_Larger_NRHS) {
     int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
     int lda=3, nda=3;
-    int ldb=12, ndb=8; // relative to layout right
+    int ldb=12, ndb=8;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank);
-    // LU expects layout left B, so ndb and ldb reverse ordered
-    GMLS_LinearAlgebra::batchLUFactorize(pm, A.data(), lda, nda, B.data(), ndb, ldb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
     // solution: X = [
     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
     //                  0  -0.071428571428571  -0.535714285714286  -0.803571428571429
     //               ]
-    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ndb, ldb);
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);

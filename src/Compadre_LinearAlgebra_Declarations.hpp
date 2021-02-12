@@ -18,50 +18,33 @@ namespace GMLS_LinearAlgebra {
     KOKKOS_INLINE_FUNCTION
     void largestTwoEigenvectorsThreeByThreeSymmetric(const member_type& teamMember, scratch_matrix_right_type V, scratch_matrix_right_type PtP, const int dimensions, pool_type& random_number_pool);
 
-    /*! \brief Solves a batch of rectangular problems with QR+Pivoting
+    /*! \brief Solves a batch of problems with QR+Pivoting
  
-         ~ Note: Very strong assumption on RHS. ~
+         ~ Note: Very strong assumption on B. ~
 
-         P contains num_matrices * lda * nda data which is num_matrices different (lda x nda) layout RIGHT matrices, and
-         RHS contains num_matrices * ldb * ndb data which is num_matrices different (ldb x ndb) layout RIGHT matrices constaining right hand sides.
+         A contains num_matrices * lda * nda data which is num_matrices different (lda x nda) matrices with valid entries of size (M x N), and
+         B contains num_matrices * ldb * ndb data which is num_matrices different (ldb x ndb) right hand sides.
+         B is assumed to have one of two forms:
+         - \f$M==N\f$, the valid entries are the first (N X NRHS)
+         - \f$M>N\f$, the valid entries are the first (NRHS)
+           i.e. for this case, B is intended to store non-zero entries from a diagonal matrix (as a vector). For the \f$k^{th}\f$ matrix, the (m,m) entry of a diagonal matrix would here be stored in the \f$m^{th}\f$ position.
 
-        Note: RHS is intended to store entries from a diagonal matrix (as a vector). I.e., for the \f$k^{th}\f$ matrix, the (m,m) entry of a diagonal matrix would here be stored in the \f$m^{th}\f$ position.
  
 
         \param pm                   [in] - manager class for team and thread parallelism
-        \param P                [in/out] - evaluation of sampling functional on polynomial basis (in), meaningless workspace output (out)
-        \param lda                  [in] - row dimension of each matrix in P
-        \param nda                  [in] - columns dimension of each matrix in P
-        \param RHS              [in/out] - basis to invert P against (in), polynomial coefficients (out)
-        \param ldb                  [in] - row dimension of each matrix in RHS
-        \param ndb                  [in] - column dimension of each matrix in RHS
-        \param M                    [in] - number of rows containing data (maximum rows over everything in batch) in P
-        \param N                    [in] - number of columns containing data in each matrix in P
-        \param NRHS                 [in] - number of columns containing data in each matrix in RHS
-        \param num_matrices         [in] - number of target (GMLS problems to be solved)
+        \param A                [in/out] - matrix A (in), meaningless workspace output (out)
+        \param lda                  [in] - row dimension of each matrix in A
+        \param nda                  [in] - columns dimension of each matrix in A
+        \param B                [in/out] - right hand sides (in), solution (out)
+        \param ldb                  [in] - row dimension of each matrix in B
+        \param ndb                  [in] - column dimension of each matrix in B
+        \param M                    [in] - number of rows containing data (maximum rows over everything in batch) in A
+        \param N                    [in] - number of columns containing data in each matrix in A
+        \param NRHS                 [in] - number of columns containing data in each matrix in B
+        \param num_matrices         [in] - number of problems
     */
-    void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices);
-
-    /*! \brief Solves a batch of square problems with QR+Pivoting
-
-         P contains num_matrices * lda * nda data which is num_matrices different (lda x nda) layout RIGHT matrices, and
-         RHS contains num_matrices * ldb * ndb data which is num_matrices different (ldb x ndb) layout LEFT matrices constaining right hand sides.
-
-         Because P is square,  
-
-        \param pm                   [in] - manager class for team and thread parallelism
-        \param P                [in/out] - evaluation of sampling functional on polynomial basis (in), meaningless workspace output (out)
-        \param lda                  [in] - row dimension of each matrix in P
-        \param nda                  [in] - columns dimension of each matrix in P
-        \param RHS              [in/out] - basis to invert P against (in), polynomial coefficients (out)
-        \param ldb                  [in] - row dimension of each matrix in RHS
-        \param ndb                  [in] - column dimension of each matrix in RHS
-        \param M                    [in] - number of rows containing data (maximum rows over everything in batch) in P
-        \param N                    [in] - number of columns containing data in each matrix in P
-        \param NRHS                 [in] - number of columns containing data in each matrix in RHS
-        \param num_matrices         [in] - number of target (GMLS problems to be solved)
-    */
-    void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices);
+    template <typename A_layout=layout_right, typename B_layout=layout_right, typename X_layout=layout_right>
+    void batchQRPivotingSolve(ParallelManager pm, double *A, int lda, int nda, double *B, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices);
 
 } // GMLS_LinearAlgebra
 } // Compadre
