@@ -52,7 +52,6 @@ bool all_passed = true;
     auto solver_name = clp.solver_name;
     auto problem_name = clp.problem_name;
     auto number_of_batches = clp.number_of_batches;
-    bool keep_coefficients = number_of_batches==1;
     
     // the functions we will be seeking to reconstruct are in the span of the basis
     // of the reconstruction space we choose for GMLS, so the error should be very small

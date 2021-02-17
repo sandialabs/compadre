@@ -20,7 +20,10 @@ public:
         pm = ParallelManager();
     }
 
-    void SetUp(const int lda, const int nda, const int ldb, const int ndb, 
+    // silence warning, letting compiler know we mean
+    // to override
+    using ::testing::Test::SetUp; 
+    virtual void SetUp(const int lda, const int nda, const int ldb, const int ndb, 
             const int M, const int N, const int NRHS, const int num_matrices, 
             const int rank, const bool A_is_LR, const bool B_is_LR) {
 
