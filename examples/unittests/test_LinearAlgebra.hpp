@@ -22,7 +22,7 @@ public:
 
     void SetUp(const int lda, const int nda, const int ldb, const int ndb, 
             const int M, const int N, const int NRHS, const int num_matrices, 
-            const int rank) {
+            const int rank, const bool A_is_LR, const bool B_is_LR) {
 
         // multiple full rank matrices
         Kokkos::resize(A, lda*nda*num_matrices);
@@ -59,13 +59,27 @@ public:
                 b_k ={0,1,2,3};
             }
             for (int mat_num=0; mat_num<num_matrices; ++mat_num) {
-                host_scratch_matrix_right_type this_A(A.data() + mat_num*lda*nda, lda, nda);
-                for (int ind=0; ind<a_i.size(); ++ind) {
-                    this_A(a_i[ind], a_j[ind]) = a_k[ind];
+                if (A_is_LR) {
+                    host_scratch_matrix_right_type this_A(A.data() + mat_num*lda*nda, lda, nda);
+                    for (int ind=0; ind<a_i.size(); ++ind) {
+                        this_A(a_i[ind], a_j[ind]) = a_k[ind];
+                    }
+                } else {
+                    host_scratch_matrix_left_type this_A(A.data() + mat_num*lda*nda, lda, nda);
+                    for (int ind=0; ind<a_i.size(); ++ind) {
+                        this_A(a_i[ind], a_j[ind]) = a_k[ind];
+                    }
                 }
-                host_scratch_matrix_left_type this_B(B.data() + mat_num*ldb*ndb, ldb, ndb);
-                for (int ind=0; ind<b_i.size(); ++ind) {
-                    this_B(b_i[ind], b_j[ind]) = b_k[ind];
+                if (B_is_LR) {
+                    host_scratch_matrix_right_type this_B(B.data() + mat_num*ldb*ndb, ldb, ndb);
+                    for (int ind=0; ind<b_i.size(); ++ind) {
+                        this_B(b_i[ind], b_j[ind]) = b_k[ind];
+                    }
+                } else {
+                    host_scratch_matrix_left_type this_B(B.data() + mat_num*ldb*ndb, ldb, ndb);
+                    for (int ind=0; ind<b_i.size(); ++ind) {
+                        this_B(b_i[ind], b_j[ind]) = b_k[ind];
+                    }
                 }
             }
         }
@@ -77,16 +91,20 @@ public:
 };
 
 
-// Notes for Square tests:
 //
-//   batchLU hands a layout left view of each matrix in B to the the problem
+// Square FullRank Tests
+// Tested for A=LayoutLeft (LLA) LayoutRightA(LRA)
+// Tested for B=LayoutLeft (LLB) LayoutRightA(LRB)
+// Tested for X=LayoutLeft (LLX) LayoutRightA(LRX)
 //
+// along with various sizes of lda, nda, ldb, and ndb, and NRHS
+// 
 
-TEST_F (LinearAlgebraTest, Square_FullRank_batchLUFactorize_Same_LDA_NDA) {
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_LRA_LLB_LRX) {
     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
     int lda=3, nda=3;
     int ldb=3, ndb=3;
-    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank);
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
     // solution: X = [
     //                   0  -0.071428571428571  -0.035714285714286
@@ -111,11 +129,11 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchLUFactorize_Same_LDA_NDA) {
     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
 }
 
-TEST_F (LinearAlgebraTest, Square_FullRank_batchLUFactorize_Same_LDA_NDA_Larger_NRHS) {
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_Larger_NRHS_LRA_LLB_LRX) {
     int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
     int lda=3, nda=3;
     int ldb=3, ndb=4;
-    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank);
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
     // LU expects layout left B, so ndb and ldb reverse ordered
     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
     // solution: X = [
@@ -138,12 +156,12 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchLUFactorize_Same_LDA_NDA_Larger_
     EXPECT_NEAR(-0.803571428571429, B2(2,3), 1e-14);
 }
 
-TEST_F (LinearAlgebraTest, Square_FullRank_batchLUFactorize_Larger_LDA_NDA) {
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDA_NDA_LRA_LLB_LRX) {
     // lda and nda larger than M and N
     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
     int lda=7, nda=12;
     int ldb=3, ndb=3;
-    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank);
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
     // solution: X = [
     //                   0  -0.071428571428571  -0.035714285714286
@@ -162,12 +180,12 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchLUFactorize_Larger_LDA_NDA) {
     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
 }
 
-TEST_F (LinearAlgebraTest, Square_FullRank_batchLUFactorize_Larger_LDB_NDB) {
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_LRA_LLB_LRX) {
     // lda and nda larger than M and N
     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
     int lda=3, nda=3;
     int ldb=7, ndb=13;
-    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank);
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
     // solution: X = [
     //                   0  -0.071428571428571  -0.035714285714286
@@ -186,11 +204,11 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchLUFactorize_Larger_LDB_NDB) {
     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
 }
 
-TEST_F (LinearAlgebraTest, Square_FullRank_batchLUFactorize_Larger_LDB_NDB_Larger_NRHS) {
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_Larger_NRHS_LRA_LLB_LRX) {
     int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
     int lda=3, nda=3;
     int ldb=12, ndb=8;
-    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank);
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
     // solution: X = [
     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
@@ -212,13 +230,923 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchLUFactorize_Larger_LDB_NDB_Large
     EXPECT_NEAR(-0.803571428571429, B2(2,3), 1e-14);
 }
 
-// TEST_F (LinearAlgebraTest, Square_FullRank_batchQRFactorize_Same_LDA_NDA) {
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_LRA_LRB_LRX) {
+    int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+    int lda=3, nda=3;
+    int ldb=3, ndb=3;
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    // solution: X = [
+    //                   0  -0.071428571428571  -0.035714285714286
+    //                   0  -0.285714285714286  -0.142857142857143
+    //                   0  -0.071428571428571  -0.535714285714286
+    //               ]
+    //for (int i=0; i<3; ++i) {
+    //    for (int j=0; j<3; ++j) {
+    //        printf("B(%d,%d): %.16f\n", i, j, B(i*N+j));
+    //    }
+    //}
+    //for (int i=0; i<ldb*ndb; ++i) printf("Bi(%d): %.16f\n", i, B(i));
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+    EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+    EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+    EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+    EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+    EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+}
+
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_Larger_NRHS_LRA_LRB_LRX) {
+    int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
+    int lda=3, nda=3;
+    int ldb=3, ndb=4;
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+    // QR expects layout left B, so ndb and ldb reverse ordered
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    // solution: X = [
+    //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
+    //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
+    //                  0  -0.071428571428571  -0.535714285714286  -0.803571428571429
+    //               ]
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+    EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+    EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+    EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+    EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+    EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+    EXPECT_NEAR(-0.053571428571429, B2(0,3), 1e-14);
+    EXPECT_NEAR(-0.214285714285714, B2(1,3), 1e-14);
+    EXPECT_NEAR(-0.803571428571429, B2(2,3), 1e-14);
+}
+
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDA_NDA_LRA_LRB_LRX) {
+    // lda and nda larger than M and N
+    int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+    int lda=7, nda=12;
+    int ldb=3, ndb=3;
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    // solution: X = [
+    //                   0  -0.071428571428571  -0.035714285714286
+    //                   0  -0.285714285714286  -0.142857142857143
+    //                   0  -0.071428571428571  -0.535714285714286
+    //               ]
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+    EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+    EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+    EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+    EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+    EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+}
+
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_LRA_LRB_LRX) {
+    // lda and nda larger than M and N
+    int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+    int lda=3, nda=3;
+    int ldb=7, ndb=13;
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    // solution: X = [
+    //                   0  -0.071428571428571  -0.035714285714286
+    //                   0  -0.285714285714286  -0.142857142857143
+    //                   0  -0.071428571428571  -0.535714285714286
+    //               ]
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+    EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+    EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+    EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+    EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+    EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+}
+
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_Larger_NRHS_LRA_LRB_LRX) {
+    int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
+    int lda=3, nda=3;
+    int ldb=12, ndb=8;
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    // solution: X = [
+    //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
+    //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
+    //                  0  -0.071428571428571  -0.535714285714286  -0.803571428571429
+    //               ]
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+    EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+    EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+    EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+    EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+    EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+    EXPECT_NEAR(-0.053571428571429, B2(0,3), 1e-14);
+    EXPECT_NEAR(-0.214285714285714, B2(1,3), 1e-14);
+    EXPECT_NEAR(-0.803571428571429, B2(2,3), 1e-14);
+}
+
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_LLA_LLB_LRX) {
+    int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+    int lda=3, nda=3;
+    int ldb=3, ndb=3;
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    // solution: X = [
+    //                   0  -0.071428571428571  -0.035714285714286
+    //                   0  -0.285714285714286  -0.142857142857143
+    //                   0  -0.071428571428571  -0.535714285714286
+    //               ]
+    //for (int i=0; i<3; ++i) {
+    //    for (int j=0; j<3; ++j) {
+    //        printf("B(%d,%d): %.16f\n", i, j, B(i*N+j));
+    //    }
+    //}
+    //for (int i=0; i<ldb*ndb; ++i) printf("Bi(%d): %.16f\n", i, B(i));
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+    EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+    EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+    EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+    EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+    EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+}
+
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_Larger_NRHS_LLA_LLB_LRX) {
+    int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
+    int lda=3, nda=3;
+    int ldb=3, ndb=4;
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
+    // LU expects layout left B, so ndb and ldb reverse ordered
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    // solution: X = [
+    //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
+    //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
+    //                  0  -0.071428571428571  -0.535714285714286  -0.803571428571429
+    //               ]
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+    EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+    EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+    EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+    EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+    EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+    EXPECT_NEAR(-0.053571428571429, B2(0,3), 1e-14);
+    EXPECT_NEAR(-0.214285714285714, B2(1,3), 1e-14);
+    EXPECT_NEAR(-0.803571428571429, B2(2,3), 1e-14);
+}
+
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDA_NDA_LLA_LLB_LRX) {
+    // lda and nda larger than M and N
+    int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+    int lda=7, nda=12;
+    int ldb=3, ndb=3;
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    // solution: X = [
+    //                   0  -0.071428571428571  -0.035714285714286
+    //                   0  -0.285714285714286  -0.142857142857143
+    //                   0  -0.071428571428571  -0.535714285714286
+    //               ]
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+    EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+    EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+    EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+    EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+    EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+}
+
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_LLA_LLB_LRX) {
+    // lda and nda larger than M and N
+    int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+    int lda=3, nda=3;
+    int ldb=7, ndb=13;
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    // solution: X = [
+    //                   0  -0.071428571428571  -0.035714285714286
+    //                   0  -0.285714285714286  -0.142857142857143
+    //                   0  -0.071428571428571  -0.535714285714286
+    //               ]
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+    EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+    EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+    EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+    EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+    EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+}
+
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_Larger_NRHS_LLA_LLB_LRX) {
+    int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
+    int lda=3, nda=3;
+    int ldb=12, ndb=8;
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    // solution: X = [
+    //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
+    //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
+    //                  0  -0.071428571428571  -0.535714285714286  -0.803571428571429
+    //               ]
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+    EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+    EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+    EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+    EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+    EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+    EXPECT_NEAR(-0.053571428571429, B2(0,3), 1e-14);
+    EXPECT_NEAR(-0.214285714285714, B2(1,3), 1e-14);
+    EXPECT_NEAR(-0.803571428571429, B2(2,3), 1e-14);
+}
+
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_LLA_LRB_LRX) {
+    int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+    int lda=3, nda=3;
+    int ldb=3, ndb=3;
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    // solution: X = [
+    //                   0  -0.071428571428571  -0.035714285714286
+    //                   0  -0.285714285714286  -0.142857142857143
+    //                   0  -0.071428571428571  -0.535714285714286
+    //               ]
+    //for (int i=0; i<3; ++i) {
+    //    for (int j=0; j<3; ++j) {
+    //        printf("B(%d,%d): %.16f\n", i, j, B(i*N+j));
+    //    }
+    //}
+    //for (int i=0; i<ldb*ndb; ++i) printf("Bi(%d): %.16f\n", i, B(i));
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+    EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+    EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+    EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+    EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+    EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+}
+
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_Larger_NRHS_LLA_LRB_LRX) {
+    int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
+    int lda=3, nda=3;
+    int ldb=3, ndb=4;
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+    // QR expects layout left B, so ndb and ldb reverse ordered
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    // solution: X = [
+    //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
+    //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
+    //                  0  -0.071428571428571  -0.535714285714286  -0.803571428571429
+    //               ]
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+    EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+    EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+    EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+    EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+    EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+    EXPECT_NEAR(-0.053571428571429, B2(0,3), 1e-14);
+    EXPECT_NEAR(-0.214285714285714, B2(1,3), 1e-14);
+    EXPECT_NEAR(-0.803571428571429, B2(2,3), 1e-14);
+}
+
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDA_NDA_LLA_LRB_LRX) {
+    // lda and nda larger than M and N
+    int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+    int lda=7, nda=12;
+    int ldb=3, ndb=3;
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    // solution: X = [
+    //                   0  -0.071428571428571  -0.035714285714286
+    //                   0  -0.285714285714286  -0.142857142857143
+    //                   0  -0.071428571428571  -0.535714285714286
+    //               ]
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+    EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+    EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+    EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+    EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+    EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+}
+
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_LLA_LRB_LRX) {
+    // lda and nda larger than M and N
+    int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+    int lda=3, nda=3;
+    int ldb=7, ndb=13;
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    // solution: X = [
+    //                   0  -0.071428571428571  -0.035714285714286
+    //                   0  -0.285714285714286  -0.142857142857143
+    //                   0  -0.071428571428571  -0.535714285714286
+    //               ]
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+    EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+    EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+    EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+    EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+    EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+}
+
+TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_Larger_NRHS_LLA_LRB_LRX) {
+    int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
+    int lda=3, nda=3;
+    int ldb=12, ndb=8;
+    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    // solution: X = [
+    //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
+    //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
+    //                  0  -0.071428571428571  -0.535714285714286  -0.803571428571429
+    //               ]
+    host_scratch_matrix_right_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+    EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+    EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+    EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+    EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+    EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+    EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+    EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+    EXPECT_NEAR(-0.053571428571429, B2(0,3), 1e-14);
+    EXPECT_NEAR(-0.214285714285714, B2(1,3), 1e-14);
+    EXPECT_NEAR(-0.803571428571429, B2(2,3), 1e-14);
+}
+
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_LRA_LLB_LLX) {
+//LLX     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+//LLX     int lda=3, nda=3;
+//LLX     int ldb=3, ndb=3;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                   0  -0.071428571428571  -0.035714285714286
+//LLX     //                   0  -0.285714285714286  -0.142857142857143
+//LLX     //                   0  -0.071428571428571  -0.535714285714286
+//LLX     //               ]
+//LLX     //for (int i=0; i<3; ++i) {
+//LLX     //    for (int j=0; j<3; ++j) {
+//LLX     //        printf("B(%d,%d): %.16f\n", i, j, B(i*N+j));
+//LLX     //    }
+//LLX     //}
+//LLX     //for (int i=0; i<ldb*ndb; ++i) printf("Bi(%d): %.16f\n", i, B(i));
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_Larger_NRHS_LRA_LLB_LLX) {
+//LLX     int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
+//LLX     int lda=3, nda=3;
+//LLX     int ldb=3, ndb=4;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
+//LLX     // LU expects layout left B, so ndb and ldb reverse ordered
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
+//LLX     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
+//LLX     //                  0  -0.071428571428571  -0.535714285714286  -0.803571428571429
+//LLX     //               ]
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.053571428571429, B2(0,3), 1e-14);
+//LLX     EXPECT_NEAR(-0.214285714285714, B2(1,3), 1e-14);
+//LLX     EXPECT_NEAR(-0.803571428571429, B2(2,3), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDA_NDA_LRA_LLB_LLX) {
+//LLX     // lda and nda larger than M and N
+//LLX     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+//LLX     int lda=7, nda=12;
+//LLX     int ldb=3, ndb=3;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                   0  -0.071428571428571  -0.035714285714286
+//LLX     //                   0  -0.285714285714286  -0.142857142857143
+//LLX     //                   0  -0.071428571428571  -0.535714285714286
+//LLX     //               ]
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_LRA_LLB_LLX) {
+//LLX     // lda and nda larger than M and N
+//LLX     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+//LLX     int lda=3, nda=3;
+//LLX     int ldb=7, ndb=13;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                   0  -0.071428571428571  -0.035714285714286
+//LLX     //                   0  -0.285714285714286  -0.142857142857143
+//LLX     //                   0  -0.071428571428571  -0.535714285714286
+//LLX     //               ]
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_Larger_NRHS_LRA_LLB_LLX) {
+//LLX     int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
+//LLX     int lda=3, nda=3;
+//LLX     int ldb=12, ndb=8;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
+//LLX     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
+//LLX     //                  0  -0.071428571428571  -0.535714285714286  -0.803571428571429
+//LLX     //               ]
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.053571428571429, B2(0,3), 1e-14);
+//LLX     EXPECT_NEAR(-0.214285714285714, B2(1,3), 1e-14);
+//LLX     EXPECT_NEAR(-0.803571428571429, B2(2,3), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_LRA_LRB_LLX) {
+//LLX     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+//LLX     int lda=3, nda=3;
+//LLX     int ldb=3, ndb=3;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                   0  -0.071428571428571  -0.035714285714286
+//LLX     //                   0  -0.285714285714286  -0.142857142857143
+//LLX     //                   0  -0.071428571428571  -0.535714285714286
+//LLX     //               ]
+//LLX     //for (int i=0; i<3; ++i) {
+//LLX     //    for (int j=0; j<3; ++j) {
+//LLX     //        printf("B(%d,%d): %.16f\n", i, j, B(i*N+j));
+//LLX     //    }
+//LLX     //}
+//LLX     //for (int i=0; i<ldb*ndb; ++i) printf("Bi(%d): %.16f\n", i, B(i));
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_Larger_NRHS_LRA_LRB_LLX) {
+//LLX     int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
+//LLX     int lda=3, nda=3;
+//LLX     int ldb=3, ndb=4;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+//LLX     // QR expects layout left B, so ndb and ldb reverse ordered
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
+//LLX     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
+//LLX     //                  0  -0.071428571428571  -0.535714285714286  -0.803571428571429
+//LLX     //               ]
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.053571428571429, B2(0,3), 1e-14);
+//LLX     EXPECT_NEAR(-0.214285714285714, B2(1,3), 1e-14);
+//LLX     EXPECT_NEAR(-0.803571428571429, B2(2,3), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDA_NDA_LRA_LRB_LLX) {
+//LLX     // lda and nda larger than M and N
+//LLX     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+//LLX     int lda=7, nda=12;
+//LLX     int ldb=3, ndb=3;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                   0  -0.071428571428571  -0.035714285714286
+//LLX     //                   0  -0.285714285714286  -0.142857142857143
+//LLX     //                   0  -0.071428571428571  -0.535714285714286
+//LLX     //               ]
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_LRA_LRB_LLX) {
+//LLX     // lda and nda larger than M and N
+//LLX     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+//LLX     int lda=3, nda=3;
+//LLX     int ldb=7, ndb=13;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                   0  -0.071428571428571  -0.035714285714286
+//LLX     //                   0  -0.285714285714286  -0.142857142857143
+//LLX     //                   0  -0.071428571428571  -0.535714285714286
+//LLX     //               ]
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_Larger_NRHS_LRA_LRB_LLX) {
+//LLX     int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
+//LLX     int lda=3, nda=3;
+//LLX     int ldb=12, ndb=8;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
+//LLX     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
+//LLX     //                  0  -0.071428571428571  -0.535714285714286  -0.803571428571429
+//LLX     //               ]
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.053571428571429, B2(0,3), 1e-14);
+//LLX     EXPECT_NEAR(-0.214285714285714, B2(1,3), 1e-14);
+//LLX     EXPECT_NEAR(-0.803571428571429, B2(2,3), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_LLA_LLB_LLX) {
+//LLX     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+//LLX     int lda=3, nda=3;
+//LLX     int ldb=3, ndb=3;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                   0  -0.071428571428571  -0.035714285714286
+//LLX     //                   0  -0.285714285714286  -0.142857142857143
+//LLX     //                   0  -0.071428571428571  -0.535714285714286
+//LLX     //               ]
+//LLX     //for (int i=0; i<3; ++i) {
+//LLX     //    for (int j=0; j<3; ++j) {
+//LLX     //        printf("B(%d,%d): %.16f\n", i, j, B(i*N+j));
+//LLX     //    }
+//LLX     //}
+//LLX     //for (int i=0; i<ldb*ndb; ++i) printf("Bi(%d): %.16f\n", i, B(i));
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_Larger_NRHS_LLA_LLB_LLX) {
+//LLX     int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
+//LLX     int lda=3, nda=3;
+//LLX     int ldb=3, ndb=4;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
+//LLX     // LU expects layout left B, so ndb and ldb reverse ordered
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
+//LLX     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
+//LLX     //                  0  -0.071428571428571  -0.535714285714286  -0.803571428571429
+//LLX     //               ]
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.053571428571429, B2(0,3), 1e-14);
+//LLX     EXPECT_NEAR(-0.214285714285714, B2(1,3), 1e-14);
+//LLX     EXPECT_NEAR(-0.803571428571429, B2(2,3), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDA_NDA_LLA_LLB_LLX) {
+//LLX     // lda and nda larger than M and N
+//LLX     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+//LLX     int lda=7, nda=12;
+//LLX     int ldb=3, ndb=3;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                   0  -0.071428571428571  -0.035714285714286
+//LLX     //                   0  -0.285714285714286  -0.142857142857143
+//LLX     //                   0  -0.071428571428571  -0.535714285714286
+//LLX     //               ]
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_LLA_LLB_LLX) {
+//LLX     // lda and nda larger than M and N
+//LLX     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+//LLX     int lda=3, nda=3;
+//LLX     int ldb=7, ndb=13;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                   0  -0.071428571428571  -0.035714285714286
+//LLX     //                   0  -0.285714285714286  -0.142857142857143
+//LLX     //                   0  -0.071428571428571  -0.535714285714286
+//LLX     //               ]
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_Larger_NRHS_LLA_LLB_LLX) {
+//LLX     int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
+//LLX     int lda=3, nda=3;
+//LLX     int ldb=12, ndb=8;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
+//LLX     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
+//LLX     //                  0  -0.071428571428571  -0.535714285714286  -0.803571428571429
+//LLX     //               ]
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.053571428571429, B2(0,3), 1e-14);
+//LLX     EXPECT_NEAR(-0.214285714285714, B2(1,3), 1e-14);
+//LLX     EXPECT_NEAR(-0.803571428571429, B2(2,3), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_LLA_LRB_LLX) {
+//LLX     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+//LLX     int lda=3, nda=3;
+//LLX     int ldb=3, ndb=3;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                   0  -0.071428571428571  -0.035714285714286
+//LLX     //                   0  -0.285714285714286  -0.142857142857143
+//LLX     //                   0  -0.071428571428571  -0.535714285714286
+//LLX     //               ]
+//LLX     //for (int i=0; i<3; ++i) {
+//LLX     //    for (int j=0; j<3; ++j) {
+//LLX     //        printf("B(%d,%d): %.16f\n", i, j, B(i*N+j));
+//LLX     //    }
+//LLX     //}
+//LLX     //for (int i=0; i<ldb*ndb; ++i) printf("Bi(%d): %.16f\n", i, B(i));
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_Larger_NRHS_LLA_LRB_LLX) {
+//LLX     int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
+//LLX     int lda=3, nda=3;
+//LLX     int ldb=3, ndb=4;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+//LLX     // QR expects layout left B, so ndb and ldb reverse ordered
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
+//LLX     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
+//LLX     //                  0  -0.071428571428571  -0.535714285714286  -0.803571428571429
+//LLX     //               ]
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.053571428571429, B2(0,3), 1e-14);
+//LLX     EXPECT_NEAR(-0.214285714285714, B2(1,3), 1e-14);
+//LLX     EXPECT_NEAR(-0.803571428571429, B2(2,3), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDA_NDA_LLA_LRB_LLX) {
+//LLX     // lda and nda larger than M and N
+//LLX     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+//LLX     int lda=7, nda=12;
+//LLX     int ldb=3, ndb=3;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                   0  -0.071428571428571  -0.035714285714286
+//LLX     //                   0  -0.285714285714286  -0.142857142857143
+//LLX     //                   0  -0.071428571428571  -0.535714285714286
+//LLX     //               ]
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_LLA_LRB_LLX) {
+//LLX     // lda and nda larger than M and N
+//LLX     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
+//LLX     int lda=3, nda=3;
+//LLX     int ldb=7, ndb=13;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                   0  -0.071428571428571  -0.035714285714286
+//LLX     //                   0  -0.285714285714286  -0.142857142857143
+//LLX     //                   0  -0.071428571428571  -0.535714285714286
+//LLX     //               ]
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX }
+//LLX 
+//LLX TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_Larger_NRHS_LLA_LRB_LLX) {
+//LLX     int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
+//LLX     int lda=3, nda=3;
+//LLX     int ldb=12, ndb=8;
+//LLX     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
+//LLX     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX     // solution: X = [
+//LLX     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
+//LLX     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
+//LLX     //                  0  -0.071428571428571  -0.535714285714286  -0.803571428571429
+//LLX     //               ]
+//LLX     host_scratch_matrix_left_type B2(B.data() + 1*ldb*ndb, ldb, ndb);
+//LLX     EXPECT_NEAR(               0.0, B2(0,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(1,0), 1e-14);
+//LLX     EXPECT_NEAR(               0.0, B2(2,0), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(0,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.285714285714286, B2(1,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.071428571428571, B2(2,1), 1e-14);
+//LLX     EXPECT_NEAR(-0.035714285714286, B2(0,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.142857142857143, B2(1,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.535714285714286, B2(2,2), 1e-14);
+//LLX     EXPECT_NEAR(-0.053571428571429, B2(0,3), 1e-14);
+//LLX     EXPECT_NEAR(-0.214285714285714, B2(1,3), 1e-14);
+//LLX     EXPECT_NEAR(-0.803571428571429, B2(2,3), 1e-14);
+//LLX }
+
+// TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA) {
 //     int M=3, N=3, NRHS=3, num_matrices=2, rank=3;
 //     int lda=3, nda=3;
 //     int ldb=3, ndb=3; // relative to layout right
 //     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank);
 //     // LU expects layout left B, so ndb and ldb reverse ordered
-//     GMLS_LinearAlgebra::batchQRFactorize(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//     GMLS_LinearAlgebra::batchQRPivotingSolve(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //     // solution: X = [
 //     //                   0  -0.071428571428571  -0.035714285714286
 //     //                   0  -0.285714285714286  -0.142857142857143

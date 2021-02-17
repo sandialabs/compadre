@@ -39,14 +39,13 @@ namespace KokkosBatched {
            const ValueType * V, const int vs0, const int vs1,
            const IntType   * p, const int ps0,
            /* */ ValueType * B, const int bs0, const int bs1,
+           /* */ ValueType * X, const int xs0, const int xs1,
            /* */ ValueType * w, ValueType * wq) {
     
         typedef ValueType value_type;
     
         const value_type one(1), zero(0);
     
-        value_type * X = B;
-        const int xs0 = bs0;
         value_type * W = w; /// m x nrhs
         value_type * WQ = wq; /// 3m
         const int ws0 = nrhs, ws1=1; // only works with w layout right
@@ -151,7 +150,7 @@ namespace KokkosBatched {
                     printf("X=zeros(%d,%d);\n", n, nrhs);
                     for (int i=0; i<n; ++i) {
                         for (int j=0; j<nrhs; ++j) {
-                            printf("X(%d,%d)= %f;\n", i+1,j+1,X[i*xs0+j]);
+                            printf("X(%d,%d)= %f;\n", i+1,j+1,X[i*xs0+j*xs1]);
                         }
                     }
                 });
@@ -235,7 +234,7 @@ namespace KokkosBatched {
                     printf("x=zeros(%d,%d);\n", n, nrhs);
                     for (int i=0; i<n; ++i) {
                         for (int j=0; j<nrhs; ++j) {
-                            printf("x(%d,%d)= %f;\n", i+1,j+1,X[i*xs0+j]);
+                            printf("x(%d,%d)= %f;\n", i+1,j+1,X[i*xs0+j*xs1]);
                         }
                     }
                 });
@@ -253,7 +252,7 @@ namespace KokkosBatched {
                 printf("X=zeros(%d,%d);\n", n, nrhs);
                 for (int i=0; i<n; ++i) {
                     for (int j=0; j<nrhs; ++j) {
-                        printf("X(%d,%d)= %f;\n", i+1,j+1,X[i*xs0+j]);
+                        printf("X(%d,%d)= %f;\n", i+1,j+1,X[i*xs0+j*xs1]);
                     }
                 }
             });

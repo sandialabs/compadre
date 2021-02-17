@@ -49,6 +49,8 @@ namespace GMLS_LinearAlgebra {
               _a.extent(1), _a.extent(2));
       scratch_matrix_right_type bb(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
               _b.extent(1), _b.extent(2));
+      scratch_matrix_right_type xx(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
+              _b.extent(1), _b.extent(2));
 
       // if sizes don't match extents, then copy to a view with extents matching sizes
       if (_M!=_a.extent(1) || _N!=_a.extent(2)) {
@@ -139,7 +141,7 @@ namespace GMLS_LinearAlgebra {
         });
       }
       TeamVectorSolveUTVCompadre<MemberType,AlgoTagType>
-        ::invoke(member, matrix_rank, _M, _N, _NRHS, uu, aa, vv, pp, bb, ww_slow, ww_fast);
+        ::invoke(member, matrix_rank, _M, _N, _NRHS, uu, aa, vv, pp, bb, xx, ww_slow, ww_fast);
       member.team_barrier();
 
     }
