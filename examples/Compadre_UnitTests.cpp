@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
     auto kp = KokkosParser(argc, argv, true);
 
     // execute all tests
-    ::testing::GTEST_FLAG(filter) = "[Kokkos*]";
+    ::testing::GTEST_FLAG(filter) = "-Kokkos*";
     sig &= RUN_ALL_TESTS();
 
     // finalize Kokkos and MPI (if available)
