@@ -142,7 +142,7 @@ namespace KokkosBatched {
                    V, vs1, vs0,
                    W, ws0, ws1,
                    zero,
-                   B, bs0, bs1);
+                   X, xs0, xs1);
             member.team_barrier();
     
             if (do_print) {
@@ -167,14 +167,14 @@ namespace KokkosBatched {
                        zero,
                        W, ws0, ws1);
                 member.team_barrier();
-                // copy W to B
+                // copy W to X
                 Kokkos::parallel_for
                 (Kokkos::ThreadVectorRange(member,nrhs),
                  [&](const int &j) {
                   Kokkos::parallel_for
                     (Kokkos::TeamThreadRange(member,matrix_rank),
                       [&](const int &i) {                                   
-                        B[i*bs0+j*bs1] = W[i*ws0+j*ws1];
+                        X[i*xs0+j*xs1] = W[i*ws0+j*ws1];
                   });
                });
             } else {
@@ -191,7 +191,7 @@ namespace KokkosBatched {
                   Kokkos::parallel_for
                     (Kokkos::TeamThreadRange(member,matrix_rank),
                       [&](const int &i) {                                   
-                        B[i*bs0+j*bs1] = U[j*us0+i*us1] * WQ[j];
+                        X[i*xs0+j*xs1] = U[j*us0+i*us1] * WQ[j];
                   });
                });
             }
@@ -226,7 +226,7 @@ namespace KokkosBatched {
                    matrix_rank, nrhs,
                    one,
                    T, ts0, ts1,
-                   B, bs0, bs1);        
+                   X, xs0, xs1);        
             member.team_barrier();
     
             if (do_print) {
@@ -246,7 +246,7 @@ namespace KokkosBatched {
             ::invoke(member,
                  nrhs, matrix_rank,
                  p, ps0,
-                 B, bs0, bs1);
+                 X, xs0, xs1);
         if (do_print) {
             Kokkos::single(Kokkos::PerTeam(member), [&] () {
                 printf("X=zeros(%d,%d);\n", n, nrhs);
