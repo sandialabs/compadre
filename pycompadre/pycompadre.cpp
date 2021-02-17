@@ -433,12 +433,6 @@ public:
         }
         Kokkos::fence();
 
-
-        // get polynomial coefficient size
-        const int NP = gmls_object->getPolynomialCoefficientsSize();
-        // get number of target sites
-        const int NT = gmls_object->getNeighborLists()->getNumberOfTargets();
-
         Compadre::Evaluator gmls_evaluator(gmls_object);
         auto polynomial_coefficients = gmls_evaluator.applyFullPolynomialCoefficientsBasisToDataAllComponents<double**, Kokkos::HostSpace>
             (source_data);

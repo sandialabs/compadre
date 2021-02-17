@@ -538,7 +538,7 @@ protected:
     KOKKOS_INLINE_FUNCTION
     double convertLocalToGlobalCoordinate(const XYZ local_coord, const int dim, const scratch_matrix_right_type* V) const {
         // only written for 2d manifold in 3d space
-        double val;
+        double val = 0.0;
         if (dim == 0 && _dimensions==2) { // 2D problem with 1D manifold
             val = local_coord.x * (*V)(0, dim);
         } else if (dim == 0) { // 3D problem with 2D manifold
@@ -577,9 +577,7 @@ protected:
     static DenseSolverType parseSolverType(const std::string& dense_solver_type) {
         std::string solver_type_to_lower = dense_solver_type;
         transform(solver_type_to_lower.begin(), solver_type_to_lower.end(), solver_type_to_lower.begin(), ::tolower);
-        if (solver_type_to_lower == "svd") {
-            return DenseSolverType::SVD;
-        } else if (solver_type_to_lower == "lu") {
+        if (solver_type_to_lower == "lu") {
             return DenseSolverType::LU;
         } else {
             return DenseSolverType::QR;

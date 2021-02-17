@@ -39,14 +39,13 @@ namespace KokkosBatched {
            const ValueType * V, const int vs0, const int vs1,
            const IntType   * p, const int ps0,
            /* */ ValueType * B, const int bs0, const int bs1,
+           /* */ ValueType * X, const int xs0, const int xs1,
            /* */ ValueType * w, ValueType * wq) {
     
         typedef ValueType value_type;
     
         const value_type one(1), zero(0);
     
-        value_type * X = B;
-        const int xs0 = bs0;
         value_type * W = w; /// m x nrhs
         value_type * WQ = wq; /// 3m
         const int ws0 = nrhs, ws1=1; // only works with w layout right
@@ -143,7 +142,7 @@ namespace KokkosBatched {
                    V, vs1, vs0,
                    W, ws0, ws1,
                    zero,
-                   B, bs0, bs1);
+                   X, xs0, xs1);
             member.team_barrier();
     
             if (do_print) {
@@ -151,7 +150,7 @@ namespace KokkosBatched {
                     printf("X=zeros(%d,%d);\n", n, nrhs);
                     for (int i=0; i<n; ++i) {
                         for (int j=0; j<nrhs; ++j) {
-                            printf("X(%d,%d)= %f;\n", i+1,j+1,X[i*xs0+j]);
+                            printf("X(%d,%d)= %f;\n", i+1,j+1,X[i*xs0+j*xs1]);
                         }
                     }
                 });
@@ -168,14 +167,14 @@ namespace KokkosBatched {
                        zero,
                        W, ws0, ws1);
                 member.team_barrier();
-                // copy W to B
+                // copy W to X
                 Kokkos::parallel_for
                 (Kokkos::ThreadVectorRange(member,nrhs),
                  [&](const int &j) {
                   Kokkos::parallel_for
                     (Kokkos::TeamThreadRange(member,matrix_rank),
                       [&](const int &i) {                                   
-                        B[i*bs0+j*bs1] = W[i*ws0+j*ws1];
+                        X[i*xs0+j*xs1] = W[i*ws0+j*ws1];
                   });
                });
             } else {
@@ -192,7 +191,7 @@ namespace KokkosBatched {
                   Kokkos::parallel_for
                     (Kokkos::TeamThreadRange(member,matrix_rank),
                       [&](const int &i) {                                   
-                        B[i*bs0+j*bs1] = U[j*us0+i*us1] * WQ[j];
+                        X[i*xs0+j*xs1] = U[j*us0+i*us1] * WQ[j];
                   });
                });
             }
@@ -227,7 +226,7 @@ namespace KokkosBatched {
                    matrix_rank, nrhs,
                    one,
                    T, ts0, ts1,
-                   B, bs0, bs1);        
+                   X, xs0, xs1);        
             member.team_barrier();
     
             if (do_print) {
@@ -235,7 +234,7 @@ namespace KokkosBatched {
                     printf("x=zeros(%d,%d);\n", n, nrhs);
                     for (int i=0; i<n; ++i) {
                         for (int j=0; j<nrhs; ++j) {
-                            printf("x(%d,%d)= %f;\n", i+1,j+1,X[i*xs0+j]);
+                            printf("x(%d,%d)= %f;\n", i+1,j+1,X[i*xs0+j*xs1]);
                         }
                     }
                 });
@@ -247,13 +246,13 @@ namespace KokkosBatched {
             ::invoke(member,
                  nrhs, matrix_rank,
                  p, ps0,
-                 B, bs0, bs1);
+                 X, xs0, xs1);
         if (do_print) {
             Kokkos::single(Kokkos::PerTeam(member), [&] () {
                 printf("X=zeros(%d,%d);\n", n, nrhs);
                 for (int i=0; i<n; ++i) {
                     for (int j=0; j<nrhs; ++j) {
-                        printf("X(%d,%d)= %f;\n", i+1,j+1,X[i*xs0+j]);
+                        printf("X(%d,%d)= %f;\n", i+1,j+1,X[i*xs0+j*xs1]);
                     }
                 }
             });

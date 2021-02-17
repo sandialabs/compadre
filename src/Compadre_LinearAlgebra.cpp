@@ -15,12 +15,12 @@ namespace GMLS_LinearAlgebra {
 
   template<typename DeviceType,
            typename AlgoTagType,
-           typename MatrixViewType,
-           typename PivViewType,
-           typename VectorViewType>
+           typename MatrixViewType_A,
+           typename MatrixViewType_B,
+           typename MatrixViewType_X>
   struct Functor_TestBatchedTeamVectorSolveUTV {
-    MatrixViewType _a;
-    VectorViewType _b;
+    MatrixViewType_A _a;
+    MatrixViewType_B _b;
 
     int _pm_getTeamScratchLevel_0;
     int _pm_getTeamScratchLevel_1;
@@ -31,8 +31,8 @@ namespace GMLS_LinearAlgebra {
                       const int M,
                       const int N,
                       const int NRHS,
-                      const MatrixViewType &a,
-                      const VectorViewType &b)
+                      const MatrixViewType_A &a,
+                      const MatrixViewType_B &b)
       : _a(a), _b(b), _M(M), _N(N), _NRHS(NRHS) { _pm_getTeamScratchLevel_0 = 0; _pm_getTeamScratchLevel_1 = 0; }
 
     template<typename MemberType>
@@ -48,6 +48,8 @@ namespace GMLS_LinearAlgebra {
       scratch_matrix_right_type aa(_a.data() + TO_GLOBAL(k)*TO_GLOBAL(_a.extent(1))*TO_GLOBAL(_a.extent(2)), 
               _a.extent(1), _a.extent(2));
       scratch_matrix_right_type bb(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
+              _b.extent(1), _b.extent(2));
+      scratch_matrix_right_type xx(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
               _b.extent(1), _b.extent(2));
 
       // if sizes don't match extents, then copy to a view with extents matching sizes
@@ -70,7 +72,7 @@ namespace GMLS_LinearAlgebra {
         aa = aaa;
       }
 
-      if (_M==_N) {
+      if (std::is_same<typename MatrixViewType_B::array_layout, layout_left>::value) {
         scratch_matrix_right_type tmp(ww_slow.data(), _N, _NRHS);
         // coming from LU
         // then copy B to W, then back to B
@@ -139,14 +141,14 @@ namespace GMLS_LinearAlgebra {
         });
       }
       TeamVectorSolveUTVCompadre<MemberType,AlgoTagType>
-        ::invoke(member, matrix_rank, _M, _N, _NRHS, uu, aa, vv, pp, bb, ww_slow, ww_fast);
+        ::invoke(member, matrix_rank, _M, _N, _NRHS, uu, aa, vv, pp, bb, xx, ww_slow, ww_fast);
       member.team_barrier();
 
     }
 
     inline
     void run(ParallelManager pm) {
-      typedef typename MatrixViewType::non_const_value_type value_type;
+      typedef typename MatrixViewType_A::non_const_value_type value_type;
       std::string name_region("KokkosBatched::Test::TeamVectorSolveUTVCompadre");
       std::string name_value_type = ( std::is_same<value_type,float>::value ? "::Float" :
                                       std::is_same<value_type,double>::value ? "::Double" :
@@ -178,68 +180,33 @@ namespace GMLS_LinearAlgebra {
 
 
 
-void batchQRFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices) {
+template <typename A_layout, typename B_layout, typename X_layout>
+void batchQRPivotingSolve(ParallelManager pm, double *A, int lda, int nda, double *B, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices) {
 
-    //printf("lda: %d, nda %d, ldb %d, ndb %d, M %d, N %d, NRHS %d\n", lda, nda, ldb, ndb, M, N, NRHS);
     typedef Algo::UTV::Unblocked algo_tag_type;
-    typedef Kokkos::View<double***, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
-                    MatrixViewType;
+    typedef Kokkos::View<double***, A_layout, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
+                    MatrixViewType_A;
+    typedef Kokkos::View<double***, B_layout, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
+                    MatrixViewType_B;
+    typedef Kokkos::View<double***, X_layout, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
+                    MatrixViewType_X;
 
-    MatrixViewType A(P, num_matrices, lda, nda);
-
-    typedef Kokkos::View<int**, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
-                    PivViewType;
-
-    typedef Kokkos::View<double***, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
-                    VectorViewType;
-    VectorViewType B(RHS, num_matrices, ldb, ndb);
+    MatrixViewType_A mat_A(A, num_matrices, lda, nda);
+    MatrixViewType_B mat_B(B, num_matrices, ldb, ndb);
 
     Functor_TestBatchedTeamVectorSolveUTV
-      <device_execution_space, algo_tag_type, MatrixViewType, PivViewType, VectorViewType>(M,N,NRHS,A,B).run(pm);
+      <device_execution_space, algo_tag_type, MatrixViewType_A, MatrixViewType_B, MatrixViewType_X>(M,N,NRHS,mat_A,mat_B).run(pm);
 
 }
 
-void batchSVDFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices) {
-
-    //printf("lda: %d, nda %d, ldb %d, ndb %d, M %d, N %d, NRHS %d\n", lda, nda, ldb, ndb, M, N, NRHS);
-    typedef Algo::UTV::Unblocked algo_tag_type;
-    typedef Kokkos::View<double***, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
-                    MatrixViewType;
-
-    MatrixViewType A(P, num_matrices, lda, nda);
-
-    typedef Kokkos::View<int**, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
-                    PivViewType;
-
-
-    typedef Kokkos::View<double***, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
-                    VectorViewType;
-    VectorViewType B(RHS, num_matrices, ldb, ndb);
-    Functor_TestBatchedTeamVectorSolveUTV
-      <device_execution_space, algo_tag_type, MatrixViewType, PivViewType, VectorViewType>(M,N,NRHS,A,B).run(pm);
-
-}
-
-void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices) {
-
-    //printf("lda: %d, nda %d, ldb %d, ndb %d, M %d, N %d, NRHS %d\n", lda, nda, ldb, ndb, M, N, NRHS);
-    typedef Algo::UTV::Unblocked algo_tag_type;
-    typedef Kokkos::View<double***, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
-                    MatrixViewType;
-
-    MatrixViewType A(P, num_matrices, lda, nda);
-
-    typedef Kokkos::View<int**, layout_right, host_execution_space>
-                    PivViewType;
-
-    typedef Kokkos::View<double***, layout_left, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
-                    VectorViewType;
-    VectorViewType B(RHS, num_matrices, ldb, ndb);
-
-    Functor_TestBatchedTeamVectorSolveUTV
-      <device_execution_space, algo_tag_type, MatrixViewType, PivViewType, VectorViewType>(M,N,NRHS,A,B).run(pm);
-
-}
+template void batchQRPivotingSolve<layout_right, layout_right, layout_right>(ParallelManager,double*,int,int,double*,int,int,int,int,int,const int);
+template void batchQRPivotingSolve<layout_right, layout_right, layout_left >(ParallelManager,double*,int,int,double*,int,int,int,int,int,const int);
+template void batchQRPivotingSolve<layout_right, layout_left , layout_right>(ParallelManager,double*,int,int,double*,int,int,int,int,int,const int);
+template void batchQRPivotingSolve<layout_right, layout_left , layout_left >(ParallelManager,double*,int,int,double*,int,int,int,int,int,const int);
+template void batchQRPivotingSolve<layout_left , layout_right, layout_right>(ParallelManager,double*,int,int,double*,int,int,int,int,int,const int);
+template void batchQRPivotingSolve<layout_left , layout_right, layout_left >(ParallelManager,double*,int,int,double*,int,int,int,int,int,const int);
+template void batchQRPivotingSolve<layout_left , layout_left , layout_right>(ParallelManager,double*,int,int,double*,int,int,int,int,int,const int);
+template void batchQRPivotingSolve<layout_left , layout_left , layout_left >(ParallelManager,double*,int,int,double*,int,int,int,int,int,const int);
 
 } // GMLS_LinearAlgebra
 } // Compadre

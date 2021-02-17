@@ -35,7 +35,8 @@ namespace KokkosBatched {
          typename VViewType,
          typename pViewType,
          typename BViewType,
-             typename wViewType>
+         typename XViewType,
+         typename wViewType>
     KOKKOS_INLINE_FUNCTION
     static int
     invoke(const MemberType &member, 
@@ -45,8 +46,9 @@ namespace KokkosBatched {
        const VViewType &V,
        const pViewType &p,
        const BViewType &B,
+       const XViewType &X,
        const wViewType &w_a,
-           const wViewType &w_b);
+       const wViewType &w_b);
   };
 
 }

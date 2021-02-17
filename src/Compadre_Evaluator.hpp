@@ -673,9 +673,7 @@ public:
     Kokkos::View<output_data_type, output_array_layout, output_memory_space>  // shares layout of input by default
             applyFullPolynomialCoefficientsBasisToDataAllComponents(view_type_input_data sampling_data, bool scalar_as_vector_if_needed = true) const {
 
-        auto global_dimensions = _gmls->getGlobalDimensions();
         auto output_dimension_of_reconstruction_space = _gmls->calculateBasisMultiplier(_gmls->getReconstructionSpace());
-        auto input_dimension_of_reconstruction_space = _gmls->calculateSamplingMultiplier(_gmls->getReconstructionSpace(), _gmls->getPolynomialSamplingFunctional());
         auto coefficient_matrix_dims = _gmls->getPolynomialCoefficientsDomainRangeSize();
 
         // gather needed information for evaluation
