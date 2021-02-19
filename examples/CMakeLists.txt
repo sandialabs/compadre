@@ -389,10 +389,10 @@ if (CompadreHarness_EXAMPLES)
 
     ## EXPLICIT TIME DEPENDENT TESTS
     
-    ADD_TEST(NAME ExplicitTimeDependentExact COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${CMAKE_CURRENT_BINARY_DIR}/explicitTimeDependent.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_exact.xml" "--kokkos-threads=2")
+    ADD_TEST(NAME ExplicitTimeDependentExact COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/explicitTimeDependent.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_exact.xml" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(ExplicitTimeDependentExact PROPERTIES LABELS "explicit;exact")
     
-    ADD_TEST(NAME ExplicitTimeDependentAnalytical COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${CMAKE_CURRENT_BINARY_DIR}/explicitTimeDependent.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_analytical.xml" "--kokkos-threads=2")
+    ADD_TEST(NAME ExplicitTimeDependentAnalytical COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 3 ${CMAKE_CURRENT_BINARY_DIR}/explicitTimeDependent.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_nonpolynomial.xml" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(ExplicitTimeDependentAnalytical PROPERTIES LABELS "explicit;analytical")
 
     ## UNIT TESTS

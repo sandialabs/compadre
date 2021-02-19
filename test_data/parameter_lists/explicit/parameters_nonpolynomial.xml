@@ -1,6 +1,6 @@
 <ParameterList name="Compadre">
   <Parameter name="simulation type" type="string" value="eulerian"/>
-  <Parameter name="solution type" type="string" value="polynomial time"/>
+  <Parameter name="solution type" type="string" value="nonpolynomial time"/>
   <ParameterList name="solver">
     <Parameter name="blocked" type="bool" value="true"/>
   </ParameterList>
