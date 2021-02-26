@@ -19,19 +19,14 @@ TEST (KokkosInitialize, NoArgsGiven) {
     ASSERT_NO_DEATH({
             // default constructor is hidden for KokkosParser
             // but still visible from this test
-            auto kp = Compadre::KokkosParser(-1,-1,-1,-1,false);
+            auto kp = Compadre::KokkosParser(false);
             kp.finalize();
     });
 }
 TEST (KokkosInitialize, NoCommandLineArgsGiven) { 
-    std::vector<std::string> arguments = {"application"};
-    std::vector<char*> argv;
-    for (const auto& arg : arguments) {
-        argv.push_back((char*)arg.data());
-    }
-    argv.push_back(nullptr);
     ASSERT_NO_DEATH({
-            auto kp = KokkosParser(argv.size()-1, argv.data());
+            std::vector<std::string> arguments = {"--kokkos-threads=4"};
+            auto kp = KokkosParser(arguments);
             kp.finalize();
     });
 }
