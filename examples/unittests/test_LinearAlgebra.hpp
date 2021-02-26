@@ -13,7 +13,9 @@ public:
 
     ParallelManager pm;
     Kokkos::View<double*, host_execution_space> A;
+    Kokkos::View<double*, device_execution_space> A_d;
     Kokkos::View<double*, host_execution_space> B;
+    Kokkos::View<double*, device_execution_space> B_d;
 
     LinearAlgebraTest( ) {
         // initialization
@@ -29,8 +31,11 @@ public:
 
         // multiple full rank matrices
         Kokkos::resize(A, lda*nda*num_matrices);
+        Kokkos::resize(A_d, lda*nda*num_matrices);
         Kokkos::deep_copy(A, 0.0);
+
         Kokkos::resize(B, ldb*ndb*num_matrices);
+        Kokkos::resize(B_d, ldb*ndb*num_matrices);
         Kokkos::deep_copy(B, 0.0);
 
         if (M==N) { // square case
@@ -86,6 +91,9 @@ public:
                 }
             }
         }
+        Kokkos::deep_copy(A_d, A);
+        Kokkos::deep_copy(B_d, B);
+        Kokkos::fence();
     }
 
     void TearDown( ) {
@@ -108,7 +116,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_LRA
     int lda=3, nda=3;
     int ldb=3, ndb=3;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                   0  -0.071428571428571  -0.035714285714286
     //                   0  -0.285714285714286  -0.142857142857143
@@ -138,7 +148,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_Lar
     int ldb=3, ndb=4;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
     // LU expects layout left B, so ndb and ldb reverse ordered
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
@@ -165,7 +177,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDA_NDA_L
     int lda=7, nda=12;
     int ldb=3, ndb=3;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                   0  -0.071428571428571  -0.035714285714286
     //                   0  -0.285714285714286  -0.142857142857143
@@ -189,7 +203,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
     int lda=3, nda=3;
     int ldb=7, ndb=13;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                   0  -0.071428571428571  -0.035714285714286
     //                   0  -0.285714285714286  -0.142857142857143
@@ -212,7 +228,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
     int lda=3, nda=3;
     int ldb=12, ndb=8;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
@@ -238,7 +256,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_LRA
     int lda=3, nda=3;
     int ldb=3, ndb=3;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                   0  -0.071428571428571  -0.035714285714286
     //                   0  -0.285714285714286  -0.142857142857143
@@ -268,7 +288,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_Lar
     int ldb=3, ndb=4;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
     // QR expects layout left B, so ndb and ldb reverse ordered
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
@@ -295,7 +317,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDA_NDA_L
     int lda=7, nda=12;
     int ldb=3, ndb=3;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                   0  -0.071428571428571  -0.035714285714286
     //                   0  -0.285714285714286  -0.142857142857143
@@ -319,7 +343,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
     int lda=3, nda=3;
     int ldb=7, ndb=13;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                   0  -0.071428571428571  -0.035714285714286
     //                   0  -0.285714285714286  -0.142857142857143
@@ -342,7 +368,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
     int lda=3, nda=3;
     int ldb=12, ndb=8;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
@@ -368,7 +396,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_LLA
     int lda=3, nda=3;
     int ldb=3, ndb=3;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                   0  -0.071428571428571  -0.035714285714286
     //                   0  -0.285714285714286  -0.142857142857143
@@ -398,7 +428,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_Lar
     int ldb=3, ndb=4;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
     // LU expects layout left B, so ndb and ldb reverse ordered
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
@@ -425,7 +457,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDA_NDA_L
     int lda=7, nda=12;
     int ldb=3, ndb=3;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                   0  -0.071428571428571  -0.035714285714286
     //                   0  -0.285714285714286  -0.142857142857143
@@ -449,7 +483,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
     int lda=3, nda=3;
     int ldb=7, ndb=13;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                   0  -0.071428571428571  -0.035714285714286
     //                   0  -0.285714285714286  -0.142857142857143
@@ -472,7 +508,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
     int lda=3, nda=3;
     int ldb=12, ndb=8;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
@@ -498,7 +536,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_LLA
     int lda=3, nda=3;
     int ldb=3, ndb=3;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                   0  -0.071428571428571  -0.035714285714286
     //                   0  -0.285714285714286  -0.142857142857143
@@ -528,7 +568,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_Lar
     int ldb=3, ndb=4;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
     // QR expects layout left B, so ndb and ldb reverse ordered
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
@@ -555,7 +597,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDA_NDA_L
     int lda=7, nda=12;
     int ldb=3, ndb=3;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                   0  -0.071428571428571  -0.035714285714286
     //                   0  -0.285714285714286  -0.142857142857143
@@ -579,7 +623,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
     int lda=3, nda=3;
     int ldb=7, ndb=13;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                   0  -0.071428571428571  -0.035714285714286
     //                   0  -0.285714285714286  -0.142857142857143
@@ -602,7 +648,9 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
     int lda=3, nda=3;
     int ldb=12, ndb=8;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
-    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_right>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_right>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
+    Kokkos::deep_copy(B, B_d);
+    Kokkos::fence();
     // solution: X = [
     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
@@ -628,7 +676,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int lda=3, nda=3;
 //LLX!    int ldb=3, ndb=3;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                   0  -0.071428571428571  -0.035714285714286
 //LLX!    //                   0  -0.285714285714286  -0.142857142857143
@@ -658,7 +706,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int ldb=3, ndb=4;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
 //LLX!    // LU expects layout left B, so ndb and ldb reverse ordered
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
 //LLX!    //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
@@ -685,7 +733,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int lda=7, nda=12;
 //LLX!    int ldb=3, ndb=3;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                   0  -0.071428571428571  -0.035714285714286
 //LLX!    //                   0  -0.285714285714286  -0.142857142857143
@@ -709,7 +757,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int lda=3, nda=3;
 //LLX!    int ldb=7, ndb=13;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                   0  -0.071428571428571  -0.035714285714286
 //LLX!    //                   0  -0.285714285714286  -0.142857142857143
@@ -732,7 +780,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int lda=3, nda=3;
 //LLX!    int ldb=12, ndb=8;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
 //LLX!    //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
@@ -758,7 +806,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int lda=3, nda=3;
 //LLX!    int ldb=3, ndb=3;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                   0  -0.071428571428571  -0.035714285714286
 //LLX!    //                   0  -0.285714285714286  -0.142857142857143
@@ -788,7 +836,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int ldb=3, ndb=4;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
 //LLX!    // QR expects layout left B, so ndb and ldb reverse ordered
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
 //LLX!    //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
@@ -815,7 +863,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int lda=7, nda=12;
 //LLX!    int ldb=3, ndb=3;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                   0  -0.071428571428571  -0.035714285714286
 //LLX!    //                   0  -0.285714285714286  -0.142857142857143
@@ -839,7 +887,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int lda=3, nda=3;
 //LLX!    int ldb=7, ndb=13;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                   0  -0.071428571428571  -0.035714285714286
 //LLX!    //                   0  -0.285714285714286  -0.142857142857143
@@ -862,7 +910,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int lda=3, nda=3;
 //LLX!    int ldb=12, ndb=8;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
 //LLX!    //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
@@ -888,7 +936,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int lda=3, nda=3;
 //LLX!    int ldb=3, ndb=3;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                   0  -0.071428571428571  -0.035714285714286
 //LLX!    //                   0  -0.285714285714286  -0.142857142857143
@@ -918,7 +966,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int ldb=3, ndb=4;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
 //LLX!    // LU expects layout left B, so ndb and ldb reverse ordered
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
 //LLX!    //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
@@ -945,7 +993,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int lda=7, nda=12;
 //LLX!    int ldb=3, ndb=3;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                   0  -0.071428571428571  -0.035714285714286
 //LLX!    //                   0  -0.285714285714286  -0.142857142857143
@@ -969,7 +1017,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int lda=3, nda=3;
 //LLX!    int ldb=7, ndb=13;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                   0  -0.071428571428571  -0.035714285714286
 //LLX!    //                   0  -0.285714285714286  -0.142857142857143
@@ -992,7 +1040,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int lda=3, nda=3;
 //LLX!    int ldb=12, ndb=8;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, false/*B is LL*/);
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_left,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
 //LLX!    //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
@@ -1018,7 +1066,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int lda=3, nda=3;
 //LLX!    int ldb=3, ndb=3;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                   0  -0.071428571428571  -0.035714285714286
 //LLX!    //                   0  -0.285714285714286  -0.142857142857143
@@ -1048,7 +1096,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int ldb=3, ndb=4;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
 //LLX!    // QR expects layout left B, so ndb and ldb reverse ordered
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
 //LLX!    //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
@@ -1075,7 +1123,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int lda=7, nda=12;
 //LLX!    int ldb=3, ndb=3;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                   0  -0.071428571428571  -0.035714285714286
 //LLX!    //                   0  -0.285714285714286  -0.142857142857143
@@ -1099,7 +1147,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int lda=3, nda=3;
 //LLX!    int ldb=7, ndb=13;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                   0  -0.071428571428571  -0.035714285714286
 //LLX!    //                   0  -0.285714285714286  -0.142857142857143
@@ -1122,7 +1170,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //LLX!    int lda=3, nda=3;
 //LLX!    int ldb=12, ndb=8;
 //LLX!    SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);
-//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_left>(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//LLX!    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_left,layout_right,layout_left>(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //LLX!    // solution: X = [
 //LLX!    //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
 //LLX!    //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
@@ -1149,7 +1197,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //     int ldb=3, ndb=3; // relative to layout right
 //     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank);
 //     // LU expects layout left B, so ndb and ldb reverse ordered
-//     GMLS_LinearAlgebra::batchQRPivotingSolve(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//     GMLS_LinearAlgebra::batchQRPivotingSolve(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //     // solution: X = [
 //     //                   0  -0.071428571428571  -0.035714285714286
 //     //                   0  -0.285714285714286  -0.142857142857143
@@ -1179,7 +1227,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //     int ldb=4, ndb=3; // relative to layout right
 //     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank);
 //     // LU expects layout left B, so ndb and ldb reverse ordered
-//     GMLS_LinearAlgebra::batchQRFactorize(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//     GMLS_LinearAlgebra::batchQRFactorize(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //     // solution: X = [
 //     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
 //     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714
@@ -1207,7 +1255,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //     int ldb=3, ndb=3; // relative to layout right
 //     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank);
 //     // LU expects layout left B, so ndb and ldb reverse ordered
-//     GMLS_LinearAlgebra::batchQRFactorize(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//     GMLS_LinearAlgebra::batchQRFactorize(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //     // solution: X = [
 //     //                   0  -0.071428571428571  -0.035714285714286
 //     //                   0  -0.285714285714286  -0.142857142857143
@@ -1232,7 +1280,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //     int ldb=7, ndb=13; // relative to layout right
 //     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank);
 //     // LU expects layout left B, so ndb and ldb reverse ordered
-//     GMLS_LinearAlgebra::batchQRFactorize(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//     GMLS_LinearAlgebra::batchQRFactorize(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //     // solution: X = [
 //     //                   0  -0.071428571428571  -0.035714285714286
 //     //                   0  -0.285714285714286  -0.142857142857143
@@ -1256,7 +1304,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 //     int ldb=12, ndb=8; // relative to layout right
 //     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank);
 //     // LU expects layout left B, so ndb and ldb reverse ordered
-//     GMLS_LinearAlgebra::batchQRFactorize(pm, A.data(), lda, nda, B.data(), ldb, ndb, M, N, NRHS, num_matrices);
+//     GMLS_LinearAlgebra::batchQRFactorize(pm, A_d.data(), lda, nda, B_d.data(), ldb, ndb, M, N, NRHS, num_matrices);
 //     // solution: X = [
 //     //                  0  -0.071428571428571  -0.035714285714286  -0.053571428571429
 //     //                  0  -0.285714285714286  -0.142857142857143  -0.214285714285714

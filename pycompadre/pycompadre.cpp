@@ -14,6 +14,7 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <pybind11/stl.h>
 
 using namespace Compadre;
 namespace py = pybind11;
@@ -672,7 +673,9 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("getTotalNeighborsOverAllLists", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getTotalNeighborsOverAllListsHost, "Get total storage size of all neighbor lists combined.");
 
     py::class_<KokkosParser>(m, "KokkosParser")
-    .def(py::init<int,int,int,int,bool>(), py::arg("num_threads") = -1, py::arg("numa") = -1, py::arg("device") = -1, py::arg("ngpu") = -1, py::arg("print") = false);
+    .def(py::init<std::vector<std::string>,bool>(), py::arg("args"), py::arg("print") = false)
+    .def(py::init<bool>(), py::arg("print") = false)
+    .def("status", &KokkosParser::status);
 
     m.def("getNP", &GMLS::getNP, R"pbdoc(
         Get size of basis.
