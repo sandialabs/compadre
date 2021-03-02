@@ -3,4 +3,6 @@ tribits_package_define_dependencies(
     KokkosCore KokkosContainers KokkosAlgorithms KokkosKernels
   LIB_OPTIONAL_TPLS
     MPI CUDA
+  LIB_REQUIRED_TPLS
+    gtest
   )

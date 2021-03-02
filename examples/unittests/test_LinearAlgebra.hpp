@@ -69,23 +69,23 @@ public:
             for (int mat_num=0; mat_num<num_matrices; ++mat_num) {
                 if (A_is_LR) {
                     host_scratch_matrix_right_type this_A(A.data() + mat_num*lda*nda, lda, nda);
-                    for (int ind=0; ind<a_i.size(); ++ind) {
+                    for (size_t ind=0; ind<a_i.size(); ++ind) {
                         this_A(a_i[ind], a_j[ind]) = a_k[ind];
                     }
                 } else {
                     host_scratch_matrix_left_type this_A(A.data() + mat_num*lda*nda, lda, nda);
-                    for (int ind=0; ind<a_i.size(); ++ind) {
+                    for (size_t ind=0; ind<a_i.size(); ++ind) {
                         this_A(a_i[ind], a_j[ind]) = a_k[ind];
                     }
                 }
                 if (B_is_LR) {
                     host_scratch_matrix_right_type this_B(B.data() + mat_num*ldb*ndb, ldb, ndb);
-                    for (int ind=0; ind<b_i.size(); ++ind) {
+                    for (size_t ind=0; ind<b_i.size(); ++ind) {
                         this_B(b_i[ind], b_j[ind]) = b_k[ind];
                     }
                 } else {
                     host_scratch_matrix_left_type this_B(B.data() + mat_num*ldb*ndb, ldb, ndb);
-                    for (int ind=0; ind<b_i.size(); ++ind) {
+                    for (size_t ind=0; ind<b_i.size(); ++ind) {
                         this_B(b_i[ind], b_j[ind]) = b_k[ind];
                     }
                 }

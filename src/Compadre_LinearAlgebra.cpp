@@ -53,7 +53,7 @@ namespace GMLS_LinearAlgebra {
               _b.extent(1), _b.extent(2));
 
       // if sizes don't match extents, then copy to a view with extents matching sizes
-      if (_M!=_a.extent(1) || _N!=_a.extent(2)) {
+      if ((size_t)_M!=_a.extent(1) || (size_t)_N!=_a.extent(2)) {
         scratch_matrix_right_type tmp(ww_slow.data(), _M, _N);
         auto aaa = scratch_matrix_right_type(_a.data() + TO_GLOBAL(k)*TO_GLOBAL(_a.extent(1))*TO_GLOBAL(_a.extent(2)), _M, _N);
         // copy A to W, then back to A
@@ -101,16 +101,16 @@ namespace GMLS_LinearAlgebra {
         Kokkos::single(Kokkos::PerTeam(member), [&] () {
           //print a
           printf("a=zeros(%lu,%lu);\n", aa.extent(0), aa.extent(1));
-              for (int j=0; j<aa.extent(0); ++j) {
-                  for (int k=0; k<aa.extent(1); ++k) {
-                      printf("a(%d,%d)= %f;\n", j+1,k+1, aa(j,k));
+              for (size_t j=0; j<aa.extent(0); ++j) {
+                  for (size_t k=0; k<aa.extent(1); ++k) {
+                      printf("a(%lu,%lu)= %f;\n", j+1,k+1, aa(j,k));
                   }
               }
           //print b
           printf("b=zeros(%lu,%lu);\n", bb.extent(0), bb.extent(1));
-              for (int j=0; j<bb.extent(0); ++j) {
-                  for (int k=0; k<bb.extent(1); ++k) {
-                      printf("b(%d,%d)= %f;\n", j+1,k+1, bb(j,k));
+              for (size_t j=0; j<bb.extent(0); ++j) {
+                  for (size_t k=0; k<bb.extent(1); ++k) {
+                      printf("b(%lu,%lu)= %f;\n", j+1,k+1, bb(j,k));
                   }
               }
         });
@@ -133,9 +133,9 @@ namespace GMLS_LinearAlgebra {
         printf("matrix_rank: %d\n", matrix_rank);
         //print u
         printf("u=zeros(%lu,%lu);\n", uu.extent(0), uu.extent(1));
-        for (int j=0; j<uu.extent(0); ++j) {
-            for (int k=0; k<uu.extent(1); ++k) {
-                printf("u(%d,%d)= %f;\n", j+1,k+1, uu(j,k));
+        for (size_t j=0; j<uu.extent(0); ++j) {
+            for (size_t k=0; k<uu.extent(1); ++k) {
+                printf("u(%lu,%lu)= %f;\n", j+1,k+1, uu(j,k));
             }
         }
         });
