@@ -122,7 +122,7 @@ KOKKOS_INLINE_FUNCTION
 XYZ operator / ( const XYZ& vecA, const scalar_type& constant ) {
     return XYZ( vecA.x / constant, vecA.y / constant, vecA.z / constant); }
 
-std::ostream& operator << ( std::ostream& os, const XYZ& vec ) {
+inline std::ostream& operator << ( std::ostream& os, const XYZ& vec ) {
     os << "(" << vec.x << ", " << vec.y << ", " << vec.z << ")" ; return os; }
 
 KOKKOS_INLINE_FUNCTION
