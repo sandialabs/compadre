@@ -552,7 +552,7 @@ Kokkos::initialize(argc, args);
         // get tangent vector and see if orthgonal to coordinate (it should be on a sphere)
         for (int j=0; j<dimension-1; ++j) {
             double tangent_inner_prod = 0;
-            for (int k=0; k<dimension; ++k) {
+            for (int k=0; k<std::min(dimension,3); ++k) {
                 tangent_inner_prod += coord[k] * prestencil_weights(0, i, 0 /* local neighbor index */, j, k);
             }
             tangent_bundle_error += tangent_inner_prod * tangent_inner_prod;
