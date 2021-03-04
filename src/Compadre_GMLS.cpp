@@ -6,7 +6,7 @@
 #include "Compadre_Functors.hpp"
 #include "Compadre_CreateConstraints.hpp"
 
-#include "KokkosBatched_Gemm_TeamVector_Internal.hpp"
+#include "KokkosBatched_Gemm_Decl.hpp"
 
 namespace Compadre {
 
@@ -490,14 +490,13 @@ void GMLS::operator()(const AssembleStandardPsqrtW&, const member_type& teamMemb
         // don't need to cast into scratch_matrix_left_type since the matrix is symmetric
         scratch_matrix_right_type M(_RHS.data()
             + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_dim_0)*TO_GLOBAL(RHS_dim_1), RHS_dim_0, RHS_dim_1);
-        KokkosBatched::TeamVectorGemmInternal<KokkosBatched::Algo::Gemm::Unblocked>
+        KokkosBatched::TeamVectorGemm<member_type,KokkosBatched::Trans::Transpose,KokkosBatched::Trans::NoTranspose,KokkosBatched::Algo::Gemm::Unblocked>
 	      ::invoke(teamMember,
-	    	   this_num_cols, this_num_cols, this_num_rows, 
 	    	   1.0,
-	    	   PsqrtW.data(), PsqrtW.stride(1), PsqrtW.stride(0),
-	    	   PsqrtW.data(), PsqrtW.stride(0), PsqrtW.stride(1),
+	    	   PsqrtW,
+	    	   PsqrtW,
 	    	   0.0,
-	    	   M.data(), M.stride(0), M.stride(1));
+	    	   M);
         teamMember.team_barrier();
 
         // Multiply PsqrtW with sqrt(W) to get PW
@@ -622,14 +621,13 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
     this->createWeightsAndPForCurvature(teamMember, delta, thread_workspace, PsqrtW, w, _dimensions, true /* only specific order */);
 
     // create PsqrtW^T*PsqrtW
-    KokkosBatched::TeamVectorGemmInternal<KokkosBatched::Algo::Gemm::Unblocked>
+    KokkosBatched::TeamVectorGemm<member_type,KokkosBatched::Trans::Transpose,KokkosBatched::Trans::NoTranspose,KokkosBatched::Algo::Gemm::Unblocked>
 	  ::invoke(teamMember,
-		   _dimensions, _dimensions, this->getNNeighbors(target_index), 
 		   1.0,
-		   PsqrtW.data(), PsqrtW.stride(1), PsqrtW.stride(0),
-		   PsqrtW.data(), PsqrtW.stride(0), PsqrtW.stride(1),
+		   PsqrtW,
+		   PsqrtW,
 		   0.0,
-		   PTP.data(), PTP.stride(0), PTP.stride(1));
+		   PTP);
     teamMember.team_barrier();
 
     // create coarse approximation of tangent plane in first two rows of T, with normal direction in third column
@@ -703,14 +701,13 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
         scratch_matrix_right_type M(_RHS.data()
             + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_dim_0)*TO_GLOBAL(RHS_dim_1), RHS_dim_0, RHS_dim_1);
         // Assemble matrix M
-        KokkosBatched::TeamVectorGemmInternal<KokkosBatched::Algo::Gemm::Unblocked>
+        KokkosBatched::TeamVectorGemm<member_type,KokkosBatched::Trans::Transpose,KokkosBatched::Trans::NoTranspose,KokkosBatched::Algo::Gemm::Unblocked>
           ::invoke(teamMember,
-               manifold_NP, manifold_NP, this_num_neighbors,
                1.0,
-               CurvaturePsqrtW.data(), CurvaturePsqrtW.stride(1), CurvaturePsqrtW.stride(0),
-               CurvaturePsqrtW.data(), CurvaturePsqrtW.stride(0), CurvaturePsqrtW.stride(1),
+               CurvaturePsqrtW,
+               CurvaturePsqrtW,
                0.0,
-               M.data(), M.stride(0), M.stride(1));
+               M);
         teamMember.team_barrier();
 
         // Multiply PsqrtW with sqrt(W) to get PW
@@ -1126,14 +1123,13 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
         scratch_matrix_right_type M(_RHS.data()
             + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_dim_0)*TO_GLOBAL(RHS_dim_1), RHS_dim_0, RHS_dim_1);
         // Assemble matrix M
-        KokkosBatched::TeamVectorGemmInternal<KokkosBatched::Algo::Gemm::Unblocked>
+        KokkosBatched::TeamVectorGemm<member_type,KokkosBatched::Trans::Transpose,KokkosBatched::Trans::NoTranspose,KokkosBatched::Algo::Gemm::Unblocked>
 	      ::invoke(teamMember,
-	    	   this_num_cols, this_num_cols, this_num_rows, 
 	    	   1.0,
-	    	   PsqrtW.data(), PsqrtW.stride(1), PsqrtW.stride(0),
-	    	   PsqrtW.data(), PsqrtW.stride(0), PsqrtW.stride(1),
+	    	   PsqrtW,
+	    	   PsqrtW,
 	    	   0.0,
-	    	   M.data(), M.stride(0), M.stride(1));
+	    	   M);
         teamMember.team_barrier();
 
 

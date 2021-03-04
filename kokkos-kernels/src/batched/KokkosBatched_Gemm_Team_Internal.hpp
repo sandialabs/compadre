@@ -5,7 +5,6 @@
 /// \author Kyungjoo Kim (kyukim@sandia.gov)
 
 #include "KokkosBatched_Util.hpp"
-#include "KokkosKernels_ExecSpaceUtils.hpp"
 
 #include "KokkosBatched_Set_Internal.hpp"
 #include "KokkosBatched_Scale_Internal.hpp"
@@ -50,7 +49,7 @@ namespace KokkosBatched {
 
     // C = beta C + alpha A B
     // C (m x n), A(m x k), B(k x n)
-
+      
     const ScalarType one(1.0), zero(0.0);
         
     if      (beta == zero) TeamSetInternal  ::invoke(member, m, n, zero, C, cs0, cs1);
@@ -112,7 +111,7 @@ namespace KokkosBatched {
         member.team_barrier();
 
       ///
-      /// GPU case: team size is large and blocksize (mb,nb) is small
+      /// case cuda: team size is large and blocksize (mb,nb) is small
       InnerGemmFixC<mbAlgo,nbAlgo> inner(as0, as1, bs0, bs1, cs0, cs1);
       auto gemm = [&](const int ib, 
                       const int jb,
@@ -129,16 +128,13 @@ namespace KokkosBatched {
         Kokkos::parallel_for
         (Kokkos::TeamThreadRange(member, mq*nq ),
          [&](const int &ij) {
-          int i, j;
-          //note: the condition is constexpr
-          if(KokkosKernels::Impl::kk_is_gpu_exec_space<typename MemberType::execution_space>()) {
-            i = ij%mq*mb;
-            j = ij/mq*nb;
-          }
-          else {
-            i = ij/nq*mb;
-            j = ij%nq*nb;
-          }
+#if                                                     \
+  defined (KOKKOS_ENABLE_CUDA) &&                       \
+  defined (KOKKOS_ACTIVE_EXECUTION_MEMORY_SPACE_CUDA)
+          const int i = ij%mq*mb, j = ij/mq*nb;
+#else
+          const int i = ij/nq*mb, j = ij%nq*nb;
+#endif
           inner.serial_invoke(alpha, 
                               AA+i*as0, BB+j*bs1, 
                               (i+mb) > ib ? mp : mb, 
