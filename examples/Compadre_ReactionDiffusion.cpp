@@ -23,6 +23,13 @@
 #include <Compadre_ReactionDiffusion_BoundaryConditions.hpp>
 #include <Compadre_ReactionDiffusion_Operator.hpp>
 
+// ####################################
+// MA MERGE 210225 include Teuchos headers for VMSDG
+// maybe don't need to add this? ASK PAUL
+//#include <Teuchos_SerialDenseMatrix.hpp>
+//#include <Teuchos_SerialDenseSolver.hpp>
+// ####################################
+
 #define STACK_TRACE(call) try { call; } catch (const std::exception& e ) { TEUCHOS_TRACE(e); }
 
 typedef int LO;
@@ -975,8 +982,57 @@ int main (int argc, char* args[]) {
                                 } else {
                                     u_exact = velocity_function->evalVector(xyz)[m_out];
                                 }
-                                jump_error_on_cell += penalty * quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);
-                                if (plot_quadrature) {
+
+                                //MA MERGE 210225
+				//Added so that correct "jump" error norm is used (weighted by VMS stabilization parameter instead of sipg penalty)
+                                if (use_vms){
+                                    // MA ###############################################################################
+                                    // MA: VMSDG tau (penalty-like) parameter
+                                    // in this script, i is the cubature point number (instead of q or qn)
+                                    // in this script, input_dim (instead of _ndim_requested)
+                                    //const int current_edge_num_in_current_cell = (i - num_interior_quadrature)/num_exterior_quadrature_per_edge; //should be same as "current_side_num"
+                                    Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_edge(input_dim, input_dim);
+                                    Teuchos :: SerialDenseSolver <local_index_type, scalar_type> vmsdg_solver;
+				    tau_edge.putScalar(0.0);
+
+				    for (int j1 = 0; j1 < input_dim; ++j1) {
+				        for (int j2 = 0; j2 < input_dim; ++j2) {
+				            tau_edge(j1, j2) = physics->_tau(j, current_side_num, j1, j2); //tau^(1)_s from 'current' elem
+				        }
+				    }
+                  
+                                    vmsdg_solver.setMatrix(Teuchos::rcp(&tau_edge, false));
+                                    auto info = vmsdg_solver.invert();
+
+				    double tau_times_jump_u = 0.0;
+				    for (int m_temp=0; m_temp<velocity_dof_view.extent(1); ++m_temp){
+                                        double temp_u_val = 0.0;
+                                        // needs reconstruction at this quadrature point // MA replace m_out with m_temp in this code block, m_temp is index for dot product with tau_edge
+                                        // LO num_neighbors = neighborhood->getNumNeighbors(j); //MA: num_neighbors already defined in this scope
+                                        // loop over particles neighbor to the cell
+                                        for (int m_in=0; m_in<velocity_dof_view.extent(1); ++m_in) {
+                                            if (m_temp!=m_in && !velocity_basis_type_vector) continue;
+                                            for (LO l = 0; l < num_neighbors; l++) {
+                                                auto particle_l = neighborhood->getNeighbor(j,l);
+                                                auto dof_val = (particle_l<nlocal_particles) ? velocity_dof_view(particle_l,m_in) : velocity_halo_dof_view(particle_l-nlocal_particles,m_in);
+                                                double v;
+                                                if (use_vector_gmls) v = vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, j, m_temp, l, m_in, i+1);
+                                                else v = vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
+                                                temp_u_val += dof_val * v;
+                                            }
+				        }
+                                        double temp_u_exact = 0.0;
+                                        temp_u_exact = velocity_function->evalVector(xyz)[m_temp]; //PENDING MA: verify if m_temp or m_out
+                                        tau_times_jump_u += tau_edge(m_out, m_temp) * (temp_u_val - temp_u_exact);
+				    }
+
+				    double vmsBCfactor = 1.0;
+				    jump_error_on_cell += quadrature_weights(j,i) * (u_val - u_exact) * tau_times_jump_u * vmsBCfactor;
+				    //MA END INSERTION ######################################################################
+				} else { // MA sipg by default
+                                    jump_error_on_cell += penalty * quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);
+				}
+				if (plot_quadrature) {
                                     jump_view(count+i,m_out) += penalty * quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);
                                 }
                             } else if (quadrature_type(j,i)==0) { // interior edge

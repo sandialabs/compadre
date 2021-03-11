@@ -319,6 +319,17 @@ void ReactionDiffusionPhysics::initialize() {
     Intrepid::DefaultCubatureFactory<double> cubature_factory;
     int cubature_degree = 2*_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder");
 
+    if (_use_vms) {
+      // MA #################################################################################################
+      // MA: Replace calculation of cubature degree. Need to increase order to integrate VMSDG term accurately
+      int input_poly_order = _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder");
+      cubature_degree = 4 * (input_poly_order/2) + 2; //MA: this is at most 2 more than above (equal for porder odd)
+      // This is needed for the volume integral term in tau only, the order of the integration rule on the boundary would
+      // not need to be changed. In future, can streamline it by having separate variables for cubature_degree
+      // in the bulk and on the cell boundary.
+      // MA #################################################################################################
+    }
+
     int num_element_nodes = element.getNodeCount();
     int num_element_sides = element.getSideCount();
     Teuchos::RCP<Intrepid::Cubature<double> > element_cubature = cubature_factory.create(element, cubature_degree);
@@ -439,12 +450,11 @@ void ReactionDiffusionPhysics::initialize() {
     
 
     if (_use_vms) {
-    
-        // Compute Jacobian Inverse (needed to compute gradients wrt physical coords)
-        Intrepid::FieldContainer<double> element_jacobian_inv(num_cells_local, num_element_cub_points, element_dim, element_dim); //allocate
-        Intrepid::CellTools<double>::setJacobianInv(element_jacobian_inv, element_jacobian); //compute
         
-        // Generate Basis functions for fine scales
+        // TODO: (MA:OPTIONAL) rename variable names containing "edge" to something containing "side"
+	//       (MA:OPTIONAL) rename variable names containeing "pow" to something referencing general vms edge/side bubble
+
+        // BASIS_T6
         // calling entire T6 basis, (we only need a subset of it)
         Intrepid::Basis_HGRAD_TRI_C2_FEM<double, Intrepid::FieldContainer<double> > basis_T6; // Define basis
         int num_basis_functions = basis_T6.getCardinality(); 
@@ -457,6 +467,10 @@ void ReactionDiffusionPhysics::initialize() {
         Intrepid::FieldContainer<double> basis_T6_grad(num_basis_functions, num_element_cub_points, element_dim); //allocate 
         basis_T6.getValues(basis_T6_grad, element_cub_points, Intrepid::OPERATOR_GRAD); //compute
    
+        // Compute Jacobian Inverse (needed to compute gradients wrt physical coords)
+        Intrepid::FieldContainer<double> element_jacobian_inv(num_cells_local, num_element_cub_points, element_dim, element_dim); //allocate
+        Intrepid::CellTools<double>::setJacobianInv(element_jacobian_inv, element_jacobian); //compute
+        
         // GRADS of basis functions wrt PHYSICAL coords (for all cells)
         Intrepid::FieldContainer<double> physical_basis_T6_grad(num_cells_local, num_basis_functions, num_element_cub_points, element_dim); //allocate 
         Intrepid::FunctionSpaceTools::HGRADtransformGRAD<double>(physical_basis_T6_grad, element_jacobian_inv, basis_T6_grad); //compute 
@@ -465,19 +479,44 @@ void ReactionDiffusionPhysics::initialize() {
         Intrepid::FieldContainer<double> physical_basis_T6_grad_weighted(num_cells_local, num_basis_functions, num_element_cub_points, element_dim); //allocate 
         Intrepid::FunctionSpaceTools::multiplyMeasure<double>(physical_basis_T6_grad_weighted, physical_element_cub_weights, physical_basis_T6_grad); //compute
         
-        // Modified bubbles (quadratic edge bubbles raised to some power)
-        // Make the power an integer, so that the modified bubble order is larger than the order of the underlying polynomial approximation in GMLS
-        double bub_pow = 2.0; //exponent
+	// basis_T6 values at INTERIOR cub pts
         Intrepid::FieldContainer<double> basis_T6_values(num_basis_functions, num_element_cub_points); //allocate values
         basis_T6.getValues(basis_T6_values, element_cub_points, Intrepid::OPERATOR_VALUE); //compute
         int size_basis_T6_values = basis_T6_values.size();
-        Intrepid::FieldContainer<double> basis_T6_values_pow_m1(num_basis_functions, num_element_cub_points); //allocate mod. vals.
-        //parallelize? (maybe compiler vectorizes loop already)
-        for (int k = 0; k < size_basis_T6_values; ++k) {
-            basis_T6_values_pow_m1[k] = std::pow(basis_T6_values[k], bub_pow - 1.0); //raise to bub_pow-1
-        }
         
-        // GRAD of modified bubble (using chain rule): product nb^(n-1)*grad(b)
+        // basis_T6 values at EDGE cub pts
+        std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values(num_element_sides, Intrepid::FieldContainer<double>(num_basis_functions, num_side_cub_points) ); //allocate 
+        for (int i=0; i<num_element_sides; ++i) {
+            basis_T6.getValues(basis_T6_edge_values[i], side_cub_points_nd[i], Intrepid::OPERATOR_VALUE);    
+        }
+	
+        // VMS 'EDGE' Bubbles ##################################################################
+        // Define the edge bubbles (fine-scale basis) as some function of the T6 basis alone.
+        
+        //Parameters for edge bubble definition
+        int input_poly_order = _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder");
+        int bub_pow = input_poly_order/2 + 1;
+        double bub_coeff = 1.5;
+
+        // VMS Edge bubble VALUES on SIDES
+        std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow(num_element_sides, Intrepid::FieldContainer<double>(num_basis_functions, num_side_cub_points) ); //allocate
+        int size_basis_T6_edge_values_1 = num_basis_functions * num_side_cub_points;
+        for (int i=0; i<num_element_sides; ++i) {
+    	    for (int k=0; k<size_basis_T6_edge_values_1; ++k) {
+                double b1 = basis_T6_edge_values[i][k]; //values at SIDE cubature points
+    	        basis_T6_edge_values_pow[i][k] = bub_coeff * std::pow(b1, bub_pow) + (1.0 - bub_coeff) * b1;
+    	    }
+        }
+        // END 'EDGE' Bubble definition ########################################################
+        
+	// Partial derivative of VMS Edge bubble wrt to basis_T6 in INTERIOR
+        Intrepid::FieldContainer<double> ebub_partialT6(num_basis_functions, num_element_cub_points); //allocate mod. vals.
+        for (int k = 0; k < size_basis_T6_values; ++k) {
+            double b1 = basis_T6_values[k]; //values at INTERIOR cubature points
+            ebub_partialT6[k] = bub_coeff * bub_pow * std::pow(b1, bub_pow - 1) + (1.0 - bub_coeff);
+	}
+
+        // GRAD of (modified) VMS SIDE BUBBLE (using chain rule)
         // Did not find a "field-field" multiply capability in Intrepid FunctionSpaceTools. Use a loop. 
         Intrepid::FieldContainer<double> physical_basis_T6_grad_pow(num_cells_local, num_basis_functions, num_element_cub_points, element_dim); //allocate 
         Intrepid::FieldContainer<double> physical_basis_T6_grad_pow_weighted(num_cells_local, num_basis_functions, num_element_cub_points, element_dim); //allocate
@@ -486,14 +525,14 @@ void ReactionDiffusionPhysics::initialize() {
             for (int k2 = 0; k2 < num_basis_functions; ++k2){
                 for (int k3 = 0; k3 < num_element_cub_points; ++k3) {
                     for (int k4 = 0; k4 < element_dim; ++k4) {
-                        physical_basis_T6_grad_pow(k1, k2, k3, k4) = bub_pow * basis_T6_values_pow_m1(k2, k3) * physical_basis_T6_grad(k1, k2, k3, k4); //multiply 
-                        physical_basis_T6_grad_pow_weighted(k1, k2, k3, k4) = bub_pow * basis_T6_values_pow_m1(k2, k3) * physical_basis_T6_grad_weighted(k1, k2, k3, k4); //multiply
+                        physical_basis_T6_grad_pow(k1, k2, k3, k4) = ebub_partialT6(k2, k3) * physical_basis_T6_grad(k1, k2, k3, k4); //multiply 
+                        physical_basis_T6_grad_pow_weighted(k1, k2, k3, k4) = ebub_partialT6(k2, k3) * physical_basis_T6_grad_weighted(k1, k2, k3, k4); //multiply
                     }
                 }
             }
         });
 
-        // 'Standard' Stiffness Matrices (may be unnecessary, and may be deprecated some day) 
+	// 'Standard' Stiffness Matrices (may be unnecessary, and may be deprecated some day) 
         Intrepid::FieldContainer<double> Stiff_Matrices_pow(num_cells_local, num_basis_functions, num_basis_functions);
         Intrepid::FunctionSpaceTools::integrate<double> (Stiff_Matrices_pow, physical_basis_T6_grad_pow_weighted, physical_basis_T6_grad_pow, Intrepid::COMP_CPP);
         
@@ -507,7 +546,7 @@ void ReactionDiffusionPhysics::initialize() {
         std::vector<Intrepid::FieldContainer<double> > sep_physical_basis_T6_grad_pow_weighted(num_basis_functions, 
                 Intrepid::FieldContainer<double>(num_cells_local, element_dim, num_element_cub_points) );
         
-        // Restructure arrays
+        // Restructure arrays(MA NOTE: this may be unnecessary, could work with the original arrays directly)
         // some day, loop over only basis functions (k2) associated to edges
         // parallelize (be careful with index reordering)
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), [&](const int k1) {
@@ -521,34 +560,16 @@ void ReactionDiffusionPhysics::initialize() {
             }
         });
         Kokkos::fence();
-
-        // Compute ndim x ndim matrices: integral (db/dxi * db/dxj)
+	
+        // INTEGRATE over cell INTERIORS
+	// Compute ndim x ndim matrices: integral (db/dxi * db/dxj)
         std::vector<Intrepid::FieldContainer<double> > sep_grad_grad_mat_integrals(num_basis_functions,
                 Intrepid::FieldContainer<double>(num_cells_local, element_dim, element_dim) ); //allocate
-        
-        // could parallelize loop
         for (int k = 0; k < num_basis_functions; ++k) {
             Intrepid::FunctionSpaceTools::operatorIntegral<double>(sep_grad_grad_mat_integrals[k], sep_physical_basis_T6_grad_pow[k], 
                                                                    sep_physical_basis_T6_grad_pow_weighted[k], Intrepid::COMP_CPP); //integrate
         }
-
-        // VALUES at EDGE CUB PTS
-        std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values(num_element_sides, Intrepid::FieldContainer<double>(num_basis_functions, num_side_cub_points) ); //allocate 
-        //parallelize? (small loop, maybe compiler already vectorices)
-        for (int i=0; i<num_element_sides; ++i) {
-            basis_T6.getValues(basis_T6_edge_values[i], side_cub_points_nd[i], Intrepid::OPERATOR_VALUE);    
-        }
-        
-        // Modify bubble (raise to power)
-        std::vector<Intrepid::FieldContainer<double> > basis_T6_edge_values_pow(num_element_sides, Intrepid::FieldContainer<double>(num_basis_functions, num_side_cub_points) ); //allocate
-        int size_basis_T6_edge_values_1 = num_basis_functions * num_side_cub_points;
-        //parallelize (maybe compiler already unrolls and vectorizes)
-        for (int i=0; i<num_element_sides; ++i) {
-            for (int k=0; k<size_basis_T6_edge_values_1; ++k) {
-                basis_T6_edge_values_pow[i][k] = std::pow(basis_T6_edge_values[i][k], bub_pow); //exponentiate: (we start with quadratic bubble, then raised to a power to make order higher than underlying GMLS)
-            }
-        }
-        
+	
         //Multiply CUB WEIGHTS
         //side note: FunctionSpaceTools::multiplyMeasure is a wrappper for FunctionSpaceTools::scalarMultiplyDataField
         //target field container can be indexed as (C,F,P) or just as (F,P) (the latter applies here) 
@@ -558,7 +579,7 @@ void ReactionDiffusionPhysics::initialize() {
             Intrepid::FunctionSpaceTools::multiplyMeasure<double>(basis_T6_edge_values_pow_weighted[i], physical_side_cub_weights[i], basis_T6_edge_values_pow[i]); //multiply
         }
         
-        //INTEGRATE
+        //INTEGRATE over cell SIDES
         //To integrate just the value of the bubble basis, need to create a FieldContainer of only "1".
         //couldn't integrate directly with the inputs above because both array inputs to "integrate" need to have dimension num_cells_local in their rank 0
         std::vector<Intrepid::FieldContainer<double> > ones_for_edge_integration(num_element_sides, Intrepid::FieldContainer<double>(num_cells_local, num_side_cub_points) ); //allocate 
@@ -575,20 +596,20 @@ void ReactionDiffusionPhysics::initialize() {
 
         //Edge Lengths (Measures)
         std::vector<Intrepid::FieldContainer<double> > element_edge_lengths(num_element_sides, Intrepid::FieldContainer<double>(num_cells_local) ); //allocate
-        
-        // use FunctionSpaceTools:dataIntegral
         for (int i=0; i<num_element_sides; ++i) {
             Intrepid::FunctionSpaceTools::dataIntegral<double>(element_edge_lengths[i], ones_for_edge_integration[i], physical_side_cub_weights[i], Intrepid::COMP_CPP); //integrate
         }
 
-        auto num_edges = _ndim_requested + 1;
-        _tau = Kokkos::View<double****, Kokkos::HostSpace>("tau", num_cells_local, num_edges, _ndim_requested, _ndim_requested);
-
-        //Forming matrix Amat (for scalar problem, it is a scalar)
+        // COMPUTE VMS tau^(a)_s (stabilization tensor tau associated to side s and element a)
+        // Allocate matrix Amat (for scalar problem, it is a scalar)
         Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> Amat(_ndim_requested, _ndim_requested);
         Teuchos :: SerialDenseSolver <local_index_type, scalar_type> Amat_solver;
         
-        //could parallelize outer two loops
+	// Allocate array of tau^(a)_s for all s, a
+        auto num_edges = _ndim_requested + 1; //MA: true for triangles and tetrahedra only
+        _tau = Kokkos::View<double****, Kokkos::HostSpace>("tau", num_cells_local, num_edges, _ndim_requested, _ndim_requested);
+
+        //could swap order of outer two loops and parallelize
         for (int i = 0; i < num_element_sides; ++i) {
         
             int edge_ordinal = i + 3; // this selects the "edge bubble" function associated with the corresponding edge
@@ -605,9 +626,6 @@ void ReactionDiffusionPhysics::initialize() {
                 }
                 for (int j1 = 0; j1 < _ndim_requested; ++j1){
                     for (int j2 = 0; j2 < _ndim_requested; ++j2) {
-                        //THIS IS TEMP (actual Amat involves material elastic parameters shear and lambda
-                        // this is A_ij = db/dx_i * db/dx_j
-                        // Amat(j1, j2) = sep_grad_grad_mat_integrals[edge_ordinal](k, j1, j2);
                         Amat(j1, j2) = ( _shear + _lambda / 2.0 ) * sep_grad_grad_mat_integrals[edge_ordinal](k, j1, j2);
                     }
                     Amat(j1, j1) += _shear * grad_bub_2;
@@ -615,11 +633,11 @@ void ReactionDiffusionPhysics::initialize() {
 
                 Amat_solver.setMatrix(Teuchos::rcp(&Amat, false));
                 auto info = Amat_solver.invert();
-                //auto Amat_inv_ptr = Amat_solver.getFactoredMatrix(); //not needed
                 //Amat is now its inverse
                 
                 //MA 200413 fix: basis_t6_.. should be squared according to definition of tau in VMSDG 
-                const double tempfactor = std::pow(basis_T6_edge_values_pow_integrated[i](k, edge_ordinal), 2.0) / element_edge_lengths[i](k);
+                double tempfactor = std::pow(basis_T6_edge_values_pow_integrated[i](k, edge_ordinal), 2.0) / element_edge_lengths[i](k);
+		tempfactor = tempfactor / ((double) num_element_sides);  //MA 210311 Heuristic correction for bubble sector overlap.
 
                 for (int j1 = 0; j1 < _ndim_requested; ++j1){
                     for (int j2 = 0; j2 < _ndim_requested; ++j2) {
@@ -628,7 +646,7 @@ void ReactionDiffusionPhysics::initialize() {
                 }
             } //loop over num_cells_local
         } //loop over num_element_sides
-    }
+    }// if (_use_vms)
 
 
     
@@ -1732,7 +1750,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 vmsdg_solver.setMatrix(Teuchos::rcp(&tau_edge, false));
                                                 // Compute tau_edge (invert LHS matrix)
                                                 auto info = vmsdg_solver.invert();
-                                                double vmsBCfactor = 2.0;
+                                                double vmsBCfactor = 1.0;
                                                 t_contribution += q_wt * jumpv * jumpu * vmsBCfactor * tau_edge(j_comp_out, k_comp_out); //MA: VMSDG term
                                             } else if (_use_sip) {
                                                 t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);

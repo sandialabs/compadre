@@ -11,6 +11,14 @@
 #include <Compadre_ReactionDiffusion_Operator.hpp>
 #include <Compadre_GMLS.hpp>
 
+// ####################################
+// MA merge 210310
+// MA include Teuchos headers for VMSDG
+// This may not be needed (check with Paul)
+//#include <Teuchos_SerialDenseMatrix.hpp>
+//#include <Teuchos_SerialDenseSolver.hpp>
+// ####################################
+
 namespace Compadre {
 
 typedef Compadre::FieldT fields_type;
@@ -257,7 +265,7 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                     }
                                     vmsdg_solver.setMatrix(Teuchos::rcp(&tau_side, false));
                                     auto info = vmsdg_solver.invert();
-                                    double vmsBCfactor = 2.0;
+                                    double vmsBCfactor = 1.0; //MA 210310, it was =2, changed to =1 (no need for factor)
                                     contribution += q_wt * v * vmsBCfactor * ( tau_side(comp_out, 0) * velocity_function->evalScalar(pt, 0) + 
                                                                                tau_side(comp_out, 1) * velocity_function->evalScalar(pt, 1) );
                                 } else if (_use_sip) {
