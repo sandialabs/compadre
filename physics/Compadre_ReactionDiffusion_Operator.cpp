@@ -320,14 +320,12 @@ void ReactionDiffusionPhysics::initialize() {
     int cubature_degree = 2*_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder");
 
     if (_use_vms) {
-      // MA #################################################################################################
-      // MA: Replace calculation of cubature degree. Need to increase order to integrate VMSDG term accurately
+      // Replace calculation of cubature degree. Need to increase order to integrate VMSDG term accurately
       int input_poly_order = _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder");
       cubature_degree = 4 * (input_poly_order/2) + 2; //MA: this is at most 2 more than above (equal for porder odd)
       // This is needed for the volume integral term in tau only, the order of the integration rule on the boundary would
       // not need to be changed. In future, can streamline it by having separate variables for cubature_degree
       // in the bulk and on the cell boundary.
-      // MA #################################################################################################
     }
 
     int num_element_nodes = element.getNodeCount();
@@ -451,8 +449,8 @@ void ReactionDiffusionPhysics::initialize() {
 
     if (_use_vms) {
         
-        // TODO: (MA:OPTIONAL) rename variable names containing "edge" to something containing "side"
-	//       (MA:OPTIONAL) rename variable names containeing "pow" to something referencing general vms edge/side bubble
+        // TODO: (OPTIONAL) rename variable names containing "edge" to something containing "side"
+	//       (OPTIONAL) rename variable names containeing "pow" to something referencing general vms edge/side bubble
 
         // BASIS_T6
         // calling entire T6 basis, (we only need a subset of it)
@@ -504,6 +502,7 @@ void ReactionDiffusionPhysics::initialize() {
         for (int i=0; i<num_element_sides; ++i) {
     	    for (int k=0; k<size_basis_T6_edge_values_1; ++k) {
                 double b1 = basis_T6_edge_values[i][k]; //values at SIDE cubature points
+		// heuristic
     	        basis_T6_edge_values_pow[i][k] = bub_coeff * std::pow(b1, bub_pow) + (1.0 - bub_coeff) * b1;
     	    }
         }
