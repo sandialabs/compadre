@@ -23,13 +23,6 @@
 #include <Compadre_ReactionDiffusion_BoundaryConditions.hpp>
 #include <Compadre_ReactionDiffusion_Operator.hpp>
 
-// ####################################
-// MA MERGE 210225 include Teuchos headers for VMSDG
-// maybe don't need to add this? ASK PAUL
-//#include <Teuchos_SerialDenseMatrix.hpp>
-//#include <Teuchos_SerialDenseSolver.hpp>
-// ####################################
-
 #define STACK_TRACE(call) try { call; } catch (const std::exception& e ) { TEUCHOS_TRACE(e); }
 
 typedef int LO;
@@ -983,11 +976,10 @@ int main (int argc, char* args[]) {
                                     u_exact = velocity_function->evalVector(xyz)[m_out];
                                 }
 
-                                //MA MERGE 210225
-				//Added so that correct "jump" error norm is used (weighted by VMS stabilization parameter instead of sipg penalty)
+
+				// VMS "jump" error norm (instead of sipg penalty)
                                 if (use_vms){
-                                    // MA ###############################################################################
-                                    // MA: VMSDG tau (penalty-like) parameter
+                                    // VMSDG tau (penalty-like) parameter
                                     // in this script, i is the cubature point number (instead of q or qn)
                                     // in this script, input_dim (instead of _ndim_requested)
                                     //const int current_edge_num_in_current_cell = (i - num_interior_quadrature)/num_exterior_quadrature_per_edge; //should be same as "current_side_num"
@@ -1007,8 +999,8 @@ int main (int argc, char* args[]) {
 				    double tau_times_jump_u = 0.0;
 				    for (int m_temp=0; m_temp<velocity_dof_view.extent(1); ++m_temp){
                                         double temp_u_val = 0.0;
-                                        // needs reconstruction at this quadrature point // MA replace m_out with m_temp in this code block, m_temp is index for dot product with tau_edge
-                                        // LO num_neighbors = neighborhood->getNumNeighbors(j); //MA: num_neighbors already defined in this scope
+                                        // needs reconstruction at this quadrature point // replace m_out with m_temp in this code block, m_temp is index for dot product with tau_edge
+                                        // LO num_neighbors = neighborhood->getNumNeighbors(j); //num_neighbors already defined in this scope
                                         // loop over particles neighbor to the cell
                                         for (int m_in=0; m_in<velocity_dof_view.extent(1); ++m_in) {
                                             if (m_temp!=m_in && !velocity_basis_type_vector) continue;
@@ -1022,14 +1014,13 @@ int main (int argc, char* args[]) {
                                             }
 				        }
                                         double temp_u_exact = 0.0;
-                                        temp_u_exact = velocity_function->evalVector(xyz)[m_temp]; //PENDING MA: verify if m_temp or m_out
+                                        temp_u_exact = velocity_function->evalVector(xyz)[m_temp]; // TODO: verify if m_temp or m_out
                                         tau_times_jump_u += tau_edge(m_out, m_temp) * (temp_u_val - temp_u_exact);
 				    }
 
 				    double vmsBCfactor = 1.0;
 				    jump_error_on_cell += quadrature_weights(j,i) * (u_val - u_exact) * tau_times_jump_u * vmsBCfactor;
-				    //MA END INSERTION ######################################################################
-				} else { // MA sipg by default
+				} else { // sipg by default
                                     jump_error_on_cell += penalty * quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);
 				}
 				if (plot_quadrature) {
