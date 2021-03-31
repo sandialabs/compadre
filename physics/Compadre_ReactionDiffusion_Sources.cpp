@@ -11,13 +11,6 @@
 #include <Compadre_ReactionDiffusion_Operator.hpp>
 #include <Compadre_GMLS.hpp>
 
-// ####################################
-// MA merge 210310
-// MA include Teuchos headers for VMSDG
-// This may not be needed (check with Paul)
-//#include <Teuchos_SerialDenseMatrix.hpp>
-//#include <Teuchos_SerialDenseSolver.hpp>
-// ####################################
 
 namespace Compadre {
 
