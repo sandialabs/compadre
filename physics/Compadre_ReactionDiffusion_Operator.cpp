@@ -606,8 +606,7 @@ void ReactionDiffusionPhysics::initialize() {
         Teuchos :: SerialDenseSolver <local_index_type, scalar_type> Amat_solver;
         
 	// Allocate array of tau^(a)_s for all s, a
-        auto num_edges = _ndim_requested + 1; //MA: true for triangles and tetrahedra only
-        _tau = Kokkos::View<double****, Kokkos::HostSpace>("tau", num_cells_local, num_edges, _ndim_requested, _ndim_requested);
+        _tau = Kokkos::View<double****, Kokkos::HostSpace>("tau", num_cells_local, num_sides, _ndim_requested, _ndim_requested);
 
         //could swap order of outer two loops and parallelize
         for (int i = 0; i < num_element_sides; ++i) {
