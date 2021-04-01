@@ -322,7 +322,10 @@ void ReactionDiffusionPhysics::initialize() {
     if (_use_vms) {
       // Replace calculation of cubature degree. Need to increase order to integrate VMSDG term accurately
       int input_poly_order = _parameters->get<Teuchos::ParameterList>("remap").get<int>("porder");
-      cubature_degree = 4 * (input_poly_order/2) + 2; //MA: this is at most 2 more than above (equal for porder odd)
+      int vms_edge_bubble_order = 2 * ( (input_poly_order/2) + 1 ); //smallest even integer that is strictly larger than input_poly_order
+      int cubature_degree_vms = 2 * (vms_edge_bubble_order - 1); //for integral of product of gradient of vms bubble
+      // int cubature_degree_vms = 4 * (input_poly_order/2) + 2; //this is at most 2 more than cubature_degree (equal for porder odd)
+      cubature_degree = std :: max(cubature_degree, cubature_degree_vms);
       // This is needed for the volume integral term in tau only, the order of the integration rule on the boundary would
       // not need to be changed. In future, can streamline it by having separate variables for cubature_degree
       // in the bulk and on the cell boundary.
@@ -1748,8 +1751,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                                 vmsdg_solver.setMatrix(Teuchos::rcp(&tau_edge, false));
                                                 // Compute tau_edge (invert LHS matrix)
                                                 auto info = vmsdg_solver.invert();
-                                                double vmsBCfactor = 1.0;
-                                                t_contribution += q_wt * jumpv * jumpu * vmsBCfactor * tau_edge(j_comp_out, k_comp_out); //MA: VMSDG term
+                                                t_contribution += q_wt * jumpv * jumpu * tau_edge(j_comp_out, k_comp_out); //VMSDG term
                                             } else if (_use_sip) {
                                                 t_contribution += penalty * q_wt * jumpv*jumpu*(j_comp_out==k_comp_out);
                                             }

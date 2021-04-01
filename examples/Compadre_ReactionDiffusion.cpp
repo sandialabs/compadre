@@ -1014,12 +1014,11 @@ int main (int argc, char* args[]) {
                                             }
 				        }
                                         double temp_u_exact = 0.0;
-                                        temp_u_exact = velocity_function->evalVector(xyz)[m_temp]; // TODO: verify if m_temp or m_out
+                                        temp_u_exact = velocity_function->evalVector(xyz)[m_temp]; // NOTE: reconstruction uses index m_temp because contraction with tau_edge
                                         tau_times_jump_u += tau_edge(m_out, m_temp) * (temp_u_val - temp_u_exact);
 				    }
 
-				    double vmsBCfactor = 1.0;
-				    jump_error_on_cell += quadrature_weights(j,i) * (u_val - u_exact) * tau_times_jump_u * vmsBCfactor;
+				    jump_error_on_cell += quadrature_weights(j,i) * (u_val - u_exact) * tau_times_jump_u;
 				} else { // sipg by default
                                     jump_error_on_cell += penalty * quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);
 				}

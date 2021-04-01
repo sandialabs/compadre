@@ -258,9 +258,8 @@ void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_ind
                                     }
                                     vmsdg_solver.setMatrix(Teuchos::rcp(&tau_side, false));
                                     auto info = vmsdg_solver.invert();
-                                    double vmsBCfactor = 1.0; //MA 210310, it was =2, changed to =1 (no need for factor)
-                                    contribution += q_wt * v * vmsBCfactor * ( tau_side(comp_out, 0) * velocity_function->evalScalar(pt, 0) + 
-                                                                               tau_side(comp_out, 1) * velocity_function->evalScalar(pt, 1) );
+                                    contribution += q_wt * v * ( tau_side(comp_out, 0) * velocity_function->evalScalar(pt, 0) + 
+                                                                 tau_side(comp_out, 1) * velocity_function->evalScalar(pt, 1) );
                                 } else if (_use_sip) {
                                     contribution += penalty * q_wt * v * exact[comp_out];
                                 }
