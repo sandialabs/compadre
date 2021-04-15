@@ -30,8 +30,19 @@ void ExplicitTimeDependentBoundaryConditions::flagBoundaries() {
 
 void ExplicitTimeDependentBoundaryConditions::applyBoundaries(local_index_type field_one, local_index_type field_two, scalar_type time) {
 
-    bool is_velocity = (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("velocity"));
-    bool is_height = (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("height"));
+    bool is_velocity = false, is_height = false, is_d = false;
+    try { 
+       is_velocity = (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("velocity"));
+    } catch (...) {
+    }
+    try { 
+        is_height = (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("height"));
+    } catch (...) {
+    }
+    try { 
+        is_d = (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("d"));
+    } catch (...) {
+    }
 
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_b==NULL, "Tpetra Multivector for BCS not yet specified.");
     if (field_two == -1) {
@@ -55,8 +66,10 @@ void ExplicitTimeDependentBoundaryConditions::applyBoundaries(local_index_type f
     		if (bc_id(i,0)==1) {
                 if (is_velocity) {
                     rhs_vals(dof,0) = _physics->vel_boundary_function->evalScalar(pt, 0, time);
-                } else {
+                } else if (is_height) {
                     rhs_vals(dof,0) = _physics->h_boundary_function->evalScalar(pt, 0, time);
+                } else if (is_d) {
+                    rhs_vals(dof,0) = _physics->vel_source_function->evalScalar(pt, 0, time);
                 }
             }
     	}
@@ -65,9 +78,14 @@ void ExplicitTimeDependentBoundaryConditions::applyBoundaries(local_index_type f
 }
 
 std::vector<InteractingFields> ExplicitTimeDependentBoundaryConditions::gatherFieldInteractions() {
+    auto timestepper_type = _parameters->get<Teuchos::ParameterList>("time").get<std::string>("type");
 	std::vector<InteractingFields> field_interactions;
-	field_interactions.push_back(InteractingFields(op_needing_interaction::bc, _particles->getFieldManagerConst()->getIDOfFieldFromName("velocity")));
-	field_interactions.push_back(InteractingFields(op_needing_interaction::bc, _particles->getFieldManagerConst()->getIDOfFieldFromName("height")));
+    if (timestepper_type=="rk") {
+	    field_interactions.push_back(InteractingFields(op_needing_interaction::bc, _particles->getFieldManagerConst()->getIDOfFieldFromName("velocity")));
+	    field_interactions.push_back(InteractingFields(op_needing_interaction::bc, _particles->getFieldManagerConst()->getIDOfFieldFromName("height")));
+    } else if (timestepper_type=="newmark") {
+	    field_interactions.push_back(InteractingFields(op_needing_interaction::bc, _particles->getFieldManagerConst()->getIDOfFieldFromName("d")));
+    }
 //	printf("bc: %d %d\n", _particles->getFieldManagerConst()->getField("velocity"), _particles->getFieldManagerConst()->getField("height"));
 	return field_interactions;
 }

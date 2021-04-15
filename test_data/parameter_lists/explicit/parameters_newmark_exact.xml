@@ -1,6 +1,6 @@
 <ParameterList name="Compadre">
-  <Parameter name="simulation type" type="string" value="lagrangian"/>
-  <Parameter name="shallow water test case" type="int" value="2"/>
+  <Parameter name="simulation type" type="string" value="eulerian"/>
+  <Parameter name="solution type" type="string" value="polynomial time"/>
   <ParameterList name="solver">
     <Parameter name="blocked" type="bool" value="true"/>
   </ParameterList>
@@ -8,7 +8,7 @@
     <Parameter name="porder" type="int" value="2"/>
     <Parameter name="curvature porder" type="int" value="2"/>
     <Parameter name="dense solver type" type="string" value="QR"/>
-    <Parameter name="problem type" type="string" value="MANIFOLD"/>
+    <Parameter name="problem type" type="string" value="STANDARD"/>
     <Parameter name="constraint type" type="string" value="NONE"/>
   </ParameterList>
   <ParameterList name="neighborhood">
@@ -21,24 +21,21 @@
     <Parameter name="multiplier" type="double" value="32.0"/>
   </ParameterList>
   <ParameterList name="time">
-    <Parameter name="order" type="int" value="4"/>
+    <Parameter name="type" type="string" value="newmark"/>
+    <Parameter name="gamma" type="double" value="0.5"/>
+    <Parameter name="beta" type="double" value="0.0"/>
     <Parameter name="t0" type="double" value="0"/>
-    <Parameter name="t_end" type="double" value="20000.0"/>
-    <Parameter name="dt" type="double" value="500"/>
-    <Parameter name="dt multiplier" type="double" value="0.7"/>
+    <Parameter name="t_end" type="double" value="2.0"/>
+    <Parameter name="dt" type="double" value="0.15"/>
   </ParameterList>
   <ParameterList name="io">
     <Parameter name="input dimensions" type="int" value="3"/>
     <Parameter name="input file prefix" type="string" value="../test_data/grids/"/>
-    <Parameter name="input file" type="string" value="shallow_1.nc"/>
-    <Parameter name="coordinates layout" type="string" value="lat_lon_separate"/>
+    <Parameter name="input file" type="string" value="output_12.nc"/>
+    <Parameter name="coordinates layout" type="string" value="xyz_separate"/>
     <Parameter name="output file prefix" type="string" value="../test_data/"/>
-    <Parameter name="output file" type="string" value="shallow_water.nc"/>
-    <Parameter name="write every" type="int" value="20"/>
-    <Parameter name="keep original lat lon" type="bool" value="true"/>
-    <Parameter name="coordinate 0 name" type="string" value="grid_center_lat"/>
-    <Parameter name="coordinate 1 name" type="string" value="grid_center_lon"/>
-    <Parameter name="particles number dimension name" type="string" value="grid_size"/>
+    <Parameter name="output file" type="string" value="explicit_exact.nc"/>
+    <Parameter name="write every" type="int" value="100"/>
   </ParameterList>
   <ParameterList name="physics">
     <Parameter name="artificial viscosity" type="double" value="0e-8"/>

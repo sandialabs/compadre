@@ -389,16 +389,22 @@ if (CompadreHarness_EXAMPLES)
 
     ## EXPLICIT TIME DEPENDENT TESTS
     
-    ADD_TEST(NAME ExplicitTimeDependentExact COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/explicitTimeDependent.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_exact.xml" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(ExplicitTimeDependentExact PROPERTIES LABELS "explicit;exact")
+    ADD_TEST(NAME ExplicitTimeDependentRKExact COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/explicitTimeDependent.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_rk_exact.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(ExplicitTimeDependentRKExact PROPERTIES LABELS "explicit;exact;rk")
     
-    ADD_TEST(NAME ExplicitTimeDependentAnalytical COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 3 ${CMAKE_CURRENT_BINARY_DIR}/explicitTimeDependent.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_nonpolynomial.xml" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(ExplicitTimeDependentAnalytical PROPERTIES LABELS "explicit;analytical")
+    ADD_TEST(NAME ExplicitTimeDependentRKAnalytical COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 3 ${CMAKE_CURRENT_BINARY_DIR}/explicitTimeDependent.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_rk_nonpolynomial.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(ExplicitTimeDependentRKAnalytical PROPERTIES LABELS "explicit;analytical;rk")
+
+    ADD_TEST(NAME ExplicitTimeDependentNewmarkExact COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/explicitTimeDependent.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_newmark_exact.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(ExplicitTimeDependentNewmarkExact PROPERTIES LABELS "explicit;exact;newmark")
+    
+    ADD_TEST(NAME ExplicitTimeDependentNewmarkAnalytical COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 3 ${CMAKE_CURRENT_BINARY_DIR}/explicitTimeDependent.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_newmark_nonpolynomial.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(ExplicitTimeDependentNewmarkAnalytical PROPERTIES LABELS "explicit;analytical;newmark")
 
     ## UNIT TESTS
 
     ADD_TEST(NAME UnitTests COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${CMAKE_CURRENT_BINARY_DIR}/unitTests.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_unittests.xml" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(ExplicitTimeDependentAnalytical PROPERTIES LABELS "explicit;analytical")
+    SET_TESTS_PROPERTIES(UnitTests PROPERTIES LABELS "unit;")
 
 
     ## RT0 REMAP TO VECTOR TEST

@@ -63,7 +63,7 @@ int main (int argc, char* args[]) {
 
     auto solution_type = parameters->get<std::string>("solution type");
     auto simulation_type = parameters->get<std::string>("simulation type");
-    //auto dimension = parameters->get<Teuchos::ParameterList>("io").get<std::string>("input dimensions");
+    auto timestepper_type = parameters->get<Teuchos::ParameterList>("time").get<std::string>("type");
 
     {
 
@@ -105,21 +105,37 @@ int main (int argc, char* args[]) {
         if (solution_type=="polynomial time" && simulation_type=="eulerian") {
             // exact solution is t^5/5 + 2*t - (t0^5/5 + 2*t0), rhs is: t^4 + 2
             Teuchos::RCP<Compadre::AnalyticFunction> t = Teuchos::rcp<Compadre::AnalyticFunction>(new Compadre::LinearInT());
-            vel_source_function = pow(t,4) + 2;//zero_function;
-            vel_boundary_function = .2*pow(t,5) + 2*t - (pow(t0,5)/5.0 + 2.0*t0);// (t/zero_function;
-            // exact solution is t^3/3 - 10*t - (t0^3/3 - 10*t0), rhs is: t^2 - 10
-            h_boundary_function = pow(t,3)/3 - 10*t - (pow(t0,3)/3.0 - 10.0*t0);//zero_function;
-            h_source_function = t*t - 10;//zero_function;
+            if (timestepper_type=="rk") {
+                vel_source_function = pow(t,4) + 2;//zero_function;
+                vel_boundary_function = .2*pow(t,5) + 2*t - (pow(t0,5)/5.0 + 2.0*t0);// (t/zero_function;
+                // exact solution is t^3/3 - 10*t - (t0^3/3 - 10*t0), rhs is: t^2 - 10
+                h_boundary_function = pow(t,3)/3 - 10*t - (pow(t0,3)/3.0 - 10.0*t0);//zero_function;
+                h_source_function = t*t - 10;//zero_function;
+            } else if (timestepper_type=="newmark") {
+                // exact solution is d: t^2/2 - 10*t, v: t - 10, a: 1
+                h_boundary_function = pow(t,2)/2 - 10*t;
+                h_source_function = t - 10;
+                vel_source_function = 1 + zero_function;
+                vel_boundary_function = t - 10;
+            }
         }
         else if (solution_type=="nonpolynomial time" && simulation_type=="eulerian") {
             // exact solution is -cos(t)+cos(t0)
             Teuchos::RCP<Compadre::AnalyticFunction> cos_t = Teuchos::rcp<Compadre::AnalyticFunction>(new Compadre::CosT());
             Teuchos::RCP<Compadre::AnalyticFunction> sin_t = Teuchos::rcp<Compadre::AnalyticFunction>(new Compadre::SinT());
-            vel_source_function = sin_t;
-            vel_boundary_function = -1*cos_t + std::cos(t0);//zero_function;
-            // exact solution is sin(t)-sin(t0)
-            h_boundary_function = sin_t - std::sin(t0);
-            h_source_function = cos_t;
+            if (timestepper_type=="rk") {
+                vel_source_function = sin_t;
+                vel_boundary_function = -1*cos_t + std::cos(t0);//zero_function;
+                // exact solution is sin(t)-sin(t0)
+                h_boundary_function = sin_t - std::sin(t0);
+                h_source_function = cos_t;
+            } else if (timestepper_type=="newmark") {
+                // exact solution is sin(t)-sin(t0)
+                h_boundary_function = sin_t - std::sin(t0);
+                h_source_function = cos_t;
+                vel_source_function = -1*sin_t;
+                vel_boundary_function = cos_t;
+            }
         } else {
             TEUCHOS_ASSERT(false); // invalid choice
         }
@@ -137,17 +153,28 @@ int main (int argc, char* args[]) {
             particles->buildHalo(halo_size);
 
 
-//             particles->getFieldManager()->listFields(std::cout);
-             particles->getFieldManager()->createField(1, "velocity", "m/s");
-             particles->getFieldManager()->createField(1, "height", "m");
+            if (timestepper_type=="rk") {
+                particles->getFieldManager()->createField(1, "velocity", "m/s");
+                particles->getFieldManager()->createField(1, "height", "m");
 
 
-            particles->getFieldManager()->getFieldByName("velocity")->
-                    localInitFromScalarFunction(vel_boundary_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
-                    //localInitFromScalarFunction(zero_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
-            particles->getFieldManager()->getFieldByName("height")->
-                    localInitFromScalarFunction(h_boundary_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
-                    //localInitFromScalarFunction(zero_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
+                particles->getFieldManager()->getFieldByName("velocity")->
+                        localInitFromScalarFunction(vel_boundary_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
+                        //localInitFromScalarFunction(zero_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
+                particles->getFieldManager()->getFieldByName("height")->
+                        localInitFromScalarFunction(h_boundary_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
+                        //localInitFromScalarFunction(zero_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
+            } else if (timestepper_type=="newmark") {
+                particles->getFieldManager()->createField(1, "d", "m/s");
+                particles->getFieldManager()->createField(1, "d_velocity", "m/s");
+                particles->getFieldManager()->getFieldByName("d")->
+                        localInitFromScalarFunction(h_boundary_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
+                        //localInitFromScalarFunction(zero_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
+                particles->getFieldManager()->getFieldByName("d_velocity")->
+                        localInitFromScalarFunction(vel_boundary_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
+                        //localInitFromScalarFunction(zero_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
+
+            }
 
             Compadre::ConstantEachDimension proc_func = Compadre::ConstantEachDimension(comm->getRank(),1,1);
             particles->getFieldManager()->createField(1, "processor", "none");
@@ -189,8 +216,10 @@ int main (int argc, char* args[]) {
                 Teuchos::rcp( new Compadre::ExplicitTimeDependentPhysics(particles));
             Teuchos::RCP<Compadre::ExplicitTimeDependentSources> source =
                 Teuchos::rcp( new Compadre::ExplicitTimeDependentSources(particles));
+            source->setParameters(*parameters);
             Teuchos::RCP<Compadre::ExplicitTimeDependentBoundaryConditions> bcs =
                 Teuchos::rcp( new Compadre::ExplicitTimeDependentBoundaryConditions(particles));
+            bcs->setParameters(*parameters);
 
 
             // set physics, sources, and boundary conditions in the problem
@@ -222,7 +251,7 @@ int main (int argc, char* args[]) {
 
             //solving
             SolvingTime->start();
-            problem->solve(parameters->get<Teuchos::ParameterList>("time").get<int>("rk order") /* rk 4*/, parameters->get<Teuchos::ParameterList>("time").get<double>("t0"), parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"), stable_timestep_size, parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file"));
+            problem->solve(parameters->get<Teuchos::ParameterList>("time"), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"), parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"), stable_timestep_size, parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file"));
             SolvingTime->stop();
 
 //            WriteTime->start();
@@ -248,10 +277,19 @@ int main (int argc, char* args[]) {
 
             Compadre::host_view_type initial_coords = 
                 particles->getCoords()->getPts(false /*halo*/, false /*use_physical_coords*/)->getLocalView<Compadre::host_view_type>();
-            Compadre::host_view_type velocity_field = 
-                particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-            Compadre::host_view_type height_field = 
-                particles->getFieldManager()->getFieldByName("height")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+
+            Compadre::host_view_type velocity_field, height_field;
+            if (timestepper_type=="rk") {
+                velocity_field = 
+                    particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                height_field = 
+                    particles->getFieldManager()->getFieldByName("height")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+            } else if (timestepper_type=="newmark") {
+                velocity_field = 
+                    particles->getFieldManager()->getFieldByName("d_velocity")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                height_field = 
+                    particles->getFieldManager()->getFieldByName("d")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+            }
             //auto integral_vel_function = Compadre::CosT(parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"),-1)+1;
             //auto integral_h_function = Compadre::CosT(parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"),-1)+1;
             //auto integral_vel_function = 1+Compadre::CosT(parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"),-1);
@@ -273,11 +311,11 @@ int main (int argc, char* args[]) {
                 if (solution_type=="polynomial time" && simulation_type=="eulerian") {
                     double this_diff = exact[0] - velocity_field(j,0);
                     if (std::abs(this_diff)>1e-8) {
-                        printf("%.16g vs %.16g: %.16f\n", exact[0], velocity_field(j,0), exact[0] - velocity_field(j,0));
+                        printf("v: %.16g vs %.16g: %.16f\n", exact[0], velocity_field(j,0), exact[0] - velocity_field(j,0));
                     }
                     this_diff = exact_height - height_field(j,0);
                     if (std::abs(this_diff)>1e-15) {
-                        printf("%.16g vs %.16g: %.16f\n", exact_height, velocity_field(j,0), exact_height - height_field(j,0));
+                        printf("h: %.16g vs %.16g: %.16f\n", exact_height, height_field(j,0), exact_height - height_field(j,0));
                     }
 
                 }

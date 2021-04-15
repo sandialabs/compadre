@@ -56,7 +56,6 @@ int main (int argc, char* args[]) {
 	Kokkos::initialize(argc, args);
 
 	Teuchos::RCP<Teuchos::Time> SphericalParticleTime = Teuchos::TimeMonitor::getNewCounter ("Spherical Particle Time");
-	Teuchos::RCP<Teuchos::Time> NeighborSearchTime = Teuchos::TimeMonitor::getNewCounter ("Neighbor Search Time");
 	Teuchos::RCP<Teuchos::Time> FirstReadTime = Teuchos::TimeMonitor::getNewCounter ("1st Read Time");
 	Teuchos::RCP<Teuchos::Time> AssemblyTime = Teuchos::TimeMonitor::getNewCounter ("Assembly Time");
 	Teuchos::RCP<Teuchos::Time> SolvingTime = Teuchos::TimeMonitor::getNewCounter ("Solving Time");
@@ -230,7 +229,6 @@ int main (int argc, char* args[]) {
 			particles->createDOFManager();
 			particles->getDOFManager()->generateDOFMap();
 
-			NeighborSearchTime->start();
 			const ST h_support = parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size")*sw_function.getRadius();
 
 			particles->createNeighborhood();
@@ -247,7 +245,6 @@ int main (int argc, char* args[]) {
 
 			double h_min = particles->getNeighborhood()->computeMinHSupportSize(true /*global min*/);
 
-			NeighborSearchTime->stop();
 
 			Teuchos::RCP<Compadre::ProblemExplicitTransientT> problem =
 				Teuchos::rcp( new Compadre::ProblemExplicitTransientT(particles));
@@ -290,7 +287,7 @@ int main (int argc, char* args[]) {
 
 			//solving
 			SolvingTime->start();
-			problem->solve(parameters->get<Teuchos::ParameterList>("time").get<int>("rk order") /* rk 4*/, parameters->get<Teuchos::ParameterList>("time").get<double>("t0"), parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"), stable_timestep_size, parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file"));
+			problem->solve(parameters->get<Teuchos::ParameterList>("time"), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"), parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"), stable_timestep_size, parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file"));
 			SolvingTime->stop();
 
 

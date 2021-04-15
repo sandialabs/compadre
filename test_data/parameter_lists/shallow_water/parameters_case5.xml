@@ -22,7 +22,7 @@
     <Parameter name="multiplier" type="double" value="8.0"/>
   </ParameterList>
   <ParameterList name="time">
-    <Parameter name="rk order" type="int" value="4"/>
+    <Parameter name="order" type="int" value="4"/>
     <Parameter name="t0" type="double" value="0"/>
     <Parameter name="t_end" type="double" value="1723282"/>
     <!--Parameter name="dt" type="double" value="1795.08541666666667"/-->

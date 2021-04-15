@@ -152,9 +152,10 @@ void ParameterManager::setDefaultParameters() {
 
 	// Timestepping Details
 	Teuchos::RCP<Teuchos::ParameterList> timeList = Teuchos::rcp(new Teuchos::ParameterList("time"));
+	timeList->set("type", "rk"); // time stepper type (rk, newmark)
 	timeList->set("dt", (scalar_type)-1); // explicitly setting the timestep, negative means not set
 	timeList->set("dt multiplier", (scalar_type)-1); // multiplier times the CFL
-	timeList->set("rk order", (local_index_type)4); // runge-kutta order
+	timeList->set("order", (local_index_type)4); // order of method
 	timeList->set("t_0", (scalar_type)0.0); // initial simulation time
 	timeList->set("t_end", (scalar_type)0.0); // ending simulation time
 
