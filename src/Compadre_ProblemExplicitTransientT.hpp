@@ -111,9 +111,9 @@ class ProblemExplicitTransientT {
 //		void buildGraphs(local_index_type field_one, local_index_type field_two);
 //		void buildSolver();
 //		void assembleOperator(local_index_type field_one = 0, local_index_type field_two = -1, scalar_type simulation_time = 0, scalar_type delta_time = 0);
-		void assembleOperatorToVector(local_index_type field_one = 0, local_index_type field_two = -1, scalar_type simulation_time = 0, scalar_type delta_time = 0);
-		void assembleRHS(local_index_type field_one = 0, local_index_type field_two = -1, scalar_type simulation_time = 0, scalar_type delta_time = 0);
-		void assembleBCS(local_index_type field_one = 0, local_index_type field_two = -1, scalar_type simulation_time = 0, scalar_type delta_time = 0);
+		void assembleOperatorToVector(local_index_type field_one = 0, local_index_type field_two = -1, scalar_type simulation_time = 0, scalar_type delta_time = 0, scalar_type previous_delta_time = -1.0);
+		void assembleRHS(local_index_type field_one = 0, local_index_type field_two = -1, scalar_type simulation_time = 0, scalar_type delta_time = 0, scalar_type previous_delta_time = -1.0);
+		void assembleBCS(local_index_type field_one = 0, local_index_type field_two = -1, scalar_type simulation_time = 0, scalar_type delta_time = 0, scalar_type previous_delta_time = -1.0);
 		void registerFieldInteractions(const std::vector<InteractingFields>& ops_to_register);
 
 		void solveRK(Teuchos::ParameterList& parameters_time, scalar_type t_0, scalar_type t_end, scalar_type dt, std::string filename);

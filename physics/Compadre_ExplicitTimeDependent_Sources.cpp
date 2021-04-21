@@ -14,7 +14,7 @@ namespace Compadre {
 typedef Compadre::FieldT fields_type;
 typedef Compadre::XyzVector xyz_type;
 
-void ExplicitTimeDependentSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time) {
+void ExplicitTimeDependentSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time, scalar_type current_timestep_size, scalar_type previous_timestep_size) {
 
     bool is_velocity = false, is_height = false, is_d = false;
     try { 

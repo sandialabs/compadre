@@ -1098,6 +1098,9 @@ void ProblemExplicitTransientT::solveNewmark(Teuchos::ParameterList& parameters_
             displacement_to_acceleration_map[field_interaction.src_fieldnum] = 
                 _particles->getFieldManagerConst()->getIDOfFieldFromName(this_src_field_name+"_acceleration");
         } catch (...) {
+            std::string msg = "Field " + this_src_field_name + " involved in field interactions, but field " 
+                + this_src_field_name + "_acceleration not found.";
+            TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.c_str());
         }
     }
 
@@ -1156,24 +1159,28 @@ void ProblemExplicitTransientT::solveNewmark(Teuchos::ParameterList& parameters_
 
     // TODO: check parameter list for if operator is lumped
     bool LUMPED=true;
+    
+    // size of first timestep that will be taken
+    scalar_type internal_dt = std::min(dt, t_end-t_0);
 
     // solve acceleration at t0 (NO DAMPING!)
     for (InteractingFields field_interaction : _field_interactions) {
 
         local_index_type field_one = field_interaction.src_fieldnum;
         local_index_type field_two = field_interaction.trg_fieldnum;
+        auto field_one_velocity = displacement_to_velocity_map[field_one];
 
         for (op_needing_interaction op : field_interaction.ops_needing) {
             // (all store into _b), so _b holds stage solution
             if (op == op_needing_interaction::bc) {
-                assembleBCS(field_one, field_two, t_0, 0 /*internal_dt*/);
+                assembleBCS(field_one, field_two, t_0, internal_dt, -1.0 /* indicates t_0 condition */);
             }
             else if (op == op_needing_interaction::source) {
-                assembleRHS(field_one, field_two, t_0, 0 /*internal_dt*/);
+                assembleRHS(field_one, field_two, t_0, internal_dt, -1.0 /* indicates t_0 condition */);
             }
             else if (op == op_needing_interaction::physics) {
                 if (LUMPED) {
-                    assembleOperatorToVector(field_one, field_two, t_0, 0 /*internal_dt*/);
+                    assembleOperatorToVector(field_one, field_two, t_0, internal_dt, -1.0 /* indicates t_0 condition */);
                 } else {
                     // assembleOperator to a matrix
                 }
@@ -1210,8 +1217,8 @@ void ProblemExplicitTransientT::solveNewmark(Teuchos::ParameterList& parameters_
 
     
     scalar_type old_t = t_0;
-    scalar_type internal_dt = std::min(dt, t_end-t_0);
     scalar_type t = t_0 + internal_dt;
+    scalar_type old_dt = 0;
 
     int timestep_count = 0;
     int write_count = 0;
@@ -1235,11 +1242,17 @@ void ProblemExplicitTransientT::solveNewmark(Teuchos::ParameterList& parameters_
             _particles->getCoordsConst()->getComm()->barrier();
         }
 
-        // move the updated displacements back onto the particles
+        // move the updated displacements and old velocity/acceleration back onto the particles
         for (InteractingFields field_interaction : _field_interactions) {
             local_index_type field_one = field_interaction.src_fieldnum;
             local_index_type row_block = _field_to_block_row_map[field_one];
+            auto field_one_velocity = displacement_to_velocity_map[field_one];
             _particles->getFieldManager()->updateFieldsFromVector(displacement_t_solution[row_block], field_one, _problem_dof_data);
+            _particles->getFieldManager()->updateFieldsFromVector(velocity_t_solution[row_block], field_one_velocity, _problem_dof_data);
+            auto field_one_acceleration = displacement_to_acceleration_map[field_one];
+            if (field_one_acceleration > -1) {
+                _particles->getFieldManager()->updateFieldsFromVector(acceleration_tm1_solution[row_block], field_one_acceleration, _problem_dof_data);
+            }
             _particles->getCoordsConst()->getComm()->barrier();
         }
 
@@ -1252,14 +1265,14 @@ void ProblemExplicitTransientT::solveNewmark(Teuchos::ParameterList& parameters_
             for (op_needing_interaction op : field_interaction.ops_needing) {
                 // (all store into _b), so _b holds solution
                 if (op == op_needing_interaction::bc) {
-                    assembleBCS(field_one, field_two, t, internal_dt);
+                    assembleBCS(field_one, field_two, t, internal_dt, old_dt);
                 }
-                else if (op == op_needing_interaction::source) {
-                    assembleRHS(field_one, field_two, t, internal_dt);
+                if (op == op_needing_interaction::source) {
+                    assembleRHS(field_one, field_two, t, internal_dt, old_dt);
                 }
                 else if (op == op_needing_interaction::physics) {
                     if (LUMPED) {
-                        assembleOperatorToVector(field_one, field_two, t, internal_dt);
+                        assembleOperatorToVector(field_one, field_two, t, internal_dt, old_dt);
                     } else {
                         // assembleOperator to a matrix
                     }
@@ -1313,6 +1326,7 @@ void ProblemExplicitTransientT::solveNewmark(Teuchos::ParameterList& parameters_
         }
         
         old_t = t;
+        old_dt = internal_dt;
         internal_dt = std::min(dt, t_end-t);
         t += internal_dt; // advance the time
         timestep_count++;
@@ -1399,7 +1413,7 @@ void ProblemExplicitTransientT::buildMaps(local_index_type field_one, local_inde
     }
 }
 
-void ProblemExplicitTransientT::assembleOperatorToVector(local_index_type field_one, local_index_type field_two, scalar_type simulation_time, scalar_type delta_time) {
+void ProblemExplicitTransientT::assembleOperatorToVector(local_index_type field_one, local_index_type field_two, scalar_type simulation_time, scalar_type delta_time, scalar_type previous_delta_time) {
     if (field_two<0) field_two = field_one;
     local_index_type row_block = _field_to_block_row_map[field_one];
 
@@ -1419,10 +1433,10 @@ void ProblemExplicitTransientT::assembleOperatorToVector(local_index_type field_
         }
             _OP->setMultiVector(_b[0].getRawPtr());
     }
-    _OP->computeVector(field_one, field_two, simulation_time);
+    _OP->computeVector(field_one, field_two, simulation_time, delta_time, previous_delta_time);
 }
 
-void ProblemExplicitTransientT::assembleRHS(local_index_type field_one, local_index_type field_two, scalar_type simulation_time, scalar_type delta_time) {
+void ProblemExplicitTransientT::assembleRHS(local_index_type field_one, local_index_type field_two, scalar_type simulation_time, scalar_type delta_time, scalar_type previous_delta_time) {
     if (field_two<0) field_two = field_one;
     local_index_type row_block = _field_to_block_row_map[field_one];
 
@@ -1436,10 +1450,10 @@ void ProblemExplicitTransientT::assembleRHS(local_index_type field_one, local_in
     }
     _RHS->setMultiVector(_b[row_block].getRawPtr());
     _RHS->setDOFData(_problem_dof_data);
-    _RHS->evaluateRHS(field_one, field_two, simulation_time);
+    _RHS->evaluateRHS(field_one, field_two, simulation_time, delta_time, previous_delta_time);
 }
 
-void ProblemExplicitTransientT::assembleBCS(local_index_type field_one, local_index_type field_two, scalar_type simulation_time, scalar_type delta_time) {
+void ProblemExplicitTransientT::assembleBCS(local_index_type field_one, local_index_type field_two, scalar_type simulation_time, scalar_type delta_time, scalar_type previous_delta_time) {
     if (field_two<0) field_two = field_one;
     local_index_type row_block = _field_to_block_row_map[field_one];
 
@@ -1455,7 +1469,7 @@ void ProblemExplicitTransientT::assembleBCS(local_index_type field_one, local_in
     _BCS->setMultiVector(_b[row_block].getRawPtr());
     _BCS->setDOFData(_problem_dof_data);
     _BCS->flagBoundaries();
-    _BCS->applyBoundaries(field_one, field_two, simulation_time);
+    _BCS->applyBoundaries(field_one, field_two, simulation_time, delta_time, previous_delta_time);
 
 }
 

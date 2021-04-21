@@ -21,7 +21,7 @@ class PinnedGraphLaplacianPhysics : public PhysicsT {
 
 		virtual Teuchos::RCP<crs_graph_type> computeGraph(local_index_type field_one, local_index_type field_two = -1);
 
-		virtual void computeMatrix(local_index_type field_one, local_index_type field_two = -1, scalar_type time = 0.0);
+		virtual void computeMatrix(local_index_type field_one, local_index_type field_two = -1, scalar_type time = 0.0, scalar_type current_timestep_size = 0.0, scalar_type previous_timestep_size = -1.0);
 
 		virtual const std::vector<InteractingFields> gatherFieldInteractions();
 

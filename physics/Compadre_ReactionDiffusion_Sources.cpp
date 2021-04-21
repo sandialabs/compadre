@@ -17,7 +17,7 @@ namespace Compadre {
 typedef Compadre::FieldT fields_type;
 typedef Compadre::XyzVector xyz_type;
 
-void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time) {
+void ReactionDiffusionSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time, scalar_type current_timestep_size, scalar_type previous_timestep_size) {
 
     auto cell_vertices = _physics->_cells->getFieldManager()->getFieldByName("vertex_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
     if (field_one != field_two) return;

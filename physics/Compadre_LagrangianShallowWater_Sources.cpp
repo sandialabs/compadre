@@ -13,7 +13,7 @@ namespace Compadre {
 typedef Compadre::FieldT fields_type;
 typedef Compadre::XyzVector xyz_type;
 
-void LagrangianShallowWaterSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time) {
+void LagrangianShallowWaterSources::evaluateRHS(local_index_type field_one, local_index_type field_two, scalar_type time, scalar_type current_timestep_size, scalar_type previous_timestep_size) {
 
     //if (field_one == _particles->getFieldManagerConst()->getIDOfFieldFromName("velocity")) {
 	//    Teuchos::RCP<Compadre::AnalyticFunction> function;

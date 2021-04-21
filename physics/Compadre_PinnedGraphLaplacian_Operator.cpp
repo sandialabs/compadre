@@ -57,7 +57,7 @@ Teuchos::RCP<crs_graph_type> PinnedGraphLaplacianPhysics::computeGraph(local_ind
     return this->_A_graph;
 }
 
-void PinnedGraphLaplacianPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
+void PinnedGraphLaplacianPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time, scalar_type current_timestep_size, scalar_type previous_timestep_size) {
 	Teuchos::RCP<Teuchos::Time> ComputeMatrixTime = Teuchos::TimeMonitor::getNewCounter ("Compute Matrix Time");
 	ComputeMatrixTime->start();
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(this->_A.is_null(), "Tpetra CrsMatrix for Physics not yet specified.");

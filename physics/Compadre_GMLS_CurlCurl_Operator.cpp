@@ -71,7 +71,7 @@ Teuchos::RCP<crs_graph_type> GMLS_CurlCurlPhysics::computeGraph(local_index_type
     return this->_A_graph;
 }
 
-void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
+void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time, scalar_type current_timestep_size, scalar_type previous_timestep_size) {
 	Teuchos::RCP<Teuchos::Time> ComputeMatrixTime = Teuchos::TimeMonitor::getNewCounter ("Compute Matrix Time");
 	ComputeMatrixTime->start();
 

@@ -16,7 +16,7 @@ typedef Compadre::XyzVector xyz_type;
 void GMLS_StokesBoundaryConditions::flagBoundaries() {
 }
 
-void GMLS_StokesBoundaryConditions::applyBoundaries(local_index_type field_one, local_index_type field_two, scalar_type time) {
+void GMLS_StokesBoundaryConditions::applyBoundaries(local_index_type field_one, local_index_type field_two, scalar_type time, scalar_type current_timestep_size, scalar_type previous_timestep_size) {
     Teuchos::RCP<Compadre::AnalyticFunction> velocity_function, pressure_function;
     if (_parameters->get<std::string>("solution type")=="sine") {
         velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::CurlCurlSineTest));

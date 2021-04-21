@@ -167,6 +167,7 @@ int main (int argc, char* args[]) {
             } else if (timestepper_type=="newmark") {
                 particles->getFieldManager()->createField(1, "d", "m/s");
                 particles->getFieldManager()->createField(1, "d_velocity", "m/s");
+                particles->getFieldManager()->createField(1, "d_acceleration", "m/s");
                 particles->getFieldManager()->getFieldByName("d")->
                         localInitFromScalarFunction(h_boundary_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
                         //localInitFromScalarFunction(zero_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));

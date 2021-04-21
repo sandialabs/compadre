@@ -403,7 +403,7 @@ if (CompadreHarness_EXAMPLES)
 
     ## UNIT TESTS
 
-    ADD_TEST(NAME UnitTests COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${CMAKE_CURRENT_BINARY_DIR}/unitTests.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_unittests.xml" "--kokkos-threads=2")
+    ADD_TEST(NAME UnitTests COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${CMAKE_CURRENT_BINARY_DIR}/unitTests.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_rk_exact.xml" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(UnitTests PROPERTIES LABELS "unit;")
 
 

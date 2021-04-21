@@ -66,9 +66,9 @@ class PhysicsT {
 
 		virtual Teuchos::RCP<crs_graph_type> computeGraph(local_index_type field_one, local_index_type field_two = -1) { return Teuchos::null; };
 
-		virtual void computeMatrix(local_index_type field_one, local_index_type field_two = -1, scalar_type time = 0.0) {};
+		virtual void computeMatrix(local_index_type field_one, local_index_type field_two = -1, scalar_type time = 0.0, scalar_type current_timestep_size = 0.0, scalar_type previous_timestep_size = -1.0) {};
 
-		virtual void computeVector(local_index_type field_one, local_index_type field_two = -1, scalar_type time = 0.0) {};
+		virtual void computeVector(local_index_type field_one, local_index_type field_two = -1, scalar_type time = 0.0, scalar_type current_timestep_size = 0.0, scalar_type previous_timestep_size = -1.0) {};
 
 		virtual const std::vector<InteractingFields> gatherFieldInteractions() = 0;
 
