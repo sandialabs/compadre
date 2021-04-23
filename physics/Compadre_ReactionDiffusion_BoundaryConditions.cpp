@@ -14,7 +14,7 @@ namespace Compadre {
 void ReactionDiffusionBoundaryConditions::flagBoundaries() {
 }
 
-void ReactionDiffusionBoundaryConditions::applyBoundaries(local_index_type field_one, local_index_type field_two, scalar_type time) {
+void ReactionDiffusionBoundaryConditions::applyBoundaries(local_index_type field_one, local_index_type field_two, scalar_type time, scalar_type current_timestep_size, scalar_type previous_timestep_size) {
 
     if (field_one != _physics->_pressure_field_id || field_two != _physics->_pressure_field_id) return;
 

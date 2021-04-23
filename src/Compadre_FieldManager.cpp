@@ -192,6 +192,7 @@ void FieldManager::updateFieldsFromVector(Teuchos::RCP<mvec_type> source, local_
 			field_vals(i,j) = source_data(i*this->_fields[field_num]->nDim() + j,0);
 		}
 	});
+    Kokkos::fence();
 
 	this->updateFieldsHaloData(field_num);
 
@@ -222,6 +223,7 @@ void FieldManager::updateVectorFromFields(Teuchos::RCP<mvec_type> target, local_
 			target_data(i*this->_fields[field_num]->nDim() + j,0) = field_vals(i,j);
 		}
 	});
+    Kokkos::fence();
 }
 
 const std::vector<Teuchos::RCP<FieldManager::field_type> >& FieldManager::getVectorOfFields() const {

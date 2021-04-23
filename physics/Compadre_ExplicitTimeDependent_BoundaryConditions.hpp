@@ -17,6 +17,8 @@ class ExplicitTimeDependentBoundaryConditions : public BoundaryConditionsT {
 
         ExplicitTimeDependentPhysics* _physics;
 
+        std::vector<int> _velocity_id, _acceleration_id;
+
 	public:
 
 		ExplicitTimeDependentBoundaryConditions( Teuchos::RCP<particle_type> particles,
@@ -28,7 +30,7 @@ class ExplicitTimeDependentBoundaryConditions : public BoundaryConditionsT {
 
 		virtual void flagBoundaries();
 
-		virtual void applyBoundaries(local_index_type field_one, local_index_type field_two = -1, scalar_type time = 0.0);
+		virtual void applyBoundaries(local_index_type field_one, local_index_type field_two = -1, scalar_type time = 0.0, scalar_type current_timestep_size = 0.0, scalar_type previous_timestep_size = -1.0);
 
 		virtual std::vector<InteractingFields> gatherFieldInteractions();
 

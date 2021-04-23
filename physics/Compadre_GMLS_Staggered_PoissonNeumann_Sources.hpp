@@ -19,7 +19,7 @@ class GMLS_Staggered_PoissonNeumannSources : public SourcesT{
 
         virtual ~GMLS_Staggered_PoissonNeumannSources() {};
 
-        virtual void evaluateRHS(local_index_type field_one, local_index_type field_two = -1, scalar_type time = 0.0);
+        virtual void evaluateRHS(local_index_type field_one, local_index_type field_two = -1, scalar_type time = 0.0, scalar_type current_timestep_size = 0.0, scalar_type previous_timestep_size = -1.0);
 
         virtual std::vector<InteractingFields> gatherFieldInteractions();
 

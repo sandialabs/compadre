@@ -1,6 +1,6 @@
 <ParameterList name="Compadre">
   <Parameter name="simulation type" type="string" value="eulerian"/>
-  <Parameter name="solution type" type="string" value="polynomial time"/>
+  <Parameter name="solution type" type="string" value="nonpolynomial time"/>
   <ParameterList name="solver">
     <Parameter name="blocked" type="bool" value="true"/>
   </ParameterList>
@@ -21,10 +21,12 @@
     <Parameter name="multiplier" type="double" value="32.0"/>
   </ParameterList>
   <ParameterList name="time">
-    <Parameter name="rk order" type="int" value="4"/>
+    <Parameter name="type" type="string" value="newmark"/>
+    <Parameter name="gamma" type="double" value="0.5"/>
+    <Parameter name="beta" type="double" value="0.0"/>
     <Parameter name="t0" type="double" value="0"/>
     <Parameter name="t_end" type="double" value="1.0"/>
-    <Parameter name="dt" type="double" value=".06"/>
+    <Parameter name="dt" type="double" value=".015"/>
   </ParameterList>
   <ParameterList name="io">
     <Parameter name="input dimensions" type="int" value="3"/>

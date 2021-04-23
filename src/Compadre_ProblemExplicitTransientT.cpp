@@ -14,9 +14,6 @@
 
 #include "Compadre_SolverT.hpp"
 
-// TODO: temporary, remove later when analytic solution not needed
-#include <Teuchos_SerialDenseMatrix.hpp>
-#include <Teuchos_SerialDenseSolver.hpp>
 #include <Compadre_AnalyticFunctions.hpp>
 #include <Compadre_XyzVector.hpp>
 #include <Compadre_GMLS.hpp> // for getNP()
@@ -255,9 +252,42 @@ void ProblemExplicitTransientT::initialize() {
 
 }
 
-void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0, scalar_type t_end, scalar_type dt, std::string filename) {
+void ProblemExplicitTransientT::solve(Teuchos::ParameterList& parameters_time, scalar_type t_0, scalar_type t_end, scalar_type dt, std::string filename) {
+
+    int order = parameters_time.get<int>("order");
+
+    // details for writing to files every nth timestep
+    Compadre::FileManager fm;
+    std::string base, extension;
+
+    if (_parameters->get<Teuchos::ParameterList>("io").get<int>("write every") >= 0) {
+        // parse by removing extension of filename
+
+        // get extension
+        size_t pos = filename.rfind('.', filename.length());
+
+        // verify there was an extension extension
+        TEUCHOS_TEST_FOR_EXCEPT_MSG(pos <= 0, "Filename specified to solve(...) is missing an extension.");
+
+        base = filename.substr(0, pos);
+        extension = filename.substr(pos+1, filename.length() - pos);
+    }
+
+    auto stepper_type = parameters_time.get<std::string>("type");
+    std::transform(stepper_type.begin(), stepper_type.end(), stepper_type.begin(), ::tolower);
+    if (stepper_type == "rk") {
+        this->solveRK(parameters_time, t_0, t_end, dt, filename);
+    } else if (stepper_type == "newmark") {
+        this->solveNewmark(parameters_time, t_0, t_end, dt, filename);
+    } else {
+        TEUCHOS_TEST_FOR_EXCEPT_MSG(true, "Filename specified to solve(...) is missing an extension.");
+    }
+}
+
+void ProblemExplicitTransientT::solveRK(Teuchos::ParameterList& parameters_time, scalar_type t_0, scalar_type t_end, scalar_type dt, std::string filename) {
 
 //    Compadre::ShallowWaterTestCases sw_function = Compadre::ShallowWaterTestCases(_parameters->get<int>("shallow water test case"), 0 /*alpha*/);
+    int rk_order = parameters_time.get<int>("order");
 
     // details for writing to files every nth timestep
     Compadre::FileManager fm;
@@ -681,8 +711,7 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 
                 fm.setWriter(filename, _particles);
                 if (_comm->getRank()==0)
-                    std::cout << "Wrote " << filename << " to disk." << std::endl;
-
+                    std::cout << "Wrote " << filename << " to disk for simulation time t=" << t << "." << std::endl;
 
                 // requires mapping solution back in order to write particles to disk
 
@@ -904,27 +933,28 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 //                }
 //            }
 
-            // find new neighborhoods
-            {
-                // get old search size
-                scalar_type h_min = _particles->getNeighborhood()->computeMinHSupportSize(true /*global min*/);
+            // don't find new neighborhoods, keep old ones from original configuration
+            //// find new neighborhoods
+            //{
+            //    // get old search size
+            //    scalar_type h_min = _particles->getNeighborhood()->computeMinHSupportSize(true /*global min*/);
 
-                // destroy old neighborhood and create new one
-                _particles->createNeighborhood();
-                _particles->getNeighborhood()->setAllHSupportSizes(h_min);
+            //    // destroy old neighborhood and create new one
+            //    _particles->createNeighborhood();
+            //    _particles->getNeighborhood()->setAllHSupportSizes(h_min);
 
-                if (_particles->getCoordsConst()->getComm()->getRank()==0)
-                    printf("hmin: %f\n", h_min);
-                // determine number of neighbors needed and construct list
-                local_index_type neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
-                _particles->getNeighborhood()->constructAllNeighborLists(_particles->getCoordsConst()->getHaloSize(), 
-                        _parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"), 
-                        neighbors_needed,
-                        _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
-                        _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
-                        _parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
-                        _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
-            }
+            //    if (_particles->getCoordsConst()->getComm()->getRank()==0)
+            //        printf("hmin: %f\n", h_min);
+            //    // determine number of neighbors needed and construct list
+            //    local_index_type neighbors_needed = GMLS::getNP(_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder"), 2);
+            //    _particles->getNeighborhood()->constructAllNeighborLists(_particles->getCoordsConst()->getHaloSize(), 
+            //            _parameters->get<Teuchos::ParameterList>("neighborhood").get<std::string>("search type"), 
+            //            neighbors_needed,
+            //            _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("cutoff multiplier"),
+            //            _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("size"),
+            //            _parameters->get<Teuchos::ParameterList>("neighborhood").get<bool>("uniform radii"),
+            //            _parameters->get<Teuchos::ParameterList>("neighborhood").get<double>("radii post search scaling"));
+            //}
 
         }
     }
@@ -1033,6 +1063,343 @@ void ProblemExplicitTransientT::solve(local_index_type rk_order, scalar_type t_0
 //    }
 }
 
+void ProblemExplicitTransientT::solveNewmark(Teuchos::ParameterList& parameters_time, scalar_type t_0, scalar_type t_end, scalar_type dt, std::string filename) {
+
+    // only support explicit methods, i.e. beta=0
+    scalar_type gamma = parameters_time.get<double>("gamma");
+    scalar_type beta = parameters_time.get<double>("beta");
+    TEUCHOS_TEST_FOR_EXCEPT_MSG(beta != 0, "Currently only support for beta==0");
+
+    // check that any field having an interaction as source (is a member of the fields being time-integrated) 
+    // also has a given *_velocity as a field
+    //
+    // e.g. if "v" is a field that is registered for interaction (a solution variable)
+    //      then "v_velocity" should be a field for the particle set (not registered for interaction)
+    std::vector<local_index_type> displacement_to_velocity_map(_particles->getFieldManagerConst()->getVectorOfFields().size());
+    for (InteractingFields field_interaction : _field_interactions) {
+        auto this_src_field_name = _particles->getFieldManagerConst()->getFieldByID(field_interaction.src_fieldnum)->getName();
+        // this_src_field_name holds * in *_velocity field name we are looking for
+        try {
+            displacement_to_velocity_map[field_interaction.src_fieldnum] = 
+                _particles->getFieldManagerConst()->getIDOfFieldFromName(this_src_field_name+"_velocity");
+        } catch (...) {
+            std::string msg = "Field " + this_src_field_name + " involved in field interactions, but field " 
+                + this_src_field_name + "_velocity not found.";
+            TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.c_str());
+        }
+    }
+
+    // location *_acceleration for any registered field interaction on * (for populating particles at end of simulation)
+    std::vector<local_index_type> displacement_to_acceleration_map(_particles->getFieldManagerConst()->getVectorOfFields().size(), -1);
+    for (InteractingFields field_interaction : _field_interactions) {
+        auto this_src_field_name = _particles->getFieldManagerConst()->getFieldByID(field_interaction.src_fieldnum)->getName();
+        // this_src_field_name holds * in *_velocity field name we are looking for
+        try {
+            displacement_to_acceleration_map[field_interaction.src_fieldnum] = 
+                _particles->getFieldManagerConst()->getIDOfFieldFromName(this_src_field_name+"_acceleration");
+        } catch (...) {
+            std::string msg = "Field " + this_src_field_name + " involved in field interactions, but field " 
+                + this_src_field_name + "_acceleration not found.";
+            TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.c_str());
+        }
+    }
+
+    // details for writing to files every nth timestep
+    Compadre::FileManager fm;
+    std::string base, extension;
+
+    if (_parameters->get<Teuchos::ParameterList>("io").get<int>("write every") >= 0) {
+        // parse by removing extension of filename
+
+        // get extension
+        size_t pos = filename.rfind('.', filename.length());
+
+        // verify there was an extension extension
+        TEUCHOS_TEST_FOR_EXCEPT_MSG(pos <= 0, "Filename specified to solve(...) is missing an extension.");
+
+        base = filename.substr(0, pos);
+        extension = filename.substr(pos+1, filename.length() - pos);
+    }
+
+    std::vector<Teuchos::RCP<mvec_type> > displacement_t_solution(_particles->getFieldManagerConst()->getVectorOfFields().size(), Teuchos::null);
+    std::vector<Teuchos::RCP<mvec_type> > velocity_t_solution(_particles->getFieldManagerConst()->getVectorOfFields().size(), Teuchos::null);
+    std::vector<Teuchos::RCP<mvec_type> > acceleration_tm1_solution(_particles->getFieldManagerConst()->getVectorOfFields().size(), Teuchos::null);
+
+    // allocate displacement, velocity, and acceleration multivectors and copy initial conditions to these vectors
+    for (InteractingFields field_interaction : _field_interactions) {
+
+        local_index_type field_one = field_interaction.src_fieldnum;
+        local_index_type row_block = (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) ? _field_to_block_row_map[field_one] : 0;
+
+        // this allows us to overwrite the fields in _particles for each RK step and use
+        // existing tools to distribute halo data
+        // get all the vectors set up
+        if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
+            if (displacement_t_solution[row_block].is_null()) {
+                auto field_one_velocity = displacement_to_velocity_map[field_one];
+                bool setToZero = true;
+                displacement_t_solution[row_block] = Teuchos::rcp(new mvec_type(row_map[row_block], 1, setToZero));
+                velocity_t_solution[row_block] = Teuchos::rcp(new mvec_type(row_map[row_block], 1, setToZero));
+                acceleration_tm1_solution[row_block] = Teuchos::rcp(new mvec_type(row_map[row_block], 1, setToZero));
+
+                // get solution from _particles and put it in displacements
+                _particles->getFieldManagerConst()->updateVectorFromFields(displacement_t_solution[row_block], field_one, _problem_dof_data);
+
+                // get velocity from _particles (use mapping we created above)
+                _particles->getFieldManagerConst()->updateVectorFromFields(velocity_t_solution[row_block], field_one_velocity, _problem_dof_data);
+            }
+        } else {
+            // unblocked system is incompatible with the displacement/velocity design
+            std::string msg = "In the solver parameter list, blocked must be set to true.";
+            TEUCHOS_TEST_FOR_EXCEPT_MSG(true, msg.c_str());
+        }
+        _particles->getCoordsConst()->getComm()->barrier();
+    }
+
+
+    // TODO: check parameter list for if operator is lumped
+    bool LUMPED=true;
+    
+    // size of first timestep that will be taken
+    scalar_type internal_dt = std::min(dt, t_end-t_0);
+
+    // solve acceleration at t0 (NO DAMPING!)
+    for (InteractingFields field_interaction : _field_interactions) {
+
+        local_index_type field_one = field_interaction.src_fieldnum;
+        local_index_type field_two = field_interaction.trg_fieldnum;
+        auto field_one_velocity = displacement_to_velocity_map[field_one];
+
+        for (op_needing_interaction op : field_interaction.ops_needing) {
+            // (all store into _b), so _b holds stage solution
+            if (op == op_needing_interaction::bc) {
+                assembleBCS(field_one, field_two, t_0, internal_dt, -1.0 /* indicates t_0 condition */);
+            }
+            else if (op == op_needing_interaction::source) {
+                assembleRHS(field_one, field_two, t_0, internal_dt, -1.0 /* indicates t_0 condition */);
+            }
+            else if (op == op_needing_interaction::physics) {
+                if (LUMPED) {
+                    assembleOperatorToVector(field_one, field_two, t_0, internal_dt, -1.0 /* indicates t_0 condition */);
+                } else {
+                    // assembleOperator to a matrix
+                }
+            }
+        }
+        _particles->getCoordsConst()->getComm()->barrier();
+    }
+
+    // a solve could go here to support implicit aspects
+    if (!LUMPED) {
+        // solve would go here, solution in _x needs extracted
+    }
+
+    // extract acceleration solution at time t0 from particles
+    for (InteractingFields field_interaction : _field_interactions) {
+        local_index_type field_one = field_interaction.src_fieldnum;
+        local_index_type row_block = _field_to_block_row_map[field_one];
+
+        host_view_type solution_data = _b[row_block]->getLocalView<host_view_type>();
+        host_view_type acceleration_data = acceleration_tm1_solution[row_block]->getLocalView<host_view_type>();
+        // diagnostic only
+        //host_view_type velocity_data = velocity_t_solution[row_block]->getLocalView<host_view_type>();
+        //host_view_type displacement_data = displacement_t_solution[row_block]->getLocalView<host_view_type>();
+
+        for (size_t k=0; k<acceleration_data.extent(0); ++k) {
+            acceleration_data(k,0) = solution_data(k,0);
+            // diagnostic only
+            //printf("acceleration data(%d): %f\n", k, acceleration_data(k,0));
+            //printf("velocity data(%d): %f\n", k, velocity_data(k,0));
+            //printf("displacement data(%d): %f\n", k, displacement_data(k,0));
+        }
+        _particles->getCoordsConst()->getComm()->barrier();
+    }
+
+    
+    scalar_type old_t = t_0;
+    scalar_type t = t_0 + internal_dt;
+    scalar_type old_dt = 0;
+
+    int timestep_count = 0;
+    int write_count = 0;
+    while ( t<(t_end+1e-15) && internal_dt>1e-15) {
+        //printf("t: %f, dt: %f\n", t, internal_dt);
+
+        // move displacement to t-dt to t
+        for (InteractingFields field_interaction : _field_interactions) {
+            local_index_type field_one = field_interaction.src_fieldnum;
+            local_index_type row_block = _field_to_block_row_map[field_one];
+
+            host_view_type displacement_data = displacement_t_solution[row_block]->getLocalView<host_view_type>();
+            host_view_type velocity_data = velocity_t_solution[row_block]->getLocalView<host_view_type>();
+            host_view_type acceleration_data = acceleration_tm1_solution[row_block]->getLocalView<host_view_type>();
+
+            // time integrate solution
+            host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
+            for (size_t k=0; k<acceleration_data.extent(0); ++k) {
+                displacement_data(k,0) += internal_dt*velocity_data(k,0) + 0.5*(1-2.0*beta)*internal_dt*internal_dt*acceleration_data(k,0);
+            }
+            _particles->getCoordsConst()->getComm()->barrier();
+        }
+
+        // move the updated displacements and old velocity/acceleration back onto the particles
+        for (InteractingFields field_interaction : _field_interactions) {
+            local_index_type field_one = field_interaction.src_fieldnum;
+            local_index_type row_block = _field_to_block_row_map[field_one];
+            auto field_one_velocity = displacement_to_velocity_map[field_one];
+            _particles->getFieldManager()->updateFieldsFromVector(displacement_t_solution[row_block], field_one, _problem_dof_data);
+            _particles->getFieldManager()->updateFieldsFromVector(velocity_t_solution[row_block], field_one_velocity, _problem_dof_data);
+            auto field_one_acceleration = displacement_to_acceleration_map[field_one];
+            if (field_one_acceleration > -1) {
+                _particles->getFieldManager()->updateFieldsFromVector(acceleration_tm1_solution[row_block], field_one_acceleration, _problem_dof_data);
+            }
+            _particles->getCoordsConst()->getComm()->barrier();
+        }
+
+        // solve acceleration (NO DAMPING!)
+        for (InteractingFields field_interaction : _field_interactions) {
+
+            local_index_type field_one = field_interaction.src_fieldnum;
+            local_index_type field_two = field_interaction.trg_fieldnum;
+
+            for (op_needing_interaction op : field_interaction.ops_needing) {
+                // (all store into _b), so _b holds solution
+                if (op == op_needing_interaction::bc) {
+                    assembleBCS(field_one, field_two, t, internal_dt, old_dt);
+                }
+                if (op == op_needing_interaction::source) {
+                    assembleRHS(field_one, field_two, t, internal_dt, old_dt);
+                }
+                else if (op == op_needing_interaction::physics) {
+                    if (LUMPED) {
+                        assembleOperatorToVector(field_one, field_two, t, internal_dt, old_dt);
+                    } else {
+                        // assembleOperator to a matrix
+                    }
+                }
+            }
+            //// TODO: REMOVE THIS!
+            //local_index_type row_block = _field_to_block_row_map[field_one];
+            //host_view_type solution_data = _b[row_block]->getLocalView<host_view_type>();
+            //for (size_t k=0; k<solution_data.extent(0); ++k) {
+            //    solution_data(k,0) = 1.0;
+            //}
+            _particles->getCoordsConst()->getComm()->barrier();
+        }
+
+        // a solve could go here to support implicit aspects
+        if (!LUMPED) {
+            // solve would go here, solution in _x extracted later
+        } 
+
+        for (InteractingFields field_interaction : _field_interactions) {
+
+            local_index_type field_one = field_interaction.src_fieldnum;
+            local_index_type row_block = _field_to_block_row_map[field_one];
+
+            host_view_type solution_data;
+            if (!LUMPED) {
+                // solution in _x needs extracted
+            } else {
+                // extract solution from _b
+                solution_data = _b[row_block]->getLocalView<host_view_type>();
+            }
+
+            // update _particles
+            host_view_type velocity_data = velocity_t_solution[row_block]->getLocalView<host_view_type>();
+            host_view_type acceleration_data = acceleration_tm1_solution[row_block]->getLocalView<host_view_type>();
+
+            // time integrate solution
+            host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
+            for (size_t k=0; k<acceleration_data.extent(0); ++k) {
+                if (bc_id(k,0)==0) {
+                    //printf("nb:vel before: %f, a_before: %f, a_new: %f\n", velocity_data(k,0), acceleration_data(k,0), solution_data(k,0));
+                    velocity_data(k,0) += (1-gamma)*internal_dt*acceleration_data(k,0) + gamma*internal_dt*solution_data(k,0);
+                    acceleration_data(k,0) = solution_data(k,0);
+                } else {
+                    //printf("ib:vel before: %f, a_before: %f, a_new: %f\n", velocity_data(k,0), acceleration_data(k,0), solution_data(k,0));
+                    velocity_data(k,0) += (1-gamma)*internal_dt*acceleration_data(k,0) + gamma*internal_dt*solution_data(k,0);
+                    acceleration_data(k,0) = solution_data(k,0);
+                }
+            }
+            _particles->getCoordsConst()->getComm()->barrier();
+        }
+        
+        old_t = t;
+        old_dt = internal_dt;
+        internal_dt = std::min(dt, t_end-t);
+        t += internal_dt; // advance the time
+        timestep_count++;
+
+        if (_parameters->get<Teuchos::ParameterList>("io").get<int>("write every") > 0) {
+
+            // check if this is a timestep to write at
+            if (timestep_count % _parameters->get<Teuchos::ParameterList>("io").get<int>("write every") == 0) {
+                write_count++;
+
+                // add in the write_count
+                filename = _parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + base + "_" + std::to_string(write_count) + "." + extension;
+
+                fm.setWriter(filename, _particles);
+                if (_comm->getRank()==0)
+                    std::cout << "Wrote " << filename << " to disk for simulation time t=" << t << "." << std::endl;
+
+                // requires mapping solution back in order to write particles to disk
+                for (InteractingFields field_interaction : _field_interactions) {
+                    local_index_type field_one = field_interaction.src_fieldnum;
+                    local_index_type row_block = _field_to_block_row_map[field_one];
+                    auto field_one_velocity = displacement_to_velocity_map[field_one];
+                    _particles->getFieldManager()->updateFieldsFromVector(displacement_t_solution[row_block], field_one, _problem_dof_data);
+                    _particles->getFieldManager()->updateFieldsFromVector(velocity_t_solution[row_block], field_one_velocity, _problem_dof_data);
+                    auto field_one_acceleration = displacement_to_acceleration_map[field_one];
+                    if (field_one_acceleration > -1) {
+                        _particles->getFieldManager()->updateFieldsFromVector(acceleration_tm1_solution[row_block], field_one_acceleration, _problem_dof_data);
+                    }
+                    _particles->getCoordsConst()->getComm()->barrier();
+                }
+
+                fm.write();
+            }
+        }
+    }
+
+
+    // get solution back from vector onto particles (only at last time step)
+    for (InteractingFields field_interaction : _field_interactions) {
+        local_index_type field_one = field_interaction.src_fieldnum;
+        local_index_type row_block = _field_to_block_row_map[field_one];
+        auto field_one_velocity = displacement_to_velocity_map[field_one];
+        _particles->getFieldManager()->updateFieldsFromVector(displacement_t_solution[row_block], field_one, _problem_dof_data);
+        _particles->getFieldManager()->updateFieldsFromVector(velocity_t_solution[row_block], field_one_velocity, _problem_dof_data);
+        auto field_one_acceleration = displacement_to_acceleration_map[field_one];
+        if (field_one_acceleration > -1) {
+            _particles->getFieldManager()->updateFieldsFromVector(acceleration_tm1_solution[row_block], field_one_acceleration, _problem_dof_data);
+        }
+        _particles->getCoordsConst()->getComm()->barrier();
+    }
+
+    // refresh fields' halo data
+    _particles->getFieldManager()->updateFieldsHaloData();
+
+    // user selected to only output as last time step
+    if (_parameters->get<Teuchos::ParameterList>("io").get<int>("write every") == 0) {
+        // only write last timestep data
+
+        filename = _parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + base + "." + extension;
+        if (_particles->getCoordsConst()->getComm()->getRank()==0)
+            printf("filename: %s\n", filename.c_str());
+
+        fm.setWriter(filename, _particles);
+
+        fm.write();
+    }
+
+    if (_comm->getRank()==0) {
+        printf("%d timestep%s taken.\n", timestep_count, (timestep_count==1) ? "" : "s");
+        printf("final time: %.16f\n", t);
+    }
+}
+
 void ProblemExplicitTransientT::buildMaps(local_index_type field_one, local_index_type field_two) {
     if (field_two<0) field_two = field_one;
     local_index_type row_block = _field_to_block_row_map[field_one];
@@ -1046,7 +1413,7 @@ void ProblemExplicitTransientT::buildMaps(local_index_type field_one, local_inde
     }
 }
 
-void ProblemExplicitTransientT::assembleOperatorToVector(local_index_type field_one, local_index_type field_two, scalar_type simulation_time, scalar_type delta_time) {
+void ProblemExplicitTransientT::assembleOperatorToVector(local_index_type field_one, local_index_type field_two, scalar_type simulation_time, scalar_type delta_time, scalar_type previous_delta_time) {
     if (field_two<0) field_two = field_one;
     local_index_type row_block = _field_to_block_row_map[field_one];
 
@@ -1066,10 +1433,10 @@ void ProblemExplicitTransientT::assembleOperatorToVector(local_index_type field_
         }
             _OP->setMultiVector(_b[0].getRawPtr());
     }
-    _OP->computeVector(field_one, field_two, simulation_time);
+    _OP->computeVector(field_one, field_two, simulation_time, delta_time, previous_delta_time);
 }
 
-void ProblemExplicitTransientT::assembleRHS(local_index_type field_one, local_index_type field_two, scalar_type simulation_time, scalar_type delta_time) {
+void ProblemExplicitTransientT::assembleRHS(local_index_type field_one, local_index_type field_two, scalar_type simulation_time, scalar_type delta_time, scalar_type previous_delta_time) {
     if (field_two<0) field_two = field_one;
     local_index_type row_block = _field_to_block_row_map[field_one];
 
@@ -1083,10 +1450,10 @@ void ProblemExplicitTransientT::assembleRHS(local_index_type field_one, local_in
     }
     _RHS->setMultiVector(_b[row_block].getRawPtr());
     _RHS->setDOFData(_problem_dof_data);
-    _RHS->evaluateRHS(field_one, field_two, simulation_time);
+    _RHS->evaluateRHS(field_one, field_two, simulation_time, delta_time, previous_delta_time);
 }
 
-void ProblemExplicitTransientT::assembleBCS(local_index_type field_one, local_index_type field_two, scalar_type simulation_time, scalar_type delta_time) {
+void ProblemExplicitTransientT::assembleBCS(local_index_type field_one, local_index_type field_two, scalar_type simulation_time, scalar_type delta_time, scalar_type previous_delta_time) {
     if (field_two<0) field_two = field_one;
     local_index_type row_block = _field_to_block_row_map[field_one];
 
@@ -1102,7 +1469,7 @@ void ProblemExplicitTransientT::assembleBCS(local_index_type field_one, local_in
     _BCS->setMultiVector(_b[row_block].getRawPtr());
     _BCS->setDOFData(_problem_dof_data);
     _BCS->flagBoundaries();
-    _BCS->applyBoundaries(field_one, field_two, simulation_time);
+    _BCS->applyBoundaries(field_one, field_two, simulation_time, delta_time, previous_delta_time);
 
 }
 

@@ -32,7 +32,7 @@ typedef Compadre::NeighborhoodT neighborhood_type;
 typedef Compadre::XyzVector xyz_type;
 
 
-void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, local_index_type field_two, scalar_type time) {
+void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, local_index_type field_two, scalar_type time, scalar_type current_timestep_size, scalar_type previous_timestep_size) {
 	Teuchos::RCP<Teuchos::Time> ComputeMatrixTime = Teuchos::TimeMonitor::getNewCounter ("Compute Matrix Time");
 	ComputeMatrixTime->start();
 

@@ -314,7 +314,7 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
     return _A_graph;
 }
 
-void LaplaceBeltramiPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
+void LaplaceBeltramiPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time, scalar_type current_timestep_size, scalar_type previous_timestep_size) {
 	Teuchos::RCP<Teuchos::Time> ComputeMatrixTime = Teuchos::TimeMonitor::getNewCounter ("Compute Matrix Time");
 	ComputeMatrixTime->start();
 

@@ -469,7 +469,7 @@ Teuchos::RCP<crs_graph_type> GMLS_StokesPhysics::computeGraph(local_index_type f
     return this->_A_graph;
 }
 
-void GMLS_StokesPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time) {
+void GMLS_StokesPhysics::computeMatrix(local_index_type field_one, local_index_type field_two, scalar_type time, scalar_type current_timestep_size, scalar_type previous_timestep_size) {
 
     bool use_physical_coords = true; // can be set on the operator in the future
 
