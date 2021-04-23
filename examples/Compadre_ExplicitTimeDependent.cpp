@@ -165,14 +165,14 @@ int main (int argc, char* args[]) {
                         localInitFromScalarFunction(h_boundary_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
                         //localInitFromScalarFunction(zero_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
             } else if (timestepper_type=="newmark") {
-                particles->getFieldManager()->createField(1, "d", "m/s");
-                particles->getFieldManager()->createField(1, "d_velocity", "m/s");
-                particles->getFieldManager()->createField(1, "d_acceleration", "m/s");
+                particles->getFieldManager()->createField(3, "d", "m/s");
+                particles->getFieldManager()->createField(3, "d_velocity", "m/s");
+                particles->getFieldManager()->createField(3, "d_acceleration", "m/s");
                 particles->getFieldManager()->getFieldByName("d")->
-                        localInitFromScalarFunction(h_boundary_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
+                        localInitFromVectorFunction(h_boundary_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
                         //localInitFromScalarFunction(zero_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
                 particles->getFieldManager()->getFieldByName("d_velocity")->
-                        localInitFromScalarFunction(vel_boundary_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
+                        localInitFromVectorFunction(vel_boundary_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
                         //localInitFromScalarFunction(zero_function.getRawPtr(), parameters->get<Teuchos::ParameterList>("time").get<double>("t0"));
 
             }
@@ -301,36 +301,42 @@ int main (int argc, char* args[]) {
             auto integral_h_function = h_boundary_function;//-1*v2+1;//Compadre::CosT(parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"),-1);
 
             for(int j =0; j<coords->nLocal(); j++){
+                for(int k =0; k<3; k++){
 
-                xyz_type xyz = coords->getLocalCoords(j, true /* use_halo */, true);
-                xyz_type exact = integral_vel_function->evalScalar(xyz,0,parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"));
-                ST exact_height = integral_h_function->evalScalar(xyz,0,parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"));
-                auto t_end = parameters->get<Teuchos::ParameterList>("time").get<double>("t_end");
+                    xyz_type xyz = coords->getLocalCoords(j, true /* use_halo */, true);
+                    xyz_type exact = integral_vel_function->evalScalar(xyz,0,parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"));
+                    ST exact_height = integral_h_function->evalScalar(xyz,0,parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"));
+                    auto t_end = parameters->get<Teuchos::ParameterList>("time").get<double>("t_end");
 
-                velocity_error_weighted_l2_norm += (velocity_field(j,0) - exact.x)*(velocity_field(j,0) - exact.x);
-                height_error_weighted_l2_norm += (height_field(j,0) - exact_height)*(height_field(j,0) - exact_height);
-                if (solution_type=="polynomial time" && simulation_type=="eulerian") {
-                    double this_diff = exact[0] - velocity_field(j,0);
-                    if (std::abs(this_diff)>1e-8) {
-                        printf("v: %.16g vs %.16g: %.16f\n", exact[0], velocity_field(j,0), exact[0] - velocity_field(j,0));
+                    velocity_error_weighted_l2_norm += (velocity_field(j,k) - exact.x)*(velocity_field(j,k) - exact.x);
+                    height_error_weighted_l2_norm += (height_field(j,k) - exact_height)*(height_field(j,k) - exact_height);
+                    if (solution_type=="polynomial time" && simulation_type=="eulerian") {
+                        double this_diff = exact[0] - velocity_field(j,k);
+                        if (std::abs(this_diff)>1e-8) {
+                            printf("v: %.16g vs %.16g: %.16f\n", exact[0], velocity_field(j,k), exact[0] - velocity_field(j,k));
+                        }
+                        this_diff = exact_height - height_field(j,k);
+                        if (std::abs(this_diff)>1e-15) {
+                            printf("h: %.16g vs %.16g: %.16f\n", exact_height, height_field(j,k), exact_height - height_field(j,k));
+                        }
+
                     }
-                    this_diff = exact_height - height_field(j,0);
-                    if (std::abs(this_diff)>1e-15) {
-                        printf("h: %.16g vs %.16g: %.16f\n", exact_height, height_field(j,0), exact_height - height_field(j,0));
-                    }
-
-                }
 
 //                physical_coordinate_weighted_l2_norm += (disp_field(j,0) - (initial_coords(j,0)*std::cos(2*PI*end_time) + initial_coords(j,1)*std::sin(2*PI*end_time)))*(disp_field(j,0) - (initial_coords(j,0)*std::cos(2*PI*end_time) + initial_coords(j,1)*std::sin(2*PI*end_time)))*grid_area_field(j,0);
 //                physical_coordinate_weighted_l2_norm += (disp_field(j,1) - (initial_coords(j,1)*std::cos(2*PI*end_time) - initial_coords(j,0)*std::sin(2*PI*end_time)))*(disp_field(j,1) - (initial_coords(j,1)*std::cos(2*PI*end_time) - initial_coords(j,0)*std::sin(2*PI*end_time)))*grid_area_field(j,0);
 //                physical_coordinate_weighted_l2_norm += (disp_field(j,2) - initial_coords(j,2))*(disp_field(j,2) - initial_coords(j,2))*grid_area_field(j,0);
 
-                exact_velocity_weighted_l2_norm += exact.x*exact.x;
-                //for(int k=0; k<coords->nLocal(); j++){
-                //    exact_velocity_weighted_l2_norm += exact[k]*exact[k];
-                //}
-                exact_height_weighted_l2_norm += exact_height*exact_height;
+                    exact_velocity_weighted_l2_norm += exact.x*exact.x;
+                    //for(int k=0; k<coords->nLocal(); j++){
+                    //    exact_velocity_weighted_l2_norm += exact[k]*exact[k];
+                    //}
+                    exact_height_weighted_l2_norm += exact_height*exact_height;
 
+                    if (timestepper_type=="rk") {
+                        break;
+                    }
+
+                }
             }
 
             {
