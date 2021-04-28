@@ -319,7 +319,7 @@ NeighborLists<view_type_1d> Convert2DToCompressedRowNeighborLists(view_type_2d n
 
     
     // this will calculate row offsets
-    auto nla(CreateNeighborLists(new_cr_neighbor_lists, new_number_of_neighbors_list));
+    auto nla = CreateNeighborLists(new_cr_neighbor_lists, new_number_of_neighbors_list);
     auto cr_data = nla.getNeighborLists();
 
     // if device_execution_space can access this view, then write directly into the view
