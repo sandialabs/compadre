@@ -45,7 +45,7 @@ def grad_exact(coord,component,order,dimension):
         elif order==3:
             return 1 + x + y + 2*z + x*x + x*y + x*2*z + y*y + y*2*z + 3*z*z
 
-def remap(polyOrder,dimension):
+def remap(polyOrder,dimension,additional_sites=False):
 
     minND = [[10,20,30],[10,20,100],[30,30,60]]
     ND = minND[dimension-1][polyOrder-1]
@@ -119,6 +119,22 @@ def remap(polyOrder,dimension):
     (dimensions>1) and gmls_obj.addTargets(pycompadre.TargetOperation.PartialYOfScalarPointEvaluation)
     (dimensions>2) and gmls_obj.addTargets(pycompadre.TargetOperation.PartialYOfScalarPointEvaluation)
 
+    # add additional evaluation sites (if specified)
+    if additional_sites:
+        additional_sites_indices = np.zeros(shape=(NT,5), dtype='i4')
+        additional_site_coordinates = np.zeros(shape=(4*NT,dimension), dtype='f8')
+        additional_sites_indices[:,0] = 4
+        inds = np.arange(0, 4*NT)
+        inds = np.reshape(inds, newshape=(-1,4))
+        additional_sites_indices[:,1::] = inds
+        h = np.linalg.norm(source_sites[0,:]-source_sites[1,:])
+        for i in range(NT):
+            for j in range(4):
+                for k in range(dimension):
+                    additional_site_coordinates[i*4+j,k] = target_sites[i,k] + random.uniform(-h, h)
+
+        gmls_helper.setAdditionalEvaluationSitesData(additional_sites_indices, additional_site_coordinates)
+
     # generate stencil with number of batches set to 1, and keeping coefficients (not necessary)
     gmls_obj.generateAlphas(1, True)
 
@@ -136,6 +152,18 @@ def remap(polyOrder,dimension):
         l2_error += np.power(abs(computed_answer[i] - exact(target_sites[i],polyOrder,dimension)),2)
     l2_error = math.sqrt(l2_error/float(NT))
 
+    additional_sites_l2_error = 0.0
+    if additional_sites:
+        nl = gmls_helper.getNeighborLists()
+        for i in range(NT):
+            for j in range(4):
+                computed_answer = 0.0
+                for k in range(nl.getNumberOfNeighbors(i)):
+                    computed_answer += gmls_obj.getAlpha(pycompadre.TargetOperation.ScalarPointEvaluation, 
+                                                            i, 0, 0, k, 0, 0, j+1)*data_vector[nl.getNeighbor(i,k)]
+                additional_sites_l2_error += \
+                    np.power(abs(computed_answer - exact(additional_site_coordinates[i*4+j],polyOrder,dimension)),2)
+
     # get polynomial coefficients
     polynomial_coefficients = gmls_helper.getPolynomialCoefficients(data_vector)
 
@@ -151,7 +179,10 @@ def remap(polyOrder,dimension):
         if (dimension>2): h1_seminorm_error += np.power(abs(1./epsilons[i]*polynomial_coefficients[i,3] - grad_exact(target_sites[i], 2, polyOrder, dimension)),2)
     h1_seminorm_error = math.sqrt(h1_seminorm_error/float(NT))
 
+    if additional_sites:
+        return l2_error, h1_seminorm_error, additional_sites_l2_error
     return l2_error, h1_seminorm_error
+
 
 class TestPycompadre(TestCase):
     def test_1d_order1(self):
@@ -183,3 +214,11 @@ class TestPycompadre(TestCase):
     def test_3d_order3(self):
         l2,h1=remap(3,3)
         self.assertTrue(l2<1e-13 and h1<1e-13)
+
+    def test_additional_sites(self):
+        l2,h1,l2a=remap(2,1,True)
+        self.assertTrue(l2<1e-13 and h1<1e-13 and l2a<1e-13)
+        l2,h1,l2a=remap(1,2,True)
+        self.assertTrue(l2<1e-13 and h1<1e-13 and l2a<1e-13)
+        l2,h1,l2a=remap(3,3,True)
+        self.assertTrue(l2<1e-13 and h1<1e-13 and l2a<1e-13)
