@@ -409,6 +409,48 @@ public:
         _epsilon = epsilon;
 
     }
+    
+    void setAdditionalEvaluationSitesData(py::array_t<local_index_type> input_indices, py::array_t<double> input_coordinates) {
+        py::buffer_info buf_indices = input_indices.request();
+        py::buffer_info buf_coordinates = input_coordinates.request();
+
+        if (buf_indices.ndim != 2) {
+            throw std::runtime_error("Number of dimensions of input indices must be two");
+        }
+        if (buf_coordinates.ndim != 2) {
+            throw std::runtime_error("Number of dimensions of input coordinates must be two");
+        }
+        if (gmls_object->getGlobalDimensions()!=input_coordinates.shape(1)) {
+            throw std::runtime_error("Second dimension of input coordinates must be the same as GMLS spatial dimension");
+        }
+        
+        // create Kokkos View on host to copy into
+        Kokkos::View<local_index_type**, Kokkos::HostSpace> neighbor_lists("neighbor lists", input_indices.shape(0), input_indices.shape(1));
+
+        // create Kokkos View on host to copy into
+        Kokkos::View<double**, Kokkos::HostSpace> extra_coords("neighbor coordinates", input_coordinates.shape(0), input_coordinates.shape(1));
+        
+        // overwrite existing data assuming a 2D layout
+        auto data_indices = input_indices.unchecked<2>();
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,input_indices.shape(0)), [=](int i) {
+            for (int j = 0; j < input_indices.shape(1); ++j)
+            {
+                neighbor_lists(i, j) = data_indices(i, j);
+            }
+        });
+        // overwrite existing data assuming a 2D layout
+        auto data_coordinates = input_coordinates.unchecked<2>();
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,input_coordinates.shape(0)), [=](int i) {
+            for (int j = 0; j < input_coordinates.shape(1); ++j)
+            {
+                extra_coords(i, j) = data_coordinates(i, j);
+            }
+        });
+        Kokkos::fence();
+    
+        // set values from Kokkos View
+        gmls_object->setAdditionalEvaluationSitesData(neighbor_lists, extra_coords);
+    }
 
     py::array_t<double> getPolynomialCoefficients(py::array_t<double> input) {
         py::buffer_info buf = input.request();
@@ -641,6 +683,7 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("getTangentBundle", &ParticleHelper::getTangentBundle, py::return_value_policy::take_ownership)
     .def("setReferenceOutwardNormalDirection", &ParticleHelper::setReferenceOutwardNormalDirection, py::arg("reference_normal_directions"), py::arg("use_to_orient_surface") = true)
     .def("getReferenceOutwardNormalDirection", &ParticleHelper::getReferenceOutwardNormalDirection, py::return_value_policy::take_ownership)
+    .def("setAdditionalEvaluationSitesData", &ParticleHelper::setAdditionalEvaluationSitesData, py::arg("additional_evaluation_sites_neighbor_lists"), py::arg("additional_evaluation_sites_coordinates"))
     .def("getPolynomialCoefficients", &ParticleHelper::getPolynomialCoefficients, py::arg("input_data"), py::return_value_policy::take_ownership)
     .def("applyStencilSingleTarget", &ParticleHelper::applyStencilSingleTarget, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample)
     .def("applyStencil", &ParticleHelper::applyStencil, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::return_value_policy::take_ownership);
@@ -662,6 +705,7 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("addTargets", overload_cast_<TargetOperation>()(&GMLS::addTargets), "Add a target operation.")
     .def("addTargets", overload_cast_<std::vector<TargetOperation> >()(&GMLS::addTargets), "Add a list of target operations.")
     .def("generateAlphas", &GMLS::generateAlphas, py::arg("number_of_batches")=1, py::arg("keep_coefficients")=false)
+    .def("getAlpha", &GMLS::getAlpha, py::arg("lro"), py::arg("target_index"), py::arg("output_component_axis_1"), py::arg("output_component_axis_2"), py::arg("neighbor_index"), py::arg("input_component_axis_1"), py::arg("input_component_axis_2"), py::arg("additional_evaluation_site")=0)
     .def("getNP", &GMLS::getNP, "Get size of basis.")
     .def("getNN", &GMLS::getNN, "Heuristic number of neighbors.");
 
