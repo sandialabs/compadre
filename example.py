@@ -83,35 +83,35 @@ ax.grid()
 ax.margins(x=0)
 
 axcolor = 'lightgoldenrodyellow'
-axfreq = plt.axes([0.25, 0.125, 0.65, 0.03], facecolor='white')
-axamp = plt.axes([0.7, 0.025, 0.2, 0.03], facecolor=axcolor)
+ax_location = plt.axes([0.25, 0.125, 0.65, 0.03], facecolor='white')
+ax_weighting_power = plt.axes([0.7, 0.025, 0.2, 0.03], facecolor=axcolor)
 
 #a0 = 5
 delta_f = 4.0/200
-sfreq = Slider(axfreq, 'Location', valmin=0.0, valmax=4.0, valinit=0.0, valstep=delta_f, color=None, initcolor='black')#,hovercolor='skyblue')
-sfreq.set_val(1.2)
-samp = Slider(axamp, 'Weighting P.', valmin=0, valmax=5, valinit=3, valstep=1)#, color='gray', initcolor='gray')#0.1, 10.0, valinit=a0)
+sl_location = Slider(ax_location, 'Location', valmin=0.0, valmax=4.0, valinit=0.0, valstep=delta_f, color=None, initcolor='black')#,hovercolor='skyblue')
+sl_location.set_val(1.2)
+sl_weighting_power = Slider(ax_weighting_power, 'Weighting P.', valmin=0, valmax=5, valinit=3, valstep=1)#, color='gray', initcolor='gray')#0.1, 10.0, valinit=a0)
 
 
-axpoints = plt.axes([0.25, 0.025, 0.2, 0.03], facecolor=axcolor)
-spoints = Slider(axpoints, 'Number of Points', valmin=6, valmax=50, valinit=10, valstep=1)#, color='gray', initcolor='gray')#0.1, 10.0, valinit=a0)
-#help(samp)
-#samp.set(color='gray')
-#help(axamp)
+ax_num_data_points = plt.axes([0.25, 0.025, 0.2, 0.03], facecolor=axcolor)
+spl_num_data_points = Slider(ax_num_data_points, 'Number of Points', valmin=6, valmax=50, valinit=10, valstep=1)#, color='gray', initcolor='gray')#0.1, 10.0, valinit=a0)
+#help(sl_weighting_power)
+#sl_weighting_power.set(color='gray')
+#help(ax_weighting_power)
 
 
 def update(val):
-    sfreq.valinit=2.0
+    sl_location.valinit=2.0
     global weighting_type
-    y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(sorder.val, samp.val, weighting_type, sepsilon.val, sfreq.val)
+    y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(sorder.val, sl_weighting_power.val, weighting_type, sepsilon.val, sl_location.val)
     l.set_ydata(computed_answer)
     d.set_ydata(y_pred)
     s.set_offsets([center_about_extra_coord, computed_answer[center_about_extra_idx]])
     fig.canvas.draw_idle()
 
 
-sfreq.on_changed(update)
-samp.on_changed(update)
+sl_location.on_changed(update)
+sl_weighting_power.on_changed(update)
 
 epsilonax = plt.axes([0.7, 0.075, 0.2, 0.03])
 sepsilon = Slider(epsilonax, 'Epsilon Multipler', valmin=1.0001, valmax=5.0, valinit=1.6, valstep=.1)
@@ -122,24 +122,24 @@ sorder = Slider(powerax, 'Polynomial Order', valmin=0, valmax=6, valinit=2, vals
 
 
 def reset(event):
-    sfreq.reset()
-    samp.reset()
+    sl_location.reset()
+    sl_weighting_power.reset()
 sepsilon.on_changed(update)
 #button.on_clicked(reset)
 sorder.on_changed(update)
 
-rax = plt.axes([0.015, 0.25, 0.15, 0.15], facecolor=axcolor)
-##radio = RadioButtons(rax, ('red', 'blue', 'green'), active=0)
-radio = RadioButtons(rax, ('Power', 'Cubic Spl.', 'Gaussian'), active=0)
+ax_weighting_type = plt.axes([0.015, 0.25, 0.15, 0.15], facecolor=axcolor)
+##rad_weighting_type = RadioButtons(ax_weighting_type, ('red', 'blue', 'green'), active=0)
+rad_weighting_type = RadioButtons(ax_weighting_type, ('Power', 'Cubic Spl.', 'Gaussian'), active=0)
 
-fax = plt.axes([0.015, 0.6, 0.15, 0.15], facecolor=axcolor)
+ax_func_type = plt.axes([0.015, 0.6, 0.15, 0.15], facecolor=axcolor)
 ##radio = RadioButtons(rax, ('red', 'blue', 'green'), active=0)
-fradio = RadioButtons(fax, ('sin(x)', 'x*sin(20x)', 'x^2'), active=0)
+rad_func_type = RadioButtons(ax_func_type, ('sin(x)', 'x*sin(20x)', 'x^2'), active=0)
 
 # called from changefunc
 def updatepoints(val):
     global num_data_points, x, y 
-    num_data_points = spoints.val
+    num_data_points = spl_num_data_points.val
     x = np.resize(x, new_shape=(num_data_points,))
     y = np.resize(y, new_shape=(num_data_points,))
     x[:] = np.linspace(0,4,num_data_points)
@@ -151,22 +151,22 @@ def colorfunc(label):
     global weighting_type
     weighting_type = weighting_type_dict[label]
     if (weighting_type=='power'):
-        axamp.set_visible(True)
-        #axamp.set(facecolor='yellowgoldenrod')
-    #    samp = Slider(axamp, 'Weighting (Power Only)', valmin=0, valmax=5, valinit=3, valstep=1)#, color='gray', initcolor='gray')#0.1, 10.0, valinit=a0)
+        ax_weighting_power.set_visible(True)
+        #ax_weighting_power.set(facecolor='yellowgoldenrod')
+    #    sl_weighting_power = Slider(ax_weighting_power, 'Weighting (Power Only)', valmin=0, valmax=5, valinit=3, valstep=1)#, color='gray', initcolor='gray')#0.1, 10.0, valinit=a0)
     else:
-        axamp.set_visible(False)
-        #axamp.set(facecolor='gray')
-    #    samp = Slider(axamp, 'Weighting (Power Only)', valmin=0, valmax=5, valinit=3, valstep=1, color='gray', initcolor='gray')#0.1, 10.0, valinit=a0)
-    #samp.on_changed(update)
-    y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(sorder.val, samp.val, weighting_type, sepsilon.val, sfreq.val)
-    #y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(polynomial_order, sfreq.val)
+        ax_weighting_power.set_visible(False)
+        #ax_weighting_power.set(facecolor='gray')
+    #    sl_weighting_power = Slider(ax_weighting_power, 'Weighting (Power Only)', valmin=0, valmax=5, valinit=3, valstep=1, color='gray', initcolor='gray')#0.1, 10.0, valinit=a0)
+    #sl_weighting_power.on_changed(update)
+    y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(sorder.val, sl_weighting_power.val, weighting_type, sepsilon.val, sl_location.val)
+    #y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(polynomial_order, sl_location.val)
     #l.set_color(label)
     #s.set_color(label)
     l.set_ydata(computed_answer)
     d.set_ydata(y_pred)
     fig.canvas.draw_idle()
-radio.on_clicked(colorfunc)
+rad_weighting_type.on_clicked(colorfunc)
 
 def changefunc(label):
     updatepoints(0)
@@ -176,7 +176,7 @@ def changefunc(label):
         func_type_dict = {'sin(x)': lambda x: np.sin(x), 'x*sin(20x)': lambda x: x*np.sin(20*x), 'x^2' : lambda x: pow(x,2)}
         function = func_type_dict[label]
     y[:] = function(x)
-    y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(sorder.val, samp.val, weighting_type, sepsilon.val, sfreq.val)
+    y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(sorder.val, sl_weighting_power.val, weighting_type, sepsilon.val, sl_location.val)
     l.set_ydata(computed_answer)
     d.set_ydata(y_pred)
     p.set_offsets(np.vstack((x,y)).T)
@@ -185,8 +185,8 @@ def changefunc(label):
         ax.autoscale_view()
     update(0)
     fig.canvas.draw_idle()
-fradio.on_clicked(changefunc)
-spoints.on_changed(changefunc)
+rad_func_type.on_clicked(changefunc)
+spl_num_data_points.on_changed(changefunc)
 
 plt.show()
 del kp
