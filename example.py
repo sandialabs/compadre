@@ -98,7 +98,7 @@ sl_polynomial_order = Slider(ax_polynomial_order, 'Polynomial Order', valmin=0, 
 
 #radios
 rad_weighting_type = RadioButtons(ax_weighting_type, ('Power', 'Cubic Spl.', 'Gaussian'), active=0)
-rad_func_type = RadioButtons(ax_func_type, ('sin(x)', 'x*sin(20x)', 'x^2'), active=0)
+rad_func_type = RadioButtons(ax_func_type, ('sin(x)', 'x*sin(20x)', 'x^2'), active=2)
 
 def update(val):
     sl_location.valinit=2.0
