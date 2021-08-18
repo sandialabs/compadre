@@ -121,7 +121,7 @@ ax_num_data_points = plt.axes([0.25, 0.025, 0.2, 0.03], facecolor=axcolor)
 ax_epsilon = plt.axes([0.7, 0.075, 0.2, 0.03])
 ax_polynomial_order = plt.axes([0.25, 0.075, 0.2, 0.03])
 ax_weighting_type = plt.axes([0.015, 0.25, 0.25, 0.15], facecolor=axcolor)
-ax_func_type = plt.axes([0.015, 0.45, 0.25, 0.15], facecolor=axcolor)
+ax_func_type = plt.axes([0.015, 0.40, 0.25, 0.15], facecolor=axcolor)
 
 # sliders
 sl_location_check = CheckButtons(ax_location_check, ["",], [True,])
