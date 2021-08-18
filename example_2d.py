@@ -92,7 +92,15 @@ Z_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = appr
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 plt.subplots_adjust(left=0.25, bottom=0.25)
+
 global d, l, s, p
+p = ax.scatter(X.ravel(order='C'), Y.ravel(order='C'), Z_ravel, c='#000000', marker='D', zorder=2)
+ax.autoscale(True)
+ax.relim()
+ax.autoscale_view()
+ax.autoscale(False)
+p.remove()
+
 d = ax.plot_surface(X_pred, Y_pred, Z_pred, color='b', zorder=1, alpha=0.7)
 p = ax.scatter(X.ravel(order='C'), Y.ravel(order='C'), Z_ravel, c='#000000', marker='D', zorder=2)
 l = ax.plot_surface(X_pred, Y_pred, computed_answer, color='#00FF00', zorder=2, alpha=0.3)
@@ -132,11 +140,20 @@ def update(val):
     global weighting_type
     Z_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(sl_polynomial_order.val, sl_weighting_power.val, weighting_type, sl_epsilon.val, np.atleast_2d([sl_location_x.val, sl_location_y.val]))
     global d, l, s
-    d.remove()
+    try:
+        d.remove()
+    except:
+        pass
     d = ax.plot_surface(X_pred, Y_pred, Z_pred, color='b', zorder=1,alpha=0.7)
-    l.remove()
+    try:
+        l.remove()
+    except:
+        pass
     l = ax.plot_surface(X_pred, Y_pred, computed_answer, color='#00FF00', zorder=2, alpha=0.3)
-    s.remove()
+    try:
+        s.remove()
+    except:
+        pass
     s = ax.scatter([center_about_extra_coord[0],], [center_about_extra_coord[1],], [computed_answer.ravel(order='C')[center_about_extra_idx],], c='#0000FF', marker='o', zorder=4, s=180, alpha=1.0)
     fig.canvas.draw_idle()
 # register objects using update
@@ -180,16 +197,21 @@ def changefunc(label):
     Z = function(X,Y)
     Z_ravel = Z.ravel(order='C')
     update(0)
-    global p
+    global p, l, s, d
+    d.remove()
+    l.remove()
+    s.remove()
     p.remove()
     p = ax.scatter(X.ravel(order='C'), Y.ravel(order='C'), Z_ravel, c='#000000', marker='D', zorder=2)
     #Z_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(sl_polynomial_order.val, sl_weighting_power.val, weighting_type, sl_epsilon.val, sl_location.val)
     #l.set_ydata(computed_answer)
     #d.set_ydata(y_pred)
     #p.set_offsets(np.vstack((x,y)).T)
+    ax.autoscale(True)
     if type(label)==str:
         ax.relim()
         ax.autoscale_view()
+    ax.autoscale(False)
     update(0)
     fig.canvas.draw_idle()
 # register objects using changefunc
