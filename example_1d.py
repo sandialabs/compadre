@@ -10,6 +10,7 @@ from matplotlib.widgets import Slider, Button, RadioButtons, CheckButtons
 kp = pycompadre.KokkosParser()
 
 # initialize parameters
+solver_type = 'QR'
 polynomial_order = 2
 input_dimensions = 1
 epsilon_multiplier = 2.4
@@ -23,8 +24,8 @@ x_pred = np.linspace(0,4,200)
 extra_sites_coords = np.atleast_2d(np.linspace(0,4,200)).T
 
 # get GMLS approximate at all x_pred, as well as reconstruction about attempt_center_about_coord
-def approximate(porder, wpower, wtype, epsilon_multiplier, attempt_center_about_coord):
-    gmls_obj=pycompadre.GMLS(porder, input_dimensions, "QR", "STANDARD")
+def approximate(solver_type, porder, wpower, wtype, epsilon_multiplier, attempt_center_about_coord):
+    gmls_obj=pycompadre.GMLS(porder, input_dimensions, solver_type, "STANDARD")
     gmls_obj.setWeightingPower(wpower)
     gmls_obj.setWeightingType(wtype)
     gmls_helper = pycompadre.ParticleHelper(gmls_obj)
@@ -64,7 +65,7 @@ def approximate(porder, wpower, wtype, epsilon_multiplier, attempt_center_about_
     return (y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord)
 
 # get initial data for plotting
-y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(polynomial_order, 3, 'power', epsilon_multiplier, 1.2)
+y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(solver_type, polynomial_order, 3, 'power', epsilon_multiplier, 1.2)
 # plot initial data
 fig, ax = plt.subplots()
 plt.subplots_adjust(left=0.25, bottom=0.25)
@@ -86,7 +87,8 @@ ax_num_data_points = plt.axes([0.25, 0.025, 0.2, 0.03], facecolor=axcolor)
 ax_epsilon = plt.axes([0.7, 0.075, 0.2, 0.03])
 ax_polynomial_order = plt.axes([0.25, 0.075, 0.2, 0.03])
 ax_weighting_type = plt.axes([0.015, 0.25, 0.15, 0.15], facecolor=axcolor)
-ax_func_type = plt.axes([0.015, 0.45, 0.15, 0.15], facecolor=axcolor)
+ax_func_type = plt.axes([0.015, 0.40, 0.15, 0.15], facecolor=axcolor)
+ax_solver_type = plt.axes([0.015, 0.55, 0.15, 0.15], facecolor=axcolor)
 
 # sliders
 sl_location_check = CheckButtons(ax_location_check, ["",], [True,])
@@ -101,11 +103,12 @@ sl_polynomial_order = Slider(ax_polynomial_order, 'Polynomial Order', valmin=0, 
 #radios
 rad_weighting_type = RadioButtons(ax_weighting_type, ('Power', 'Cubic Spl.', 'Gaussian'), active=0)
 rad_func_type = RadioButtons(ax_func_type, ('sin(x)', 'x*sin(20x)', 'x^2'), active=2)
+rad_solver_type = RadioButtons(ax_solver_type, ('QR', 'LU'), active=0)
 
 def update(val):
     sl_location.valinit=2.0
     global weighting_type
-    y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(sl_polynomial_order.val, sl_weighting_power.val, weighting_type, sl_epsilon.val, sl_location.val)
+    y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(rad_solver_type.value_selected, sl_polynomial_order.val, sl_weighting_power.val, weighting_type, sl_epsilon.val, sl_location.val)
     l.set_ydata(computed_answer)
     d.set_ydata(y_pred)
     s.set_offsets([center_about_extra_coord, computed_answer[center_about_extra_idx]])
@@ -115,6 +118,7 @@ sl_location.on_changed(update)
 sl_weighting_power.on_changed(update)
 sl_epsilon.on_changed(update)
 sl_polynomial_order.on_changed(update)
+rad_solver_type.on_clicked(update)
 
 # called from changefunc
 def updatepoints(val):
@@ -132,7 +136,7 @@ def weighting_type_update(label):
         ax_weighting_power.set_visible(True)
     else:
         ax_weighting_power.set_visible(False)
-    y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(sl_polynomial_order.val, sl_weighting_power.val, weighting_type, sl_epsilon.val, sl_location.val)
+    y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(rad_solver_type.value_selected, sl_polynomial_order.val, sl_weighting_power.val, weighting_type, sl_epsilon.val, sl_location.val)
     l.set_ydata(computed_answer)
     d.set_ydata(y_pred)
     fig.canvas.draw_idle()
@@ -147,7 +151,7 @@ def changefunc(label):
         func_type_dict = {'sin(x)': lambda x: np.sin(x), 'x*sin(20x)': lambda x: x*np.sin(20*x), 'x^2' : lambda x: pow(x,2)}
         function = func_type_dict[label]
     y[:] = function(x)
-    y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(sl_polynomial_order.val, sl_weighting_power.val, weighting_type, sl_epsilon.val, sl_location.val)
+    y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(rad_solver_type.value_selected, sl_polynomial_order.val, sl_weighting_power.val, weighting_type, sl_epsilon.val, sl_location.val)
     l.set_ydata(computed_answer)
     d.set_ydata(y_pred)
     p.set_offsets(np.vstack((x,y)).T)
