@@ -5,7 +5,7 @@ import pycompadre
 import numpy as np
 from mpl_toolkits import mplot3d
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, Button, RadioButtons
+from matplotlib.widgets import Slider, Button, RadioButtons, CheckButtons
 
 # initialize Kokkos
 kp = pycompadre.KokkosParser()
@@ -91,8 +91,9 @@ Z_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = appr
 # plot initial data
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
-plt.subplots_adjust(left=0.25, bottom=0.25)
+plt.subplots_adjust(left=0.30, bottom=0.30)
 
+# plot just data to get bounds for axes
 global d, l, s, p
 p = ax.scatter(X.ravel(order='C'), Y.ravel(order='C'), Z_ravel, c='#000000', marker='D', zorder=2)
 ax.autoscale(True)
@@ -101,27 +102,29 @@ ax.autoscale_view()
 ax.autoscale(False)
 p.remove()
 
+# plot again
 d = ax.plot_surface(X_pred, Y_pred, Z_pred, color='b', zorder=1, alpha=0.7)
 p = ax.scatter(X.ravel(order='C'), Y.ravel(order='C'), Z_ravel, c='#000000', marker='D', zorder=2)
 l = ax.plot_surface(X_pred, Y_pred, computed_answer, color='#00FF00', zorder=2, alpha=0.3)
-s = ax.scatter([center_about_extra_coord[0],], [center_about_extra_coord[1],], [computed_answer.ravel(order='C')[center_about_extra_idx],], c='#0000FF', marker='o', zorder=4, s=180, alpha=1.0)
-ax.set(xlabel='x', ylabel='GMLS approximation',
-       title='Approximation of sin(x)')
+s = ax.scatter([center_about_extra_coord[0],], [center_about_extra_coord[1],], [computed_answer.ravel(order='C')[center_about_extra_idx],], c='#FF0000', marker='o', zorder=4, edgecolor='black', s=180, alpha=1.0)
+ax.set(xlabel='x', ylabel='GMLS approximation')
 ax.grid()
 ax.margins(x=0)
 axcolor = 'lightgoldenrodyellow'
 
 # axes for sliders and radio buttons
-ax_location_x = plt.axes([0.25, 0.15, 0.65, 0.03], facecolor='white')
-ax_location_y = plt.axes([0.25, 0.10, 0.65, 0.03], facecolor='white')
-ax_weighting_power = plt.axes([0.7, 0.0, 0.2, 0.03], facecolor=axcolor)
-ax_num_data_points = plt.axes([0.25, 0.0, 0.2, 0.03], facecolor=axcolor)
-ax_epsilon = plt.axes([0.7, 0.05, 0.2, 0.03])
-ax_polynomial_order = plt.axes([0.25, 0.05, 0.2, 0.03])
+ax_location_check = plt.axes([0.05, 0.093, 0.15, 0.15], facecolor='white', frameon=False)
+ax_location_x = plt.axes([0.25, 0.175, 0.65, 0.03], facecolor='white')
+ax_location_y = plt.axes([0.25, 0.125, 0.65, 0.03], facecolor='white')
+ax_weighting_power = plt.axes([0.7, 0.025, 0.2, 0.03], facecolor=axcolor)
+ax_num_data_points = plt.axes([0.25, 0.025, 0.2, 0.03], facecolor=axcolor)
+ax_epsilon = plt.axes([0.7, 0.075, 0.2, 0.03])
+ax_polynomial_order = plt.axes([0.25, 0.075, 0.2, 0.03])
 ax_weighting_type = plt.axes([0.015, 0.25, 0.25, 0.15], facecolor=axcolor)
-ax_func_type = plt.axes([0.015, 0.6, 0.25, 0.15], facecolor=axcolor)
+ax_func_type = plt.axes([0.015, 0.45, 0.25, 0.15], facecolor=axcolor)
 
 # sliders
+sl_location_check = CheckButtons(ax_location_check, ["",], [True,])
 delta_f = 4.0/200
 sl_location_x = Slider(ax_location_x, 'Location (x)', valmin=0.0, valmax=4.0, valinit=0.0, valstep=delta_f, color=None, initcolor='black')
 sl_location_y = Slider(ax_location_y, 'Location (y)', valmin=0.0, valmax=4.0, valinit=0.0, valstep=delta_f, color=None, initcolor='black')
@@ -154,7 +157,7 @@ def update(val):
         s.remove()
     except:
         pass
-    s = ax.scatter([center_about_extra_coord[0],], [center_about_extra_coord[1],], [computed_answer.ravel(order='C')[center_about_extra_idx],], c='#0000FF', marker='o', zorder=4, s=180, alpha=1.0)
+    s = ax.scatter([center_about_extra_coord[0],], [center_about_extra_coord[1],], [computed_answer.ravel(order='C')[center_about_extra_idx],], c='#FF0000', marker='o', zorder=4, edgecolor='black', s=180, alpha=1.0)
     fig.canvas.draw_idle()
 # register objects using update
 sl_location_x.on_changed(update)
@@ -217,6 +220,11 @@ def changefunc(label):
 # register objects using changefunc
 rad_func_type.on_clicked(changefunc)
 sl_num_data_points.on_changed(changefunc)
+
+def changelocationviz(label):
+    l.set_visible(sl_location_check.get_status()[0])
+    fig.canvas.draw_idle()
+sl_location_check.on_clicked(changelocationviz)
 
 plt.show()
 del kp

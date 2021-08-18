@@ -72,8 +72,8 @@ p = plt.scatter(x, y, c='#000000', marker='D', zorder=2)
 d, = plt.plot(x_pred, y_pred, c='#0000FF', linewidth=4, zorder=1)
 l, = plt.plot(extra_sites_coords, computed_answer, c='#00FF00', lw=2, zorder=3)
 s = plt.scatter([center_about_extra_coord,], computed_answer[center_about_extra_idx], c='#00FF00', marker='o', zorder=4, edgecolor='black', s=50)
-ax.set(xlabel='x', ylabel='GMLS approximation',
-       title='Approximation of sin(x)')
+ax.set(xlabel='x', ylabel='',
+       title='GMLS Approximation')
 ax.grid()
 ax.margins(x=0)
 axcolor = 'lightgoldenrodyellow'
@@ -86,7 +86,7 @@ ax_num_data_points = plt.axes([0.25, 0.025, 0.2, 0.03], facecolor=axcolor)
 ax_epsilon = plt.axes([0.7, 0.075, 0.2, 0.03])
 ax_polynomial_order = plt.axes([0.25, 0.075, 0.2, 0.03])
 ax_weighting_type = plt.axes([0.015, 0.25, 0.15, 0.15], facecolor=axcolor)
-ax_func_type = plt.axes([0.015, 0.6, 0.15, 0.15], facecolor=axcolor)
+ax_func_type = plt.axes([0.015, 0.45, 0.15, 0.15], facecolor=axcolor)
 
 # sliders
 sl_location_check = CheckButtons(ax_location_check, ["",], [True,])
