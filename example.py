@@ -4,7 +4,7 @@
 import pycompadre
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, Button, RadioButtons
+from matplotlib.widgets import Slider, Button, RadioButtons, CheckButtons
 
 # initialize Kokkos
 kp = pycompadre.KokkosParser()
@@ -71,7 +71,7 @@ plt.subplots_adjust(left=0.25, bottom=0.25)
 p = plt.scatter(x, y, c='#000000', marker='D', zorder=2)
 d, = plt.plot(x_pred, y_pred, c='#0000FF', linewidth=4, zorder=1)
 l, = plt.plot(extra_sites_coords, computed_answer, c='#00FF00', lw=2, zorder=3)
-s = plt.scatter([center_about_extra_coord,], computed_answer[center_about_extra_idx], c='#00FF00', marker='o', zorder=4)
+s = plt.scatter([center_about_extra_coord,], computed_answer[center_about_extra_idx], c='#00FF00', marker='o', zorder=4, edgecolor='black', s=50)
 ax.set(xlabel='x', ylabel='GMLS approximation',
        title='Approximation of sin(x)')
 ax.grid()
@@ -79,6 +79,7 @@ ax.margins(x=0)
 axcolor = 'lightgoldenrodyellow'
 
 # axes for sliders and radio buttons
+ax_location_check = plt.axes([0.10, 0.068, 0.15, 0.15], facecolor='white', frameon=False)
 ax_location = plt.axes([0.25, 0.125, 0.65, 0.03], facecolor='white')
 ax_weighting_power = plt.axes([0.7, 0.025, 0.2, 0.03], facecolor=axcolor)
 ax_num_data_points = plt.axes([0.25, 0.025, 0.2, 0.03], facecolor=axcolor)
@@ -88,6 +89,7 @@ ax_weighting_type = plt.axes([0.015, 0.25, 0.15, 0.15], facecolor=axcolor)
 ax_func_type = plt.axes([0.015, 0.6, 0.15, 0.15], facecolor=axcolor)
 
 # sliders
+sl_location_check = CheckButtons(ax_location_check, ["",], [True,])
 delta_f = 4.0/200
 sl_location = Slider(ax_location, 'Location', valmin=0.0, valmax=4.0, valinit=0.0, valstep=delta_f, color=None, initcolor='black')
 sl_location.set_val(1.2)
@@ -157,6 +159,11 @@ def changefunc(label):
 # register objects using changefunc
 rad_func_type.on_clicked(changefunc)
 sl_num_data_points.on_changed(changefunc)
+
+def changelocationviz(label):
+    l.set_visible(sl_location_check.get_status()[0])
+    fig.canvas.draw_idle()
+sl_location_check.on_clicked(changelocationviz)
 
 #button = Button(resetax, 'Reset', color=axcolor, hovercolor='0.975')
 #def reset(event):
