@@ -78,6 +78,7 @@ ax.set(xlabel='x', ylabel='',
 ax.grid()
 ax.margins(x=0)
 axcolor = 'lightgoldenrodyellow'
+plt.legend((p,d,l,s), ('Data', 'GMLS', 'Local Polynomial Fit', 'Target Site'))
 
 # axes for sliders and radio buttons
 ax_location_check = plt.axes([0.10, 0.068, 0.15, 0.15], facecolor='white', frameon=False)
