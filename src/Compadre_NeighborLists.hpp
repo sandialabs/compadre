@@ -19,6 +19,7 @@ protected:
 
 
     int _max_neighbor_list_row_storage_size;
+    int _min_neighbor_list_row_storage_size;
     bool _needs_sync_to_host;
     int _number_of_targets;
 
@@ -41,6 +42,7 @@ public:
     //! \brief Constructor for the purpose of classes who have NeighborLists as a member object
     NeighborLists() {
         _max_neighbor_list_row_storage_size = -1;
+        _min_neighbor_list_row_storage_size = -1;
         _needs_sync_to_host = true;
         _number_of_targets = 0;
     }
@@ -72,6 +74,7 @@ public:
         } else {
             _max_neighbor_list_row_storage_size = -1;
         }
+        _min_neighbor_list_row_storage_size = -1;
 
         //check neighbor_lists is large enough
         compadre_assert_release(((size_t)(this->getTotalNeighborsOverAllListsHost())<=cr_neighbor_lists.extent(0)) 
@@ -172,6 +175,21 @@ public:
         }
     }
 
+    //! Calculate the minimum number of neighbors of all targets' neighborhoods (host)
+    void computeMinNumNeighbors() {
+        if (_number_of_neighbors_list.extent(0)==0) {
+            _min_neighbor_list_row_storage_size = 0;
+        } else {
+            auto number_of_neighbors_list = _number_of_neighbors_list;
+            Kokkos::parallel_reduce("min number of neighbors", 
+                    Kokkos::RangePolicy<typename view_type::execution_space>(0, _number_of_neighbors_list.extent(0)), 
+                    KOKKOS_LAMBDA(const int i, int& t_min_num_neighbors) {
+                t_min_num_neighbors = (number_of_neighbors_list(i) < t_min_num_neighbors) ? number_of_neighbors_list(i) : t_min_num_neighbors;
+            }, Kokkos::Min<int>(_min_neighbor_list_row_storage_size));
+            Kokkos::fence();
+        }
+    }
+
     //! Calculate the row offsets for each target's neighborhood (host)
     void computeRowOffsets() {
         auto number_of_neighbors_list = _number_of_neighbors_list;
@@ -250,6 +268,13 @@ public:
     int getMaxNumNeighbors() const {
         compadre_kernel_assert_debug((_max_neighbor_list_row_storage_size > -1) && "getMaxNumNeighbors() called but maximum never calculated.");
         return _max_neighbor_list_row_storage_size;
+    }
+
+    //! Get the minimum number of neighbors of all targets' neighborhoods (host/device)
+    KOKKOS_INLINE_FUNCTION
+    int getMinNumNeighbors() const {
+        compadre_kernel_assert_debug((_min_neighbor_list_row_storage_size > -1) && "getMinNumNeighbors() called but minimum never calculated.");
+        return _min_neighbor_list_row_storage_size;
     }
 
     //! Get the sum of the number of neighbors of all targets' neighborhoods (host)

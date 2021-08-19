@@ -158,6 +158,11 @@ def remap(polyOrder,dimension,additional_sites=False):
     additional_sites_l2_error = 0.0
     if additional_sites:
         nl = gmls_helper.getNeighborLists()
+        # test min/max num neighbors computation works
+        nl.computeMinNumNeighbors()
+        nl.computeMaxNumNeighbors()
+        n_min = nl.getMinNumNeighbors()
+        n_max = nl.getMaxNumNeighbors()
         for i in range(NT):
             for j in range(4):
                 computed_answer = 0.0
@@ -225,3 +230,6 @@ class TestPycompadre(TestCase):
         self.assertTrue(l2<1e-13 and h1<1e-13 and l2a<1e-13)
         l2,h1,l2a=remap(3,3,True)
         self.assertTrue(l2<1e-13 and h1<1e-13 and l2a<1e-13)
+
+#tc = TestPycompadre()
+#tc.test_additional_sites()
