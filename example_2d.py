@@ -1,6 +1,7 @@
 #!pip install cmake
 #!pip install pycompadre
 
+import time
 import pycompadre
 import numpy as np
 from mpl_toolkits import mplot3d
@@ -11,6 +12,7 @@ from matplotlib.widgets import Slider, Button, RadioButtons, CheckButtons
 kp = pycompadre.KokkosParser()
 
 # initialize parameters
+#tic = time.perf_counter()
 polynomial_order = 2
 input_dimensions = 2
 epsilon_multiplier = 1.6
@@ -31,9 +33,12 @@ X_pred, Y_pred = np.meshgrid(x_pred,y_pred)
 XY_pred_ravel = np.vstack((X_pred.ravel(order = 'C'),Y_pred.ravel(order = 'C'))).T
 extra_sites_coords_X = np.copy(X_pred)
 extra_sites_coords_Y = np.copy(Y_pred)
+#toc = time.perf_counter()
+#print("Setup data in %0.6f seconds"%(toc-tic,))
 
 # get GMLS approximate at all x_pred, as well as reconstruction about attempt_center_about_coord
 def approximate(porder, wpower, wtype, epsilon_multiplier, attempt_center_about_coord):
+    #tic = time.perf_counter()
     gmls_obj=pycompadre.GMLS(porder, input_dimensions, "QR", "STANDARD")
     gmls_obj.setWeightingPower(wpower)
     gmls_obj.setWeightingType(wtype)
@@ -71,11 +76,9 @@ def approximate(porder, wpower, wtype, epsilon_multiplier, attempt_center_about_
     # manual applying of alphas
     nl = gmls_helper_2.getNeighborLists()
     computed_answer = np.zeros(shape=(len(extra_sites_coords),), dtype='f8')
+    sf = pycompadre.SamplingFunctional['PointSample']
     for j in range(extra_sites_idx[0,0]):
-        computed_answer[j] = 0.0
-        for k in range(nl.getNumberOfNeighbors(0)):
-            computed_answer[j] += gmls_obj_2.getAlpha(pycompadre.TargetOperation.ScalarPointEvaluation, 
-                                  0, 0, 0, k, 0, 0, j+1)*Z_ravel[nl.getNeighbor(0,k)]
+        computed_answer[j] = gmls_helper_2.applyStencil(Z_ravel, pycompadre.TargetOperation.ScalarPointEvaluation, sf, j+1)
     center_about_extra_idx   = np.sum(np.abs(extra_sites_coords - center_about_coord), axis=1).argmin()
     center_about_extra_coord = extra_sites_coords[center_about_extra_idx]
     del nl
@@ -83,11 +86,14 @@ def approximate(porder, wpower, wtype, epsilon_multiplier, attempt_center_about_
     del gmls_obj_2
     del gmls_helper
     del gmls_helper_2
+    #toc = time.perf_counter()
+    #print("Solve GMLS in %0.6f seconds"%(toc-tic,))
     return (np.reshape(Z_pred, newshape=(len(x_pred), len(y_pred))), np.reshape(computed_answer, newshape=(len(x_pred), len(y_pred))), center_about_extra_idx, center_about_extra_coord)
 
 # get initial data for plotting
 Z_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(polynomial_order, 3, 'power', epsilon_multiplier, np.atleast_2d([1.0,1.0]))
 
+#tic = time.perf_counter()
 # plot initial data
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
@@ -138,6 +144,8 @@ sl_polynomial_order = Slider(ax_polynomial_order, 'Polynomial Order', valmin=0, 
 #radios
 rad_weighting_type = RadioButtons(ax_weighting_type, ('Power', 'Cubic Spl.', 'Gaussian'), active=0)
 rad_func_type = RadioButtons(ax_func_type, ('x^2*y^2', 'sin(2x)cos(2y)'), active=0)
+#toc = time.perf_counter()
+#print("Setup graphics in %0.6f seconds"%(toc-tic,))
 
 def update(val):
     global weighting_type
@@ -152,7 +160,7 @@ def update(val):
         l.remove()
     except:
         pass
-    l = ax.plot_surface(X_pred, Y_pred, computed_answer, color='#00FF00', zorder=2, alpha=0.3)
+    l = ax.plot_surface(X_pred, Y_pred, computed_answer, color='#00FF00', zorder=2, alpha=0.3, visible=sl_location_check.get_status()[0])
     try:
         s.remove()
     except:
@@ -206,10 +214,6 @@ def changefunc(label):
     s.remove()
     p.remove()
     p = ax.scatter(X.ravel(order='C'), Y.ravel(order='C'), Z_ravel, c='#000000', marker='D', zorder=2)
-    #Z_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(sl_polynomial_order.val, sl_weighting_power.val, weighting_type, sl_epsilon.val, sl_location.val)
-    #l.set_ydata(computed_answer)
-    #d.set_ydata(y_pred)
-    #p.set_offsets(np.vstack((x,y)).T)
     ax.autoscale(True)
     if type(label)==str:
         ax.relim()
