@@ -142,10 +142,13 @@ def remap(polyOrder,dimension,additional_sites=False):
     data_vector = []
     for i in range(N):
         data_vector.append(exact(source_sites[i], polyOrder, dimension))
-    data_vector = np.array(data_vector, dtype=np.dtype('d'))
+    # use rank 2 array and only insert into one column to test
+    # whether layouts are being properly propagated into pycompadre
+    new_data_vector = np.zeros(shape=(len(data_vector), 3), dtype='f8')
+    new_data_vector[:,1] = np.array(data_vector, dtype=np.dtype('d'))
 
     # apply stencil to sample data for all targets
-    computed_answer = gmls_helper.applyStencil(data_vector, pycompadre.TargetOperation.ScalarPointEvaluation)
+    computed_answer = gmls_helper.applyStencil(new_data_vector[:,1], pycompadre.TargetOperation.ScalarPointEvaluation)
 
     l2_error = 0
     for i in range(NT):

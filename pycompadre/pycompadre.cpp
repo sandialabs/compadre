@@ -530,29 +530,8 @@ public:
     py::array_t<double> applyStencil(const py::array_t<double, py::array::f_style | py::array::forcecast> input, const TargetOperation lro, const SamplingFunctional sro, const int evaluation_site_local_index = 0) const {
         py::buffer_info buf = input.request();
  
-        // create Kokkos View on host to copy into
-        //Kokkos::View<double**, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > source_data((double *) buf.ptr, input.shape(0), (buf.ndim>1) ? input.shape(1) : 1); 
+        // cast numpy data as Kokkos View
         host_scratch_matrix_left_type source_data((double *) buf.ptr, input.shape(0), (buf.ndim>1) ? input.shape(1) : 1);
-        //// create Kokkos View on host to copy into
-        //Kokkos::View<double**, Kokkos::HostSpace> source_data("source data", input.shape(0), (buf.ndim>1) ? input.shape(1) : 1); 
-
-        //if (buf.ndim==1) {
-        //    // overwrite existing data assuming a 2D layout
-        //    auto data = input.unchecked<1>();
-        //    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, input.shape(0)), [=](int i) {
-        //        source_data(i, 0) = data(i);
-        //    });
-        //} else if (buf.ndim>1) {
-        //    // overwrite existing data assuming a 2D layout
-        //    auto data = input.unchecked<2>();
-        //    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, input.shape(0)), [=](int i) {
-        //        for (int j = 0; j < input.shape(1); ++j)
-        //        {
-        //            source_data(i, j) = data(i, j);
-        //        }
-        //    });
-        //}
-        //Kokkos::fence();
 
         Compadre::Evaluator gmls_evaluator(gmls_object);
         if (lro==Compadre::TargetOperation::PartialYOfScalarPointEvaluation) {
@@ -592,8 +571,7 @@ public:
     double applyStencilSingleTarget(const py::array_t<double, py::array::f_style | py::array::forcecast> input, const TargetOperation lro, const SamplingFunctional sro) const {
         py::buffer_info buf = input.request();
  
-        // create Kokkos View on host to copy into
-        //Kokkos::View<double**, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > source_data((double *) buf.ptr, input.shape(0), (buf.ndim>1) ? input.shape(1) : 1); 
+        // cast numpy data as Kokkos View
         host_scratch_matrix_left_type source_data((double *) buf.ptr, input.shape(0), (buf.ndim>1) ? input.shape(1) : 1);
 
         compadre_assert_release(buf.ndim==1 && "Input given with dimensions > 1");
