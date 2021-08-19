@@ -527,29 +527,11 @@ public:
     //    return pyObjectArray_out;
     //}
  
-    py::array_t<double> applyStencil(const py::array_t<double> input, const TargetOperation lro, const SamplingFunctional sro) const {
+    py::array_t<double> applyStencil(const py::array_t<double, py::array::f_style | py::array::forcecast> input, const TargetOperation lro, const SamplingFunctional sro, const int evaluation_site_local_index = 0) const {
         py::buffer_info buf = input.request();
  
-        // create Kokkos View on host to copy into
-        Kokkos::View<double**, Kokkos::HostSpace> source_data("source data", input.shape(0), (buf.ndim>1) ? input.shape(1) : 1); 
-
-        if (buf.ndim==1) {
-            // overwrite existing data assuming a 2D layout
-            auto data = input.unchecked<1>();
-            Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, input.shape(0)), [=](int i) {
-                source_data(i, 0) = data(i);
-            });
-        } else if (buf.ndim>1) {
-            // overwrite existing data assuming a 2D layout
-            auto data = input.unchecked<2>();
-            Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, input.shape(0)), [=](int i) {
-                for (int j = 0; j < input.shape(1); ++j)
-                {
-                    source_data(i, j) = data(i, j);
-                }
-            });
-        }
-        Kokkos::fence();
+        // cast numpy data as Kokkos View
+        host_scratch_matrix_left_type source_data((double *) buf.ptr, input.shape(0), (buf.ndim>1) ? input.shape(1) : 1);
 
         Compadre::Evaluator gmls_evaluator(gmls_object);
         if (lro==Compadre::TargetOperation::PartialYOfScalarPointEvaluation) {
@@ -558,7 +540,7 @@ public:
             compadre_assert_release((gmls_object->getGlobalDimensions() > 2) && "Partial derivative w.r.t. z requested, but less than 3D problem.");
         }
         auto output_values = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
-            (source_data, lro, sro);
+            (source_data, lro, sro, true /*scalar_as_vector_if_needed*/, evaluation_site_local_index);
 
         auto dim_out_0 = output_values.extent(0);
         auto dim_out_1 = output_values.extent(1);
@@ -589,8 +571,8 @@ public:
     double applyStencilSingleTarget(const py::array_t<double, py::array::f_style | py::array::forcecast> input, const TargetOperation lro, const SamplingFunctional sro) const {
         py::buffer_info buf = input.request();
  
-        // create Kokkos View on host to copy into
-        Kokkos::View<double**, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > source_data((double *) buf.ptr, input.shape(0), (buf.ndim>1) ? input.shape(1) : 1); 
+        // cast numpy data as Kokkos View
+        host_scratch_matrix_left_type source_data((double *) buf.ptr, input.shape(0), (buf.ndim>1) ? input.shape(1) : 1);
 
         compadre_assert_release(buf.ndim==1 && "Input given with dimensions > 1");
 
@@ -607,15 +589,28 @@ PYBIND11_MODULE(pycompadre, m) {
     m.doc() = R"pbdoc(
         Compadre Toolkit for Python
         -----------------------
-        .. currentmodule:: pycompadre
-        .. autosummary::
-           :toctree: _generate
+        Important: 
+        Be sure to initialize Kokkos before setting up any objects from this library,
+        by created a scoped KokkosParser object, i.e:
+        >> kp = pycompadre.KokkosParser()
+        When `kp` goes out of scope, then Kokkos will be finalized.
 
-        GMLS
-        KokkosParser
-        ParticleHelper
-        getNP
-        getNN
+        GMLS type objects are passed to ParticleHelper objects.
+        Be sure to deallocate in reverse order, i.e.:
+        >> kp = pycompadre.KokkosParser()
+        >> gmls_obj = GMLS(...)
+        >> gmls_helper = ParticleHelper(gmls_object)
+        ...
+        ...
+        >> del gmls_obj
+        >> del gmls_helper
+        >> del kp
+
+        Project details at: 
+        https://github.com/SNLComputation/compadre
+
+        Implementation details at: 
+        https://github.com/SNLComputation/compadre/blob/master/pycompadre/pycompadre.cpp
 
     )pbdoc";
 
@@ -686,7 +681,7 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("setAdditionalEvaluationSitesData", &ParticleHelper::setAdditionalEvaluationSitesData, py::arg("additional_evaluation_sites_neighbor_lists"), py::arg("additional_evaluation_sites_coordinates"))
     .def("getPolynomialCoefficients", &ParticleHelper::getPolynomialCoefficients, py::arg("input_data"), py::return_value_policy::take_ownership)
     .def("applyStencilSingleTarget", &ParticleHelper::applyStencilSingleTarget, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample)
-    .def("applyStencil", &ParticleHelper::applyStencil, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::return_value_policy::take_ownership);
+    .def("applyStencil", &ParticleHelper::applyStencil, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::arg("additional_evaluation_index")=0, py::return_value_policy::take_ownership);
     
 
     py::class_<GMLS>(m, "GMLS")
@@ -710,10 +705,13 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("getNN", &GMLS::getNN, "Heuristic number of neighbors.");
 
     py::class_<NeighborLists<ParticleHelper::int_1d_view_type_in_gmls> >(m, "NeighborLists")
+    .def("computeMaxNumNeighbors", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::computeMaxNumNeighbors, "Compute maximum number of neighbors over all neighborhoods.")
+    .def("computeMinNumNeighbors", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::computeMinNumNeighbors, "Compute minimum number of neighbors over all neighborhoods.")
     .def("getNumberOfTargets", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getNumberOfTargets, "Number of targets.")
     .def("getNumberOfNeighbors", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getNumberOfNeighborsHost, py::arg("target index"), "Get number of neighbors for target.")
-    .def("getNeighbor", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getNeighborHost, py::arg("target index"), py::arg("local neighbor number"), "Get neighbor index from target index and local neighbor number.")
     .def("getMaxNumNeighbors", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getMaxNumNeighbors, "Get maximum number of neighbors over all neighborhoods.")
+    .def("getMinNumNeighbors", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getMinNumNeighbors, "Get minimum number of neighbors over all neighborhoods.")
+    .def("getNeighbor", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getNeighborHost, py::arg("target index"), py::arg("local neighbor number"), "Get neighbor index from target index and local neighbor number.")
     .def("getTotalNeighborsOverAllLists", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getTotalNeighborsOverAllListsHost, "Get total storage size of all neighbor lists combined.");
 
     py::class_<KokkosParser>(m, "KokkosParser")

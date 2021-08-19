@@ -142,10 +142,13 @@ def remap(polyOrder,dimension,additional_sites=False):
     data_vector = []
     for i in range(N):
         data_vector.append(exact(source_sites[i], polyOrder, dimension))
-    data_vector = np.array(data_vector, dtype=np.dtype('d'))
+    # use rank 2 array and only insert into one column to test
+    # whether layouts are being properly propagated into pycompadre
+    new_data_vector = np.zeros(shape=(len(data_vector), 3), dtype='f8')
+    new_data_vector[:,1] = np.array(data_vector, dtype=np.dtype('d'))
 
     # apply stencil to sample data for all targets
-    computed_answer = gmls_helper.applyStencil(data_vector, pycompadre.TargetOperation.ScalarPointEvaluation)
+    computed_answer = gmls_helper.applyStencil(new_data_vector[:,1], pycompadre.TargetOperation.ScalarPointEvaluation)
 
     l2_error = 0
     for i in range(NT):
@@ -155,6 +158,11 @@ def remap(polyOrder,dimension,additional_sites=False):
     additional_sites_l2_error = 0.0
     if additional_sites:
         nl = gmls_helper.getNeighborLists()
+        # test min/max num neighbors computation works
+        nl.computeMinNumNeighbors()
+        nl.computeMaxNumNeighbors()
+        n_min = nl.getMinNumNeighbors()
+        n_max = nl.getMaxNumNeighbors()
         for i in range(NT):
             for j in range(4):
                 computed_answer = 0.0
@@ -222,3 +230,6 @@ class TestPycompadre(TestCase):
         self.assertTrue(l2<1e-13 and h1<1e-13 and l2a<1e-13)
         l2,h1,l2a=remap(3,3,True)
         self.assertTrue(l2<1e-13 and h1<1e-13 and l2a<1e-13)
+
+#tc = TestPycompadre()
+#tc.test_additional_sites()

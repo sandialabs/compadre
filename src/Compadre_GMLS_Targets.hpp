@@ -1683,6 +1683,15 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         P_target_row(offset, j) = v1;
                     }
                 });
+            } else if (_operations(i) == TargetOperation::ScalarPointEvaluation) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
+                    this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                    int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
+                    for (int k=0; k<target_NP; ++k) {
+                        P_target_row(offset, k) = delta(k);
+                    }
+                });
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else {
                 compadre_kernel_assert_release((false) && "Functionality not yet available.");
             }
