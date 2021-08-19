@@ -52,9 +52,11 @@ def approximate(solver_type, porder, wpower, wtype, epsilon_multiplier, attempt_
     for i in range(len(x_pred)):
         if (i==center_about_idx):
             computed_answer = np.zeros(shape=(len(extra_sites_coords),), dtype='f8')
+            colors = len(x)*['black']
             for j in range(extra_sites_idx[i,0]):
                 computed_answer[j] = 0.0
                 for k in range(nl.getNumberOfNeighbors(i)):
+                    colors[nl.getNeighbor(i,k)] = 'red'
                     computed_answer[j] += gmls_obj.getAlpha(pycompadre.TargetOperation.ScalarPointEvaluation, 
                                           i, 0, 0, k, 0, 0, j+1)*y[nl.getNeighbor(i,k)]
     center_about_extra_idx   = (np.abs(extra_sites_coords - center_about_coord)).argmin()
@@ -62,14 +64,15 @@ def approximate(solver_type, porder, wpower, wtype, epsilon_multiplier, attempt_
     del nl
     del gmls_obj
     del gmls_helper
-    return (y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord)
+    return (y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord, colors)
 
 # get initial data for plotting
-y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(solver_type, polynomial_order, 3, 'power', epsilon_multiplier, 1.2)
+y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord, colors = approximate(solver_type, polynomial_order, 3, 'power', epsilon_multiplier, 1.2)
 # plot initial data
 fig, ax = plt.subplots()
 plt.subplots_adjust(left=0.25, bottom=0.25)
 p = plt.scatter(x, y, c='#000000', marker='D', zorder=2)
+p.set_color(colors)
 d, = plt.plot(x_pred, y_pred, c='#0000FF', linewidth=4, zorder=1)
 l, = plt.plot(extra_sites_coords, computed_answer, c='#00FF00', lw=2, zorder=3)
 s = plt.scatter([center_about_extra_coord,], computed_answer[center_about_extra_idx], c='#00FF00', marker='o', zorder=4, edgecolor='black', s=50)
@@ -109,10 +112,12 @@ rad_solver_type = RadioButtons(ax_solver_type, ('QR', 'LU'), active=0)
 def update(val):
     sl_location.valinit=2.0
     global weighting_type
-    y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(rad_solver_type.value_selected, sl_polynomial_order.val, sl_weighting_power.val, weighting_type, sl_epsilon.val, sl_location.val)
+    y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord, colors = approximate(rad_solver_type.value_selected, sl_polynomial_order.val, sl_weighting_power.val, weighting_type, sl_epsilon.val, sl_location.val)
     l.set_ydata(computed_answer)
     d.set_ydata(y_pred)
     s.set_offsets([center_about_extra_coord, computed_answer[center_about_extra_idx]])
+    if sl_location_check.get_status()[0]:
+        p.set_color(colors)
     fig.canvas.draw_idle()
 # register objects using update
 sl_location.on_changed(update)
@@ -137,10 +142,7 @@ def weighting_type_update(label):
         ax_weighting_power.set_visible(True)
     else:
         ax_weighting_power.set_visible(False)
-    y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(rad_solver_type.value_selected, sl_polynomial_order.val, sl_weighting_power.val, weighting_type, sl_epsilon.val, sl_location.val)
-    l.set_ydata(computed_answer)
-    d.set_ydata(y_pred)
-    fig.canvas.draw_idle()
+    update(0)
 # register objects using weighting_type_update
 rad_weighting_type.on_clicked(weighting_type_update)
 
@@ -152,7 +154,7 @@ def changefunc(label):
         func_type_dict = {'sin(x)': lambda x: np.sin(x), 'x*sin(20x)': lambda x: x*np.sin(20*x), 'x^2' : lambda x: pow(x,2)}
         function = func_type_dict[label]
     y[:] = function(x)
-    y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(rad_solver_type.value_selected, sl_polynomial_order.val, sl_weighting_power.val, weighting_type, sl_epsilon.val, sl_location.val)
+    y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord, colors = approximate(rad_solver_type.value_selected, sl_polynomial_order.val, sl_weighting_power.val, weighting_type, sl_epsilon.val, sl_location.val)
     l.set_ydata(computed_answer)
     d.set_ydata(y_pred)
     p.set_offsets(np.vstack((x,y)).T)
@@ -168,6 +170,10 @@ sl_num_data_points.on_changed(changefunc)
 def changelocationviz(label):
     l.set_visible(sl_location_check.get_status()[0])
     fig.canvas.draw_idle()
+    if sl_location_check.get_status()[0]:
+        update(0)
+    else:
+        p.set_color('black')
 sl_location_check.on_clicked(changelocationviz)
 
 #button = Button(resetax, 'Reset', color=axcolor, hovercolor='0.975')
