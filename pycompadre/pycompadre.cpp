@@ -568,7 +568,7 @@ public:
         return result;
     }
 
-    double applyStencilSingleTarget(const py::array_t<double, py::array::f_style | py::array::forcecast> input, const TargetOperation lro, const SamplingFunctional sro) const {
+    double applyStencilSingleTarget(const py::array_t<double, py::array::f_style | py::array::forcecast> input, const TargetOperation lro, const SamplingFunctional sro, const int evaluation_site_local_index = 0) const {
         py::buffer_info buf = input.request();
  
         // cast numpy data as Kokkos View
@@ -578,7 +578,7 @@ public:
 
         Compadre::Evaluator gmls_evaluator(gmls_object);
 
-        return gmls_evaluator.applyAlphasToDataSingleComponentSingleTargetSite(source_data, 0, lro, 0, 0, 0, 0, 0, 0, false);
+        return gmls_evaluator.applyAlphasToDataSingleComponentSingleTargetSite(source_data, 0, lro, 0, evaluation_site_local_index, 0, 0, 0, 0, false);
     }
 };
 
@@ -680,7 +680,7 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("getReferenceOutwardNormalDirection", &ParticleHelper::getReferenceOutwardNormalDirection, py::return_value_policy::take_ownership)
     .def("setAdditionalEvaluationSitesData", &ParticleHelper::setAdditionalEvaluationSitesData, py::arg("additional_evaluation_sites_neighbor_lists"), py::arg("additional_evaluation_sites_coordinates"))
     .def("getPolynomialCoefficients", &ParticleHelper::getPolynomialCoefficients, py::arg("input_data"), py::return_value_policy::take_ownership)
-    .def("applyStencilSingleTarget", &ParticleHelper::applyStencilSingleTarget, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample)
+    .def("applyStencilSingleTarget", &ParticleHelper::applyStencilSingleTarget, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::arg("additional_evaluation_index")=0)
     .def("applyStencil", &ParticleHelper::applyStencil, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::arg("additional_evaluation_index")=0, py::return_value_policy::take_ownership);
     
 
