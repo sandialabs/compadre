@@ -105,7 +105,7 @@ protected:
     //! (OPTIONAL) user provided additional coordinates for target operation evaluation (device)
     Kokkos::View<double**, layout_right> _additional_evaluation_coordinates; 
 
-    //! (OPTIONAL) Accessor to get additioanl evaluation list data, offset data, and number of sites
+    //! (OPTIONAL) Accessor to get additional evaluation list data, offset data, and number of sites
     NeighborLists<Kokkos::View<int*> > _additional_evaluation_indices; 
 
     //! (OPTIONAL) contains the # of additional evaluation sites per target site

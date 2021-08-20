@@ -46,6 +46,8 @@ private:
     // optional
     double_3d_view_type _tangent_bundle;
     double_2d_view_type _reference_normal_directions;
+    double_2d_view_type _additional_evaluation_coords;
+    int_2d_view_type    _additional_evaluation_indices;
 
 public:
 
@@ -450,6 +452,9 @@ public:
     
         // set values from Kokkos View
         gmls_object->setAdditionalEvaluationSitesData(neighbor_lists, extra_coords);
+        // store in ParticleHelper
+        _additional_evaluation_coords  = extra_coords;
+        _additional_evaluation_indices = neighbor_lists;
     }
 
     py::array_t<double> getPolynomialCoefficients(py::array_t<double> input) {
@@ -563,6 +568,84 @@ public:
                 result_data(i) = output_values(i,0);
             });
             Kokkos::fence();
+        }
+
+        return result;
+    }
+    
+    py::array_t<double> applyStencilAllTargetsAllAdditionalEvaluationSites(const py::array_t<double, py::array::f_style | py::array::forcecast> input, const TargetOperation lro, const SamplingFunctional sro) const {
+        py::buffer_info buf = input.request();
+ 
+        // cast numpy data as Kokkos View
+        host_scratch_matrix_left_type source_data((double *) buf.ptr, input.shape(0), (buf.ndim>1) ? input.shape(1) : 1);
+
+        Compadre::Evaluator gmls_evaluator(gmls_object);
+        if (lro==Compadre::TargetOperation::PartialYOfScalarPointEvaluation) {
+            compadre_assert_release((gmls_object->getGlobalDimensions() > 1) && "Partial derivative w.r.t. y requested, but less than 2D problem.");
+        } else if (lro==Compadre::TargetOperation::PartialZOfScalarPointEvaluation) {
+            compadre_assert_release((gmls_object->getGlobalDimensions() > 2) && "Partial derivative w.r.t. z requested, but less than 3D problem.");
+        }
+        // run one problem at extra site 0 (=target site) to get output size
+        auto output_values = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+            (source_data, lro, sro, true /*scalar_as_vector_if_needed*/, 0);
+
+        // get maximum number of additional sites plus target site (+1) per target site
+        int max_additional_sites = 0;
+        int min_additional_sites = INT_MAX;
+        if (_additional_evaluation_indices.extent(0)>0) {
+            auto number_of_neighbors_list = _additional_evaluation_indices;
+            Kokkos::parallel_reduce("max number of extra evaluation sites per target", 
+                    Kokkos::RangePolicy<host_execution_space>(0, number_of_neighbors_list.extent(0)), 
+                    KOKKOS_LAMBDA(const int i, int& t_max_num_neighbors) {
+                t_max_num_neighbors = (number_of_neighbors_list(i,0) > t_max_num_neighbors) ? number_of_neighbors_list(i,0) : t_max_num_neighbors;
+            }, Kokkos::Max<int>(max_additional_sites));
+            Kokkos::parallel_reduce("min number of extra evaluation sites per target", 
+                    Kokkos::RangePolicy<host_execution_space>(0, number_of_neighbors_list.extent(0)), 
+                    KOKKOS_LAMBDA(const int i, int& t_min_num_neighbors) {
+                t_min_num_neighbors = (number_of_neighbors_list(i,0) < t_min_num_neighbors) ? number_of_neighbors_list(i,0) : t_min_num_neighbors;
+            }, Kokkos::Min<int>(min_additional_sites));
+            Kokkos::fence();
+            printf("%d vs %d\n", min_additional_sites, max_additional_sites);
+            compadre_assert_release((min_additional_sites==max_additional_sites) && "Use of applyStencilAllTargetsAllAdditionalEvaluationSites with different target sites having different number of additional evaluation sites. (min_additional_sites!=max_additional_sites)");
+            max_additional_sites += 1; // reconstruction also performed at index 0 for original target
+        }
+
+        // set dim_out_0 to 1 if setAdditionalEvaluationSitesData never called
+        size_t dim_out_0 = (_additional_evaluation_coords.size()==0) ? 1 : max_additional_sites;
+        auto dim_out_1 = output_values.extent(0);
+        auto dim_out_2 = output_values.extent(1);
+
+        auto result = py::array_t<double>(dim_out_0*dim_out_1*dim_out_2);
+
+        if (dim_out_2==2) {
+            result.resize({dim_out_0,dim_out_1,dim_out_2});
+            auto result_data = result.mutable_unchecked<3>();
+            for (size_t k=0; k<max_additional_sites; ++k) {
+                if (k>0) {
+                    output_values = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+                        (source_data, lro, sro, true /*scalar_as_vector_if_needed*/, k);
+                }
+                Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_1), [&](int i) {
+                    for (size_t j=0; j<dim_out_2; ++j) {
+                            result_data(k,i,j) = output_values(i,j);
+                        }
+                });
+                Kokkos::fence();
+            }
+        }
+        else if (dim_out_2==1) {
+            result.resize({dim_out_0,dim_out_1});
+            auto result_data = result.mutable_unchecked<2>();
+            for (size_t k=0; k<max_additional_sites; ++k) {
+                if (k>0) {
+                    output_values = gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::HostSpace>
+                        (source_data, lro, sro, true /*scalar_as_vector_if_needed*/, k);
+                }
+                Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_1), [&](int i) {
+                    result_data(k,i) = output_values(i,0);
+                });
+                Kokkos::fence();
+            }
         }
 
         return result;
@@ -681,6 +764,7 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("setAdditionalEvaluationSitesData", &ParticleHelper::setAdditionalEvaluationSitesData, py::arg("additional_evaluation_sites_neighbor_lists"), py::arg("additional_evaluation_sites_coordinates"))
     .def("getPolynomialCoefficients", &ParticleHelper::getPolynomialCoefficients, py::arg("input_data"), py::return_value_policy::take_ownership)
     .def("applyStencilSingleTarget", &ParticleHelper::applyStencilSingleTarget, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::arg("additional_evaluation_index")=0)
+    .def("applyStencilAllTargetsAllAdditionalEvaluationSites", &ParticleHelper::applyStencilAllTargetsAllAdditionalEvaluationSites, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::return_value_policy::take_ownership)
     .def("applyStencil", &ParticleHelper::applyStencil, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::arg("additional_evaluation_index")=0, py::return_value_policy::take_ownership);
     
 
