@@ -35,7 +35,7 @@ extra_sites_coords_X = np.copy(X_pred)
 extra_sites_coords_Y = np.copy(Y_pred)
 #toc = time.perf_counter()
 #print("Setup data in %0.6f seconds"%(toc-tic,))
-
+    
 # get GMLS approximate at all x_pred, as well as reconstruction about attempt_center_about_coord
 def approximate(porder, wpower, wtype, epsilon_multiplier, attempt_center_about_coord):
     #tic = time.perf_counter()
@@ -77,8 +77,10 @@ def approximate(porder, wpower, wtype, epsilon_multiplier, attempt_center_about_
     nl = gmls_helper_2.getNeighborLists()
     computed_answer = np.zeros(shape=(len(extra_sites_coords),), dtype='f8')
     sf = pycompadre.SamplingFunctional['PointSample']
+
     for j in range(extra_sites_idx[0,0]):
-        computed_answer[j] = gmls_helper_2.applyStencil(Z_ravel, pycompadre.TargetOperation.ScalarPointEvaluation, sf, j+1)
+        computed_answer[j] = gmls_helper_2.applyStencilSingleTarget(Z_ravel, pycompadre.TargetOperation.ScalarPointEvaluation, sf, j+1)
+
     center_about_extra_idx   = np.sum(np.abs(extra_sites_coords - center_about_coord), axis=1).argmin()
     center_about_extra_coord = extra_sites_coords[center_about_extra_idx]
     del nl
@@ -89,7 +91,7 @@ def approximate(porder, wpower, wtype, epsilon_multiplier, attempt_center_about_
     #toc = time.perf_counter()
     #print("Solve GMLS in %0.6f seconds"%(toc-tic,))
     return (np.reshape(Z_pred, newshape=(len(x_pred), len(y_pred))), np.reshape(computed_answer, newshape=(len(x_pred), len(y_pred))), center_about_extra_idx, center_about_extra_coord)
-
+    
 # get initial data for plotting
 Z_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(polynomial_order, 3, 'power', epsilon_multiplier, np.atleast_2d([1.0,1.0]))
 
@@ -221,6 +223,7 @@ def changefunc(label):
     ax.autoscale(False)
     update(0)
     fig.canvas.draw_idle()
+
 # register objects using changefunc
 rad_func_type.on_clicked(changefunc)
 sl_num_data_points.on_changed(changefunc)
