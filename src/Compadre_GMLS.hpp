@@ -105,14 +105,11 @@ protected:
     //! (OPTIONAL) user provided additional coordinates for target operation evaluation (device)
     Kokkos::View<double**, layout_right> _additional_evaluation_coordinates; 
 
-    //! (OPTIONAL) contains indices of entries in the _additional_evaluation_coordinates view (device)
-    Kokkos::View<int**, layout_right> _additional_evaluation_indices; 
+    //! (OPTIONAL) Accessor to get additioanl evaluation list data, offset data, and number of sites
+    NeighborLists<Kokkos::View<int*> > _additional_evaluation_indices; 
 
-    //! (OPTIONAL) contains indices of entries in the _additional_evaluation_coordinates view (host)
-    Kokkos::View<int**, layout_right>::HostMirror _host_additional_evaluation_indices;
-
-    //! (OPTIONAL) contains the # of additional coordinate indices for each target
-    Kokkos::View<int*> _number_of_additional_evaluation_indices; 
+    //! (OPTIONAL) contains the # of additional evaluation sites per target site
+    Kokkos::View<int*, host_memory_space> _host_number_of_additional_evaluation_indices; 
 
 
     //! order of basis for polynomial reconstruction
@@ -445,14 +442,16 @@ protected:
     //! Returns the maximum number of evaluation sites over all target sites (target sites are included in total)
     KOKKOS_INLINE_FUNCTION
     int getMaxEvaluationSitesPerTarget() const {
-        return _max_evaluation_sites_per_target;
+        // add 1 for the target site itself
+        return _additional_evaluation_indices.getMaxNumNeighbors() + 1;
     }
 
     //! (OPTIONAL)
     //! Returns number of additional evaluation sites for a particular target
     KOKKOS_INLINE_FUNCTION
     int getNEvaluationSitesPerTarget(const int target_index) const {
-        return _number_of_additional_evaluation_indices(target_index)+1;
+        // add 1 for the target site itself
+        return _additional_evaluation_indices.getNumberOfNeighborsDevice(target_index) + 1;
     }
 
     //! (OPTIONAL)
@@ -462,7 +461,7 @@ protected:
     int getAdditionalEvaluationIndex(const int target_index, const int additional_list_num) const {
         compadre_kernel_assert_debug((additional_list_num >= 1) 
             && "additional_list_num must be greater than or equal to 1, unlike neighbor lists which begin indexing at 0.");
-        return _additional_evaluation_indices(target_index, additional_list_num);
+        return _additional_evaluation_indices.getNeighborDevice(target_index, additional_list_num-1);
     }
 
     //! Returns one component of the target coordinate for a particular target. Whether global or local coordinates 
@@ -1316,6 +1315,17 @@ public:
         this->setAuxiliaryEvaluationCoordinates<view_type_2>(additional_evaluation_coordinates);
     }
 
+    //! (OPTIONAL) Sets additional evaluation sites for each target site
+    template<typename view_type_1, typename view_type_2>
+    void setAdditionalEvaluationSitesData(
+            view_type_1 cr_additional_evaluation_indices,
+            view_type_1 number_of_additional_evaluation_indices,
+            view_type_2 additional_evaluation_coordinates) {
+        this->setAuxiliaryEvaluationIndicesLists<view_type_1>(cr_additional_evaluation_indices, 
+                number_of_additional_evaluation_indices);
+        this->setAuxiliaryEvaluationCoordinates<view_type_2>(additional_evaluation_coordinates);
+    }
+
     //! Sets neighbor list information from compressed row neighborhood lists data (if same view_type).
     template <typename view_type>
     typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_neighbor_lists)::internal_view_type,view_type>::value==1, void>::type 
@@ -1430,9 +1440,13 @@ public:
             // switches memory spaces
             Kokkos::deep_copy(_target_coordinates, host_target_coordinates);
         }
-        _number_of_additional_evaluation_indices 
-            = decltype(_number_of_additional_evaluation_indices)("number of additional evaluation indices", target_coordinates.extent(0));
-        Kokkos::deep_copy(_number_of_additional_evaluation_indices, 0);
+        _host_number_of_additional_evaluation_indices 
+            = decltype(_host_number_of_additional_evaluation_indices)("number of additional evaluation indices", target_coordinates.extent(0));
+        if (_additional_evaluation_indices.getNumberOfTargets() != _target_coordinates.extent(0)) {
+            this->setAuxiliaryEvaluationIndicesLists(
+                    decltype(_host_number_of_additional_evaluation_indices)(), 
+                    _host_number_of_additional_evaluation_indices);
+        }
         this->resetCoefficientData();
     }
 
@@ -1441,9 +1455,13 @@ public:
     void setTargetSites(decltype(_target_coordinates) target_coordinates) {
         // allocate memory on device
         _target_coordinates = target_coordinates;
-        _number_of_additional_evaluation_indices 
-            = decltype(_number_of_additional_evaluation_indices)("number of additional evaluation indices", target_coordinates.extent(0));
-        Kokkos::deep_copy(_number_of_additional_evaluation_indices, 0);
+        _host_number_of_additional_evaluation_indices 
+            = decltype(_host_number_of_additional_evaluation_indices)("number of additional evaluation indices", target_coordinates.extent(0));
+        if (_additional_evaluation_indices.getNumberOfTargets() != _target_coordinates.extent(0)) {
+            this->setAuxiliaryEvaluationIndicesLists(
+                    decltype(_host_number_of_additional_evaluation_indices)(), 
+                    _host_number_of_additional_evaluation_indices);
+        }
         this->resetCoefficientData();
     }
 
@@ -1622,73 +1640,61 @@ public:
     }
 
     //! (OPTIONAL)
-    //! Sets the additional target evaluation coordinate indices list information. Should be # targets x maximum number of indices
-    //! evaluation indices for any target + 1. first entry in every row should be the number of indices for the corresponding target.
+    //! Sets the additional target evaluation indices list information from compressed row format (if same view_type)
     template <typename view_type>
-    void setAuxiliaryEvaluationIndicesLists(view_type indices_lists) {
-        // allocate memory on device
-        _additional_evaluation_indices = decltype(_additional_evaluation_indices)("device additional evaluation indices",
-            indices_lists.extent(0), indices_lists.extent(1));
+    typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_additional_evaluation_indices)::internal_view_type,view_type>::value==1, void>::type 
+            setAuxiliaryEvaluationIndicesLists(view_type additional_evaluation_indices, view_type number_of_neighbors_list) {
 
-        _host_additional_evaluation_indices = Kokkos::create_mirror_view(_additional_evaluation_indices);
-
-        typedef typename view_type::memory_space input_array_memory_space;
-        if (std::is_same<input_array_memory_space, device_memory_space>::value) {
-            // check if on the device, then copy directly
-            // if it is, then it doesn't match the internal layout we use
-            // then copy to the host mirror
-            // switches potential layout mismatches
-            Kokkos::deep_copy(_additional_evaluation_indices, indices_lists);
-            Kokkos::deep_copy(_host_additional_evaluation_indices, _additional_evaluation_indices);
-        } else {
-            // if is on the host, copy to the host mirror
-            // then copy to the device
-            // switches potential layout mismatches
-            Kokkos::deep_copy(_host_additional_evaluation_indices, indices_lists);
-            // copy data from host to device
-            Kokkos::deep_copy(_additional_evaluation_indices, _host_additional_evaluation_indices);
-        }
-
-        _max_evaluation_sites_per_target = 1;
-        auto number_of_additional_evaluation_indices = _number_of_additional_evaluation_indices;
-        auto additional_evaluation_indices = _additional_evaluation_indices;
-        Kokkos::parallel_reduce("additional evaluation indices", 
-                Kokkos::RangePolicy<device_execution_space>(0, _additional_evaluation_indices.extent(0)), 
-                KOKKOS_LAMBDA(const int i, int& t_max_evaluation_sites_per_target) {
-            number_of_additional_evaluation_indices(i) = additional_evaluation_indices(i,0);
-            t_max_evaluation_sites_per_target = (t_max_evaluation_sites_per_target > number_of_additional_evaluation_indices(i)+1) 
-                                                ? t_max_evaluation_sites_per_target : number_of_additional_evaluation_indices(i)+1;
-        }, Kokkos::Max<int>(_max_evaluation_sites_per_target));
+        _additional_evaluation_indices = NeighborLists<view_type>(additional_evaluation_indices, number_of_neighbors_list);
+        _max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
+        _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
+        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), KOKKOS_LAMBDA(const int i) {
+            _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
+        });
         Kokkos::fence();
         this->resetCoefficientData();
+
     }
 
     //! (OPTIONAL)
-    //! Sets the additional target evaluation coordinate indices list information. Should be # targets x maximum number of indices
-    //! evaluation indices for any target + 1. first entry in every row should be the number of indices for the corresponding target.
+    //! Sets the additional target evaluation indices list information from compressed row format (if different view_type)
     template <typename view_type>
-    void setAuxiliaryEvaluationIndicesLists(decltype(_additional_evaluation_indices) indices_lists) {
-        // allocate memory on device
-        _additional_evaluation_indices = indices_lists;
+    typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_additional_evaluation_indices)::internal_view_type,view_type>::value==0, void>::type 
+            setAuxiliaryEvaluationIndicesLists(view_type additional_evaluation_indices, view_type number_of_neighbors_list) {
 
-        _host_additional_evaluation_indices = Kokkos::create_mirror_view(_additional_evaluation_indices);
-        // copy data from host to device
-        Kokkos::deep_copy(_host_additional_evaluation_indices, _additional_evaluation_indices);
-
-        _max_evaluation_sites_per_target = 1;
-        auto number_of_additional_evaluation_indices = _number_of_additional_evaluation_indices;
-        auto additional_evaluation_indices = _additional_evaluation_indices;
-        Kokkos::parallel_reduce("additional evaluation indices", 
-                Kokkos::RangePolicy<device_execution_space>(0, _additional_evaluation_indices.extent(0)), 
-                KOKKOS_LAMBDA(const int i, int& t_max_evaluation_sites_per_target) {
-            number_of_additional_evaluation_indices(i) = additional_evaluation_indices(i,0);
-            t_max_evaluation_sites_per_target = (t_max_evaluation_sites_per_target > number_of_additional_evaluation_indices(i)+1) 
-                                                ? t_max_evaluation_sites_per_target : number_of_additional_evaluation_indices(i)+1;
-        }, Kokkos::Max<int>(_max_evaluation_sites_per_target));
+        typedef decltype(_additional_evaluation_indices)::internal_view_type gmls_view_type;
+        gmls_view_type d_additional_evaluation_indices("compressed row additional evaluation indices lists data", additional_evaluation_indices.extent(0));
+        gmls_view_type d_number_of_neighbors_list("number of additional evaluation indices", number_of_neighbors_list.extent(0));
+        Kokkos::deep_copy(d_additional_evaluation_indices, additional_evaluation_indices);
+        Kokkos::deep_copy(d_number_of_neighbors_list, number_of_neighbors_list);
+        Kokkos::fence();
+        _additional_evaluation_indices = NeighborLists<gmls_view_type>(d_additional_evaluation_indices, d_number_of_neighbors_list);
+        _max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
+        _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
+        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), KOKKOS_LAMBDA(const int i) {
+            _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
+        });
         Kokkos::fence();
         this->resetCoefficientData();
+            
     }
 
+    //! (OPTIONAL)
+    //! Sets the additional target evaluation indices list information. Should be # targets x maximum number of indices
+    //! evaluation indices for any target + 1. first entry in every row should be the number of indices for the corresponding target.
+    template <typename view_type>
+    typename std::enable_if<view_type::rank==2, void>::type setAuxiliaryEvaluationIndicesLists(view_type additional_evaluation_indices) {
+    
+        _additional_evaluation_indices = Convert2DToCompressedRowNeighborLists<decltype(additional_evaluation_indices), Kokkos::View<int*> >(additional_evaluation_indices);
+        _max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
+        _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
+        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), KOKKOS_LAMBDA(const int i) {
+            _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
+        });
+        Kokkos::fence();
+        this->resetCoefficientData();
+
+    }
 
     //! Type for weighting kernel for GMLS problem
     void setWeightingType( const std::string &wt) {
