@@ -189,7 +189,7 @@ public:
     //! \param sampling_data_single_column      [in] - 1D Kokkos View (memory space must match output_data_single_column)
     //! \param lro                              [in] - Target operation from the TargetOperation enum
     //! \param sro                              [in] - Sampling functional from the SamplingFunctional enum
-    //! \param evaluation_site_location         [in] - local column index of site from additional evaluation sites list or 0 for the target site
+    //! \param evaluation_site_local_index      [in] - local column index of site from additional evaluation sites list or 0 for the target site
     //! \param output_component_axis_1          [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar output
     //! \param output_component_axis_2          [in] - Columns for a rank 2 tensor, 0 for rank less than 2 output tensor
     //! \param input_component_axis_1           [in] - Row for a rank 2 tensor or rank 1 tensor, 0 for a scalar input

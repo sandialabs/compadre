@@ -295,10 +295,10 @@ protected:
         \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
         \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
         \param sampling_strategy    [in] - sampling functional specification
-        \param additional_evaluation_local_index [in] - local index for evaluation sites 
+        \param evaluation_site_local_index [in] - local index for evaluation sites (0 is target site)
     */
     KOKKOS_INLINE_FUNCTION
-    void calcPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, const scratch_matrix_right_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = PointSample, const int additional_evaluation_local_index = 0) const;
+    void calcPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, const scratch_matrix_right_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = PointSample, const int evaluation_site_local_index = 0) const;
 
     /*! \brief Evaluates the gradient of a polynomial basis under the Dirac Delta (pointwise) sampling function.
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -313,10 +313,10 @@ protected:
         \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
         \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
         \param sampling_strategy    [in] - sampling functional specification
-        \param additional_evaluation_local_index [in] - local index for evaluation sites 
+        \param evaluation_site_local_index [in] - local index for evaluation sites (0 is target site)
     */
     KOKKOS_INLINE_FUNCTION
-    void calcGradientPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int additional_evaluation_local_index = 0) const;
+    void calcGradientPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int evaluation_site_local_index = 0) const;
 
     /*! \brief Evaluates the Hessian of a polynomial basis under the Dirac Delta (pointwise) sampling function.
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -332,10 +332,10 @@ protected:
         \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
         \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
         \param sampling_strategy    [in] - sampling functional specification
-        \param additional_evaluation_local_index [in] - local index for evaluation sites 
+        \param evaluation_site_local_index [in] - local index for evaluation sites (0 is target site) 
     */
     KOKKOS_INLINE_FUNCTION
-    void calcHessianPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction_1, const int partial_direction_2, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int additional_evaluation_local_index = 0) const;
+    void calcHessianPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction_1, const int partial_direction_2, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int evaluation_site_local_index = 0) const;
 
     /*! \brief Fills the _P matrix with either P or P*sqrt(w)
         \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
@@ -439,7 +439,7 @@ protected:
         return _neighbor_lists.getMaxNumNeighbors();
     }
 
-    //! Returns the maximum number of evaluation sites over all target sites (target sites are included in total)
+    //! Returns the maximum number of evaluation sites over all target sites (target sites itself is included in total)
     KOKKOS_INLINE_FUNCTION
     int getMaxEvaluationSitesPerTarget() const {
         // add 1 for the target site itself
@@ -447,7 +447,7 @@ protected:
     }
 
     //! (OPTIONAL)
-    //! Returns number of additional evaluation sites for a particular target
+    //! Returns number of evaluation sites for a particular target (target site is included in total)
     KOKKOS_INLINE_FUNCTION
     int getNEvaluationSitesPerTarget(const int target_index) const {
         // add 1 for the target site itself
@@ -455,13 +455,13 @@ protected:
     }
 
     //! (OPTIONAL)
-    //! Mapping from [0,number of additional evaluation sites for a target] to the row that contains the coordinates for
+    //! Mapping from [0,number of additional evaluation sites for a target) to the row that contains the coordinates for
     //! that evaluation
     KOKKOS_INLINE_FUNCTION
     int getAdditionalEvaluationIndex(const int target_index, const int additional_list_num) const {
-        compadre_kernel_assert_debug((additional_list_num >= 1) 
-            && "additional_list_num must be greater than or equal to 1, unlike neighbor lists which begin indexing at 0.");
-        return _additional_evaluation_indices.getNeighborDevice(target_index, additional_list_num-1);
+        compadre_kernel_assert_debug((additional_list_num >= 0) 
+            && "additional_list_num must be greater than or equal to 0.");
+        return _additional_evaluation_indices.getNeighborDevice(target_index, additional_list_num);
     }
 
     //! Returns one component of the target coordinate for a particular target. Whether global or local coordinates 
@@ -485,7 +485,7 @@ protected:
     KOKKOS_INLINE_FUNCTION
     double getTargetAuxiliaryCoordinate(const int target_index, const int additional_list_num, const int dim, const scratch_matrix_right_type* V = NULL) const {
         auto additional_evaluation_index = getAdditionalEvaluationIndex(target_index, additional_list_num);
-        compadre_kernel_assert_debug((_additional_evaluation_coordinates.extent(0) >= (size_t)additional_evaluation_index) && "Additional evaluation index is out of range for _additional_evaluation_coordinates.");
+        compadre_kernel_assert_debug((_additional_evaluation_coordinates.extent(0) > (size_t)additional_evaluation_index) && "Additional evaluation index is out of range for _additional_evaluation_coordinates.");
         if (V==NULL) {
             return _additional_evaluation_coordinates(additional_evaluation_index, dim);
         } else {
@@ -549,8 +549,8 @@ protected:
     }
 
     //! Handles offset from operation input/output + extra evaluation sites
-    int getTargetOffsetIndexHost(const int lro_num, const int input_component, const int output_component, const int additional_evaluation_local_index = 0) const {
-        return ( _total_alpha_values*additional_evaluation_local_index 
+    int getTargetOffsetIndexHost(const int lro_num, const int input_component, const int output_component, const int evaluation_site_local_index = 0) const {
+        return ( _total_alpha_values*evaluation_site_local_index
                 + _host_lro_total_offsets[lro_num] 
                 + input_component*_host_lro_output_tile_size[lro_num] 
                 + output_component );
@@ -558,8 +558,8 @@ protected:
 
     //! Handles offset from operation input/output + extra evaluation sites
     KOKKOS_INLINE_FUNCTION
-    int getTargetOffsetIndexDevice(const int lro_num, const int input_component, const int output_component, const int additional_evaluation_local_index = 0) const {
-        return ( _total_alpha_values*additional_evaluation_local_index 
+    int getTargetOffsetIndexDevice(const int lro_num, const int input_component, const int output_component, const int evaluation_site_local_index = 0) const {
+        return ( _total_alpha_values*evaluation_site_local_index
                 + _lro_total_offsets[lro_num] 
                 + input_component*_lro_output_tile_size[lro_num] 
                 + output_component );
@@ -1043,7 +1043,7 @@ public:
     //! to this returned value to be meaningful)
     int getAlphaColumnOffset(TargetOperation lro, const int output_component_axis_1, 
             const int output_component_axis_2, const int input_component_axis_1, 
-            const int input_component_axis_2, const int additional_evaluation_local_index = 0) const {
+            const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
 
         const int lro_number = _lro_lookup[(int)lro];
         compadre_assert_debug((lro_number >= 0) && "getAlphaColumnOffset called for a TargetOperation that was not registered.");
@@ -1055,7 +1055,7 @@ public:
         const int input_index = getSamplingOutputIndex(_data_sampling_functional, input_component_axis_1, input_component_axis_2);
         const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2, _dimensions);
 
-        return getTargetOffsetIndexHost(lro_number, input_index, output_index, additional_evaluation_local_index);
+        return getTargetOffsetIndexHost(lro_number, input_index, output_index, evaluation_site_local_index);
     }
 
     //! Get a view (device) of all alphas
@@ -1084,53 +1084,53 @@ public:
     ReconstructionSpace getReconstructionSpace() const { return _reconstruction_space; }
 
     //! Helper function for getting alphas for scalar reconstruction from scalar data
-    double getAlpha0TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int additional_evaluation_site = 0) const {
+    double getAlpha0TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int evaluation_site_local_index = 0) const {
         // e.g. Dirac Delta target of a scalar field
-        return getAlpha(lro, target_index, 0, 0, neighbor_index, 0, 0, additional_evaluation_site);
+        return getAlpha(lro, target_index, 0, 0, neighbor_index, 0, 0, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for vector reconstruction from scalar data
-    double getAlpha0TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int additional_evaluation_site = 0) const {
+    double getAlpha0TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int evaluation_site_local_index = 0) const {
         // e.g. gradient of a scalar field
-        return getAlpha(lro, target_index, output_component, 0, neighbor_index, 0, 0, additional_evaluation_site);
+        return getAlpha(lro, target_index, output_component, 0, neighbor_index, 0, 0, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for matrix reconstruction from scalar data
-    double getAlpha0TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int additional_evaluation_site = 0) const {
-        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, 0, 0, additional_evaluation_site);
+    double getAlpha0TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int evaluation_site_local_index = 0) const {
+        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, 0, 0, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for scalar reconstruction from vector data
-    double getAlpha1TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component, const int additional_evaluation_site = 0) const {
+    double getAlpha1TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component, const int evaluation_site_local_index = 0) const {
         // e.g. divergence of a vector field
-        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component, 0, additional_evaluation_site);
+        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component, 0, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for vector reconstruction from vector data
-    double getAlpha1TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component, const int additional_evaluation_site = 0) const {
+    double getAlpha1TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component, const int evaluation_site_local_index = 0) const {
         // e.g. curl of a vector field
-        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component, 0, additional_evaluation_site);
+        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component, 0, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for matrix reconstruction from vector data
-    double getAlpha1TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component, const int additional_evaluation_site = 0) const {
+    double getAlpha1TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component, const int evaluation_site_local_index = 0) const {
         // e.g. gradient of a vector field
-        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component, 0, additional_evaluation_site);
+        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component, 0, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for scalar reconstruction from matrix data
-    double getAlpha2TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int additional_evaluation_site = 0) const {
-        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
+    double getAlpha2TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
+        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for vector reconstruction from matrix data
-    double getAlpha2TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int additional_evaluation_site = 0) const {
-        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
+    double getAlpha2TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
+        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for matrix reconstruction from matrix data
-    double getAlpha2TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int additional_evaluation_site = 0) const {
-        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
+    double getAlpha2TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
+        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
     }
 
     //! Gives index into alphas given two axes, which when incremented by the neighbor number transforms access into
@@ -1165,7 +1165,7 @@ public:
     }
 
     //! Underlying function all interface helper functions call to retrieve alpha values
-    double getAlpha(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int additional_evaluation_site = 0) const {
+    double getAlpha(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
         // lro - the operator from TargetOperations
         // target_index - the # for the target site where information is required
         // neighbor_index - the # for the neighbor of the target
@@ -1187,7 +1187,7 @@ public:
         //
 
         const int alpha_column_offset = this->getAlphaColumnOffset( lro, output_component_axis_1, 
-                output_component_axis_2, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
+                output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
 
         auto alphas_index = this->getAlphaIndexHost(target_index, alpha_column_offset);
         return _host_alphas(alphas_index + neighbor_index);
