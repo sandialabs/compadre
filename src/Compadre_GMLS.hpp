@@ -989,6 +989,9 @@ public:
     //! Get neighbor list accessor
     decltype(_neighbor_lists)* getNeighborLists() { return &_neighbor_lists; }
 
+    //! Get additional evaluation sites neighbor list-like accessor
+    decltype(_additional_evaluation_indices)* getAdditionalEvaluationIndices() { return &_additional_evaluation_indices; }
+
     //! Get a view (device) of all tangent direction bundles.
     decltype(_T) getTangentDirections() const { return _T; }
 

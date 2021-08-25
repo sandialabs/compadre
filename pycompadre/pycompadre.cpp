@@ -47,12 +47,14 @@ private:
     double_3d_view_type _tangent_bundle;
     double_2d_view_type _reference_normal_directions;
     double_2d_view_type _additional_evaluation_coords;
-    int_2d_view_type    _additional_evaluation_indices;
+    Compadre::NeighborLists<int_1d_view_type_in_gmls>* a_nl;
 
 public:
 
     ParticleHelper(GMLS& gmls_instance) {
         gmls_object = &gmls_instance;
+        nl = gmls_object->getNeighborLists();
+        a_nl = gmls_object->getAdditionalEvaluationIndices();
     }
 
     void setNeighbors(py::array_t<local_index_type> input) {
@@ -83,6 +85,11 @@ public:
     decltype(nl) getNeighborLists() {
         compadre_assert_release((nl->getNumberOfTargets()>0) && "getNeighborLists() called, but neighbor lists were never set.");
         return gmls_object->getNeighborLists();
+    }
+
+    decltype(a_nl) getAdditionalEvaluationIndices() {
+        compadre_assert_release((a_nl->getNumberOfTargets()>0) && "getAdditionalEvaluationIndices() called, but additional evaluation indices were never set.");
+        return gmls_object->getAdditionalEvaluationIndices();
     }
 
     void setSourceSites(py::array_t<double> input) {
@@ -454,7 +461,7 @@ public:
         gmls_object->setAdditionalEvaluationSitesData(neighbor_lists, extra_coords);
         // store in ParticleHelper
         _additional_evaluation_coords  = extra_coords;
-        _additional_evaluation_indices = neighbor_lists;
+        a_nl = gmls_object->getAdditionalEvaluationIndices();
     }
 
     py::array_t<double> getPolynomialCoefficients(py::array_t<double> input) {
@@ -590,25 +597,9 @@ public:
             (source_data, lro, sro, true /*scalar_as_vector_if_needed*/, 0);
 
         // get maximum number of additional sites plus target site (+1) per target site
-        int max_additional_sites = 0;
-        int min_additional_sites = INT_MAX;
-        if (_additional_evaluation_indices.extent(0)>0) {
-            auto number_of_neighbors_list = _additional_evaluation_indices;
-            Kokkos::parallel_reduce("max number of extra evaluation sites per target", 
-                    Kokkos::RangePolicy<host_execution_space>(0, number_of_neighbors_list.extent(0)), 
-                    KOKKOS_LAMBDA(const int i, int& t_max_num_neighbors) {
-                t_max_num_neighbors = (number_of_neighbors_list(i,0) > t_max_num_neighbors) ? number_of_neighbors_list(i,0) : t_max_num_neighbors;
-            }, Kokkos::Max<int>(max_additional_sites));
-            Kokkos::parallel_reduce("min number of extra evaluation sites per target", 
-                    Kokkos::RangePolicy<host_execution_space>(0, number_of_neighbors_list.extent(0)), 
-                    KOKKOS_LAMBDA(const int i, int& t_min_num_neighbors) {
-                t_min_num_neighbors = (number_of_neighbors_list(i,0) < t_min_num_neighbors) ? number_of_neighbors_list(i,0) : t_min_num_neighbors;
-            }, Kokkos::Min<int>(min_additional_sites));
-            Kokkos::fence();
-            printf("%d vs %d\n", min_additional_sites, max_additional_sites);
-            compadre_assert_release((min_additional_sites==max_additional_sites) && "Use of applyStencilAllTargetsAllAdditionalEvaluationSites with different target sites having different number of additional evaluation sites. (min_additional_sites!=max_additional_sites)");
-            max_additional_sites += 1; // reconstruction also performed at index 0 for original target
-        }
+        int max_additional_sites = a_nl->getMaxNumNeighbors() + 1;
+        a_nl->computeMinNumNeighbors();
+        int min_additional_sites = a_nl->getMinNumNeighbors();
 
         // set dim_out_0 to 1 if setAdditionalEvaluationSitesData never called
         size_t dim_out_0 = (_additional_evaluation_coords.size()==0) ? 1 : max_additional_sites;
@@ -750,6 +741,7 @@ PYBIND11_MODULE(pycompadre, m) {
             py::arg("max_search_radius") = 0.0)
     .def("setNeighbors", &ParticleHelper::setNeighbors, py::arg("neighbor_lists"), 
             "Sets neighbor lists from 2D array where first column is number of neighbors for corresponding row's target site.")
+    .def("getAdditionalEvaluationIndices", &ParticleHelper::getAdditionalEvaluationIndices, py::return_value_policy::reference_internal)
     .def("getNeighborLists", &ParticleHelper::getNeighborLists, py::return_value_policy::reference_internal)
     .def("setWindowSizes", &ParticleHelper::setWindowSizes, py::arg("window_sizes"))
     .def("getWindowSizes", &ParticleHelper::getWindowSizes, py::return_value_policy::take_ownership)
@@ -763,9 +755,9 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("getReferenceOutwardNormalDirection", &ParticleHelper::getReferenceOutwardNormalDirection, py::return_value_policy::take_ownership)
     .def("setAdditionalEvaluationSitesData", &ParticleHelper::setAdditionalEvaluationSitesData, py::arg("additional_evaluation_sites_neighbor_lists"), py::arg("additional_evaluation_sites_coordinates"))
     .def("getPolynomialCoefficients", &ParticleHelper::getPolynomialCoefficients, py::arg("input_data"), py::return_value_policy::take_ownership)
-    .def("applyStencilSingleTarget", &ParticleHelper::applyStencilSingleTarget, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::arg("additional_evaluation_index")=0)
+    .def("applyStencilSingleTarget", &ParticleHelper::applyStencilSingleTarget, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::arg("evaluation_site_local_index")=0)
     .def("applyStencilAllTargetsAllAdditionalEvaluationSites", &ParticleHelper::applyStencilAllTargetsAllAdditionalEvaluationSites, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::return_value_policy::take_ownership)
-    .def("applyStencil", &ParticleHelper::applyStencil, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::arg("additional_evaluation_index")=0, py::return_value_policy::take_ownership);
+    .def("applyStencil", &ParticleHelper::applyStencil, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::arg("evaluation_site_local_index")=0, py::return_value_policy::take_ownership);
     
 
     py::class_<GMLS>(m, "GMLS")
