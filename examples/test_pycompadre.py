@@ -172,6 +172,9 @@ def remap(polyOrder,dimension,additional_sites=False):
                 additional_sites_l2_error += \
                     np.power(abs(computed_answer - exact(additional_site_coordinates[i*4+j],polyOrder,dimension)),2)
 
+    # retrieve additional sites neighbor lists just to make sure it works
+    a_nl = gmls_helper.getAdditionalEvaluationIndices()
+
     # get polynomial coefficients
     polynomial_coefficients = gmls_helper.getPolynomialCoefficients(data_vector)
 
@@ -233,3 +236,4 @@ class TestPycompadre(TestCase):
 
 #tc = TestPycompadre()
 #tc.test_additional_sites()
+#tc.test_3d_order1()
