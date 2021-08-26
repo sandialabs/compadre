@@ -22,15 +22,15 @@ p^{*}& =& \underset{p \in V}{\text{arg min}}\;\frac{1}{2}\sum_{j=1}^N (\lambda_j
 --->
 
 ## Wiki Information
-Details about building and using the Compadre toolkit can be found on the [Wiki](https://github.com/SNLComputation/compadre/wiki).
+Details about building and using the Compadre toolkit can be found on the [Wiki](https://github.com/sandialabs/compadre/wiki).
 
 ## Recent Changes
-[Recent Changes](https://github.com/SNLComputation/compadre/wiki/Changelog)
+[Recent Changes](https://github.com/sandialabs/compadre/wiki/Changelog)
 
 ## Installation
-[Installation of Kokkos and KokkosKernels](https://github.com/SNLComputation/compadre/wiki/Kokkos-and-KokkosKernels) [Either automatically configured and built, or user installation location provided]
+[Installation of Kokkos and KokkosKernels](https://github.com/sandialabs/compadre/wiki/Kokkos-and-KokkosKernels) [Either automatically configured and built, or user installation location provided]
 
-[Installation of Compadre](https://github.com/SNLComputation/compadre/wiki/Building-Compadre)
+[Installation of Compadre](https://github.com/sandialabs/compadre/wiki/Building-Compadre)
 
 ## Documentation and Tutorials
 The toolkit is documented by Doxygen. <b>[Documentation is available online](https://snlcomputation.github.io/compadre/index.html)</b> or can be compiled from source.
@@ -49,7 +49,7 @@ If you write a paper using results obtained with the help of the Compadre Toolki
   month        = jan, 
   year         = 2019,
   doi          = {10.11578/dc.20190411.1},
-  url          = {https://github.com/SNLComputation/compadre}
+  url          = {https://github.com/sandialabs/compadre}
 }
 ```
 
