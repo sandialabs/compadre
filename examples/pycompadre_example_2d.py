@@ -87,6 +87,9 @@ def approximate(porder, wpower, wtype, epsilon_multiplier, attempt_center_about_
     computed_answer = np.zeros(shape=(len(extra_sites_coords),), dtype='f8')
     sf = pycompadre.SamplingFunctional['PointSample']
 
+    colors = len(XY_ravel)*['black']
+    for k in range(nl.getNumberOfNeighbors(0)):
+        colors[nl.getNeighbor(0,k)] = 'red'
     for j in range(extra_sites_idx[0,0]):
         computed_answer[j] = gmls_helper_2.applyStencilSingleTarget(Z_ravel, pycompadre.TargetOperation.ScalarPointEvaluation, sf, j+1)
 
@@ -99,10 +102,10 @@ def approximate(porder, wpower, wtype, epsilon_multiplier, attempt_center_about_
     del gmls_helper_2
     toc = time.perf_counter()
     PRINT_SOLVE_TIME and print("Solve GMLS in %0.6f seconds"%(toc-tic,))
-    return (np.reshape(Z_pred, newshape=(len(x_pred), len(y_pred))), np.reshape(computed_answer, newshape=(len(x_pred), len(y_pred))), center_about_extra_idx, center_about_extra_coord)
+    return (np.reshape(Z_pred, newshape=(len(x_pred), len(y_pred))), np.reshape(computed_answer, newshape=(len(x_pred), len(y_pred))), center_about_extra_idx, center_about_extra_coord, colors)
     
 # get initial data for plotting
-Z_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(polynomial_order, 3, 'power', epsilon_multiplier, np.atleast_2d([1.0,1.0]))
+Z_pred, computed_answer, center_about_extra_idx, center_about_extra_coord, colors = approximate(polynomial_order, 3, 'power', epsilon_multiplier, np.atleast_2d([1.0,1.0]))
 
 tic = time.perf_counter()
 # plot initial data
@@ -122,6 +125,7 @@ p.remove()
 # plot again
 d = ax.plot_surface(X_pred, Y_pred, Z_pred, color='b', zorder=1, alpha=0.7)
 p = ax.scatter(X.ravel(order='C'), Y.ravel(order='C'), Z_ravel, c='#000000', marker='D', zorder=2)
+p.set_color(colors)
 l = ax.plot_surface(X_pred, Y_pred, computed_answer, color='#00FF00', zorder=2, alpha=0.3)
 s = ax.scatter([center_about_extra_coord[0],], [center_about_extra_coord[1],], [computed_answer.ravel(order='C')[center_about_extra_idx],], c='#FF0000', marker='o', zorder=4, edgecolor='black', s=180, alpha=1.0)
 ax.set(xlabel='x', ylabel='GMLS approximation')
@@ -160,7 +164,7 @@ PRINT_PLOT_TIME and print("Setup graphics in %0.6f seconds"%(toc-tic,))
 
 def update(val):
     global weighting_type
-    Z_pred, computed_answer, center_about_extra_idx, center_about_extra_coord = approximate(sl_polynomial_order.val, sl_weighting_power.val, weighting_type, sl_epsilon.val, np.atleast_2d([sl_location_x.val, sl_location_y.val]))
+    Z_pred, computed_answer, center_about_extra_idx, center_about_extra_coord, colors = approximate(sl_polynomial_order.val, sl_weighting_power.val, weighting_type, sl_epsilon.val, np.atleast_2d([sl_location_x.val, sl_location_y.val]))
     global d, l, s
     try:
         d.remove()
@@ -177,6 +181,8 @@ def update(val):
     except:
         pass
     s = ax.scatter([center_about_extra_coord[0],], [center_about_extra_coord[1],], [computed_answer.ravel(order='C')[center_about_extra_idx],], c='#FF0000', marker='o', zorder=4, edgecolor='black', s=180, alpha=1.0)
+    if sl_location_check.get_status()[0]:
+        p.set_color(colors)
     fig.canvas.draw_idle()
 # register objects using update
 sl_location_x.on_changed(update)
@@ -240,6 +246,10 @@ sl_num_data_points.on_changed(changefunc)
 def changelocationviz(label):
     l.set_visible(sl_location_check.get_status()[0])
     fig.canvas.draw_idle()
+    if sl_location_check.get_status()[0]:
+        update(0)
+    else:
+        p.set_color('black')
 sl_location_check.on_clicked(changelocationviz)
 
 plt.show()
