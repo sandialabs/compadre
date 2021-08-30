@@ -681,10 +681,10 @@ PYBIND11_MODULE(pycompadre, m) {
         >> del kp
 
         Project details at: 
-        https://github.com/SNLComputation/compadre
+        https://github.com/sandialabs/compadre
 
         Implementation details at: 
-        https://github.com/SNLComputation/compadre/blob/master/pycompadre/pycompadre.cpp
+        https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
 
     )pbdoc";
 
