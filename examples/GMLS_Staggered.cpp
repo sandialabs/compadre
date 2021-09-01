@@ -279,8 +279,8 @@ bool all_passed = true;
     vector_basis_gmls.setWeightingType(WeightingFunctionType::Power);
 
     // power to use in that weighting kernel function
-    scalar_basis_gmls.setWeightingPower(2);
-    vector_basis_gmls.setWeightingPower(2);
+    scalar_basis_gmls.setWeightingParameter(2);
+    vector_basis_gmls.setWeightingParameter(2);
 
     // setup quadrature for StaggeredEdgeIntegralSample
     vector_basis_gmls.setOrderOfQuadraturePoints(order);

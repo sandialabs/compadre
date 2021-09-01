@@ -201,6 +201,8 @@ namespace Compadre {
         Power,
         Gaussian,
         CubicSpline,
+        Cosine,
+        Sigmoid
     };
 
     //! Coordinate type for input and output format of vector data on manifold problems.

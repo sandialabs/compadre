@@ -729,6 +729,14 @@ PYBIND11_MODULE(pycompadre, m) {
     .value("DivergenceFreeVectorTaylorPolynomial", ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial)
     .export_values();
 
+    py::enum_<WeightingFunctionType>(m, "WeightingFunctionType")
+    .value("Power", WeightingFunctionType::Power)
+    .value("Gaussian", WeightingFunctionType::Gaussian)
+    .value("CubicSpline", WeightingFunctionType::CubicSpline)
+    .value("Cosine", WeightingFunctionType::Cosine)
+    .value("Sigmoid", WeightingFunctionType::Sigmoid)
+    .export_values();
+
     // helper functions
     py::class_<ParticleHelper>(m, "ParticleHelper", R"pbdoc(
         Class to manage calling PointCloudSearch, moving data to/from Numpy arrays in Kokkos::Views,
@@ -770,9 +778,10 @@ PYBIND11_MODULE(pycompadre, m) {
             py::arg("poly_order"),py::arg("dimension")=3,py::arg("dense_solver_type")="QR", 
             py::arg("problem_type")="STANDARD", py::arg("constraint_type")="NO_CONSTRAINT", 
             py::arg("curvature_poly_order")=2)
-    .def("setWeightingPower", &GMLS::setWeightingPower)
-    .def("setWeightingType", overload_cast_<const std::string&>()(&GMLS::setWeightingType), "Set the weighting type.")
-    //.def("setWeightingType", overload_cast_<WeightingType>()(&GMLS::setWeightingType), "Set the weighting type.")
+    .def("setWeightingParameter", &GMLS::setWeightingParameter, py::arg("parameter value"), py::arg("parameter index")=0, "Set weighting kernel parameter[index] to parameter value.")
+    .def("getWeightingType", &GMLS::getWeightingType, "Get the weighting type.")
+    .def("setWeightingType", overload_cast_<const std::string&>()(&GMLS::setWeightingType), "Set the weighting type with a string.")
+    .def("setWeightingType", overload_cast_<WeightingFunctionType>()(&GMLS::setWeightingType), "Set the weighting type with a WeightingFunctionType.")
     .def("addTargets", overload_cast_<TargetOperation>()(&GMLS::addTargets), "Add a target operation.")
     .def("addTargets", overload_cast_<std::vector<TargetOperation> >()(&GMLS::addTargets), "Add a list of target operations.")
     .def("generateAlphas", &GMLS::generateAlphas, py::arg("number_of_batches")=1, py::arg("keep_coefficients")=false)
@@ -802,6 +811,8 @@ PYBIND11_MODULE(pycompadre, m) {
     m.def("getNN", &GMLS::getNN, R"pbdoc(
         Heuristic number of neighbors.
     )pbdoc");
+
+    m.def("Wab", &GMLS::Wab, py::arg("r"), py::arg("h"), py::arg("weighting type"), py::arg("p"), py::arg("n"), "Evaluate weighting kernel.");
 
 #ifdef COMPADRE_VERSION_MAJOR
     m.attr("__version__") = std::to_string(COMPADRE_VERSION_MAJOR) + "." + std::to_string(COMPADRE_VERSION_MINOR) + "." + std::to_string(COMPADRE_VERSION_PATCH);

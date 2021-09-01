@@ -32,7 +32,7 @@ extra_sites_coords = np.atleast_2d(np.linspace(0,4,200)).T
 # get GMLS approximate at all x_pred, as well as reconstruction about attempt_center_about_coord
 def approximate(solver_type, porder, wpower, wtype, epsilon_multiplier, attempt_center_about_coord):
     gmls_obj=pycompadre.GMLS(porder, input_dimensions, solver_type, "STANDARD")
-    gmls_obj.setWeightingPower(wpower)
+    gmls_obj.setWeightingParameter(wpower)
     gmls_obj.setWeightingType(wtype)
     gmls_helper = pycompadre.ParticleHelper(gmls_obj)
     gmls_helper.generateKDTree(np.atleast_2d(x).T)

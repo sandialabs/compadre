@@ -10,7 +10,7 @@ def approximate(input_dimensions, porder, wpower, wtype, epsilon_multiplier, att
 
     global xy, xy_pred, z
     gmls_obj=pycompadre.GMLS(porder, input_dimensions, "QR", "MANIFOLD")
-    gmls_obj.setWeightingPower(wpower)
+    gmls_obj.setWeightingParameter(wpower)
     gmls_obj.setWeightingType(wtype)
     gmls_helper = pycompadre.ParticleHelper(gmls_obj)
     gmls_helper.generateKDTree(xy)

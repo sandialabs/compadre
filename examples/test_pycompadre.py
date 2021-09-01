@@ -56,7 +56,7 @@ def remap(polyOrder,dimension,additional_sites=False):
 
     # initialize 3rd order reconstruction using 2nd order basis in 3D (GMLS)
     gmls_obj=pycompadre.GMLS(polyOrder, dimensions, "QR", "STANDARD")
-    gmls_obj.setWeightingPower(4)
+    gmls_obj.setWeightingParameter(4)
     gmls_obj.setWeightingType("power")
 
     NT = 10 # Targets

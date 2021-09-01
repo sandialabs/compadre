@@ -633,7 +633,7 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
             }
 
             // generate weight vector from distances and window sizes
-            w(i+my_num_neighbors*d) = this->Wab(r, _epsilons(target_index), _weighting_type, _weighting_power);
+            w(i+my_num_neighbors*d) = this->Wab(r, _epsilons(target_index), _weighting_type, _weighting_p, _weighting_n);
 
             this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, i + d*my_num_neighbors, 0 /*alpha*/, dimension, polynomial_order, false /*bool on only specific order*/, V, reconstruction_space, polynomial_sampling_functional);
 
@@ -695,10 +695,10 @@ void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_
 
         // generate weight vector from distances and window sizes
         if (only_specific_order) {
-            w(i) = this->Wab(r, _epsilons(target_index), _curvature_weighting_type, _curvature_weighting_power);
+            w(i) = this->Wab(r, _epsilons(target_index), _curvature_weighting_type, _curvature_weighting_p, _curvature_weighting_n);
             this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, i, 0 /*alpha*/, dimension, 1, true /*bool on only specific order*/);
         } else {
-            w(i) = this->Wab(r, _epsilons(target_index), _curvature_weighting_type, _curvature_weighting_power);
+            w(i) = this->Wab(r, _epsilons(target_index), _curvature_weighting_type, _curvature_weighting_p, _curvature_weighting_n);
             this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, i, 0 /*alpha*/, dimension, _curvature_poly_order, false /*bool on only specific order*/, V);
         }
 

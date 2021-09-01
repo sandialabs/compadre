@@ -130,7 +130,7 @@ bool all_passed = true;
                  solver_name.c_str(), problem_name.c_str(), constraint_name.c_str(),
                  2 /*manifold order*/);
     my_GMLS.setProblemData(neighbor_lists, source_coords, target_coords, epsilon);
-    my_GMLS.setWeightingPower(10);
+    my_GMLS.setWeightingParameter(10);
 
     std::vector<TargetOperation> lro(5);
     lro[0] = ScalarPointEvaluation;

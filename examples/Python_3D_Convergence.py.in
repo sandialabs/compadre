@@ -38,7 +38,7 @@ def test1(ND):
 
     # initialize 3rd order reconstruction using 2nd order basis in 3D (GMLS)
     gmls_obj=pycompadre.GMLS(polyOrder, dimensions, "QR", "STANDARD")
-    gmls_obj.setWeightingPower(10)
+    gmls_obj.setWeightingParameter(10)
     gmls_obj.setWeightingType("power")
 
     NT = 100 # Targets

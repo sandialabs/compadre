@@ -15,7 +15,7 @@ and epsilon multiplier choices.
 '''
 
 PRINT_SETUP_TIME = False 
-PRINT_SOLVE_TIME = False 
+PRINT_SOLVE_TIME = False
 PRINT_PLOT_TIME  = False 
 
 # initialize Kokkos
@@ -50,7 +50,7 @@ PRINT_SETUP_TIME and print("Setup data in %0.6f seconds"%(toc-tic,))
 def approximate(porder, wpower, wtype, epsilon_multiplier, attempt_center_about_coord):
     tic = time.perf_counter()
     gmls_obj=pycompadre.GMLS(porder, input_dimensions, "QR", "STANDARD")
-    gmls_obj.setWeightingPower(wpower)
+    gmls_obj.setWeightingParameter(wpower)
     gmls_obj.setWeightingType(wtype)
     gmls_helper = pycompadre.ParticleHelper(gmls_obj)
 
@@ -68,7 +68,7 @@ def approximate(porder, wpower, wtype, epsilon_multiplier, attempt_center_about_
     extra_sites_coords = np.copy(XY_pred_ravel)
 
     gmls_obj_2=pycompadre.GMLS(porder, input_dimensions, "QR", "STANDARD")
-    gmls_obj_2.setWeightingPower(wpower)
+    gmls_obj_2.setWeightingParameter(wpower)
     gmls_obj_2.setWeightingType(wtype)
     gmls_helper_2 = pycompadre.ParticleHelper(gmls_obj_2)
     gmls_helper_2.generateKDTree(XY_ravel)
