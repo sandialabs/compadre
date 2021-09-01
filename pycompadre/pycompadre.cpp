@@ -778,6 +778,7 @@ PYBIND11_MODULE(pycompadre, m) {
             py::arg("poly_order"),py::arg("dimension")=3,py::arg("dense_solver_type")="QR", 
             py::arg("problem_type")="STANDARD", py::arg("constraint_type")="NO_CONSTRAINT", 
             py::arg("curvature_poly_order")=2)
+    .def("getWeightingParameter", &GMLS::getWeightingParameter, py::arg("parameter index")=0, "Get weighting kernel parameter[index].")
     .def("setWeightingParameter", &GMLS::setWeightingParameter, py::arg("parameter value"), py::arg("parameter index")=0, "Set weighting kernel parameter[index] to parameter value.")
     .def("getWeightingType", &GMLS::getWeightingType, "Get the weighting type.")
     .def("setWeightingType", overload_cast_<const std::string&>()(&GMLS::setWeightingType), "Set the weighting type with a string.")
