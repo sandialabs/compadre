@@ -77,7 +77,7 @@ y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord, color
 # plot initial data
 fig, ax = plt.subplots()
 plt.subplots_adjust(left=0.25, bottom=0.25)
-p = plt.scatter(x, y, c='#000000', marker='D', zorder=2)
+p = ax.scatter(x, y, c='#000000', marker='D', zorder=2)
 p.set_color(colors)
 d, = plt.plot(x_pred, y_pred, c='#0000FF', linewidth=4, zorder=1)
 l, = plt.plot(extra_sites_coords, computed_answer, c='#00FF00', lw=2, zorder=3)
@@ -117,7 +117,7 @@ rad_weighting_type = RadioButtons(ax_weighting_type, ('Power', 'Cubic Spl.', 'Co
 rad_func_type = RadioButtons(ax_func_type, ('sin(x)', 'x*sin(20x)', 'x^2'), active=2)
 rad_solver_type = RadioButtons(ax_solver_type, ('QR', 'LU'), active=0)
 
-def update(val):
+def update(val, relim=False):
     sl_location.valinit=2.0
     global weighting_type
     y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord, colors = approximate(rad_solver_type.value_selected, sl_polynomial_order.val, sl_weighting_power_0.val, sl_weighting_power_1.val, weighting_type, sl_epsilon.val, sl_location.val)
@@ -126,6 +126,12 @@ def update(val):
     s.set_offsets([center_about_extra_coord, computed_answer[center_about_extra_idx]])
     if sl_location_check.get_status()[0]:
         p.set_color(colors)
+    if relim:
+        ax.ignore_existing_data_limits = True
+        ax.update_datalim(p.get_datalim(ax.transData))
+        ax.autoscale(True)
+        ax.autoscale_view()
+        ax.autoscale(False)
     fig.canvas.draw_idle()
 # register objects using update
 sl_location.on_changed(update)
@@ -174,14 +180,8 @@ def changefunc(label):
         func_type_dict = {'sin(x)': lambda x: np.sin(x), 'x*sin(20x)': lambda x: x*np.sin(20*x), 'x^2' : lambda x: pow(x,2)}
         function = func_type_dict[label]
     y[:] = function(x)
-    y_pred, computed_answer, center_about_extra_idx, center_about_extra_coord, colors = approximate(rad_solver_type.value_selected, sl_polynomial_order.val, sl_weighting_power_0.val, sl_weighting_power_1.val, weighting_type, sl_epsilon.val, sl_location.val)
-    l.set_ydata(computed_answer)
-    d.set_ydata(y_pred)
     p.set_offsets(np.vstack((x,y)).T)
-    if type(label)==str:
-        ax.relim()
-        ax.autoscale_view()
-    update(0)
+    update(0, True)
     fig.canvas.draw_idle()
 # register objects using changefunc
 rad_func_type.on_clicked(changefunc)
