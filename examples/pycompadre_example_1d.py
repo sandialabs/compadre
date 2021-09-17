@@ -26,7 +26,7 @@ function = lambda x: pow(x,2)
 num_data_points = 10
 x = np.linspace(0,4,num_data_points)
 y = function(x)
-x_pred = np.linspace(0,4,200)
+x_pred = np.linspace(0,4,2000)
 extra_sites_coords = np.atleast_2d(np.linspace(0,4,200)).T
 
 # get GMLS approximate at all x_pred, as well as reconstruction about attempt_center_about_coord
@@ -39,7 +39,7 @@ def approximate(solver_type, porder, wpower0, wpower1, wtype, epsilon_multiplier
     gmls_helper.generateKDTree(np.atleast_2d(x).T)
     gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
     
-    gmls_helper.generateNeighborListsFromKNNSearchAndSet(np.atleast_2d(x_pred).T, porder, input_dimensions, epsilon_multiplier)
+    gmls_helper.generateNeighborListsFromKNNSearchAndSet(np.atleast_2d(x_pred).T, porder, input_dimensions, epsilon_multiplier, 0.0, False, True)
     
     center_about_idx   = (np.abs(x_pred - attempt_center_about_coord)).argmin()
     center_about_coord = x_pred[center_about_idx]
