@@ -169,11 +169,17 @@ protected:
     //! weighting kernel type for curvature problem
     WeightingFunctionType _curvature_weighting_type;
 
-    //! power to be used for weighting kernel
-    int _weighting_power;
+    //! first parameter to be used for weighting kernel
+    int _weighting_p;
 
-    //! power to be used for weighting kernel for curvature
-    int _curvature_weighting_power;
+    //! second parameter to be used for weighting kernel
+    int _weighting_n;
+
+    //! first parameter to be used for weighting kernel for curvature
+    int _curvature_weighting_p;
+
+    //! second parameter to be used for weighting kernel for curvature
+    int _curvature_weighting_n;
 
     //! dimension of the reconstructed function 
     //! e.g. reconstruction of vector on a 2D manifold in 3D would have _basis_multiplier of 2
@@ -666,8 +672,10 @@ public:
 
         _weighting_type = WeightingFunctionType::Power;
         _curvature_weighting_type = WeightingFunctionType::Power;
-        _weighting_power = 2;
-        _curvature_weighting_power = 2;
+        _weighting_p = 2;
+        _weighting_n = 1;
+        _curvature_weighting_p = 2;
+        _curvature_weighting_n = 1;
 
         _reconstruction_space_rank = ActualReconstructionSpaceRank[_reconstruction_space];
 
@@ -846,20 +854,43 @@ public:
         \param r                [in] - Euclidean distance of relative vector. Euclidean distance of (target - neighbor) in some basis.
         \param h                [in] - window size. Kernel is guaranteed to take on a value of zero if it exceeds h.
         \param weighting_type   [in] - weighting type to be evaluated as the kernel. e,g. power, Gaussian, etc..
-        \param power            [in] - power parameter to be given to the kernel.
+        \param p                [in] - parameter to be given to the kernel (see Wab definition for context).
+        \param n                [in] - parameter to be given to the kernel (see Wab definition for context).
     */
     KOKKOS_INLINE_FUNCTION
-    static double Wab(const double r, const double h, const WeightingFunctionType& weighting_type, const int power) {
+    static double Wab(const double r, const double h, const WeightingFunctionType& weighting_type, const int p, const int n) {
         if (weighting_type == WeightingFunctionType::Power) {
-            return std::pow(1.0-std::abs(r/h), power) * double(1.0-std::abs(r/h)>0.0);
-        } else if (weighting_type == WeightingFunctionType::Gaussian) {
-            // 2.5066282746310002416124 = sqrt(2*pi)
-            double h_over_3 = h/3.0;
-            return 1./( h_over_3 * 2.5066282746310002416124 ) * std::exp(-.5*r*r/(h_over_3*h_over_3));
+            // compactly supported on [0,h]
+            // (1 - |r/h|^n)^p
+            // p=0,n=1 -> Uniform, boxcar
+            // p=1,n=1 -> triangular
+            // p=0,n=2 -> Epanechnikov, parabolic
+            // p=2,n=2 -> Quartic, biweight
+            // p=3,n=2 -> Triweight
+            // p=3,n=3 -> Tricube
+            double abs_r_over_h_to_n = std::abs(r/h);
+            if (n>1) abs_r_over_h_to_n = std::pow(abs_r_over_h_to_n, n);
+            return std::pow(1.0-abs_r_over_h_to_n, p) * double(1.0-abs_r_over_h_to_n>0.0);
         } else if (weighting_type == WeightingFunctionType::CubicSpline) {
-            double x = r/h;
-            return ((1-x)+x*(1-x)*(1-2*x)) * double(r<=h);
-        } else { // no weighting power specified
+            // compactly supported on [0,h]
+            // invariant to p and n
+            double x = std::abs(r/h);
+            return ((1-x)+x*(1-x)*(1-2*x)) * double(x<=1.0);
+        } else if (weighting_type == WeightingFunctionType::Cosine) {
+            // compactly supported on [0,h]
+            double pi = 3.14159265358979323846;
+            return std::cos(0.5*pi*r/h);
+        } else if (weighting_type == WeightingFunctionType::Gaussian) {
+            // NOT compactly supported on [0,h], but approximately 0 at h with >> p
+            // invariant to n, p is number of standard deviations at distance h
+            // 2.5066282746310002416124 = sqrt(2*pi)
+            double h_over_p = h/p;
+            return 1./( h_over_p * 2.5066282746310002416124 ) * std::exp(-.5*r*r/(h_over_p*h_over_p));
+        } else if (weighting_type == WeightingFunctionType::Sigmoid) {
+            // NOT compactly supported on [0,h], but approximately 0 at h with >> p
+            // n=0 is sigmoid, n==2 is logistic, with larger p making Wab decay more quickly
+            return 1.0 / (std::exp(p*r) + std::exp(-p*r) + n);
+        } else { // unsupported type
             compadre_kernel_assert_release(false && "Invalid WeightingFunctionType selected.");
             return 0; 
         }
@@ -968,11 +999,23 @@ public:
     //! Type for weighting kernel for curvature 
     WeightingFunctionType getManifoldWeightingType() const { return _curvature_weighting_type; }
 
-    //! Power for weighting kernel for GMLS problem
-    int getWeightingPower() const { return _weighting_power; }
+    //! Get parameter for weighting kernel for GMLS problem
+    int getWeightingParameter(const int index = 0) const { 
+        if (index==1) {
+            return _weighting_n;
+        } else {
+            return _weighting_p; 
+        }
+    }
 
-    //! Power for weighting kernel for curvature
-    int getManifoldWeightingPower() const { return _curvature_weighting_power; }
+    //! Get parameter for weighting kernel for curvature
+    int getManifoldWeightingParameter(const int index = 0) const {
+        if (index==1) {
+            return _curvature_weighting_n;
+        } else {
+            return _curvature_weighting_p; 
+        }
+    }
 
     //! Number of quadrature points
     int getNumberOfQuadraturePoints() const { return _qm.getNumberOfQuadraturePoints(); }
@@ -1709,6 +1752,10 @@ public:
             _weighting_type = WeightingFunctionType::Gaussian;
         } else if (wt_to_lower == "cubicspline") {
             _weighting_type = WeightingFunctionType::CubicSpline;
+        } else if (wt_to_lower == "cosine") {
+            _weighting_type = WeightingFunctionType::Cosine;
+        } else if (wt_to_lower == "sigmoid") {
+            _weighting_type = WeightingFunctionType::Sigmoid;
         } else {
             // Power is default
             _weighting_type = WeightingFunctionType::Power;
@@ -1732,6 +1779,10 @@ public:
             _curvature_weighting_type = WeightingFunctionType::Gaussian;
         } else if (wt_to_lower == "cubicspline") {
             _curvature_weighting_type = WeightingFunctionType::CubicSpline;
+        } else if (wt_to_lower == "cosine") {
+            _curvature_weighting_type = WeightingFunctionType::Cosine;
+        } else if (wt_to_lower == "sigmoid") {
+            _curvature_weighting_type = WeightingFunctionType::Sigmoid;
         } else {
             // Power is default
             _curvature_weighting_type = WeightingFunctionType::Power;
@@ -1758,15 +1809,27 @@ public:
         this->resetCoefficientData();
     }
 
-    //! Power for weighting kernel for GMLS problem
-    void setWeightingPower(int wp) { 
-        _weighting_power = wp;
+    //! Parameter for weighting kernel for GMLS problem
+    //! index = 0 sets p paramater for weighting kernel
+    //! index = 1 sets n paramater for weighting kernel
+    void setWeightingParameter(int wp, int index = 0) { 
+        if (index==1) {
+            _weighting_n = wp;
+        } else {
+            _weighting_p = wp;
+        }
         this->resetCoefficientData();
     }
 
-    //! Power for weighting kernel for curvature
-    void setCurvatureWeightingPower(int wp) { 
-        _curvature_weighting_power = wp;
+    //! Parameter for weighting kernel for curvature
+    //! index = 0 sets p paramater for weighting kernel
+    //! index = 1 sets n paramater for weighting kernel
+    void setCurvatureWeightingParameter(int wp, int index = 0) { 
+        if (index==1) {
+            _curvature_weighting_n = wp;
+        } else {
+            _curvature_weighting_p = wp;
+        }
         this->resetCoefficientData();
     }
 

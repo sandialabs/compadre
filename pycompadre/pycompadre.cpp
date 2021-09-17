@@ -358,7 +358,7 @@ public:
         gmls_object->setSourceSites(source_coords);
     }
 
-    void generateNeighborListsFromKNNSearchAndSet(py::array_t<double> input, int poly_order, int dimension = 3, double epsilon_multiplier = 1.6, double max_search_radius = 0.0) {
+    void generateNeighborListsFromKNNSearchAndSet(py::array_t<double> input, int poly_order, int dimension = 3, double epsilon_multiplier = 1.6, double max_search_radius = 0.0, bool scale_k_neighbor_radius = true, bool scale_num_neighbors = false) {
 
         int neighbors_needed = Compadre::GMLS::getNP(poly_order, dimension);
 
@@ -398,6 +398,13 @@ public:
         
         // call point_cloud_search using targets
         // use these neighbor lists and epsilons to set the gmls object
+        
+        compadre_assert_release(((int)scale_k_neighbor_radius + (int)scale_num_neighbors==1) && "One and only of scale kth neighbor's radius (scale_k_neighbor_radius) or scale number of neighbors (scale_num_neighbors) can be set true.");
+        if (scale_num_neighbors) { 
+            neighbors_needed = std::ceil(neighbors_needed*epsilon_multiplier);
+            epsilon_multiplier = 1.0+1e-14;
+        }
+
         size_t total_storage = point_cloud_search->generateCRNeighborListsFromKNNSearch(true /* is a dry run*/, target_coords, neighbor_lists, 
                 number_of_neighbors_list, epsilon, neighbors_needed, epsilon_multiplier, max_search_radius);
 
@@ -509,35 +516,6 @@ public:
         }
         return result;
     }
-
-    //PyObject* getAlphas0Tensor(int target_num, PyObject* pyObjectArray_neighborList) {
-    //    // cast as a numpy array
-    //    PyArrayObject *np_arr_neighborlist = reinterpret_cast<PyArrayObject*>(pyObjectArray_neighborList);
-
-    //    int* loop_size = (int*)PyArray_GETPTR2(np_arr_neighborlist, target_num, 0);
-
-    //    // copy data into Kokkos View
-    //    // set dimensions
-    //    npy_intp dims_out[1] = {*loop_size};
-
-    //    // allocate memory for array 
-    //    PyObject *pyObjectArray_out = PyArray_SimpleNew(1, dims_out, NPY_DOUBLE);
-    //    if (!pyObjectArray_out) {
-    //            printf("Out of memory.\n");
-    //    }
-
-    //    // recast as a numpy array and write assuming a 1D layout
-    //    PyArrayObject *np_arr_out = reinterpret_cast<PyArrayObject*>(pyObjectArray_out);
-
-    //    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,*loop_size), [=](int i) {
-    //        double alpha_evaluation = gmls_object->getAlpha0TensorTo0Tensor(Compadre::TargetOperation::ScalarPointEvaluation, target_num, i);
-    //        double* val = (double*)PyArray_GETPTR1(np_arr_out, i);
-    //        *val = alpha_evaluation;
-    //    });
-
-    //    // return the Python object
-    //    return pyObjectArray_out;
-    //}
  
     py::array_t<double> applyStencil(const py::array_t<double, py::array::f_style | py::array::forcecast> input, const TargetOperation lro, const SamplingFunctional sro, const int evaluation_site_local_index = 0) const {
         py::buffer_info buf = input.request();
@@ -729,6 +707,14 @@ PYBIND11_MODULE(pycompadre, m) {
     .value("DivergenceFreeVectorTaylorPolynomial", ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial)
     .export_values();
 
+    py::enum_<WeightingFunctionType>(m, "WeightingFunctionType")
+    .value("Power", WeightingFunctionType::Power)
+    .value("Gaussian", WeightingFunctionType::Gaussian)
+    .value("CubicSpline", WeightingFunctionType::CubicSpline)
+    .value("Cosine", WeightingFunctionType::Cosine)
+    .value("Sigmoid", WeightingFunctionType::Sigmoid)
+    .export_values();
+
     // helper functions
     py::class_<ParticleHelper>(m, "ParticleHelper", R"pbdoc(
         Class to manage calling PointCloudSearch, moving data to/from Numpy arrays in Kokkos::Views,
@@ -738,7 +724,8 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("generateKDTree", &ParticleHelper::generateKDTree)
     .def("generateNeighborListsFromKNNSearchAndSet", &ParticleHelper::generateNeighborListsFromKNNSearchAndSet, 
             py::arg("target_sites"), py::arg("poly_order"), py::arg("dimension") = 3, py::arg("epsilon_multiplier") = 1.6, 
-            py::arg("max_search_radius") = 0.0)
+            py::arg("max_search_radius") = 0.0, py::arg("scale_k_neighbor_radius") = true, 
+            py::arg("scale_num_neighbors") = false)
     .def("setNeighbors", &ParticleHelper::setNeighbors, py::arg("neighbor_lists"), 
             "Sets neighbor lists from 2D array where first column is number of neighbors for corresponding row's target site.")
     .def("getAdditionalEvaluationIndices", &ParticleHelper::getAdditionalEvaluationIndices, py::return_value_policy::reference_internal)
@@ -770,9 +757,12 @@ PYBIND11_MODULE(pycompadre, m) {
             py::arg("poly_order"),py::arg("dimension")=3,py::arg("dense_solver_type")="QR", 
             py::arg("problem_type")="STANDARD", py::arg("constraint_type")="NO_CONSTRAINT", 
             py::arg("curvature_poly_order")=2)
-    .def("setWeightingPower", &GMLS::setWeightingPower)
-    .def("setWeightingType", overload_cast_<const std::string&>()(&GMLS::setWeightingType), "Set the weighting type.")
-    //.def("setWeightingType", overload_cast_<WeightingType>()(&GMLS::setWeightingType), "Set the weighting type.")
+    .def("getWeightingParameter", &GMLS::getWeightingParameter, py::arg("parameter index")=0, "Get weighting kernel parameter[index].")
+    .def("setWeightingParameter", &GMLS::setWeightingParameter, py::arg("parameter value"), py::arg("parameter index")=0, "Set weighting kernel parameter[index] to parameter value.")
+    .def("setWeightingPower", &GMLS::setWeightingParameter, py::arg("parameter value"), py::arg("parameter index")=0, "Set weighting kernel parameter[index] to parameter value. [DEPRECATED]")
+    .def("getWeightingType", &GMLS::getWeightingType, "Get the weighting type.")
+    .def("setWeightingType", overload_cast_<const std::string&>()(&GMLS::setWeightingType), "Set the weighting type with a string.")
+    .def("setWeightingType", overload_cast_<WeightingFunctionType>()(&GMLS::setWeightingType), "Set the weighting type with a WeightingFunctionType.")
     .def("addTargets", overload_cast_<TargetOperation>()(&GMLS::addTargets), "Add a target operation.")
     .def("addTargets", overload_cast_<std::vector<TargetOperation> >()(&GMLS::addTargets), "Add a list of target operations.")
     .def("generateAlphas", &GMLS::generateAlphas, py::arg("number_of_batches")=1, py::arg("keep_coefficients")=false)
@@ -802,6 +792,8 @@ PYBIND11_MODULE(pycompadre, m) {
     m.def("getNN", &GMLS::getNN, R"pbdoc(
         Heuristic number of neighbors.
     )pbdoc");
+
+    m.def("Wab", &GMLS::Wab, py::arg("r"), py::arg("h"), py::arg("weighting type"), py::arg("p"), py::arg("n"), "Evaluate weighting kernel.");
 
 #ifdef COMPADRE_VERSION_MAJOR
     m.attr("__version__") = std::to_string(COMPADRE_VERSION_MAJOR) + "." + std::to_string(COMPADRE_VERSION_MINOR) + "." + std::to_string(COMPADRE_VERSION_PATCH);
