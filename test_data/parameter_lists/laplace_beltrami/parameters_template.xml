@@ -24,8 +24,8 @@
     <Parameter name="dense solver type" type="string" value="QR"/>
     <Parameter name="problem type" type="string" value="MANIFOLD"/>
     <Parameter name="constraint type" type="string" value="NONE"/>
-    <Parameter name="weighting power" type="int" value="4"/>
-    <Parameter name="curvature weighting power" type="int" value="4"/>
+    <Parameter name="weighting parameter 0" type="int" value="4"/>
+    <Parameter name="curvature weighting parameter 0" type="int" value="4"/>
     <Parameter name="quadrature order" type="int" value="5"/>
     <Parameter name="quadrature dimension" type="int" value="1"/>
     <Parameter name="quadrature type" type="string" value="line"/>

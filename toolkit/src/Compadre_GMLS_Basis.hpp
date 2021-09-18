@@ -6,7 +6,7 @@
 namespace Compadre {
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::calcPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_local_index) const {
+void GMLS::calcPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int evaluation_site_local_index) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
@@ -29,20 +29,22 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, double* thread_
 
     XYZ relative_coord;
     if (neighbor_index > -1) {
-      // Evaluate at neighbor site
+        // Evaluate at neighbor site
         for (int i=0; i<dimension; ++i) {
             // calculates (alpha*target+(1-alpha)*neighbor)-1*target = (alpha-1)*target + (1-alpha)*neighbor
             relative_coord[i] = (alpha-1)*getTargetCoordinate(target_index, i, V);
             relative_coord[i] += (1-alpha)*getNeighborCoordinate(target_index, neighbor_index, i, V);
         }
-    } else if (additional_evaluation_local_index > 0) {
-      // Extra evaluation site
+    } else if (evaluation_site_local_index > 0) {
+        // Extra evaluation site
         for (int i=0; i<dimension; ++i) {
-            relative_coord[i] = getTargetAuxiliaryCoordinate(target_index, additional_evaluation_local_index, i, V);
+            // evaluation_site_local_index is for evaluation site, which includes target site
+            // the -1 converts to the local index for ADDITIONAL evaluation sites
+            relative_coord[i] = getTargetAuxiliaryCoordinate(target_index, evaluation_site_local_index-1, i, V);
             relative_coord[i] -= getTargetCoordinate(target_index, i, V);
         }
     } else {
-      // Evaluate at the target site
+        // Evaluate at the target site
         for (int i=0; i<3; ++i) relative_coord[i] = 0;
     }
 
@@ -465,7 +467,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, double* thread_
 
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::calcGradientPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_index) const {
+void GMLS::calcGradientPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int evaluation_site_local_index) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
@@ -495,9 +497,11 @@ void GMLS::calcGradientPij(const member_type& teamMember, double* delta, double*
             relative_coord[i] = (alpha-1)*getTargetCoordinate(target_index, i, V);
             relative_coord[i] += (1-alpha)*getNeighborCoordinate(target_index, neighbor_index, i, V);
         }
-    } else if (additional_evaluation_index > 0) {
+    } else if (evaluation_site_local_index > 0) {
         for (int i=0; i<dimension; ++i) {
-            relative_coord[i] = getTargetAuxiliaryCoordinate(target_index, additional_evaluation_index, i, V);
+            // evaluation_site_local_index is for evaluation site, which includes target site
+            // the -1 converts to the local index for ADDITIONAL evaluation sites
+            relative_coord[i] = getTargetAuxiliaryCoordinate(target_index, evaluation_site_local_index-1, i, V);
             relative_coord[i] -= getTargetCoordinate(target_index, i, V);
         }
     } else {
@@ -528,7 +532,7 @@ void GMLS::calcGradientPij(const member_type& teamMember, double* delta, double*
 }
 
 KOKKOS_INLINE_FUNCTION
-void GMLS::calcHessianPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction_1, const int partial_direction_2, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int additional_evaluation_index) const {
+void GMLS::calcHessianPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction_1, const int partial_direction_2, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional polynomial_sampling_functional, const int evaluation_site_local_index) const {
 /*
  * This class is under two levels of hierarchical parallelism, so we
  * do not put in any finer grain parallelism in this function
@@ -558,9 +562,11 @@ void GMLS::calcHessianPij(const member_type& teamMember, double* delta, double* 
             relative_coord[i] = (alpha-1)*getTargetCoordinate(target_index, i, V);
             relative_coord[i] += (1-alpha)*getNeighborCoordinate(target_index, neighbor_index, i, V);
         }
-    } else if (additional_evaluation_index > 0) {
+    } else if (evaluation_site_local_index > 0) {
         for (int i=0; i<dimension; ++i) {
-            relative_coord[i] = getTargetAuxiliaryCoordinate(target_index, additional_evaluation_index, i, V);
+            // evaluation_site_local_index is for evaluation site, which includes target site
+            // the -1 converts to the local index for ADDITIONAL evaluation sites
+            relative_coord[i] = getTargetAuxiliaryCoordinate(target_index, evaluation_site_local_index-1, i, V);
             relative_coord[i] -= getTargetCoordinate(target_index, i, V);
         }
     } else {
@@ -627,7 +633,7 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
             }
 
             // generate weight vector from distances and window sizes
-            w(i+my_num_neighbors*d) = this->Wab(r, _epsilons(target_index), _weighting_type, _weighting_power);
+            w(i+my_num_neighbors*d) = this->Wab(r, _epsilons(target_index), _weighting_type, _weighting_p, _weighting_n);
 
             this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, i + d*my_num_neighbors, 0 /*alpha*/, dimension, polynomial_order, false /*bool on only specific order*/, V, reconstruction_space, polynomial_sampling_functional);
 
@@ -689,10 +695,10 @@ void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_
 
         // generate weight vector from distances and window sizes
         if (only_specific_order) {
-            w(i) = this->Wab(r, _epsilons(target_index), _curvature_weighting_type, _curvature_weighting_power);
+            w(i) = this->Wab(r, _epsilons(target_index), _curvature_weighting_type, _curvature_weighting_p, _curvature_weighting_n);
             this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, i, 0 /*alpha*/, dimension, 1, true /*bool on only specific order*/);
         } else {
-            w(i) = this->Wab(r, _epsilons(target_index), _curvature_weighting_type, _curvature_weighting_power);
+            w(i) = this->Wab(r, _epsilons(target_index), _curvature_weighting_type, _curvature_weighting_p, _curvature_weighting_n);
             this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, i, 0 /*alpha*/, dimension, _curvature_poly_order, false /*bool on only specific order*/, V);
         }
 

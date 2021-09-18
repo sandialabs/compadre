@@ -19,6 +19,7 @@ protected:
 
 
     int _max_neighbor_list_row_storage_size;
+    int _min_neighbor_list_row_storage_size;
     bool _needs_sync_to_host;
     int _number_of_targets;
 
@@ -41,6 +42,7 @@ public:
     //! \brief Constructor for the purpose of classes who have NeighborLists as a member object
     NeighborLists() {
         _max_neighbor_list_row_storage_size = -1;
+        _min_neighbor_list_row_storage_size = -1;
         _needs_sync_to_host = true;
         _number_of_targets = 0;
     }
@@ -72,6 +74,7 @@ public:
         } else {
             _max_neighbor_list_row_storage_size = -1;
         }
+        _min_neighbor_list_row_storage_size = -1;
 
         //check neighbor_lists is large enough
         compadre_assert_release(((size_t)(this->getTotalNeighborsOverAllListsHost())<=cr_neighbor_lists.extent(0)) 
@@ -172,6 +175,21 @@ public:
         }
     }
 
+    //! Calculate the minimum number of neighbors of all targets' neighborhoods (host)
+    void computeMinNumNeighbors() {
+        if (_number_of_neighbors_list.extent(0)==0) {
+            _min_neighbor_list_row_storage_size = 0;
+        } else {
+            auto number_of_neighbors_list = _number_of_neighbors_list;
+            Kokkos::parallel_reduce("min number of neighbors", 
+                    Kokkos::RangePolicy<typename view_type::execution_space>(0, _number_of_neighbors_list.extent(0)), 
+                    KOKKOS_LAMBDA(const int i, int& t_min_num_neighbors) {
+                t_min_num_neighbors = (number_of_neighbors_list(i) < t_min_num_neighbors) ? number_of_neighbors_list(i) : t_min_num_neighbors;
+            }, Kokkos::Min<int>(_min_neighbor_list_row_storage_size));
+            Kokkos::fence();
+        }
+    }
+
     //! Calculate the row offsets for each target's neighborhood (host)
     void computeRowOffsets() {
         auto number_of_neighbors_list = _number_of_neighbors_list;
@@ -234,7 +252,9 @@ public:
     int getNeighborHost(int target_index, int neighbor_num) const {
         compadre_assert_debug((!_needs_sync_to_host) 
                 && "Stale information in host_cr_neighbor_lists. Call CopyDeviceDataToHost() to refresh.");
-        return _host_cr_neighbor_lists(_row_offsets(target_index)+neighbor_num);
+        compadre_assert_debug((neighbor_num<_host_number_of_neighbors_list(target_index))
+                && "neighor_num exceeds number of neighbors for this target_index.");
+        return _host_cr_neighbor_lists(_host_row_offsets(target_index)+neighbor_num);
     }
 
     //! Offers N(i,j) indexing where N(i,j) is the index of the jth neighbor of i (device)
@@ -248,6 +268,13 @@ public:
     int getMaxNumNeighbors() const {
         compadre_kernel_assert_debug((_max_neighbor_list_row_storage_size > -1) && "getMaxNumNeighbors() called but maximum never calculated.");
         return _max_neighbor_list_row_storage_size;
+    }
+
+    //! Get the minimum number of neighbors of all targets' neighborhoods (host/device)
+    KOKKOS_INLINE_FUNCTION
+    int getMinNumNeighbors() const {
+        compadre_kernel_assert_debug((_min_neighbor_list_row_storage_size > -1) && "getMinNumNeighbors() called but minimum never calculated.");
+        return _min_neighbor_list_row_storage_size;
     }
 
     //! Get the sum of the number of neighbors of all targets' neighborhoods (host)
@@ -317,7 +344,7 @@ NeighborLists<view_type_1d> Convert2DToCompressedRowNeighborLists(view_type_2d n
 
     
     // this will calculate row offsets
-    auto nla(CreateNeighborLists(new_cr_neighbor_lists, new_number_of_neighbors_list));
+    auto nla = CreateNeighborLists(new_cr_neighbor_lists, new_number_of_neighbors_list);
     auto cr_data = nla.getNeighborLists();
 
     // if device_execution_space can access this view, then write directly into the view

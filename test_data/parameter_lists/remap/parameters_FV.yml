@@ -16,8 +16,8 @@ Compadre:
   'remap':
     'porder': 4
     'curvature porder': 3
-    'weighting power': 10
-    'curvature weighting power': 12
+    'weighting parameter 0': 10
+    'curvature weighting parameter 0': 12
     'quadrature type': 'tri'
     'quadrature order': 4
     'quadrature dimension': 2

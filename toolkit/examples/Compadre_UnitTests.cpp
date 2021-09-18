@@ -1,83 +1,63 @@
-#include "Compadre_Misc.hpp"
 #include <gtest/gtest.h>
-#include <cmath>
+#include <Compadre_KokkosParser.hpp>
+#include "unittests/test_XYZ.hpp"
+#include "unittests/test_NeighborLists.hpp"
+#include "unittests/test_PointCloudSearch.hpp"
+#include "unittests/test_LinearAlgebra.hpp"
+#ifdef COMPADRE_USE_MPI
+#include <mpi.h>
+#endif
 
-using namespace Compadre;
+#define ASSERT_NO_DEATH(statement) \
+ASSERT_EXIT({{ statement } ::exit(EXIT_SUCCESS); }, ::testing::ExitedWithCode(0), "")
 
-class XyzTest: public ::testing::Test {
-public:
-    XYZ a;
-    XYZ b;
-    XYZ c;
+//
+// KokkosParser tests go here because they modify the Kokkos backend
+//
+TEST (KokkosInitialize, NoArgsGiven) { 
+    Kokkos::InitArguments args;
+    ASSERT_NO_DEATH({
+            // default constructor is hidden for KokkosParser
+            // but still visible from this test
+            auto kp = Compadre::KokkosParser(false);
+            kp.finalize();
+    });
+}
+TEST (KokkosInitialize, NoCommandLineArgsGiven) { 
+    ASSERT_NO_DEATH({
+            std::vector<std::string> arguments = {"--kokkos-threads=4"};
+            auto kp = KokkosParser(arguments);
+            kp.finalize();
+    });
+}
 
-    XyzTest( ) {
-        // initialization
-    }
 
-    void SetUp( ) {
-        // before test
-        a = XYZ(1,1,1);
-        b = XYZ(2,2,2);
-        c = XYZ(1,2,3);
-    }
-
-    void TearDown( ) {
-        // after test completes
-    }
-};
-
-TEST_F (XyzTest, XYZMultiplyScalar) {
-    ASSERT_DOUBLE_EQ (3.0, (a*3.0).x);
-    ASSERT_DOUBLE_EQ (4.0, (a*4.0).y);
-    ASSERT_DOUBLE_EQ (5.0, (a*5.0).y);
-}
-TEST_F (XyzTest, ScalarMultiplyXYZ) {
-    ASSERT_DOUBLE_EQ (3.0, (3.0*a).x);
-    ASSERT_DOUBLE_EQ (4.0, (4.0*a).y);
-    ASSERT_DOUBLE_EQ (5.0, (5.0*a).y);
-}
-TEST_F (XyzTest, XYZAddXYZ) {
-    auto ans = a+c;
-    ASSERT_DOUBLE_EQ (2.0, ans.x);
-    ASSERT_DOUBLE_EQ (3.0, ans.y);
-    ASSERT_DOUBLE_EQ (4.0, ans.z);
-}
-TEST_F (XyzTest, XYZAddScalar) {
-    ASSERT_DOUBLE_EQ (2.0, (a+1).x);
-    ASSERT_DOUBLE_EQ (3.0, (a+2).y);
-    ASSERT_DOUBLE_EQ (4.0, (a+3).z);
-}
-TEST_F (XyzTest, ScalarAddXYZ) {
-    auto ans = 1 + c;
-    ASSERT_DOUBLE_EQ (2.0, ans.x);
-    ASSERT_DOUBLE_EQ (3.0, ans.y);
-    ASSERT_DOUBLE_EQ (4.0, ans.z);
-}
-TEST_F (XyzTest, XYZSubtractXYZ) {
-    auto ans = a - c;
-    ASSERT_DOUBLE_EQ ( 0.0, ans.x);
-    ASSERT_DOUBLE_EQ (-1.0, ans.y);
-    ASSERT_DOUBLE_EQ (-2.0, ans.z);
-}
-TEST_F (XyzTest, XYZSubtractScalar) {
-    auto ans = c - 1;
-    ASSERT_DOUBLE_EQ (0.0, ans.x);
-    ASSERT_DOUBLE_EQ (1.0, ans.y);
-    ASSERT_DOUBLE_EQ (2.0, ans.z);
-}
-TEST_F (XyzTest, ScalarSubtractXYZ) {
-    auto ans = 1 - c;
-    ASSERT_DOUBLE_EQ ( 0.0, ans.x);
-    ASSERT_DOUBLE_EQ (-1.0, ans.y);
-    ASSERT_DOUBLE_EQ (-2.0, ans.z);
-}
-TEST_F (XyzTest, XYZDivideScalar) {
-    auto ans = c / 4.0;
-    ASSERT_DOUBLE_EQ ( 0.25, ans.x);
-    ASSERT_DOUBLE_EQ ( 0.50, ans.y);
-    ASSERT_DOUBLE_EQ (3/4.0, ans.z);
-}
+// this provides main(),
+// but all other tests come from ./unittests/*.cpp
 int main(int argc, char **argv) {
-        ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+
+    // initializes MPI (if available) with command line arguments given
+    #ifdef COMPADRE_USE_MPI
+    MPI_Init(&argc, &argv);
+    #endif
+
+    ::testing::InitGoogleTest(&argc, argv);
+    ::testing::GTEST_FLAG(filter) = "Kokkos*";
+    int sig = RUN_ALL_TESTS();
+
+    // initializes kokkos
+    auto kp = KokkosParser(argc, argv, true);
+
+    // execute all tests
+    ::testing::GTEST_FLAG(filter) = "-Kokkos*";
+    sig &= RUN_ALL_TESTS();
+
+    // finalize Kokkos and MPI (if available)
+    kp.finalize();
+
+    // finialize MPI (if available)
+    #ifdef COMPADRE_USE_MPI
+    MPI_Finalize();
+    #endif
+    return sig; 
 }

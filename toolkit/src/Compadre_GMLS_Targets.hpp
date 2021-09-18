@@ -696,7 +696,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     for (int m0=0; m0<_sampling_multiplier; ++m0) {
                         for (int m1=0; m1<_sampling_multiplier; ++m1) {
 
-                          this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(m1+1) /* target is neighbor, but also which component */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e /* evaluate at target */);
+                          this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(m1+1) /* target is neighbor, but also which component */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
 
                           int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, e /*no additional*/);
                           for (int j=0; j<target_NP; ++j) {
@@ -1527,7 +1527,9 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     XYZ relative_coord;
                     if (k > 0) {
                         for (int d=0; d<_dimensions-1; ++d) {
-                            relative_coord[d] = getTargetAuxiliaryCoordinate(target_index, k, d, &V);
+                            // k indexing is for evaluation site, which includes target site
+                            // the k-1 converts to the local index for ADDITIONAL evaluation sites
+                            relative_coord[d] = getTargetAuxiliaryCoordinate(target_index, k-1, d, &V);
                             relative_coord[d] -= getTargetCoordinate(target_index, d, &V);
                         }
                     } else {
@@ -1546,7 +1548,9 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                     XYZ relative_coord;
                     if (k > 0) {
                         for (int d=0; d<_dimensions-1; ++d) {
-                            relative_coord[d] = getTargetAuxiliaryCoordinate(target_index, k, d, &V);
+                            // k indexing is for evaluation site, which includes target site
+                            // the k-1 converts to the local index for ADDITIONAL evaluation sites
+                            relative_coord[d] = getTargetAuxiliaryCoordinate(target_index, k-1, d, &V);
                             relative_coord[d] -= getTargetCoordinate(target_index, d, &V);
                         }
                     } else {
@@ -1683,6 +1687,15 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         P_target_row(offset, j) = v1;
                     }
                 });
+            } else if (_operations(i) == TargetOperation::ScalarPointEvaluation) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
+                    this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                    int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
+                    for (int k=0; k<target_NP; ++k) {
+                        P_target_row(offset, k) = delta(k);
+                    }
+                });
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else {
                 compadre_kernel_assert_release((false) && "Functionality not yet available.");
             }

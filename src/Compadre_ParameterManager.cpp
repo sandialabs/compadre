@@ -100,10 +100,12 @@ void ParameterManager::setDefaultParameters() {
 	remapList->set("basis type", "scalar");
 	remapList->set("problem type", "STANDARD");
 	remapList->set("constraint type", "NO_CONSTRAINT");
-	remapList->set("weighting power", (local_index_type)8);
+	remapList->set("weighting parameter 0", (local_index_type)8);
+	remapList->set("weighting parameter 1", (local_index_type)1);
 	remapList->set("weighting type", "power");
 	// weighting type for covariance matrix from which a tangent plane to the manifold is derived
-	remapList->set("curvature weighting power", (local_index_type)8);
+	remapList->set("curvature weighting parameter 0", (local_index_type)8);
+	remapList->set("curvature weighting parameter 1", (local_index_type)1);
 	// weighting power for covariance matrix from which a tangent plane to the manifold is derived
 	remapList->set("curvature weighting type", "power");
 	remapList->set("optimization algorithm", "NONE");

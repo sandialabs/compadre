@@ -150,9 +150,11 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                             kokkos_epsilons);
     
                     _GMLS->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-                    _GMLS->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+                    _GMLS->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 0"),0);
+                    _GMLS->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 1"),1);
                     _GMLS->setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
-                    _GMLS->setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
+                    _GMLS->setCurvatureWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting parameter 0"),0);
+                    _GMLS->setCurvatureWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting parameter 1"),1);
                     _GMLS->setOrderOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
                     _GMLS->setDimensionOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature dimension"));
                     _GMLS->setQuadratureType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));

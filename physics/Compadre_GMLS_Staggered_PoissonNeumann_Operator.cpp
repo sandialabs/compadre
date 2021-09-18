@@ -160,7 +160,8 @@ void GMLS_Staggered_PoissonNeumannPhysics::initialize() {
                            noconstraint_kokkos_target_coordinates_host,
                            noconstraint_kokkos_epsilons_host);
     _noconstraint_GMLS->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-    _noconstraint_GMLS->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+    _noconstraint_GMLS->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 0"),0);
+    _noconstraint_GMLS->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 1"),1);
     _noconstraint_GMLS->setOrderOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
     _noconstraint_GMLS->setDimensionOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature dimension"));
     _noconstraint_GMLS->setQuadratureType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));
@@ -183,7 +184,8 @@ void GMLS_Staggered_PoissonNeumannPhysics::initialize() {
                           neumann_kokkos_epsilons_host);
     _neumann_GMLS->setTangentBundle(neumann_kokkos_tangent_bundles_host);
     _neumann_GMLS->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-    _neumann_GMLS->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+    _neumann_GMLS->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 0"),0);
+    _neumann_GMLS->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 1"),1);
     _neumann_GMLS->setOrderOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
     _neumann_GMLS->setDimensionOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature dimension"));
     _neumann_GMLS->setQuadratureType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));

@@ -14,7 +14,7 @@
     <!--<Parameter name="save residual over solution" type="bool" value="true"/>-->
   </ParameterList>
   <ParameterList name="remap">
-    <Parameter name="weighting power" type="int" value="5"/>
+    <Parameter name="weighting parameter 0" type="int" value="5"/>
     <Parameter name="porder" type="int" value="2"/>
     <Parameter name="quadrature order" type="int" value="2"/>
     <Parameter name="quadrature dimension" type="int" value="1"/>

@@ -15,7 +15,7 @@
     <Parameter name="blocked" type="bool" value="false"/>
   </ParameterList>
   <ParameterList name="remap">
-    <Parameter name="weighting power" type="int" value="12"/>
+    <Parameter name="weighting parameter 0" type="int" value="12"/>
     <Parameter name="porder" type="int" value="2"/>
   </ParameterList>
   <ParameterList name="neighborhood">

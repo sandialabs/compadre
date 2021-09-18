@@ -105,14 +105,11 @@ protected:
     //! (OPTIONAL) user provided additional coordinates for target operation evaluation (device)
     Kokkos::View<double**, layout_right> _additional_evaluation_coordinates; 
 
-    //! (OPTIONAL) contains indices of entries in the _additional_evaluation_coordinates view (device)
-    Kokkos::View<int**, layout_right> _additional_evaluation_indices; 
+    //! (OPTIONAL) Accessor to get additional evaluation list data, offset data, and number of sites
+    NeighborLists<Kokkos::View<int*> > _additional_evaluation_indices; 
 
-    //! (OPTIONAL) contains indices of entries in the _additional_evaluation_coordinates view (host)
-    Kokkos::View<int**, layout_right>::HostMirror _host_additional_evaluation_indices;
-
-    //! (OPTIONAL) contains the # of additional coordinate indices for each target
-    Kokkos::View<int*> _number_of_additional_evaluation_indices; 
+    //! (OPTIONAL) contains the # of additional evaluation sites per target site
+    Kokkos::View<int*, host_memory_space> _host_number_of_additional_evaluation_indices; 
 
 
     //! order of basis for polynomial reconstruction
@@ -172,11 +169,17 @@ protected:
     //! weighting kernel type for curvature problem
     WeightingFunctionType _curvature_weighting_type;
 
-    //! power to be used for weighting kernel
-    int _weighting_power;
+    //! first parameter to be used for weighting kernel
+    int _weighting_p;
 
-    //! power to be used for weighting kernel for curvature
-    int _curvature_weighting_power;
+    //! second parameter to be used for weighting kernel
+    int _weighting_n;
+
+    //! first parameter to be used for weighting kernel for curvature
+    int _curvature_weighting_p;
+
+    //! second parameter to be used for weighting kernel for curvature
+    int _curvature_weighting_n;
 
     //! dimension of the reconstructed function 
     //! e.g. reconstruction of vector on a 2D manifold in 3D would have _basis_multiplier of 2
@@ -298,10 +301,10 @@ protected:
         \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
         \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
         \param sampling_strategy    [in] - sampling functional specification
-        \param additional_evaluation_local_index [in] - local index for evaluation sites 
+        \param evaluation_site_local_index [in] - local index for evaluation sites (0 is target site)
     */
     KOKKOS_INLINE_FUNCTION
-    void calcPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, const scratch_matrix_right_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = PointSample, const int additional_evaluation_local_index = 0) const;
+    void calcPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, const scratch_matrix_right_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = PointSample, const int evaluation_site_local_index = 0) const;
 
     /*! \brief Evaluates the gradient of a polynomial basis under the Dirac Delta (pointwise) sampling function.
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -316,10 +319,10 @@ protected:
         \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
         \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
         \param sampling_strategy    [in] - sampling functional specification
-        \param additional_evaluation_local_index [in] - local index for evaluation sites 
+        \param evaluation_site_local_index [in] - local index for evaluation sites (0 is target site)
     */
     KOKKOS_INLINE_FUNCTION
-    void calcGradientPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int additional_evaluation_local_index = 0) const;
+    void calcGradientPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int evaluation_site_local_index = 0) const;
 
     /*! \brief Evaluates the Hessian of a polynomial basis under the Dirac Delta (pointwise) sampling function.
         \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -335,10 +338,10 @@ protected:
         \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
         \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
         \param sampling_strategy    [in] - sampling functional specification
-        \param additional_evaluation_local_index [in] - local index for evaluation sites 
+        \param evaluation_site_local_index [in] - local index for evaluation sites (0 is target site) 
     */
     KOKKOS_INLINE_FUNCTION
-    void calcHessianPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction_1, const int partial_direction_2, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int additional_evaluation_local_index = 0) const;
+    void calcHessianPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction_1, const int partial_direction_2, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int evaluation_site_local_index = 0) const;
 
     /*! \brief Fills the _P matrix with either P or P*sqrt(w)
         \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
@@ -442,27 +445,29 @@ protected:
         return _neighbor_lists.getMaxNumNeighbors();
     }
 
-    //! Returns the maximum number of evaluation sites over all target sites (target sites are included in total)
+    //! Returns the maximum number of evaluation sites over all target sites (target sites itself is included in total)
     KOKKOS_INLINE_FUNCTION
     int getMaxEvaluationSitesPerTarget() const {
-        return _max_evaluation_sites_per_target;
+        // add 1 for the target site itself
+        return _additional_evaluation_indices.getMaxNumNeighbors() + 1;
     }
 
     //! (OPTIONAL)
-    //! Returns number of additional evaluation sites for a particular target
+    //! Returns number of evaluation sites for a particular target (target site is included in total)
     KOKKOS_INLINE_FUNCTION
     int getNEvaluationSitesPerTarget(const int target_index) const {
-        return _number_of_additional_evaluation_indices(target_index)+1;
+        // add 1 for the target site itself
+        return _additional_evaluation_indices.getNumberOfNeighborsDevice(target_index) + 1;
     }
 
     //! (OPTIONAL)
-    //! Mapping from [0,number of additional evaluation sites for a target] to the row that contains the coordinates for
+    //! Mapping from [0,number of additional evaluation sites for a target) to the row that contains the coordinates for
     //! that evaluation
     KOKKOS_INLINE_FUNCTION
     int getAdditionalEvaluationIndex(const int target_index, const int additional_list_num) const {
-        compadre_kernel_assert_debug((additional_list_num >= 1) 
-            && "additional_list_num must be greater than or equal to 1, unlike neighbor lists which begin indexing at 0.");
-        return _additional_evaluation_indices(target_index, additional_list_num);
+        compadre_kernel_assert_debug((additional_list_num >= 0) 
+            && "additional_list_num must be greater than or equal to 0.");
+        return _additional_evaluation_indices.getNeighborDevice(target_index, additional_list_num);
     }
 
     //! Returns one component of the target coordinate for a particular target. Whether global or local coordinates 
@@ -486,7 +491,7 @@ protected:
     KOKKOS_INLINE_FUNCTION
     double getTargetAuxiliaryCoordinate(const int target_index, const int additional_list_num, const int dim, const scratch_matrix_right_type* V = NULL) const {
         auto additional_evaluation_index = getAdditionalEvaluationIndex(target_index, additional_list_num);
-        compadre_kernel_assert_debug((_additional_evaluation_coordinates.extent(0) >= (size_t)additional_evaluation_index) && "Additional evaluation index is out of range for _additional_evaluation_coordinates.");
+        compadre_kernel_assert_debug((_additional_evaluation_coordinates.extent(0) > (size_t)additional_evaluation_index) && "Additional evaluation index is out of range for _additional_evaluation_coordinates.");
         if (V==NULL) {
             return _additional_evaluation_coordinates(additional_evaluation_index, dim);
         } else {
@@ -538,7 +543,7 @@ protected:
     KOKKOS_INLINE_FUNCTION
     double convertLocalToGlobalCoordinate(const XYZ local_coord, const int dim, const scratch_matrix_right_type* V) const {
         // only written for 2d manifold in 3d space
-        double val;
+        double val = 0.0;
         if (dim == 0 && _dimensions==2) { // 2D problem with 1D manifold
             val = local_coord.x * (*V)(0, dim);
         } else if (dim == 0) { // 3D problem with 2D manifold
@@ -550,8 +555,8 @@ protected:
     }
 
     //! Handles offset from operation input/output + extra evaluation sites
-    int getTargetOffsetIndexHost(const int lro_num, const int input_component, const int output_component, const int additional_evaluation_local_index = 0) const {
-        return ( _total_alpha_values*additional_evaluation_local_index 
+    int getTargetOffsetIndexHost(const int lro_num, const int input_component, const int output_component, const int evaluation_site_local_index = 0) const {
+        return ( _total_alpha_values*evaluation_site_local_index
                 + _host_lro_total_offsets[lro_num] 
                 + input_component*_host_lro_output_tile_size[lro_num] 
                 + output_component );
@@ -559,8 +564,8 @@ protected:
 
     //! Handles offset from operation input/output + extra evaluation sites
     KOKKOS_INLINE_FUNCTION
-    int getTargetOffsetIndexDevice(const int lro_num, const int input_component, const int output_component, const int additional_evaluation_local_index = 0) const {
-        return ( _total_alpha_values*additional_evaluation_local_index 
+    int getTargetOffsetIndexDevice(const int lro_num, const int input_component, const int output_component, const int evaluation_site_local_index = 0) const {
+        return ( _total_alpha_values*evaluation_site_local_index
                 + _lro_total_offsets[lro_num] 
                 + input_component*_lro_output_tile_size[lro_num] 
                 + output_component );
@@ -577,9 +582,7 @@ protected:
     static DenseSolverType parseSolverType(const std::string& dense_solver_type) {
         std::string solver_type_to_lower = dense_solver_type;
         transform(solver_type_to_lower.begin(), solver_type_to_lower.end(), solver_type_to_lower.begin(), ::tolower);
-        if (solver_type_to_lower == "svd") {
-            return DenseSolverType::SVD;
-        } else if (solver_type_to_lower == "lu") {
+        if (solver_type_to_lower == "lu") {
             return DenseSolverType::LU;
         } else {
             return DenseSolverType::QR;
@@ -669,8 +672,10 @@ public:
 
         _weighting_type = WeightingFunctionType::Power;
         _curvature_weighting_type = WeightingFunctionType::Power;
-        _weighting_power = 2;
-        _curvature_weighting_power = 2;
+        _weighting_p = 2;
+        _weighting_n = 1;
+        _curvature_weighting_p = 2;
+        _curvature_weighting_n = 1;
 
         _reconstruction_space_rank = ActualReconstructionSpaceRank[_reconstruction_space];
 
@@ -849,20 +854,43 @@ public:
         \param r                [in] - Euclidean distance of relative vector. Euclidean distance of (target - neighbor) in some basis.
         \param h                [in] - window size. Kernel is guaranteed to take on a value of zero if it exceeds h.
         \param weighting_type   [in] - weighting type to be evaluated as the kernel. e,g. power, Gaussian, etc..
-        \param power            [in] - power parameter to be given to the kernel.
+        \param p                [in] - parameter to be given to the kernel (see Wab definition for context).
+        \param n                [in] - parameter to be given to the kernel (see Wab definition for context).
     */
     KOKKOS_INLINE_FUNCTION
-    static double Wab(const double r, const double h, const WeightingFunctionType& weighting_type, const int power) {
+    static double Wab(const double r, const double h, const WeightingFunctionType& weighting_type, const int p, const int n) {
         if (weighting_type == WeightingFunctionType::Power) {
-            return std::pow(1.0-std::abs(r/h), power) * double(1.0-std::abs(r/h)>0.0);
-        } else if (weighting_type == WeightingFunctionType::Gaussian) {
-            // 2.5066282746310002416124 = sqrt(2*pi)
-            double h_over_3 = h/3.0;
-            return 1./( h_over_3 * 2.5066282746310002416124 ) * std::exp(-.5*r*r/(h_over_3*h_over_3));
+            // compactly supported on [0,h]
+            // (1 - |r/h|^n)^p
+            // p=0,n=1 -> Uniform, boxcar
+            // p=1,n=1 -> triangular
+            // p=0,n=2 -> Epanechnikov, parabolic
+            // p=2,n=2 -> Quartic, biweight
+            // p=3,n=2 -> Triweight
+            // p=3,n=3 -> Tricube
+            double abs_r_over_h_to_n = std::abs(r/h);
+            if (n>1) abs_r_over_h_to_n = std::pow(abs_r_over_h_to_n, n);
+            return std::pow(1.0-abs_r_over_h_to_n, p) * double(1.0-abs_r_over_h_to_n>0.0);
         } else if (weighting_type == WeightingFunctionType::CubicSpline) {
-            double x = r/h;
-            return ((1-x)+x*(1-x)*(1-2*x)) * double(r<=h);
-        } else { // no weighting power specified
+            // compactly supported on [0,h]
+            // invariant to p and n
+            double x = std::abs(r/h);
+            return ((1-x)+x*(1-x)*(1-2*x)) * double(x<=1.0);
+        } else if (weighting_type == WeightingFunctionType::Cosine) {
+            // compactly supported on [0,h]
+            double pi = 3.14159265358979323846;
+            return std::cos(0.5*pi*r/h);
+        } else if (weighting_type == WeightingFunctionType::Gaussian) {
+            // NOT compactly supported on [0,h], but approximately 0 at h with >> p
+            // invariant to n, p is number of standard deviations at distance h
+            // 2.5066282746310002416124 = sqrt(2*pi)
+            double h_over_p = h/p;
+            return 1./( h_over_p * 2.5066282746310002416124 ) * std::exp(-.5*r*r/(h_over_p*h_over_p));
+        } else if (weighting_type == WeightingFunctionType::Sigmoid) {
+            // NOT compactly supported on [0,h], but approximately 0 at h with >> p
+            // n=0 is sigmoid, n==2 is logistic, with larger p making Wab decay more quickly
+            return 1.0 / (std::exp(p*r) + std::exp(-p*r) + n);
+        } else { // unsupported type
             compadre_kernel_assert_release(false && "Invalid WeightingFunctionType selected.");
             return 0; 
         }
@@ -971,11 +999,23 @@ public:
     //! Type for weighting kernel for curvature 
     WeightingFunctionType getManifoldWeightingType() const { return _curvature_weighting_type; }
 
-    //! Power for weighting kernel for GMLS problem
-    int getWeightingPower() const { return _weighting_power; }
+    //! Get parameter for weighting kernel for GMLS problem
+    int getWeightingParameter(const int index = 0) const { 
+        if (index==1) {
+            return _weighting_n;
+        } else {
+            return _weighting_p; 
+        }
+    }
 
-    //! Power for weighting kernel for curvature
-    int getManifoldWeightingPower() const { return _curvature_weighting_power; }
+    //! Get parameter for weighting kernel for curvature
+    int getManifoldWeightingParameter(const int index = 0) const {
+        if (index==1) {
+            return _curvature_weighting_n;
+        } else {
+            return _curvature_weighting_p; 
+        }
+    }
 
     //! Number of quadrature points
     int getNumberOfQuadraturePoints() const { return _qm.getNumberOfQuadraturePoints(); }
@@ -991,6 +1031,9 @@ public:
 
     //! Get neighbor list accessor
     decltype(_neighbor_lists)* getNeighborLists() { return &_neighbor_lists; }
+
+    //! Get additional evaluation sites neighbor list-like accessor
+    decltype(_additional_evaluation_indices)* getAdditionalEvaluationIndices() { return &_additional_evaluation_indices; }
 
     //! Get a view (device) of all tangent direction bundles.
     decltype(_T) getTangentDirections() const { return _T; }
@@ -1046,7 +1089,7 @@ public:
     //! to this returned value to be meaningful)
     int getAlphaColumnOffset(TargetOperation lro, const int output_component_axis_1, 
             const int output_component_axis_2, const int input_component_axis_1, 
-            const int input_component_axis_2, const int additional_evaluation_local_index = 0) const {
+            const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
 
         const int lro_number = _lro_lookup[(int)lro];
         compadre_assert_debug((lro_number >= 0) && "getAlphaColumnOffset called for a TargetOperation that was not registered.");
@@ -1058,7 +1101,7 @@ public:
         const int input_index = getSamplingOutputIndex(_data_sampling_functional, input_component_axis_1, input_component_axis_2);
         const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2, _dimensions);
 
-        return getTargetOffsetIndexHost(lro_number, input_index, output_index, additional_evaluation_local_index);
+        return getTargetOffsetIndexHost(lro_number, input_index, output_index, evaluation_site_local_index);
     }
 
     //! Get a view (device) of all alphas
@@ -1087,53 +1130,53 @@ public:
     ReconstructionSpace getReconstructionSpace() const { return _reconstruction_space; }
 
     //! Helper function for getting alphas for scalar reconstruction from scalar data
-    double getAlpha0TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int additional_evaluation_site = 0) const {
+    double getAlpha0TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int evaluation_site_local_index = 0) const {
         // e.g. Dirac Delta target of a scalar field
-        return getAlpha(lro, target_index, 0, 0, neighbor_index, 0, 0, additional_evaluation_site);
+        return getAlpha(lro, target_index, 0, 0, neighbor_index, 0, 0, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for vector reconstruction from scalar data
-    double getAlpha0TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int additional_evaluation_site = 0) const {
+    double getAlpha0TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int evaluation_site_local_index = 0) const {
         // e.g. gradient of a scalar field
-        return getAlpha(lro, target_index, output_component, 0, neighbor_index, 0, 0, additional_evaluation_site);
+        return getAlpha(lro, target_index, output_component, 0, neighbor_index, 0, 0, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for matrix reconstruction from scalar data
-    double getAlpha0TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int additional_evaluation_site = 0) const {
-        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, 0, 0, additional_evaluation_site);
+    double getAlpha0TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int evaluation_site_local_index = 0) const {
+        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, 0, 0, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for scalar reconstruction from vector data
-    double getAlpha1TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component, const int additional_evaluation_site = 0) const {
+    double getAlpha1TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component, const int evaluation_site_local_index = 0) const {
         // e.g. divergence of a vector field
-        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component, 0, additional_evaluation_site);
+        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component, 0, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for vector reconstruction from vector data
-    double getAlpha1TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component, const int additional_evaluation_site = 0) const {
+    double getAlpha1TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component, const int evaluation_site_local_index = 0) const {
         // e.g. curl of a vector field
-        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component, 0, additional_evaluation_site);
+        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component, 0, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for matrix reconstruction from vector data
-    double getAlpha1TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component, const int additional_evaluation_site = 0) const {
+    double getAlpha1TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component, const int evaluation_site_local_index = 0) const {
         // e.g. gradient of a vector field
-        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component, 0, additional_evaluation_site);
+        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component, 0, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for scalar reconstruction from matrix data
-    double getAlpha2TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int additional_evaluation_site = 0) const {
-        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
+    double getAlpha2TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
+        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for vector reconstruction from matrix data
-    double getAlpha2TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int additional_evaluation_site = 0) const {
-        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
+    double getAlpha2TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
+        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for matrix reconstruction from matrix data
-    double getAlpha2TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int additional_evaluation_site = 0) const {
-        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
+    double getAlpha2TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
+        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
     }
 
     //! Gives index into alphas given two axes, which when incremented by the neighbor number transforms access into
@@ -1168,7 +1211,7 @@ public:
     }
 
     //! Underlying function all interface helper functions call to retrieve alpha values
-    double getAlpha(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int additional_evaluation_site = 0) const {
+    double getAlpha(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
         // lro - the operator from TargetOperations
         // target_index - the # for the target site where information is required
         // neighbor_index - the # for the neighbor of the target
@@ -1190,7 +1233,7 @@ public:
         //
 
         const int alpha_column_offset = this->getAlphaColumnOffset( lro, output_component_axis_1, 
-                output_component_axis_2, input_component_axis_1, input_component_axis_2, additional_evaluation_site);
+                output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
 
         auto alphas_index = this->getAlphaIndexHost(target_index, alpha_column_offset);
         return _host_alphas(alphas_index + neighbor_index);
@@ -1318,6 +1361,17 @@ public:
         this->setAuxiliaryEvaluationCoordinates<view_type_2>(additional_evaluation_coordinates);
     }
 
+    //! (OPTIONAL) Sets additional evaluation sites for each target site
+    template<typename view_type_1, typename view_type_2>
+    void setAdditionalEvaluationSitesData(
+            view_type_1 cr_additional_evaluation_indices,
+            view_type_1 number_of_additional_evaluation_indices,
+            view_type_2 additional_evaluation_coordinates) {
+        this->setAuxiliaryEvaluationIndicesLists<view_type_1>(cr_additional_evaluation_indices, 
+                number_of_additional_evaluation_indices);
+        this->setAuxiliaryEvaluationCoordinates<view_type_2>(additional_evaluation_coordinates);
+    }
+
     //! Sets neighbor list information from compressed row neighborhood lists data (if same view_type).
     template <typename view_type>
     typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_neighbor_lists)::internal_view_type,view_type>::value==1, void>::type 
@@ -1432,9 +1486,13 @@ public:
             // switches memory spaces
             Kokkos::deep_copy(_target_coordinates, host_target_coordinates);
         }
-        _number_of_additional_evaluation_indices 
-            = decltype(_number_of_additional_evaluation_indices)("number of additional evaluation indices", target_coordinates.extent(0));
-        Kokkos::deep_copy(_number_of_additional_evaluation_indices, 0);
+        _host_number_of_additional_evaluation_indices 
+            = decltype(_host_number_of_additional_evaluation_indices)("number of additional evaluation indices", target_coordinates.extent(0));
+        if (_additional_evaluation_indices.getNumberOfTargets() != _target_coordinates.extent(0)) {
+            this->setAuxiliaryEvaluationIndicesLists(
+                    decltype(_host_number_of_additional_evaluation_indices)(), 
+                    _host_number_of_additional_evaluation_indices);
+        }
         this->resetCoefficientData();
     }
 
@@ -1443,9 +1501,13 @@ public:
     void setTargetSites(decltype(_target_coordinates) target_coordinates) {
         // allocate memory on device
         _target_coordinates = target_coordinates;
-        _number_of_additional_evaluation_indices 
-            = decltype(_number_of_additional_evaluation_indices)("number of additional evaluation indices", target_coordinates.extent(0));
-        Kokkos::deep_copy(_number_of_additional_evaluation_indices, 0);
+        _host_number_of_additional_evaluation_indices 
+            = decltype(_host_number_of_additional_evaluation_indices)("number of additional evaluation indices", target_coordinates.extent(0));
+        if (_additional_evaluation_indices.getNumberOfTargets() != _target_coordinates.extent(0)) {
+            this->setAuxiliaryEvaluationIndicesLists(
+                    decltype(_host_number_of_additional_evaluation_indices)(), 
+                    _host_number_of_additional_evaluation_indices);
+        }
         this->resetCoefficientData();
     }
 
@@ -1624,73 +1686,61 @@ public:
     }
 
     //! (OPTIONAL)
-    //! Sets the additional target evaluation coordinate indices list information. Should be # targets x maximum number of indices
-    //! evaluation indices for any target + 1. first entry in every row should be the number of indices for the corresponding target.
+    //! Sets the additional target evaluation indices list information from compressed row format (if same view_type)
     template <typename view_type>
-    void setAuxiliaryEvaluationIndicesLists(view_type indices_lists) {
-        // allocate memory on device
-        _additional_evaluation_indices = decltype(_additional_evaluation_indices)("device additional evaluation indices",
-            indices_lists.extent(0), indices_lists.extent(1));
+    typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_additional_evaluation_indices)::internal_view_type,view_type>::value==1, void>::type 
+            setAuxiliaryEvaluationIndicesLists(view_type additional_evaluation_indices, view_type number_of_neighbors_list) {
 
-        _host_additional_evaluation_indices = Kokkos::create_mirror_view(_additional_evaluation_indices);
-
-        typedef typename view_type::memory_space input_array_memory_space;
-        if (std::is_same<input_array_memory_space, device_memory_space>::value) {
-            // check if on the device, then copy directly
-            // if it is, then it doesn't match the internal layout we use
-            // then copy to the host mirror
-            // switches potential layout mismatches
-            Kokkos::deep_copy(_additional_evaluation_indices, indices_lists);
-            Kokkos::deep_copy(_host_additional_evaluation_indices, _additional_evaluation_indices);
-        } else {
-            // if is on the host, copy to the host mirror
-            // then copy to the device
-            // switches potential layout mismatches
-            Kokkos::deep_copy(_host_additional_evaluation_indices, indices_lists);
-            // copy data from host to device
-            Kokkos::deep_copy(_additional_evaluation_indices, _host_additional_evaluation_indices);
-        }
-
-        _max_evaluation_sites_per_target = 1;
-        auto number_of_additional_evaluation_indices = _number_of_additional_evaluation_indices;
-        auto additional_evaluation_indices = _additional_evaluation_indices;
-        Kokkos::parallel_reduce("additional evaluation indices", 
-                Kokkos::RangePolicy<device_execution_space>(0, _additional_evaluation_indices.extent(0)), 
-                KOKKOS_LAMBDA(const int i, int& t_max_evaluation_sites_per_target) {
-            number_of_additional_evaluation_indices(i) = additional_evaluation_indices(i,0);
-            t_max_evaluation_sites_per_target = (t_max_evaluation_sites_per_target > number_of_additional_evaluation_indices(i)+1) 
-                                                ? t_max_evaluation_sites_per_target : number_of_additional_evaluation_indices(i)+1;
-        }, Kokkos::Max<int>(_max_evaluation_sites_per_target));
+        _additional_evaluation_indices = NeighborLists<view_type>(additional_evaluation_indices, number_of_neighbors_list);
+        _max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
+        _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
+        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), KOKKOS_LAMBDA(const int i) {
+            _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
+        });
         Kokkos::fence();
         this->resetCoefficientData();
+
     }
 
     //! (OPTIONAL)
-    //! Sets the additional target evaluation coordinate indices list information. Should be # targets x maximum number of indices
-    //! evaluation indices for any target + 1. first entry in every row should be the number of indices for the corresponding target.
+    //! Sets the additional target evaluation indices list information from compressed row format (if different view_type)
     template <typename view_type>
-    void setAuxiliaryEvaluationIndicesLists(decltype(_additional_evaluation_indices) indices_lists) {
-        // allocate memory on device
-        _additional_evaluation_indices = indices_lists;
+    typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_additional_evaluation_indices)::internal_view_type,view_type>::value==0, void>::type 
+            setAuxiliaryEvaluationIndicesLists(view_type additional_evaluation_indices, view_type number_of_neighbors_list) {
 
-        _host_additional_evaluation_indices = Kokkos::create_mirror_view(_additional_evaluation_indices);
-        // copy data from host to device
-        Kokkos::deep_copy(_host_additional_evaluation_indices, _additional_evaluation_indices);
-
-        _max_evaluation_sites_per_target = 1;
-        auto number_of_additional_evaluation_indices = _number_of_additional_evaluation_indices;
-        auto additional_evaluation_indices = _additional_evaluation_indices;
-        Kokkos::parallel_reduce("additional evaluation indices", 
-                Kokkos::RangePolicy<device_execution_space>(0, _additional_evaluation_indices.extent(0)), 
-                KOKKOS_LAMBDA(const int i, int& t_max_evaluation_sites_per_target) {
-            number_of_additional_evaluation_indices(i) = additional_evaluation_indices(i,0);
-            t_max_evaluation_sites_per_target = (t_max_evaluation_sites_per_target > number_of_additional_evaluation_indices(i)+1) 
-                                                ? t_max_evaluation_sites_per_target : number_of_additional_evaluation_indices(i)+1;
-        }, Kokkos::Max<int>(_max_evaluation_sites_per_target));
+        typedef decltype(_additional_evaluation_indices)::internal_view_type gmls_view_type;
+        gmls_view_type d_additional_evaluation_indices("compressed row additional evaluation indices lists data", additional_evaluation_indices.extent(0));
+        gmls_view_type d_number_of_neighbors_list("number of additional evaluation indices", number_of_neighbors_list.extent(0));
+        Kokkos::deep_copy(d_additional_evaluation_indices, additional_evaluation_indices);
+        Kokkos::deep_copy(d_number_of_neighbors_list, number_of_neighbors_list);
+        Kokkos::fence();
+        _additional_evaluation_indices = NeighborLists<gmls_view_type>(d_additional_evaluation_indices, d_number_of_neighbors_list);
+        _max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
+        _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
+        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), KOKKOS_LAMBDA(const int i) {
+            _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
+        });
         Kokkos::fence();
         this->resetCoefficientData();
+            
     }
 
+    //! (OPTIONAL)
+    //! Sets the additional target evaluation indices list information. Should be # targets x maximum number of indices
+    //! evaluation indices for any target + 1. first entry in every row should be the number of indices for the corresponding target.
+    template <typename view_type>
+    typename std::enable_if<view_type::rank==2, void>::type setAuxiliaryEvaluationIndicesLists(view_type additional_evaluation_indices) {
+    
+        _additional_evaluation_indices = Convert2DToCompressedRowNeighborLists<decltype(additional_evaluation_indices), Kokkos::View<int*> >(additional_evaluation_indices);
+        _max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
+        _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
+        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), KOKKOS_LAMBDA(const int i) {
+            _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
+        });
+        Kokkos::fence();
+        this->resetCoefficientData();
+
+    }
 
     //! Type for weighting kernel for GMLS problem
     void setWeightingType( const std::string &wt) {
@@ -1702,6 +1752,10 @@ public:
             _weighting_type = WeightingFunctionType::Gaussian;
         } else if (wt_to_lower == "cubicspline") {
             _weighting_type = WeightingFunctionType::CubicSpline;
+        } else if (wt_to_lower == "cosine") {
+            _weighting_type = WeightingFunctionType::Cosine;
+        } else if (wt_to_lower == "sigmoid") {
+            _weighting_type = WeightingFunctionType::Sigmoid;
         } else {
             // Power is default
             _weighting_type = WeightingFunctionType::Power;
@@ -1725,6 +1779,10 @@ public:
             _curvature_weighting_type = WeightingFunctionType::Gaussian;
         } else if (wt_to_lower == "cubicspline") {
             _curvature_weighting_type = WeightingFunctionType::CubicSpline;
+        } else if (wt_to_lower == "cosine") {
+            _curvature_weighting_type = WeightingFunctionType::Cosine;
+        } else if (wt_to_lower == "sigmoid") {
+            _curvature_weighting_type = WeightingFunctionType::Sigmoid;
         } else {
             // Power is default
             _curvature_weighting_type = WeightingFunctionType::Power;
@@ -1751,15 +1809,27 @@ public:
         this->resetCoefficientData();
     }
 
-    //! Power for weighting kernel for GMLS problem
-    void setWeightingPower(int wp) { 
-        _weighting_power = wp;
+    //! Parameter for weighting kernel for GMLS problem
+    //! index = 0 sets p paramater for weighting kernel
+    //! index = 1 sets n paramater for weighting kernel
+    void setWeightingParameter(int wp, int index = 0) { 
+        if (index==1) {
+            _weighting_n = wp;
+        } else {
+            _weighting_p = wp;
+        }
         this->resetCoefficientData();
     }
 
-    //! Power for weighting kernel for curvature
-    void setCurvatureWeightingPower(int wp) { 
-        _curvature_weighting_power = wp;
+    //! Parameter for weighting kernel for curvature
+    //! index = 0 sets p paramater for weighting kernel
+    //! index = 1 sets n paramater for weighting kernel
+    void setCurvatureWeightingParameter(int wp, int index = 0) { 
+        if (index==1) {
+            _curvature_weighting_n = wp;
+        } else {
+            _curvature_weighting_p = wp;
+        }
         this->resetCoefficientData();
     }
 

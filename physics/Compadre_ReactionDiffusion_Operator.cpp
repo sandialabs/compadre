@@ -733,7 +733,8 @@ void ReactionDiffusionPhysics::initialize() {
                     _kokkos_target_coordinates_host,
                     _kokkos_epsilons_host);
     _vel_gmls->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-    _vel_gmls->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+    _vel_gmls->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 0"),0);
+    _vel_gmls->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 1"),1);
 
     if (_use_vector_gmls)
         _vel_gmls->addTargets(TargetOperation::VectorPointEvaluation);
@@ -757,7 +758,8 @@ void ReactionDiffusionPhysics::initialize() {
                         _kokkos_target_coordinates_host,
                         _kokkos_epsilons_host);
         _pressure_gmls->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-        _pressure_gmls->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+        _pressure_gmls->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 0"),0);
+        _pressure_gmls->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 1"),1);
 
         _pressure_gmls->addTargets(TargetOperation::ScalarPointEvaluation);
         _pressure_gmls->setAdditionalEvaluationSitesData(_kokkos_quadrature_neighbor_lists_host, _kokkos_quadrature_coordinates_host);

@@ -14,7 +14,7 @@
     <!--<Parameter name="save residual over solution" type="bool" value="true"/>-->
   </ParameterList>
   <ParameterList name="remap">
-    <Parameter name="weighting power" type="int" value="10"/>
+    <Parameter name="weighting parameter 0" type="int" value="10"/>
     <Parameter name="porder" type="int" value="4"/>
   </ParameterList>
   <ParameterList name="neighborhood">

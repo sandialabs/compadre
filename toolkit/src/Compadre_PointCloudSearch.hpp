@@ -155,8 +155,8 @@ class PointCloudSearch {
 
         //! source site coordinates
         view_type _src_pts_view;
-        const local_index_type _dim;
-        const local_index_type _max_leaf;
+        local_index_type _dim;
+        local_index_type _max_leaf;
 
         std::shared_ptr<tree_type_1d> _tree_1d;
         std::shared_ptr<tree_type_2d> _tree_2d;
@@ -395,7 +395,7 @@ class PointCloudSearch {
             row_offsets_view_type row_offsets;
             int max_neighbor_list_row_storage_size = 1;
             if (!is_dry_run) {
-                auto nla(CreateNeighborLists(neighbor_lists, number_of_neighbors_list));
+                auto nla = CreateNeighborLists(neighbor_lists, number_of_neighbors_list);
                 max_neighbor_list_row_storage_size = nla.getMaxNumNeighbors();
                 Kokkos::resize(row_offsets, num_target_sites);
                 Kokkos::fence();
@@ -491,7 +491,7 @@ class PointCloudSearch {
 
             });
             Kokkos::fence();
-            auto nla(CreateNeighborLists(number_of_neighbors_list));
+            auto nla = CreateNeighborLists(number_of_neighbors_list);
             return nla.getTotalNeighborsOverAllListsHost();
         }
 
@@ -605,7 +605,7 @@ class PointCloudSearch {
             
                     // scale by epsilon_multiplier to window from location where the last neighbor was found
                     epsilons(i) = (neighbor_distances(neighbors_found-1) > 0) ?
-                        std::sqrt(neighbor_distances(neighbors_found-1))*(epsilon_multiplier+1e-14) : 1e-14*epsilon_multiplier;
+                        std::sqrt(neighbor_distances(neighbors_found-1))*epsilon_multiplier : 1e-14*epsilon_multiplier;
                     // the only time the second case using 1e-14 is used is when either zero neighbors or exactly one 
                     // neighbor (neighbor is target site) is found.  when the follow on radius search is conducted, the one
                     // neighbor (target site) will not be found if left at 0, so any positive amount will do, however 1e-14 
@@ -681,7 +681,7 @@ class PointCloudSearch {
             // if dry-run, neighbors_needed, else max over previous dry-run
             int max_neighbor_list_row_storage_size = neighbors_needed;
             if (!is_dry_run) {
-                auto nla(CreateNeighborLists(neighbor_lists, number_of_neighbors_list));
+                auto nla = CreateNeighborLists(neighbor_lists, number_of_neighbors_list);
                 max_neighbor_list_row_storage_size = nla.getMaxNumNeighbors();
             }
 
@@ -752,7 +752,7 @@ class PointCloudSearch {
             
                     // scale by epsilon_multiplier to window from location where the last neighbor was found
                     epsilons(i) = (neighbor_distances(neighbors_found-1) > 0) ?
-                        std::sqrt(neighbor_distances(neighbors_found-1))*(epsilon_multiplier+1e-14) : 1e-14*epsilon_multiplier;
+                        std::sqrt(neighbor_distances(neighbors_found-1))*epsilon_multiplier : 1e-14*epsilon_multiplier;
                     // the only time the second case using 1e-14 is used is when either zero neighbors or exactly one 
                     // neighbor (neighbor is target site) is found.  when the follow on radius search is conducted, the one
                     // neighbor (target site) will not be found if left at 0, so any positive amount will do, however 1e-14 
@@ -778,7 +778,7 @@ class PointCloudSearch {
             generateCRNeighborListsFromRadiusSearch(is_dry_run, trg_pts_view, neighbor_lists, 
                     number_of_neighbors_list, epsilons, 0.0 /*don't set uniform radius*/, max_search_radius);
 
-            auto nla(CreateNeighborLists(number_of_neighbors_list));
+            auto nla = CreateNeighborLists(number_of_neighbors_list);
             return nla.getTotalNeighborsOverAllListsHost();
         }
 }; // PointCloudSearch

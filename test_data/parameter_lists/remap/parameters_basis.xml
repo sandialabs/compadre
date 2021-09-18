@@ -5,7 +5,7 @@
   </ParameterList>
   <ParameterList name="remap">
     <Parameter name="porder" type="int" value="1"/>
-    <Parameter name="weighting power" type="int" value="8"/>
+    <Parameter name="weighting parameter 0" type="int" value="8"/>
   </ParameterList>
   <ParameterList name="neighborhood">
     <Parameter name="method" type="string" value="nanoflann"/>

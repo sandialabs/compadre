@@ -305,9 +305,11 @@ int main (int argc, char* args[]) {
 
     
         _GMLS->setWeightingType(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-        _GMLS->setWeightingPower(parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+        _GMLS->setWeightingParameter(parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 0"),0);
+        _GMLS->setWeightingParameter(parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 1"),1);
         _GMLS->setCurvatureWeightingType(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
-        _GMLS->setCurvatureWeightingPower(parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
+        _GMLS->setCurvatureWeightingParameter(parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting parameter 0"),0);
+        _GMLS->setCurvatureWeightingParameter(parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting parameter 1"),1);
 		_GMLS->setOrderOfQuadraturePoints(parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
 		_GMLS->setDimensionOfQuadraturePoints(parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature dimension"));
 		_GMLS->setQuadratureType(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));

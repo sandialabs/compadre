@@ -52,7 +52,7 @@
     <!--<Parameter name="save residual over solution" type="bool" value="true"/>-->
   </ParameterList>
   <ParameterList name="remap">
-    <Parameter name="weighting power" type="int" value="1"/>
+    <Parameter name="weighting parameter 0" type="int" value="1"/>
     <Parameter name="porder" type="int" value="2"/>
     <Parameter name="basis type" type="string" value="scalar"/>
     <Parameter name="pressure porder" type="int" value="1"/>

@@ -198,7 +198,8 @@ void GMLS_StokesPhysics::initialize() {
                         kokkos_target_coordinates_host,
                         kokkos_epsilons_host);
     _velocity_all_GMLS->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-    _velocity_all_GMLS->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+    _velocity_all_GMLS->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 0"),0);
+    _velocity_all_GMLS->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 1"),1);
     _velocity_all_GMLS->addTargets(TargetOperation::CurlCurlOfVectorPointEvaluation);
     _velocity_all_GMLS->generateAlphas(_parameters->get<Teuchos::ParameterList>("remap").get<int>("number of batches"));
 
@@ -213,7 +214,8 @@ void GMLS_StokesPhysics::initialize() {
                         kokkos_target_coordinates_host,
                         kokkos_epsilons_host);
     _pressure_all_GMLS->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-    _pressure_all_GMLS->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+    _pressure_all_GMLS->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 0"),0);
+    _pressure_all_GMLS->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 1"),1);
     _pressure_all_GMLS->setOrderOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
     _pressure_all_GMLS->setDimensionOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature dimension"));
     _pressure_all_GMLS->setQuadratureType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));
@@ -233,7 +235,8 @@ void GMLS_StokesPhysics::initialize() {
                         boundary_kokkos_epsilons_host);
     _pressure_neumann_GMLS->setTangentBundle(boundary_kokkos_tangent_bundles_host);
     _pressure_neumann_GMLS->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-    _pressure_neumann_GMLS->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+    _pressure_neumann_GMLS->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 0"),0);
+    _pressure_neumann_GMLS->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 1"),1);
     _pressure_neumann_GMLS->setOrderOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
     _pressure_neumann_GMLS->setDimensionOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature dimension"));
     _pressure_neumann_GMLS->setQuadratureType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));

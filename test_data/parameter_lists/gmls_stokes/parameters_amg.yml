@@ -18,7 +18,7 @@ Compadre:
     'file': '../test_data/parameter_lists/gmls_stokes/solver_amg.xml'
     'blocked': true
   'remap':
-    'weighting power': 4
+    'weighting parameter 0': 4
     'porder': 2
     'quadrature order': 2
     'quadrature dimension': 1

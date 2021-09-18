@@ -503,9 +503,11 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 				kokkos_target_coordinates,
 				kokkos_epsilons_host);
 		my_GMLS.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-		my_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+        my_GMLS.setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 0"),0);
+        my_GMLS.setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 1"),1);
 		my_GMLS.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
-		my_GMLS.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
+        my_GMLS.setCurvatureWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting parameter 0"),0);
+        my_GMLS.setCurvatureWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting parameter 1"),1);
 		my_GMLS.setOrderOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
 		my_GMLS.setDimensionOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature dimension"));
 		my_GMLS.setQuadratureType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));
@@ -601,9 +603,11 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 				kokkos_target_coordinates,
 				kokkos_epsilons_host);
 		my_GMLS.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-		my_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+        my_GMLS.setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 0"),0);
+        my_GMLS.setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 1"),1);
 		my_GMLS.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
-		my_GMLS.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
+        my_GMLS.setCurvatureWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting parameter 0"),0);
+        my_GMLS.setCurvatureWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting parameter 1"),1);
 		my_GMLS.setOrderOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
 		my_GMLS.setDimensionOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature dimension"));
 		my_GMLS.setQuadratureType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));
@@ -708,9 +712,11 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 				kokkos_target_coordinates,
 				kokkos_epsilons_host);
 		my_GMLS_staggered_grad.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-		my_GMLS_staggered_grad.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+        my_GMLS_staggered_grad.setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 0"),0);
+        my_GMLS_staggered_grad.setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 1"),1);
 		my_GMLS_staggered_grad.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
-		my_GMLS_staggered_grad.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
+        my_GMLS_staggered_grad.setCurvatureWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting parameter 0"),0);
+        my_GMLS_staggered_grad.setCurvatureWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting parameter 1"),1);
 		my_GMLS_staggered_grad.setOrderOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
 		my_GMLS_staggered_grad.setDimensionOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature dimension"));
 		my_GMLS_staggered_grad.setQuadratureType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));
@@ -732,9 +738,11 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 				kokkos_target_coordinates,
 				kokkos_epsilons_host);
 		my_GMLS_staggered_div.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-		my_GMLS_staggered_div.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+        my_GMLS_staggered_div.setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 0"),0);
+        my_GMLS_staggered_div.setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 1"),1);
 		my_GMLS_staggered_div.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
-		my_GMLS_staggered_div.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
+        my_GMLS_staggered_div.setCurvatureWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting parameter 0"),0);
+        my_GMLS_staggered_div.setCurvatureWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting parameter 1"),1);
 		my_GMLS_staggered_div.setOrderOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
 		my_GMLS_staggered_div.setDimensionOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature dimension"));
 		my_GMLS_staggered_div.setQuadratureType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));
@@ -911,9 +919,11 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 				kokkos_target_coordinates,
 				kokkos_epsilons_host);
 		my_GMLS_staggered_grad.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-		my_GMLS_staggered_grad.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+        my_GMLS_staggered_grad.setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 0"),0);
+        my_GMLS_staggered_grad.setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 1"),1);
 		my_GMLS_staggered_grad.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
-		my_GMLS_staggered_grad.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
+        my_GMLS_staggered_grad.setCurvatureWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting parameter 0"),0);
+        my_GMLS_staggered_grad.setCurvatureWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting parameter 1"),1);
 		my_GMLS_staggered_grad.setOrderOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
 		my_GMLS_staggered_grad.setDimensionOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature dimension"));
 		my_GMLS_staggered_grad.setQuadratureType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));
@@ -935,9 +945,11 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 				kokkos_target_coordinates,
 				kokkos_epsilons_host);
 		my_GMLS_staggered_div.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-		my_GMLS_staggered_div.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+        my_GMLS_staggered_div.setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 0"),0);
+        my_GMLS_staggered_div.setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 1"),1);
 		my_GMLS_staggered_div.setCurvatureWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("curvature weighting type"));
-		my_GMLS_staggered_div.setCurvatureWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting power"));
+        my_GMLS_staggered_div.setCurvatureWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting parameter 0"),0);
+        my_GMLS_staggered_div.setCurvatureWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("curvature weighting parameter 1"),1);
 		my_GMLS_staggered_div.setOrderOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
 		my_GMLS_staggered_div.setDimensionOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature dimension"));
 		my_GMLS_staggered_div.setQuadratureType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("quadrature type"));

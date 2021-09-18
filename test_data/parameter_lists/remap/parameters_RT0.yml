@@ -19,8 +19,8 @@ Compadre:
   'remap':
     'porder': 3
     'curvature porder': 3
-    'weighting power': 12
-    'curvature weighting power': 12
+    'weighting parameter 0': 12
+    'curvature weighting parameter 0': 12
     'quadrature points': 4
     'dimensions': 2
   'neighborhood':

@@ -162,7 +162,8 @@ void GMLS_PoissonNeumannPhysics::initialize() {
                            noconstraint_kokkos_target_coordinates_host,
                            noconstraint_kokkos_epsilons_host);
     _noconstraint_GMLS->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-    _noconstraint_GMLS->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+    _noconstraint_GMLS->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 0"),0);
+    _noconstraint_GMLS->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 1"),1);
 
     _noconstraint_GMLS->addTargets(TargetOperation::LaplacianOfScalarPointEvaluation);
     _noconstraint_GMLS->generateAlphas(); // just point evaluations
@@ -181,7 +182,8 @@ void GMLS_PoissonNeumannPhysics::initialize() {
                           neumann_kokkos_epsilons_host);
     _neumann_GMLS->setTangentBundle(neumann_kokkos_tangent_bundles_host);
     _neumann_GMLS->setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-    _neumann_GMLS->setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+    _neumann_GMLS->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 0"),0);
+    _neumann_GMLS->setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 1"),1);
 
     _neumann_GMLS->addTargets(TargetOperation::LaplacianOfScalarPointEvaluation);
     _neumann_GMLS->generateAlphas(); // just point evaluations

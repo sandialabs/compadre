@@ -157,7 +157,8 @@ void GMLS_StaggeredIntegral_LaplacianPhysics::computeMatrix(local_index_type fie
                                kokkos_target_coordinates,
                                kokkos_epsilons_host);
 	my_GMLS.setWeightingType(_parameters->get<Teuchos::ParameterList>("remap").get<std::string>("weighting type"));
-	my_GMLS.setWeightingPower(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting power"));
+    my_GMLS.setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 0"),0);
+    my_GMLS.setWeightingParameter(_parameters->get<Teuchos::ParameterList>("remap").get<int>("weighting parameter 1"),1);
 
 	my_GMLS.addTargets(TargetOperation::DivergenceOfVectorPointEvaluation);
 	my_GMLS.setOrderOfQuadraturePoints(_parameters->get<Teuchos::ParameterList>("remap").get<int>("quadrature order"));
