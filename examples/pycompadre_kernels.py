@@ -15,7 +15,7 @@ kp = pycompadre.KokkosParser()
 
 # initialize parameters
 wt = pycompadre.WeightingFunctionType.Power
-x = np.linspace(-2.0, 2.0, 1000)
+x = np.linspace(-2.0, 2.0, 700)
 h = 1.0
 p = 2
 n = 1
@@ -51,6 +51,17 @@ delta_f = 4.0/200
 sl_p = Slider(ax_p, 'P', valmin=0.0, valmax=6.0, valinit=2, valstep=1, color=None, initcolor='black')
 sl_n = Slider(ax_n, 'N', valmin=0.0, valmax=6.0, valinit=1, valstep=1, color=None, initcolor='black')
 
+t_power = plt.text(0.02, 0.025, '$$\\left(1-\\left(\\frac{|r|}{h}\\right)^N\\right)^P$$', fontsize=10, transform=plt.gcf().transFigure,usetex=True)
+t_gaussian = plt.text(0.02, 0.035, '$$\\frac{1}{\\frac{h}{P} \\sqrt(2 \\pi)} e^{\\frac{-1}{2}r^2/{\\left(\\frac{h}{P}\\right)^2}}$$', fontsize=10, transform=plt.gcf().transFigure,usetex=True)
+t_cubic = plt.text(0.02, 0.025, '$$((1-\\frac{r}{h})+\\frac{r}{h} (1-\\frac{r}{h}) (1-2 \\frac{r}{h}))$$', fontsize=10, transform=plt.gcf().transFigure,usetex=True)
+t_cosine = plt.text(0.02, 0.025, '$$\\cos(\\frac{\\pi r}{2h})$$', fontsize=10, transform=plt.gcf().transFigure,usetex=True)
+t_sigmoid = plt.text(0.02, 0.025, '$$\\frac{1}{e^{Pr} + e^{-Pr} + N}$$', fontsize=10, transform=plt.gcf().transFigure,usetex=True)
+
+t_labels = {'Power':t_power, 'Gaussian':t_gaussian, 'Cubic Spl.':t_cubic, 'Cosine':t_cosine, 'Sigmoid':t_sigmoid}
+for item in t_labels.keys():
+    if item!='Power':
+        t_labels[item].update({'visible':False})
+
 #radios
 rad_weighting_type = RadioButtons(ax_weighting_type, ('Power', 'Cubic Spl.', 'Cosine', 'Gaussian', 'Sigmoid'), active=0)
 
@@ -68,6 +79,9 @@ def weighting_type_update(label):
     weighting_type_dict = {'Power': pycompadre.WeightingFunctionType.Power, 'Cubic Spl.': pycompadre.WeightingFunctionType.CubicSpline, 'Cosine': pycompadre.WeightingFunctionType.Cosine, 'Gaussian': pycompadre.WeightingFunctionType.Gaussian, 'Sigmoid': pycompadre.WeightingFunctionType.Sigmoid}
     global wt
     wt = weighting_type_dict[label]
+    for item in t_labels.keys():
+        t_labels[item].update({'visible':False})
+    t_labels[label].update({'visible':True})
     if (label=='Power'):
         ax_p.set_visible(True)
         ax_n.set_visible(True)
