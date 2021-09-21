@@ -30,6 +30,12 @@ y = approximate(wt, h, p, n)
 # plot initial data
 fig, ax = plt.subplots()
 plt.subplots_adjust(left=0.25, bottom=0.25)
+
+# resize to make font more readable when large
+fig.set_size_inches(1600/fig.dpi,900/fig.dpi)
+global plot_size
+plot_size = fig.get_size_inches()*fig.dpi
+
 d, = plt.plot(x, y, c='#0000FF', linewidth=4, zorder=1)
 ax.set(xlabel='r', ylabel='',
        title='Kernel Evaluation')
@@ -51,11 +57,12 @@ delta_f = 4.0/200
 sl_p = Slider(ax_p, 'P', valmin=0.0, valmax=6.0, valinit=2, valstep=1, color=None, initcolor='black')
 sl_n = Slider(ax_n, 'N', valmin=0.0, valmax=6.0, valinit=1, valstep=1, color=None, initcolor='black')
 
-t_power = plt.text(0.02, 0.025, '$$\\left(1-\\left(\\frac{|r|}{h}\\right)^N\\right)^P$$', fontsize=10, transform=plt.gcf().transFigure,usetex=True)
-t_gaussian = plt.text(0.02, 0.035, '$$\\frac{1}{\\frac{h}{P} \\sqrt(2 \\pi)} e^{\\frac{-1}{2}r^2/{\\left(\\frac{h}{P}\\right)^2}}$$', fontsize=10, transform=plt.gcf().transFigure,usetex=True)
-t_cubic = plt.text(0.02, 0.025, '$$((1-\\frac{r}{h})+\\frac{r}{h} (1-\\frac{r}{h}) (1-2 \\frac{r}{h}))$$', fontsize=10, transform=plt.gcf().transFigure,usetex=True)
-t_cosine = plt.text(0.02, 0.025, '$$\\cos(\\frac{\\pi r}{2h})$$', fontsize=10, transform=plt.gcf().transFigure,usetex=True)
-t_sigmoid = plt.text(0.02, 0.025, '$$\\frac{1}{e^{Pr} + e^{-Pr} + N}$$', fontsize=10, transform=plt.gcf().transFigure,usetex=True)
+fontsize=10.0/800*plot_size[0]
+t_power = plt.text(0.02, 0.05, '$$\\left(1-\\left(\\frac{|r|}{h}\\right)^N\\right)^P$$', fontsize=fontsize, transform=plt.gcf().transFigure,usetex=True)
+t_gaussian = plt.text(0.02, 0.05, '$$\\frac{1}{\\frac{h}{P} \\sqrt(2 \\pi)} e^{\\frac{-1}{2}r^2/{\\left(\\frac{h}{P}\\right)^2}}$$', fontsize=fontsize, transform=plt.gcf().transFigure,usetex=True)
+t_cubic = plt.text(0.02, 0.05, '$$((1-\\frac{r}{h})+\\frac{r}{h} (1-\\frac{r}{h}) (1-2 \\frac{r}{h}))$$', fontsize=fontsize, transform=plt.gcf().transFigure,usetex=True)
+t_cosine = plt.text(0.02, 0.05, '$$\\cos(\\frac{\\pi r}{2h})$$', fontsize=fontsize, transform=plt.gcf().transFigure,usetex=True)
+t_sigmoid = plt.text(0.02, 0.05, '$$\\frac{1}{e^{Pr} + e^{-Pr} + N}$$', fontsize=fontsize, transform=plt.gcf().transFigure,usetex=True)
 
 t_labels = {'Power':t_power, 'Gaussian':t_gaussian, 'Cubic Spl.':t_cubic, 'Cosine':t_cosine, 'Sigmoid':t_sigmoid}
 for item in t_labels.keys():
@@ -122,6 +129,18 @@ def weighting_type_update(label):
 
 # register objects using weighting_type_update
 rad_weighting_type.on_clicked(weighting_type_update)
+
+def on_move(event):
+    if event.inaxes:
+        new_plot_size = fig.get_size_inches()*fig.dpi
+        global plot_size
+        if (not np.array_equal(new_plot_size, plot_size)):
+            for item in t_labels.keys():
+                t_labels[item].update({'fontsize':10.0/1600*new_plot_size[0]})
+            plot_size = new_plot_size
+            fig.canvas.draw_idle()
+
+plt.connect('motion_notify_event', on_move)
 
 plt.show()
 del kp
