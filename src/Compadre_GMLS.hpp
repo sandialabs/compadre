@@ -879,17 +879,20 @@ public:
         } else if (weighting_type == WeightingFunctionType::Cosine) {
             // compactly supported on [0,h]
             double pi = 3.14159265358979323846;
-            return std::cos(0.5*pi*r/h);
+            double abs_r_over_h_to_n = std::abs(r/h);
+            return std::cos(0.5*pi*r/h) * double(1.0-abs_r_over_h_to_n>0.0);
         } else if (weighting_type == WeightingFunctionType::Gaussian) {
             // NOT compactly supported on [0,h], but approximately 0 at h with >> p
             // invariant to n, p is number of standard deviations at distance h
             // 2.5066282746310002416124 = sqrt(2*pi)
             double h_over_p = h/p;
-            return 1./( h_over_p * 2.5066282746310002416124 ) * std::exp(-.5*r*r/(h_over_p*h_over_p));
+            double abs_r_over_h_to_n = std::abs(r/h);
+            return double(1.0-abs_r_over_h_to_n>0.0)/( h_over_p * 2.5066282746310002416124 ) * std::exp(-.5*r*r/(h_over_p*h_over_p));
         } else if (weighting_type == WeightingFunctionType::Sigmoid) {
             // NOT compactly supported on [0,h], but approximately 0 at h with >> p
             // n=0 is sigmoid, n==2 is logistic, with larger p making Wab decay more quickly
-            return 1.0 / (std::exp(p*r) + std::exp(-p*r) + n);
+            double abs_r_over_h_to_n = std::abs(r/h);
+            return  double(1.0-abs_r_over_h_to_n>0.0) / (std::exp(p*r) + std::exp(-p*r) + n);
         } else { // unsupported type
             compadre_kernel_assert_release(false && "Invalid WeightingFunctionType selected.");
             return 0; 
