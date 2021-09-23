@@ -35,8 +35,6 @@ private:
     Compadre::GMLS* gmls_object;
     Compadre::NeighborLists<int_1d_view_type_in_gmls>* nl;
 
-    typedef nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<double, Compadre::PointCloudSearch<double_2d_view_type> >, 
-            Compadre::PointCloudSearch<double_2d_view_type>, 3> tree_type;
     std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> > point_cloud_search;
 
     double_2d_view_type _source_coords;

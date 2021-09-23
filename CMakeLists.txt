@@ -351,6 +351,8 @@ else() # Raw CMake Project
     set(Compadre_EXT_DEPS Kokkos KokkosKernels)
   endif()
 
+  option(ARBORX_ENABLE_MPI "" "${Compadre_USE_MPI}")
+  add_subdirectory(arborx)
 
 
   #MPI (Not really needed, only used so that if a kokkos-tool was built with MPI, it won't segfault)

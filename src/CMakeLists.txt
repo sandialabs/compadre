@@ -55,6 +55,8 @@ elseif (KOKKOSKERNELS_BUILT_FOR_USER) # Kokkos-Kernels built for user by this pr
   target_link_libraries(compadre PUBLIC Kokkos::kokkoskernels)
 endif()
 
+target_link_libraries(compadre PUBLIC ArborX::ArborX)
+
 # link to MPI
 if (Compadre_USE_MPI)
   if (MPI_CXX_INCLUDE_PATH)
