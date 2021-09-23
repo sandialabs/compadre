@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -59,11 +59,15 @@
 namespace Test {
 
 void cuda_test_random_xorshift64(int num_draws) {
-  Impl::test_random<Kokkos::Random_XorShift64_Pool<Kokkos::Cuda> >(num_draws);
+  Impl::test_random<Kokkos::Random_XorShift64_Pool<Kokkos::Cuda>>(num_draws);
+  Impl::test_random<Kokkos::Random_XorShift64_Pool<
+      Kokkos::Device<Kokkos::Cuda, Kokkos::CudaSpace>>>(num_draws);
 }
 
 void cuda_test_random_xorshift1024(int num_draws) {
-  Impl::test_random<Kokkos::Random_XorShift1024_Pool<Kokkos::Cuda> >(num_draws);
+  Impl::test_random<Kokkos::Random_XorShift1024_Pool<Kokkos::Cuda>>(num_draws);
+  Impl::test_random<Kokkos::Random_XorShift1024_Pool<
+      Kokkos::Device<Kokkos::Cuda, Kokkos::CudaSpace>>>(num_draws);
 }
 
 #define CUDA_RANDOM_XORSHIFT64(num_draws) \

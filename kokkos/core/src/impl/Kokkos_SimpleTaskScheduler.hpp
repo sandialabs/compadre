@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -226,13 +226,13 @@ class SimpleTaskScheduler
   }
 
   template <int TaskEnum, class DepTaskType, class FunctorType>
-  KOKKOS_FUNCTION
-      future_type_for_functor<typename std::decay<FunctorType>::type>
-      _spawn_impl(
-          DepTaskType arg_predecessor_task, TaskPriority arg_priority,
-          typename runnable_task_base_type::function_type apply_function_ptr,
-          typename runnable_task_base_type::destroy_type destroy_function_ptr,
-          FunctorType&& functor) {
+  KOKKOS_FUNCTION future_type_for_functor<
+      typename std::decay<FunctorType>::type>
+  _spawn_impl(
+      DepTaskType arg_predecessor_task, TaskPriority arg_priority,
+      typename runnable_task_base_type::function_type apply_function_ptr,
+      typename runnable_task_base_type::destroy_type /*destroy_function_ptr*/,
+      FunctorType&& functor) {
     KOKKOS_EXPECTS(m_queue != nullptr);
 
     using functor_future_type =
@@ -445,7 +445,7 @@ class SimpleTaskScheduler
     KOKKOS_EXPECTS(!task.get_respawn_flag());
 
     task.set_priority(priority);
-    KOKKOS_ASSERT(not task.has_predecessor());
+    KOKKOS_ASSERT(!task.has_predecessor());
     task.set_respawn_flag(true);
   }
 

@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -76,8 +76,8 @@ void custom_reduction_test(int N, int R, int num_trials) {
                     Kokkos::ThreadVectorRange(team, 32),
                     [&](const int& k, Scalar& max_) {
                       const Scalar val = a((i * 32 + j) * 32 + k);
-                      if (val > lmax) lmax = val;
-                      if ((k == 11) && (j == 17) && (i == 2)) lmax = 11.5;
+                      if (val > max_) max_ = val;
+                      if ((k == 11) && (j == 17) && (i == 2)) max_ = 11.5;
                     },
                     Kokkos::Max<Scalar>(t_max));
                 if (t_max > thread_max) thread_max = t_max;
@@ -106,8 +106,8 @@ void custom_reduction_test(int N, int R, int num_trials) {
                       Kokkos::ThreadVectorRange(team, 32),
                       [&](const int& k, Scalar& max_) {
                         const Scalar val = a((i * 32 + j) * 32 + k);
-                        if (val > lmax) lmax = val;
-                        if ((k == 11) && (j == 17) && (i == 2)) lmax = 11.5;
+                        if (val > max_) max_ = val;
+                        if ((k == 11) && (j == 17) && (i == 2)) max_ = 11.5;
                       },
                       Kokkos::Max<Scalar>(t_max));
                   if (t_max > thread_max) thread_max = t_max;

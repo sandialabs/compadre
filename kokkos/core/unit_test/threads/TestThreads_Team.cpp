@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -80,25 +80,25 @@ TEST(TEST_CATEGORY, team_reduce) {
 }
 
 TEST(TEST_CATEGORY, team_broadcast) {
-  TestTeamBroadcast<TEST_EXECSPACE,
-                    Kokkos::Schedule<Kokkos::Static> >::test_teambroadcast(0);
-  TestTeamBroadcast<TEST_EXECSPACE,
-                    Kokkos::Schedule<Kokkos::Dynamic> >::test_teambroadcast(0);
+  TestTeamBroadcast<TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static>,
+                    long>::test_teambroadcast(0, 1);
+  TestTeamBroadcast<TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic>,
+                    long>::test_teambroadcast(0, 1);
 
-  TestTeamBroadcast<TEST_EXECSPACE,
-                    Kokkos::Schedule<Kokkos::Static> >::test_teambroadcast(2);
-  TestTeamBroadcast<TEST_EXECSPACE,
-                    Kokkos::Schedule<Kokkos::Dynamic> >::test_teambroadcast(2);
+  TestTeamBroadcast<TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static>,
+                    long>::test_teambroadcast(2, 1);
+  TestTeamBroadcast<TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic>,
+                    long>::test_teambroadcast(2, 1);
 
-  TestTeamBroadcast<TEST_EXECSPACE,
-                    Kokkos::Schedule<Kokkos::Static> >::test_teambroadcast(16);
-  TestTeamBroadcast<TEST_EXECSPACE,
-                    Kokkos::Schedule<Kokkos::Dynamic> >::test_teambroadcast(16);
+  TestTeamBroadcast<TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static>,
+                    long>::test_teambroadcast(16, 1);
+  TestTeamBroadcast<TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic>,
+                    long>::test_teambroadcast(16, 1);
 
-  TestTeamBroadcast<TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> >::
-      test_teambroadcast(1000);
-  TestTeamBroadcast<TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> >::
-      test_teambroadcast(1000);
+  TestTeamBroadcast<TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static>,
+                    long>::test_teambroadcast(1000, 1);
+  TestTeamBroadcast<TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic>,
+                    long>::test_teambroadcast(1000, 1);
 }
 }  // namespace Test
 

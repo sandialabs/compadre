@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -150,7 +150,7 @@ template <class DriverType>
 __global__ static void cuda_parallel_launch_constant_or_global_memory(
     const DriverType* driver_ptr) {
   const DriverType& driver =
-      driver_ptr != NULL
+      driver_ptr != nullptr
           ? *driver_ptr
           : *((const DriverType*)kokkos_impl_cuda_constant_memory_buffer);
 
@@ -162,7 +162,7 @@ __global__
 __launch_bounds__(maxTperB, minBperSM) static void cuda_parallel_launch_constant_or_global_memory(
     const DriverType* driver_ptr) {
   const DriverType& driver =
-      driver_ptr != NULL
+      driver_ptr != nullptr
           ? *driver_ptr
           : *((const DriverType*)kokkos_impl_cuda_constant_memory_buffer);
 
@@ -260,6 +260,8 @@ struct CudaParallelLaunch<
             (prefer_shmem ? cudaFuncCachePreferShared
                           : cudaFuncCachePreferL1)));
       }
+#else
+      (void)prefer_shmem;
 #endif
 
       // Copy functor to constant memory on the device
@@ -317,6 +319,8 @@ struct CudaParallelLaunch<DriverType, Kokkos::LaunchBounds<0, 0>,
             (prefer_shmem ? cudaFuncCachePreferShared
                           : cudaFuncCachePreferL1)));
       }
+#else
+      (void)prefer_shmem;
 #endif
 
       // Copy functor to constant memory on the device
@@ -371,6 +375,8 @@ struct CudaParallelLaunch<
             (prefer_shmem ? cudaFuncCachePreferShared
                           : cudaFuncCachePreferL1)));
       }
+#else
+      (void)prefer_shmem;
 #endif
 
       KOKKOS_ENSURE_CUDA_LOCK_ARRAYS_ON_DEVICE();
@@ -419,6 +425,8 @@ struct CudaParallelLaunch<DriverType, Kokkos::LaunchBounds<0, 0>,
             (prefer_shmem ? cudaFuncCachePreferShared
                           : cudaFuncCachePreferL1)));
       }
+#else
+      (void)prefer_shmem;
 #endif
 
       KOKKOS_ENSURE_CUDA_LOCK_ARRAYS_ON_DEVICE();
@@ -465,11 +473,13 @@ struct CudaParallelLaunch<
             (prefer_shmem ? cudaFuncCachePreferShared
                           : cudaFuncCachePreferL1)));
       }
+#else
+      (void)prefer_shmem;
 #endif
 
       KOKKOS_ENSURE_CUDA_LOCK_ARRAYS_ON_DEVICE();
 
-      DriverType* driver_ptr = NULL;
+      DriverType* driver_ptr = nullptr;
       driver_ptr             = reinterpret_cast<DriverType*>(
           cuda_instance->scratch_functor(sizeof(DriverType)));
       cudaMemcpyAsync(driver_ptr, &driver, sizeof(DriverType),
@@ -516,11 +526,13 @@ struct CudaParallelLaunch<DriverType, Kokkos::LaunchBounds<0, 0>,
             (prefer_shmem ? cudaFuncCachePreferShared
                           : cudaFuncCachePreferL1)));
       }
+#else
+      (void)prefer_shmem;
 #endif
 
       KOKKOS_ENSURE_CUDA_LOCK_ARRAYS_ON_DEVICE();
 
-      DriverType* driver_ptr = NULL;
+      DriverType* driver_ptr = nullptr;
       driver_ptr             = reinterpret_cast<DriverType*>(
           cuda_instance->scratch_functor(sizeof(DriverType)));
       cudaMemcpyAsync(driver_ptr, &driver, sizeof(DriverType),
