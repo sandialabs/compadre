@@ -198,7 +198,7 @@ bool all_passed = true;
             auto nla(CreateNeighborLists(neighbor_lists, number_neighbors_list));
 
             double radius_search_time = timer.seconds();
-            printf("nanoflann search time: %f s\n", radius_search_time);
+            printf("arborx search time: %f s\n", radius_search_time);
 
             // convert point cloud search to vector of maps
             timer.reset();
@@ -314,7 +314,7 @@ bool all_passed = true;
                 target_coords, neighbor_lists, epsilon);
 
             double radius_search_time = timer.seconds();
-            printf("nanoflann search time: %f s\n", radius_search_time);
+            printf("arborx search time: %f s\n", radius_search_time);
 
             // convert point cloud search to vector of maps
             timer.reset();
@@ -432,7 +432,7 @@ bool all_passed = true;
             auto nla = Convert2DToCompressedRowNeighborLists(neighbor_lists);
 
             double radius_search_time = timer.seconds();
-            printf("nanoflann search time: %f s\n", radius_search_time);
+            printf("arborx search time: %f s\n", radius_search_time);
 
             // convert point cloud search to vector of maps
             timer.reset();
