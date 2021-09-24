@@ -140,7 +140,7 @@ class PointCloudSearch {
                 neighbor_lists_view_type neighbor_lists, epsilons_view_type epsilons, 
                 const double uniform_radius = 0.0, double max_search_radius = 0.0) {
 
-            //// function does not populate epsilons, they must be prepopulated
+            // function does not populate epsilons, they must be prepopulated
 
             //compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename trg_view_type::memory_space>::accessible==1) &&
             //        "Target coordinates view passed to generate2DNeighborListsFromRadiusSearch should be accessible from the host.");
@@ -151,6 +151,49 @@ class PointCloudSearch {
             //        "Views passed to generate2DNeighborListsFromRadiusSearch should be accessible from the host.");
             //compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename epsilons_view_type::memory_space>::accessible==1) &&
             //        "Views passed to generate2DNeighborListsFromRadiusSearch should be accessible from the host.");
+            
+            const int num_target_sites = trg_pts_view.extent(0);
+ 
+            // check neighbor lists and epsilons view sizes
+            compadre_assert_release((neighbor_lists.extent(0)==(size_t)num_target_sites 
+                        && neighbor_lists.extent(1)>=1)
+                        && "neighbor lists View does not have large enough dimensions");
+            compadre_assert_release((neighbor_lists_view_type::rank==2) && "neighbor_lists must be a 2D Kokkos view.");
+
+
+            // temporary 1D array for cr_neighbor_lists
+            typedef typename decltype(neighbor_lists)::value_type value_type;
+            size_t cr_neighbor_entries =  (is_dry_run) ? 0 : num_target_sites * neighbor_lists.extent(1);
+            Kokkos::View<value_type*, typename decltype(neighbor_lists)::memory_space> 
+                cr_neighbor_lists(
+                    Kokkos::view_alloc(neighbor_lists.label(), 
+                        typename decltype(neighbor_lists)::memory_space()), 
+                    cr_neighbor_entries);
+
+            typedef typename decltype(neighbor_lists)::value_type value_type;
+            Kokkos::View<value_type*, typename decltype(neighbor_lists)::memory_space> 
+                number_of_neighbors_list(
+                    Kokkos::view_alloc("number of neighbors list", 
+                        typename decltype(neighbor_lists)::memory_space()), 
+                    num_target_sites);
+            
+            generateCRNeighborListsFromRadiusSearch(is_dry_run, trg_pts_view,
+                cr_neighbor_lists, number_of_neighbors_list, epsilons, uniform_radius, max_search_radius);
+            for (int i=0; i<num_target_sites; ++i) {
+                printf("%d: %d\n", i, number_of_neighbors_list(i));
+            }
+
+            size_t max_num_neighbors = 0;
+            if (!is_dry_run) {
+                auto nla = CreateNeighborLists(cr_neighbor_lists, number_of_neighbors_list);
+                ConvertCompressedRowNeighborListsTo2D(nla, neighbor_lists);
+                max_num_neighbors = nla.getMaxNumNeighbors();
+            } else {
+                auto nla = CreateNeighborLists(number_of_neighbors_list);
+                max_num_neighbors = nla.getMaxNumNeighbors();
+            }
+            printf("max_num_neighbors: %lu\n", max_num_neighbors);
+
 
             //// loop size
             //const int num_target_sites = trg_pts_view.extent(0);
@@ -159,11 +202,6 @@ class PointCloudSearch {
             ////    this->generateKDTree();
             ////}
 
-            //// check neighbor lists and epsilons view sizes
-            //compadre_assert_release((neighbor_lists.extent(0)==(size_t)num_target_sites 
-            //            && neighbor_lists.extent(1)>=1)
-            //            && "neighbor lists View does not have large enough dimensions");
-            //compadre_assert_release((neighbor_lists_view_type::rank==2) && "neighbor_lists must be a 2D Kokkos view.");
 
             //compadre_assert_release((epsilons.extent(0)==(size_t)num_target_sites)
             //            && "epsilons View does not have the correct dimension");
@@ -257,7 +295,7 @@ class PointCloudSearch {
             //compadre_assert_release((neighbor_lists.extent(1) >= (max_num_neighbors+1) || is_dry_run) 
             //        && "neighbor_lists does not contain enough columns for the maximum number of neighbors needing to be stored.");
 
-            return 0;//max_num_neighbors;
+            return max_num_neighbors;
         }
 
         /*! \brief Generates compressed row neighbor lists by performing a radius search 
