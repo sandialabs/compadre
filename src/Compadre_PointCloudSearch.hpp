@@ -35,55 +35,62 @@ struct ArborX::AccessTraits<Points<view_type>, ArborX::PrimitivesTag>
     }
     using memory_space = device_memory_space;
 };
-//
-//template <typename view_type_1, typename view_type_2>
-//struct Radius {
-//
-//    view_type_1 _pts;
-//    view_type_2 _radii;
-//    double _uniform_radius;
-//    double _max_search_radius;
-//
-//    Radius(view_type_1 pts, view_type_2 radii, const double uniform_radius, 
-//            const double max_search_radius) : 
-//                _pts(pts), _radii(radii),
-//                _uniform_radius(uniform_radius), 
-//                _max_search_radius(max_search_radius) 
-//    {}
-//};
-//
-//struct NearestToOrigin
-//{
-//  int k;
-//};
-//
-//template <typename view_type_1, typename view_type_2>
-//struct ArborX::AccessTraits<Radius<view_type_1, view_type_2>, ArborX::PredicatesTag>
-//{
-//  static KOKKOS_FUNCTION std::size_t size(Radius<view_type_1, view_type_2> const &cloud)
-//  {
-//      return cloud._pts.extent(0);
-//  }
-//  static KOKKOS_FUNCTION ArborX::Intersects<ArborX::Sphere> 
-//      get(Radius<view_type_1, view_type_2> const &cloud, std::size_t i)
-//  {
-//      double radius = (cloud._uniform_radius != 0) ? cloud._uniform_radius : cloud._radii(i);
-//      compadre_kernel_assert_release((cloud._epsilons(i)<=cloud._max_search_radius || cloud._max_search_radius==0) 
-//              && "max_search_radius given (generally derived from the size of a halo region), \
-//              and search radius needed would exceed this max_search_radius.");
-//      switch (cloud._pts.extent(1)) {
-//      case 3:
-//          return ArborX::intersects(ArborX::Sphere({{{cloud._pts(i,0), cloud._pts(i,1), cloud._pts(i,2)}}, radius}));
-//      case 2:
-//          return ArborX::intersects(ArborX::Sphere({{{cloud._pts(i,0), cloud._pts(i,1),             0.0}}, radius}));
-//      case 1:
-//          return ArborX::intersects(ArborX::Sphere({{{cloud._pts(i,0),             0.0,             0.0}}, radius}));
-//      default:
-//          compadre_assert_release(false && "Invalid dimension for cloud.");
-//      }
-//  }
-//  using memory_space = device_memory_space;
-//};
+
+template <typename view_type_1, typename view_type_2>
+struct Radius {
+
+    view_type_1 _pts;
+    view_type_2 _radii;
+    double _uniform_radius;
+    double _max_search_radius;
+
+    Radius(view_type_1 pts, view_type_2 radii, const double uniform_radius, 
+            const double max_search_radius) : 
+                _pts(pts), _radii(radii),
+                _uniform_radius(uniform_radius), 
+                _max_search_radius(max_search_radius) 
+    {}
+};
+
+template <typename view_type_1, typename view_type_2>
+struct ArborX::AccessTraits<Radius<view_type_1, view_type_2>, ArborX::PredicatesTag>
+{
+  static KOKKOS_FUNCTION std::size_t size(Radius<view_type_1, view_type_2> const &cloud)
+  {
+      return cloud._pts.extent(0);
+  }
+  static KOKKOS_FUNCTION ArborX::Intersects<ArborX::Sphere> 
+      get(Radius<view_type_1, view_type_2> const &cloud, std::size_t i)
+  {
+      double radius = (cloud._uniform_radius != 0) ? cloud._uniform_radius : cloud._radii(i);
+      compadre_kernel_assert_release((cloud._radii(i)<=cloud._max_search_radius || cloud._max_search_radius==0) 
+              && "max_search_radius given (generally derived from the size of a halo region), \
+              and search radius needed would exceed this max_search_radius.");
+      switch (cloud._pts.extent(1)) {
+      case 3:
+          return ArborX::intersects(ArborX::Sphere(
+                      ArborX::Point(cloud._pts(i,0), cloud._pts(i,1), cloud._pts(i,2)), 
+                      radius));
+      case 2:
+          return ArborX::intersects(ArborX::Sphere(
+                      ArborX::Point(cloud._pts(i,0), cloud._pts(i,1),             0.0), 
+                      radius));
+      case 1:
+          return ArborX::intersects(ArborX::Sphere(
+                      ArborX::Point(cloud._pts(i,0),             0.0,             0.0), 
+                      radius));
+      default:
+          compadre_assert_release(false && "Invalid dimension for cloud.");
+      }
+  }
+  using memory_space = device_memory_space;
+};
+
+struct NearestToOrigin
+{
+  int k;
+};
+
 
 //template <>
 //struct ArborX::AccessTraits<NearestToOrigin, ArborX::PredicatesTag>
@@ -141,19 +148,6 @@ class PointCloudSearch {
                     && "Views passed to PointCloudSearch at construction should be accessible from the host.");
 
             {
-                //Kokkos::View<ArborX::Point *> cloud("point_cloud", _src_pts_view.extent(0));
-                //Kokkos::parallel_for("make source cloud", _src_pts_view.extent(0), KOKKOS_LAMBDA(int i) {
-                //  if (_dim==1) {
-                //      cloud(i) = {{_src_pts_view(i,0),0,0}};
-                //  }
-                //  if (_dim==2) {
-                //      cloud(i) = {{_src_pts_view(i,0),_src_pts_view(i,1),0}};
-                //  }
-                //  if (_dim==3) {
-                //      cloud(i) = {{_src_pts_view(i,0),_src_pts_view(i,1),_src_pts_view(i,2)}};
-                //  }
-                //});
-                //_tree = ArborX::BVH<device_memory_space>(device_execution_space(), cloud);
                 _tree = ArborX::BVH<device_memory_space>(device_execution_space(), 
                             Points<view_type>(_src_pts_view));
             }
@@ -287,39 +281,12 @@ class PointCloudSearch {
             compadre_assert_release((epsilons.extent(0)==(size_t)num_target_sites)
                         && "epsilons View does not have the correct dimension");
 
-
-            // build target points into a cloud of sphere with radius given as epsilons(i)
-            Kokkos::View<ArborX::Sphere *> cloud("trg_point_cloud", trg_pts_view.extent(0));
-            Kokkos::parallel_for(num_target_sites, KOKKOS_LAMBDA(int i) {
-                compadre_kernel_assert_release((epsilons(i)<=max_search_radius || max_search_radius==0) && "max_search_radius given (generally derived from the size of a halo region), and search radius needed would exceed this max_search_radius.");
-                if (uniform_radius > 0) epsilons(i) = uniform_radius;
-                if (_dim==1) {
-                    cloud(i) = {{{trg_pts_view(i,0),0,0}}, epsilons(i)};
-                }
-                if (_dim==2) {
-                    cloud(i) = {{{trg_pts_view(i,0),trg_pts_view(i,1),0}}, epsilons(i)};
-                }
-                if (_dim==3) {
-                    cloud(i) = {{{trg_pts_view(i,0),trg_pts_view(i,1),trg_pts_view(i,2)}}, epsilons(i)};
-                }
-            });
-            Kokkos::fence();
-            // build queries
-            Kokkos::View<ArborX::Intersects<ArborX::Sphere> *, device_memory_space> 
-                queries("queries", num_target_sites);
-            Kokkos::parallel_for(Kokkos::RangePolicy<device_execution_space>(0, num_target_sites),
-            KOKKOS_LAMBDA(int i) {
-                queries(i) = ArborX::intersects(cloud(i));
-            });
-            Kokkos::fence();
-
             // perform tree search
             Kokkos::View<int *, device_memory_space> values("values", 0);
             Kokkos::View<int *, device_memory_space> offsets("offsets", 0);
-            //auto predicates = Radius<trg_view_type,epsilons_view_type>(trg_pts_view, epsilons,
-            //        uniform_radius, max_search_size);
-            //_tree.query(device_execution_space(), predicates, values, offsets);
-            _tree.query(device_execution_space(), queries, values, offsets);
+            auto predicates = Radius<trg_view_type,epsilons_view_type>(trg_pts_view, epsilons,
+                    uniform_radius, max_search_radius);
+            _tree.query(device_execution_space(), predicates, values, offsets);
 
             // set number of neighbors list (how many neighbors for each target site) based
             // on results on tree query
