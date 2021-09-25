@@ -391,9 +391,11 @@ void ConvertCompressedRowNeighborListsTo2D(const NeighborLists<view_type_1d>& nl
             neighbor_lists_2d.extent_int(0)!=num_targets ||
             neighbor_lists_2d.extent_int(1)<max_neighbors+1) {
         typedef typename view_type_2d::value_type value_type;
-        Kokkos::View<value_type**, typename view_type_2d::array_layout, device_memory_space> 
+        typedef typename view_type_2d::array_layout layout;
+        typedef typename view_type_2d::memory_space memory_space;
+        Kokkos::View<value_type**, layout, memory_space> 
             new_neighbor_lists_2d(
-                Kokkos::view_alloc(neighbor_lists_2d.label(), typename view_type_2d::memory_space()), 
+                Kokkos::view_alloc(neighbor_lists_2d.label(), memory_space()), 
                 num_targets, max_neighbors+1);
         neighbor_lists_2d = new_neighbor_lists_2d;
     }

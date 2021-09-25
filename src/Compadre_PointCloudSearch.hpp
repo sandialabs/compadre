@@ -30,7 +30,8 @@ struct ArborX::AccessTraits<Points<view_type>, ArborX::PrimitivesTag>
         case 1:
             return ArborX::Point(cloud._pts(i,0),             0.0,             0.0);
         default:
-            compadre_assert_release(false && "Invalid dimension for cloud.");
+            compadre_kernel_assert_release(false && "Invalid dimension for cloud.");
+            return ArborX::Point(           0.0,             0.0,             0.0);
         }
     }
     using memory_space = device_memory_space;
@@ -80,7 +81,10 @@ struct ArborX::AccessTraits<Radius<view_type_1, view_type_2>, ArborX::Predicates
                       ArborX::Point(cloud._pts(i,0),             0.0,             0.0), 
                       radius));
       default:
-          compadre_assert_release(false && "Invalid dimension for cloud.");
+          compadre_kernel_assert_release(false && "Invalid dimension for cloud.");
+          return ArborX::intersects(ArborX::Sphere(
+                      ArborX::Point(            0.0,             0.0,             0.0),
+                      radius));
       }
   }
   using memory_space = device_memory_space;
@@ -148,8 +152,11 @@ class PointCloudSearch {
                     && "Views passed to PointCloudSearch at construction should be accessible from the host.");
 
             {
-                _tree = ArborX::BVH<device_memory_space>(device_execution_space(), 
-                            Points<view_type>(_src_pts_view));
+                //if (Kokkos::SpaceAccessibility<device_execution_space, 
+                //        typename trg_view_type::memory_space>::accessible==1) {
+                    _tree = ArborX::BVH<device_memory_space>(device_execution_space(), 
+                                Points<view_type>(_src_pts_view));
+                //}
             }
         };
     
@@ -306,10 +313,8 @@ class PointCloudSearch {
             typedef Kokkos::View<global_index_type*, typename neighbor_lists_view_type::array_layout,
                     typename neighbor_lists_view_type::memory_space, typename neighbor_lists_view_type::memory_traits> row_offsets_view_type;
             row_offsets_view_type row_offsets;
-            int max_neighbor_list_row_storage_size = 1;
             if (!is_dry_run) {
                 auto nla = CreateNeighborLists(neighbor_lists, number_of_neighbors_list);
-                max_neighbor_list_row_storage_size = nla.getMaxNumNeighbors();
                 Kokkos::resize(row_offsets, num_target_sites);
                 Kokkos::fence();
                 Kokkos::parallel_for(Kokkos::RangePolicy<host_execution_space>(0,num_target_sites), [&](const int i) {
