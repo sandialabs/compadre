@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.16)
 project(ArborX CXX)
 
 #find_package(Kokkos 3.1 REQUIRED)
-if(Kokkos_ENABLE_CUDA)
-  kokkos_check(OPTIONS CUDA_LAMBDA)
-endif()
+#if(Kokkos_ENABLE_CUDA)
+#  kokkos_check(OPTIONS CUDA_LAMBDA)
+#endif()
 
 add_library(ArborX INTERFACE)
 target_link_libraries(ArborX INTERFACE Kokkos::kokkos)

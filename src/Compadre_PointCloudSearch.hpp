@@ -34,7 +34,7 @@ struct ArborX::AccessTraits<Points<view_type>, ArborX::PrimitivesTag>
             return ArborX::Point(           0.0,             0.0,             0.0);
         }
     }
-    using memory_space = device_memory_space;
+    using memory_space = host_memory_space;
 };
 
 template <typename view_type_1, typename view_type_2>
@@ -87,7 +87,7 @@ struct ArborX::AccessTraits<Radius<view_type_1, view_type_2>, ArborX::Predicates
                       radius));
       }
   }
-  using memory_space = device_memory_space;
+  using memory_space = host_memory_space;
 };
 
 struct NearestToOrigin
@@ -139,7 +139,7 @@ class PointCloudSearch {
         local_index_type _dim;
         local_index_type _max_leaf;
 
-        ArborX::BVH<device_memory_space> _tree;
+        ArborX::BVH<host_memory_space> _tree;
 
     public:
 
@@ -154,7 +154,7 @@ class PointCloudSearch {
             {
                 //if (Kokkos::SpaceAccessibility<device_execution_space, 
                 //        typename trg_view_type::memory_space>::accessible==1) {
-                    _tree = ArborX::BVH<device_memory_space>(device_execution_space(), 
+                    _tree = ArborX::BVH<host_memory_space>(host_execution_space(), 
                                 Points<view_type>(_src_pts_view));
                 //}
             }
@@ -227,7 +227,8 @@ class PointCloudSearch {
 
             if (!is_dry_run) { 
                 // number_of_neighbors_list not populated when !is_dry_run
-                Kokkos::parallel_for(num_target_sites, KOKKOS_LAMBDA(int i) {
+                Kokkos::parallel_for(Kokkos::RangePolicy<host_execution_space>(0, num_target_sites),
+                KOKKOS_LAMBDA(int i) {
                     number_of_neighbors_list(i) = neighbor_lists(i,0);
                 });
             }
@@ -289,15 +290,15 @@ class PointCloudSearch {
                         && "epsilons View does not have the correct dimension");
 
             // perform tree search
-            Kokkos::View<int *, device_memory_space> values("values", 0);
-            Kokkos::View<int *, device_memory_space> offsets("offsets", 0);
+            Kokkos::View<int *, host_memory_space> values("values", 0);
+            Kokkos::View<int *, host_memory_space> offsets("offsets", 0);
             auto predicates = Radius<trg_view_type,epsilons_view_type>(trg_pts_view, epsilons,
                     uniform_radius, max_search_radius);
-            _tree.query(device_execution_space(), predicates, values, offsets);
+            _tree.query(host_execution_space(), predicates, values, offsets);
 
             // set number of neighbors list (how many neighbors for each target site) based
             // on results on tree query
-            Kokkos::parallel_for(Kokkos::RangePolicy<device_execution_space>(0, num_target_sites),
+            Kokkos::parallel_for(Kokkos::RangePolicy<host_execution_space>(0, num_target_sites),
             KOKKOS_LAMBDA(int i) {
                 size_t neighbors_found_for_target_i = offsets(i+1) - offsets(i);
                 if (!is_dry_run) { // check it is as expected before overwriting
@@ -363,7 +364,7 @@ class PointCloudSearch {
 
             // copy neighbor list values over from tree query
             if (!is_dry_run) {
-                Kokkos::parallel_for(Kokkos::RangePolicy<device_execution_space>(0, num_target_sites),
+                Kokkos::parallel_for(Kokkos::RangePolicy<host_execution_space>(0, num_target_sites),
                 KOKKOS_LAMBDA(int i) {
                     for (int j=0; j<number_of_neighbors_list(i); ++j) {
                         neighbor_lists(row_offsets(i)+j) = values(offsets(i)+j);
