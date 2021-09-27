@@ -198,8 +198,11 @@ bool all_passed = true;
             auto nla(CreateNeighborLists(neighbor_lists, number_neighbors_list));
 
             double radius_search_time = timer.seconds();
+#ifdef COMPADRE_USE_ARBORX
             printf("arborx search time: %f s\n", radius_search_time);
-
+#else
+            printf("nanoflann search time: %f s\n", radius_search_time);
+#endif
             // convert point cloud search to vector of maps
             timer.reset();
             std::vector<std::map<int, double> > point_cloud_neighbor_list(number_target_coords, std::map<int, double>());
@@ -313,7 +316,11 @@ bool all_passed = true;
                 target_coords, neighbor_lists, epsilon);
 
             double radius_search_time = timer.seconds();
+#ifdef COMPADRE_USE_ARBORX
             printf("arborx search time: %f s\n", radius_search_time);
+#else
+            printf("nanoflann search time: %f s\n", radius_search_time);
+#endif
 
             // convert point cloud search to vector of maps
             timer.reset();
@@ -430,7 +437,11 @@ bool all_passed = true;
             auto nla = Convert2DToCompressedRowNeighborLists(neighbor_lists);
 
             double radius_search_time = timer.seconds();
+#ifdef COMPADRE_USE_ARBORX
             printf("arborx search time: %f s\n", radius_search_time);
+#else
+            printf("nanoflann search time: %f s\n", radius_search_time);
+#endif
 
             // convert point cloud search to vector of maps
             timer.reset();
