@@ -315,7 +315,7 @@ class PointCloudSearch {
                     t_max_num_neighbors = (neighbors_found > t_max_num_neighbors) ? neighbors_found : t_max_num_neighbors;
             
                     // the number of neighbors is stored in column zero of the neighbor lists 2D array
-                    if (check_same) {
+                    if (!is_dry_run && check_same) {
                         compadre_kernel_assert_debug((neighbors_found==(size_t)neighbor_lists(i,0)) 
                                 && "Number of neighbors found changed since dry-run.");
                     }
