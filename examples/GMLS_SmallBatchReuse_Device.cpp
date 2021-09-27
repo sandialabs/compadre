@@ -271,7 +271,8 @@ bool all_passed = true;
         // to each target site, adding (epsilon_multiplier-1)*100% to whatever the distance away the further neighbor used is from
         // each target to the view for epsilon
         point_cloud_search.generate2DNeighborListsFromKNNSearch(false /*not dry run*/, single_target_coords, 
-                single_neighbor_lists, single_epsilon, min_neighbors, epsilon_multiplier);
+                single_neighbor_lists, single_epsilon, min_neighbors, epsilon_multiplier,
+                0.0 /* max search radius */, false);
         
         //! [Performing Neighbor Search]
         

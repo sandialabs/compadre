@@ -306,8 +306,7 @@ bool all_passed = true;
             printf("max num neighbors: %lu\n", max_num_neighbors);
 
             // resize neighbor lists to be large enough to hold the results
-            neighbor_lists = Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace>("neighbor lists", 
-                number_target_coords, 1+max_num_neighbors); // first column is # of neighbors
+            Kokkos::resize(neighbor_lists, neighbor_lists.extent(0), 1+max_num_neighbors);
 
             // search again, now that we know that there is enough room to store the results
             max_num_neighbors = point_cloud_search.generate2DNeighborListsFromRadiusSearch(false /* dry run */,
@@ -422,8 +421,7 @@ bool all_passed = true;
             printf("max num neighbors: %lu\n", max_num_neighbors);
 
             // resize neighbor lists to be large enough to hold the results
-            neighbor_lists = Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace>("neighbor lists", 
-                number_target_coords, 1+max_num_neighbors); // first column is # of neighbors
+            Kokkos::resize(neighbor_lists, neighbor_lists.extent(0), 1+max_num_neighbors);
 
             // search again, now that we know that there is enough room to store the results
             max_num_neighbors = point_cloud_search.generate2DNeighborListsFromRadiusSearch(false /* dry run */,
