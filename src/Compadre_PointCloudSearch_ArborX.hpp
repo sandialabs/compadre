@@ -8,19 +8,26 @@
 
 template <typename view_type_1>
 struct Points {
-    view_type_1 _pts;
-    Points(view_type_1 pts): 
-                _pts(pts) {}
+    typedef decltype(Kokkos::create_mirror_view<device_memory_space>(
+                device_memory_space(), view_type_1())) 
+                        device_mirror_type;
+    device_mirror_type _pts;
+
+    Points(view_type_1 pts) {
+        _pts = Kokkos::create_mirror_view<device_memory_space>(device_memory_space(), pts);
+        Kokkos::deep_copy(_pts, pts);
+        Kokkos::fence();
+    }
 };
 
 template <typename view_type>
 struct ArborX::AccessTraits<Points<view_type>, ArborX::PrimitivesTag>
 {
-    static KOKKOS_FUNCTION std::size_t size(Points<view_type> const &cloud)
+    static KOKKOS_FUNCTION std::size_t size(Points<view_type> const cloud)
     {
         return cloud._pts.extent(0);
     }
-    static KOKKOS_FUNCTION ArborX::Point get(Points<view_type> const &cloud, std::size_t i)
+    static KOKKOS_FUNCTION ArborX::Point get(Points<view_type> const cloud, std::size_t i)
     {
         switch (cloud._pts.extent(1)) {
         case 3:
@@ -34,23 +41,32 @@ struct ArborX::AccessTraits<Points<view_type>, ArborX::PrimitivesTag>
             return ArborX::Point(           0.0,             0.0,             0.0);
         }
     }
-    using memory_space = host_memory_space;
+    using memory_space = device_memory_space;
 };
 
 template <typename view_type_1, typename view_type_2>
 struct Radius {
 
-    view_type_1 _pts;
-    view_type_2 _radii;
+    typedef decltype(Kokkos::create_mirror_view<device_memory_space>(
+                device_memory_space(), view_type_1())) 
+                        device_mirror_type_1;
+    device_mirror_type_1 _pts;
+    typedef decltype(Kokkos::create_mirror_view<device_memory_space>(
+                device_memory_space(), view_type_2())) 
+                        device_mirror_type_2;
+    device_mirror_type_2 _radii;
     double _uniform_radius;
     double _max_search_radius;
 
     Radius(view_type_1 pts, view_type_2 radii, const double uniform_radius, 
-            const double max_search_radius) : 
-                _pts(pts), _radii(radii),
+            const double max_search_radius) :
                 _uniform_radius(uniform_radius), 
-                _max_search_radius(max_search_radius) 
-    {}
+                _max_search_radius(max_search_radius) {
+        _pts = Kokkos::create_mirror_view<device_memory_space>(device_memory_space(), pts);
+        _radii = Kokkos::create_mirror_view<device_memory_space>(device_memory_space(), radii);
+        Kokkos::deep_copy(_pts, pts);
+        Kokkos::deep_copy(_radii, radii);
+    }
 };
 
 template <typename view_type_1, typename view_type_2>
@@ -87,8 +103,11 @@ struct ArborX::AccessTraits<Radius<view_type_1, view_type_2>, ArborX::Predicates
                       ArborX::Point(            0.0,             0.0,             0.0),
                       radius));
       }
+      return ArborX::intersects(ArborX::Sphere(
+                  ArborX::Point(            0.0,             0.0,             0.0),
+                  0.0));
   }
-  using memory_space = host_memory_space;
+  using memory_space = device_memory_space;
 };
 
 template <typename view_type_1>
@@ -164,7 +183,7 @@ class PointCloudSearch {
         local_index_type _dim;
         local_index_type _max_leaf;
 
-        ArborX::BVH<host_memory_space> _tree;
+        ArborX::BVH<device_memory_space> _tree;
 
     public:
 
@@ -177,11 +196,8 @@ class PointCloudSearch {
                     && "Views passed to PointCloudSearch at construction should be accessible from the host.");
 
             {
-                //if (Kokkos::SpaceAccessibility<device_execution_space, 
-                //        typename trg_view_type::memory_space>::accessible==1) {
-                    _tree = ArborX::BVH<host_memory_space>(host_execution_space(), 
+                _tree = ArborX::BVH<device_memory_space>(device_execution_space(), 
                                 Points<view_type>(_src_pts_view));
-                //}
             }
         };
     
@@ -322,12 +338,19 @@ class PointCloudSearch {
             compadre_assert_release((epsilons.extent(0)==(size_t)num_target_sites)
                         && "epsilons View does not have the correct dimension");
 
-            // perform tree search
-            Kokkos::View<int *, host_memory_space> values("values", 0);
-            Kokkos::View<int *, host_memory_space> offsets("offsets", 0);
-            auto predicates = Radius<trg_view_type,epsilons_view_type>(trg_pts_view, epsilons,
+            // perform tree search on device
+            Kokkos::View<int*, device_memory_space> d_values("values", 0);
+            Kokkos::View<int*, device_memory_space> d_offsets("offsets", 0);
+            auto predicates = Radius<trg_view_type,epsilons_view_type>(
+                    trg_pts_view, epsilons,
                     uniform_radius, max_search_radius);
-            _tree.query(host_execution_space(), predicates, values, offsets);
+            _tree.query(device_execution_space(), predicates, d_values, d_offsets);
+            // move solution back to host accessible space 
+            // (does nothing if already host accessible)
+            auto values  = create_mirror_view(d_values);
+            auto offsets = create_mirror_view(d_offsets);
+            Kokkos::deep_copy(values,  d_values);
+            Kokkos::deep_copy(offsets, d_offsets);
 
             // set number of neighbors list (how many neighbors for each target site) based
             // on results on tree query
