@@ -385,6 +385,8 @@ bool all_passed = true;
                 for (int j=1; j<=neighbor_lists(i,0); ++j) {
                     if (brute_force_neighbor_list[i].count(neighbor_lists(i,j))!=1) {
                         all_found = false;
+                        //double trg_coord[3] = {target_coords(i,0), target_coords(i,1), target_coords(i,2)};
+                        //printf("pcn: %d:%.18f,%.18f\n", neighbor_lists(i,j),point_cloud_search.kdtreeDistance(trg_coord,neighbor_lists(i,j)), (h_multiplier + random_vec(i))*h_spacing);
                     }
                 }
                 if (all_found) t_num_passed++;
