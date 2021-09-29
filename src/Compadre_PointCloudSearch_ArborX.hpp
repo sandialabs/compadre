@@ -23,11 +23,11 @@ struct Points {
 template <typename view_type>
 struct ArborX::AccessTraits<Points<view_type>, ArborX::PrimitivesTag>
 {
-    static KOKKOS_FUNCTION std::size_t size(Points<view_type> const cloud)
+    static KOKKOS_FUNCTION std::size_t size(Points<view_type> const &cloud)
     {
         return cloud._pts.extent(0);
     }
-    static KOKKOS_FUNCTION ArborX::Point get(Points<view_type> const cloud, std::size_t i)
+    static KOKKOS_FUNCTION ArborX::Point get(Points<view_type> const &cloud, std::size_t i)
     {
         switch (cloud._pts.extent(1)) {
         case 3:
@@ -66,6 +66,12 @@ struct Radius {
         _radii = Kokkos::create_mirror_view<device_memory_space>(device_memory_space(), radii);
         Kokkos::deep_copy(_pts, pts);
         Kokkos::deep_copy(_radii, radii);
+        Kokkos::fence();
+    }
+
+    void getRadiiFromDevice(view_type_2 radii) {
+        Kokkos::deep_copy(radii, _radii);
+        Kokkos::fence();
     }
 };
 
@@ -103,22 +109,24 @@ struct ArborX::AccessTraits<Radius<view_type_1, view_type_2>, ArborX::Predicates
                       ArborX::Point(            0.0,             0.0,             0.0),
                       radius));
       }
-      return ArborX::intersects(ArborX::Sphere(
-                  ArborX::Point(            0.0,             0.0,             0.0),
-                  0.0));
   }
   using memory_space = device_memory_space;
 };
 
 template <typename view_type_1>
 struct NearestNeighbor {
-
-    view_type_1 _pts;
+    typedef decltype(Kokkos::create_mirror_view<device_memory_space>(
+                device_memory_space(), view_type_1())) 
+                        device_mirror_type;
+    device_mirror_type _pts;
     int _neighbors_needed;
 
     NearestNeighbor(view_type_1 pts, const int neighbors_needed) :
-                _pts(pts), _neighbors_needed(neighbors_needed)
-    {}
+            _neighbors_needed(neighbors_needed) {
+        _pts = Kokkos::create_mirror_view<device_memory_space>(device_memory_space(), pts);
+        Kokkos::deep_copy(_pts, pts);
+        Kokkos::fence();
+    }
 };
 
 template <typename view_type_1>
@@ -151,7 +159,7 @@ struct ArborX::AccessTraits<NearestNeighbor<view_type_1>, ArborX::PredicatesTag>
                       cloud._neighbors_needed);
       }
   }
-  using memory_space = host_memory_space;
+  using memory_space = device_memory_space;
 };
 
 namespace Compadre {
@@ -345,12 +353,15 @@ class PointCloudSearch {
                     trg_pts_view, epsilons,
                     uniform_radius, max_search_radius);
             _tree.query(device_execution_space(), predicates, d_values, d_offsets);
+            // get updated epsilons from device
+            predicates.getRadiiFromDevice(epsilons);
             // move solution back to host accessible space 
             // (does nothing if already host accessible)
             auto values  = create_mirror_view(d_values);
             auto offsets = create_mirror_view(d_offsets);
             Kokkos::deep_copy(values,  d_values);
             Kokkos::deep_copy(offsets, d_offsets);
+            Kokkos::fence();
 
             // set number of neighbors list (how many neighbors for each target site) based
             // on results on tree query
@@ -544,11 +555,18 @@ class PointCloudSearch {
             compadre_assert_release((epsilons.extent(0)==(size_t)num_target_sites)
                         && "epsilons View does not have the correct dimension");
 
-            // perform tree search
-            Kokkos::View<int *, host_memory_space> values("values", 0);
-            Kokkos::View<int *, host_memory_space> offsets("offsets", 0);
+            // perform tree search on device
+            Kokkos::View<int*, device_memory_space> d_values("values", 0);
+            Kokkos::View<int*, device_memory_space> d_offsets("offsets", 0);
             auto predicates = NearestNeighbor<trg_view_type>(trg_pts_view, neighbors_needed);
-            _tree.query(host_execution_space(), predicates, values, offsets);
+            _tree.query(device_execution_space(), predicates, d_values, d_offsets);
+            // move solution back to host accessible space 
+            // (does nothing if already host accessible)
+            auto values  = create_mirror_view(d_values);
+            auto offsets = create_mirror_view(d_offsets);
+            Kokkos::deep_copy(values,  d_values);
+            Kokkos::deep_copy(offsets, d_offsets);
+            Kokkos::fence();
 
             size_t min_num_neighbors = 0;
             // if no target sites, then min_num_neighbors is set to neighbors_needed
