@@ -75,7 +75,6 @@ else() # Raw CMake Project
 
   # RPATH related settings
   # https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/RPATH-handling
-  SET(CMAKE_CXX_STANDARD 11)
   SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
   SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
   SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
@@ -271,7 +270,6 @@ else() # Raw CMake Project
       option(Kokkos_ENABLE_CUDA_LAMBDA "" "${Kokkos_ENABLE_CUDA}")
       option(Kokkos_ENABLE_TESTS "" OFF)
       option(Kokkos_ENABLE_EXAMPLES "" OFF)
-      add_subdirectory(kokkos)
       if (NOT(KokkosKernels_PREFIX STREQUAL ""))
           MESSAGE(FATAL_ERROR "KokkosKernels_PREFIX specified but KokkosCore_PREFIX not specified. \
           Either provide KokkosCore_PREFIX as well, or remove KokkosKernels_PREFIX specification.")
@@ -302,6 +300,17 @@ else() # Raw CMake Project
     endif()
   endif()
   message(STATUS "Compadre_USE_CUDA: ${Compadre_USE_CUDA}")
+
+  if(Compadre_USE_CUDA)
+    SET(CMAKE_CXX_STANDARD 14)
+    option(Kokkos_CXX_STANDARD "" "14")
+  else()
+    SET(CMAKE_CXX_STANDARD 11)
+    option(Kokkos_CXX_STANDARD "" "11")
+  endif()
+  if (NOT(KOKKOS_IN_TRILINOS) AND (KokkosCore_PREFIX STREQUAL ""))
+      add_subdirectory(kokkos)
+  endif()
 
   if (KOKKOSKERNELS_IN_TRILINOS)
     if (Compadre_US_CUDA)
