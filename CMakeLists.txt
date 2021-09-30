@@ -332,6 +332,10 @@ else() # Raw CMake Project
       SET(KokkosKernels_INST_DOUBLE OFF)
       OPTION(KokkosKernels_INST_ORDINAL_INT "" OFF)
       SET(KokkosKernels_INST_ORDINAL_INT OFF)
+      OPTION(KokkosKernels_ENABLE_TPL_CUBLAS "" OFF)
+      SET(KokkosKernels_ENABLE_TPL_CUBLAS OFF)
+      OPTION(KokkosKernels_ENABLE_TPL_CUSPARSE "" OFF)
+      SET(KokkosKernels_ENABLE_TPL_CUSPARSE OFF)
       add_subdirectory(kokkos-kernels)
       if (NOT(KokkosCore_PREFIX STREQUAL ""))
           MESSAGE(FATAL_ERROR "KokkosCore_PREFIX specified but KokkosKernels_PREFIX not specified. \
