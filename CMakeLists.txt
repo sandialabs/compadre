@@ -75,7 +75,7 @@ else() # Raw CMake Project
 
   # RPATH related settings
   # https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/RPATH-handling
-  SET(CMAKE_CXX_STANDARD 11)
+  SET(CMAKE_CXX_STANDARD 14)
   SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
   SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
   SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)

@@ -145,6 +145,7 @@ private:
 
   size_t _size;
   bounding_volume_type _bounds;
+public:
   Kokkos::View<node_type *, MemorySpace> _internal_and_leaf_nodes;
 };
 
@@ -268,6 +269,22 @@ BasicBoundingVolumeHierarchy<MemorySpace, BoundingVolume, Enable>::
 
   Kokkos::Profiling::popRegion();
   Kokkos::Profiling::pushRegion("ArborX::BVH::BVH::generate_hierarchy");
+  Kokkos::fence();
+
+  size_t perm_sum=0;
+  auto h_permutation_indices = Kokkos::create_mirror_view(morton_indices);
+  //auto h_permutation_indices = Kokkos::create_mirror_view(permutation_indices);
+  Kokkos::deep_copy(h_permutation_indices, morton_indices);
+  //Kokkos::deep_copy(h_permutation_indices, permutation_indices);
+  Kokkos::fence();
+  //Kokkos::parallel_reduce(Kokkos::RangePolicy<MemorySpace>(0,permutation_indices.extent(0)), 
+  //KOKKOS_LAMBDA(int i, size_t & t_perm_sum) {
+  for (int i=0; i<permutation_indices.extent(0); ++i) {
+    //t_perm_sum += (i+1)*permutation_indices(i);
+    perm_sum += (i+1)*h_permutation_indices(i);
+  }
+  //}, Kokkos::Sum<size_t>(perm_sum));
+  printf("SUM: %lu\n", perm_sum);
 
   // generate bounding volume hierarchy
   Details::TreeConstruction::generateHierarchy(

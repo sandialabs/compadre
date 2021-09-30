@@ -191,6 +191,7 @@ class PointCloudSearch {
         local_index_type _dim;
         local_index_type _max_leaf;
 
+    public:
         ArborX::BVH<device_memory_space> _tree;
 
     public:
