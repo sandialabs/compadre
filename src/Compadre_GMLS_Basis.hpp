@@ -608,6 +608,11 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
 //    printf("weight_p: %d\n", weight_p);
     const int my_num_neighbors = this->getNNeighbors(target_index);
 
+    // storage_size needs to change based on the size of the basis
+    int storage_size = this->getNP(polynomial_order, dimension, reconstruction_space);
+    storage_size *= _basis_multiplier;
+    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, 
+                delta.extent(0)), [&] (const int j) { delta(j) = 0; });
     teamMember.team_barrier();
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)),
             [=] (const int i) {
@@ -636,10 +641,6 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
             w(i+my_num_neighbors*d) = this->Wab(r, _epsilons(target_index), _weighting_type, _weighting_p, _weighting_n);
 
             this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, i + d*my_num_neighbors, 0 /*alpha*/, dimension, polynomial_order, false /*bool on only specific order*/, V, reconstruction_space, polynomial_sampling_functional);
-
-            // storage_size needs to change based on the size of the basis
-            int storage_size = this->getNP(polynomial_order, dimension, reconstruction_space);
-            storage_size *= _basis_multiplier;
 
             if (weight_p) {
                 for (int j = 0; j < storage_size; ++j) {
@@ -678,7 +679,9 @@ void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_
  */
 
     const int target_index = _initial_index_for_batch + teamMember.league_rank();
-
+    int storage_size = only_specific_order ? this->getNP(1, dimension)-this->getNP(0, dimension) : this->getNP(_curvature_poly_order, dimension);
+    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, 
+                delta.extent(0)), [&] (const int j) { delta(j) = 0; });
     teamMember.team_barrier();
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,this->getNNeighbors(target_index)),
             [=] (const int i) {
@@ -701,8 +704,6 @@ void GMLS::createWeightsAndPForCurvature(const member_type& teamMember, scratch_
             w(i) = this->Wab(r, _epsilons(target_index), _curvature_weighting_type, _curvature_weighting_p, _curvature_weighting_n);
             this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, i, 0 /*alpha*/, dimension, _curvature_poly_order, false /*bool on only specific order*/, V);
         }
-
-        int storage_size = only_specific_order ? this->getNP(1, dimension)-this->getNP(0, dimension) : this->getNP(_curvature_poly_order, dimension);
 
         for (int j = 0; j < storage_size; ++j) {
             P(i, j) = delta[j] * std::sqrt(w(i));
