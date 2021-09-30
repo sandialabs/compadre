@@ -23,7 +23,7 @@ class Point
 private:
   struct Data
   {
-    float coords[3];
+    double coords[3];
   } _data = {};
 
   struct Abomination
@@ -37,34 +37,34 @@ public:
 
   KOKKOS_INLINE_FUNCTION
   constexpr Point(Abomination data)
-      : Point(static_cast<float>(data.xyz[0]), static_cast<float>(data.xyz[1]),
-              static_cast<float>(data.xyz[2]))
+      : Point(static_cast<double>(data.xyz[0]), static_cast<double>(data.xyz[1]),
+              static_cast<double>(data.xyz[2]))
   {
   }
 
   KOKKOS_INLINE_FUNCTION
-  constexpr Point(float x, float y, float z)
+  constexpr Point(double x, double y, double z)
       : _data{{x, y, z}}
   {
   }
 
   KOKKOS_INLINE_FUNCTION
-  constexpr float &operator[](unsigned int i) { return _data.coords[i]; }
+  constexpr double &operator[](unsigned int i) { return _data.coords[i]; }
 
   KOKKOS_INLINE_FUNCTION
-  constexpr const float &operator[](unsigned int i) const
+  constexpr const double &operator[](unsigned int i) const
   {
     return _data.coords[i];
   }
 
   KOKKOS_INLINE_FUNCTION
-  float volatile &operator[](unsigned int i) volatile
+  double volatile &operator[](unsigned int i) volatile
   {
     return _data.coords[i];
   }
 
   KOKKOS_INLINE_FUNCTION
-  float const volatile &operator[](unsigned int i) const volatile
+  double const volatile &operator[](unsigned int i) const volatile
   {
     return _data.coords[i];
   }

@@ -1,0 +1,252 @@
+diff --git a/arborx/src/details/ArborX_Box.hpp b/arborx/src/details/ArborX_Box.hpp
+index 9c20088..80de0d8 100644
+--- a/arborx/src/details/ArborX_Box.hpp
++++ b/arborx/src/details/ArborX_Box.hpp
+@@ -61,12 +61,12 @@ struct Box
+   KOKKOS_INLINE_FUNCTION
+   Point volatile const &maxCorner() volatile const { return _max_corner; }
+ 
+-  Point _min_corner = {{KokkosExt::ArithmeticTraits::max<float>::value,
+-                        KokkosExt::ArithmeticTraits::max<float>::value,
+-                        KokkosExt::ArithmeticTraits::max<float>::value}};
+-  Point _max_corner = {{-KokkosExt::ArithmeticTraits::max<float>::value,
+-                        -KokkosExt::ArithmeticTraits::max<float>::value,
+-                        -KokkosExt::ArithmeticTraits::max<float>::value}};
++  Point _min_corner = {{KokkosExt::ArithmeticTraits::max<double>::value,
++                        KokkosExt::ArithmeticTraits::max<double>::value,
++                        KokkosExt::ArithmeticTraits::max<double>::value}};
++  Point _max_corner = {{-KokkosExt::ArithmeticTraits::max<double>::value,
++                        -KokkosExt::ArithmeticTraits::max<double>::value,
++                        -KokkosExt::ArithmeticTraits::max<double>::value}};
+ 
+   KOKKOS_FUNCTION Box &operator+=(Box const &other)
+   {
+diff --git a/arborx/src/details/ArborX_DetailsAlgorithms.hpp b/arborx/src/details/ArborX_DetailsAlgorithms.hpp
+index 1290dbe..3bbcc67 100644
+--- a/arborx/src/details/ArborX_DetailsAlgorithms.hpp
++++ b/arborx/src/details/ArborX_DetailsAlgorithms.hpp
+@@ -78,12 +78,12 @@ bool isValid(Sphere const &s)
+ 
+ // distance point-point
+ KOKKOS_INLINE_FUNCTION
+-float distance(Point const &a, Point const &b)
++double distance(Point const &a, Point const &b)
+ {
+-  float distance_squared = 0.0;
++  double distance_squared = 0.0;
+   for (int d = 0; d < 3; ++d)
+   {
+-    float tmp = b[d] - a[d];
++    double tmp = b[d] - a[d];
+     distance_squared += tmp * tmp;
+   }
+   return std::sqrt(distance_squared);
+@@ -91,7 +91,7 @@ float distance(Point const &a, Point const &b)
+ 
+ // distance point-box
+ KOKKOS_INLINE_FUNCTION
+-float distance(Point const &point, Box const &box)
++double distance(Point const &point, Box const &box)
+ {
+   Point projected_point;
+   for (int d = 0; d < 3; ++d)
+@@ -108,17 +108,17 @@ float distance(Point const &point, Box const &box)
+ 
+ // distance point-sphere
+ KOKKOS_INLINE_FUNCTION
+-float distance(Point const &point, Sphere const &sphere)
++double distance(Point const &point, Sphere const &sphere)
+ {
+   using KokkosExt::max;
+-  return max(distance(point, sphere.centroid()) - sphere.radius(), 0.f);
++  return max(distance(point, sphere.centroid()) - sphere.radius(), 0.);
+ }
+ 
+ // distance box-box
+ KOKKOS_INLINE_FUNCTION
+-float distance(Box const &box_a, Box const &box_b)
++double distance(Box const &box_a, Box const &box_b)
+ {
+-  float distance_squared = 0.;
++  double distance_squared = 0.;
+   for (int d = 0; d < 3; ++d)
+   {
+     auto const a_min = box_a.minCorner()[d];
+@@ -127,12 +127,12 @@ float distance(Box const &box_a, Box const &box_b)
+     auto const b_max = box_b.maxCorner()[d];
+     if (a_min > b_max)
+     {
+-      float const delta = a_min - b_max;
++      double const delta = a_min - b_max;
+       distance_squared += delta * delta;
+     }
+     else if (b_min > a_max)
+     {
+-      float const delta = b_min - a_max;
++      double const delta = b_min - a_max;
+       distance_squared += delta * delta;
+     }
+     else
+@@ -145,12 +145,12 @@ float distance(Box const &box_a, Box const &box_b)
+ 
+ // distance box-sphere
+ KOKKOS_INLINE_FUNCTION
+-float distance(Sphere const &sphere, Box const &box)
++double distance(Sphere const &sphere, Box const &box)
+ {
+   using KokkosExt::max;
+ 
+-  float distance_center_box = distance(sphere.centroid(), box);
+-  return max(distance_center_box - sphere.radius(), 0.f);
++  double distance_center_box = distance(sphere.centroid(), box);
++  return max(distance_center_box - sphere.radius(), 0.);
+ }
+ 
+ // expand an axis-aligned bounding box to include a point
+diff --git a/arborx/src/details/ArborX_DetailsBatchedQueries.hpp b/arborx/src/details/ArborX_DetailsBatchedQueries.hpp
+index 1080dd9..8c1461f 100644
+--- a/arborx/src/details/ArborX_DetailsBatchedQueries.hpp
++++ b/arborx/src/details/ArborX_DetailsBatchedQueries.hpp
+@@ -163,12 +163,12 @@ public:
+   template <typename ExecutionSpace>
+   static std::tuple<Kokkos::View<int *, DeviceType>,
+                     Kokkos::View<int *, DeviceType>,
+-                    Kokkos::View<float *, DeviceType>>
++                    Kokkos::View<double *, DeviceType>>
+   reversePermutation(ExecutionSpace const &space,
+                      Kokkos::View<unsigned int const *, DeviceType> permute,
+                      Kokkos::View<int const *, DeviceType> offset,
+                      Kokkos::View<int const *, DeviceType> indices,
+-                     Kokkos::View<float const *, DeviceType> distances)
++                     Kokkos::View<double const *, DeviceType> distances)
+   {
+     auto const tmp_offset = permuteOffset(permute, offset);
+ 
+diff --git a/arborx/src/details/ArborX_DetailsTreeTraversal.hpp b/arborx/src/details/ArborX_DetailsTreeTraversal.hpp
+index 418066f..3e41acf 100644
+--- a/arborx/src/details/ArborX_DetailsTreeTraversal.hpp
++++ b/arborx/src/details/ArborX_DetailsTreeTraversal.hpp
+@@ -192,7 +192,7 @@ struct TreeTraversal<BVH, Predicates, Callback, NearestPredicateTag>
+   using Access = AccessTraits<Predicates, PredicatesTag>;
+   using Node = HappyTreeFriends::node_t<BVH>;
+ 
+-  using Buffer = Kokkos::View<Kokkos::pair<int, float> *, MemorySpace>;
++  using Buffer = Kokkos::View<Kokkos::pair<int, double> *, MemorySpace>;
+   using Offset = Kokkos::View<int *, MemorySpace>;
+   struct BufferProvider
+   {
+@@ -324,9 +324,9 @@ struct TreeTraversal<BVH, Predicates, Callback, NearestPredicateTag>
+     // Nodes with a distance that exceed that radius can safely be
+     // discarded. Initialize the radius to infinity and tighten it once k
+     // neighbors have been found.
+-    auto radius = KokkosExt::ArithmeticTraits::infinity<float>::value;
++    auto radius = KokkosExt::ArithmeticTraits::infinity<double>::value;
+ 
+-    using PairIndexDistance = Kokkos::pair<int, float>;
++    using PairIndexDistance = Kokkos::pair<int, double>;
+     static_assert(
+         std::is_same<typename decltype(buffer)::value_type,
+                      PairIndexDistance>::value,
+@@ -354,7 +354,7 @@ struct TreeTraversal<BVH, Predicates, Callback, NearestPredicateTag>
+     auto *stack_ptr = stack;
+     *stack_ptr++ = nullptr;
+ #if !defined(__CUDA_ARCH__)
+-    float stack_distance[64];
++    double stack_distance[64];
+     auto *stack_distance_ptr = stack_distance;
+     *stack_distance_ptr++ = 0.f;
+ #endif
+@@ -363,9 +363,9 @@ struct TreeTraversal<BVH, Predicates, Callback, NearestPredicateTag>
+     Node const *child_left = nullptr;
+     Node const *child_right = nullptr;
+ 
+-    float distance_left = 0.f;
+-    float distance_right = 0.f;
+-    float distance_node = 0.f;
++    double distance_left = 0.f;
++    double distance_right = 0.f;
++    double distance_node = 0.f;
+ 
+     do
+     {
+diff --git a/arborx/src/details/ArborX_Point.hpp b/arborx/src/details/ArborX_Point.hpp
+index dab737a..01ca8c5 100644
+--- a/arborx/src/details/ArborX_Point.hpp
++++ b/arborx/src/details/ArborX_Point.hpp
+@@ -23,7 +23,7 @@ class Point
+ private:
+   struct Data
+   {
+-    float coords[3];
++    double coords[3];
+   } _data = {};
+ 
+   struct Abomination
+@@ -37,34 +37,34 @@ public:
+ 
+   KOKKOS_INLINE_FUNCTION
+   constexpr Point(Abomination data)
+-      : Point(static_cast<float>(data.xyz[0]), static_cast<float>(data.xyz[1]),
+-              static_cast<float>(data.xyz[2]))
++      : Point(static_cast<double>(data.xyz[0]), static_cast<double>(data.xyz[1]),
++              static_cast<double>(data.xyz[2]))
+   {
+   }
+ 
+   KOKKOS_INLINE_FUNCTION
+-  constexpr Point(float x, float y, float z)
++  constexpr Point(double x, double y, double z)
+       : _data{{x, y, z}}
+   {
+   }
+ 
+   KOKKOS_INLINE_FUNCTION
+-  constexpr float &operator[](unsigned int i) { return _data.coords[i]; }
++  constexpr double &operator[](unsigned int i) { return _data.coords[i]; }
+ 
+   KOKKOS_INLINE_FUNCTION
+-  constexpr const float &operator[](unsigned int i) const
++  constexpr const double &operator[](unsigned int i) const
+   {
+     return _data.coords[i];
+   }
+ 
+   KOKKOS_INLINE_FUNCTION
+-  float volatile &operator[](unsigned int i) volatile
++  double volatile &operator[](unsigned int i) volatile
+   {
+     return _data.coords[i];
+   }
+ 
+   KOKKOS_INLINE_FUNCTION
+-  float const volatile &operator[](unsigned int i) const volatile
++  double const volatile &operator[](unsigned int i) const volatile
+   {
+     return _data.coords[i];
+   }
+diff --git a/arborx/src/details/ArborX_Sphere.hpp b/arborx/src/details/ArborX_Sphere.hpp
+index d4b4abf..7132540 100644
+--- a/arborx/src/details/ArborX_Sphere.hpp
++++ b/arborx/src/details/ArborX_Sphere.hpp
+@@ -26,7 +26,7 @@ struct Sphere
+   KOKKOS_INLINE_FUNCTION
+   constexpr Sphere(Point const &centroid, double radius) // FIXME
+       : _centroid(centroid)
+-      , _radius(static_cast<float>(radius))
++      , _radius(static_cast<double>(radius))
+   {
+   }
+ 
+@@ -37,10 +37,10 @@ struct Sphere
+   constexpr Point const &centroid() const { return _centroid; }
+ 
+   KOKKOS_INLINE_FUNCTION
+-  constexpr float radius() const { return _radius; }
++  constexpr double radius() const { return _radius; }
+ 
+   Point _centroid = {};
+-  float _radius = 0.;
++  double _radius = 0.;
+ };
+ } // namespace ArborX
+ 

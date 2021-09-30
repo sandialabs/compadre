@@ -26,7 +26,7 @@ struct Sphere
   KOKKOS_INLINE_FUNCTION
   constexpr Sphere(Point const &centroid, double radius) // FIXME
       : _centroid(centroid)
-      , _radius(static_cast<float>(radius))
+      , _radius(static_cast<double>(radius))
   {
   }
 
@@ -37,10 +37,10 @@ struct Sphere
   constexpr Point const &centroid() const { return _centroid; }
 
   KOKKOS_INLINE_FUNCTION
-  constexpr float radius() const { return _radius; }
+  constexpr double radius() const { return _radius; }
 
   Point _centroid = {};
-  float _radius = 0.;
+  double _radius = 0.;
 };
 } // namespace ArborX
 
