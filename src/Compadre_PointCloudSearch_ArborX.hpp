@@ -216,48 +216,6 @@ class PointCloudSearch {
             return std::sqrt(distance);
         }
 
-        /*! \brief Generates neighbor lists of 2D view by performing a radius search 
-            where the radius to be searched is in the epsilons view.
-            If uniform_radius is given, then this overrides the epsilons view radii sizes.
-            Accepts 2D neighbor_lists without number_of_neighbors_list.
-            \param trg_pts_view             [in] - target coordinates from which to seek neighbors
-            \param neighbor_lists           [out] - 2D view of neighbor lists to be populated from search
-            \param epsilons                 [in/out] - radius to search, overwritten if uniform_radius != 0
-            \param uniform_radius           [in] - double != 0 determines whether to overwrite all epsilons for uniform search
-            \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
-            \param check_same               [in] - ignored (to match nanoflann)
-            \param do_dry_run               [in] - ignored (to match nanoflann)
-        */
-        template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        void generate2DNeighborListsFromRadiusSearch(trg_view_type trg_pts_view, 
-                neighbor_lists_view_type& neighbor_lists, epsilons_view_type& epsilons, 
-                const double uniform_radius = 0.0, double max_search_radius = 0.0,
-                bool check_same = true, bool do_dry_run = true) {
-
-            const int num_target_sites = trg_pts_view.extent(0);
- 
-            // check neighbor lists rank
-            compadre_assert_release((neighbor_lists_view_type::rank==2) && "neighbor_lists must be a 2D Kokkos view.");
-
-            // temporary 1D array for cr_neighbor_lists
-            typedef typename neighbor_lists_view_type::value_type value_type;
-            Kokkos::View<value_type*, typename neighbor_lists_view_type::memory_space> 
-                cr_neighbor_lists(neighbor_lists.label(), 0);
-
-            // temporary 1D array for number_of_neighbors_list
-            typedef typename neighbor_lists_view_type::value_type value_type;
-            Kokkos::View<value_type*, typename neighbor_lists_view_type::memory_space> 
-                number_of_neighbors_list("number of neighbors list", num_target_sites);
-
-            generateCRNeighborListsFromRadiusSearch(trg_pts_view,
-                cr_neighbor_lists, number_of_neighbors_list, epsilons, uniform_radius, 
-                max_search_radius, check_same, do_dry_run);
-
-            auto nla = CreateNeighborLists(cr_neighbor_lists, number_of_neighbors_list);
-            size_t max_num_neighbors = nla.getMaxNumNeighbors();
-            ConvertCompressedRowNeighborListsTo2D(nla, neighbor_lists);
-        }
-
         /*! \brief Generates compressed row neighbor lists by performing a radius search 
             where the radius to be searched is in the epsilons view.
             If uniform_radius is given, then this overrides the epsilons view radii sizes.
@@ -371,51 +329,6 @@ class PointCloudSearch {
             Kokkos::fence();
         }
 
-
-        /*! \brief Generates neighbor lists as 2D view by performing a k-nearest neighbor search
-            Only accepts 2D neighbor_lists without number_of_neighbors_list.
-            \param trg_pts_view             [in] - target coordinates from which to seek neighbors
-            \param neighbor_lists           [out] - 2D view of neighbor lists to be populated from search
-            \param epsilons                 [in/out] - radius to search, overwritten if uniform_radius != 0
-            \param neighbors_needed         [in] - k neighbors needed as a minimum
-            \param epsilon_multiplier       [in] - distance to kth neighbor multiplied by epsilon_multiplier for follow-on radius search
-            \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
-            \param check_same               [in] - ignored (to match nanoflann)
-
-            This function performs a KNN search, and then performs a radius search using epsilon_multiplier 
-            scaling of the Kth nearest neighbor's distance
-        */
-        template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        void generate2DNeighborListsFromKNNSearch(trg_view_type trg_pts_view, 
-                neighbor_lists_view_type& neighbor_lists, epsilons_view_type& epsilons, 
-                const int neighbors_needed, const double epsilon_multiplier = 1.6, 
-                double max_search_radius = 0.0, bool check_same = true) {
-
-            const int num_target_sites = trg_pts_view.extent(0);
- 
-            // check neighbor lists rank
-            compadre_assert_release((neighbor_lists_view_type::rank==2) && "neighbor_lists must be a 2D Kokkos view.");
-
-            // temporary 1D array for cr_neighbor_lists
-            typedef typename neighbor_lists_view_type::value_type value_type;
-            Kokkos::View<value_type*, typename neighbor_lists_view_type::memory_space> 
-                cr_neighbor_lists(neighbor_lists.label(), 0);
-
-            // temporary 1D array for number_of_neighbors_list
-            typedef typename neighbor_lists_view_type::value_type value_type;
-            Kokkos::View<value_type*, typename neighbor_lists_view_type::memory_space> 
-                number_of_neighbors_list("number of neighbors list", num_target_sites);
-
-            generateCRNeighborListsFromKNNSearch(trg_pts_view,
-                cr_neighbor_lists, number_of_neighbors_list, epsilons, 
-                neighbors_needed, epsilon_multiplier, max_search_radius,
-                check_same);
-
-            auto nla = CreateNeighborLists(cr_neighbor_lists, number_of_neighbors_list);
-            size_t max_num_neighbors = nla.getMaxNumNeighbors();
-            ConvertCompressedRowNeighborListsTo2D(nla, neighbor_lists);
-        }
-
         /*! \brief Generates compressed row neighbor lists by performing a k-nearest neighbor search
             Only accepts 1D neighbor_lists with 1D number_of_neighbors_list.
             \param trg_pts_view             [in] - target coordinates from which to seek neighbors
@@ -527,6 +440,43 @@ class PointCloudSearch {
                     number_of_neighbors_list, epsilons, 0.0 /*don't set uniform radius*/, 
                     max_search_radius, check_same, true /*do_dry_run*/);
         }
+
+        /*! \brief Generates neighbor lists of 2D view by performing a radius search 
+            where the radius to be searched is in the epsilons view.
+            If uniform_radius is given, then this overrides the epsilons view radii sizes.
+            Accepts 2D neighbor_lists without number_of_neighbors_list.
+            \param trg_pts_view             [in] - target coordinates from which to seek neighbors
+            \param neighbor_lists           [out] - 2D view of neighbor lists to be populated from search
+            \param epsilons                 [in/out] - radius to search, overwritten if uniform_radius != 0
+            \param uniform_radius           [in] - double != 0 determines whether to overwrite all epsilons for uniform search
+            \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
+            \param check_same               [in] - ignored (to match nanoflann)
+        */
+        template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
+        void generate2DNeighborListsFromRadiusSearch(trg_view_type trg_pts_view, 
+                neighbor_lists_view_type& neighbor_lists, epsilons_view_type& epsilons, 
+                const double uniform_radius = 0.0, double max_search_radius = 0.0,
+                bool check_same = true);
+
+        /*! \brief Generates neighbor lists as 2D view by performing a k-nearest neighbor search
+            Only accepts 2D neighbor_lists without number_of_neighbors_list.
+            \param trg_pts_view             [in] - target coordinates from which to seek neighbors
+            \param neighbor_lists           [out] - 2D view of neighbor lists to be populated from search
+            \param epsilons                 [in/out] - radius to search, overwritten if uniform_radius != 0
+            \param neighbors_needed         [in] - k neighbors needed as a minimum
+            \param epsilon_multiplier       [in] - distance to kth neighbor multiplied by epsilon_multiplier for follow-on radius search
+            \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
+            \param check_same               [in] - ignored (to match nanoflann)
+
+            This function performs a KNN search, and then performs a radius search using epsilon_multiplier 
+            scaling of the Kth nearest neighbor's distance
+        */
+        template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
+        void generate2DNeighborListsFromKNNSearch(trg_view_type trg_pts_view, 
+                neighbor_lists_view_type& neighbor_lists, epsilons_view_type& epsilons, 
+                const int neighbors_needed, const double epsilon_multiplier = 1.6, 
+                double max_search_radius = 0.0, bool check_same = true);
+
 }; // ArborX's PointCloudSearch
 
 } // Compadre
