@@ -56,6 +56,8 @@ elseif (KOKKOSKERNELS_BUILT_FOR_USER) # Kokkos-Kernels built for user by this pr
 endif()
 
 if (Compadre_USE_ARBORX)
+  option(ARBORX_ENABLE_MPI "" "${Compadre_USE_MPI}")
+  add_subdirectory(tpl/arborx)
   target_link_libraries(compadre PUBLIC ArborX::ArborX)
 endif()
 

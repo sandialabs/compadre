@@ -351,12 +351,6 @@ else() # Raw CMake Project
     set(Compadre_EXT_DEPS Kokkos KokkosKernels)
   endif()
 
-  bob_option(Compadre_USE_ARBORX "Use ArborX for neighbor search" OFF)
-  if (Compadre_USE_ARBORX)
-    option(ARBORX_ENABLE_MPI "" "${Compadre_USE_MPI}")
-    add_subdirectory(arborx)
-  endif()
-
 
   #MPI (Not really needed, only used so that if a kokkos-tool was built with MPI, it won't segfault)
   if (Compadre_USE_MPI)
@@ -383,6 +377,7 @@ else() # Raw CMake Project
 
   bob_option(Compadre_TESTS "Compile Compadre tests" ON)
   bob_option(Compadre_EXAMPLES "Compile Compadre examples" "${Compadre_TESTS}")
+  bob_option(Compadre_USE_ARBORX "Use ArborX for neighbor search" OFF)
 
 
 endif() 
