@@ -381,13 +381,15 @@ class PointCloudSearch {
             \param epsilon_multiplier       [in] - distance to kth neighbor multiplied by epsilon_multiplier for follow-on radius search
             \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
             \param check_same               [in] - ignored (to match nanoflann)
-            \param do_dry_run               [in] - ignored (to match nanoflann)
+
+            This function performs a KNN search, and then performs a radius search using epsilon_multiplier 
+            scaling of the Kth nearest neighbor's distance
         */
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
         void generate2DNeighborListsFromKNNSearch(trg_view_type trg_pts_view, 
                 neighbor_lists_view_type& neighbor_lists, epsilons_view_type& epsilons, 
                 const int neighbors_needed, const double epsilon_multiplier = 1.6, 
-                double max_search_radius = 0.0, bool check_same = true, bool do_dry_run = true) {
+                double max_search_radius = 0.0, bool check_same = true) {
 
             const int num_target_sites = trg_pts_view.extent(0);
  
@@ -407,7 +409,7 @@ class PointCloudSearch {
             generateCRNeighborListsFromKNNSearch(trg_pts_view,
                 cr_neighbor_lists, number_of_neighbors_list, epsilons, 
                 neighbors_needed, epsilon_multiplier, max_search_radius,
-                check_same, do_dry_run);
+                check_same);
 
             auto nla = CreateNeighborLists(cr_neighbor_lists, number_of_neighbors_list);
             size_t max_num_neighbors = nla.getMaxNumNeighbors();
@@ -424,13 +426,15 @@ class PointCloudSearch {
             \param epsilon_multiplier       [in] - distance to kth neighbor multiplied by epsilon_multiplier for follow-on radius search
             \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
             \param check_same               [in] - ignored (to match nanoflann)
-            \param do_dry_run               [in] - ignored (to match nanoflann)
+
+            This function performs a KNN search, and then performs a radius search using epsilon_multiplier 
+            scaling of the Kth nearest neighbor's distance
         */
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
         void generateCRNeighborListsFromKNNSearch(trg_view_type trg_pts_view, 
                 neighbor_lists_view_type& neighbor_lists, neighbor_lists_view_type& number_of_neighbors_list,
                 epsilons_view_type& epsilons, const int neighbors_needed, const double epsilon_multiplier = 1.6, 
-                double max_search_radius = 0.0, bool check_same = true, bool do_dry_run = true) {
+                double max_search_radius = 0.0, bool check_same = true) {
 
             // First, do a knn search (removes need for guessing initial search radius)
 
@@ -521,7 +525,7 @@ class PointCloudSearch {
             // call a radius search using values now stored in epsilons
             generateCRNeighborListsFromRadiusSearch(trg_pts_view, neighbor_lists, 
                     number_of_neighbors_list, epsilons, 0.0 /*don't set uniform radius*/, 
-                    max_search_radius, check_same, do_dry_run);
+                    max_search_radius, check_same, true /*do_dry_run*/);
         }
 }; // ArborX's PointCloudSearch
 
