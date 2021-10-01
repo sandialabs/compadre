@@ -190,7 +190,7 @@ setup(
     description="Compatible Particle Discretization and Remap",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/SNLComputation/compadre",
+    url="https://github.com/sandialabs/compadre",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: BSD License",

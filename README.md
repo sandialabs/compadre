@@ -33,7 +33,7 @@ Details about building and using the Compadre toolkit can be found on the [Wiki]
 [Installation of Compadre](https://github.com/sandialabs/compadre/wiki/Building-Compadre)
 
 ## Documentation and Tutorials
-The toolkit is documented by Doxygen. <b>[Documentation is available online](https://snlcomputation.github.io/compadre/index.html)</b> or can be compiled from source.
+The toolkit is documented by Doxygen. <b>[Documentation is available online](https://sandialabs.github.io/compadre/index.html)</b> or can be compiled from source.
 To compile from source: 1.) install doxygen software on your computer, 2.) execute '>> make doc' after having installed the Compadre Toolkit. HTML and Latex documentation will be generated in the <b>doc/</b> folder, in-source. 
 
 ## Citing the Software
