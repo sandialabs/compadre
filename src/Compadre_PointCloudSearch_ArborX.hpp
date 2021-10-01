@@ -85,7 +85,7 @@ struct ArborX::AccessTraits<Radius<view_type_1, view_type_2>, ArborX::Predicates
   static KOKKOS_FUNCTION ArborX::Intersects<ArborX::Sphere> 
       get(Radius<view_type_1, view_type_2> const &cloud, std::size_t i)
   {
-      double radius = (cloud._uniform_radius != 0) ? cloud._uniform_radius : cloud._radii(i);
+      search_scalar radius = (cloud._uniform_radius != 0) ? cloud._uniform_radius : cloud._radii(i);
       cloud._radii(i) = radius;
       compadre_kernel_assert_release((cloud._radii(i)<=cloud._max_search_radius || cloud._max_search_radius==0) 
               && "max_search_radius given (generally derived from the size of a halo region), \
@@ -221,14 +221,15 @@ class PointCloudSearch {
         }
 
         //! Returns the distance between a point and a source site, given its index
-        inline double kdtreeDistance(const double* queryPt, const int idx) const {
-
-            double distance = 0;
+        inline search_scalar kdtreeDistance(const double* queryPt, const int idx) const {
+            search_scalar distance = 0;
             for (int i=0; i<_dim; ++i) {
-                distance += (_src_pts_view(idx,i)-queryPt[i])*(_src_pts_view(idx,i)-queryPt[i]);
+                distance += (static_cast<search_scalar>(_src_pts_view(idx,i))
+                                -static_cast<search_scalar>(queryPt[i]))
+                           *(static_cast<search_scalar>(_src_pts_view(idx,i))
+                                 -static_cast<search_scalar>(queryPt[i]));
             }
             return std::sqrt(distance);
-
         }
 
         /*! \brief Generates neighbor lists of 2D view by performing a radius search 
@@ -592,15 +593,15 @@ class PointCloudSearch {
                 for (int j=0; j<trg_pts_view.extent(1); ++j) {
                     trg_pt(j) = trg_pts_view(i,j);
                 }
-                double last_neighbor_distance = kdtreeDistance(trg_pt.data(), values(offsets(i)+num_neighbors-1));
+                search_scalar last_neighbor_distance = kdtreeDistance(trg_pt.data(), values(offsets(i)+num_neighbors-1));
 
                 // scale by epsilon_multiplier to window from location where the last neighbor was found
                 epsilons(i) = (last_neighbor_distance > 0) ? 
-                                    last_neighbor_distance*epsilon_multiplier
-                                  : 1e-14*epsilon_multiplier;
-                // the only time the second case using 1e-14 is used is when either zero neighbors or exactly one 
+                                    static_cast<search_scalar>(last_neighbor_distance*epsilon_multiplier)
+                                  : static_cast<search_scalar>(SEARCH_SCALAR_EPS*epsilon_multiplier);
+                // the only time the second case using 1e-7 is used is when either zero neighbors or exactly one 
                 // neighbor (neighbor is target site) is found.  when the follow on radius search is conducted, the one
-                // neighbor (target site) will not be found if left at 0, so any positive amount will do, however 1e-14 
+                // neighbor (target site) will not be found if left at 0, so any positive amount will do, however 1e-7 
                 // should be small enough to ensure that other neighbors are not found
 
                 compadre_kernel_assert_release((epsilons(i)<=max_search_radius || max_search_radius==0 || is_dry_run) 
@@ -609,9 +610,9 @@ class PointCloudSearch {
 
 #ifdef COMPADRE_DEBUG
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_neighbors-1), [=](const int j) {
-                    double this_distance = kdtreeDistance(trg_pt.data(), values(offsets(i)+j  ));
-                    double next_distance = kdtreeDistance(trg_pt.data(), values(offsets(i)+j+1));
-                    compadre_kernel_assert_debug((this_distance-next_distance<1e-14) 
+                    search_scalar this_distance = kdtreeDistance(trg_pt.data(), values(offsets(i)+j  ));
+                    search_scalar next_distance = kdtreeDistance(trg_pt.data(), values(offsets(i)+j+1));
+                    compadre_kernel_assert_debug((this_distance-next_distance<SEARCH_SCALAR_EPS) 
                         && "Neighbors returned by KD tree search are not ordered.");
                 });
 #endif
