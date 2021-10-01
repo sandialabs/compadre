@@ -200,15 +200,12 @@ bool all_passed = true;
     double epsilon_multiplier = 1.4;
 
     // neighbor_lists_device will contain all neighbor lists (for each target site) in a compressed row format
-    // Initially, we do a dry-run to calculate neighborhood sizes before actually storing the result. This is 
-    // why we can start with a neighbor_lists_device size of 0.
-    Kokkos::View<int*> neighbor_lists_device("neighbor lists", 
-            0); // first column is # of neighbors
+    Kokkos::View<int*> neighbor_lists_device("neighbor lists", 0); 
     Kokkos::View<int*>::HostMirror neighbor_lists = Kokkos::create_mirror_view(neighbor_lists_device);
+
     // number_of_neighbors_list must be the same size as the number of target sites so that it can be populated
     // with the number of neighbors for each target site.
-    Kokkos::View<int*> number_of_neighbors_list_device("number of neighbor lists", 
-            number_target_coords); // first column is # of neighbors
+    Kokkos::View<int*> number_of_neighbors_list_device("number of neighbor lists", number_target_coords);
     Kokkos::View<int*>::HostMirror number_of_neighbors_list = Kokkos::create_mirror_view(number_of_neighbors_list_device);
     
     // each target site has a window size

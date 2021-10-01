@@ -229,7 +229,7 @@ class PointCloudSearch {
             \param do_dry_run               [in] - ignored (to match nanoflann)
         */
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generate2DNeighborListsFromRadiusSearch(trg_view_type trg_pts_view, 
+        void generate2DNeighborListsFromRadiusSearch(trg_view_type trg_pts_view, 
                 neighbor_lists_view_type& neighbor_lists, epsilons_view_type& epsilons, 
                 const double uniform_radius = 0.0, double max_search_radius = 0.0,
                 bool check_same = true, bool do_dry_run = true) {
@@ -256,8 +256,6 @@ class PointCloudSearch {
             auto nla = CreateNeighborLists(cr_neighbor_lists, number_of_neighbors_list);
             size_t max_num_neighbors = nla.getMaxNumNeighbors();
             ConvertCompressedRowNeighborListsTo2D(nla, neighbor_lists);
-            
-            return max_num_neighbors;
         }
 
         /*! \brief Generates compressed row neighbor lists by performing a radius search 
@@ -274,7 +272,7 @@ class PointCloudSearch {
             \param do_dry_run               [in] - ignored (to match nanoflann)
         */
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generateCRNeighborListsFromRadiusSearch(trg_view_type trg_pts_view, 
+        void generateCRNeighborListsFromRadiusSearch(trg_view_type trg_pts_view, 
                 neighbor_lists_view_type& neighbor_lists, neighbor_lists_view_type& number_of_neighbors_list, 
                 epsilons_view_type& epsilons, const double uniform_radius = 0.0, 
                 double max_search_radius = 0.0, bool check_same = true, bool do_dry_run = true) {
@@ -371,9 +369,6 @@ class PointCloudSearch {
             }
             Kokkos::deep_copy(neighbor_lists, values);
             Kokkos::fence();
-
-            auto nla = CreateNeighborLists(number_of_neighbors_list);
-            return nla.getTotalNeighborsOverAllListsHost();
         }
 
 
@@ -389,7 +384,7 @@ class PointCloudSearch {
             \param do_dry_run               [in] - ignored (to match nanoflann)
         */
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generate2DNeighborListsFromKNNSearch(trg_view_type trg_pts_view, 
+        void generate2DNeighborListsFromKNNSearch(trg_view_type trg_pts_view, 
                 neighbor_lists_view_type& neighbor_lists, epsilons_view_type& epsilons, 
                 const int neighbors_needed, const double epsilon_multiplier = 1.6, 
                 double max_search_radius = 0.0, bool check_same = true, bool do_dry_run = true) {
@@ -417,8 +412,6 @@ class PointCloudSearch {
             auto nla = CreateNeighborLists(cr_neighbor_lists, number_of_neighbors_list);
             size_t max_num_neighbors = nla.getMaxNumNeighbors();
             ConvertCompressedRowNeighborListsTo2D(nla, neighbor_lists);
-
-            return max_num_neighbors;
         }
 
         /*! \brief Generates compressed row neighbor lists by performing a k-nearest neighbor search
@@ -434,7 +427,7 @@ class PointCloudSearch {
             \param do_dry_run               [in] - ignored (to match nanoflann)
         */
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generateCRNeighborListsFromKNNSearch(trg_view_type trg_pts_view, 
+        void generateCRNeighborListsFromKNNSearch(trg_view_type trg_pts_view, 
                 neighbor_lists_view_type& neighbor_lists, neighbor_lists_view_type& number_of_neighbors_list,
                 epsilons_view_type& epsilons, const int neighbors_needed, const double epsilon_multiplier = 1.6, 
                 double max_search_radius = 0.0, bool check_same = true, bool do_dry_run = true) {
@@ -529,9 +522,6 @@ class PointCloudSearch {
             generateCRNeighborListsFromRadiusSearch(trg_pts_view, neighbor_lists, 
                     number_of_neighbors_list, epsilons, 0.0 /*don't set uniform radius*/, 
                     max_search_radius, check_same, do_dry_run);
-
-            auto nla = CreateNeighborLists(number_of_neighbors_list);
-            return nla.getTotalNeighborsOverAllListsHost();
         }
 }; // ArborX's PointCloudSearch
 

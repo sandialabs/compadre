@@ -113,9 +113,9 @@ class RadiusResultSet {
 };
 
 
-//!  PointCloudSearch generates neighbor lists and window sizes for each target site
+//!  PointCloudSearch generates neighbor lists and window sizes for each target site, using Nanoflann
 /*!
-*  Search methods can be run in dry-run mode, or not.
+*  Search methods will recursively be called, first in dry-run mode, then the actual search.
 *
 *  #### When in dry-run mode:
 *                                                                                                                         
@@ -125,9 +125,11 @@ class RadiusResultSet {
 *                                                                                                                         
 *  #### When not in dry-run mode:
 *
-*    `neighbors_list_offsets` will be populated with offsets for values (dependent on method) determined by neighbor_list.
 *    If a 2D view for `neighbors_list` is used, then \f$ N(i,j+1) \f$ will store the \f$ j^{th} \f$ neighbor of \f$ i \f$,
 *    and \f$ N(i,0) \f$ will store the number of neighbors for target \f$ i \f$.
+*
+*    Otherwise, a compressed row representation will be stored in neighbor_lists and the number of
+*    neighbors for each target site will be stored in number_of_neighbors_list.
 *
 */
 template <typename view_type>
@@ -165,15 +167,6 @@ class PointCloudSearch {
         };
     
         ~PointCloudSearch() {};
-
-        //! Returns a liberal estimated upper bound on number of neighbors to be returned by a neighbor search
-        //! for a given choice of dimension, basis size, and epsilon_multiplier. Assumes quasiuniform distribution
-        //! of points. This result can be used to size a preallocated neighbor_lists kokkos view.
-        static inline int getEstimatedNumberNeighborsUpperBound(int unisolvency_size, const int dimension, const double epsilon_multiplier) {
-            int multiplier = 1;
-            if (dimension==1) multiplier = 2;
-            return multiplier * 2.0 * unisolvency_size * std::pow(epsilon_multiplier, dimension) + 1; // +1 is for the number of neighbors entry needed in the first entry of each row
-        }
     
         //! Bounding box query method required by Nanoflann.
         template <class BBOX> bool kdtree_get_bbox(BBOX& bb) const {return false;}
@@ -212,18 +205,19 @@ class PointCloudSearch {
             where the radius to be searched is in the epsilons view.
             If uniform_radius is given, then this overrides the epsilons view radii sizes.
             Accepts 2D neighbor_lists without number_of_neighbors_list.
-            \param is_dry_run               [in] - whether to do a dry-run (find neighbors, but don't store)
             \param trg_pts_view             [in] - target coordinates from which to seek neighbors
             \param neighbor_lists           [out] - 2D view of neighbor lists to be populated from search
             \param epsilons                 [in/out] - radius to search, overwritten if uniform_radius != 0
             \param uniform_radius           [in] - double != 0 determines whether to overwrite all epsilons for uniform search
             \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
+            \param check_same               [in] - check if results during real search are same as dry-run
+            \param do_dry_run               [in] - (for use as state in recursive calls, do not change from default)
         */
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generate2DNeighborListsFromRadiusSearch(bool is_dry_run, trg_view_type trg_pts_view, 
-                neighbor_lists_view_type neighbor_lists, epsilons_view_type epsilons, 
+        void generate2DNeighborListsFromRadiusSearch(trg_view_type trg_pts_view, 
+                neighbor_lists_view_type& neighbor_lists, epsilons_view_type& epsilons, 
                 const double uniform_radius = 0.0, double max_search_radius = 0.0,
-                bool check_same = true) {
+                bool check_same = true, bool do_dry_run = true) {
 
             // function does not populate epsilons, they must be prepopulated
 
@@ -245,13 +239,12 @@ class PointCloudSearch {
             }
 
             // check neighbor lists and epsilons view sizes
-            compadre_assert_release((neighbor_lists.extent(0)==(size_t)num_target_sites 
-                        && neighbor_lists.extent(1)>=1)
-                        && "neighbor lists View does not have large enough dimensions");
             compadre_assert_release((neighbor_lists_view_type::rank==2) && "neighbor_lists must be a 2D Kokkos view.");
-
-            compadre_assert_release((epsilons.extent(0)==(size_t)num_target_sites)
-                        && "epsilons View does not have the correct dimension");
+            if (epsilons.extent(0)!=(size_t)num_target_sites) {
+                compadre_assert_release((do_dry_run) 
+                            && "epsilons is wrong dimension");
+                Kokkos::resize(epsilons, num_target_sites);
+            }
 
             typedef Kokkos::View<double*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
                     scratch_double_view;
@@ -260,9 +253,10 @@ class PointCloudSearch {
                     scratch_int_view;
 
             // determine scratch space size needed
+            int storage_size = (neighbor_lists.extent(1) > 2) ? neighbor_lists.extent(1) : 2;
             int team_scratch_size = 0;
-            team_scratch_size += scratch_double_view::shmem_size(neighbor_lists.extent(1)); // distances
-            team_scratch_size += scratch_int_view::shmem_size(neighbor_lists.extent(1)); // indices
+            team_scratch_size += scratch_double_view::shmem_size(storage_size); // distances
+            team_scratch_size += scratch_int_view::shmem_size(storage_size); // indices
             team_scratch_size += scratch_double_view::shmem_size(_dim); // target coordinate
 
             // maximum number of neighbors found over all target sites' neighborhoods
@@ -274,8 +268,8 @@ class PointCloudSearch {
                     KOKKOS_LAMBDA(const host_member_type& teamMember, size_t& t_max_num_neighbors) {
 
                 // make unmanaged scratch views
-                scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
-                scratch_int_view neighbor_indices(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
+                scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), storage_size);
+                scratch_int_view neighbor_indices(teamMember.team_scratch(0 /*shared memory*/), storage_size);
                 scratch_double_view this_target_coord(teamMember.team_scratch(0 /*shared memory*/), _dim);
 
                 size_t neighbors_found = 0;
@@ -288,7 +282,7 @@ class PointCloudSearch {
                 // needs furthest neighbor's distance for next portion
                 compadre_kernel_assert_release((epsilons(i)<=max_search_radius || max_search_radius==0) && "max_search_radius given (generally derived from the size of a halo region), and search radius needed would exceed this max_search_radius.");
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.extent(1)), [&](const int j) { 
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, storage_size), [&](const int j) { 
                     neighbor_indices(j) = 0;
                     neighbor_distances(j) = -1.0;
                 });
@@ -303,7 +297,7 @@ class PointCloudSearch {
                     }
 
                     nanoflann::SearchParams sp; // default parameters
-                    Compadre::RadiusResultSet<double> rrs(epsilons(i)*epsilons(i), neighbor_distances.data(), neighbor_indices.data(), neighbor_lists.extent(1));
+                    Compadre::RadiusResultSet<double> rrs(epsilons(i)*epsilons(i), neighbor_distances.data(), neighbor_indices.data(), storage_size);
                     if (_dim==1) {
                         neighbors_found = _tree_1d->template radiusSearchCustomCallback<Compadre::RadiusResultSet<double> >(this_target_coord.data(), rrs, sp) ;
                     } else if (_dim==2) {
@@ -315,7 +309,7 @@ class PointCloudSearch {
                     t_max_num_neighbors = (neighbors_found > t_max_num_neighbors) ? neighbors_found : t_max_num_neighbors;
             
                     // the number of neighbors is stored in column zero of the neighbor lists 2D array
-                    if (!is_dry_run && check_same) {
+                    if (!do_dry_run && check_same) {
                         compadre_kernel_assert_debug((neighbors_found==(size_t)neighbor_lists(i,0)) 
                                 && "Number of neighbors found changed since dry-run.");
                     }
@@ -326,9 +320,9 @@ class PointCloudSearch {
                 teamMember.team_barrier();
 
                 // loop_bound so that we don't write into memory we don't have allocated
-                int loop_bound = (neighbors_found < neighbor_lists.extent(1)-1) ? neighbors_found : neighbor_lists.extent(1)-1;
+                int loop_bound = (neighbors_found < storage_size-1) ? neighbors_found : storage_size-1;
                 // loop over each neighbor index and fill with a value
-                if (!is_dry_run) {
+                if (!do_dry_run) {
                     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, loop_bound), [&](const int j) {
                         // cast to an whatever data type the 2D array of neighbor lists is using
                         neighbor_lists(i,j+1) = static_cast<typename std::remove_pointer<typename std::remove_pointer<typename neighbor_lists_view_type::data_type>::type>::type>(neighbor_indices(j));
@@ -340,29 +334,38 @@ class PointCloudSearch {
             Kokkos::fence();
 
             // check if max_num_neighbors will fit onto pre-allocated space
-            compadre_assert_release((neighbor_lists.extent(1) >= (max_num_neighbors+1) || is_dry_run) 
+            compadre_assert_release((neighbor_lists.extent(1) >= (max_num_neighbors+1) || do_dry_run) 
                     && "neighbor_lists does not contain enough columns for the maximum number of neighbors needing to be stored.");
 
-            return max_num_neighbors;
+            if (do_dry_run) {
+                if (neighbor_lists.extent_int(0)<num_target_sites || neighbor_lists.extent_int(1)<max_num_neighbors+1) {
+                    Kokkos::resize(neighbor_lists, num_target_sites, max_num_neighbors+1);
+                }
+                generate2DNeighborListsFromRadiusSearch(
+                    trg_pts_view, neighbor_lists, epsilons, 
+                    uniform_radius, max_search_radius,
+                    check_same, false /*do_dry_run*/);
+            }
         }
 
         /*! \brief Generates compressed row neighbor lists by performing a radius search 
             where the radius to be searched is in the epsilons view.
             If uniform_radius is given, then this overrides the epsilons view radii sizes.
             Accepts 1D neighbor_lists with 1D number_of_neighbors_list.
-            \param is_dry_run               [in] - whether to do a dry-run (find neighbors, but don't store)
             \param trg_pts_view             [in] - target coordinates from which to seek neighbors
             \param neighbor_lists           [out] - 1D view of neighbor lists to be populated from search
             \param number_of_neighbors_list [in/out] - number of neighbors for each target site
             \param epsilons                 [in/out] - radius to search, overwritten if uniform_radius != 0
             \param uniform_radius           [in] - double != 0 determines whether to overwrite all epsilons for uniform search
             \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
+            \param check_same               [in] - check if results during real search are same as dry-run
+            \param do_dry_run               [in] - (for use as state in recursive calls, do not change from default)
         */
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generateCRNeighborListsFromRadiusSearch(bool is_dry_run, trg_view_type trg_pts_view, 
-                neighbor_lists_view_type neighbor_lists, neighbor_lists_view_type number_of_neighbors_list, 
-                epsilons_view_type epsilons, const double uniform_radius = 0.0, 
-                double max_search_radius = 0.0, bool check_same = true) {
+        void generateCRNeighborListsFromRadiusSearch(trg_view_type trg_pts_view, 
+                neighbor_lists_view_type& neighbor_lists, neighbor_lists_view_type& number_of_neighbors_list, 
+                epsilons_view_type& epsilons, const double uniform_radius = 0.0, 
+                double max_search_radius = 0.0, bool check_same = true, bool do_dry_run = true) {
 
             // function does not populate epsilons, they must be prepopulated
 
@@ -383,16 +386,24 @@ class PointCloudSearch {
                 this->generateKDTree();
             }
 
-            compadre_assert_release((number_of_neighbors_list.extent(0)==(size_t)num_target_sites)
-                        && "number_of_neighbors_list or neighbor lists View does not have large enough dimensions");
+            if (number_of_neighbors_list.extent(0)!=(size_t)num_target_sites) {
+                compadre_assert_release((do_dry_run)
+                            && "number_of_neighbors_list is wrong dimension");
+                Kokkos::resize(number_of_neighbors_list, num_target_sites);
+            }
+            if (epsilons.extent(0)!=(size_t)num_target_sites) {
+                compadre_assert_release((do_dry_run) 
+                            && "epsilons is wrong dimension");
+                Kokkos::resize(epsilons, num_target_sites);
+            }
             compadre_assert_release((neighbor_lists_view_type::rank==1) && "neighbor_lists must be a 1D Kokkos view.");
 
             typedef Kokkos::View<global_index_type*, typename neighbor_lists_view_type::array_layout,
                     typename neighbor_lists_view_type::memory_space, typename neighbor_lists_view_type::memory_traits> row_offsets_view_type;
             row_offsets_view_type row_offsets;
             int max_neighbor_list_row_storage_size = 1;
-            if (!is_dry_run) {
-                auto nla = CreateNeighborLists(neighbor_lists, number_of_neighbors_list);
+            if (!do_dry_run) {
+                auto nla = CreateNeighborLists(number_of_neighbors_list);
                 max_neighbor_list_row_storage_size = nla.getMaxNumNeighbors();
                 Kokkos::resize(row_offsets, num_target_sites);
                 Kokkos::fence();
@@ -401,9 +412,6 @@ class PointCloudSearch {
                 });
                 Kokkos::fence();
             }
-
-            compadre_assert_release((epsilons.extent(0)==(size_t)num_target_sites)
-                        && "epsilons View does not have the correct dimension");
 
             typedef Kokkos::View<double*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
                     scratch_double_view;
@@ -464,7 +472,7 @@ class PointCloudSearch {
             
                     // we check that neighbors found doesn't differ from dry-run or we store neighbors_found
                     // no check that neighbors found stay the same if uniform_radius specified (!=0)
-                    if (is_dry_run || uniform_radius!=0.0) {
+                    if (do_dry_run || uniform_radius!=0.0) {
                         number_of_neighbors_list(i) = neighbors_found;
                     } else if (check_same) {
                         compadre_kernel_assert_debug((neighbors_found==(size_t)number_of_neighbors_list(i)) 
@@ -478,7 +486,7 @@ class PointCloudSearch {
                 // loop_bound so that we don't write into memory we don't have allocated
                 int loop_bound = neighbors_found;
                 // loop over each neighbor index and fill with a value
-                if (!is_dry_run) {
+                if (!do_dry_run) {
                     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, loop_bound), [&](const int j) {
                         // cast to an whatever data type the 2D array of neighbor lists is using
                         neighbor_lists(row_offsets(i)+j) = static_cast<typename std::remove_pointer<typename std::remove_pointer<typename neighbor_lists_view_type::data_type>::type>::type>(neighbor_indices(j));
@@ -488,26 +496,37 @@ class PointCloudSearch {
 
             });
             Kokkos::fence();
-            auto nla = CreateNeighborLists(number_of_neighbors_list);
-            return nla.getTotalNeighborsOverAllListsHost();
+
+            if (do_dry_run) {
+                auto nla = CreateNeighborLists(number_of_neighbors_list);
+                auto cr_size =  nla.getTotalNeighborsOverAllListsHost();
+                if (neighbor_lists.extent(0)!=cr_size) {
+                    Kokkos::resize(neighbor_lists, cr_size);
+                }
+                generateCRNeighborListsFromRadiusSearch(
+                    trg_pts_view, neighbor_lists, number_of_neighbors_list, 
+                    epsilons, uniform_radius, max_search_radius,
+                    check_same, false /*do_dry_run*/);
+            }
         }
 
 
         /*! \brief Generates neighbor lists as 2D view by performing a k-nearest neighbor search
             Only accepts 2D neighbor_lists without number_of_neighbors_list.
-            \param is_dry_run               [in] - whether to do a dry-run (find neighbors, but don't store)
             \param trg_pts_view             [in] - target coordinates from which to seek neighbors
             \param neighbor_lists           [out] - 2D view of neighbor lists to be populated from search
             \param epsilons                 [in/out] - radius to search, overwritten if uniform_radius != 0
             \param neighbors_needed         [in] - k neighbors needed as a minimum
             \param epsilon_multiplier       [in] - distance to kth neighbor multiplied by epsilon_multiplier for follow-on radius search
             \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
+            \param check_same               [in] - check if results during real search are same as dry-run
+            \param do_dry_run               [in] - (for use as state in recursive calls, do not change from default)
         */
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generate2DNeighborListsFromKNNSearch(bool is_dry_run, trg_view_type trg_pts_view, 
-                neighbor_lists_view_type neighbor_lists, epsilons_view_type epsilons, 
+        void generate2DNeighborListsFromKNNSearch(trg_view_type trg_pts_view, 
+                neighbor_lists_view_type& neighbor_lists, epsilons_view_type& epsilons, 
                 const int neighbors_needed, const double epsilon_multiplier = 1.6, 
-                double max_search_radius = 0.0, bool check_same = true) {
+                double max_search_radius = 0.0, bool check_same = true, bool do_dry_run = true) {
 
             // First, do a knn search (removes need for guessing initial search radius)
 
@@ -529,14 +548,12 @@ class PointCloudSearch {
             }
             Kokkos::fence();
 
-            compadre_assert_release((num_target_sites==0 || // sizes don't matter when there are no targets
-                    (neighbor_lists.extent(0)==(size_t)num_target_sites 
-                        && neighbor_lists.extent(1)>=(size_t)(neighbors_needed+1)))
-                        && "neighbor lists View does not have large enough dimensions");
+            if (epsilons.extent(0)!=(size_t)num_target_sites) {
+                compadre_assert_release((do_dry_run) 
+                            && "epsilons is wrong dimension");
+                Kokkos::resize(epsilons, num_target_sites);
+            }
             compadre_assert_release((neighbor_lists_view_type::rank==2) && "neighbor_lists must be a 2D Kokkos view.");
-
-            compadre_assert_release((epsilons.extent(0)==(size_t)num_target_sites)
-                        && "epsilons View does not have the correct dimension");
 
             typedef Kokkos::View<double*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
                     scratch_double_view;
@@ -546,8 +563,8 @@ class PointCloudSearch {
 
             // determine scratch space size needed
             int team_scratch_size = 0;
-            team_scratch_size += scratch_double_view::shmem_size(neighbor_lists.extent(1)); // distances
-            team_scratch_size += scratch_int_view::shmem_size(neighbor_lists.extent(1)); // indices
+            team_scratch_size += scratch_double_view::shmem_size(neighbors_needed); // distances
+            team_scratch_size += scratch_int_view::shmem_size(neighbors_needed); // indices
             team_scratch_size += scratch_double_view::shmem_size(_dim); // target coordinate
 
             // minimum number of neighbors found over all target sites' neighborhoods
@@ -558,21 +575,21 @@ class PointCloudSearch {
             //
             // as long as neighbor_lists can hold the number of neighbors_needed, we don't need to check
             // that the maximum number of neighbors will fit into neighbor_lists
-            //
+            // 
             Kokkos::parallel_reduce("knn search", host_team_policy(num_target_sites, Kokkos::AUTO)
                     .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)), 
                     KOKKOS_LAMBDA(const host_member_type& teamMember, size_t& t_min_num_neighbors) {
 
                 // make unmanaged scratch views
-                scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
-                scratch_int_view neighbor_indices(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
+                scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), neighbors_needed);
+                scratch_int_view neighbor_indices(teamMember.team_scratch(0 /*shared memory*/), neighbors_needed);
                 scratch_double_view this_target_coord(teamMember.team_scratch(0 /*shared memory*/), _dim);
 
                 size_t neighbors_found = 0;
 
                 const int i = teamMember.league_rank();
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.extent(1)), [=](const int j) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbors_needed), [=](const int j) {
                     neighbor_indices(j) = 0;
                     neighbor_distances(j) = -1.0;
                 });
@@ -609,9 +626,9 @@ class PointCloudSearch {
                     // should is small enough to ensure that other neighbors are not found
 
                     // needs furthest neighbor's distance for next portion
-                    compadre_kernel_assert_release((neighbors_found<neighbor_lists.extent(1) || is_dry_run) 
+                    compadre_kernel_assert_release((neighbors_found<=neighbors_needed || do_dry_run) 
                             && "Neighbors found exceeded storage capacity in neighbor list.");
-                    compadre_kernel_assert_release((epsilons(i)<=max_search_radius || max_search_radius==0 || is_dry_run) 
+                    compadre_kernel_assert_release((epsilons(i)<=max_search_radius || max_search_radius==0 || do_dry_run) 
                             && "max_search_radius given (generally derived from the size of a halo region), \
                                 and search radius needed would exceed this max_search_radius.");
                     // neighbor_distances stores squared distances from neighbor to target, as returned by nanoflann
@@ -628,15 +645,12 @@ class PointCloudSearch {
                     && "Neighbor search failed to find number of neighbors needed for unisolvency.");
             
             // call a radius search using values now stored in epsilons
-            size_t max_num_neighbors = generate2DNeighborListsFromRadiusSearch(is_dry_run, trg_pts_view, neighbor_lists, 
-                    epsilons, 0.0 /*don't set uniform radius*/, max_search_radius, check_same);
-
-            return max_num_neighbors;
+            generate2DNeighborListsFromRadiusSearch(trg_pts_view, neighbor_lists, 
+                    epsilons, 0.0 /*don't set uniform radius*/, max_search_radius, check_same, do_dry_run);
         }
 
         /*! \brief Generates compressed row neighbor lists by performing a k-nearest neighbor search
             Only accepts 1D neighbor_lists with 1D number_of_neighbors_list.
-            \param is_dry_run               [in] - whether to do a dry-run (find neighbors, but don't store)
             \param trg_pts_view             [in] - target coordinates from which to seek neighbors
             \param neighbor_lists           [out] - 1D view of neighbor lists to be populated from search
             \param number_of_neighbors_list [in/out] - number of neighbors for each target site
@@ -644,13 +658,15 @@ class PointCloudSearch {
             \param neighbors_needed         [in] - k neighbors needed as a minimum
             \param epsilon_multiplier       [in] - distance to kth neighbor multiplied by epsilon_multiplier for follow-on radius search
             \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
+            \param check_same               [in] - check if results during real search are same as dry-run
+            \param do_dry_run               [in] - (for use as state in recursive calls, do not change from default)
         */
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generateCRNeighborListsFromKNNSearch(bool is_dry_run, trg_view_type trg_pts_view, 
-                neighbor_lists_view_type neighbor_lists, neighbor_lists_view_type number_of_neighbors_list,
-                epsilons_view_type epsilons, const int neighbors_needed, 
+        void generateCRNeighborListsFromKNNSearch(trg_view_type trg_pts_view, 
+                neighbor_lists_view_type& neighbor_lists, neighbor_lists_view_type& number_of_neighbors_list,
+                epsilons_view_type& epsilons, const int neighbors_needed, 
                 const double epsilon_multiplier = 1.6, double max_search_radius = 0.0, 
-                bool check_same = true) {
+                bool check_same = true, bool do_dry_run = true) {
 
             // First, do a knn search (removes need for guessing initial search radius)
 
@@ -672,19 +688,24 @@ class PointCloudSearch {
             }
             Kokkos::fence();
 
-            compadre_assert_release((number_of_neighbors_list.extent(0)==(size_t)num_target_sites ) 
-                        && "number_of_neighbors_list or neighbor lists View does not have large enough dimensions");
+            if (number_of_neighbors_list.extent(0)!=(size_t)num_target_sites) {
+                compadre_assert_release((do_dry_run)
+                            && "number_of_neighbors_list is wrong dimension");
+                Kokkos::resize(number_of_neighbors_list, num_target_sites);
+            }
+            if (epsilons.extent(0)!=(size_t)num_target_sites) {
+                compadre_assert_release((do_dry_run) 
+                            && "epsilons is wrong dimension");
+                Kokkos::resize(epsilons, num_target_sites);
+            }
             compadre_assert_release((neighbor_lists_view_type::rank==1) && "neighbor_lists must be a 1D Kokkos view.");
 
             // if dry-run, neighbors_needed, else max over previous dry-run
             int max_neighbor_list_row_storage_size = neighbors_needed;
-            if (!is_dry_run) {
-                auto nla = CreateNeighborLists(neighbor_lists, number_of_neighbors_list);
+            if (!do_dry_run) {
+                auto nla = CreateNeighborLists(number_of_neighbors_list);
                 max_neighbor_list_row_storage_size = nla.getMaxNumNeighbors();
             }
-
-            compadre_assert_release((epsilons.extent(0)==(size_t)num_target_sites)
-                        && "epsilons View does not have the correct dimension");
 
             typedef Kokkos::View<double*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
                     scratch_double_view;
@@ -756,7 +777,7 @@ class PointCloudSearch {
                     // neighbor (target site) will not be found if left at 0, so any positive amount will do, however 1e-14 
                     // should is small enough to ensure that other neighbors are not found
 
-                    compadre_kernel_assert_release((epsilons(i)<=max_search_radius || max_search_radius==0 || is_dry_run) 
+                    compadre_kernel_assert_release((epsilons(i)<=max_search_radius || max_search_radius==0 || do_dry_run) 
                             && "max_search_radius given (generally derived from the size of a halo region), \
                                 and search radius needed would exceed this max_search_radius.");
                     // neighbor_distances stores squared distances from neighbor to target, as returned by nanoflann
@@ -773,12 +794,9 @@ class PointCloudSearch {
                     && "Neighbor search failed to find number of neighbors needed for unisolvency.");
             
             // call a radius search using values now stored in epsilons
-            generateCRNeighborListsFromRadiusSearch(is_dry_run, trg_pts_view, neighbor_lists, 
+            generateCRNeighborListsFromRadiusSearch(trg_pts_view, neighbor_lists, 
                     number_of_neighbors_list, epsilons, 0.0 /*don't set uniform radius*/, 
-                    max_search_radius, check_same);
-
-            auto nla = CreateNeighborLists(number_of_neighbors_list);
-            return nla.getTotalNeighborsOverAllListsHost();
+                    max_search_radius, check_same, do_dry_run);
         }
 }; // Nanoflann's PointCloudSearch
 
