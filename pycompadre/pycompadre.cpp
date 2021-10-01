@@ -403,13 +403,7 @@ public:
             epsilon_multiplier = 1.0+1e-14;
         }
 
-        size_t total_storage = point_cloud_search->generateCRNeighborListsFromKNNSearch(true /* is a dry run*/, target_coords, neighbor_lists, 
-                number_of_neighbors_list, epsilon, neighbors_needed, epsilon_multiplier, max_search_radius);
-
-        Kokkos::resize(neighbor_lists, total_storage);
-        Kokkos::fence();
-
-        total_storage = point_cloud_search->generateCRNeighborListsFromKNNSearch(false /* not a dry run*/, target_coords, neighbor_lists, 
+        point_cloud_search->generateCRNeighborListsFromKNNSearch(target_coords, neighbor_lists, 
                 number_of_neighbors_list, epsilon, neighbors_needed, epsilon_multiplier, max_search_radius);
         Kokkos::fence();
 

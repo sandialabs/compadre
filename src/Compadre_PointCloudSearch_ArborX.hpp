@@ -164,21 +164,14 @@ struct ArborX::AccessTraits<NearestNeighbor<view_type_1>, ArborX::PredicatesTag>
 
 namespace Compadre {
 
-//!  PointCloudSearch generates neighbor lists and window sizes for each target site
+//!  PointCloudSearch generates neighbor lists and window sizes for each target site, using ArborX
 /*!
-*  Search methods can be run in dry-run mode, or not.
 *
-*  #### When in dry-run mode:
-*                                                                                                                         
-*    `neighbors_list` will be populated with number of neighbors found for each target site.
-*
-*    This allows a user to know memory allocation needed before storage of neighbor indices.
-*                                                                                                                         
-*  #### When not in dry-run mode:
-*
-*    `neighbors_list_offsets` will be populated with offsets for values (dependent on method) determined by neighbor_list.
 *    If a 2D view for `neighbors_list` is used, then \f$ N(i,j+1) \f$ will store the \f$ j^{th} \f$ neighbor of \f$ i \f$,
 *    and \f$ N(i,0) \f$ will store the number of neighbors for target \f$ i \f$.
+*
+*    Otherwise, a compressed row representation will be stored in neighbor_lists and the number of
+*    neighbors for each target site will be stored in number_of_neighbors_list.
 *
 */
 template <typename view_type>
@@ -211,15 +204,6 @@ class PointCloudSearch {
     
         ~PointCloudSearch() {};
 
-        //! Returns a liberal estimated upper bound on number of neighbors to be returned by a neighbor search
-        //! for a given choice of dimension, basis size, and epsilon_multiplier. Assumes quasiuniform distribution
-        //! of points. This result can be used to size a preallocated neighbor_lists kokkos view.
-        static inline int getEstimatedNumberNeighborsUpperBound(int unisolvency_size, const int dimension, const double epsilon_multiplier) {
-            int multiplier = 1;
-            if (dimension==1) multiplier = 2;
-            return multiplier * 2.0 * unisolvency_size * std::pow(epsilon_multiplier, dimension) + 1; // +1 is for the number of neighbors entry needed in the first entry of each row
-        }
-
         //! Returns the distance between a point and a source site, given its index
         inline search_scalar kdtreeDistance(const double* queryPt, const int idx) const {
             search_scalar distance = 0;
@@ -236,18 +220,19 @@ class PointCloudSearch {
             where the radius to be searched is in the epsilons view.
             If uniform_radius is given, then this overrides the epsilons view radii sizes.
             Accepts 2D neighbor_lists without number_of_neighbors_list.
-            \param is_dry_run               [in] - whether to do a dry-run (find neighbors, but don't store)
             \param trg_pts_view             [in] - target coordinates from which to seek neighbors
             \param neighbor_lists           [out] - 2D view of neighbor lists to be populated from search
             \param epsilons                 [in/out] - radius to search, overwritten if uniform_radius != 0
             \param uniform_radius           [in] - double != 0 determines whether to overwrite all epsilons for uniform search
             \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
+            \param check_same               [in] - ignored (to match nanoflann)
+            \param do_dry_run               [in] - ignored (to match nanoflann)
         */
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generate2DNeighborListsFromRadiusSearch(bool is_dry_run, trg_view_type trg_pts_view, 
+        size_t generate2DNeighborListsFromRadiusSearch(trg_view_type trg_pts_view, 
                 neighbor_lists_view_type& neighbor_lists, epsilons_view_type& epsilons, 
                 const double uniform_radius = 0.0, double max_search_radius = 0.0,
-                bool check_same = true) {
+                bool check_same = true, bool do_dry_run = true) {
 
             const int num_target_sites = trg_pts_view.extent(0);
  
@@ -264,9 +249,9 @@ class PointCloudSearch {
             Kokkos::View<value_type*, typename neighbor_lists_view_type::memory_space> 
                 number_of_neighbors_list("number of neighbors list", num_target_sites);
 
-            generateCRNeighborListsFromRadiusSearch(is_dry_run, trg_pts_view,
+            generateCRNeighborListsFromRadiusSearch(trg_pts_view,
                 cr_neighbor_lists, number_of_neighbors_list, epsilons, uniform_radius, 
-                max_search_radius, check_same);
+                max_search_radius, check_same, do_dry_run);
 
             auto nla = CreateNeighborLists(cr_neighbor_lists, number_of_neighbors_list);
             size_t max_num_neighbors = nla.getMaxNumNeighbors();
@@ -279,19 +264,20 @@ class PointCloudSearch {
             where the radius to be searched is in the epsilons view.
             If uniform_radius is given, then this overrides the epsilons view radii sizes.
             Accepts 1D neighbor_lists with 1D number_of_neighbors_list.
-            \param is_dry_run               [in] - whether to do a dry-run (find neighbors, but don't store)
             \param trg_pts_view             [in] - target coordinates from which to seek neighbors
             \param neighbor_lists           [out] - 1D view of neighbor lists to be populated from search
             \param number_of_neighbors_list [in/out] - number of neighbors for each target site
             \param epsilons                 [in/out] - radius to search, overwritten if uniform_radius != 0
             \param uniform_radius           [in] - double != 0 determines whether to overwrite all epsilons for uniform search
             \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
+            \param check_same               [in] - ignored (to match nanoflann)
+            \param do_dry_run               [in] - ignored (to match nanoflann)
         */
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generateCRNeighborListsFromRadiusSearch(bool is_dry_run, trg_view_type trg_pts_view, 
+        size_t generateCRNeighborListsFromRadiusSearch(trg_view_type trg_pts_view, 
                 neighbor_lists_view_type& neighbor_lists, neighbor_lists_view_type& number_of_neighbors_list, 
                 epsilons_view_type& epsilons, const double uniform_radius = 0.0, 
-                double max_search_radius = 0.0, bool check_same = true) {
+                double max_search_radius = 0.0, bool check_same = true, bool do_dry_run = true) {
 
             // function does not populate epsilons, they must be prepopulated
 
@@ -393,19 +379,20 @@ class PointCloudSearch {
 
         /*! \brief Generates neighbor lists as 2D view by performing a k-nearest neighbor search
             Only accepts 2D neighbor_lists without number_of_neighbors_list.
-            \param is_dry_run               [in] - whether to do a dry-run (find neighbors, but don't store)
             \param trg_pts_view             [in] - target coordinates from which to seek neighbors
             \param neighbor_lists           [out] - 2D view of neighbor lists to be populated from search
             \param epsilons                 [in/out] - radius to search, overwritten if uniform_radius != 0
             \param neighbors_needed         [in] - k neighbors needed as a minimum
             \param epsilon_multiplier       [in] - distance to kth neighbor multiplied by epsilon_multiplier for follow-on radius search
             \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
+            \param check_same               [in] - ignored (to match nanoflann)
+            \param do_dry_run               [in] - ignored (to match nanoflann)
         */
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generate2DNeighborListsFromKNNSearch(bool is_dry_run, trg_view_type trg_pts_view, 
+        size_t generate2DNeighborListsFromKNNSearch(trg_view_type trg_pts_view, 
                 neighbor_lists_view_type& neighbor_lists, epsilons_view_type& epsilons, 
                 const int neighbors_needed, const double epsilon_multiplier = 1.6, 
-                double max_search_radius = 0.0, bool check_same = true) {
+                double max_search_radius = 0.0, bool check_same = true, bool do_dry_run = true) {
 
             const int num_target_sites = trg_pts_view.extent(0);
  
@@ -422,11 +409,10 @@ class PointCloudSearch {
             Kokkos::View<value_type*, typename neighbor_lists_view_type::memory_space> 
                 number_of_neighbors_list("number of neighbors list", num_target_sites);
 
-            // doesn't fill number_of_neighbors_list when !is_dry_run
-            generateCRNeighborListsFromKNNSearch(is_dry_run, trg_pts_view,
+            generateCRNeighborListsFromKNNSearch(trg_pts_view,
                 cr_neighbor_lists, number_of_neighbors_list, epsilons, 
                 neighbors_needed, epsilon_multiplier, max_search_radius,
-                check_same);
+                check_same, do_dry_run);
 
             auto nla = CreateNeighborLists(cr_neighbor_lists, number_of_neighbors_list);
             size_t max_num_neighbors = nla.getMaxNumNeighbors();
@@ -437,7 +423,6 @@ class PointCloudSearch {
 
         /*! \brief Generates compressed row neighbor lists by performing a k-nearest neighbor search
             Only accepts 1D neighbor_lists with 1D number_of_neighbors_list.
-            \param is_dry_run               [in] - whether to do a dry-run (find neighbors, but don't store)
             \param trg_pts_view             [in] - target coordinates from which to seek neighbors
             \param neighbor_lists           [out] - 1D view of neighbor lists to be populated from search
             \param number_of_neighbors_list [in/out] - number of neighbors for each target site
@@ -445,12 +430,14 @@ class PointCloudSearch {
             \param neighbors_needed         [in] - k neighbors needed as a minimum
             \param epsilon_multiplier       [in] - distance to kth neighbor multiplied by epsilon_multiplier for follow-on radius search
             \param max_search_radius        [in] - largest valid search (useful only for MPI jobs if halo size exists)
+            \param check_same               [in] - ignored (to match nanoflann)
+            \param do_dry_run               [in] - ignored (to match nanoflann)
         */
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
-        size_t generateCRNeighborListsFromKNNSearch(bool is_dry_run, trg_view_type trg_pts_view, 
+        size_t generateCRNeighborListsFromKNNSearch(trg_view_type trg_pts_view, 
                 neighbor_lists_view_type& neighbor_lists, neighbor_lists_view_type& number_of_neighbors_list,
                 epsilons_view_type& epsilons, const int neighbors_needed, const double epsilon_multiplier = 1.6, 
-                double max_search_radius = 0.0, bool check_same = true) {
+                double max_search_radius = 0.0, bool check_same = true, bool do_dry_run = true) {
 
             // First, do a knn search (removes need for guessing initial search radius)
 
@@ -539,9 +526,9 @@ class PointCloudSearch {
                     && "Neighbor search failed to find number of neighbors needed for unisolvency.");
             
             // call a radius search using values now stored in epsilons
-            generateCRNeighborListsFromRadiusSearch(is_dry_run, trg_pts_view, neighbor_lists, 
+            generateCRNeighborListsFromRadiusSearch(trg_pts_view, neighbor_lists, 
                     number_of_neighbors_list, epsilons, 0.0 /*don't set uniform radius*/, 
-                    max_search_radius, check_same);
+                    max_search_radius, check_same, do_dry_run);
 
             auto nla = CreateNeighborLists(number_of_neighbors_list);
             return nla.getTotalNeighborsOverAllListsHost();

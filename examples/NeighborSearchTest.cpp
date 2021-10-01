@@ -198,17 +198,7 @@ bool all_passed = true;
             Kokkos::fence();
             
             // query the point cloud to generate the neighbor lists using a radius search
-
-            // start with a dry-run, but without enough room to store the results
-            size_t total_num_neighbors = point_cloud_search.generateCRNeighborListsFromRadiusSearch(true /* dry run */,
-                target_coords, neighbor_lists, number_neighbors_list, epsilon);
-            printf("total num neighbors: %lu\n", total_num_neighbors);
-
-            // resize neighbor lists to be large enough to hold the results
-            Kokkos::resize(neighbor_lists, total_num_neighbors);
-
-            // search again, now that we know that there is enough room to store the results
-            point_cloud_search.generateCRNeighborListsFromRadiusSearch(false /* dry run */,
+            point_cloud_search.generateCRNeighborListsFromRadiusSearch(
                 target_coords, neighbor_lists, number_neighbors_list, epsilon);
 
             auto nla(CreateNeighborLists(neighbor_lists, number_neighbors_list));
@@ -323,17 +313,7 @@ bool all_passed = true;
             Kokkos::fence();
             
             // query the point cloud to generate the neighbor lists using a radius search
-
-            // start with a dry-run, but without enough room to store the results
-            auto max_num_neighbors = point_cloud_search.generate2DNeighborListsFromRadiusSearch(true /* dry run */,
-                target_coords, neighbor_lists, epsilon);
-            printf("max num neighbors: %lu\n", max_num_neighbors);
-
-            // resize neighbor lists to be large enough to hold the results
-            Kokkos::resize(neighbor_lists, neighbor_lists.extent(0), 1+max_num_neighbors);
-
-            // search again, now that we know that there is enough room to store the results
-            max_num_neighbors = point_cloud_search.generate2DNeighborListsFromRadiusSearch(false /* dry run */,
+            point_cloud_search.generate2DNeighborListsFromRadiusSearch(
                 target_coords, neighbor_lists, epsilon);
 
             double radius_search_time = timer.seconds();
@@ -449,17 +429,7 @@ bool all_passed = true;
             Kokkos::fence();
             
             // query the point cloud to generate the neighbor lists using a radius search
-
-            // start with a dry-run, but without enough room to store the results
-            auto max_num_neighbors = point_cloud_search.generate2DNeighborListsFromRadiusSearch(true /* dry run */,
-                target_coords, neighbor_lists, epsilon);
-            printf("max num neighbors: %lu\n", max_num_neighbors);
-
-            // resize neighbor lists to be large enough to hold the results
-            Kokkos::resize(neighbor_lists, neighbor_lists.extent(0), 1+max_num_neighbors);
-
-            // search again, now that we know that there is enough room to store the results
-            max_num_neighbors = point_cloud_search.generate2DNeighborListsFromRadiusSearch(false /* dry run */,
+            point_cloud_search.generate2DNeighborListsFromRadiusSearch(
                 target_coords, neighbor_lists, epsilon);
 
             auto nla = Convert2DToCompressedRowNeighborLists(neighbor_lists);
@@ -575,18 +545,9 @@ bool all_passed = true;
             Kokkos::View<double*, Kokkos::DefaultHostExecutionSpace> epsilon("h supports", number_target_coords);
             
             // query the point cloud to generate the neighbor lists using a KNN search
-
-            // start with a dry-run, but without enough room to store the results
-            auto total_num_neighbors = point_cloud_search.generateCRNeighborListsFromKNNSearch(true /* dry-run for sizes */,
-                    target_coords, neighbor_lists, number_neighbors_list, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
-            printf("total num neighbors: %lu\n", total_num_neighbors);
-
-            // resize with room to store results
-            Kokkos::resize(neighbor_lists, total_num_neighbors);
-
-            // real knn search with space to store
-            point_cloud_search.generateCRNeighborListsFromKNNSearch(false /*not dry run*/, 
-                    target_coords, neighbor_lists, number_neighbors_list, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
+            point_cloud_search.generateCRNeighborListsFromKNNSearch(
+                    target_coords, neighbor_lists, number_neighbors_list, 
+                    epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
 
             auto nla(CreateNeighborLists(neighbor_lists, number_neighbors_list));
 
@@ -679,17 +640,9 @@ bool all_passed = true;
             Kokkos::View<double*, Kokkos::DefaultHostExecutionSpace> epsilon("h supports", number_target_coords);
             
             // query the point cloud to generate the neighbor lists using a KNN search
-            // start with a dry-run, but without enough room to store the results
-            auto max_num_neighbors = point_cloud_search.generate2DNeighborListsFromKNNSearch(true /* dry-run for sizes */,
-                    target_coords, neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
-            printf("max num neighbors: %lu\n", max_num_neighbors);
-
-            // resize with room to store results
-            Kokkos::resize(neighbor_lists, neighbor_lists.extent(0), 1+max_num_neighbors);
-
-            // real knn search with space to store
-            max_num_neighbors = point_cloud_search.generate2DNeighborListsFromKNNSearch(false /*not dry run*/, 
-                    target_coords, neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
+            point_cloud_search.generate2DNeighborListsFromKNNSearch(
+                    target_coords, neighbor_lists, epsilon, 
+                    min_neighbors, 1.5 /* cutoff_multiplier */);
 
             // convert point cloud search to vector of maps
             timer.reset();
@@ -780,17 +733,9 @@ bool all_passed = true;
             Kokkos::View<double*, Kokkos::DefaultHostExecutionSpace> epsilon("h supports", number_target_coords);
             
             // query the point cloud to generate the neighbor lists using a KNN search
-            // start with a dry-run, but without enough room to store the results
-            auto max_num_neighbors = point_cloud_search.generate2DNeighborListsFromKNNSearch(true /* dry-run for sizes */,
-                    target_coords, neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
-            printf("max num neighbors: %lu\n", max_num_neighbors);
-
-            // resize with room to store results
-            Kokkos::resize(neighbor_lists, neighbor_lists.extent(0), 1+max_num_neighbors);
-
-            // real knn search with space to store
-            max_num_neighbors = point_cloud_search.generate2DNeighborListsFromKNNSearch(false /*not dry run*/, 
-                    target_coords, neighbor_lists, epsilon, min_neighbors, 1.5 /* cutoff_multiplier */);
+            point_cloud_search.generate2DNeighborListsFromKNNSearch(
+                    target_coords, neighbor_lists, epsilon, 
+                    min_neighbors, 1.5 /* cutoff_multiplier */);
 
             auto nla = Convert2DToCompressedRowNeighborLists(neighbor_lists);
 
