@@ -11,6 +11,22 @@
 #include <mpi.h>
 #endif
 
+#ifdef COMPADRE_USE_ARBORX
+// ArborX results which include distances up to and INCLUDING the radius
+template <typename scalar>
+bool within_radius(const scalar &value_1, const scalar &radius) {
+    if (value_1<=radius) return true;
+    return false;
+}
+#else
+// Nanoflann results which include distances up to and NOT NCLUDING the radius
+template <typename scalar>
+bool within_radius(const scalar &value_1, const scalar &radius) {
+    if (value_1<radius) return true;
+    return false;
+}
+#endif
+
 template<typename T1, typename T2>
 std::pair<T2,T1> swap_pair(const std::pair<T1,T2> &item)
 {
@@ -210,7 +226,12 @@ bool all_passed = true;
                     (0,number_target_coords), [&](const int i) {
                 auto &point_cloud_neighbor_list_i = const_cast<std::map<int, double>& >(point_cloud_neighbor_list[i]);
                 for (int j=0; j<nla.getNumberOfNeighborsHost(i); ++j) {
-                    point_cloud_neighbor_list_i[nla.getNeighborHost(i,j)] = 1.0;
+                    search_scalar dist = 0;
+                    for (int k=0; k<dimension; ++k) {
+                        dist += (static_cast<search_scalar>(target_coords(i,k))-static_cast<search_scalar>(source_coords(nla.getNeighborHost(i,j),k)))*(static_cast<search_scalar>(target_coords(i,k))-static_cast<search_scalar>(source_coords(nla.getNeighborHost(i,j),k)));
+                    }
+                    dist = std::sqrt(dist);
+                    point_cloud_neighbor_list_i[nla.getNeighborHost(i,j)] = dist;
                 }
             });
             double point_cloud_convert_time = timer.seconds();
@@ -230,7 +251,7 @@ bool all_passed = true;
                     }
                     dist = std::sqrt(dist);
 
-                    if (dist < static_cast<search_scalar>((h_multiplier + random_vec(i))*h_spacing)) {
+                    if (within_radius(dist,static_cast<search_scalar>((h_multiplier + random_vec(i))*h_spacing))) {
                         brute_force_neighbor_list_i[j]=dist;
                     }
                 }
@@ -329,7 +350,12 @@ bool all_passed = true;
                     (0,number_target_coords), [&](const int i) {
                 auto &point_cloud_neighbor_list_i = const_cast<std::map<int, double>& >(point_cloud_neighbor_list[i]);
                 for (int j=1; j<=neighbor_lists(i,0); ++j) {
-                    point_cloud_neighbor_list_i[neighbor_lists(i,j)] = 1.0;
+                    search_scalar dist = 0;
+                    for (int k=0; k<dimension; ++k) {
+                        dist += (static_cast<search_scalar>(target_coords(i,k))-static_cast<search_scalar>(source_coords(neighbor_lists(i,j),k)))*(static_cast<search_scalar>(target_coords(i,k))-static_cast<search_scalar>(source_coords(neighbor_lists(i,j),k)));
+                    }
+                    dist = std::sqrt(dist);
+                    point_cloud_neighbor_list_i[neighbor_lists(i,j)] = dist;
                 }
             });
             double point_cloud_convert_time = timer.seconds();
@@ -349,7 +375,7 @@ bool all_passed = true;
                     }
                     dist = std::sqrt(dist);
 
-                    if (dist < static_cast<search_scalar>((h_multiplier + random_vec(i))*h_spacing)) {
+                    if (within_radius(dist,static_cast<search_scalar>((h_multiplier + random_vec(i))*h_spacing))) {
                         brute_force_neighbor_list_i[j]=dist;
                     }
                 }
@@ -452,7 +478,12 @@ bool all_passed = true;
                     (0,number_target_coords), [&](const int i) {
                 auto &point_cloud_neighbor_list_i = const_cast<std::map<int, double>& >(point_cloud_neighbor_list[i]);
                 for (int j=0; j<nla.getNumberOfNeighborsHost(i); ++j) {
-                    point_cloud_neighbor_list_i[nla.getNeighborHost(i,j)] = 1.0;
+                    search_scalar dist = 0;
+                    for (int k=0; k<dimension; ++k) {
+                        dist += (static_cast<search_scalar>(target_coords(i,k))-static_cast<search_scalar>(source_coords(nla.getNeighborHost(i,j),k)))*(static_cast<search_scalar>(target_coords(i,k))-static_cast<search_scalar>(source_coords(nla.getNeighborHost(i,j),k)));
+                    }
+                    dist = std::sqrt(dist);
+                    point_cloud_neighbor_list_i[nla.getNeighborHost(i,j)] = dist;
                 }
             });
             double point_cloud_convert_time = timer.seconds();
@@ -472,7 +503,7 @@ bool all_passed = true;
                     }
                     dist = std::sqrt(dist);
 
-                    if (dist < static_cast<search_scalar>((h_multiplier + random_vec(i))*h_spacing)) {
+                    if (within_radius(dist,static_cast<search_scalar>((h_multiplier + random_vec(i))*h_spacing))) {
                         brute_force_neighbor_list_i[j]=dist;
                     }
                 }
@@ -508,6 +539,8 @@ bool all_passed = true;
                 for (int j=0; j<nla.getNumberOfNeighborsHost(i); ++j) {
                     if (brute_force_neighbor_list[i].count(nla.getNeighborHost(i,j))!=1) {
                         all_found = false;
+                        auto &point_cloud_neighbor_list_i = const_cast<std::map<int, double>& >(point_cloud_neighbor_list[i]);
+                        printf("failure: target i(%d), neighbor j(%d), distance(%.16f), radius(%.16f)\n", i, nla.getNeighborHost(i,j), point_cloud_neighbor_list_i[nla.getNeighborHost(i,j)], epsilon(i));
                     }
                 }
                 if (all_found) t_num_passed++;

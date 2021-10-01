@@ -596,13 +596,10 @@ class PointCloudSearch {
                 search_scalar last_neighbor_distance = kdtreeDistance(trg_pt.data(), values(offsets(i)+num_neighbors-1));
 
                 // scale by epsilon_multiplier to window from location where the last neighbor was found
-                epsilons(i) = (last_neighbor_distance > 0) ? 
-                                    static_cast<search_scalar>(last_neighbor_distance*epsilon_multiplier)
-                                  : static_cast<search_scalar>(SEARCH_SCALAR_EPS*epsilon_multiplier);
-                // the only time the second case using 1e-7 is used is when either zero neighbors or exactly one 
-                // neighbor (neighbor is target site) is found.  when the follow on radius search is conducted, the one
-                // neighbor (target site) will not be found if left at 0, so any positive amount will do, however 1e-7 
-                // should be small enough to ensure that other neighbors are not found
+                epsilons(i) = static_cast<search_scalar>(last_neighbor_distance*epsilon_multiplier);
+                // because radius search is inclusive of endpoints for ArborX, no need to scale zero distances
+                // as an epsilon value times the epsilon multiplier (like is done in Nanoflann where radius 
+                // searches do not pick up points radius distance from target)
 
                 compadre_kernel_assert_release((epsilons(i)<=max_search_radius || max_search_radius==0 || is_dry_run) 
                         && "max_search_radius given (generally derived from the size of a halo region), \
