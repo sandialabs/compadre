@@ -258,11 +258,12 @@ class PointCloudSearch {
                                 device_mirror_epsilons_view_type;
             device_mirror_epsilons_view_type d_epsilons = Kokkos::create_mirror_view<device_memory_space>(
                     device_memory_space(), epsilons);
-            Kokkos::deep_copy(d_trg_pts_view, trg_pts_view);
-            Kokkos::deep_copy(d_neighbor_lists, neighbor_lists);
-            Kokkos::deep_copy(d_number_of_neighbors_list, number_of_neighbors_list);
-            Kokkos::deep_copy(d_epsilons, epsilons);
-            Kokkos::fence();
+            Kokkos::deep_copy(device_execution_space(), d_trg_pts_view, trg_pts_view);
+            Kokkos::deep_copy(device_execution_space(), d_neighbor_lists, neighbor_lists);
+            Kokkos::deep_copy(device_execution_space(), d_number_of_neighbors_list, number_of_neighbors_list);
+            Kokkos::deep_copy(device_execution_space(), d_epsilons, epsilons);
+            // deep_copy with execution space comes with guarantee that no instructions will be executed 
+            // in the execution space before the deep_copy is complete
 
  
             compadre_assert_release((((int)trg_pts_view.extent(1))>=_dim) &&
@@ -339,7 +340,8 @@ class PointCloudSearch {
             Kokkos::deep_copy(neighbor_lists, d_neighbor_lists);
             Kokkos::deep_copy(number_of_neighbors_list, d_number_of_neighbors_list);
             Kokkos::deep_copy(epsilons, d_epsilons);
-            Kokkos::fence();
+            // deep_copy without execution space comes with guarantee that when deep_copy
+            // completes, the host information will be up-to-date
         }
 
         /*! \brief Generates compressed row neighbor lists by performing a k-nearest neighbor search
@@ -380,11 +382,12 @@ class PointCloudSearch {
                                 device_mirror_epsilons_view_type;
             device_mirror_epsilons_view_type d_epsilons = Kokkos::create_mirror_view<device_memory_space>(
                     device_memory_space(), epsilons);
-            Kokkos::deep_copy(d_trg_pts_view, trg_pts_view);
-            Kokkos::deep_copy(d_neighbor_lists, neighbor_lists);
-            Kokkos::deep_copy(d_number_of_neighbors_list, number_of_neighbors_list);
-            Kokkos::deep_copy(d_epsilons, epsilons);
-            Kokkos::fence();
+            Kokkos::deep_copy(device_execution_space(), d_trg_pts_view, trg_pts_view);
+            Kokkos::deep_copy(device_execution_space(), d_neighbor_lists, neighbor_lists);
+            Kokkos::deep_copy(device_execution_space(), d_number_of_neighbors_list, number_of_neighbors_list);
+            Kokkos::deep_copy(device_execution_space(), d_epsilons, epsilons);
+            // deep_copy with execution space comes with guarantee that no instructions will be executed 
+            // in the execution space before the deep_copy is complete
 
             // First, do a knn search (removes need for guessing initial search radius)
 
@@ -467,7 +470,8 @@ class PointCloudSearch {
             Kokkos::deep_copy(neighbor_lists, d_neighbor_lists);
             Kokkos::deep_copy(number_of_neighbors_list, d_number_of_neighbors_list);
             Kokkos::deep_copy(epsilons, d_epsilons);
-            Kokkos::fence();
+            // deep_copy without execution space comes with guarantee that when deep_copy
+            // completes, the host information will be up-to-date
         }
 
         /*! \brief Generates neighbor lists of 2D view by performing a radius search 
