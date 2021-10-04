@@ -324,10 +324,16 @@ class PointCloudSearch {
             Kokkos::deep_copy(d_neighbor_lists, d_values);
             Kokkos::fence();
 
-            // resize (TODO: CHECK IF RESIZE DOES ANYTHING IF ALREADY OTHER SIZE)
-            Kokkos::resize(neighbor_lists, d_neighbor_lists.extent(0));
-            Kokkos::resize(number_of_neighbors_list, d_number_of_neighbors_list.extent(0));
-            Kokkos::resize(epsilons, d_epsilons.extent(0));
+            // resize, if needed
+            if (neighbor_lists.extent(0) != d_neighbor_lists.extent(0)) {
+                Kokkos::resize(neighbor_lists, d_neighbor_lists.extent(0));
+            }
+            if (number_of_neighbors_list.extent(0) != d_number_of_neighbors_list.extent(0)) {
+                Kokkos::resize(number_of_neighbors_list, d_number_of_neighbors_list.extent(0));
+            }
+            if (epsilons.extent(0) != d_epsilons.extent(0)) {
+                Kokkos::resize(epsilons, d_epsilons.extent(0));
+            }
 
             // copy
             Kokkos::deep_copy(neighbor_lists, d_neighbor_lists);
@@ -446,10 +452,16 @@ class PointCloudSearch {
                     d_number_of_neighbors_list, d_epsilons, 0.0 /*don't set uniform radius*/, 
                     max_search_radius, check_same, true /*do_dry_run*/);
 
-            // resize (TODO: CHECK IF RESIZE DOES ANYTHING IF ALREADY OTHER SIZE)
-            Kokkos::resize(neighbor_lists, d_neighbor_lists.extent(0));
-            Kokkos::resize(number_of_neighbors_list, d_number_of_neighbors_list.extent(0));
-            Kokkos::resize(epsilons, d_epsilons.extent(0));
+            // resize, if needed
+            if (neighbor_lists.extent(0) != d_neighbor_lists.extent(0)) {
+                Kokkos::resize(neighbor_lists, d_neighbor_lists.extent(0));
+            }
+            if (number_of_neighbors_list.extent(0) != d_number_of_neighbors_list.extent(0)) {
+                Kokkos::resize(number_of_neighbors_list, d_number_of_neighbors_list.extent(0));
+            }
+            if (epsilons.extent(0) != d_epsilons.extent(0)) {
+                Kokkos::resize(epsilons, d_epsilons.extent(0));
+            }
 
             // copy
             Kokkos::deep_copy(neighbor_lists, d_neighbor_lists);
