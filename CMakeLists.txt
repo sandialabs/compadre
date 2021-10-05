@@ -80,6 +80,18 @@ else() # Raw CMake Project
   SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
   SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
   SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_LIBDIR} ${CMAKE_INSTALL_RPATH})
+  if (NOT(CMAKE_BUILD_TYPE))
+    set(CMAKE_BUILD_TYPE "")
+  endif()
+  if (CMAKE_BUILD_TYPE STREQUAL "")
+    if (NOT(CMAKE_CXX_FLAGS) OR (CMAKE_CXX_FLAGS STREQUAL ""))
+      set(CMAKE_CXX_FLAGS " -O3 -g")
+    endif()
+    message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+  else()
+      string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE_UPPER)
+      message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} ${CMAKE_CXX_FLAGS}")
+  endif()
 
   # RPATH should always include the folder it is called from
   bob_option(PYTHON_CALLING_BUILD "Python setuptools calling build" OFF)

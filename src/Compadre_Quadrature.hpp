@@ -3229,6 +3229,7 @@ public:
             return QuadratureType::INVALID;
         } else {
             compadre_assert_release(false && "Quadrature type not available.");
+            return QuadratureType::INVALID;
         }
     }
 
