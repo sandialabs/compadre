@@ -19,7 +19,7 @@ namespace Compadre {
 *  pm.CallFunctorWithTeamThreads<DefaultTag>(clr, 100);
 */
 class ParallelManager {
-protected:
+public:
 
     //! lowest level memory for Kokkos::parallel_for for team access memory
     int _scratch_team_level_a;

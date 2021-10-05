@@ -23,7 +23,7 @@ namespace Compadre {
 *  additional computation, which is why this class allows for multiple target functionals to be specified. 
 */
 class GMLS {
-protected:
+public:
 
     // random numbe generator pool
     pool_type _random_number_pool;
@@ -739,7 +739,7 @@ public:
 ///@{
 
     //! Tag for functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity
-    struct AssembleStandardPsqrtW{};
+    //struct AssembleStandardPsqrtW{};
 
     //! Tag for functor to evaluate targets, apply target evaluation to polynomial coefficients to
     //! store in _alphas
@@ -772,8 +772,8 @@ public:
 
 
     //! Functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const AssembleStandardPsqrtW&, const member_type& teamMember) const;
+    //KOKKOS_INLINE_FUNCTION
+    //void operator() (const AssembleStandardPsqrtW&, const member_type& teamMember) const;
 
     //! Functor to evaluate targets, apply target evaluation to polynomial coefficients to store in _alphas
     KOKKOS_INLINE_FUNCTION
