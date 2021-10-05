@@ -766,8 +766,8 @@ public:
     //! Tag for functor to evaluate targets, apply target evaluation to polynomial coefficients to store in _alphas
     struct ApplyManifoldTargets{};
 
-    //! Tag for functor to calculate prestencil weights to apply to data to transform into a format expected by a GMLS stencil
-    struct ComputePrestencilWeights{};
+    ////! Tag for functor to calculate prestencil weights to apply to data to transform into a format expected by a GMLS stencil
+    //struct ComputePrestencilWeights{};
 
 
 
@@ -808,9 +808,9 @@ public:
     KOKKOS_INLINE_FUNCTION
     void operator() (const ApplyManifoldTargets&, const member_type& teamMember) const;
 
-    //! Functor to calculate prestencil weights to apply to data to transform into a format expected by a GMLS stencil
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const ComputePrestencilWeights&, const member_type& teamMember) const;
+    ////! Functor to calculate prestencil weights to apply to data to transform into a format expected by a GMLS stencil
+    //KOKKOS_INLINE_FUNCTION
+    //void operator() (const ComputePrestencilWeights&, const member_type& teamMember) const;
 
 ///@}
 
