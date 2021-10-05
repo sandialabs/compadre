@@ -743,7 +743,7 @@ public:
 
     //! Tag for functor to evaluate targets, apply target evaluation to polynomial coefficients to
     //! store in _alphas
-    struct ApplyStandardTargets{};
+    //struct ApplyStandardTargets{};
 
     //! Tag for functor to create a coarse tangent approximation from a given neighborhood of points
     struct ComputeCoarseTangentPlane{};
@@ -776,8 +776,8 @@ public:
     //void operator() (const AssembleStandardPsqrtW&, const member_type& teamMember) const;
 
     //! Functor to evaluate targets, apply target evaluation to polynomial coefficients to store in _alphas
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const ApplyStandardTargets&, const member_type& teamMember) const;
+    //KOKKOS_INLINE_FUNCTION
+    //void operator() (const ApplyStandardTargets&, const member_type& teamMember) const;
 
     //! Functor to create a coarse tangent approximation from a given neighborhood of points
     KOKKOS_INLINE_FUNCTION

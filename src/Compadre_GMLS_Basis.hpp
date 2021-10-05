@@ -658,7 +658,7 @@ void GMLS::createWeightsAndP(const member_type& teamMember, scratch_vector_type 
                 }
             }
         }
-  });
+    });
 
     teamMember.team_barrier();
 //    Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
