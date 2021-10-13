@@ -12,6 +12,7 @@
 #include "Compadre_ScalarTaylorPolynomial.hpp"
 #include "Compadre_DivergenceFreePolynomial.hpp"
 #include "Compadre_NeighborLists.hpp"
+#include "Compadre_PointConnections.hpp"
 
 namespace Compadre {
 
@@ -81,6 +82,9 @@ protected:
 
     //! coordinates for target sites for reconstruction (device)
     Kokkos::View<double**, layout_right> _target_coordinates; 
+
+    //! connections between points and neighbors
+    PointConnections<decltype(_target_coordinates), decltype(_source_coordinates), decltype(_neighbor_lists)> _pc;
 
     //! h supports determined through neighbor search (device)
     Kokkos::View<double*> _epsilons; 
@@ -1339,6 +1343,7 @@ public:
         this->setSourceSites<view_type_2>(source_coordinates);
         this->setTargetSites<view_type_3>(target_coordinates);
         this->setWindowSizes<view_type_4>(epsilons);
+        
     }
 
     //! Sets basic problem data (neighbor lists data, number of neighbors list, source coordinates, and target coordinates)
