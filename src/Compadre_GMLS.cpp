@@ -10,11 +10,74 @@
 
 namespace Compadre {
 
+struct ComputePrestencilWeightsData {
+
+    //! contains weights for all problems
+    Kokkos::View<double*> _w; 
+
+    //! P*sqrt(w) matrix for all problems
+    Kokkos::View<double*> _P;
+
+    //! sqrt(w)*Identity matrix for all problems, later holds polynomial coefficients for all problems
+    Kokkos::View<double*> _RHS;
+
+    //! Rank 3 tensor for high order approximation of tangent vectors for all problems. First rank is
+    //! for the target index, the second is for the local direction to the manifolds 0..(_dimensions-1)
+    //! are tangent, _dimensions is the normal, and the third is for the spatial dimension (_dimensions)
+    Kokkos::View<double*> _T;
+
+    //! Rank 2 tensor for high order approximation of tangent vectors for all problems. First rank is
+    //! for the target index, the second is for the spatial dimension (_dimensions)
+    Kokkos::View<double*> _ref_N;
+
+    //! tangent vectors information (host)
+    Kokkos::View<double*>::HostMirror _host_T;
+
+    //! reference outward normal vectors information (host)
+    Kokkos::View<double*>::HostMirror _host_ref_N;
+
+    //! metric tensor inverse for all problems
+    Kokkos::View<double*> _manifold_metric_tensor_inverse;
+
+    //! curvature polynomial coefficients for all problems
+    Kokkos::View<double*> _manifold_curvature_coefficients;
+
+    //! _dimension-1 gradient values for curvature for all problems
+    Kokkos::View<double*> _manifold_curvature_gradient;
+
+    //! Extra data available to basis functions (optional)
+    Kokkos::View<double**, layout_right> _source_extra_data;
+
+    //! Extra data available to target operations (optional)
+    Kokkos::View<double**, layout_right> _target_extra_data;
+
+    //! Accessor to get neighbor list data, offset data, and number of neighbors per target
+    NeighborLists<Kokkos::View<int*> > _neighbor_lists; 
+    
+    //! convenient copy on host of number of neighbors
+    Kokkos::View<int*, host_memory_space> _host_number_of_neighbors_list; 
+
+    //! all coordinates for the source for which _neighbor_lists refers (device)
+    Kokkos::View<double**, layout_right> _source_coordinates; 
+
+    //! coordinates for target sites for reconstruction (device)
+    Kokkos::View<double**, layout_right> _target_coordinates; 
+
+};
+
+ComputePrestencilWeightsData create_ComputePrestencilWeightsData(const GMLS & gmls) {
+
+    ComputePrestencilWeightsData data;
+
+    return data;
+}
+
 struct ComputePrestencilWeights {
 
+    ComputePrestencilWeightsData _data;
     GMLS _gmls;
 
-    ComputePrestencilWeights(GMLS gmls) : _gmls(gmls) {}
+    ComputePrestencilWeights(GMLS gmls) : _data(create_ComputePrestencilWeightsData(gmls)), _gmls(gmls) {}
 
     KOKKOS_INLINE_FUNCTION
     void operator()(const member_type& teamMember) const {
@@ -586,12 +649,8 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
         Kokkos::deep_copy(_P, 0.0);
         Kokkos::deep_copy(_w, 0.0);
         
-        auto tp = 
-            Kokkos::TeamPolicy<device_execution_space>(this_batch_size, _pm._default_threads, 1)
-            .set_scratch_size(_pm._scratch_team_level_a, Kokkos::PerTeam(_pm._team_scratch_size_a))
-            .set_scratch_size(_pm._scratch_team_level_b, Kokkos::PerTeam(_pm._team_scratch_size_b))
-            .set_scratch_size(_pm._scratch_thread_level_a, Kokkos::PerThread(_pm._thread_scratch_size_a))
-            .set_scratch_size(_pm._scratch_thread_level_b, Kokkos::PerThread(_pm._thread_scratch_size_b));
+        auto tp = _pm.TeamPolicyThreadsAndVectors(this_batch_size, _pm._default_threads, 1);
+
         if (_problem_type == ProblemType::MANIFOLD) {
 
             /*
