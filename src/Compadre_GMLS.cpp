@@ -10,7 +10,7 @@
 
 namespace Compadre {
 
-struct ComputePrestencilWeightsData {
+struct GMLSBasisData {
 
     //! contains weights for all problems
     Kokkos::View<double*> _w; 
@@ -30,12 +30,6 @@ struct ComputePrestencilWeightsData {
     //! for the target index, the second is for the spatial dimension (_dimensions)
     Kokkos::View<double*> _ref_N;
 
-    //! tangent vectors information (host)
-    Kokkos::View<double*>::HostMirror _host_T;
-
-    //! reference outward normal vectors information (host)
-    Kokkos::View<double*>::HostMirror _host_ref_N;
-
     //! metric tensor inverse for all problems
     Kokkos::View<double*> _manifold_metric_tensor_inverse;
 
@@ -53,9 +47,6 @@ struct ComputePrestencilWeightsData {
 
     //! Accessor to get neighbor list data, offset data, and number of neighbors per target
     NeighborLists<Kokkos::View<int*> > _neighbor_lists; 
-    
-    //! convenient copy on host of number of neighbors
-    Kokkos::View<int*, host_memory_space> _host_number_of_neighbors_list; 
 
     //! all coordinates for the source for which _neighbor_lists refers (device)
     Kokkos::View<double**, layout_right> _source_coordinates; 
@@ -63,21 +54,244 @@ struct ComputePrestencilWeightsData {
     //! coordinates for target sites for reconstruction (device)
     Kokkos::View<double**, layout_right> _target_coordinates; 
 
+    //! h supports determined through neighbor search (device)
+    Kokkos::View<double*> _epsilons; 
+
+    //! generated alpha coefficients (device)
+    Kokkos::View<double*, layout_right> _alphas; 
+    
+    //! generated weights for nontraditional samples required to transform data into expected sampling 
+    //! functional form (device). 
+    Kokkos::View<double*****, layout_right> _prestencil_weights; 
+
+    //! (OPTIONAL) user provided additional coordinates for target operation evaluation (device)
+    Kokkos::View<double**, layout_right> _additional_evaluation_coordinates; 
+
+    //! (OPTIONAL) Accessor to get additional evaluation list data, offset data, and number of sites
+    NeighborLists<Kokkos::View<int*> > _additional_evaluation_indices; 
+
+    //! order of basis for polynomial reconstruction
+    int _poly_order; 
+
+    //! order of basis for curvature reconstruction
+    int _curvature_poly_order;
+
+    //! dimension of basis for polynomial reconstruction
+    int _NP;
+
+    //! spatial dimension of the points, set at class instantiation only
+    int _global_dimensions;
+
+    //! dimension of the problem, set at class instantiation only. For manifolds, generally _global_dimensions-1
+    int _local_dimensions;
+
+    //! dimension of the problem, set at class instantiation only
+    int _dimensions;
+
+    //! reconstruction space for GMLS problems, set at GMLS class instantiation
+    ReconstructionSpace _reconstruction_space;
+
+    //! actual rank of reconstruction basis
+    int _reconstruction_space_rank;
+
+    //! solver type for GMLS problem - can be QR, SVD or LU
+    DenseSolverType _dense_solver_type;
+
+    //! problem type for GMLS problem, can also be set to STANDARD for normal or MANIFOLD for manifold problems
+    ProblemType _problem_type;
+
+    //! constraint type for GMLS problem
+    ConstraintType _constraint_type;
+
+    //! polynomial sampling functional used to construct P matrix, set at GMLS class instantiation
+    const SamplingFunctional _polynomial_sampling_functional;
+
+    //! generally the same as _polynomial_sampling_functional, but can differ if specified at 
+    //! GMLS class instantiation
+    const SamplingFunctional _data_sampling_functional;
+
+    //! vector containing target functionals to be applied for curvature
+    Kokkos::View<TargetOperation*> _curvature_support_operations;
+
+    //! vector containing target functionals to be applied for reconstruction problem (device)
+    Kokkos::View<TargetOperation*> _operations;
+
+    //! weighting kernel type for GMLS
+    WeightingFunctionType _weighting_type;
+
+    //! weighting kernel type for curvature problem
+    WeightingFunctionType _curvature_weighting_type;
+
+    //! first parameter to be used for weighting kernel
+    int _weighting_p;
+
+    //! second parameter to be used for weighting kernel
+    int _weighting_n;
+
+    //! first parameter to be used for weighting kernel for curvature
+    int _curvature_weighting_p;
+
+    //! second parameter to be used for weighting kernel for curvature
+    int _curvature_weighting_n;
+
+    //! dimension of the reconstructed function 
+    //! e.g. reconstruction of vector on a 2D manifold in 3D would have _basis_multiplier of 2
+    int _basis_multiplier;
+
+    //! actual dimension of the sampling functional
+    //! e.g. reconstruction of vector on a 2D manifold in 3D would have _basis_multiplier of 2
+    //! e.g. in 3D, a scalar will be 1, a vector will be 3, and a vector of reused scalars will be 1
+    int _sampling_multiplier;
+
+    //! effective dimension of the data sampling functional
+    //! e.g. in 3D, a scalar will be 1, a vector will be 3, and a vector of reused scalars will be 3
+    int _data_sampling_multiplier;
+
+    //! whether or not operator to be inverted for GMLS problem has a nontrivial nullspace (requiring SVD)
+    bool _nontrivial_nullspace;
+
+    //! whether or not the orthonormal tangent directions were provided by the user. If they are not,
+    //! then for the case of calculations on manifolds, a GMLS approximation of the tangent space will
+    //! be made and stored for use.
+    bool _orthonormal_tangent_space_provided; 
+
+    //! whether or not the reference outward normal directions were provided by the user. 
+    bool _reference_outward_normal_direction_provided;
+
+    //! whether or not to use reference outward normal directions to orient the surface in a manifold problem. 
+    bool _use_reference_outward_normal_direction_provided_to_orient_surface;
+
+    //! whether entire calculation was computed at once
+    //! the alternative is that it was broken up over many smaller groups, in which case
+    //! this is false, and so the _RHS matrix can not be stored or requested
+    bool _entire_batch_computed_at_once;
+
+    //! whether polynomial coefficients were requested to be stored (in a state not yet applied to data)
+    bool _store_PTWP_inv_PTW;
+
+    //! initial index for current batch
+    int _initial_index_for_batch;
+
+    //! maximum number of neighbors over all target sites
+    int _max_num_neighbors;
+
+    //! maximum number of evaluation sites for each target (includes target site)
+    int _max_evaluation_sites_per_target;
+
+    //! vector of user requested target operations
+    std::vector<TargetOperation> _lro; 
+
+    //! vector containing a mapping from a target functionals enum value to the its place in the list
+    //! of target functionals to be applied
+    std::vector<int> _lro_lookup; 
+
+    //! index for where this operation begins the for _alpha coefficients (device)
+    Kokkos::View<int*> _lro_total_offsets; 
+
+    //! dimensions ^ rank of tensor of output for each target functional (device)
+    Kokkos::View<int*> _lro_output_tile_size; 
+
+    //! dimensions ^ rank of tensor of output for each sampling functional (device)
+    Kokkos::View<int*> _lro_input_tile_size; 
+
+    //! tensor rank of target functional (device)
+    Kokkos::View<int*> _lro_output_tensor_rank;
+
+    //! tensor rank of sampling functional (device)
+    Kokkos::View<int*> _lro_input_tensor_rank;
+
+    //! used for sizing P_target_row and the _alphas view
+    int _total_alpha_values;
+
+    //! additional alpha coefficients due to constraints
+    int _added_alpha_size;
+
+    //! determines scratch level spaces and is used to call kernels
+    ParallelManager _pm;
+
+    //! order of exact polynomial integration for quadrature rule
+    int _order_of_quadrature_points;
+
+    //! dimension of quadrature rule
+    int _dimension_of_quadrature_points;
+
+    //! manages and calculates quadrature
+    Quadrature _qm;
+
+    GMLSBasisData(const GMLS& gmls) : 
+            _polynomial_sampling_functional(gmls._polynomial_sampling_functional),
+            _data_sampling_functional(gmls._data_sampling_functional) {
+        this->_w = gmls._w ;
+        this->_P = gmls._P;
+        this->_RHS = gmls._RHS;
+        this->_T = gmls._T;
+        this->_ref_N = gmls._ref_N;
+        this->_manifold_metric_tensor_inverse = gmls._manifold_metric_tensor_inverse;
+        this->_manifold_curvature_coefficients = gmls._manifold_curvature_coefficients;
+        this->_manifold_curvature_gradient = gmls._manifold_curvature_gradient;
+        this->_source_extra_data = gmls._source_extra_data;
+        this->_target_extra_data = gmls._target_extra_data;
+        this->_neighbor_lists  = gmls._neighbor_lists ;
+        this->_source_coordinates  = gmls._source_coordinates ;
+        this->_target_coordinates  = gmls._target_coordinates ;
+        this->_epsilons  = gmls._epsilons ;
+        this->_alphas  = gmls._alphas ;
+        this->_prestencil_weights  = gmls._prestencil_weights ;
+        this->_additional_evaluation_coordinates  = gmls._additional_evaluation_coordinates ;
+        this->_additional_evaluation_indices  = gmls._additional_evaluation_indices ;
+        this->_poly_order  = gmls._poly_order ;
+        this->_curvature_poly_order = gmls._curvature_poly_order;
+        this->_NP = gmls._NP;
+        this->_global_dimensions = gmls._global_dimensions;
+        this->_local_dimensions = gmls._local_dimensions;
+        this->_dimensions = gmls._dimensions;
+        this->_reconstruction_space = gmls._reconstruction_space;
+        this->_reconstruction_space_rank = gmls._reconstruction_space_rank;
+        this->_dense_solver_type = gmls._dense_solver_type;
+        this->_problem_type = gmls._problem_type;
+        this->_constraint_type = gmls._constraint_type;
+        this->_curvature_support_operations = gmls._curvature_support_operations;
+        this->_operations = gmls._operations;
+        this->_weighting_type = gmls._weighting_type;
+        this->_curvature_weighting_type = gmls._curvature_weighting_type;
+        this->_weighting_p = gmls._weighting_p;
+        this->_weighting_n = gmls._weighting_n;
+        this->_curvature_weighting_p = gmls._curvature_weighting_p;
+        this->_curvature_weighting_n = gmls._curvature_weighting_n;
+        this->_basis_multiplier = gmls._basis_multiplier;
+        this->_sampling_multiplier = gmls._sampling_multiplier;
+        this->_data_sampling_multiplier = gmls._data_sampling_multiplier;
+        this->_nontrivial_nullspace = gmls._nontrivial_nullspace;
+        this->_orthonormal_tangent_space_provided  = gmls._orthonormal_tangent_space_provided ;
+        this->_reference_outward_normal_direction_provided = gmls._reference_outward_normal_direction_provided;
+        this->_use_reference_outward_normal_direction_provided_to_orient_surface = gmls._use_reference_outward_normal_direction_provided_to_orient_surface;
+        this->_entire_batch_computed_at_once = gmls._entire_batch_computed_at_once;
+        this->_store_PTWP_inv_PTW = gmls._store_PTWP_inv_PTW;
+        this->_initial_index_for_batch = gmls._initial_index_for_batch;
+        this->_max_num_neighbors = gmls._max_num_neighbors;
+        this->_max_evaluation_sites_per_target = gmls._max_evaluation_sites_per_target;
+        this->_lro_total_offsets  = gmls._lro_total_offsets ;
+        this->_lro_output_tile_size  = gmls._lro_output_tile_size ;
+        this->_lro_input_tile_size  = gmls._lro_input_tile_size ;
+        this->_lro_output_tensor_rank = gmls._lro_output_tensor_rank;
+        this->_lro_input_tensor_rank = gmls._lro_input_tensor_rank;
+        this->_total_alpha_values = gmls._total_alpha_values;
+        this->_added_alpha_size = gmls._added_alpha_size;
+        this->_pm = gmls._pm;
+        this->_order_of_quadrature_points = gmls._order_of_quadrature_points;
+        this->_dimension_of_quadrature_points = gmls._dimension_of_quadrature_points;
+        this->_qm = gmls._qm;
+    }
+
+    GMLSBasisData() = delete;
 };
-
-ComputePrestencilWeightsData create_ComputePrestencilWeightsData(const GMLS & gmls) {
-
-    ComputePrestencilWeightsData data;
-
-    return data;
-}
 
 struct ComputePrestencilWeights {
 
-    ComputePrestencilWeightsData _data;
+    GMLSBasisData _data;
     GMLS _gmls;
 
-    ComputePrestencilWeights(GMLS gmls) : _data(create_ComputePrestencilWeightsData(gmls)), _gmls(gmls) {}
+    ComputePrestencilWeights(const GMLS& gmls) : _data(GMLSBasisData(gmls)), _gmls(gmls) {}
 
     KOKKOS_INLINE_FUNCTION
     void operator()(const member_type& teamMember) const {
@@ -86,74 +300,74 @@ struct ComputePrestencilWeights {
          *    Dimensions
          */
 
-        const int target_index = _gmls._initial_index_for_batch + teamMember.league_rank();
+        const int target_index = _data._initial_index_for_batch + teamMember.league_rank();
         const int local_index  = teamMember.league_rank();
 
-        const int max_num_rows = _gmls._sampling_multiplier*_gmls._max_num_neighbors;
-        const int manifold_NP = _gmls.getNP(_gmls._curvature_poly_order, _gmls._dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
-        const int max_manifold_NP = (manifold_NP > _gmls._NP) ? manifold_NP : _gmls._NP;
-        const int this_num_cols = _gmls._basis_multiplier*max_manifold_NP;
-        const int max_poly_order = (_gmls._poly_order > _gmls._curvature_poly_order) ? _gmls._poly_order : _gmls._curvature_poly_order;
+        const int max_num_rows = _data._sampling_multiplier*_data._max_num_neighbors;
+        const int manifold_NP = _gmls.getNP(_data._curvature_poly_order, _data._dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
+        const int max_manifold_NP = (manifold_NP > _data._NP) ? manifold_NP : _data._NP;
+        const int this_num_cols = _data._basis_multiplier*max_manifold_NP;
+        const int max_poly_order = (_data._poly_order > _data._curvature_poly_order) ? _data._poly_order : _data._curvature_poly_order;
 
         int RHS_dim_0, RHS_dim_1;
-        getRHSDims(_gmls._dense_solver_type, _gmls._constraint_type, _gmls._reconstruction_space, _gmls._dimensions, max_num_rows, this_num_cols, RHS_dim_0, RHS_dim_1);
+        getRHSDims(_data._dense_solver_type, _data._constraint_type, _data._reconstruction_space, _data._dimensions, max_num_rows, this_num_cols, RHS_dim_0, RHS_dim_1);
         int P_dim_0, P_dim_1;
-        getPDims(_gmls._dense_solver_type, _gmls._constraint_type, _gmls._reconstruction_space, _gmls._dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
+        getPDims(_data._dense_solver_type, _data._constraint_type, _data._reconstruction_space, _data._dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
 
         /*
          *    Data
          */
 
 
-        scratch_vector_type t1(teamMember.team_scratch(_gmls._pm.getTeamScratchLevel(1)), _gmls._max_num_neighbors*((_gmls._sampling_multiplier>_gmls._basis_multiplier) ? _gmls._sampling_multiplier : _gmls._basis_multiplier));
-        scratch_vector_type t2(teamMember.team_scratch(_gmls._pm.getTeamScratchLevel(1)), _gmls._max_num_neighbors*((_gmls._sampling_multiplier>_gmls._basis_multiplier) ? _gmls._sampling_multiplier : _gmls._basis_multiplier));
+        scratch_vector_type t1(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), _data._max_num_neighbors*((_data._sampling_multiplier>_data._basis_multiplier) ? _data._sampling_multiplier : _data._basis_multiplier));
+        scratch_vector_type t2(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), _data._max_num_neighbors*((_data._sampling_multiplier>_data._basis_multiplier) ? _data._sampling_multiplier : _data._basis_multiplier));
 
         // holds polynomial coefficients for curvature reconstruction
         scratch_matrix_right_type Q;
-        if ((_gmls._constraint_type == ConstraintType::NO_CONSTRAINT) && (_gmls._dense_solver_type != DenseSolverType::LU)) {
+        if ((_data._constraint_type == ConstraintType::NO_CONSTRAINT) && (_data._dense_solver_type != DenseSolverType::LU)) {
             // Solution from QR comes from RHS
-            Q = scratch_matrix_right_type(_gmls._RHS.data()
+            Q = scratch_matrix_right_type(_data._RHS.data()
                 + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_dim_0)*TO_GLOBAL(RHS_dim_1), RHS_dim_0, RHS_dim_1);
         } else {
             // Solution from LU comes from P
-            Q = scratch_matrix_right_type(_gmls._P.data()
+            Q = scratch_matrix_right_type(_data._P.data()
                 + TO_GLOBAL(local_index)*TO_GLOBAL(P_dim_1)*TO_GLOBAL(P_dim_0), P_dim_1, P_dim_0);
         }
 
-        scratch_matrix_right_type T(_gmls._T.data() 
-                + TO_GLOBAL(target_index)*TO_GLOBAL(_gmls._dimensions)*TO_GLOBAL(_gmls._dimensions), _gmls._dimensions, _gmls._dimensions);
+        scratch_matrix_right_type T(_data._T.data() 
+                + TO_GLOBAL(target_index)*TO_GLOBAL(_data._dimensions)*TO_GLOBAL(_data._dimensions), _data._dimensions, _data._dimensions);
 
-        scratch_vector_type manifold_gradient(teamMember.team_scratch(_gmls._pm.getTeamScratchLevel(1)), (_gmls._dimensions-1)*_gmls._max_num_neighbors);
-        scratch_matrix_right_type P_target_row(teamMember.team_scratch(_gmls._pm.getTeamScratchLevel(1)), _gmls._total_alpha_values*_gmls._max_evaluation_sites_per_target, max_manifold_NP*_gmls._basis_multiplier);
+        scratch_vector_type manifold_gradient(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), (_data._dimensions-1)*_data._max_num_neighbors);
+        scratch_matrix_right_type P_target_row(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), _data._total_alpha_values*_data._max_evaluation_sites_per_target, max_manifold_NP*_data._basis_multiplier);
 
         /*
          *    Prestencil Weight Calculations
          */
 
-        if (_gmls._data_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) {
+        if (_data._data_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) {
             Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                    _gmls._prestencil_weights(0,0,0,0,0) = -1;
-                    _gmls._prestencil_weights(1,0,0,0,0) = 1;
+                    _data._prestencil_weights(0,0,0,0,0) = -1;
+                    _data._prestencil_weights(1,0,0,0,0) = 1;
                 });
             });
-        } else if (_gmls._data_sampling_functional == ManifoldVectorPointSample) {
+        } else if (_data._data_sampling_functional == ManifoldVectorPointSample) {
             Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                    for (int j=0; j<_gmls._dimensions; ++j) {
-                        for (int k=0; k<_gmls._dimensions-1; ++k) {
-                            _gmls._prestencil_weights(0,target_index,0,k,j) =  T(k,j);
+                    for (int j=0; j<_data._dimensions; ++j) {
+                        for (int k=0; k<_data._dimensions-1; ++k) {
+                            _data._prestencil_weights(0,target_index,0,k,j) =  T(k,j);
                         }
                     }
                 });
             });
-        } else if (_gmls._data_sampling_functional == StaggeredEdgeIntegralSample) {
-            compadre_kernel_assert_debug(_gmls._problem_type==ProblemType::MANIFOLD && "StaggeredEdgeIntegralSample prestencil weight only written for manifolds.");
+        } else if (_data._data_sampling_functional == StaggeredEdgeIntegralSample) {
+            compadre_kernel_assert_debug(_data._problem_type==ProblemType::MANIFOLD && "StaggeredEdgeIntegralSample prestencil weight only written for manifolds.");
             Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,_gmls.getNNeighbors(target_index)), [=] (const int m) {
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                    for (int quadrature = 0; quadrature<_gmls._qm.getNumberOfQuadraturePoints(); ++quadrature) {
+                    for (int quadrature = 0; quadrature<_data._qm.getNumberOfQuadraturePoints(); ++quadrature) {
                         XYZ tangent_quadrature_coord_2d;
-                        for (int j=0; j<_gmls._dimensions-1; ++j) {
+                        for (int j=0; j<_data._dimensions-1; ++j) {
                             tangent_quadrature_coord_2d[j] = _gmls.getTargetCoordinate(target_index, j, &T);
                             tangent_quadrature_coord_2d[j] -= _gmls.getNeighborCoordinate(target_index, m, j, &T);
                         }
@@ -162,22 +376,22 @@ struct ComputePrestencilWeights {
                         tangent_vector[1] = tangent_quadrature_coord_2d[0]*T(0,1) + tangent_quadrature_coord_2d[1]*T(1,1);
                         tangent_vector[2] = tangent_quadrature_coord_2d[0]*T(0,2) + tangent_quadrature_coord_2d[1]*T(1,2);
 
-                        for (int j=0; j<_gmls._dimensions; ++j) {
-                            _gmls._prestencil_weights(0,target_index,m,0,j) +=  (1-_gmls._qm.getSite(quadrature,0))*tangent_vector[j]*_gmls._qm.getWeight(quadrature);
-                            _gmls._prestencil_weights(1,target_index,m,0,j) +=  _gmls._qm.getSite(quadrature,0)*tangent_vector[j]*_gmls._qm.getWeight(quadrature);
+                        for (int j=0; j<_data._dimensions; ++j) {
+                            _data._prestencil_weights(0,target_index,m,0,j) +=  (1-_data._qm.getSite(quadrature,0))*tangent_vector[j]*_data._qm.getWeight(quadrature);
+                            _data._prestencil_weights(1,target_index,m,0,j) +=  _data._qm.getSite(quadrature,0)*tangent_vector[j]*_data._qm.getWeight(quadrature);
                         }
                     }
                 });
             });
-        } else if (_gmls._data_sampling_functional == VaryingManifoldVectorPointSample) {
+        } else if (_data._data_sampling_functional == VaryingManifoldVectorPointSample) {
 
-            scratch_vector_type delta(teamMember.thread_scratch(_gmls._pm.getThreadScratchLevel(1)), manifold_NP);
-            scratch_vector_type thread_workspace(teamMember.thread_scratch(_gmls._pm.getThreadScratchLevel(1)), (max_poly_order+1)*_gmls._global_dimensions);
+            scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), manifold_NP);
+            scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), (max_poly_order+1)*_data._global_dimensions);
 
             Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,_gmls.getNNeighbors(target_index)), [&] (const int m) {
                 
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                    _gmls.calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, m, 0 /*alpha*/, 0 /*partial_direction*/, _gmls._dimensions-1, _gmls._curvature_poly_order, false /*specific order only*/, &T, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
+                    _gmls.calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, m, 0 /*alpha*/, 0 /*partial_direction*/, _data._dimensions-1, _data._curvature_poly_order, false /*specific order only*/, &T, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                 });
                 // reconstructs gradient at local neighbor index m
                 double grad_xi1 = 0, grad_xi2 = 0;
@@ -186,8 +400,8 @@ struct ComputePrestencilWeights {
                     for (int l=0; l<manifold_NP; ++l) {
                         alpha_ij += delta(l)*Q(l,i);
                     }
-                    XYZ rel_coord = _gmls.getRelativeCoord(target_index, i, _gmls._dimensions, &T);
-                    double normal_coordinate = rel_coord[_gmls._dimensions-1];
+                    XYZ rel_coord = _gmls.getRelativeCoord(target_index, i, _data._dimensions, &T);
+                    double normal_coordinate = rel_coord[_data._dimensions-1];
 
                     // apply coefficients to sample data
                     t_grad_xi1 += alpha_ij * normal_coordinate;
@@ -195,67 +409,67 @@ struct ComputePrestencilWeights {
                 t1(m) = grad_xi1;
 
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                    _gmls.calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, m, 0 /*alpha*/, 1 /*partial_direction*/, _gmls._dimensions-1, _gmls._curvature_poly_order, false /*specific order only*/, &T, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
+                    _gmls.calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, m, 0 /*alpha*/, 1 /*partial_direction*/, _data._dimensions-1, _data._curvature_poly_order, false /*specific order only*/, &T, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                 });
                 Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember,_gmls.getNNeighbors(target_index)), [=] (const int i, double &t_grad_xi2) {
                     double alpha_ij = 0;
                     for (int l=0; l<manifold_NP; ++l) {
                         alpha_ij += delta(l)*Q(l,i);
                     }
-                    XYZ rel_coord = _gmls.getRelativeCoord(target_index, i, _gmls._dimensions, &T);
-                    double normal_coordinate = rel_coord[_gmls._dimensions-1];
+                    XYZ rel_coord = _gmls.getRelativeCoord(target_index, i, _data._dimensions, &T);
+                    double normal_coordinate = rel_coord[_data._dimensions-1];
 
                     // apply coefficients to sample data
-                    if (_gmls._dimensions>2) t_grad_xi2 += alpha_ij * normal_coordinate;
+                    if (_data._dimensions>2) t_grad_xi2 += alpha_ij * normal_coordinate;
                 }, grad_xi2);
                 t2(m) = grad_xi2;
             });
 
             teamMember.team_barrier();
 
-            scratch_matrix_right_type tangent(teamMember.thread_scratch(_gmls._pm.getThreadScratchLevel(1)), _gmls._dimensions-1, _gmls._dimensions);
+            scratch_matrix_right_type tangent(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), _data._dimensions-1, _data._dimensions);
 
             Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,_gmls.getNNeighbors(target_index)), [=] (const int m) {
                 // constructs tangent vector at neighbor site
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                    for (int j=0; j<_gmls._dimensions; ++j) {
-                        tangent(0,j) = t1(m)*T(_gmls._dimensions-1,j) + T(0,j);
-                        tangent(1,j) = t2(m)*T(_gmls._dimensions-1,j) + T(1,j);
+                    for (int j=0; j<_data._dimensions; ++j) {
+                        tangent(0,j) = t1(m)*T(_data._dimensions-1,j) + T(0,j);
+                        tangent(1,j) = t2(m)*T(_data._dimensions-1,j) + T(1,j);
                     }
 
                     // calculate norm
                     double norm = 0;
-                    for (int j=0; j<_gmls._dimensions; ++j) {
+                    for (int j=0; j<_data._dimensions; ++j) {
                         norm += tangent(0,j)*tangent(0,j);
                     }
 
                     // normalize first vector
                     norm = std::sqrt(norm);
-                    for (int j=0; j<_gmls._dimensions; ++j) {
+                    for (int j=0; j<_data._dimensions; ++j) {
                         tangent(0,j) /= norm;
                     }
 
                     // orthonormalize next vector
-                    if (_gmls._dimensions-1 == 2) { // 2d manifold
+                    if (_data._dimensions-1 == 2) { // 2d manifold
                         double dot_product = tangent(0,0)*tangent(1,0) + tangent(0,1)*tangent(1,1) + tangent(0,2)*tangent(1,2);
-                        for (int j=0; j<_gmls._dimensions; ++j) {
+                        for (int j=0; j<_data._dimensions; ++j) {
                             tangent(1,j) -= dot_product*tangent(0,j);
                         }
                         // normalize second vector
                         norm = 0;
-                        for (int j=0; j<_gmls._dimensions; ++j) {
+                        for (int j=0; j<_data._dimensions; ++j) {
                             norm += tangent(1,j)*tangent(1,j);
                         }
                         norm = std::sqrt(norm);
-                        for (int j=0; j<_gmls._dimensions; ++j) {
+                        for (int j=0; j<_data._dimensions; ++j) {
                             tangent(1,j) /= norm;
                         }
                     }
 
                     // stores matrix of tangent and normal directions as a prestencil weight
-                    for (int j=0; j<_gmls._dimensions; ++j) {
-                        for (int k=0; k<_gmls._dimensions-1; ++k) {
-                            _gmls._prestencil_weights(0,target_index,m,k,j) =  tangent(k,j);
+                    for (int j=0; j<_data._dimensions; ++j) {
+                        for (int k=0; k<_data._dimensions-1; ++k) {
+                            _data._prestencil_weights(0,target_index,m,k,j) =  tangent(k,j);
                         }
                     }
                 });
@@ -649,6 +863,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
         Kokkos::deep_copy(_P, 0.0);
         Kokkos::deep_copy(_w, 0.0);
         
+        // even kernels that should run on other # of vector lanes do not (on GPU)
         auto tp = _pm.TeamPolicyThreadsAndVectors(this_batch_size, _pm._default_threads, 1);
 
         if (_problem_type == ProblemType::MANIFOLD) {
