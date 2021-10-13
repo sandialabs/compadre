@@ -795,7 +795,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
         }
         teamMember.team_barrier();
 
-        XYZ rel_coord = getRelativeCoord(target_index, i, _dimensions, &T);
+        XYZ rel_coord = _pc.getRelativeCoord(target_index, i, _dimensions, &T);
         double normal_coordinate = rel_coord[_dimensions-1];
 
         // apply coefficients to sample data
@@ -1007,7 +1007,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
         }
         teamMember.team_barrier();
 
-        XYZ rel_coord = getRelativeCoord(target_index, i, _dimensions, &T);
+        XYZ rel_coord = _pc.getRelativeCoord(target_index, i, _dimensions, &T);
         double normal_coordinate = rel_coord[_dimensions-1];
 
         // apply coefficients to sample data
@@ -1282,8 +1282,8 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
                 for (int quadrature = 0; quadrature<_qm.getNumberOfQuadraturePoints(); ++quadrature) {
                     XYZ tangent_quadrature_coord_2d;
                     for (int j=0; j<_dimensions-1; ++j) {
-                        tangent_quadrature_coord_2d[j] = getTargetCoordinate(target_index, j, &T);
-                        tangent_quadrature_coord_2d[j] -= getNeighborCoordinate(target_index, m, j, &T);
+                        tangent_quadrature_coord_2d[j]  = _pc.getTargetCoordinate(target_index, j, &T);
+                        tangent_quadrature_coord_2d[j] -= _pc.getNeighborCoordinate(target_index, m, j, &T);
                     }
                     double tangent_vector[3];
                     tangent_vector[0] = tangent_quadrature_coord_2d[0]*T(0,0) + tangent_quadrature_coord_2d[1]*T(1,0);
@@ -1314,7 +1314,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
                 for (int l=0; l<manifold_NP; ++l) {
                     alpha_ij += delta(l)*Q(l,i);
                 }
-                XYZ rel_coord = getRelativeCoord(target_index, i, _dimensions, &T);
+                XYZ rel_coord = _pc.getRelativeCoord(target_index, i, _dimensions, &T);
                 double normal_coordinate = rel_coord[_dimensions-1];
 
                 // apply coefficients to sample data
@@ -1330,7 +1330,7 @@ void GMLS::operator()(const ComputePrestencilWeights&, const member_type& teamMe
                 for (int l=0; l<manifold_NP; ++l) {
                     alpha_ij += delta(l)*Q(l,i);
                 }
-                XYZ rel_coord = getRelativeCoord(target_index, i, _dimensions, &T);
+                XYZ rel_coord = _pc.getRelativeCoord(target_index, i, _dimensions, &T);
                 double normal_coordinate = rel_coord[_dimensions-1];
 
                 // apply coefficients to sample data

@@ -84,7 +84,8 @@ protected:
     Kokkos::View<double**, layout_right> _target_coordinates; 
 
     //! connections between points and neighbors
-    PointConnections<decltype(_target_coordinates), decltype(_source_coordinates), decltype(_neighbor_lists)> _pc;
+    typedef PointConnections<decltype(_target_coordinates), decltype(_source_coordinates), decltype(_neighbor_lists)> point_connections_type;
+    point_connections_type _pc;
 
     //! h supports determined through neighbor search (device)
     Kokkos::View<double*> _epsilons; 
@@ -436,13 +437,6 @@ protected:
         return _neighbor_lists.getNumberOfNeighborsDevice(target_index);
     }
 
-    //! Mapping from [0,number of neighbors for a target] to the row that contains the source coordinates for
-    //! that neighbor
-    KOKKOS_INLINE_FUNCTION
-    int getNeighborIndex(const int target_index, const int neighbor_list_num) const {
-        return _neighbor_lists.getNeighborDevice(target_index, neighbor_list_num);
-    }
-
     //! Returns the maximum neighbor lists size over all target sites
     KOKKOS_INLINE_FUNCTION
     int getMaxNNeighbors() const {
@@ -474,21 +468,6 @@ protected:
         return _additional_evaluation_indices.getNeighborDevice(target_index, additional_list_num);
     }
 
-    //! Returns one component of the target coordinate for a particular target. Whether global or local coordinates 
-    //! depends upon V being specified
-    KOKKOS_INLINE_FUNCTION
-    double getTargetCoordinate(const int target_index, const int dim, const scratch_matrix_right_type* V = NULL) const {
-        compadre_kernel_assert_debug((_target_coordinates.extent(0) >= (size_t)target_index) && "Target index is out of range for _target_coordinates.");
-        if (V==NULL) {
-            return _target_coordinates(target_index, dim);
-        } else {
-            XYZ target_coord = XYZ( _target_coordinates(target_index, 0), 
-                                    _target_coordinates(target_index, 1), 
-                                    _target_coordinates(target_index, 2));
-            return this->convertGlobalToLocalCoordinate(target_coord, dim, V);
-        }
-    }
-
     //! (OPTIONAL)
     //! Returns one component of the additional evaluation coordinates. Whether global or local coordinates 
     //! depends upon V being specified
@@ -502,60 +481,8 @@ protected:
             XYZ additional_target_coord = XYZ( _additional_evaluation_coordinates(additional_evaluation_index, 0),
                                                _additional_evaluation_coordinates(additional_evaluation_index, 1),
                                                _additional_evaluation_coordinates(additional_evaluation_index, 2));
-            return this->convertGlobalToLocalCoordinate(additional_target_coord, dim, V);
+            return this->convertGlobalToLocalCoordinate(additional_target_coord, dim, *V);
         }
-    }
-
-    //! Returns one component of the neighbor coordinate for a particular target. Whether global or local coordinates 
-    //! depends upon V being specified
-    KOKKOS_INLINE_FUNCTION
-    double getNeighborCoordinate(const int target_index, const int neighbor_list_num, const int dim, const scratch_matrix_right_type* V = NULL) const {
-        compadre_kernel_assert_debug((_source_coordinates.extent(0) >= (size_t)(this->getNeighborIndex(target_index, neighbor_list_num))) && "Source index is out of range for _source_coordinates.");
-        if (V==NULL) {
-            return _source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), dim);
-        } else {
-            XYZ neighbor_coord = XYZ(_source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), 0), _source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), 1), _source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), 2));
-            return this->convertGlobalToLocalCoordinate(neighbor_coord, dim, V);
-        }
-    }
-
-    //! Returns the relative coordinate as a vector between the target site and the neighbor site. 
-    //! Whether global or local coordinates depends upon V being specified
-    KOKKOS_INLINE_FUNCTION
-    XYZ getRelativeCoord(const int target_index, const int neighbor_list_num, const int dimension, const scratch_matrix_right_type* V = NULL) const {
-        XYZ coordinate_delta;
-
-        coordinate_delta.x = this->getNeighborCoordinate(target_index, neighbor_list_num, 0, V) - this->getTargetCoordinate(target_index, 0, V);
-        if (dimension>1) coordinate_delta.y = this->getNeighborCoordinate(target_index, neighbor_list_num, 1, V) - this->getTargetCoordinate(target_index, 1, V);
-        if (dimension>2) coordinate_delta.z = this->getNeighborCoordinate(target_index, neighbor_list_num, 2, V) - this->getTargetCoordinate(target_index, 2, V);
-
-        return coordinate_delta;
-    }
-
-    //! Returns a component of the local coordinate after transformation from global to local under the orthonormal basis V.
-    KOKKOS_INLINE_FUNCTION
-    double convertGlobalToLocalCoordinate(const XYZ global_coord, const int dim, const scratch_matrix_right_type* V) const {
-        // only written for 2d manifold in 3d space
-        double val = 0;
-        val += global_coord.x * (*V)(dim, 0);
-        val += global_coord.y * (*V)(dim, 1); // can't be called from dimension 1 problem
-        if (_dimensions>2) val += global_coord.z * (*V)(dim, 2);
-        return val;
-    }
-
-    //! Returns a component of the global coordinate after transformation from local to global under the orthonormal basis V^T.
-    KOKKOS_INLINE_FUNCTION
-    double convertLocalToGlobalCoordinate(const XYZ local_coord, const int dim, const scratch_matrix_right_type* V) const {
-        // only written for 2d manifold in 3d space
-        double val = 0.0;
-        if (dim == 0 && _dimensions==2) { // 2D problem with 1D manifold
-            val = local_coord.x * (*V)(0, dim);
-        } else if (dim == 0) { // 3D problem with 2D manifold
-            val = local_coord.x * ((*V)(0, dim) + (*V)(1, dim));
-        } else if (dim == 1) { // 3D problem with 2D manifold
-            val = local_coord.y * ((*V)(0, dim) + (*V)(1, dim));
-        }
-        return val;
     }
 
     //! Handles offset from operation input/output + extra evaluation sites
@@ -903,23 +830,31 @@ public:
         }
     }
 
-    //! Returns Euclidean norm of a vector
+    //! Returns a component of the local coordinate after transformation from global to local under the orthonormal basis V.
     KOKKOS_INLINE_FUNCTION
-    static double EuclideanVectorLength(const XYZ& delta_vector, const int dimension) {
-        double inside_val = delta_vector.x*delta_vector.x;
-        switch (dimension) {
-        case 3:
-            inside_val += delta_vector.z*delta_vector.z;
-            // no break is intentional
-        case 2:
-            inside_val += delta_vector.y*delta_vector.y;
-            // no break is intentional
-        default:
-            break;
-        }
-        return std::sqrt(inside_val);
+    static double convertGlobalToLocalCoordinate(const XYZ global_coord, const int dim, const scratch_matrix_right_type& V) {
+        compadre_assert_release(dim<3);
+        // only written for 2d manifold in 3d space or 2D problem with 1D manifold
+        double val = 0;
+        val += global_coord.x * V(dim, 0);
+        if (V.extent_int(1)>1) val += global_coord.y * V(dim, 1); 
+        if (V.extent_int(1)>2) val += global_coord.z * V(dim, 2);
+        return val;
     }
 
+    //! Returns a component of the global coordinate after transformation from local to global under the orthonormal basis V^T.
+    KOKKOS_INLINE_FUNCTION
+    static double convertLocalToGlobalCoordinate(const XYZ local_coord, const int dim, const scratch_matrix_right_type& V) {
+        double val = 0.0;
+        if (dim == 0 && V.extent_int(0)==1) { // 2D problem with 1D manifold
+            val = local_coord.x * V(0, dim);
+        } else if (dim == 0) { // 3D problem with 2D manifold
+            val = local_coord.x * (V(0, dim) + V(1, dim));
+        } else if (dim == 1) { // 3D problem with 2D manifold
+            val = local_coord.y * (V(0, dim) + V(1, dim));
+        }
+        return val;
+    }
 
     //! Helper function for finding alpha coefficients
     static int getTargetOutputIndex(const int operation_num, const int output_component_axis_1, const int output_component_axis_2, const int dimensions) {
@@ -1343,7 +1278,6 @@ public:
         this->setSourceSites<view_type_2>(source_coordinates);
         this->setTargetSites<view_type_3>(target_coordinates);
         this->setWindowSizes<view_type_4>(epsilons);
-        
     }
 
     //! Sets basic problem data (neighbor lists data, number of neighbors list, source coordinates, and target coordinates)
@@ -1394,6 +1328,9 @@ public:
         Kokkos::fence();
         this->resetCoefficientData();
 
+        if (_source_coordinates.extent(0)>0 && _target_coordinates.extent(0)>0) {
+            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+        }
     }
 
     //! Sets neighbor list information from compressed row neighborhood lists data (if different view_type).
@@ -1416,6 +1353,9 @@ public:
         Kokkos::fence();
         this->resetCoefficientData();
             
+        if (_source_coordinates.extent(0)>0 && _target_coordinates.extent(0)>0) {
+            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+        }
     }
 
     //! Sets neighbor list information. Should be # targets x maximum number of neighbors for any target + 1.
@@ -1432,6 +1372,9 @@ public:
         Kokkos::fence();
         this->resetCoefficientData();
 
+        if (_source_coordinates.extent(0)>0 && _target_coordinates.extent(0)>0) {
+            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+        }
     }
 
     //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries
@@ -1460,6 +1403,10 @@ public:
             Kokkos::deep_copy(_source_coordinates, host_source_coordinates);
         }
         this->resetCoefficientData();
+
+        if (_target_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
+            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+        }
     }
 
     //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries
@@ -1469,6 +1416,10 @@ public:
         // allocate memory on device
         _source_coordinates = source_coordinates;
         this->resetCoefficientData();
+
+        if (_target_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
+            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+        }
     }
 
     //! Sets target coordinate information. Rows of this 2D-array should correspond to rows of the neighbor lists.
@@ -1502,6 +1453,10 @@ public:
                     _host_number_of_additional_evaluation_indices);
         }
         this->resetCoefficientData();
+
+        if (_source_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
+            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+        }
     }
 
     //! Sets target coordinate information. Rows of this 2D-array should correspond to rows of the neighbor lists.
@@ -1517,6 +1472,10 @@ public:
                     _host_number_of_additional_evaluation_indices);
         }
         this->resetCoefficientData();
+
+        if (_source_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
+            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+        }
     }
 
     //! Sets window sizes, also called the support of the kernel
