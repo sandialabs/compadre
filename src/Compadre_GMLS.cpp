@@ -298,9 +298,8 @@ struct GMLSBasisData {
 struct ComputePrestencilWeights {
 
     GMLSBasisData _data;
-    GMLS _gmls;
 
-    ComputePrestencilWeights(const GMLS& gmls) : _data(GMLSBasisData(gmls)), _gmls(gmls) {}
+    ComputePrestencilWeights(const GMLS& gmls) : _data(GMLSBasisData(gmls)) {}
 
     KOKKOS_INLINE_FUNCTION
     void operator()(const member_type& teamMember) const {
@@ -313,7 +312,7 @@ struct ComputePrestencilWeights {
         const int local_index  = teamMember.league_rank();
 
         const int max_num_rows = _data._sampling_multiplier*_data._max_num_neighbors;
-        const int manifold_NP = _gmls.getNP(_data._curvature_poly_order, _data._dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
+        const int manifold_NP = GMLS::getNP(_data._curvature_poly_order, _data._dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
         const int max_manifold_NP = (manifold_NP > _data._NP) ? manifold_NP : _data._NP;
         const int this_num_cols = _data._basis_multiplier*max_manifold_NP;
         const int max_poly_order = (_data._poly_order > _data._curvature_poly_order) ? _data._poly_order : _data._curvature_poly_order;
@@ -438,7 +437,7 @@ struct ComputePrestencilWeights {
 
             scratch_matrix_right_type tangent(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), _data._dimensions-1, _data._dimensions);
 
-            Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,_gmls._pc._nla.getNumberOfNeighborsDevice(target_index)), [=] (const int m) {
+            Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,_data._pc._nla.getNumberOfNeighborsDevice(target_index)), [=] (const int m) {
                 // constructs tangent vector at neighbor site
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                     for (int j=0; j<_data._dimensions; ++j) {
@@ -550,9 +549,8 @@ struct ApplyStandardTargets {
 struct AssembleStandardPsqrtW {
 
     GMLSBasisData _data;
-    GMLS _gmls;
 
-    AssembleStandardPsqrtW(const GMLS& gmls) : _data(GMLSBasisData(gmls)), _gmls(gmls) {}
+    AssembleStandardPsqrtW(const GMLS& gmls) : _data(GMLSBasisData(gmls)) {}
 
     KOKKOS_INLINE_FUNCTION
     void operator()(const member_type& teamMember) const {
@@ -595,7 +593,7 @@ struct AssembleStandardPsqrtW {
         // creates the matrix sqrt(W)*P
         createWeightsAndP<GMLSBasisData>(_data, teamMember, delta, thread_workspace, PsqrtW, w, _data._dimensions, _data._poly_order, true /*weight_p*/, NULL /*&V*/, _data._reconstruction_space, _data._polynomial_sampling_functional);
     
-        if ((_gmls._constraint_type == ConstraintType::NO_CONSTRAINT) && (_gmls._dense_solver_type != DenseSolverType::LU)) {
+        if ((_data._constraint_type == ConstraintType::NO_CONSTRAINT) && (_data._dense_solver_type != DenseSolverType::LU)) {
             // fill in RHS with Identity * sqrt(weights)
             double * rhs_data = RHS.data();
             Kokkos::parallel_for(Kokkos::TeamVectorRange(teamMember,this_num_rows), [&] (const int i) {
@@ -604,7 +602,7 @@ struct AssembleStandardPsqrtW {
         } else {
             // create global memory for matrix M = PsqrtW^T*PsqrtW
             // don't need to cast into scratch_matrix_left_type since the matrix is symmetric
-            scratch_matrix_right_type M(_gmls._RHS.data()
+            scratch_matrix_right_type M(_data._RHS.data()
                 + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_dim_0)*TO_GLOBAL(RHS_dim_1), RHS_dim_0, RHS_dim_1);
             KokkosBatched::TeamVectorGemm<member_type,KokkosBatched::Trans::Transpose,KokkosBatched::Trans::NoTranspose,KokkosBatched::Algo::Gemm::Unblocked>
     	      ::invoke(teamMember,
@@ -624,16 +622,16 @@ struct AssembleStandardPsqrtW {
             teamMember.team_barrier();
     
             // conditionally fill in rows determined by constraint type
-            if (_gmls._constraint_type == ConstraintType::NEUMANN_GRAD_SCALAR) {
+            if (_data._constraint_type == ConstraintType::NEUMANN_GRAD_SCALAR) {
                 // normal vector is contained in last row of T
-                scratch_matrix_right_type T(_gmls._T.data()
-                    + TO_GLOBAL(target_index)*TO_GLOBAL(_gmls._dimensions)*TO_GLOBAL(_gmls._dimensions), _gmls._dimensions, _gmls._dimensions);
+                scratch_matrix_right_type T(_data._T.data()
+                    + TO_GLOBAL(target_index)*TO_GLOBAL(_data._dimensions)*TO_GLOBAL(_data._dimensions), _data._dimensions, _data._dimensions);
     
                 // Get the number of neighbors for target index
-                int num_neigh_target = _gmls._pc._nla.getNumberOfNeighborsDevice(target_index);
-                double cutoff_p = _gmls._epsilons(target_index);
+                int num_neigh_target = _data._pc._nla.getNumberOfNeighborsDevice(target_index);
+                double cutoff_p = _data._epsilons(target_index);
     
-                evaluateConstraints(M, PsqrtW, _gmls._constraint_type, _gmls._reconstruction_space, _gmls._NP, cutoff_p, _gmls._dimensions, num_neigh_target, &T);
+                evaluateConstraints(M, PsqrtW, _data._constraint_type, _data._reconstruction_space, _data._NP, cutoff_p, _data._dimensions, num_neigh_target, &T);
             }
         }
     }
