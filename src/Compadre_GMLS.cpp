@@ -2,7 +2,7 @@
 #include "Compadre_GMLS_ApplyTargetEvaluations.hpp"
 #include "Compadre_Basis.hpp"
 #include "Compadre_Quadrature.hpp"
-#include "Compadre_GMLS_Targets.hpp"
+#include "Compadre_Targets.hpp"
 #include "Compadre_Functors.hpp"
 #include "Compadre_CreateConstraints.hpp"
 
@@ -539,7 +539,7 @@ struct ApplyStandardTargets {
          */
 
         // get evaluation of target functionals
-        _gmls.computeTargetFunctionals(teamMember, delta, thread_workspace, P_target_row);
+        computeTargetFunctionals<GMLS>(_gmls, teamMember, delta, thread_workspace, P_target_row);
         teamMember.team_barrier();
 
         _gmls.applyTargetsToCoefficients(teamMember, t1, t2, Coeffs, w, P_target_row, _gmls._NP); 
@@ -1283,7 +1283,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
     //  GET TARGET COEFFICIENTS RELATED TO GRADIENT TERMS
     //
     // reconstruct grad_xi1 and grad_xi2, not used for manifold_coeffs
-    this->computeCurvatureFunctionals(teamMember, delta, thread_workspace, P_target_row, &T);
+    computeCurvatureFunctionals<GMLS>(*this, teamMember, delta, thread_workspace, P_target_row, &T);
     teamMember.team_barrier();
 
     double grad_xi1 = 0, grad_xi2 = 0;
@@ -1488,7 +1488,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
     //  GET TARGET COEFFICIENTS RELATED TO GRADIENT TERMS
     //
     // reconstruct grad_xi1 and grad_xi2, not used for manifold_coeffs
-    this->computeCurvatureFunctionals(teamMember, delta, thread_workspace, P_target_row, &T);
+    computeCurvatureFunctionals<GMLS>(*this, teamMember, delta, thread_workspace, P_target_row, &T);
     teamMember.team_barrier();
 
     Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
@@ -1707,7 +1707,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
      *    Apply Standard Target Evaluations to Polynomial Coefficients
      */
 
-    this->computeTargetFunctionalsOnManifold(teamMember, delta, thread_workspace, P_target_row, T, G_inv, manifold_coeffs, manifold_gradient_coeffs);
+    computeTargetFunctionalsOnManifold<GMLS>(*this, teamMember, delta, thread_workspace, P_target_row, T, G_inv, manifold_coeffs, manifold_gradient_coeffs);
     teamMember.team_barrier();
 
     this->applyTargetsToCoefficients(teamMember, t1, t2, Coeffs, w, P_target_row, _NP); 

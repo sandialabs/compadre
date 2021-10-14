@@ -297,43 +297,6 @@ public:
  */
 ///@{
 
-    /*! \brief Evaluates a polynomial basis with a target functional applied to each member of the basis
-        \param teamMember                   [in] - Kokkos::TeamPolicy member type (created by parallel_for)
-        \param delta                    [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
-        \param thread_workspace         [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _poly_order*_global_dimensions.
-        \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
-    */
-    KOKKOS_INLINE_FUNCTION
-    void computeTargetFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row) const;
-
-    /*! \brief Evaluates a polynomial basis for the curvature with a gradient target functional applied
-
-        _operations is used by this function which is set through a modifier function
-
-        \param teamMember                   [in] - Kokkos::TeamPolicy member type (created by parallel_for)
-        \param delta                    [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
-        \param thread_workspace         [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _curvature_poly_order*the spatial dimension of the polynomial basis.
-        \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
-        \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-    */
-    KOKKOS_INLINE_FUNCTION
-    void computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, const scratch_matrix_right_type* V, const local_index_type local_neighbor_index = -1) const;
-
-    /*! \brief Evaluates a polynomial basis with a target functional applied, using information from the manifold curvature
-
-         _operations is used by this function which is set through a modifier function
-
-        \param teamMember                   [in] - Kokkos::TeamPolicy member type (created by parallel_for)
-        \param delta                    [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
-        \param thread_workspace         [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _curvature_poly_order*the spatial dimension of the polynomial basis.
-        \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
-        \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-        \param G_inv                        [in] - (_dimensions-1)*(_dimensions-1) Kokkos View containing inverse of metric tensor
-        \param curvature_coefficients       [in] - polynomial coefficients for curvature
-        \param curvature_gradients          [in] - approximation of gradient of curvature, Kokkos View of size (_dimensions-1)
-    */
-    KOKKOS_INLINE_FUNCTION
-    void computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, scratch_matrix_right_type V, scratch_matrix_right_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients) const;
 
     //! Helper function for applying the evaluations from a target functional to the polynomial coefficients
     KOKKOS_INLINE_FUNCTION
@@ -1280,6 +1243,7 @@ public:
 
         if (_source_coordinates.extent(0)>0 && _target_coordinates.extent(0)>0) {
             _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
         }
     }
 
@@ -1305,6 +1269,7 @@ public:
             
         if (_source_coordinates.extent(0)>0 && _target_coordinates.extent(0)>0) {
             _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
         }
     }
 
@@ -1324,6 +1289,7 @@ public:
 
         if (_source_coordinates.extent(0)>0 && _target_coordinates.extent(0)>0) {
             _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
         }
     }
 
@@ -1356,6 +1322,7 @@ public:
 
         if (_target_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
             _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
         }
     }
 
@@ -1369,6 +1336,7 @@ public:
 
         if (_target_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
             _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
         }
     }
 
@@ -1406,6 +1374,7 @@ public:
 
         if (_source_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
             _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
         }
     }
 
@@ -1425,6 +1394,7 @@ public:
 
         if (_source_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
             _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
         }
     }
 
