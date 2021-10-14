@@ -34,7 +34,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
 
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, P_target_row.extent(0)), [&] (const int j) {
         Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, P_target_row.extent(1)),
-          [=] (const int& k) {
+          [&] (const int& k) {
             P_target_row(j,k) = 0;
         });
     });
@@ -65,7 +65,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
              */
 
             if (data._operations(i) == TargetOperation::ScalarPointEvaluation || (data._operations(i) == TargetOperation::VectorPointEvaluation && data._dimensions == 1) /* vector is a scalar in 1D */) {
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
                     calcPij<TargetData>(data, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, data._dimensions, data._poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                     int offset = data.getTargetOffsetIndexDevice(i, 0, 0, j);
                     for (int k=0; k<target_NP; ++k) {
@@ -91,7 +91,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                     }
                 });
             } else if (data._operations(i) == TargetOperation::GradientOfScalarPointEvaluation) {
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
                     for (int d=0; d<data._dimensions; ++d) {
                         int offset = data.getTargetOffsetIndexDevice(i, 0, d, j);
                         auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
@@ -100,7 +100,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (data._operations(i) == TargetOperation::PartialXOfScalarPointEvaluation) {
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
                     int offset = data.getTargetOffsetIndexDevice(i, 0, 0, j);
                     auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
                     calcGradientPij<TargetData>(data, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 0 /*partial_direction*/, data._dimensions, data._poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
@@ -108,7 +108,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (data._operations(i) == TargetOperation::PartialYOfScalarPointEvaluation) {
                 compadre_kernel_assert_release(data._dimensions>1 && "PartialYOfScalarPointEvaluation requested for dim < 2");
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
                     int offset = data.getTargetOffsetIndexDevice(i, 0, 0, j);
                     auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
                     calcGradientPij<TargetData>(data, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 1 /*partial_direction*/, data._dimensions, data._poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
@@ -116,7 +116,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (data._operations(i) == TargetOperation::PartialZOfScalarPointEvaluation) {
                 compadre_kernel_assert_release(data._dimensions>2 && "PartialZOfScalarPointEvaluation requested for dim < 3");
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
                     int offset = data.getTargetOffsetIndexDevice(i, 0, 0, j);
                     auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
                     calcGradientPij<TargetData>(data, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 2 /*partial_direction*/, data._dimensions, data._poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
@@ -236,7 +236,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
 
             if (data._operations(i) == TargetOperation::ScalarPointEvaluation || (data._operations(i) == TargetOperation::VectorPointEvaluation && data._dimensions == 1) /* vector is a scalar in 1D */) {
                 // copied from ScalarTaylorPolynomial
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
                     calcPij<TargetData>(data, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, data._dimensions, data._poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                     int offset = data.getTargetOffsetIndexDevice(i, 0, 0, j);
                     for (int k=0; k<target_NP; ++k) {
@@ -245,7 +245,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (data._operations(i) == TargetOperation::VectorPointEvaluation) {
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int e) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int e) {
                     calcPij<TargetData>(data, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, data._dimensions, data._poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
                     for (int m=0; m<data._sampling_multiplier; ++m) {
                         int output_components = data._basis_multiplier;
@@ -264,7 +264,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
             } else if ( (data._operations(i) == TargetOperation::GradientOfScalarPointEvaluation) && (data._polynomial_sampling_functional == StaggeredEdgeIntegralSample) ) {
                 // when using staggered edge integral sample with vector basis, the gradient of scalar point evaluation
                 // is just the vector point evaluation
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int e) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int e) {
                     calcPij<TargetData>(data, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, data._dimensions, data._poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
                     for (int m=0; m<data._sampling_multiplier; ++m) {
                         int output_components = data._basis_multiplier;
@@ -281,7 +281,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (data._operations(i) == TargetOperation::GradientOfScalarPointEvaluation) {
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int e) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int e) {
                     int output_components = data._basis_multiplier;
                     for (int m2=0; m2<output_components; ++m2) { // output components 2
                         int offset = data.getTargetOffsetIndexDevice(i, 0 /*in*/, m2 /*out*/, e);
@@ -293,7 +293,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (data._operations(i) == TargetOperation::GradientOfVectorPointEvaluation) {
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int e) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int e) {
                     for (int m0=0; m0<data._sampling_multiplier; ++m0) { // input components
                         int output_components = data._basis_multiplier;
                         for (int m1=0; m1<output_components; ++m1) { // output components 1
@@ -327,7 +327,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                         }
                     });
                 } else {
-                    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int e) {
+                    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int e) {
                         for (int m=0; m<data._sampling_multiplier; ++m) {
                             calcGradientPij<TargetData>(data, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, m /*partial_direction*/, data._dimensions, data._poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
                             int offset = data.getTargetOffsetIndexDevice(i, m /*in*/, 0 /*out*/, e/*additional*/);
@@ -440,7 +440,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
 
             if (data._operations(i) == TargetOperation::ScalarPointEvaluation || (data._operations(i) == TargetOperation::VectorPointEvaluation && data._dimensions == 1) /* vector is a scalar in 1D */) {
                 // copied from ScalarTaylorPolynomial
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
                     calcPij<TargetData>(data, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, data._dimensions, data._poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                     int offset = data.getTargetOffsetIndexDevice(i, 0, 0, j);
                     for (int k=0; k<target_NP; ++k) {
@@ -449,7 +449,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (data._operations(i) == TargetOperation::VectorPointEvaluation) {
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int e) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int e) {
                     calcPij<TargetData>(data, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, data._dimensions, data._poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
                     for (int m=0; m<data._sampling_multiplier; ++m) {
                         for (int c=0; c<data._data_sampling_multiplier; ++c) {
@@ -481,7 +481,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                 });
             } else if (data._operations(i) == TargetOperation::GradientOfScalarPointEvaluation) {
                 // copied from ScalarTaylorPolynomial
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
                     for (int d=0; d<data._dimensions; ++d) {
                         int offset = data.getTargetOffsetIndexDevice(i, 0, d, j);
                         auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
@@ -490,7 +490,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (data._operations(i) == TargetOperation::GradientOfVectorPointEvaluation) {
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
                     for (int m0=0; m0<data._dimensions; ++m0) { // input components
                         for (int m1=0; m1<data._dimensions; ++m1) { // output components 1
                             for (int m2=0; m2<data._dimensions; ++m2) { // output componets 2
@@ -504,7 +504,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (data._operations(i) == TargetOperation::PartialXOfScalarPointEvaluation) {
                 // copied from ScalarTaylorPolynomial
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
                     int offset = data.getTargetOffsetIndexDevice(i, 0, 0, j);
                     auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
                     calcGradientPij<TargetData>(data, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 0 /*partial_direction*/, data._dimensions, data._poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
@@ -513,7 +513,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
             } else if (data._operations(i) == TargetOperation::PartialYOfScalarPointEvaluation) {
                 // copied from ScalarTaylorPolynomial
                 if (data._dimensions>1) {
-                    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
+                    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
                         int offset = data.getTargetOffsetIndexDevice(i, 0, 0, j);
                         auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
                         calcGradientPij<TargetData>(data, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 1 /*partial_direction*/, data._dimensions, data._poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
@@ -523,7 +523,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
             } else if (data._operations(i) == TargetOperation::PartialZOfScalarPointEvaluation) {
                 // copied from ScalarTaylorPolynomial
                 if (data._dimensions>2) {
-                    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
+                    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
                         int offset = data.getTargetOffsetIndexDevice(i, 0, 0, j);
                         auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
                         calcGradientPij<TargetData>(data, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 2 /*partial_direction*/, data._dimensions, data._poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
@@ -699,7 +699,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
 
             if (data._operations(i) == TargetOperation::VectorPointEvaluation) {
                 // copied from VectorTaylorPolynomial
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int e) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int e) {
                     for (int m0=0; m0<data._sampling_multiplier; ++m0) {
                         for (int m1=0; m1<data._sampling_multiplier; ++m1) {
 
@@ -714,7 +714,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (data._operations(i) == TargetOperation::CurlOfVectorPointEvaluation) {
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int e) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int e) {
                     for (int m0=0; m0<data._sampling_multiplier; ++m0) { // input components
                         for (int m1=0; m1<data._sampling_multiplier; ++m1) { // output components
                             int offset = data.getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, e /*no additional*/);
@@ -787,7 +787,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (data._operations(i) == TargetOperation::CurlCurlOfVectorPointEvaluation) {
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int e) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int e) {
                     for (int m0=0; m0<data._sampling_multiplier; ++m0) { // input components
                         for (int m1=0; m1<data._sampling_multiplier; ++m1) { // output components
                             int offset = data.getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, e /*no additional*/);
@@ -926,7 +926,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (data._operations(i) == TargetOperation::GradientOfVectorPointEvaluation) {
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int e) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int e) {
                     for (int m0=0; m0<data._sampling_multiplier; ++m0) { // input components
                         for (int m1=0; m1<data._sampling_multiplier; ++m1) { // output components 1
                             for (int m2=0; m2<data._sampling_multiplier; ++m2) { // output components 2
@@ -974,7 +974,7 @@ void computeCurvatureFunctionals(const TargetData& data, const member_type& team
 
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, P_target_row.extent(0)), [&] (const int j) {
         Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, P_target_row.extent(1)),
-          [=] (const int& k) {
+          [&] (const int& k) {
             P_target_row(j,k) = 0;
         });
     });
@@ -1040,7 +1040,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
 
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, P_target_row.extent(0)), [&] (const int j) {
         Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, P_target_row.extent(1)),
-          [=] (const int& k) {
+          [&] (const int& k) {
             P_target_row(j,k) = 0;
         });
     });
@@ -1068,7 +1068,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
         if (!operation_handled) {
         if (data._dimensions>2) {
             if (data._operations(i) == TargetOperation::ScalarPointEvaluation) {
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
                     calcPij<TargetData>(data, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, data._dimensions-1, data._poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                     int offset = data.getTargetOffsetIndexDevice(i, 0, 0, j);
                     for (int k=0; k<target_NP; ++k) {
@@ -1079,7 +1079,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
             } else if (data._operations(i) == TargetOperation::VectorPointEvaluation) {
                 // vector basis
                 if (data._reconstruction_space_rank == 1) {
-                    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int k) {
+                    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int k) {
                         // output component 0
                         calcPij<TargetData>(data, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, data._dimensions-1, data._poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, k);
                         int offset = data.getTargetOffsetIndexDevice(i, 0, 0, k);
@@ -1108,7 +1108,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                     additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
                 // scalar basis times number of components in the vector
                 } else if (data._reconstruction_space_rank == 0) {
-                    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int k) {
+                    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int k) {
                         // output component 0
                         calcPij<TargetData>(data, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, data._dimensions-1, data._poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, k);
                         int offset = data.getTargetOffsetIndexDevice(i, 0, 0, k);
@@ -1555,7 +1555,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
             } else if (data._operations(i) == TargetOperation::GaussianCurvaturePointEvaluation) {
                 double h = data._epsilons(target_index);
                 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int k) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int k) {
                     XYZ relative_coord;
                     if (k > 0) {
                         for (int d=0; d<data._dimensions-1; ++d) {
@@ -1575,7 +1575,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
             } else if (data._operations(i) == TargetOperation::CurlOfVectorPointEvaluation) {
                 double h = data._epsilons(target_index);
                 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int k) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int k) {
                     int alphax, alphay;
                     XYZ relative_coord;
                     if (k > 0) {
@@ -1720,7 +1720,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                     }
                 });
             } else if (data._operations(i) == TargetOperation::ScalarPointEvaluation) {
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
                     calcPij<TargetData>(data, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, data._dimensions-1, data._poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                     int offset = data.getTargetOffsetIndexDevice(i, 0, 0, j);
                     for (int k=0; k<target_NP; ++k) {

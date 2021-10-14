@@ -549,9 +549,10 @@ struct ApplyStandardTargets {
 
 struct AssembleStandardPsqrtW {
 
+    GMLSBasisData _data;
     GMLS _gmls;
 
-    AssembleStandardPsqrtW(GMLS gmls) : _gmls(gmls) {}
+    AssembleStandardPsqrtW(const GMLS& gmls) : _data(GMLSBasisData(gmls)), _gmls(gmls) {}
 
     KOKKOS_INLINE_FUNCTION
     void operator()(const member_type& teamMember) const {
@@ -560,39 +561,39 @@ struct AssembleStandardPsqrtW {
          *    Dimensions
          */
     
-        const int target_index = _gmls._initial_index_for_batch + teamMember.league_rank();
+        const int target_index = _data._initial_index_for_batch + teamMember.league_rank();
         const int local_index  = teamMember.league_rank();
     
-        const int max_num_rows = _gmls._sampling_multiplier*_gmls._max_num_neighbors;
-        const int this_num_rows = _gmls._sampling_multiplier*_gmls._pc._nla.getNumberOfNeighborsDevice(target_index);
-        const int this_num_cols = _gmls._basis_multiplier*_gmls._NP;
+        const int max_num_rows = _data._sampling_multiplier*_data._max_num_neighbors;
+        const int this_num_rows = _data._sampling_multiplier*_data._pc._nla.getNumberOfNeighborsDevice(target_index);
+        const int this_num_cols = _data._basis_multiplier*_data._NP;
     
         int RHS_dim_0, RHS_dim_1;
-        getRHSDims(_gmls._dense_solver_type, _gmls._constraint_type, _gmls._reconstruction_space, _gmls._dimensions, max_num_rows, this_num_cols, RHS_dim_0, RHS_dim_1);
+        getRHSDims(_data._dense_solver_type, _data._constraint_type, _data._reconstruction_space, _data._dimensions, max_num_rows, this_num_cols, RHS_dim_0, RHS_dim_1);
         int P_dim_0, P_dim_1;
-        getPDims(_gmls._dense_solver_type, _gmls._constraint_type, _gmls._reconstruction_space, _gmls._dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
+        getPDims(_data._dense_solver_type, _data._constraint_type, _data._reconstruction_space, _data._dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
     
         /*
          *    Data
          */
     
-        scratch_matrix_right_type PsqrtW(_gmls._P.data()
+        scratch_matrix_right_type PsqrtW(_data._P.data()
                 + TO_GLOBAL(local_index)*TO_GLOBAL(P_dim_0)*TO_GLOBAL(P_dim_1), P_dim_0, P_dim_1);
-        scratch_matrix_right_type RHS(_gmls._RHS.data() 
+        scratch_matrix_right_type RHS(_data._RHS.data() 
                 + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_dim_0)*TO_GLOBAL(RHS_dim_1), RHS_dim_0, RHS_dim_1);
-        scratch_vector_type w(_gmls._w.data() 
+        scratch_vector_type w(_data._w.data() 
                 + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
     
         // delta, used for each thread
-        scratch_vector_type delta(teamMember.thread_scratch(_gmls._pm.getThreadScratchLevel(1)), this_num_cols);
-        scratch_vector_type thread_workspace(teamMember.thread_scratch(_gmls._pm.getThreadScratchLevel(1)), (_gmls._poly_order+1)*_gmls._global_dimensions);
+        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), this_num_cols);
+        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), (_data._poly_order+1)*_data._global_dimensions);
     
         /*
          *    Assemble P*sqrt(W) and sqrt(w)*Identity
          */
     
         // creates the matrix sqrt(W)*P
-        createWeightsAndP<GMLS>(_gmls, teamMember, delta, thread_workspace, PsqrtW, w, _gmls._dimensions, _gmls._poly_order, true /*weight_p*/, NULL /*&V*/, _gmls._reconstruction_space, _gmls._polynomial_sampling_functional);
+        createWeightsAndP<GMLSBasisData>(_data, teamMember, delta, thread_workspace, PsqrtW, w, _data._dimensions, _data._poly_order, true /*weight_p*/, NULL /*&V*/, _data._reconstruction_space, _data._polynomial_sampling_functional);
     
         if ((_gmls._constraint_type == ConstraintType::NO_CONSTRAINT) && (_gmls._dense_solver_type != DenseSolverType::LU)) {
             // fill in RHS with Identity * sqrt(weights)
@@ -977,8 +978,6 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
              */
 
             // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity
-            //_pm.CallFunctorWithTeamThreads<AssembleStandardPsqrtW>(*this, this_batch_size);
-            //CallFunctorWithTeamThreadsAndVectors<Tag,C>(functor, batch_size, _default_threads, 1);
             auto functor_assemble_standard_psqrtw = AssembleStandardPsqrtW(*this);
             Kokkos::parallel_for(tp, functor_assemble_standard_psqrtw, "AssembleStandardPsqrtW");
             Kokkos::fence();
@@ -998,7 +997,6 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
                 Kokkos::Profiling::popRegion();
             }
 
-            //_pm.CallFunctorWithTeamThreadsAndVectors<ComputePrestencilWeights>(*this, this_batch_size);
             auto functor_compute_prestencil_weights = ComputePrestencilWeights(*this);
             Kokkos::parallel_for(tp, functor_compute_prestencil_weights, "ComputePrestencilWeights");
             Kokkos::fence();
@@ -1025,7 +1023,6 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
              */
 
             // evaluates targets, applies target evaluation to polynomial coefficients to store in _alphas
-            //_pm.CallFunctorWithTeamThreadsAndVectors<ApplyStandardTargets>(*this, this_batch_size);
             auto functor_apply_standard_targets = ApplyStandardTargets(*this);
             Kokkos::parallel_for(tp, functor_apply_standard_targets, "ApplyStandardTargets");
 

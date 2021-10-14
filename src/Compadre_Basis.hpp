@@ -675,7 +675,7 @@ void createWeightsAndP(const BasisData& data, const member_type& teamMember, scr
                 delta.extent(0)), [&] (const int j) { delta(j) = 0; });
     teamMember.team_barrier();
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,data._pc._nla.getNumberOfNeighborsDevice(target_index)),
-            [=] (const int i) {
+            [&] (const int i) {
 
         for (int d=0; d<data._sampling_multiplier; ++d) {
             // in 2d case would use distance between SVD coordinates

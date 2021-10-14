@@ -62,7 +62,7 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
                         if (_sampling_multiplier>1 && m<_sampling_multiplier) {
                             const int m_neighbor_offset = i+m*_pc._nla.getNumberOfNeighborsDevice(target_index);
                             Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember, _basis_multiplier*target_NP),
-                              [=] (int& l, double& t_alpha_ij) {
+                              [&] (int& l, double& t_alpha_ij) {
                                 t_alpha_ij += P_target_row(offset_index_jmke, l)*Q(l, m_neighbor_offset);
 
                                 compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l) 
@@ -73,7 +73,7 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
                             }, alpha_ij);
                         } else if (_sampling_multiplier == 1) {
                             Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember, _basis_multiplier*target_NP),
-                              [=] (int& l, double& t_alpha_ij) {
+                              [&] (int& l, double& t_alpha_ij) {
                                 t_alpha_ij += P_target_row(offset_index_jmke, l)*Q(l,i);
 
                                 compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l) 
@@ -83,7 +83,7 @@ void GMLS::applyTargetsToCoefficients(const member_type& teamMember, scratch_vec
 
                             }, alpha_ij);
                         } 
-                        Kokkos::single(Kokkos::PerThread(teamMember), [=] () {
+                        Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                             //_alphas(target_index, offset_index_jmke, i) = alpha_ij;
                             _alphas(alphas_index+i) = alpha_ij;
                             compadre_kernel_assert_extreme_debug(alpha_ij==alpha_ij && "NaN in alphas.");

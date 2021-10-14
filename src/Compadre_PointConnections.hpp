@@ -62,7 +62,7 @@ public:
     //! Returns a component of the local coordinate after transformation from global to local under the orthonormal basis V.
     KOKKOS_INLINE_FUNCTION
     static double convertGlobalToLocalCoordinate(const XYZ global_coord, const int dim, const scratch_matrix_right_type& V) {
-        compadre_assert_release(dim<3);
+        compadre_kernel_assert_debug(dim<3);
         // only written for 2d manifold in 3d space or 2D problem with 1D manifold
         double val = 0;
         val += global_coord.x * V(dim, 0);
