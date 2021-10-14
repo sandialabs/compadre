@@ -760,7 +760,7 @@ void createWeightsAndPForCurvature(const BasisData& data, const member_type& tea
                 delta.extent(0)), [&] (const int j) { delta(j) = 0; });
     teamMember.team_barrier();
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,data._pc._nla.getNumberOfNeighborsDevice(target_index)),
-            [=] (const int i) {
+            [&] (const int i) {
 
         // ignores V when calculating weights from a point, i.e. uses actual point values
         double r;

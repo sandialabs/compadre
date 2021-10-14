@@ -939,7 +939,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
                 Kokkos::Profiling::pushRegion("Curvature QR+Pivoting Factorization");
                 GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, _max_num_neighbors, manifold_NP, _max_num_neighbors, this_batch_size);
                 Kokkos::Profiling::popRegion();
-           }
+            }
 
             // evaluates targets, applies target evaluation to polynomial coefficients for curvature
             _pm.CallFunctorWithTeamThreads<ApplyCurvatureTargets>(*this, this_batch_size);
