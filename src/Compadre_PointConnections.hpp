@@ -42,7 +42,6 @@ public:
                 memory_space(), source_coordinates);
         Kokkos::deep_copy(_target_coordinates, target_coordinates);
         Kokkos::deep_copy(_source_coordinates, source_coordinates);
-        printf("point connections made with: %d targets, %d sources\n", _target_coordinates.extent(0), _source_coordinates.extent(0));
 
     }
 
