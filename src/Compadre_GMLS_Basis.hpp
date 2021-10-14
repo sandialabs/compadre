@@ -40,7 +40,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, double* thread_
         for (int i=0; i<dimension; ++i) {
             // evaluation_site_local_index is for evaluation site, which includes target site
             // the -1 converts to the local index for ADDITIONAL evaluation sites
-            relative_coord[i]  = getTargetAuxiliaryCoordinate(target_index, evaluation_site_local_index-1, i, V);
+            relative_coord[i]  = _additional_pc.getNeighborCoordinate(target_index, evaluation_site_local_index-1, i, V);
             relative_coord[i] -= _pc.getTargetCoordinate(target_index, i, V);
         }
     } else {
@@ -413,7 +413,7 @@ void GMLS::calcPij(const member_type& teamMember, double* delta, double* thread_
                 if (_problem_type == ProblemType::MANIFOLD) {
                     XYZ qp = XYZ(transformed_qp[0], transformed_qp[1], transformed_qp[2]);
                     for (int j=0; j<2; ++j) {
-                        relative_coord[j] = convertGlobalToLocalCoordinate(qp,j,*V) - _pc.getTargetCoordinate(target_index,j,V); // shift quadrature point by target site
+                        relative_coord[j] = _pc.convertGlobalToLocalCoordinate(qp,j,*V) - _pc.getTargetCoordinate(target_index,j,V); // shift quadrature point by target site
                         relative_coord[2] = 0;
                     }
                 } else {
@@ -501,7 +501,7 @@ void GMLS::calcGradientPij(const member_type& teamMember, double* delta, double*
         for (int i=0; i<dimension; ++i) {
             // evaluation_site_local_index is for evaluation site, which includes target site
             // the -1 converts to the local index for ADDITIONAL evaluation sites
-            relative_coord[i]  = getTargetAuxiliaryCoordinate(target_index, evaluation_site_local_index-1, i, V);
+            relative_coord[i]  = _additional_pc.getNeighborCoordinate(target_index, evaluation_site_local_index-1, i, V);
             relative_coord[i] -= _pc.getTargetCoordinate(target_index, i, V);
         }
     } else {
@@ -566,7 +566,7 @@ void GMLS::calcHessianPij(const member_type& teamMember, double* delta, double* 
         for (int i=0; i<dimension; ++i) {
             // evaluation_site_local_index is for evaluation site, which includes target site
             // the -1 converts to the local index for ADDITIONAL evaluation sites
-            relative_coord[i]  = getTargetAuxiliaryCoordinate(target_index, evaluation_site_local_index-1, i, V);
+            relative_coord[i]  = _additional_pc.getNeighborCoordinate(target_index, evaluation_site_local_index-1, i, V);
             relative_coord[i] -= _pc.getTargetCoordinate(target_index, i, V);
         }
     } else {

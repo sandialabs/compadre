@@ -1529,7 +1529,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         for (int d=0; d<_dimensions-1; ++d) {
                             // k indexing is for evaluation site, which includes target site
                             // the k-1 converts to the local index for ADDITIONAL evaluation sites
-                            relative_coord[d]  = getTargetAuxiliaryCoordinate(target_index, k-1, d, &V);
+                            relative_coord[d]  = _additional_pc.getNeighborCoordinate(target_index, k-1, d, &V);
                             relative_coord[d] -= _pc.getTargetCoordinate(target_index, d, &V);
                         }
                     } else {
@@ -1550,7 +1550,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                         for (int d=0; d<_dimensions-1; ++d) {
                             // k indexing is for evaluation site, which includes target site
                             // the k-1 converts to the local index for ADDITIONAL evaluation sites
-                            relative_coord[d]  = getTargetAuxiliaryCoordinate(target_index, k-1, d, &V);
+                            relative_coord[d]  = _additional_pc.getNeighborCoordinate(target_index, k-1, d, &V);
                             relative_coord[d] -= _pc.getTargetCoordinate(target_index, d, &V);
                         }
                     } else {
@@ -1648,7 +1648,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
 
                         XYZ qp = XYZ(transformed_qp[0], transformed_qp[1], transformed_qp[2]);
                         for (int j=0; j<2; ++j) {
-                            relative_coord[j] = convertGlobalToLocalCoordinate(qp,j,V) - _pc.getTargetCoordinate(target_index,j,&V); // shift quadrature point by target site
+                            relative_coord[j] = _pc.convertGlobalToLocalCoordinate(qp,j,V) - _pc.getTargetCoordinate(target_index,j,&V); // shift quadrature point by target site
                             relative_coord[2] = 0;
                         }
 
