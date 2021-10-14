@@ -489,9 +489,10 @@ struct ComputePrestencilWeights {
 
 struct ApplyStandardTargets {
 
-    GMLS _gmls;
+    GMLSBasisData _data;
+    GMLS          _gmls;
 
-    ApplyStandardTargets(GMLS gmls) : _gmls(gmls) {}
+    ApplyStandardTargets(GMLS gmls) : _data(GMLSBasisData(gmls)), _gmls(gmls) {}
 
     KOKKOS_INLINE_FUNCTION
     void operator()(const member_type& teamMember) const {
@@ -501,37 +502,37 @@ struct ApplyStandardTargets {
 
         const int local_index  = teamMember.league_rank();
 
-        const int max_num_rows = _gmls._sampling_multiplier*_gmls._max_num_neighbors;
-        const int this_num_cols = _gmls._basis_multiplier*_gmls._NP;
+        const int max_num_rows = _data._sampling_multiplier*_data._max_num_neighbors;
+        const int this_num_cols = _data._basis_multiplier*_data._NP;
 
         int RHS_dim_0, RHS_dim_1;
-        getRHSDims(_gmls._dense_solver_type, _gmls._constraint_type, _gmls._reconstruction_space, _gmls._dimensions, max_num_rows, this_num_cols, RHS_dim_0, RHS_dim_1);
+        getRHSDims(_data._dense_solver_type, _data._constraint_type, _data._reconstruction_space, _data._dimensions, max_num_rows, this_num_cols, RHS_dim_0, RHS_dim_1);
         int P_dim_0, P_dim_1;
-        getPDims(_gmls._dense_solver_type, _gmls._constraint_type, _gmls._reconstruction_space, _gmls._dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
+        getPDims(_data._dense_solver_type, _data._constraint_type, _data._reconstruction_space, _data._dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
 
         /*
          *    Data
          */
 
-        // Coefficients for polynomial basis have overwritten _gmls._RHS
+        // Coefficients for polynomial basis have overwritten _data._RHS
         scratch_matrix_right_type Coeffs;
         // if (_dense_solver_type != DenseSolverType::LU) {
-        if ((_gmls._constraint_type == ConstraintType::NO_CONSTRAINT) && (_gmls._dense_solver_type != DenseSolverType::LU)) {
-            Coeffs = scratch_matrix_right_type(_gmls._RHS.data() 
+        if ((_data._constraint_type == ConstraintType::NO_CONSTRAINT) && (_data._dense_solver_type != DenseSolverType::LU)) {
+            Coeffs = scratch_matrix_right_type(_data._RHS.data() 
                 + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_dim_0)*TO_GLOBAL(RHS_dim_1), RHS_dim_0, RHS_dim_1);
         } else {
-            Coeffs = scratch_matrix_right_type(_gmls._P.data() 
+            Coeffs = scratch_matrix_right_type(_data._P.data() 
                 + TO_GLOBAL(local_index)*TO_GLOBAL(P_dim_1)*TO_GLOBAL(P_dim_0), P_dim_1, P_dim_0);
         }
-        scratch_vector_type w(_gmls._w.data() 
+        scratch_vector_type w(_data._w.data() 
                 + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
 
-        scratch_vector_type t1(teamMember.team_scratch(_gmls._pm.getTeamScratchLevel(0)), max_num_rows);
-        scratch_vector_type t2(teamMember.team_scratch(_gmls._pm.getTeamScratchLevel(0)), max_num_rows);
-        scratch_matrix_right_type P_target_row(teamMember.team_scratch(_gmls._pm.getTeamScratchLevel(1)), _gmls._total_alpha_values*_gmls._max_evaluation_sites_per_target, this_num_cols);
+        scratch_vector_type t1(teamMember.team_scratch(_data._pm.getTeamScratchLevel(0)), max_num_rows);
+        scratch_vector_type t2(teamMember.team_scratch(_data._pm.getTeamScratchLevel(0)), max_num_rows);
+        scratch_matrix_right_type P_target_row(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), _data._total_alpha_values*_data._max_evaluation_sites_per_target, this_num_cols);
 
-        scratch_vector_type delta(teamMember.thread_scratch(_gmls._pm.getThreadScratchLevel(1)), this_num_cols);
-        scratch_vector_type thread_workspace(teamMember.thread_scratch(_gmls._pm.getThreadScratchLevel(1)), (_gmls._poly_order+1)*_gmls._global_dimensions);
+        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), this_num_cols);
+        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), (_data._poly_order+1)*_data._global_dimensions);
 
         /*
          *    Apply Standard Target Evaluations to Polynomial Coefficients
