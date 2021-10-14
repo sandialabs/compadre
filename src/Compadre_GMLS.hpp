@@ -297,92 +297,6 @@ public:
  */
 ///@{
 
-    /*! \brief Evaluates the polynomial basis under a particular sampling function. Generally used to fill a row of P.
-        \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _basis_multipler*the dimension of the polynomial basis.
-        \param thread_workspace [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
-        \param target_index         [in] - target number
-        \param neighbor_index       [in] - index of neighbor for this target with respect to local numbering [0,...,number of neighbors for target]
-        \param alpha                [in] - double to determine convex combination of target and neighbor site at which to evaluate polynomials. (1-alpha)*neighbor + alpha*target
-        \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
-        \param poly_order           [in] - polynomial basis degree
-        \param specific_order_only  [in] - boolean for only evaluating one degree of polynomial when true
-        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-        \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
-        \param sampling_strategy    [in] - sampling functional specification
-        \param evaluation_site_local_index [in] - local index for evaluation sites (0 is target site)
-    */
-    KOKKOS_INLINE_FUNCTION
-    void calcPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, const scratch_matrix_right_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = PointSample, const int evaluation_site_local_index = 0) const;
-
-    /*! \brief Evaluates the gradient of a polynomial basis under the Dirac Delta (pointwise) sampling function.
-        \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
-        \param thread_workspace [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
-        \param target_index         [in] - target number
-        \param neighbor_index       [in] - index of neighbor for this target with respect to local numbering [0,...,number of neighbors for target]
-        \param alpha                [in] - double to determine convex combination of target and neighbor site at which to evaluate polynomials. (1-alpha)*neighbor + alpha*target
-        \param partial_direction    [in] - direction that partial is taken with respect to, e.g. 0 is x direction, 1 is y direction
-        \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
-        \param poly_order           [in] - polynomial basis degree
-        \param specific_order_only  [in] - boolean for only evaluating one degree of polynomial when true
-        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-        \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
-        \param sampling_strategy    [in] - sampling functional specification
-        \param evaluation_site_local_index [in] - local index for evaluation sites (0 is target site)
-    */
-    KOKKOS_INLINE_FUNCTION
-    void calcGradientPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int evaluation_site_local_index = 0) const;
-
-    /*! \brief Evaluates the Hessian of a polynomial basis under the Dirac Delta (pointwise) sampling function.
-        \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
-        \param thread_workspace [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
-        \param target_index         [in] - target number
-        \param neighbor_index       [in] - index of neighbor for this target with respect to local numbering [0,...,number of neighbors for target]
-        \param alpha                [in] - double to determine convex combination of target and neighbor site at which to evaluate polynomials. (1-alpha)*neighbor + alpha*target
-        \param partial_direction_1  [in] - first direction that partial is taken with respect to, e.g. 0 is x direction, 1 is y direction
-        \param partial_direction_2  [in] - second direction that partial is taken with respect to, e.g. 0 is x direction, 1 is y direction
-        \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
-        \param poly_order           [in] - polynomial basis degree
-        \param specific_order_only  [in] - boolean for only evaluating one degree of polynomial when true
-        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-        \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
-        \param sampling_strategy    [in] - sampling functional specification
-        \param evaluation_site_local_index [in] - local index for evaluation sites (0 is target site) 
-    */
-    KOKKOS_INLINE_FUNCTION
-    void calcHessianPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction_1, const int partial_direction_2, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int evaluation_site_local_index = 0) const;
-
-    /*! \brief Fills the _P matrix with either P or P*sqrt(w)
-        \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
-        \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
-        \param thread_workspace [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
-        \param P                   [out] - 2D Kokkos View which will contain evaluation of sampling functional on polynomial basis for each neighbor the target has (stored column major)
-        \param w                   [out] - 1D Kokkos View which will contain weighting kernel values for the target with each neighbor if weight_p = true
-        \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
-        \param polynomial_order     [in] - polynomial basis degree
-        \param weight_p             [in] - boolean whether to fill w with kernel weights
-        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-        \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
-        \param sampling_strategy    [in] - sampling functional specification
-    */
-    KOKKOS_INLINE_FUNCTION
-    void createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_vector_type thread_workspace, scratch_matrix_right_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p = false, scratch_matrix_right_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = PointSample) const;
-
-    /*! \brief Fills the _P matrix with P*sqrt(w) for use in solving for curvature
-
-         Uses _curvature_poly_order as the polynomial order of the basis
-
-        \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
-        \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
-        \param thread_workspace [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
-        \param P                   [out] - 2D Kokkos View which will contain evaluation of sampling functional on polynomial basis for each neighbor the target has (stored column major)
-        \param w                   [out] - 1D Kokkos View which will contain weighting kernel values for the target with each neighbor if weight_p = true
-        \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
-        \param only_specific_order  [in] - boolean for only evaluating one degree of polynomial when true
-        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-    */
-    KOKKOS_INLINE_FUNCTION
-    void createWeightsAndPForCurvature(const member_type& teamMember, scratch_vector_type delta, scratch_vector_type thread_workspace, scratch_matrix_right_type P, scratch_vector_type w, const int dimension, bool only_specific_order, scratch_matrix_right_type* V = NULL) const;
-
     /*! \brief Evaluates a polynomial basis with a target functional applied to each member of the basis
         \param teamMember                   [in] - Kokkos::TeamPolicy member type (created by parallel_for)
         \param delta                    [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
@@ -529,18 +443,6 @@ public:
  *  Private function because information lives on the device
  */
 ///@{
-
-    //! Returns number of neighbors for a particular target
-    KOKKOS_INLINE_FUNCTION
-    int getNNeighbors(const int target_index) const {
-        return _neighbor_lists.getNumberOfNeighborsDevice(target_index);
-    }
-
-    //! Returns the maximum neighbor lists size over all target sites
-    KOKKOS_INLINE_FUNCTION
-    int getMaxNNeighbors() const {
-        return _neighbor_lists.getMaxNumNeighbors();
-    }
 
     //! Returns the maximum number of evaluation sites over all target sites (target sites itself is included in total)
     KOKKOS_INLINE_FUNCTION
@@ -937,7 +839,7 @@ public:
     host_managed_local_index_type getPolynomialCoefficientsDomainRangeSize() const { 
         host_managed_local_index_type sizes("sizes", 2);
         sizes(0) = _basis_multiplier*_NP;
-        sizes(1) = _sampling_multiplier*getMaxNNeighbors();
+        sizes(1) = _sampling_multiplier*_neighbor_lists.getMaxNumNeighbors();
         return sizes;
     }
 

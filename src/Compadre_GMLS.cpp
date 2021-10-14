@@ -1,6 +1,6 @@
 #include "Compadre_GMLS.hpp"
 #include "Compadre_GMLS_ApplyTargetEvaluations.hpp"
-#include "Compadre_GMLS_Basis.hpp"
+#include "Compadre_Basis.hpp"
 #include "Compadre_Quadrature.hpp"
 #include "Compadre_GMLS_Targets.hpp"
 #include "Compadre_Functors.hpp"
@@ -104,13 +104,13 @@ struct GMLSBasisData {
     //! solver type for GMLS problem - can be QR, SVD or LU
     DenseSolverType _dense_solver_type;
 
-    //! problem type for GMLS problem, can also be set to STANDARD for normal or MANIFOLD for manifold problems
+//A    //! problem type for GMLS problem, can also be set to STANDARD for normal or MANIFOLD for manifold problems
     ProblemType _problem_type;
 
     //! constraint type for GMLS problem
     ConstraintType _constraint_type;
 
-    //! polynomial sampling functional used to construct P matrix, set at GMLS class instantiation
+//A    //! polynomial sampling functional used to construct P matrix, set at GMLS class instantiation
     const SamplingFunctional _polynomial_sampling_functional;
 
     //! generally the same as _polynomial_sampling_functional, but can differ if specified at 
@@ -372,7 +372,7 @@ struct ComputePrestencilWeights {
             });
         } else if (_data._data_sampling_functional == StaggeredEdgeIntegralSample) {
             compadre_kernel_assert_debug(_data._problem_type==ProblemType::MANIFOLD && "StaggeredEdgeIntegralSample prestencil weight only written for manifolds.");
-            Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,_gmls.getNNeighbors(target_index)), [=] (const int m) {
+            Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,_data._pc._nla.getNumberOfNeighborsDevice(target_index)), [=] (const int m) {
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                     for (int quadrature = 0; quadrature<_data._qm.getNumberOfQuadraturePoints(); ++quadrature) {
                         XYZ tangent_quadrature_coord_2d;
@@ -397,14 +397,14 @@ struct ComputePrestencilWeights {
             scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), manifold_NP);
             scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), (max_poly_order+1)*_data._global_dimensions);
 
-            Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,_gmls.getNNeighbors(target_index)), [&] (const int m) {
+            Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,_data._pc._nla.getNumberOfNeighborsDevice(target_index)), [&] (const int m) {
                 
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                    _gmls.calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, m, 0 /*alpha*/, 0 /*partial_direction*/, _data._dimensions-1, _data._curvature_poly_order, false /*specific order only*/, &T, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
+                    calcGradientPij<GMLSBasisData>(_data, teamMember, delta.data(), thread_workspace.data(), target_index, m, 0 /*alpha*/, 0 /*partial_direction*/, _data._dimensions-1, _data._curvature_poly_order, false /*specific order only*/, &T, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                 });
                 // reconstructs gradient at local neighbor index m
                 double grad_xi1 = 0, grad_xi2 = 0;
-                Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember,_gmls.getNNeighbors(target_index)), [=] (const int i, double &t_grad_xi1) {
+                Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember,_data._pc._nla.getNumberOfNeighborsDevice(target_index)), [=] (const int i, double &t_grad_xi1) {
                     double alpha_ij = 0;
                     for (int l=0; l<manifold_NP; ++l) {
                         alpha_ij += delta(l)*Q(l,i);
@@ -418,9 +418,9 @@ struct ComputePrestencilWeights {
                 t1(m) = grad_xi1;
 
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                    _gmls.calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, m, 0 /*alpha*/, 1 /*partial_direction*/, _data._dimensions-1, _data._curvature_poly_order, false /*specific order only*/, &T, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
+                    calcGradientPij<GMLSBasisData>(_data, teamMember, delta.data(), thread_workspace.data(), target_index, m, 0 /*alpha*/, 1 /*partial_direction*/, _data._dimensions-1, _data._curvature_poly_order, false /*specific order only*/, &T, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                 });
-                Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember,_gmls.getNNeighbors(target_index)), [=] (const int i, double &t_grad_xi2) {
+                Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember,_data._pc._nla.getNumberOfNeighborsDevice(target_index)), [=] (const int i, double &t_grad_xi2) {
                     double alpha_ij = 0;
                     for (int l=0; l<manifold_NP; ++l) {
                         alpha_ij += delta(l)*Q(l,i);
@@ -438,7 +438,7 @@ struct ComputePrestencilWeights {
 
             scratch_matrix_right_type tangent(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), _data._dimensions-1, _data._dimensions);
 
-            Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,_gmls.getNNeighbors(target_index)), [=] (const int m) {
+            Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,_gmls._pc._nla.getNumberOfNeighborsDevice(target_index)), [=] (const int m) {
                 // constructs tangent vector at neighbor site
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                     for (int j=0; j<_data._dimensions; ++j) {
@@ -564,7 +564,7 @@ struct AssembleStandardPsqrtW {
         const int local_index  = teamMember.league_rank();
     
         const int max_num_rows = _gmls._sampling_multiplier*_gmls._max_num_neighbors;
-        const int this_num_rows = _gmls._sampling_multiplier*_gmls.getNNeighbors(target_index);
+        const int this_num_rows = _gmls._sampling_multiplier*_gmls._pc._nla.getNumberOfNeighborsDevice(target_index);
         const int this_num_cols = _gmls._basis_multiplier*_gmls._NP;
     
         int RHS_dim_0, RHS_dim_1;
@@ -592,7 +592,7 @@ struct AssembleStandardPsqrtW {
          */
     
         // creates the matrix sqrt(W)*P
-        _gmls.createWeightsAndP(teamMember, delta, thread_workspace, PsqrtW, w, _gmls._dimensions, _gmls._poly_order, true /*weight_p*/, NULL /*&V*/, _gmls._reconstruction_space, _gmls._polynomial_sampling_functional);
+        createWeightsAndP<GMLS>(_gmls, teamMember, delta, thread_workspace, PsqrtW, w, _gmls._dimensions, _gmls._poly_order, true /*weight_p*/, NULL /*&V*/, _gmls._reconstruction_space, _gmls._polynomial_sampling_functional);
     
         if ((_gmls._constraint_type == ConstraintType::NO_CONSTRAINT) && (_gmls._dense_solver_type != DenseSolverType::LU)) {
             // fill in RHS with Identity * sqrt(weights)
@@ -629,7 +629,7 @@ struct AssembleStandardPsqrtW {
                     + TO_GLOBAL(target_index)*TO_GLOBAL(_gmls._dimensions)*TO_GLOBAL(_gmls._dimensions), _gmls._dimensions, _gmls._dimensions);
     
                 // Get the number of neighbors for target index
-                int num_neigh_target = _gmls.getNNeighbors(target_index);
+                int num_neigh_target = _gmls._pc._nla.getNumberOfNeighborsDevice(target_index);
                 double cutoff_p = _gmls._epsilons(target_index);
     
                 evaluateConstraints(M, PsqrtW, _gmls._constraint_type, _gmls._reconstruction_space, _gmls._NP, cutoff_p, _gmls._dimensions, num_neigh_target, &T);
@@ -1127,7 +1127,7 @@ void GMLS::operator()(const ComputeCoarseTangentPlane&, const member_type& teamM
      */
 
     // getting x y and z from which to derive a manifold
-    this->createWeightsAndPForCurvature(teamMember, delta, thread_workspace, PsqrtW, w, _dimensions, true /* only specific order */);
+    createWeightsAndPForCurvature<GMLS>(*this, teamMember, delta, thread_workspace, PsqrtW, w, _dimensions, true /* only specific order */);
 
     // create PsqrtW^T*PsqrtW
     KokkosBatched::TeamVectorGemm<member_type,KokkosBatched::Trans::Transpose,KokkosBatched::Trans::NoTranspose,KokkosBatched::Algo::Gemm::Unblocked>
@@ -1160,7 +1160,7 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
-    const int this_num_neighbors = this->getNNeighbors(target_index);
+    const int this_num_neighbors = _pc._nla.getNumberOfNeighborsDevice(target_index);
     const int this_num_cols = _basis_multiplier*max_manifold_NP;
     const int max_poly_order = (_poly_order > _curvature_poly_order) ? _poly_order : _curvature_poly_order;
 
@@ -1192,7 +1192,7 @@ void GMLS::operator()(const AssembleCurvaturePsqrtW&, const member_type& teamMem
     //
 
     // creates the matrix sqrt(W)*P
-    this->createWeightsAndPForCurvature(teamMember, delta, thread_workspace, CurvaturePsqrtW, w, _dimensions-1, false /* only specific order */, &T);
+    createWeightsAndPForCurvature<GMLS>(*this, teamMember, delta, thread_workspace, CurvaturePsqrtW, w, _dimensions-1, false /* only specific order */, &T);
     teamMember.team_barrier();
 
     // CurvaturePsqrtW is sized according to max_num_rows x this_num_cols of which in this case
@@ -1287,7 +1287,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
     teamMember.team_barrier();
 
     double grad_xi1 = 0, grad_xi2 = 0;
-    for (int i=0; i<this->getNNeighbors(target_index); ++i) {
+    for (int i=0; i<_pc._nla.getNumberOfNeighborsDevice(target_index); ++i) {
         for (int k=0; k<_dimensions-1; ++k) {
             double alpha_ij = 0;
             int offset = getTargetOffsetIndexDevice(0, 0, k, 0);
@@ -1499,7 +1499,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
     teamMember.team_barrier();
 
     double grad_xi1 = 0, grad_xi2 = 0;
-    for (int i=0; i<this->getNNeighbors(target_index); ++i) {
+    for (int i=0; i<_pc._nla.getNumberOfNeighborsDevice(target_index); ++i) {
         for (int k=0; k<_dimensions-1; ++k) {
             double alpha_ij = 0;
             int offset = getTargetOffsetIndexDevice(0, 0, k, 0);
@@ -1586,7 +1586,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
     const int max_num_rows = _sampling_multiplier*_max_num_neighbors;
     const int manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
-    const int this_num_rows = _sampling_multiplier*this->getNNeighbors(target_index);
+    const int this_num_rows = _sampling_multiplier*_pc._nla.getNumberOfNeighborsDevice(target_index);
     const int this_num_cols = _basis_multiplier*max_manifold_NP;
     const int max_poly_order = (_poly_order > _curvature_poly_order) ? _poly_order : _curvature_poly_order;
 
@@ -1617,7 +1617,7 @@ void GMLS::operator()(const AssembleManifoldPsqrtW&, const member_type& teamMemb
      *    Manifold
      */
 
-    this->createWeightsAndP(teamMember, delta, thread_workspace, PsqrtW, w, _dimensions-1, _poly_order, true /* weight with W*/, &T, _reconstruction_space, _polynomial_sampling_functional);
+    createWeightsAndP<GMLS>(*this, teamMember, delta, thread_workspace, PsqrtW, w, _dimensions-1, _poly_order, true /* weight with W*/, &T, _reconstruction_space, _polynomial_sampling_functional);
     teamMember.team_barrier();
 
     if (_dense_solver_type != DenseSolverType::LU) {

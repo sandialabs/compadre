@@ -59,7 +59,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
 
             if (_operations(i) == TargetOperation::ScalarPointEvaluation || (_operations(i) == TargetOperation::VectorPointEvaluation && _dimensions == 1) /* vector is a scalar in 1D */) {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
-                    this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                    calcPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                     int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
                     for (int k=0; k<target_NP; ++k) {
                         P_target_row(offset, k) = delta(k);
@@ -88,7 +88,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     for (int d=0; d<_dimensions; ++d) {
                         int offset = getTargetOffsetIndexDevice(i, 0, d, j);
                         auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
-                        this->calcGradientPij(teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, d /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                        calcGradientPij<GMLS>(*this, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, d /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                     }
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
@@ -96,7 +96,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
                     int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
                     auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
-                    this->calcGradientPij(teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                    calcGradientPij<GMLS>(*this, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (_operations(i) == TargetOperation::PartialYOfScalarPointEvaluation) {
@@ -104,7 +104,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
                     int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
                     auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
-                    this->calcGradientPij(teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                    calcGradientPij<GMLS>(*this, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (_operations(i) == TargetOperation::PartialZOfScalarPointEvaluation) {
@@ -112,7 +112,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
                     int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
                     auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
-                    this->calcGradientPij(teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                    calcGradientPij<GMLS>(*this, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             }
@@ -230,7 +230,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
             if (_operations(i) == TargetOperation::ScalarPointEvaluation || (_operations(i) == TargetOperation::VectorPointEvaluation && _dimensions == 1) /* vector is a scalar in 1D */) {
                 // copied from ScalarTaylorPolynomial
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
-                    this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                    calcPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                     int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
                     for (int k=0; k<target_NP; ++k) {
                         P_target_row(offset, k) = delta(k);
@@ -239,7 +239,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (_operations(i) == TargetOperation::VectorPointEvaluation) {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int e) {
-                    this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
+                    calcPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
                     for (int m=0; m<_sampling_multiplier; ++m) {
                         int output_components = _basis_multiplier;
                         for (int c=0; c<output_components; ++c) {
@@ -258,7 +258,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                 // when using staggered edge integral sample with vector basis, the gradient of scalar point evaluation
                 // is just the vector point evaluation
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int e) {
-                    this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
+                    calcPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
                     for (int m=0; m<_sampling_multiplier; ++m) {
                         int output_components = _basis_multiplier;
                         for (int c=0; c<output_components; ++c) {
@@ -278,7 +278,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     int output_components = _basis_multiplier;
                     for (int m2=0; m2<output_components; ++m2) { // output components 2
                         int offset = getTargetOffsetIndexDevice(i, 0 /*in*/, m2 /*out*/, e);
-                        this->calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, m2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
+                        calcGradientPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, m2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
                         for (int j=0; j<target_NP; ++j) {
                             P_target_row(offset, j) = delta(j);
                         }
@@ -292,7 +292,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                         for (int m1=0; m1<output_components; ++m1) { // output components 1
                             for (int m2=0; m2<output_components; ++m2) { // output components 2
                                 int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1*output_components+m2 /*out*/, e);
-                                this->calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, m2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
+                                calcGradientPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, m2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
                                 for (int j=0; j<target_NP; ++j) {
                                     P_target_row(offset, m1*target_NP + j) = delta(j);
                                 }
@@ -322,7 +322,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                 } else {
                     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int e) {
                         for (int m=0; m<_sampling_multiplier; ++m) {
-                            this->calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, m /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
+                            calcGradientPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, m /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
                             int offset = getTargetOffsetIndexDevice(i, m /*in*/, 0 /*out*/, e/*additional*/);
                             for (int j=0; j<target_NP; ++j) {
                                 P_target_row(offset, m*target_NP + j) = delta(j);
@@ -434,7 +434,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
             if (_operations(i) == TargetOperation::ScalarPointEvaluation || (_operations(i) == TargetOperation::VectorPointEvaluation && _dimensions == 1) /* vector is a scalar in 1D */) {
                 // copied from ScalarTaylorPolynomial
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
-                    this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                    calcPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                     int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
                     for (int k=0; k<target_NP; ++k) {
                         P_target_row(offset, k) = delta(k);
@@ -443,7 +443,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (_operations(i) == TargetOperation::VectorPointEvaluation) {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int e) {
-                    this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
+                    calcPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, e);
                     for (int m=0; m<_sampling_multiplier; ++m) {
                         for (int c=0; c<_data_sampling_multiplier; ++c) {
                             int offset = getTargetOffsetIndexDevice(i, c /*in*/, c /*out*/, e/*additional*/);
@@ -478,7 +478,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     for (int d=0; d<_dimensions; ++d) {
                         int offset = getTargetOffsetIndexDevice(i, 0, d, j);
                         auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
-                        this->calcGradientPij(teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, d /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                        calcGradientPij<GMLS>(*this, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, d /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                     }
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
@@ -489,7 +489,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                             for (int m2=0; m2<_dimensions; ++m2) { // output componets 2
                                 int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1*_dimensions+m2 /*out*/, j);
                                 auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
-                                this->calcGradientPij(teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, m2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                                calcGradientPij<GMLS>(*this, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, m2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                             }
                         }
                     }
@@ -500,7 +500,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
                     int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
                     auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
-                    this->calcGradientPij(teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                    calcGradientPij<GMLS>(*this, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else if (_operations(i) == TargetOperation::PartialYOfScalarPointEvaluation) {
@@ -509,7 +509,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
                         int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
                         auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
-                        this->calcGradientPij(teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                        calcGradientPij<GMLS>(*this, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                     });
                     additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
                 }
@@ -519,7 +519,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
                         int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
                         auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
-                        this->calcGradientPij(teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                        calcGradientPij<GMLS>(*this, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                     });
                     additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
                 }
@@ -696,7 +696,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                     for (int m0=0; m0<_sampling_multiplier; ++m0) {
                         for (int m1=0; m1<_sampling_multiplier; ++m1) {
 
-                          this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(m1+1) /* target is neighbor, but also which component */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                          calcPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(m1+1) /* target is neighbor, but also which component */, 1 /*alpha*/, _dimensions, _poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
 
                           int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1 /*out*/, e /*no additional*/);
                           for (int j=0; j<target_NP; ++j) {
@@ -715,12 +715,12 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                                 switch (m1) {
                                     case 0:
                                         // output component 0
-                                        this->calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcGradientPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // u2y
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j)  = delta(j);
                                         }
-                                        this->calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcGradientPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // -u1z
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) -= delta(j);
@@ -729,12 +729,12 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                                         break;
                                     case 1:
                                         // output component 1
-                                        this->calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcGradientPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // -u2x
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j)  = -delta(j);
                                         }
-                                        this->calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcGradientPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // u0z
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) += delta(j);
@@ -743,12 +743,12 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                                         break;
                                     default:
                                         // output component 2
-                                        this->calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcGradientPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // u1x
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j)  = delta(j);
                                         }
-                                        this->calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcGradientPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // -u0y
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) -= delta(j);
@@ -762,12 +762,12 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                                     P_target_row(offset, 2) = -std::pow(_epsilons(target_index), -1);
                                     P_target_row(offset, 3) = std::pow(_epsilons(target_index), -1);
 
-                                    this->calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                    calcGradientPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                     // u1x
                                     for (int j=0; j<target_NP; ++j) {
                                         P_target_row(offset, j)  = delta(j);
                                     }
-                                    this->calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                    calcGradientPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                     // -u0y
                                     for (int j=0; j<target_NP; ++j) {
                                         P_target_row(offset, j) -= delta(j);
@@ -789,22 +789,22 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                                     // manually compute the output components
                                     case 0:
                                         // output component 0
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // u1xy
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j)  = delta(j);
                                         }
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // -u0yy
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) -= delta(j);
                                         }
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 2 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 2 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // u2xz
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) += delta(j);
                                         }
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction_1*/, 2 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction_1*/, 2 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // -u0zz
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) -= delta(j);
@@ -813,22 +813,22 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                                         break;
                                     case 1:
                                         // output component 1
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // -u1xx
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j)  = -delta(j);
                                         }
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // u0yx
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) += delta(j);
                                         }
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 2 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 2 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // u2yz
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) += delta(j);
                                         }
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction_1*/, 2 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction_1*/, 2 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // -u1zz
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) -= delta(j);
@@ -837,22 +837,22 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                                         break;
                                     default:
                                         // output component 2
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // -u2xx
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j)  = -delta(j);
                                         }
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // u0zx
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) += delta(j);
                                         }
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(2+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // -u2yy
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) -= delta(j);
                                         }
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 2 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // u1zy
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) += delta(j);
@@ -866,22 +866,22 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                                 switch (m1) {
                                     case 0:
                                         // output component 0
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // u0xx
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j)  = delta(j);
                                         }
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // u1yx
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) += delta(j);
                                         }
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // -u0xx
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) -= delta(j);
                                         }
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // -u0yy
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) -= delta(j);
@@ -890,22 +890,22 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                                         break;
                                     case 1:
                                         // output component 1
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(0+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // u0xy
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j)  = delta(j);
                                         }
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // u1yy
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) += delta(j);
                                         }
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 0 /*partial_direction_1*/, 0 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // -u1xx
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) -= delta(j);
                                         }
-                                        this->calcHessianPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                        calcHessianPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(1+1) /* -(component+1) */, 1 /*alpha*/, 1 /*partial_direction_1*/, 1 /*partial_direction_2*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                         // -u1yy
                                         for (int j=0; j<target_NP; ++j) {
                                             P_target_row(offset, j) -= delta(j);
@@ -924,7 +924,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                         for (int m1=0; m1<_sampling_multiplier; ++m1) { // output components 1
                             for (int m2=0; m2<_sampling_multiplier; ++m2) { // output components 2
                                 int offset = getTargetOffsetIndexDevice(i, m0 /*in*/, m1*_sampling_multiplier+m2 /*out*/, e);
-                                this->calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, -(m1+1) /* target is neighbor */, 1 /*alpha*/, m2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
+                                calcGradientPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -(m1+1) /* target is neighbor */, 1 /*alpha*/, m2 /*partial_direction*/, _dimensions, _poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial, VectorPointSample, e);
                                 for (int j=0; j<target_NP; ++j) {
                                     P_target_row(offset, j) = delta(j);
                                 }
@@ -969,7 +969,7 @@ void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_ve
         if (_curvature_support_operations(i) == TargetOperation::ScalarPointEvaluation) {
             Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                 int offset = getTargetOffsetIndexDevice(i, 0, 0, 0);
-                this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, local_neighbor_index, 0 /*alpha*/, _dimensions-1, _curvature_poly_order, false /*bool on only specific order*/, V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
+                calcPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, local_neighbor_index, 0 /*alpha*/, _dimensions-1, _curvature_poly_order, false /*bool on only specific order*/, V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                 for (int j=0; j<manifold_NP; ++j) {
                     P_target_row(offset, j) = delta(j);
                 }
@@ -978,14 +978,14 @@ void GMLS::computeCurvatureFunctionals(const member_type& teamMember, scratch_ve
             Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                 //int offset = i*manifold_NP;
                 int offset = getTargetOffsetIndexDevice(i, 0, 0, 0);
-                this->calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, local_neighbor_index, 0 /*alpha*/, 0 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
+                calcGradientPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, local_neighbor_index, 0 /*alpha*/, 0 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                 for (int j=0; j<manifold_NP; ++j) {
                     P_target_row(offset, j) = delta(j);
                 }
                 if (_dimensions>2) { // _dimensions-1 > 1
                     //offset = (i+1)*manifold_NP;
                     offset = getTargetOffsetIndexDevice(i, 0, 1, 0);
-                    this->calcGradientPij(teamMember, delta.data(), thread_workspace.data(), target_index, local_neighbor_index, 0 /*alpha*/, 1 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
+                    calcGradientPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, local_neighbor_index, 0 /*alpha*/, 1 /*partial_direction*/, _dimensions-1, _curvature_poly_order, false /*specific order only*/, V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                     for (int j=0; j<manifold_NP; ++j) {
                         P_target_row(offset, j) = delta(j);
                     }
@@ -1037,7 +1037,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
         if (_dimensions>2) {
             if (_operations(i) == TargetOperation::ScalarPointEvaluation) {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
-                    this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                    calcPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                     int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
                     for (int k=0; k<target_NP; ++k) {
                         P_target_row(offset, k) = delta(k);
@@ -1049,7 +1049,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                 if (_reconstruction_space_rank == 1) {
                     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int k) {
                         // output component 0
-                        this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, k);
+                        calcPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, k);
                         int offset = getTargetOffsetIndexDevice(i, 0, 0, k);
                         for (int j=0; j<target_NP; ++j) {
                             P_target_row(offset, j) = delta(j);
@@ -1078,7 +1078,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                 } else if (_reconstruction_space_rank == 0) {
                     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int k) {
                         // output component 0
-                        this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, k);
+                        calcPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, k);
                         int offset = getTargetOffsetIndexDevice(i, 0, 0, k);
                         for (int j=0; j<target_NP; ++j) {
                             P_target_row(offset, j) = delta(j);
@@ -1689,7 +1689,7 @@ void GMLS::computeTargetFunctionalsOnManifold(const member_type& teamMember, scr
                 });
             } else if (_operations(i) == TargetOperation::ScalarPointEvaluation) {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [=] (const int j) {
-                    this->calcPij(teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
+                    calcPij<GMLS>(*this, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, _dimensions-1, _poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                     int offset = getTargetOffsetIndexDevice(i, 0, 0, j);
                     for (int k=0; k<target_NP; ++k) {
                         P_target_row(offset, k) = delta(k);
