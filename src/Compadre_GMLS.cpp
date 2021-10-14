@@ -54,6 +54,10 @@ struct GMLSBasisData {
     //! coordinates for target sites for reconstruction (device)
     Kokkos::View<double**, layout_right> _target_coordinates; 
 
+    //! connections between points and neighbors
+    typedef PointConnections<decltype(_target_coordinates), decltype(_source_coordinates), decltype(_neighbor_lists)> point_connections_type;
+    point_connections_type _pc;
+
     //! h supports determined through neighbor search (device)
     Kokkos::View<double*> _epsilons; 
 
@@ -69,6 +73,9 @@ struct GMLSBasisData {
 
     //! (OPTIONAL) Accessor to get additional evaluation list data, offset data, and number of sites
     NeighborLists<Kokkos::View<int*> > _additional_evaluation_indices; 
+
+    //! (OPTIONAL) connections between additional points and neighbors
+    point_connections_type _additional_pc;
 
     //! order of basis for polynomial reconstruction
     int _poly_order; 
@@ -234,11 +241,13 @@ struct GMLSBasisData {
         this->_neighbor_lists  = gmls._neighbor_lists ;
         this->_source_coordinates  = gmls._source_coordinates ;
         this->_target_coordinates  = gmls._target_coordinates ;
+        this->_pc = gmls._pc;
         this->_epsilons  = gmls._epsilons ;
         this->_alphas  = gmls._alphas ;
         this->_prestencil_weights  = gmls._prestencil_weights ;
         this->_additional_evaluation_coordinates  = gmls._additional_evaluation_coordinates ;
         this->_additional_evaluation_indices  = gmls._additional_evaluation_indices ;
+        this->_additional_pc = gmls._additional_pc;
         this->_poly_order  = gmls._poly_order ;
         this->_curvature_poly_order = gmls._curvature_poly_order;
         this->_NP = gmls._NP;
@@ -368,8 +377,8 @@ struct ComputePrestencilWeights {
                     for (int quadrature = 0; quadrature<_data._qm.getNumberOfQuadraturePoints(); ++quadrature) {
                         XYZ tangent_quadrature_coord_2d;
                         for (int j=0; j<_data._dimensions-1; ++j) {
-                            tangent_quadrature_coord_2d[j] = _gmls.getTargetCoordinate(target_index, j, &T);
-                            tangent_quadrature_coord_2d[j] -= _gmls.getNeighborCoordinate(target_index, m, j, &T);
+                            tangent_quadrature_coord_2d[j]  = _data._pc.getTargetCoordinate(target_index, j, &T);
+                            tangent_quadrature_coord_2d[j] -= _data._pc.getNeighborCoordinate(target_index, m, j, &T);
                         }
                         double tangent_vector[3];
                         tangent_vector[0] = tangent_quadrature_coord_2d[0]*T(0,0) + tangent_quadrature_coord_2d[1]*T(1,0);
@@ -400,7 +409,7 @@ struct ComputePrestencilWeights {
                     for (int l=0; l<manifold_NP; ++l) {
                         alpha_ij += delta(l)*Q(l,i);
                     }
-                    XYZ rel_coord = _gmls.getRelativeCoord(target_index, i, _data._dimensions, &T);
+                    XYZ rel_coord = _data._pc.getRelativeCoord(target_index, i, _data._dimensions, &T);
                     double normal_coordinate = rel_coord[_data._dimensions-1];
 
                     // apply coefficients to sample data
@@ -416,7 +425,7 @@ struct ComputePrestencilWeights {
                     for (int l=0; l<manifold_NP; ++l) {
                         alpha_ij += delta(l)*Q(l,i);
                     }
-                    XYZ rel_coord = _gmls.getRelativeCoord(target_index, i, _data._dimensions, &T);
+                    XYZ rel_coord = _data._pc.getRelativeCoord(target_index, i, _data._dimensions, &T);
                     double normal_coordinate = rel_coord[_data._dimensions-1];
 
                     // apply coefficients to sample data
@@ -1295,7 +1304,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
         }
         teamMember.team_barrier();
 
-        XYZ rel_coord = getRelativeCoord(target_index, i, _dimensions, &T);
+        XYZ rel_coord = _pc.getRelativeCoord(target_index, i, _dimensions, &T);
         double normal_coordinate = rel_coord[_dimensions-1];
 
         // apply coefficients to sample data
@@ -1507,7 +1516,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
         }
         teamMember.team_barrier();
 
-        XYZ rel_coord = getRelativeCoord(target_index, i, _dimensions, &T);
+        XYZ rel_coord = _pc.getRelativeCoord(target_index, i, _dimensions, &T);
         double normal_coordinate = rel_coord[_dimensions-1];
 
         // apply coefficients to sample data
@@ -1705,7 +1714,5 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
 
     teamMember.team_barrier();
 }
-
-
 
 } // Compadre
