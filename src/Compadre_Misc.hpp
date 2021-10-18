@@ -189,6 +189,76 @@ void getPDims(DenseSolverType dense_solver_type, ConstraintType constraint_type,
     }
 }
 
+//! Helper function for finding alpha coefficients
+static int getTargetOutputIndex(const int operation_num, const int output_component_axis_1, const int output_component_axis_2, const int dimensions) {
+    const int axis_1_size = (TargetOutputTensorRank[operation_num] > 1) ? dimensions : 1;
+    return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
+}
+
+//! Helper function for finding alpha coefficients
+static int getSamplingOutputIndex(const SamplingFunctional sf, const int output_component_axis_1, const int output_component_axis_2) {
+    const int axis_1_size = (sf.output_rank > 1) ? sf.output_rank : 1;
+    return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
+}
+
+//! Input rank for sampling operation
+KOKKOS_INLINE_FUNCTION
+int getInputRankOfSampling(SamplingFunctional sro) {
+    return sro.input_rank;
+}
+
+//! Dimensions ^ output rank for sampling operation 
+//! (always in local chart if on a manifold, never ambient space)
+KOKKOS_INLINE_FUNCTION
+int getOutputDimensionOfSampling(SamplingFunctional sro, const int local_dimensions) {
+    return std::pow(local_dimensions, sro.output_rank);
+}
+
+//! Dimensions ^ output rank for sampling operation 
+//! (always in ambient space, never local chart on a manifold)
+KOKKOS_INLINE_FUNCTION
+int getInputDimensionOfSampling(SamplingFunctional sro, const int global_dimensions) {
+    return std::pow(global_dimensions, sro.input_rank);
+}
+
+//! Calculate basis_multiplier
+KOKKOS_INLINE_FUNCTION
+int calculateBasisMultiplier(const ReconstructionSpace rs, const int local_dimensions) {
+    // calculate the dimension of the basis 
+    // (a vector space on a manifold requires two components, for example)
+    return std::pow(local_dimensions, ActualReconstructionSpaceRank[(int)rs]);
+}
+
+//! Calculate sampling_multiplier
+KOKKOS_INLINE_FUNCTION
+int calculateSamplingMultiplier(const ReconstructionSpace rs, const SamplingFunctional sro, const int local_dimensions) {
+    // this would normally be SamplingOutputTensorRank[_data_sampling_functional], but we also want to handle the
+    // case of reconstructions where a scalar basis is reused as a vector, and this handles everything
+    // this handles scalars, vectors, and scalars that are reused as vectors
+    int bm = calculateBasisMultiplier(rs, local_dimensions);
+    int sm = getOutputDimensionOfSampling(sro, local_dimensions);
+    if (rs == ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial) {
+        // storage and computational efficiency by reusing solution to scalar problem for 
+        // a vector problem (in 3d, 27x cheaper computation, 9x cheaper storage)
+        sm = std::min(bm,sm);
+    }
+    return sm;
+}
+
+//! Dimensions ^ output rank for target operation
+KOKKOS_INLINE_FUNCTION
+int getOutputDimensionOfOperation(TargetOperation lro, const int local_dimensions) {
+    return std::pow(local_dimensions, TargetOutputTensorRank[(int)lro]);
+}
+
+//! Dimensions ^ input rank for target operation (always in local chart if on a manifold, never ambient space)
+KOKKOS_INLINE_FUNCTION
+int getInputDimensionOfOperation(TargetOperation lro, SamplingFunctional sro, const int local_dimensions) {
+    // this is the same return values as the OutputDimensionOfSampling for the GMLS class's SamplingFunctional
+    return getOutputDimensionOfSampling(sro, local_dimensions);
+}
+
+
 } // Compadre
 
 #endif

@@ -9,6 +9,7 @@
 #include "Compadre_LinearAlgebra_Definitions.hpp"
 #include "Compadre_ParallelManager.hpp"
 #include "Compadre_Quadrature.hpp"
+#include "Compadre_SolutionSet.hpp"
 #include "Compadre_ScalarTaylorPolynomial.hpp"
 #include "Compadre_DivergenceFreePolynomial.hpp"
 #include "Compadre_NeighborLists.hpp"
@@ -92,12 +93,6 @@ public:
 
     //! h supports determined through neighbor search (host)
     Kokkos::View<double*>::HostMirror _host_epsilons; 
-
-    //! generated alpha coefficients (device)
-    Kokkos::View<double*, layout_right> _alphas; 
-
-    //! generated alpha coefficients (host)
-    Kokkos::View<const double*, layout_right>::HostMirror _host_alphas;
     
     //! generated weights for nontraditional samples required to transform data into expected sampling 
     //! functional form (device). 
@@ -119,6 +114,9 @@ public:
     //! (OPTIONAL) contains the # of additional evaluation sites per target site
     Kokkos::View<int*, host_memory_space> _host_number_of_additional_evaluation_indices; 
 
+    //! Solution Set (contains all alpha values from solution and alpha layout methods)
+    SolutionSet<host_memory_space> _h_ss;
+    SolutionSet<device_memory_space> _d_ss;
 
     //! order of basis for polynomial reconstruction
     int _poly_order; 
@@ -168,8 +166,6 @@ public:
 
     //! vector containing target functionals to be applied for reconstruction problem (host)
     Kokkos::View<TargetOperation*>::HostMirror _host_operations;
-
-
 
     //! weighting kernel type for GMLS
     WeightingFunctionType _weighting_type;
@@ -233,49 +229,6 @@ public:
     //! maximum number of evaluation sites for each target (includes target site)
     int _max_evaluation_sites_per_target;
 
-    //! vector of user requested target operations
-    std::vector<TargetOperation> _lro; 
-
-    //! vector containing a mapping from a target functionals enum value to the its place in the list
-    //! of target functionals to be applied
-    std::vector<int> _lro_lookup; 
-
-    //! index for where this operation begins the for _alpha coefficients (device)
-    Kokkos::View<int*> _lro_total_offsets; 
-
-    //! index for where this operation begins the for _alpha coefficients (host)
-    Kokkos::View<int*>::HostMirror _host_lro_total_offsets; 
-
-    //! dimensions ^ rank of tensor of output for each target functional (device)
-    Kokkos::View<int*> _lro_output_tile_size; 
-
-    //! dimensions ^ rank of tensor of output for each target functional (host)
-    Kokkos::View<int*>::HostMirror _host_lro_output_tile_size; 
-
-    //! dimensions ^ rank of tensor of output for each sampling functional (device)
-    Kokkos::View<int*> _lro_input_tile_size; 
-
-    //! dimensions ^ rank of tensor of output for each sampling functional (host)
-    Kokkos::View<int*>::HostMirror _host_lro_input_tile_size; 
-
-    //! tensor rank of target functional (device)
-    Kokkos::View<int*> _lro_output_tensor_rank;
-
-    //! tensor rank of target functional (host)
-    Kokkos::View<int*>::HostMirror _host_lro_output_tensor_rank;
-
-    //! tensor rank of sampling functional (device)
-    Kokkos::View<int*> _lro_input_tensor_rank;
-
-    //! tensor rank of sampling functional (host)
-    Kokkos::View<int*>::HostMirror _host_lro_input_tensor_rank;
-
-    //! used for sizing P_target_row and the _alphas view
-    int _total_alpha_values;
-
-    //! additional alpha coefficients due to constraints
-    int _added_alpha_size;
-
     //! determines scratch level spaces and is used to call kernels
     ParallelManager _pm;
 
@@ -296,11 +249,6 @@ public:
  *  Private function because information lives on the device
  */
 ///@{
-
-
-    //! Helper function for applying the evaluations from a target functional to the polynomial coefficients
-    KOKKOS_INLINE_FUNCTION
-    void applyTargetsToCoefficients(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type Q, scratch_vector_type w, scratch_matrix_right_type P_target_row, const int target_NP) const;
 
     //! (OPTIONAL)
     //! Sets additional points for evaluation of target operation on polynomial reconstruction.
@@ -401,46 +349,6 @@ public:
 ///@}
 
 
-
-/** @name Private Accessors
- *  Private function because information lives on the device
- */
-///@{
-
-    //! Returns the maximum number of evaluation sites over all target sites (target sites itself is included in total)
-    KOKKOS_INLINE_FUNCTION
-    int getMaxEvaluationSitesPerTarget() const {
-        // add 1 for the target site itself
-        return _additional_evaluation_indices.getMaxNumNeighbors() + 1;
-    }
-
-    //! (OPTIONAL)
-    //! Returns number of evaluation sites for a particular target (target site is included in total)
-    KOKKOS_INLINE_FUNCTION
-    int getNEvaluationSitesPerTarget(const int target_index) const {
-        // add 1 for the target site itself
-        return _additional_evaluation_indices.getNumberOfNeighborsDevice(target_index) + 1;
-    }
-
-    //! Handles offset from operation input/output + extra evaluation sites
-    int getTargetOffsetIndexHost(const int lro_num, const int input_component, const int output_component, const int evaluation_site_local_index = 0) const {
-        return ( _total_alpha_values*evaluation_site_local_index
-                + _host_lro_total_offsets[lro_num] 
-                + input_component*_host_lro_output_tile_size[lro_num] 
-                + output_component );
-    }
-
-    //! Handles offset from operation input/output + extra evaluation sites
-    KOKKOS_INLINE_FUNCTION
-    int getTargetOffsetIndexDevice(const int lro_num, const int input_component, const int output_component, const int evaluation_site_local_index = 0) const {
-        return ( _total_alpha_values*evaluation_site_local_index
-                + _lro_total_offsets[lro_num] 
-                + input_component*_lro_output_tile_size[lro_num] 
-                + output_component );
-    }
-
-///@}
-
 /** @name Private Utility
  *  
  */
@@ -532,11 +440,7 @@ public:
             Kokkos::deep_copy(_curvature_support_operations, curvature_support_operations_mirror);
         }
 
-        _lro_lookup = std::vector<int>(TargetOperation::COUNT,-1); // hard coded against number of operations defined
-        _lro = std::vector<TargetOperation>();
-
         // various initializations
-        _total_alpha_values = 0;
 
         _weighting_type = WeightingFunctionType::Power;
         _curvature_weighting_type = WeightingFunctionType::Power;
@@ -571,6 +475,12 @@ public:
 
         _order_of_quadrature_points = 0;
         _dimension_of_quadrature_points = 0;
+
+        _h_ss = SolutionSet<host_memory_space>(
+                _data_sampling_functional,
+                _dimensions, 
+                _local_dimensions,
+                _problem_type);
     }
 
     //! Constructor for the case when the data sampling functional does not match the polynomial
@@ -767,28 +677,6 @@ public:
         }
     }
 
-    //! Helper function for finding alpha coefficients
-    static int getTargetOutputIndex(const int operation_num, const int output_component_axis_1, const int output_component_axis_2, const int dimensions) {
-        const int axis_1_size = (TargetOutputTensorRank[operation_num] > 1) ? dimensions : 1;
-        return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
-    }
-
-    //! Helper function for finding alpha coefficients
-    static int getSamplingOutputIndex(const SamplingFunctional sf, const int output_component_axis_1, const int output_component_axis_2) {
-        const int axis_1_size = (sf.output_rank > 1) ? sf.output_rank : 1;
-        return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
-    }
-
-    //! Output rank for sampling operation
-    static int getOutputRankOfSampling(SamplingFunctional sro) {
-        return sro.output_rank;
-    }
-
-    //! Input rank for sampling operation
-    static int getInputRankOfSampling(SamplingFunctional sro) {
-        return sro.input_rank;
-    }
-    
 
 ///@}
 
@@ -883,7 +771,7 @@ public:
     std::string getQuadratureType() const { return _quadrature_type; }
 
     //! Get neighbor list accessor
-    decltype(_neighbor_lists)* getNeighborLists() { return &_neighbor_lists; }
+    decltype(_neighbor_lists)* getNeighborLists() { return &_pc._nla; }
 
     //! Get additional evaluation sites neighbor list-like accessor
     decltype(_additional_evaluation_indices)* getAdditionalEvaluationIndices() { return &_additional_evaluation_indices; }
@@ -912,13 +800,6 @@ public:
         return ref_N(component);
     }
 
-    //! Get the local index (internal) to GMLS for a particular TargetOperation
-    //! Every TargetOperation has a global index which can be readily found in Compadre::TargetOperation
-    //! but this function returns the index used inside of the GMLS class
-    int getTargetOperationLocalIndex(TargetOperation lro) const {
-        return _lro_lookup[(int)lro];
-    }
-
     //! Get a view (device) of all rank 2 preprocessing tensors
     //! This is a rank 5 tensor that is able to provide data transformation
     //! into a form that GMLS is able to operate on. The ranks are as follows:
@@ -936,29 +817,6 @@ public:
     decltype(_prestencil_weights) getPrestencilWeights() const { 
         return _prestencil_weights;
     }
-
-    //! Retrieves the offset for an operator based on input and output component, generic to row
-    //! (but still multiplied by the number of neighbors for each row and then needs a neighbor number added 
-    //! to this returned value to be meaningful)
-    int getAlphaColumnOffset(TargetOperation lro, const int output_component_axis_1, 
-            const int output_component_axis_2, const int input_component_axis_1, 
-            const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
-
-        const int lro_number = _lro_lookup[(int)lro];
-        compadre_assert_debug((lro_number >= 0) && "getAlphaColumnOffset called for a TargetOperation that was not registered.");
-
-        // the target functional input indexing is sized based on the output rank of the sampling
-        // functional used, which can not be inferred unless a specification of target functional,
-        // reconstruction space, and sampling functional are all known (as was the case at the
-        // construction of this class)
-        const int input_index = getSamplingOutputIndex(_data_sampling_functional, input_component_axis_1, input_component_axis_2);
-        const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2, _dimensions);
-
-        return getTargetOffsetIndexHost(lro_number, input_index, output_index, evaluation_site_local_index);
-    }
-
-    //! Get a view (device) of all alphas
-    decltype(_alphas) getAlphas() const { return _alphas; }
 
     //! Get a view (device) of all polynomial coefficients basis
     decltype(_RHS) getFullPolynomialCoefficientsBasis() const { 
@@ -981,116 +839,6 @@ public:
 
     //! Get the reconstruction space specified at instantiation
     ReconstructionSpace getReconstructionSpace() const { return _reconstruction_space; }
-
-    //! Helper function for getting alphas for scalar reconstruction from scalar data
-    double getAlpha0TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int evaluation_site_local_index = 0) const {
-        // e.g. Dirac Delta target of a scalar field
-        return getAlpha(lro, target_index, 0, 0, neighbor_index, 0, 0, evaluation_site_local_index);
-    }
-
-    //! Helper function for getting alphas for vector reconstruction from scalar data
-    double getAlpha0TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int evaluation_site_local_index = 0) const {
-        // e.g. gradient of a scalar field
-        return getAlpha(lro, target_index, output_component, 0, neighbor_index, 0, 0, evaluation_site_local_index);
-    }
-
-    //! Helper function for getting alphas for matrix reconstruction from scalar data
-    double getAlpha0TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int evaluation_site_local_index = 0) const {
-        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, 0, 0, evaluation_site_local_index);
-    }
-
-    //! Helper function for getting alphas for scalar reconstruction from vector data
-    double getAlpha1TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component, const int evaluation_site_local_index = 0) const {
-        // e.g. divergence of a vector field
-        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component, 0, evaluation_site_local_index);
-    }
-
-    //! Helper function for getting alphas for vector reconstruction from vector data
-    double getAlpha1TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component, const int evaluation_site_local_index = 0) const {
-        // e.g. curl of a vector field
-        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component, 0, evaluation_site_local_index);
-    }
-
-    //! Helper function for getting alphas for matrix reconstruction from vector data
-    double getAlpha1TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component, const int evaluation_site_local_index = 0) const {
-        // e.g. gradient of a vector field
-        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component, 0, evaluation_site_local_index);
-    }
-
-    //! Helper function for getting alphas for scalar reconstruction from matrix data
-    double getAlpha2TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
-        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
-    }
-
-    //! Helper function for getting alphas for vector reconstruction from matrix data
-    double getAlpha2TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
-        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
-    }
-
-    //! Helper function for getting alphas for matrix reconstruction from matrix data
-    double getAlpha2TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
-        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
-    }
-
-    //! Gives index into alphas given two axes, which when incremented by the neighbor number transforms access into
-    //! alphas from a rank 1 view into a rank 3 view.
-    KOKKOS_INLINE_FUNCTION
-    global_index_type getAlphaIndexDevice(const int target_index, const int alpha_column_offset) const {
-
-        global_index_type total_neighbors_before_target = _neighbor_lists.getRowOffsetDevice(target_index);
-        int total_added_alphas_before_target = target_index*_added_alpha_size;
-
-        int alphas_per_tile_per_target = _neighbor_lists.getNumberOfNeighborsDevice(target_index) + _added_alpha_size;
-
-        return (total_neighbors_before_target+TO_GLOBAL(total_added_alphas_before_target))
-                 *TO_GLOBAL(_total_alpha_values)*TO_GLOBAL(_max_evaluation_sites_per_target)
-                   + TO_GLOBAL(alpha_column_offset*alphas_per_tile_per_target);
-
-    }
-
-    //! Gives index into alphas given two axes, which when incremented by the neighbor number transforms access into
-    //! alphas from a rank 1 view into a rank 3 view.
-    global_index_type getAlphaIndexHost(const int target_index, const int alpha_column_offset) const {
-
-        global_index_type total_neighbors_before_target = _neighbor_lists.getRowOffsetHost(target_index);
-        int total_added_alphas_before_target = target_index*_added_alpha_size;
-
-        int alphas_per_tile_per_target = _neighbor_lists.getNumberOfNeighborsHost(target_index) + _added_alpha_size;
-
-        return (total_neighbors_before_target+TO_GLOBAL(total_added_alphas_before_target))
-                 *TO_GLOBAL(_total_alpha_values)*TO_GLOBAL(_max_evaluation_sites_per_target)
-                   + TO_GLOBAL(alpha_column_offset*alphas_per_tile_per_target);
-
-    }
-
-    //! Underlying function all interface helper functions call to retrieve alpha values
-    double getAlpha(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
-        // lro - the operator from TargetOperations
-        // target_index - the # for the target site where information is required
-        // neighbor_index - the # for the neighbor of the target
-        //
-        // This code support up to rank 2 tensors for inputs and outputs
-        //
-        // scalar reconstruction from scalar data: rank 0 to rank 0
-        //   provides 1 piece of information for each neighbor
-        // scalar reconstruction from vector data (e.g. divergence): rank 1 to rank 0
-        //   provides 'd' pieces of information for each neighbor
-        // vector reconstruction from scalar data (e.g. gradient): rank 0 to rank 1
-        //   provides 'd' piece of information for each neighbor
-        // vector reconstruction from vector data (e.g. curl): rank 1 to rank 1
-        //   provides 'd'x'd' pieces of information for each neighbor
-        //
-        // This function would more reasonably be called from one of the getAlphaNTensorFromNTensor
-        // which is much easier to understand with respect to indexing and only requesting indices
-        // that are relavent to the operator in question.
-        //
-
-        const int alpha_column_offset = this->getAlphaColumnOffset( lro, output_component_axis_1, 
-                output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
-
-        auto alphas_index = this->getAlphaIndexHost(target_index, alpha_column_offset);
-        return _host_alphas(alphas_index + neighbor_index);
-    }
 
     //! Returns a stencil to transform data from its existing state into the input expected 
     //! for some sampling functionals.
@@ -1116,54 +864,9 @@ public:
                     output_component, input_component);
     }
 
-    //! Dimensions ^ output rank for target operation
-    int getOutputDimensionOfOperation(TargetOperation lro, bool ambient = false) const {
-        int return_val;
-        if (ambient) return_val = std::pow(_global_dimensions, TargetOutputTensorRank[(int)lro]);
-        else return_val = std::pow(_local_dimensions, TargetOutputTensorRank[(int)lro]);
-        return return_val;
-    }
-
-    //! Dimensions ^ input rank for target operation (always in local chart if on a manifold, never ambient space)
-    int getInputDimensionOfOperation(TargetOperation lro) const {
-        return this->_host_lro_input_tile_size[_lro_lookup[(int)lro]];
-        // this is the same return values as the OutputDimensionOfSampling for the GMLS class's SamplingFunctional
-    }
-
-    //! Dimensions ^ output rank for sampling operation 
-    //! (always in local chart if on a manifold, never ambient space)
-    int getOutputDimensionOfSampling(SamplingFunctional sro) const {
-        return std::pow(_local_dimensions, sro.output_rank);
-    }
-
-    //! Dimensions ^ output rank for sampling operation 
-    //! (always in ambient space, never local chart on a manifold)
-    int getInputDimensionOfSampling(SamplingFunctional sro) const {
-        return std::pow(_global_dimensions, sro.input_rank);
-    }
-
-    //! Calculate basis_multiplier
-    int calculateBasisMultiplier(const ReconstructionSpace rs) const {
-        // calculate the dimension of the basis 
-        // (a vector space on a manifold requires two components, for example)
-        return std::pow(_local_dimensions, ActualReconstructionSpaceRank[(int)rs]);
-    }
-
-    //! Calculate sampling_multiplier
-    int calculateSamplingMultiplier(const ReconstructionSpace rs, const SamplingFunctional sro) const {
-        // this would normally be SamplingOutputTensorRank[_data_sampling_functional], but we also want to handle the
-        // case of reconstructions where a scalar basis is reused as a vector, and this handles everything
-        // this handles scalars, vectors, and scalars that are reused as vectors
-        int bm = this->calculateBasisMultiplier(rs);
-        int sm = this->getOutputDimensionOfSampling(sro);
-        if (rs == ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial) {
-            // storage and computational efficiency by reusing solution to scalar problem for 
-            // a vector problem (in 3d, 27x cheaper computation, 9x cheaper storage)
-            sm = std::min(bm,sm);
-        }
-        return sm;
-    }
-
+    //! Get solution set
+    decltype(_h_ss) getSolutionSetHost() const { return _h_ss; }
+    decltype(_d_ss) getSolutionSetDevice() const { return _d_ss; }
 
 ///@}
 
@@ -1244,6 +947,7 @@ public:
         if (_source_coordinates.extent(0)>0 && _target_coordinates.extent(0)>0) {
             _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
             _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
+            _h_ss._neighbor_lists = _neighbor_lists;
         }
     }
 
@@ -1270,6 +974,7 @@ public:
         if (_source_coordinates.extent(0)>0 && _target_coordinates.extent(0)>0) {
             _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
             _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
+            _h_ss._neighbor_lists = _neighbor_lists;
         }
     }
 
@@ -1323,6 +1028,7 @@ public:
         if (_target_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
             _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
             _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
+            _h_ss._neighbor_lists = _neighbor_lists;
         }
     }
 
@@ -1337,6 +1043,7 @@ public:
         if (_target_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
             _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
             _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
+            _h_ss._neighbor_lists = _neighbor_lists;
         }
     }
 
@@ -1375,6 +1082,7 @@ public:
         if (_source_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
             _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
             _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
+            _h_ss._neighbor_lists = _neighbor_lists;
         }
     }
 
@@ -1395,6 +1103,7 @@ public:
         if (_source_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
             _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
             _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
+            _h_ss._neighbor_lists = _neighbor_lists;
         }
     }
 
@@ -1645,102 +1354,19 @@ public:
 
     //! Adds a target to the vector of target functional to be applied to the reconstruction
     void addTargets(TargetOperation lro) {
-        std::vector<TargetOperation> temporary_lro_vector(1, lro);
-        this->addTargets(temporary_lro_vector);
+        _h_ss.addTargets(lro);
         this->resetCoefficientData();
     }
 
     //! Adds a vector of target functionals to the vector of target functionals already to be applied to the reconstruction
     void addTargets(std::vector<TargetOperation> lro) {
-        // if called multiple times with different dimensions, only the last
-        // dimension called with is used for all
-
-        // loop over requested targets
-        for (size_t i=0; i<lro.size(); ++i) {
-
-            bool operation_found = false;
-            // loop over existing targets registered
-            for (size_t j=0; j<_lro.size(); ++j) {
-
-                // if found
-                if (_lro[j]==lro[i]) {
-
-                    operation_found = true;
-
-                    // the operation should now point to where the operation is stored
-                    _lro_lookup[(int)lro[i]] = j;
-
-                    break;
-
-                }
-            }
-
-            if (!operation_found) {
-                _lro_lookup[(int)lro[i]] = _lro.size();
-                _lro.push_back(lro[i]);
-            }
-        }
-
-        _lro_total_offsets = Kokkos::View<int*>("total offsets for alphas", _lro.size());
-        _lro_output_tile_size = Kokkos::View<int*>("output tile size for each operation", _lro.size());
-        _lro_input_tile_size = Kokkos::View<int*>("output tile size for each operation", _lro.size());
-        _lro_output_tensor_rank = Kokkos::View<int*>("output tensor rank", _lro.size());
-        _lro_input_tensor_rank = Kokkos::View<int*>("input tensor rank", _lro.size());
-
-        _host_lro_total_offsets = create_mirror_view(_lro_total_offsets);
-        _host_lro_output_tile_size = create_mirror_view(_lro_output_tile_size);
-        _host_lro_input_tile_size = create_mirror_view(_lro_input_tile_size);
-        _host_lro_output_tensor_rank = create_mirror_view(_lro_output_tensor_rank);
-        _host_lro_input_tensor_rank = create_mirror_view(_lro_input_tensor_rank);
-
-        int total_offset = 0; // need total offset
-        int output_offset = 0;
-        int input_offset = 0;
-        for (size_t i=0; i<_lro.size(); ++i) {
-            _host_lro_total_offsets(i) = total_offset;
-
-            // allows for a tile of the product of dimension^input_tensor_rank * dimension^output_tensor_rank * the number of neighbors
-            int output_tile_size = getOutputDimensionOfOperation(_lro[i], false /* uses _local_dimension */);
-
-            // the target functional input indexing is sized based on the output rank of the sampling
-            // functional used
-            int input_tile_size = getOutputDimensionOfSampling(_data_sampling_functional);
-            _host_lro_output_tile_size(i) = output_tile_size;
-            _host_lro_input_tile_size(i) = input_tile_size;
-
-            total_offset += input_tile_size * output_tile_size;
-            output_offset += output_tile_size;
-            input_offset += input_tile_size;
-
-            // the target functional output rank is based on the output rank of the sampling
-            // functional used
-            _host_lro_input_tensor_rank(i) = _data_sampling_functional.output_rank;
-            _host_lro_output_tensor_rank(i) = TargetOutputTensorRank[(int)_lro[i]];
-        }
-
-        _total_alpha_values = total_offset;
-
-        if (_problem_type == ProblemType::MANIFOLD) {
-            // if on a manifold, the total alphas values must be large enough to hold the gradient
-            // of the geometry reconstruction
-            _total_alpha_values = (_total_alpha_values > std::pow(_local_dimensions, 1)) ? 
-                _total_alpha_values : std::pow(_local_dimensions, 1);
-        }
-
-        Kokkos::deep_copy(_lro_total_offsets, _host_lro_total_offsets);
-        Kokkos::deep_copy(_lro_output_tile_size, _host_lro_output_tile_size);
-        Kokkos::deep_copy(_lro_input_tile_size, _host_lro_input_tile_size);
-        Kokkos::deep_copy(_lro_output_tensor_rank, _host_lro_output_tensor_rank);
-        Kokkos::deep_copy(_lro_input_tensor_rank, _host_lro_input_tensor_rank);
+        _h_ss.addTargets(lro);
         this->resetCoefficientData();
     }
 
     //! Empties the vector of target functionals to apply to the reconstruction
     void clearTargets() {
-        _lro.clear();
-        for (int i=0; i<TargetOperation::COUNT; ++i) {
-            _lro_lookup[i] = -1;
-        }
+        _h_ss.clearTargets();
         this->resetCoefficientData();
     }
 

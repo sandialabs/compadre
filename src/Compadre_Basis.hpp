@@ -267,7 +267,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
 
         double cutoff_p = data._epsilons(target_index);
 
-        compadre_kernel_assert_debug(_dimensions==2 && "Only written for 2D");
+        compadre_kernel_assert_debug(data._dimensions==2 && "Only written for 2D");
         compadre_kernel_assert_debug(data._source_extra_data.extent(0)>0 && "Extra data used but not set.");
 
         int neighbor_index_in_source = data._pc.getNeighborIndex(target_index, neighbor_index);

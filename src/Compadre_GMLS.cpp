@@ -1,8 +1,8 @@
 #include "Compadre_GMLS.hpp"
-#include "Compadre_GMLS_ApplyTargetEvaluations.hpp"
 #include "Compadre_Basis.hpp"
 #include "Compadre_Quadrature.hpp"
 #include "Compadre_Targets.hpp"
+#include "Compadre_ApplyTargetEvaluations.hpp"
 #include "Compadre_Functors.hpp"
 #include "Compadre_CreateConstraints.hpp"
 
@@ -60,9 +60,6 @@ struct GMLSBasisData {
 
     //! h supports determined through neighbor search (device)
     Kokkos::View<double*> _epsilons; 
-
-    //! generated alpha coefficients (device)
-    Kokkos::View<double*, layout_right> _alphas; 
     
     //! generated weights for nontraditional samples required to transform data into expected sampling 
     //! functional form (device). 
@@ -182,37 +179,6 @@ struct GMLSBasisData {
     //! maximum number of neighbors over all target sites
     int _max_num_neighbors;
 
-    //! maximum number of evaluation sites for each target (includes target site)
-    int _max_evaluation_sites_per_target;
-
-    //! vector of user requested target operations
-    std::vector<TargetOperation> _lro; 
-
-    //! vector containing a mapping from a target functionals enum value to the its place in the list
-    //! of target functionals to be applied
-    std::vector<int> _lro_lookup; 
-
-    //! index for where this operation begins the for _alpha coefficients (device)
-    Kokkos::View<int*> _lro_total_offsets; 
-
-    //! dimensions ^ rank of tensor of output for each target functional (device)
-    Kokkos::View<int*> _lro_output_tile_size; 
-
-    //! dimensions ^ rank of tensor of output for each sampling functional (device)
-    Kokkos::View<int*> _lro_input_tile_size; 
-
-    //! tensor rank of target functional (device)
-    Kokkos::View<int*> _lro_output_tensor_rank;
-
-    //! tensor rank of sampling functional (device)
-    Kokkos::View<int*> _lro_input_tensor_rank;
-
-    //! used for sizing P_target_row and the _alphas view
-    int _total_alpha_values;
-
-    //! additional alpha coefficients due to constraints
-    int _added_alpha_size;
-
     //! determines scratch level spaces and is used to call kernels
     ParallelManager _pm;
 
@@ -224,6 +190,9 @@ struct GMLSBasisData {
 
     //! manages and calculates quadrature
     Quadrature _qm;
+
+    //! Solution Set (contains all alpha values from solution and alpha layout methods)
+    SolutionSet<device_memory_space> _d_ss;
 
     GMLSBasisData(const GMLS& gmls) : 
             _polynomial_sampling_functional(gmls._polynomial_sampling_functional),
@@ -243,7 +212,6 @@ struct GMLSBasisData {
         this->_target_coordinates  = gmls._target_coordinates ;
         this->_pc = gmls._pc;
         this->_epsilons  = gmls._epsilons ;
-        this->_alphas  = gmls._alphas ;
         this->_prestencil_weights  = gmls._prestencil_weights ;
         this->_additional_evaluation_coordinates  = gmls._additional_evaluation_coordinates ;
         this->_additional_evaluation_indices  = gmls._additional_evaluation_indices ;
@@ -278,18 +246,11 @@ struct GMLSBasisData {
         this->_store_PTWP_inv_PTW = gmls._store_PTWP_inv_PTW;
         this->_initial_index_for_batch = gmls._initial_index_for_batch;
         this->_max_num_neighbors = gmls._max_num_neighbors;
-        this->_max_evaluation_sites_per_target = gmls._max_evaluation_sites_per_target;
-        this->_lro_total_offsets  = gmls._lro_total_offsets ;
-        this->_lro_output_tile_size  = gmls._lro_output_tile_size ;
-        this->_lro_input_tile_size  = gmls._lro_input_tile_size ;
-        this->_lro_output_tensor_rank = gmls._lro_output_tensor_rank;
-        this->_lro_input_tensor_rank = gmls._lro_input_tensor_rank;
-        this->_total_alpha_values = gmls._total_alpha_values;
-        this->_added_alpha_size = gmls._added_alpha_size;
         this->_pm = gmls._pm;
         this->_order_of_quadrature_points = gmls._order_of_quadrature_points;
         this->_dimension_of_quadrature_points = gmls._dimension_of_quadrature_points;
         this->_qm = gmls._qm;
+        this->_d_ss = gmls._d_ss;
     }
 
     GMLSBasisData() = delete;
@@ -346,7 +307,7 @@ struct ComputePrestencilWeights {
                 + TO_GLOBAL(target_index)*TO_GLOBAL(_data._dimensions)*TO_GLOBAL(_data._dimensions), _data._dimensions, _data._dimensions);
 
         scratch_vector_type manifold_gradient(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), (_data._dimensions-1)*_data._max_num_neighbors);
-        scratch_matrix_right_type P_target_row(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), _data._total_alpha_values*_data._max_evaluation_sites_per_target, max_manifold_NP*_data._basis_multiplier);
+        scratch_matrix_right_type P_target_row(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), _data._d_ss._total_alpha_values*_data._d_ss._max_evaluation_sites_per_target, max_manifold_NP*_data._basis_multiplier);
 
         /*
          *    Prestencil Weight Calculations
@@ -529,7 +490,7 @@ struct ApplyStandardTargets {
 
         scratch_vector_type t1(teamMember.team_scratch(_data._pm.getTeamScratchLevel(0)), max_num_rows);
         scratch_vector_type t2(teamMember.team_scratch(_data._pm.getTeamScratchLevel(0)), max_num_rows);
-        scratch_matrix_right_type P_target_row(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), _data._total_alpha_values*_data._max_evaluation_sites_per_target, this_num_cols);
+        scratch_matrix_right_type P_target_row(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), _data._d_ss._total_alpha_values*_data._d_ss._max_evaluation_sites_per_target, this_num_cols);
 
         scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), this_num_cols);
         scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), (_data._poly_order+1)*_data._global_dimensions);
@@ -539,10 +500,10 @@ struct ApplyStandardTargets {
          */
 
         // get evaluation of target functionals
-        computeTargetFunctionals<GMLS>(_gmls, teamMember, delta, thread_workspace, P_target_row);
+        computeTargetFunctionals<GMLSBasisData>(_data, teamMember, delta, thread_workspace, P_target_row);
         teamMember.team_barrier();
 
-        _gmls.applyTargetsToCoefficients(teamMember, t1, t2, Coeffs, w, P_target_row, _gmls._NP); 
+        applyTargetsToCoefficients(_data, teamMember, t1, t2, Coeffs, w, P_target_row, _gmls._NP); 
         teamMember.team_barrier();
     }
 };
@@ -652,19 +613,24 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     this->_qm = Quadrature(_order_of_quadrature_points, _dimension_of_quadrature_points, _quadrature_type);
 
     /*
+     *    Generate SolutionSet on device
+     */
+    this->_d_ss = SolutionSet<device_memory_space>(_h_ss);
+
+    /*
      *    Operations to Device
      */
 
     // copy over operations
-    _operations = decltype(_operations)("operations", _lro.size());
+    _operations = decltype(_operations)("operations", _h_ss._lro.size());
     _host_operations = Kokkos::create_mirror_view(_operations);
     
     // make sure at least one target operation specified
-    compadre_assert_release((_lro.size() > 0) 
+    compadre_assert_release((_h_ss._lro.size() > 0) 
             && "No target operations added to GMLS class before calling generatePolynomialCoefficients().");
     
     // loop through list of linear reconstruction operations to be performed and set them on the host
-    for (size_t i=0; i<_lro.size(); ++i) _host_operations(i) = _lro[i];
+    for (size_t i=0; i<_h_ss._lro.size(); ++i) _host_operations(i) = _h_ss._lro[i];
 
     // get copy of operations on the device
     Kokkos::deep_copy(_operations, _host_operations);
@@ -689,18 +655,19 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
             && "Cannot solve GMLS problems with the NEUMANN_GRAD_SCALAR constraint using QR Factorization.");
 
     // calculate the additional size for different constraint problems
-    _added_alpha_size = getAdditionalAlphaSizeFromConstraint(_dense_solver_type, _constraint_type);
+    _d_ss._added_alpha_size = getAdditionalAlphaSizeFromConstraint(_dense_solver_type, _constraint_type);
     const int added_coeff_size = getAdditionalCoeffSizeFromConstraintAndSpace(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions);
 
     // initialize all alpha values to be used for taking the dot product with data to get a reconstruction 
     try {
         global_index_type total_neighbors = _neighbor_lists.getTotalNeighborsOverAllListsHost();
-        int total_added_alphas = _target_coordinates.extent(0)*_added_alpha_size;
-        _alphas = decltype(_alphas)("alphas", (total_neighbors + TO_GLOBAL(total_added_alphas))
-                    *TO_GLOBAL(_total_alpha_values)*TO_GLOBAL(_max_evaluation_sites_per_target));
+        int total_added_alphas = _target_coordinates.extent(0)*_d_ss._added_alpha_size;
+        _d_ss._alphas = 
+            decltype(_d_ss._alphas)("alphas", (total_neighbors + TO_GLOBAL(total_added_alphas))
+                    *TO_GLOBAL(_d_ss._total_alpha_values)*TO_GLOBAL(_d_ss._max_evaluation_sites_per_target));
         // this deep copy writes to all theoretically allocated memory,
         // ensuring that allocation attempted was successful
-        compadre_assert_debug((deep_copy(_alphas, 0.0), true));
+        compadre_assert_debug((deep_copy(_d_ss._alphas, 0.0), true));
     } catch(std::exception &e) {
        printf("Insufficient memory to store alphas: \n\n%s", e.what()); 
        throw e;
@@ -741,13 +708,13 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
 
 
     // calculate the dimension of the basis (a vector space on a manifold requires two components, for example)
-    _basis_multiplier = this->calculateBasisMultiplier(_reconstruction_space);
+    _basis_multiplier = calculateBasisMultiplier(_reconstruction_space, _local_dimensions);
 
     // calculate sampling dimension 
-    _sampling_multiplier = this->calculateSamplingMultiplier(_reconstruction_space, _data_sampling_functional);
+    _sampling_multiplier = calculateSamplingMultiplier(_reconstruction_space, _data_sampling_functional, _local_dimensions);
 
     // effective number of components in the basis
-    _data_sampling_multiplier = getOutputDimensionOfSampling(_data_sampling_functional);
+    _data_sampling_multiplier = getOutputDimensionOfSampling(_data_sampling_functional, _local_dimensions);
 
     // special case for using a higher order for sampling from a polynomial space that are gradients of a scalar polynomial
     if (_polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) {
@@ -781,7 +748,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
         const int max_manifold_NP = (manifold_NP > _NP) ? manifold_NP : _NP;
         this_num_cols = _basis_multiplier*max_manifold_NP;
         const int max_poly_order = (_poly_order > _curvature_poly_order) ? _poly_order : _curvature_poly_order;
-        const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_manifold_NP*_total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_manifold_NP*_total_alpha_values*_basis_multiplier*_max_evaluation_sites_per_target;
+        const int max_P_row_size = ((_dimensions-1)*manifold_NP > max_manifold_NP*_d_ss._total_alpha_values*_basis_multiplier) ? (_dimensions-1)*manifold_NP : max_manifold_NP*_d_ss._total_alpha_values*_basis_multiplier*_d_ss._max_evaluation_sites_per_target;
 
         /*
          *    Calculate Scratch Space Allocations
@@ -819,7 +786,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
 
         // row of P matrix, one for each operator
         // +1 is for the original target site which always gets evaluated
-        team_scratch_size_b += scratch_vector_type::shmem_size(this_num_cols*_total_alpha_values*_max_evaluation_sites_per_target); 
+        team_scratch_size_b += scratch_vector_type::shmem_size(this_num_cols*_d_ss._total_alpha_values*_d_ss._max_evaluation_sites_per_target); 
 
         thread_scratch_size_b += scratch_vector_type::shmem_size(this_num_cols); // delta, used for each thread
         thread_scratch_size_b += scratch_vector_type::shmem_size((_poly_order+1)*_global_dimensions); // temporary space for powers in basis
@@ -984,12 +951,12 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
             // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
             if (_dense_solver_type == DenseSolverType::LU) {
                     Kokkos::Profiling::pushRegion("LU Factorization");
-                    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + _added_alpha_size, this_batch_size);
+                    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + _d_ss._added_alpha_size, this_batch_size);
                     Kokkos::Profiling::popRegion();
             } else {
                 Kokkos::Profiling::pushRegion("QR+Pivoting Factorization");
                 if (_constraint_type != ConstraintType::NO_CONSTRAINT) {
-                     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + _added_alpha_size, this_batch_size);
+                     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + _d_ss._added_alpha_size, this_batch_size);
                 } else {
                     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, max_num_rows, this_num_cols, max_num_rows, this_batch_size);
                 }
@@ -1056,16 +1023,12 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     /*
      *    Device to Host Copy Of Solution
      */
-
     // copy computed alphas back to the host
-    _host_alphas = Kokkos::create_mirror_view(_alphas);
+    this->_h_ss = SolutionSet<host_memory_space>(_d_ss);
     if (_data_sampling_functional != PointSample) {
         _host_prestencil_weights = Kokkos::create_mirror_view(_prestencil_weights);
         Kokkos::deep_copy(_host_prestencil_weights, _prestencil_weights);
     }
-    Kokkos::deep_copy(_host_alphas, _alphas);
-    Kokkos::fence();
-
 
 }
 
@@ -1264,7 +1227,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
             + TO_GLOBAL(target_index)*TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions), _dimensions, _dimensions);
 
     scratch_vector_type manifold_gradient(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), (_dimensions-1)*_max_num_neighbors);
-    scratch_matrix_right_type P_target_row(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _total_alpha_values*_max_evaluation_sites_per_target, max_manifold_NP*_basis_multiplier);
+    scratch_matrix_right_type P_target_row(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _d_ss._total_alpha_values*_d_ss._max_evaluation_sites_per_target, max_manifold_NP*_basis_multiplier);
 
     // delta, used for each thread
     scratch_vector_type delta(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), max_manifold_NP*_basis_multiplier);
@@ -1286,7 +1249,7 @@ void GMLS::operator()(const GetAccurateTangentDirections&, const member_type& te
     for (int i=0; i<_pc._nla.getNumberOfNeighborsDevice(target_index); ++i) {
         for (int k=0; k<_dimensions-1; ++k) {
             double alpha_ij = 0;
-            int offset = getTargetOffsetIndexDevice(0, 0, k, 0);
+            int offset = _d_ss.getTargetOffsetIndex(0, 0, k, 0);
             Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
                     manifold_NP), [=] (const int l, double &talpha_ij) {
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
@@ -1469,7 +1432,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
 
     scratch_matrix_right_type G(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _dimensions-1, _dimensions-1);
     scratch_vector_type manifold_gradient(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), (_dimensions-1)*_max_num_neighbors);
-    scratch_matrix_right_type P_target_row(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _total_alpha_values*_max_evaluation_sites_per_target, max_manifold_NP*_basis_multiplier);
+    scratch_matrix_right_type P_target_row(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _d_ss._total_alpha_values*_d_ss._max_evaluation_sites_per_target, max_manifold_NP*_basis_multiplier);
 
     // delta, used for each thread
     scratch_vector_type delta(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), max_manifold_NP*_basis_multiplier);
@@ -1498,7 +1461,7 @@ void GMLS::operator()(const ApplyCurvatureTargets&, const member_type& teamMembe
     for (int i=0; i<_pc._nla.getNumberOfNeighborsDevice(target_index); ++i) {
         for (int k=0; k<_dimensions-1; ++k) {
             double alpha_ij = 0;
-            int offset = getTargetOffsetIndexDevice(0, 0, k, 0);
+            int offset = _d_ss.getTargetOffsetIndex(0, 0, k, 0);
             Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
                     manifold_NP), [=] (const int l, double &talpha_ij) {
                 Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
@@ -1693,7 +1656,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
 
     scratch_vector_type t1(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
     scratch_vector_type t2(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _max_num_neighbors*((_sampling_multiplier>_basis_multiplier) ? _sampling_multiplier : _basis_multiplier));
-    scratch_matrix_right_type P_target_row(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _total_alpha_values*_max_evaluation_sites_per_target, max_manifold_NP*_basis_multiplier);
+    scratch_matrix_right_type P_target_row(teamMember.team_scratch(_pm.getTeamScratchLevel(1)), _d_ss._total_alpha_values*_d_ss._max_evaluation_sites_per_target, max_manifold_NP*_basis_multiplier);
 
     // delta, used for each thread
     scratch_vector_type delta(teamMember.thread_scratch(_pm.getThreadScratchLevel(1)), max_manifold_NP*_basis_multiplier);
@@ -1706,7 +1669,7 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
     computeTargetFunctionalsOnManifold<GMLS>(*this, teamMember, delta, thread_workspace, P_target_row, T, G_inv, manifold_coeffs, manifold_gradient_coeffs);
     teamMember.team_barrier();
 
-    this->applyTargetsToCoefficients(teamMember, t1, t2, Coeffs, w, P_target_row, _NP); 
+    applyTargetsToCoefficients<GMLS>(*this, teamMember, t1, t2, Coeffs, w, P_target_row, _NP); 
 
     teamMember.team_barrier();
 }

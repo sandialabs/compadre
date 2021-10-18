@@ -149,7 +149,7 @@ public:
 
         double value = 0;
 
-        const int alpha_input_output_component_index = _gmls->getAlphaColumnOffset(lro, output_component_axis_1, 
+        const int alpha_input_output_component_index = _gmls->getSolutionSetHost().getAlphaColumnOffset(lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
 
         auto sampling_subview_maker = CreateNDSliceOnDeviceView(sampling_input_data, scalar_as_vector_if_needed);
@@ -157,10 +157,10 @@ public:
         
         // gather needed information for evaluation
         auto nla = *(_gmls->getNeighborLists());
-        auto alphas = _gmls->getAlphas();
+        auto alphas = _gmls->getSolutionSetDevice().getAlphas();
         auto sampling_data_device = sampling_subview_maker.get1DView(column_of_input);
         
-        auto alpha_index = _gmls->getAlphaIndexHost(target_index, alpha_input_output_component_index);
+        auto alpha_index = _gmls->getSolutionSetDevice().template getAlphaIndex<0>(target_index, alpha_input_output_component_index);
         // loop through neighbor list for this target_index
         // grabbing data from that entry of data
         Kokkos::parallel_reduce("applyAlphasToData::Device", 
@@ -204,14 +204,14 @@ public:
     template <typename view_type_data_out, typename view_type_data_in>
     void applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(view_type_data_out output_data_single_column, view_type_data_in sampling_data_single_column, TargetOperation lro, const SamplingFunctional sro, const int evaluation_site_local_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1, bool vary_on_target = false, bool vary_on_neighbor = false) const {
 
-        const int alpha_input_output_component_index = _gmls->getAlphaColumnOffset(lro, output_component_axis_1, 
+        const int alpha_input_output_component_index = _gmls->getSolutionSetHost().getAlphaColumnOffset(lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
         const int alpha_input_output_component_index2 = alpha_input_output_component_index;
 
         // gather needed information for evaluation
         auto gmls = *(_gmls);
         auto nla = *(_gmls->getNeighborLists());
-        auto alphas = _gmls->getAlphas();
+        auto alphas = _gmls->getSolutionSetDevice().getAlphas();
         auto prestencil_weights = _gmls->getPrestencilWeights();
 
         const int num_targets = nla.getNumberOfTargets();
@@ -234,7 +234,7 @@ public:
             const double previous_value = output_data_single_column(target_index);
 
             // loops over neighbors of target_index
-            auto alpha_index = gmls.getAlphaIndexDevice(target_index, alpha_input_output_component_index);
+            auto alpha_index = gmls.getSolutionSetDevice().template getAlphaIndex<0>(target_index, alpha_input_output_component_index);
             double gmls_value = 0;
             Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, nla.getNumberOfNeighborsDevice(target_index)), [=](const int i, double& t_value) {
                 const double neighbor_varying_pre_T =  (weight_with_pre_T && vary_on_neighbor) ?
@@ -260,7 +260,7 @@ public:
 
             double staggered_value_from_targets = 0;
             double pre_T_staggered = 1.0;
-            auto alpha_index2 = gmls.getAlphaIndexDevice(target_index, alpha_input_output_component_index2);
+            auto alpha_index2 = gmls.getSolutionSetDevice().template getAlphaIndex<0>(target_index, alpha_input_output_component_index2);
             // loops over target_index for each neighbor for staggered approaches
             if (target_plus_neighbor_staggered_schema) {
                 Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, nla.getNumberOfNeighborsDevice(target_index)), [=](const int i, double& t_value) {
@@ -363,8 +363,9 @@ public:
         auto nla = *(_gmls->getNeighborLists());
 
         // determines the number of columns needed for output after action of the target functional
-        int output_dimensions = _gmls->getOutputDimensionOfOperation(lro);
+        auto local_dimensions = _gmls->getLocalDimensions();
         auto global_dimensions = _gmls->getGlobalDimensions();
+        int output_dimensions = getOutputDimensionOfOperation(lro, local_dimensions);
         auto problem_type = _gmls->getProblemType();
 
         typedef Kokkos::View<output_data_type, output_array_layout, output_memory_space> output_view_type;
@@ -414,18 +415,19 @@ public:
 
         auto problem_type = _gmls->getProblemType();
         auto global_dimensions = _gmls->getGlobalDimensions();
-        auto output_dimension1_of_operator = (TargetOutputTensorRank[lro]<2) ? _gmls->getOutputDimensionOfOperation(lro) : std::sqrt(_gmls->getOutputDimensionOfOperation(lro));
-        auto output_dimension2_of_operator = (TargetOutputTensorRank[lro]<2) ? 1 : std::sqrt(_gmls->getOutputDimensionOfOperation(lro));
-        auto input_dimension_of_operator = _gmls->getInputDimensionOfOperation(lro);
+        auto local_dimensions = _gmls->getLocalDimensions();
+        auto output_dimension1_of_operator = (TargetOutputTensorRank[lro]<2) ? getOutputDimensionOfOperation(lro, local_dimensions) : std::sqrt(getOutputDimensionOfOperation(lro, local_dimensions));
+        auto output_dimension2_of_operator = (TargetOutputTensorRank[lro]<2) ? 1 : std::sqrt(getOutputDimensionOfOperation(lro, local_dimensions));
 
         // gather needed information for evaluation
         auto nla = *(_gmls->getNeighborLists());
 
         // determines the number of columns needed for output after action of the target functional
-        int output_dimensions = _gmls->getOutputDimensionOfOperation(lro);
+        int output_dimensions = getOutputDimensionOfOperation(lro, local_dimensions);
 
         // special case for VectorPointSample, because if it is on a manifold it includes data transform to local charts
         auto sro = (problem_type==MANIFOLD && sro_in==VectorPointSample) ? ManifoldVectorPointSample : sro_in;
+        auto input_dimension_of_operator = getInputDimensionOfOperation(lro, sro, local_dimensions);
 
         compadre_assert_debug(target_output.extent(0)==(size_t)nla.getNumberOfTargets() 
                 && "First dimension of target_output is incorrect size.\n");
@@ -673,7 +675,8 @@ public:
     Kokkos::View<output_data_type, output_array_layout, output_memory_space>  // shares layout of input by default
             applyFullPolynomialCoefficientsBasisToDataAllComponents(view_type_input_data sampling_data, bool scalar_as_vector_if_needed = true) const {
 
-        auto output_dimension_of_reconstruction_space = _gmls->calculateBasisMultiplier(_gmls->getReconstructionSpace());
+        auto local_dimensions = _gmls->getLocalDimensions();
+        auto output_dimension_of_reconstruction_space = calculateBasisMultiplier(_gmls->getReconstructionSpace(), local_dimensions);
         auto coefficient_matrix_dims = _gmls->getPolynomialCoefficientsDomainRangeSize();
 
         // gather needed information for evaluation
@@ -715,8 +718,9 @@ public:
         // move everything to device and calculate there, then move back to host if necessary
 
         auto global_dimensions = _gmls->getGlobalDimensions();
-        auto output_dimension_of_reconstruction_space = _gmls->calculateBasisMultiplier(_gmls->getReconstructionSpace());
-        auto input_dimension_of_reconstruction_space = _gmls->calculateSamplingMultiplier(_gmls->getReconstructionSpace(), _gmls->getPolynomialSamplingFunctional());
+        auto local_dimensions = _gmls->getLocalDimensions();
+        auto output_dimension_of_reconstruction_space = calculateBasisMultiplier(_gmls->getReconstructionSpace(), local_dimensions);
+        auto input_dimension_of_reconstruction_space = calculateSamplingMultiplier(_gmls->getReconstructionSpace(), _gmls->getPolynomialSamplingFunctional(), local_dimensions);
         auto coefficient_matrix_dims = _gmls->getPolynomialCoefficientsDomainRangeSize();
 
         // gather needed information for evaluation
