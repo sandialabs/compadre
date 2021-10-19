@@ -17,6 +17,8 @@
 
 namespace Compadre {
 
+class Evaluator;
+
 //!  Generalized Moving Least Squares (GMLS)
 /*!
 *  This class sets up a batch of GMLS problems from a given set of neighbor lists, target sites, and source sites.
@@ -25,6 +27,9 @@ namespace Compadre {
 *  additional computation, which is why this class allows for multiple target functionals to be specified. 
 */
 class GMLS {
+
+    friend class Evaluator;
+
 public:
 
     // random numbe generator pool
@@ -115,7 +120,11 @@ public:
     Kokkos::View<int*, host_memory_space> _host_number_of_additional_evaluation_indices; 
 
     //! Solution Set (contains all alpha values from solution and alpha layout methods)
+private:
+    // _h_ss is private so that getSolutionSetHost() must be called
+    // which ensures that the copy of the solution to device is necessary
     SolutionSet<host_memory_space> _h_ss;
+public:
     SolutionSet<device_memory_space> _d_ss;
 
     //! order of basis for polynomial reconstruction
@@ -862,7 +871,14 @@ public:
     }
 
     //! Get solution set
-    decltype(_h_ss)* getSolutionSetHost() { return &_h_ss; }
+    decltype(_h_ss)* getSolutionSetHost() { 
+        if (_h_ss._alphas.extent(0)==0 && _d_ss._alphas.extent(0)!=0) {
+            // solution solved for on device, but now solution
+            // requested on the host
+            _h_ss.copyAlphas(_d_ss);
+        }
+        return &_h_ss; 
+    }
     decltype(_d_ss)* getSolutionSetDevice() { return &_d_ss; }
 
 ///@}

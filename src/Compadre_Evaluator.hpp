@@ -204,7 +204,7 @@ public:
     template <typename view_type_data_out, typename view_type_data_in>
     void applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(view_type_data_out output_data_single_column, view_type_data_in sampling_data_single_column, TargetOperation lro, const SamplingFunctional sro, const int evaluation_site_local_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1, bool vary_on_target = false, bool vary_on_neighbor = false) const {
 
-        const int alpha_input_output_component_index = _gmls->getSolutionSetHost()->getAlphaColumnOffset(lro, output_component_axis_1, 
+        const int alpha_input_output_component_index = _gmls->_h_ss.getAlphaColumnOffset(lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
         const int alpha_input_output_component_index2 = alpha_input_output_component_index;
 

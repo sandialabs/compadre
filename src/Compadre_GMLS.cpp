@@ -45,17 +45,17 @@ struct GMLSBasisData {
     //! Extra data available to target operations (optional)
     Kokkos::View<double**, layout_right> _target_extra_data;
 
-    //! Accessor to get neighbor list data, offset data, and number of neighbors per target
-    NeighborLists<Kokkos::View<int*> > _neighbor_lists; 
+    ////! Accessor to get neighbor list data, offset data, and number of neighbors per target
+    //NeighborLists<Kokkos::View<int*> > _neighbor_lists; 
 
-    //! all coordinates for the source for which _neighbor_lists refers (device)
-    Kokkos::View<double**, layout_right> _source_coordinates; 
+    ////! all coordinates for the source for which _neighbor_lists refers (device)
+    //Kokkos::View<double**, layout_right> _source_coordinates; 
 
-    //! coordinates for target sites for reconstruction (device)
-    Kokkos::View<double**, layout_right> _target_coordinates; 
+    ////! coordinates for target sites for reconstruction (device)
+    //Kokkos::View<double**, layout_right> _target_coordinates; 
 
     //! connections between points and neighbors
-    typedef PointConnections<decltype(_target_coordinates), decltype(_source_coordinates), decltype(_neighbor_lists)> point_connections_type;
+    typedef PointConnections<Kokkos::View<double**, layout_right>, Kokkos::View<double**, layout_right>, NeighborLists<Kokkos::View<int*> > > point_connections_type;
     point_connections_type _pc;
 
     //! h supports determined through neighbor search (device)
@@ -65,11 +65,11 @@ struct GMLSBasisData {
     //! functional form (device). 
     Kokkos::View<double*****, layout_right> _prestencil_weights; 
 
-    //! (OPTIONAL) user provided additional coordinates for target operation evaluation (device)
-    Kokkos::View<double**, layout_right> _additional_evaluation_coordinates; 
+    ////! (OPTIONAL) user provided additional coordinates for target operation evaluation (device)
+    //Kokkos::View<double**, layout_right> _additional_evaluation_coordinates; 
 
-    //! (OPTIONAL) Accessor to get additional evaluation list data, offset data, and number of sites
-    NeighborLists<Kokkos::View<int*> > _additional_evaluation_indices; 
+    ////! (OPTIONAL) Accessor to get additional evaluation list data, offset data, and number of sites
+    //NeighborLists<Kokkos::View<int*> > _additional_evaluation_indices; 
 
     //! (OPTIONAL) connections between additional points and neighbors
     point_connections_type _additional_pc;
@@ -207,14 +207,14 @@ struct GMLSBasisData {
         this->_manifold_curvature_gradient = gmls._manifold_curvature_gradient;
         this->_source_extra_data = gmls._source_extra_data;
         this->_target_extra_data = gmls._target_extra_data;
-        this->_neighbor_lists  = gmls._neighbor_lists ;
-        this->_source_coordinates  = gmls._source_coordinates ;
-        this->_target_coordinates  = gmls._target_coordinates ;
+        //this->_neighbor_lists  = gmls._neighbor_lists ;
+        //this->_source_coordinates  = gmls._source_coordinates ;
+        //this->_target_coordinates  = gmls._target_coordinates ;
         this->_pc = gmls._pc;
         this->_epsilons  = gmls._epsilons ;
         this->_prestencil_weights  = gmls._prestencil_weights ;
-        this->_additional_evaluation_coordinates  = gmls._additional_evaluation_coordinates ;
-        this->_additional_evaluation_indices  = gmls._additional_evaluation_indices ;
+        //this->_additional_evaluation_coordinates  = gmls._additional_evaluation_coordinates ;
+        //this->_additional_evaluation_indices  = gmls._additional_evaluation_indices ;
         this->_additional_pc = gmls._additional_pc;
         this->_poly_order  = gmls._poly_order ;
         this->_curvature_poly_order = gmls._curvature_poly_order;

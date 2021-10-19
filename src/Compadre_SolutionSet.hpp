@@ -126,20 +126,10 @@ public:
         Kokkos::deep_copy(_lro_input_tile_size, other._lro_input_tile_size);
         Kokkos::deep_copy(_lro_output_tensor_rank, other._lro_output_tensor_rank);
         Kokkos::deep_copy(_lro_input_tensor_rank, other._lro_input_tensor_rank);
-        // don't copy from host to device, only device to something
-        if (!std::is_same<other_memory_space,host_memory_space>::value) {
-            if (_alphas.extent(0) != other._alphas.extent(0)) {
-                Kokkos::resize(_alphas, other._alphas.extent(0));
-            }
-            Kokkos::deep_copy(_alphas, other._alphas);
-        }
-    }
 
-    //template <typename other_memory_space>
-    //SolutionSet& operator=(SolutionSet<other_memory_space> other) {
-    //    auto new_ss = SolutionSet(other);
-    //    return new_ss;
-    //}
+        // don't copy _alphas (expensive)
+        // _alphas only copied using copyAlphas
+    }
 
 ///@}
 
@@ -147,7 +137,6 @@ public:
  *  
  */
 ///@{
-
 
 ///@}
 
@@ -317,6 +306,23 @@ public:
     int getTargetOperationLocalIndex(TargetOperation lro) const {
         return _lro_lookup[(int)lro];
     }
+
+///@}
+
+/** @name Public Modifiers (can only call from host)
+ */
+///@{
+
+    template <typename other_memory_space>
+    void copyAlphas(SolutionSet<other_memory_space>& other) {
+        if ((void*)this != (void*)&other) {
+            if (_alphas.extent(0) != other._alphas.extent(0)) {
+                Kokkos::resize(_alphas, other._alphas.extent(0));
+            }
+            Kokkos::deep_copy(_alphas, other._alphas);
+        }
+    }
+
 
     //! Empties the vector of target functionals to apply to the reconstruction
     void clearTargets() {
