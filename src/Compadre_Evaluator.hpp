@@ -416,8 +416,8 @@ public:
         auto problem_type = _gmls->getProblemType();
         auto global_dimensions = _gmls->getGlobalDimensions();
         auto local_dimensions = _gmls->getLocalDimensions();
-        auto output_dimension1_of_operator = (TargetOutputTensorRank[lro]<2) ? getOutputDimensionOfOperation(lro, local_dimensions) : std::sqrt(getOutputDimensionOfOperation(lro, local_dimensions));
-        auto output_dimension2_of_operator = (TargetOutputTensorRank[lro]<2) ? 1 : std::sqrt(getOutputDimensionOfOperation(lro, local_dimensions));
+        int output_dimension1_of_operator = (TargetOutputTensorRank[lro]<2) ? getOutputDimensionOfOperation(lro, local_dimensions) : std::sqrt(getOutputDimensionOfOperation(lro, local_dimensions));
+        int output_dimension2_of_operator = (TargetOutputTensorRank[lro]<2) ? 1 : std::sqrt(getOutputDimensionOfOperation(lro, local_dimensions));
 
         // gather needed information for evaluation
         auto nla = *(_gmls->getNeighborLists());
@@ -427,7 +427,7 @@ public:
 
         // special case for VectorPointSample, because if it is on a manifold it includes data transform to local charts
         auto sro = (problem_type==MANIFOLD && sro_in==VectorPointSample) ? ManifoldVectorPointSample : sro_in;
-        auto input_dimension_of_operator = getInputDimensionOfOperation(lro, sro, local_dimensions);
+        int input_dimension_of_operator = getInputDimensionOfOperation(lro, _gmls->_data_sampling_functional, local_dimensions);
 
         compadre_assert_debug(target_output.extent(0)==(size_t)nla.getNumberOfTargets() 
                 && "First dimension of target_output is incorrect size.\n");
