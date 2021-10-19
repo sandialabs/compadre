@@ -995,6 +995,7 @@ public:
         if (_source_coordinates.extent(0)>0 && _target_coordinates.extent(0)>0) {
             _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
             _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
+            _h_ss._neighbor_lists = _neighbor_lists;
         }
     }
 
