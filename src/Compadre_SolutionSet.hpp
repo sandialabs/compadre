@@ -102,6 +102,24 @@ public:
         _lro = other._lro;
 
         // copy from other_memory_space to memory_space (if needed)
+        if (_lro_lookup.extent(0) != other._lro_lookup.extent(0)) {
+            Kokkos::resize(_lro_lookup, other._lro_lookup.extent(0));
+        }
+        if (_lro_total_offsets.extent(0) != other._lro_total_offsets.extent(0)) {
+            Kokkos::resize(_lro_total_offsets, other._lro_total_offsets.extent(0));
+        }
+        if (_lro_output_tile_size.extent(0) != other._lro_output_tile_size.extent(0)) {
+            Kokkos::resize(_lro_output_tile_size, other._lro_output_tile_size.extent(0));
+        }
+        if (_lro_input_tile_size.extent(0) != other._lro_input_tile_size.extent(0)) {
+            Kokkos::resize(_lro_input_tile_size, other._lro_input_tile_size.extent(0));
+        }
+        if (_lro_output_tensor_rank.extent(0) != other._lro_output_tensor_rank.extent(0)) {
+            Kokkos::resize(_lro_output_tensor_rank, other._lro_output_tensor_rank.extent(0));
+        }
+        if (_lro_input_tensor_rank.extent(0) != other._lro_input_tensor_rank.extent(0)) {
+            Kokkos::resize(_lro_input_tensor_rank, other._lro_input_tensor_rank.extent(0));
+        }
         Kokkos::deep_copy(_lro_lookup, other._lro_lookup);
         Kokkos::deep_copy(_lro_total_offsets, other._lro_total_offsets);
         Kokkos::deep_copy(_lro_output_tile_size, other._lro_output_tile_size);
@@ -110,6 +128,9 @@ public:
         Kokkos::deep_copy(_lro_input_tensor_rank, other._lro_input_tensor_rank);
         // don't copy from host to device, only device to something
         if (!std::is_same<other_memory_space,host_memory_space>::value) {
+            if (_alphas.extent(0) != other._alphas.extent(0)) {
+                Kokkos::resize(_alphas, other._alphas.extent(0));
+            }
             Kokkos::deep_copy(_alphas, other._alphas);
         }
     }
@@ -204,9 +225,10 @@ public:
 
     //! Gives index into alphas given two axes, which when incremented by the neighbor number transforms access into
     //! alphas from a rank 1 view into a rank 3 view.
-    template <int T = 0>
+    template <int T=0>
     KOKKOS_INLINE_FUNCTION
-    global_index_type getAlphaIndex(const int target_index, const int alpha_column_offset) const {
+    typename std::enable_if<T==0, global_index_type>::type 
+            getAlphaIndex(const int target_index, const int alpha_column_offset) const {
 
         global_index_type total_neighbors_before_target = _neighbor_lists.getRowOffsetDevice(target_index);
         int total_added_alphas_before_target = target_index*_added_alpha_size;
@@ -221,9 +243,10 @@ public:
 
     //! Gives index into alphas given two axes, which when incremented by the neighbor number transforms access into
     //! alphas from a rank 1 view into a rank 3 view.
-    template <>
+    template <int T=0>
     KOKKOS_INLINE_FUNCTION
-    global_index_type getAlphaIndex<1>(const int target_index, const int alpha_column_offset) const {
+    typename std::enable_if<T==1, global_index_type>::type 
+            getAlphaIndex(const int target_index, const int alpha_column_offset) const {
 
         global_index_type total_neighbors_before_target = _neighbor_lists.getRowOffsetHost(target_index);
         int total_added_alphas_before_target = target_index*_added_alpha_size;

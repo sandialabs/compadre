@@ -240,7 +240,7 @@ int calculateSamplingMultiplier(const ReconstructionSpace rs, const SamplingFunc
     if (rs == ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial) {
         // storage and computational efficiency by reusing solution to scalar problem for 
         // a vector problem (in 3d, 27x cheaper computation, 9x cheaper storage)
-        sm = std::min(bm,sm);
+        sm =(bm < sm) ? bm : sm;
     }
     return sm;
 }

@@ -52,7 +52,7 @@ void applyTargetsToCoefficients(const SolutionData& data, const member_type& tea
 //        }
 
     // GPU
-    auto n_evaluation_sites_per_target = data._additional_pc._nla.NumberOfNeighborsDevice(target_index) + 1;
+    auto n_evaluation_sites_per_target = data._additional_pc._nla.getNumberOfNeighborsDevice(target_index) + 1;
     for (int e=0; e<n_evaluation_sites_per_target; ++e) {
         for (int j=0; j<(int)data._operations.size(); ++j) {
             for (int k=0; k<data._d_ss._lro_output_tile_size[j]; ++k) {
@@ -88,7 +88,7 @@ void applyTargetsToCoefficients(const SolutionData& data, const member_type& tea
                         } 
                         Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                             //_alphas(target_index, offset_index_jmke, i) = alpha_ij;
-                            data._alphas(alphas_index+i) = alpha_ij;
+                            data._d_ss._alphas(alphas_index+i) = alpha_ij;
                             compadre_kernel_assert_extreme_debug(alpha_ij==alpha_ij && "NaN in alphas.");
                         });
                     });

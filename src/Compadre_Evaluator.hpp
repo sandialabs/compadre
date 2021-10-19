@@ -149,7 +149,7 @@ public:
 
         double value = 0;
 
-        const int alpha_input_output_component_index = _gmls->getSolutionSetHost().getAlphaColumnOffset(lro, output_component_axis_1, 
+        const int alpha_input_output_component_index = _gmls->getSolutionSetHost()->getAlphaColumnOffset(lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
 
         auto sampling_subview_maker = CreateNDSliceOnDeviceView(sampling_input_data, scalar_as_vector_if_needed);
@@ -157,10 +157,10 @@ public:
         
         // gather needed information for evaluation
         auto nla = *(_gmls->getNeighborLists());
-        auto alphas = _gmls->getSolutionSetDevice().getAlphas();
+        auto alphas = _gmls->getSolutionSetDevice()->getAlphas();
         auto sampling_data_device = sampling_subview_maker.get1DView(column_of_input);
         
-        auto alpha_index = _gmls->getSolutionSetDevice().template getAlphaIndex<0>(target_index, alpha_input_output_component_index);
+        auto alpha_index = _gmls->getSolutionSetDevice()->template getAlphaIndex<1>(target_index, alpha_input_output_component_index);
         // loop through neighbor list for this target_index
         // grabbing data from that entry of data
         Kokkos::parallel_reduce("applyAlphasToData::Device", 
@@ -204,14 +204,14 @@ public:
     template <typename view_type_data_out, typename view_type_data_in>
     void applyAlphasToDataSingleComponentAllTargetSitesWithPreAndPostTransform(view_type_data_out output_data_single_column, view_type_data_in sampling_data_single_column, TargetOperation lro, const SamplingFunctional sro, const int evaluation_site_local_index, const int output_component_axis_1, const int output_component_axis_2, const int input_component_axis_1, const int input_component_axis_2, const int pre_transform_local_index = -1, const int pre_transform_global_index = -1, const int post_transform_local_index = -1, const int post_transform_global_index = -1, bool vary_on_target = false, bool vary_on_neighbor = false) const {
 
-        const int alpha_input_output_component_index = _gmls->getSolutionSetHost().getAlphaColumnOffset(lro, output_component_axis_1, 
+        const int alpha_input_output_component_index = _gmls->getSolutionSetHost()->getAlphaColumnOffset(lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
         const int alpha_input_output_component_index2 = alpha_input_output_component_index;
 
         // gather needed information for evaluation
         auto gmls = *(_gmls);
         auto nla = *(_gmls->getNeighborLists());
-        auto alphas = _gmls->getSolutionSetDevice().getAlphas();
+        auto solution_set = *(_gmls->getSolutionSetDevice());
         auto prestencil_weights = _gmls->getPrestencilWeights();
 
         const int num_targets = nla.getNumberOfTargets();
@@ -234,15 +234,15 @@ public:
             const double previous_value = output_data_single_column(target_index);
 
             // loops over neighbors of target_index
-            auto alpha_index = gmls.getSolutionSetDevice().template getAlphaIndex<0>(target_index, alpha_input_output_component_index);
+            auto alpha_index = solution_set.template getAlphaIndex<0>(target_index, alpha_input_output_component_index);
             double gmls_value = 0;
-            Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, nla.getNumberOfNeighborsDevice(target_index)), [=](const int i, double& t_value) {
+            Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, nla.getNumberOfNeighborsDevice(target_index)), [&](const int i, double& t_value) {
                 const double neighbor_varying_pre_T =  (weight_with_pre_T && vary_on_neighbor) ?
                     prestencil_weights(0, target_index, i, pre_transform_local_index, pre_transform_global_index)
                     : 1.0;
 
                 t_value += neighbor_varying_pre_T * sampling_data_single_column(nla.getNeighborDevice(target_index, i))
-                            *alphas(alpha_index + i);
+                            *solution_set._alphas(alpha_index + i);
 
             }, gmls_value );
 
@@ -260,16 +260,16 @@ public:
 
             double staggered_value_from_targets = 0;
             double pre_T_staggered = 1.0;
-            auto alpha_index2 = gmls.getSolutionSetDevice().template getAlphaIndex<0>(target_index, alpha_input_output_component_index2);
+            auto alpha_index2 = solution_set.template getAlphaIndex<0>(target_index, alpha_input_output_component_index2);
             // loops over target_index for each neighbor for staggered approaches
             if (target_plus_neighbor_staggered_schema) {
-                Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, nla.getNumberOfNeighborsDevice(target_index)), [=](const int i, double& t_value) {
+                Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, nla.getNumberOfNeighborsDevice(target_index)), [&](const int i, double& t_value) {
                     const double neighbor_varying_pre_T_staggered =  (weight_with_pre_T && vary_on_neighbor) ?
                         prestencil_weights(1, target_index, i, pre_transform_local_index, pre_transform_global_index)
                         : 1.0;
 
                     t_value += neighbor_varying_pre_T_staggered * sampling_data_single_column(nla.getNeighborDevice(target_index, 0))
-                                *alphas(alpha_index2 + i);
+                                *solution_set._alphas(alpha_index2 + i);
 
                 }, staggered_value_from_targets );
 
@@ -286,7 +286,7 @@ public:
             }
 
             double added_value = pre_T*gmls_value + pre_T_staggered*staggered_value_from_targets;
-            Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
+            Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                 output_data_single_column(target_index) = previous_value + added_value;
             });
         });
@@ -335,7 +335,7 @@ public:
             const double previous_value = output_data_single_column(target_index);
 
             double added_value = T(local_dim_index, global_dim_index)*sampling_data_single_column(target_index);
-            Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
+            Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                 output_data_single_column(target_index) = previous_value + added_value;
             });
         });
@@ -602,7 +602,7 @@ public:
 
                 // loops over neighbors of target_index
                 double gmls_value = 0;
-                Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, nla.getNumberOfNeighborsDevice(target_index)), [=](const int i, double& t_value) {
+                Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, nla.getNumberOfNeighborsDevice(target_index)), [&](const int i, double& t_value) {
                     const double neighbor_varying_pre_T =  (weight_with_pre_T && vary_on_neighbor) ?
                         prestencil_weights(0, target_index, i, pre_transform_local_index, pre_transform_global_index)
                         : 1.0;
@@ -628,7 +628,7 @@ public:
                 double pre_T_staggered = 1.0;
                 // loops over target_index for each neighbor for staggered approaches
                 if (target_plus_neighbor_staggered_schema) {
-                    Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, nla.getNumberOfNeighborsDevice(target_index)), [=](const int i, double& t_value) {
+                    Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember, nla.getNumberOfNeighborsDevice(target_index)), [&](const int i, double& t_value) {
                         const double neighbor_varying_pre_T_staggered =  (weight_with_pre_T && vary_on_neighbor) ?
                             prestencil_weights(1, target_index, i, pre_transform_local_index, pre_transform_global_index)
                             : 1.0;
@@ -651,7 +651,7 @@ public:
                 }
 
                 double added_value = (pre_T*gmls_value + pre_T_staggered*staggered_value_from_targets);
-                Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
+                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
                     output_data_block_column(target_index, j) = previous_value + added_value;
                 });
             });

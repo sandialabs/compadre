@@ -862,8 +862,8 @@ public:
     }
 
     //! Get solution set
-    decltype(_h_ss) getSolutionSetHost() const { return _h_ss; }
-    decltype(_d_ss) getSolutionSetDevice() const { return _d_ss; }
+    decltype(_h_ss)* getSolutionSetHost() { return &_h_ss; }
+    decltype(_d_ss)* getSolutionSetDevice() { return &_d_ss; }
 
 ///@}
 
