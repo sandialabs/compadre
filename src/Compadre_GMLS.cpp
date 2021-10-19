@@ -451,9 +451,8 @@ struct ComputePrestencilWeights {
 struct ApplyStandardTargets {
 
     GMLSBasisData _data;
-    GMLS          _gmls;
 
-    ApplyStandardTargets(GMLS gmls) : _data(GMLSBasisData(gmls)), _gmls(gmls) {}
+    ApplyStandardTargets(GMLS gmls) : _data(GMLSBasisData(gmls)) {}
 
     KOKKOS_INLINE_FUNCTION
     void operator()(const member_type& teamMember) const {
@@ -500,10 +499,10 @@ struct ApplyStandardTargets {
          */
 
         // get evaluation of target functionals
-        computeTargetFunctionals<GMLSBasisData>(_data, teamMember, delta, thread_workspace, P_target_row);
+        computeTargetFunctionals(_data, teamMember, delta, thread_workspace, P_target_row);
         teamMember.team_barrier();
 
-        applyTargetsToCoefficients(_data, teamMember, t1, t2, Coeffs, w, P_target_row, _gmls._NP); 
+        applyTargetsToCoefficients(_data, teamMember, t1, t2, Coeffs, w, P_target_row, _data._NP); 
         teamMember.team_barrier();
     }
 };
