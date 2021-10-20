@@ -7,7 +7,8 @@ namespace Compadre {
 //! Helper function for applying the evaluations from a target functional to the polynomial coefficients
 template <typename SolutionData>
 KOKKOS_INLINE_FUNCTION
-void applyTargetsToCoefficients(const SolutionData& data, const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type Q, scratch_vector_type w, scratch_matrix_right_type P_target_row, const int target_NP) {
+//void applyTargetsToCoefficients(const SolutionData& data, const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type Q, scratch_vector_type w, scratch_matrix_right_type P_target_row, const int target_NP) {
+void applyTargetsToCoefficients(const SolutionData& data, const member_type& teamMember, scratch_matrix_right_type Q, scratch_matrix_right_type P_target_row, const int target_NP) {
 
     const int target_index = data._initial_index_for_batch + teamMember.league_rank();
 

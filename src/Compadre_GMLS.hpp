@@ -47,6 +47,8 @@ public:
     //! sqrt(w)*Identity matrix for all problems, later holds polynomial coefficients for all problems
     Kokkos::View<double*> _RHS;
 
+    Kokkos::View<double*> _Z;
+
     //! Rank 3 tensor for high order approximation of tangent vectors for all problems. First rank is
     //! for the target index, the second is for the local direction to the manifolds 0..(_dimensions-1)
     //! are tangent, _dimensions is the normal, and the third is for the spatial dimension (_dimensions)

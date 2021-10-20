@@ -10,6 +10,87 @@
 
 namespace Compadre {
 
+struct GMLSSolutionData {
+
+    typedef PointConnections<Kokkos::View<double**, layout_right>, 
+            Kokkos::View<double**, layout_right>, 
+            NeighborLists<Kokkos::View<int*> > > 
+                point_connections_type;
+
+    point_connections_type _pc;
+    point_connections_type _additional_pc;
+    Kokkos::View<TargetOperation*> _operations;
+    int _NP;
+    int _basis_multiplier;
+    int _sampling_multiplier;
+    int _initial_index_for_batch;
+    int _max_num_neighbors;
+    int Coeffs_dim_0, Coeffs_dim_1;
+    double * Coeffs_data;
+    int P_target_row_dim_0, P_target_row_dim_1;
+    double * P_target_row_data;
+    SolutionSet<device_memory_space> _d_ss;
+
+    GMLSSolutionData(const GMLS& gmls) {
+        this->_pc = gmls._pc;
+        this->_additional_pc = gmls._additional_pc;
+        this->_operations = gmls._operations;
+        this->_NP = gmls._NP;
+        this->_basis_multiplier = gmls._basis_multiplier;
+        this->_sampling_multiplier = gmls._sampling_multiplier;
+        this->_initial_index_for_batch = gmls._initial_index_for_batch;
+        this->_max_num_neighbors = gmls._max_num_neighbors;
+        this->_d_ss = gmls._d_ss;
+
+        // store results of calculation in struct
+        const int max_num_rows = gmls._sampling_multiplier*gmls._max_num_neighbors;
+        const int this_num_cols = gmls._basis_multiplier*gmls._NP;
+        int RHS_dim_0, RHS_dim_1;
+        getRHSDims(gmls._dense_solver_type, gmls._constraint_type, gmls._reconstruction_space, gmls._dimensions, max_num_rows, this_num_cols, RHS_dim_0, RHS_dim_1);
+        int P_dim_0, P_dim_1;
+        getPDims(gmls._dense_solver_type, gmls._constraint_type, gmls._reconstruction_space, gmls._dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
+        P_target_row_dim_0 = gmls._d_ss._total_alpha_values*gmls._d_ss._max_evaluation_sites_per_target;
+        P_target_row_dim_1 = gmls._basis_multiplier*gmls._NP;
+        P_target_row_data = gmls._Z.data();
+
+        if ((gmls._constraint_type == ConstraintType::NO_CONSTRAINT) && (gmls._dense_solver_type != DenseSolverType::LU)) {
+            Coeffs_data = gmls._RHS.data();
+            Coeffs_dim_0 = RHS_dim_0;
+            Coeffs_dim_1 = RHS_dim_1;
+        } else {
+            Coeffs_data = gmls._P.data();
+            Coeffs_dim_0 = P_dim_1;
+            Coeffs_dim_1 = P_dim_0;
+        }
+    }
+
+    GMLSSolutionData() = delete;
+};
+
+struct ApplyStandardTargets2 {
+
+    GMLSSolutionData _data;
+
+    ApplyStandardTargets2(GMLS gmls) : _data(GMLSSolutionData(gmls)) {}
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()(const member_type& teamMember) const {
+
+        const int local_index  = teamMember.league_rank();
+
+        /*
+         *    Data
+         */
+
+        // Coefficients for polynomial basis have overwritten _data._RHS
+        scratch_matrix_right_type Coeffs = scratch_matrix_right_type(_data.Coeffs_data + TO_GLOBAL(local_index)*TO_GLOBAL(_data.Coeffs_dim_0*_data.Coeffs_dim_1), _data.Coeffs_dim_0, _data.Coeffs_dim_1);
+        scratch_matrix_right_type P_target_row(_data.P_target_row_data + TO_GLOBAL(local_index)*TO_GLOBAL(_data.P_target_row_dim_0*_data.P_target_row_dim_1), _data.P_target_row_dim_0, _data.P_target_row_dim_1);
+        applyTargetsToCoefficients(_data, teamMember, Coeffs, P_target_row, _data._NP); 
+        teamMember.team_barrier();
+    }
+};
+
+
 struct GMLSBasisData {
 
     //! contains weights for all problems
@@ -20,6 +101,8 @@ struct GMLSBasisData {
 
     //! sqrt(w)*Identity matrix for all problems, later holds polynomial coefficients for all problems
     Kokkos::View<double*> _RHS;
+
+    Kokkos::View<double*> _Z;
 
     //! Rank 3 tensor for high order approximation of tangent vectors for all problems. First rank is
     //! for the target index, the second is for the local direction to the manifolds 0..(_dimensions-1)
@@ -200,6 +283,7 @@ struct GMLSBasisData {
         this->_w = gmls._w ;
         this->_P = gmls._P;
         this->_RHS = gmls._RHS;
+        this->_Z = gmls._Z;
         this->_T = gmls._T;
         this->_ref_N = gmls._ref_N;
         this->_manifold_metric_tensor_inverse = gmls._manifold_metric_tensor_inverse;
@@ -307,7 +391,6 @@ struct ComputePrestencilWeights {
                 + TO_GLOBAL(target_index)*TO_GLOBAL(_data._dimensions)*TO_GLOBAL(_data._dimensions), _data._dimensions, _data._dimensions);
 
         scratch_vector_type manifold_gradient(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), (_data._dimensions-1)*_data._max_num_neighbors);
-        scratch_matrix_right_type P_target_row(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), _data._d_ss._total_alpha_values*_data._d_ss._max_evaluation_sites_per_target, max_manifold_NP*_data._basis_multiplier);
 
         /*
          *    Prestencil Weight Calculations
@@ -489,7 +572,11 @@ struct ApplyStandardTargets {
 
         scratch_vector_type t1(teamMember.team_scratch(_data._pm.getTeamScratchLevel(0)), max_num_rows);
         scratch_vector_type t2(teamMember.team_scratch(_data._pm.getTeamScratchLevel(0)), max_num_rows);
-        scratch_matrix_right_type P_target_row(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), _data._d_ss._total_alpha_values*_data._d_ss._max_evaluation_sites_per_target, this_num_cols);
+        scratch_matrix_right_type P_target_row(_data._Z.data() + TO_GLOBAL(local_index)*TO_GLOBAL(_data._d_ss._total_alpha_values*_data._d_ss._max_evaluation_sites_per_target*this_num_cols), _data._d_ss._total_alpha_values*_data._d_ss._max_evaluation_sites_per_target, this_num_cols);//teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), _data._d_ss._total_alpha_values*_data._d_ss._max_evaluation_sites_per_target, this_num_cols);
+
+        //printf("_P_size: %d\n", P_dim_1*P_dim_0);
+        //printf("_R_size: %d\n", RHS_dim_0 * RHS_dim_1);
+        //printf("AAA_size: %d\n", _data._d_ss._total_alpha_values*_data._d_ss._max_evaluation_sites_per_target*this_num_cols);
 
         scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), this_num_cols);
         scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), (_data._poly_order+1)*_data._global_dimensions);
@@ -502,8 +589,8 @@ struct ApplyStandardTargets {
         computeTargetFunctionals(_data, teamMember, delta, thread_workspace, P_target_row);
         teamMember.team_barrier();
 
-        applyTargetsToCoefficients(_data, teamMember, t1, t2, Coeffs, w, P_target_row, _data._NP); 
-        teamMember.team_barrier();
+        //applyTargetsToCoefficients(_data, teamMember, t1, t2, Coeffs, w, P_target_row, _data._NP); 
+        //teamMember.team_barrier();
     }
 };
 
@@ -785,7 +872,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
 
         // row of P matrix, one for each operator
         // +1 is for the original target site which always gets evaluated
-        team_scratch_size_b += scratch_vector_type::shmem_size(this_num_cols*_d_ss._total_alpha_values*_d_ss._max_evaluation_sites_per_target); 
+        //team_scratch_size_b += scratch_vector_type::shmem_size(this_num_cols*_d_ss._total_alpha_values*_d_ss._max_evaluation_sites_per_target); 
 
         thread_scratch_size_b += scratch_vector_type::shmem_size(this_num_cols); // delta, used for each thread
         thread_scratch_size_b += scratch_vector_type::shmem_size((_poly_order+1)*_global_dimensions); // temporary space for powers in basis
@@ -814,6 +901,8 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
         _RHS = Kokkos::View<double*>("RHS", max_batch_size*TO_GLOBAL(RHS_dim_0)*TO_GLOBAL(RHS_dim_1));
         _P = Kokkos::View<double*>("P", max_batch_size*TO_GLOBAL(P_dim_0)*TO_GLOBAL(P_dim_1));
         _w = Kokkos::View<double*>("w", max_batch_size*TO_GLOBAL(max_num_rows));
+        _Z = Kokkos::View<double*>("Z", max_batch_size*TO_GLOBAL(_d_ss._total_alpha_values*_d_ss._max_evaluation_sites_per_target*this_num_cols));
+
     } catch (std::exception &e) {
         printf("Failed to allocate space for RHS, P, and w. Consider increasing number_of_batches: \n\n%s", e.what());
         throw e;
@@ -837,9 +926,13 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
         Kokkos::deep_copy(_RHS, 0.0);
         Kokkos::deep_copy(_P, 0.0);
         Kokkos::deep_copy(_w, 0.0);
+        Kokkos::deep_copy(_Z, 0.0);
         
         // even kernels that should run on other # of vector lanes do not (on GPU)
         auto tp = _pm.TeamPolicyThreadsAndVectors(this_batch_size, _pm._default_threads, 1);
+        //auto tp = _pm.TeamPolicyThreadsAndVectors(this_batch_size, _pm._default_threads, _pm._default_vector_lanes);
+        //const auto work_item_property = Kokkos::Experimental::WorkItemProperty::HintLightWeight;
+        //const auto tp2 = Kokkos::Experimental::require(tp, work_item_property);
 
         if (_problem_type == ProblemType::MANIFOLD) {
 
@@ -991,6 +1084,15 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
             auto functor_apply_standard_targets = ApplyStandardTargets(*this);
             Kokkos::parallel_for(tp, functor_apply_standard_targets, "ApplyStandardTargets");
 
+            
+            
+            ParallelManager pm;
+            tp = pm.TeamPolicyThreadsAndVectors(this_batch_size, pm._default_threads, pm._default_vector_lanes);
+            const auto work_item_property = Kokkos::Experimental::WorkItemProperty::HintLightWeight;
+            const auto tp2 = Kokkos::Experimental::require(tp, work_item_property);
+            auto functor_apply_standard_targets2 = ApplyStandardTargets2(*this);
+            Kokkos::parallel_for(tp2, functor_apply_standard_targets2, "ApplyStandardTargets2");
+
         }
         Kokkos::fence();
         _initial_index_for_batch += this_batch_size;
@@ -999,6 +1101,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
 
     // deallocate _P and _w
     _w = Kokkos::View<double*>("w",0);
+    _Z = Kokkos::View<double*>("Z",0);
     if (number_of_batches > 1) { // no reason to keep coefficients if they aren't all in memory
         _RHS = Kokkos::View<double*>("RHS",0);
         _P = Kokkos::View<double*>("P",0);
@@ -1668,7 +1771,8 @@ void GMLS::operator()(const ApplyManifoldTargets&, const member_type& teamMember
     computeTargetFunctionalsOnManifold<GMLS>(*this, teamMember, delta, thread_workspace, P_target_row, T, G_inv, manifold_coeffs, manifold_gradient_coeffs);
     teamMember.team_barrier();
 
-    applyTargetsToCoefficients<GMLS>(*this, teamMember, t1, t2, Coeffs, w, P_target_row, _NP); 
+    //applyTargetsToCoefficients<GMLS>(*this, teamMember, t1, t2, Coeffs, w, P_target_row, _NP); 
+    applyTargetsToCoefficients<GMLS>(*this, teamMember, Coeffs, P_target_row, _NP); 
 
     teamMember.team_barrier();
 }

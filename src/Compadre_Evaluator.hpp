@@ -209,7 +209,6 @@ public:
         const int alpha_input_output_component_index2 = alpha_input_output_component_index;
 
         // gather needed information for evaluation
-        auto gmls = *(_gmls);
         auto nla = *(_gmls->getNeighborLists());
         auto solution_set = *(_gmls->getSolutionSetDevice());
         auto prestencil_weights = _gmls->getPrestencilWeights();
