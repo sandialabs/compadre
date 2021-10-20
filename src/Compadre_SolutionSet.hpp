@@ -10,11 +10,7 @@ namespace Compadre {
 //!  All vairables and functionality related to the layout and storage of GMLS
 //!  solutions (alpha values)
 template <typename memory_space = device_memory_space>
-class SolutionSet {
-
-friend class GMLS;
-
-public:
+struct SolutionSet {
 
     //! vector of user requested target operations
     std::vector<TargetOperation> _lro;
@@ -89,7 +85,7 @@ public:
 
     SolutionSet() : _data_sampling_functional(PointSample) {}
 
-    // copy constructor (can be used to move data from device to host or vice-versa)
+    //! \brief Copy constructor (can be used to move data from device to host or vice-versa)
     template <typename other_memory_space>
     SolutionSet(const SolutionSet<other_memory_space> &other) : 
             _data_sampling_functional(other._data_sampling_functional),
@@ -132,13 +128,6 @@ public:
         // don't copy _alphas (expensive)
         // _alphas only copied using copyAlphas
     }
-
-///@}
-
-/** @name Public Utility
- *  
- */
-///@{
 
 ///@}
 
@@ -315,6 +304,8 @@ public:
  */
 ///@{
 
+    //! Copies alphas between two instances of SolutionSet
+    //! Copying of alphas is intentionally omitted in copy constructor
     template <typename other_memory_space>
     void copyAlphas(SolutionSet<other_memory_space>& other) {
         if ((void*)this != (void*)&other) {
