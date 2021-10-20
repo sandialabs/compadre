@@ -130,8 +130,6 @@ const GMLSSolutionData createGMLSSolutionData(const GMLS& gmls) {
 
 const GMLSBasisData createGMLSBasisData(const GMLS& gmls) {
     auto data = GMLSBasisData();
-    data._polynomial_sampling_functional = gmls._polynomial_sampling_functional;
-    data._data_sampling_functional = gmls._data_sampling_functional;
     data._w = gmls._w ;
     data._P = gmls._P;
     data._RHS = gmls._RHS;
@@ -158,6 +156,8 @@ const GMLSBasisData createGMLSBasisData(const GMLS& gmls) {
     data._dense_solver_type = gmls._dense_solver_type;
     data._problem_type = gmls._problem_type;
     data._constraint_type = gmls._constraint_type;
+    data._polynomial_sampling_functional = gmls._polynomial_sampling_functional;
+    data._data_sampling_functional = gmls._data_sampling_functional;
     data._curvature_support_operations = gmls._curvature_support_operations;
     data._operations = gmls._operations;
     data._weighting_type = gmls._weighting_type;
@@ -1461,9 +1461,6 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
                 && "Normal vectors are required for solving GMLS problems with the NEUMANN_GRAD_SCALAR constraint.");
     }
 
-    auto gmls_basis_data = createGMLSBasisData(*this);
-    auto gmls_solution_data = createGMLSSolutionData(*this);
-
     _initial_index_for_batch = 0;
     for (int batch_num=0; batch_num<number_of_batches; ++batch_num) {
 
@@ -1472,6 +1469,10 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
         Kokkos::deep_copy(_P, 0.0);
         Kokkos::deep_copy(_w, 0.0);
         Kokkos::deep_copy(_Z, 0.0);
+
+        auto gmls_basis_data = createGMLSBasisData(*this);
+        auto gmls_solution_data = createGMLSSolutionData(*this);
+
         
         // even kernels that should run on other # of vector lanes do not (on GPU)
         auto tp = _pm.TeamPolicyThreadsAndVectors(this_batch_size, _pm._default_threads, 1);
