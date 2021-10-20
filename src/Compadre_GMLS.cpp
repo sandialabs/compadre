@@ -208,7 +208,7 @@ struct ApplyStandardTargets {
         // Coefficients for polynomial basis have overwritten _data._RHS
         scratch_matrix_right_type Coeffs = scratch_matrix_right_type(_data.Coeffs_data + TO_GLOBAL(local_index)*TO_GLOBAL(_data.Coeffs_dim_0*_data.Coeffs_dim_1), _data.Coeffs_dim_0, _data.Coeffs_dim_1);
         scratch_matrix_right_type P_target_row(_data.P_target_row_data + TO_GLOBAL(local_index)*TO_GLOBAL(_data.P_target_row_dim_0*_data.P_target_row_dim_1), _data.P_target_row_dim_0, _data.P_target_row_dim_1);
-        applyTargetsToCoefficients(_data, teamMember, Coeffs, P_target_row, _data._NP); 
+        applyTargetsToCoefficients(_data, teamMember, Coeffs, P_target_row); 
         teamMember.team_barrier();
     }
 };
@@ -1225,8 +1225,7 @@ struct ApplyManifoldTargets {
         computeTargetFunctionalsOnManifold<GMLSBasisData>(_data, teamMember, delta, thread_workspace, P_target_row, T, G_inv, manifold_coeffs, manifold_gradient_coeffs);
         teamMember.team_barrier();
 
-        //applyTargetsToCoefficients<GMLS>(*this, teamMember, t1, t2, Coeffs, w, P_target_row, _NP); 
-        applyTargetsToCoefficients<GMLSBasisData>(_data, teamMember, Coeffs, P_target_row, _data._NP); 
+        applyTargetsToCoefficients(_data, teamMember, Coeffs, P_target_row); 
 
         teamMember.team_barrier();
     }

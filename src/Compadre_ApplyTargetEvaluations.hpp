@@ -7,8 +7,7 @@ namespace Compadre {
 //! Helper function for applying the evaluations from a target functional to the polynomial coefficients
 template <typename SolutionData>
 KOKKOS_INLINE_FUNCTION
-//void applyTargetsToCoefficients(const SolutionData& data, const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type Q, scratch_vector_type w, scratch_matrix_right_type P_target_row, const int target_NP) {
-void applyTargetsToCoefficients(const SolutionData& data, const member_type& teamMember, scratch_matrix_right_type Q, scratch_matrix_right_type P_target_row, const int target_NP) {
+void applyTargetsToCoefficients(const SolutionData& data, const member_type& teamMember, scratch_matrix_right_type Q, scratch_matrix_right_type P_target_row) {
 
     const int target_index = data._initial_index_for_batch + teamMember.league_rank();
 
@@ -65,7 +64,7 @@ void applyTargetsToCoefficients(const SolutionData& data, const member_type& tea
                         double alpha_ij = 0;
                         if (data._sampling_multiplier>1 && m<data._sampling_multiplier) {
                             const int m_neighbor_offset = i+m*data._pc._nla.getNumberOfNeighborsDevice(target_index);
-                            Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember, data._basis_multiplier*target_NP),
+                            Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember, data._basis_multiplier*data._NP),
                               [&] (int& l, double& t_alpha_ij) {
                                 t_alpha_ij += P_target_row(offset_index_jmke, l)*Q(l, m_neighbor_offset);
 
@@ -76,7 +75,7 @@ void applyTargetsToCoefficients(const SolutionData& data, const member_type& tea
 
                             }, alpha_ij);
                         } else if (data._sampling_multiplier == 1) {
-                            Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember, data._basis_multiplier*target_NP),
+                            Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember, data._basis_multiplier*data._NP),
                               [&] (int& l, double& t_alpha_ij) {
                                 t_alpha_ij += P_target_row(offset_index_jmke, l)*Q(l,i);
 
@@ -117,7 +116,7 @@ void applyTargetsToCoefficients(const SolutionData& data, const member_type& tea
                     int offset_index_jmke = data._d_ss.getTargetOffsetIndex(j,m,k,e);
                     for (int i=0; i<data._pc._nla.getNumberOfNeighborsDevice(target_index) + data._d_ss._added_alpha_size; ++i) {
                         Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-                            data._basis_multiplier*target_NP), [&] (const int l, double &talpha_ij) {
+                            data._basis_multiplier*data._NP), [&] (const int l, double &talpha_ij) {
                             if (data._sampling_multiplier>1 && m<data._sampling_multiplier) {
 
                                 talpha_ij += P_target_row(offset_index_jmke, l)*Q(l, i+m*data._pc._nla.getNumberOfNeighborsDevice(target_index));
