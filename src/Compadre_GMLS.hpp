@@ -34,6 +34,13 @@ friend class Evaluator;
 friend const GMLSBasisData createGMLSBasisData(const GMLS& gmls);
 friend const GMLSSolutionData createGMLSSolutionData(const GMLS& gmls);
 
+public:
+
+    typedef PointConnections<Kokkos::View<double**, layout_right>, 
+            Kokkos::View<double**, layout_right>, 
+            NeighborLists<Kokkos::View<int*> > > 
+                point_connections_type;
+
 private:
 
     // matrices that may be needed for matrix factorization on the device
@@ -93,7 +100,6 @@ private:
     Kokkos::View<double**, layout_right> _target_coordinates; 
 
     //! connections between points and neighbors
-    typedef PointConnections<decltype(_target_coordinates), decltype(_source_coordinates), decltype(_neighbor_lists)> point_connections_type;
     point_connections_type _pc;
 
     //! h supports determined through neighbor search (device)

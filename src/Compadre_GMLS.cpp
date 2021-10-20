@@ -23,28 +23,23 @@ struct GMLSBasisData {
     Kokkos::View<double*> _manifold_curvature_gradient;
     Kokkos::View<double**, layout_right> _source_extra_data;
     Kokkos::View<double**, layout_right> _target_extra_data;
-    typedef PointConnections<Kokkos::View<double**, layout_right>, Kokkos::View<double**, layout_right>, NeighborLists<Kokkos::View<int*> > > point_connections_type;
-    point_connections_type _pc;
     Kokkos::View<double*> _epsilons; 
     Kokkos::View<double*****, layout_right> _prestencil_weights; 
-    point_connections_type _additional_pc;
+    Kokkos::View<TargetOperation*> _curvature_support_operations;
+    Kokkos::View<TargetOperation*> _operations;
+    bool _nontrivial_nullspace;
+    bool _orthonormal_tangent_space_provided; 
+    bool _reference_outward_normal_direction_provided;
+    bool _use_reference_outward_normal_direction_provided_to_orient_surface;
+    bool _entire_batch_computed_at_once;
+    bool _store_PTWP_inv_PTW;
     int _poly_order; 
     int _curvature_poly_order;
     int _NP;
     int _global_dimensions;
     int _local_dimensions;
     int _dimensions;
-    ReconstructionSpace _reconstruction_space;
     int _reconstruction_space_rank;
-    DenseSolverType _dense_solver_type;
-    ProblemType _problem_type;
-    ConstraintType _constraint_type;
-    SamplingFunctional _polynomial_sampling_functional;
-    SamplingFunctional _data_sampling_functional;
-    Kokkos::View<TargetOperation*> _curvature_support_operations;
-    Kokkos::View<TargetOperation*> _operations;
-    WeightingFunctionType _weighting_type;
-    WeightingFunctionType _curvature_weighting_type;
     int _weighting_p;
     int _weighting_n;
     int _curvature_weighting_p;
@@ -52,17 +47,21 @@ struct GMLSBasisData {
     int _basis_multiplier;
     int _sampling_multiplier;
     int _data_sampling_multiplier;
-    bool _nontrivial_nullspace;
-    bool _orthonormal_tangent_space_provided; 
-    bool _reference_outward_normal_direction_provided;
-    bool _use_reference_outward_normal_direction_provided_to_orient_surface;
-    bool _entire_batch_computed_at_once;
-    bool _store_PTWP_inv_PTW;
     int _initial_index_for_batch;
     int _max_num_neighbors;
-    ParallelManager _pm;
     int _order_of_quadrature_points;
     int _dimension_of_quadrature_points;
+    GMLS::point_connections_type _pc;
+    GMLS::point_connections_type _additional_pc;
+    ParallelManager _pm;
+    ReconstructionSpace _reconstruction_space;
+    DenseSolverType _dense_solver_type;
+    ProblemType _problem_type;
+    ConstraintType _constraint_type;
+    SamplingFunctional _polynomial_sampling_functional;
+    SamplingFunctional _data_sampling_functional;
+    WeightingFunctionType _weighting_type;
+    WeightingFunctionType _curvature_weighting_type;
     Quadrature _qm;
     SolutionSet<device_memory_space> _d_ss;
 
@@ -1591,6 +1590,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
 
             // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity
             auto functor_assemble_standard_psqrtw = AssembleStandardPsqrtW(gmls_basis_data);
+            //printf("size of assemble: %lu\n",  sizeof(functor_assemble_standard_psqrtw));
             Kokkos::parallel_for(tp, functor_assemble_standard_psqrtw, "AssembleStandardPsqrtW");
             Kokkos::fence();
 
@@ -1646,6 +1646,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
             const auto work_item_property = Kokkos::Experimental::WorkItemProperty::HintLightWeight;
             const auto tp2 = Kokkos::Experimental::require(tp, work_item_property);
             auto functor_apply_standard_targets = ApplyStandardTargets(gmls_solution_data);
+            //printf("size of apply: %lu\n",  sizeof(functor_apply_standard_targets));
             Kokkos::parallel_for(tp2, functor_apply_standard_targets, "ApplyStandardTargets");
 
         }
