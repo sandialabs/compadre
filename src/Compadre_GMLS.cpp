@@ -67,11 +67,11 @@ struct GMLSSolutionData {
     GMLSSolutionData() = delete;
 };
 
-struct ApplyStandardTargets2 {
+struct ApplyStandardTargets {
 
     GMLSSolutionData _data;
 
-    ApplyStandardTargets2(GMLS gmls) : _data(GMLSSolutionData(gmls)) {}
+    ApplyStandardTargets(GMLS gmls) : _data(GMLSSolutionData(gmls)) {}
 
     KOKKOS_INLINE_FUNCTION
     void operator()(const member_type& teamMember) const {
@@ -531,11 +531,11 @@ struct ComputePrestencilWeights {
     }
 };
 
-struct ApplyStandardTargets {
+struct EvaluateStandardTargets {
 
     GMLSBasisData _data;
 
-    ApplyStandardTargets(GMLS gmls) : _data(GMLSBasisData(gmls)) {}
+    EvaluateStandardTargets(GMLS gmls) : _data(GMLSBasisData(gmls)) {}
 
     KOKKOS_INLINE_FUNCTION
     void operator()(const member_type& teamMember) const {
@@ -582,15 +582,12 @@ struct ApplyStandardTargets {
         scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), (_data._poly_order+1)*_data._global_dimensions);
 
         /*
-         *    Apply Standard Target Evaluations to Polynomial Coefficients
+         *    Evaluate Standard Targets
          */
 
-        // get evaluation of target functionals
         computeTargetFunctionals(_data, teamMember, delta, thread_workspace, P_target_row);
         teamMember.team_barrier();
 
-        //applyTargetsToCoefficients(_data, teamMember, t1, t2, Coeffs, w, P_target_row, _data._NP); 
-        //teamMember.team_barrier();
     }
 };
 
@@ -870,10 +867,6 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
         team_scratch_size_a += scratch_vector_type::shmem_size(max_num_rows); // t1 work vector for qr
         team_scratch_size_a += scratch_vector_type::shmem_size(max_num_rows); // t2 work vector for qr
 
-        // row of P matrix, one for each operator
-        // +1 is for the original target site which always gets evaluated
-        //team_scratch_size_b += scratch_vector_type::shmem_size(this_num_cols*_d_ss._total_alpha_values*_d_ss._max_evaluation_sites_per_target); 
-
         thread_scratch_size_b += scratch_vector_type::shmem_size(this_num_cols); // delta, used for each thread
         thread_scratch_size_b += scratch_vector_type::shmem_size((_poly_order+1)*_global_dimensions); // temporary space for powers in basis
     }
@@ -1081,17 +1074,17 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
              */
 
             // evaluates targets, applies target evaluation to polynomial coefficients to store in _alphas
-            auto functor_apply_standard_targets = ApplyStandardTargets(*this);
-            Kokkos::parallel_for(tp, functor_apply_standard_targets, "ApplyStandardTargets");
+            auto functor_evaluate_standard_targets = EvaluateStandardTargets(*this);
+            Kokkos::parallel_for(tp, functor_evaluate_standard_targets, "EvaluateStandardTargets");
 
             
-            
+            // fine grain control over applying standard target (most expensive part after QR solve)
             ParallelManager pm;
             tp = pm.TeamPolicyThreadsAndVectors(this_batch_size, pm._default_threads, pm._default_vector_lanes);
             const auto work_item_property = Kokkos::Experimental::WorkItemProperty::HintLightWeight;
             const auto tp2 = Kokkos::Experimental::require(tp, work_item_property);
-            auto functor_apply_standard_targets2 = ApplyStandardTargets2(*this);
-            Kokkos::parallel_for(tp2, functor_apply_standard_targets2, "ApplyStandardTargets2");
+            auto functor_apply_standard_targets = ApplyStandardTargets(*this);
+            Kokkos::parallel_for(tp2, functor_apply_standard_targets, "ApplyStandardTargets");
 
         }
         Kokkos::fence();
