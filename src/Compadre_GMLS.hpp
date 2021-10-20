@@ -36,9 +36,6 @@ friend const GMLSSolutionData createGMLSSolutionData(const GMLS& gmls);
 
 private:
 
-    // random numbe generator pool
-    pool_type _random_number_pool;
-
     // matrices that may be needed for matrix factorization on the device
     // supports batched matrix factorization dispatch
 
@@ -434,9 +431,6 @@ public:
                         && (data_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : data_sampling_strategy)
             {
 
-        // seed random number generator pool
-        _random_number_pool = pool_type(1);
-
         _NP = this->getNP(_poly_order, dimensions, _reconstruction_space);
         Kokkos::fence();
 
@@ -519,87 +513,6 @@ public:
     //! Destructor
     ~GMLS(){
     };
-
-///@}
-
-/** @name Functors
- *  Member functions that perform operations on the entire batch
- */
-///@{
-
-    //! Tag for functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity
-    //struct AssembleStandardPsqrtW{};
-
-    //! Tag for functor to evaluate targets, apply target evaluation to polynomial coefficients to
-    //! store in _alphas
-    //struct ApplyStandardTargets{};
-
-    //! Tag for functor to create a coarse tangent approximation from a given neighborhood of points
-    struct ComputeCoarseTangentPlane{};
-
-    //! Tag for functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity for curvature
-    struct AssembleCurvaturePsqrtW{};
-
-    //! Tag for functor to evaluate curvature targets and construct accurate tangent direction approximation for manifolds
-    struct GetAccurateTangentDirections{};
-
-    //! Tag for functor to determine if tangent directions need reordered, and to reorder them if needed
-    struct FixTangentDirectionOrdering{};
-
-    //! Tag for functor to evaluate curvature targets and apply to coefficients of curvature reconstruction
-    struct ApplyCurvatureTargets{};
-
-    //! Tag for functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity
-    struct AssembleManifoldPsqrtW{};
-
-    //! Tag for functor to evaluate targets, apply target evaluation to polynomial coefficients to store in _alphas
-    struct ApplyManifoldTargets{};
-
-    ////! Tag for functor to calculate prestencil weights to apply to data to transform into a format expected by a GMLS stencil
-    //struct ComputePrestencilWeights{};
-
-
-
-    //! Functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity
-    //KOKKOS_INLINE_FUNCTION
-    //void operator() (const AssembleStandardPsqrtW&, const member_type& teamMember) const;
-
-    //! Functor to evaluate targets, apply target evaluation to polynomial coefficients to store in _alphas
-    //KOKKOS_INLINE_FUNCTION
-    //void operator() (const ApplyStandardTargets&, const member_type& teamMember) const;
-
-    //! Functor to create a coarse tangent approximation from a given neighborhood of points
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const ComputeCoarseTangentPlane&, const member_type& teamMember) const;
-
-    //! Functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity for curvature
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const AssembleCurvaturePsqrtW&, const member_type& teamMember) const;
-
-    //! Functor to evaluate curvature targets and construct accurate tangent direction approximation for manifolds
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const GetAccurateTangentDirections&, const member_type& teamMember) const;
-
-    //! Functor to determine if tangent directions need reordered, and to reorder them if needed
-    //! We require that the normal is consistent with a right hand rule on the tangent vectors
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const FixTangentDirectionOrdering&, const member_type& teamMember) const;
-
-    //! Functor to evaluate curvature targets and apply to coefficients of curvature reconstruction
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const ApplyCurvatureTargets&, const member_type& teamMember) const;
-
-    //! Functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const AssembleManifoldPsqrtW&, const member_type& teamMember) const;
-
-    //! Functor to evaluate targets, apply target evaluation to polynomial coefficients to store in _alphas
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const ApplyManifoldTargets&, const member_type& teamMember) const;
-
-    ////! Functor to calculate prestencil weights to apply to data to transform into a format expected by a GMLS stencil
-    //KOKKOS_INLINE_FUNCTION
-    //void operator() (const ComputePrestencilWeights&, const member_type& teamMember) const;
 
 ///@}
 

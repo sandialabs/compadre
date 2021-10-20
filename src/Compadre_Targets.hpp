@@ -1050,7 +1050,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
 
     // determine if additional evaluation sites are requested by user and handled by target operations 
     bool additional_evaluation_sites_need_handled = 
-        (data._additional_evaluation_coordinates.extent(0) > 0) ? true : false; // additional evaluation sites are specified
+        (data._additional_pc._source_coordinates.extent(0) > 0) ? true : false; // additional evaluation sites are specified
 
     const int num_evaluation_sites = data._additional_pc._nla.getNumberOfNeighborsDevice(target_index) + 1;
 
