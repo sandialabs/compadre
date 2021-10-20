@@ -7,6 +7,7 @@
 namespace Compadre {
 
 /*! \brief Evaluates a polynomial basis with a target functional applied to each member of the basis
+    \param data                         [in] - GMLSBasisData struct
     \param teamMember                   [in] - Kokkos::TeamPolicy member type (created by parallel_for)
     \param delta                    [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
     \param thread_workspace         [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _poly_order*_global_dimensions.
@@ -958,6 +959,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
 
     data._operations is used by this function which is set through a modifier function
 
+    \param data                         [in] - GMLSBasisData struct
     \param teamMember                   [in] - Kokkos::TeamPolicy member type (created by parallel_for)
     \param delta                    [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
     \param thread_workspace         [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _curvature_poly_order*the spatial dimension of the polynomial basis.
@@ -1019,6 +1021,7 @@ void computeCurvatureFunctionals(const TargetData& data, const member_type& team
 
      data._operations is used by this function which is set through a modifier function
 
+    \param data                         [in] - GMLSBasisData struct
     \param teamMember                   [in] - Kokkos::TeamPolicy member type (created by parallel_for)
     \param delta                    [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
     \param thread_workspace         [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _curvature_poly_order*the spatial dimension of the polynomial basis.

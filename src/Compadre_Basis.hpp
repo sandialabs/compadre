@@ -6,6 +6,8 @@
 namespace Compadre {
 
 /*! \brief Evaluates the polynomial basis under a particular sampling function. Generally used to fill a row of P.
+    \param data                 [in] - GMLSBasisData struct
+    \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
     \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _basis_multipler*the dimension of the polynomial basis.
     \param thread_workspace [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
     \param target_index         [in] - target number
@@ -481,6 +483,8 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
 }
 
 /*! \brief Evaluates the gradient of a polynomial basis under the Dirac Delta (pointwise) sampling function.
+    \param data                 [in] - GMLSBasisData struct
+    \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
     \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
     \param thread_workspace [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
     \param target_index         [in] - target number
@@ -562,6 +566,8 @@ void calcGradientPij(const BasisData& data, const member_type& teamMember, doubl
 }
 
 /*! \brief Evaluates the Hessian of a polynomial basis under the Dirac Delta (pointwise) sampling function.
+    \param data                 [in] - GMLSBasisData struct
+    \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
     \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
     \param thread_workspace [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
     \param target_index         [in] - target number
@@ -641,6 +647,7 @@ void calcHessianPij(const BasisData& data, const member_type& teamMember, double
 }
 
 /*! \brief Fills the _P matrix with either P or P*sqrt(w)
+    \param data                 [in] - GMLSBasisData struct
     \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
     \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
     \param thread_workspace [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
@@ -734,6 +741,7 @@ void createWeightsAndP(const BasisData& data, const member_type& teamMember, scr
 
      Uses _curvature_poly_order as the polynomial order of the basis
 
+    \param data                 [in] - GMLSBasisData struct
     \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
     \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the
 s_multipler*the dimension of the polynomial basis.

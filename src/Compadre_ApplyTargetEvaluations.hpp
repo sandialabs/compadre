@@ -4,7 +4,12 @@
 #include "Compadre_GMLS.hpp"
 namespace Compadre {
 
-//! Helper function for applying the evaluations from a target functional to the polynomial coefficients
+/*! \brief For applying the evaluations from a target functional to the polynomial coefficients
+    \param data                     [out/in] - GMLSSolutionData struct (stores solution in data._d_ss._alphas)
+    \param teamMember                   [in] - Kokkos::TeamPolicy member type (created by parallel_for)
+    \param Q                            [in] - 2D Kokkos View containing the polynomial coefficients
+    \param P_target_row                 [in] - 1D Kokkos View where the evaluation of the polynomial basis is stored
+*/
 template <typename SolutionData>
 KOKKOS_INLINE_FUNCTION
 void applyTargetsToCoefficients(const SolutionData& data, const member_type& teamMember, scratch_matrix_right_type Q, scratch_matrix_right_type P_target_row) {
