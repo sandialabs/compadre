@@ -17,7 +17,9 @@
 
 namespace Compadre {
 
-class Evaluator;
+class  Evaluator;
+struct GMLSBasisData;
+struct GMLSSolutionData;
 
 //!  Generalized Moving Least Squares (GMLS)
 /*!
@@ -28,9 +30,11 @@ class Evaluator;
 */
 class GMLS {
 
-    friend class Evaluator;
+friend class Evaluator;
+friend const GMLSBasisData createGMLSBasisData(const GMLS& gmls);
+friend const GMLSSolutionData createGMLSSolutionData(const GMLS& gmls);
 
-public:
+private:
 
     // random numbe generator pool
     pool_type _random_number_pool;
@@ -122,11 +126,9 @@ public:
     Kokkos::View<int*, host_memory_space> _host_number_of_additional_evaluation_indices; 
 
     //! Solution Set (contains all alpha values from solution and alpha layout methods)
-private:
     // _h_ss is private so that getSolutionSetHost() must be called
     // which ensures that the copy of the solution to device is necessary
     SolutionSet<host_memory_space> _h_ss;
-public:
     SolutionSet<device_memory_space> _d_ss;
 
     //! order of basis for polynomial reconstruction
@@ -252,6 +254,7 @@ public:
     //! manages and calculates quadrature
     Quadrature _qm;
 
+private:
 
 /** @name Private Modifiers
  *  Private function because information lives on the device
@@ -1404,8 +1407,6 @@ public:
     void generateAlphas(const int number_of_batches = 1, const bool keep_coefficients = false);
 
 ///@}
-
-
 
 
 }; // GMLS Class

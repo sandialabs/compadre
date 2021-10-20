@@ -11,6 +11,9 @@ namespace Compadre {
 //!  solutions (alpha values)
 template <typename memory_space = device_memory_space>
 class SolutionSet {
+
+friend class GMLS;
+
 public:
 
     //! vector of user requested target operations
@@ -47,12 +50,14 @@ public:
     //! used for sizing P_target_row and the _alphas view
     int _total_alpha_values;
 
-    //! Accessor to get neighbor list data, offset data, and number of neighbors per target
-    NeighborLists<Kokkos::View<int*> > _neighbor_lists;
+private:
 
     //
     // Redundant variables (already exist in GMLS class)
     //
+  
+    //! Accessor to get neighbor list data, offset data, and number of neighbors per target
+    NeighborLists<Kokkos::View<int*> > _neighbor_lists;
 
     //! generally the same as _polynomial_sampling_functional, but can differ if specified at 
     //! GMLS class instantiation
@@ -67,6 +72,7 @@ public:
     //! problem type for GMLS problem, can also be set to STANDARD for normal or MANIFOLD for manifold problems
     ProblemType _problem_type;
 
+public:
 
 /** @name Constructors
  */
