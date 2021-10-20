@@ -312,7 +312,7 @@ private:
         _additional_evaluation_indices = NeighborLists<view_type>(additional_evaluation_indices, number_of_neighbors_list);
         _h_ss._max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
         _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
-        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), KOKKOS_LAMBDA(const int i) {
+        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), [&](const int i) {
             _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
         });
         Kokkos::fence();
@@ -335,7 +335,7 @@ private:
         _additional_evaluation_indices = NeighborLists<gmls_view_type>(d_additional_evaluation_indices, d_number_of_neighbors_list);
         _h_ss._max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
         _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
-        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), KOKKOS_LAMBDA(const int i) {
+        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), [&](const int i) {
             _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
         });
         Kokkos::fence();
@@ -352,7 +352,7 @@ private:
         _additional_evaluation_indices = Convert2DToCompressedRowNeighborLists<decltype(additional_evaluation_indices), Kokkos::View<int*> >(additional_evaluation_indices);
         _h_ss._max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
         _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
-        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), KOKKOS_LAMBDA(const int i) {
+        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), [&](const int i) {
             _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
         });
         Kokkos::fence();

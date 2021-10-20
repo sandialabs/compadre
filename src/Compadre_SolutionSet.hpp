@@ -50,8 +50,6 @@ public:
     //! used for sizing P_target_row and the _alphas view
     int _total_alpha_values;
 
-private:
-
     //
     // Redundant variables (already exist in GMLS class)
     //
@@ -71,8 +69,6 @@ private:
 
     //! problem type for GMLS problem, can also be set to STANDARD for normal or MANIFOLD for manifold problems
     ProblemType _problem_type;
-
-public:
 
 /** @name Constructors
  */
