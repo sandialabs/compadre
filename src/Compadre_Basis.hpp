@@ -726,7 +726,6 @@ void createWeightsAndP(const BasisData& data, const member_type& teamMember, scr
             }
         }
     });
-
     teamMember.team_barrier();
 //    Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
 //        for (int k=0; k<data._pc._nla.getNumberOfNeighborsDevice(target_index); k++) {

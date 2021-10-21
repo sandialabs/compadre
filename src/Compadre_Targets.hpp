@@ -951,8 +951,8 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
          */
         compadre_kernel_assert_release(((additional_evaluation_sites_need_handled && additional_evaluation_sites_handled) || (!additional_evaluation_sites_need_handled)) && "Auxiliary evaluation coordinates are specified by user, but are calling a target operation that can not handle evaluating additional sites.");
         } // !operation_handled
-        teamMember.team_barrier();
     }
+    teamMember.team_barrier();
 }
 
 /*! \brief Evaluates a polynomial basis for the curvature with a gradient target functional applied
@@ -1015,6 +1015,7 @@ void computeCurvatureFunctionals(const TargetData& data, const member_type& team
             compadre_kernel_assert_release((false) && "Functionality not yet available.");
         }
     }
+    teamMember.team_barrier();
 }
 
 /*! \brief Evaluates a polynomial basis with a target functional applied, using information from the manifold curvature
@@ -1027,13 +1028,11 @@ void computeCurvatureFunctionals(const TargetData& data, const member_type& team
     \param thread_workspace         [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _curvature_poly_order*the spatial dimension of the polynomial basis.
     \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
     \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-    \param G_inv                        [in] - (_dimensions-1)*(_dimensions-1) Kokkos View containing inverse of metric tensor
     \param curvature_coefficients       [in] - polynomial coefficients for curvature
-    \param curvature_gradients          [in] - approximation of gradient of curvature, Kokkos View of size (_dimensions-1)
 */
 template <typename TargetData>
 KOKKOS_INLINE_FUNCTION
-void computeTargetFunctionalsOnManifold(const TargetData& data, const member_type& teamMember, scratch_vector_type delta, scratch_vector_type thread_workspace, scratch_matrix_right_type P_target_row, scratch_matrix_right_type V, scratch_matrix_right_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients) {
+void computeTargetFunctionalsOnManifold(const TargetData& data, const member_type& teamMember, scratch_vector_type delta, scratch_vector_type thread_workspace, scratch_matrix_right_type P_target_row, scratch_matrix_right_type V, scratch_vector_type curvature_coefficients) {
 
     compadre_kernel_assert_release(((int)thread_workspace.extent(0)>=(data._poly_order+1)*data._local_dimensions) && "Workspace thread_workspace not large enough.");
 
@@ -1710,19 +1709,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                 compadre_kernel_assert_release((false) && "Functionality not yet available.");
             }
         } else if (data._dimensions==2) { // 1D manifold in 2D problem
-            if (data._operations(i) == TargetOperation::GradientOfScalarPointEvaluation) {
-                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                    int offset = data._d_ss.getTargetOffsetIndex(i, 0, 0, 0);
-                    for (int j=0; j<target_NP; ++j) {
-                        P_target_row(offset, j) = 0;
-                        delta(j) = (j == 1) ? std::pow(data._epsilons(target_index), -1) : 0;
-                    }
-                    for (int j=0; j<target_NP; ++j) {
-                        double v1 = delta(j)*G_inv(0,0);
-                        P_target_row(offset, j) = v1;
-                    }
-                });
-            } else if (data._operations(i) == TargetOperation::ScalarPointEvaluation) {
+            if (data._operations(i) == TargetOperation::ScalarPointEvaluation) {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
                     calcPij<TargetData>(data, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, data._dimensions-1, data._poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, j);
                     int offset = data._d_ss.getTargetOffsetIndex(i, 0, 0, j);
@@ -1738,6 +1725,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
         compadre_kernel_assert_release(((additional_evaluation_sites_need_handled && additional_evaluation_sites_handled) || (!additional_evaluation_sites_need_handled)) && "Auxiliary evaluation coordinates are specified by user, but are calling a target operation that can not handle evaluating additional sites.");
         } // !operation_handled
     }
+    teamMember.team_barrier();
 }
 
 } // Compadre
