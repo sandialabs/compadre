@@ -55,6 +55,7 @@ private:
     //! sqrt(w)*Identity matrix for all problems, later holds polynomial coefficients for all problems
     Kokkos::View<double*> _RHS;
 
+    //! stores evaluations of targets applied to basis
     Kokkos::View<double*> _Z;
 
     //! Rank 3 tensor for high order approximation of tangent vectors for all problems. First rank is
