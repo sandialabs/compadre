@@ -112,19 +112,22 @@ void applyTargetsToCoefficients(const SolutionData& data, const member_type& tea
     scratch_matrix_right_type this_alphas(data._d_ss._alphas.data() + TO_GLOBAL(base_alphas_index), data._d_ss._total_alpha_values*data._d_ss._max_evaluation_sites_per_target, alphas_per_tile_per_target);
 
     auto n_evaluation_sites_per_target = data.additional_number_of_neighbors_list(target_index) + 1;
+    const auto nn = data.number_of_neighbors_list(target_index);
     for (int e=0; e<n_evaluation_sites_per_target; ++e) {
         // evaluating alpha_ij
         for (size_t j=0; j<data.operations_size; ++j) {
             for (int k=0; k<data._d_ss._lro_output_tile_size[j]; ++k) {
                 for (int m=0; m<data._d_ss._lro_input_tile_size[j]; ++m) {
-                    double alpha_ij = 0;
-                    int offset_index_jmke = data._d_ss.getTargetOffsetIndex(j,m,k,e);
-                    for (int i=0; i<data.number_of_neighbors_list(target_index) + data._d_ss._added_alpha_size; ++i) {
-                        Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-                            data.this_num_cols), [&] (const int l, double &talpha_ij) {
+                    const int offset_index_jmke = data._d_ss.getTargetOffsetIndex(j,m,k,e);
+                    for (int i=0; i<nn + data._d_ss._added_alpha_size; ++i) {
+                        double alpha_ij = 0;
+                        const int Q_col = i+m*nn;
+                        // one thread per team on CPU, so no reason to add inner parallel reductions here
+                        // or Kokkos::single. Either will cause significant slowdown.
+                        for (int l=0; l<data.this_num_cols; ++l) {
                             if (data._sampling_multiplier>1 && m<data._sampling_multiplier) {
 
-                                talpha_ij += P_target_row(offset_index_jmke, l)*Q(l, i+m*data.number_of_neighbors_list(target_index));
+                                alpha_ij += P_target_row(offset_index_jmke, l)*Q(l, Q_col);
 
                                 compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l) 
                                         && "NaN in P_target_row matrix.");
@@ -133,7 +136,7 @@ void applyTargetsToCoefficients(const SolutionData& data, const member_type& tea
 
                             } else if (data._sampling_multiplier == 1) {
 
-                                talpha_ij += P_target_row(offset_index_jmke, l)*Q(l, i);
+                                alpha_ij += P_target_row(offset_index_jmke, l)*Q(l, i);
 
                                 compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l) 
                                         && "NaN in P_target_row matrix.");
@@ -141,13 +144,10 @@ void applyTargetsToCoefficients(const SolutionData& data, const member_type& tea
                                         && "NaN in Q coefficient matrix.");
 
                             } else {
-                                talpha_ij += 0;
+                                alpha_ij += 0;
                             }
-                        }, alpha_ij);
-                        Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                            this_alphas(offset_index_jmke,i) = alpha_ij;
-                            compadre_kernel_assert_extreme_debug(alpha_ij==alpha_ij && "NaN in alphas.");
-                        });
+                        }
+                        this_alphas(offset_index_jmke,i) = alpha_ij;
                     }
                 }
             }
