@@ -149,7 +149,7 @@ public:
 
         double value = 0;
 
-        const int alpha_input_output_component_index = _gmls->getSolutionSetHost()->getAlphaColumnOffset(lro, output_component_axis_1, 
+        const int alpha_input_output_component_index = _gmls->_h_ss.getAlphaColumnOffset(lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
 
         auto sampling_subview_maker = CreateNDSliceOnDeviceView(sampling_input_data, scalar_as_vector_if_needed);
