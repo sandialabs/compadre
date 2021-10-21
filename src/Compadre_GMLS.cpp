@@ -19,13 +19,6 @@ struct GMLSBasisData {
     Kokkos::View<TargetOperation*> _curvature_support_operations;
     Kokkos::View<TargetOperation*> _operations;
 
-    bool _nontrivial_nullspace;
-    bool _orthonormal_tangent_space_provided; 
-    bool _reference_outward_normal_direction_provided;
-    bool _use_reference_outward_normal_direction_provided_to_orient_surface;
-    bool _entire_batch_computed_at_once;
-    bool _store_PTWP_inv_PTW;
-
     int _poly_order; 
     int _curvature_poly_order;
     int _NP;
@@ -86,49 +79,38 @@ struct GMLSBasisData {
 
 struct GMLSSolutionData {
 
-    typedef PointConnections<Kokkos::View<double**, layout_right>, 
-            Kokkos::View<double**, layout_right>, 
-            NeighborLists<Kokkos::View<int*> > > 
-                point_connections_type;
-
-    point_connections_type _pc;
-    point_connections_type _additional_pc;
-    Kokkos::View<TargetOperation*> _operations;
-    int _NP;
-    int _basis_multiplier;
     int _sampling_multiplier;
     int _initial_index_for_batch;
-    int _max_num_neighbors;
+    SolutionSet<device_memory_space> _d_ss;
+
+    // convenience variables (not from GMLS class)
+    int this_num_cols;
     int Coeffs_dim_0, Coeffs_dim_1;
     double * Coeffs_data;
     int P_target_row_dim_0, P_target_row_dim_1;
     double * P_target_row_data;
-    SolutionSet<device_memory_space> _d_ss;
+    size_t operations_size;
+    Kokkos::View<int*> number_of_neighbors_list;
+    Kokkos::View<int*> additional_number_of_neighbors_list;
 
 };
 
 const GMLSSolutionData createGMLSSolutionData(const GMLS& gmls) {
 
     auto data = GMLSSolutionData();
-    data._pc = gmls._pc;
-    data._additional_pc = gmls._additional_pc;
-    data._operations = gmls._operations;
-    data._NP = gmls._NP;
-    data._basis_multiplier = gmls._basis_multiplier;
     data._sampling_multiplier = gmls._sampling_multiplier;
     data._initial_index_for_batch = gmls._initial_index_for_batch;
-    data._max_num_neighbors = gmls._max_num_neighbors;
     data._d_ss = gmls._d_ss;
 
     // store results of calculation in struct
     const int max_num_rows = gmls._sampling_multiplier*gmls._max_num_neighbors;
-    const int this_num_cols = gmls._basis_multiplier*gmls._NP;
+    data.this_num_cols = gmls._basis_multiplier*gmls._NP;
     int RHS_dim_0, RHS_dim_1;
     getRHSDims(gmls._dense_solver_type, gmls._constraint_type, gmls._reconstruction_space, 
-            gmls._dimensions, max_num_rows, this_num_cols, RHS_dim_0, RHS_dim_1);
+            gmls._dimensions, max_num_rows, data.this_num_cols, RHS_dim_0, RHS_dim_1);
     int P_dim_0, P_dim_1;
     getPDims(gmls._dense_solver_type, gmls._constraint_type, gmls._reconstruction_space, 
-            gmls._dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
+            gmls._dimensions, max_num_rows, data.this_num_cols, P_dim_0, P_dim_1);
 
     if ((gmls._constraint_type == ConstraintType::NO_CONSTRAINT) && (gmls._dense_solver_type != DenseSolverType::LU)) {
         data.Coeffs_data = gmls._RHS.data();
@@ -141,8 +123,14 @@ const GMLSSolutionData createGMLSSolutionData(const GMLS& gmls) {
     }
 
     data.P_target_row_dim_0 = gmls._d_ss._total_alpha_values*gmls._d_ss._max_evaluation_sites_per_target;
-    data.P_target_row_dim_1 = gmls._basis_multiplier*gmls._NP;
+    data.P_target_row_dim_1 = data.this_num_cols;
     data.P_target_row_data = gmls._Z.data();
+
+    data.operations_size = gmls._operations.size();
+
+    data.number_of_neighbors_list = gmls._pc._nla._number_of_neighbors_list;
+    data.additional_number_of_neighbors_list = gmls._additional_pc._nla._number_of_neighbors_list;
+
     return data;
 
 }
@@ -179,12 +167,6 @@ const GMLSBasisData createGMLSBasisData(const GMLS& gmls) {
     data._basis_multiplier = gmls._basis_multiplier;
     data._sampling_multiplier = gmls._sampling_multiplier;
     data._data_sampling_multiplier = gmls._data_sampling_multiplier;
-    data._nontrivial_nullspace = gmls._nontrivial_nullspace;
-    data._orthonormal_tangent_space_provided  = gmls._orthonormal_tangent_space_provided ;
-    data._reference_outward_normal_direction_provided = gmls._reference_outward_normal_direction_provided;
-    data._use_reference_outward_normal_direction_provided_to_orient_surface = gmls._use_reference_outward_normal_direction_provided_to_orient_surface;
-    data._entire_batch_computed_at_once = gmls._entire_batch_computed_at_once;
-    data._store_PTWP_inv_PTW = gmls._store_PTWP_inv_PTW;
     data._initial_index_for_batch = gmls._initial_index_for_batch;
     data._max_num_neighbors = gmls._max_num_neighbors;
     data._pm = gmls._pm;
@@ -1269,17 +1251,8 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     Kokkos::fence();
 
     /*
-     *    Determine if Nontrivial Null Space in Solution
-     */
-
-    // check whether the sampling function acting on the basis will induce a nontrivial nullspace
-    // an example would be reconstructing from gradient information, which would annihilate constants
-    _nontrivial_nullspace = _polynomial_sampling_functional.nontrivial_nullspace;
-
-    /*
      *    Determine if Nonstandard Sampling Dimension or Basis Component Dimension
      */
-
 
     // calculate the dimension of the basis (a vector space on a manifold requires two components, for example)
     _basis_multiplier = calculateBasisMultiplier(_reconstruction_space, _local_dimensions);

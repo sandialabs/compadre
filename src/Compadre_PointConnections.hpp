@@ -10,8 +10,7 @@ namespace Compadre {
 //!  Assumed that memory_space is the same as device, but it can be set to
 //!  host, if desired.
 template <typename view_type_1, typename view_type_2, typename nla_type, typename memory_space = device_memory_space>
-class PointConnections {
-public:
+struct PointConnections {
 
     //! source site coordinates on device
     typedef decltype(Kokkos::create_mirror_view<memory_space>(

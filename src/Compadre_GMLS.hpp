@@ -214,9 +214,6 @@ private:
     //! e.g. in 3D, a scalar will be 1, a vector will be 3, and a vector of reused scalars will be 3
     int _data_sampling_multiplier;
 
-    //! whether or not operator to be inverted for GMLS problem has a nontrivial nullspace (requiring SVD)
-    bool _nontrivial_nullspace;
-
     //! whether or not the orthonormal tangent directions were provided by the user. If they are not,
     //! then for the case of calculations on manifolds, a GMLS approximation of the tangent space will
     //! be made and stored for use.
@@ -465,7 +462,6 @@ public:
         _basis_multiplier = 1;
         _sampling_multiplier = 1;
 
-        _nontrivial_nullspace = false;
         _orthonormal_tangent_space_provided = false; 
         _reference_outward_normal_direction_provided = false;
         _use_reference_outward_normal_direction_provided_to_orient_surface = false;

@@ -57,19 +57,19 @@ void applyTargetsToCoefficients(const SolutionData& data, const member_type& tea
 //        }
 
     // GPU
-    auto n_evaluation_sites_per_target = data._additional_pc._nla.getNumberOfNeighborsDevice(target_index) + 1;
+    auto n_evaluation_sites_per_target = data.additional_number_of_neighbors_list(target_index) + 1;
     for (int e=0; e<n_evaluation_sites_per_target; ++e) {
-        for (int j=0; j<(int)data._operations.size(); ++j) {
+        for (int j=0; j<(int)data.operations_size; ++j) {
             for (int k=0; k<data._d_ss._lro_output_tile_size[j]; ++k) {
                 for (int m=0; m<data._d_ss._lro_input_tile_size[j]; ++m) {
                     int offset_index_jmke = data._d_ss.getTargetOffsetIndex(j,m,k,e);
                     int alphas_index = data._d_ss.getAlphaIndex(target_index, offset_index_jmke);
                     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,
-                            data._pc._nla.getNumberOfNeighborsDevice(target_index) + data._d_ss._added_alpha_size), [&] (const int i) {
+                            data.number_of_neighbors_list(target_index) + data._d_ss._added_alpha_size), [&] (const int i) {
                         double alpha_ij = 0;
                         if (data._sampling_multiplier>1 && m<data._sampling_multiplier) {
-                            const int m_neighbor_offset = i+m*data._pc._nla.getNumberOfNeighborsDevice(target_index);
-                            Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember, data._basis_multiplier*data._NP),
+                            const int m_neighbor_offset = i+m*data.number_of_neighbors_list(target_index);
+                            Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember, data.this_num_cols),
                               [&] (int& l, double& t_alpha_ij) {
                                 t_alpha_ij += P_target_row(offset_index_jmke, l)*Q(l, m_neighbor_offset);
 
@@ -80,7 +80,7 @@ void applyTargetsToCoefficients(const SolutionData& data, const member_type& tea
 
                             }, alpha_ij);
                         } else if (data._sampling_multiplier == 1) {
-                            Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember, data._basis_multiplier*data._NP),
+                            Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember, data.this_num_cols),
                               [&] (int& l, double& t_alpha_ij) {
                                 t_alpha_ij += P_target_row(offset_index_jmke, l)*Q(l,i);
 
@@ -105,30 +105,30 @@ void applyTargetsToCoefficients(const SolutionData& data, const member_type& tea
 #else
 
     // CPU
-    const int alphas_per_tile_per_target = data._pc._nla.getNumberOfNeighborsDevice(target_index) + data._d_ss._added_alpha_size;
+    const int alphas_per_tile_per_target = data.number_of_neighbors_list(target_index) + data._d_ss._added_alpha_size;
     const global_index_type base_offset_index_jmke = data._d_ss.getTargetOffsetIndex(0,0,0,0);
     const global_index_type base_alphas_index = data._d_ss.template getAlphaIndex<0>(target_index, base_offset_index_jmke);
 
     scratch_matrix_right_type this_alphas(data._d_ss._alphas.data() + TO_GLOBAL(base_alphas_index), data._d_ss._total_alpha_values*data._d_ss._max_evaluation_sites_per_target, alphas_per_tile_per_target);
 
-    auto n_evaluation_sites_per_target = data._additional_pc._nla.getNumberOfNeighborsDevice(target_index) + 1;
+    auto n_evaluation_sites_per_target = data.additional_number_of_neighbors_list(target_index) + 1;
     for (int e=0; e<n_evaluation_sites_per_target; ++e) {
         // evaluating alpha_ij
-        for (size_t j=0; j<data._operations.size(); ++j) {
+        for (size_t j=0; j<data.operations_size; ++j) {
             for (int k=0; k<data._d_ss._lro_output_tile_size[j]; ++k) {
                 for (int m=0; m<data._d_ss._lro_input_tile_size[j]; ++m) {
                     double alpha_ij = 0;
                     int offset_index_jmke = data._d_ss.getTargetOffsetIndex(j,m,k,e);
-                    for (int i=0; i<data._pc._nla.getNumberOfNeighborsDevice(target_index) + data._d_ss._added_alpha_size; ++i) {
+                    for (int i=0; i<data.number_of_neighbors_list(target_index) + data._d_ss._added_alpha_size; ++i) {
                         Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-                            data._basis_multiplier*data._NP), [&] (const int l, double &talpha_ij) {
+                            data.this_num_cols), [&] (const int l, double &talpha_ij) {
                             if (data._sampling_multiplier>1 && m<data._sampling_multiplier) {
 
-                                talpha_ij += P_target_row(offset_index_jmke, l)*Q(l, i+m*data._pc._nla.getNumberOfNeighborsDevice(target_index));
+                                talpha_ij += P_target_row(offset_index_jmke, l)*Q(l, i+m*data.number_of_neighbors_list(target_index));
 
                                 compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l) 
                                         && "NaN in P_target_row matrix.");
-                                compadre_kernel_assert_extreme_debug(Q(l, i+m*data._pc._nla.getNumberOfNeighborsDevice(target_index))==Q(l, i+m*data._pc._nla.getNumberOfNeighborsDevice(target_index))
+                                compadre_kernel_assert_extreme_debug(Q(l, i+m*data.number_of_neighbors_list(target_index))==Q(l, i+m*data.number_of_neighbors_list(target_index))
                                         && "NaN in Q coefficient matrix.");
 
                             } else if (data._sampling_multiplier == 1) {
