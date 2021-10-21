@@ -73,6 +73,7 @@ struct GMLSBasisData {
     double * P_target_row_data;
     int Coeffs_dim_0, Coeffs_dim_1;
     double * Coeffs_data;
+    double * w_data;
     int max_num_rows;
     int manifold_NP;
     int max_manifold_NP;
@@ -209,25 +210,22 @@ const GMLSBasisData createGMLSBasisData(const GMLS& gmls) {
         data.this_num_cols = gmls._basis_multiplier*data.max_manifold_NP;
         data.max_poly_order = (gmls._poly_order > gmls._curvature_poly_order) ? gmls._poly_order : gmls._curvature_poly_order;
 
-        data.T_data = gmls._T.data();
         data.ref_N_data = gmls._ref_N.data();
         data.ref_N_dim = gmls._dimensions;
-
-        data.P_target_row_dim_1 = gmls._basis_multiplier*data.max_manifold_NP;
 
         data.thread_workspace_dim = (data.max_poly_order+1)*gmls._global_dimensions;
 
     } else {
         data.this_num_cols = gmls._basis_multiplier*gmls._NP;
-
-        data.P_target_row_dim_1 = gmls._basis_multiplier*gmls._NP;
-
         data.thread_workspace_dim = (gmls._poly_order+1)*gmls._global_dimensions;
     }
 
     data.manifold_gradient_dim = (gmls._dimensions-1)*gmls._max_num_neighbors;
 
+    data.T_data = gmls._T.data();
+
     data.P_target_row_dim_0 = gmls._d_ss._total_alpha_values*gmls._d_ss._max_evaluation_sites_per_target;
+    data.P_target_row_dim_1 = data.this_num_cols;
     data.P_target_row_data = gmls._Z.data();
 
     data.RHS_data = gmls._RHS.data();
@@ -237,6 +235,8 @@ const GMLSBasisData createGMLSBasisData(const GMLS& gmls) {
     data.P_data = gmls._P.data();
     getPDims(gmls._dense_solver_type, gmls._constraint_type, gmls._reconstruction_space, 
              gmls._dimensions, data.max_num_rows, data.this_num_cols, data.P_dim_0, data.P_dim_1);
+
+    data.w_data = gmls._w.data();
 
     if ((gmls._constraint_type == ConstraintType::NO_CONSTRAINT) && (gmls._dense_solver_type != DenseSolverType::LU)) {
         data.Coeffs_data = gmls._RHS.data();
@@ -510,32 +510,29 @@ struct AssembleStandardPsqrtW {
          *    Dimensions
          */
     
-        const int target_index = _data._initial_index_for_batch + teamMember.league_rank();
-        const int local_index  = teamMember.league_rank();
-    
-        const int max_num_rows = _data._sampling_multiplier*_data._max_num_neighbors;
+        const int target_index  = _data._initial_index_for_batch + teamMember.league_rank();
+        const int local_index   = teamMember.league_rank();
         const int this_num_rows = _data._sampling_multiplier*_data._pc._nla.getNumberOfNeighborsDevice(target_index);
-        const int this_num_cols = _data._basis_multiplier*_data._NP;
-    
-        int RHS_dim_0, RHS_dim_1;
-        getRHSDims(_data._dense_solver_type, _data._constraint_type, _data._reconstruction_space, _data._dimensions, max_num_rows, this_num_cols, RHS_dim_0, RHS_dim_1);
-        int P_dim_0, P_dim_1;
-        getPDims(_data._dense_solver_type, _data._constraint_type, _data._reconstruction_space, _data._dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
     
         /*
          *    Data
          */
     
-        scratch_matrix_right_type PsqrtW(_data._P.data()
-                + TO_GLOBAL(local_index)*TO_GLOBAL(P_dim_0)*TO_GLOBAL(P_dim_1), P_dim_0, P_dim_1);
-        scratch_matrix_right_type RHS(_data._RHS.data() 
-                + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_dim_0)*TO_GLOBAL(RHS_dim_1), RHS_dim_0, RHS_dim_1);
-        scratch_vector_type w(_data._w.data() 
-                + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
+        scratch_matrix_right_type PsqrtW(_data.P_data
+                + TO_GLOBAL(local_index)*TO_GLOBAL(_data.P_dim_0*_data.P_dim_1), 
+                    _data.P_dim_0, _data.P_dim_1);
+        scratch_matrix_right_type RHS(_data.RHS_data
+                + TO_GLOBAL(local_index)*TO_GLOBAL(_data.RHS_dim_0*_data.RHS_dim_1), 
+                    _data.RHS_dim_0, _data.RHS_dim_1);
+        scratch_vector_type w(_data.w_data
+                + TO_GLOBAL(local_index)*TO_GLOBAL(_data.max_num_rows), 
+                    _data.max_num_rows);
     
         // delta, used for each thread
-        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), this_num_cols);
-        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), (_data._poly_order+1)*_data._global_dimensions);
+        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+                _data.this_num_cols);
+        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+                _data.thread_workspace_dim);
     
         /*
          *    Assemble P*sqrt(W) and sqrt(w)*Identity
@@ -547,14 +544,15 @@ struct AssembleStandardPsqrtW {
         if ((_data._constraint_type == ConstraintType::NO_CONSTRAINT) && (_data._dense_solver_type != DenseSolverType::LU)) {
             // fill in RHS with Identity * sqrt(weights)
             double * rhs_data = RHS.data();
-            Kokkos::parallel_for(Kokkos::TeamVectorRange(teamMember,this_num_rows), [&] (const int i) {
+            Kokkos::parallel_for(Kokkos::TeamVectorRange(teamMember, this_num_rows), [&] (const int i) {
                 rhs_data[i] = std::sqrt(w(i));
             });
         } else {
             // create global memory for matrix M = PsqrtW^T*PsqrtW
             // don't need to cast into scratch_matrix_left_type since the matrix is symmetric
-            scratch_matrix_right_type M(_data._RHS.data()
-                + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_dim_0)*TO_GLOBAL(RHS_dim_1), RHS_dim_0, RHS_dim_1);
+            scratch_matrix_right_type M(_data.RHS_data
+                    + TO_GLOBAL(local_index)*TO_GLOBAL(_data.RHS_dim_0*_data.RHS_dim_1), 
+                        _data.RHS_dim_0, _data.RHS_dim_1);
             KokkosBatched::TeamVectorGemm<member_type,KokkosBatched::Trans::Transpose,KokkosBatched::Trans::NoTranspose,KokkosBatched::Algo::Gemm::Unblocked>
     	      ::invoke(teamMember,
     	    	   1.0,
@@ -565,9 +563,9 @@ struct AssembleStandardPsqrtW {
             teamMember.team_barrier();
     
             // Multiply PsqrtW with sqrt(W) to get PW
-            Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, max_num_rows), [&] (const int i) {
-                for (int j=0; j < this_num_cols; j++) {
-                     PsqrtW(i, j) = PsqrtW(i, j)*std::sqrt(w(i));
+            Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, _data.max_num_rows), [&] (const int i) {
+                for (int j=0; j < _data.this_num_cols; j++) {
+                     PsqrtW(i,j) = PsqrtW(i,j)*std::sqrt(w(i));
                 }
             });
             teamMember.team_barrier();
@@ -575,14 +573,16 @@ struct AssembleStandardPsqrtW {
             // conditionally fill in rows determined by constraint type
             if (_data._constraint_type == ConstraintType::NEUMANN_GRAD_SCALAR) {
                 // normal vector is contained in last row of T
-                scratch_matrix_right_type T(_data._T.data()
-                    + TO_GLOBAL(target_index)*TO_GLOBAL(_data._dimensions)*TO_GLOBAL(_data._dimensions), _data._dimensions, _data._dimensions);
+                scratch_matrix_right_type T(_data.T_data
+                        + TO_GLOBAL(target_index)*TO_GLOBAL(_data._dimensions*_data._dimensions), 
+                            _data._dimensions, _data._dimensions);
     
                 // Get the number of neighbors for target index
                 int num_neigh_target = _data._pc._nla.getNumberOfNeighborsDevice(target_index);
                 double cutoff_p = _data._epsilons(target_index);
     
-                evaluateConstraints(M, PsqrtW, _data._constraint_type, _data._reconstruction_space, _data._NP, cutoff_p, _data._dimensions, num_neigh_target, &T);
+                evaluateConstraints(M, PsqrtW, _data._constraint_type, _data._reconstruction_space, 
+                                    _data._NP, cutoff_p, _data._dimensions, num_neigh_target, &T);
             }
         }
     }
@@ -613,39 +613,37 @@ struct ComputeCoarseTangentPlane {
 
         const int target_index = _data._initial_index_for_batch + teamMember.league_rank();
         const int local_index  = teamMember.league_rank();
-
-        const int max_num_rows = _data._sampling_multiplier*_data._max_num_neighbors;
-        const int manifold_NP = GMLS::getNP(_data._curvature_poly_order, _data._dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
-        const int max_manifold_NP = (manifold_NP > _data._NP) ? manifold_NP : _data._NP;
-        const int this_num_cols = _data._basis_multiplier*max_manifold_NP;
-        const int max_poly_order = (_data._poly_order > _data._curvature_poly_order) ? _data._poly_order : _data._curvature_poly_order;
-
-        int P_dim_0, P_dim_1;
-        getPDims(_data._dense_solver_type, _data._constraint_type, _data._reconstruction_space, _data._dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
+        const int dimensions   = _data._dimensions;
 
         /*
          *    Data
          */
 
-        scratch_matrix_right_type PsqrtW(_data._P.data()
-                + TO_GLOBAL(local_index)*TO_GLOBAL(P_dim_0)*TO_GLOBAL(P_dim_1), P_dim_0, P_dim_1);
-        scratch_vector_type w(_data._w.data() 
-                + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
-        scratch_matrix_right_type T(_data._T.data() 
-                + TO_GLOBAL(target_index)*TO_GLOBAL(_data._dimensions)*TO_GLOBAL(_data._dimensions), _data._dimensions, _data._dimensions);
+        scratch_matrix_right_type PsqrtW(_data.P_data
+                + TO_GLOBAL(local_index)*TO_GLOBAL(_data.P_dim_0*_data.P_dim_1), 
+                    _data.P_dim_0, _data.P_dim_1);
+        scratch_vector_type w(_data.w_data
+                + TO_GLOBAL(local_index)*TO_GLOBAL(_data.max_num_rows), 
+                    _data.max_num_rows);
+        scratch_matrix_right_type T(_data.T_data
+                + TO_GLOBAL(target_index)*TO_GLOBAL(dimensions*dimensions),
+                    dimensions, dimensions);
 
-        scratch_matrix_right_type PTP(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), _data._dimensions, _data._dimensions);
+        scratch_matrix_right_type PTP(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), 
+                dimensions, dimensions);
 
         // delta, used for each thread
-        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), max_manifold_NP*_data._basis_multiplier);
-        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), (max_poly_order+1)*_data._global_dimensions);
+        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+                _data.this_num_cols);
+        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+                _data.thread_workspace_dim);
 
         /*
          *    Determine Coarse Approximation of Manifold Tangent Plane
          */
 
         // getting x y and z from which to derive a manifold
-        createWeightsAndPForCurvature<GMLSBasisData>(_data, teamMember, delta, thread_workspace, PsqrtW, w, _data._dimensions, true /* only specific order */);
+        createWeightsAndPForCurvature(_data, teamMember, delta, thread_workspace, PsqrtW, w, dimensions, true /* only specific order */);
 
         // create PsqrtW^T*PsqrtW
         KokkosBatched::TeamVectorGemm<member_type,KokkosBatched::Trans::Transpose,KokkosBatched::Trans::NoTranspose,KokkosBatched::Algo::Gemm::Unblocked>
@@ -658,7 +656,7 @@ struct ComputeCoarseTangentPlane {
         teamMember.team_barrier();
 
         // create coarse approximation of tangent plane in first two rows of T, with normal direction in third column
-        GMLS_LinearAlgebra::largestTwoEigenvectorsThreeByThreeSymmetric(teamMember, T, PTP, _data._dimensions, 
+        GMLS_LinearAlgebra::largestTwoEigenvectorsThreeByThreeSymmetric(teamMember, T, PTP, dimensions, 
                 const_cast<pool_type&>(_random_number_pool));
 
         teamMember.team_barrier();
@@ -681,43 +679,36 @@ struct AssembleCurvaturePsqrtW {
 
         const int target_index = _data._initial_index_for_batch + teamMember.league_rank();
         const int local_index  = teamMember.league_rank();
-
-        const int max_num_rows = _data._sampling_multiplier*_data._max_num_neighbors;
-        const int manifold_NP = GMLS::getNP(_data._curvature_poly_order, _data._dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
-        const int max_manifold_NP = (manifold_NP > _data._NP) ? manifold_NP : _data._NP;
         const int this_num_neighbors = _data._pc._nla.getNumberOfNeighborsDevice(target_index);
-        const int this_num_cols = _data._basis_multiplier*max_manifold_NP;
-        const int max_poly_order = (_data._poly_order > _data._curvature_poly_order) ? _data._poly_order : _data._curvature_poly_order;
-
-        int RHS_dim_0, RHS_dim_1;
-        getRHSDims(_data._dense_solver_type, _data._constraint_type, _data._reconstruction_space, _data._dimensions, max_num_rows, this_num_cols, RHS_dim_0, RHS_dim_1);
-        int P_dim_0, P_dim_1;
-        getPDims(_data._dense_solver_type, _data._constraint_type, _data._reconstruction_space, _data._dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
 
         /*
          *    Data
          */
 
-        scratch_matrix_right_type CurvaturePsqrtW(_data._P.data()
-                + TO_GLOBAL(local_index)*TO_GLOBAL(P_dim_0)*TO_GLOBAL(P_dim_1), P_dim_0, P_dim_1);
-        scratch_matrix_right_type RHS(_data._RHS.data() 
-                + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_dim_0)*TO_GLOBAL(RHS_dim_1), RHS_dim_0, RHS_dim_1);
-        scratch_vector_type w(_data._w.data() 
-                + TO_GLOBAL(local_index)*TO_GLOBAL(max_num_rows), max_num_rows);
-        scratch_matrix_right_type T(_data._T.data() 
-                + TO_GLOBAL(target_index)*TO_GLOBAL(_data._dimensions)*TO_GLOBAL(_data._dimensions), _data._dimensions, _data._dimensions);
+        scratch_matrix_right_type CurvaturePsqrtW(_data.P_data
+                + TO_GLOBAL(local_index)*TO_GLOBAL(_data.P_dim_0*_data.P_dim_1), 
+                    _data.P_dim_0, _data.P_dim_1);
+        scratch_matrix_right_type RHS(_data.RHS_data
+                + TO_GLOBAL(local_index)*TO_GLOBAL(_data.RHS_dim_0*_data.RHS_dim_1), 
+                    _data.RHS_dim_0, _data.RHS_dim_1);
+        scratch_vector_type w(_data.w_data
+                + TO_GLOBAL(local_index)*TO_GLOBAL(_data.max_num_rows), _data.max_num_rows);
+        scratch_matrix_right_type T(_data.T_data
+                + TO_GLOBAL(target_index)*TO_GLOBAL(_data._dimensions*_data._dimensions), 
+                    _data._dimensions, _data._dimensions);
 
         // delta, used for each thread
-        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), max_manifold_NP*_data._basis_multiplier);
-        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), (max_poly_order+1)*_data._global_dimensions);
-
+        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+                _data.this_num_cols);
+        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+                _data.thread_workspace_dim);
 
         //
         //  RECONSTRUCT ON THE TANGENT PLANE USING LOCAL COORDINATES
         //
 
         // creates the matrix sqrt(W)*P
-        createWeightsAndPForCurvature<GMLSBasisData>(_data, teamMember, delta, thread_workspace, CurvaturePsqrtW, w, _data._dimensions-1, false /* only specific order */, &T);
+        createWeightsAndPForCurvature(_data, teamMember, delta, thread_workspace, CurvaturePsqrtW, w, _data._dimensions-1, false /* only specific order */, &T);
         teamMember.team_barrier();
 
         // CurvaturePsqrtW is sized according to max_num_rows x this_num_cols of which in this case
@@ -732,10 +723,12 @@ struct AssembleCurvaturePsqrtW {
         } else {
             // create global memory for matrix M = PsqrtW^T*PsqrtW
             // don't need to cast into scratch_matrix_left_type since the matrix is symmetric
-            scratch_matrix_right_type M(_data._RHS.data()
-                + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_dim_0)*TO_GLOBAL(RHS_dim_1), RHS_dim_0, RHS_dim_1);
+            scratch_matrix_right_type M(_data.RHS_data
+                + TO_GLOBAL(local_index)*TO_GLOBAL(_data.RHS_dim_0*_data.RHS_dim_1), 
+                    _data.RHS_dim_0, _data.RHS_dim_1);
             // Assemble matrix M
-            KokkosBatched::TeamVectorGemm<member_type,KokkosBatched::Trans::Transpose,KokkosBatched::Trans::NoTranspose,KokkosBatched::Algo::Gemm::Unblocked>
+            KokkosBatched::TeamVectorGemm<member_type,KokkosBatched::Trans::Transpose,
+                KokkosBatched::Trans::NoTranspose,KokkosBatched::Algo::Gemm::Unblocked>
               ::invoke(teamMember,
                    1.0,
                    CurvaturePsqrtW,
@@ -746,7 +739,7 @@ struct AssembleCurvaturePsqrtW {
 
             // Multiply PsqrtW with sqrt(W) to get PW
             Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, this_num_neighbors), [&] (const int i) {
-                    for (int j=0; j < manifold_NP; j++) {
+                    for (int j=0; j < _data.manifold_NP; j++) {
                         CurvaturePsqrtW(i, j) = CurvaturePsqrtW(i, j)*std::sqrt(w(i));
                     }
             });
