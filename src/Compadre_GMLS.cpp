@@ -1558,7 +1558,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
         const auto work_item_property = Kokkos::Experimental::WorkItemProperty::HintLightWeight;
         const auto tp2 = Kokkos::Experimental::require(tp, work_item_property);
         auto functor_apply_targets = ApplyTargets(gmls_solution_data);
-        //printf("size of apply: %lu\n",  sizeof(functor_apply_standard_targets));
+        //printf("size of apply: %lu\n",  sizeof(functor_apply_targets));
         Kokkos::parallel_for(tp2, functor_apply_targets, "ApplyTargets");
 
 
