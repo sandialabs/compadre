@@ -717,7 +717,7 @@ struct AssembleCurvaturePsqrtW {
         if (_data._dense_solver_type != DenseSolverType::LU) {
             // fill in RHS with Identity * sqrt(weights)
             double * rhs_data = RHS.data();
-            Kokkos::parallel_for(Kokkos::TeamVectorRange(teamMember,this_num_neighbors), [&] (const int i) {
+            Kokkos::parallel_for(Kokkos::TeamVectorRange(teamMember, this_num_neighbors), [&] (const int i) {
                 rhs_data[i] = std::sqrt(w(i));
             });
         } else {
@@ -766,40 +766,29 @@ struct GetAccurateTangentDirections {
         const int local_index  = teamMember.league_rank();
         auto dimensions = _data._dimensions;
 
-        const int max_num_rows = _data._sampling_multiplier*_data._max_num_neighbors;
-        const int manifold_NP = GMLS::getNP(_data._curvature_poly_order, dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
-        const int max_manifold_NP = (manifold_NP > _data._NP) ? manifold_NP : _data._NP;
-        const int this_num_cols = _data._basis_multiplier*max_manifold_NP;
-        const int max_poly_order = (_data._poly_order > _data._curvature_poly_order) ? _data._poly_order : _data._curvature_poly_order;
-
-        int RHS_dim_0, RHS_dim_1;
-        getRHSDims(_data._dense_solver_type, _data._constraint_type, _data._reconstruction_space, dimensions, max_num_rows, this_num_cols, RHS_dim_0, RHS_dim_1);
-        int P_dim_0, P_dim_1;
-        getPDims(_data._dense_solver_type, _data._constraint_type, _data._reconstruction_space, dimensions, max_num_rows, this_num_cols, P_dim_0, P_dim_1);
-
         /*
          *    Data
          */
-        scratch_matrix_right_type Q;
-        if (_data._dense_solver_type != DenseSolverType::LU) {
-            // Solution from QR comes from RHS
-            Q = scratch_matrix_right_type(_data._RHS.data()
-                + TO_GLOBAL(local_index)*TO_GLOBAL(RHS_dim_0)*TO_GLOBAL(RHS_dim_1), RHS_dim_0, RHS_dim_1);
-        } else {
-            // Solution from LU comes from P
-            Q = scratch_matrix_right_type(_data._P.data()
-                + TO_GLOBAL(local_index)*TO_GLOBAL(P_dim_1)*TO_GLOBAL(P_dim_0), P_dim_1, P_dim_0);
-        }
 
-        scratch_matrix_right_type T(_data._T.data() 
-                + TO_GLOBAL(target_index)*TO_GLOBAL(dimensions)*TO_GLOBAL(dimensions), dimensions, dimensions);
+        scratch_matrix_right_type Q = scratch_matrix_right_type(_data.Coeffs_data 
+                + TO_GLOBAL(local_index)*TO_GLOBAL(_data.Coeffs_dim_0*_data.Coeffs_dim_1),
+                    _data.Coeffs_dim_0, _data.Coeffs_dim_1);
 
-        scratch_vector_type manifold_gradient(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), (dimensions-1)*_data._max_num_neighbors);
-        scratch_matrix_right_type P_target_row(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), _data._d_ss._total_alpha_values*_data._d_ss._max_evaluation_sites_per_target, max_manifold_NP*_data._basis_multiplier);
+        scratch_matrix_right_type T(_data.T_data
+                + TO_GLOBAL(target_index)*TO_GLOBAL(dimensions*dimensions), 
+                    dimensions, dimensions);
+
+        scratch_vector_type manifold_gradient(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), 
+                _data.manifold_gradient_dim);
+        scratch_matrix_right_type P_target_row(_data.P_target_row_data
+                + TO_GLOBAL(local_index)*TO_GLOBAL(_data.P_target_row_dim_0*_data.P_target_row_dim_1),
+                    _data.P_target_row_dim_0, _data.P_target_row_dim_1);
 
         // delta, used for each thread
-        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), max_manifold_NP*_data._basis_multiplier);
-        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), (max_poly_order+1)*_data._global_dimensions);
+        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+                _data.this_num_cols);
+        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+                _data.thread_workspace_dim);
 
         /*
          *    Manifold
@@ -810,7 +799,7 @@ struct GetAccurateTangentDirections {
         //  GET TARGET COEFFICIENTS RELATED TO GRADIENT TERMS
         //
         // reconstruct grad_xi1 and grad_xi2, not used for manifold_coeffs
-        computeCurvatureFunctionals<GMLSBasisData>(_data, teamMember, delta, thread_workspace, P_target_row, &T);
+        computeCurvatureFunctionals(_data, teamMember, delta, thread_workspace, P_target_row, &T);
         teamMember.team_barrier();
 
         double grad_xi1 = 0, grad_xi2 = 0;
@@ -819,7 +808,7 @@ struct GetAccurateTangentDirections {
                 double alpha_ij = 0;
                 int offset = _data._d_ss.getTargetOffsetIndex(0, 0, k, 0);
                 Kokkos::parallel_reduce(Kokkos::TeamThreadRange(teamMember,
-                        manifold_NP), [&] (const int l, double &talpha_ij) {
+                        _data.manifold_NP), [&] (const int l, double &talpha_ij) {
                     Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
                         talpha_ij += P_target_row(offset,l)*Q(l,i);
                     });
@@ -933,8 +922,8 @@ struct FixTangentDirectionOrdering {
          *    Data
          */
 
-        scratch_matrix_right_type T(_data._T.data() + target_index*dimensions*dimensions, dimensions, dimensions);
-        scratch_vector_type N(_data._ref_N.data() + target_index*dimensions, dimensions);
+        scratch_matrix_right_type T(_data.T_data + target_index*dimensions*dimensions, dimensions, dimensions);
+        scratch_vector_type N(_data.ref_N_data + target_index*dimensions, dimensions);
 
         // take the dot product of the calculated normal in the tangent bundle with a given reference outward normal 
         // direction provided by the user. if the dot product is negative, flip the tangent vector ordering 
