@@ -746,6 +746,10 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("applyStencilAllTargetsAllAdditionalEvaluationSites", &ParticleHelper::applyStencilAllTargetsAllAdditionalEvaluationSites, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::return_value_policy::take_ownership)
     .def("applyStencil", &ParticleHelper::applyStencil, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::arg("evaluation_site_local_index")=0, py::return_value_policy::take_ownership);
     
+    py::class_<SolutionSet<host_memory_space> >(m, "SolutionSet", R"pbdoc(
+        Class containing solution data from GMLS problems
+    )pbdoc")
+    .def("getAlpha", &SolutionSet<host_memory_space>::getAlpha, py::arg("lro"), py::arg("target_index"), py::arg("output_component_axis_1"), py::arg("output_component_axis_2"), py::arg("neighbor_index"), py::arg("input_component_axis_1"), py::arg("input_component_axis_2"), py::arg("additional_evaluation_site")=0);
 
     py::class_<GMLS>(m, "GMLS")
     .def(py::init<int,int,std::string,std::string,std::string,int>(),
@@ -766,7 +770,7 @@ PYBIND11_MODULE(pycompadre, m) {
     .def("addTargets", overload_cast_<TargetOperation>()(&GMLS::addTargets), "Add a target operation.")
     .def("addTargets", overload_cast_<std::vector<TargetOperation> >()(&GMLS::addTargets), "Add a list of target operations.")
     .def("generateAlphas", &GMLS::generateAlphas, py::arg("number_of_batches")=1, py::arg("keep_coefficients")=false)
-    .def("getAlpha", &GMLS::getAlpha, py::arg("lro"), py::arg("target_index"), py::arg("output_component_axis_1"), py::arg("output_component_axis_2"), py::arg("neighbor_index"), py::arg("input_component_axis_1"), py::arg("input_component_axis_2"), py::arg("additional_evaluation_site")=0)
+    .def("getSolutionSet", &GMLS::getSolutionSetHost, py::return_value_policy::reference_internal)
     .def("getNP", &GMLS::getNP, "Get size of basis.")
     .def("getNN", &GMLS::getNN, "Heuristic number of neighbors.");
 

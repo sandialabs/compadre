@@ -333,12 +333,15 @@ struct SolutionSet {
 
     //! Adds a vector of target functionals to the vector of target functionals already to be applied to the reconstruction
     void addTargets(std::vector<TargetOperation> lro) {
-        // if called multiple times with different dimensions, only the last
-        // dimension called with is used for all
 
-        _lro_lookup = decltype(_lro_lookup)("LRO Lookup", TargetOperation::COUNT);
-        auto _host_lro_lookup = create_mirror_view(_lro_lookup);
-        Kokkos::deep_copy(_host_lro_lookup, -1);
+        auto host_lro_lookup = create_mirror_view(_lro_lookup);
+        if (_lro_lookup.extent(0) == 0) {
+            _lro_lookup = decltype(_lro_lookup)("LRO Lookup", TargetOperation::COUNT);
+            host_lro_lookup = create_mirror_view(_lro_lookup);
+            Kokkos::deep_copy(host_lro_lookup, -1);
+        } else {
+            Kokkos::deep_copy(host_lro_lookup, _lro_lookup);
+        }
 
         // loop over requested targets
         for (size_t i=0; i<lro.size(); ++i) {
@@ -353,7 +356,7 @@ struct SolutionSet {
                     operation_found = true;
 
                     // the operation should now point to where the operation is stored
-                    _host_lro_lookup[(int)lro[i]] = j;
+                    host_lro_lookup[(int)lro[i]] = j;
 
                     break;
 
@@ -361,7 +364,7 @@ struct SolutionSet {
             }
 
             if (!operation_found) {
-                _host_lro_lookup[(int)lro[i]] = _lro.size();
+                host_lro_lookup[(int)lro[i]] = _lro.size();
                 _lro.push_back(lro[i]);
             }
         }
@@ -372,18 +375,18 @@ struct SolutionSet {
         _lro_output_tensor_rank = decltype(_lro_output_tensor_rank)("output tensor rank", _lro.size());
         _lro_input_tensor_rank = decltype(_lro_input_tensor_rank)("input tensor rank", _lro.size());
 
-        auto _host_lro_total_offsets = create_mirror_view(_lro_total_offsets);
-        auto _host_lro_output_tile_size = create_mirror_view(_lro_output_tile_size);
-        auto _host_lro_input_tile_size = create_mirror_view(_lro_input_tile_size);
-        auto _host_lro_output_tensor_rank = create_mirror_view(_lro_output_tensor_rank);
-        auto _host_lro_input_tensor_rank = create_mirror_view(_lro_input_tensor_rank);
+        auto host_lro_total_offsets = create_mirror_view(_lro_total_offsets);
+        auto host_lro_output_tile_size = create_mirror_view(_lro_output_tile_size);
+        auto host_lro_input_tile_size = create_mirror_view(_lro_input_tile_size);
+        auto host_lro_output_tensor_rank = create_mirror_view(_lro_output_tensor_rank);
+        auto host_lro_input_tensor_rank = create_mirror_view(_lro_input_tensor_rank);
 
         int total_offset = 0; // need total offset
         int output_offset = 0;
         int input_offset = 0;
 
         for (size_t i=0; i<_lro.size(); ++i) {
-            _host_lro_total_offsets(i) = total_offset;
+            host_lro_total_offsets(i) = total_offset;
 
             // allows for a tile of the product of dimension^input_tensor_rank * dimension^output_tensor_rank * the number of neighbors
             int output_tile_size = getOutputDimensionOfOperation(_lro[i], _local_dimensions);
@@ -391,8 +394,8 @@ struct SolutionSet {
             // the target functional input indexing is sized based on the output rank of the sampling
             // functional used
             int input_tile_size = getOutputDimensionOfSampling(_data_sampling_functional, _local_dimensions);
-            _host_lro_output_tile_size(i) = output_tile_size;
-            _host_lro_input_tile_size(i) = input_tile_size;
+            host_lro_output_tile_size(i) = output_tile_size;
+            host_lro_input_tile_size(i) = input_tile_size;
 
             total_offset += input_tile_size * output_tile_size;
             output_offset += output_tile_size;
@@ -400,8 +403,8 @@ struct SolutionSet {
 
             // the target functional output rank is based on the output rank of the sampling
             // functional used
-            _host_lro_input_tensor_rank(i) = _data_sampling_functional.output_rank;
-            _host_lro_output_tensor_rank(i) = TargetOutputTensorRank[(int)_lro[i]];
+            host_lro_input_tensor_rank(i) = _data_sampling_functional.output_rank;
+            host_lro_output_tensor_rank(i) = TargetOutputTensorRank[(int)_lro[i]];
         }
 
         _total_alpha_values = total_offset;
@@ -413,12 +416,12 @@ struct SolutionSet {
                 _total_alpha_values : std::pow(_local_dimensions, 1);
         }
 
-        Kokkos::deep_copy(_lro_lookup, _host_lro_lookup);
-        Kokkos::deep_copy(_lro_total_offsets, _host_lro_total_offsets);
-        Kokkos::deep_copy(_lro_output_tile_size, _host_lro_output_tile_size);
-        Kokkos::deep_copy(_lro_input_tile_size, _host_lro_input_tile_size);
-        Kokkos::deep_copy(_lro_output_tensor_rank, _host_lro_output_tensor_rank);
-        Kokkos::deep_copy(_lro_input_tensor_rank, _host_lro_input_tensor_rank);
+        Kokkos::deep_copy(_lro_lookup, host_lro_lookup);
+        Kokkos::deep_copy(_lro_total_offsets, host_lro_total_offsets);
+        Kokkos::deep_copy(_lro_output_tile_size, host_lro_output_tile_size);
+        Kokkos::deep_copy(_lro_input_tile_size, host_lro_input_tile_size);
+        Kokkos::deep_copy(_lro_output_tensor_rank, host_lro_output_tensor_rank);
+        Kokkos::deep_copy(_lro_input_tensor_rank, host_lro_input_tensor_rank);
     }
 
     //! Get a view (device) of all alphas
