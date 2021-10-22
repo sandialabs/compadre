@@ -63,7 +63,7 @@ void applyTargetsToCoefficients(const SolutionData& data, const member_type& tea
             for (int k=0; k<data._d_ss._lro_output_tile_size[j]; ++k) {
                 for (int m=0; m<data._d_ss._lro_input_tile_size[j]; ++m) {
                     int offset_index_jmke = data._d_ss.getTargetOffsetIndex(j,m,k,e);
-                    int alphas_index = data._d_ss.template getAlphaIndex<0>(target_index, offset_index_jmke);
+                    int alphas_index = data._d_ss.getAlphaIndex(target_index, offset_index_jmke);
                     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,
                             data.number_of_neighbors_list(target_index) + data._d_ss._added_alpha_size), [&] (const int i) {
                         double alpha_ij = 0;
@@ -107,7 +107,7 @@ void applyTargetsToCoefficients(const SolutionData& data, const member_type& tea
     // CPU
     const int alphas_per_tile_per_target = data.number_of_neighbors_list(target_index) + data._d_ss._added_alpha_size;
     const global_index_type base_offset_index_jmke = data._d_ss.getTargetOffsetIndex(0,0,0,0);
-    const global_index_type base_alphas_index = data._d_ss.template getAlphaIndex<0>(target_index, base_offset_index_jmke);
+    const global_index_type base_alphas_index = data._d_ss.getAlphaIndex(target_index, base_offset_index_jmke);
 
     scratch_matrix_right_type this_alphas(data._d_ss._alphas.data() + TO_GLOBAL(base_alphas_index), data._d_ss._total_alpha_values*data._d_ss._max_evaluation_sites_per_target, alphas_per_tile_per_target);
 

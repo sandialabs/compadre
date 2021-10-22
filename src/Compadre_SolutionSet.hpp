@@ -205,10 +205,9 @@ struct SolutionSet {
 
     //! Gives index into alphas given two axes, which when incremented by the neighbor number transforms access into
     //! alphas from a rank 1 view into a rank 3 view.
-    template <int T=0>
+    template<typename ms=memory_space, enable_if_t<!std::is_same<host_memory_space, ms>::value, int> = 0>
     KOKKOS_INLINE_FUNCTION
-    typename std::enable_if<T==0, global_index_type>::type 
-            getAlphaIndex(const int target_index, const int alpha_column_offset) const {
+    global_index_type getAlphaIndex(const int target_index, const int alpha_column_offset) const {
 
         global_index_type total_neighbors_before_target = _neighbor_lists.getRowOffsetDevice(target_index);
         int total_added_alphas_before_target = target_index*_added_alpha_size;
@@ -223,10 +222,9 @@ struct SolutionSet {
 
     //! Gives index into alphas given two axes, which when incremented by the neighbor number transforms access into
     //! alphas from a rank 1 view into a rank 3 view.
-    template <int T=0>
+    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
     KOKKOS_INLINE_FUNCTION
-    typename std::enable_if<T==1, global_index_type>::type 
-            getAlphaIndex(const int target_index, const int alpha_column_offset) const {
+    global_index_type getAlphaIndex(const int target_index, const int alpha_column_offset) const {
 
         global_index_type total_neighbors_before_target = _neighbor_lists.getRowOffsetHost(target_index);
         int total_added_alphas_before_target = target_index*_added_alpha_size;
@@ -286,7 +284,7 @@ struct SolutionSet {
         const int alpha_column_offset = this->getAlphaColumnOffset( lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
 
-        auto alphas_index = this->getAlphaIndex<std::is_same<host_memory_space, memory_space>::value >(target_index, alpha_column_offset);
+        auto alphas_index = this->getAlphaIndex(target_index, alpha_column_offset);
         return _alphas(alphas_index + neighbor_index);
     }
 

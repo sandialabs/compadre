@@ -513,10 +513,6 @@ public:
          const int manifold_curvature_poly_order = 2)
       : GMLS(reconstruction_space, dual_sampling_strategy, dual_sampling_strategy, poly_order, dimensions, dense_solver_type, problem_type, constraint_type, manifold_curvature_poly_order) {}
 
-    //! Destructor
-    ~GMLS(){
-    };
-
 ///@}
 
 /** @name Public Utility
