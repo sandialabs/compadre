@@ -190,13 +190,15 @@ void getPDims(DenseSolverType dense_solver_type, ConstraintType constraint_type,
 }
 
 //! Helper function for finding alpha coefficients
-static int getTargetOutputIndex(const int operation_num, const int output_component_axis_1, const int output_component_axis_2, const int dimensions) {
-    const int axis_1_size = (TargetOutputTensorRank[operation_num] > 1) ? dimensions : 1;
+KOKKOS_INLINE_FUNCTION
+int getTargetOutputIndex(const int operation_num, const int output_component_axis_1, const int output_component_axis_2, const int dimensions) {
+    const int axis_1_size = (getTargetOutputTensorRank(operation_num) > 1) ? dimensions : 1;
     return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
 }
 
 //! Helper function for finding alpha coefficients
-static int getSamplingOutputIndex(const SamplingFunctional sf, const int output_component_axis_1, const int output_component_axis_2) {
+KOKKOS_INLINE_FUNCTION
+int getSamplingOutputIndex(const SamplingFunctional sf, const int output_component_axis_1, const int output_component_axis_2) {
     const int axis_1_size = (sf.output_rank > 1) ? sf.output_rank : 1;
     return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
 }
@@ -226,7 +228,7 @@ KOKKOS_INLINE_FUNCTION
 int calculateBasisMultiplier(const ReconstructionSpace rs, const int local_dimensions) {
     // calculate the dimension of the basis 
     // (a vector space on a manifold requires two components, for example)
-    return std::pow(local_dimensions, ActualReconstructionSpaceRank[(int)rs]);
+    return std::pow(local_dimensions, getActualReconstructionSpaceRank((int)rs));
 }
 
 //! Calculate sampling_multiplier
@@ -248,7 +250,7 @@ int calculateSamplingMultiplier(const ReconstructionSpace rs, const SamplingFunc
 //! Dimensions ^ output rank for target operation
 KOKKOS_INLINE_FUNCTION
 int getOutputDimensionOfOperation(TargetOperation lro, const int local_dimensions) {
-    return std::pow(local_dimensions, TargetOutputTensorRank[(int)lro]);
+    return std::pow(local_dimensions, getTargetOutputTensorRank(lro));
 }
 
 //! Dimensions ^ input rank for target operation (always in local chart if on a manifold, never ambient space)

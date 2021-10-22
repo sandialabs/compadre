@@ -404,7 +404,7 @@ struct SolutionSet {
             // the target functional output rank is based on the output rank of the sampling
             // functional used
             host_lro_input_tensor_rank(i) = _data_sampling_functional.output_rank;
-            host_lro_output_tensor_rank(i) = TargetOutputTensorRank[(int)_lro[i]];
+            host_lro_output_tensor_rank(i) = getTargetOutputTensorRank((int)_lro[i]);
         }
 
         _total_alpha_values = total_offset;

@@ -373,7 +373,7 @@ public:
                 nla.getNumberOfTargets(), output_dimensions);
 
         output_view_type ambient_target_output;
-        bool transform_gmls_output_to_ambient = (problem_type==MANIFOLD && TargetOutputTensorRank[(int)lro]==1);
+        bool transform_gmls_output_to_ambient = (problem_type==MANIFOLD && getTargetOutputTensorRank(lro)==1);
         if (transform_gmls_output_to_ambient) {
             ambient_target_output = createView<output_view_type>("output of transform to ambient space", 
                 nla.getNumberOfTargets(), global_dimensions);
@@ -415,8 +415,8 @@ public:
         auto problem_type = _gmls->getProblemType();
         auto global_dimensions = _gmls->getGlobalDimensions();
         auto local_dimensions = _gmls->getLocalDimensions();
-        int output_dimension1_of_operator = (TargetOutputTensorRank[lro]<2) ? getOutputDimensionOfOperation(lro, local_dimensions) : std::sqrt(getOutputDimensionOfOperation(lro, local_dimensions));
-        int output_dimension2_of_operator = (TargetOutputTensorRank[lro]<2) ? 1 : std::sqrt(getOutputDimensionOfOperation(lro, local_dimensions));
+        int output_dimension1_of_operator = (getTargetOutputTensorRank(lro)<2) ? getOutputDimensionOfOperation(lro, local_dimensions) : std::sqrt(getOutputDimensionOfOperation(lro, local_dimensions));
+        int output_dimension2_of_operator = (getTargetOutputTensorRank(lro)<2) ? 1 : std::sqrt(getOutputDimensionOfOperation(lro, local_dimensions));
 
         // gather needed information for evaluation
         auto nla = *(_gmls->getNeighborLists());
@@ -503,7 +503,7 @@ public:
             }
         }
 
-        bool transform_gmls_output_to_ambient = (problem_type==MANIFOLD && TargetOutputTensorRank[(int)lro]==1);
+        bool transform_gmls_output_to_ambient = (problem_type==MANIFOLD && getTargetOutputTensorRank(lro)==1);
         if (transform_gmls_output_to_ambient) {
             Kokkos::fence();
 

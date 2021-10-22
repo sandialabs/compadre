@@ -458,7 +458,7 @@ public:
         _curvature_weighting_p = 2;
         _curvature_weighting_n = 1;
 
-        _reconstruction_space_rank = ActualReconstructionSpaceRank[_reconstruction_space];
+        _reconstruction_space_rank = getActualReconstructionSpaceRank(_reconstruction_space);
 
         _basis_multiplier = 1;
         _sampling_multiplier = 1;
