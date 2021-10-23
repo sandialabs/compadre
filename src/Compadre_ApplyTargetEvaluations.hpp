@@ -60,49 +60,49 @@ void applyTargetsToCoefficients(const SolutionData& data, const member_type& tea
     const auto n_evaluation_sites_per_target = data.additional_number_of_neighbors_list(target_index) + 1;
     const auto nn = data.number_of_neighbors_list(target_index);
     auto alphas = data._d_ss._alphas;
-    for (int e=0; e<n_evaluation_sites_per_target; ++e) {
-        for (int j=0; j<(int)data.operations_size; ++j) {
-            for (int k=0; k<data._d_ss._lro_output_tile_size[j]; ++k) {
-                for (int m=0; m<data._d_ss._lro_input_tile_size[j]; ++m) {
-                    const int offset_index_jmke = data._d_ss.getTargetOffsetIndex(j,m,k,e);
-                    const int alphas_index = data._d_ss.getAlphaIndex(target_index, offset_index_jmke);
-                    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,
-                            nn + data._d_ss._added_alpha_size), [&] (const int i) {
-                        double alpha_ij = 0;
-                        if (data._sampling_multiplier>1 && m<data._sampling_multiplier) {
-                            const int m_neighbor_offset = i+m*nn;
-                            Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember, data.this_num_cols),
-                              [&] (int& l, double& t_alpha_ij) {
-                                t_alpha_ij += P_target_row(offset_index_jmke, l)*Q(l, m_neighbor_offset);
+    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,
+            nn + data._d_ss._added_alpha_size), [&] (const int i) {
+        for (int e=0; e<n_evaluation_sites_per_target; ++e) {
+            for (int j=0; j<(int)data.operations_size; ++j) {
+                for (int k=0; k<data._d_ss._lro_output_tile_size[j]; ++k) {
+                    for (int m=0; m<data._d_ss._lro_input_tile_size[j]; ++m) {
+                        const int offset_index_jmke = data._d_ss.getTargetOffsetIndex(j,m,k,e);
+                        const int alphas_index = data._d_ss.getAlphaIndex(target_index, offset_index_jmke);
+                            double alpha_ij = 0;
+                            if (data._sampling_multiplier>1 && m<data._sampling_multiplier) {
+                                const int m_neighbor_offset = i+m*nn;
+                                Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember, data.this_num_cols),
+                                  [&] (int& l, double& t_alpha_ij) {
+                                    t_alpha_ij += P_target_row(offset_index_jmke, l)*Q(l, m_neighbor_offset);
 
-                                compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l) 
-                                        && "NaN in P_target_row matrix.");
-                                compadre_kernel_assert_extreme_debug(Q(l, m_neighbor_offset)==Q(l, m_neighbor_offset) 
-                                        && "NaN in Q coefficient matrix.");
+                                    compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l) 
+                                            && "NaN in P_target_row matrix.");
+                                    compadre_kernel_assert_extreme_debug(Q(l, m_neighbor_offset)==Q(l, m_neighbor_offset) 
+                                            && "NaN in Q coefficient matrix.");
 
-                            }, alpha_ij);
-                        } else if (data._sampling_multiplier == 1) {
-                            Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember, data.this_num_cols),
-                              [&] (int& l, double& t_alpha_ij) {
-                                t_alpha_ij += P_target_row(offset_index_jmke, l)*Q(l,i);
+                                }, alpha_ij);
+                            } else if (data._sampling_multiplier == 1) {
+                                Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(teamMember, data.this_num_cols),
+                                  [&] (int& l, double& t_alpha_ij) {
+                                    t_alpha_ij += P_target_row(offset_index_jmke, l)*Q(l,i);
 
-                                compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l) 
-                                        && "NaN in P_target_row matrix.");
-                                compadre_kernel_assert_extreme_debug(Q(l,i)==Q(l,i) 
-                                        && "NaN in Q coefficient matrix.");
+                                    compadre_kernel_assert_extreme_debug(P_target_row(offset_index_jmke, l)==P_target_row(offset_index_jmke, l) 
+                                            && "NaN in P_target_row matrix.");
+                                    compadre_kernel_assert_extreme_debug(Q(l,i)==Q(l,i) 
+                                            && "NaN in Q coefficient matrix.");
 
-                            }, alpha_ij);
-                        } 
-                        // could use a PerThread here, but performance takes a hit
-                        // and it isn't necessary
-                        alphas(alphas_index+i) = alpha_ij;
-                        compadre_kernel_assert_extreme_debug(alpha_ij==alpha_ij && "NaN in alphas.");
-                    });
+                                }, alpha_ij);
+                            } 
+                            // could use a PerThread here, but performance takes a hit
+                            // and it isn't necessary
+                            alphas(alphas_index+i) = alpha_ij;
+                            compadre_kernel_assert_extreme_debug(alpha_ij==alpha_ij && "NaN in alphas.");
 
+                    }
                 }
             }
         }
-    }
+    });
 #else
 
     // CPU
