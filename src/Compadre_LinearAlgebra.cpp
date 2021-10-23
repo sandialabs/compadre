@@ -1,5 +1,4 @@
 #include "Compadre_LinearAlgebra_Definitions.hpp"
-#include "Compadre_Functors.hpp"
 
 #include "KokkosBatched_Copy_Decl.hpp"
 #include "KokkosBatched_ApplyPivot_Decl.hpp"
