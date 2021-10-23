@@ -302,8 +302,8 @@ else() # Raw CMake Project
   message(STATUS "Compadre_USE_CUDA: ${Compadre_USE_CUDA}")
 
   if(Compadre_USE_CUDA)
-    SET(CMAKE_CXX_STANDARD 14)
-    option(Kokkos_CXX_STANDARD "" "14")
+    SET(CMAKE_CXX_STANDARD 11)
+    option(Kokkos_CXX_STANDARD "" "11")
   else()
     SET(CMAKE_CXX_STANDARD 11)
     option(Kokkos_CXX_STANDARD "" "11")
