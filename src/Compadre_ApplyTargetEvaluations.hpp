@@ -93,11 +93,10 @@ void applyTargetsToCoefficients(const SolutionData& data, const member_type& tea
 
                             }, alpha_ij);
                         } 
-                        Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-                            //_alphas(target_index, offset_index_jmke, i) = alpha_ij;
-                            alphas(alphas_index+i) = alpha_ij;
-                            compadre_kernel_assert_extreme_debug(alpha_ij==alpha_ij && "NaN in alphas.");
-                        });
+                        // could use a PerThread here, but performance takes a hit
+                        // and it isn't necessary
+                        alphas(alphas_index+i) = alpha_ij;
+                        compadre_kernel_assert_extreme_debug(alpha_ij==alpha_ij && "NaN in alphas.");
                     });
 
                 }
