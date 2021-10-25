@@ -197,6 +197,7 @@ const GMLSBasisData createGMLSBasisData(const GMLS& gmls) {
         data.manifold_curvature_coefficients_data = gmls._manifold_curvature_coefficients.data();
 
     } else {
+        data.manifold_NP = 0;
         data.this_num_cols = gmls._basis_multiplier*gmls._NP;
         data.thread_workspace_dim = (gmls._poly_order+1)*gmls._global_dimensions;
         data.manifold_gradient_dim = 0;
