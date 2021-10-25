@@ -256,11 +256,8 @@ bool all_passed = true;
         // each row is a neighbor list for a target site, with the first column of each row containing
         // the number of neighbors for that rows corresponding target site
         double epsilon_multiplier = 1.5;
-        int estimated_upper_bound_number_neighbors = 
-            point_cloud_search.getEstimatedNumberNeighborsUpperBound(min_neighbors, dimension, epsilon_multiplier);
 
-        Kokkos::View<int**, Kokkos::DefaultExecutionSpace> single_neighbor_lists_device("neighbor lists", 
-                1, estimated_upper_bound_number_neighbors); // first column is # of neighbors
+        Kokkos::View<int**, Kokkos::DefaultExecutionSpace> single_neighbor_lists_device("neighbor lists", 0, 0);
         Kokkos::View<int**>::HostMirror single_neighbor_lists = Kokkos::create_mirror_view(single_neighbor_lists_device);
         
         // each target site has a window size
@@ -270,9 +267,10 @@ bool all_passed = true;
         // query the point cloud to generate the neighbor lists using a kdtree to produce the n nearest neighbor
         // to each target site, adding (epsilon_multiplier-1)*100% to whatever the distance away the further neighbor used is from
         // each target to the view for epsilon
-        point_cloud_search.generate2DNeighborListsFromKNNSearch(false /*not dry run*/, single_target_coords, 
+        point_cloud_search.generate2DNeighborListsFromKNNSearch(single_target_coords, 
                 single_neighbor_lists, single_epsilon, min_neighbors, epsilon_multiplier);
         
+
         //! [Performing Neighbor Search]
         
         
@@ -280,6 +278,7 @@ bool all_passed = true;
         // We could have filled Kokkos Views with memory space on the host
         // and used these instead, and then the copying of data to the device
         // would be performed in the GMLS class
+        Kokkos::resize(single_neighbor_lists_device, single_neighbor_lists.extent(0), single_neighbor_lists.extent(1));
         Kokkos::deep_copy(single_neighbor_lists_device, single_neighbor_lists);
         Kokkos::deep_copy(single_epsilon_device, single_epsilon);
         Kokkos::fence(); // let call to build neighbor lists complete before copying back to device

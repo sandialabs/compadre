@@ -2,7 +2,7 @@
 #define _GMLS_TUTORIAL_HPP_
 
 #include <Kokkos_Core.hpp>
-#include <basis/Compadre_DivergenceFreePolynomial.hpp>
+#include <Compadre_DivergenceFreePolynomial.hpp>
 #include <Compadre_GMLS.hpp>
 
 KOKKOS_INLINE_FUNCTION

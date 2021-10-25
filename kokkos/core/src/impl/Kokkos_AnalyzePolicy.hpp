@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -177,11 +177,14 @@ struct AnalyzePolicy<Base, T, Traits...>
                                   is_launch_bounds<T>::value,
                                   SetLaunchBounds<Base, T>,
                                   typename std::conditional<
-                                      Experimental::is_work_item_property<
-                                          T>::value,
+                                      Kokkos::Experimental::
+                                          is_work_item_property<T>::value,
                                       SetWorkItemProperty<Base, T>,
-                                      SetWorkTag<Base, T> >::type>::type>::
-                              type>::type>::type>::type>::type::type,
+                                      typename std::conditional<
+                                          !std::is_void<T>::value,
+                                          SetWorkTag<Base, T>, Base>::type>::
+                                      type>::type>::type>::type>::type>::type>::
+              type::type,
           Traits...> {};
 
 template <typename Base>
@@ -201,9 +204,9 @@ struct AnalyzePolicy<Base> {
   using index_type =
       typename std::conditional<is_void<typename Base::index_type>::value,
                                 IndexType<typename execution_space::size_type>,
-                                typename Base::index_type>::type ::
-          type  // nasty hack to make index_type into an integral_type
-      ;  // instead of the wrapped IndexType<T> for backwards compatibility
+                                typename Base::index_type>::type::type;
+  // nasty hack to make index_type into an integral_type
+  // instead of the wrapped IndexType<T> for backwards compatibility
 
   using iteration_pattern = typename std::conditional<
       is_void<typename Base::iteration_pattern>::value,

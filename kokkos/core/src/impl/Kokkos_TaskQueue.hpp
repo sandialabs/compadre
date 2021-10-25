@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -168,13 +168,13 @@ class TaskQueue : public TaskQueueBase {
   int allocation_count() const noexcept { return m_count_alloc; }
 
   KOKKOS_INLINE_FUNCTION
-  void initialize_team_queues(int pool_size) const noexcept {}
+  void initialize_team_queues(int /*pool_size*/) const noexcept {}
 
   KOKKOS_INLINE_FUNCTION
   task_root_type* attempt_to_steal_task() const noexcept { return nullptr; }
 
   KOKKOS_INLINE_FUNCTION
-  team_queue_type& get_team_queue(int team_rank) { return *this; }
+  team_queue_type& get_team_queue(int /*team_rank*/) { return *this; }
 
   // void execute() { specialization::execute( this ); }
 

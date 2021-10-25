@@ -26,6 +26,14 @@ typedef double      scalar_type;
 typedef int         local_index_type;
 typedef std::size_t global_index_type;
 
+#ifdef COMPADRE_USE_ARBORX
+typedef float search_scalar;
+constexpr search_scalar SEARCH_SCALAR_EPS = 1e-7;
+#else
+typedef double search_scalar;
+constexpr search_scalar SEARCH_SCALAR_EPS = 1e-14;
+#endif
+
 // helper function when doing pointer arithmetic
 #define TO_GLOBAL(variable) ((global_index_type)variable)
 
@@ -109,13 +117,11 @@ template<typename T>
 typename std::enable_if<2==T::rank,T>::type createView(std::string str, int dim_0, int dim_1)
 { return T(str, dim_0, dim_1); }
 
-//void compadre_rethrow_exception(std::exception &e, const std::string &extra_message) {
-//    std::cout << extra_message + "\n\n" + e.what() << std::endl;
-//}
 
 //! compadre_assert_release is used for assertions that should always be checked, but generally 
 //! are not expensive to verify or are not called frequently. 
-# define compadre_assert_release(condition) do {                                \
+#ifndef NDEBUG
+# define compadre_assert_release(condition) do {                        \
     if ( ! (condition)) {                                               \
       std::stringstream _ss_;                                           \
       _ss_ << __FILE__ << ":" << __LINE__ << ": FAIL:\n" << #condition  \
@@ -123,18 +129,21 @@ typename std::enable_if<2==T::rank,T>::type createView(std::string str, int dim_
         throw std::logic_error(_ss_.str());                             \
     }                                                                   \
   } while (0)
-
 //! compadre_kernel_assert_release is similar to compadre_assert_release, but is a call on the device, 
 //! namely inside of a function marked KOKKOS_INLINE_FUNCTION
 # define compadre_kernel_assert_release(condition) do { \
-    if ( ! (condition))                         \
-      Kokkos::abort(#condition);                \
+    if ( ! (condition))                                 \
+        Kokkos::abort(#condition);                      \
   } while (0)
+#else
+#  define compadre_assert_release(condition)
+#  define compadre_kernel_assert_release(condition)
+#endif
 
 //! compadre_assert_debug is used for assertions that are checked in loops, as these significantly
 //! impact performance. When NDEBUG is set, these conditions are not checked.
-#ifdef COMPADRE_DEBUG
-# define compadre_assert_debug(condition) do {                                \
+#if defined(COMPADRE_DEBUG) || defined(DDEBUG)
+# define compadre_assert_debug(condition) do {                          \
     if ( ! (condition)) {                                               \
       std::stringstream _ss_;                                           \
       _ss_ << __FILE__ << ":" << __LINE__ << ": FAIL:\n" << #condition  \
@@ -143,8 +152,8 @@ typename std::enable_if<2==T::rank,T>::type createView(std::string str, int dim_
     }                                                                   \
   } while (0)
 # define compadre_kernel_assert_debug(condition) do { \
-    if ( ! (condition))                         \
-      Kokkos::abort(#condition);                \
+    if ( ! (condition))                               \
+      Kokkos::abort(#condition);                      \
   } while (0)
 #else
 #  define compadre_assert_debug(condition)
@@ -154,7 +163,7 @@ typename std::enable_if<2==T::rank,T>::type createView(std::string str, int dim_
 //! namely inside of a function marked KOKKOS_INLINE_FUNCTION
 
 #ifdef COMPADRE_EXTREME_DEBUG
-# define compadre_assert_extreme_debug(condition) do {                                \
+# define compadre_assert_extreme_debug(condition) do {                  \
     if ( ! (condition)) {                                               \
       std::stringstream _ss_;                                           \
       _ss_ << __FILE__ << ":" << __LINE__ << ": FAIL:\n" << #condition  \
@@ -163,8 +172,8 @@ typename std::enable_if<2==T::rank,T>::type createView(std::string str, int dim_
     }                                                                   \
   } while (0)
 # define compadre_kernel_assert_extreme_debug(condition) do { \
-    if ( ! (condition))                         \
-      Kokkos::abort(#condition);                \
+    if ( ! (condition))                                       \
+      Kokkos::abort(#condition);                              \
   } while (0)
 #else
 #  define compadre_assert_extreme_debug(condition)
