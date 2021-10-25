@@ -288,9 +288,9 @@ struct EvaluateStandardTargets {
                 + TO_GLOBAL(local_index)*TO_GLOBAL(_data.P_target_row_dim_0*_data.P_target_row_dim_1), 
                     _data.P_target_row_dim_0, _data.P_target_row_dim_1);
 
-        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.this_num_cols);
-        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.thread_workspace_dim);
 
         /*
@@ -324,9 +324,9 @@ struct ComputePrestencilWeights {
          *    Data
          */
 
-        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.manifold_NP);
-        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.thread_workspace_dim);
 
         scratch_matrix_right_type tangent;
@@ -534,9 +534,9 @@ struct AssembleStandardPsqrtW {
                     _data.max_num_rows);
     
         // delta, used for each thread
-        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.this_num_cols);
-        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.thread_workspace_dim);
     
         /*
@@ -638,9 +638,9 @@ struct ComputeCoarseTangentPlane {
                 dimensions, dimensions);
 
         // delta, used for each thread
-        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.this_num_cols);
-        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.thread_workspace_dim);
 
         /*
@@ -703,9 +703,9 @@ struct AssembleCurvaturePsqrtW {
                     _data._dimensions, _data._dimensions);
 
         // delta, used for each thread
-        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.this_num_cols);
-        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.thread_workspace_dim);
 
         //
@@ -788,9 +788,9 @@ struct GetAccurateTangentDirections {
                 _data.manifold_gradient_dim);
 
         // delta, used for each thread
-        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.this_num_cols);
-        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.thread_workspace_dim);
 
         /*
@@ -999,9 +999,9 @@ struct ApplyCurvatureTargets {
 
 
         // delta, used for each thread
-        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.this_num_cols);
-        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.thread_workspace_dim);
 
         /*
@@ -1068,9 +1068,9 @@ struct AssembleManifoldPsqrtW {
                 + TO_GLOBAL(target_index)*TO_GLOBAL(dimensions)*TO_GLOBAL(dimensions), dimensions, dimensions);
 
         // delta, used for each thread
-        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.this_num_cols);
-        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.thread_workspace_dim);
 
         /*
@@ -1146,9 +1146,9 @@ struct EvaluateManifoldTargets {
                     _data.P_target_row_dim_0, _data.P_target_row_dim_1);
 
         // delta, used for each thread
-        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.this_num_cols);
-        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
+        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.thread_workspace_dim);
 
         /*
