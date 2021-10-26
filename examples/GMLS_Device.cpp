@@ -81,6 +81,7 @@ bool all_passed = true;
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> source_coords_device("source coordinates", 
             number_source_coords, 3);
     Kokkos::View<double**>::HostMirror source_coords = Kokkos::create_mirror_view(source_coords_device);
+    Kokkos::View<double**>::HostMirror source_coords2 = Kokkos::create_mirror(source_coords_device);
     
     // coordinates of target sites
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> target_coords_device ("target coordinates", number_target_coords, 3);
@@ -147,6 +148,7 @@ bool all_passed = true;
     
     // source coordinates need copied to device before using to construct sampling data
     Kokkos::deep_copy(source_coords_device, source_coords);
+    Kokkos::deep_copy(source_coords2, source_coords);
     
     // target coordinates copied next, because it is a convenient time to send them to device
     Kokkos::deep_copy(target_coords_device, target_coords);
@@ -197,7 +199,7 @@ bool all_passed = true;
     // Point cloud construction for neighbor search
     // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
     auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
-    auto point_cloud_search2(CreatePointCloudSearch2(source_coords, dimension));
+    auto point_cloud_search2(CreatePointCloudSearch2(source_coords2, dimension));
 
     double epsilon_multiplier = 1.4;
 

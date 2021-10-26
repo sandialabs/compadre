@@ -5,6 +5,8 @@
 #include "Compadre_NeighborLists.hpp"
 #include <Kokkos_Core.hpp>
 #include <ArborX_LinearBVH.hpp>
+#include <typeinfo>
+
 
 template <typename view_type_1>
 struct Points {
@@ -27,21 +29,23 @@ struct ArborX::AccessTraits<Points<view_type>, ArborX::PrimitivesTag>
 {
     static KOKKOS_FUNCTION std::size_t size(Points<view_type> const &cloud)
     {
+        printf("cloud size: %lu\n", cloud._pts.extent(0));
         return cloud._pts.extent(0);
     }
     static KOKKOS_FUNCTION ArborX::Point get(Points<view_type> const &cloud, std::size_t i)
     {
-        switch (cloud._pts.extent(1)) {
-        case 3:
-            return ArborX::Point(cloud._pts(i,0), cloud._pts(i,1), cloud._pts(i,2));
-        case 2:
-            return ArborX::Point(cloud._pts(i,0), cloud._pts(i,1),             0.0);
-        case 1:
-            return ArborX::Point(cloud._pts(i,0),             0.0,             0.0);
-        default:
-            compadre_kernel_assert_release(false && "Invalid dimension for cloud.");
-            return ArborX::Point(           0.0,             0.0,             0.0);
-        }
+        //switch (cloud._pts.extent(1)) {
+        //case 3:
+        //    return ArborX::Point(cloud._pts(i,0), cloud._pts(i,1), cloud._pts(i,2));
+        //case 2:
+        //    return ArborX::Point(cloud._pts(i,0), cloud._pts(i,1),             0.0);
+        //case 1:
+        //    return ArborX::Point(cloud._pts(i,0),             0.0,             0.0);
+        //default:
+        //    compadre_kernel_assert_release(false && "Invalid dimension for cloud.");
+        //    return ArborX::Point(           0.0,             0.0,             0.0);
+        //}
+        return ArborX::Point(           0.0,             0.0,             0.0);
     }
     using memory_space = device_memory_space;
 };
@@ -193,12 +197,15 @@ search_scalar kdtreeDistance(const view_type_1& src_pts, const int src_idx, cons
 template <typename view_type>
 class PointCloudSearch2 {
 
-    protected:
+    public:
 
         //! source site coordinates
         typedef decltype(Kokkos::create_mirror_view<device_memory_space>(
                     device_memory_space(), view_type())) 
                             device_mirror_view_type;
+
+    protected:
+
         device_mirror_view_type _d_src_pts_view;
         Points<device_mirror_view_type> _pts;
         local_index_type _dim;
@@ -214,7 +221,13 @@ class PointCloudSearch2 {
                         device_memory_space(), src_pts_view);
                 Kokkos::deep_copy(_d_src_pts_view, src_pts_view);
                 Kokkos::fence();
-                _pts = Points<device_mirror_view_type>(_d_src_pts_view);
+                //printf("typesize: %lu\n", sizeof(device_mirror_view_type));
+                //std::cout << typeid (device_mirror_view_type).name() << '\n'; 
+                //_pts = Points<typename device_mirror_view_type>(_d_src_pts_view);
+                //_pts = Points<device_mirror_view_type>(_d_src_pts_view);
+                printf("_pts size: %lu\n", src_pts_view.extent(0));
+                
+                _pts = Points<decltype(_d_src_pts_view)>(_d_src_pts_view);
                 _tree = ArborX::BVH<device_memory_space>(device_execution_space(), _pts);
             }
         };
