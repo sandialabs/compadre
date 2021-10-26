@@ -4,11 +4,11 @@
 #include "Compadre_Typedefs.hpp"
 #include "Compadre_NeighborLists.hpp"
 
-#ifdef COMPADRE_USE_ARBORX
-  #include "Compadre_PointCloudSearch_ArborX.hpp"
-#else
+//#ifdef COMPADRE_USE_ARBORX
+//  #include "Compadre_PointCloudSearch_ArborX.hpp"
+//#else
   #include "Compadre_PointCloudSearch_Nanoflann.hpp"
-#endif
+//#endif
 #include <Kokkos_Core.hpp>
 
 namespace Compadre {

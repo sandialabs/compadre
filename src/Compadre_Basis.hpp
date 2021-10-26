@@ -673,7 +673,7 @@ void createWeightsAndP(const BasisData& data, const member_type& teamMember, scr
 //        printf("storage size: %d\n", storage_size);
 //    }
 //    printf("weight_p: %d\n", weight_p);
-    const int my_num_neighbors = data._pc._nla.getNumberOfNeighborsDevice(target_index);
+    int my_num_neighbors = data._pc._nla.getNumberOfNeighborsDevice(target_index);
 
     // storage_size needs to change based on the size of the basis
     int storage_size = GMLS::getNP(polynomial_order, dimension, reconstruction_space);

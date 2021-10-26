@@ -246,7 +246,7 @@ struct SolutionSet {
             const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
 
         const int lro_number = _lro_lookup[(int)lro];
-        compadre_assert_debug((lro_number >= 0) && "getAlphaColumnOffset called for a TargetOperation that was not registered.");
+        compadre_kernel_assert_debug((lro_number >= 0) && "getAlphaColumnOffset called for a TargetOperation that was not registered.");
 
         // the target functional input indexing is sized based on the output rank of the sampling
         // functional used, which can not be inferred unless a specification of target functional,

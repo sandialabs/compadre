@@ -18,6 +18,8 @@ struct Points {
         Kokkos::deep_copy(_pts, pts);
         Kokkos::fence();
     }
+
+    Points() {}
 };
 
 template <typename view_type>
@@ -189,7 +191,7 @@ search_scalar kdtreeDistance(const view_type_1& src_pts, const int src_idx, cons
 *
 */
 template <typename view_type>
-class PointCloudSearch {
+class PointCloudSearch2 {
 
     protected:
 
@@ -198,12 +200,13 @@ class PointCloudSearch {
                     device_memory_space(), view_type())) 
                             device_mirror_view_type;
         device_mirror_view_type _d_src_pts_view;
+        Points<device_mirror_view_type> _pts;
         local_index_type _dim;
         ArborX::BVH<device_memory_space> _tree;
 
     public:
 
-        PointCloudSearch(view_type src_pts_view, const local_index_type dimension = -1,
+        PointCloudSearch2(view_type src_pts_view, const local_index_type dimension = -1,
                 const local_index_type max_leaf = -1) 
                 : _dim((dimension < 0) ? src_pts_view.extent(1) : dimension) {
             {
@@ -211,12 +214,12 @@ class PointCloudSearch {
                         device_memory_space(), src_pts_view);
                 Kokkos::deep_copy(_d_src_pts_view, src_pts_view);
                 Kokkos::fence();
-                _tree = ArborX::BVH<device_memory_space>(device_execution_space(), 
-                                Points<device_mirror_view_type>(_d_src_pts_view));
+                _pts = Points<device_mirror_view_type>(_d_src_pts_view);
+                _tree = ArborX::BVH<device_memory_space>(device_execution_space(), _pts);
             }
         };
     
-        ~PointCloudSearch() {};
+        ~PointCloudSearch2() {};
 
         /*! \brief Generates compressed row neighbor lists by performing a radius search 
             where the radius to be searched is in the epsilons view.

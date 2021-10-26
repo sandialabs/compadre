@@ -10,6 +10,7 @@
 #include <Compadre_GMLS.hpp>
 #include <Compadre_Evaluator.hpp>
 #include <Compadre_PointCloudSearch.hpp>
+#include <Compadre_PointCloudSearch2.hpp>
 #include <Compadre_KokkosParser.hpp>
 
 #include "GMLS_Tutorial.hpp"
@@ -196,6 +197,7 @@ bool all_passed = true;
     // Point cloud construction for neighbor search
     // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
     auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
+    auto point_cloud_search2(CreatePointCloudSearch2(source_coords, dimension));
 
     double epsilon_multiplier = 1.4;
 
