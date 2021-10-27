@@ -28,7 +28,7 @@ typedef std::size_t global_index_type;
 
 #ifdef COMPADRE_USE_ARBORX
 typedef float search_scalar;
-constexpr search_scalar SEARCH_SCALAR_EPS = 1e-7;
+constexpr search_scalar SEARCH_SCALAR_EPS = 1e-14;
 #else
 typedef double search_scalar;
 constexpr search_scalar SEARCH_SCALAR_EPS = 1e-14;

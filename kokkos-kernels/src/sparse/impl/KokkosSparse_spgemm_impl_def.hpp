@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//               KokkosKernels 0.9: Linear Algebra and Graph Kernels
-//                 Copyright 2017 Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -98,7 +99,7 @@ void KokkosSPGEMM
 		Kokkos::Impl::Timer timer1;
 		auto new_row_mapB_begin = Kokkos::subview (row_mapB, std::make_pair (nnz_lno_t(0), b_row_cnt));
 		auto new_row_mapB_end = Kokkos::subview (row_mapB, std::make_pair (nnz_lno_t(1), b_row_cnt + 1));
-		row_lno_persistent_work_view_t flops_per_row(Kokkos::ViewAllocateWithoutInitializing("origianal row flops"), a_row_cnt);
+		row_lno_persistent_work_view_t flops_per_row(Kokkos::ViewAllocateWithoutInitializing("original row flops"), a_row_cnt);
 
 		//get maximum row flops.
 		maxNumRoughZeros = this->getMaxRoughRowNNZ(a_row_cnt, row_mapA, entriesA,
@@ -120,13 +121,11 @@ void KokkosSPGEMM
     //number of rows and nnzs
     nnz_lno_t n = this->row_mapB.extent(0) - 1;
     size_type nnz = this->entriesB.extent(0);
-    KokkosKernels::Impl::ExecSpaceType my_exec_space_ = KokkosKernels::Impl::get_exec_space_type<MyExecSpace>();
 
     bool compress_in_single_step = this->handle->get_spgemm_handle()->get_compression_step();
-    //compress in single step if it is cuda execution space.
-    if (my_exec_space_ == KokkosKernels::Impl::Exec_CUDA) {
+    //compress in single step if it is GPU.
+    if (KokkosKernels::Impl::kk_is_gpu_exec_space<MyExecSpace>())
     	compress_in_single_step = true;
-    }
 
     //compressed B fields.
     row_lno_temp_work_view_t new_row_mapB(Kokkos::ViewAllocateWithoutInitializing("new row map"), n+1);

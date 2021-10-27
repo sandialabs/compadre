@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//               KokkosKernels 0.9: Linear Algebra and Graph Kernels
-//                 Copyright 2017 Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -90,8 +91,8 @@ Kokkos::View<const double*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
     if (numElems < static_cast<size_type> (INT_MAX)) { \
       nrm2_print_specialization<RV,XV>(); \
       int N = numElems; \
-      int one = 1; \
-      R() = HostBlas<double>::nrm2(N,X.data(),one); \
+      int int_one = 1; \
+      R() = HostBlas<double>::nrm2(N,X.data(),int_one); \
       if(!take_sqrt) R() = R()*R(); \
     } else { \
       Nrm2<RV,XV,1,false,ETI_SPEC_AVAIL>::nrm2(R,X,take_sqrt); \
@@ -122,8 +123,8 @@ Kokkos::View<const float*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
     if (numElems < static_cast<size_type> (INT_MAX)) { \
       nrm2_print_specialization<RV,XV>(); \
       int N = numElems; \
-      int one = 1; \
-      R() = HostBlas<float>::nrm2(N,X.data(),one); \
+      int int_one = 1; \
+      R() = HostBlas<float>::nrm2(N,X.data(),int_one); \
       if(!take_sqrt) R() = R()*R(); \
     } else { \
       Nrm2<RV,XV,1,false,ETI_SPEC_AVAIL>::nrm2(R,X,take_sqrt); \
@@ -154,8 +155,8 @@ Kokkos::View<const Kokkos::complex<double>*, LAYOUT, Kokkos::Device<ExecSpace, M
     if (numElems < static_cast<size_type> (INT_MAX)) { \
       nrm2_print_specialization<RV,XV>(); \
       int N = numElems; \
-      int one = 1; \
-      R() = HostBlas<std::complex<double> >::nrm2(N,reinterpret_cast<const std::complex<double>*>(X.data()),one);       \
+      int int_one = 1; \
+      R() = HostBlas<std::complex<double> >::nrm2(N,reinterpret_cast<const std::complex<double>*>(X.data()),int_one);       \
       if(!take_sqrt) R() = R()*R(); \
     } else { \
       Nrm2<RV,XV,1,false,ETI_SPEC_AVAIL>::nrm2(R,X,take_sqrt); \
@@ -186,8 +187,8 @@ Kokkos::View<const Kokkos::complex<float>*, LAYOUT, Kokkos::Device<ExecSpace, ME
     if (numElems < static_cast<size_type> (INT_MAX)) { \
       nrm2_print_specialization<RV,XV>(); \
       int N = numElems; \
-      int one = 1; \
-      R() = HostBlas<std::complex<float> >::nrm2(N,reinterpret_cast<const std::complex<float>*>(X.data()),one);       \
+      int int_one = 1; \
+      R() = HostBlas<std::complex<float> >::nrm2(N,reinterpret_cast<const std::complex<float>*>(X.data()),int_one);       \
       if(!take_sqrt) R() = R()*R(); \
     } else { \
       Nrm2<RV,XV,1,false,ETI_SPEC_AVAIL>::nrm2(R,X,take_sqrt); \
@@ -242,9 +243,9 @@ Kokkos::View<const double*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
     if (numElems < static_cast<size_type> (INT_MAX)) { \
       nrm2_print_specialization<RV,XV>(); \
       const int N = static_cast<int> (numElems); \
-      constexpr int one = 1; \
+      constexpr int int_one = 1; \
       KokkosBlas::Impl::CudaBlasSingleton & s = KokkosBlas::Impl::CudaBlasSingleton::singleton(); \
-      cublasDnrm2(s.handle, N, X.data(), one, &R()); \
+      cublasDnrm2(s.handle, N, X.data(), int_one, &R()); \
       if(!take_sqrt) R() = R()*R(); \
     } else { \
       Nrm2<RV,XV,1,false,ETI_SPEC_AVAIL>::nrm2(R,X,take_sqrt); \
@@ -275,9 +276,9 @@ Kokkos::View<const float*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
     if (numElems < static_cast<size_type> (INT_MAX)) { \
       nrm2_print_specialization<RV,XV>(); \
       const int N = static_cast<int> (numElems); \
-      constexpr int one = 1; \
+      constexpr int int_one = 1; \
       KokkosBlas::Impl::CudaBlasSingleton & s = KokkosBlas::Impl::CudaBlasSingleton::singleton(); \
-      cublasSnrm2(s.handle, N, X.data(), one, &R()); \
+      cublasSnrm2(s.handle, N, X.data(), int_one, &R()); \
       if(!take_sqrt) R() = R()*R(); \
     } else { \
       Nrm2<RV,XV,1,false,ETI_SPEC_AVAIL>::nrm2(R,X,take_sqrt); \
@@ -308,9 +309,9 @@ Kokkos::View<const Kokkos::complex<double>*, LAYOUT, Kokkos::Device<ExecSpace, M
     if (numElems < static_cast<size_type> (INT_MAX)) { \
       nrm2_print_specialization<RV,XV>(); \
       const int N = static_cast<int> (numElems); \
-      constexpr int one = 1; \
+      constexpr int int_one = 1; \
       KokkosBlas::Impl::CudaBlasSingleton & s = KokkosBlas::Impl::CudaBlasSingleton::singleton(); \
-      cublasDznrm2(s.handle, N, reinterpret_cast<const cuDoubleComplex*>(X.data()), one, &R()); \
+      cublasDznrm2(s.handle, N, reinterpret_cast<const cuDoubleComplex*>(X.data()), int_one, &R()); \
       if(!take_sqrt) R() = R()*R(); \
     } else { \
       Nrm2<RV,XV,1,false,ETI_SPEC_AVAIL>::nrm2(R,X,take_sqrt); \
@@ -341,9 +342,9 @@ Kokkos::View<const Kokkos::complex<float>*, LAYOUT, Kokkos::Device<ExecSpace, ME
     if (numElems < static_cast<size_type> (INT_MAX)) { \
       nrm2_print_specialization<RV,XV>(); \
       const int N = static_cast<int> (numElems); \
-      constexpr int one = 1; \
+      constexpr int int_one = 1; \
       KokkosBlas::Impl::CudaBlasSingleton & s = KokkosBlas::Impl::CudaBlasSingleton::singleton(); \
-      cublasScnrm2(s.handle, N, reinterpret_cast<const cuComplex*>(X.data()), one, &R()); \
+      cublasScnrm2(s.handle, N, reinterpret_cast<const cuComplex*>(X.data()), int_one, &R()); \
       if(!take_sqrt) R() = R()*R(); \
     } else { \
       Nrm2<RV,XV,1,false,ETI_SPEC_AVAIL>::nrm2(R,X,take_sqrt); \

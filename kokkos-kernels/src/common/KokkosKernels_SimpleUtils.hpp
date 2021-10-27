@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//               KokkosKernels 0.9: Linear Algebra and Graph Kernels
-//                 Copyright 2017 Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -250,6 +251,56 @@ bool kk_is_identical_view(view_type1 view1, view_type2 view2, eps_type eps){
   size_t issame = 0;
   Kokkos::parallel_reduce( "KokkosKernels::Common::IsIdenticalView", my_exec_space(0,num_elements),
       IsIdenticalFunctor<view_type1, view_type2, eps_type>(view1, view2, eps), issame);
+  MyExecSpace().fence();
+  if (issame > 0){
+    return false;
+  }
+  else {
+    return true;
+  }
+}
+
+template<typename view_type1, typename view_type2, typename eps_type = typename Kokkos::Details::ArithTraits<typename view_type2::non_const_value_type>::mag_type>
+struct IsRelativelyIdenticalFunctor{
+  view_type1 view1;
+  view_type2 view2;
+  eps_type eps;
+
+
+  IsRelativelyIdenticalFunctor(view_type1 view1_, view_type2 view2_, eps_type eps_):
+    view1(view1_), view2(view2_), eps(eps_){}
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(const size_t &i, size_t &is_equal) const {
+    typedef typename view_type2::non_const_value_type val_type;
+    typedef Kokkos::Details::ArithTraits<val_type> KAT;
+    typedef typename KAT::mag_type mag_type;
+    typedef Kokkos::Details::ArithTraits<mag_type> KATM;
+ 
+    mag_type val_diff = KAT::abs (view1(i) - view2(i));
+    if(KAT::abs(view1(i)) > KATM::zero() && KAT::abs(view2(i)) > KATM::zero()) {
+      val_diff = val_diff / KAT::abs(view2(i));
+    }
+
+    if (val_diff > eps ) {
+      is_equal+=1;
+    }
+  }
+};
+
+template <typename view_type1, typename view_type2, typename eps_type, typename MyExecSpace>
+bool kk_is_relatively_identical_view(view_type1 view1, view_type2 view2, eps_type eps){
+
+  if (view1.extent(0) != view2.extent(0)){
+    return false;
+  }
+
+  size_t num_elements = view1.extent(0);
+
+  typedef Kokkos::RangePolicy<MyExecSpace> my_exec_space;
+  size_t issame = 0;
+  Kokkos::parallel_reduce( "KokkosKernels::Common::IsRelativelyIdenticalView", my_exec_space(0,num_elements),
+      IsRelativelyIdenticalFunctor<view_type1, view_type2, eps_type>(view1, view2, eps), issame);
   MyExecSpace().fence();
   if (issame > 0){
     return false;

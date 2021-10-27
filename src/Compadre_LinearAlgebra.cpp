@@ -38,110 +38,113 @@ namespace GMLS_LinearAlgebra {
     KOKKOS_INLINE_FUNCTION
     void operator()(const MemberType &member) const {
 
-      const int k = member.league_rank();
+      //const int k = member.league_rank();
 
-      // workspace vectors
-      scratch_vector_type ww_fast(member.team_scratch(_pm_getTeamScratchLevel_0), 3*_M);
-      scratch_vector_type ww_slow(member.team_scratch(_pm_getTeamScratchLevel_1), _N*_NRHS);
+      //// workspace vectors
+      //scratch_vector_type ww_fast(member.team_scratch(_pm_getTeamScratchLevel_0), 3*_M);
+      //scratch_vector_type ww_slow(member.team_scratch(_pm_getTeamScratchLevel_1), _N*_NRHS);
 
-      scratch_matrix_right_type aa(_a.data() + TO_GLOBAL(k)*TO_GLOBAL(_a.extent(1))*TO_GLOBAL(_a.extent(2)), 
-              _a.extent(1), _a.extent(2));
-      scratch_matrix_right_type bb(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
-              _b.extent(1), _b.extent(2));
-      scratch_matrix_right_type xx(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
-              _b.extent(1), _b.extent(2));
+      //scratch_matrix_right_type aa(_a.data() + TO_GLOBAL(k)*TO_GLOBAL(_a.extent(1))*TO_GLOBAL(_a.extent(2)), 
+      //        _a.extent(1), _a.extent(2));
+      //scratch_matrix_right_type bb(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
+      //        _b.extent(1), _b.extent(2));
+      //scratch_matrix_right_type xx(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
+      //        _b.extent(1), _b.extent(2));
 
-      // if sizes don't match extents, then copy to a view with extents matching sizes
-      if ((size_t)_M!=_a.extent(1) || (size_t)_N!=_a.extent(2)) {
-        scratch_matrix_right_type tmp(ww_slow.data(), _M, _N);
-        auto aaa = scratch_matrix_right_type(_a.data() + TO_GLOBAL(k)*TO_GLOBAL(_a.extent(1))*TO_GLOBAL(_a.extent(2)), _M, _N);
-        // copy A to W, then back to A
-        Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_M),[&](const int &i) {
-          Kokkos::parallel_for(Kokkos::ThreadVectorRange(member,0,_N),[&](const int &j) {
-              tmp(i,j) = aa(i,j);
-          });
-        });
-        member.team_barrier();
-        Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_M),[&](const int &i) {
-          Kokkos::parallel_for(Kokkos::ThreadVectorRange(member,0,_N),[&](const int &j) {
-              aaa(i,j) = tmp(i,j);
-          });
-        });
-        member.team_barrier();
-        aa = aaa;
-      }
+      //// if sizes don't match extents, then copy to a view with extents matching sizes
+      //if ((size_t)_M!=_a.extent(1) || (size_t)_N!=_a.extent(2)) {
+      //  scratch_matrix_right_type tmp(ww_slow.data(), _M, _N);
+      //  auto aaa = scratch_matrix_right_type(_a.data() + TO_GLOBAL(k)*TO_GLOBAL(_a.extent(1))*TO_GLOBAL(_a.extent(2)), _M, _N);
+      //  // copy A to W, then back to A
+      //  Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_M),[&](const int &i) {
+      //    Kokkos::parallel_for(Kokkos::ThreadVectorRange(member,0,_N),[&](const int &j) {
+      //        tmp(i,j) = aa(i,j);
+      //    });
+      //  });
+      //  member.team_barrier();
+      //  Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_M),[&](const int &i) {
+      //    Kokkos::parallel_for(Kokkos::ThreadVectorRange(member,0,_N),[&](const int &j) {
+      //        aaa(i,j) = tmp(i,j);
+      //    });
+      //  });
+      //  member.team_barrier();
+      //  aa = aaa;
+      //}
 
-      if (std::is_same<typename MatrixViewType_B::array_layout, layout_left>::value) {
-        scratch_matrix_right_type tmp(ww_slow.data(), _N, _NRHS);
-        // coming from LU
-        // then copy B to W, then back to B
-        auto bb_left = 
-            scratch_matrix_left_type(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
-                    _b.extent(1), _b.extent(2));
-        Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_N),[&](const int &i) {
-          Kokkos::parallel_for(Kokkos::ThreadVectorRange(member,0,_NRHS),[&](const int &j) {
-              tmp(i,j) = bb_left(i,j);
-          });
-        });
-        member.team_barrier();
-        Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_N),[&](const int &i) {
-          Kokkos::parallel_for(Kokkos::ThreadVectorRange(member,0,_NRHS),[&](const int &j) {
-              bb(i,j) = tmp(i,j);
-          });
-        });
-      }
+      //if (std::is_same<typename MatrixViewType_B::array_layout, layout_left>::value) {
+      //  scratch_matrix_right_type tmp(ww_slow.data(), _N, _NRHS);
+      //  // coming from LU
+      //  // then copy B to W, then back to B
+      //  auto bb_left = 
+      //      scratch_matrix_left_type(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
+      //              _b.extent(1), _b.extent(2));
+      //  Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_N),[&](const int &i) {
+      //    Kokkos::parallel_for(Kokkos::ThreadVectorRange(member,0,_NRHS),[&](const int &j) {
+      //        tmp(i,j) = bb_left(i,j);
+      //    });
+      //  });
+      //  member.team_barrier();
+      //  Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_N),[&](const int &i) {
+      //    Kokkos::parallel_for(Kokkos::ThreadVectorRange(member,0,_NRHS),[&](const int &j) {
+      //        bb(i,j) = tmp(i,j);
+      //    });
+      //  });
+      //  member.team_barrier();
+      //}
 
-      scratch_matrix_right_type uu(member.team_scratch(_pm_getTeamScratchLevel_1), _M, _N /* only N columns of U are filled, maximum */);
-      scratch_matrix_right_type vv(member.team_scratch(_pm_getTeamScratchLevel_1), _N, _N);
-      scratch_local_index_type pp(member.team_scratch(_pm_getTeamScratchLevel_0), _N);
+      //scratch_matrix_right_type uu(member.team_scratch(_pm_getTeamScratchLevel_1), _M, _N /* only N columns of U are filled, maximum */);
+      //scratch_matrix_right_type vv(member.team_scratch(_pm_getTeamScratchLevel_1), _N, _N);
+      //scratch_local_index_type pp(member.team_scratch(_pm_getTeamScratchLevel_0), _N);
 
-      bool do_print = false;
-      if (do_print) {
-        Kokkos::single(Kokkos::PerTeam(member), [&] () {
-          //print a
-          printf("a=zeros(%lu,%lu);\n", aa.extent(0), aa.extent(1));
-              for (size_t j=0; j<aa.extent(0); ++j) {
-                  for (size_t k=0; k<aa.extent(1); ++k) {
-                      printf("a(%lu,%lu)= %f;\n", j+1,k+1, aa(j,k));
-                  }
-              }
-          //print b
-          printf("b=zeros(%lu,%lu);\n", bb.extent(0), bb.extent(1));
-              for (size_t j=0; j<bb.extent(0); ++j) {
-                  for (size_t k=0; k<bb.extent(1); ++k) {
-                      printf("b(%lu,%lu)= %f;\n", j+1,k+1, bb(j,k));
-                  }
-              }
-        });
-      }
-      do_print = false;
+      //bool do_print = false;
+      //if (do_print) {
+      //  Kokkos::single(Kokkos::PerTeam(member), [&] () {
+      //    //print a
+      //    printf("a=zeros(%lu,%lu);\n", aa.extent(0), aa.extent(1));
+      //        for (size_t j=0; j<aa.extent(0); ++j) {
+      //            for (size_t k=0; k<aa.extent(1); ++k) {
+      //                printf("a(%lu,%lu)= %f;\n", j+1,k+1, aa(j,k));
+      //            }
+      //        }
+      //    //print b
+      //    printf("b=zeros(%lu,%lu);\n", bb.extent(0), bb.extent(1));
+      //        for (size_t j=0; j<bb.extent(0); ++j) {
+      //            for (size_t k=0; k<bb.extent(1); ++k) {
+      //                printf("b(%lu,%lu)= %f;\n", j+1,k+1, bb(j,k));
+      //            }
+      //        }
+      //  });
+      //}
+      //do_print = false;
 
-      /// Solving Ax = b using UTV transformation
-      /// A P^T P x = b
-      /// UTV P x = b;
+      ///// Solving Ax = b using UTV transformation
+      ///// A P^T P x = b
+      ///// UTV P x = b;
 
-      /// UTV = A P^T
-      int matrix_rank(0);
-      member.team_barrier();
-      TeamVectorUTV<MemberType,AlgoTagType>
-        ::invoke(member, aa, pp, uu, vv, ww_fast, matrix_rank);
-      member.team_barrier();
+      ///// UTV = A P^T
+      //int matrix_rank(0);
+      //member.team_barrier();
+      //TeamVectorUTV<MemberType,AlgoTagType>
+      //  ::invoke(member, aa, pp, uu, vv, ww_fast, matrix_rank);
+      //member.team_barrier();
 
-      if (do_print) {
-        Kokkos::single(Kokkos::PerTeam(member), [&] () {
-        printf("matrix_rank: %d\n", matrix_rank);
-        //print u
-        printf("u=zeros(%lu,%lu);\n", uu.extent(0), uu.extent(1));
-        for (size_t j=0; j<uu.extent(0); ++j) {
-            for (size_t k=0; k<uu.extent(1); ++k) {
-                printf("u(%lu,%lu)= %f;\n", j+1,k+1, uu(j,k));
-            }
-        }
-        });
-      }
-      TeamVectorSolveUTVCompadre<MemberType,AlgoTagType>
-        ::invoke(member, matrix_rank, _M, _N, _NRHS, uu, aa, vv, pp, bb, xx, ww_slow, ww_fast);
-      member.team_barrier();
+      //if (do_print) {
+      //  Kokkos::single(Kokkos::PerTeam(member), [&] () {
+      //  printf("matrix_rank: %d\n", matrix_rank);
+      //  //print u
+      //  printf("u=zeros(%lu,%lu);\n", uu.extent(0), uu.extent(1));
+      //  for (size_t j=0; j<uu.extent(0); ++j) {
+      //      for (size_t k=0; k<uu.extent(1); ++k) {
+      //          printf("u(%lu,%lu)= %f;\n", j+1,k+1, uu(j,k));
+      //      }
+      //  }
+      //  });
+      //}
+      //TeamVectorSolveUTVCompadre<MemberType,AlgoTagType>
+      ////  ::invoke(member, matrix_rank, _M, _N, _NRHS, uu, bb, bb, bb, bb, bb, ww_slow, ww_fast);
+      //  ::invoke(member, matrix_rank, _M, _N, _NRHS, uu, aa, vv, pp, bb, xx, ww_slow, ww_fast);
+      ////  ::invoke(member, matrix_rank, _M, _N, _NRHS, bb, aa, bb, pp, bb, xx, ww_slow, ww_fast);
+      //member.team_barrier();
 
     }
 

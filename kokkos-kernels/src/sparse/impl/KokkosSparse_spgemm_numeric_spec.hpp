@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//               KokkosKernels 0.9: Linear Algebra and Graph Kernels
-//                 Copyright 2017 Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -77,6 +78,40 @@ struct spgemm_numeric_eti_spec_avail {
 
 
 #define KOKKOSSPARSE_SPGEMM_NUMERIC_ETI_SPEC_AVAIL( SCALAR_TYPE, ORDINAL_TYPE, OFFSET_TYPE, LAYOUT_TYPE, EXEC_SPACE_TYPE,FAST_MEM_SPACE_TYPE, SLOW_MEM_SPACE_TYPE ) \
+    template<> \
+    struct spgemm_numeric_eti_spec_avail< \
+        KokkosKernels::Experimental::KokkosKernelsHandle<\
+        const OFFSET_TYPE, const ORDINAL_TYPE, const SCALAR_TYPE,  \
+          EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE, SLOW_MEM_SPACE_TYPE> , \
+        Kokkos::View<const OFFSET_TYPE *, LAYOUT_TYPE,  \
+          Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+          Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+        Kokkos::View<const ORDINAL_TYPE *, LAYOUT_TYPE,  \
+          Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+          Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+        Kokkos::View<const SCALAR_TYPE *, LAYOUT_TYPE,  \
+          Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+          Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+        Kokkos::View<const OFFSET_TYPE *, LAYOUT_TYPE,  \
+          Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+          Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+        Kokkos::View<const ORDINAL_TYPE *, LAYOUT_TYPE,  \
+          Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+          Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+        Kokkos::View<const SCALAR_TYPE *, LAYOUT_TYPE,  \
+          Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+          Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+        Kokkos::View<const OFFSET_TYPE *, LAYOUT_TYPE,  \
+          Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+          Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+        Kokkos::View<ORDINAL_TYPE *, LAYOUT_TYPE,  \
+          Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+          Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+        Kokkos::View<SCALAR_TYPE *, LAYOUT_TYPE,  \
+          Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+          Kokkos::MemoryTraits<Kokkos::Unmanaged> > > \
+    { enum : bool { value = true }; }; \
+    \
     template<> \
     struct spgemm_numeric_eti_spec_avail< \
         KokkosKernels::Experimental::KokkosKernelsHandle<\
@@ -342,6 +377,39 @@ struct SPGEMM_NUMERIC<KernelHandle,
           Kokkos::View<const SCALAR_TYPE *, LAYOUT_TYPE,  \
             Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
             Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+          Kokkos::View<const OFFSET_TYPE *, LAYOUT_TYPE,  \
+            Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+            Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+          Kokkos::View<ORDINAL_TYPE *, LAYOUT_TYPE,  \
+            Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+            Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+          Kokkos::View<SCALAR_TYPE *, LAYOUT_TYPE,  \
+            Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+            Kokkos::MemoryTraits<Kokkos::Unmanaged> >, false, true >; \
+    \
+    extern template struct  \
+    SPGEMM_NUMERIC< \
+          typename KokkosKernels::Experimental::KokkosKernelsHandle<\
+          	const OFFSET_TYPE, const ORDINAL_TYPE, const SCALAR_TYPE,  \
+            EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE, SLOW_MEM_SPACE_TYPE> , \
+          Kokkos::View<const OFFSET_TYPE *, LAYOUT_TYPE,  \
+            Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+            Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+          Kokkos::View<const ORDINAL_TYPE *, LAYOUT_TYPE,  \
+            Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+            Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+          Kokkos::View<const SCALAR_TYPE *, LAYOUT_TYPE,  \
+            Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+            Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+          Kokkos::View<const OFFSET_TYPE *, LAYOUT_TYPE,  \
+            Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+            Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+          Kokkos::View<const ORDINAL_TYPE *, LAYOUT_TYPE,  \
+            Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+            Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+          Kokkos::View<const SCALAR_TYPE *, LAYOUT_TYPE,  \
+            Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+            Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
           Kokkos::View<OFFSET_TYPE *, LAYOUT_TYPE,  \
             Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
             Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
@@ -352,8 +420,40 @@ struct SPGEMM_NUMERIC<KernelHandle,
             Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
             Kokkos::MemoryTraits<Kokkos::Unmanaged> >, false, true >;
 
-
 #define KOKKOSSPARSE_SPGEMM_NUMERIC_ETI_SPEC_INST( SCALAR_TYPE, ORDINAL_TYPE, OFFSET_TYPE, LAYOUT_TYPE, EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE, SLOW_MEM_SPACE_TYPE) \
+    template struct  \
+    SPGEMM_NUMERIC< \
+          KokkosKernels::Experimental::KokkosKernelsHandle<\
+          const OFFSET_TYPE, const ORDINAL_TYPE, const SCALAR_TYPE,  \
+            EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE, SLOW_MEM_SPACE_TYPE> , \
+          Kokkos::View<const OFFSET_TYPE *, LAYOUT_TYPE,  \
+            Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+            Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+          Kokkos::View<const ORDINAL_TYPE *, LAYOUT_TYPE,  \
+            Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+            Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+          Kokkos::View<const SCALAR_TYPE *, LAYOUT_TYPE,  \
+            Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+            Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+          Kokkos::View<const OFFSET_TYPE *, LAYOUT_TYPE,  \
+            Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+            Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+          Kokkos::View<const ORDINAL_TYPE *, LAYOUT_TYPE,  \
+            Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+            Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+          Kokkos::View<const SCALAR_TYPE *, LAYOUT_TYPE,  \
+            Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+            Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+          Kokkos::View<const OFFSET_TYPE *, LAYOUT_TYPE,  \
+            Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+            Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+          Kokkos::View<ORDINAL_TYPE *, LAYOUT_TYPE,  \
+            Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+            Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
+          Kokkos::View<SCALAR_TYPE *, LAYOUT_TYPE,  \
+            Kokkos::Device<EXEC_SPACE_TYPE, FAST_MEM_SPACE_TYPE>, \
+            Kokkos::MemoryTraits<Kokkos::Unmanaged> >, false, true > ; \
+\
     template struct  \
     SPGEMM_NUMERIC< \
           KokkosKernels::Experimental::KokkosKernelsHandle<\

@@ -644,7 +644,7 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_L
 }
 
 TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Larger_LDB_NDB_Larger_NRHS_LLA_LRB_LRX) {
-    int M=3, N=3, NRHS=4, num_matrices=2, rank=3;
+    int M=3, N=3, NRHS=4, num_matrices=200, rank=3;
     int lda=3, nda=3;
     int ldb=12, ndb=8;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is LR*/, true/*B is LR*/);

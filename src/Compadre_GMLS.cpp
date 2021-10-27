@@ -235,110 +235,110 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
         //const auto work_item_property = Kokkos::Experimental::WorkItemProperty::HintLightWeight;
         //const auto tp2 = Kokkos::Experimental::require(tp, work_item_property);
 
-        if (_problem_type == ProblemType::MANIFOLD) {
+        //if (_problem_type == ProblemType::MANIFOLD) {
 
-            /*
-             *    MANIFOLD Problems
-             */
+        //    /*
+        //     *    MANIFOLD Problems
+        //     */
 
-            //auto functor_name = Name(gmls_basis_data);
-            //Kokkos::parallel_for(tp, functor_name, "Name");
-            if (!_orthonormal_tangent_space_provided) { // user did not specify orthonormal tangent directions, so we approximate them first
-                // coarse tangent plane approximation construction of P^T*P
-                auto functor_compute_coarse_tangent_plane = ComputeCoarseTangentPlane(gmls_basis_data);
-                Kokkos::parallel_for(tp, functor_compute_coarse_tangent_plane, "ComputeCoarseTangentPlane");
+        //    //auto functor_name = Name(gmls_basis_data);
+        //    //Kokkos::parallel_for(tp, functor_name, "Name");
+        //    if (!_orthonormal_tangent_space_provided) { // user did not specify orthonormal tangent directions, so we approximate them first
+        //        // coarse tangent plane approximation construction of P^T*P
+        //        auto functor_compute_coarse_tangent_plane = ComputeCoarseTangentPlane(gmls_basis_data);
+        //        Kokkos::parallel_for(tp, functor_compute_coarse_tangent_plane, "ComputeCoarseTangentPlane");
 
-                // if the user provided the reference outward normal direction, then orient the computed or user provided
-                // outward normal directions in the tangent bundle
-                if (_reference_outward_normal_direction_provided && _use_reference_outward_normal_direction_provided_to_orient_surface) {
-                    // use the reference outward normal direction provided by the user to orient
-                    // the tangent bundle
-                    auto functor_fix_tangent_direction_ordering = FixTangentDirectionOrdering(gmls_basis_data);
-                    Kokkos::parallel_for(tp, functor_fix_tangent_direction_ordering, "FixTangentDirectionOrdering");
-                }
+        //        // if the user provided the reference outward normal direction, then orient the computed or user provided
+        //        // outward normal directions in the tangent bundle
+        //        if (_reference_outward_normal_direction_provided && _use_reference_outward_normal_direction_provided_to_orient_surface) {
+        //            // use the reference outward normal direction provided by the user to orient
+        //            // the tangent bundle
+        //            auto functor_fix_tangent_direction_ordering = FixTangentDirectionOrdering(gmls_basis_data);
+        //            Kokkos::parallel_for(tp, functor_fix_tangent_direction_ordering, "FixTangentDirectionOrdering");
+        //        }
 
-                // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity for curvature
-                auto functor_assemble_curvature_psqrtw = AssembleCurvaturePsqrtW(gmls_basis_data);
-                Kokkos::parallel_for(tp, functor_assemble_curvature_psqrtw, "AssembleCurvaturePsqrtW");
+        //        // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity for curvature
+        //        auto functor_assemble_curvature_psqrtw = AssembleCurvaturePsqrtW(gmls_basis_data);
+        //        Kokkos::parallel_for(tp, functor_assemble_curvature_psqrtw, "AssembleCurvaturePsqrtW");
 
-                if (_dense_solver_type == DenseSolverType::LU) {
-                    // solves P^T*P against P^T*W with LU, stored in P
-                    Kokkos::Profiling::pushRegion("Curvature LU Factorization");
-                    // batchLU expects layout_left matrix tiles for B
-                    // by giving it layout_right matrix tiles with reverse ordered ldb and ndb
-                    // it effects a transpose of _P in layout_left
-                    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, manifold_NP, manifold_NP, _max_num_neighbors, this_batch_size);
-                    Kokkos::Profiling::popRegion();
-                } else {
-                    // solves P*sqrt(weights) against sqrt(weights)*Identity with QR, stored in RHS
-                    Kokkos::Profiling::pushRegion("Curvature QR+Pivoting Factorization");
-                    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, _max_num_neighbors, manifold_NP, _max_num_neighbors, this_batch_size);
-                    Kokkos::Profiling::popRegion();
-                }
+        //        if (_dense_solver_type == DenseSolverType::LU) {
+        //            // solves P^T*P against P^T*W with LU, stored in P
+        //            Kokkos::Profiling::pushRegion("Curvature LU Factorization");
+        //            // batchLU expects layout_left matrix tiles for B
+        //            // by giving it layout_right matrix tiles with reverse ordered ldb and ndb
+        //            // it effects a transpose of _P in layout_left
+        //            GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, manifold_NP, manifold_NP, _max_num_neighbors, this_batch_size);
+        //            Kokkos::Profiling::popRegion();
+        //        } else {
+        //            // solves P*sqrt(weights) against sqrt(weights)*Identity with QR, stored in RHS
+        //            Kokkos::Profiling::pushRegion("Curvature QR+Pivoting Factorization");
+        //            GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, _max_num_neighbors, manifold_NP, _max_num_neighbors, this_batch_size);
+        //            Kokkos::Profiling::popRegion();
+        //        }
 
-                // evaluates targets, applies target evaluation to polynomial coefficients for curvature
-                auto functor_get_accurate_tangent_directions = GetAccurateTangentDirections(gmls_basis_data);
-                Kokkos::parallel_for(tp, functor_get_accurate_tangent_directions, "GetAccurateTangentDirections");
+        //        // evaluates targets, applies target evaluation to polynomial coefficients for curvature
+        //        auto functor_get_accurate_tangent_directions = GetAccurateTangentDirections(gmls_basis_data);
+        //        Kokkos::parallel_for(tp, functor_get_accurate_tangent_directions, "GetAccurateTangentDirections");
 
-                // Due to converting layout, entries that are assumed zeros may become non-zeros.
-                Kokkos::deep_copy(_P, 0.0);
+        //        // Due to converting layout, entries that are assumed zeros may become non-zeros.
+        //        Kokkos::deep_copy(_P, 0.0);
 
-                if (batch_num==number_of_batches-1) {
-                    // copy tangent bundle from device back to host
-                    _host_T = Kokkos::create_mirror_view(_T);
-                    Kokkos::deep_copy(_host_T, _T);
-                }
-            }
+        //        if (batch_num==number_of_batches-1) {
+        //            // copy tangent bundle from device back to host
+        //            _host_T = Kokkos::create_mirror_view(_T);
+        //            Kokkos::deep_copy(_host_T, _T);
+        //        }
+        //    }
 
-            // this time assembling curvature PsqrtW matrix is using a highly accurate approximation of the tangent, previously calculated
-            // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity for curvature
-            auto functor_assemble_curvature_psqrtw = AssembleCurvaturePsqrtW(gmls_basis_data);
-            Kokkos::parallel_for(tp, functor_assemble_curvature_psqrtw, "AssembleCurvaturePsqrtW");
+        //    // this time assembling curvature PsqrtW matrix is using a highly accurate approximation of the tangent, previously calculated
+        //    // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity for curvature
+        //    auto functor_assemble_curvature_psqrtw = AssembleCurvaturePsqrtW(gmls_basis_data);
+        //    Kokkos::parallel_for(tp, functor_assemble_curvature_psqrtw, "AssembleCurvaturePsqrtW");
 
-            if (_dense_solver_type == DenseSolverType::LU) {
-                // solves P^T*P against P^T*W with LU, stored in P
-                Kokkos::Profiling::pushRegion("Curvature LU Factorization");
-                GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, manifold_NP, manifold_NP, _max_num_neighbors, this_batch_size);
-                Kokkos::Profiling::popRegion();
-            } else {
-                 // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
-                Kokkos::Profiling::pushRegion("Curvature QR+Pivoting Factorization");
-                GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, _max_num_neighbors, manifold_NP, _max_num_neighbors, this_batch_size);
-                Kokkos::Profiling::popRegion();
-            }
+        //    if (_dense_solver_type == DenseSolverType::LU) {
+        //        // solves P^T*P against P^T*W with LU, stored in P
+        //        Kokkos::Profiling::pushRegion("Curvature LU Factorization");
+        //        GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, manifold_NP, manifold_NP, _max_num_neighbors, this_batch_size);
+        //        Kokkos::Profiling::popRegion();
+        //    } else {
+        //         // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
+        //        Kokkos::Profiling::pushRegion("Curvature QR+Pivoting Factorization");
+        //        GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, _max_num_neighbors, manifold_NP, _max_num_neighbors, this_batch_size);
+        //        Kokkos::Profiling::popRegion();
+        //    }
 
-            // evaluates targets, applies target evaluation to polynomial coefficients for curvature
-            auto functor_apply_curvature_targets = ApplyCurvatureTargets(gmls_basis_data);
-            Kokkos::parallel_for(tp, functor_apply_curvature_targets, "ApplyCurvatureTargets");
-            Kokkos::fence();
+        //    // evaluates targets, applies target evaluation to polynomial coefficients for curvature
+        //    auto functor_apply_curvature_targets = ApplyCurvatureTargets(gmls_basis_data);
+        //    Kokkos::parallel_for(tp, functor_apply_curvature_targets, "ApplyCurvatureTargets");
+        //    Kokkos::fence();
 
-            // prestencil weights calculated here. appropriate because:
-            // precedes polynomial reconstruction from data (replaces contents of _RHS) 
-            // follows reconstruction of geometry
-            // calculate prestencil weights
-            auto functor_compute_prestencil_weights = ComputePrestencilWeights(gmls_basis_data);
-            Kokkos::parallel_for(tp, functor_compute_prestencil_weights, "ComputePrestencilWeights");
+        //    // prestencil weights calculated here. appropriate because:
+        //    // precedes polynomial reconstruction from data (replaces contents of _RHS) 
+        //    // follows reconstruction of geometry
+        //    // calculate prestencil weights
+        //    auto functor_compute_prestencil_weights = ComputePrestencilWeights(gmls_basis_data);
+        //    Kokkos::parallel_for(tp, functor_compute_prestencil_weights, "ComputePrestencilWeights");
 
-            // Due to converting layout, entried that are assumed zeros may become non-zeros.
-            Kokkos::deep_copy(_P, 0.0);
+        //    // Due to converting layout, entried that are assumed zeros may become non-zeros.
+        //    Kokkos::deep_copy(_P, 0.0);
 
-            // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity
-            auto functor_assemble_manifold_psqrtw = AssembleManifoldPsqrtW(gmls_basis_data);
-            Kokkos::parallel_for(tp, functor_assemble_manifold_psqrtw, "AssembleManifoldPsqrtW");
+        //    // assembles the P*sqrt(weights) matrix and constructs sqrt(weights)*Identity
+        //    auto functor_assemble_manifold_psqrtw = AssembleManifoldPsqrtW(gmls_basis_data);
+        //    Kokkos::parallel_for(tp, functor_assemble_manifold_psqrtw, "AssembleManifoldPsqrtW");
 
-            // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
-            if (_dense_solver_type == DenseSolverType::LU) {
-                Kokkos::Profiling::pushRegion("Manifold LU Factorization");
-                GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, this_num_cols, this_num_cols, max_num_rows, this_batch_size);
-                Kokkos::Profiling::popRegion();
-            } else {
-                Kokkos::Profiling::pushRegion("Manifold QR+Pivoting Factorization");
-                GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, max_num_rows, this_num_cols, max_num_rows, this_batch_size);
-                Kokkos::Profiling::popRegion();
-            }
-            Kokkos::fence();
+        //    // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
+        //    if (_dense_solver_type == DenseSolverType::LU) {
+        //        Kokkos::Profiling::pushRegion("Manifold LU Factorization");
+        //        GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, this_num_cols, this_num_cols, max_num_rows, this_batch_size);
+        //        Kokkos::Profiling::popRegion();
+        //    } else {
+        //        Kokkos::Profiling::pushRegion("Manifold QR+Pivoting Factorization");
+        //        GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, max_num_rows, this_num_cols, max_num_rows, this_batch_size);
+        //        Kokkos::Profiling::popRegion();
+        //    }
+        //    Kokkos::fence();
 
-        } else {
+        //} else {
 
             /*
              *    STANDARD GMLS Problems
@@ -365,46 +365,46 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
                 Kokkos::Profiling::popRegion();
             }
 
-            auto functor_compute_prestencil_weights = ComputePrestencilWeights(gmls_basis_data);
-            Kokkos::parallel_for(tp, functor_compute_prestencil_weights, "ComputePrestencilWeights");
-            Kokkos::fence();
-        }
+            //auto functor_compute_prestencil_weights = ComputePrestencilWeights(gmls_basis_data);
+            //Kokkos::parallel_for(tp, functor_compute_prestencil_weights, "ComputePrestencilWeights");
+            //Kokkos::fence();
+        //}
 
         /*
          *    Calculate Optimal Threads Based On Levels of Parallelism
          */
 
 
-        if (_problem_type == ProblemType::MANIFOLD) {
+        //if (_problem_type == ProblemType::MANIFOLD) {
 
-            /*
-             *    MANIFOLD Problems
-             */
+        //    /*
+        //     *    MANIFOLD Problems
+        //     */
 
-            // evaluates targets, applies target evaluation to polynomial coefficients to store in _alphas
-            auto functor_evaluate_manifold_targets = EvaluateManifoldTargets(gmls_basis_data);
-            Kokkos::parallel_for(tp, functor_evaluate_manifold_targets, "EvaluateManifoldTargets");
+        //    // evaluates targets, applies target evaluation to polynomial coefficients to store in _alphas
+        //    auto functor_evaluate_manifold_targets = EvaluateManifoldTargets(gmls_basis_data);
+        //    Kokkos::parallel_for(tp, functor_evaluate_manifold_targets, "EvaluateManifoldTargets");
 
-        } else {
+        //} else {
 
-            /*
-             *    STANDARD GMLS Problems
-             */
+        //    /*
+        //     *    STANDARD GMLS Problems
+        //     */
 
-            // evaluates targets, applies target evaluation to polynomial coefficients to store in _alphas
-            auto functor_evaluate_standard_targets = EvaluateStandardTargets(gmls_basis_data);
-            Kokkos::parallel_for(tp, functor_evaluate_standard_targets, "EvaluateStandardTargets");
-        }
+        //    // evaluates targets, applies target evaluation to polynomial coefficients to store in _alphas
+        //    auto functor_evaluate_standard_targets = EvaluateStandardTargets(gmls_basis_data);
+        //    Kokkos::parallel_for(tp, functor_evaluate_standard_targets, "EvaluateStandardTargets");
+        //}
 
-            
-        // fine grain control over applying target (most expensive part after QR solve)
-        ParallelManager pm;
-        tp = pm.TeamPolicyThreadsAndVectors(this_batch_size, pm._default_threads, pm._default_vector_lanes);
-        const auto work_item_property = Kokkos::Experimental::WorkItemProperty::HintLightWeight;
-        const auto tp2 = Kokkos::Experimental::require(tp, work_item_property);
-        auto functor_apply_targets = ApplyTargets(gmls_solution_data);
-        //printf("size of apply: %lu\n",  sizeof(functor_apply_targets));
-        Kokkos::parallel_for(tp2, functor_apply_targets, "ApplyTargets");
+        //    
+        //// fine grain control over applying target (most expensive part after QR solve)
+        //ParallelManager pm;
+        //tp = pm.TeamPolicyThreadsAndVectors(this_batch_size, pm._default_threads, pm._default_vector_lanes);
+        //const auto work_item_property = Kokkos::Experimental::WorkItemProperty::HintLightWeight;
+        //const auto tp2 = Kokkos::Experimental::require(tp, work_item_property);
+        //auto functor_apply_targets = ApplyTargets(gmls_solution_data);
+        ////printf("size of apply: %lu\n",  sizeof(functor_apply_targets));
+        //Kokkos::parallel_for(tp2, functor_apply_targets, "ApplyTargets");
 
 
         _initial_index_for_batch += this_batch_size;

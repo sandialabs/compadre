@@ -99,7 +99,9 @@ struct NeighborLists {
         Kokkos::fence();
 
         computeRowOffsets();
+        Kokkos::fence();
         computeMaxNumNeighbors();
+        Kokkos::fence();
 
         //check neighbor_lists is large enough
         compadre_assert_release(((size_t)(this->getTotalNeighborsOverAllListsHost())<=cr_neighbor_lists.extent(0)) 
@@ -129,7 +131,9 @@ struct NeighborLists {
         Kokkos::fence();
 
         computeRowOffsets();
+        Kokkos::fence();
         computeMaxNumNeighbors();
+        Kokkos::fence();
 
         _cr_neighbor_lists = view_type("compressed row neighbor lists data", this->getTotalNeighborsOverAllListsHost());
         _host_cr_neighbor_lists = Kokkos::create_mirror_view(_cr_neighbor_lists);
@@ -158,12 +162,17 @@ struct NeighborLists {
         if (_number_of_neighbors_list.extent(0)==0) {
             _max_neighbor_list_row_storage_size = 0;
         } else {
-            auto number_of_neighbors_list = _number_of_neighbors_list;
+            const auto number_of_neighbors_list = _host_number_of_neighbors_list;
+            const auto number_of_neighbors_list_extent = _host_number_of_neighbors_list.extent(0);
+            int max_neighbor_list_row_storage_size = 0;
             Kokkos::parallel_reduce("max number of neighbors", 
-                    Kokkos::RangePolicy<typename view_type::execution_space>(0, _number_of_neighbors_list.extent(0)), 
+                    //Kokkos::RangePolicy<typename view_type::execution_space>(0, number_of_neighbors_list_extent), 
+                    Kokkos::RangePolicy<host_execution_space>(0, number_of_neighbors_list_extent), 
                     KOKKOS_LAMBDA(const int i, int& t_max_num_neighbors) {
                 t_max_num_neighbors = (number_of_neighbors_list(i) > t_max_num_neighbors) ? number_of_neighbors_list(i) : t_max_num_neighbors;
-            }, Kokkos::Max<int>(_max_neighbor_list_row_storage_size));
+            }, Kokkos::Max<int>(max_neighbor_list_row_storage_size));
+            Kokkos::fence();
+            _max_neighbor_list_row_storage_size = max_neighbor_list_row_storage_size;
             Kokkos::fence();
         }
     }

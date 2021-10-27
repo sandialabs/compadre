@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//               KokkosKernels 0.9: Linear Algebra and Graph Kernels
-//                 Copyright 2017 Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -44,7 +45,8 @@
 #ifndef KOKKOS_BLAS3_GEMM_IMPL_HPP_
 #define KOKKOS_BLAS3_GEMM_IMPL_HPP_
 
-#include<Kokkos_Core.hpp>
+#include <Kokkos_Core.hpp>
+#include "KokkosKernels_Macros.hpp"
 
 #ifdef KOKKOS_ENABLE_CXX14
 #ifdef KOKKOS_COMPILER_GNU
@@ -62,13 +64,20 @@ namespace Impl {
 // On GPUs it is more important to not jump around in global memory, i.e. have coallesced loads
 template<class ExecSpace, class LayoutA, class LayoutAScratch>
 struct impl_gemm_choose_copy_layout {
-  typedef LayoutAScratch type;
+  using type = LayoutAScratch;
 };
 
 #ifdef KOKKOS_ENABLE_CUDA
 template<class LayoutA, class LayoutAScratch>
 struct impl_gemm_choose_copy_layout<Kokkos::Cuda,LayoutA,LayoutAScratch> {
-  typedef LayoutA type;
+  using type = LayoutA;
+};
+#endif
+
+#ifdef KOKKOS_ENABLE_HIP
+template<class LayoutA, class LayoutAScratch>
+struct impl_gemm_choose_copy_layout<Kokkos::Experimental::HIP,LayoutA,LayoutAScratch> {
+  using type = LayoutA;
 };
 #endif
 
@@ -390,7 +399,7 @@ KOKKOS_INLINE_FUNCTION
 void impl_team_gemm_block(const TeamHandle& team, const ViewTypeC& C, const ViewTypeA& A, const ViewTypeB& B) {
   typedef typename ViewTypeC::non_const_value_type ScalarC;
 // GNU COMPILER BUG WORKAROUND
-#if defined(KOKKOS_COMPILER_GNU) || !defined(__CUDA_ARCH__)
+#if defined(KOKKOS_COMPILER_GNU) && (!defined(__CUDA_ARCH__) || !defined(__HIP_DEVICE_COMPILE__))
   int blockA0 = A.extent_int(0);
   int blockA1 = A.extent_int(1);
   int blockB1 = B.extent_int(1);
@@ -400,16 +409,10 @@ void impl_team_gemm_block(const TeamHandle& team, const ViewTypeC& C, const View
   const int blockB1 = B.extent_int(1);
 #endif
   Kokkos::parallel_for(Kokkos::TeamThreadRange(team,blockA0), [&] (const int i) {
-#if defined(__CUDA_ARCH__) || !defined(KOKKOS_ENABLE_OPENMP)
+#ifndef KOKKOSKERNELS_ENABLE_OMP_SIMD
     Kokkos::parallel_for(Kokkos::ThreadVectorRange(team,blockB1/4), [&] (const int B_j) {
 #else
-  #if defined(KOKKOS_COMPILER_GNU)
-    #if (KOKKOS_COMPILER_GNU > 485 )
     #pragma omp simd
-    #endif
-  #else
-    #pragma omp simd
-  #endif
     for(int B_j=0; B_j<blockB1/4; B_j++) {
 #endif
       ScalarC C_ij0 = 0;
@@ -427,7 +430,7 @@ void impl_team_gemm_block(const TeamHandle& team, const ViewTypeC& C, const View
       C(i,B_j+blockB1/4) += C_ij1;
       C(i,B_j+2*blockB1/4) += C_ij2;
       C(i,B_j+3*blockB1/4) += C_ij3;
-#if defined(__CUDA_ARCH__) || !defined(KOKKOS_ENABLE_OPENMP)
+#ifndef KOKKOSKERNELS_ENABLE_OMP_SIMD
     });
 #else
     }
@@ -514,7 +517,17 @@ struct GEMMImpl {
       ViewTypeBScratch::shmem_size() +
       ViewTypeCScratch::shmem_size();
 
+#if defined(KOKKOS_ENABLE_HIP)
+    // Note lbv, 10/29/20: The LaunchBounds<384,2> leads
+    // to an error with HIP as the heuristics on that platform
+    // yield an optimal_num_blocks=0 which means no ressources
+    // are allocated... Switching to LaunchBounds<384,2> fixes
+    // that problem but I'm not sure if that it a good perf
+    // parameter or why it is set to 2 for Cuda?
+    Kokkos::TeamPolicy<ExecSpace,Kokkos::LaunchBounds<384,0>> policy(num_blocks_0*num_blocks_1,team_size,vector_length);
+#else
     Kokkos::TeamPolicy<ExecSpace,Kokkos::LaunchBounds<384,2>> policy(num_blocks_0*num_blocks_1,team_size,vector_length);
+#endif
 
     Kokkos::parallel_for(impl_gemm_label<TransposeA,TransposeB>::label,policy.set_scratch_size(scratch_level,Kokkos::PerTeam(scratch_memory_size)),*this);
   }

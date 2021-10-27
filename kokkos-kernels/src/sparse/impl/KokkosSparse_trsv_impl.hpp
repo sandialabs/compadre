@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//               KokkosKernels 0.9: Linear Algebra and Graph Kernels
-//                 Copyright 2017 Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -138,7 +139,7 @@ lowerTriSolveCsr (RangeMultiVectorType X,
       }
     } // for each entry A_rc in the current row r
     for (local_ordinal_type j = 0; j < numVecs; ++j) {
-      X(r, j) /= A_rr;
+      X(r, j) = X(r, j) / A_rr;
     }
   } // for each row r
 }
@@ -250,7 +251,7 @@ upperTriSolveCsr (RangeMultiVectorType X,
       }
     } // for each entry A_rc in the current row r
     for (local_ordinal_type j = 0; j < numVecs; ++j) {
-      X(r, j) /= A_rr;
+      X(r, j) = X(r, j) / A_rr;
     }
   } // for each row r
 
@@ -272,7 +273,7 @@ upperTriSolveCsr (RangeMultiVectorType X,
       }
     } // for each entry A_rc in the current row r
     for (local_ordinal_type j = 0; j < numVecs; ++j) {
-      X(r, j) /= A_rr;
+      X(r, j) = X(r, j) / A_rr;
     }
   } // last iteration: r = 0
 }
@@ -351,7 +352,6 @@ upperTriSolveCsc (RangeMultiVectorType X,
   typedef typename CrsMatrixType::row_map_type::non_const_value_type offset_type;
   typedef typename CrsMatrixType::index_type::non_const_value_type local_ordinal_type;
   typedef typename CrsMatrixType::values_type::non_const_value_type matrix_scalar_type;
-  typedef Kokkos::Details::ArithTraits<matrix_scalar_type> STS;
 
   const local_ordinal_type numRows = A.numRows ();
   const local_ordinal_type numCols = A.numCols ();
@@ -376,52 +376,35 @@ upperTriSolveCsc (RangeMultiVectorType X,
   // local_ordinal_type is unsigned.  We do c == 0 (last
   // iteration) below.
   for (local_ordinal_type c = numCols - 1; c != 0; --c) {
-    matrix_scalar_type A_cc = STS::zero ();
     const offset_type beg = ptr(c);
     const offset_type end = ptr(c+1);
-    for (offset_type k = beg; k < end; ++k) {
+    for (offset_type k = end - 1; k >= beg; --k) {
       const local_ordinal_type r = ind(k);
       const matrix_scalar_type A_rc = val(k);
-      // FIXME (mfh 28 Aug 2014) This assumes that the diagonal entry
-      // has equal local row and column indices.  That may not
-      // necessarily hold, depending on the row and column Maps.  See
-      // note above.
-      if (r == c) {
-        A_cc += A_rc;
-      } else {
-        for (local_ordinal_type j = 0; j < numVecs; ++j) {
+      /*(vqd 20 Jul 2020) This assumes that the diagonal entry
+        has equal local row and column indices.  That may not
+        necessarily hold, depending on the row and column Maps.  See
+       note above.*/
+      for (local_ordinal_type j = 0; j < numVecs; ++j) {
+        if (r == c) {
+          X(c, j) = X(c, j) / A_rc;
+        } else {
           X(r, j) -= A_rc * X(c, j);
         }
       }
     } // for each entry A_rc in the current column c
-    for (local_ordinal_type j = 0; j < numVecs; ++j) {
-      X(c, j) /= A_cc;
-    }
   } // for each column c
 
   // Last iteration: c = 0.
   {
-    const local_ordinal_type c = 0;
-    matrix_scalar_type A_cc = STS::zero ();
-    const offset_type beg = ptr(c);
-    const offset_type end = ptr(c+1);
-    for (offset_type k = beg; k < end; ++k) {
-      const local_ordinal_type r = ind(k);
-      const matrix_scalar_type A_rc = val(k);
-      // FIXME (mfh 28 Aug 2014) This assumes that the diagonal entry
-      // has equal local row and column indices.  That may not
-      // necessarily hold, depending on the row and column Maps.  See
-      // note above.
-      if (r == c) {
-        A_cc += A_rc;
-      } else {
-        for (local_ordinal_type j = 0; j < numVecs; ++j) {
-          X(r, j) -= A_rc * X(c, j);
-        }
-      }
-    } // for each entry A_rc in the current column c
+    const offset_type beg = ptr(0);
+    const matrix_scalar_type A_rc = val(beg);
+    /*(vqd 20 Jul 2020) This assumes that the diagonal entry
+      has equal local row and column indices.  That may not
+      necessarily hold, depending on the row and column Maps.  See
+      note above.*/
     for (local_ordinal_type j = 0; j < numVecs; ++j) {
-      X(c, j) /= A_cc;
+      X(0, j) = X(0, j) / A_rc;
     }
   }
 }
@@ -565,52 +548,35 @@ upperTriSolveCscConj (RangeMultiVectorType X,
   // local_ordinal_type is unsigned.  We do c == 0 (last
   // iteration) below.
   for (local_ordinal_type c = numCols - 1; c != 0; --c) {
-    matrix_scalar_type A_cc = STS::zero ();
     const offset_type beg = ptr(c);
     const offset_type end = ptr(c+1);
-    for (offset_type k = beg; k < end; ++k) {
+    for (offset_type k = end - 1; k >= beg; --k) {
       const local_ordinal_type r = ind(k);
       const matrix_scalar_type A_rc = STS::conj (val(k));
-      // FIXME (mfh 28 Aug 2014) This assumes that the diagonal entry
-      // has equal local row and column indices.  That may not
-      // necessarily hold, depending on the row and column Maps.  See
-      // note above.
-      if (r == c) {
-        A_cc += A_rc;
-      } else {
-        for (local_ordinal_type j = 0; j < numVecs; ++j) {
+      /*(vqd 20 Jul 2020) This assumes that the diagonal entry
+        has equal local row and column indices.  That may not
+        necessarily hold, depending on the row and column Maps.  See
+       note above.*/
+      for (local_ordinal_type j = 0; j < numVecs; ++j) {
+        if (r == c) {
+          X(c, j) = X(c, j) / A_rc;
+        } else {
           X(r, j) -= A_rc * X(c, j);
         }
       }
     } // for each entry A_rc in the current column c
-    for (local_ordinal_type j = 0; j < numVecs; ++j) {
-      X(c, j) /= A_cc;
-    }
   } // for each column c
 
   // Last iteration: c = 0.
   {
-    const local_ordinal_type c = 0;
-    matrix_scalar_type A_cc = STS::zero ();
-    const offset_type beg = ptr(c);
-    const offset_type end = ptr(c+1);
-    for (offset_type k = beg; k < end; ++k) {
-      const local_ordinal_type r = ind(k);
-      const matrix_scalar_type A_rc = STS::conj (val(k));
-      // FIXME (mfh 28 Aug 2014) This assumes that the diagonal entry
-      // has equal local row and column indices.  That may not
-      // necessarily hold, depending on the row and column Maps.  See
-      // note above.
-      if (r == c) {
-        A_cc += A_rc;
-      } else {
-        for (local_ordinal_type j = 0; j < numVecs; ++j) {
-          X(r, j) -= A_rc * X(c, j);
-        }
-      }
-    } // for each entry A_rc in the current column c
+    const offset_type beg = ptr(0);
+    const matrix_scalar_type A_rc = STS::conj (val(beg));
+    /*(vqd 20 Jul 2020) This assumes that the diagonal entry
+      has equal local row and column indices.  That may not
+      necessarily hold, depending on the row and column Maps.  See
+      note above.*/
     for (local_ordinal_type j = 0; j < numVecs; ++j) {
-      X(c, j) /= A_cc;
+      X(0, j) = X(0, j) / A_rc;
     }
   }
 }
@@ -627,7 +593,6 @@ lowerTriSolveCsc (RangeMultiVectorType X,
   typedef typename CrsMatrixType::row_map_type::non_const_value_type offset_type;
   typedef typename CrsMatrixType::index_type::non_const_value_type local_ordinal_type;
   typedef typename CrsMatrixType::values_type::non_const_value_type matrix_scalar_type;
-  typedef Kokkos::Details::ArithTraits<matrix_scalar_type> STS;
 
   const local_ordinal_type numRows = A.numRows ();
   const local_ordinal_type numCols = A.numCols ();
@@ -643,27 +608,24 @@ lowerTriSolveCsc (RangeMultiVectorType X,
   }
 
   for (local_ordinal_type c = 0; c < numCols; ++c) {
-    matrix_scalar_type A_cc = STS::zero ();
     const offset_type beg = ptr(c);
     const offset_type end = ptr(c+1);
     for (offset_type k = beg; k < end; ++k) {
       const local_ordinal_type r = ind(k);
       const matrix_scalar_type A_rc = val(k);
-      // FIXME (mfh 28 Aug 2014) This assumes that the diagonal entry
-      // has equal local row and column indices.  That may not
-      // necessarily hold, depending on the row and column Maps.  See
-      // note above.
-      if (r == c) {
-        A_cc += A_rc;
-      } else {
-        for (local_ordinal_type j = 0; j < numVecs; ++j) {
+      /*(vqd 20 Jul 2020) This assumes that the diagonal entry
+        has equal local row and column indices.  That may not
+        necessarily hold, depending on the row and column Maps.  See
+        note above.*/
+      for (local_ordinal_type j = 0; j < numVecs; ++j) {
+        if (r == c) {
+          X(c, j) = X(c, j) / A_rc;
+        } 
+        else {
           X(r, j) -= A_rc * X(c, j);
         }
       }
     } // for each entry A_rc in the current column c
-    for (local_ordinal_type j = 0; j < numVecs; ++j) {
-      X(c, j) /= A_cc;
-    }
   } // for each column c
 }
 
@@ -735,27 +697,24 @@ lowerTriSolveCscConj (RangeMultiVectorType X,
   }
 
   for (local_ordinal_type c = 0; c < numCols; ++c) {
-    matrix_scalar_type A_cc = STS::zero ();
     const offset_type beg = ptr(c);
     const offset_type end = ptr(c+1);
     for (offset_type k = beg; k < end; ++k) {
       const local_ordinal_type r = ind(k);
       const matrix_scalar_type A_rc = STS::conj (val(k));
-      // FIXME (mfh 28 Aug 2014) This assumes that the diagonal entry
-      // has equal local row and column indices.  That may not
-      // necessarily hold, depending on the row and column Maps.  See
-      // note above.
-      if (r == c) {
-        A_cc += A_rc;
-      } else {
-        for (local_ordinal_type j = 0; j < numVecs; ++j) {
+      /*(vqd 20 Jul 2020) This assumes that the diagonal entry
+        has equal local row and column indices.  That may not
+        necessarily hold, depending on the row and column Maps.  See
+        note above.*/
+      for (local_ordinal_type j = 0; j < numVecs; ++j) {
+        if (r == c) {    
+          X(c, j) = X(c, j) / A_rc;
+        } 
+        else {
           X(r, j) -= A_rc * X(c, j);
         }
       }
     } // for each entry A_rc in the current column c
-    for (local_ordinal_type j = 0; j < numVecs; ++j) {
-      X(c, j) /= A_cc;
-    }
   } // for each column c
 }
 

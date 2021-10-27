@@ -42,15 +42,15 @@ int main(int argc, char **argv) {
     #endif
 
     ::testing::InitGoogleTest(&argc, argv);
-    ::testing::GTEST_FLAG(filter) = "Kokkos*";
-    int sig = RUN_ALL_TESTS();
+    //::testing::GTEST_FLAG(filter) = "Kokkos*";
+    //int sig = RUN_ALL_TESTS();
 
     // initializes kokkos
     auto kp = KokkosParser(argc, argv, true);
 
     // execute all tests
-    ::testing::GTEST_FLAG(filter) = "-Kokkos*";
-    sig &= RUN_ALL_TESTS();
+    ::testing::GTEST_FLAG(filter) = "LinearAlgebraTest*";
+    int sig = RUN_ALL_TESTS();
 
     // finalize Kokkos and MPI (if available)
     kp.finalize();

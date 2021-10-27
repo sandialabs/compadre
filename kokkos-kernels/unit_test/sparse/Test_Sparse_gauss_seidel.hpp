@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//               KokkosKernels 0.9: Linear Algebra and Graph Kernels
-//                 Copyright 2017 Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -58,7 +59,7 @@
 #include <vector>
 #include "KokkosSparse_gauss_seidel.hpp"
 #include "KokkosSparse_partitioning_impl.hpp"
-#include "impl/KokkosSparse_sor_sequential_impl.hpp"
+#include "KokkosSparse_sor_sequential_impl.hpp"
 
 #ifndef kokkos_complex_double
 #define kokkos_complex_double Kokkos::complex<double>
@@ -80,7 +81,8 @@ int run_gauss_seidel(
     bool is_symmetric_graph,
     int apply_type = 0, // 0 for symmetric, 1 for forward, 2 for backward.
     int cluster_size = 1,
-    ClusteringAlgorithm cluster_algorithm = CLUSTER_DEFAULT)
+    bool classic = false, // only with two-stage, true for sptrsv instead of richardson
+    ClusteringAlgorithm clusterAlgo = CLUSTER_DEFAULT) 
 {
   typedef typename crsMat_t::StaticCrsGraphType graph_t;
   typedef typename graph_t::row_map_type lno_view_t;
@@ -95,24 +97,35 @@ int run_gauss_seidel(
       <size_type,lno_t, scalar_t,
       typename device::execution_space, typename device::memory_space,typename device::memory_space > KernelHandle;
 
+  scalar_t omega(0.9);
+
   KernelHandle kh;
   kh.set_team_work_size(16);
   kh.set_dynamic_scheduling(true);
   if(gs_algorithm == GS_CLUSTER)
-    kh.create_gs_handle(cluster_algorithm, cluster_size);
+    kh.create_gs_handle(clusterAlgo, cluster_size);
+  else if(gs_algorithm == GS_TWOSTAGE) {
+    // test for two-stage/classical gs
+    kh.create_gs_handle(gs_algorithm);
+    kh.set_gs_twostage(!classic, input_mat.numRows());
+    if (classic) {
+      // two-stage with SpTRSV supports only omega = one
+      const scalar_t one = Kokkos::Details::ArithTraits<scalar_t>::one ();
+      omega = one;
+    }
+  }
   else
     kh.create_gs_handle(GS_DEFAULT);
 
   const size_t num_rows_1 = input_mat.numRows();
   const size_t num_cols_1 = input_mat.numCols();
-  const int apply_count = 100;
+  //const int apply_count = 100;
+  const int apply_count = 1;
 
   gauss_seidel_symbolic
     (&kh, num_rows_1, num_cols_1, input_mat.graph.row_map, input_mat.graph.entries, is_symmetric_graph);
   gauss_seidel_numeric
     (&kh, num_rows_1, num_cols_1, input_mat.graph.row_map, input_mat.graph.entries, input_mat.values, is_symmetric_graph);
-
-  scalar_t omega(0.9);
 
   switch (apply_type){
   case 0:
@@ -258,37 +271,59 @@ void test_gauss_seidel_rank1(lno_t numRows, size_type nnz, lno_t bandwidth, lno_
   //we just test GS_DEFAULT.
   int apply_count = 3;  //test symmetric, forward, backward
   scalar_view_t x_vector(Kokkos::ViewAllocateWithoutInitializing("x vector"), nv);
-  const scalar_t alpha = 1.0;
+  const scalar_t one = Kokkos::Details::ArithTraits<scalar_t>::one ();
+  const scalar_t zero = Kokkos::Details::ArithTraits<scalar_t>::zero ();
   //*** Point-coloring version ****
   for (int apply_type = 0; apply_type < apply_count; ++apply_type)
   {
     Kokkos::Impl::Timer timer1;
-    Kokkos::deep_copy(x_vector, scalar_t(0.0));
+    Kokkos::deep_copy(x_vector, zero);
     run_gauss_seidel<crsMat_t, scalar_view_t, device>(input_mat, GS_DEFAULT, x_vector, y_vector, symmetric, apply_type);
     //double gs = timer1.seconds();
     //KokkosKernels::Impl::print_1Dview(x_vector);
-    KokkosBlas::axpby(alpha, solution_x, -alpha, x_vector);
+    KokkosBlas::axpby(one, solution_x, -one, x_vector);
     mag_t result_norm_res = KokkosBlas::nrm2(x_vector);
     EXPECT_LT(result_norm_res, initial_norm_res);
   }
   //*** Cluster-coloring version ****
   int clusterSizes[3] = {2, 5, 34};
+  std::vector<ClusteringAlgorithm> clusteringAlgos = {CLUSTER_MIS2, CLUSTER_BALLOON};
   for(int csize = 0; csize < 3; csize++)
   {
-    for(int algo = 0; algo < (int) NUM_CLUSTERING_ALGORITHMS; algo++)
+    for(auto clusterAlgo : clusteringAlgos)
     {
       for(int apply_type = 0; apply_type < apply_count; ++apply_type)
       {
         Kokkos::Impl::Timer timer1;
         //Zero out X before solving
-        Kokkos::deep_copy(x_vector, scalar_t(0.0));
+        Kokkos::deep_copy(x_vector, zero);
         run_gauss_seidel<crsMat_t, scalar_view_t, device>(
-            input_mat, GS_CLUSTER, x_vector, y_vector, symmetric, apply_type, clusterSizes[csize], (ClusteringAlgorithm) algo);
-        KokkosBlas::axpby(alpha, solution_x, -alpha, x_vector);
+            input_mat, GS_CLUSTER, x_vector, y_vector, symmetric, apply_type, clusterSizes[csize], false, clusterAlgo);
+        KokkosBlas::axpby(one, solution_x, -one, x_vector);
         mag_t result_norm_res = KokkosBlas::nrm2(x_vector);
         EXPECT_LT(result_norm_res, initial_norm_res);
       }
     }
+  }
+  //*** Two-stage version ****
+  for (int apply_type = 0; apply_type < apply_count; ++apply_type)
+  {
+    Kokkos::deep_copy(x_vector, zero);
+    run_gauss_seidel<crsMat_t, scalar_view_t, device>
+      (input_mat, GS_TWOSTAGE, x_vector, y_vector, symmetric, apply_type);
+    KokkosBlas::axpby(one, solution_x, -one, x_vector);
+    mag_t result_norm_res = KokkosBlas::nrm2(x_vector);
+    EXPECT_LT(result_norm_res, initial_norm_res);
+  }
+  //*** Two-stage version (classic) ****
+  for (int apply_type = 0; apply_type < apply_count; ++apply_type)
+  {
+    Kokkos::deep_copy(x_vector, zero);
+    run_gauss_seidel<crsMat_t, scalar_view_t, device>
+      (input_mat, GS_TWOSTAGE, x_vector, y_vector, symmetric, apply_type, 0, true);
+    KokkosBlas::axpby(one, solution_x, -one, x_vector);
+    mag_t result_norm_res = KokkosBlas::nrm2(x_vector);
+    EXPECT_LT(result_norm_res, initial_norm_res);
   }
 }
 
@@ -328,12 +363,13 @@ void test_gauss_seidel_rank2(lno_t numRows, size_type nnz, lno_t bandwidth, lno_
         Kokkos::Details::ArithTraits<scalar_t>::abs(sum));
   }
   int apply_count = 3;  //test symmetric, forward, backward
+  const scalar_t zero = Kokkos::Details::ArithTraits<scalar_t>::zero ();
   //*** Point-coloring version ****
   for(int apply_type = 0; apply_type < apply_count; ++apply_type)
   {
     Kokkos::Impl::Timer timer1;
     //Zero out X before solving
-    Kokkos::deep_copy(x_vector, scalar_t(0.0));
+    Kokkos::deep_copy(x_vector, zero);
     run_gauss_seidel<crsMat_t, scalar_view2d_t, device>(
         input_mat, GS_DEFAULT, x_vector, y_vector, symmetric, apply_type);
     Kokkos::deep_copy(x_host, x_vector);
@@ -360,7 +396,7 @@ void test_gauss_seidel_rank2(lno_t numRows, size_type nnz, lno_t bandwidth, lno_
       {
         Kokkos::Impl::Timer timer1;
         //Zero out X before solving
-        Kokkos::deep_copy(x_vector, scalar_t(0.0));
+        Kokkos::deep_copy(x_vector, zero);
         run_gauss_seidel<crsMat_t, scalar_view2d_t, device>(
             input_mat, GS_CLUSTER, x_vector, y_vector, symmetric, apply_type, clusterSizes[csize], (ClusteringAlgorithm) algo);
         Kokkos::deep_copy(x_host, x_vector);
@@ -379,42 +415,47 @@ void test_gauss_seidel_rank2(lno_t numRows, size_type nnz, lno_t bandwidth, lno_
       }
     }
   }
-}
-
-template <typename scalar_t, typename lno_t, typename size_type, typename device>
-void test_rcm(lno_t numRows, size_type nnzPerRow, lno_t bandwidth)
-{
-  using namespace Test;
-  typedef typename KokkosSparse::CrsMatrix<scalar_t, lno_t, device, void, size_type> crsMat_t;
-  typedef typename crsMat_t::StaticCrsGraphType graph_t;
-  typedef typename graph_t::row_map_type::non_const_type lno_row_view_t;
-  typedef typename graph_t::entries_type::non_const_type lno_nnz_view_t;
-  typedef KokkosKernelsHandle
-      <size_type, lno_t, scalar_t,
-      typename device::execution_space, typename device::memory_space,typename device::memory_space> KernelHandle;
-  srand(245);
-  size_type nnzTotal = nnzPerRow * numRows;
-  lno_t nnzVariance = nnzPerRow / 4;
-  crsMat_t A = KokkosKernels::Impl::kk_generate_sparse_matrix<crsMat_t>(numRows, numRows, nnzTotal, nnzVariance, bandwidth);
-  lno_row_view_t symRowmap;
-  lno_nnz_view_t symEntries;
-  KokkosKernels::Impl::symmetrize_graph_symbolic_hashmap
-    <typename graph_t::row_map_type, typename graph_t::entries_type, lno_row_view_t, lno_nnz_view_t, typename device::execution_space>
-    (numRows, A.graph.row_map, A.graph.entries, symRowmap, symEntries);
-  typedef KokkosSparse::Impl::RCM<KernelHandle, typename graph_t::row_map_type::non_const_type, typename graph_t::entries_type::non_const_type> rcm_t;
-  rcm_t rcm(numRows, symRowmap, symEntries);
-  lno_nnz_view_t rcmOrder = rcm.rcm();
-  //perm(i) = the node with timestamp i
-  //make sure that perm is in fact a permutation matrix (contains each row exactly once)
-  Kokkos::View<lno_t*, Kokkos::HostSpace> rcmHost("RCM row ordering", numRows);
-  Kokkos::deep_copy(rcmHost, rcmOrder);
-  std::set<lno_t> rowSet;
-  for(lno_t i = 0; i < numRows; i++)
-    rowSet.insert(rcmHost(i));
-  if((lno_t) rowSet.size() != numRows)
+  //*** Two-stage version ****
+  for(int apply_type = 0; apply_type < apply_count; ++apply_type)
   {
-    std::cerr << "Only got back " << rowSet.size() << " unique row IDs!\n";
-    return;
+    //Zero out X before solving
+    Kokkos::deep_copy(x_vector, zero);
+    run_gauss_seidel<crsMat_t, scalar_view2d_t, device>
+      (input_mat, GS_TWOSTAGE, x_vector, y_vector, symmetric, apply_type);
+    Kokkos::deep_copy(x_host, x_vector);
+    for(lno_t i = 0; i < numVecs; i++)
+    {
+      scalar_t diffDot = 0;
+      for(lno_t j = 0; j < numRows; j++)
+      {
+        scalar_t diff = x_host(j, i) - solution_x(j, i);
+        diffDot += diff * diff;
+      }
+      mag_t res = Kokkos::Details::ArithTraits<mag_t>::sqrt(
+          Kokkos::Details::ArithTraits<scalar_t>::abs(diffDot));
+      EXPECT_LT(res, initial_norms[i]);
+    }
+  }
+  //*** Two-stage version (classic) ****
+  for(int apply_type = 0; apply_type < apply_count; ++apply_type)
+  {
+    //Zero out X before solving
+    Kokkos::deep_copy(x_vector, zero);
+    run_gauss_seidel<crsMat_t, scalar_view2d_t, device>
+      (input_mat, GS_TWOSTAGE, x_vector, y_vector, symmetric, apply_type, 0, true);
+    Kokkos::deep_copy(x_host, x_vector);
+    for(lno_t i = 0; i < numVecs; i++)
+    {
+      scalar_t diffDot = 0;
+      for(lno_t j = 0; j < numRows; j++)
+      {
+        scalar_t diff = x_host(j, i) - solution_x(j, i);
+        diffDot += diff * diff;
+      }
+      mag_t res = Kokkos::Details::ArithTraits<mag_t>::sqrt(
+          Kokkos::Details::ArithTraits<scalar_t>::abs(diffDot));
+      EXPECT_LT(res, initial_norms[i]);
+    }
   }
 }
 
@@ -423,6 +464,7 @@ void test_sequential_sor(lno_t numRows, size_type nnz, lno_t bandwidth, lno_t ro
   const scalar_t zero = Kokkos::Details::ArithTraits<scalar_t>::zero();
   const scalar_t one = Kokkos::Details::ArithTraits<scalar_t>::one();
   srand(245);
+  typedef typename device::execution_space exec_space;
   typedef typename KokkosSparse::CrsMatrix<scalar_t, lno_t, device, void, size_type> crsMat_t;
   lno_t numCols = numRows;
   crsMat_t input_mat = KokkosKernels::Impl::kk_generate_diagonally_dominant_sparse_matrix<crsMat_t>(numRows,numCols,nnz,row_size_variance, bandwidth);
@@ -443,6 +485,7 @@ void test_sequential_sor(lno_t numRows, size_type nnz, lno_t bandwidth, lno_t ro
   vector_t xgold("X gold", numRows);
   Kokkos::deep_copy(xgold, x);
   vector_t y = Test::create_y_vector(input_mat, x);
+  exec_space().fence();
   auto y_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), y);
   //initial solution is zero
   Kokkos::deep_copy(x_host, zero);
@@ -582,9 +625,6 @@ TEST_F( TestCategory, sparse ## _ ## gauss_seidel_symmetric_rank2 ## _ ## SCALAR
 } \
 TEST_F( TestCategory, sparse ## _ ## gauss_seidel_zero_rows ## _ ## SCALAR ## _ ## ORDINAL ## _ ## OFFSET ## _ ## DEVICE ) { \
   test_sgs_zero_rows<SCALAR,ORDINAL,OFFSET,DEVICE>(); \
-} \
-TEST_F( TestCategory, sparse ## _ ## rcm ## _ ## SCALAR ## _ ## ORDINAL ## _ ## OFFSET ## _ ## DEVICE ) { \
-  test_rcm<SCALAR,ORDINAL,OFFSET,DEVICE>(10000, 50, 2000); \
 } \
 TEST_F( TestCategory, sparse ## _ ## balloon_clustering ## _ ## SCALAR ## _ ## ORDINAL ## _ ## OFFSET ## _ ## DEVICE ) { \
   test_balloon_clustering<SCALAR,ORDINAL,OFFSET,DEVICE>(5000, 100, 2000); \

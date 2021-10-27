@@ -18,11 +18,11 @@ namespace KokkosBatched {
     invoke(const int m, const int n,
            /* */ ValueType *__restrict__ A, const int as0, const int as1) {
       const ValueType one(1), zero(0);
-      for (int j=0;j<m;++j) {
+      for (int j=0;j<n;++j) {
 #if defined(KOKKOS_ENABLE_PRAGMA_UNROLL)
 #pragma unroll
 #endif
-        for (int i=0;i<n;++i) {
+        for (int i=0;i<m;++i) {
           A[i*as0+j*as1] = i == j ? one : zero;
         }
       }

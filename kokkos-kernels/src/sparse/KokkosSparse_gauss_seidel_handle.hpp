@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//               KokkosKernels 0.9: Linear Algebra and Graph Kernels
-//                 Copyright 2017 Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -41,30 +42,31 @@
 //@HEADER
 */
 
+
 #include <Kokkos_MemoryTraits.hpp>
 #include <Kokkos_Core.hpp>
 #include <KokkosKernels_Utils.hpp>
+// needed for two-stage/classical GS
+#include <KokkosSparse_CrsMatrix.hpp>
+
 #ifndef _GAUSSSEIDELHANDLE_HPP
 #define _GAUSSSEIDELHANDLE_HPP
 //#define VERBOSE
 
 namespace KokkosSparse{
 
-  enum GSAlgorithm{GS_DEFAULT, GS_PERMUTED, GS_TEAM, GS_CLUSTER};
-  enum ClusteringAlgorithm{CLUSTER_DEFAULT, CLUSTER_BALLOON, CLUSTER_CUTHILL_MCKEE, CLUSTER_DO_NOTHING, NUM_CLUSTERING_ALGORITHMS};
+  enum GSAlgorithm{GS_DEFAULT, GS_PERMUTED, GS_TEAM, GS_CLUSTER, GS_TWOSTAGE};
+  enum GSDirection{GS_FORWARD, GS_BACKWARD, GS_SYMMETRIC};
+  enum ClusteringAlgorithm{CLUSTER_DEFAULT, CLUSTER_MIS2, CLUSTER_BALLOON, NUM_CLUSTERING_ALGORITHMS};
 
   inline const char* getClusterAlgoName(ClusteringAlgorithm ca)
   {
     switch(ca)
     {
-      case CLUSTER_DEFAULT:
-        return "Default";
       case CLUSTER_BALLOON:
         return "Balloon";
-      case CLUSTER_CUTHILL_MCKEE:
-        return "Cuthill-McKee";
-      case CLUSTER_DO_NOTHING:
-        return "No-op";
+      case CLUSTER_MIS2:
+        return "MIS(2)";
       default:;
     }
     return "INVALID CLUSTERING ALGORITHM";
@@ -186,12 +188,8 @@ namespace KokkosSparse{
         return;
       }
       else {
-#ifdef KOKKOS_ENABLE_DEPRECATED_CODE
-        KokkosKernels::Impl::get_suggested_vector_team_size<size_type, ExecutionSpace>(max_allowed_team_size, suggested_vector_size_, suggested_team_size_, nr, nnz);
-#else
         KokkosKernels::Impl::get_suggested_vector_size<size_type, ExecutionSpace>(suggested_vector_size_, nr, nnz);
         KokkosKernels::Impl::get_suggested_team_size<ExecutionSpace>(max_allowed_team_size, suggested_vector_size_, suggested_team_size_);
-#endif
         this->suggested_team_size = suggested_vector_size_;
         this->suggested_vector_size = suggested_vector_size_;
 
@@ -276,53 +274,11 @@ namespace KokkosSparse{
     void set_block_size(nnz_lno_t bs){this->block_size = bs; }
     nnz_lno_t get_block_size() const {return this->block_size;}
 
-    /** \brief Chooses best algorithm based on the execution space. COLORING_EB if cuda, COLORING_VB otherwise.
-     */
     void choose_default_algorithm(){
-#if defined( KOKKOS_ENABLE_SERIAL )
-      if (Kokkos::Impl::is_same< Kokkos::Serial , ExecutionSpace >::value){
-        this->algorithm_type = GS_PERMUTED;
-#ifdef VERBOSE
-        std::cout << "Serial Execution Space, Default Algorithm: GS_PERMUTED" << std::endl;
-#endif
-      }
-#endif
-
-#if defined( KOKKOS_ENABLE_THREADS )
-      if (Kokkos::Impl::is_same< Kokkos::Threads , ExecutionSpace >::value){
-        this->algorithm_type = GS_PERMUTED;
-#ifdef VERBOSE
-        std::cout << "PTHREAD Execution Space, Default Algorithm: GS_PERMUTED" << std::endl;
-#endif
-      }
-#endif
-
-#if defined( KOKKOS_ENABLE_OPENMP )
-      if (Kokkos::Impl::is_same< Kokkos::OpenMP, ExecutionSpace >::value){
-        this->algorithm_type = GS_PERMUTED;
-#ifdef VERBOSE
-        std::cout << "OpenMP Execution Space, Default Algorithm: GS_PERMUTED" << std::endl;
-#endif
-      }
-#endif
-
-#if defined( KOKKOS_ENABLE_CUDA )
-      if (Kokkos::Impl::is_same<Kokkos::Cuda, ExecutionSpace >::value){
+      if(KokkosKernels::Impl::kk_is_gpu_exec_space<ExecutionSpace>())
         this->algorithm_type = GS_TEAM;
-#ifdef VERBOSE
-        std::cout << "Cuda Execution Space, Default Algorithm: GS_TEAM" << std::endl;
-#endif
-      }
-#endif
-
-#if defined( KOKKOS_ENABLE_QTHREAD)
-      if (Kokkos::Impl::is_same< Kokkos::Qthread, ExecutionSpace >::value){
+      else
         this->algorithm_type = GS_PERMUTED;
-#ifdef VERBOSE
-        std::cout << "Qthread Execution Space, Default Algorithm: GS_PERMUTED" << std::endl;
-#endif
-      }
-#endif
     }
 
     ~PointGaussSeidelHandle() = default;
@@ -443,13 +399,8 @@ namespace KokkosSparse{
         return;
       }
       else {
-#ifdef KOKKOS_ENABLE_DEPRECATED_CODE
-        KokkosKernels::Impl::get_suggested_vector_team_size<size_type, ExecutionSpace>(
-                                                                                       max_allowed_team_size, suggested_vector_size_, suggested_team_size_, nr, nnz);
-#else
         KokkosKernels::Impl::get_suggested_vector_size<size_type, ExecutionSpace>(suggested_vector_size_, nr, nnz);
         KokkosKernels::Impl::get_suggested_team_size<ExecutionSpace>(max_allowed_team_size, suggested_vector_size_, suggested_team_size_);
-#endif
         this->suggested_team_size = suggested_vector_size_;
         this->suggested_vector_size = suggested_vector_size_;
 
@@ -566,40 +517,212 @@ namespace KokkosSparse{
     
     bool use_teams() const
     {
-      bool return_value = false;
-#if defined( KOKKOS_ENABLE_SERIAL )
-      if (Kokkos::Impl::is_same< Kokkos::Serial , ExecutionSpace >::value) {
-        return_value = false;
-      }
-#endif
-#if defined( KOKKOS_ENABLE_THREADS )
-      if (Kokkos::Impl::is_same< Kokkos::Threads , ExecutionSpace >::value){
-        return_value = false;
-      }
-#endif
-#if defined( KOKKOS_ENABLE_OPENMP )
-      if (Kokkos::Impl::is_same< Kokkos::OpenMP, ExecutionSpace >::value){
-        return_value = false;
-      }
-#endif
-#if defined( KOKKOS_ENABLE_CUDA )
-      if (Kokkos::Impl::is_same<Kokkos::Cuda, ExecutionSpace >::value){
-        return_value = true;
-      }
-#endif
-#if defined( KOKKOS_ENABLE_QTHREAD)
-      if (Kokkos::Impl::is_same< Kokkos::Qthread, ExecutionSpace >::value){
-        return_value = false;
-      }
-#endif
-      return return_value;
+      return KokkosKernels::Impl::kk_is_gpu_exec_space<ExecutionSpace>();
     }
 
     ~ClusterGaussSeidelHandle() = default;
 
     ClusteringAlgorithm get_clustering_algo() const {return this->cluster_algo;}
   };
-}
 
+
+  // -------------------------------------
+  // Handle for Two-stage/Classical GS
+  template <typename input_size_t, typename input_ordinal_t, typename input_scalar_t,
+            class ExecutionSpace,
+            class TemporaryMemorySpace,
+            class PersistentMemorySpace>
+  class TwoStageGaussSeidelHandle
+  : public GaussSeidelHandle<input_size_t, input_ordinal_t, input_scalar_t,
+                             ExecutionSpace, TemporaryMemorySpace, PersistentMemorySpace>
+  {
+  public:
+    using memory_space = typename ExecutionSpace::memory_space;
+    using scalar_t  = typename std::remove_const<input_scalar_t>::type;
+    using ordinal_t = typename std::remove_const<input_ordinal_t>::type;
+    using size_type = typename std::remove_const<input_size_t>::type;
+
+    using device_t = Kokkos::Device<ExecutionSpace, TemporaryMemorySpace>;
+    using crsmat_t = KokkosSparse::CrsMatrix <scalar_t, ordinal_t, device_t, void, size_type>;
+    using graph_t  = typename crsmat_t::StaticCrsGraphType;
+
+    using input_row_map_view_t = typename graph_t::row_map_type;
+    using input_entries_view_t = typename graph_t::entries_type;
+    using input_values_view_t  = typename crsmat_t::values_type;
+
+    using const_row_map_view_t = typename input_row_map_view_t::const_type;
+    using       row_map_view_t = typename input_row_map_view_t::non_const_type;
+
+    using const_entries_view_t = typename input_entries_view_t::const_type;
+    using       entries_view_t = typename input_entries_view_t::non_const_type;
+
+    using const_values_view_t = typename input_values_view_t::const_type;
+    using       values_view_t = typename input_values_view_t::non_const_type;
+
+    using const_ordinal_t = typename const_entries_view_t::value_type;
+    using const_scalar_t  = typename const_values_view_t::value_type;
+
+    using vector_view_t = Kokkos::View<scalar_t**, Kokkos::LayoutLeft, device_t>;
+
+    using GSHandle = GaussSeidelHandle<input_size_t, input_ordinal_t, input_scalar_t,
+                                       ExecutionSpace, TemporaryMemorySpace, PersistentMemorySpace>;
+
+    TwoStageGaussSeidelHandle () :
+    GSHandle (GS_TWOSTAGE),
+    nrows (0),
+    nrhs (1),
+    direction (GS_SYMMETRIC),
+    two_stage (true),
+    compact_form (false),
+    num_inner_sweeps (1),
+    num_outer_sweeps (1)
+    {
+      const scalar_t one (1.0);
+      inner_omega = one;
+    }
+
+    // Sweep direction
+    void setSweepDirection (GSDirection direction_) {
+      this->direction = direction_;
+    }
+    GSDirection getSweepDirection () {
+      return this->direction;
+    }
+
+    // specify whether to perform inner sweeps
+    void setTwoStage (bool two_stage_) {
+      this->two_stage = two_stage_;
+    }
+    bool isTwoStage () {
+      return this->two_stage;
+    }
+
+    // specify whether to use compact form of recurrence
+    void setCompactForm (bool compact_form_) {
+      this->compact_form = compact_form_;
+    }
+    bool isCompactForm () {
+      return this->compact_form;
+    }
+
+    // Number of outer sweeps
+    void setNumOuterSweeps (int num_outer_sweeps_) {
+      this->num_outer_sweeps = num_outer_sweeps_;
+    }
+    int getNumOuterSweeps () {
+      return this->num_outer_sweeps;
+    }
+
+    // Number of inner sweeps
+    void setNumInnerSweeps (int num_inner_sweeps_) {
+      this->num_inner_sweeps = num_inner_sweeps_;
+    }
+    int getNumInnerSweeps () {
+      return this->num_inner_sweeps;
+    }
+
+    // Inner damping factor
+    void setInnerDampFactor (scalar_t inner_omega_) {
+      this->inner_omega = inner_omega_;
+    }
+    scalar_t getInnerDampFactor () {
+      return this->inner_omega;
+    }
+
+    // Workspaces
+    // > diagonal (inverse)
+    void setD (values_view_t D_) {
+      this->D = D_;
+    }
+    values_view_t getD () {
+      return this->D;
+    }
+    // > Lower part of diagonal block
+    void setL (crsmat_t L) {
+      this->crsmatL = L;
+    }
+    crsmat_t getL () {
+      return this->crsmatL;
+    }
+    // > Upper part of diagonal block
+    void setU (crsmat_t U) {
+      this->crsmatU = U;
+    }
+    crsmat_t getU () {
+      return this->crsmatU;
+    }
+    // > Complement of U
+    void setLa (crsmat_t La) {
+      this->crsmatLa = La;
+    }
+    crsmat_t getLa () {
+      return this->crsmatLa;
+    }
+    // > Complement of L
+    void setUa (crsmat_t Ua) {
+      this->crsmatUa = Ua;
+    }
+    crsmat_t getUa () {
+      return this->crsmatUa;
+    }
+    // > diagonal (not-inverse)
+    void setDa (values_view_t Da_) {
+      this->Da = Da_;
+    }
+    values_view_t getDa () {
+      return this->Da;
+    }
+
+    void initVectors (int nrows_, int nrhs_) {
+      if (this->nrows != nrows_ || this->nrhs != nrhs_) {
+        this->localR = vector_view_t ("temp", nrows_, nrhs_);
+        this->localT = vector_view_t ("temp", nrows_, nrhs_);
+        this->localZ = vector_view_t ("temp", nrows_, nrhs_);
+        this->nrows = nrows_;
+        this->nrhs = nrhs_;
+      }
+    }
+    vector_view_t getVectorR () {
+      return this->localR;
+    }
+    vector_view_t getVectorT () {
+      return this->localT;
+    }
+    vector_view_t getVectorZ () {
+      return this->localZ;
+    }
+
+  private:
+    int nrows;
+    int nrhs;
+
+    // workspaces
+    // > A = L + D + U
+    values_view_t D;
+    crsmat_t crsmatL;
+    crsmat_t crsmatU;
+    // > complements for compact form of recurrence
+    //   where La = A - U and Ua = A - L
+    values_view_t Da;
+    crsmat_t crsmatLa;
+    crsmat_t crsmatUa;
+
+    // > residual vector for outer GS, Rk = B-A*Xk
+    vector_view_t localR;
+    // > workspace used for inner JR (for SpMV)
+    vector_view_t localT;
+    // > solultion correction from inner JR
+    vector_view_t localZ;
+
+    // solver parameters
+    GSDirection direction;
+    bool two_stage;
+    bool compact_form;
+    int num_inner_sweeps;
+    int num_outer_sweeps;
+    scalar_t inner_omega;
+  };
+  // -------------------------------------
+}
 #endif
 

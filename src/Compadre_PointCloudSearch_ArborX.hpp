@@ -10,15 +10,15 @@
 
 template <typename view_type_1>
 struct Points {
-    typedef decltype(Kokkos::create_mirror_view<device_memory_space>(
-                device_memory_space(), view_type_1())) 
-                        device_mirror_type;
-    device_mirror_type _pts;
+    //typedef decltype(Kokkos::create_mirror_view<device_memory_space>(
+    //            device_memory_space(), view_type_1())) 
+    //                    device_mirror_type;
+    //device_mirror_type _pts;
 
     Points(view_type_1 pts) {
-        _pts = Kokkos::create_mirror_view<device_memory_space>(device_memory_space(), pts);
-        Kokkos::deep_copy(_pts, pts);
-        Kokkos::fence();
+        //_pts = Kokkos::create_mirror_view<device_memory_space>(device_memory_space(), pts);
+        //Kokkos::deep_copy(_pts, pts);
+        //Kokkos::fence();
     }
 
     Points() {}
@@ -29,8 +29,8 @@ struct ArborX::AccessTraits<Points<view_type>, ArborX::PrimitivesTag>
 {
     static KOKKOS_FUNCTION std::size_t size(Points<view_type> const &cloud)
     {
-        printf("cloud size: %lu\n", cloud._pts.extent(0));
-        return cloud._pts.extent(0);
+        //printf("cloud size: %lu\n", cloud._pts.extent(0));
+        return 100;//cloud._pts.extent(0);
     }
     static KOKKOS_FUNCTION ArborX::Point get(Points<view_type> const &cloud, std::size_t i)
     {

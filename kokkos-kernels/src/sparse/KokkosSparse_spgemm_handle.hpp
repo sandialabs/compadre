@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//               KokkosKernels 0.9: Linear Algebra and Graph Kernels
-//                 Copyright 2017 Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -45,8 +46,6 @@
 #include <Kokkos_Core.hpp>
 #include <iostream>
 #include <string>
-
-//#define KOKKOSKERNELS_ENABLE_TPL_CUSPARSE
 
 #ifdef KOKKOSKERNELS_ENABLE_TPL_CUSPARSE
 #include "cusparse.h"
@@ -84,9 +83,6 @@ enum SPGEMMAlgorithm{
 		SPGEMM_KK_MEMORY_SPREADTEAM,
 		SPGEMM_KK_MEMORY_BIGSPREADTEAM,
 		SPGEMM_KK_MEMORY2,
-		SPGEMM_KK_COLOR,
-		SPGEMM_KK_MULTICOLOR,
-		SPGEMM_KK_MULTICOLOR2,
 		SPGEMM_KK_MEMSPEED};
 
 enum SPGEMMAccumulator{
@@ -243,9 +239,6 @@ private:
   int mkl_sort_option;
   bool calculate_read_write_cost;
 
-#ifdef KOKKOSKERNELS_ENABLE_TPL_CUSPARSE
-  SPGEMMcuSparseHandleType *cuSPARSEHandle;
-#endif
   public:
 
   std::string coloring_input_file;
@@ -299,6 +292,14 @@ private:
   int get_mkl_sort_option(){
     return this->mkl_sort_option;
   }
+
+#ifdef KOKKOSKERNELS_ENABLE_TPL_CUSPARSE
+  private:
+  SPGEMMcuSparseHandleType *cuSPARSEHandle;
+
+  public:
+#endif
+
   void set_c_column_indices(nnz_lno_temp_work_view_t c_col_indices_){
     this->c_column_indices = c_col_indices_;
   }
@@ -503,11 +504,9 @@ private:
     return this->cuSPARSEHandle;
   }
 #endif
-    /** \brief Chooses best algorithm based on the execution space. COLORING_EB if cuda, COLORING_VB otherwise.
-   */
   void choose_default_algorithm(){
 #if defined( KOKKOS_ENABLE_SERIAL )
-    if (Kokkos::Impl::is_same< Kokkos::Serial , ExecutionSpace >::value){
+    if (std::is_same< Kokkos::Serial , ExecutionSpace >::value){
       this->algorithm_type = SPGEMM_SERIAL;
 #ifdef VERBOSE
       std::cout << "Serial Execution Space, Default Algorithm: SPGEMM_SERIAL" << std::endl;
@@ -516,7 +515,7 @@ private:
 #endif
 
 #if defined( KOKKOS_ENABLE_THREADS )
-    if (Kokkos::Impl::is_same< Kokkos::Threads , ExecutionSpace >::value){
+    if (std::is_same< Kokkos::Threads , ExecutionSpace >::value){
       this->algorithm_type = SPGEMM_SERIAL;
 #ifdef VERBOSE
       std::cout << "THREADS Execution Space, Default Algorithm: SPGEMM_SERIAL" << std::endl;
@@ -525,7 +524,7 @@ private:
 #endif
 
 #if defined( KOKKOS_ENABLE_OPENMP )
-    if (Kokkos::Impl::is_same< Kokkos::OpenMP, ExecutionSpace >::value){
+    if (std::is_same< Kokkos::OpenMP, ExecutionSpace >::value){
       this->algorithm_type = SPGEMM_SERIAL;
 #ifdef VERBOSE
       std::cout << "OpenMP Execution Space, Default Algorithm: SPGEMM_SERIAL" << std::endl;
@@ -534,7 +533,7 @@ private:
 #endif
 
 #if defined( KOKKOS_ENABLE_CUDA )
-    if (Kokkos::Impl::is_same<Kokkos::Cuda, ExecutionSpace >::value){
+    if (std::is_same<Kokkos::Cuda, ExecutionSpace >::value){
       this->algorithm_type = SPGEMM_CUSPARSE;
 #ifdef VERBOSE
       std::cout << "Cuda Execution Space, Default Algorithm: SPGEMM_CUSPARSE" << std::endl;
@@ -542,8 +541,17 @@ private:
     }
 #endif
 
+#if defined( KOKKOS_ENABLE_HIP )
+    if (std::is_same<Kokkos::Experimental::HIP, ExecutionSpace >::value){
+      this->algorithm_type = SPGEMM_KK;
+#ifdef VERBOSE
+      std::cout << "HIP Execution Space, Default Algorithm: SPGEMM_KK" << std::endl;
+#endif
+    }
+#endif
+
 #if defined( KOKKOS_ENABLE_QTHREAD)
-    if (Kokkos::Impl::is_same< Kokkos::Qthread, ExecutionSpace >::value){
+    if (std::is_same< Kokkos::Qthread, ExecutionSpace >::value){
       this->algorithm_type = SPGEMM_SERIAL;
 #ifdef VERBOSE
       std::cout << "Qthread Execution Space, Default Algorithm: SPGEMM_SERIAL" << std::endl;
@@ -603,67 +611,20 @@ private:
     //suggested_vector_size_=this->suggested_vector_size = 1;
     //return;
     if (this->suggested_team_size && this->suggested_vector_size) {
+      //already set in the handle
       suggested_vector_size_ = this->suggested_vector_size;
       suggested_team_size_ = this->suggested_team_size;
       return;
     }
 
-#if defined( KOKKOS_ENABLE_SERIAL )
-    if (Kokkos::Impl::is_same< Kokkos::Serial , ExecutionSpace >::value){
-      suggested_vector_size_ = this->suggested_vector_size = 1;
-      suggested_team_size_ = this->suggested_team_size = max_allowed_team_size;
-      return;
-    }
-#endif
-
-#if defined( KOKKOS_ENABLE_THREADS )
-    if (Kokkos::Impl::is_same< Kokkos::Threads , ExecutionSpace >::value){
-      suggested_vector_size_ = this->suggested_vector_size = 1;
-      suggested_team_size_ = this->suggested_team_size = max_allowed_team_size;
-      return;
-    }
-#endif
-
-#if defined( KOKKOS_ENABLE_OPENMP )
-    if (Kokkos::Impl::is_same< Kokkos::OpenMP, ExecutionSpace >::value){
-      suggested_vector_size_ = this->suggested_vector_size = 1;
-      suggested_team_size_ = this->suggested_team_size = max_allowed_team_size;
-    }
-#endif
-
-#if defined( KOKKOS_ENABLE_CUDA )
-    if (Kokkos::Impl::is_same<Kokkos::Cuda, ExecutionSpace >::value){
-
-      this->suggested_vector_size = nnz / double (nr) + 0.5;
-
-      if (this->suggested_vector_size <= 3){
-        this->suggested_vector_size = 2;
-      }
-      else if (this->suggested_vector_size <= 6){
-        this->suggested_vector_size = 4;
-      }
-      else if (this->suggested_vector_size <= 12){
-        this->suggested_vector_size = 8;
-      }
-      else if (this->suggested_vector_size <= 24){
-        this->suggested_vector_size = 16;
-      }
-      else {
-        this->suggested_vector_size = 32;
-      }
-
-      suggested_vector_size_ = this->suggested_vector_size;
-      this->suggested_team_size= suggested_team_size_ = max_allowed_team_size / this->suggested_vector_size;
-    }
-#endif
-
-#if defined( KOKKOS_ENABLE_QTHREAD)
-    if (Kokkos::Impl::is_same< Kokkos::Qthread, ExecutionSpace >::value){
-      suggested_vector_size_ = this->suggested_vector_size = 1;
-      suggested_team_size_ = this->suggested_team_size = max_allowed_team_size;
-    }
-#endif
-
+    //otherwise, recompute team_size/vector_size based on heuristic and save them in the handle
+    suggested_vector_size_ = KokkosKernels::Impl::kk_get_suggested_vector_size(nr, nnz, KokkosKernels::Impl::kk_get_exec_space_type<ExecutionSpace>());
+    if(KokkosKernels::Impl::kk_is_gpu_exec_space<ExecutionSpace>())
+      suggested_team_size_ = max_allowed_team_size / suggested_vector_size_;
+    else
+      suggested_team_size = max_allowed_team_size;
+    this->suggested_vector_size = suggested_vector_size_;
+    this->suggested_team_size = suggested_vector_size_;
   }
 
   void set_compression_steps(bool isCompressionSingleStep){

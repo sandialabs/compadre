@@ -5,6 +5,7 @@
 #include <Compadre_Config.h>
 #include <Compadre_GMLS.hpp>
 #include <Compadre_PointCloudSearch.hpp>
+#include <Compadre_PointCloudSearch2.hpp>
 #include <Compadre_KokkosParser.hpp>
 
 #ifdef COMPADRE_USE_MPI
@@ -15,7 +16,7 @@
 // ArborX results which include distances up to and INCLUDING the radius
 template <typename scalar>
 bool within_radius(const scalar &value_1, const scalar &radius) {
-    if (value_1<=radius) return true;
+    if (value_1<radius) return true;
     return false;
 }
 #else
@@ -179,6 +180,7 @@ bool all_passed = true;
             // Point cloud construction for neighbor search
             // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
             auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
+            auto point_cloud_search2(CreatePointCloudSearch2(source_coords, dimension));
 
             Kokkos::View<int*, Kokkos::DefaultHostExecutionSpace> neighbor_lists("neighbor lists", 
                     number_target_coords); // first column is # of neighbors
@@ -296,6 +298,7 @@ bool all_passed = true;
             // Point cloud construction for neighbor search
             // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
             auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
+            auto point_cloud_search2(CreatePointCloudSearch2(source_coords, dimension));
 
             Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace> neighbor_lists("neighbor lists", 
                     number_target_coords, 2); // first column is # of neighbors
@@ -412,6 +415,7 @@ bool all_passed = true;
             // Point cloud construction for neighbor search
             // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
             auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
+            auto point_cloud_search2(CreatePointCloudSearch2(source_coords, dimension));
 
             Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace> neighbor_lists("neighbor lists", 
                     number_target_coords, 2); // first column is # of neighbors
@@ -534,6 +538,7 @@ bool all_passed = true;
             // Point cloud construction for neighbor search
             // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
             auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
+            auto point_cloud_search2(CreatePointCloudSearch2(source_coords, dimension));
 
             const int min_neighbors = Compadre::GMLS::getNP(3, dimension);
             Kokkos::View<int*, Kokkos::DefaultHostExecutionSpace> neighbor_lists("neighbor lists", 
@@ -631,6 +636,7 @@ bool all_passed = true;
             // Point cloud construction for neighbor search
             // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
             auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
+            auto point_cloud_search2(CreatePointCloudSearch2(source_coords, dimension));
 
             const int min_neighbors = Compadre::GMLS::getNP(3, dimension);
             Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace> neighbor_lists("neighbor lists", 
@@ -724,6 +730,7 @@ bool all_passed = true;
             // Point cloud construction for neighbor search
             // CreatePointCloudSearch constructs an object of type PointCloudSearch, but deduces the templates for you
             auto point_cloud_search(CreatePointCloudSearch(source_coords, dimension));
+            auto point_cloud_search2(CreatePointCloudSearch2(source_coords, dimension));
 
             const int min_neighbors = Compadre::GMLS::getNP(3, dimension);
             Kokkos::View<int**, Kokkos::DefaultHostExecutionSpace> neighbor_lists("neighbor lists", 

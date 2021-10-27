@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//               KokkosKernels 0.9: Linear Algebra and Graph Kernels
-//                 Copyright 2017 Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -86,47 +87,86 @@ namespace Impl{
     status = cusparseCreateCsrsv2Info(&(h->info));
     if (CUSPARSE_STATUS_SUCCESS != status)
       std::cout << "csrsv2info create status error name " << (status) << std::endl;
-  
+
     // query how much memory used in csrsv2, and allocate the buffer
     int nnz = entries.extent_int(0);
     int pBufferSize;
 
+    if (!std::is_same<size_type, int>::value)
+      sptrsv_handle->allocate_tmp_int_rowmap(row_map.extent(0));
+    const int* rm  = !std::is_same<size_type, int>::value ? sptrsv_handle->get_int_rowmap_ptr_copy(row_map) : (const int*)row_map.data();
+    const int* ent = (const int*) entries.data();
     const scalar_type* vals = values.data();
-    const size_type* rm  =  row_map.data();
-    const idx_type* ent =  entries.data(); 
 
     if (std::is_same<scalar_type,double>::value) {
     cusparseDcsrsv2_bufferSize(
-      h->handle, 
-      h->transpose, 
-      nrows, 
-      nnz, 
+      h->handle,
+      h->transpose,
+      nrows,
+      nnz,
       h->descr,
       (double*)vals,
       (int*)rm,
       (int*)ent,
-      h->info, 
+      h->info,
       &pBufferSize);
 
 
       // pBuffer returned by cudaMalloc is automatically aligned to 128 bytes.
-      cudaError_t error_t;
-      error_t = cudaMalloc((void**)&(h->pBuffer), pBufferSize);
+      cudaError_t my_error;
+      my_error = cudaMalloc((void**)&(h->pBuffer), pBufferSize);
 
-      if (cudaSuccess != error_t)
-        std::cout << "cudmalloc pBuffer error_t error name " << cudaGetErrorString(error_t) << std::endl;
+      if (cudaSuccess != my_error)
+        std::cout << "cudmalloc pBuffer error_t error name " << cudaGetErrorString(my_error) << std::endl;
 
       status = cusparseDcsrsv2_analysis(
-        h->handle, 
-        h->transpose, 
-        nrows, 
-        nnz, 
-        h->descr, 
+        h->handle,
+        h->transpose,
+        nrows,
+        nnz,
+        h->descr,
         (double*)vals,
         (int*)rm,
         (int*)ent,
-        h->info, 
-        h->policy, 
+        h->info,
+        h->policy,
+        h->pBuffer);
+
+      if (CUSPARSE_STATUS_SUCCESS != status)
+        std::cout << "analysis status error name " << (status) << std::endl;
+    }
+    else if (std::is_same<scalar_type,float>::value) {
+    cusparseScsrsv2_bufferSize(
+      h->handle,
+      h->transpose,
+      nrows,
+      nnz,
+      h->descr,
+      (float*)vals,
+      (int*)rm,
+      (int*)ent,
+      h->info,
+      &pBufferSize);
+
+
+      // pBuffer returned by cudaMalloc is automatically aligned to 128 bytes.
+      cudaError_t my_error;
+      my_error = cudaMalloc((void**)&(h->pBuffer), pBufferSize);
+
+      if (cudaSuccess != my_error)
+        std::cout << "cudmalloc pBuffer error_t error name " << cudaGetErrorString(my_error) << std::endl;
+
+      status = cusparseScsrsv2_analysis(
+        h->handle,
+        h->transpose,
+        nrows,
+        nnz,
+        h->descr,
+        (float*)vals,
+        (int*)rm,
+        (int*)ent,
+        h->info,
+        h->policy,
         h->pBuffer);
 
       if (CUSPARSE_STATUS_SUCCESS != status)
@@ -134,42 +174,78 @@ namespace Impl{
     }
     else if (std::is_same<scalar_type,Kokkos::complex<double>>::value) {
     cusparseZcsrsv2_bufferSize(
-      h->handle, 
-      h->transpose, 
-      nrows, 
-      nnz, 
+      h->handle,
+      h->transpose,
+      nrows,
+      nnz,
       h->descr,
       (cuDoubleComplex*)vals,
       (int*)rm,
       (int*)ent,
-      h->info, 
+      h->info,
       &pBufferSize);
 
       // pBuffer returned by cudaMalloc is automatically aligned to 128 bytes.
-      cudaError_t error_t;
-      error_t = cudaMalloc((void**)&(h->pBuffer), pBufferSize);
+      cudaError_t my_error;
+      my_error = cudaMalloc((void**)&(h->pBuffer), pBufferSize);
 
-      if (cudaSuccess != error_t)
-        std::cout << "cudmalloc pBuffer error_t error name " << cudaGetErrorString(error_t) << std::endl;
+      if (cudaSuccess != my_error)
+        std::cout << "cudmalloc pBuffer error_t error name " << cudaGetErrorString(my_error) << std::endl;
 
       status = cusparseZcsrsv2_analysis(
-        h->handle, 
-        h->transpose, 
-        nrows, 
-        nnz, 
-        h->descr, 
+        h->handle,
+        h->transpose,
+        nrows,
+        nnz,
+        h->descr,
         (cuDoubleComplex*)vals,
         (int*)rm,
         (int*)ent,
-        h->info, 
-        h->policy, 
+        h->info,
+        h->policy,
+        h->pBuffer);
+
+      if (CUSPARSE_STATUS_SUCCESS != status)
+        std::cout << "analysis status error name " << (status) << std::endl;
+    }
+    else if (std::is_same<scalar_type,Kokkos::complex<float>>::value) {
+    cusparseCcsrsv2_bufferSize(
+      h->handle,
+      h->transpose,
+      nrows,
+      nnz,
+      h->descr,
+      (cuComplex*)vals,
+      (int*)rm,
+      (int*)ent,
+      h->info,
+      &pBufferSize);
+
+      // pBuffer returned by cudaMalloc is automatically aligned to 128 bytes.
+      cudaError_t my_error;
+      my_error = cudaMalloc((void**)&(h->pBuffer), pBufferSize);
+
+      if (cudaSuccess != my_error)
+        std::cout << "cudmalloc pBuffer error_t error name " << cudaGetErrorString(my_error) << std::endl;
+
+      status = cusparseCcsrsv2_analysis(
+        h->handle,
+        h->transpose,
+        nrows,
+        nnz,
+        h->descr,
+        (cuComplex*)vals,
+        (int*)rm,
+        (int*)ent,
+        h->info,
+        h->policy,
         h->pBuffer);
 
       if (CUSPARSE_STATUS_SUCCESS != status)
         std::cout << "analysis status error name " << (status) << std::endl;
     }
     else {
-      throw std::runtime_error ("This CUSPARSE wrapper currently only supports double and complex<double>.\n");
+      throw std::runtime_error ("CUSPARSE wrapper error: unsupported type.\n");
     }
   }
   else {
@@ -213,7 +289,6 @@ namespace Impl{
   typedef typename KernelHandle::scalar_t  scalar_type;
 
   if (std::is_same<idx_type, int>::value) {
-    bool is_lower = sptrsv_handle->is_lower_tri();
 
     cusparseStatus_t status;
 
@@ -221,9 +296,9 @@ namespace Impl{
 
     int nnz = entries.extent_int(0);
 
+    const int* rm  = !std::is_same<size_type, int>::value ? sptrsv_handle->get_int_rowmap_ptr() : (const int*)row_map.data();
+    const int* ent = (const int*) entries.data();
     const scalar_type* vals = values.data();
-    const size_type* rm  =  row_map.data();
-    const idx_type* ent =  entries.data(); 
     const scalar_type* bv = rhs.data();
     scalar_type* xv = lhs.data();
 
@@ -234,19 +309,43 @@ namespace Impl{
       const double alpha = double(1);
 
       status = cusparseDcsrsv2_solve(
-        h->handle, 
-        h->transpose, 
-        nrows, 
-        nnz, 
-        &alpha, 
-        h->descr, 
+        h->handle,
+        h->transpose,
+        nrows,
+        nnz,
+        &alpha,
+        h->descr,
         (double*)vals,
         (int*)rm,
         (int*)ent,
-        h->info, 
+        h->info,
         (double*)bv,
         (double*)xv,
-        h->policy, 
+        h->policy,
+        h->pBuffer);
+
+      if (CUSPARSE_STATUS_SUCCESS != status)
+        std::cout << "solve status error name " << (status) << std::endl;
+    }
+    else if (std::is_same<scalar_type,float>::value) {
+
+      if (h->pBuffer == nullptr) { std::cout << "  pBuffer invalid" << std::endl; }
+      const float alpha = float(1);
+
+      status = cusparseScsrsv2_solve(
+        h->handle,
+        h->transpose,
+        nrows,
+        nnz,
+        &alpha,
+        h->descr,
+        (float*)vals,
+        (int*)rm,
+        (int*)ent,
+        h->info,
+        (float*)bv,
+        (float*)xv,
+        h->policy,
         h->pBuffer);
 
       if (CUSPARSE_STATUS_SUCCESS != status)
@@ -257,26 +356,49 @@ namespace Impl{
       cualpha.x = 1.0;
       cualpha.y = 0.0;
       status = cusparseZcsrsv2_solve(
-        h->handle, 
-        h->transpose, 
-        nrows, 
-        nnz, 
-        &cualpha, 
-        h->descr, 
+        h->handle,
+        h->transpose,
+        nrows,
+        nnz,
+        &cualpha,
+        h->descr,
         (cuDoubleComplex*)vals,
         (int*)rm,
         (int*)ent,
-        h->info, 
+        h->info,
         (cuDoubleComplex*)bv,
         (cuDoubleComplex*)xv,
-        h->policy, 
+        h->policy,
+        h->pBuffer);
+
+      if (CUSPARSE_STATUS_SUCCESS != status)
+        std::cout << "solve status error name " << (status) << std::endl;
+    }
+    else if (std::is_same<scalar_type,Kokkos::complex<float>>::value) {
+      cuComplex cualpha;
+      cualpha.x = 1.0;
+      cualpha.y = 0.0;
+      status = cusparseCcsrsv2_solve(
+        h->handle,
+        h->transpose,
+        nrows,
+        nnz,
+        &cualpha,
+        h->descr,
+        (cuComplex*)vals,
+        (int*)rm,
+        (int*)ent,
+        h->info,
+        (cuComplex*)bv,
+        (cuComplex*)xv,
+        h->policy,
         h->pBuffer);
 
       if (CUSPARSE_STATUS_SUCCESS != status)
         std::cout << "solve status error name " << (status) << std::endl;
     }
     else {
-      throw std::runtime_error ("This CUSPARSE wrapper currently only supports double and complex<double>.\n");
+      throw std::runtime_error ("CUSPARSE wrapper error: unsupported type.\n");
     }
 
   }

@@ -81,10 +81,11 @@ namespace KokkosBatched {
       const int min_mn = m < n ? m : n;
 
       // workspace (norm and householder application, 2*max(m,n) is needed)
-      value_type * norm = w; w += n;      
+      value_type * norm = w; w += m;      
       
       // initial partition of A where ATL has a zero dimension
       A_part2x2.partWithATL  (A, m, n, 0, 0);
+	member.team_barrier();
       t_part2x1.partWithAT   (t, min_mn, 0);
 
       p_part1x2.partWithAL   (p, n, 0);
@@ -107,16 +108,20 @@ namespace KokkosBatched {
 
         // part 2x2 into 3x3
         A_part3x3.partWithABR(A_part2x2, 1, 1);
+	member.team_barrier();
         const int m_A22 = m - m_atl - 1;
         const int n_A22 = n - m_atl - 1;
 
         t_part3x1.partWithAB(t_part2x1, 1);
         value_type *tau = t_part3x1.A1;
+	member.team_barrier();
 
 	p_part1x3.partWithAR(p_part1x2, 1);
 	int_type *pividx = p_part1x3.A1;
+        member.team_barrier();
 	
 	norm_part1x3.partWithAR(norm_part1x2, 1);
+        member.team_barrier();
 	
         /// -----------------------------------------------------
 	// find max location
@@ -130,6 +135,7 @@ namespace KokkosBatched {
 	TeamVectorApplyPivotVectorForwardInternal::invoke(member,
                                                           *pividx,
                                                           norm_part1x2.AR, 1);
+        member.team_barrier();
 	TeamVectorApplyPivotMatrixForwardInternal::invoke(member,
                                                           m,
                                                           *pividx,
@@ -145,39 +151,39 @@ namespace KokkosBatched {
         member.team_barrier();
 
         // left apply householder to A22
-        TeamVectorApplyLeftHouseholderInternal::invoke(member, 
-                                                       m_A22, n_A22,
-                                                       tau,
-                                                       A_part3x3.A21, as0,
-                                                       A_part3x3.A12, as1,
-                                                       A_part3x3.A22, as0, as1, 
-                                                       w);            
+        //TeamVectorApplyLeftHouseholderInternal::invoke(member, 
+        //                                               m_A22, n_A22,
+        //                                               tau,
+        //                                               A_part3x3.A21, as0,
+        //                                               A_part3x3.A12, as1,
+        //                                               A_part3x3.A22, as0, as1, 
+        //                                               w);            
         member.team_barrier();
 
-	// break condition
-	if (matrix_rank == min_mn) {
-	  if (m_atl == 0) max_diag = ats::abs(A[0]);
-	  const value_type
-	    val_diag = ats::abs(A_part3x3.A11[0]),
-	    threshold(10*max_diag*ats::epsilon());
-	  if (val_diag < threshold) {
-	    matrix_rank = m_atl;
-	    if (finish_when_rank_found)
-	      break;
-	  }
-	}
-
-	// norm update
-	TeamVectorUpdateColumnNormsInternal::invoke(member,
-						    n_A22,
-						    A_part3x3.A12, as1,
-						    norm_part1x3.A2, 1);
-    member.team_barrier();
-	/// -----------------------------------------------------
-        A_part2x2.mergeToATL  (A_part3x3);
-        t_part2x1.mergeToAT   (t_part3x1);
-	p_part1x2.mergeToAL   (p_part1x3);
-	norm_part1x2.mergeToAL(norm_part1x3);
+//	// break condition
+//	if (matrix_rank == min_mn) {
+//	  if (m_atl == 0) max_diag = ats::abs(A[0]);
+//	  const value_type
+//	    val_diag = ats::abs(A_part3x3.A11[0]),
+//	    threshold(10*max_diag*ats::epsilon());
+//	  if (val_diag < threshold) {
+//	    matrix_rank = m_atl;
+//	    if (finish_when_rank_found)
+//	      break;
+//	  }
+//	}
+//
+//	// norm update
+//	TeamVectorUpdateColumnNormsInternal::invoke(member,
+//						    n_A22,
+//						    A_part3x3.A12, as1,
+//						    norm_part1x3.A2, 1);
+//    member.team_barrier();
+//	/// -----------------------------------------------------
+//        A_part2x2.mergeToATL  (A_part3x3);
+//        t_part2x1.mergeToAT   (t_part3x1);
+//	p_part1x2.mergeToAL   (p_part1x3);
+//	norm_part1x2.mergeToAL(norm_part1x3);
       }
 
       return 0;

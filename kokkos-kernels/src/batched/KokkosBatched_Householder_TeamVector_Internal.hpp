@@ -32,7 +32,7 @@ namespace KokkosBatched {
       const mag_type one(1);
       const mag_type minus_one(-1);
 
-      /// compute the 2norm of x2
+      // compute the 2norm of x2
       mag_type norm_x2_square(0);
       Kokkos::parallel_reduce
         (Kokkos::TeamVectorRange(member, m_x2),
@@ -51,36 +51,36 @@ namespace KokkosBatched {
         return 0;
       }
 
-      /// compute magnitude of chi1, equal to norm2 of chi1
-      const mag_type norm_chi1 = Kokkos::Details::ArithTraits<value_type>::abs(*chi1);
+      ///// compute magnitude of chi1, equal to norm2 of chi1
+      //const mag_type norm_chi1 = Kokkos::Details::ArithTraits<value_type>::abs(*chi1);
 
-      /// compute 2 norm of x using norm_chi1 and norm_x2
-      const mag_type norm_x = Kokkos::Details::ArithTraits<mag_type>::sqrt(norm_x2_square + norm_chi1*norm_chi1);
+      ///// compute 2 norm of x using norm_chi1 and norm_x2
+      //const mag_type norm_x = Kokkos::Details::ArithTraits<mag_type>::sqrt(norm_x2_square + norm_chi1*norm_chi1);
 
-      /// compute alpha
-      const mag_type alpha = (*chi1 < 0 ? one : minus_one)*norm_x;
+      ///// compute alpha
+      //const mag_type alpha = (*chi1 < 0 ? one : minus_one)*norm_x;
 
-      /// overwrite x2 with u2
-      const value_type chi1_minus_alpha = *chi1 - alpha;
-      const value_type inv_chi1_minus_alpha = one/chi1_minus_alpha;
-      Kokkos::parallel_for
-        (Kokkos::TeamVectorRange(member, m_x2),
-         [&](const int &i) {
-          x2[i*x2s] *= inv_chi1_minus_alpha;
-        });
-      member.team_barrier();
+      ///// overwrite x2 with u2
+      //const value_type chi1_minus_alpha = *chi1 - alpha;
+      //const value_type inv_chi1_minus_alpha = one/chi1_minus_alpha;
+      //Kokkos::parallel_for
+      //  (Kokkos::TeamVectorRange(member, m_x2),
+      //   [&](const int &i) {
+      //    x2[i*x2s] *= inv_chi1_minus_alpha;
+      //  });
+      //member.team_barrier();
 
-      // later consider to use the following
-      // SerialScaleInternal::invoke(m_x2, inv_chi1_minus_alpha, x2, x2s);
+      //// later consider to use the following
+      //// SerialScaleInternal::invoke(m_x2, inv_chi1_minus_alpha, x2, x2s);
 
-      /// compute tau
-      Kokkos::single(Kokkos::PerTeam(member), [&]() {
-          const mag_type chi1_minus_alpha_square = chi1_minus_alpha*chi1_minus_alpha;
-          *tau = half + half*(norm_x2_square/chi1_minus_alpha_square);
+      ///// compute tau
+      //Kokkos::single(Kokkos::PerTeam(member), [&]() {
+      //    const mag_type chi1_minus_alpha_square = chi1_minus_alpha*chi1_minus_alpha;
+      //    *tau = half + half*(norm_x2_square/chi1_minus_alpha_square);
 
-          /// overwrite chi1 with alpha
-          *chi1 = alpha;
-        });
+      //    /// overwrite chi1 with alpha
+      //    *chi1 = alpha;
+      //  });
 
       return 0;
     }
