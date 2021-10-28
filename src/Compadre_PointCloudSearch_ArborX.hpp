@@ -18,6 +18,8 @@ struct Points {
         Kokkos::deep_copy(_pts, pts);
         Kokkos::fence();
     }
+
+    Points() {}
 };
 
 template <typename view_type>
@@ -198,6 +200,7 @@ class PointCloudSearch {
                     device_memory_space(), view_type())) 
                             device_mirror_view_type;
         device_mirror_view_type _d_src_pts_view;
+        Points<device_mirror_view_type> _pts;
         local_index_type _dim;
         ArborX::BVH<device_memory_space> _tree;
 
@@ -211,8 +214,8 @@ class PointCloudSearch {
                         device_memory_space(), src_pts_view);
                 Kokkos::deep_copy(_d_src_pts_view, src_pts_view);
                 Kokkos::fence();
-                _tree = ArborX::BVH<device_memory_space>(device_execution_space(), 
-                                Points<device_mirror_view_type>(_d_src_pts_view));
+                _pts = Points<decltype(_d_src_pts_view)>(_d_src_pts_view);
+                _tree = ArborX::BVH<device_memory_space>(device_execution_space(), _pts); 
             }
         };
     
