@@ -678,9 +678,12 @@ void createWeightsAndP(const BasisData& data, const member_type& teamMember, scr
     // storage_size needs to change based on the size of the basis
     int storage_size = GMLS::getNP(polynomial_order, dimension, reconstruction_space);
     storage_size *= data._basis_multiplier;
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, 
-                delta.extent(0)), [&] (const int j) { delta(j) = 0; });
-    teamMember.team_barrier();
+    for (int j = 0; j < delta.extent(0); ++j) {
+        delta(j) = 0;
+    }
+    for (int j = 0; j < thread_workspace.extent(0); ++j) {
+        thread_workspace(j) = 0;
+    }
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,data._pc._nla.getNumberOfNeighborsDevice(target_index)),
             [&] (const int i) {
 

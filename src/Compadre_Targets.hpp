@@ -39,8 +39,12 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
             P_target_row(j,k) = 0;
         });
     });
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, delta.extent(0)), [&] (const int j) { delta(j) = 0; });
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, thread_workspace.extent(0)), [&] (const int j) { thread_workspace(j) = 0; });
+    for (int j = 0; j < delta.extent(0); ++j) {
+        delta(j) = 0;
+    }
+    for (int j = 0; j < thread_workspace.extent(0); ++j) {
+        thread_workspace(j) = 0;
+    }
     teamMember.team_barrier();
 
     const int target_NP = GMLS::getNP(data._poly_order, data._dimensions, data._reconstruction_space);
@@ -980,8 +984,12 @@ void computeCurvatureFunctionals(const TargetData& data, const member_type& team
             P_target_row(j,k) = 0;
         });
     });
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, delta.extent(0)), [&] (const int j) { delta(j) = 0; });
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, thread_workspace.extent(0)), [&] (const int j) { thread_workspace(j) = 0; });
+    for (int j = 0; j < delta.extent(0); ++j) {
+        delta(j) = 0;
+    }
+    for (int j = 0; j < thread_workspace.extent(0); ++j) {
+        thread_workspace(j) = 0;
+    }
     teamMember.team_barrier();
 
     const int manifold_NP = GMLS::getNP(data._curvature_poly_order, data._dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
@@ -1046,8 +1054,12 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
             P_target_row(j,k) = 0;
         });
     });
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, delta.extent(0)), [&] (const int j) { delta(j) = 0; });
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, thread_workspace.extent(0)), [&] (const int j) { thread_workspace(j) = 0; });
+    for (int j = 0; j < delta.extent(0); ++j) {
+        delta(j) = 0;
+    }
+    for (int j = 0; j < thread_workspace.extent(0); ++j) {
+        thread_workspace(j) = 0;
+    }
     teamMember.team_barrier();
 
     // determine if additional evaluation sites are requested by user and handled by target operations 

@@ -266,6 +266,7 @@ else() # Raw CMake Project
         bob_option(Kokkos_ENABLE_PTHREAD "Whether to use PTHREAD" OFF)
       endif()
       option(Kokkos_ENABLE_DEBUG "" "${Compadre_DEBUG}")
+      option(Kokkos_ENABLE_CUDA_UVM "" OFF)
       option(Kokkos_ENABLE_DEBUG_BOUNDS_CHECK "" "${Compadre_EXTREME_DEBUG}")
       option(Kokkos_ENABLE_CUDA_LAMBDA "" "${Kokkos_ENABLE_CUDA}")
       option(Kokkos_ENABLE_TESTS "" OFF)
@@ -345,6 +346,8 @@ else() # Raw CMake Project
       SET(KokkosKernels_ENABLE_TPL_CUBLAS OFF)
       OPTION(KokkosKernels_ENABLE_TPL_CUSPARSE "" OFF)
       SET(KokkosKernels_ENABLE_TPL_CUSPARSE OFF)
+      OPTION(KokkosKernels_INST_MEMSPACE_CUDAUVMSPACE "" OFF)
+      SET(KokkosKernels_INST_MEMSPACE_CUDAUVMSPACE OFF)
       add_subdirectory(kokkos-kernels)
       if (NOT(KokkosCore_PREFIX STREQUAL ""))
           MESSAGE(FATAL_ERROR "KokkosCore_PREFIX specified but KokkosKernels_PREFIX not specified. \
