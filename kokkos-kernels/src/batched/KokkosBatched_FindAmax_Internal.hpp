@@ -50,8 +50,18 @@ namespace KokkosBatched {
         using reducer_value_type = typename Kokkos::MaxLoc<ValueType,IntType>::value_type;
         reducer_value_type value; 
         Kokkos::MaxLoc<ValueType,IntType> reducer_value(value);
+        //Kokkos::single(Kokkos::PerTeam(member), 
+        // [&](reducer_value_type& update) { 
+        //    for (int i=0; i<m; ++i) {
+        //      const int idx_a = i*as0;
+        //      if (A[idx_a] > update.val) {
+        //        update.val = A[idx_a];
+        //        update.loc = i;
+        //      }
+        //    }
+        //  }, reducer_value);
         Kokkos::parallel_reduce
-          (Kokkos::TeamVectorRange(member, m),
+          (Kokkos::ThreadVectorRange(member, m),
            [&](const int &i, reducer_value_type &update) {
             const int idx_a = i*as0;
             if (A[idx_a] > update.val) {

@@ -34,13 +34,20 @@ namespace KokkosBatched {
 
       /// compute the 2norm of x2
       mag_type norm_x2_square(0);
-      Kokkos::parallel_reduce
-        (Kokkos::TeamVectorRange(member, m_x2),
-         [&](const int &i, mag_type &val) { 
+      //Kokkos::single(Kokkos::PerTeam(member), 
+      // [=](mag_type& val) { 
+      //    for (int i=0; i<m_x2; ++i) {
+      //      const auto x2_at_i = x2[i*x2s];
+      //      val += x2_at_i*x2_at_i;
+      //    }
+      //  }, norm_x2_square);
+      Kokkos::parallel_reduce(
+        Kokkos::ThreadVectorRange(member, m_x2),
+         [=](const int& i, mag_type& val) {
           const auto x2_at_i = x2[i*x2s];
           val += x2_at_i*x2_at_i;
         }, norm_x2_square);
-        
+      
       /// if norm_x2 is zero, return with trivial values
       if (norm_x2_square == zero) {
         Kokkos::single(Kokkos::PerTeam(member), [&]() { 
