@@ -3221,15 +3221,20 @@ public:
 
     static QuadratureType parseQuadratureType(std::string quadrature_type) { 
         transform(quadrature_type.begin(), quadrature_type.end(), quadrature_type.begin(), ::tolower);
+        bool valid_choice = true;
+        QuadratureType qt;
         if (quadrature_type=="line") {
-            return QuadratureType::LINE;
+            qt = QuadratureType::LINE;
         } else if (quadrature_type=="tri" || quadrature_type=="triangle") {
-            return QuadratureType::TRI;
+            qt = QuadratureType::TRI;
         } else if (quadrature_type=="") {
-            return QuadratureType::INVALID;
+            qt = QuadratureType::INVALID;
         } else {
-            compadre_assert_release(false && "Quadrature type not available.");
+            qt = QuadratureType::INVALID;
+            valid_choice = false;
         }
+        compadre_assert_release(valid_choice && "Quadrature type not available.");
+        return qt;
     }
 
 ///@}

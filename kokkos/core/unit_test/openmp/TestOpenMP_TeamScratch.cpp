@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -58,7 +58,6 @@ TEST(TEST_CATEGORY, team_scratch_request) {
 }
 
 #if defined(KOKKOS_ENABLE_CXX11_DISPATCH_LAMBDA)
-#if !defined(KOKKOS_ENABLE_CUDA) || (8000 <= CUDA_VERSION)
 TEST(TEST_CATEGORY, team_lambda_shared_request) {
   TestLambdaSharedTeam<Kokkos::HostSpace, TEST_EXECSPACE,
                        Kokkos::Schedule<Kokkos::Static> >();
@@ -66,7 +65,6 @@ TEST(TEST_CATEGORY, team_lambda_shared_request) {
                        Kokkos::Schedule<Kokkos::Dynamic> >();
 }
 TEST(TEST_CATEGORY, scratch_align) { TestScratchAlignment<TEST_EXECSPACE>(); }
-#endif
 #endif
 
 TEST(TEST_CATEGORY, shmem_size) { TestShmemSize<TEST_EXECSPACE>(); }

@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -85,6 +85,9 @@ void HPX::impl_initialize(int thread_count) {
     char *argv_hpx[] = {name, nullptr};
     hpx::start(nullptr, argc_hpx, argv_hpx, config);
 
+#if HPX_VERSION_FULL < 0x010400
+    // This has been fixed in HPX 1.4.0.
+    //
     // NOTE: Wait for runtime to start. hpx::start returns as soon as
     // possible, meaning some operations are not allowed immediately
     // after hpx::start. Notably, hpx::stop needs state_running. This
@@ -94,6 +97,7 @@ void HPX::impl_initialize(int thread_count) {
     rt = hpx::get_runtime_ptr();
     hpx::util::yield_while(
         [rt]() { return rt->get_state() < hpx::state_running; });
+#endif
 
     m_hpx_initialized = true;
   }

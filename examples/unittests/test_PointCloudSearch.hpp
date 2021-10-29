@@ -79,16 +79,7 @@ TEST_F (PointCloudSearchTest, 1D_Radius_Search) {
     Kokkos::View<double*, host_execution_space> epsilon("h supports", 
             number_target_coords);
 
-    // This dry run populates number_of_neighbors_list with neighborhood sizes
-    size_t storage_size = 
-            point_cloud_search.generateCRNeighborListsFromRadiusSearch(true /* dry run */,
-                    target_coords, neighbor_lists, number_of_neighbors_list, epsilon, 0.2 /*radius*/);
-
-    // Resize based on dry-run
-    Kokkos::resize(neighbor_lists, storage_size);
-
-    // Search again, now that we know that there is enough room to store the results
-    point_cloud_search.generateCRNeighborListsFromRadiusSearch(false /* dry run */,
+    point_cloud_search.generateCRNeighborListsFromRadiusSearch(
             target_coords, neighbor_lists, number_of_neighbors_list, epsilon, 0.2 /*radius*/);
 
     auto nla(CreateNeighborLists(neighbor_lists, number_of_neighbors_list));
@@ -121,18 +112,8 @@ TEST_F (PointCloudSearchTest, 1D_Dynamic_Search) {
             number_target_coords);
 
     double epsilon_multiplier = 1.5;
-    // This dry run populates number_of_neighbors_list with neighborhood sizes
-    size_t storage_size = 
-            point_cloud_search.generateCRNeighborListsFromKNNSearch(true /*dry run*/, 
-                    target_coords, neighbor_lists, 
-                    number_of_neighbors_list, epsilon, 
-                    3 /*min_neighbors*/, epsilon_multiplier);
 
-    // Resize based on dry-run
-    Kokkos::resize(neighbor_lists, storage_size);
-
-    // Search again, now that we know that there is enough room to store the results
-    point_cloud_search.generateCRNeighborListsFromKNNSearch(false /*dry run*/, 
+    point_cloud_search.generateCRNeighborListsFromKNNSearch(
                     target_coords, neighbor_lists, 
                     number_of_neighbors_list, epsilon, 
                     3 /*min_neighbors*/, epsilon_multiplier);
