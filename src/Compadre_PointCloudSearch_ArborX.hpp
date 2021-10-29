@@ -193,7 +193,7 @@ search_scalar kdtreeDistance(const view_type_1& src_pts, const int src_idx, cons
 template <typename view_type>
 class PointCloudSearch {
 
-    protected:
+    public:
 
         //! source site coordinates
         typedef decltype(Kokkos::create_mirror_view<device_memory_space>(

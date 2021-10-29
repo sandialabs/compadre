@@ -93,6 +93,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
        printf("Insufficient memory to store prestencil weights: \n\n%s", e.what()); 
        throw e;
     }
+    Kokkos::deep_copy(_prestencil_weights, 0.0);
     Kokkos::fence();
 
     /*
