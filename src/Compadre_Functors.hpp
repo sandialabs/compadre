@@ -339,6 +339,12 @@ struct ComputePrestencilWeights {
                     _data._max_num_neighbors);
             t2 = scratch_vector_type(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), 
                     _data._max_num_neighbors);
+            for (int j = 0; j < delta.extent(0); ++j) {
+                delta(j) = 0;
+            }
+            for (int j = 0; j < thread_workspace.extent(0); ++j) {
+                thread_workspace(j) = 0;
+            }
         }
 
 
