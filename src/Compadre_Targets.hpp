@@ -47,7 +47,8 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
     }
     teamMember.team_barrier();
 
-    const int target_NP = GMLS::getNP(data._poly_order, data._dimensions, data._reconstruction_space);
+    // not const b.c. of gcc 7.2 issue
+    int target_NP = GMLS::getNP(data._poly_order, data._dimensions, data._reconstruction_space);
     const int num_evaluation_sites = data._additional_pc._nla.getNumberOfNeighborsDevice(target_index) + 1;
 
     for (size_t i=0; i<data._operations.size(); ++i) {
@@ -992,7 +993,8 @@ void computeCurvatureFunctionals(const TargetData& data, const member_type& team
     }
     teamMember.team_barrier();
 
-    const int manifold_NP = GMLS::getNP(data._curvature_poly_order, data._dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
+    // not const b.c. of gcc 7.2 issue
+    int manifold_NP = GMLS::getNP(data._curvature_poly_order, data._dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
     for (size_t i=0; i<data._curvature_support_operations.size(); ++i) {
         if (data._curvature_support_operations(i) == TargetOperation::ScalarPointEvaluation) {
             Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
@@ -1046,7 +1048,8 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
 
     // only designed for 2D manifold embedded in 3D space
     const int target_index = data._initial_index_for_batch + teamMember.league_rank();
-    const int target_NP = GMLS::getNP(data._poly_order, data._dimensions-1, data._reconstruction_space);
+    // not const b.c. of gcc 7.2 issue
+    int target_NP = GMLS::getNP(data._poly_order, data._dimensions-1, data._reconstruction_space);
 
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, P_target_row.extent(0)), [&] (const int j) {
         Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, P_target_row.extent(1)),
