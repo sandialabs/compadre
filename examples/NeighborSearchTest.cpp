@@ -580,6 +580,7 @@ bool all_passed = true;
                 for (auto it=inverted_map.begin(); it!=inverted_map.end(); ++it) {
                     if (j==min_neighbors-1) {
                         if (std::abs(static_cast<search_scalar>(epsilon(i))/static_cast<search_scalar>(1.5) - static_cast<search_scalar>(it->first)) > SEARCH_SCALAR_EPS) {
+                            printf("%.16g vs %.16g\n", std::abs(static_cast<search_scalar>(epsilon(i))/static_cast<search_scalar>(1.5) - static_cast<search_scalar>(it->first)), SEARCH_SCALAR_EPS);
                             t_epsilon_diff_from_knn_dist_multiplied++;
                         }
                         break;
@@ -673,6 +674,7 @@ bool all_passed = true;
                 for (auto it=inverted_map.begin(); it!=inverted_map.end(); ++it) {
                     if (j==min_neighbors-1) {
                         if (std::abs(static_cast<search_scalar>(epsilon(i))/static_cast<search_scalar>(1.5) - static_cast<search_scalar>(it->first)) > SEARCH_SCALAR_EPS) {
+                            printf("%.16g vs %.16g\n", std::abs(static_cast<search_scalar>(epsilon(i))/static_cast<search_scalar>(1.5) - static_cast<search_scalar>(it->first)), SEARCH_SCALAR_EPS);
                             t_epsilon_diff_from_knn_dist_multiplied++;
                         }
                         break;
@@ -768,6 +770,7 @@ bool all_passed = true;
                 for (auto it=inverted_map.begin(); it!=inverted_map.end(); ++it) {
                     if (j==min_neighbors-1) {
                         if (std::abs(static_cast<search_scalar>(epsilon(i))/static_cast<search_scalar>(1.5) - static_cast<search_scalar>(it->first)) > SEARCH_SCALAR_EPS) {
+                            printf("%.16g vs %.16g\n", std::abs(static_cast<search_scalar>(epsilon(i))/static_cast<search_scalar>(1.5) - static_cast<search_scalar>(it->first)), SEARCH_SCALAR_EPS);
                             t_epsilon_diff_from_knn_dist_multiplied++;
                         }
                         break;

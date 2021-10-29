@@ -26,13 +26,13 @@ typedef double      scalar_type;
 typedef int         local_index_type;
 typedef std::size_t global_index_type;
 
-#ifdef COMPADRE_USE_ARBORX
-typedef float search_scalar;
-constexpr search_scalar SEARCH_SCALAR_EPS = 1e-7;
-#else
+//#ifdef COMPADRE_USE_ARBORX
+//typedef float search_scalar;
+//constexpr search_scalar SEARCH_SCALAR_EPS = 1e-7;
+//#else
 typedef double search_scalar;
 constexpr search_scalar SEARCH_SCALAR_EPS = 1e-14;
-#endif
+//#endif
 
 // helper function when doing pointer arithmetic
 #define TO_GLOBAL(variable) ((global_index_type)variable)

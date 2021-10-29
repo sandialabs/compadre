@@ -192,7 +192,7 @@ struct TreeTraversal<BVH, Predicates, Callback, NearestPredicateTag>
   using Access = AccessTraits<Predicates, PredicatesTag>;
   using Node = HappyTreeFriends::node_t<BVH>;
 
-  using Buffer = Kokkos::View<Kokkos::pair<int, float> *, MemorySpace>;
+  using Buffer = Kokkos::View<Kokkos::pair<int, double> *, MemorySpace>;
   using Offset = Kokkos::View<int *, MemorySpace>;
   struct BufferProvider
   {
@@ -324,9 +324,9 @@ struct TreeTraversal<BVH, Predicates, Callback, NearestPredicateTag>
     // Nodes with a distance that exceed that radius can safely be
     // discarded. Initialize the radius to infinity and tighten it once k
     // neighbors have been found.
-    auto radius = KokkosExt::ArithmeticTraits::infinity<float>::value;
+    auto radius = KokkosExt::ArithmeticTraits::infinity<double>::value;
 
-    using PairIndexDistance = Kokkos::pair<int, float>;
+    using PairIndexDistance = Kokkos::pair<int, double>;
     static_assert(
         std::is_same<typename decltype(buffer)::value_type,
                      PairIndexDistance>::value,
@@ -354,7 +354,7 @@ struct TreeTraversal<BVH, Predicates, Callback, NearestPredicateTag>
     auto *stack_ptr = stack;
     *stack_ptr++ = nullptr;
 #if !defined(__CUDA_ARCH__)
-    float stack_distance[64];
+    double stack_distance[64];
     auto *stack_distance_ptr = stack_distance;
     *stack_distance_ptr++ = 0.f;
 #endif
@@ -363,9 +363,9 @@ struct TreeTraversal<BVH, Predicates, Callback, NearestPredicateTag>
     Node const *child_left = nullptr;
     Node const *child_right = nullptr;
 
-    float distance_left = 0.f;
-    float distance_right = 0.f;
-    float distance_node = 0.f;
+    double distance_left = 0.f;
+    double distance_right = 0.f;
+    double distance_node = 0.f;
 
     do
     {

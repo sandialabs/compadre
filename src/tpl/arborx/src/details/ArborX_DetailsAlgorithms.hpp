@@ -78,12 +78,12 @@ bool isValid(Sphere const &s)
 
 // distance point-point
 KOKKOS_INLINE_FUNCTION
-float distance(Point const &a, Point const &b)
+double distance(Point const &a, Point const &b)
 {
-  float distance_squared = 0.0;
+  double distance_squared = 0.0;
   for (int d = 0; d < 3; ++d)
   {
-    float tmp = b[d] - a[d];
+    double tmp = b[d] - a[d];
     distance_squared += tmp * tmp;
   }
   return std::sqrt(distance_squared);
@@ -91,7 +91,7 @@ float distance(Point const &a, Point const &b)
 
 // distance point-box
 KOKKOS_INLINE_FUNCTION
-float distance(Point const &point, Box const &box)
+double distance(Point const &point, Box const &box)
 {
   Point projected_point;
   for (int d = 0; d < 3; ++d)
@@ -108,17 +108,17 @@ float distance(Point const &point, Box const &box)
 
 // distance point-sphere
 KOKKOS_INLINE_FUNCTION
-float distance(Point const &point, Sphere const &sphere)
+double distance(Point const &point, Sphere const &sphere)
 {
   using KokkosExt::max;
-  return max(distance(point, sphere.centroid()) - sphere.radius(), 0.f);
+  return max(distance(point, sphere.centroid()) - sphere.radius(), 0.);
 }
 
 // distance box-box
 KOKKOS_INLINE_FUNCTION
-float distance(Box const &box_a, Box const &box_b)
+double distance(Box const &box_a, Box const &box_b)
 {
-  float distance_squared = 0.;
+  double distance_squared = 0.;
   for (int d = 0; d < 3; ++d)
   {
     auto const a_min = box_a.minCorner()[d];
@@ -127,12 +127,12 @@ float distance(Box const &box_a, Box const &box_b)
     auto const b_max = box_b.maxCorner()[d];
     if (a_min > b_max)
     {
-      float const delta = a_min - b_max;
+      double const delta = a_min - b_max;
       distance_squared += delta * delta;
     }
     else if (b_min > a_max)
     {
-      float const delta = b_min - a_max;
+      double const delta = b_min - a_max;
       distance_squared += delta * delta;
     }
     else
@@ -145,12 +145,12 @@ float distance(Box const &box_a, Box const &box_b)
 
 // distance box-sphere
 KOKKOS_INLINE_FUNCTION
-float distance(Sphere const &sphere, Box const &box)
+double distance(Sphere const &sphere, Box const &box)
 {
   using KokkosExt::max;
 
-  float distance_center_box = distance(sphere.centroid(), box);
-  return max(distance_center_box - sphere.radius(), 0.f);
+  double distance_center_box = distance(sphere.centroid(), box);
+  return max(distance_center_box - sphere.radius(), 0.);
 }
 
 // expand an axis-aligned bounding box to include a point

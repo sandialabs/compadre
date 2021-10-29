@@ -302,11 +302,11 @@ class PointCloudSearch {
             KOKKOS_LAMBDA(int i) {
                 // find swap index
                 int min_distance_ind = 0;
-                float first_neighbor_distance = kdtreeDistance(d_trg_pts_view, i, d_src_pts_view, d_values(d_offsets(i)));
+                double first_neighbor_distance = kdtreeDistance(d_trg_pts_view, i, d_src_pts_view, d_values(d_offsets(i)));
                 d_number_of_neighbors_list(i) = d_offsets(i+1) - d_offsets(i);
                 for (int j=1; j<d_number_of_neighbors_list(i); ++j) {
                     // distance to neighbor
-                    float neighbor_distance = kdtreeDistance(d_trg_pts_view, i, d_src_pts_view, d_values(d_offsets(i)+j));
+                    double neighbor_distance = kdtreeDistance(d_trg_pts_view, i, d_src_pts_view, d_values(d_offsets(i)+j));
                     if (neighbor_distance < first_neighbor_distance) {
                         first_neighbor_distance = neighbor_distance;
                         min_distance_ind = j;

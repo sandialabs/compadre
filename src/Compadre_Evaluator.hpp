@@ -371,12 +371,14 @@ public:
         // create view on whatever memory space the user specified with their template argument when calling this function
         output_view_type target_output = createView<output_view_type>("output of target operation", 
                 nla.getNumberOfTargets(), output_dimensions);
+        Kokkos::deep_copy(target_output, 0.0);
 
         output_view_type ambient_target_output;
         bool transform_gmls_output_to_ambient = (problem_type==MANIFOLD && getTargetOutputTensorRank(lro)==1);
         if (transform_gmls_output_to_ambient) {
             ambient_target_output = createView<output_view_type>("output of transform to ambient space", 
                 nla.getNumberOfTargets(), global_dimensions);
+            Kokkos::deep_copy(ambient_target_output, 0.0);
         }
 
         applyAlphasToDataAllComponentsAllTargetSites(target_output, ambient_target_output, sampling_data, lro, sro_in, scalar_as_vector_if_needed, evaluation_site_local_index);
@@ -688,6 +690,7 @@ public:
         // create view on whatever memory space the user specified with their template argument when calling this function
         output_view_type coefficient_output("output coefficients", nla.getNumberOfTargets(), 
                 output_dimensions*_gmls->getPolynomialCoefficientsSize() /* number of coefficients */);
+        
 
         applyFullPolynomialCoefficientsBasisToDataAllComponents(coefficient_output, sampling_data, scalar_as_vector_if_needed);
 
