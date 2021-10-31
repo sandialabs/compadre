@@ -272,7 +272,7 @@ bool all_passed = true;
             num_passed = 0;
             // check that all neighbors in point cloud search list are in brute force list
             Kokkos::parallel_reduce("original in brute force search", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
-                    (0,number_target_coords), KOKKOS_LAMBDA(const int i, int& t_num_passed) {
+                    (0,number_target_coords), [&](const int i, int& t_num_passed) {
                 bool all_found = true;
                 for (int j=0; j<nla.getNumberOfNeighborsHost(i); ++j) {
                     if (brute_force_neighbor_list[i].count(nla.getNeighborHost(i,j))!=1) {
@@ -386,7 +386,7 @@ bool all_passed = true;
             num_passed = 0;
             // check that all neighbors in point cloud search list are in brute force list
             Kokkos::parallel_reduce("original in brute force search", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
-                    (0,number_target_coords), KOKKOS_LAMBDA(const int i, int& t_num_passed) {
+                    (0,number_target_coords), [&](const int i, int& t_num_passed) {
                 bool all_found = true;
                 for (int j=1; j<=neighbor_lists(i,0); ++j) {
                     if (brute_force_neighbor_list[i].count(neighbor_lists(i,j))!=1) {
@@ -504,7 +504,7 @@ bool all_passed = true;
             num_passed = 0;
             // check that all neighbors in point cloud search list are in brute force list
             Kokkos::parallel_reduce("original in brute force search", Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>
-                    (0,number_target_coords), KOKKOS_LAMBDA(const int i, int& t_num_passed) {
+                    (0,number_target_coords), [&](const int i, int& t_num_passed) {
                 bool all_found = true;
                 for (int j=0; j<nla.getNumberOfNeighborsHost(i); ++j) {
                     if (brute_force_neighbor_list[i].count(nla.getNeighborHost(i,j))!=1) {

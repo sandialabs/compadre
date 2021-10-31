@@ -363,7 +363,7 @@ NeighborLists<view_type_1d> Convert2DToCompressedRowNeighborLists(view_type_2d n
     // (which we know is host) so we can do a parallel_for over the host_execution_space
     else {
         Kokkos::parallel_for("copy neighbor lists to compressed row", Kokkos::RangePolicy<host_execution_space>(0, neighbor_lists.extent(0)), 
-                KOKKOS_LAMBDA(const int i) {
+                [&](const int i) {
             for (int j=0; j<neighbor_lists(i,0); ++j) {
                 cr_data(nla.getRowOffsetHost(i)+j) = d_neighbor_lists(i,j+1);
             }
@@ -417,7 +417,7 @@ void ConvertCompressedRowNeighborListsTo2D(const NeighborLists<view_type_1d>& nl
     // (which we know is host) so we can do a parallel_for over the host_execution_space
     else {
         Kokkos::parallel_for("copy compressed row to neighbor lists 2d", Kokkos::RangePolicy<host_execution_space>(0, num_targets), 
-                KOKKOS_LAMBDA(const int i) {
+                [&](const int i) {
             for (int j=0; j<nla.getNumberOfNeighborsHost(i); ++j) {
                 neighbor_lists_2d(i,  0) = nla.getNumberOfNeighborsHost(i);
                 neighbor_lists_2d(i,j+1) = nla.getNeighborHost(i,j);
