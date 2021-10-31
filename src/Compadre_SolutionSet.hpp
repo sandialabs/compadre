@@ -13,7 +13,7 @@ template <typename memory_space = device_memory_space>
 struct SolutionSet {
 
     //! vector of user requested target operations
-    std::vector<TargetOperation> _lro;
+    Kokkos::View<TargetOperation*, memory_space> _lro; 
 
     //! vector containing a mapping from a target functionals enum value to the its place in the list
     //! of target functionals to be applied
@@ -97,9 +97,11 @@ struct SolutionSet {
         _max_evaluation_sites_per_target = other._max_evaluation_sites_per_target;
         _total_alpha_values = other._total_alpha_values;
         _neighbor_lists = other._neighbor_lists;
-        _lro = other._lro;
 
         // copy from other_memory_space to memory_space (if needed)
+        if (_lro.extent(0) != other._lro.extent(0)) {
+            Kokkos::resize(_lro, other._lro.extent(0));
+        }
         if (_lro_lookup.extent(0) != other._lro_lookup.extent(0)) {
             Kokkos::resize(_lro_lookup, other._lro_lookup.extent(0));
         }
@@ -118,6 +120,7 @@ struct SolutionSet {
         if (_lro_input_tensor_rank.extent(0) != other._lro_input_tensor_rank.extent(0)) {
             Kokkos::resize(_lro_input_tensor_rank, other._lro_input_tensor_rank.extent(0));
         }
+        Kokkos::deep_copy(_lro, other._lro);
         Kokkos::deep_copy(_lro_lookup, other._lro_lookup);
         Kokkos::deep_copy(_lro_total_offsets, other._lro_total_offsets);
         Kokkos::deep_copy(_lro_output_tile_size, other._lro_output_tile_size);
@@ -135,7 +138,10 @@ struct SolutionSet {
  */
 ///@{
 
+    // ON DEVICE
+
     //! Handles offset from operation input/output + extra evaluation sites
+    template<typename ms=memory_space, enable_if_t<!std::is_same<host_memory_space, ms>::value, int> = 0>
     KOKKOS_INLINE_FUNCTION
     int getTargetOffsetIndex(const int lro_num, const int input_component, const int output_component, const int evaluation_site_local_index = 0) const {
         return ( _total_alpha_values*evaluation_site_local_index
@@ -145,6 +151,7 @@ struct SolutionSet {
     }
 
     //! Helper function for getting alphas for scalar reconstruction from scalar data
+    template<typename ms=memory_space, enable_if_t<!std::is_same<host_memory_space, ms>::value, int> = 0>
     KOKKOS_INLINE_FUNCTION
     double getAlpha0TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int evaluation_site_local_index = 0) const {
         // e.g. Dirac Delta target of a scalar field
@@ -152,6 +159,7 @@ struct SolutionSet {
     }
 
     //! Helper function for getting alphas for vector reconstruction from scalar data
+    template<typename ms=memory_space, enable_if_t<!std::is_same<host_memory_space, ms>::value, int> = 0>
     KOKKOS_INLINE_FUNCTION
     double getAlpha0TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int evaluation_site_local_index = 0) const {
         // e.g. gradient of a scalar field
@@ -159,12 +167,14 @@ struct SolutionSet {
     }
 
     //! Helper function for getting alphas for matrix reconstruction from scalar data
+    template<typename ms=memory_space, enable_if_t<!std::is_same<host_memory_space, ms>::value, int> = 0>
     KOKKOS_INLINE_FUNCTION
     double getAlpha0TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int evaluation_site_local_index = 0) const {
         return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, 0, 0, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for scalar reconstruction from vector data
+    template<typename ms=memory_space, enable_if_t<!std::is_same<host_memory_space, ms>::value, int> = 0>
     KOKKOS_INLINE_FUNCTION
     double getAlpha1TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component, const int evaluation_site_local_index = 0) const {
         // e.g. divergence of a vector field
@@ -172,6 +182,7 @@ struct SolutionSet {
     }
 
     //! Helper function for getting alphas for vector reconstruction from vector data
+    template<typename ms=memory_space, enable_if_t<!std::is_same<host_memory_space, ms>::value, int> = 0>
     KOKKOS_INLINE_FUNCTION
     double getAlpha1TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component, const int evaluation_site_local_index = 0) const {
         // e.g. curl of a vector field
@@ -179,6 +190,7 @@ struct SolutionSet {
     }
 
     //! Helper function for getting alphas for matrix reconstruction from vector data
+    template<typename ms=memory_space, enable_if_t<!std::is_same<host_memory_space, ms>::value, int> = 0>
     KOKKOS_INLINE_FUNCTION
     double getAlpha1TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component, const int evaluation_site_local_index = 0) const {
         // e.g. gradient of a vector field
@@ -186,18 +198,21 @@ struct SolutionSet {
     }
 
     //! Helper function for getting alphas for scalar reconstruction from matrix data
+    template<typename ms=memory_space, enable_if_t<!std::is_same<host_memory_space, ms>::value, int> = 0>
     KOKKOS_INLINE_FUNCTION
     double getAlpha2TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
         return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for vector reconstruction from matrix data
+    template<typename ms=memory_space, enable_if_t<!std::is_same<host_memory_space, ms>::value, int> = 0>
     KOKKOS_INLINE_FUNCTION
     double getAlpha2TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
         return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
     }
 
     //! Helper function for getting alphas for matrix reconstruction from matrix data
+    template<typename ms=memory_space, enable_if_t<!std::is_same<host_memory_space, ms>::value, int> = 0>
     KOKKOS_INLINE_FUNCTION
     double getAlpha2TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
         return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
@@ -220,26 +235,10 @@ struct SolutionSet {
 
     }
 
-    //! Gives index into alphas given two axes, which when incremented by the neighbor number transforms access into
-    //! alphas from a rank 1 view into a rank 3 view.
-    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
-    KOKKOS_INLINE_FUNCTION
-    global_index_type getAlphaIndex(const int target_index, const int alpha_column_offset) const {
-
-        global_index_type total_neighbors_before_target = _neighbor_lists.getRowOffsetHost(target_index);
-        int total_added_alphas_before_target = target_index*_added_alpha_size;
-
-        int alphas_per_tile_per_target = _neighbor_lists.getNumberOfNeighborsHost(target_index) + _added_alpha_size;
-
-        return (total_neighbors_before_target+TO_GLOBAL(total_added_alphas_before_target))
-                 *TO_GLOBAL(_total_alpha_values)*TO_GLOBAL(_max_evaluation_sites_per_target)
-                   + TO_GLOBAL(alpha_column_offset*alphas_per_tile_per_target);
-
-    }
-
     //! Retrieves the offset for an operator based on input and output component, generic to row
     //! (but still multiplied by the number of neighbors for each row and then needs a neighbor number added 
     //! to this returned value to be meaningful)
+    template<typename ms=memory_space, enable_if_t<!std::is_same<host_memory_space, ms>::value, int> = 0>
     KOKKOS_INLINE_FUNCTION
     int getAlphaColumnOffset(TargetOperation lro, const int output_component_axis_1, 
             const int output_component_axis_2, const int input_component_axis_1, 
@@ -259,6 +258,7 @@ struct SolutionSet {
     }
 
     //! Underlying function all interface helper functions call to retrieve alpha values
+    template<typename ms=memory_space, enable_if_t<!std::is_same<host_memory_space, ms>::value, int> = 0>
     KOKKOS_INLINE_FUNCTION
     double getAlpha(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
         // lro - the operator from TargetOperations
@@ -291,10 +291,155 @@ struct SolutionSet {
     //! Get the local index (internal) to GMLS for a particular TargetOperation
     //! Every TargetOperation has a global index which can be readily found in Compadre::TargetOperation
     //! but this function returns the index used inside of the GMLS class
+    template<typename ms=memory_space, enable_if_t<!std::is_same<host_memory_space, ms>::value, int> = 0>
     KOKKOS_INLINE_FUNCTION
     int getTargetOperationLocalIndex(TargetOperation lro) const {
         return _lro_lookup[(int)lro];
     }
+
+    //! Handles offset from operation input/output + extra evaluation sites
+    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
+    int getTargetOffsetIndex(const int lro_num, const int input_component, const int output_component, const int evaluation_site_local_index = 0) const {
+        return ( _total_alpha_values*evaluation_site_local_index
+                + _lro_total_offsets[lro_num] 
+                + input_component*_lro_output_tile_size[lro_num] 
+                + output_component );
+    }
+
+    //! Helper function for getting alphas for scalar reconstruction from scalar data
+    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
+    double getAlpha0TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int evaluation_site_local_index = 0) const {
+        // e.g. Dirac Delta target of a scalar field
+        return getAlpha(lro, target_index, 0, 0, neighbor_index, 0, 0, evaluation_site_local_index);
+    }
+
+    //! Helper function for getting alphas for vector reconstruction from scalar data
+    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
+    double getAlpha0TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int evaluation_site_local_index = 0) const {
+        // e.g. gradient of a scalar field
+        return getAlpha(lro, target_index, output_component, 0, neighbor_index, 0, 0, evaluation_site_local_index);
+    }
+
+    //! Helper function for getting alphas for matrix reconstruction from scalar data
+    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
+    double getAlpha0TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int evaluation_site_local_index = 0) const {
+        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, 0, 0, evaluation_site_local_index);
+    }
+
+    //! Helper function for getting alphas for scalar reconstruction from vector data
+    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
+    double getAlpha1TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component, const int evaluation_site_local_index = 0) const {
+        // e.g. divergence of a vector field
+        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component, 0, evaluation_site_local_index);
+    }
+
+    //! Helper function for getting alphas for vector reconstruction from vector data
+    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
+    double getAlpha1TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component, const int evaluation_site_local_index = 0) const {
+        // e.g. curl of a vector field
+        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component, 0, evaluation_site_local_index);
+    }
+
+    //! Helper function for getting alphas for matrix reconstruction from vector data
+    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
+    double getAlpha1TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component, const int evaluation_site_local_index = 0) const {
+        // e.g. gradient of a vector field
+        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component, 0, evaluation_site_local_index);
+    }
+
+    //! Helper function for getting alphas for scalar reconstruction from matrix data
+    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
+    double getAlpha2TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
+        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
+    }
+
+    //! Helper function for getting alphas for vector reconstruction from matrix data
+    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
+    double getAlpha2TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
+        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
+    }
+
+    //! Helper function for getting alphas for matrix reconstruction from matrix data
+    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
+    double getAlpha2TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
+        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
+    }
+
+    //! Gives index into alphas given two axes, which when incremented by the neighbor number transforms access into
+    //! alphas from a rank 1 view into a rank 3 view.
+    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
+    global_index_type getAlphaIndex(const int target_index, const int alpha_column_offset) const {
+
+        global_index_type total_neighbors_before_target = _neighbor_lists.getRowOffsetHost(target_index);
+        int total_added_alphas_before_target = target_index*_added_alpha_size;
+
+        int alphas_per_tile_per_target = _neighbor_lists.getNumberOfNeighborsHost(target_index) + _added_alpha_size;
+
+        return (total_neighbors_before_target+TO_GLOBAL(total_added_alphas_before_target))
+                 *TO_GLOBAL(_total_alpha_values)*TO_GLOBAL(_max_evaluation_sites_per_target)
+                   + TO_GLOBAL(alpha_column_offset*alphas_per_tile_per_target);
+
+    }
+
+    //! Retrieves the offset for an operator based on input and output component, generic to row
+    //! (but still multiplied by the number of neighbors for each row and then needs a neighbor number added 
+    //! to this returned value to be meaningful)
+    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
+    int getAlphaColumnOffset(TargetOperation lro, const int output_component_axis_1, 
+            const int output_component_axis_2, const int input_component_axis_1, 
+            const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
+
+        const int lro_number = _lro_lookup[(int)lro];
+        compadre_kernel_assert_debug((lro_number >= 0) && "getAlphaColumnOffset called for a TargetOperation that was not registered.");
+
+        // the target functional input indexing is sized based on the output rank of the sampling
+        // functional used, which can not be inferred unless a specification of target functional,
+        // reconstruction space, and sampling functional are all known (as was the case at the
+        // construction of this class)
+        const int input_index = getSamplingOutputIndex(_data_sampling_functional, input_component_axis_1, input_component_axis_2);
+        const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2, _dimensions);
+
+        return getTargetOffsetIndex(lro_number, input_index, output_index, evaluation_site_local_index);
+    }
+
+    //! Underlying function all interface helper functions call to retrieve alpha values
+    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
+    double getAlpha(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
+        // lro - the operator from TargetOperations
+        // target_index - the # for the target site where information is required
+        // neighbor_index - the # for the neighbor of the target
+        //
+        // This code support up to rank 2 tensors for inputs and outputs
+        //
+        // scalar reconstruction from scalar data: rank 0 to rank 0
+        //   provides 1 piece of information for each neighbor
+        // scalar reconstruction from vector data (e.g. divergence): rank 1 to rank 0
+        //   provides 'd' pieces of information for each neighbor
+        // vector reconstruction from scalar data (e.g. gradient): rank 0 to rank 1
+        //   provides 'd' piece of information for each neighbor
+        // vector reconstruction from vector data (e.g. curl): rank 1 to rank 1
+        //   provides 'd'x'd' pieces of information for each neighbor
+        //
+        // This function would more reasonably be called from one of the getAlphaNTensorFromNTensor
+        // which is much easier to understand with respect to indexing and only requesting indices
+        // that are relavent to the operator in question.
+        //
+
+        const int alpha_column_offset = this->getAlphaColumnOffset( lro, output_component_axis_1, 
+                output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
+
+        auto alphas_index = this->getAlphaIndex(target_index, alpha_column_offset);
+        return _alphas(alphas_index + neighbor_index);
+    }
+
+    //! Get the local index (internal) to GMLS for a particular TargetOperation
+    //! Every TargetOperation has a global index which can be readily found in Compadre::TargetOperation
+    //! but this function returns the index used inside of the GMLS class
+    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
+    int getTargetOperationLocalIndex(TargetOperation lro) const {
+        return _lro_lookup[(int)lro];
+    }
+
 
 ///@}
 
@@ -316,6 +461,7 @@ struct SolutionSet {
 
 
     //! Empties the vector of target functionals to apply to the reconstruction
+    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
     void clearTargets() {
         _lro = decltype(_lro)();
         for (int i=0; i<TargetOperation::COUNT; ++i) {
@@ -324,13 +470,17 @@ struct SolutionSet {
     }
 
     //! Adds a target to the vector of target functional to be applied to the reconstruction
+    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
     void addTargets(TargetOperation lro) {
         std::vector<TargetOperation> temporary_lro_vector(1, lro);
         this->addTargets(temporary_lro_vector);
     }
 
     //! Adds a vector of target functionals to the vector of target functionals already to be applied to the reconstruction
+    template<typename ms=memory_space, enable_if_t<std::is_same<host_memory_space, ms>::value, int> = 0>
     void addTargets(std::vector<TargetOperation> lro) {
+
+        std::vector<TargetOperation> unique_new_lro;
 
         auto host_lro_lookup = create_mirror_view(_lro_lookup);
         if (_lro_lookup.extent(0) == 0) {
@@ -349,7 +499,7 @@ struct SolutionSet {
             for (size_t j=0; j<_lro.size(); ++j) {
 
                 // if found
-                if (_lro[j]==lro[i]) {
+                if (_lro(j)==lro[i]) {
 
                     operation_found = true;
 
@@ -362,10 +512,21 @@ struct SolutionSet {
             }
 
             if (!operation_found) {
-                host_lro_lookup[(int)lro[i]] = _lro.size();
-                _lro.push_back(lro[i]);
+                host_lro_lookup[(int)lro[i]] = _lro.size() + unique_new_lro.size();
+                unique_new_lro.push_back(lro[i]);
             }
         }
+
+        // move unique_new_lro into _lro
+        auto new_lro = decltype(_lro)(_lro.label(), _lro.size() + unique_new_lro.size());
+        for (size_t i=0; i<new_lro.size(); ++i) {
+            if (i < _lro.size()) {
+                new_lro(i) = _lro(i);
+            } else {
+                new_lro(i) = unique_new_lro[i];
+            }
+        }
+        _lro = new_lro;
 
         _lro_total_offsets = decltype(_lro_total_offsets)("total offsets for alphas", _lro.size());
         _lro_output_tile_size = decltype(_lro_output_tile_size)("output tile size for each operation", _lro.size());
