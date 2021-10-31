@@ -356,7 +356,7 @@ NeighborLists<view_type_1d> Convert2DToCompressedRowNeighborLists(view_type_2d n
     // (which we know is host) so we can do a parallel_for over the host_execution_space
     else {
         Kokkos::parallel_for("copy neighbor lists to compressed row", Kokkos::RangePolicy<host_execution_space>(0, neighbor_lists.extent(0)), 
-                KOKKOS_LAMBDA(const int i) {
+                [&](const int i) {
             for (int j=0; j<neighbor_lists(i,0); ++j) {
                 cr_data(nla.getRowOffsetHost(i)+j) = d_neighbor_lists(i,j+1);
             }
@@ -365,6 +365,60 @@ NeighborLists<view_type_1d> Convert2DToCompressedRowNeighborLists(view_type_2d n
     }
 
     return nla;
+}
+
+//! Converts compressed row neighbor lists to 2D neighbor lists
+//  neighbor_lists_2d should be passed as empty rank-2 and will be populated
+template <typename view_type_1d, typename view_type_2d>
+void ConvertCompressedRowNeighborListsTo2D(const NeighborLists<view_type_1d>& nla, view_type_2d& neighbor_lists_2d) {
+
+    auto max_neighbors = nla.getMaxNumNeighbors();
+    auto num_targets   = nla.getNumberOfTargets();
+
+    // copy data form nla to neighbor_lists_2d using device space,
+    // if it can accesss neighbor_lists_2d memory space, otherwise host
+    // could allocate on device and copy there, then copy back, but leads
+    // to too much IO which is likely undesired by user
+
+    if (view_type_2d::rank!=2 || 
+            neighbor_lists_2d.extent_int(0)!=num_targets ||
+            neighbor_lists_2d.extent_int(1)<max_neighbors+1) {
+        typedef typename view_type_2d::value_type value_type;
+        typedef typename view_type_2d::array_layout layout;
+        typedef typename view_type_2d::memory_space memory_space;
+        Kokkos::View<value_type**, layout, memory_space> 
+            new_neighbor_lists_2d(
+                Kokkos::view_alloc(neighbor_lists_2d.label(), memory_space()), 
+                num_targets, max_neighbors+1);
+        neighbor_lists_2d = new_neighbor_lists_2d;
+    }
+
+
+    // if device_execution_space can access this view, then write directly into the view
+    if (Kokkos::SpaceAccessibility<device_execution_space, typename view_type_2d::memory_space>::accessible==1) {
+        Kokkos::parallel_for("copy compressed row to neighbor lists 2d", Kokkos::RangePolicy<typename view_type_2d::execution_space>(0, num_targets), 
+                KOKKOS_LAMBDA(const int i) {
+            for (int j=0; j<nla.getNumberOfNeighborsDevice(i); ++j) {
+                neighbor_lists_2d(i,  0) = nla.getNumberOfNeighborsDevice(i);
+                neighbor_lists_2d(i,j+1) = nla.getNeighborDevice(i,j);
+            }
+        });
+        Kokkos::fence();
+    }
+    // otherwise we are writing to a view that can't be seen from device (must be host space), 
+    // and d_neighbor_lists was already made to be a view_type that is accessible from view_type_1d's execution_space 
+    // (which we know is host) so we can do a parallel_for over the host_execution_space
+    else {
+        Kokkos::parallel_for("copy compressed row to neighbor lists 2d", Kokkos::RangePolicy<host_execution_space>(0, num_targets), 
+                [&](const int i) {
+            for (int j=0; j<nla.getNumberOfNeighborsHost(i); ++j) {
+                neighbor_lists_2d(i,  0) = nla.getNumberOfNeighborsHost(i);
+                neighbor_lists_2d(i,j+1) = nla.getNeighborHost(i,j);
+            }
+        });
+        Kokkos::fence();
+    }
+
 }
 
 } // Compadre namespace

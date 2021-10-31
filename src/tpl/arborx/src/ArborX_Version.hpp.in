@@ -1,0 +1,28 @@
+/****************************************************************************
+ * Copyright (c) 2017-2021 by the ArborX authors                            *
+ * All rights reserved.                                                     *
+ *                                                                          *
+ * This file is part of the ArborX library. ArborX is                       *
+ * distributed under a BSD 3-clause license. For the licensing terms see    *
+ * the LICENSE file in the top-level directory.                             *
+ *                                                                          *
+ * SPDX-License-Identifier: BSD-3-Clause                                    *
+ ****************************************************************************/
+
+#ifndef ARBORX_VERSION_HPP
+#define ARBORX_VERSION_HPP
+
+#include <ArborX_Config.hpp>
+
+#include <string>
+
+namespace ArborX
+{
+
+inline std::string version() { return "@ARBORX_VERSION_STRING@"; }
+
+inline std::string gitCommitHash() { return "@ARBORX_GIT_COMMIT_HASH@"; }
+
+} // namespace ArborX
+
+#endif

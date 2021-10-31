@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -58,8 +58,8 @@ inline typename StaticCrsGraph<DataType, Arg1Type, Arg2Type, SizeType,
 create_mirror_view(
     const StaticCrsGraph<DataType, Arg1Type, Arg2Type, SizeType, Arg3Type>&
         view,
-    typename Impl::enable_if<ViewTraits<DataType, Arg1Type, Arg2Type,
-                                        Arg3Type>::is_hostspace>::type* = 0) {
+    typename std::enable_if<ViewTraits<DataType, Arg1Type, Arg2Type,
+                                       Arg3Type>::is_hostspace>::type* = 0) {
   return view;
 }
 #else
@@ -70,8 +70,8 @@ inline typename StaticCrsGraph<DataType, Arg1Type, Arg2Type, Arg3Type,
 create_mirror_view(
     const StaticCrsGraph<DataType, Arg1Type, Arg2Type, Arg3Type, SizeType>&
         view,
-    typename Impl::enable_if<ViewTraits<DataType, Arg1Type, Arg2Type,
-                                        Arg3Type>::is_hostspace>::type* = 0) {
+    typename std::enable_if<ViewTraits<DataType, Arg1Type, Arg2Type,
+                                       Arg3Type>::is_hostspace>::type* = 0) {
   return view;
 }
 #endif
@@ -128,8 +128,8 @@ inline typename StaticCrsGraph<DataType, Arg1Type, Arg2Type, SizeType,
 create_mirror_view(
     const StaticCrsGraph<DataType, Arg1Type, Arg2Type, SizeType, Arg3Type>&
         view,
-    typename Impl::enable_if<!ViewTraits<DataType, Arg1Type, Arg2Type,
-                                         Arg3Type>::is_hostspace>::type* = 0)
+    typename std::enable_if<!ViewTraits<DataType, Arg1Type, Arg2Type,
+                                        Arg3Type>::is_hostspace>::type* = 0)
 #else
 template <class DataType, class Arg1Type, class Arg2Type, class Arg3Type,
           typename SizeType>
@@ -138,8 +138,8 @@ inline typename StaticCrsGraph<DataType, Arg1Type, Arg2Type, Arg3Type,
 create_mirror_view(
     const StaticCrsGraph<DataType, Arg1Type, Arg2Type, Arg3Type, SizeType>&
         view,
-    typename Impl::enable_if<!ViewTraits<DataType, Arg1Type, Arg2Type,
-                                         Arg3Type>::is_hostspace>::type* = 0)
+    typename std::enable_if<!ViewTraits<DataType, Arg1Type, Arg2Type,
+                                        Arg3Type>::is_hostspace>::type* = 0)
 #endif
 {
   return create_mirror(view);

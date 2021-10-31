@@ -23,10 +23,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -192,7 +192,7 @@ void test_bitset() {
 
     bitset_type bitset(test_sizes[i]);
 
-    // std::cout << "  Check inital count " << std::endl;
+    // std::cout << "  Check initial count " << std::endl;
     // nothing should be set
     {
       Impl::TestBitsetTest<bitset_type> f(bitset);
@@ -253,8 +253,10 @@ void test_bitset() {
   }
 }
 
+// FIXME_HIP deadlock
+#ifndef KOKKOS_ENABLE_HIP
 TEST(TEST_CATEGORY, bitset) { test_bitset<TEST_EXECSPACE>(); }
-
+#endif
 }  // namespace Test
 
 #endif  // KOKKOS_TEST_BITSET_HPP

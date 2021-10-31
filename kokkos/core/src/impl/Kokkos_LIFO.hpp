@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -48,8 +48,7 @@
 #define KOKKOS_IMPL_LIFO_HPP
 
 #include <Kokkos_Macros.hpp>
-#ifdef KOKKOS_ENABLE_TASKDAG  // Note: implies CUDA_VERSION >= 8000 if using
-                              // CUDA
+#ifdef KOKKOS_ENABLE_TASKDAG
 
 #include <Kokkos_Core_fwd.hpp>
 
@@ -305,7 +304,7 @@ class SingleConsumeOperationLIFO : private LockBasedLIFOCommon<T> {
  public:
   using value_type = typename base_t::value_type;  // = T
 
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_DEFAULTED_FUNCTION
   SingleConsumeOperationLIFO() noexcept = default;
 
   SingleConsumeOperationLIFO(SingleConsumeOperationLIFO const&) = delete;
@@ -314,7 +313,7 @@ class SingleConsumeOperationLIFO : private LockBasedLIFOCommon<T> {
       delete;
   SingleConsumeOperationLIFO& operator=(SingleConsumeOperationLIFO&&) = delete;
 
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_DEFAULTED_FUNCTION
   ~SingleConsumeOperationLIFO() = default;
 
   KOKKOS_INLINE_FUNCTION

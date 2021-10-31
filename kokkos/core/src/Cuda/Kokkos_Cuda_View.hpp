@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -84,8 +84,8 @@ struct CudaTextureFetch {
   KOKKOS_INLINE_FUNCTION
   CudaTextureFetch() : m_obj(), m_ptr(), m_offset() {}
 
-  KOKKOS_INLINE_FUNCTION
-  ~CudaTextureFetch() {}
+  KOKKOS_DEFAULTED_FUNCTION
+  ~CudaTextureFetch() = default;
 
   KOKKOS_INLINE_FUNCTION
   CudaTextureFetch(const CudaTextureFetch& rhs)
@@ -153,8 +153,8 @@ struct CudaLDGFetch {
   KOKKOS_INLINE_FUNCTION
   CudaLDGFetch() : m_ptr() {}
 
-  KOKKOS_INLINE_FUNCTION
-  ~CudaLDGFetch() {}
+  KOKKOS_DEFAULTED_FUNCTION
+  ~CudaLDGFetch() = default;
 
   KOKKOS_INLINE_FUNCTION
   CudaLDGFetch(const CudaLDGFetch& rhs) : m_ptr(rhs.m_ptr) {}
@@ -250,7 +250,7 @@ class ViewDataHandle<
   KOKKOS_INLINE_FUNCTION
   static handle_type assign(value_type* arg_data_ptr,
                             track_type const& arg_tracker) {
-    if (arg_data_ptr == NULL) return handle_type();
+    if (arg_data_ptr == nullptr) return handle_type();
 
 #if defined(KOKKOS_ACTIVE_EXECUTION_MEMORY_SPACE_HOST)
     // Assignment of texture = non-texture requires creation of a texture object
@@ -273,6 +273,7 @@ class ViewDataHandle<
     return handle_type(arg_data_ptr, r);
 
 #else
+    (void)arg_tracker;
     Kokkos::Impl::cuda_abort(
         "Cannot create Cuda texture object from within a Cuda kernel");
     return handle_type();
