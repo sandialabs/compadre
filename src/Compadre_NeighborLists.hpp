@@ -8,15 +8,11 @@ namespace Compadre {
 
 //!  NeighborLists assists in accessing entries of compressed row neighborhood lists
 template <typename view_type>
-class NeighborLists {
-public:
+struct NeighborLists {
 
     typedef view_type internal_view_type;
     typedef Kokkos::View<global_index_type*, typename view_type::array_layout, 
             typename view_type::memory_space, typename view_type::memory_traits> internal_row_offsets_view_type;
-
-protected:
-
 
     int _max_neighbor_list_row_storage_size;
     int _min_neighbor_list_row_storage_size;
@@ -30,9 +26,6 @@ protected:
     typename internal_row_offsets_view_type::HostMirror _host_row_offsets;
     typename view_type::HostMirror _host_cr_neighbor_lists;
     typename view_type::HostMirror _host_number_of_neighbors_list;
-
-
-public:
 
 /** @name Constructors
  *  Ways to initialize a NeighborLists object

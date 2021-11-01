@@ -63,7 +63,7 @@ def approximate(solver_type, porder, wpower0, wpower1, wtype, epsilon_multiplier
                 computed_answer[j] = 0.0
                 for k in range(nl.getNumberOfNeighbors(i)):
                     colors[nl.getNeighbor(i,k)] = 'red'
-                    computed_answer[j] += gmls_obj.getAlpha(pycompadre.TargetOperation.ScalarPointEvaluation, 
+                    computed_answer[j] += gmls_obj.getSolutionSet().getAlpha(pycompadre.TargetOperation.ScalarPointEvaluation, 
                                           i, 0, 0, k, 0, 0, j+1)*y[nl.getNeighbor(i,k)]
     center_about_extra_idx   = (np.abs(extra_sites_coords - center_about_coord)).argmin()
     center_about_extra_coord = extra_sites_coords[center_about_extra_idx]

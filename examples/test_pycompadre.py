@@ -167,7 +167,7 @@ def remap(polyOrder,dimension,additional_sites=False):
             for j in range(4):
                 computed_answer = 0.0
                 for k in range(nl.getNumberOfNeighbors(i)):
-                    computed_answer += gmls_obj.getAlpha(pycompadre.TargetOperation.ScalarPointEvaluation, 
+                    computed_answer += gmls_obj.getSolutionSet().getAlpha(pycompadre.TargetOperation.ScalarPointEvaluation, 
                                                             i, 0, 0, k, 0, 0, j+1)*data_vector[nl.getNeighbor(i,k)]
                 additional_sites_l2_error += \
                     np.power(abs(computed_answer - exact(additional_site_coordinates[i*4+j],polyOrder,dimension)),2)
