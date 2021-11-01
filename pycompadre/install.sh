@@ -79,6 +79,7 @@ if [ "$PACKAGE" == "YES" ]; then
     rm -rf ../build
     rm -rf ../build.sh
     rm -rf ../pycompadre.egg-info
+    rm -rf ../pycompadre-serial.egg-info
     if [ "$SERIAL" == "YES" ]; then
         cp cmake_opts_serial.txt ../cmake_opts.txt
     else
@@ -87,12 +88,18 @@ if [ "$PACKAGE" == "YES" ]; then
 
     cd ..
 
-    #CMAKE_CONFIG_FILE=cmake_opts.txt $EXECUTABLE setup.py bdist_wheel sdist
     CMAKE_CONFIG_FILE=cmake_opts.txt $EXECUTABLE setup.py sdist
     if [ "$SERIAL" == "YES" ]; then
-        for f in dist/*.tar.gz; do mv "$f" "$(echo "$f" | sed s/pycompadre/pycompadre-serial/)"; done
+        old_fname=`ls dist/*.tar.gz`;
+        rm -rf dist/*.tar.gz;
+        new_fname="$(echo "$old_fname" | sed s/pycompadre/pycompadre-serial/)"
+        mv pycompadre.egg-info pycompadre-serial.egg-info
+        sed -i '' 's/Name: pycompadre/Name: pycompadre-serial/' pycompadre-serial.egg-info/PKG-INFO
+        tar -czvf $new_fname *
+        rm -rf pycompadre-serial.egg-info
+    else
+        rm -rf pycompadre.egg-info
     fi
-    #echo "bdist_wheel and sdist complete."
     echo "sdist complete."
 
     cd pycompadre
