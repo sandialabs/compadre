@@ -386,9 +386,9 @@ class PointCloudSearch {
             device_mirror_epsilons_view_type d_epsilons = Kokkos::create_mirror_view<device_memory_space>(
                     device_memory_space(), epsilons);
             Kokkos::deep_copy(device_execution_space(), d_trg_pts_view, trg_pts_view);
-            Kokkos::deep_copy(device_execution_space(), d_neighbor_lists, neighbor_lists);
-            Kokkos::deep_copy(device_execution_space(), d_number_of_neighbors_list, number_of_neighbors_list);
-            Kokkos::deep_copy(device_execution_space(), d_epsilons, epsilons);
+            //Kokkos::deep_copy(device_execution_space(), d_neighbor_lists, neighbor_lists);
+            //Kokkos::deep_copy(device_execution_space(), d_number_of_neighbors_list, number_of_neighbors_list);
+            //Kokkos::deep_copy(device_execution_space(), d_epsilons, epsilons);
             // deep_copy with execution space comes with guarantee that no instructions will be executed 
             // in the execution space before the deep_copy is complete
 
