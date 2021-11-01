@@ -30,8 +30,8 @@ case $i in
     PACKAGE=YES
     shift # passed argument with no value
     ;;
-    -C|--conda)
-    CONDA=YES
+    -s|--serial)
+    SERIAL=YES
     shift # passed argument with no value
     ;;
     -h|--help)
@@ -79,12 +79,19 @@ if [ "$PACKAGE" == "YES" ]; then
     rm -rf ../build
     rm -rf ../build.sh
     rm -rf ../pycompadre.egg-info
-    cp cmake_opts.txt ..
+    if [ "$SERIAL" == "YES" ]; then
+        cp cmake_opts_serial.txt ../cmake_opts.txt
+    else
+        cp cmake_opts.txt ..
+    fi
 
     cd ..
 
     #CMAKE_CONFIG_FILE=cmake_opts.txt $EXECUTABLE setup.py bdist_wheel sdist
     CMAKE_CONFIG_FILE=cmake_opts.txt $EXECUTABLE setup.py sdist
+    if [ "$SERIAL" == "YES" ]; then
+        for f in dist/*.tar.gz; do mv "$f" "$(echo "$f" | sed s/pycompadre/pycompadre-serial/)"; done
+    fi
     #echo "bdist_wheel and sdist complete."
     echo "sdist complete."
 

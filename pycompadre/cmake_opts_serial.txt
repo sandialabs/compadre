@@ -1,0 +1,7 @@
+CMAKE_CXX_FLAGS=' -Ofast -funroll-loops -march=native'
+Kokkos_ENABLE_PTHREAD:BOOL=OFF
+Kokkos_ENABLE_OPENMP:BOOL=OFF
+Kokkos_ENABLE_SERIAL:BOOL=ON
+Compadre_USE_ARBORX:BOOL=OFF
+Compadre_DEBUG:BOOL=OFF
+Compadre_USE_MPI:BOOL=OFF

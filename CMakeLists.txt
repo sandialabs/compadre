@@ -348,6 +348,10 @@ else() # Raw CMake Project
       SET(KokkosKernels_ENABLE_TPL_CUSPARSE OFF)
       OPTION(KokkosKernels_INST_MEMSPACE_CUDAUVMSPACE "" OFF)
       SET(KokkosKernels_INST_MEMSPACE_CUDAUVMSPACE OFF)
+      OPTION(KokkosKernels_INST_EXECSPACE_THREADS "" ${Kokkos_ENABLE_PTHREAD})
+      SET(KokkosKernels_INST_EXECSPACE_THREADS ${Kokkos_ENABLE_PTHREAD})
+      OPTION(KokkosKernels_INST_EXECSPACE_OPENMP "" ${Kokkos_ENABLE_OPENMP})
+      SET(KokkosKernels_INST_EXECSPACE_OPENMP ${Kokkos_ENABLE_OPENMP})
       add_subdirectory(kokkos-kernels)
       if (NOT(KokkosCore_PREFIX STREQUAL ""))
           MESSAGE(FATAL_ERROR "KokkosCore_PREFIX specified but KokkosKernels_PREFIX not specified. \
