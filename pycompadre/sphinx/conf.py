@@ -22,12 +22,12 @@ tls_verify = False
 
 # -- Project information -----------------------------------------------------
 
-project = 'PyCompadre v%s'%pycompadre.__version__
+project = 'PyCOMPADRE v%s'%pycompadre.__version__
 copyright = '2021, National Technology & Engineering Solutions of Sandia, LLC (NTESS)'
 author = 'Paul Kuberry'
 
 # The full version, including alpha/beta/rc tags
-release = '1.3.9'
+release = pycompadre.__version__
 
 # -- General configuration ---------------------------------------------------
 
