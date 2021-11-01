@@ -77,7 +77,6 @@ if [ "$PACKAGE" == "YES" ]; then
 
     rm -rf ../dist
     rm -rf ../build
-    rm -rf ../meta.yaml
     rm -rf ../build.sh
     rm -rf ../pycompadre.egg-info
     cp cmake_opts.txt ..
@@ -93,39 +92,3 @@ if [ "$PACKAGE" == "YES" ]; then
     # follow up with twine upload ../dist/*
 
 fi
-
-# (NOT for users) create a conda package
-if [ "$CONDA" == "YES" ]; then
-
-    # conda activate builder
-    # conda build purge-all
-    # conda-bld should be cleared as well 
-
-    
-    rm -rf ../dist
-    rm -rf ../build
-    rm -rf ../meta.yaml
-    rm -rf ../build.sh
-    rm -rf ../pycompadre.egg-info
-    cp cmake_opts.txt ..
-
-    #cp update_conda_cmake.py ../update_conda_cmake.py
-    # named *.in so that they are not picked up by conda in the pycompadre folder
-    cp meta.yaml.in ../meta.yaml
-    cp build.sh.in ../build.sh
-    #cp conda_build_config.yaml.in ../conda_build_config.yaml
-    cd ..
-    conda-build . --python=2.7 --python=3.5 --python=3.6 --python=3.7 --python=3.8
-    #--python=3.5
-    #--python=3.7
-    # --python=3.6 --python=3.7
-    cd pycompadre
-
-fi
-
-# instructions for updating conda package
-# 1.) git fetch origin on compadre repo
-# 2.) from the root of the repo, with master checked out, run >> git merge origin/conda_files --allow-unrelated-histories
-# 3.) >> conda-build . --python=3.6 --python=3.7 --python=3.8
-# 4.) >> anaconda login
-# 5.) >> anaconda upload /some/path/to/compadre.tar.bz2

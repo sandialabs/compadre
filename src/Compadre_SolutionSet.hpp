@@ -518,13 +518,12 @@ struct SolutionSet {
         }
 
         // move unique_new_lro into _lro
-        auto new_lro = decltype(_lro)(_lro.label(), _lro.size() + unique_new_lro.size());
-        for (size_t i=0; i<new_lro.size(); ++i) {
-            if (i < _lro.size()) {
-                new_lro(i) = _lro(i);
-            } else {
-                new_lro(i) = unique_new_lro[i];
-            }
+        auto new_lro = decltype(_lro)("LRO", _lro.size() + unique_new_lro.size());
+        for (size_t i=0; i<_lro.size(); ++i) {
+            new_lro(i) = _lro(i);
+        }
+        for (size_t i=0; i<unique_new_lro.size(); ++i) {
+            new_lro(i+_lro.size()) = unique_new_lro[i];
         }
         _lro = new_lro;
 
@@ -548,7 +547,7 @@ struct SolutionSet {
             host_lro_total_offsets(i) = total_offset;
 
             // allows for a tile of the product of dimension^input_tensor_rank * dimension^output_tensor_rank * the number of neighbors
-            int output_tile_size = getOutputDimensionOfOperation(_lro[i], _local_dimensions);
+            int output_tile_size = getOutputDimensionOfOperation(_lro(i), _local_dimensions);
 
             // the target functional input indexing is sized based on the output rank of the sampling
             // functional used
@@ -563,7 +562,7 @@ struct SolutionSet {
             // the target functional output rank is based on the output rank of the sampling
             // functional used
             host_lro_input_tensor_rank(i) = _data_sampling_functional.output_rank;
-            host_lro_output_tensor_rank(i) = getTargetOutputTensorRank((int)_lro[i]);
+            host_lro_output_tensor_rank(i) = getTargetOutputTensorRank((int)_lro(i));
         }
 
         _total_alpha_values = total_offset;

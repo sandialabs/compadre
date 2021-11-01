@@ -639,32 +639,40 @@ using overload_cast_ = pybind11::detail::overload_cast_impl<Args...>;
 
 PYBIND11_MODULE(pycompadre, m) {
     m.doc() = R"pbdoc(
-        Compadre Toolkit for Python
-        -----------------------
-        Important: 
-        Be sure to initialize Kokkos before setting up any objects from this library,
-        by created a scoped KokkosParser object, i.e:
-        >> kp = pycompadre.KokkosParser()
-        When `kp` goes out of scope, then Kokkos will be finalized.
+PyCOMPADRE: Compadre Toolkit
+-----------------------------
 
-        GMLS type objects are passed to ParticleHelper objects.
-        Be sure to deallocate in reverse order, i.e.:
-        >> kp = pycompadre.KokkosParser()
-        >> gmls_obj = GMLS(...)
-        >> gmls_helper = ParticleHelper(gmls_object)
-        ...
-        ...
-        >> del gmls_obj
-        >> del gmls_helper
-        >> del kp
+Important:
+Be sure to initialize Kokkos before setting up any objects from this library,
+by created a scoped KokkosParser object, i.e:
 
-        Project details at: 
-        https://github.com/sandialabs/compadre
+.. code-block:: python
 
-        Implementation details at: 
-        https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
+    kp = pycompadre.KokkosParser()
 
-    )pbdoc";
+When `kp` goes out of scope, then Kokkos will be finalized.
+
+GMLS type objects are passed to ParticleHelper objects.
+Be sure to deallocate in reverse order, i.e.:
+
+.. code-block:: python
+
+    >> kp = pycompadre.KokkosParser()
+    >> gmls_obj = GMLS(...)
+    >> gmls_helper = ParticleHelper(gmls_object)
+    ...
+    ...
+    >> del gmls_obj
+    >> del gmls_helper
+    >> del kp
+
+Project details at:
+https://github.com/sandialabs/compadre
+
+Implementation details at:
+https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
+
+)pbdoc";
 
     py::class_<SamplingFunctional>(m, "SamplingFunctional");
     py::dict sampling_functional;
