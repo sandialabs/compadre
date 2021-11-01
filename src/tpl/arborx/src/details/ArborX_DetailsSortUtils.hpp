@@ -262,7 +262,7 @@ sortObjects(Kokkos::Threads const &space, ViewType &view)
 // NOTE returns the permutation indices **and** sorts the input view
 template <typename ViewType, class SizeType = unsigned int>
 Kokkos::View<SizeType *, typename ViewType::device_type>
-sortObjects(Kokkos::Threads const &space, ViewType &view)
+sortObjects(Kokkos::Serial const &space, ViewType &view)
 {
   static_assert(KokkosExt::is_accessible_from<typename ViewType::memory_space,
                                               Kokkos::Serial>::value,
