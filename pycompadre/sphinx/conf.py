@@ -15,13 +15,14 @@
 # sys.path.insert(0, os.path.abspath('.'))
 import sys
 import os
+import pycompadre
 #tls_cacert = "/Users/pakuber/sandia_root_ca.cer"
 tls_verify = False
 
 
 # -- Project information -----------------------------------------------------
 
-project = 'PyCompadre'
+project = 'PyCompadre v%s'%pycompadre.__version__
 copyright = '2021, National Technology & Engineering Solutions of Sandia, LLC (NTESS)'
 author = 'Paul Kuberry'
 
