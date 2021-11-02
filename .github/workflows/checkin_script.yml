@@ -29,7 +29,8 @@ jobs:
         -DCMAKE_CXX_FLAGS=" -Ofast -funroll-loops -march=native" >
         -DCompadre_DEBUG:BOOL=OFF >
         -DCompadre_USE_PYTHON:BOOL=ON >
-        -D Compadre_USE_MPI:BOOL=OFF 
+        -DCompadre_USE_MPI:BOOL=OFF >
+        ${{github.workspace}}
 
     - name: Build
       # Build your program with the given configuration
