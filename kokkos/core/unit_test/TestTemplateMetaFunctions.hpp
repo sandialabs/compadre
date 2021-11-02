@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -58,7 +58,7 @@ struct SumPlain {
   SumPlain(type view_) : view(view_) {}
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(int i, Scalar& val) { val += Scalar(); }
+  void operator()(int /*i*/, Scalar& val) { val += Scalar(); }
 };
 
 template <class Scalar, class ExecutionSpace>
@@ -80,7 +80,7 @@ struct SumInitJoinFinalValueType {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(int i, value_type& val) const { val += value_type(); }
+  void operator()(int /*i*/, value_type& val) const { val += value_type(); }
 };
 
 template <class Scalar, class ExecutionSpace>
@@ -102,7 +102,7 @@ struct SumInitJoinFinalValueType2 {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(int i, value_type& val) const { val += value_type(); }
+  void operator()(int /*i*/, value_type& val) const { val += value_type(); }
 };
 
 template <class Scalar, class ExecutionSpace>
@@ -157,7 +157,7 @@ struct SumWrongInitJoinFinalValueType {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(int i, value_type& val) const { val += value_type(); }
+  void operator()(int /*i*/, value_type& val) const { val += value_type(); }
 };
 
 template <class Scalar, class ExecutionSpace>

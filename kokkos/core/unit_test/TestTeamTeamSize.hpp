@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -78,13 +78,13 @@ template <class T, int N, class PolicyType, int S>
 struct FunctorFor {
   double static_array[S];
   KOKKOS_INLINE_FUNCTION
-  void operator()(const typename PolicyType::member_type& team) const {}
+  void operator()(const typename PolicyType::member_type& /*team*/) const {}
 };
 template <class T, int N, class PolicyType, int S>
 struct FunctorReduce {
   double static_array[S];
   KOKKOS_INLINE_FUNCTION
-  void operator()(const typename PolicyType::member_type& team,
+  void operator()(const typename PolicyType::member_type& /*team*/,
                   MyArray<T, N>& lval) const {
     for (int j = 0; j < N; j++) lval.values[j] += 1 + lval.values[0];
   }
@@ -191,7 +191,7 @@ struct PrintFunctor2 {
 };
 
 TEST(TEST_CATEGORY, team_policy_max_scalar_without_plus_equal_k) {
-  using ExecSpace           = Kokkos::DefaultExecutionSpace;
+  using ExecSpace           = TEST_EXECSPACE;
   using ReducerType         = Kokkos::MinMax<double, Kokkos::HostSpace>;
   using ReducerValueType    = typename ReducerType::value_type;
   using DynamicScheduleType = Kokkos::Schedule<Kokkos::Dynamic>;

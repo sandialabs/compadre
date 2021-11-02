@@ -55,6 +55,16 @@ elseif (KOKKOSKERNELS_BUILT_FOR_USER) # Kokkos-Kernels built for user by this pr
   target_link_libraries(compadre PUBLIC Kokkos::kokkoskernels)
 endif()
 
+if (Compadre_USE_ARBORX)
+  option(ARBORX_ENABLE_MPI "" OFF)
+  set(ARBORX_ENABLE_MPI OFF)
+  add_subdirectory(tpl/arborx)
+  set(ArborX_PREFIX ${CMAKE_INSTALL_PREFIX} PARENT_SCOPE)
+  list(APPEND Compadre_EXT_DEPS ArborX)
+  set(Compadre_EXT_DEPS ${Compadre_EXT_DEPS} PARENT_SCOPE)
+  target_link_libraries(compadre PUBLIC ArborX::ArborX)
+endif()
+
 # link to MPI
 if (Compadre_USE_MPI)
   if (MPI_CXX_INCLUDE_PATH)
@@ -75,7 +85,6 @@ set(COMPADRE_TPL
 )
 
 install(FILES ${COMPADRE_TPL} DESTINATION include/tpl)
-
 install(FILES ${COMPADRE_HEADERS} DESTINATION include)
 
 bob_end_subdir()
