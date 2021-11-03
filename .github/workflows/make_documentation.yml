@@ -1,0 +1,54 @@
+name: Make documentation
+
+on: workflow_dispatch
+
+jobs:
+  documentation:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+        architecture: x64
+        
+    - name: Install Python dependencies
+      run: |
+        python3 -m pip install --upgrade pip
+        pip install sphinx
+        pip install sphinx_rtd_theme
+        echo $'Compadre_USE_MPI:BOOL=OFF\nCompadre_EXAMPLES:BOOL=OFF\nCompadre_TESTS:BOOL=OFF' > cmake_opts.txt
+        CMAKE_CONFIG_FILE=cmake_opts.txt python ${{github.workspace}}/setup.py install
+        cd ${{github.workspace}}/pycompadre/sphinx/
+        make clean
+        make html
+        cd ${{github.workspace}}
+        
+    - name: Create doxygen docs
+      run: |
+        sudo apt-get install doxygen
+        cd ${{github.workspace}}/doc
+        ./build_docs
+        cd ${{github.workspace}}
+          
+    - name: Move Sphinx documentation to docs
+      run: |
+        mv ${{github.workspace}}/pycompadre/sphinx/build/html/* ${{github.workspace}}/doc/html/pycompadre/
+        tar -czvf ${{github.workspace}}/documentation.tar.gz  ${{github.workspace}}/doc/html/*
+        cd ${{github.workspace}}/doc/html/
+        git config --global user.email "pakuber@sandia.gov"
+        git config --global user.name "Paul Kuberry"
+        git init
+        git checkout --orphan gh-pages
+        git add .nojekyll *
+        git commit -m "Update documentation."
+        git push -f https://${{ secrets.GITHUB_TOKEN }}:${{ secrets.GITHUB_TOKEN }}@github.com/sandialabs/compadre.git gh-pages
+        
+#    - name: Prepare artifact
+#      run: |
+#        tar -czvf ${{github.workspace}}/documentation.tar.gz  ${{github.workspace}}/doc/html/*
+#    - uses: actions/upload-artifact@v2
+#      with:
+#        name: documentation.tar.gz
+#        path: ${{github.workspace}}/documentation.tar.gz
