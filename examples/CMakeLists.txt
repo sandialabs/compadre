@@ -41,6 +41,10 @@ if (Compadre_EXAMPLES)
   add_exe_w_compadre(TestUtility UtilityTest.cpp)
   add_exe_w_compadre(NeighborSearchTest NeighborSearchTest.cpp)
 
+  add_executable(blah blah.cpp)
+  target_link_libraries(blah PRIVATE kokkos)
+  bob_export_target(blah)
+
   if (Compadre_TESTS)
 
     add_exe_w_compadre(UnitTests Compadre_UnitTests.cpp)
