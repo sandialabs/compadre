@@ -78,7 +78,7 @@ if (Compadre_EXAMPLES)
 
     # Device views tests with Neumann BC for STAGGERED GMLS
     ADD_TEST(NAME GMLS_StaggeredNeumannGradScalar_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered "--p" "3" "--nt" "200" "--d" "3" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_StaggeredNeumannGradScalar_Dim3_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos;staggered" TIMEOUT 10)
+    SET_TESTS_PROPERTIES(GMLS_StaggeredNeumannGradScalar_Dim3_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos;staggered" TIMEOUT 20)
 
     # Device views tests for GMLS (vector basis)
     ADD_TEST(NAME GMLS_Vector_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Vector_Test "--p" "3" "--nt" "20" "--d" "3" "--kokkos-threads=2")
