@@ -1,0 +1,94 @@
+name: Create pycompadre wheels
+
+on: workflow_dispatch
+
+jobs:
+        
+  manylinux:
+    name: wheel_creation_linux
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: [3.7]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install twine wheel setuptools
+    - name: Build manylinux Python wheels
+      uses: RalfG/python-wheels-manylinux-build@v0.3.3-manylinux2010_x86_64
+      with:
+        python-versions: 'cp36-cp36m cp37-cp37m cp38-cp38 cp39-cp39'
+        build-requirements: 'cython'
+        package-path: ''
+        pip-wheel-args: ''
+        # When locally testing, --no-deps flag is necessary (PyUtilib dependency will trigger an error otherwise)
+    - name: Consolidate wheels
+      run: |
+        sudo test -d dist || mkdir -v dist
+        sudo find . -name \*.whl | grep -v /dist/ | xargs -n1 -i mv -v "{}" dist/
+    - name: Delete linux wheels
+      run: |
+        sudo rm -rfv dist/*-linux_x86_64.whl
+        rm ${{github.workspace}}/dist/cmake*
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: manylinux-wheels
+        path: dist/
+        retention-days: 1
+
+        
+  osx:
+    name: wheel_creation_osx
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest]
+        python-version: [ 3.6,]# 3.7, 3.8, 3.9 ]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install twine wheel setuptools cython
+    - name: Build OSX Python wheels
+      run: |
+        python setup.py bdist_wheel
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: osx-wheels
+        path: dist/
+        retention-days: 1
+
+  pypi:
+    name: upload all wheels to pypi
+    needs: [manylinux, osx]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        name: osx-wheels
+        path: dist/
+    - uses: actions/download-artifact@v2
+      with:
+        name: manylinux-wheels
+        path: dist/
+    # https://packaging.python.org/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
+    - name: Publish distribution 📦 to PyPI
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        password: ${{ secrets.PIP_PYCOMPADRE_SECRET }}
