@@ -201,6 +201,10 @@ if (Compadre_EXAMPLES)
         ADD_TEST(NAME GMLS_Matlab_Python_Interface_1d_Point_Reconstruction COMMAND "matlab" "-nodisplay" "-nojvm" "-nosplash" "-nodesktop" "-r \"try, run('${SWIG_PREFIX}/Matlab_1D_Using_Python_Interface.m'), catch, exit(1), end, exit(0);\"")
         SET_TESTS_PROPERTIES(GMLS_Matlab_Python_Interface_1d_Point_Reconstruction PROPERTIES LABELS "IntegrationTest;integration;python;kokkos;matlab" TIMEOUT 10)
       endif()
+
+      ADD_TEST(NAME PyCOMPADRE_Tests COMMAND "${PYTHON_EXECUTABLE}" "-c" "import sys;sys.path.append('${PYTHON_LIBRARY_PREFIX}');import pycompadre;pycompadre.test();")
+      SET_TESTS_PROPERTIES(PyCOMPADRE_Tests PROPERTIES LABELS "pycompadre" TIMEOUT 10)
+
     endif()
 
   endif (Compadre_TESTS)
