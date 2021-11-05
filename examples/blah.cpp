@@ -1,5 +1,9 @@
 #include <Kokkos_Core.hpp>
 
+int some_host_function() {
+    return 7;
+}
+
 int main (int argc, char* args[]) {
     Kokkos::initialize(argc, args);
     {
@@ -19,12 +23,14 @@ int main (int argc, char* args[]) {
     size_t min_num_neighbors = 0;
     Kokkos::parallel_reduce("knn search", host_team_policy(num_target_sites, Kokkos::AUTO)
     .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)),
-    [&](const host_member_type& teamMember, size_t& t_min_num_neighbors) {
+    KOKKOS_LAMBDA(const host_member_type& teamMember, size_t& t_min_num_neighbors) {
         Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, 12), [&](const int j) { 
-            a.clear();
+            //a.clear();
+            some_host_function();
         });
         teamMember.team_barrier();
-        a.clear();
+        //a.clear();
+        some_host_function();
         t_min_num_neighbors = a.size();
     }, Kokkos::Min<size_t>(min_num_neighbors) );
     }
