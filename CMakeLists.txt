@@ -433,7 +433,6 @@ set(Compadre_KEY_STRINGS
     Compadre_COMMIT
     Compadre_CXX_FLAGS
     Compadre_CMAKE_ARGS
-    GMLS_Module_DEST
     Compadre_INSTALL_PREFIX
 )
 
