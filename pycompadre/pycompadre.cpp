@@ -827,7 +827,11 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
                 py::object this_pycompadre = py::module::import("pycompadre");
                 auto location = this_pycompadre.attr("__file__").cast<std::string>();
                 py::object path = pathlib.attr("Path")(location);
+#ifdef PYTHON_CALLING_BUILD
                 examples_path = py::str(path.attr("parent")).cast<std::string>() + "/examples";
+#else
+                examples_path = py::str(path.attr("parent")).cast<std::string>() + "/pycompadre/examples";
+#endif
             } catch (...) {
                 std::cerr << "Error getting examples path from pycompadre module." << std::endl;
             }
