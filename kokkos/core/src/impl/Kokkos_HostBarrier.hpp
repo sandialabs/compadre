@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -70,7 +70,7 @@ namespace Impl {
 //    called split_release
 //
 // The purporse of the split functions is to allow the last thread to arrive
-// an opprotunity to perform some actions before releasing the waiting threads
+// an opportunity to perform some actions before releasing the waiting threads
 //
 // If all threads have arrived (and split_release has been call if using
 // split_arrive) before a wait type call, the wait may return quickly
@@ -235,6 +235,7 @@ class HostBarrier {
       impl_backoff_wait_until_equal(ptr, v, active_wait);
     }
 #else
+    (void)active_wait;
     while (!test_equal(ptr, v)) {
     }
 #endif

@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -52,7 +52,7 @@
 #include <sched.h>
 #include <errno.h>
 
-/* Standard C++ libaries */
+/* Standard C++ libraries */
 
 #include <cstdlib>
 #include <string>
@@ -87,7 +87,7 @@ void* internal_pthread_driver(void*) {
     std::cerr.flush();
     std::abort();
   }
-  return NULL;
+  return nullptr;
 }
 
 }  // namespace
@@ -105,7 +105,7 @@ bool ThreadsExec::spawn() {
       0 == pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED)) {
     pthread_t pt;
 
-    result = 0 == pthread_create(&pt, &attr, internal_pthread_driver, 0);
+    result = 0 == pthread_create(&pt, &attr, internal_pthread_driver, nullptr);
   }
 
   pthread_attr_destroy(&attr);
@@ -153,7 +153,7 @@ void ThreadsExec::wait_yield(volatile int& flag, const int value) {
 #include <windows.h>
 #include <process.h>
 
-/* Standard C++ libaries */
+/* Standard C++ libraries */
 
 #include <cstdlib>
 #include <string>

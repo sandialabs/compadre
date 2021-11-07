@@ -225,15 +225,8 @@ Kokkos::initialize(argc, args);
     Kokkos::View<double*, Kokkos::DefaultExecutionSpace> epsilon_device("h supports", number_target_coords);
     Kokkos::View<double*>::HostMirror epsilon = Kokkos::create_mirror_view(epsilon_device);
 
-    size_t storage_size = point_cloud_search.generateCRNeighborListsFromKNNSearch(true /*dry run*/, target_coords, neighbor_lists, 
-            number_of_neighbors_list, epsilon, min_neighbors, epsilon_multiplier);
-    
-    // resize neighbor_lists_device so as to be large enough to contain all neighborhoods
-    Kokkos::resize(neighbor_lists_device, storage_size);
-    neighbor_lists = Kokkos::create_mirror_view(neighbor_lists_device);
-
-    // query the point cloud a second time, but this time storing results into neighbor_lists
-    point_cloud_search.generateCRNeighborListsFromKNNSearch(false /*not dry run*/, target_coords, neighbor_lists, 
+    // search
+    point_cloud_search.generateCRNeighborListsFromKNNSearch(target_coords, neighbor_lists, 
             number_of_neighbors_list, epsilon, min_neighbors, epsilon_multiplier);
 
     // Diagnostic for neighbors found
@@ -259,6 +252,7 @@ Kokkos::initialize(argc, args);
     // We could have filled Kokkos Views with memory space on the host
     // and used these instead, and then the copying of data to the device
     // would be performed in the GMLS class
+    Kokkos::resize(neighbor_lists_device, neighbor_lists.extent(0));
     Kokkos::deep_copy(neighbor_lists_device, neighbor_lists);
     Kokkos::deep_copy(number_of_neighbors_list_device, number_of_neighbors_list);
     Kokkos::deep_copy(epsilon_device, epsilon);
