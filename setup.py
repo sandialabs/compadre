@@ -124,7 +124,7 @@ class CMakeBuild(build_ext):
 
     def build_extension(self, ext):
         print("build_extension called.")
-        extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
+        extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name))+"/pycompadre")
         # required for auto-detection of auxiliary "native" libs
         if not extdir.endswith(os.path.sep):
             extdir += os.path.sep
@@ -257,8 +257,10 @@ setup(
         'build_ext': CMakeBuild,
         'test': SetupTest,
     },
-    data_files=[('examples', ['pycompadre/examples/test_pycompadre.py',
-                              'pycompadre/examples/test_pycompadre_manifold.py']),],
+    packages=['pycompadre'],
     include_package_data=True,
+    exclude_package_data={
+        'pycompadre': ['pybind11/*', 'pycompadre.cpp', 'sphinx/*', 'install.sh', 'Matlab*', 'cmake_*', '__init__.py.in'],
+    },
     zip_safe=False,
 )

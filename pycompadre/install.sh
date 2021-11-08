@@ -64,7 +64,6 @@ if [ "$CLEAN" == "YES" ]; then
 fi
 
 # output variables used
-echo "CONDA: ${CONDA}"
 if [ "$EXECUTABLE" == "" ]; then
     EXECUTABLE=`which python`
     echo "$0: No Python executable provided with \" -e=*\", so first python found in search path is used: $EXECUTABLE"
