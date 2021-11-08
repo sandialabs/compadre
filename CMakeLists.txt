@@ -398,6 +398,7 @@ else() # Raw CMake Project
 
   bob_option(Compadre_TESTS "Compile Compadre tests" ON)
   bob_option(Compadre_EXAMPLES "Compile Compadre examples" "${Compadre_TESTS}")
+  bob_option(Compadre_COVERAGE "Use code coverage" OFF)
 
 
 endif() 
@@ -459,7 +460,6 @@ else() # Raw CMake Project
     bob_get_semver()
   endif()
 
-
   ##########
   #
   #
@@ -467,6 +467,18 @@ else() # Raw CMake Project
   #
   #
   ##########
+
+  if (Compadre_COVERAGE)
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+    include(CodeCoverage)
+    append_coverage_compiler_flags()
+    setup_target_for_coverage_lcov(
+      NAME coverage
+      EXECUTABLE ctest
+      EXCLUDE "/Library/*" "${PROJECT_SOURCE_DIR}/kokkos/*" 
+              "${PROJECT_SOURCE_DIR}/kokkos-kernels/*" 
+              "${PROJECT_SOURCE_DIR}/pycompadre/*")
+  endif()
 
 
   # compadre library
