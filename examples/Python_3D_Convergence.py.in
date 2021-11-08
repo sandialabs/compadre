@@ -2,7 +2,7 @@ import sys
 
 # installation folder
 gmls_python_installation_path = "@PYTHON_LIBRARY_PREFIX@"
-sys.path.append(gmls_python_installation_path)
+sys.path.insert(0,gmls_python_installation_path)
 
 import pycompadre
 

@@ -78,7 +78,7 @@ else() # Raw CMake Project
   SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
   SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
   SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-  SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_LIBDIR} ${CMAKE_INSTALL_RPATH})
+  SET(CMAKE_INSTALL_RPATH "../${CMAKE_INSTALL_LIBDIR}")
 
   # RPATH should always include the folder it is called from
   bob_option(PYTHON_CALLING_BUILD "Python setuptools calling build" OFF)
@@ -96,17 +96,17 @@ else() # Raw CMake Project
         OUTPUT_STRIP_TRAILING_WHITESPACE )
     ENDIF()
     MESSAGE(STATUS "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
-    if (APPLE)
-      SET(CMAKE_BUILD_RPATH ${CMAKE_BUILD_RPATH} "@loader_path/")
-      SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} "@loader_path/")
-      if (NOT(PYTHON_CALLING_BUILD))
-        # If python is calling the build, it will provide these flags
-        SET(CMAKE_PYTHON_SHARED_LINKER_FLAGS "-undefined dynamic_lookup -nodefaultlibs")
+    # change RPATH for a flat directory structure
+    # when installing pycompadre as Python package
+    if (PYTHON_CALLING_BUILD)
+      if (APPLE)
+        SET(CMAKE_BUILD_RPATH ${CMAKE_BUILD_RPATH} "@loader_path/")
+        SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} "@loader_path/")
+      else()
+        SET(CMAKE_BUILD_RPATH ${CMAKE_BUILD_RPATH} "$ORIGIN/")
+        SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} "$ORIGIN/")
+        SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,origin")
       endif()
-    else()
-      SET(CMAKE_BUILD_RPATH ${CMAKE_BUILD_RPATH} "$ORIGIN/")
-      SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} "$ORIGIN/")
-      SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,origin")
     endif()
   endif()
 
@@ -420,6 +420,7 @@ set(Compadre_KEY_BOOLS
     Compadre_USE_CUDA
     Compadre_USE_MPI
     Compadre_USE_PYTHON
+    PYTHON_CALLING_BUILD
    )
 
 set(Compadre_KEY_INTS
@@ -433,7 +434,6 @@ set(Compadre_KEY_STRINGS
     Compadre_COMMIT
     Compadre_CXX_FLAGS
     Compadre_CMAKE_ARGS
-    GMLS_Module_DEST
     Compadre_INSTALL_PREFIX
 )
 

@@ -1,9 +1,5 @@
 include_tribits_build()
 
-# ERROR MESSAGES IF A TEST IS NOT RUN
-SET(OPENBLAS_NUM_THREADS "1")
-
-
 ###############
 #
 #
@@ -193,6 +189,8 @@ if (Compadre_EXAMPLES)
 
     # WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH} )
     if (Compadre_USE_PYTHON)
+      FILE(COPY "${CMAKE_CURRENT_SOURCE_DIR}/../pycompadre/examples/test_pycompadre.py" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/../pycompadre/examples")
+      FILE(COPY "${CMAKE_CURRENT_SOURCE_DIR}/../pycompadre/examples/test_pycompadre_manifold.py" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/../pycompadre/examples")
       CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/Python_3D_Convergence.py.in" "${CMAKE_CURRENT_BINARY_DIR}/Python_3D_Convergence.py" @ONLY)
       ADD_TEST(NAME GMLS_Python_Convergence_Test_3d_Point_Reconstruction COMMAND "${PYTHON_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}/Python_3D_Convergence.py" "--kokkos-threads=4")
       SET_TESTS_PROPERTIES(GMLS_Python_Convergence_Test_3d_Point_Reconstruction PROPERTIES LABELS "IntegrationTest;integration;python;kokkos" TIMEOUT 10)
@@ -201,6 +199,10 @@ if (Compadre_EXAMPLES)
         ADD_TEST(NAME GMLS_Matlab_Python_Interface_1d_Point_Reconstruction COMMAND "matlab" "-nodisplay" "-nojvm" "-nosplash" "-nodesktop" "-r \"try, run('${SWIG_PREFIX}/Matlab_1D_Using_Python_Interface.m'), catch, exit(1), end, exit(0);\"")
         SET_TESTS_PROPERTIES(GMLS_Matlab_Python_Interface_1d_Point_Reconstruction PROPERTIES LABELS "IntegrationTest;integration;python;kokkos;matlab" TIMEOUT 10)
       endif()
+
+      ADD_TEST(NAME PyCOMPADRE_Tests COMMAND "${PYTHON_EXECUTABLE}" "-c" "import sys;sys.path.insert(0,'${PYTHON_LIBRARY_PREFIX}');import pycompadre;pycompadre.test();")
+      SET_TESTS_PROPERTIES(PyCOMPADRE_Tests PROPERTIES LABELS "pycompadre" TIMEOUT 10)
+
     endif()
 
   endif (Compadre_TESTS)

@@ -3,8 +3,9 @@ import numpy as np
 import math
 import random
 import pycompadre
+import sys
 
-kokkos_obj=pycompadre.KokkosParser()
+kokkos_obj=pycompadre.KokkosParser(sys.argv)
 
 # function used to generate sample data
 def exact(coord,order,dimension):

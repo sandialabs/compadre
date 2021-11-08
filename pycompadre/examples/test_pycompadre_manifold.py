@@ -1,9 +1,10 @@
 from unittest import TestCase
 import pycompadre
 import numpy as np
+import sys
 
 # initialize Kokkos
-kp = pycompadre.KokkosParser()
+kp = pycompadre.KokkosParser(sys.argv)
 
 # get GMLS approximate at all x_pred, as well as reconstruction about attempt_center_about_coord
 def approximate(input_dimensions, porder, wpower, wtype, epsilon_multiplier, attempt_center_about_coord):

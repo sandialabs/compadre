@@ -807,6 +807,48 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
 
     m.def("Wab", &GMLS::Wab, py::arg("r"), py::arg("h"), py::arg("weighting type"), py::arg("p"), py::arg("n"), "Evaluate weighting kernel.");
 
+    m.def("test", [] {
+            py::module_ nose;
+            try {
+                nose = py::module_::import("nose");
+            } catch (...) {
+                std::cerr << "test() requires nose module." << std::endl;
+            }
+
+            py::module_ pathlib;
+            try {
+                pathlib = py::module::import("pathlib");
+            } catch (...) {
+                std::cerr << "test() requires pathlib module." << std::endl;
+            }
+
+            std::string examples_path;
+            try {
+                py::object this_pycompadre = py::module::import("pycompadre");
+                auto location = this_pycompadre.attr("__file__").cast<std::string>();
+                py::object path = pathlib.attr("Path")(location);
+#ifdef PYTHON_CALLING_BUILD
+                examples_path = py::str(path.attr("parent")).cast<std::string>() + "/examples";
+#else
+                examples_path = py::str(path.attr("parent")).cast<std::string>() + "/pycompadre/examples";
+#endif
+            } catch (...) {
+                std::cerr << "Error getting examples path from pycompadre module." << std::endl;
+            }
+
+            bool result = false;
+            try {
+                printf("Running examples in: %s\n", examples_path.c_str());
+                std::vector<std::string> argv = {"--where", examples_path, "-v"};
+                using namespace pybind11::literals;
+                result = nose.attr("run")("argv"_a=argv).cast<bool>();
+            } catch (...) {
+                std::cerr << "Error running nosetests." << std::endl;
+            }
+            return result;
+        }
+    );
+
 #ifdef COMPADRE_VERSION_MAJOR
     m.attr("__version__") = std::to_string(COMPADRE_VERSION_MAJOR) + "." + std::to_string(COMPADRE_VERSION_MINOR) + "." + std::to_string(COMPADRE_VERSION_PATCH);
 #else
