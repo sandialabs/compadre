@@ -96,6 +96,8 @@ else() # Raw CMake Project
         OUTPUT_STRIP_TRAILING_WHITESPACE )
     ENDIF()
     MESSAGE(STATUS "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
+    # change RPATH for a flat directory structure
+    # when installing pycompadre as Python package
     if (PYTHON_CALLING_BUILD)
       if (APPLE)
         SET(CMAKE_BUILD_RPATH ${CMAKE_BUILD_RPATH} "@loader_path/")
@@ -104,10 +106,6 @@ else() # Raw CMake Project
         SET(CMAKE_BUILD_RPATH ${CMAKE_BUILD_RPATH} "$ORIGIN/")
         SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} "$ORIGIN/")
         SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,origin")
-      endif()
-    else()
-      if (APPLE)
-        SET(CMAKE_PYTHON_SHARED_LINKER_FLAGS "-undefined dynamic_lookup -nodefaultlibs")
       endif()
     endif()
   endif()
