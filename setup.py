@@ -112,12 +112,12 @@ class CMakeBuild(build_ext):
             out = subprocess.check_output(['cmake', '--version'])
         except OSError:
             raise RuntimeError("CMake must be installed to build the following extensions: " +
-                               ", ".join(e.name for e in self.extensions))
+                               ", ".join(e.name for e in self.extensions) + 
+                               "\nInstall cmake with `pip install cmake` or install from: https://cmake.org/download/.")
 
-        if platform.system() == "Windows":
-            cmake_version = parse_version(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
-            if cmake_version < '3.1.0':
-                raise RuntimeError("CMake >= 3.1.0 is required on Windows")
+        cmake_version = parse_version(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
+        if cmake_version < parse_version('3.10.0'):
+            raise RuntimeError("CMake >= 3.10.0 is required")
 
         for ext in self.extensions:
             self.build_extension(ext)
@@ -264,7 +264,7 @@ setup(
         "License :: OSI Approved :: BSD License",
         "Operating System :: Unix",
     ],
-    install_requires=['cmake>=3.10.0',],
+    install_requires=['nose','numpy'],
     ext_modules=[CMakeExtension('pycompadre'),],
     cmdclass={
         'build_ext': CMakeBuild,
