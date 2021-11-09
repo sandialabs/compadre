@@ -112,28 +112,36 @@ class CMakeBuild(build_ext):
             out = subprocess.check_output(['cmake', '--version'])
         except OSError:
             raise RuntimeError("CMake must be installed to build the following extensions: " +
-                               ", ".join(e.name for e in self.extensions))
+                               ", ".join(e.name for e in self.extensions) + 
+                               "\nInstall cmake with `pip install cmake` or install from: https://cmake.org/download/.")
 
-        if platform.system() == "Windows":
-            cmake_version = parse_version(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
-            if cmake_version < '3.1.0':
-                raise RuntimeError("CMake >= 3.1.0 is required on Windows")
+        cmake_version = parse_version(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
+        if cmake_version < parse_version('3.10.0'):
+            raise RuntimeError("CMake >= 3.10.0 is required")
 
         for ext in self.extensions:
             self.build_extension(ext)
 
     def build_extension(self, ext):
         print("build_extension called.")
-        extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
+        extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name))+"/pycompadre")
         # required for auto-detection of auxiliary "native" libs
         if not extdir.endswith(os.path.sep):
             extdir += os.path.sep
 
         cmake_config = os.getenv("CMAKE_CONFIG_FILE")
         if cmake_config:
-            if os.path.exists(cmake_config):
+            #  check if absolute or relative path
+            if os.path.isabs(cmake_config):
                 print("Custom cmake args file set to: %s"%(cmake_config,))
             else:
+                if sys.path[0]=='' or not os.path.isdir(sys.path[0]):
+                    assert False, "CMAKE_CONFIG_FILE (%s) must be given as an absolute path when called from pip."
+                else:
+                    print("CMAKE_CONFIG_FILE given as a relative path: %s"%(cmake_config,))
+                    cmake_config = sys.path[0] + os.sep + cmake_config
+                    print("Custom cmake args file set to absolute path: %s"%(cmake_config,))
+            if not os.path.exists(cmake_config):
                 assert False, "CMAKE_CONFIG_FILE specified, but does not exist." 
         else:
             # look for cmake_opts.txt and use it if found
@@ -228,8 +236,13 @@ class CMakeBuild(build_ext):
             os.makedirs(self.build_temp)
         print("CMake Args:", cmake_args)
         subprocess.check_call(['cmake', ext.sourcedir] + cmake_args, cwd=self.build_temp, env=env)
+
+        # move __init__.py to install directory
+        os.rename(self.build_temp + "/pycompadre/__init__.py.out", extdir + "/__init__.py")
+
         print("Build Args:", build_args)
         subprocess.check_call(['cmake', '--build', '.'] + build_args, cwd=self.build_temp)
+
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -251,14 +264,16 @@ setup(
         "License :: OSI Approved :: BSD License",
         "Operating System :: Unix",
     ],
-    install_requires=['cmake>=3.10.0',],
+    install_requires=['nose','numpy'],
     ext_modules=[CMakeExtension('pycompadre'),],
     cmdclass={
         'build_ext': CMakeBuild,
         'test': SetupTest,
     },
-    data_files=[('examples', ['pycompadre/examples/test_pycompadre.py',
-                              'pycompadre/examples/test_pycompadre_manifold.py']),],
+    packages=['pycompadre'],
     include_package_data=True,
+    exclude_package_data={
+        'pycompadre': ['pybind11/*', 'pycompadre.cpp', 'sphinx/*', 'install.sh', 'Matlab*', 'cmake_*', '__init__.py.in'],
+    },
     zip_safe=False,
 )
