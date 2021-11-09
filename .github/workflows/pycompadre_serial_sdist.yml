@@ -1,4 +1,4 @@
-name: Build/Upload PyCompadre Serial SDIST
+name: Build/Upload PyCompadre-Serial SDIST
 
 on: 
   workflow_dispatch:
