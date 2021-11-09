@@ -228,8 +228,13 @@ class CMakeBuild(build_ext):
             os.makedirs(self.build_temp)
         print("CMake Args:", cmake_args)
         subprocess.check_call(['cmake', ext.sourcedir] + cmake_args, cwd=self.build_temp, env=env)
+
+        # move __init__.py to install directory
+        os.rename(self.build_temp + "/pycompadre/__init__.py.out", extdir + "/__init__.py")
+
         print("Build Args:", build_args)
         subprocess.check_call(['cmake', '--build', '.'] + build_args, cwd=self.build_temp)
+
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
