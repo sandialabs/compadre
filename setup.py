@@ -131,9 +131,17 @@ class CMakeBuild(build_ext):
 
         cmake_config = os.getenv("CMAKE_CONFIG_FILE")
         if cmake_config:
-            if os.path.exists(cmake_config):
+            #  check if absolute or relative path
+            if os.path.isabs(cmake_config):
                 print("Custom cmake args file set to: %s"%(cmake_config,))
             else:
+                if sys.path[0]=='' or not os.path.isdir(sys.path[0]):
+                    assert False, "CMAKE_CONFIG_FILE (%s) must be given as an absolute path when called from pip."
+                else:
+                    print("CMAKE_CONFIG_FILE given as a relative path: %s"%(cmake_config,))
+                    cmake_config = sys.path[0] + os.sep + cmake_config
+                    print("Custom cmake args file set to absolute path: %s"%(cmake_config,))
+            if not os.path.exists(cmake_config):
                 assert False, "CMAKE_CONFIG_FILE specified, but does not exist." 
         else:
             # look for cmake_opts.txt and use it if found
