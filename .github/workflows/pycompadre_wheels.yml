@@ -168,7 +168,6 @@ jobs:
     name: upload all wheels to pypi
     needs: [manylinux, osx]
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.publish == 'y'}}
     steps:
     - uses: actions/download-artifact@v2
       with:
@@ -179,13 +178,16 @@ jobs:
         name: manylinux-wheels
         path: dist/
     # https://packaging.python.org/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
-    - name: Publish distribution 📦 to PyPI (parallel)
-      if: ${{ github.event.inputs.serial == 'n'}}
+    - name: List all wheels
+      run: |
+        ls dist/
+    - name: Publish parallel distribution 📦 to PyPI (parallel)
+      if: ${{ github.event.inputs.serial == 'n' && github.event.inputs.publish == 'y' }}
       uses: pypa/gh-action-pypi-publish@master
       with:
         password: ${{ secrets.PIP_PYCOMPADRE_SECRET }}
-    - name: Publish distribution 📦 to PyPI (serial)
-      if: ${{ github.event.inputs.serial == 'y'}}
+    - name: Publish serial distribution 📦 to PyPI (serial)
+      if: ${{ github.event.inputs.serial == 'y' && github.event.inputs.publish == 'y'}}
       uses: pypa/gh-action-pypi-publish@master
       with:
         password: ${{ secrets.PIP_PYCOMPADRE_SERIAL_SECRET }}
