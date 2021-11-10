@@ -63,7 +63,8 @@ jobs:
     - name: Delete linux wheels
       run: |
         sudo rm -rfv dist/*-linux_x86_64.whl
-        rm ${{github.workspace}}/dist/cmake*
+        rm -rf ${{github.workspace}}/dist/nose*
+        rm -rf ${{github.workspace}}/dist/numpy*
     - name: Rename for serial
       if: ${{ github.event.inputs.serial == 'y'}}
       run: |
@@ -71,6 +72,7 @@ jobs:
           do echo $fname
           new_fname="$(echo "$fname" | sed s/pycompadre/pycompadre-serial/)"
           mv $fname $new_fname
+          echo $new_fname
         done
     - name: Upload artifact
       uses: actions/upload-artifact@v2
@@ -132,9 +134,10 @@ jobs:
     - name: Rename for serial
       if: ${{ github.event.inputs.serial == 'y'}}
       run: |
-        for f in `ls ${{github.workspace}}/dist/*.whl`;
-          do echo $f
-          new_fname="$(echo "$f" | sed s/pycompadre/pycompadre-serial/)"
+        for fname in `ls ${{github.workspace}}/dist/*.whl`;
+          do echo $fname
+          new_fname="$(echo "$fname" | sed s/pycompadre/pycompadre-serial/)"
+          mv $fname $new_fname
           echo $new_fname
         done
     - name: Upload artifact
