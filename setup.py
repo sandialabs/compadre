@@ -264,7 +264,7 @@ setup(
         "License :: OSI Approved :: BSD License",
         "Operating System :: Unix",
     ],
-    install_requires=['nose','numpy'],
+    install_requires=['numpy'],
     ext_modules=[CMakeExtension('pycompadre'),],
     cmdclass={
         'build_ext': CMakeBuild,

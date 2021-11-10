@@ -808,11 +808,11 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     m.def("Wab", &GMLS::Wab, py::arg("r"), py::arg("h"), py::arg("weighting type"), py::arg("p"), py::arg("n"), "Evaluate weighting kernel.");
 
     m.def("test", [] {
-            py::module_ nose;
+            py::module_ unittest;
             try {
-                nose = py::module_::import("nose");
+                unittest = py::module_::import("unittest");
             } catch (...) {
-                std::cerr << "test() requires nose module." << std::endl;
+                std::cerr << "test() requires unittest module." << std::endl;
             }
 
             py::module_ pathlib;
@@ -839,11 +839,12 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             bool result = false;
             try {
                 printf("Running examples in: %s\n", examples_path.c_str());
-                std::vector<std::string> argv = {"--where", examples_path, "-v"};
-                using namespace pybind11::literals;
-                result = nose.attr("run")("argv"_a=argv).cast<bool>();
+                py::object loader = unittest.attr("TestLoader")();
+                py::object tests  = loader.attr("discover")(examples_path);
+                py::object runner = unittest.attr("runner").attr("TextTestRunner")();
+                result = runner.attr("run")(tests).attr("wasSuccessful")().cast<bool>();
             } catch (...) {
-                std::cerr << "Error running nosetests." << std::endl;
+                std::cerr << "Error running unittests." << std::endl;
             }
             return result;
         }

@@ -33,7 +33,7 @@ jobs:
     - name: Install Python dependencies
       run: |
         python3 -m pip install --upgrade pip
-        pip install numpy nose
+        pip install numpy
         
     - name: Generate Python package (parallel)
       if: ${{ github.event.inputs.serial == 'n'}}
@@ -58,10 +58,11 @@ jobs:
         cd ${{github.workspace}}/dist/
         python3 -m pip -v -v -v install --no-cache `ls pycompadre*.gz`
         cd ${{github.workspace}}
-    - name: Test pycompadre using nosetests
+
+    - name: Test pycompadre using unittests
       run: |
         cd ${{github.workspace}}/pycompadre/examples
-        nosetests
+        python3 -m unittest
         
     - name: Test pycompadre using .test()
       run: |
