@@ -42,10 +42,12 @@ jobs:
       if: ${{ github.event.inputs.serial == 'n'}}
       run: |
         cp pycompadre/cmake_opts.txt cmake_opts.txt
+        echo "cp pycompadre/cmake_opts.txt cmake_opts.txt"
     - name: Set up pycompadre options (serial)
       if: ${{ github.event.inputs.serial == 'y'}}
       run: |
         cp pycompadre/cmake_opts_serial.txt cmake_opts.txt
+        echo "cp pycompadre/cmake_opts_serial.txt cmake_opts.txt"
     - name: Build manylinux Python wheels
       uses: RalfG/python-wheels-manylinux-build@v0.3.3-manylinux2010_x86_64
       with:

@@ -35,15 +35,17 @@ jobs:
         python3 -m pip install --upgrade pip
         pip install numpy nose
         
-    - name: Generate Python package
+    - name: Generate Python package (parallel)
       if: ${{ github.event.inputs.serial == 'n'}}
       run: |
           cd ${{github.workspace}}/pycompadre
+          echo "./install.sh -p"
           ./install.sh -p
-    - name: Generate Python package
+    - name: Generate Python package (serial)
       if: ${{ github.event.inputs.serial == 'y'}}
       run: |
           cd ${{github.workspace}}/pycompadre
+          echo "./install.sh -p -s"
           ./install.sh -p -s
           
     - uses: actions/upload-artifact@v2
