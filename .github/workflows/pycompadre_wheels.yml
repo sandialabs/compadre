@@ -19,7 +19,7 @@ on:
 jobs:
         
   manylinux:
-    name: wheel_creation_linux_serial
+    name: wheel_creation_linux
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -120,10 +120,12 @@ jobs:
       if: ${{ github.event.inputs.serial == 'n'}}
       run: |
         cp pycompadre/cmake_opts.txt cmake_opts.txt
+        echo "cp pycompadre/cmake_opts.txt cmake_opts.txt"
     - name: Set up pycompadre options (serial)
       if: ${{ github.event.inputs.serial == 'y'}}
       run: |
         cp pycompadre/cmake_opts_serial.txt cmake_opts.txt
+        echo "cp pycompadre/cmake_opts_serial.txt cmake_opts.txt"
     - name: Build OSX Python wheels
       run: |
         python3 setup.py bdist_wheel
@@ -174,12 +176,12 @@ jobs:
         name: manylinux-wheels
         path: dist/
     # https://packaging.python.org/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
-    - name: Publish parallel distribution 📦 to PyPI (parallel)
+    - name: Publish distribution 📦 to PyPI (parallel)
       if: ${{ github.event.inputs.serial == 'n'}}
       uses: pypa/gh-action-pypi-publish@master
       with:
         password: ${{ secrets.PIP_PYCOMPADRE_SECRET }}
-    - name: Publish serial distribution 📦 to PyPI (serial)
+    - name: Publish distribution 📦 to PyPI (serial)
       if: ${{ github.event.inputs.serial == 'y'}}
       uses: pypa/gh-action-pypi-publish@master
       with:
