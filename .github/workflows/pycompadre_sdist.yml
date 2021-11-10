@@ -1,4 +1,4 @@
-name: Build/Upload PyCompadre SDIST
+name: pycompadre SDIST (Build/Upload)
 
 on: 
   workflow_dispatch:
@@ -9,6 +9,10 @@ on:
         default: 'master'
       publish:
         description: 'Publish to PyPi? (y/n)'
+        required: true
+        default: 'n'
+      serial:
+        description: 'Kokkos::Serial only (y/n)'
         required: true
         default: 'n'
 
@@ -31,10 +35,18 @@ jobs:
         python3 -m pip install --upgrade pip
         pip install numpy nose
         
-    - name: Generate Python package
+    - name: Generate Python package (parallel)
+      if: ${{ github.event.inputs.serial == 'n'}}
       run: |
           cd ${{github.workspace}}/pycompadre
+          echo "./install.sh -p"
           ./install.sh -p
+    - name: Generate Python package (serial)
+      if: ${{ github.event.inputs.serial == 'y'}}
+      run: |
+          cd ${{github.workspace}}/pycompadre
+          echo "./install.sh -p -s"
+          ./install.sh -p -s
           
     - uses: actions/upload-artifact@v2
       with:
@@ -78,7 +90,13 @@ jobs:
     #    repository_url: https://test.pypi.org/legacy/
         
     # https://packaging.python.org/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
-    - name: Publish distribution 📦 to PyPI
+    - name: Publish distribution 📦 to PyPI (parallel)
+      if: ${{ github.event.inputs.serial == 'n'}}
       uses: pypa/gh-action-pypi-publish@master
       with:
         password: ${{ secrets.PIP_PYCOMPADRE_SECRET }}
+    - name: Publish distribution 📦 to PyPI (serial)
+      if: ${{ github.event.inputs.serial == 'y'}}
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        password: ${{ secrets.PIP_PYCOMPADRE_SERIAL_SECRET }}
