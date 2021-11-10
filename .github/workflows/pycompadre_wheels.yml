@@ -196,7 +196,23 @@ jobs:
     steps:
     - uses: actions/download-artifact@v2
       with:
-        files: dist/*
+        name: manylinux-wheels
+        path: dist/
+    - uses: actions/download-artifact@v2
+      with:
+        name: osx-wheels-3.7
+        path: dist/
+    - uses: actions/download-artifact@v2
+      with:
+        name: osx-wheels-3.8
+        path: dist/
+    - uses: actions/download-artifact@v2
+      with:
+        name: osx-wheels-3.9
+        path: dist/
+    - uses: actions/download-artifact@v2
+      with:
+        name: osx-wheels-3.10
         path: dist/
     # https://packaging.python.org/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
     - name: List all wheels
