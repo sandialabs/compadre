@@ -248,7 +248,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 with open("cmake/Compadre_Version.txt", "r") as fh:
-    version_string = fh.read()
+    version_string = str(parse_version(fh.read()))
 
 setup(
     name='pycompadre',
