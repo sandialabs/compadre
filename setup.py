@@ -248,7 +248,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 with open("cmake/Compadre_Version.txt", "r") as fh:
-    version_string = fh.read()
+    version_string = str(parse_version(fh.read()))
 
 setup(
     name='pycompadre',
@@ -264,7 +264,7 @@ setup(
         "License :: OSI Approved :: BSD License",
         "Operating System :: Unix",
     ],
-    install_requires=['nose','numpy'],
+    install_requires=['numpy'],
     ext_modules=[CMakeExtension('pycompadre'),],
     cmdclass={
         'build_ext': CMakeBuild,

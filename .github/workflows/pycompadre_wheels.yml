@@ -15,6 +15,10 @@ on:
         description: 'Kokkos::Serial only (y/n)'
         required: true
         default: 'n'
+      build_num:
+        description: 'Build number to append to wheel'
+        required: true
+        default: ''
 
 jobs:
         
@@ -37,7 +41,7 @@ jobs:
     - name: Install dependencies
       run: |
         python3 -m pip install --upgrade pip
-        pip install twine wheel setuptools numpy nose
+        pip install twine wheel setuptools numpy
     - name: Set up pycompadre options (parallel)
       if: ${{ github.event.inputs.serial == 'n'}}
       run: |
@@ -63,8 +67,16 @@ jobs:
     - name: Delete linux wheels
       run: |
         sudo rm -rfv dist/*-linux_x86_64.whl
-        rm -rf ${{github.workspace}}/dist/nose*
         rm -rf ${{github.workspace}}/dist/numpy*
+    - name: Rename for build_num
+      if: ${{ github.event.inputs.build_num != ''}}
+      run: |
+        for fname in `ls ${{github.workspace}}/dist/*.whl`;
+          do echo $fname
+          new_fname="$(echo "$fname" | sed 's/\(pycompadre-[^-]*-\)/\1${{ github.event.inputs.build_num }}-/')"
+          mv $fname $new_fname
+          echo $new_fname
+        done
     - name: Rename for serial
       if: ${{ github.event.inputs.serial == 'y'}}
       run: |
@@ -80,15 +92,15 @@ jobs:
         name: manylinux-wheels
         path: dist/
         retention-days: 1
-    - name: Install pycompadre from test repo
+    - name: Install pycompadre from artifact
       run: |
         cd ${{github.workspace}}/dist/
         python3 -m pip -v -v -v install --no-cache `ls pycompadre*cp37*.whl`
         cd ${{github.workspace}}
-    - name: Test pycompadre using nosetests
+    - name: Test pycompadre using unittests
       run: |
         cd ${{github.workspace}}/pycompadre/examples
-        nosetests
+        python3 -m unittest
     - name: Test pycompadre using .test()
       run: |
         cd ${{github.workspace}}
@@ -98,14 +110,14 @@ jobs:
         name: tests.log
         path: ${{github.workspace}}/tests.log
 
-  osx:
+  osx_build:
     name: wheel_creation_osx
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest]
-        python-version: [ 3.6, 3.7, 3.8, 3.9 ]
+        os: [macos-10.15]
+        python-version: [ '3.7', '3.8', '3.9', '3.10' ]
     steps:
     - uses: actions/checkout@v2
       with:
@@ -117,7 +129,7 @@ jobs:
     - name: Install dependencies
       run: |
         python3 -m pip install --upgrade pip
-        pip install twine wheel setuptools cython numpy nose
+        pip install twine wheel setuptools cython numpy
     - name: Set up pycompadre options (parallel)
       if: ${{ github.event.inputs.serial == 'n'}}
       run: |
@@ -131,6 +143,15 @@ jobs:
     - name: Build OSX Python wheels
       run: |
         python3 setup.py bdist_wheel
+    - name: Rename for build_num
+      if: ${{ github.event.inputs.build_num != ''}}
+      run: |
+        for fname in `ls ${{github.workspace}}/dist/*.whl`;
+          do echo $fname
+          new_fname="$(echo "$fname" | sed 's/\(pycompadre-[^-]*-\)/\1${{ github.event.inputs.build_num }}-/')"
+          mv $fname $new_fname
+          echo $new_fname
+        done
     - name: Rename for serial
       if: ${{ github.event.inputs.serial == 'y'}}
       run: |
@@ -143,39 +164,77 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        name: osx-wheels
+        name: osx-wheels-${{ matrix.python-version }}
         path: dist/
         retention-days: 1
-    - name: Install pycompadre from test repo
+        
+  osx_test:
+    name: wheel_test_osx
+    runs-on: ${{ matrix.os }}
+    needs: osx_build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-10.15, macos-11]
+        python-version: [ '3.7', '3.8', '3.9', '3.10' ]
+        # macOS 10.15 released Oct 2019, python 3.7 released June 2018
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.inputs.branch }}
+    - uses: actions/download-artifact@v2
+      with:
+        name: osx-wheels-${{ matrix.python-version }}
+        path: dist/
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python3 -m pip install --upgrade pip
+    - name: Install pycompadre from artifact
       run: |
         cd ${{github.workspace}}/dist/
         python3 -m pip -v -v -v install --no-cache `ls pycompadre*.whl`
         cd ${{github.workspace}}
-    - name: Test pycompadre using nosetests
+    - name: Test pycompadre using unittests
       run: |
         cd ${{github.workspace}}/pycompadre/examples
-        nosetests
+        python3 -m unittest
+        cd ${{github.workspace}}
     - name: Test pycompadre using .test()
       run: |
-        cd ${{github.workspace}}
         python3 -c "import pycompadre; pycompadre.test()" 2>&1 | tee tests.log
     - uses: actions/upload-artifact@v2
       with:
         name: tests.log
         path: ${{github.workspace}}/tests.log
-        
+      
   pypi:
     name: upload all wheels to pypi
-    needs: [manylinux, osx]
+    needs: [manylinux, osx_test]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/download-artifact@v2
       with:
-        name: osx-wheels
+        name: manylinux-wheels
         path: dist/
     - uses: actions/download-artifact@v2
       with:
-        name: manylinux-wheels
+        name: osx-wheels-3.7
+        path: dist/
+    - uses: actions/download-artifact@v2
+      with:
+        name: osx-wheels-3.8
+        path: dist/
+    - uses: actions/download-artifact@v2
+      with:
+        name: osx-wheels-3.9
+        path: dist/
+    - uses: actions/download-artifact@v2
+      with:
+        name: osx-wheels-3.10
         path: dist/
     # https://packaging.python.org/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
     - name: List all wheels
