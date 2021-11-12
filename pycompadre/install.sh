@@ -88,13 +88,13 @@ if [ "$PACKAGE" == "YES" ]; then
     cd ..
 
     if [ "$SERIAL" == "YES" ]; then
-        sed -i '' "s/name='pycompadre',/name='pycompadre-serial',/" setup.py
+        perl -pi -e "s/name='pycompadre',/name='pycompadre-serial',/" -- setup.py
     fi
 
     CMAKE_CONFIG_FILE=cmake_opts.txt $EXECUTABLE setup.py sdist
 
     if [ "$SERIAL" == "YES" ]; then
-        sed -i '' "s/name='pycompadre-serial',/name='pycompadre',/" setup.py
+        perl -pi -e "s/name='pycompadre-serial',/name='pycompadre',/" -- setup.py
         rm -rf pycompadre-serial.egg-info
     else
         rm -rf pycompadre.egg-info

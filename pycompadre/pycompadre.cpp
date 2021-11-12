@@ -828,10 +828,10 @@ for path in sys.path:
         if os.path.isdir(path):
             for fname in os.listdir(path):
                 fname_splitext = os.path.splitext(fname)
-                if 'pycompadre' in fname and len(fname_splitext)==2 and fname_splitext[1] in ['.so', '.egg', '.dist-info']:
+                if 'pycompadre' in fname and len(fname_splitext)==2 and fname_splitext[1] in ['.so', '.egg', '.dist-info', '.egg-info']:
                     # a `pip install pycompadre*` or `python setup.py install` will end up here
                     if (os.path.basename(fname)) not in instances:
-                        print("found pycompadre*.{so,egg,dist-info} at:\n  - " + path + os.sep + fname)
+                        print("found pycompadre*.{so,egg,dist-info,egg-info} at:\n  - " + path + os.sep + fname)
                         instances.append(os.path.basename(fname))
                         pycompadre_count += 1
 
