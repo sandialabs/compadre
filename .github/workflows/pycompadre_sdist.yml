@@ -11,14 +11,14 @@ on:
         description: 'Publish to PyPi? (y/n)'
         required: true
         default: 'n'
-      serial:
-        description: 'Kokkos::Serial only (y/n)'
-        required: true
-        default: 'n'
 
 jobs:
   build:
+    name: Build SDIST ${{ matrix.pycompadre-type }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        pycompadre-type: [ 'pycompadre', 'pycompadre-serial', ]
     steps:
     - uses: actions/checkout@v2
       with:
@@ -36,13 +36,13 @@ jobs:
         pip install numpy
         
     - name: Generate Python package (parallel)
-      if: ${{ github.event.inputs.serial == 'n'}}
+      if: ${{ matrix.pycompadre-type == 'pycompadre' }}
       run: |
           cd ${{github.workspace}}/pycompadre
           echo "./install.sh -p"
           ./install.sh -p
     - name: Generate Python package (serial)
-      if: ${{ github.event.inputs.serial == 'y'}}
+      if: ${{ matrix.pycompadre-type == 'pycompadre-serial' }}
       run: |
           cd ${{github.workspace}}/pycompadre
           echo "./install.sh -p -s"
@@ -50,7 +50,7 @@ jobs:
           
     - uses: actions/upload-artifact@v2
       with:
-        name: pycompadre.tar.gz
+        name: ${{matrix.pycompadre-type}}.tar.gz
         path: ${{github.workspace}}/dist/*.tar.gz
 
     - name: Install pycompadre from test repo
@@ -68,6 +68,11 @@ jobs:
       run: |
         cd ${{github.workspace}}
         python3 -c "import pycompadre; pycompadre.test()" 2>&1 | tee tests.log
+
+    - name: Test unique install using .is_unique_installation()
+      run: |
+        cd ${{github.workspace}}
+        python3 -c "import pycompadre; pycompadre.is_unique_installation()" 2>&1 | tee tests.log
       
     - uses: actions/upload-artifact@v2
       with:
@@ -81,7 +86,7 @@ jobs:
     steps:
     - uses: actions/download-artifact@v2
       with:
-        name: pycompadre.tar.gz
+        name: ${{matrix.pycompadre-type}}.tar.gz
         path: dist/
     ## https://packaging.python.org/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
     #- name: Publish distribution 📦 to Test PyPI
@@ -92,12 +97,12 @@ jobs:
         
     # https://packaging.python.org/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
     - name: Publish distribution 📦 to PyPI (parallel)
-      if: ${{ github.event.inputs.serial == 'n'}}
+      if: ${{ matrix.pycompadre-type == 'pycompadre' }}
       uses: pypa/gh-action-pypi-publish@master
       with:
         password: ${{ secrets.PIP_PYCOMPADRE_SECRET }}
     - name: Publish distribution 📦 to PyPI (serial)
-      if: ${{ github.event.inputs.serial == 'y'}}
+      if: ${{ matrix.pycompadre-type == 'pycompadre-serial' }}
       uses: pypa/gh-action-pypi-publish@master
       with:
         password: ${{ secrets.PIP_PYCOMPADRE_SERIAL_SECRET }}
