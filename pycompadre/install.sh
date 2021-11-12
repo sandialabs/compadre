@@ -87,14 +87,14 @@ if [ "$PACKAGE" == "YES" ]; then
 
     cd ..
 
-    CMAKE_CONFIG_FILE=cmake_opts.txt $EXECUTABLE setup.py sdist
     if [ "$SERIAL" == "YES" ]; then
-        old_fname=`ls dist/*.tar.gz`;
-        rm -rf dist/*.tar.gz;
-        new_fname="$(echo "$old_fname" | sed s/pycompadre/pycompadre-serial/)"
-        mv pycompadre.egg-info pycompadre-serial.egg-info
-        sed -i '' 's/Name: pycompadre/Name: pycompadre-serial/' pycompadre-serial.egg-info/PKG-INFO
-        tar -czvf $new_fname *
+        sed -i '' "s/name='pycompadre',/name='pycompadre-serial',/" setup.py
+    fi
+
+    CMAKE_CONFIG_FILE=cmake_opts.txt $EXECUTABLE setup.py sdist
+
+    if [ "$SERIAL" == "YES" ]; then
+        sed -i '' "s/name='pycompadre-serial',/name='pycompadre',/" setup.py
         rm -rf pycompadre-serial.egg-info
     else
         rm -rf pycompadre.egg-info

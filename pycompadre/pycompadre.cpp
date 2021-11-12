@@ -15,6 +15,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
+#include <pybind11/embed.h>
 
 using namespace Compadre;
 namespace py = pybind11;
@@ -807,48 +808,87 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
 
     m.def("Wab", &GMLS::Wab, py::arg("r"), py::arg("h"), py::arg("weighting type"), py::arg("p"), py::arg("n"), "Evaluate weighting kernel.");
 
+    m.def("is_unique_installation", [] {
+        py::exec(R"(
+import sys
+import os
+
+pycompadre_count = 0
+instances = list()
+for path in sys.path:
+    if os.getcwd()==path:
+        print("directory same as working directory, so disregarded:\n  - " + os.getcwd())
+    elif 'pycompadre' in path:
+        if (os.path.basename(path)) not in instances:
+            # a `python setup.py install` will end up here
+            print("found pycompadre in directory containing pycompadre name:\n  - ", path)
+            instances.append(os.path.basename(path))
+            pycompadre_count += 1
+    else:
+        if os.path.isdir(path):
+            for fname in os.listdir(path):
+                fname_splitext = os.path.splitext(fname)
+                if 'pycompadre' in fname and len(fname_splitext)==2 and fname_splitext[1] in ['.so', '.egg', '.dist-info']:
+                    # a `pip install pycompadre*` or `python setup.py install` will end up here
+                    if (os.path.basename(fname)) not in instances:
+                        print("found pycompadre*.{so,egg,dist-info} at:\n  - " + path + os.sep + fname)
+                        instances.append(os.path.basename(fname))
+                        pycompadre_count += 1
+
+if pycompadre_count == 1:
+    print("SUCCESS. " + str(pycompadre_count) + " instances of pycompadre found.")
+elif pycompadre_count == 0:
+    assert False, "FAILURE. pycompadre not found, but being called from pycompadre. Please report this to the developers."
+elif pycompadre_count == 2:
+    assert pycompadre_count==1, "FAILURE. Both pycompadre and pycompadre-serial are installed. Unexpected behavior when calling `import pycompadre`."
+else:
+    assert False, "FAILURE. More than two instances of pycompadre found, which should not be possible. Please report this to the developers."
+        )");
+        // can only make it this far if successful
+        return true;
+    });
+
     m.def("test", [] {
-            py::module_ unittest;
-            try {
-                unittest = py::module_::import("unittest");
-            } catch (...) {
-                std::cerr << "test() requires unittest module." << std::endl;
-            }
-
-            py::module_ pathlib;
-            try {
-                pathlib = py::module::import("pathlib");
-            } catch (...) {
-                std::cerr << "test() requires pathlib module." << std::endl;
-            }
-
-            std::string examples_path;
-            try {
-                py::object this_pycompadre = py::module::import("pycompadre");
-                auto location = this_pycompadre.attr("__file__").cast<std::string>();
-                py::object path = pathlib.attr("Path")(location);
-#ifdef PYTHON_CALLING_BUILD
-                examples_path = py::str(path.attr("parent")).cast<std::string>() + "/examples";
-#else
-                examples_path = py::str(path.attr("parent")).cast<std::string>() + "/pycompadre/examples";
-#endif
-            } catch (...) {
-                std::cerr << "Error getting examples path from pycompadre module." << std::endl;
-            }
-
-            bool result = false;
-            try {
-                printf("Running examples in: %s\n", examples_path.c_str());
-                py::object loader = unittest.attr("TestLoader")();
-                py::object tests  = loader.attr("discover")(examples_path);
-                py::object runner = unittest.attr("runner").attr("TextTestRunner")();
-                result = runner.attr("run")(tests).attr("wasSuccessful")().cast<bool>();
-            } catch (...) {
-                std::cerr << "Error running unittests." << std::endl;
-            }
-            return result;
+        py::module_ unittest;
+        try {
+            unittest = py::module_::import("unittest");
+        } catch (...) {
+            std::cerr << "test() requires 'unittest' module." << std::endl;
         }
-    );
+
+        py::module_ os;
+        try {
+            os = py::module::import("os");
+        } catch (...) {
+            std::cerr << "test() requires 'os' module." << std::endl;
+        }
+
+        std::string examples_path;
+        try {
+            py::object this_pycompadre = py::module::import("pycompadre");
+            auto location = this_pycompadre.attr("__file__").cast<std::string>();
+            py::object path = os.attr("path").attr("dirname")(location);
+#ifdef PYTHON_CALLING_BUILD
+            examples_path = path.cast<std::string>() + "/examples";
+#else
+            examples_path = path.cast<std::string>() + "/pycompadre/examples";
+#endif
+        } catch (...) {
+            std::cerr << "Error getting examples path from pycompadre module." << std::endl;
+        }
+
+        bool result = false;
+        try {
+            printf("Running examples in: %s\n", examples_path.c_str());
+            py::object loader = unittest.attr("TestLoader")();
+            py::object tests  = loader.attr("discover")(examples_path);
+            py::object runner = unittest.attr("runner").attr("TextTestRunner")();
+            result = runner.attr("run")(tests).attr("wasSuccessful")().cast<bool>();
+        } catch (...) {
+            std::cerr << "Error running unittests." << std::endl;
+        }
+        return result;
+    });
 
 #ifdef COMPADRE_VERSION_MAJOR
     m.attr("__version__") = std::to_string(COMPADRE_VERSION_MAJOR) + "." + std::to_string(COMPADRE_VERSION_MINOR) + "." + std::to_string(COMPADRE_VERSION_PATCH);
