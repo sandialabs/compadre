@@ -116,9 +116,9 @@ struct PointConnections {
         if (V==NULL) {
             return _target_coordinates(target_index, dim);
         } else {
-            XYZ target_coord = XYZ( _target_coordinates(target_index, 0), 
-                                    _target_coordinates(target_index, 1), 
-                                    _target_coordinates(target_index, 2));
+            XYZ target_coord = XYZ(_target_coordinates(target_index, 0), 0, 0);
+            if (_target_coordinates.extent_int(1)>1) target_coord[1] = _target_coordinates(target_index, 1);
+            if (_target_coordinates.extent_int(1)>2) target_coord[2] = _target_coordinates(target_index, 2);
             return this->convertGlobalToLocalCoordinate(target_coord, dim, *V);
         }
     }
@@ -131,7 +131,12 @@ struct PointConnections {
         if (V==NULL) {
             return _source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), dim);
         } else {
-            XYZ neighbor_coord = XYZ(_source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), 0), _source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), 1), _source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), 2));
+            XYZ neighbor_coord 
+                = XYZ(_source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), 0), 0, 0);
+            if (_source_coordinates.extent_int(1)>1) neighbor_coord[1] 
+                = _source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), 1);
+            if (_source_coordinates.extent_int(1)>2) neighbor_coord[2] 
+                = _source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), 2);
             return this->convertGlobalToLocalCoordinate(neighbor_coord, dim, *V);
         }
     }
