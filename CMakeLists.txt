@@ -499,6 +499,12 @@ else() # Raw CMake Project
   endif()
 
   if(Compadre_USE_PYTHON)
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
+        MESSAGE(FATAL_ERROR "
+        IBM XL compiler not supported for pybind11.
+        Set Compadre_USE_PYTHON:BOOL=OFF or switch compilers.
+        ")
+    endif()
     add_subdirectory(pycompadre/pybind11)
     pybind11_add_module(pycompadre pycompadre/pycompadre.cpp)
     target_link_libraries(pycompadre PUBLIC compadre)
