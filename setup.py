@@ -238,7 +238,7 @@ class CMakeBuild(build_ext):
         subprocess.check_call(['cmake', ext.sourcedir] + cmake_args, cwd=self.build_temp, env=env)
 
         # move __init__.py to install directory
-        os.rename(self.build_temp + "/pycompadre/__init__.py.out", extdir + "/__init__.py")
+        os.rename(self.build_temp + "/__init__.py", extdir + "/__init__.py")
 
         print("Build Args:", build_args)
         subprocess.check_call(['cmake', '--build', '.'] + build_args, cwd=self.build_temp)
@@ -265,7 +265,7 @@ setup(
         "Operating System :: Unix",
     ],
     install_requires=['numpy'],
-    ext_modules=[CMakeExtension('pycompadre'),],
+    ext_modules=[CMakeExtension('_pycompadre'),],
     cmdclass={
         'build_ext': CMakeBuild,
         'test': SetupTest,

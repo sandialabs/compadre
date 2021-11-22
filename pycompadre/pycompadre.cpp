@@ -638,7 +638,7 @@ public:
 template <typename... Args>
 using overload_cast_ = pybind11::detail::overload_cast_impl<Args...>;
 
-PYBIND11_MODULE(pycompadre, m) {
+PYBIND11_MODULE(_pycompadre, m) {
     m.doc() = R"pbdoc(
 PyCOMPADRE: Compadre Toolkit
 -----------------------------
