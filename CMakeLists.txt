@@ -506,11 +506,11 @@ else() # Raw CMake Project
         ")
     endif()
     add_subdirectory(pycompadre/pybind11)
-    pybind11_add_module(pycompadre pycompadre/pycompadre.cpp)
-    target_link_libraries(pycompadre PUBLIC compadre)
-    get_target_property(PYCOMPADRE_NAME pycompadre NAME)
-    get_target_property(PYCOMPADRE_SUFFIX pycompadre SUFFIX)
-    CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/pycompadre/__init__.py.in" "${CMAKE_CURRENT_BINARY_DIR}/pycompadre/__init__.py.out" @ONLY)
+    pybind11_add_module(_pycompadre pycompadre/pycompadre.cpp)
+    target_link_libraries(_pycompadre PUBLIC compadre)
+    get_target_property(PYCOMPADRE_NAME _pycompadre NAME)
+    get_target_property(PYCOMPADRE_SUFFIX _pycompadre SUFFIX)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/pycompadre/__init__.py.in" "${CMAKE_CURRENT_BINARY_DIR}/__init__.py" COPYONLY)
   endif()
 
 
