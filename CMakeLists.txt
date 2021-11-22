@@ -510,7 +510,12 @@ else() # Raw CMake Project
     target_link_libraries(_pycompadre PUBLIC compadre)
     get_target_property(PYCOMPADRE_NAME _pycompadre NAME)
     get_target_property(PYCOMPADRE_SUFFIX _pycompadre SUFFIX)
-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/pycompadre/__init__.py.in" "${CMAKE_CURRENT_BINARY_DIR}/__init__.py" COPYONLY)
+    if (PYTHON_CALLING_BUILD)
+      configure_file("${CMAKE_CURRENT_SOURCE_DIR}/pycompadre/__init__.py.in" "${CMAKE_CURRENT_BINARY_DIR}/__init__.py" COPYONLY)
+    else()
+      set_target_properties(_pycompadre PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/pycompadre")
+      configure_file("${CMAKE_CURRENT_SOURCE_DIR}/pycompadre/__init__.py.in" "${CMAKE_CURRENT_BINARY_DIR}/pycompadre/__init__.py" COPYONLY)
+    endif()
   endif()
 
 
