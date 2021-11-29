@@ -80,7 +80,7 @@ if [ "$PACKAGE" == "YES" ]; then
     rm -rf ../pycompadre.egg-info
     rm -rf ../pycompadre-serial.egg-info
     if [ "$SERIAL" == "YES" ]; then
-        cp cmake_opts_serial.txt ../cmake_opts.txt
+        cp cmake_opts_serial_pkg.txt ../cmake_opts.txt
     else
         cp cmake_opts.txt ..
     fi
