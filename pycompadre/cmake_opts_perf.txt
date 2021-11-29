@@ -1,0 +1,2 @@
+CMAKE_CXX_FLAGS=' -Ofast -funroll-loops -march=native -mtune=native '
+Compadre_USE_MPI:BOOL=OFF

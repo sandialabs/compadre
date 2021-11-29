@@ -1,4 +1,4 @@
-CMAKE_CXX_FLAGS=' -Ofast -funroll-loops -march=native'
+CMAKE_CXX_FLAGS=' -Ofast -funroll-loops -march=x86-64 '
 Kokkos_ENABLE_PTHREAD:BOOL=OFF
 Kokkos_ENABLE_OPENMP:BOOL=OFF
 Kokkos_ENABLE_SERIAL:BOOL=ON

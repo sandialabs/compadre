@@ -42,13 +42,13 @@ jobs:
     - name: Set up pycompadre options (parallel)
       if: ${{ matrix.pycompadre-type == 'pycompadre' }}
       run: |
-        cp pycompadre/cmake_opts.txt cmake_opts.txt
-        echo "cp pycompadre/cmake_opts.txt cmake_opts.txt"
+        cp pycompadre/cmake_opts_gen.txt cmake_opts.txt
+        echo "cp pycompadre/cmake_opts_gen.txt cmake_opts.txt"
     - name: Set up pycompadre options (serial)
       if: ${{ matrix.pycompadre-type == 'pycompadre-serial' }}
       run: |
-        cp pycompadre/cmake_opts_serial.txt cmake_opts.txt
-        echo "cp pycompadre/cmake_opts_serial.txt cmake_opts.txt"
+        cp pycompadre/cmake_opts_serial_gen.txt cmake_opts.txt
+        echo "cp pycompadre/cmake_opts_serial_gen.txt cmake_opts.txt"
         perl -pi -e "s/name='pycompadre',/name='pycompadre-serial',/" -- setup.py
     - name: Build manylinux Python wheels
       uses: RalfG/python-wheels-manylinux-build@v0.3.3-manylinux2010_x86_64
@@ -127,13 +127,13 @@ jobs:
     - name: Set up pycompadre options (parallel)
       if: ${{ matrix.pycompadre-type == 'pycompadre' }}
       run: |
-        cp pycompadre/cmake_opts.txt cmake_opts.txt
-        echo "cp pycompadre/cmake_opts.txt cmake_opts.txt"
+        cp pycompadre/cmake_opts_gen.txt cmake_opts.txt
+        echo "cp pycompadre/cmake_opts_gen.txt cmake_opts.txt"
     - name: Set up pycompadre options (serial)
       if: ${{ matrix.pycompadre-type == 'pycompadre-serial' }}
       run: |
-        cp pycompadre/cmake_opts_serial.txt cmake_opts.txt
-        echo "cp pycompadre/cmake_opts_serial.txt cmake_opts.txt"
+        cp pycompadre/cmake_opts_serial_gen.txt cmake_opts.txt
+        echo "cp pycompadre/cmake_opts_serial_gen.txt cmake_opts.txt"
         perl -pi -e "s/name='pycompadre',/name='pycompadre-serial',/" -- setup.py
     - name: Build OSX Python wheels
       run: |
