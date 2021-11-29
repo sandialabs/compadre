@@ -28,6 +28,11 @@ jobs:
         python-version: [3.7]
         pycompadre-type: ['pycompadre', 'pycompadre-serial']
     steps:
+    - id: get-pycompadre_type
+      run: |
+        pycompadretype="${{ matrix.pycompadre-type }}"
+        newpycompadretype=`echo $pycompadretype | sed 's/-/_/'`
+        echo "::set-output name=pycompadre_type::$newpycompadretype"
     - uses: actions/checkout@v2
       with:
         ref: ${{ github.event.inputs.branch }}
@@ -71,7 +76,7 @@ jobs:
       run: |
         for fname in `ls ${{github.workspace}}/dist/*.whl`;
           do echo $fname
-          new_fname="$(echo "$fname" | sed 's/\(${{matrix.pycompadre-type}}-[^-]*-\)/\1${{ github.event.inputs.build_num }}-/')"
+          new_fname="$(echo "$fname" | sed 's/\(${{steps.get-pycompadre_type.outputs.pycompadre_type}}-[^-]*-\)/\1${{ github.event.inputs.build_num }}-/')"
           mv $fname $new_fname
           echo $new_fname
         done
