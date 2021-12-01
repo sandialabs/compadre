@@ -435,6 +435,8 @@ public:
                         && (data_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : data_sampling_strategy)
             {
 
+        compadre_assert_release(poly_order<11 && "Unsupported polynomial order (>=11).");
+        compadre_assert_release(manifold_curvature_poly_order<11 && "Unsupported curvature polynomial order (>=11).");
         _NP = this->getNP(_poly_order, dimensions, _reconstruction_space);
         Kokkos::fence();
 
@@ -1230,14 +1232,16 @@ public:
 
     //! Sets basis order to be used when reoncstructing any function
     void setPolynomialOrder(const int poly_order) {
+        compadre_assert_release(poly_order<11 && "Unsupported polynomial order (>=11).");
         _poly_order = poly_order;
         _NP = this->getNP(_poly_order, _dimensions, _reconstruction_space);
         this->resetCoefficientData();
     }
 
     //! Sets basis order to be used when reoncstructing curvature
-    void setCurvaturePolynomialOrder(const int manifold_poly_order) {
-        _curvature_poly_order = manifold_poly_order;
+    void setCurvaturePolynomialOrder(const int curvature_poly_order) {
+        compadre_assert_release(curvature_poly_order<11 && "Unsupported curvature polynomial order (>=11).");
+        _curvature_poly_order = curvature_poly_order;
         this->resetCoefficientData();
     }
 
