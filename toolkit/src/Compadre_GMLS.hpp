@@ -9,11 +9,17 @@
 #include "Compadre_LinearAlgebra_Definitions.hpp"
 #include "Compadre_ParallelManager.hpp"
 #include "Compadre_Quadrature.hpp"
+#include "Compadre_SolutionSet.hpp"
 #include "Compadre_ScalarTaylorPolynomial.hpp"
 #include "Compadre_DivergenceFreePolynomial.hpp"
 #include "Compadre_NeighborLists.hpp"
+#include "Compadre_PointConnections.hpp"
 
 namespace Compadre {
+
+class  Evaluator;
+struct GMLSBasisData;
+struct GMLSSolutionData;
 
 //!  Generalized Moving Least Squares (GMLS)
 /*!
@@ -23,10 +29,19 @@ namespace Compadre {
 *  additional computation, which is why this class allows for multiple target functionals to be specified. 
 */
 class GMLS {
-protected:
 
-    // random numbe generator pool
-    pool_type _random_number_pool;
+friend class Evaluator;
+friend const GMLSBasisData createGMLSBasisData(const GMLS& gmls);
+friend const GMLSSolutionData createGMLSSolutionData(const GMLS& gmls);
+
+public:
+
+    typedef PointConnections<Kokkos::View<double**, layout_right>, 
+            Kokkos::View<double**, layout_right>, 
+            NeighborLists<Kokkos::View<int*> > > 
+                point_connections_type;
+
+private:
 
     // matrices that may be needed for matrix factorization on the device
     // supports batched matrix factorization dispatch
@@ -39,6 +54,9 @@ protected:
 
     //! sqrt(w)*Identity matrix for all problems, later holds polynomial coefficients for all problems
     Kokkos::View<double*> _RHS;
+
+    //! stores evaluations of targets applied to basis
+    Kokkos::View<double*> _Z;
 
     //! Rank 3 tensor for high order approximation of tangent vectors for all problems. First rank is
     //! for the target index, the second is for the local direction to the manifolds 0..(_dimensions-1)
@@ -82,17 +100,14 @@ protected:
     //! coordinates for target sites for reconstruction (device)
     Kokkos::View<double**, layout_right> _target_coordinates; 
 
+    //! connections between points and neighbors
+    point_connections_type _pc;
+
     //! h supports determined through neighbor search (device)
     Kokkos::View<double*> _epsilons; 
 
     //! h supports determined through neighbor search (host)
     Kokkos::View<double*>::HostMirror _host_epsilons; 
-
-    //! generated alpha coefficients (device)
-    Kokkos::View<double*, layout_right> _alphas; 
-
-    //! generated alpha coefficients (host)
-    Kokkos::View<const double*, layout_right>::HostMirror _host_alphas;
     
     //! generated weights for nontraditional samples required to transform data into expected sampling 
     //! functional form (device). 
@@ -108,9 +123,17 @@ protected:
     //! (OPTIONAL) Accessor to get additional evaluation list data, offset data, and number of sites
     NeighborLists<Kokkos::View<int*> > _additional_evaluation_indices; 
 
+    //! (OPTIONAL) connections between additional points and neighbors
+    point_connections_type _additional_pc;
+
     //! (OPTIONAL) contains the # of additional evaluation sites per target site
     Kokkos::View<int*, host_memory_space> _host_number_of_additional_evaluation_indices; 
 
+    //! Solution Set (contains all alpha values from solution and alpha layout methods)
+    // _h_ss is private so that getSolutionSetHost() must be called
+    // which ensures that the copy of the solution to device is necessary
+    SolutionSet<host_memory_space> _h_ss;
+    SolutionSet<device_memory_space> _d_ss;
 
     //! order of basis for polynomial reconstruction
     int _poly_order; 
@@ -161,8 +184,6 @@ protected:
     //! vector containing target functionals to be applied for reconstruction problem (host)
     Kokkos::View<TargetOperation*>::HostMirror _host_operations;
 
-
-
     //! weighting kernel type for GMLS
     WeightingFunctionType _weighting_type;
 
@@ -194,9 +215,6 @@ protected:
     //! e.g. in 3D, a scalar will be 1, a vector will be 3, and a vector of reused scalars will be 3
     int _data_sampling_multiplier;
 
-    //! whether or not operator to be inverted for GMLS problem has a nontrivial nullspace (requiring SVD)
-    bool _nontrivial_nullspace;
-
     //! whether or not the orthonormal tangent directions were provided by the user. If they are not,
     //! then for the case of calculations on manifolds, a GMLS approximation of the tangent space will
     //! be made and stored for use.
@@ -222,52 +240,6 @@ protected:
     //! maximum number of neighbors over all target sites
     int _max_num_neighbors;
 
-    //! maximum number of evaluation sites for each target (includes target site)
-    int _max_evaluation_sites_per_target;
-
-    //! vector of user requested target operations
-    std::vector<TargetOperation> _lro; 
-
-    //! vector containing a mapping from a target functionals enum value to the its place in the list
-    //! of target functionals to be applied
-    std::vector<int> _lro_lookup; 
-
-    //! index for where this operation begins the for _alpha coefficients (device)
-    Kokkos::View<int*> _lro_total_offsets; 
-
-    //! index for where this operation begins the for _alpha coefficients (host)
-    Kokkos::View<int*>::HostMirror _host_lro_total_offsets; 
-
-    //! dimensions ^ rank of tensor of output for each target functional (device)
-    Kokkos::View<int*> _lro_output_tile_size; 
-
-    //! dimensions ^ rank of tensor of output for each target functional (host)
-    Kokkos::View<int*>::HostMirror _host_lro_output_tile_size; 
-
-    //! dimensions ^ rank of tensor of output for each sampling functional (device)
-    Kokkos::View<int*> _lro_input_tile_size; 
-
-    //! dimensions ^ rank of tensor of output for each sampling functional (host)
-    Kokkos::View<int*>::HostMirror _host_lro_input_tile_size; 
-
-    //! tensor rank of target functional (device)
-    Kokkos::View<int*> _lro_output_tensor_rank;
-
-    //! tensor rank of target functional (host)
-    Kokkos::View<int*>::HostMirror _host_lro_output_tensor_rank;
-
-    //! tensor rank of sampling functional (device)
-    Kokkos::View<int*> _lro_input_tensor_rank;
-
-    //! tensor rank of sampling functional (host)
-    Kokkos::View<int*>::HostMirror _host_lro_input_tensor_rank;
-
-    //! used for sizing P_target_row and the _alphas view
-    int _total_alpha_values;
-
-    //! additional alpha coefficients due to constraints
-    int _added_alpha_size;
-
     //! determines scratch level spaces and is used to call kernels
     ParallelManager _pm;
 
@@ -283,295 +255,111 @@ protected:
     //! manages and calculates quadrature
     Quadrature _qm;
 
+private:
 
 /** @name Private Modifiers
  *  Private function because information lives on the device
  */
 ///@{
 
-    /*! \brief Evaluates the polynomial basis under a particular sampling function. Generally used to fill a row of P.
-        \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _basis_multipler*the dimension of the polynomial basis.
-        \param thread_workspace [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
-        \param target_index         [in] - target number
-        \param neighbor_index       [in] - index of neighbor for this target with respect to local numbering [0,...,number of neighbors for target]
-        \param alpha                [in] - double to determine convex combination of target and neighbor site at which to evaluate polynomials. (1-alpha)*neighbor + alpha*target
-        \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
-        \param poly_order           [in] - polynomial basis degree
-        \param specific_order_only  [in] - boolean for only evaluating one degree of polynomial when true
-        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-        \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
-        \param sampling_strategy    [in] - sampling functional specification
-        \param evaluation_site_local_index [in] - local index for evaluation sites (0 is target site)
-    */
-    KOKKOS_INLINE_FUNCTION
-    void calcPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int dimension, const int poly_order, bool specific_order_only = false, const scratch_matrix_right_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = PointSample, const int evaluation_site_local_index = 0) const;
+    //! (OPTIONAL)
+    //! Sets additional points for evaluation of target operation on polynomial reconstruction.
+    //! If this is never called, then the target sites are the only locations where the target
+    //! operations will be evaluated and applied to polynomial reconstructions.
+    template <typename view_type>
+    void setAuxiliaryEvaluationCoordinates(view_type evaluation_coordinates) {
+        // allocate memory on device
+        _additional_evaluation_coordinates = decltype(_additional_evaluation_coordinates)("device additional evaluation coordinates",
+            evaluation_coordinates.extent(0), evaluation_coordinates.extent(1));
 
-    /*! \brief Evaluates the gradient of a polynomial basis under the Dirac Delta (pointwise) sampling function.
-        \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
-        \param thread_workspace [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
-        \param target_index         [in] - target number
-        \param neighbor_index       [in] - index of neighbor for this target with respect to local numbering [0,...,number of neighbors for target]
-        \param alpha                [in] - double to determine convex combination of target and neighbor site at which to evaluate polynomials. (1-alpha)*neighbor + alpha*target
-        \param partial_direction    [in] - direction that partial is taken with respect to, e.g. 0 is x direction, 1 is y direction
-        \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
-        \param poly_order           [in] - polynomial basis degree
-        \param specific_order_only  [in] - boolean for only evaluating one degree of polynomial when true
-        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-        \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
-        \param sampling_strategy    [in] - sampling functional specification
-        \param evaluation_site_local_index [in] - local index for evaluation sites (0 is target site)
-    */
-    KOKKOS_INLINE_FUNCTION
-    void calcGradientPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int evaluation_site_local_index = 0) const;
+        typedef typename view_type::memory_space input_array_memory_space;
+        if (std::is_same<input_array_memory_space, device_memory_space>::value) {
+            // check if on the device, then copy directly
+            // if it is, then it doesn't match the internal layout we use
+            // then copy to the host mirror
+            // switches potential layout mismatches
+            Kokkos::deep_copy(_additional_evaluation_coordinates, evaluation_coordinates);
+        } else {
+            // if is on the host, copy to the host mirror
+            // then copy to the device
+            // switches potential layout mismatches
+            auto host_additional_evaluation_coordinates = Kokkos::create_mirror_view(_additional_evaluation_coordinates);
+            Kokkos::deep_copy(host_additional_evaluation_coordinates, evaluation_coordinates);
+            // switches memory spaces
+            Kokkos::deep_copy(_additional_evaluation_coordinates, host_additional_evaluation_coordinates);
+        }
+        this->resetCoefficientData();
+    }
 
-    /*! \brief Evaluates the Hessian of a polynomial basis under the Dirac Delta (pointwise) sampling function.
-        \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
-        \param thread_workspace [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
-        \param target_index         [in] - target number
-        \param neighbor_index       [in] - index of neighbor for this target with respect to local numbering [0,...,number of neighbors for target]
-        \param alpha                [in] - double to determine convex combination of target and neighbor site at which to evaluate polynomials. (1-alpha)*neighbor + alpha*target
-        \param partial_direction_1  [in] - first direction that partial is taken with respect to, e.g. 0 is x direction, 1 is y direction
-        \param partial_direction_2  [in] - second direction that partial is taken with respect to, e.g. 0 is x direction, 1 is y direction
-        \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
-        \param poly_order           [in] - polynomial basis degree
-        \param specific_order_only  [in] - boolean for only evaluating one degree of polynomial when true
-        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-        \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
-        \param sampling_strategy    [in] - sampling functional specification
-        \param evaluation_site_local_index [in] - local index for evaluation sites (0 is target site) 
-    */
-    KOKKOS_INLINE_FUNCTION
-    void calcHessianPij(const member_type& teamMember, double* delta, double* thread_workspace, const int target_index, int neighbor_index, const double alpha, const int partial_direction_1, const int partial_direction_2, const int dimension, const int poly_order, bool specific_order_only, const scratch_matrix_right_type* V, const ReconstructionSpace reconstruction_space, const SamplingFunctional sampling_strategy, const int evaluation_site_local_index = 0) const;
+    //! (OPTIONAL)
+    //! Sets additional points for evaluation of target operation on polynomial reconstruction.
+    //! If this is never called, then the target sites are the only locations where the target
+    //! operations will be evaluated and applied to polynomial reconstructions. (device)
+    template <typename view_type>
+    void setAuxiliaryEvaluationCoordinates(decltype(_additional_evaluation_coordinates) evaluation_coordinates) {
+        _additional_evaluation_coordinates = evaluation_coordinates;
+        this->resetCoefficientData();
+    }
 
-    /*! \brief Fills the _P matrix with either P or P*sqrt(w)
-        \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
-        \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
-        \param thread_workspace [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
-        \param P                   [out] - 2D Kokkos View which will contain evaluation of sampling functional on polynomial basis for each neighbor the target has (stored column major)
-        \param w                   [out] - 1D Kokkos View which will contain weighting kernel values for the target with each neighbor if weight_p = true
-        \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
-        \param polynomial_order     [in] - polynomial basis degree
-        \param weight_p             [in] - boolean whether to fill w with kernel weights
-        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-        \param reconstruction_space [in] - space of polynomial that a sampling functional is to evaluate
-        \param sampling_strategy    [in] - sampling functional specification
-    */
-    KOKKOS_INLINE_FUNCTION
-    void createWeightsAndP(const member_type& teamMember, scratch_vector_type delta, scratch_vector_type thread_workspace, scratch_matrix_right_type P, scratch_vector_type w, const int dimension, int polynomial_order, bool weight_p = false, scratch_matrix_right_type* V = NULL, const ReconstructionSpace reconstruction_space = ReconstructionSpace::ScalarTaylorPolynomial, const SamplingFunctional sampling_strategy = PointSample) const;
+    //! (OPTIONAL)
+    //! Sets the additional target evaluation indices list information from compressed row format (if same view_type)
+    template <typename view_type>
+    typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_additional_evaluation_indices)::internal_view_type,view_type>::value==1, void>::type 
+            setAuxiliaryEvaluationIndicesLists(view_type additional_evaluation_indices, view_type number_of_neighbors_list) {
 
-    /*! \brief Fills the _P matrix with P*sqrt(w) for use in solving for curvature
+        _additional_evaluation_indices = NeighborLists<view_type>(additional_evaluation_indices, number_of_neighbors_list);
+        _h_ss._max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
+        _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
+        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), [&](const int i) {
+            _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
+        });
+        Kokkos::fence();
+        this->resetCoefficientData();
 
-         Uses _curvature_poly_order as the polynomial order of the basis
+    }
 
-        \param teamMember           [in] - Kokkos::TeamPolicy member type (created by parallel_for)
-        \param delta            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
-        \param thread_workspace [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
-        \param P                   [out] - 2D Kokkos View which will contain evaluation of sampling functional on polynomial basis for each neighbor the target has (stored column major)
-        \param w                   [out] - 1D Kokkos View which will contain weighting kernel values for the target with each neighbor if weight_p = true
-        \param dimension            [in] - spatial dimension of basis to evaluate. e.g. dimension two basis of order one is 1, x, y, whereas for dimension 3 it is 1, x, y, z
-        \param only_specific_order  [in] - boolean for only evaluating one degree of polynomial when true
-        \param V                    [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-    */
-    KOKKOS_INLINE_FUNCTION
-    void createWeightsAndPForCurvature(const member_type& teamMember, scratch_vector_type delta, scratch_vector_type thread_workspace, scratch_matrix_right_type P, scratch_vector_type w, const int dimension, bool only_specific_order, scratch_matrix_right_type* V = NULL) const;
+    //! (OPTIONAL)
+    //! Sets the additional target evaluation indices list information from compressed row format (if different view_type)
+    template <typename view_type>
+    typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_additional_evaluation_indices)::internal_view_type,view_type>::value==0, void>::type 
+            setAuxiliaryEvaluationIndicesLists(view_type additional_evaluation_indices, view_type number_of_neighbors_list) {
 
-    /*! \brief Evaluates a polynomial basis with a target functional applied to each member of the basis
-        \param teamMember                   [in] - Kokkos::TeamPolicy member type (created by parallel_for)
-        \param delta                    [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
-        \param thread_workspace         [in/out] - scratch space that is allocated so that each team has its own copy. Must be at least as large is the _poly_order*_global_dimensions.
-        \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
-    */
-    KOKKOS_INLINE_FUNCTION
-    void computeTargetFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row) const;
+        typedef decltype(_additional_evaluation_indices)::internal_view_type gmls_view_type;
+        gmls_view_type d_additional_evaluation_indices("compressed row additional evaluation indices lists data", additional_evaluation_indices.extent(0));
+        gmls_view_type d_number_of_neighbors_list("number of additional evaluation indices", number_of_neighbors_list.extent(0));
+        Kokkos::deep_copy(d_additional_evaluation_indices, additional_evaluation_indices);
+        Kokkos::deep_copy(d_number_of_neighbors_list, number_of_neighbors_list);
+        Kokkos::fence();
+        _additional_evaluation_indices = NeighborLists<gmls_view_type>(d_additional_evaluation_indices, d_number_of_neighbors_list);
+        _h_ss._max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
+        _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
+        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), [&](const int i) {
+            _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
+        });
+        Kokkos::fence();
+        this->resetCoefficientData();
+            
+    }
 
-    /*! \brief Evaluates a polynomial basis for the curvature with a gradient target functional applied
+    //! (OPTIONAL)
+    //! Sets the additional target evaluation indices list information. Should be # targets x maximum number of indices
+    //! evaluation indices for any target + 1. first entry in every row should be the number of indices for the corresponding target.
+    template <typename view_type>
+    typename std::enable_if<view_type::rank==2, void>::type setAuxiliaryEvaluationIndicesLists(view_type additional_evaluation_indices) {
+    
+        _additional_evaluation_indices = Convert2DToCompressedRowNeighborLists<decltype(additional_evaluation_indices), Kokkos::View<int*> >(additional_evaluation_indices);
+        _h_ss._max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
+        _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
+        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), [&](const int i) {
+            _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
+        });
+        Kokkos::fence();
+        this->resetCoefficientData();
 
-        _operations is used by this function which is set through a modifier function
-
-        \param teamMember                   [in] - Kokkos::TeamPolicy member type (created by parallel_for)
-        \param delta                    [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
-        \param thread_workspace         [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _curvature_poly_order*the spatial dimension of the polynomial basis.
-        \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
-        \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-    */
-    KOKKOS_INLINE_FUNCTION
-    void computeCurvatureFunctionals(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, const scratch_matrix_right_type* V, const local_index_type local_neighbor_index = -1) const;
-
-    /*! \brief Evaluates a polynomial basis with a target functional applied, using information from the manifold curvature
-
-         _operations is used by this function which is set through a modifier function
-
-        \param teamMember                   [in] - Kokkos::TeamPolicy member type (created by parallel_for)
-        \param delta                    [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large is the _basis_multipler*the dimension of the polynomial basis.
-        \param thread_workspace         [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _curvature_poly_order*the spatial dimension of the polynomial basis.
-        \param P_target_row                [out] - 1D Kokkos View where the evaluation of the polynomial basis is stored
-        \param V                            [in] - orthonormal basis matrix size _dimensions * _dimensions whose first _dimensions-1 columns are an approximation of the tangent plane
-        \param G_inv                        [in] - (_dimensions-1)*(_dimensions-1) Kokkos View containing inverse of metric tensor
-        \param curvature_coefficients       [in] - polynomial coefficients for curvature
-        \param curvature_gradients          [in] - approximation of gradient of curvature, Kokkos View of size (_dimensions-1)
-    */
-    KOKKOS_INLINE_FUNCTION
-    void computeTargetFunctionalsOnManifold(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type P_target_row, scratch_matrix_right_type V, scratch_matrix_right_type G_inv, scratch_vector_type curvature_coefficients, scratch_vector_type curvature_gradients) const;
-
-    //! Helper function for applying the evaluations from a target functional to the polynomial coefficients
-    KOKKOS_INLINE_FUNCTION
-    void applyTargetsToCoefficients(const member_type& teamMember, scratch_vector_type t1, scratch_vector_type t2, scratch_matrix_right_type Q, scratch_vector_type w, scratch_matrix_right_type P_target_row, const int target_NP) const;
+    }
 
 ///@}
 
-
-
-/** @name Private Accessors
- *  Private function because information lives on the device
- */
-///@{
-
-    //! Returns number of neighbors for a particular target
-    KOKKOS_INLINE_FUNCTION
-    int getNNeighbors(const int target_index) const {
-        return _neighbor_lists.getNumberOfNeighborsDevice(target_index);
-    }
-
-    //! Mapping from [0,number of neighbors for a target] to the row that contains the source coordinates for
-    //! that neighbor
-    KOKKOS_INLINE_FUNCTION
-    int getNeighborIndex(const int target_index, const int neighbor_list_num) const {
-        return _neighbor_lists.getNeighborDevice(target_index, neighbor_list_num);
-    }
-
-    //! Returns the maximum neighbor lists size over all target sites
-    KOKKOS_INLINE_FUNCTION
-    int getMaxNNeighbors() const {
-        return _neighbor_lists.getMaxNumNeighbors();
-    }
-
-    //! Returns the maximum number of evaluation sites over all target sites (target sites itself is included in total)
-    KOKKOS_INLINE_FUNCTION
-    int getMaxEvaluationSitesPerTarget() const {
-        // add 1 for the target site itself
-        return _additional_evaluation_indices.getMaxNumNeighbors() + 1;
-    }
-
-    //! (OPTIONAL)
-    //! Returns number of evaluation sites for a particular target (target site is included in total)
-    KOKKOS_INLINE_FUNCTION
-    int getNEvaluationSitesPerTarget(const int target_index) const {
-        // add 1 for the target site itself
-        return _additional_evaluation_indices.getNumberOfNeighborsDevice(target_index) + 1;
-    }
-
-    //! (OPTIONAL)
-    //! Mapping from [0,number of additional evaluation sites for a target) to the row that contains the coordinates for
-    //! that evaluation
-    KOKKOS_INLINE_FUNCTION
-    int getAdditionalEvaluationIndex(const int target_index, const int additional_list_num) const {
-        compadre_kernel_assert_debug((additional_list_num >= 0) 
-            && "additional_list_num must be greater than or equal to 0.");
-        return _additional_evaluation_indices.getNeighborDevice(target_index, additional_list_num);
-    }
-
-    //! Returns one component of the target coordinate for a particular target. Whether global or local coordinates 
-    //! depends upon V being specified
-    KOKKOS_INLINE_FUNCTION
-    double getTargetCoordinate(const int target_index, const int dim, const scratch_matrix_right_type* V = NULL) const {
-        compadre_kernel_assert_debug((_target_coordinates.extent(0) >= (size_t)target_index) && "Target index is out of range for _target_coordinates.");
-        if (V==NULL) {
-            return _target_coordinates(target_index, dim);
-        } else {
-            XYZ target_coord = XYZ( _target_coordinates(target_index, 0), 
-                                    _target_coordinates(target_index, 1), 
-                                    _target_coordinates(target_index, 2));
-            return this->convertGlobalToLocalCoordinate(target_coord, dim, V);
-        }
-    }
-
-    //! (OPTIONAL)
-    //! Returns one component of the additional evaluation coordinates. Whether global or local coordinates 
-    //! depends upon V being specified
-    KOKKOS_INLINE_FUNCTION
-    double getTargetAuxiliaryCoordinate(const int target_index, const int additional_list_num, const int dim, const scratch_matrix_right_type* V = NULL) const {
-        auto additional_evaluation_index = getAdditionalEvaluationIndex(target_index, additional_list_num);
-        compadre_kernel_assert_debug((_additional_evaluation_coordinates.extent(0) > (size_t)additional_evaluation_index) && "Additional evaluation index is out of range for _additional_evaluation_coordinates.");
-        if (V==NULL) {
-            return _additional_evaluation_coordinates(additional_evaluation_index, dim);
-        } else {
-            XYZ additional_target_coord = XYZ( _additional_evaluation_coordinates(additional_evaluation_index, 0),
-                                               _additional_evaluation_coordinates(additional_evaluation_index, 1),
-                                               _additional_evaluation_coordinates(additional_evaluation_index, 2));
-            return this->convertGlobalToLocalCoordinate(additional_target_coord, dim, V);
-        }
-    }
-
-    //! Returns one component of the neighbor coordinate for a particular target. Whether global or local coordinates 
-    //! depends upon V being specified
-    KOKKOS_INLINE_FUNCTION
-    double getNeighborCoordinate(const int target_index, const int neighbor_list_num, const int dim, const scratch_matrix_right_type* V = NULL) const {
-        compadre_kernel_assert_debug((_source_coordinates.extent(0) >= (size_t)(this->getNeighborIndex(target_index, neighbor_list_num))) && "Source index is out of range for _source_coordinates.");
-        if (V==NULL) {
-            return _source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), dim);
-        } else {
-            XYZ neighbor_coord = XYZ(_source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), 0), _source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), 1), _source_coordinates(this->getNeighborIndex(target_index, neighbor_list_num), 2));
-            return this->convertGlobalToLocalCoordinate(neighbor_coord, dim, V);
-        }
-    }
-
-    //! Returns the relative coordinate as a vector between the target site and the neighbor site. 
-    //! Whether global or local coordinates depends upon V being specified
-    KOKKOS_INLINE_FUNCTION
-    XYZ getRelativeCoord(const int target_index, const int neighbor_list_num, const int dimension, const scratch_matrix_right_type* V = NULL) const {
-        XYZ coordinate_delta;
-
-        coordinate_delta.x = this->getNeighborCoordinate(target_index, neighbor_list_num, 0, V) - this->getTargetCoordinate(target_index, 0, V);
-        if (dimension>1) coordinate_delta.y = this->getNeighborCoordinate(target_index, neighbor_list_num, 1, V) - this->getTargetCoordinate(target_index, 1, V);
-        if (dimension>2) coordinate_delta.z = this->getNeighborCoordinate(target_index, neighbor_list_num, 2, V) - this->getTargetCoordinate(target_index, 2, V);
-
-        return coordinate_delta;
-    }
-
-    //! Returns a component of the local coordinate after transformation from global to local under the orthonormal basis V.
-    KOKKOS_INLINE_FUNCTION
-    double convertGlobalToLocalCoordinate(const XYZ global_coord, const int dim, const scratch_matrix_right_type* V) const {
-        // only written for 2d manifold in 3d space
-        double val = 0;
-        val += global_coord.x * (*V)(dim, 0);
-        val += global_coord.y * (*V)(dim, 1); // can't be called from dimension 1 problem
-        if (_dimensions>2) val += global_coord.z * (*V)(dim, 2);
-        return val;
-    }
-
-    //! Returns a component of the global coordinate after transformation from local to global under the orthonormal basis V^T.
-    KOKKOS_INLINE_FUNCTION
-    double convertLocalToGlobalCoordinate(const XYZ local_coord, const int dim, const scratch_matrix_right_type* V) const {
-        // only written for 2d manifold in 3d space
-        double val = 0.0;
-        if (dim == 0 && _dimensions==2) { // 2D problem with 1D manifold
-            val = local_coord.x * (*V)(0, dim);
-        } else if (dim == 0) { // 3D problem with 2D manifold
-            val = local_coord.x * ((*V)(0, dim) + (*V)(1, dim));
-        } else if (dim == 1) { // 3D problem with 2D manifold
-            val = local_coord.y * ((*V)(0, dim) + (*V)(1, dim));
-        }
-        return val;
-    }
-
-    //! Handles offset from operation input/output + extra evaluation sites
-    int getTargetOffsetIndexHost(const int lro_num, const int input_component, const int output_component, const int evaluation_site_local_index = 0) const {
-        return ( _total_alpha_values*evaluation_site_local_index
-                + _host_lro_total_offsets[lro_num] 
-                + input_component*_host_lro_output_tile_size[lro_num] 
-                + output_component );
-    }
-
-    //! Handles offset from operation input/output + extra evaluation sites
-    KOKKOS_INLINE_FUNCTION
-    int getTargetOffsetIndexDevice(const int lro_num, const int input_component, const int output_component, const int evaluation_site_local_index = 0) const {
-        return ( _total_alpha_values*evaluation_site_local_index
-                + _lro_total_offsets[lro_num] 
-                + input_component*_lro_output_tile_size[lro_num] 
-                + output_component );
-    }
-
-///@}
 
 /** @name Private Utility
  *  
@@ -647,9 +435,8 @@ public:
                         && (data_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : data_sampling_strategy)
             {
 
-        // seed random number generator pool
-        _random_number_pool = pool_type(1);
-
+        compadre_assert_release(poly_order<11 && "Unsupported polynomial order (>=11).");
+        compadre_assert_release(manifold_curvature_poly_order<11 && "Unsupported curvature polynomial order (>=11).");
         _NP = this->getNP(_poly_order, dimensions, _reconstruction_space);
         Kokkos::fence();
 
@@ -664,11 +451,7 @@ public:
             Kokkos::deep_copy(_curvature_support_operations, curvature_support_operations_mirror);
         }
 
-        _lro_lookup = std::vector<int>(TargetOperation::COUNT,-1); // hard coded against number of operations defined
-        _lro = std::vector<TargetOperation>();
-
         // various initializations
-        _total_alpha_values = 0;
 
         _weighting_type = WeightingFunctionType::Power;
         _curvature_weighting_type = WeightingFunctionType::Power;
@@ -677,12 +460,11 @@ public:
         _curvature_weighting_p = 2;
         _curvature_weighting_n = 1;
 
-        _reconstruction_space_rank = ActualReconstructionSpaceRank[_reconstruction_space];
+        _reconstruction_space_rank = getActualReconstructionSpaceRank(_reconstruction_space);
 
         _basis_multiplier = 1;
         _sampling_multiplier = 1;
 
-        _nontrivial_nullspace = false;
         _orthonormal_tangent_space_provided = false; 
         _reference_outward_normal_direction_provided = false;
         _use_reference_outward_normal_direction_provided_to_orient_surface = false;
@@ -692,7 +474,6 @@ public:
         _initial_index_for_batch = 0;
 
         _max_num_neighbors = 0;
-        _max_evaluation_sites_per_target = 1;
 
         _global_dimensions = dimensions;
         if (_problem_type == ProblemType::MANIFOLD) {
@@ -703,6 +484,13 @@ public:
 
         _order_of_quadrature_points = 0;
         _dimension_of_quadrature_points = 0;
+
+        _h_ss = SolutionSet<host_memory_space>(
+                _data_sampling_functional,
+                _dimensions, 
+                _local_dimensions,
+                _problem_type);
+        _h_ss._max_evaluation_sites_per_target = 1;
     }
 
     //! Constructor for the case when the data sampling functional does not match the polynomial
@@ -726,91 +514,6 @@ public:
          const std::string constraint_type = std::string("NO_CONSTRAINT"),
          const int manifold_curvature_poly_order = 2)
       : GMLS(reconstruction_space, dual_sampling_strategy, dual_sampling_strategy, poly_order, dimensions, dense_solver_type, problem_type, constraint_type, manifold_curvature_poly_order) {}
-
-    //! Destructor
-    ~GMLS(){
-    };
-
-///@}
-
-/** @name Functors
- *  Member functions that perform operations on the entire batch
- */
-///@{
-
-    //! Tag for functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity
-    struct AssembleStandardPsqrtW{};
-
-    //! Tag for functor to evaluate targets, apply target evaluation to polynomial coefficients to
-    //! store in _alphas
-    struct ApplyStandardTargets{};
-
-    //! Tag for functor to create a coarse tangent approximation from a given neighborhood of points
-    struct ComputeCoarseTangentPlane{};
-
-    //! Tag for functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity for curvature
-    struct AssembleCurvaturePsqrtW{};
-
-    //! Tag for functor to evaluate curvature targets and construct accurate tangent direction approximation for manifolds
-    struct GetAccurateTangentDirections{};
-
-    //! Tag for functor to determine if tangent directions need reordered, and to reorder them if needed
-    struct FixTangentDirectionOrdering{};
-
-    //! Tag for functor to evaluate curvature targets and apply to coefficients of curvature reconstruction
-    struct ApplyCurvatureTargets{};
-
-    //! Tag for functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity
-    struct AssembleManifoldPsqrtW{};
-
-    //! Tag for functor to evaluate targets, apply target evaluation to polynomial coefficients to store in _alphas
-    struct ApplyManifoldTargets{};
-
-    //! Tag for functor to calculate prestencil weights to apply to data to transform into a format expected by a GMLS stencil
-    struct ComputePrestencilWeights{};
-
-
-
-    //! Functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const AssembleStandardPsqrtW&, const member_type& teamMember) const;
-
-    //! Functor to evaluate targets, apply target evaluation to polynomial coefficients to store in _alphas
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const ApplyStandardTargets&, const member_type& teamMember) const;
-
-    //! Functor to create a coarse tangent approximation from a given neighborhood of points
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const ComputeCoarseTangentPlane&, const member_type& teamMember) const;
-
-    //! Functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity for curvature
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const AssembleCurvaturePsqrtW&, const member_type& teamMember) const;
-
-    //! Functor to evaluate curvature targets and construct accurate tangent direction approximation for manifolds
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const GetAccurateTangentDirections&, const member_type& teamMember) const;
-
-    //! Functor to determine if tangent directions need reordered, and to reorder them if needed
-    //! We require that the normal is consistent with a right hand rule on the tangent vectors
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const FixTangentDirectionOrdering&, const member_type& teamMember) const;
-
-    //! Functor to evaluate curvature targets and apply to coefficients of curvature reconstruction
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const ApplyCurvatureTargets&, const member_type& teamMember) const;
-
-    //! Functor to assemble the P*sqrt(weights) matrix and construct sqrt(weights)*Identity
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const AssembleManifoldPsqrtW&, const member_type& teamMember) const;
-
-    //! Functor to evaluate targets, apply target evaluation to polynomial coefficients to store in _alphas
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const ApplyManifoldTargets&, const member_type& teamMember) const;
-
-    //! Functor to calculate prestencil weights to apply to data to transform into a format expected by a GMLS stencil
-    KOKKOS_INLINE_FUNCTION
-    void operator() (const ComputePrestencilWeights&, const member_type& teamMember) const;
 
 ///@}
 
@@ -879,63 +582,26 @@ public:
         } else if (weighting_type == WeightingFunctionType::Cosine) {
             // compactly supported on [0,h]
             double pi = 3.14159265358979323846;
-            return std::cos(0.5*pi*r/h);
+            double abs_r_over_h_to_n = std::abs(r/h);
+            return std::cos(0.5*pi*r/h) * double(1.0-abs_r_over_h_to_n>0.0);
         } else if (weighting_type == WeightingFunctionType::Gaussian) {
             // NOT compactly supported on [0,h], but approximately 0 at h with >> p
             // invariant to n, p is number of standard deviations at distance h
             // 2.5066282746310002416124 = sqrt(2*pi)
             double h_over_p = h/p;
-            return 1./( h_over_p * 2.5066282746310002416124 ) * std::exp(-.5*r*r/(h_over_p*h_over_p));
+            double abs_r_over_h_to_n = std::abs(r/h);
+            return double(1.0-abs_r_over_h_to_n>0.0)/( h_over_p * 2.5066282746310002416124 ) * std::exp(-.5*r*r/(h_over_p*h_over_p));
         } else if (weighting_type == WeightingFunctionType::Sigmoid) {
             // NOT compactly supported on [0,h], but approximately 0 at h with >> p
             // n=0 is sigmoid, n==2 is logistic, with larger p making Wab decay more quickly
-            return 1.0 / (std::exp(p*r) + std::exp(-p*r) + n);
+            double abs_r_over_h_to_n = std::abs(r/h);
+            return  double(1.0-abs_r_over_h_to_n>0.0) / (std::exp(p*r) + std::exp(-p*r) + n);
         } else { // unsupported type
             compadre_kernel_assert_release(false && "Invalid WeightingFunctionType selected.");
             return 0; 
         }
     }
 
-    //! Returns Euclidean norm of a vector
-    KOKKOS_INLINE_FUNCTION
-    static double EuclideanVectorLength(const XYZ& delta_vector, const int dimension) {
-        double inside_val = delta_vector.x*delta_vector.x;
-        switch (dimension) {
-        case 3:
-            inside_val += delta_vector.z*delta_vector.z;
-            // no break is intentional
-        case 2:
-            inside_val += delta_vector.y*delta_vector.y;
-            // no break is intentional
-        default:
-            break;
-        }
-        return std::sqrt(inside_val);
-    }
-
-
-    //! Helper function for finding alpha coefficients
-    static int getTargetOutputIndex(const int operation_num, const int output_component_axis_1, const int output_component_axis_2, const int dimensions) {
-        const int axis_1_size = (TargetOutputTensorRank[operation_num] > 1) ? dimensions : 1;
-        return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
-    }
-
-    //! Helper function for finding alpha coefficients
-    static int getSamplingOutputIndex(const SamplingFunctional sf, const int output_component_axis_1, const int output_component_axis_2) {
-        const int axis_1_size = (sf.output_rank > 1) ? sf.output_rank : 1;
-        return axis_1_size*output_component_axis_1 + output_component_axis_2; // 0 for scalar, 0 for vector;
-    }
-
-    //! Output rank for sampling operation
-    static int getOutputRankOfSampling(SamplingFunctional sro) {
-        return sro.output_rank;
-    }
-
-    //! Input rank for sampling operation
-    static int getInputRankOfSampling(SamplingFunctional sro) {
-        return sro.input_rank;
-    }
-    
 
 ///@}
 
@@ -949,7 +615,7 @@ public:
     host_managed_local_index_type getPolynomialCoefficientsDomainRangeSize() const { 
         host_managed_local_index_type sizes("sizes", 2);
         sizes(0) = _basis_multiplier*_NP;
-        sizes(1) = _sampling_multiplier*getMaxNNeighbors();
+        sizes(1) = _sampling_multiplier*_neighbor_lists.getMaxNumNeighbors();
         return sizes;
     }
 
@@ -1030,7 +696,7 @@ public:
     std::string getQuadratureType() const { return _quadrature_type; }
 
     //! Get neighbor list accessor
-    decltype(_neighbor_lists)* getNeighborLists() { return &_neighbor_lists; }
+    decltype(_neighbor_lists)* getNeighborLists() { return &_pc._nla; }
 
     //! Get additional evaluation sites neighbor list-like accessor
     decltype(_additional_evaluation_indices)* getAdditionalEvaluationIndices() { return &_additional_evaluation_indices; }
@@ -1059,13 +725,6 @@ public:
         return ref_N(component);
     }
 
-    //! Get the local index (internal) to GMLS for a particular TargetOperation
-    //! Every TargetOperation has a global index which can be readily found in Compadre::TargetOperation
-    //! but this function returns the index used inside of the GMLS class
-    int getTargetOperationLocalIndex(TargetOperation lro) const {
-        return _lro_lookup[(int)lro];
-    }
-
     //! Get a view (device) of all rank 2 preprocessing tensors
     //! This is a rank 5 tensor that is able to provide data transformation
     //! into a form that GMLS is able to operate on. The ranks are as follows:
@@ -1083,29 +742,6 @@ public:
     decltype(_prestencil_weights) getPrestencilWeights() const { 
         return _prestencil_weights;
     }
-
-    //! Retrieves the offset for an operator based on input and output component, generic to row
-    //! (but still multiplied by the number of neighbors for each row and then needs a neighbor number added 
-    //! to this returned value to be meaningful)
-    int getAlphaColumnOffset(TargetOperation lro, const int output_component_axis_1, 
-            const int output_component_axis_2, const int input_component_axis_1, 
-            const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
-
-        const int lro_number = _lro_lookup[(int)lro];
-        compadre_assert_debug((lro_number >= 0) && "getAlphaColumnOffset called for a TargetOperation that was not registered.");
-
-        // the target functional input indexing is sized based on the output rank of the sampling
-        // functional used, which can not be inferred unless a specification of target functional,
-        // reconstruction space, and sampling functional are all known (as was the case at the
-        // construction of this class)
-        const int input_index = getSamplingOutputIndex(_data_sampling_functional, input_component_axis_1, input_component_axis_2);
-        const int output_index = getTargetOutputIndex((int)lro, output_component_axis_1, output_component_axis_2, _dimensions);
-
-        return getTargetOffsetIndexHost(lro_number, input_index, output_index, evaluation_site_local_index);
-    }
-
-    //! Get a view (device) of all alphas
-    decltype(_alphas) getAlphas() const { return _alphas; }
 
     //! Get a view (device) of all polynomial coefficients basis
     decltype(_RHS) getFullPolynomialCoefficientsBasis() const { 
@@ -1128,116 +764,6 @@ public:
 
     //! Get the reconstruction space specified at instantiation
     ReconstructionSpace getReconstructionSpace() const { return _reconstruction_space; }
-
-    //! Helper function for getting alphas for scalar reconstruction from scalar data
-    double getAlpha0TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int evaluation_site_local_index = 0) const {
-        // e.g. Dirac Delta target of a scalar field
-        return getAlpha(lro, target_index, 0, 0, neighbor_index, 0, 0, evaluation_site_local_index);
-    }
-
-    //! Helper function for getting alphas for vector reconstruction from scalar data
-    double getAlpha0TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int evaluation_site_local_index = 0) const {
-        // e.g. gradient of a scalar field
-        return getAlpha(lro, target_index, output_component, 0, neighbor_index, 0, 0, evaluation_site_local_index);
-    }
-
-    //! Helper function for getting alphas for matrix reconstruction from scalar data
-    double getAlpha0TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int evaluation_site_local_index = 0) const {
-        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, 0, 0, evaluation_site_local_index);
-    }
-
-    //! Helper function for getting alphas for scalar reconstruction from vector data
-    double getAlpha1TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component, const int evaluation_site_local_index = 0) const {
-        // e.g. divergence of a vector field
-        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component, 0, evaluation_site_local_index);
-    }
-
-    //! Helper function for getting alphas for vector reconstruction from vector data
-    double getAlpha1TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component, const int evaluation_site_local_index = 0) const {
-        // e.g. curl of a vector field
-        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component, 0, evaluation_site_local_index);
-    }
-
-    //! Helper function for getting alphas for matrix reconstruction from vector data
-    double getAlpha1TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component, const int evaluation_site_local_index = 0) const {
-        // e.g. gradient of a vector field
-        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component, 0, evaluation_site_local_index);
-    }
-
-    //! Helper function for getting alphas for scalar reconstruction from matrix data
-    double getAlpha2TensorTo0Tensor(TargetOperation lro, const int target_index, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
-        return getAlpha(lro, target_index, 0, 0, neighbor_index, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
-    }
-
-    //! Helper function for getting alphas for vector reconstruction from matrix data
-    double getAlpha2TensorTo1Tensor(TargetOperation lro, const int target_index, const int output_component, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
-        return getAlpha(lro, target_index, output_component, 0, neighbor_index, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
-    }
-
-    //! Helper function for getting alphas for matrix reconstruction from matrix data
-    double getAlpha2TensorTo2Tensor(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
-        return getAlpha(lro, target_index, output_component_axis_1, output_component_axis_2, neighbor_index, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
-    }
-
-    //! Gives index into alphas given two axes, which when incremented by the neighbor number transforms access into
-    //! alphas from a rank 1 view into a rank 3 view.
-    KOKKOS_INLINE_FUNCTION
-    global_index_type getAlphaIndexDevice(const int target_index, const int alpha_column_offset) const {
-
-        global_index_type total_neighbors_before_target = _neighbor_lists.getRowOffsetDevice(target_index);
-        int total_added_alphas_before_target = target_index*_added_alpha_size;
-
-        int alphas_per_tile_per_target = _neighbor_lists.getNumberOfNeighborsDevice(target_index) + _added_alpha_size;
-
-        return (total_neighbors_before_target+TO_GLOBAL(total_added_alphas_before_target))
-                 *TO_GLOBAL(_total_alpha_values)*TO_GLOBAL(_max_evaluation_sites_per_target)
-                   + TO_GLOBAL(alpha_column_offset*alphas_per_tile_per_target);
-
-    }
-
-    //! Gives index into alphas given two axes, which when incremented by the neighbor number transforms access into
-    //! alphas from a rank 1 view into a rank 3 view.
-    global_index_type getAlphaIndexHost(const int target_index, const int alpha_column_offset) const {
-
-        global_index_type total_neighbors_before_target = _neighbor_lists.getRowOffsetHost(target_index);
-        int total_added_alphas_before_target = target_index*_added_alpha_size;
-
-        int alphas_per_tile_per_target = _neighbor_lists.getNumberOfNeighborsHost(target_index) + _added_alpha_size;
-
-        return (total_neighbors_before_target+TO_GLOBAL(total_added_alphas_before_target))
-                 *TO_GLOBAL(_total_alpha_values)*TO_GLOBAL(_max_evaluation_sites_per_target)
-                   + TO_GLOBAL(alpha_column_offset*alphas_per_tile_per_target);
-
-    }
-
-    //! Underlying function all interface helper functions call to retrieve alpha values
-    double getAlpha(TargetOperation lro, const int target_index, const int output_component_axis_1, const int output_component_axis_2, const int neighbor_index, const int input_component_axis_1, const int input_component_axis_2, const int evaluation_site_local_index = 0) const {
-        // lro - the operator from TargetOperations
-        // target_index - the # for the target site where information is required
-        // neighbor_index - the # for the neighbor of the target
-        //
-        // This code support up to rank 2 tensors for inputs and outputs
-        //
-        // scalar reconstruction from scalar data: rank 0 to rank 0
-        //   provides 1 piece of information for each neighbor
-        // scalar reconstruction from vector data (e.g. divergence): rank 1 to rank 0
-        //   provides 'd' pieces of information for each neighbor
-        // vector reconstruction from scalar data (e.g. gradient): rank 0 to rank 1
-        //   provides 'd' piece of information for each neighbor
-        // vector reconstruction from vector data (e.g. curl): rank 1 to rank 1
-        //   provides 'd'x'd' pieces of information for each neighbor
-        //
-        // This function would more reasonably be called from one of the getAlphaNTensorFromNTensor
-        // which is much easier to understand with respect to indexing and only requesting indices
-        // that are relavent to the operator in question.
-        //
-
-        const int alpha_column_offset = this->getAlphaColumnOffset( lro, output_component_axis_1, 
-                output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
-
-        auto alphas_index = this->getAlphaIndexHost(target_index, alpha_column_offset);
-        return _host_alphas(alphas_index + neighbor_index);
-    }
 
     //! Returns a stencil to transform data from its existing state into the input expected 
     //! for some sampling functionals.
@@ -1263,54 +789,16 @@ public:
                     output_component, input_component);
     }
 
-    //! Dimensions ^ output rank for target operation
-    int getOutputDimensionOfOperation(TargetOperation lro, bool ambient = false) const {
-        int return_val;
-        if (ambient) return_val = std::pow(_global_dimensions, TargetOutputTensorRank[(int)lro]);
-        else return_val = std::pow(_local_dimensions, TargetOutputTensorRank[(int)lro]);
-        return return_val;
-    }
-
-    //! Dimensions ^ input rank for target operation (always in local chart if on a manifold, never ambient space)
-    int getInputDimensionOfOperation(TargetOperation lro) const {
-        return this->_host_lro_input_tile_size[_lro_lookup[(int)lro]];
-        // this is the same return values as the OutputDimensionOfSampling for the GMLS class's SamplingFunctional
-    }
-
-    //! Dimensions ^ output rank for sampling operation 
-    //! (always in local chart if on a manifold, never ambient space)
-    int getOutputDimensionOfSampling(SamplingFunctional sro) const {
-        return std::pow(_local_dimensions, sro.output_rank);
-    }
-
-    //! Dimensions ^ output rank for sampling operation 
-    //! (always in ambient space, never local chart on a manifold)
-    int getInputDimensionOfSampling(SamplingFunctional sro) const {
-        return std::pow(_global_dimensions, sro.input_rank);
-    }
-
-    //! Calculate basis_multiplier
-    int calculateBasisMultiplier(const ReconstructionSpace rs) const {
-        // calculate the dimension of the basis 
-        // (a vector space on a manifold requires two components, for example)
-        return std::pow(_local_dimensions, ActualReconstructionSpaceRank[(int)rs]);
-    }
-
-    //! Calculate sampling_multiplier
-    int calculateSamplingMultiplier(const ReconstructionSpace rs, const SamplingFunctional sro) const {
-        // this would normally be SamplingOutputTensorRank[_data_sampling_functional], but we also want to handle the
-        // case of reconstructions where a scalar basis is reused as a vector, and this handles everything
-        // this handles scalars, vectors, and scalars that are reused as vectors
-        int bm = this->calculateBasisMultiplier(rs);
-        int sm = this->getOutputDimensionOfSampling(sro);
-        if (rs == ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial) {
-            // storage and computational efficiency by reusing solution to scalar problem for 
-            // a vector problem (in 3d, 27x cheaper computation, 9x cheaper storage)
-            sm = std::min(bm,sm);
+    //! Get solution set
+    decltype(_h_ss)* getSolutionSetHost() { 
+        if (_h_ss._alphas.extent(0)==0 && _d_ss._alphas.extent(0)!=0) {
+            // solution solved for on device, but now solution
+            // requested on the host
+            _h_ss.copyAlphas(_d_ss);
         }
-        return sm;
+        return &_h_ss; 
     }
-
+    decltype(_d_ss)* getSolutionSetDevice() { return &_d_ss; }
 
 ///@}
 
@@ -1359,6 +847,7 @@ public:
             view_type_2 additional_evaluation_coordinates) {
         this->setAuxiliaryEvaluationIndicesLists<view_type_1>(additional_evaluation_indices);
         this->setAuxiliaryEvaluationCoordinates<view_type_2>(additional_evaluation_coordinates);
+        _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
     }
 
     //! (OPTIONAL) Sets additional evaluation sites for each target site
@@ -1370,6 +859,7 @@ public:
         this->setAuxiliaryEvaluationIndicesLists<view_type_1>(cr_additional_evaluation_indices, 
                 number_of_additional_evaluation_indices);
         this->setAuxiliaryEvaluationCoordinates<view_type_2>(additional_evaluation_coordinates);
+        _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
     }
 
     //! Sets neighbor list information from compressed row neighborhood lists data (if same view_type).
@@ -1386,6 +876,11 @@ public:
         Kokkos::fence();
         this->resetCoefficientData();
 
+        if (_source_coordinates.extent(0)>0 && _target_coordinates.extent(0)>0) {
+            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
+            _h_ss._neighbor_lists = _neighbor_lists;
+        }
     }
 
     //! Sets neighbor list information from compressed row neighborhood lists data (if different view_type).
@@ -1408,6 +903,11 @@ public:
         Kokkos::fence();
         this->resetCoefficientData();
             
+        if (_source_coordinates.extent(0)>0 && _target_coordinates.extent(0)>0) {
+            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
+            _h_ss._neighbor_lists = _neighbor_lists;
+        }
     }
 
     //! Sets neighbor list information. Should be # targets x maximum number of neighbors for any target + 1.
@@ -1424,6 +924,11 @@ public:
         Kokkos::fence();
         this->resetCoefficientData();
 
+        if (_source_coordinates.extent(0)>0 && _target_coordinates.extent(0)>0) {
+            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
+            _h_ss._neighbor_lists = _neighbor_lists;
+        }
     }
 
     //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries
@@ -1452,6 +957,12 @@ public:
             Kokkos::deep_copy(_source_coordinates, host_source_coordinates);
         }
         this->resetCoefficientData();
+
+        if (_target_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
+            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
+            _h_ss._neighbor_lists = _neighbor_lists;
+        }
     }
 
     //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries
@@ -1461,6 +972,12 @@ public:
         // allocate memory on device
         _source_coordinates = source_coordinates;
         this->resetCoefficientData();
+
+        if (_target_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
+            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
+            _h_ss._neighbor_lists = _neighbor_lists;
+        }
     }
 
     //! Sets target coordinate information. Rows of this 2D-array should correspond to rows of the neighbor lists.
@@ -1494,6 +1011,12 @@ public:
                     _host_number_of_additional_evaluation_indices);
         }
         this->resetCoefficientData();
+
+        if (_source_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
+            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
+            _h_ss._neighbor_lists = _neighbor_lists;
+        }
     }
 
     //! Sets target coordinate information. Rows of this 2D-array should correspond to rows of the neighbor lists.
@@ -1509,6 +1032,12 @@ public:
                     _host_number_of_additional_evaluation_indices);
         }
         this->resetCoefficientData();
+
+        if (_source_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
+            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
+            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
+            _h_ss._neighbor_lists = _neighbor_lists;
+        }
     }
 
     //! Sets window sizes, also called the support of the kernel
@@ -1646,101 +1175,6 @@ public:
         this->resetCoefficientData();
     }
 
-    //! (OPTIONAL)
-    //! Sets additional points for evaluation of target operation on polynomial reconstruction.
-    //! If this is never called, then the target sites are the only locations where the target
-    //! operations will be evaluated and applied to polynomial reconstructions.
-    template <typename view_type>
-    void setAuxiliaryEvaluationCoordinates(view_type evaluation_coordinates) {
-        // allocate memory on device
-        _additional_evaluation_coordinates = decltype(_additional_evaluation_coordinates)("device additional evaluation coordinates",
-            evaluation_coordinates.extent(0), evaluation_coordinates.extent(1));
-
-        typedef typename view_type::memory_space input_array_memory_space;
-        if (std::is_same<input_array_memory_space, device_memory_space>::value) {
-            // check if on the device, then copy directly
-            // if it is, then it doesn't match the internal layout we use
-            // then copy to the host mirror
-            // switches potential layout mismatches
-            Kokkos::deep_copy(_additional_evaluation_coordinates, evaluation_coordinates);
-        } else {
-            // if is on the host, copy to the host mirror
-            // then copy to the device
-            // switches potential layout mismatches
-            auto host_additional_evaluation_coordinates = Kokkos::create_mirror_view(_additional_evaluation_coordinates);
-            Kokkos::deep_copy(host_additional_evaluation_coordinates, evaluation_coordinates);
-            // switches memory spaces
-            Kokkos::deep_copy(_additional_evaluation_coordinates, host_additional_evaluation_coordinates);
-        }
-        this->resetCoefficientData();
-    }
-
-    //! (OPTIONAL)
-    //! Sets additional points for evaluation of target operation on polynomial reconstruction.
-    //! If this is never called, then the target sites are the only locations where the target
-    //! operations will be evaluated and applied to polynomial reconstructions. (device)
-    template <typename view_type>
-    void setAuxiliaryEvaluationCoordinates(decltype(_additional_evaluation_coordinates) evaluation_coordinates) {
-        _additional_evaluation_coordinates = evaluation_coordinates;
-        this->resetCoefficientData();
-    }
-
-    //! (OPTIONAL)
-    //! Sets the additional target evaluation indices list information from compressed row format (if same view_type)
-    template <typename view_type>
-    typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_additional_evaluation_indices)::internal_view_type,view_type>::value==1, void>::type 
-            setAuxiliaryEvaluationIndicesLists(view_type additional_evaluation_indices, view_type number_of_neighbors_list) {
-
-        _additional_evaluation_indices = NeighborLists<view_type>(additional_evaluation_indices, number_of_neighbors_list);
-        _max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
-        _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
-        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), KOKKOS_LAMBDA(const int i) {
-            _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
-        });
-        Kokkos::fence();
-        this->resetCoefficientData();
-
-    }
-
-    //! (OPTIONAL)
-    //! Sets the additional target evaluation indices list information from compressed row format (if different view_type)
-    template <typename view_type>
-    typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_additional_evaluation_indices)::internal_view_type,view_type>::value==0, void>::type 
-            setAuxiliaryEvaluationIndicesLists(view_type additional_evaluation_indices, view_type number_of_neighbors_list) {
-
-        typedef decltype(_additional_evaluation_indices)::internal_view_type gmls_view_type;
-        gmls_view_type d_additional_evaluation_indices("compressed row additional evaluation indices lists data", additional_evaluation_indices.extent(0));
-        gmls_view_type d_number_of_neighbors_list("number of additional evaluation indices", number_of_neighbors_list.extent(0));
-        Kokkos::deep_copy(d_additional_evaluation_indices, additional_evaluation_indices);
-        Kokkos::deep_copy(d_number_of_neighbors_list, number_of_neighbors_list);
-        Kokkos::fence();
-        _additional_evaluation_indices = NeighborLists<gmls_view_type>(d_additional_evaluation_indices, d_number_of_neighbors_list);
-        _max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
-        _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
-        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), KOKKOS_LAMBDA(const int i) {
-            _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
-        });
-        Kokkos::fence();
-        this->resetCoefficientData();
-            
-    }
-
-    //! (OPTIONAL)
-    //! Sets the additional target evaluation indices list information. Should be # targets x maximum number of indices
-    //! evaluation indices for any target + 1. first entry in every row should be the number of indices for the corresponding target.
-    template <typename view_type>
-    typename std::enable_if<view_type::rank==2, void>::type setAuxiliaryEvaluationIndicesLists(view_type additional_evaluation_indices) {
-    
-        _additional_evaluation_indices = Convert2DToCompressedRowNeighborLists<decltype(additional_evaluation_indices), Kokkos::View<int*> >(additional_evaluation_indices);
-        _max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
-        _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
-        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), KOKKOS_LAMBDA(const int i) {
-            _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
-        });
-        Kokkos::fence();
-        this->resetCoefficientData();
-
-    }
 
     //! Type for weighting kernel for GMLS problem
     void setWeightingType( const std::string &wt) {
@@ -1798,14 +1232,16 @@ public:
 
     //! Sets basis order to be used when reoncstructing any function
     void setPolynomialOrder(const int poly_order) {
+        compadre_assert_release(poly_order<11 && "Unsupported polynomial order (>=11).");
         _poly_order = poly_order;
         _NP = this->getNP(_poly_order, _dimensions, _reconstruction_space);
         this->resetCoefficientData();
     }
 
     //! Sets basis order to be used when reoncstructing curvature
-    void setCurvaturePolynomialOrder(const int manifold_poly_order) {
-        _curvature_poly_order = manifold_poly_order;
+    void setCurvaturePolynomialOrder(const int curvature_poly_order) {
+        compadre_assert_release(curvature_poly_order<11 && "Unsupported curvature polynomial order (>=11).");
+        _curvature_poly_order = curvature_poly_order;
         this->resetCoefficientData();
     }
 
@@ -1853,102 +1289,19 @@ public:
 
     //! Adds a target to the vector of target functional to be applied to the reconstruction
     void addTargets(TargetOperation lro) {
-        std::vector<TargetOperation> temporary_lro_vector(1, lro);
-        this->addTargets(temporary_lro_vector);
+        _h_ss.addTargets(lro);
         this->resetCoefficientData();
     }
 
     //! Adds a vector of target functionals to the vector of target functionals already to be applied to the reconstruction
     void addTargets(std::vector<TargetOperation> lro) {
-        // if called multiple times with different dimensions, only the last
-        // dimension called with is used for all
-
-        // loop over requested targets
-        for (size_t i=0; i<lro.size(); ++i) {
-
-            bool operation_found = false;
-            // loop over existing targets registered
-            for (size_t j=0; j<_lro.size(); ++j) {
-
-                // if found
-                if (_lro[j]==lro[i]) {
-
-                    operation_found = true;
-
-                    // the operation should now point to where the operation is stored
-                    _lro_lookup[(int)lro[i]] = j;
-
-                    break;
-
-                }
-            }
-
-            if (!operation_found) {
-                _lro_lookup[(int)lro[i]] = _lro.size();
-                _lro.push_back(lro[i]);
-            }
-        }
-
-        _lro_total_offsets = Kokkos::View<int*>("total offsets for alphas", _lro.size());
-        _lro_output_tile_size = Kokkos::View<int*>("output tile size for each operation", _lro.size());
-        _lro_input_tile_size = Kokkos::View<int*>("output tile size for each operation", _lro.size());
-        _lro_output_tensor_rank = Kokkos::View<int*>("output tensor rank", _lro.size());
-        _lro_input_tensor_rank = Kokkos::View<int*>("input tensor rank", _lro.size());
-
-        _host_lro_total_offsets = create_mirror_view(_lro_total_offsets);
-        _host_lro_output_tile_size = create_mirror_view(_lro_output_tile_size);
-        _host_lro_input_tile_size = create_mirror_view(_lro_input_tile_size);
-        _host_lro_output_tensor_rank = create_mirror_view(_lro_output_tensor_rank);
-        _host_lro_input_tensor_rank = create_mirror_view(_lro_input_tensor_rank);
-
-        int total_offset = 0; // need total offset
-        int output_offset = 0;
-        int input_offset = 0;
-        for (size_t i=0; i<_lro.size(); ++i) {
-            _host_lro_total_offsets(i) = total_offset;
-
-            // allows for a tile of the product of dimension^input_tensor_rank * dimension^output_tensor_rank * the number of neighbors
-            int output_tile_size = getOutputDimensionOfOperation(_lro[i], false /* uses _local_dimension */);
-
-            // the target functional input indexing is sized based on the output rank of the sampling
-            // functional used
-            int input_tile_size = getOutputDimensionOfSampling(_data_sampling_functional);
-            _host_lro_output_tile_size(i) = output_tile_size;
-            _host_lro_input_tile_size(i) = input_tile_size;
-
-            total_offset += input_tile_size * output_tile_size;
-            output_offset += output_tile_size;
-            input_offset += input_tile_size;
-
-            // the target functional output rank is based on the output rank of the sampling
-            // functional used
-            _host_lro_input_tensor_rank(i) = _data_sampling_functional.output_rank;
-            _host_lro_output_tensor_rank(i) = TargetOutputTensorRank[(int)_lro[i]];
-        }
-
-        _total_alpha_values = total_offset;
-
-        if (_problem_type == ProblemType::MANIFOLD) {
-            // if on a manifold, the total alphas values must be large enough to hold the gradient
-            // of the geometry reconstruction
-            _total_alpha_values = (_total_alpha_values > std::pow(_local_dimensions, 1)) ? 
-                _total_alpha_values : std::pow(_local_dimensions, 1);
-        }
-
-        Kokkos::deep_copy(_lro_total_offsets, _host_lro_total_offsets);
-        Kokkos::deep_copy(_lro_output_tile_size, _host_lro_output_tile_size);
-        Kokkos::deep_copy(_lro_input_tile_size, _host_lro_input_tile_size);
-        Kokkos::deep_copy(_lro_output_tensor_rank, _host_lro_output_tensor_rank);
-        Kokkos::deep_copy(_lro_input_tensor_rank, _host_lro_input_tensor_rank);
+        _h_ss.addTargets(lro);
         this->resetCoefficientData();
     }
 
     //! Empties the vector of target functionals to apply to the reconstruction
     void clearTargets() {
-        _lro.clear();
-        for (int i=0; i<TargetOperation::COUNT; ++i) {
-            _lro_lookup[i] = -1;
-        }
+        _h_ss.clearTargets();
         this->resetCoefficientData();
     }
 
@@ -1970,8 +1323,6 @@ public:
     void generateAlphas(const int number_of_batches = 1, const bool keep_coefficients = false);
 
 ///@}
-
-
 
 
 }; // GMLS Class

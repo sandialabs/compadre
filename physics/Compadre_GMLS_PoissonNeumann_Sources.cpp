@@ -60,7 +60,7 @@ void GMLS_PoissonNeumannSources::evaluateRHS(local_index_type field_one, local_i
             // get the number of neighbors for that target
             const local_index_type num_neighbors = neighborhood->getNumNeighbors(neumann_filtered_flags(i));
             // obtain the beta value from the constraint
-            scalar_type b_i = _physics->_neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, num_neighbors);
+            scalar_type b_i = _physics->_neumann_GMLS->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, num_neighbors);
 
             // Setting up the constraing value - first obtain the gradient of the function
             xyz_type pt(pts(neumann_filtered_flags(i), 0), pts(neumann_filtered_flags(i), 1), pts(neumann_filtered_flags(i), 2));

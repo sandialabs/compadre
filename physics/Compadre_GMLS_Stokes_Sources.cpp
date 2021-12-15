@@ -75,7 +75,7 @@ void GMLS_StokesSources::evaluateRHS(local_index_type field_one, local_index_typ
                 // get the number of neighbors for that targe
                 const local_index_type num_neighbors = neighborhood->getNumNeighbors(boundary_filtered_flags(i));
                 // obtain the beta value from the constraint
-                scalar_type b_i = _physics->_pressure_neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, num_neighbors);
+                scalar_type b_i = _physics->_pressure_neumann_GMLS->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, num_neighbors);
 
                 // Setting up the constraint value - first obtain the gradient of the function
                 xyz_type pt(pts(boundary_filtered_flags(i), 0), pts(boundary_filtered_flags(i), 1), pts(boundary_filtered_flags(i), 2));
@@ -95,7 +95,7 @@ void GMLS_StokesSources::evaluateRHS(local_index_type field_one, local_index_typ
                 //         for (local_index_type m=0; m<3; m++) {
                 //             // Obtain the normal direction
                 //             scalar_type normal_comp = _physics->_pressure_neumann_GMLS->getTangentBundle(i, 2, m);
-                //             collapse_value += normal_comp*_physics->_velocity_all_GMLS->getAlpha1TensorTo1Tensor(TargetOperation::CurlCurlOfVectorPointEvaluation, boundary_filtered_flags(i), m /* output component */, l, n /* input component */);
+                //             collapse_value += normal_comp*_physics->_velocity_all_GMLS->getSolutionSetHost()->getAlpha1TensorTo1Tensor(TargetOperation::CurlCurlOfVectorPointEvaluation, boundary_filtered_flags(i), m /* output component */, l, n /* input component */);
                 //         }
                 //         // Get neighbor pt
                 //         local_index_type neighbor_idx = neighborhood->getNeighbor(boundary_filtered_flags(i), l);

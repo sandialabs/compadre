@@ -280,8 +280,8 @@ void GMLS_Staggered_PoissonNeumannPhysics::computeMatrix(local_index_type field_
                 for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
                     col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(neighborhood->getNeighbor(_noconstraint_filtered_flags(i),l), field_two, n);
                     if (n==k) { // same field, same component
-                        val_data(l*fields[field_two]->nDim() + n) = _noconstraint_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*_noconstraint_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0, 0);
-                        val_data(0) += _noconstraint_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*_noconstraint_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0, 0);
+                        val_data(l*fields[field_two]->nDim() + n) = _noconstraint_GMLS->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*_noconstraint_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0, 0);
+                        val_data(0) += _noconstraint_GMLS->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*_noconstraint_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0, 0);
                     } else {
                         val_data(l*fields[field_two]->nDim() + n) = 0.0;
                     }
@@ -314,8 +314,8 @@ void GMLS_Staggered_PoissonNeumannPhysics::computeMatrix(local_index_type field_
                 for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
                     col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(neighborhood->getNeighbor(_neumann_filtered_flags(i),l), field_two, n);
                     if (n==k) { // same field, same component
-                        val_data(l*fields[field_two]->nDim() + n) = _neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*_neumann_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0, 0);
-                        val_data(0) += _neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*_neumann_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0, 0);
+                        val_data(l*fields[field_two]->nDim() + n) = _neumann_GMLS->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*_neumann_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0, 0);
+                        val_data(0) += _neumann_GMLS->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*_neumann_GMLS->getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0, 0);
                     } else {
                         val_data(l*fields[field_two]->nDim() + n) = 0.0;
                     }

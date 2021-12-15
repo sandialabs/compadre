@@ -461,9 +461,9 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 //								}
 //							} else {
 //								if (i==neighborhood->getNeighbor(i,l)) {
-//									values[l*fields[field_two]->nDim() + n] = my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
+//									values[l*fields[field_two]->nDim() + n] = my_GMLS.getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
 //								} else {
-//									values[l*fields[field_two]->nDim() + n] = my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
+//									values[l*fields[field_two]->nDim() + n] = my_GMLS.getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
 //								}
 //							}
 //						} else {
@@ -522,6 +522,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 		const local_index_type host_scratch_team_level = 0; // not used in Kokkos currently
 
 //		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal), KOKKOS_LAMBDA(const int i) {
+        auto my_GMLS_solution_set = my_GMLS.getSolutionSetHost();
 		Kokkos::parallel_for(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
 			const int i = teamMember.league_rank();
 
@@ -561,10 +562,10 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 									val_data(l*fields[field_two]->nDim() + n) = 0.0;
 								}
 							} else {
-								val_data(l*fields[field_two]->nDim() + n) = avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
-								val_data(0*fields[field_two]->nDim() + n) += avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
-//								val_data(l*fields[field_two]->nDim() + n) = avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
-//								val_data(0*fields[field_two]->nDim() + n) += avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
+								val_data(l*fields[field_two]->nDim() + n) = avg_coeff * my_GMLS_solution_set->getAlpha0TensorTo0Tensor(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
+								val_data(0*fields[field_two]->nDim() + n) += avg_coeff * my_GMLS_solution_set->getAlpha0TensorTo0Tensor(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
+//								val_data(l*fields[field_two]->nDim() + n) = avg_coeff * my_GMLS_solution_set->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
+//								val_data(0*fields[field_two]->nDim() + n) += avg_coeff * my_GMLS_solution_set->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
 							}
 						} else {
 							val_data(l*fields[field_two]->nDim() + n) = 0.0;
@@ -622,6 +623,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 		const local_index_type host_scratch_team_level = 0; // not used in Kokkos currently
 
 //		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal), KOKKOS_LAMBDA(const int i) {
+        auto my_GMLS_solution_set = my_GMLS.getSolutionSetHost();
 		Kokkos::parallel_for(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
 			const int i = teamMember.league_rank();
 
@@ -660,10 +662,10 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 									val_data(l*fields[field_two]->nDim() + n) = 0.0;
 								}
 							} else {
-								val_data(l*fields[field_two]->nDim() + n) = avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
-								val_data(0*fields[field_two]->nDim() + n) += avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
-//								val_data(l*fields[field_two]->nDim() + n) = avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
-//								val_data(0*fields[field_two]->nDim() + n) += avg_coeff * my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
+								val_data(l*fields[field_two]->nDim() + n) = avg_coeff * my_GMLS_solution_set->getAlpha0TensorTo0Tensor(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
+								val_data(0*fields[field_two]->nDim() + n) += avg_coeff * my_GMLS_solution_set->getAlpha0TensorTo0Tensor(TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
+//								val_data(l*fields[field_two]->nDim() + n) = avg_coeff * my_GMLS_solution_set->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
+//								val_data(0*fields[field_two]->nDim() + n) += avg_coeff * my_GMLS_solution_set->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l) * my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
 							}
 						} else {
 							val_data(l*fields[field_two]->nDim() + n) = 0.0;
@@ -750,6 +752,8 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 		my_GMLS_staggered_div.addTargets(TargetOperation::DivergenceOfVectorPointEvaluation);
 		my_GMLS_staggered_div.generateAlphas();
 
+        auto my_GMLS_staggered_grad_solution_set = my_GMLS_staggered_grad.getSolutionSetHost();
+        auto my_GMLS_staggered_div_solution_set  = my_GMLS_staggered_div.getSolutionSetHost();
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal), KOKKOS_LAMBDA(const int i) {
 
 			scalar_type target_coeff = fsos->evalDiffusionCoefficient(target_coords->getLocalCoords(i, false));
@@ -779,8 +783,8 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 					}
 
 					cols[l*fields[field_two]->nDim()] = local_to_dof_map(neighborhood->getNeighbor(i,l), field_two, 0);
-					values[l*fields[field_two]->nDim()] = avg_coeff * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l) * my_GMLS_staggered_grad.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
-					values[0*fields[field_two]->nDim()] += avg_coeff * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l) * my_GMLS_staggered_grad.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
+					values[l*fields[field_two]->nDim()] = avg_coeff * my_GMLS_staggered_grad_solution_set->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l) * my_GMLS_staggered_grad.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
+					values[0*fields[field_two]->nDim()] += avg_coeff * my_GMLS_staggered_grad_solution_set->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l) * my_GMLS_staggered_grad.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
 				}
 				{
 					gradient->sumIntoLocalValues(row, cols, values);
@@ -799,8 +803,8 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 				for (local_index_type l = 0; l < num_neighbors; l++) {
 					for (local_index_type m = 0; m < fields[field_two]->nDim(); ++m) {
 						cols[l*fields[field_two]->nDim() + m] = local_to_dof_map(neighborhood->getNeighbor(i,l), field_two, m);
-						values[l*fields[field_two]->nDim() + m] = my_GMLS_staggered_div.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, 0) * my_GMLS_staggered_div.getPreStencilWeight(StaggeredEdgeIntegralSample, i, l, false, 0 /*output component*/, m /*input component*/);
-						values[0*fields[field_two]->nDim() + m] += my_GMLS_staggered_div.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, 0) * my_GMLS_staggered_div.getPreStencilWeight(StaggeredEdgeIntegralSample, i, l, true, 0 /*output component*/, m /*input component*/);
+						values[l*fields[field_two]->nDim() + m] = my_GMLS_staggered_div_solution_set->getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, 0) * my_GMLS_staggered_div.getPreStencilWeight(StaggeredEdgeIntegralSample, i, l, false, 0 /*output component*/, m /*input component*/);
+						values[0*fields[field_two]->nDim() + m] += my_GMLS_staggered_div_solution_set->getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, 0) * my_GMLS_staggered_div.getPreStencilWeight(StaggeredEdgeIntegralSample, i, l, true, 0 /*output component*/, m /*input component*/);
 					}
 				}
 				{
@@ -959,6 +963,8 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 
 		Teuchos::RCP<Compadre::FiveStripOnSphere> fsos = Teuchos::rcp(new Compadre::FiveStripOnSphere);
 
+        auto my_GMLS_staggered_grad_solution_set = my_GMLS_staggered_grad.getSolutionSetHost();
+        auto my_GMLS_staggered_div_solution_set = my_GMLS_staggered_div.getSolutionSetHost();
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal), KOKKOS_LAMBDA(const int i) {
 
 			//scalar_type target_coeff = fsos->evalDiffusionCoefficient(target_coords->getLocalCoords(i, false));
@@ -988,8 +994,8 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 //					}
 
 					cols[l*fields[field_two]->nDim()] = local_to_dof_map(neighborhood->getNeighbor(i,l), field_two, 0);
-					values[l*fields[field_two]->nDim()] = avg_coeff * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l) * my_GMLS_staggered_grad.getPreStencilWeight(PointSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
-					values[0*fields[field_two]->nDim()] += avg_coeff * my_GMLS_staggered_grad.getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l) * my_GMLS_staggered_grad.getPreStencilWeight(PointSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
+					values[l*fields[field_two]->nDim()] = avg_coeff * my_GMLS_staggered_grad_solution_set->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l) * my_GMLS_staggered_grad.getPreStencilWeight(PointSample, i, l, false, 0 /*output component*/, 0 /*input component*/);
+					values[0*fields[field_two]->nDim()] += avg_coeff * my_GMLS_staggered_grad_solution_set->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l) * my_GMLS_staggered_grad.getPreStencilWeight(PointSample, i, l, true, 0 /*output component*/, 0 /*input component*/);
 				}
 				{
 					gradient->sumIntoLocalValues(row, cols, values);
@@ -1017,8 +1023,8 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 						for (local_index_type m = 0; m < fields[field_two]->nDim(); ++m) {
 							// get neighbor l, evaluate coordinate and get latitude from strip
 							cols[l*fields[field_two]->nDim() + m] = local_to_dof_map(neighborhood->getNeighbor(i,l), field_two, m);
-							values[l*fields[field_two]->nDim() + m] = avg_coeff * my_GMLS_staggered_div.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, n) * my_GMLS_staggered_div.getPreStencilWeight(ManifoldVectorPointSample, i, l, false, n /*output component*/, m /*input component*/);
-							values[0*fields[field_two]->nDim() + m] += avg_coeff * my_GMLS_staggered_div.getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, n) * my_GMLS_staggered_div.getPreStencilWeight(ManifoldVectorPointSample, i, l, true, n /*output component*/, m /*input component*/);
+							values[l*fields[field_two]->nDim() + m] = avg_coeff * my_GMLS_staggered_div_solution_set->getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, n) * my_GMLS_staggered_div.getPreStencilWeight(ManifoldVectorPointSample, i, l, false, n /*output component*/, m /*input component*/);
+							values[0*fields[field_two]->nDim() + m] += avg_coeff * my_GMLS_staggered_div_solution_set->getAlpha1TensorTo1Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, 0, l, n) * my_GMLS_staggered_div.getPreStencilWeight(ManifoldVectorPointSample, i, l, true, n /*output component*/, m /*input component*/);
 						}
 					}
 				}

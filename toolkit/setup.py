@@ -80,11 +80,10 @@ import re
 import sys
 import platform
 import subprocess
-import distutils
+from pkg_resources import parse_version
 
-from setuptools import setup, Extension
+from setuptools import setup, Extension, Command
 from setuptools.command.build_ext import build_ext
-from distutils.version import LooseVersion
 from setuptools.command.install import install
 
 class CMakeExtension(Extension):
@@ -92,71 +91,134 @@ class CMakeExtension(Extension):
         Extension.__init__(self, name, sources=[])
         self.sourcedir = os.path.abspath(sourcedir)
 
+# Overload Command for SetupTest to prevent build_ext being called again
+class SetupTest(Command):
+    '''
+    Tests the installed pycompadre module
+    '''
+    user_options=list()
+    def initialize_options(self): pass
+    def finalize_options(self): pass
+    def run(self):
+        try:
+            import pycompadre
+        except:
+            print('Install pycompadre before running test')
+        pycompadre.test()
+
 class CMakeBuild(build_ext):
     def run(self):
         try:
             out = subprocess.check_output(['cmake', '--version'])
         except OSError:
             raise RuntimeError("CMake must be installed to build the following extensions: " +
-                               ", ".join(e.name for e in self.extensions))
+                               ", ".join(e.name for e in self.extensions) + 
+                               "\nInstall cmake with `pip install cmake` or install from: https://cmake.org/download/.")
 
-        if platform.system() == "Windows":
-            cmake_version = LooseVersion(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
-            if cmake_version < '3.1.0':
-                raise RuntimeError("CMake >= 3.1.0 is required on Windows")
+        cmake_version = parse_version(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
+        if cmake_version < parse_version('3.10.0'):
+            raise RuntimeError("CMake >= 3.10.0 is required")
 
         for ext in self.extensions:
             self.build_extension(ext)
 
     def build_extension(self, ext):
         print("build_extension called.")
-        extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
+        extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name))+"/pycompadre")
         # required for auto-detection of auxiliary "native" libs
         if not extdir.endswith(os.path.sep):
             extdir += os.path.sep
 
-        # Parse string for kokkos architecture
-
         cmake_config = os.getenv("CMAKE_CONFIG_FILE")
         if cmake_config:
-            print("Custom cmake args file set to: %s"%(cmake_config,))
+            #  check if absolute or relative path
+            if os.path.isabs(cmake_config):
+                print("Custom cmake args file set to: %s"%(cmake_config,))
+            else:
+                if sys.path[0]=='' or not os.path.isdir(sys.path[0]):
+                    assert False, "CMAKE_CONFIG_FILE (%s) must be given as an absolute path when called from pip."
+                else:
+                    print("CMAKE_CONFIG_FILE given as a relative path: %s"%(cmake_config,))
+                    cmake_config = sys.path[0] + os.sep + cmake_config
+                    print("Custom cmake args file set to absolute path: %s"%(cmake_config,))
+            if not os.path.exists(cmake_config):
+                assert False, "CMAKE_CONFIG_FILE specified, but does not exist." 
         else:
-            cmake_config = ""
-            print("Custom cmake args file not set.")
-
-        #cmake_file_string = ""
-        #try:
-        #    if cmake_file != None:
-        #        cmake_file_string = str(cmake_file)
-        #        print("Custom cmake args file set to: %s"%(cmake_file_string,))
-        #    else:
-        #        print("Custom cmake args file not set.")
-        #except:
-        #    print("Custom cmake args file not set.")
+            # look for cmake_opts.txt and use it if found
+            if os.path.exists(ext.sourcedir+"/cmake_opts.txt"):
+                cmake_config = ext.sourcedir+"/cmake_opts.txt"
+                print("CMAKE_CONFIG_FILE not set, but cmake_opts.txt FOUND, so using: %s"%(cmake_config,))
+            else:
+                cmake_config = ""
+                print("Custom cmake args file not set.")
 
         # Configure CMake
-        #config = 'Debug' if self.debug else 'Release'
         cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir,
-                      '-DCMAKE_CXX_FLAGS= -O3 ',
                       '-DPYTHON_EXECUTABLE=' + sys.executable,
-                      '-DGMLS_Module_DEST=' + extdir,
                       '-DCMAKE_INSTALL_PREFIX=' + extdir,
-                      '-DCMAKE_OSX_DEPLOYMENT_TARGET=10.9',
                       '-DCompadre_USE_PYTHON:BOOL=ON',
-                      '-DCompadre_USE_MATLAB:BOOL=ON',
-                      '-DCompadre_EXAMPLES:BOOL=OFF',
                       '-DPYTHON_CALLING_BUILD:BOOL=ON',]
 
         cmake_file_list = list()
-        #if (cmake_file_string != ""):
         if (cmake_config != ""):
-            #cmake_arg_list = [line.rstrip('\n') for line in open(cmake_file_string)]
             cmake_arg_list = [line.rstrip('\n') for line in open(cmake_config)]
             for arg in cmake_arg_list:
                 cmake_args.append('-D'+arg)
             print('Custom CMake Args: ', cmake_arg_list)
 
-        cfg = 'Debug' if self.debug else 'Release'
+        # turn off examples and tests unless specified in a file
+        tests_in_cmake_args = False
+        for arg in cmake_args:
+            if 'Compadre_TESTS' in arg:
+                tests_in_cmake_args = True
+                break
+        if not tests_in_cmake_args:
+            cmake_args += ['-DCompadre_TESTS:BOOL=OFF']
+        examples_in_cmake_args = False
+        for arg in cmake_args:
+            if 'Compadre_EXAMPLES' in arg:
+                examples_in_cmake_args = True
+                break
+        if not examples_in_cmake_args:
+            cmake_args += ['-DCompadre_EXAMPLES:BOOL=OFF']
+
+        # add level 3 optimization if not specified in a file
+        flag_in_cmake_args = False
+        for arg in cmake_args:
+            if 'CMAKE_CXX_FLAGS' in arg:
+                flag_in_cmake_args = True
+                break
+        if not flag_in_cmake_args:
+            cmake_args += ['-DCMAKE_CXX_FLAGS= -O3 -g ']
+
+        # add level 3 optimization if not specified in a file
+        build_type_in_cmake_args = False
+        for arg in cmake_args:
+            if 'CMAKE_BUILD_TYPE' in arg:
+                build_type_in_cmake_args = True
+                break
+
+        # allow 'python setup.py build_ext --debug install' to have precedence over CMAKE_BUILD_TYPE
+        if self.debug and not build_type_in_cmake_args:
+            cfg = 'Debug'
+            cmake_args += ['-DCMAKE_BUILD_TYPE=Debug']
+        elif not self.debug and not build_type_in_cmake_args:
+            cfg = 'None'
+            cmake_args += ['-DCMAKE_BUILD_TYPE=None']
+        elif not self.debug: # was specified in file only
+            for arg in cmake_args[:]:
+                if 'CMAKE_BUILD_TYPE' in arg:
+                    # break down and copy to cfg
+                    cfg = arg.split('=')[1]
+                    break
+        else: # was specified in file and --debug in command
+            # delete specified from cmake_args 
+            for arg in cmake_args[:]:
+                if 'CMAKE_BUILD_TYPE' in arg:
+                    cmake_args.remove(arg)
+            cmake_args += ['-DCMAKE_BUILD_TYPE=Debug']
+            cfg = 'Debug'
+
         build_args = ['--config', cfg]
 
         if platform.system() == "Windows":
@@ -165,7 +227,6 @@ class CMakeBuild(build_ext):
                 cmake_args += ['-A', 'x64']
             build_args += ['--', '/m']
         else:
-            cmake_args += ['-DCMAKE_BUILD_TYPE=' + cfg]
             build_args += ['--', '-j2']
 
         env = os.environ.copy()
@@ -173,14 +234,21 @@ class CMakeBuild(build_ext):
                                                               self.distribution.get_version())
         if not os.path.exists(self.build_temp):
             os.makedirs(self.build_temp)
+        print("CMake Args:", cmake_args)
         subprocess.check_call(['cmake', ext.sourcedir] + cmake_args, cwd=self.build_temp, env=env)
+
+        # move __init__.py to install directory
+        os.rename(self.build_temp + "/__init__.py", extdir + "/__init__.py")
+
+        print("Build Args:", build_args)
         subprocess.check_call(['cmake', '--build', '.'] + build_args, cwd=self.build_temp)
+
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
 with open("cmake/Compadre_Version.txt", "r") as fh:
-    version_string = fh.read()
+    version_string = str(parse_version(fh.read()))
 
 setup(
     name='pycompadre',
@@ -190,19 +258,22 @@ setup(
     description="Compatible Particle Discretization and Remap",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/SNLComputation/compadre",
+    url="https://github.com/sandialabs/compadre",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: BSD License",
         "Operating System :: Unix",
     ],
-    install_requires=['cmake>=3.10.0',],
-    ext_modules=[CMakeExtension('pycompadre'),],
+    install_requires=['numpy'],
+    ext_modules=[CMakeExtension('_pycompadre'),],
     cmdclass={
         'build_ext': CMakeBuild,
+        'test': SetupTest,
     },
-    tests_require=['nose','numpy'],
-    test_suite='nose.collector',
+    packages=['pycompadre'],
     include_package_data=True,
+    exclude_package_data={
+        'pycompadre': ['pybind11/*', 'pycompadre.cpp', 'sphinx/*', 'install.sh', 'Matlab*', 'cmake_*', '__init__.py.in'],
+    },
     zip_safe=False,
 )

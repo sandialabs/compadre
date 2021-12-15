@@ -176,6 +176,7 @@ void GMLS_StaggeredIntegral_LaplacianPhysics::computeMatrix(local_index_type fie
 	//#pragma omp parallel for
 //	for(local_index_type i = 0; i < nlocal; i++) {
 //	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal), KOKKOS_LAMBDA(const int i) {
+    auto my_GMLS_solution_set = my_GMLS.getSolutionSetHost();
 	Kokkos::parallel_for(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
 		const int i = teamMember.league_rank();
 
@@ -206,8 +207,8 @@ void GMLS_StaggeredIntegral_LaplacianPhysics::computeMatrix(local_index_type fie
 								val_data(l*fields[field_two]->nDim() + n) = 0.0;
 							}
 						} else {
-                                                    val_data(l*fields[field_two]->nDim() + n) = my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0, 0); // adding to the neighbour index
-                                                    val_data(0) += my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0, 0); // adding to target index
+                                                    val_data(l*fields[field_two]->nDim() + n) = my_GMLS_solution_set->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, false, 0, 0); // adding to the neighbour index
+                                                    val_data(0) += my_GMLS_solution_set->getAlpha0TensorTo0Tensor(TargetOperation::DivergenceOfVectorPointEvaluation, i, l)*my_GMLS.getPreStencilWeight(StaggeredEdgeAnalyticGradientIntegralSample, i, l, true, 0, 0); // adding to target index
                                                 }
 					} else {
                                             val_data(l*fields[field_two]->nDim() + n) = 0.0;

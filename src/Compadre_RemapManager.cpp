@@ -234,9 +234,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                         // check for point evaluation on n_dimensions
                         // otherwise make compatible dimensions under operation
     
-                        int output_dim;
-    
-                        output_dim = _GMLS->getOutputDimensionOfOperation(_queue[i]._target_operation, true /*always ambient representation*/);
+                        int output_dim = getOutputDimensionOfOperation(_queue[i]._target_operation, _GMLS->getGlobalDimensions());
     
                         // field wasn't registered in target, so we are collecting its information from source particles
                         _trg_particles->getFieldManager()->createField(
@@ -261,13 +259,15 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                         getFieldByID(target_field_num)->nDim();
     
                 // check reasonableness of dimensions in and out of the operation for remap against the source and target fields
+                // output dimensions of operation calculated using global dimension to handle mapping to ambient space
+                // for manifolds (local == global dimensions for non-manifold problems)
                 std::ostringstream msg;
-                msg << "Dimensions between target field (" << target_field_dim << ") and operation on source field (" << _GMLS->getOutputDimensionOfOperation(_queue[i]._target_operation, true /*always ambient representation*/) << ") does not match for the field." << std::endl;
-                TEUCHOS_TEST_FOR_EXCEPT_MSG(target_field_dim != _GMLS->getOutputDimensionOfOperation(_queue[i]._target_operation, true), msg.str());
-                if (_GMLS->getInputDimensionOfSampling(_queue[i]._data_sampling_functional)==_GMLS->getOutputDimensionOfSampling(_queue[i]._data_sampling_functional)) {
-                    TEUCHOS_TEST_FOR_EXCEPT_MSG(source_field_dim != _GMLS->getInputDimensionOfOperation(_queue[i]._target_operation), "Dimensions between source field and operation input dimension does not match.");
+                msg << "Dimensions between target field (" << target_field_dim << ") and operation on source field (" << getOutputDimensionOfOperation(_queue[i]._target_operation, _GMLS->getGlobalDimensions()) << ") does not match for the field." << std::endl;
+                TEUCHOS_TEST_FOR_EXCEPT_MSG(target_field_dim != getOutputDimensionOfOperation(_queue[i]._target_operation, _GMLS->getGlobalDimensions()), msg.str());
+                if (getInputDimensionOfSampling(_queue[i]._data_sampling_functional, _GMLS->getGlobalDimensions())==getOutputDimensionOfSampling(_queue[i]._data_sampling_functional, _GMLS->getLocalDimensions())) {
+                    TEUCHOS_TEST_FOR_EXCEPT_MSG(source_field_dim != getInputDimensionOfOperation(_queue[i]._target_operation, _GMLS->getDataSamplingFunctional(), _GMLS->getLocalDimensions()), "Dimensions between source field and operation input dimension does not match.");
                 } else {
-                    TEUCHOS_TEST_FOR_EXCEPT_MSG(source_field_dim != _GMLS->getInputDimensionOfSampling(_queue[i]._data_sampling_functional), "Dimensions between source field and sampling strategy input dimension does not match.");
+                    TEUCHOS_TEST_FOR_EXCEPT_MSG(source_field_dim != getInputDimensionOfSampling(_queue[i]._data_sampling_functional, _GMLS->getGlobalDimensions()), "Dimensions between source field and sampling strategy input dimension does not match.");
                 }
                 
     

@@ -313,7 +313,7 @@ bool all_passed = true;
 
         // 0th entry is # of neighbors, which is the index beyond the last neighbor
         int num_neigh_i = neighbor_lists(i, 0);
-        double b_i = my_GMLS.getAlpha0TensorTo0Tensor(lro, i, num_neigh_i);
+        double b_i = my_GMLS.getSolutionSetHost()->getAlpha0TensorTo0Tensor(lro, i, num_neigh_i);
 
         // load value from output
         double GMLS_value = output_value(i);

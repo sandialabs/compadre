@@ -172,6 +172,7 @@ void GMLS_LaplacianPhysics::computeMatrix(local_index_type field_one, local_inde
 	//#pragma omp parallel for
 //	for(local_index_type i = 0; i < nlocal; i++) {
 //	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal), KOKKOS_LAMBDA(const int i) {
+    auto my_GMLS_solution_set = my_GMLS.getSolutionSetHost();
 	Kokkos::parallel_for(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
 		const int i = teamMember.league_rank();
 
@@ -203,9 +204,9 @@ void GMLS_LaplacianPhysics::computeMatrix(local_index_type field_one, local_inde
 							}
 						} else {
 							if (i==neighborhood->getNeighbor(i,l)) {
-								val_data(l*fields[field_two]->nDim() + n) = my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
+								val_data(l*fields[field_two]->nDim() + n) = my_GMLS_solution_set->getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
 							} else {
-								val_data(l*fields[field_two]->nDim() + n) = my_GMLS.getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
+								val_data(l*fields[field_two]->nDim() + n) = my_GMLS_solution_set->getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
 							}
 						}
 					} else {

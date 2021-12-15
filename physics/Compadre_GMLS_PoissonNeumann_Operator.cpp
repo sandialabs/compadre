@@ -276,7 +276,7 @@ void GMLS_PoissonNeumannPhysics::computeMatrix(local_index_type field_one, local
                 for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
                     col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(neighborhood->getNeighbor(_noconstraint_filtered_flags(i),l), field_two, n);
                     if (n==k) { // same field, same component
-                        val_data(l*fields[field_two]->nDim() + n) = _noconstraint_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
+                        val_data(l*fields[field_two]->nDim() + n) = _noconstraint_GMLS->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
                     } else {
                         val_data(l*fields[field_two]->nDim() + n) = 0.0;
                     }
@@ -309,7 +309,7 @@ void GMLS_PoissonNeumannPhysics::computeMatrix(local_index_type field_one, local
                 for (local_index_type n = 0; n < fields[field_two]->nDim(); ++n) {
                     col_data(l*fields[field_two]->nDim() + n) = local_to_dof_map(neighborhood->getNeighbor(_neumann_filtered_flags(i),l), field_two, n);
                     if (n==k) { // same field, same component
-                        val_data(l*fields[field_two]->nDim() + n) = _neumann_GMLS->getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
+                        val_data(l*fields[field_two]->nDim() + n) = _neumann_GMLS->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::LaplacianOfScalarPointEvaluation, i, l);
                     } else {
                         val_data(l*fields[field_two]->nDim() + n) = 0.0;
                     }

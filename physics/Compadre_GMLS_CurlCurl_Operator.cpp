@@ -173,6 +173,7 @@ void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index
 	team_scratch_size += host_scratch_vector_local_index_type::shmem_size(max_num_neighbors * fields[field_two]->nDim()); // local column indices
 	const local_index_type host_scratch_team_level = 0; // not used in Kokkos currently
 
+    auto my_GMLS_solution_set = my_GMLS.getSolutionSetHost();
 	Kokkos::parallel_for(host_team_policy(nlocal, Kokkos::AUTO).set_scratch_size(host_scratch_team_level,Kokkos::PerTeam(team_scratch_size)), [=](const host_member_type& teamMember) {
 		const int i = teamMember.league_rank();
 
@@ -203,7 +204,7 @@ void GMLS_CurlCurlPhysics::computeMatrix(local_index_type field_one, local_index
                                 }
                             } else {
                               // for others, evaluate the coefficient and fill the row
-                              val_data(l*fields[field_two]->nDim() + n) = my_GMLS.getAlpha1TensorTo1Tensor(TargetOperation::CurlCurlOfVectorPointEvaluation, i, k /* output component */, l, n /* input component */); // adding to neighbour index
+                              val_data(l*fields[field_two]->nDim() + n) = my_GMLS_solution_set->getAlpha1TensorTo1Tensor(TargetOperation::CurlCurlOfVectorPointEvaluation, i, k /* output component */, l, n /* input component */); // adding to neighbour index
                             }
                         }
                     }

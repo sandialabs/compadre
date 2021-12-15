@@ -1486,22 +1486,22 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     const auto q_wt = (i<nlocal_cells) ? quadrature_weights(i,qn) : halo_quadrature_weights(_halo_small_to_big(halo_i,0),qn);
                                     if (j_to_cell_i>=0) {
                                         if (_use_vector_gmls) {
-                                            v = (i<nlocal_cells) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, j_comp_out, j_to_cell_i, j_comp_in, qn+1)
-                                                 : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j_to_cell_i, qn+1);
+                                            v = (i<nlocal_cells) ? _vel_gmls->getSolutionSetHost()->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, j_comp_out, j_to_cell_i, j_comp_in, qn+1)
+                                                 : _halo_vel_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j_to_cell_i, qn+1);
                                         } else {
-                                            v = (i<nlocal_cells) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1)
-                                                 : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j_to_cell_i, qn+1);
+                                            v = (i<nlocal_cells) ? _vel_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1)
+                                                 : _halo_vel_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, j_to_cell_i, qn+1);
                                         }
                                     } else {
                                         v = 0;
                                     }
                                     if (k_to_cell_i>=0) {
                                         if (_use_vector_gmls) {
-                                            u = (i<nlocal_cells) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, k_comp_out, k_to_cell_i, k_comp_in, qn+1)
-                                                 : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, k_to_cell_i, qn+1);
+                                            u = (i<nlocal_cells) ? _vel_gmls->getSolutionSetHost()->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, k_comp_out, k_to_cell_i, k_comp_in, qn+1)
+                                                 : _halo_vel_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, k_to_cell_i, qn+1);
                                         } else {
-                                            u = (i<nlocal_cells) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1)
-                                                 : _halo_vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, k_to_cell_i, qn+1);
+                                            u = (i<nlocal_cells) ? _vel_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1)
+                                                 : _halo_vel_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, halo_i, k_to_cell_i, qn+1);
                                         }
                                     } else {
                                         u = 0;
@@ -1522,31 +1522,31 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                 
                                 if (j_to_cell_i>=0) {
 
-                                    if (_use_vector_gmls) v = _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, j_comp_out, j_to_cell_i, j_comp_in, qn+1);
-                                    else v = _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
+                                    if (_use_vector_gmls) v = _vel_gmls->getSolutionSetHost()->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, j_comp_out, j_to_cell_i, j_comp_in, qn+1);
+                                    else v = _vel_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
 
                                     if (_use_vector_grad_gmls) {
                                         for (int d=0; d<_ndim_requested; ++d) {
-                                            grad_v[d] = _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, j_comp_out, d, j_to_cell_i, j_comp_in, qn+1);
+                                            grad_v[d] = _vel_gmls->getSolutionSetHost()->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, j_comp_out, d, j_to_cell_i, j_comp_in, qn+1);
                                         }
                                     } else {
                                         for (int d=0; d<_ndim_requested; ++d) {
-                                            grad_v[d] = _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, d, j_to_cell_i, qn+1);
+                                            grad_v[d] = _vel_gmls->getSolutionSetHost()->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, d, j_to_cell_i, qn+1);
                                         }
                                     }
                                 }
                                 if (k_to_cell_i>=0) {
 
-                                    if (_use_vector_gmls) u = _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, k_comp_out, k_to_cell_i, k_comp_in, qn+1);
-                                    else u = _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
+                                    if (_use_vector_gmls) u = _vel_gmls->getSolutionSetHost()->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, i, k_comp_out, k_to_cell_i, k_comp_in, qn+1);
+                                    else u = _vel_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
 
                                     if (_use_vector_grad_gmls) {
                                         for (int d=0; d<_ndim_requested; ++d) {
-                                            grad_u[d] = _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, k_comp_out, d, k_to_cell_i, k_comp_in, qn+1);
+                                            grad_u[d] = _vel_gmls->getSolutionSetHost()->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, k_comp_out, d, k_to_cell_i, k_comp_in, qn+1);
                                         }
                                     } else {
                                         for (int d=0; d<_ndim_requested; ++d) {
-                                            grad_u[d] = _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, d, k_to_cell_i, qn+1);
+                                            grad_u[d] = _vel_gmls->getSolutionSetHost()->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, d, k_to_cell_i, qn+1);
                                         }
                                     }
                                 }
@@ -1600,12 +1600,12 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                         double p, q;
                                         if (_pressure_field_id==field_one || _pressure_field_id==field_two) {
                                             if (j_to_cell_i>=0) {
-                                                q = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
+                                                q = _pressure_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
                                             } else {
                                                 q = 0.0;
                                             }
                                             if (k_to_cell_i>=0) {
-                                                p = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
+                                                p = _pressure_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
                                             } else {
                                                 p = 0.0;
                                             }
@@ -1822,12 +1822,12 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             double p, q;
                                             if (_pressure_field_id==field_one || _pressure_field_id==field_two) {
                                                 if (j_to_cell_i>=0) {
-                                                    q = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
+                                                    q = _pressure_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
                                                 } else {
                                                     q = 0.0;
                                                 }
                                                 if (k_to_cell_i>=0) {
-                                                    p = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
+                                                    p = _pressure_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
                                                 } else {
                                                     p = 0.0;
                                                 }
@@ -1966,12 +1966,12 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     }
  
                                     double other_v, other_u;
-                                    if (_use_vector_gmls) other_v = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, j_to_adjacent_cell[qn], j_comp_in, adjacent_q+1) : 0.0;
-                                    else other_v = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
+                                    if (_use_vector_gmls) other_v = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getSolutionSetHost()->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, j_to_adjacent_cell[qn], j_comp_in, adjacent_q+1) : 0.0;
+                                    else other_v = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
                                     const double jumpv = normal_direction_correction*(v-other_v);
 
-                                    if (_use_vector_gmls) other_u = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, k_to_adjacent_cell[qn], k_comp_in, adjacent_q+1) : 0.0;
-                                    else other_u = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
+                                    if (_use_vector_gmls) other_u = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getSolutionSetHost()->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, k_to_adjacent_cell[qn], k_comp_in, adjacent_q+1) : 0.0;
+                                    else other_u = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
                                     const double jumpu = normal_direction_correction*(u-other_u);
 
 
@@ -1979,20 +1979,20 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                     XYZ other_grad_v, other_grad_u;
                                     if (_use_vector_grad_gmls) {
                                         for (int d=0; d<_ndim_requested; ++d) {
-                                            other_grad_v[d] = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, d, j_to_adjacent_cell[qn], j_comp_in, adjacent_q+1) : 0.0;
-                                            other_grad_u[d] = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, d, k_to_adjacent_cell[qn], k_comp_in, adjacent_q+1) : 0.0;
-                                            //other_grad_v_y = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, 1, j_to_adjacent_cell[qn], j_comp_in, adjacent_q+1) : 0.0;
-                                            //other_grad_u_x = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, 0, k_to_adjacent_cell[qn], k_comp_in, adjacent_q+1) : 0.0;
-                                            //other_grad_u_y = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, 1, k_to_adjacent_cell[qn], k_comp_in, adjacent_q+1) : 0.0;
+                                            other_grad_v[d] = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getSolutionSetHost()->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, d, j_to_adjacent_cell[qn], j_comp_in, adjacent_q+1) : 0.0;
+                                            other_grad_u[d] = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getSolutionSetHost()->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, d, k_to_adjacent_cell[qn], k_comp_in, adjacent_q+1) : 0.0;
+                                            //other_grad_v_y = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getSolutionSetHost()->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, j_comp_out, 1, j_to_adjacent_cell[qn], j_comp_in, adjacent_q+1) : 0.0;
+                                            //other_grad_u_x = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getSolutionSetHost()->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, 0, k_to_adjacent_cell[qn], k_comp_in, adjacent_q+1) : 0.0;
+                                            //other_grad_u_y = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getSolutionSetHost()->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, adjacent_cell_local_index_q, k_comp_out, 1, k_to_adjacent_cell[qn], k_comp_in, adjacent_q+1) : 0.0;
                                         }
                                     } else {
                                         for (int d=0; d<_ndim_requested; ++d) {
-                                            other_grad_v[d] = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, d, j_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
-                                            other_grad_u[d] = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, d, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
+                                            other_grad_v[d] = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getSolutionSetHost()->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, d, j_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
+                                            other_grad_u[d] = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getSolutionSetHost()->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, d, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
                                         }
-                                        //other_grad_v_y = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, j_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
-                                        //other_grad_u_x = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
-                                        //other_grad_u_y = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
+                                        //other_grad_v_y = (j_to_adjacent_cell[qn]>=0) ? _vel_gmls->getSolutionSetHost()->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, j_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
+                                        //other_grad_u_x = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getSolutionSetHost()->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 0, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
+                                        //other_grad_u_y = (k_to_adjacent_cell[qn]>=0) ? _vel_gmls->getSolutionSetHost()->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, adjacent_cell_local_index_q, 1, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
 
                                     }
 
@@ -2174,18 +2174,18 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
                                             double p, q;
                                             if (_pressure_field_id==field_one || _pressure_field_id==field_two) {
                                                 if (j_to_cell_i>=0) {
-                                                    q = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
+                                                    q = _pressure_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, j_to_cell_i, qn+1);
                                                 } else {
                                                     q = 0.0;
                                                 }
                                                 if (k_to_cell_i>=0) {
-                                                    p = _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
+                                                    p = _pressure_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, i, k_to_cell_i, qn+1);
                                                 } else {
                                                     p = 0.0;
                                                 }
                                             }
-                                            const double other_q = (j_to_adjacent_cell[qn]>=0) ? _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
-                                            const double other_p = (k_to_adjacent_cell[qn]>=0) ? _pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
+                                            const double other_q = (j_to_adjacent_cell[qn]>=0) ? _pressure_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, j_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
+                                            const double other_p = (k_to_adjacent_cell[qn]>=0) ? _pressure_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adjacent_cell_local_index_q, k_to_adjacent_cell[qn], adjacent_q+1) : 0.0;
                                             const double avgp = 0.5*(p+other_p);
                                             const double avgq = 0.5*(q+other_q);
                                             const double jumpp = normal_direction_correction*(p-other_p);
