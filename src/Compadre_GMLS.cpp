@@ -133,6 +133,12 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     int this_num_cols = _basis_multiplier*_NP;
     int manifold_NP = 0;
 
+    // determines whether RHS will be stored implicitly
+    // if true, instead of RHS storing the full sqrt(W) explicitly,
+    // only the diagonal entries of sqrt(W) will be stored as a
+    // 1D array beginning at entry with matrix coordinate (0,0)
+    bool implicit_RHS = (_dense_solver_type != DenseSolverType::LU);
+
     if (_problem_type == ProblemType::MANIFOLD) {
         // these dimensions already calculated differ in the case of manifolds
         manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
@@ -267,12 +273,12 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
                     // batchLU expects layout_left matrix tiles for B
                     // by giving it layout_right matrix tiles with reverse ordered ldb and ndb
                     // it effects a transpose of _P in layout_left
-                    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, manifold_NP, manifold_NP, _max_num_neighbors, this_batch_size);
+                    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, manifold_NP, manifold_NP, _max_num_neighbors, this_batch_size, implicit_RHS);
                     Kokkos::Profiling::popRegion();
                 } else {
                     // solves P*sqrt(weights) against sqrt(weights)*Identity with QR, stored in RHS
                     Kokkos::Profiling::pushRegion("Curvature QR+Pivoting Factorization");
-                    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, _max_num_neighbors, manifold_NP, _max_num_neighbors, this_batch_size);
+                    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, _max_num_neighbors, manifold_NP, _max_num_neighbors, this_batch_size, implicit_RHS);
                     Kokkos::Profiling::popRegion();
                 }
 
@@ -298,12 +304,12 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
             if (_dense_solver_type == DenseSolverType::LU) {
                 // solves P^T*P against P^T*W with LU, stored in P
                 Kokkos::Profiling::pushRegion("Curvature LU Factorization");
-                GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, manifold_NP, manifold_NP, _max_num_neighbors, this_batch_size);
+                GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, manifold_NP, manifold_NP, _max_num_neighbors, this_batch_size, implicit_RHS);
                 Kokkos::Profiling::popRegion();
             } else {
                  // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
                 Kokkos::Profiling::pushRegion("Curvature QR+Pivoting Factorization");
-                GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, _max_num_neighbors, manifold_NP, _max_num_neighbors, this_batch_size);
+                GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, _max_num_neighbors, manifold_NP, _max_num_neighbors, this_batch_size, implicit_RHS);
                 Kokkos::Profiling::popRegion();
             }
 
@@ -329,11 +335,11 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
             // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
             if (_dense_solver_type == DenseSolverType::LU) {
                 Kokkos::Profiling::pushRegion("Manifold LU Factorization");
-                GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, this_num_cols, this_num_cols, max_num_rows, this_batch_size);
+                GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, this_num_cols, this_num_cols, max_num_rows, this_batch_size, implicit_RHS);
                 Kokkos::Profiling::popRegion();
             } else {
                 Kokkos::Profiling::pushRegion("Manifold QR+Pivoting Factorization");
-                GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, max_num_rows, this_num_cols, max_num_rows, this_batch_size);
+                GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, max_num_rows, this_num_cols, max_num_rows, this_batch_size, implicit_RHS);
                 Kokkos::Profiling::popRegion();
             }
             Kokkos::fence();
@@ -353,14 +359,14 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
             // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
             if (_dense_solver_type == DenseSolverType::LU) {
                     Kokkos::Profiling::pushRegion("LU Factorization");
-                    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + _d_ss._added_alpha_size, this_batch_size);
+                    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + _d_ss._added_alpha_size, this_batch_size, implicit_RHS);
                     Kokkos::Profiling::popRegion();
             } else {
                 Kokkos::Profiling::pushRegion("QR+Pivoting Factorization");
                 if (_constraint_type != ConstraintType::NO_CONSTRAINT) {
-                     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + _d_ss._added_alpha_size, this_batch_size);
+                     GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, this_num_cols + added_coeff_size, this_num_cols + added_coeff_size, max_num_rows + _d_ss._added_alpha_size, this_batch_size, implicit_RHS);
                 } else {
-                    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, max_num_rows, this_num_cols, max_num_rows, this_batch_size);
+                    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, max_num_rows, this_num_cols, max_num_rows, this_batch_size, implicit_RHS);
                 }
                 Kokkos::Profiling::popRegion();
             }
