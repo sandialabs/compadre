@@ -200,7 +200,8 @@ if (Compadre_EXAMPLES)
         SET_TESTS_PROPERTIES(GMLS_Matlab_Python_Interface_1d_Point_Reconstruction PROPERTIES LABELS "IntegrationTest;integration;python;kokkos;matlab" TIMEOUT 10)
       endif()
 
-      ADD_TEST(NAME PyCOMPADRE_Tests COMMAND "${PYTHON_EXECUTABLE}" "-c" "import sys;sys.path.insert(0,'${PYTHON_LIBRARY_PREFIX}');import pycompadre;pycompadre.test();")
+      ADD_TEST(NAME PyCOMPADRE_Tests COMMAND "${PYTHON_EXECUTABLE}" "-m" "unittest" "discover" "-s" "${PYTHON_LIBRARY_PREFIX}/pycompadre/examples")
+      SET_TESTS_PROPERTIES(PyCOMPADRE_Tests PROPERTIES ENVIRONMENT PYTHONPATH=${PYTHON_LIBRARY_PREFIX})
       SET_TESTS_PROPERTIES(PyCOMPADRE_Tests PROPERTIES LABELS "pycompadre" TIMEOUT 10)
 
     endif()

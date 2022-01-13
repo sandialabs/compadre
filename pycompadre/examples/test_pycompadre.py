@@ -46,7 +46,7 @@ def grad_exact(coord,component,order,dimension):
         elif order==3:
             return 1 + x + y + 2*z + x*x + x*y + x*2*z + y*y + y*2*z + 3*z*z
 
-def remap(polyOrder,dimension,additional_sites=False):
+def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5):
 
     minND = [[10,20,30],[10,20,100],[30,30,60]]
     ND = minND[dimension-1][polyOrder-1]
@@ -104,7 +104,6 @@ def remap(polyOrder,dimension,additional_sites=False):
     source_sites = np.array(t_sites, dtype=np.dtype('d'))
 
     # neighbor search
-    epsilon_multiplier = 1.5
     gmls_helper = pycompadre.ParticleHelper(gmls_obj)
     gmls_helper.generateKDTree(source_sites)
     gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_sites, polyOrder, dimensions, epsilon_multiplier)
@@ -235,6 +234,45 @@ class TestPycompadre(TestCase):
         l2,h1,l2a=remap(3,3,True)
         self.assertTrue(l2<1e-13 and h1<1e-13 and l2a<1e-13)
 
+    def test_square_qr(self):
+        l2,h1=remap(1,1,False,epsilon_multiplier=1.01)
+        self.assertTrue(l2<1e-13 and h1<1e-13)
+
+    def test_square_qr_bugfix(self):
+        kp = pycompadre.KokkosParser()
+
+        source_sites = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
+        source_sites = np.reshape(source_sites, newshape=(source_sites.size,1))
+        data = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
+
+        polynomial_order = 1
+        dim = 1
+
+        gmls_obj=pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD")
+        gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
+        gmls_obj.addTargets(pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        gmls_helper.generateKDTree(source_sites)
+
+        point = np.array([4.0], dtype='f8')
+        target_site = np.reshape(point, newshape=(1,dim))
+
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+        gmls_obj.generateAlphas(1, True)
+
+        output = gmls_helper.applyStencilSingleTarget(data, pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+
+        del gmls_helper
+        del gmls_obj
+        del kp
+
+        self.assertAlmostEqual(output, 1.0, places=15)
+
 #tc = TestPycompadre()
 #tc.test_additional_sites()
 #tc.test_3d_order1()
+
+if __name__ == '__main__':
+    import unittest
+    unittest.main()
