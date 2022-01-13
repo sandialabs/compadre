@@ -5,8 +5,6 @@ import random
 import pycompadre
 import sys
 
-kokkos_obj=pycompadre.KokkosParser(sys.argv)
-
 # function used to generate sample data
 def exact(coord,order,dimension):
     x = coord[0]
@@ -196,6 +194,15 @@ def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5):
 
 
 class TestPycompadre(TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.shared_resource = pycompadre.KokkosParser(sys.argv)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.shared_resource = None
+
     def test_1d_order1(self):
         l2,h1=remap(1,1)
         self.assertTrue(l2<1e-13 and h1<1e-13)
@@ -239,7 +246,6 @@ class TestPycompadre(TestCase):
         self.assertTrue(l2<1e-13 and h1<1e-13)
 
     def test_square_qr_bugfix(self):
-        kp = pycompadre.KokkosParser()
 
         source_sites = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
         source_sites = np.reshape(source_sites, newshape=(source_sites.size,1))
@@ -265,7 +271,6 @@ class TestPycompadre(TestCase):
 
         del gmls_helper
         del gmls_obj
-        del kp
 
         self.assertAlmostEqual(output, 1.0, places=15)
 
