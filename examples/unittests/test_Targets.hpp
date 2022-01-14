@@ -15,7 +15,7 @@ public:
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> source_coords_device;
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> target_coords_device;
 
-    TargetTest( ) {
+    TargetTest() {
     }
 
     // silence warning, letting compiler know we mean
@@ -44,8 +44,7 @@ public:
         Kokkos::deep_copy(epsilon_device, epsilon);
     }
 
-    void TearDown( ) {
-        // after test completes
+    void TearDown() {
     }
 };
 
@@ -69,9 +68,9 @@ TEST_F (TargetTest, EvalBernsteinBasis) {
             6, dimension);
     Kokkos::View<double**>::HostMirror additional_target_coords = Kokkos::create_mirror_view(additional_target_coords_device);
     additional_target_coords(0,0) = -1.0;
-    additional_target_coords(1,0) = 0.5;
-    additional_target_coords(2,0) = 1.5;
-    additional_target_coords(3,0) = 3.0;
+    additional_target_coords(1,0) = 3.0;
+    additional_target_coords(2,0) = 0.5;
+    additional_target_coords(3,0) = 1.5;
     additional_target_coords(4,0) = 0.0;
     additional_target_coords(5,0) = 2.0;
     Kokkos::deep_copy(additional_target_coords_device, additional_target_coords);
@@ -118,60 +117,70 @@ TEST_F (TargetTest, EvalBernsteinBasis) {
         int m=0; // tilesize
         int k=0; // tilesize
         const int offset_index_jmke = gmls_basis_data._d_ss.getTargetOffsetIndex(j,m,k,e);
-        for (int i=0; i<order+1; ++i) {
-            printf("P(%d,%d): %.16g\n", e, i, P_target_row(offset_index_jmke, i));
+        //for (int i=0; i<order+1; ++i) {
+        //    printf("P(%d,%d): %.16g\n", e, i, P_target_row(offset_index_jmke, i));
+        //}
+        // e==0 is target site
+        if (e==0) {
+            ASSERT_DOUBLE_EQ (P_target_row(offset_index_jmke, 0), 0.25);
+            ASSERT_DOUBLE_EQ (P_target_row(offset_index_jmke, 1), 0.5);
+            ASSERT_DOUBLE_EQ (P_target_row(offset_index_jmke, 2), 0.25);
+        // e==1 is additional site out of bounds left, should have atleast one coefficient negative
+        } else if (e==1) {
+            bool found_negative = false;
+            for (int i=0; i<order+1; ++i) {
+                if (P_target_row(offset_index_jmke, i) < 0.0) found_negative = true;
+            }
+            ASSERT_TRUE(found_negative);
+        // e==2 is additional site out of bounds right, should have atleast one coefficient negative
+        } else if (e==2) {
+            bool found_negative = false;
+            for (int i=0; i<order+1; ++i) {
+                if (P_target_row(offset_index_jmke, i) < 0.0) found_negative = true;
+            }
+            ASSERT_TRUE(found_negative);
+        // e==3 is additional site in bounds left of target, should sum to 1.0 and have no negatives
+        } else if (e==3) {
+            bool found_negative = false;
+            double sum = 0.0;
+            for (int i=0; i<order+1; ++i) {
+                if (P_target_row(offset_index_jmke, i) < 0.0) found_negative = true;
+                sum += P_target_row(offset_index_jmke, i);
+            }
+            ASSERT_TRUE(!found_negative);
+            ASSERT_DOUBLE_EQ (sum, 1.0);
+        // e==4 is additional site in bounds right of target, should sum to 1.0 and have no negatives
+        } else if (e==4) {
+            bool found_negative = false;
+            double sum = 0.0;
+            for (int i=0; i<order+1; ++i) {
+                if (P_target_row(offset_index_jmke, i) < 0.0) found_negative = true;
+                sum += P_target_row(offset_index_jmke, i);
+            }
+            ASSERT_TRUE(!found_negative);
+            ASSERT_DOUBLE_EQ (sum, 1.0);
+        // e==5 is additional site at left bounds (given r=1), should sum to 1.0 and have no negatives
+        } else if (e==5) {
+            bool found_negative = false;
+            double sum = 0.0;
+            for (int i=0; i<order+1; ++i) {
+                if (P_target_row(offset_index_jmke, i) < 0.0) found_negative = true;
+                sum += P_target_row(offset_index_jmke, i);
+            }
+            ASSERT_TRUE(!found_negative);
+            ASSERT_DOUBLE_EQ (sum, 1.0);
+        // e==5 is additional site at right bounds (given r=1), should sum to 1.0 and have no negatives
+        } else if (e==6) {
+            bool found_negative = false;
+            double sum = 0.0;
+            for (int i=0; i<order+1; ++i) {
+                if (P_target_row(offset_index_jmke, i) < 0.0) found_negative = true;
+                sum += P_target_row(offset_index_jmke, i);
+            }
+            ASSERT_TRUE(!found_negative);
+            ASSERT_DOUBLE_EQ (sum, 1.0);
         }
     }
-
-    //ASSERT_DOUBLE_EQ (3.0, (a*3.0).x);
-    //ASSERT_DOUBLE_EQ (4.0, (a*4.0).y);
-    //ASSERT_DOUBLE_EQ (5.0, (a*5.0).y);
 }
-//TEST_F (XyzTest, ScalarMultiplyXYZ) {
-//    ASSERT_DOUBLE_EQ (3.0, (3.0*a).x);
-//    ASSERT_DOUBLE_EQ (4.0, (4.0*a).y);
-//    ASSERT_DOUBLE_EQ (5.0, (5.0*a).y);
-//}
-//TEST_F (XyzTest, XYZAddXYZ) {
-//    auto ans = a+c;
-//    ASSERT_DOUBLE_EQ (2.0, ans.x);
-//    ASSERT_DOUBLE_EQ (3.0, ans.y);
-//    ASSERT_DOUBLE_EQ (4.0, ans.z);
-//}
-//TEST_F (XyzTest, XYZAddScalar) {
-//    ASSERT_DOUBLE_EQ (2.0, (a+1).x);
-//    ASSERT_DOUBLE_EQ (3.0, (a+2).y);
-//    ASSERT_DOUBLE_EQ (4.0, (a+3).z);
-//}
-//TEST_F (XyzTest, ScalarAddXYZ) {
-//    auto ans = 1 + c;
-//    ASSERT_DOUBLE_EQ (2.0, ans.x);
-//    ASSERT_DOUBLE_EQ (3.0, ans.y);
-//    ASSERT_DOUBLE_EQ (4.0, ans.z);
-//}
-//TEST_F (XyzTest, XYZSubtractXYZ) {
-//    auto ans = a - c;
-//    ASSERT_DOUBLE_EQ ( 0.0, ans.x);
-//    ASSERT_DOUBLE_EQ (-1.0, ans.y);
-//    ASSERT_DOUBLE_EQ (-2.0, ans.z);
-//}
-//TEST_F (XyzTest, XYZSubtractScalar) {
-//    auto ans = c - 1;
-//    ASSERT_DOUBLE_EQ (0.0, ans.x);
-//    ASSERT_DOUBLE_EQ (1.0, ans.y);
-//    ASSERT_DOUBLE_EQ (2.0, ans.z);
-//}
-//TEST_F (XyzTest, ScalarSubtractXYZ) {
-//    auto ans = 1 - c;
-//    ASSERT_DOUBLE_EQ ( 0.0, ans.x);
-//    ASSERT_DOUBLE_EQ (-1.0, ans.y);
-//    ASSERT_DOUBLE_EQ (-2.0, ans.z);
-//}
-//TEST_F (XyzTest, XYZDivideScalar) {
-//    auto ans = c / 4.0;
-//    ASSERT_DOUBLE_EQ ( 0.25, ans.x);
-//    ASSERT_DOUBLE_EQ ( 0.50, ans.y);
-//    ASSERT_DOUBLE_EQ (3/4.0, ans.z);
-//}
 
 #endif
