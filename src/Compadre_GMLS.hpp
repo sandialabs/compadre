@@ -1313,7 +1313,8 @@ public:
     //! \param number_of_batches    [in] - how many batches to break up the total workload into (for storage)
     //! \param keep_coefficients    [in] - whether to store (P^T W P)^-1 * P^T * W
     */
-    void generatePolynomialCoefficients(const int number_of_batches = 1, const bool keep_coefficients = false);
+    void generatePolynomialCoefficients(const int number_of_batches = 1, const bool keep_coefficients = false, 
+            const bool clear_cache = true);
 
     /*! \brief Meant to calculate target operations and apply the evaluations to the previously 
     //! constructed polynomial coefficients. But now that is inside of generatePolynomialCoefficients because
@@ -1321,7 +1322,8 @@ public:
     //! \param number_of_batches    [in] - how many batches to break up the total workload into (for storage)
     //! \param keep_coefficients    [in] - whether to store (P^T W P)^-1 * P^T * W
     */
-    void generateAlphas(const int number_of_batches = 1, const bool keep_coefficients = false);
+    void generateAlphas(const int number_of_batches = 1, const bool keep_coefficients = false, 
+            const bool clear_cache = true);
 
 ///@}
 

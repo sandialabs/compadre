@@ -55,24 +55,28 @@ namespace BernsteinPolynomialBasis {
                 one_minus_y_over_h_to_i[0] = 1;
                 one_minus_z_over_h_to_i[0] = 1;
                 for (int i=1; i<=max_degree; ++i) {
-                    x_over_h_to_i[i] = x_over_h_to_i[i-1]*(0.5*x/h);
-                    y_over_h_to_i[i] = y_over_h_to_i[i-1]*(0.5*y/h);
-                    z_over_h_to_i[i] = z_over_h_to_i[i-1]*(0.5*z/h);
-                    one_minus_x_over_h_to_i[i] = one_minus_x_over_h_to_i[i-1]*(1.0-(0.5*x/h));
-                    one_minus_y_over_h_to_i[i] = one_minus_y_over_h_to_i[i-1]*(1.0-(0.5*y/h));
-                    one_minus_z_over_h_to_i[i] = one_minus_z_over_h_to_i[i-1]*(1.0-(0.5*z/h));
+                    x_over_h_to_i[i] = x_over_h_to_i[i-1]*(0.5*x/h+0.5);
+                    y_over_h_to_i[i] = y_over_h_to_i[i-1]*(0.5*y/h+0.5);
+                    z_over_h_to_i[i] = z_over_h_to_i[i-1]*(0.5*z/h+0.5);
+                    one_minus_x_over_h_to_i[i] = one_minus_x_over_h_to_i[i-1]*(1.0-(0.5*x/h+0.5));
+                    one_minus_y_over_h_to_i[i] = one_minus_y_over_h_to_i[i-1]*(1.0-(0.5*y/h+0.5));
+                    one_minus_z_over_h_to_i[i] = one_minus_z_over_h_to_i[i-1]*(1.0-(0.5*z/h+0.5));
                 }
-                // (in 3D) \sum_{p=0}^{p=P} \sum_{k1+k2+k3=n} (x/h)^k1*(y/h)^k2*(z/h)^k3 / (k1!k2!k3!)
+                // (in 3D) \sum_{n_1=0}^{n_1=P}\sum_{n_2=0}^{n_2=P}\sum_{n_3=0}^{n_3=P} 
+                // \frac{P!}{n_1!(P-n_1)!}*\frac{P!}{n_2!(P-n_2)!}*\frac{P!}{n_3!(P-n_3)!}*
+                // \left(\frac{x}{2h}+\frac{1}{2}\right)^{n_1}*\left(1-\frac{x}{2h}-\frac{1}{2}\right)^{P-n_1}*
+                // \left(\frac{y}{2h}+\frac{1}{2}\right)^{n_2}*\left(1-\frac{y}{2h}-\frac{1}{2}\right)^{P-n_2}*
+                // \left(\frac{z}{2h}+\frac{1}{2}\right)^{n_3}*\left(1-\frac{z}{2h}-\frac{1}{2}\right)^{P-n_3}
                 int alphax, alphay, alphaz;
                 double alphaf;
-                int i=0, s=0;
-                for (int n = starting_order; n <= max_degree; n++){
-                    for (alphaz = 0; alphaz <= n; alphaz++){
-                        s = n - alphaz;
-                        for (alphay = 0; alphay <= s; alphay++){
-                            alphax = s - alphay;
-                            alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
-                            *(delta+i) = weight_of_original_value * *(delta+i) + weight_of_new_value * x_over_h_to_i[alphax]*y_over_h_to_i[alphay]*z_over_h_to_i[alphaz]/alphaf;
+                int i=0;
+                for (int n1 = starting_order; n1 <= max_degree; n1++){
+                    int degree_choose_n1 = factorial[max_degree]/(factorial[n1]*factorial[max_degree-n1]);
+                    for (int n2 = starting_order; n2 <= max_degree; n2++){
+                        int degree_choose_n2 = factorial[max_degree]/(factorial[n2]*factorial[max_degree-n2]);
+                        for (int n3 = starting_order; n3 <= max_degree; n3++){
+                            int degree_choose_n3 = factorial[max_degree]/(factorial[n3]*factorial[max_degree-n3]);
+                            *(delta+i) = weight_of_original_value * *(delta+i) + weight_of_new_value * degree_choose_n1*degree_choose_n2*degree_choose_n3*x_over_h_to_i[n1]*one_minus_x_over_h_to_i[max_degree-n1]*y_over_h_to_i[n2]*one_minus_y_over_h_to_i[max_degree-n2]*z_over_h_to_i[n3]*one_minus_z_over_h_to_i[max_degree-n3];
                             i++;
                         }
                     }
@@ -87,20 +91,23 @@ namespace BernsteinPolynomialBasis {
                 one_minus_x_over_h_to_i[0] = 1;
                 one_minus_y_over_h_to_i[0] = 1;
                 for (int i=1; i<=max_degree; ++i) {
-                    x_over_h_to_i[i] = x_over_h_to_i[i-1]*(0.5*x/h);
-                    y_over_h_to_i[i] = y_over_h_to_i[i-1]*(0.5*y/h);
-                    one_minus_x_over_h_to_i[i] = one_minus_x_over_h_to_i[i-1]*(1.0-(0.5*x/h));
-                    one_minus_y_over_h_to_i[i] = one_minus_y_over_h_to_i[i-1]*(1.0-(0.5*y/h));
+                    x_over_h_to_i[i] = x_over_h_to_i[i-1]*(0.5*x/h+0.5);
+                    y_over_h_to_i[i] = y_over_h_to_i[i-1]*(0.5*y/h+0.5);
+                    one_minus_x_over_h_to_i[i] = one_minus_x_over_h_to_i[i-1]*(1.0-(0.5*x/h+0.5));
+                    one_minus_y_over_h_to_i[i] = one_minus_y_over_h_to_i[i-1]*(1.0-(0.5*y/h+0.5));
                 }
-                // (in 2D) \sum_{n=0}^{n=P} \sum_{k=0}^{k=n} (x/h)^(n-k)*(y/h)^k / ((n-k)!k!)
+                // (in 2D) \sum_{n_1=0}^{n_1=P}\sum_{n_2=0}^{n_2=P} \frac{P!}{n_1!(P-n_1)!}*
+                // \frac{P!}{n_2!(P-n_2)!}*\left(\frac{x}{2h}+\frac{1}{2}\right)^{n_1}*
+                // \left(1-\frac{x}{2h}-\frac{1}{2}\right)^{P-n_1}*\left(\frac{y}{2h}+\frac{1}{2}\right)^{n_2}*
+                // \left(1-\frac{y}{2h}-\frac{1}{2}\right)^{P-n_2}
                 int alphax, alphay;
                 double alphaf;
                 int i = 0;
-                for (int n = starting_order; n <= max_degree; n++){
-                    for (alphay = 0; alphay <= n; alphay++){
-                        alphax = n - alphay;
-                        alphaf = factorial[alphax]*factorial[alphay];
-                        *(delta+i) = weight_of_original_value * *(delta+i) + weight_of_new_value * x_over_h_to_i[alphax]*y_over_h_to_i[alphay]/alphaf;
+                for (int n1 = starting_order; n1 <= max_degree; n1++){
+                    int degree_choose_n1 = factorial[max_degree]/(factorial[n1]*factorial[max_degree-n1]);
+                    for (int n2 = starting_order; n2 <= max_degree; n2++){
+                        int degree_choose_n2 = factorial[max_degree]/(factorial[n2]*factorial[max_degree-n2]);
+                        *(delta+i) = weight_of_original_value * *(delta+i) + weight_of_new_value * degree_choose_n1*degree_choose_n2*x_over_h_to_i[n1]*one_minus_x_over_h_to_i[max_degree-n1]*y_over_h_to_i[n2]*one_minus_y_over_h_to_i[max_degree-n2];
                         i++;
                     }
                 }
@@ -113,9 +120,13 @@ namespace BernsteinPolynomialBasis {
                     x_over_h_to_i[i] = x_over_h_to_i[i-1]*(0.5*x/h+0.5);
                     one_minus_x_over_h_to_i[i] = one_minus_x_over_h_to_i[i-1]*(1.0-(0.5*x/h+0.5));
                 }
-                // (in 1D) \sum_{n=0}^{n=P} (x/h)^n / n!
-                for (int i=starting_order; i<=max_degree; ++i) {
-                    *(delta+i) = weight_of_original_value * *(delta+i) + weight_of_new_value * factorial[max_degree]/(factorial[i]*factorial[max_degree-i])*x_over_h_to_i[i]*one_minus_x_over_h_to_i[max_degree-i];
+                // (in 1D) \sum_{n=0}^{n=P} \frac{P!}{n!(P-n)!}*\left(\frac{x}{2h}+\frac{1}{2}\right)^n*
+                // \left(1-\frac{x}{2h}-\frac{1}{2}\right)^{P-n}
+                int i = 0;
+                for (int n=starting_order; n<=max_degree; ++n) {
+                    int degree_choose_n = factorial[max_degree]/(factorial[n]*factorial[max_degree-n]);
+                    *(delta+i) = weight_of_original_value * *(delta+i) + weight_of_new_value * degree_choose_n*x_over_h_to_i[n]*one_minus_x_over_h_to_i[max_degree-n];
+                    i++;
                 }
             }
         });

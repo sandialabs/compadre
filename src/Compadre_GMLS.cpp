@@ -3,7 +3,7 @@
 
 namespace Compadre {
 
-void GMLS::generatePolynomialCoefficients(const int number_of_batches, const bool keep_coefficients) {
+void GMLS::generatePolynomialCoefficients(const int number_of_batches, const bool keep_coefficients, const bool clear_cache) {
 
     compadre_assert_release( (keep_coefficients==false || number_of_batches==1)
                 && "keep_coefficients is set to true, but number of batches exceeds 1.");
@@ -419,27 +419,29 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
         if ((size_t)_initial_index_for_batch == _target_coordinates.extent(0)) break;
     } // end of batch loops
 
-    // deallocate _P and _w
-    _w = Kokkos::View<double*>("w",0);
-    _Z = Kokkos::View<double*>("Z",0);
-    if (number_of_batches > 1) { // no reason to keep coefficients if they aren't all in memory
-        _RHS = Kokkos::View<double*>("RHS",0);
-        _P = Kokkos::View<double*>("P",0);
-        _entire_batch_computed_at_once = false;
-    } else {
-        if (_constraint_type != ConstraintType::NO_CONSTRAINT) {
-            _RHS = Kokkos::View<double*>("RHS", 0);
-            if (!keep_coefficients) _P = Kokkos::View<double*>("P", 0);
+    if (clear_cache) {
+        // deallocate _P and _w
+        _w = Kokkos::View<double*>("w",0);
+        _Z = Kokkos::View<double*>("Z",0);
+        if (number_of_batches > 1) { // no reason to keep coefficients if they aren't all in memory
+            _RHS = Kokkos::View<double*>("RHS",0);
+            _P = Kokkos::View<double*>("P",0);
+            _entire_batch_computed_at_once = false;
         } else {
-            if (_dense_solver_type != DenseSolverType::LU) {
-                _P = Kokkos::View<double*>("P", 0);
-                if (!keep_coefficients) _RHS = Kokkos::View<double*>("RHS", 0);
-            } else {
+            if (_constraint_type != ConstraintType::NO_CONSTRAINT) {
                 _RHS = Kokkos::View<double*>("RHS", 0);
                 if (!keep_coefficients) _P = Kokkos::View<double*>("P", 0);
+            } else {
+                if (_dense_solver_type != DenseSolverType::LU) {
+                    _P = Kokkos::View<double*>("P", 0);
+                    if (!keep_coefficients) _RHS = Kokkos::View<double*>("RHS", 0);
+                } else {
+                    _RHS = Kokkos::View<double*>("RHS", 0);
+                    if (!keep_coefficients) _P = Kokkos::View<double*>("P", 0);
+                }
             }
+            if (keep_coefficients) _store_PTWP_inv_PTW = true;
         }
-        if (keep_coefficients) _store_PTWP_inv_PTW = true;
     }
 
     /*
@@ -454,9 +456,9 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
 
 }
 
-void GMLS::generateAlphas(const int number_of_batches, const bool keep_coefficients) {
+void GMLS::generateAlphas(const int number_of_batches, const bool keep_coefficients, const bool clear_cache) {
 
-    this->generatePolynomialCoefficients(number_of_batches, keep_coefficients);
+    this->generatePolynomialCoefficients(number_of_batches, keep_coefficients, clear_cache);
 
 }
 
