@@ -5,17 +5,12 @@
 #include "Compadre_ScalarTaylorPolynomial.hpp"
 
 namespace Compadre {
-/*!  \brief Definition of the Bernstein polynomial basis
- *
-   Let \f$NB_d=\f$ the number of basis components in the scalar Taylor polynomial basis, for the same dimension \f$d\f$ and up to the same degree of polynomial. 
-   Let \f$NB_{(d-1)/v}=\f$ the number of basis components in the scalar Taylor polynomial basis, for one dimension lower \f$(d-1)\f$ that does not use same contain the direction v.
-   \li in 1D) No definition.
-   \li in 2D) The first \f$NB_d\f$ elements are \f[\begin{bmatrix}b_i\\ -\int \frac{\partial}{\partial x}(b_i)\; dy\end{bmatrix},\f] where \f$i\f$ is the basis element number for the divergence-free polynomial basis.\newline
-   The next \f$NB_{(d-1)/y}\f$ elements are \f[\begin{bmatrix}0\\b_j\end{bmatrix},\f] where \f$j\f$ is the basis element number for the divergence-free polynomial basis of one dimension lower using only the variable \f$x\f$.
-   \li in 3D) The first \f$NB_d\f$ elements are \f[\begin{bmatrix}b_i\\ 0 \\-\int \frac{\partial}{\partial x}(b_i)\; dz\end{bmatrix},\f] where \f$i\f$ is the basis element number for the divergence-free polynomial basis.\newline
-   The next \f$NB_d\f$ elements are \f[\begin{bmatrix}0\\ b_i \\-\int \frac{\partial}{\partial y}(b_i)\; dz\end{bmatrix},\f] where \f$i\f$ is the basis element number for the divergence-free polynomial basis.\newline
-   The next \f$NB_{(d-1)/z}\f$ elements are \f[\begin{bmatrix}0\\0\\b_j\end{bmatrix},\f] where \f$j\f$ is the basis element number for the divergence-free polynomial basis of one dimension lower using only the variables \f$x\f$ and \f$y\f$.
-
+/*!  \brief Definition of scalar Bernstein polynomial basis
+   
+   For order P, the sum of the basis is defined by:
+   \li in 1D) \f[\sum_{n=0}^{n=P} \frac{P!}{n!(P-n)!}*\left(\frac{x}{2h}+\frac{1}{2}\right)^n*\left(1-\frac{x}{2h}-\frac{1}{2}\right)^{P-n}\f]
+   \li in 2D) \f[\sum_{n_1=0}^{n_1=P}\sum_{n_2=0}^{n_2=P} \frac{P!}{n_1!(P-n_1)!}*\frac{P!}{n_2!(P-n_2)!}*\left(\frac{x}{2h}+\frac{1}{2}\right)^{n_1}*\left(1-\frac{x}{2h}-\frac{1}{2}\right)^{P-n_1}*\left(\frac{y}{2h}+\frac{1}{2}\right)^{n_2}*\left(1-\frac{y}{2h}-\frac{1}{2}\right)^{P-n_2}\f]
+   \li in 3D) \f[\sum_{n_1=0}^{n_1=P}\sum_{n_2=0}^{n_2=P}\sum_{n_3=0}^{n_3=P} \frac{P!}{n_1!(P-n_1)!}*\frac{P!}{n_2!(P-n_2)!}*\frac{P!}{n_3!(P-n_3)!}*\left(\frac{x}{2h}+\frac{1}{2}\right)^{n_1}*\left(1-\frac{x}{2h}-\frac{1}{2}\right)^{P-n_1}*\f]\f[\left(\frac{y}{2h}+\frac{1}{2}\right)^{n_2}*\left(1-\frac{y}{2h}-\frac{1}{2}\right)^{P-n_2}*\left(\frac{z}{2h}+\frac{1}{2}\right)^{n_3}*\left(1-\frac{z}{2h}-\frac{1}{2}\right)^{P-n_3}\f]
 */
 namespace BernsteinPolynomialBasis {
 
@@ -25,10 +20,10 @@ namespace BernsteinPolynomialBasis {
     */
     KOKKOS_INLINE_FUNCTION
     int getSize(const int degree, const int dimension) {
-        return ScalarTaylorPolynomialBasis::getSize(degree, dimension);
+        return std::pow(ScalarTaylorPolynomialBasis::getSize(degree, 1), dimension);
     }
 
-    /*! \brief Evaluates the divergence-free polynomial basis
+    /*! \brief Evaluates the Bernstein polynomial basis
      *  delta[j] = weight_of_original_value * delta[j] + weight_of_new_value * (calculation of this function)
         \param delta                [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _basis_multipler*the dimension of the polynomial basis.
         \param workspace            [in/out] - scratch space that is allocated so that each thread has its own copy. Must be at least as large as the _poly_order*the spatial dimension of the polynomial basis.
