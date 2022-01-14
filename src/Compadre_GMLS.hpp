@@ -12,6 +12,7 @@
 #include "Compadre_SolutionSet.hpp"
 #include "Compadre_ScalarTaylorPolynomial.hpp"
 #include "Compadre_DivergenceFreePolynomial.hpp"
+#include "Compadre_BernsteinPolynomial.hpp"
 #include "Compadre_NeighborLists.hpp"
 #include "Compadre_PointConnections.hpp"
 

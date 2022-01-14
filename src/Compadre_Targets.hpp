@@ -946,14 +946,40 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                     }
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+            } else {
+                compadre_kernel_assert_release((false) && "Functionality not yet available.");
             }
+
+            /*
+             * End of DivergenceFreeVectorTaylorPolynomial basis
+             */
+
+        } else if (data._reconstruction_space == ReconstructionSpace::BernsteinPolynomial) {
+
+            /*
+             * Beginning of BernsteinPolynomial basis
+             */
+            if (data._operations(i) == TargetOperation::ScalarPointEvaluation || (data._operations(i) == TargetOperation::VectorPointEvaluation && data._dimensions == 1) /* vector is a scalar in 1D */) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
+                    calcPij<TargetData>(data, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, data._dimensions, data._poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::BernsteinPolynomial, PointSample, j);
+                    int offset = data._d_ss.getTargetOffsetIndex(i, 0, 0, j);
+                    for (int k=0; k<target_NP; ++k) {
+                        P_target_row(offset, k) = delta(k);
+                    }
+                });
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+            } else {
+                compadre_kernel_assert_release((false) && "Functionality not yet available.");
+            }
+
+            /*
+             * End of BernsteinPolynomial basis
+             */
+
         }  else {
           compadre_kernel_assert_release((false) && "Functionality not yet available.");
         }
 
-        /*
-         * End of DivergenceFreeVectorTaylorPolynomial basis
-         */
         compadre_kernel_assert_release(((additional_evaluation_sites_need_handled && additional_evaluation_sites_handled) || (!additional_evaluation_sites_need_handled)) && "Auxiliary evaluation coordinates are specified by user, but are calling a target operation that can not handle evaluating additional sites.");
         } // !operation_handled
     }

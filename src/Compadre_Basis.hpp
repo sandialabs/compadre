@@ -102,6 +102,11 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
         double cutoff_p = data._epsilons(target_index);
 
         DivergenceFreePolynomialBasis::evaluate(teamMember, delta, thread_workspace, dimension, poly_order, component, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z);
+    } else if (reconstruction_space == BernsteinPolynomial) {
+        // Bernstein vector polynomial basis
+        double cutoff_p = data._epsilons(target_index);
+
+        BernsteinPolynomialBasis::evaluate(teamMember, delta, thread_workspace, dimension, poly_order, component, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z);
 
     } else if ((polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) &&
             (reconstruction_space == ScalarTaylorPolynomial)) {
@@ -560,6 +565,12 @@ void calcGradientPij(const BasisData& data, const member_type& teamMember, doubl
 
         DivergenceFreePolynomialBasis::evaluatePartialDerivative(teamMember, delta, thread_workspace, dimension, poly_order, component, partial_direction, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z);
 
+    } else if (reconstruction_space == BernsteinPolynomial) {
+        // Bernstein vector polynomial basis
+        double cutoff_p = data._epsilons(target_index);
+
+        BernsteinPolynomialBasis::evaluatePartialDerivative(teamMember, delta, thread_workspace, dimension, poly_order, component, partial_direction, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z);
+
     } else {
         compadre_kernel_assert_release((false) && "Sampling and basis space combination not defined.");
     }
@@ -640,6 +651,10 @@ void calcHessianPij(const BasisData& data, const member_type& teamMember, double
                (reconstruction_space == DivergenceFreeVectorTaylorPolynomial)) {
 
         DivergenceFreePolynomialBasis::evaluateSecondPartialDerivative(teamMember, delta, thread_workspace, dimension, poly_order, component, partial_direction_1, partial_direction_2, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z);
+
+    } else if (reconstruction_space == BernsteinPolynomial) {
+
+        BernsteinPolynomialBasis::evaluateSecondPartialDerivative(teamMember, delta, thread_workspace, dimension, poly_order, component, partial_direction_1, partial_direction_2, cutoff_p, relative_coord.x, relative_coord.y, relative_coord.z);
 
     } else {
         compadre_kernel_assert_release((false) && "Sampling and basis space combination not defined.");

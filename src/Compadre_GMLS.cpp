@@ -155,7 +155,9 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
         team_scratch_size_b += scratch_vector_type::shmem_size( (_dimensions-1)*_max_num_neighbors ); // manifold_gradient
 
         thread_scratch_size_a += scratch_vector_type::shmem_size(this_num_cols); // delta, used for each thread
-        thread_scratch_size_a += scratch_vector_type::shmem_size((max_poly_order+1)*_global_dimensions); // temporary space for powers in basis
+        int basis_powers_space_multiplier = (_reconstruction_space == BernsteinPolynomial) ? 2 : 1;
+        thread_scratch_size_a += scratch_vector_type::shmem_size(
+                (max_poly_order+1)*_global_dimensions*basis_powers_space_multiplier); // temporary space for powers in basis
         if (_data_sampling_functional == VaryingManifoldVectorPointSample) {
             team_scratch_size_b += scratch_vector_type::shmem_size(_max_num_neighbors); // t1 work vector for prestencils
             team_scratch_size_b += scratch_vector_type::shmem_size(_max_num_neighbors); // t2 work vector for prestencils

@@ -714,6 +714,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .value("VectorTaylorPolynomial", ReconstructionSpace::VectorTaylorPolynomial)
     .value("VectorOfScalarClonesTaylorPolynomial", ReconstructionSpace::VectorOfScalarClonesTaylorPolynomial)
     .value("DivergenceFreeVectorTaylorPolynomial", ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial)
+    .value("BernsteinPolynomial", ReconstructionSpace::BernsteinPolynomial)
     .export_values();
 
     py::enum_<WeightingFunctionType>(m, "WeightingFunctionType")

@@ -84,6 +84,8 @@ namespace Compadre {
         VectorOfScalarClonesTaylorPolynomial,
         //! Divergence-free vector polynomial basis
         DivergenceFreeVectorTaylorPolynomial,
+        //! Bernstein polynomial basis
+        BernsteinPolynomial,
     };
 
     //! Number of actual components in the ReconstructionSpace
