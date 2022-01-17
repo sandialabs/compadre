@@ -29,12 +29,14 @@ public:
         source_coords(0,0) = 0.0;
         source_coords(0,1) = 1.0;
         source_coords(0,2) = 2.0;
+        Kokkos::fence();
         Kokkos::deep_copy(source_coords_device, source_coords);
 
         target_coords_device = Kokkos::View<double**, Kokkos::DefaultExecutionSpace>("target coordinates", 
                 1, dimension);
         Kokkos::View<double**>::HostMirror target_coords = Kokkos::create_mirror_view(target_coords_device);
         target_coords(0,0) = 1.0;
+        Kokkos::fence();
         Kokkos::deep_copy(target_coords_device, target_coords);
 
         epsilon_device = Kokkos::View<double*, Kokkos::DefaultExecutionSpace>("h supports", 1);
@@ -62,6 +64,7 @@ TEST_F (TargetTest, EvalBernsteinBasis) {
     neighbor_lists(0,1) = 0;
     neighbor_lists(0,2) = 1;
     neighbor_lists(0,3) = 2;
+    Kokkos::fence();
     Kokkos::deep_copy(neighbor_lists_device, neighbor_lists);
 
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> additional_target_coords_device("additional target coordinates", 
@@ -73,6 +76,7 @@ TEST_F (TargetTest, EvalBernsteinBasis) {
     additional_target_coords(3,0) = 1.5;
     additional_target_coords(4,0) = 0.0;
     additional_target_coords(5,0) = 2.0;
+    Kokkos::fence();
     Kokkos::deep_copy(additional_target_coords_device, additional_target_coords);
 
     Kokkos::View<int**, Kokkos::DefaultExecutionSpace> additional_target_indices_device ("additional target indices", 1, 7 /* # of extra evaluation sites plus index for each */);
@@ -84,6 +88,7 @@ TEST_F (TargetTest, EvalBernsteinBasis) {
     additional_target_indices(0,4)=3;
     additional_target_indices(0,5)=4;
     additional_target_indices(0,6)=5;
+    Kokkos::fence();
     Kokkos::deep_copy(additional_target_indices_device, additional_target_indices);
 
     GMLS gmls(BernsteinPolynomial, VectorPointSample,
@@ -108,15 +113,20 @@ TEST_F (TargetTest, EvalBernsteinBasis) {
     auto gmls_basis_data = createGMLSBasisData(gmls);
 
     int local_index = 0;
-    scratch_matrix_right_type P_target_row(gmls_basis_data.P_target_row_data 
+    scratch_matrix_right_type P_target_row_device_unmanaged(gmls_basis_data.P_target_row_data 
             + TO_GLOBAL(local_index)*TO_GLOBAL(gmls_basis_data.P_target_row_dim_0*gmls_basis_data.P_target_row_dim_1), 
                 gmls_basis_data.P_target_row_dim_0, gmls_basis_data.P_target_row_dim_1);
+    auto P_target_row = Kokkos::create_mirror_view(P_target_row_device_unmanaged);
+    Kokkos::deep_copy(P_target_row, P_target_row_device_unmanaged);
 
+    int j=0; // operation
+    int m=0; // tilesize
+    int k=0; // tilesize
+    SolutionSet<host_memory_space> h_ss(gmls_basis_data._d_ss);
+    h_ss.copyAlphas(gmls_basis_data._d_ss);
     for (int e=0; e<7; ++e) {
-        int j=0; // operation
-        int m=0; // tilesize
-        int k=0; // tilesize
-        const int offset_index_jmke = gmls_basis_data._d_ss.getTargetOffsetIndex(j,m,k,e);
+        const int offset_index_jmke = h_ss.getTargetOffsetIndex(j,m,k,e);
+        //printf("offset %d: %d\n", e, offset_index_jmke);
         //for (int i=0; i<order+1; ++i) {
         //    printf("P(%d,%d): %.16g\n", e, i, P_target_row(offset_index_jmke, i));
         //}

@@ -1,9 +1,8 @@
-from unittest import TestCase
+from kokkos_test_case import KokkosTestCase
 import numpy as np
 import math
 import random
 import pycompadre
-import sys
 
 # function used to generate sample data
 def exact(coord,order,dimension):
@@ -193,15 +192,7 @@ def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5):
     return l2_error, h1_seminorm_error
 
 
-class TestPycompadre(TestCase):
-
-    @classmethod
-    def setUpClass(cls):
-        cls.shared_resource = pycompadre.KokkosParser(sys.argv)
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.shared_resource = None
+class TestPycompadre(KokkosTestCase):
 
     def test_1d_order1(self):
         l2,h1=remap(1,1)

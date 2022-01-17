@@ -1,7 +1,6 @@
-from unittest import TestCase
+from kokkos_test_case import KokkosTestCase
 import pycompadre
 import numpy as np
-import sys
 
 # get GMLS approximate at all x_pred, as well as reconstruction about attempt_center_about_coord
 def approximate(input_dimensions, porder, wpower, wtype, epsilon_multiplier, attempt_center_about_coord):
@@ -25,15 +24,7 @@ def approximate(input_dimensions, porder, wpower, wtype, epsilon_multiplier, att
     del gmls_helper
     return z_pred
 
-class TestPycompadreManifold(TestCase):
-
-    @classmethod
-    def setUpClass(cls):
-        cls.shared_resource = pycompadre.KokkosParser(sys.argv)
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.shared_resource = None
+class TestPycompadreManifold(KokkosTestCase):
 
     def test_1d_order2(self):
 
@@ -70,3 +61,7 @@ class TestPycompadreManifold(TestCase):
 
 #tc = TestPycompadreManifold()
 #tc.test_1d_order2()
+
+if __name__ == '__main__':
+    import unittest
+    unittest.main()
