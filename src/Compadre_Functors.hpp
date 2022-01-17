@@ -180,6 +180,7 @@ const GMLSBasisData createGMLSBasisData(const GMLS& gmls) {
     data._d_ss = gmls._d_ss;
 
     data.max_num_rows = gmls._sampling_multiplier*gmls._max_num_neighbors;
+    int basis_powers_space_multiplier = (gmls._reconstruction_space == BernsteinPolynomial) ? 2 : 1;
     if (gmls._problem_type == ProblemType::MANIFOLD) {
         data.manifold_NP = GMLS::getNP(gmls._curvature_poly_order, gmls._dimensions-1, 
                 ReconstructionSpace::ScalarTaylorPolynomial);
@@ -191,7 +192,7 @@ const GMLSBasisData createGMLSBasisData(const GMLS& gmls) {
         data.ref_N_data = gmls._ref_N.data();
         data.ref_N_dim = gmls._dimensions;
 
-        data.thread_workspace_dim = (data.max_poly_order+1)*gmls._global_dimensions;
+        data.thread_workspace_dim = (data.max_poly_order+1)*gmls._global_dimensions*basis_powers_space_multiplier;
         data.manifold_gradient_dim = (gmls._dimensions-1)*gmls._max_num_neighbors;
 
         data.manifold_curvature_coefficients_data = gmls._manifold_curvature_coefficients.data();
@@ -199,7 +200,7 @@ const GMLSBasisData createGMLSBasisData(const GMLS& gmls) {
     } else {
         data.manifold_NP = 0;
         data.this_num_cols = gmls._basis_multiplier*gmls._NP;
-        data.thread_workspace_dim = (gmls._poly_order+1)*gmls._global_dimensions;
+        data.thread_workspace_dim = (gmls._poly_order+1)*gmls._global_dimensions*basis_powers_space_multiplier;
         data.manifold_gradient_dim = 0;
     }
 

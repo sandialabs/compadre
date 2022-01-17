@@ -139,6 +139,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     // 1D array beginning at entry with matrix coordinate (0,0)
     bool implicit_RHS = (_dense_solver_type != DenseSolverType::LU);
 
+    int basis_powers_space_multiplier = (_reconstruction_space == BernsteinPolynomial) ? 2 : 1;
     if (_problem_type == ProblemType::MANIFOLD) {
         // these dimensions already calculated differ in the case of manifolds
         manifold_NP = this->getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
@@ -155,7 +156,6 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
         team_scratch_size_b += scratch_vector_type::shmem_size( (_dimensions-1)*_max_num_neighbors ); // manifold_gradient
 
         thread_scratch_size_a += scratch_vector_type::shmem_size(this_num_cols); // delta, used for each thread
-        int basis_powers_space_multiplier = (_reconstruction_space == BernsteinPolynomial) ? 2 : 1;
         thread_scratch_size_a += scratch_vector_type::shmem_size(
                 (max_poly_order+1)*_global_dimensions*basis_powers_space_multiplier); // temporary space for powers in basis
         if (_data_sampling_functional == VaryingManifoldVectorPointSample) {
@@ -180,7 +180,8 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
          */
 
         thread_scratch_size_a += scratch_vector_type::shmem_size(this_num_cols); // delta, used for each thread
-        thread_scratch_size_a += scratch_vector_type::shmem_size((_poly_order+1)*_global_dimensions); // temporary space for powers in basis
+        thread_scratch_size_a += scratch_vector_type::shmem_size(
+                (_poly_order+1)*_global_dimensions*basis_powers_space_multiplier); // temporary space for powers in basis
 
     }
     _pm.setTeamScratchSize(0, team_scratch_size_a);
