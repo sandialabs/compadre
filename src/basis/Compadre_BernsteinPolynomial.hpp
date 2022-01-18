@@ -20,7 +20,7 @@ namespace BernsteinPolynomialBasis {
     */
     KOKKOS_INLINE_FUNCTION
     int getSize(const int degree, const int dimension) {
-        return std::pow(ScalarTaylorPolynomialBasis::getSize(degree, 1), dimension);
+        return pown(ScalarTaylorPolynomialBasis::getSize(degree, int(1)), dimension);
     }
 
     /*! \brief Evaluates the Bernstein polynomial basis

@@ -570,8 +570,8 @@ struct SolutionSet {
         if (_problem_type == ProblemType::MANIFOLD) {
             // if on a manifold, the total alphas values must be large enough to hold the gradient
             // of the geometry reconstruction
-            _total_alpha_values = (_total_alpha_values > std::pow(_local_dimensions, 1)) ? 
-                _total_alpha_values : std::pow(_local_dimensions, 1);
+            _total_alpha_values = (_total_alpha_values > pown(_local_dimensions, 1)) ? 
+                _total_alpha_values : pown(_local_dimensions, 1);
         }
 
         Kokkos::deep_copy(_lro_lookup, host_lro_lookup);
