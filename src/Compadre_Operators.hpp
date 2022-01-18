@@ -96,6 +96,7 @@ namespace Compadre {
             1, ///< VectorTaylorPolynomial
             0, ///< VectorOfScalarClonesTaylorPolynomial
             0, ///< DivergenceFreeVectorTaylorPolynomial
+            0, ///< BernsteinPolynomial
         };
         return ActualReconstructionSpaceRank[index];
     }

@@ -73,21 +73,16 @@ public:
 
         epsilon_device = Kokkos::View<double*, Kokkos::DefaultExecutionSpace>("h supports", 1);
         Kokkos::View<double*>::HostMirror epsilon = Kokkos::create_mirror_view(epsilon_device);
-        epsilon = Kokkos::create_mirror_view(epsilon_device);
         if (dimension==1) {
             epsilon(0) = 1.0;
         } else if (dimension==2) {
             epsilon(0) = std::sqrt(2)+1e-10;
         }
+        Kokkos::fence();
         Kokkos::deep_copy(epsilon_device, epsilon);
 
         neighbor_lists_device = Kokkos::View<int**, Kokkos::DefaultExecutionSpace>("neighbor lists", 
                 1, num_source_sites+1); // first column is # of neighbors
-        additional_target_coords_device = Kokkos::View<double**, Kokkos::DefaultExecutionSpace>("additional target coordinates", 
-                6, dimension);
-        additional_target_indices_device = Kokkos::View<int**, Kokkos::DefaultExecutionSpace>("additional target indices", 
-                1, 7 /* # of extra evaluation sites plus index for each */);
-
         Kokkos::View<int**>::HostMirror neighbor_lists = Kokkos::create_mirror_view(neighbor_lists_device);
         if (dimension==1) {
             neighbor_lists(0,0) = 3;
@@ -109,6 +104,8 @@ public:
         Kokkos::fence();
         Kokkos::deep_copy(neighbor_lists_device, neighbor_lists);
 
+        additional_target_coords_device = Kokkos::View<double**, Kokkos::DefaultExecutionSpace>("additional target coordinates", 
+                6, dimension);
         Kokkos::View<double**>::HostMirror additional_target_coords = Kokkos::create_mirror_view(additional_target_coords_device);
         if (dimension==1) {
             // out of bounds
@@ -146,6 +143,8 @@ public:
         Kokkos::fence();
         Kokkos::deep_copy(additional_target_coords_device, additional_target_coords);
 
+        additional_target_indices_device = Kokkos::View<int**, Kokkos::DefaultExecutionSpace>("additional target indices", 
+                1, 7 /* # of extra evaluation sites plus index for each */);
         Kokkos::View<int**>::HostMirror additional_target_indices = Kokkos::create_mirror_view(additional_target_indices_device);
         if (dimension==1) {
             additional_target_indices(0,0)=6;
