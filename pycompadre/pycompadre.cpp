@@ -361,7 +361,7 @@ public:
 
     void generateNeighborListsFromKNNSearchAndSet(py::array_t<double> input, int poly_order, int dimension = 3, double epsilon_multiplier = 1.6, double max_search_radius = 0.0, bool scale_k_neighbor_radius = true, bool scale_num_neighbors = false) {
 
-        int neighbors_needed = Compadre::GMLS::getNP(poly_order, dimension);
+        int neighbors_needed = Compadre::GMLS::getNP(poly_order, dimension, gmls_object->getReconstructionSpace());
 
         py::buffer_info buf = input.request();
 

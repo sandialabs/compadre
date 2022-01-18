@@ -959,6 +959,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
             /*
              * Beginning of BernsteinPolynomial basis
              */
+            // TODO: Copied from ScalarTaylorPolynomial section. Could be defined once in ScalarTaylorPolynomial if refactored.
             if (data._operations(i) == TargetOperation::ScalarPointEvaluation || (data._operations(i) == TargetOperation::VectorPointEvaluation && data._dimensions == 1) /* vector is a scalar in 1D */) {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
                     calcPij<TargetData>(data, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, data._dimensions, data._poly_order, false /*bool on only specific order*/, NULL /*&V*/, ReconstructionSpace::BernsteinPolynomial, PointSample, j);
@@ -966,6 +967,38 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                     for (int k=0; k<target_NP; ++k) {
                         P_target_row(offset, k) = delta(k);
                     }
+                });
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+            } else if (data._operations(i) == TargetOperation::GradientOfScalarPointEvaluation) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
+                    for (int d=0; d<data._dimensions; ++d) {
+                        int offset = data._d_ss.getTargetOffsetIndex(i, 0, d, j);
+                        auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
+                        calcGradientPij<TargetData>(data, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, d /*partial_direction*/, data._dimensions, data._poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::BernsteinPolynomial, PointSample, j);
+                    }
+                });
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+            } else if (data._operations(i) == TargetOperation::PartialXOfScalarPointEvaluation) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
+                    int offset = data._d_ss.getTargetOffsetIndex(i, 0, 0, j);
+                    auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
+                    calcGradientPij<TargetData>(data, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 0 /*partial_direction*/, data._dimensions, data._poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::BernsteinPolynomial, PointSample, j);
+                });
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+            } else if (data._operations(i) == TargetOperation::PartialYOfScalarPointEvaluation) {
+                compadre_kernel_assert_release(data._dimensions>1 && "PartialYOfScalarPointEvaluation requested for dim < 2");
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
+                    int offset = data._d_ss.getTargetOffsetIndex(i, 0, 0, j);
+                    auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
+                    calcGradientPij<TargetData>(data, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 1 /*partial_direction*/, data._dimensions, data._poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::BernsteinPolynomial, PointSample, j);
+                });
+                additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+            } else if (data._operations(i) == TargetOperation::PartialZOfScalarPointEvaluation) {
+                compadre_kernel_assert_release(data._dimensions>2 && "PartialZOfScalarPointEvaluation requested for dim < 3");
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int j) {
+                    int offset = data._d_ss.getTargetOffsetIndex(i, 0, 0, j);
+                    auto row = Kokkos::subview(P_target_row, offset, Kokkos::ALL());
+                    calcGradientPij<TargetData>(data, teamMember, row.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, 2 /*partial_direction*/, data._dimensions, data._poly_order, false /*specific order only*/, NULL /*&V*/, ReconstructionSpace::BernsteinPolynomial, PointSample, j);
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
             } else {

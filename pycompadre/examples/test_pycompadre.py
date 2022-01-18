@@ -187,6 +187,18 @@ def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5,reco
             h1_seminorm_error += np.power(abs(1./epsilons[i]*polynomial_coefficients[i,1] - grad_exact(target_sites[i], 0, polyOrder, dimension)),2)
             if (dimension>1): h1_seminorm_error += np.power(abs(1./epsilons[i]*polynomial_coefficients[i,2] - grad_exact(target_sites[i], 1, polyOrder, dimension)),2)
             if (dimension>2): h1_seminorm_error += np.power(abs(1./epsilons[i]*polynomial_coefficients[i,3] - grad_exact(target_sites[i], 2, polyOrder, dimension)),2)
+    else:
+        grad_x = gmls_helper.applyStencil(new_data_vector[:,1], pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+        for i in range(NT):
+            h1_seminorm_error += np.power(grad_x[i] - grad_exact(target_sites[i], 0, polyOrder, dimension),2)
+        if (dimension>1): 
+            grad_y = gmls_helper.applyStencil(new_data_vector[:,1], pycompadre.TargetOperation.PartialYOfScalarPointEvaluation)
+            for i in range(NT):
+                h1_seminorm_error += np.power(grad_y[i] - grad_exact(target_sites[i], 1, polyOrder, dimension),2)
+        if (dimension>2): 
+            grad_z = gmls_helper.applyStencil(new_data_vector[:,1], pycompadre.TargetOperation.PartialZOfScalarPointEvaluation)
+            for i in range(NT):
+                h1_seminorm_error += np.power(grad_z[i] - grad_exact(target_sites[i], 2, polyOrder, dimension),2)
     h1_seminorm_error = math.sqrt(h1_seminorm_error/float(NT))
 
     if additional_sites:
@@ -232,6 +244,7 @@ space_sample_combos = {
         "stp_ps":(pycompadre.ReconstructionSpace.ScalarTaylorPolynomial, pycompadre.SamplingFunctional["PointSample"]), 
         "vsctp_vps":(pycompadre.ReconstructionSpace.VectorOfScalarClonesTaylorPolynomial, pycompadre.SamplingFunctional["VectorPointSample"]),
         #"brnst_vps":(pycompadre.ReconstructionSpace.BernsteinPolynomial, pycompadre.SamplingFunctional["VectorPointSample"])
+        "brnst_vps":(pycompadre.ReconstructionSpace.BernsteinPolynomial, pycompadre.SamplingFunctional["PointSample"])
         }
 
 #############################
@@ -247,10 +260,14 @@ def base_test(self,polyOrder,dimension,additional_sites=False,epsilon_multiplier
     out = remap(**copy_kwargs)
     l2 = out[0]
     h1 = out[1]
-    self.assertTrue(l2<1e-13 and h1<1e-13)
+    #assert False, str(l2)
+    #assert False, str(h1)
+    tol = 1e-13*np.power(10,polyOrder)
+    self.assertTrue(l2<tol)
+    self.assertTrue(h1<tol)
     if (len(out)>2):
         l2a = out[2]
-        self.assertTrue(l2a<1e-13)
+        self.assertTrue(l2a<tol)
 
 # combine order, dim, etc.... to form all possible functions to test
 for polyorder in (1,2,3):
@@ -258,7 +275,7 @@ for polyorder in (1,2,3):
         for space_sample_combo in space_sample_combos:
             for additional_sites in (False, True):
                 # add these member functions to TestPyCOMPADRE
-                setattr(TestPyCOMPADRE,"test_%dd_order%d_a%s_"%(polyorder,dim,str(additional_sites))+str(space_sample_combo),partialmethod(base_test, polyOrder=polyorder, dimension=dim, additional_sites=additional_sites, epsilon_multiplier=1.5, reconstruction_space=space_sample_combos[space_sample_combo][0], sampling_functional=space_sample_combos[space_sample_combo][1]))
+                setattr(TestPyCOMPADRE,"test_%dd_order%d_a%s_"%(dim,polyorder,str(additional_sites))+str(space_sample_combo),partialmethod(base_test, polyOrder=polyorder, dimension=dim, additional_sites=additional_sites, epsilon_multiplier=1.5, reconstruction_space=space_sample_combos[space_sample_combo][0], sampling_functional=space_sample_combos[space_sample_combo][1]))
 #
 # End Most Generic Tests
 #
@@ -273,7 +290,7 @@ def test_square_qr(self, space_sample_combo):
     self.assertTrue(l2<1e-13 and h1<1e-13)
 
 # add combos as tests from generic tests
-#[setattr(TestPyCOMPADRE,"test_square_qr_"+str(key),partialmethod(test_square_qr, space_sample_combo=space_sample_combos[key])) for key in space_sample_combos]
+[setattr(TestPyCOMPADRE,"test_square_qr_"+str(key),partialmethod(test_square_qr, space_sample_combo=space_sample_combos[key])) for key in space_sample_combos]
 #
 # End Square Matrix Tests
 #
