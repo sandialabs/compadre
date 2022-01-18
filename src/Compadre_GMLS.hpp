@@ -528,10 +528,12 @@ public:
     //! The divfree options will return the divergence-free basis if true
     KOKKOS_INLINE_FUNCTION
     static int getNP(const int m, const int dimension = 3, const ReconstructionSpace r_space = ReconstructionSpace::ScalarTaylorPolynomial) {
-        if (r_space != ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial) {
-            return ScalarTaylorPolynomialBasis::getSize(m, dimension);
-        } else {
+        if (r_space == ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial) {
             return DivergenceFreePolynomialBasis::getSize(m, dimension);
+        } else if (r_space == ReconstructionSpace::BernsteinPolynomial) {
+            return BernsteinPolynomialBasis::getSize(m, dimension);
+        } else {
+            return ScalarTaylorPolynomialBasis::getSize(m, dimension);
         }
     }
 
