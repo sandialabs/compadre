@@ -3,7 +3,23 @@ import numpy as np
 import math
 import random
 import pycompadre
-from functools import partialmethod
+
+try:
+    import sys
+    if sys.version_info[0]==2:
+        from functools import partial
+        class partialmethod(partial):
+            def __get__(self, instance, owner):
+                if instance is None:
+                    return self
+                return partial(self.func, instance,
+                               *(self.args or ()), **(self.keywords or {}))
+    else:
+        raise
+except:
+    from functools import partialmethod
+
+
 
 # function used to generate sample data
 def exact(coord,order,dimension):
