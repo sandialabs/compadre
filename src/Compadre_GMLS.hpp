@@ -1309,20 +1309,34 @@ public:
     }
 
     /*! \brief Generates polynomial coefficients by setting up and solving least squares problems
-    //! Sets up the batch of GMLS problems to be solved for. Provides alpha values
-    //! that can later be contracted against data or degrees of freedom to form a
-    //! global linear system.
-    //! \param number_of_batches    [in] - how many batches to break up the total workload into (for storage)
-    //! \param keep_coefficients    [in] - whether to store (P^T W P)^-1 * P^T * W
+        Sets up the batch of GMLS problems to be solved for. Provides alpha values
+        that can later be contracted against data or degrees of freedom to form a
+        global linear system.
+
+        \param number_of_batches    [in] - how many batches to break up the total workload into (for storage)
+        \param keep_coefficients    [in] - whether to store (P^T W P)^-1 * P^T * W
+        \param clear_cache          [in] - clear whatever temporary memory was used for calculations that  
+                                           \a keep_coefficients hasn't indicated needs to be saved
+    
+        \a clear_cache should be \a false to be used for debugging as it will leave all data structures used to 
+        compute the solution intact. If \a clear_cache is set \a true and \a keep_coefficients is \a true, it will 
+        allow the polynomial coefficients to persist after calculation.
     */
     void generatePolynomialCoefficients(const int number_of_batches = 1, const bool keep_coefficients = false, 
             const bool clear_cache = true);
 
     /*! \brief Meant to calculate target operations and apply the evaluations to the previously 
-    //! constructed polynomial coefficients. But now that is inside of generatePolynomialCoefficients because
-    //! it must be to handle number_of_batches>1. Effectively, this just calls generatePolynomialCoefficients.
-    //! \param number_of_batches    [in] - how many batches to break up the total workload into (for storage)
-    //! \param keep_coefficients    [in] - whether to store (P^T W P)^-1 * P^T * W
+        constructed polynomial coefficients. But now that is inside of generatePolynomialCoefficients because
+        it must be to handle number_of_batches>1. Effectively, this just calls generatePolynomialCoefficients.
+
+        \param number_of_batches    [in] - how many batches to break up the total workload into (for storage)
+        \param keep_coefficients    [in] - whether to store (P^T W P)^-1 * P^T * W
+        \param clear_cache          [in] - clear whatever temporary memory was used for calculations that  
+                                           \a keep_coefficients hasn't indicated needs to be saved
+    
+        \a clear_cache should be \a false to be used for debugging as it will leave all data structures used to 
+        compute the solution intact. If \a clear_cache is set \a true and \a keep_coefficients is \a true, it will 
+        allow the polynomial coefficients to persist after calculation.
     */
     void generateAlphas(const int number_of_batches = 1, const bool keep_coefficients = false, 
             const bool clear_cache = true);
