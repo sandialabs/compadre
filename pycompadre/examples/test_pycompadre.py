@@ -1,9 +1,25 @@
-from unittest import TestCase
+from kokkos_test_case import KokkosTestCase
 import numpy as np
 import math
 import random
 import pycompadre
-import sys
+
+try:
+    import sys
+    if sys.version_info[0]==2:
+        from functools import partial
+        class partialmethod(partial):
+            def __get__(self, instance, owner):
+                if instance is None:
+                    return self
+                return partial(self.func, instance,
+                               *(self.args or ()), **(self.keywords or {}))
+    else:
+        raise
+except:
+    from functools import partialmethod
+
+
 
 # function used to generate sample data
 def exact(coord,order,dimension):
@@ -44,7 +60,7 @@ def grad_exact(coord,component,order,dimension):
         elif order==3:
             return 1 + x + y + 2*z + x*x + x*y + x*2*z + y*y + y*2*z + 3*z*z
 
-def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5):
+def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5,reconstruction_space=pycompadre.ReconstructionSpace.VectorOfScalarClonesTaylorPolynomial,sampling_functional=pycompadre.SamplingFunctional["VectorPointSample"]):
 
     minND = [[10,20,30],[10,20,100],[30,30,60]]
     ND = minND[dimension-1][polyOrder-1]
@@ -54,7 +70,7 @@ def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5):
     dimensions = dimension
 
     # initialize 3rd order reconstruction using 2nd order basis in 3D (GMLS)
-    gmls_obj=pycompadre.GMLS(polyOrder, dimensions, "QR", "STANDARD")
+    gmls_obj=pycompadre.GMLS(reconstruction_space, sampling_functional, polyOrder, dimensions, "QR", "STANDARD")
     gmls_obj.setWeightingParameter(4)
     gmls_obj.setWeightingType("power")
 
@@ -115,7 +131,7 @@ def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5):
     gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
     gmls_obj.addTargets(pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
     (dimensions>1) and gmls_obj.addTargets(pycompadre.TargetOperation.PartialYOfScalarPointEvaluation)
-    (dimensions>2) and gmls_obj.addTargets(pycompadre.TargetOperation.PartialYOfScalarPointEvaluation)
+    (dimensions>2) and gmls_obj.addTargets(pycompadre.TargetOperation.PartialZOfScalarPointEvaluation)
 
     # add additional evaluation sites (if specified)
     if additional_sites:
@@ -182,10 +198,23 @@ def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5):
     # this serves as a test for getting accurate calculation and retrieval of polynomial coefficients using
     # the python interface
     h1_seminorm_error = 0
-    for i in range(NT):
-        h1_seminorm_error += np.power(abs(1./epsilons[i]*polynomial_coefficients[i,1] - grad_exact(target_sites[i], 0, polyOrder, dimension)),2)
-        if (dimension>1): h1_seminorm_error += np.power(abs(1./epsilons[i]*polynomial_coefficients[i,2] - grad_exact(target_sites[i], 1, polyOrder, dimension)),2)
-        if (dimension>2): h1_seminorm_error += np.power(abs(1./epsilons[i]*polynomial_coefficients[i,3] - grad_exact(target_sites[i], 2, polyOrder, dimension)),2)
+    if reconstruction_space in (pycompadre.ReconstructionSpace.VectorOfScalarClonesTaylorPolynomial, pycompadre.ReconstructionSpace.ScalarTaylorPolynomial):
+        for i in range(NT):
+            h1_seminorm_error += np.power(abs(1./epsilons[i]*polynomial_coefficients[i,1] - grad_exact(target_sites[i], 0, polyOrder, dimension)),2)
+            if (dimension>1): h1_seminorm_error += np.power(abs(1./epsilons[i]*polynomial_coefficients[i,2] - grad_exact(target_sites[i], 1, polyOrder, dimension)),2)
+            if (dimension>2): h1_seminorm_error += np.power(abs(1./epsilons[i]*polynomial_coefficients[i,3] - grad_exact(target_sites[i], 2, polyOrder, dimension)),2)
+    else:
+        grad_x = gmls_helper.applyStencil(new_data_vector[:,1], pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+        for i in range(NT):
+            h1_seminorm_error += np.power(grad_x[i] - grad_exact(target_sites[i], 0, polyOrder, dimension),2)
+        if (dimension>1): 
+            grad_y = gmls_helper.applyStencil(new_data_vector[:,1], pycompadre.TargetOperation.PartialYOfScalarPointEvaluation)
+            for i in range(NT):
+                h1_seminorm_error += np.power(grad_y[i] - grad_exact(target_sites[i], 1, polyOrder, dimension),2)
+        if (dimension>2): 
+            grad_z = gmls_helper.applyStencil(new_data_vector[:,1], pycompadre.TargetOperation.PartialZOfScalarPointEvaluation)
+            for i in range(NT):
+                h1_seminorm_error += np.power(grad_z[i] - grad_exact(target_sites[i], 2, polyOrder, dimension),2)
     h1_seminorm_error = math.sqrt(h1_seminorm_error/float(NT))
 
     if additional_sites:
@@ -193,57 +222,9 @@ def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5):
     return l2_error, h1_seminorm_error
 
 
-class TestPycompadre(TestCase):
+class TestPyCOMPADRE(KokkosTestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        cls.shared_resource = pycompadre.KokkosParser(sys.argv)
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.shared_resource = None
-
-    def test_1d_order1(self):
-        l2,h1=remap(1,1)
-        self.assertTrue(l2<1e-13 and h1<1e-13)
-    def test_1d_order2(self):
-        l2,h1=remap(2,1)
-        self.assertTrue(l2<1e-13 and h1<1e-13)
-    def test_1d_order3(self):
-        l2,h1=remap(3,1)
-        self.assertTrue(l2<1e-13 and h1<1e-13)
-
-    def test_2d_order1(self):
-        l2,h1=remap(1,2)
-        self.assertTrue(l2<1e-13 and h1<1e-13)
-    def test_2d_order2(self):
-        l2,h1=remap(2,2)
-        self.assertTrue(l2<1e-13 and h1<1e-13)
-    def test_2d_order3(self):
-        l2,h1=remap(3,2)
-        self.assertTrue(l2<1e-13 and h1<1e-13)
-
-    def test_3d_order1(self):
-        l2,h1=remap(1,3)
-        self.assertTrue(l2<1e-13 and h1<1e-13)
-    def test_3d_order2(self):
-        l2,h1=remap(2,3)
-        self.assertTrue(l2<1e-13 and h1<1e-13)
-    def test_3d_order3(self):
-        l2,h1=remap(3,3)
-        self.assertTrue(l2<1e-13 and h1<1e-13)
-
-    def test_additional_sites(self):
-        l2,h1,l2a=remap(2,1,True)
-        self.assertTrue(l2<1e-13 and h1<1e-13 and l2a<1e-13)
-        l2,h1,l2a=remap(1,2,True)
-        self.assertTrue(l2<1e-13 and h1<1e-13 and l2a<1e-13)
-        l2,h1,l2a=remap(3,3,True)
-        self.assertTrue(l2<1e-13 and h1<1e-13 and l2a<1e-13)
-
-    def test_square_qr(self):
-        l2,h1=remap(1,1,False,epsilon_multiplier=1.01)
-        self.assertTrue(l2<1e-13 and h1<1e-13)
+    # most tests are added from a dictionary below 
 
     def test_square_qr_bugfix(self):
 
@@ -273,6 +254,64 @@ class TestPycompadre(TestCase):
         del gmls_obj
 
         self.assertAlmostEqual(output, 1.0, places=15)
+
+# space / sampling combinations
+space_sample_combos = {
+        "stp_ps":(pycompadre.ReconstructionSpace.ScalarTaylorPolynomial, pycompadre.SamplingFunctional["PointSample"]), 
+        "vsctp_vps":(pycompadre.ReconstructionSpace.VectorOfScalarClonesTaylorPolynomial, pycompadre.SamplingFunctional["VectorPointSample"]),
+        #"brnst_vps":(pycompadre.ReconstructionSpace.BernsteinPolynomial, pycompadre.SamplingFunctional["VectorPointSample"])
+        "brnst_vps":(pycompadre.ReconstructionSpace.BernsteinPolynomial, pycompadre.SamplingFunctional["PointSample"])
+        }
+
+#############################
+
+#
+# Begin Most Generic Tests
+#
+
+# generic test that can handle all options
+def base_test(self,polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5,reconstruction_space=pycompadre.ReconstructionSpace.VectorOfScalarClonesTaylorPolynomial,sampling_functional=pycompadre.SamplingFunctional["VectorPointSample"]):
+    copy_kwargs = locals()
+    del copy_kwargs['self']
+    out = remap(**copy_kwargs)
+    l2 = out[0]
+    h1 = out[1]
+    #assert False, str(l2)
+    #assert False, str(h1)
+    tol = 1e-13*np.power(10,polyOrder)
+    self.assertTrue(l2<tol)
+    self.assertTrue(h1<tol)
+    if (len(out)>2):
+        l2a = out[2]
+        self.assertTrue(l2a<tol)
+
+# combine order, dim, etc.... to form all possible functions to test
+for polyorder in (1,2,3):
+    for dim in (1,2,3):
+        for space_sample_combo in space_sample_combos:
+            for additional_sites in (False, True):
+                # add these member functions to TestPyCOMPADRE
+                setattr(TestPyCOMPADRE,"test_%dd_order%d_a%s_"%(dim,polyorder,str(additional_sites))+str(space_sample_combo),partialmethod(base_test, polyOrder=polyorder, dimension=dim, additional_sites=additional_sites, epsilon_multiplier=1.5, reconstruction_space=space_sample_combos[space_sample_combo][0], sampling_functional=space_sample_combos[space_sample_combo][1]))
+#
+# End Most Generic Tests
+#
+
+#############################
+
+#
+# Begin Square Matrix Tests
+#
+def test_square_qr(self, space_sample_combo):
+    l2,h1=remap(1,1,False,epsilon_multiplier=1.01,reconstruction_space=space_sample_combo[0],sampling_functional=space_sample_combo[1])
+    self.assertTrue(l2<1e-13 and h1<1e-13)
+
+# add combos as tests from generic tests
+[setattr(TestPyCOMPADRE,"test_square_qr_"+str(key),partialmethod(test_square_qr, space_sample_combo=space_sample_combos[key])) for key in space_sample_combos]
+#
+# End Square Matrix Tests
+#
+
+#############################
 
 #tc = TestPycompadre()
 #tc.test_additional_sites()
