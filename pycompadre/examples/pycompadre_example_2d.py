@@ -85,7 +85,7 @@ def approximate(porder, wpower, wtype, epsilon_multiplier, attempt_center_about_
     # manual applying of alphas
     nl = gmls_helper_2.getNeighborLists()
     computed_answer = np.zeros(shape=(len(extra_sites_coords),), dtype='f8')
-    sf = pycompadre.SamplingFunctional['PointSample']
+    sf = pycompadre.SamplingFunctionals['PointSample']
 
     colors = len(XY_ravel)*['black']
     for k in range(nl.getNumberOfNeighbors(0)):

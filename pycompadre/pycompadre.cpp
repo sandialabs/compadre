@@ -675,7 +675,20 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
 
 )pbdoc";
 
-    py::class_<SamplingFunctional>(m, "SamplingFunctional");
+    py::class_<SamplingFunctional>(m, "SamplingFunctional")
+    .def(py::pickle(
+        [](const SamplingFunctional &sf) { // __getstate__
+            return py::make_tuple(sf.input_rank, sf.output_rank, sf.use_target_site_weights,
+                                  sf.nontrivial_nullspace, sf.transform_type, sf.id);
+        },
+        [](py::tuple t) { // __setstate__
+            if (t.size() != 6)
+                throw std::runtime_error("Invalid state!");
+            SamplingFunctional sf(t[0].cast<int>(), t[1].cast<int>(), t[2].cast<bool>(),
+                                  t[3].cast<bool>(), t[4].cast<int>(), t[5].cast<int>());
+            return sf;
+        }
+    ));
     py::dict sampling_functional;
     sampling_functional["PointSample"] = PointSample;
     sampling_functional["VectorPointSample"] = VectorPointSample;
@@ -688,7 +701,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     sampling_functional["FaceTangentIntegralSample"] = FaceTangentIntegralSample;
     sampling_functional["FaceTangentPointSample"] = FaceTangentPointSample;
     sampling_functional["ScalarFaceAverageSample"] = ScalarFaceAverageSample;
-    m.attr("SamplingFunctional") = sampling_functional;
+    m.attr("SamplingFunctionals") = sampling_functional;
 
     py::enum_<TargetOperation>(m, "TargetOperation")
     .value("ScalarPointEvaluation", TargetOperation::ScalarPointEvaluation)
