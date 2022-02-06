@@ -60,7 +60,7 @@ def grad_exact(coord,component,order,dimension):
         elif order==3:
             return 1 + x + y + 2*z + x*x + x*y + x*2*z + y*y + y*2*z + 3*z*z
 
-def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5,reconstruction_space=pycompadre.ReconstructionSpace.VectorOfScalarClonesTaylorPolynomial,sampling_functional=pycompadre.SamplingFunctional["VectorPointSample"]):
+def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5,reconstruction_space=pycompadre.ReconstructionSpace.VectorOfScalarClonesTaylorPolynomial,sampling_functional=pycompadre.SamplingFunctionals["VectorPointSample"]):
 
     minND = [[10,20,30],[10,20,100],[30,30,60]]
     ND = minND[dimension-1][polyOrder-1]
@@ -257,10 +257,10 @@ class TestPyCOMPADRE(KokkosTestCase):
 
 # space / sampling combinations
 space_sample_combos = {
-        "stp_ps":(pycompadre.ReconstructionSpace.ScalarTaylorPolynomial, pycompadre.SamplingFunctional["PointSample"]), 
-        "vsctp_vps":(pycompadre.ReconstructionSpace.VectorOfScalarClonesTaylorPolynomial, pycompadre.SamplingFunctional["VectorPointSample"]),
-        #"brnst_vps":(pycompadre.ReconstructionSpace.BernsteinPolynomial, pycompadre.SamplingFunctional["VectorPointSample"])
-        "brnst_vps":(pycompadre.ReconstructionSpace.BernsteinPolynomial, pycompadre.SamplingFunctional["PointSample"])
+        "stp_ps":(pycompadre.ReconstructionSpace.ScalarTaylorPolynomial, pycompadre.SamplingFunctionals["PointSample"]), 
+        "vsctp_vps":(pycompadre.ReconstructionSpace.VectorOfScalarClonesTaylorPolynomial, pycompadre.SamplingFunctionals["VectorPointSample"]),
+        #"brnst_vps":(pycompadre.ReconstructionSpace.BernsteinPolynomial, pycompadre.SamplingFunctionals["VectorPointSample"])
+        "brnst_vps":(pycompadre.ReconstructionSpace.BernsteinPolynomial, pycompadre.SamplingFunctionals["PointSample"])
         }
 
 #############################
@@ -270,7 +270,7 @@ space_sample_combos = {
 #
 
 # generic test that can handle all options
-def base_test(self,polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5,reconstruction_space=pycompadre.ReconstructionSpace.VectorOfScalarClonesTaylorPolynomial,sampling_functional=pycompadre.SamplingFunctional["VectorPointSample"]):
+def base_test(self,polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5,reconstruction_space=pycompadre.ReconstructionSpace.VectorOfScalarClonesTaylorPolynomial,sampling_functional=pycompadre.SamplingFunctionals["VectorPointSample"]):
     copy_kwargs = locals()
     del copy_kwargs['self']
     out = remap(**copy_kwargs)
