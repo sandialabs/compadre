@@ -106,9 +106,6 @@ private:
 
     //! h supports determined through neighbor search (device)
     Kokkos::View<double*> _epsilons; 
-
-    //! h supports determined through neighbor search (host)
-    Kokkos::View<double*>::HostMirror _host_epsilons; 
     
     //! generated weights for nontraditional samples required to transform data into expected sampling 
     //! functional form (device). 
@@ -164,6 +161,7 @@ private:
     DenseSolverType _dense_solver_type;
 
     //! problem type for GMLS problem, can also be set to STANDARD for normal or MANIFOLD for manifold problems
+    //  can only be set at object instantiation
     ProblemType _problem_type;
 
     //! constraint type for GMLS problem
@@ -413,23 +411,23 @@ public:
  */
 ///@{
 
-    //! Minimal constructor providing no data (neighbor lists, source sites, target sites) 
+    //! Maximal constructor, not intended for users
     GMLS(ReconstructionSpace reconstruction_space,
         const SamplingFunctional polynomial_sampling_strategy,
         const SamplingFunctional data_sampling_strategy,
         const int poly_order,
-        const int dimensions = 3,
-        const std::string dense_solver_type = std::string("QR"),
-        const std::string problem_type = std::string("STANDARD"),
-        const std::string constraint_type = std::string("NO_CONSTRAINT"),
-        const int manifold_curvature_poly_order = 2) : 
+        const int dimensions,
+        const DenseSolverType dense_solver_type,
+        const ProblemType problem_type,
+        const ConstraintType constraint_type,
+        const int manifold_curvature_poly_order) : 
             _poly_order(poly_order),
             _curvature_poly_order(manifold_curvature_poly_order),
             _dimensions(dimensions),
             _reconstruction_space(reconstruction_space),
-            _dense_solver_type(parseSolverType(dense_solver_type)),
-            _problem_type(parseProblemType(problem_type)),
-            _constraint_type(parseConstraintType(constraint_type)),
+            _dense_solver_type(dense_solver_type),
+            _problem_type(problem_type),
+            _constraint_type(constraint_type),
             _polynomial_sampling_functional(((_problem_type == ProblemType::MANIFOLD) 
                         && (polynomial_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : polynomial_sampling_strategy),
             _data_sampling_functional(((_problem_type == ProblemType::MANIFOLD) 
@@ -493,6 +491,18 @@ public:
                 _problem_type);
         _h_ss._max_evaluation_sites_per_target = 1;
     }
+
+    //! Maximal constructor, but with string arguments
+    GMLS(ReconstructionSpace reconstruction_space,
+        const SamplingFunctional polynomial_sampling_strategy,
+        const SamplingFunctional data_sampling_strategy,
+        const int poly_order,
+        const int dimensions = 3,
+        const std::string dense_solver_type = std::string("QR"),
+        const std::string problem_type = std::string("STANDARD"),
+        const std::string constraint_type = std::string("NO_CONSTRAINT"),
+        const int manifold_curvature_poly_order = 2)
+      : GMLS(reconstruction_space, polynomial_sampling_strategy, data_sampling_strategy, poly_order, dimensions, parseSolverType(dense_solver_type), parseProblemType(problem_type), parseConstraintType(constraint_type), manifold_curvature_poly_order) {}
 
     //! Constructor for the case when the data sampling functional does not match the polynomial
     //! sampling functional. Only case anticipated is staggered Laplacian.
@@ -654,13 +664,19 @@ public:
     int getLocalDimensions() const { return _local_dimensions; }
 
     //! Get dense solver type
-    DenseSolverType getDenseSolverType() { return _dense_solver_type; }
+    DenseSolverType getDenseSolverType() const { return _dense_solver_type; }
 
     //! Get problem type
-    ProblemType getProblemType() { return _problem_type; }
+    ProblemType getProblemType() const { return _problem_type; }
 
     //! Get constraint type
-    ConstraintType getConstraintType() { return _constraint_type; }
+    ConstraintType getConstraintType() const { return _constraint_type; }
+
+    //! Get basis order used for reconstruction
+    int getPolynomialOrder() const { return _poly_order; }
+
+    //! Get basis order used for curvature reconstruction
+    int getCurvaturePolynomialOrder() const { return _curvature_poly_order; }
 
     //! Type for weighting kernel for GMLS problem
     WeightingFunctionType getWeightingType() const { return _weighting_type; }
@@ -701,8 +717,17 @@ public:
     //! Get neighbor list accessor
     decltype(_neighbor_lists)* getNeighborLists() { return &_pc._nla; }
 
-    //! Get additional evaluation sites neighbor list-like accessor
+    //! Get a view (device) of all point connection info
+    decltype(_pc)* getPointConnections() { return &_pc; }
+
+    //! (OPTIONAL) Get additional evaluation sites neighbor list-like accessor
     decltype(_additional_evaluation_indices)* getAdditionalEvaluationIndices() { return &_additional_evaluation_indices; }
+
+    //! (OPTIONAL) Get a view (device) of all additional evaluation point connection info
+    decltype(_additional_pc)* getAdditionalPointConnections() { return &_additional_pc; }
+
+    //! Get a view (device) of all window sizes
+    decltype(_epsilons)* getWindowSizes() { return &_epsilons; }
 
     //! Get a view (device) of all tangent direction bundles.
     decltype(_T) getTangentDirections() const { return _T; }
@@ -1050,10 +1075,8 @@ public:
         // allocate memory on device
         _epsilons = decltype(_epsilons)("device epsilons", epsilons.extent(0));
 
-        _host_epsilons = Kokkos::create_mirror_view(_epsilons);
-        Kokkos::deep_copy(_host_epsilons, epsilons);
         // copy data from host to device
-        Kokkos::deep_copy(_epsilons, _host_epsilons);
+        Kokkos::deep_copy(_epsilons, epsilons);
         this->resetCoefficientData();
     }
 
@@ -1178,6 +1201,17 @@ public:
         this->resetCoefficientData();
     }
 
+    //! Set dense solver type type
+    void setDenseSolverType(const DenseSolverType dst) {
+        _dense_solver_type = dst;
+        this->resetCoefficientData();
+    }
+
+    //! Set constraint type
+    void setConstraintType(const ConstraintType ct) {
+        _constraint_type = ct;
+        this->resetCoefficientData();
+    }
 
     //! Type for weighting kernel for GMLS problem
     void setWeightingType( const std::string &wt) {
@@ -1233,7 +1267,7 @@ public:
         this->resetCoefficientData();
     }
 
-    //! Sets basis order to be used when reoncstructing any function
+    //! Sets basis order to be used when reconctructing any function
     void setPolynomialOrder(const int poly_order) {
         compadre_assert_release(poly_order<11 && "Unsupported polynomial order (>=11).");
         _poly_order = poly_order;

@@ -255,6 +255,75 @@ class TestPyCOMPADRE(KokkosTestCase):
 
         self.assertAlmostEqual(output, 1.0, places=15)
 
+    def test_pickle_sampling_functional(self):
+        # test pickling of SamplingFunctional
+        sf = pycompadre.SamplingFunctionals["VectorPointSample"]
+        state = sf.__getstate__()
+        import pickle
+        byte_sf = pickle.dumps(sf)
+        new_sf = pickle.loads(byte_sf)
+        new_state = new_sf.__getstate__()
+        self.assertEqual(len(state), len(new_state))
+        for i in range(len(state)):
+            self.assertEqual(state[i], new_state[i])
+
+    def test_pickle_gmls(self):
+
+        source_sites = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
+        source_sites = np.reshape(source_sites, newshape=(source_sites.size,1))
+        data = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
+
+        polynomial_order = 1
+        dim = 1
+
+        gmls_obj=pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD")
+        gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
+        gmls_obj.addTargets(pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        gmls_helper.generateKDTree(source_sites)
+
+        point = np.array([4.0], dtype='f8')
+        target_site = np.reshape(point, newshape=(1,dim))
+
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+        gmls_obj.generateAlphas(1, True)
+
+        # pickle the gmls_obj
+        import pickle
+        byte_gmls = pickle.dumps(gmls_obj)
+        new_gmls_obj = pickle.loads(byte_gmls)
+
+        with open('test.p', 'wb') as fn:
+            pickle.dump(gmls_obj, fn)
+        with open('test.p', 'rb') as fn:
+            new_gmls_obj = pickle.load(fn)
+
+        print(gmls_obj.__getstate__())
+        del gmls_obj
+        print(new_gmls_obj.__getstate__())
+
+        gmls_helper = pycompadre.ParticleHelper(new_gmls_obj)
+        gmls_helper.generateKDTree(source_sites)
+
+        point = np.array([4.0], dtype='f8')
+        target_site = np.reshape(point, newshape=(1,dim))
+
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+        new_gmls_obj.generateAlphas(1, True)
+
+        output = gmls_helper.applyStencilSingleTarget(data, pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+
+        byte_gmls_helper = pickle.dumps(gmls_helper)
+        new_gmls_helper = pickle.loads(byte_gmls_helper)
+
+        del gmls_helper
+        del new_gmls_obj
+
+        self.assertAlmostEqual(output, 1.0, places=15)
+
+    # end of inline tests
+
 # space / sampling combinations
 space_sample_combos = {
         "stp_ps":(pycompadre.ReconstructionSpace.ScalarTaylorPolynomial, pycompadre.SamplingFunctionals["PointSample"]), 
@@ -262,6 +331,7 @@ space_sample_combos = {
         #"brnst_vps":(pycompadre.ReconstructionSpace.BernsteinPolynomial, pycompadre.SamplingFunctionals["VectorPointSample"])
         "brnst_vps":(pycompadre.ReconstructionSpace.BernsteinPolynomial, pycompadre.SamplingFunctionals["PointSample"])
         }
+
 
 #############################
 
