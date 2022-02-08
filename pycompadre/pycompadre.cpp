@@ -21,53 +21,122 @@
 using namespace Compadre;
 namespace py = pybind11;
 
-// handles 2d transfer from kokkos to numpy
-template <typename view_type>
-typename std::enable_if<view_type::rank!=1, py::array_t<typename view_type::value_type> >::type 
-        convert_kokkos_to_np(view_type kokkos_array_device) {
 
+template<typename T, typename T2=void>
+struct cknp1d {
+    T* kokkos_array_host;
+    cknp1d (T kokkos_array_host_) : kokkos_array_host(&kokkos_array_host_) {}
+    py::array_t<typename T::value_type> convert() { 
+
+        auto dim_out_0 = kokkos_array_host->extent(0);
+        auto result = py::array_t<typename T::value_type>(dim_out_0);
+        auto data = result.template mutable_unchecked<1>();
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
+            data(i) = (*kokkos_array_host)(i);
+        });
+        Kokkos::fence();
+        return result;
+
+    }
+};
+
+template<typename T>
+struct cknp1d<T, enable_if_t<(T::rank!=1)> > {
+    T* kokkos_array_host;
+    cknp1d (T kokkos_array_host_) : kokkos_array_host(&kokkos_array_host_) {}
+    py::array_t<typename T::value_type> convert() { 
+        auto result = py::array_t<typename T::value_type>(0);
+        return result;
+    }
+};
+
+template<typename T, typename T2=void>
+struct cknp2d {
+    T* kokkos_array_host;
+    cknp2d (T kokkos_array_host_) : kokkos_array_host(&kokkos_array_host_) {}
+    py::array_t<typename T::value_type> convert() { 
+
+        auto dim_out_0 = kokkos_array_host->extent(0);
+        auto dim_out_1 = kokkos_array_host->extent(1);
+
+        auto result = py::array_t<typename T::value_type>(dim_out_0*dim_out_1);
+        result.resize({dim_out_0,dim_out_1});
+        auto data = result.template mutable_unchecked<T::rank>();
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
+            for (int j=0; j<dim_out_1; ++j) {
+                data(i,j) = (*kokkos_array_host)(i,j);
+            }
+        });
+        Kokkos::fence();
+        return result;
+
+    }
+};
+
+template<typename T>
+struct cknp2d<T, enable_if_t<(T::rank!=2)> > {
+    T* kokkos_array_host;
+    cknp2d (T kokkos_array_host_) : kokkos_array_host(&kokkos_array_host_) {}
+    py::array_t<typename T::value_type> convert() { 
+        auto result = py::array_t<typename T::value_type>(0);
+        return result;
+    }
+};
+
+template<typename T, typename T2=void>
+struct cknp3d {
+    T* kokkos_array_host;
+    cknp3d (T kokkos_array_host_) : kokkos_array_host(&kokkos_array_host_) {}
+    py::array_t<typename T::value_type> convert() { 
+
+        auto dim_out_0 = kokkos_array_host->extent(0);
+        auto dim_out_1 = kokkos_array_host->extent(1);
+        auto dim_out_2 = kokkos_array_host->extent(2);
+
+        auto result = py::array_t<typename T::value_type>(dim_out_0*dim_out_1*dim_out_2);
+        result.resize({dim_out_0,dim_out_1,dim_out_2});
+        auto data = result.template mutable_unchecked<T::rank>();
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
+            for (int j=0; j<dim_out_1; ++j) {
+                for (int k=0; k<dim_out_2; ++k) {
+                    data(i,j,k) = (*kokkos_array_host)(i,j,k);
+                }
+            }
+        });
+        Kokkos::fence();
+        return result;
+
+    }
+};
+
+template<typename T>
+struct cknp3d<T, enable_if_t<(T::rank!=3)> > {
+    T* kokkos_array_host;
+    cknp3d (T kokkos_array_host_) : kokkos_array_host(&kokkos_array_host_) {}
+    py::array_t<typename T::value_type> convert() { 
+        auto result = py::array_t<typename T::value_type>(0);
+        return result;
+    }
+};
+
+
+template<typename T>
+py::array_t<typename T::value_type> convert_kokkos_to_np(T kokkos_array_device) {
     // ensure data is accessible
     auto kokkos_array_host =
         Kokkos::create_mirror_view(kokkos_array_device);
     Kokkos::deep_copy(kokkos_array_host, kokkos_array_device);
-
-    compadre_assert_release((view_type::rank>0 && view_type::rank<3) && 
-            "Only support rank 1 and 2 arrays for conversion to Numpy");
-    auto dim_out_0 = kokkos_array_host.extent(0);
-    auto dim_out_1 = kokkos_array_host.extent(1);
-
-    auto result = py::array_t<typename view_type::value_type>(dim_out_0*dim_out_1);
-    result.resize({dim_out_0,dim_out_1});
-    auto data = result.template mutable_unchecked<view_type::rank>();
-    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
-        for (int j=0; j<dim_out_1; ++j) {
-            data(i,j) = kokkos_array_host(i,j);
-        }
-    });
-    Kokkos::fence();
-    return result;
-}
-
-// handles 1d transfer from kokkos to numpy
-template <typename view_type>
-typename std::enable_if<view_type::rank==1, py::array_t<typename view_type::value_type> >::type 
-        convert_kokkos_to_np(view_type kokkos_array_device) {
-
-    // ensure data is accessible
-    auto kokkos_array_host =
-        Kokkos::create_mirror_view(kokkos_array_device);
-    Kokkos::deep_copy(kokkos_array_host, kokkos_array_device);
-
-    compadre_assert_release((view_type::rank==1) && 
-            "Only support rank 1 and 2 arrays for conversion to Numpy");
-    auto dim_out_0 = kokkos_array_host.extent(0);
-    auto result = py::array_t<typename view_type::value_type>(dim_out_0);
-    auto data = result.template mutable_unchecked<1>();
-    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
-        data(i) = kokkos_array_host(i);
-    });
-    Kokkos::fence();
-    return result;
+    if (T::rank==1) {
+        return cknp1d<T>(kokkos_array_host).convert();
+    } else if (T::rank==2) {
+        return cknp2d<T>(kokkos_array_host).convert();
+    } else if (T::rank==3) {
+        return cknp3d<T>(kokkos_array_host).convert();
+    } else {
+        compadre_assert_release(false && "Only rank <3 supported.");
+        auto result = py::array_t<typename T::value_type>(0);
+        return result;
+    }
 }
 
 
@@ -922,16 +991,23 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             auto np_a_cr  = convert_kokkos_to_np(a_cr);
             auto a_nnl    = a_nl->getNumberOfNeighborsList();
             auto np_a_nnl = convert_kokkos_to_np(a_nnl);
+
+            auto r_ss = ss;
+            auto ck = convert_kokkos_to_np(r_ss);
+
+            auto r_ws = *ws;
+            auto ck2 = convert_kokkos_to_np(r_ws);
  
             // get all relevant details from GMLS class
             return py::make_tuple(rs, psf, dsf, po, gdim, dst, pt, ct, cpo, 
-                                  wt, wp0, wp1, mwt, mwp0, mwp1, lro_list,
-                                  np_ss, np_ts, np_ws, np_cr, np_nnl,
-                                  np_a_cr, np_a_nnl);
+                                  wt, wp0, wp1, mwt, mwp0, mwp1, lro_list);
+                                  //np_ss, np_ts, np_ws, np_cr, np_nnl,
+                                  //np_a_cr, np_a_nnl);
 
         },
         [](py::tuple t) { // __setstate__
-            if (t.size() != 23)
+            //if (t.size() != 23)
+            if (t.size() != 16)
                 throw std::runtime_error("Invalid state!");
 
             // reinstantiate with details
