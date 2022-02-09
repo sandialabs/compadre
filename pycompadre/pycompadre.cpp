@@ -290,19 +290,6 @@ public:
 
         auto neighbor_lists = convert_np_to_kokkos_2d<Kokkos::HostSpace>(input);
         
-        //// create Kokkos View on host to copy into
-        //Kokkos::View<local_index_type**, Kokkos::HostSpace> neighbor_lists("neighbor lists", input.shape(0), input.shape(1));
-        //
-        //// overwrite existing data assuming a 2D layout
-        //auto data = input.unchecked<2>();
-        //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,input.shape(0)), [=](int i) {
-        //    for (int j = 0; j < input.shape(1); ++j)
-        //    {
-        //        neighbor_lists(i, j) = data(i, j);
-        //    }
-        //});
-        //Kokkos::fence();
-    
         // set values from Kokkos View
         gmls_object->setNeighborLists(neighbor_lists);
         nl = gmls_object->getNeighborLists();
@@ -331,20 +318,6 @@ public:
 
         auto source_coords = convert_np_to_kokkos_2d<Kokkos::HostSpace>(input);
         
-        //// create Kokkos View on host to copy into
-        //Kokkos::View<double**, Kokkos::HostSpace> source_coords("neighbor coordinates", input.shape(0), input.shape(1));
-        //
-        //// overwrite existing data assuming a 2D layout
-        //auto data = input.unchecked<2>();
-        //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,input.shape(0)), [=](int i) {
-        //    for (int j = 0; j < input.shape(1); ++j)
-        //    {
-        //        source_coords(i, j) = data(i, j);
-        //    }
-        //});
-        //Kokkos::fence();
-        //convert_kokkos_to_np(source_coords);
-        
         // set values from Kokkos View
         gmls_object->setSourceSites(source_coords);
         _source_coords = source_coords;
@@ -368,19 +341,6 @@ public:
 
         auto target_coords = convert_np_to_kokkos_2d<Kokkos::HostSpace>(input);
         
-        //// create Kokkos View on host to copy into
-        //Kokkos::View<double**, Kokkos::HostSpace> target_coords("target coordinates", input.shape(0), input.shape(1));
-        //
-        //// overwrite existing data assuming a 2D layout
-        //auto data = input.unchecked<2>();
-        //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,input.shape(0)), [=](int i) {
-        //    for (int j = 0; j < input.shape(1); ++j)
-        //    {
-        //        target_coords(i, j) = data(i, j);
-        //    }
-        //});
-        //Kokkos::fence();
-        
         // set values from Kokkos View
         gmls_object->setTargetSites(target_coords);
         _target_coords = target_coords;
@@ -398,15 +358,7 @@ public:
             throw std::runtime_error("Number of dimensions must be one");
         }
         
-        // create Kokkos View on host to copy into
-        Kokkos::View<double*, Kokkos::HostSpace> epsilon("h supports", input.shape(0));
-        
-        // overwrite existing data assuming a 2D layout
-        auto data = input.unchecked<1>();
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,input.shape(0)), [=](int i) {
-            epsilon(i) = data(i);
-        });
-        Kokkos::fence();
+        auto epsilon = convert_np_to_kokkos_1d<Kokkos::HostSpace>(input);
         
         // set values from Kokkos View
         gmls_object->setWindowSizes(epsilon);
@@ -435,20 +387,7 @@ public:
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
         
-        // create Kokkos View on host to copy into
-        Kokkos::View<double***, Kokkos::HostSpace> tangent_bundle("tangent bundle", input.shape(0), input.shape(1), input.shape(2));
-        
-        // overwrite existing data assuming a 2D layout
-        auto data = input.unchecked<3>();
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,input.shape(0)), [=](int i) {
-            for (int j = 0; j < input.shape(1); ++j)
-            {
-                for (int k = 0; k < input.shape(2); ++k) {
-                    tangent_bundle(i, j, k) = data(i, j, k);
-                }
-            }
-        });
-        Kokkos::fence();
+        auto tangent_bundle = convert_np_to_kokkos_3d<Kokkos::HostSpace>(input);
         
         // set values from Kokkos View
         gmls_object->setTangentBundle(tangent_bundle);
@@ -471,18 +410,7 @@ public:
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
         
-        // create Kokkos View on host to copy into
-        Kokkos::View<double**, Kokkos::HostSpace> reference_normal_directions("reference normal directions", input.shape(0), input.shape(1));
-        
-        // overwrite existing data assuming a 2D layout
-        auto data = input.unchecked<2>();
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,input.shape(0)), [=](int i) {
-            for (int j = 0; j < input.shape(1); ++j)
-            {
-                reference_normal_directions(i, j) = data(i, j);
-            }
-        });
-        Kokkos::fence();
+        auto reference_normal_directions = convert_np_to_kokkos_2d<Kokkos::HostSpace>(input);
         
         // set values from Kokkos View
         gmls_object->setReferenceOutwardNormalDirection(reference_normal_directions, true /* use to orient surface*/);
@@ -517,17 +445,7 @@ public:
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
         
-        // create Kokkos View on host to copy into
-        Kokkos::View<double**, Kokkos::HostSpace> target_coords("target site coordinates", input.shape(0), input.shape(1));
-        
-        // overwrite existing data assuming a 2D layout
-        auto data = input.unchecked<2>();
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,input.shape(0)), [=](int i) {
-            for (int j = 0; j < input.shape(1); ++j)
-            {
-                target_coords(i, j) = data(i, j);
-            }
-        });
+        auto target_coords = convert_np_to_kokkos_2d<Kokkos::HostSpace>(input);
 
         // how many target sites
         int number_target_coords = target_coords.extent(0);
@@ -585,29 +503,10 @@ public:
             throw std::runtime_error("Second dimension of input coordinates must be the same as GMLS spatial dimension");
         }
         
-        // create Kokkos View on host to copy into
-        Kokkos::View<local_index_type**, Kokkos::HostSpace> neighbor_lists("neighbor lists", input_indices.shape(0), input_indices.shape(1));
-
-        // create Kokkos View on host to copy into
-        Kokkos::View<double**, Kokkos::HostSpace> extra_coords("neighbor coordinates", input_coordinates.shape(0), input_coordinates.shape(1));
-        
         // overwrite existing data assuming a 2D layout
-        auto data_indices = input_indices.unchecked<2>();
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,input_indices.shape(0)), [=](int i) {
-            for (int j = 0; j < input_indices.shape(1); ++j)
-            {
-                neighbor_lists(i, j) = data_indices(i, j);
-            }
-        });
+        auto neighbor_lists = convert_np_to_kokkos_2d<Kokkos::HostSpace>(input_indices);
         // overwrite existing data assuming a 2D layout
-        auto data_coordinates = input_coordinates.unchecked<2>();
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,input_coordinates.shape(0)), [=](int i) {
-            for (int j = 0; j < input_coordinates.shape(1); ++j)
-            {
-                extra_coords(i, j) = data_coordinates(i, j);
-            }
-        });
-        Kokkos::fence();
+        auto extra_coords = convert_np_to_kokkos_2d<Kokkos::HostSpace>(input_coordinates);
     
         // set values from Kokkos View
         gmls_object->setAdditionalEvaluationSitesData(neighbor_lists, extra_coords);
