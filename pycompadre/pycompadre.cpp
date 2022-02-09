@@ -23,7 +23,7 @@ namespace py = pybind11;
 
 // conversion of numpy arrays to kokkos arrays
 
-template<typename space, typename T>
+template<typename space=Kokkos::HostSpace, typename T>
 Kokkos::View<T*, space> convert_np_to_kokkos_1d(py::array_t<T> array) {
 
     compadre_assert_release(array.ndim()==1 && "array must be of rank 1");
@@ -89,7 +89,21 @@ Kokkos::View<T***, space> convert_np_to_kokkos_3d(py::array_t<T> array) {
 template<typename T, typename T2=void>
 struct cknp1d {
     T* kokkos_array_host;
-    cknp1d (T kokkos_array_host_) : kokkos_array_host(&kokkos_array_host_) {}
+    py::array_t<typename T::value_type> result;
+    cknp1d (T kokkos_array_host_) {
+        auto dim_out_0 = kokkos_array_host->extent(0);
+        result = py::array_t<typename T::value_type>(dim_out_0);
+        auto data = result.template mutable_unchecked<1>();
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
+            data(i) = (*kokkos_array_host)(i);
+        });
+        Kokkos::fence();
+    }
+    : generate(gkokkos_array_host(&kokkos_array_host_) {}
+    py::array_t<typename T::value_type> generate() { 
+
+
+    }
     py::array_t<typename T::value_type> convert() { 
 
         auto dim_out_0 = kokkos_array_host->extent(0);
@@ -288,7 +302,7 @@ public:
             throw std::runtime_error("Number of dimensions must be two");
         }
 
-        auto neighbor_lists = convert_np_to_kokkos_2d<Kokkos::HostSpace>(input);
+        auto neighbor_lists = convert_np_to_kokkos_2d(input);
         
         // set values from Kokkos View
         gmls_object->setNeighborLists(neighbor_lists);
@@ -316,7 +330,7 @@ public:
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
 
-        auto source_coords = convert_np_to_kokkos_2d<Kokkos::HostSpace>(input);
+        auto source_coords = convert_np_to_kokkos_2d(input);
         
         // set values from Kokkos View
         gmls_object->setSourceSites(source_coords);
@@ -339,7 +353,7 @@ public:
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
 
-        auto target_coords = convert_np_to_kokkos_2d<Kokkos::HostSpace>(input);
+        auto target_coords = convert_np_to_kokkos_2d(input);
         
         // set values from Kokkos View
         gmls_object->setTargetSites(target_coords);
@@ -358,7 +372,7 @@ public:
             throw std::runtime_error("Number of dimensions must be one");
         }
         
-        auto epsilon = convert_np_to_kokkos_1d<Kokkos::HostSpace>(input);
+        auto epsilon = convert_np_to_kokkos_1d(input);
         
         // set values from Kokkos View
         gmls_object->setWindowSizes(epsilon);
@@ -410,7 +424,7 @@ public:
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
         
-        auto reference_normal_directions = convert_np_to_kokkos_2d<Kokkos::HostSpace>(input);
+        auto reference_normal_directions = convert_np_to_kokkos_2d(input);
         
         // set values from Kokkos View
         gmls_object->setReferenceOutwardNormalDirection(reference_normal_directions, true /* use to orient surface*/);
@@ -445,7 +459,7 @@ public:
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
         
-        auto target_coords = convert_np_to_kokkos_2d<Kokkos::HostSpace>(input);
+        auto target_coords = convert_np_to_kokkos_2d(input);
 
         // how many target sites
         int number_target_coords = target_coords.extent(0);
@@ -504,9 +518,9 @@ public:
         }
         
         // overwrite existing data assuming a 2D layout
-        auto neighbor_lists = convert_np_to_kokkos_2d<Kokkos::HostSpace>(input_indices);
+        auto neighbor_lists = convert_np_to_kokkos_2d(input_indices);
         // overwrite existing data assuming a 2D layout
-        auto extra_coords = convert_np_to_kokkos_2d<Kokkos::HostSpace>(input_coordinates);
+        auto extra_coords = convert_np_to_kokkos_2d(input_coordinates);
     
         // set values from Kokkos View
         gmls_object->setAdditionalEvaluationSitesData(neighbor_lists, extra_coords);
@@ -930,12 +944,6 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             auto np_a_cr  = convert_kokkos_to_np(a_cr);
             auto a_nnl    = a_nl->getNumberOfNeighborsList();
             auto np_a_nnl = convert_kokkos_to_np(a_nnl);
-
-            auto r_ss = ss;
-            auto ck = convert_kokkos_to_np(r_ss);
-
-            auto r_ws = *ws;
-            auto ck2 = convert_kokkos_to_np(r_ws);
  
             // get all relevant details from GMLS class
             return py::make_tuple(rs, psf, dsf, po, gdim, dst, pt, ct, cpo, 
@@ -974,22 +982,22 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
                 gmls.addTargets(obj_i.cast<TargetOperation>());
             }
             
-            auto ss = t[16].cast<py::array_t<double> >();
-            auto k_ss = convert_np_to_kokkos_2d<Kokkos::HostSpace>(ss);
-            auto ts = t[17].cast<py::array_t<double> >();
-            auto k_ts = convert_np_to_kokkos_2d<Kokkos::HostSpace>(ts);
-            auto ws = t[18].cast<py::array_t<double> >();
-            auto k_ws = convert_np_to_kokkos_1d<Kokkos::HostSpace>(ws);
-            // need to cast from numpy back to kokkos before setting problem data
-            // 
-            // t[16].cast<py::list>() -> ss 
-            // t[17].cast<py::list>() -> ts
-            // t[18].cast<py::list>() -> ws
-            // t[19].cast<py::list>() -> cr
-            // t[20].cast<py::list>() -> nnl
-            // t[21].cast<py::list>() -> a_cr
-            // t[22].cast<py::list>() -> a_nnl
-            // gmls.setProblemData(cr, nnl, ss, ts, ws);
+            // need to convert from numpy back to kokkos before setting problem data
+            auto ss       = t[16].cast<py::array_t<double> >();
+            auto k_ss     = convert_np_to_kokkos_2d(ss);
+            auto ts       = t[17].cast<py::array_t<double> >();
+            auto k_ts     = convert_np_to_kokkos_2d(ts);
+            auto ws       = t[18].cast<py::array_t<double> >();
+            auto k_ws     = convert_np_to_kokkos_1d(ws);
+            auto cr    = t[19].cast<py::array_t<int> >();
+            auto k_cr       = convert_np_to_kokkos_1d(cr);
+            auto nnl   = t[20].cast<py::array_t<int> >();
+            auto k_nnl      = convert_np_to_kokkos_1d(nnl);
+            auto a_cr  = t[21].cast<py::array_t<int> >();
+            auto k_a_cr     = convert_np_to_kokkos_1d(a_cr);
+            auto a_nnl = t[22].cast<py::array_t<int> >();
+            auto k_a_nnl    = convert_np_to_kokkos_1d(a_nnl);
+            gmls.setProblemData(k_cr, k_nnl, k_ss, k_ts, k_ws);
 
             // does not account for source and neighbor lists
             return gmls;
