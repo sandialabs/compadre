@@ -19,6 +19,10 @@ def approximate(input_dimensions, porder, wpower, wtype, epsilon_multiplier, att
     
     # helper function for applying of alphas
     z_pred = gmls_helper.applyStencil(z, pycompadre.TargetOperation.ScalarPointEvaluation)
+
+    # tests that setting and getting tangent bundle works
+    gmls_helper.setTangentBundle(np.ones(shape=(xy_pred.shape[0], input_dimensions, input_dimensions), dtype='f8'))
+    tb = gmls_helper.getTangentBundle()
     
     del gmls_obj
     del gmls_helper
