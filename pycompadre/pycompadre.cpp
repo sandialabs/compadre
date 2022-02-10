@@ -927,16 +927,20 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             auto np_a_cr  = convert_kokkos_to_np(a_cr);
             auto a_nnl    = a_nl->getNumberOfNeighborsList();
             auto np_a_nnl = convert_kokkos_to_np(a_nnl);
+
+            // get all additional evaluation coordinates
+            auto a_es = nonconst_gmls.getAdditionalPointConnections()->_source_coordinates;
+            auto np_a_es  = convert_kokkos_to_np(a_es);
  
             // get all relevant details from GMLS class
             return py::make_tuple(rs, psf, dsf, po, gdim, dst, pt, ct, cpo, 
                                   wt, wp0, wp1, mwt, mwp0, mwp1, lro_list,
                                   np_ss, np_ts, np_ws, np_cr, np_nnl,
-                                  np_a_cr, np_a_nnl);
+                                  np_a_cr, np_a_nnl, np_a_es);
 
         },
         [](py::tuple t) { // __setstate__
-            if (t.size() != 23)
+            if (t.size() != 24)
                 throw std::runtime_error("Invalid state!");
 
             // reinstantiate with details
@@ -965,20 +969,24 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             }
             
             // need to convert from numpy back to kokkos before setting problem data
-            auto ss       = t[16].cast<py::array_t<double> >();
-            auto k_ss     = convert_np_to_kokkos_2d(ss);
-            auto ts       = t[17].cast<py::array_t<double> >();
-            auto k_ts     = convert_np_to_kokkos_2d(ts);
-            auto ws       = t[18].cast<py::array_t<double> >();
-            auto k_ws     = convert_np_to_kokkos_1d(ws);
-            auto cr    = t[19].cast<py::array_t<int> >();
-            auto k_cr       = convert_np_to_kokkos_1d(cr);
-            auto nnl   = t[20].cast<py::array_t<int> >();
-            auto k_nnl      = convert_np_to_kokkos_1d(nnl);
-            auto a_cr  = t[21].cast<py::array_t<int> >();
-            auto k_a_cr     = convert_np_to_kokkos_1d(a_cr);
-            auto a_nnl = t[22].cast<py::array_t<int> >();
-            auto k_a_nnl    = convert_np_to_kokkos_1d(a_nnl);
+            auto ss      = t[16].cast<py::array_t<double> >();
+            auto k_ss    = convert_np_to_kokkos_2d(ss);
+            auto ts      = t[17].cast<py::array_t<double> >();
+            auto k_ts    = convert_np_to_kokkos_2d(ts);
+            auto ws      = t[18].cast<py::array_t<double> >();
+            auto k_ws    = convert_np_to_kokkos_1d(ws);
+            auto cr      = t[19].cast<py::array_t<int> >();
+            auto k_cr    = convert_np_to_kokkos_1d(cr);
+            auto nnl     = t[20].cast<py::array_t<int> >();
+            auto k_nnl   = convert_np_to_kokkos_1d(nnl);
+            auto a_cr    = t[21].cast<py::array_t<int> >();
+            auto k_a_cr  = convert_np_to_kokkos_1d(a_cr);
+            auto a_nnl   = t[22].cast<py::array_t<int> >();
+            auto k_a_nnl = convert_np_to_kokkos_1d(a_nnl);
+            auto a_es    = t[23].cast<py::array_t<double> >();
+            auto k_a_es  = convert_np_to_kokkos_2d(a_es);
+
+            gmls.setAdditionalEvaluationSitesData(k_a_cr, k_a_nnl, k_a_es);
             gmls.setProblemData(k_cr, k_nnl, k_ss, k_ts, k_ws);
 
             // this object will be copy constructed
