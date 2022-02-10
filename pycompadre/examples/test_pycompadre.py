@@ -276,6 +276,63 @@ class TestPyCOMPADRE(KokkosTestCase):
         polynomial_order = 1
         dim = 1
 
+        point = np.array([4.0], dtype='f8')
+        target_site = np.reshape(point, newshape=(1,dim))
+    
+        # rvalue or std::unique_ptr passed to ParticleHelper (not obvious lifecycle of GMLS object)
+        gmls_helper = pycompadre.ParticleHelper(pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD"))
+        gmls_helper.generateKDTree(source_sites)
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+        # print("1",gmls_helper.getGMLSObject().__getstate__())
+        gmls_helper.getGMLSObject().__getstate__()
+
+        # gets GMLS object from gmls_helper (python knows C++ owns it, but C++ treats it as
+        # a python owned object at construction) so lifecycle of GMLS object is not tied to
+        # the lifecycle of the GMLS helper
+        gmls_obj = gmls_helper.getGMLSObject()
+        # destroy helper 
+        del gmls_helper
+        # python kept a reference count on the argument to GMLS helper
+        # which isn't obvious, but there is no move constructor for GMLS helper class
+        # so the following is not destroyed, yet
+        # print("2",gmls_obj.__getstate__())
+        gmls_obj.__getstate__()
+
+        # python knows that original GMLS object was tied to GMLS helper
+        # so replacing the helper tells python the GMLS object is no longer needed
+        gmls_helper = pycompadre.ParticleHelper(pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD"))
+        # but python keeps this handle internally and now points at new rvalue like object
+        # so the following still works
+        # print("3",gmls_obj.__getstate__())
+        gmls_obj.__getstate__()
+
+        # # this will confuse python because it thinks the rvalue like GMLS object is
+        # # no longer needed, so it will throw it away
+        # gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        # # so the gmls_obj actual gets destroyed in the previous call
+        # gmls_obj = gmls_helper.getGMLSObject()
+        # # see what happens to internal GMLS object
+        # # object is destroyed and this segfaults
+        # # we don't call v--- because it will segfault and unittest can't catch that
+        # # print("4",gmls_obj.__getstate__())
+        # # gmls_obj.__getstate__()
+        # # resetting GMLS helper after this block of code will cause deallocation 
+        # ---------------^ WHY DOES THIS BLOCK CAUSE SEGFAULTS BELOW?
+
+        # GMLS object destroyed and then relied upon in gmls_helper
+        gmls_obj=pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD")
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        gmls_helper.generateKDTree(source_sites)
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+        # the following v---- will segfault because gmls_obj is deleted
+        # del gmls_obj
+        # print(gmls_helper.getNeighborLists())
+        # print(gmls_helper.getGMLSObject().__getstate__())
+        gmls_obj2=gmls_helper.getGMLSObject()
+
+        # delete python owned gmls_obj, non-owning gmls_obj2 (which points at owned gmls_obj)
+        del gmls_obj, gmls_obj2, gmls_helper
+
         gmls_obj=pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD")
         gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
         gmls_obj.addTargets(pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
@@ -289,7 +346,7 @@ class TestPyCOMPADRE(KokkosTestCase):
         gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
         gmls_obj.generateAlphas(1, True)
 
-        # pickle the gmls_obj
+        # test pickling the gmls_obj but not gmls_helper
         import pickle
         byte_gmls = pickle.dumps(gmls_obj)
         new_gmls_obj = pickle.loads(byte_gmls)
@@ -299,17 +356,16 @@ class TestPyCOMPADRE(KokkosTestCase):
         with open('test.p', 'rb') as fn:
             new_gmls_obj = pickle.load(fn)
 
-        print(gmls_obj.__getstate__())
         del gmls_obj
-        print(new_gmls_obj.__getstate__())
 
         gmls_helper = pycompadre.ParticleHelper(new_gmls_obj)
-        gmls_helper.generateKDTree(source_sites)
 
-        point = np.array([4.0], dtype='f8')
-        target_site = np.reshape(point, newshape=(1,dim))
+        # explicitly we do not call generateKDTree (it must come from the older gmls_object)
+        # gmls_helper.generateKDTree(source_sites)
 
-        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+        # explicitly we do not call generateNeighborL... so that target info must come from older gmls_object
+        # gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+
         new_gmls_obj.generateAlphas(1, True)
 
         output = gmls_helper.applyStencilSingleTarget(data, pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
@@ -317,10 +373,22 @@ class TestPyCOMPADRE(KokkosTestCase):
         byte_gmls_helper = pickle.dumps(gmls_helper)
         new_gmls_helper = pickle.loads(byte_gmls_helper)
 
+        with open('test.p', 'wb') as fn:
+            pickle.dump(gmls_helper, fn)
         del gmls_helper
         del new_gmls_obj
 
         self.assertAlmostEqual(output, 1.0, places=15)
+        
+        # test pickling of gmls_helper
+        with open('test.p', 'rb') as fn:
+            new_gmls_helper = pickle.load(fn)
+        gmls_obj = new_gmls_helper.getGMLSObject()
+        gmls_obj.generateAlphas(1, True)
+
+        output = new_gmls_helper.applyStencilSingleTarget(data, pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+        self.assertAlmostEqual(output, 1.0, places=15)
+
 
     # end of inline tests
 

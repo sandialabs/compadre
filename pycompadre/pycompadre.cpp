@@ -41,7 +41,7 @@ Kokkos::View<T*, space> convert_np_to_kokkos_1d(py::array_t<T> array) {
 
 }
 
-template<typename space, typename T>
+template<typename space=Kokkos::HostSpace, typename T>
 Kokkos::View<T**, space> convert_np_to_kokkos_2d(py::array_t<T> array) {
 
     compadre_assert_release(array.ndim()==2 && "array must be of rank 1");
@@ -61,7 +61,7 @@ Kokkos::View<T**, space> convert_np_to_kokkos_2d(py::array_t<T> array) {
 
 }
 
-template<typename space, typename T>
+template<typename space=Kokkos::HostSpace, typename T>
 Kokkos::View<T***, space> convert_np_to_kokkos_3d(py::array_t<T> array) {
 
     compadre_assert_release(array.ndim()==3 && "array must be of rank 1");
@@ -88,113 +88,93 @@ Kokkos::View<T***, space> convert_np_to_kokkos_3d(py::array_t<T> array) {
 
 template<typename T, typename T2=void>
 struct cknp1d {
-    T* kokkos_array_host;
     py::array_t<typename T::value_type> result;
-    cknp1d (T kokkos_array_host_) {
-        auto dim_out_0 = kokkos_array_host->extent(0);
+    cknp1d (T kokkos_array_host) {
+
+        auto dim_out_0 = kokkos_array_host.extent(0);
         result = py::array_t<typename T::value_type>(dim_out_0);
         auto data = result.template mutable_unchecked<1>();
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
-            data(i) = (*kokkos_array_host)(i);
+            data(i) = kokkos_array_host(i);
         });
         Kokkos::fence();
-    }
-    : generate(gkokkos_array_host(&kokkos_array_host_) {}
-    py::array_t<typename T::value_type> generate() { 
-
 
     }
-    py::array_t<typename T::value_type> convert() { 
-
-        auto dim_out_0 = kokkos_array_host->extent(0);
-        auto result = py::array_t<typename T::value_type>(dim_out_0);
-        auto data = result.template mutable_unchecked<1>();
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
-            data(i) = (*kokkos_array_host)(i);
-        });
-        Kokkos::fence();
-        return result;
-
-    }
+    py::array_t<typename T::value_type> convert() { return result; }
 };
 
 template<typename T>
 struct cknp1d<T, enable_if_t<(T::rank!=1)> > {
-    T* kokkos_array_host;
-    cknp1d (T kokkos_array_host_) : kokkos_array_host(&kokkos_array_host_) {}
-    py::array_t<typename T::value_type> convert() { 
-        auto result = py::array_t<typename T::value_type>(0);
-        return result;
+    py::array_t<typename T::value_type> result;
+    cknp1d (T kokkos_array_host) {
+        result = py::array_t<typename T::value_type>(0);
     }
+    py::array_t<typename T::value_type> convert() { return result; }
 };
 
 template<typename T, typename T2=void>
 struct cknp2d {
-    T* kokkos_array_host;
-    cknp2d (T kokkos_array_host_) : kokkos_array_host(&kokkos_array_host_) {}
-    py::array_t<typename T::value_type> convert() { 
+    py::array_t<typename T::value_type> result;
+    cknp2d (T kokkos_array_host) {
 
-        auto dim_out_0 = kokkos_array_host->extent(0);
-        auto dim_out_1 = kokkos_array_host->extent(1);
+        auto dim_out_0 = kokkos_array_host.extent(0);
+        auto dim_out_1 = kokkos_array_host.extent(1);
 
-        auto result = py::array_t<typename T::value_type>(dim_out_0*dim_out_1);
+        result = py::array_t<typename T::value_type>(dim_out_0*dim_out_1);
         result.resize({dim_out_0,dim_out_1});
         auto data = result.template mutable_unchecked<T::rank>();
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
             for (int j=0; j<dim_out_1; ++j) {
-                data(i,j) = (*kokkos_array_host)(i,j);
+                data(i,j) = kokkos_array_host(i,j);
             }
         });
         Kokkos::fence();
-        return result;
 
     }
+    py::array_t<typename T::value_type> convert() { return result; }
 };
 
 template<typename T>
 struct cknp2d<T, enable_if_t<(T::rank!=2)> > {
-    T* kokkos_array_host;
-    cknp2d (T kokkos_array_host_) : kokkos_array_host(&kokkos_array_host_) {}
-    py::array_t<typename T::value_type> convert() { 
-        auto result = py::array_t<typename T::value_type>(0);
-        return result;
+    py::array_t<typename T::value_type> result;
+    cknp2d (T kokkos_array_host) {
+        result = py::array_t<typename T::value_type>(0);
     }
+    py::array_t<typename T::value_type> convert() { return result; }
 };
 
 template<typename T, typename T2=void>
 struct cknp3d {
-    T* kokkos_array_host;
-    cknp3d (T kokkos_array_host_) : kokkos_array_host(&kokkos_array_host_) {}
-    py::array_t<typename T::value_type> convert() { 
+    py::array_t<typename T::value_type> result;
+    cknp3d (T kokkos_array_host) {
 
-        auto dim_out_0 = kokkos_array_host->extent(0);
-        auto dim_out_1 = kokkos_array_host->extent(1);
-        auto dim_out_2 = kokkos_array_host->extent(2);
+        auto dim_out_0 = kokkos_array_host.extent(0);
+        auto dim_out_1 = kokkos_array_host.extent(1);
+        auto dim_out_2 = kokkos_array_host.extent(2);
 
-        auto result = py::array_t<typename T::value_type>(dim_out_0*dim_out_1*dim_out_2);
+        result = py::array_t<typename T::value_type>(dim_out_0*dim_out_1*dim_out_2);
         result.resize({dim_out_0,dim_out_1,dim_out_2});
         auto data = result.template mutable_unchecked<T::rank>();
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
             for (int j=0; j<dim_out_1; ++j) {
                 for (int k=0; k<dim_out_2; ++k) {
-                    data(i,j,k) = (*kokkos_array_host)(i,j,k);
+                    data(i,j,k) = kokkos_array_host(i,j,k);
                 }
             }
         });
         Kokkos::fence();
-        return result;
 
     }
+    py::array_t<typename T::value_type> convert() { return result; }
 };
 
 template<typename T>
 struct cknp3d<T, enable_if_t<(T::rank!=3)> > {
-    T* kokkos_array_host;
-    cknp3d (T kokkos_array_host_) : kokkos_array_host(&kokkos_array_host_) {}
-    py::array_t<typename T::value_type> convert() { 
-        auto result = py::array_t<typename T::value_type>(0);
-        return result;
+    py::array_t<typename T::value_type> result;
+    cknp3d (T kokkos_array_host) {
+        result = py::array_t<typename T::value_type>(0);
     }
+    py::array_t<typename T::value_type> convert() { return result; }
 };
 
 
@@ -276,16 +256,15 @@ public:
     // handles an lvalued argument (scope of GMLS is bound externally)
     ParticleHelper(GMLS& gmls_instance) {
 
-        // set gmls object
         gmls_object = &gmls_instance;
         setInternalsFromGMLS();
 
     }
 
     // handles an rvalued argument (must take ownership of GMLS)
-    ParticleHelper(std::unique_ptr<GMLS> gmls_instance) :
-        owning_gmls_object(std::move(gmls_instance)) {
+    ParticleHelper(GMLS&& gmls_instance) {
 
+        owning_gmls_object = std::unique_ptr<GMLS>(new GMLS(std::move(gmls_instance)));
         gmls_object = owning_gmls_object.get();
         setInternalsFromGMLS();
 
@@ -828,6 +807,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             py::arg("scale_num_neighbors") = false)
     .def("setNeighbors", &ParticleHelper::setNeighbors, py::arg("neighbor_lists"), 
             "Sets neighbor lists from 2D array where first column is number of neighbors for corresponding row's target site.")
+    .def("getGMLSObject", &ParticleHelper::getGMLSObject, py::return_value_policy::reference_internal)
     .def("getAdditionalEvaluationIndices", &ParticleHelper::getAdditionalEvaluationIndices, py::return_value_policy::reference_internal)
     .def("getNeighborLists", &ParticleHelper::getNeighborLists, py::return_value_policy::reference_internal)
     .def("setWindowSizes", &ParticleHelper::setWindowSizes, py::arg("window_sizes"))
@@ -847,20 +827,13 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .def("applyStencil", &ParticleHelper::applyStencil, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::arg("evaluation_site_local_index")=0, py::return_value_policy::take_ownership)
     .def(py::pickle(
         [](const ParticleHelper &helper) { // __getstate__
-            // values needed for constructor
-            // if gmls pickling extended to source and neighbors, this object can be used to restore those
             auto gmls = helper.getGMLSObject();
             return py::make_tuple(*gmls);
         },
         [](py::tuple t) { // __setstate__
             if (t.size() != 1)
                 throw std::runtime_error("Invalid state!");
-            // reinstantiate with details
-            // no need to keep solutions
-            auto gmls = t[0].cast<GMLS>();
-            //ParticleHelper helper(t[0].cast<GMLS>());
-            ParticleHelper helper(gmls);
-
+            ParticleHelper helper(t[0].cast<GMLS>());
             return helper;
         }
     ));
@@ -911,7 +884,9 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             auto mwp1 = gmls.getManifoldWeightingParameter(1);
 
             // get all previously added targets
-            auto lro  = const_cast<GMLS&>(gmls).getSolutionSetHost()->_lro;
+            auto d_lro  = const_cast<GMLS&>(gmls).getSolutionSetDevice()->_lro;
+            auto lro    = Kokkos::create_mirror_view(d_lro);
+            Kokkos::deep_copy(lro, d_lro);
             auto lro_list = py::list();
             for (int i=0; i<lro.extent(0); ++i) {
                 lro_list.append(lro[i]);
@@ -954,7 +929,6 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
         },
         [](py::tuple t) { // __setstate__
             if (t.size() != 23)
-            //if (t.size() != 16)
                 throw std::runtime_error("Invalid state!");
 
             // reinstantiate with details
@@ -999,7 +973,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             auto k_a_nnl    = convert_np_to_kokkos_1d(a_nnl);
             gmls.setProblemData(k_cr, k_nnl, k_ss, k_ts, k_ws);
 
-            // does not account for source and neighbor lists
+            // this object will be copy constructed
             return gmls;
         }
     ));

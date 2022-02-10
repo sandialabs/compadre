@@ -168,11 +168,13 @@ private:
     ConstraintType _constraint_type;
 
     //! polynomial sampling functional used to construct P matrix, set at GMLS class instantiation
-    const SamplingFunctional _polynomial_sampling_functional;
+    //  can only be set at object instantiation
+    SamplingFunctional _polynomial_sampling_functional;
 
     //! generally the same as _polynomial_sampling_functional, but can differ if specified at 
+    //  can only be set at object instantiation
     //! GMLS class instantiation
-    const SamplingFunctional _data_sampling_functional;
+    SamplingFunctional _data_sampling_functional;
 
     //! vector containing target functionals to be applied for curvature
     Kokkos::View<TargetOperation*> _curvature_support_operations;
