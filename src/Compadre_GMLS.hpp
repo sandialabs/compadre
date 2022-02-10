@@ -160,15 +160,15 @@ private:
     //! solver type for GMLS problem - can be QR, SVD or LU
     DenseSolverType _dense_solver_type;
 
-    //! problem type for GMLS problem, can also be set to STANDARD for normal or MANIFOLD for manifold problems
-    //  can only be set at object instantiation
+    //! problem type for GMLS problem, can also be set to STANDARD for normal or MANIFOLD for manifold problems <br>
+    //! <b>NOTE: can only be set at object instantiation</b>
     ProblemType _problem_type;
 
     //! constraint type for GMLS problem
     ConstraintType _constraint_type;
 
-    //! polynomial sampling functional used to construct P matrix, set at GMLS class instantiation
-    //  can only be set at object instantiation
+    //! polynomial sampling functional used to construct P matrix, set at GMLS class instantiation <br>
+    //! <b>NOTE: can only be set at object instantiation</b>
     SamplingFunctional _polynomial_sampling_functional;
 
     //! generally the same as _polynomial_sampling_functional, but can differ if specified at 
@@ -1269,7 +1269,7 @@ public:
         this->resetCoefficientData();
     }
 
-    //! Sets basis order to be used when reconctructing any function
+    //! Sets basis order to be used when reconstructing any function
     void setPolynomialOrder(const int poly_order) {
         compadre_assert_release(poly_order<11 && "Unsupported polynomial order (>=11).");
         _poly_order = poly_order;
@@ -1277,7 +1277,7 @@ public:
         this->resetCoefficientData();
     }
 
-    //! Sets basis order to be used when reoncstructing curvature
+    //! Sets basis order to be used when reconstruction curvature
     void setCurvaturePolynomialOrder(const int curvature_poly_order) {
         compadre_assert_release(curvature_poly_order<11 && "Unsupported curvature polynomial order (>=11).");
         _curvature_poly_order = curvature_poly_order;
