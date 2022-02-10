@@ -24,49 +24,54 @@ namespace py = pybind11;
 // conversion of numpy arrays to kokkos arrays
 
 template<typename space=Kokkos::HostSpace, typename T>
-Kokkos::View<T*, space> convert_np_to_kokkos_1d(py::array_t<T> array) {
+Kokkos::View<T*, space> convert_np_to_kokkos_1d(py::array_t<T> array, 
+        std::string new_label="convert_np_to_kokkos_1d array") {
 
     compadre_assert_release(array.ndim()==1 && "array must be of rank 1");
     auto np_array = array.template unchecked<1>();
-    Kokkos::View<T*, space> kokkos_array_host("", array.shape(0));
+
+    Kokkos::View<T*, space> kokkos_array_device(new_label, array.shape(0));
+    auto kokkos_array_host = Kokkos::create_mirror_view(kokkos_array_device);
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
         kokkos_array_host(i) = np_array(i);
     });
     Kokkos::fence();
-    auto kokkos_array_device =
-        Kokkos::create_mirror_view(space(), kokkos_array_host);
     Kokkos::deep_copy(kokkos_array_device, kokkos_array_host);
 
     return kokkos_array_device;
 
 }
 
-template<typename space=Kokkos::HostSpace, typename T>
-Kokkos::View<T**, space> convert_np_to_kokkos_2d(py::array_t<T> array) {
+template<typename space=Kokkos::HostSpace, typename layout=Kokkos::LayoutRight, typename T>
+Kokkos::View<T**, layout, space> convert_np_to_kokkos_2d(py::array_t<T> array,
+        std::string new_label="convert_np_to_kokkos_2d array") {
 
     compadre_assert_release(array.ndim()==2 && "array must be of rank 1");
     auto np_array = array.template unchecked<2>();
-    Kokkos::View<T**, space> kokkos_array_host("", array.shape(0), array.shape(1));
+
+    Kokkos::View<T**, layout, space> kokkos_array_device(new_label, array.shape(0), array.shape(1));
+    auto kokkos_array_host = Kokkos::create_mirror_view(kokkos_array_device);
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
         for (int j=0; j<array.shape(1); ++j) {
             kokkos_array_host(i,j) = np_array(i,j);
         }
     });
     Kokkos::fence();
-    auto kokkos_array_device =
-        Kokkos::create_mirror_view(space(), kokkos_array_host);
     Kokkos::deep_copy(kokkos_array_device, kokkos_array_host);
 
     return kokkos_array_device;
 
 }
 
-template<typename space=Kokkos::HostSpace, typename T>
-Kokkos::View<T***, space> convert_np_to_kokkos_3d(py::array_t<T> array) {
+template<typename space=Kokkos::HostSpace, typename layout=Kokkos::LayoutRight, typename T>
+Kokkos::View<T***, layout, space> convert_np_to_kokkos_3d(py::array_t<T> array,
+        std::string new_label="convert_np_to_kokkos_3d array") {
 
     compadre_assert_release(array.ndim()==3 && "array must be of rank 1");
     auto np_array = array.template unchecked<3>();
-    Kokkos::View<T***, space> kokkos_array_host("", array.shape(0), array.shape(1), array.shape(2));
+
+    Kokkos::View<T***, layout, space> kokkos_array_device(new_label, array.shape(0), array.shape(1), array.shape(2));
+    auto kokkos_array_host = Kokkos::create_mirror_view(kokkos_array_device);
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
         for (int j=0; j<array.shape(1); ++j) {
             for (int k=0; k<array.shape(2); ++k) {
@@ -75,8 +80,6 @@ Kokkos::View<T***, space> convert_np_to_kokkos_3d(py::array_t<T> array) {
         }
     });
     Kokkos::fence();
-    auto kokkos_array_device =
-        Kokkos::create_mirror_view(space(), kokkos_array_host);
     Kokkos::deep_copy(kokkos_array_device, kokkos_array_host);
 
     return kokkos_array_device;
@@ -180,21 +183,25 @@ struct cknp3d<T, enable_if_t<(T::rank!=3)> > {
 
 template<typename T>
 py::array_t<typename T::value_type> convert_kokkos_to_np(T kokkos_array_device) {
+
     // ensure data is accessible
     auto kokkos_array_host =
         Kokkos::create_mirror_view(kokkos_array_device);
     Kokkos::deep_copy(kokkos_array_host, kokkos_array_device);
+
+    py::array_t<typename T::value_type> result;
     if (T::rank==1) {
-        return cknp1d<T>(kokkos_array_host).convert();
+        result = cknp1d<decltype(kokkos_array_host)>(kokkos_array_host).convert();
     } else if (T::rank==2) {
-        return cknp2d<T>(kokkos_array_host).convert();
+        result = cknp2d<decltype(kokkos_array_host)>(kokkos_array_host).convert();
     } else if (T::rank==3) {
-        return cknp3d<T>(kokkos_array_host).convert();
+        result = cknp3d<decltype(kokkos_array_host)>(kokkos_array_host).convert();
     } else {
-        compadre_assert_release(false && "Only rank <3 supported.");
-        auto result = py::array_t<typename T::value_type>(0);
-        return result;
+        compadre_assert_release(false && "Only (1 <= rank <= 3) supported.");
+        result = py::array_t<typename T::value_type>(0);
     }
+    return result;
+
 }
 
 
@@ -380,11 +387,12 @@ public:
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
         
-        auto tangent_bundle = convert_np_to_kokkos_3d<Kokkos::HostSpace>(input);
+        auto device_tangent_bundle = convert_np_to_kokkos_3d<device_memory_space>(input);
+        auto host_tangent_bundle = convert_np_to_kokkos_3d<host_memory_space>(input);
         
         // set values from Kokkos View
-        gmls_object->setTangentBundle(tangent_bundle);
-        _tangent_bundle = tangent_bundle;
+        gmls_object->setTangentBundle(device_tangent_bundle);
+        _tangent_bundle = host_tangent_bundle;
     }
 
     py::array_t<double> getTangentBundle() {

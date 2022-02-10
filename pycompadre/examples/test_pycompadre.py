@@ -280,7 +280,13 @@ class TestPyCOMPADRE(KokkosTestCase):
         target_site = np.reshape(point, newshape=(1,dim))
     
         # rvalue or std::unique_ptr passed to ParticleHelper (not obvious lifecycle of GMLS object)
-        gmls_helper = pycompadre.ParticleHelper(pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD"))
+        # in Clang, rvalue type argument works because it keeps track of which was created first
+        #           and python keeps track of rvalue like object
+        # in GCC,   rvalue type arguments do not work and cause increment/decrement issues
+        # -----v NOT ok in GCC
+        #gmls_helper = pycompadre.ParticleHelper(pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD"))
+        gmls_obj = pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD")
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj)
         gmls_helper.generateKDTree(source_sites)
         gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
         # print("1",gmls_helper.getGMLSObject().__getstate__())
@@ -300,13 +306,14 @@ class TestPyCOMPADRE(KokkosTestCase):
 
         # python knows that original GMLS object was tied to GMLS helper
         # so replacing the helper tells python the GMLS object is no longer needed
-        gmls_helper = pycompadre.ParticleHelper(pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD"))
+        gmls_obj2 = pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD")
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj2)
         # but python keeps this handle internally and now points at new rvalue like object
         # so the following still works
         # print("3",gmls_obj.__getstate__())
-        gmls_obj.__getstate__()
+        gmls_obj2.__getstate__()
 
-        # # this will confuse python because it thinks the rvalue like GMLS object is
+        # # In Clang, this will confuse python because it thinks the rvalue like GMLS object is
         # # no longer needed, so it will throw it away
         # gmls_helper = pycompadre.ParticleHelper(gmls_obj)
         # # so the gmls_obj actual gets destroyed in the previous call
@@ -315,9 +322,10 @@ class TestPyCOMPADRE(KokkosTestCase):
         # # object is destroyed and this segfaults
         # # we don't call v--- because it will segfault and unittest can't catch that
         # # print("4",gmls_obj.__getstate__())
-        # # gmls_obj.__getstate__()
+        # gmls_obj.__getstate__()
         # # resetting GMLS helper after this block of code will cause deallocation 
-        # ---------------^ WHY DOES THIS BLOCK CAUSE SEGFAULTS BELOW?
+        # ^--- This wouldn't be tested in GCC because we don't pass rvalue type
+        #      arguments to constructors
 
         # GMLS object destroyed and then relied upon in gmls_helper
         gmls_obj=pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD")
