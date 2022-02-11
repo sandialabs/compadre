@@ -865,7 +865,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .def("addTargets", overload_cast_<TargetOperation>()(&GMLS::addTargets), "Add a target operation.")
     .def("addTargets", overload_cast_<std::vector<TargetOperation> >()(&GMLS::addTargets), "Add a list of target operations.")
     .def("generateAlphas", &GMLS::generateAlphas, py::arg("number_of_batches")=1, py::arg("keep_coefficients")=false, py::arg("clear_cache")=true)
-    .def("getSolutionSet", &GMLS::getSolutionSetHost, py::return_value_policy::reference_internal)
+    .def("getSolutionSet", &GMLS::getSolutionSetHost, py::arg("validity_check")=true, py::return_value_policy::reference_internal)
     .def("getNP", &GMLS::getNP, "Get size of basis.")
     .def("getNN", &GMLS::getNN, "Heuristic number of neighbors.")
     .def(py::pickle(
@@ -892,7 +892,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             auto mwp1 = gmls.getManifoldWeightingParameter(1);
 
             // get all previously added targets
-            auto d_lro  = const_cast<GMLS&>(gmls).getSolutionSetDevice()->_lro;
+            auto d_lro  = const_cast<GMLS&>(gmls).getSolutionSetDevice(false)->_lro;
             auto lro    = Kokkos::create_mirror_view(d_lro);
             Kokkos::deep_copy(lro, d_lro);
             auto lro_list = py::list();

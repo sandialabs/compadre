@@ -819,16 +819,24 @@ public:
                     output_component, input_component);
     }
 
-    //! Get solution set
-    decltype(_h_ss)* getSolutionSetHost() { 
-        if (_h_ss._alphas.extent(0)==0 && _d_ss._alphas.extent(0)!=0) {
+    //! Get solution set on host
+    decltype(_h_ss)* getSolutionSetHost(bool alpha_validity_check=true) { 
+        if (!_h_ss._contains_valid_alphas && _d_ss._contains_valid_alphas) {
             // solution solved for on device, but now solution
             // requested on the host
             _h_ss.copyAlphas(_d_ss);
         }
+        compadre_assert_release((!alpha_validity_check || _h_ss._contains_valid_alphas) &&
+                "getSolutionSetHost() called with invalid alpha values.");
         return &_h_ss; 
     }
-    decltype(_d_ss)* getSolutionSetDevice() { return &_d_ss; }
+
+    //! Get solution set on device
+    decltype(_d_ss)* getSolutionSetDevice(bool alpha_validity_check=true) { 
+        compadre_assert_release((!alpha_validity_check || _d_ss._contains_valid_alphas) &&
+                "getSolutionSetDevice() called with invalid alpha values.");
+        return &_d_ss; 
+    }
 
 ///@}
 

@@ -467,7 +467,7 @@ struct SolutionSet {
                 Kokkos::resize(_alphas, other._alphas.extent(0));
             }
             Kokkos::deep_copy(_alphas, other._alphas);
-            this->_contains_valid_alphas = _contains_valid_alphas;
+            this->_contains_valid_alphas = other._contains_valid_alphas;
         }
     }
 
