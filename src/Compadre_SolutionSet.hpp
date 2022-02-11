@@ -46,6 +46,9 @@ struct SolutionSet {
     //! used for sizing P_target_row and the _alphas view
     int _total_alpha_values;
 
+    //! whether internal alpha values are valid (set externally on a solve)
+    bool _contains_valid_alphas;
+
     //
     // Redundant variables (already exist in GMLS class)
     //
@@ -78,6 +81,7 @@ struct SolutionSet {
                     _added_alpha_size(0), 
                     _max_evaluation_sites_per_target(1),
                     _total_alpha_values(0),
+                    _contains_valid_alphas(false),
                     _data_sampling_functional(data_sampling_functional),
                     _dimensions(dimensions), 
                     _local_dimensions(local_dimensions), 
@@ -96,6 +100,7 @@ struct SolutionSet {
         _added_alpha_size = other._added_alpha_size;
         _max_evaluation_sites_per_target = other._max_evaluation_sites_per_target;
         _total_alpha_values = other._total_alpha_values;
+        _contains_valid_alphas = false; // false until copyAlphas() is called
         _neighbor_lists = other._neighbor_lists;
 
         // copy from other_memory_space to memory_space (if needed)
@@ -281,6 +286,9 @@ struct SolutionSet {
         // that are relavent to the operator in question.
         //
 
+        compadre_kernel_assert_debug(this->_contains_valid_alphas && 
+                "getAlpha called on SolutionSet with _contains_valid_alphas=false");
+
         const int alpha_column_offset = this->getAlphaColumnOffset( lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
 
@@ -424,6 +432,9 @@ struct SolutionSet {
         // which is much easier to understand with respect to indexing and only requesting indices
         // that are relavent to the operator in question.
         //
+ 
+        compadre_assert_debug(this->_contains_valid_alphas && 
+                "getAlpha called on SolutionSet with _contains_valid_alphas=false");
 
         const int alpha_column_offset = this->getAlphaColumnOffset( lro, output_component_axis_1, 
                 output_component_axis_2, input_component_axis_1, input_component_axis_2, evaluation_site_local_index);
@@ -456,6 +467,7 @@ struct SolutionSet {
                 Kokkos::resize(_alphas, other._alphas.extent(0));
             }
             Kokkos::deep_copy(_alphas, other._alphas);
+            this->_contains_valid_alphas = _contains_valid_alphas;
         }
     }
 
@@ -583,7 +595,11 @@ struct SolutionSet {
     }
 
     //! Get a view (device) of all alphas
-    decltype(_alphas) getAlphas() const { return _alphas; }
+    decltype(_alphas) getAlphas() const { 
+        compadre_assert_debug(this->_contains_valid_alphas && 
+                "getAlpha called on SolutionSet with _contains_valid_alphas=false");
+        return _alphas; 
+    }
 
 ///@}
 

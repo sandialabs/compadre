@@ -841,6 +841,8 @@ public:
     void resetCoefficientData() {
         if (_RHS.extent(0) > 0)
             _RHS = Kokkos::View<double*>("RHS",0);
+        _h_ss._contains_valid_alphas = false;
+        _d_ss._contains_valid_alphas = false;
     }
 
     //! Sets basic problem data (neighbor lists, source coordinates, and target coordinates)
