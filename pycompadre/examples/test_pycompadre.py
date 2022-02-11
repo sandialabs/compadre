@@ -3,6 +3,7 @@ import numpy as np
 import math
 import random
 import pycompadre
+import pickle
 
 try:
     import sys
@@ -355,7 +356,6 @@ class TestPyCOMPADRE(KokkosTestCase):
         gmls_obj.generateAlphas(1, True)
 
         # test pickling the gmls_obj but not gmls_helper
-        import pickle
         byte_gmls = pickle.dumps(gmls_obj)
         new_gmls_obj = pickle.loads(byte_gmls)
 
@@ -397,6 +397,56 @@ class TestPyCOMPADRE(KokkosTestCase):
         output = new_gmls_helper.applyStencilSingleTarget(data, pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
         self.assertAlmostEqual(output, 1.0, places=15)
 
+    def test_pickling_additional_evaluation_sites(self):
+
+        source_sites = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
+        source_sites = np.reshape(source_sites, newshape=(source_sites.size,1))
+        data = np.array([4.0,9.0,25.0,36.0,49.0], dtype='f8')
+
+        polynomial_order = 2
+        dim = 1
+
+        point = np.array([4.0, 3.0], dtype='f8')
+        target_site = np.reshape(point, newshape=(2,dim))
+
+        extra_sites_coords = np.atleast_2d(np.linspace(0,4,5)).T
+        extra_sites_idx    = np.zeros(shape=(len(point),len(extra_sites_coords)+1), dtype='i4')
+        extra_sites_idx[0,0] = 0
+        extra_sites_idx[0,1:] = np.arange(len(extra_sites_coords))
+        extra_sites_idx[1,0] = len(extra_sites_coords)
+        extra_sites_idx[1,1:] = np.arange(len(extra_sites_coords))
+
+        gmls_obj = pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD")
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        gmls_helper.generateKDTree(source_sites)
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+        gmls_helper.setAdditionalEvaluationSitesData(extra_sites_idx, extra_sites_coords)
+
+        gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
+        gmls_obj.generateAlphas(1, True)
+
+        sol1 = [16.0, 0.0, 0.0, 0.0]
+        sol2 = [ 9.0, 0.0, 1.0, 4.0]
+        def check_answer(helper, i):
+            output = helper.applyStencil(data, 
+                                              pycompadre.TargetOperation.ScalarPointEvaluation,
+                                              pycompadre.SamplingFunctionals['PointSample'],
+                                              i)
+            self.assertAlmostEqual(output[0], sol1[i], places=13)
+            self.assertAlmostEqual(output[1], sol2[i], places=13)
+        [check_answer(gmls_helper, i) for i in range(4)]
+
+        # now pickle to a file
+        with open('test.p', 'wb') as fn:
+            pickle.dump(gmls_helper, fn)
+        del gmls_obj
+        del gmls_helper
+
+        with open('test.p', 'rb') as fn:
+            new_gmls_helper = pickle.load(fn)
+        new_gmls_obj = new_gmls_helper.getGMLSObject()
+        new_gmls_obj.generateAlphas(1, True)
+        [check_answer(new_gmls_helper, i) for i in range(4)]
 
     # end of inline tests
 
