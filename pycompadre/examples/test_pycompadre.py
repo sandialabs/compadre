@@ -423,7 +423,6 @@ class TestPyCOMPADRE(KokkosTestCase):
         gmls_helper.setAdditionalEvaluationSitesData(extra_sites_idx, extra_sites_coords)
 
         gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
-        gmls_obj.generateAlphas(1, True)
 
         sol1 = [16.0, 0.0, 0.0, 0.0]
         sol2 = [ 9.0, 0.0, 1.0, 4.0]
@@ -434,6 +433,15 @@ class TestPyCOMPADRE(KokkosTestCase):
                                               i)
             self.assertAlmostEqual(output[0], sol1[i], places=13)
             self.assertAlmostEqual(output[1], sol2[i], places=13)
+
+        # throws error because alphas are not generated
+        with self.assertRaises(RuntimeError):
+            [check_answer(gmls_helper, i) for i in range(4)]
+
+        # generate alphas and run again
+        gmls_obj.generateAlphas(1, True)
+
+        # now it works
         [check_answer(gmls_helper, i) for i in range(4)]
 
         # now pickle to a file
