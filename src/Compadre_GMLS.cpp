@@ -9,6 +9,14 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
                 && "keep_coefficients is set to true, but number of batches exceeds 1.");
 
     /*
+     *    Verify PointConnections are valid
+     */
+    compadre_assert_debug(this->verifyPointConnections() && 
+            "Source coordinates, target coordinates, and neighbor lists sizes do not match.");
+    compadre_assert_debug(this->verifyAdditionalPointConnections() && 
+            "Target coordinates, additional evaluation sites, and neighbor lists sizes do not match.");
+
+    /*
      *    Generate Quadrature
      */
     this->_qm = Quadrature(_order_of_quadrature_points, _dimension_of_quadrature_points, _quadrature_type);

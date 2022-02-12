@@ -42,6 +42,8 @@ public:
             NeighborLists<Kokkos::View<int*> > > 
                 point_connections_type;
 
+    typedef NeighborLists<Kokkos::View<int*> > neighbor_lists_type;
+
 private:
 
     // matrices that may be needed for matrix factorization on the device
@@ -90,7 +92,7 @@ private:
     Kokkos::View<double**, layout_right> _target_extra_data;
 
     //! Accessor to get neighbor list data, offset data, and number of neighbors per target
-    NeighborLists<Kokkos::View<int*> > _neighbor_lists; 
+    neighbor_lists_type _neighbor_lists; 
     
     //! convenient copy on host of number of neighbors
     Kokkos::View<int*, host_memory_space> _host_number_of_neighbors_list; 
@@ -119,7 +121,7 @@ private:
     Kokkos::View<double**, layout_right> _additional_evaluation_coordinates; 
 
     //! (OPTIONAL) Accessor to get additional evaluation list data, offset data, and number of sites
-    NeighborLists<Kokkos::View<int*> > _additional_evaluation_indices; 
+    neighbor_lists_type _additional_evaluation_indices; 
 
     //! (OPTIONAL) connections between additional points and neighbors
     point_connections_type _additional_pc;
@@ -290,6 +292,7 @@ private:
             Kokkos::deep_copy(_additional_evaluation_coordinates, host_additional_evaluation_coordinates);
         }
         this->resetCoefficientData();
+        _additional_pc.setSourceCoordinates(_additional_evaluation_coordinates);
     }
 
     //! (OPTIONAL)
@@ -300,6 +303,7 @@ private:
     void setAuxiliaryEvaluationCoordinates(decltype(_additional_evaluation_coordinates) evaluation_coordinates) {
         _additional_evaluation_coordinates = evaluation_coordinates;
         this->resetCoefficientData();
+        _additional_pc.setSourceCoordinates(_additional_evaluation_coordinates);
     }
 
     //! (OPTIONAL)
@@ -316,6 +320,7 @@ private:
         });
         Kokkos::fence();
         this->resetCoefficientData();
+        _additional_pc.setNeighborLists(_additional_evaluation_indices);
 
     }
 
@@ -339,7 +344,8 @@ private:
         });
         Kokkos::fence();
         this->resetCoefficientData();
-            
+        _additional_pc.setNeighborLists(_additional_evaluation_indices);
+
     }
 
     //! (OPTIONAL)
@@ -356,6 +362,7 @@ private:
         });
         Kokkos::fence();
         this->resetCoefficientData();
+        _additional_pc.setNeighborLists(_additional_evaluation_indices);
 
     }
 
@@ -723,7 +730,9 @@ public:
     decltype(_pc)* getPointConnections() { return &_pc; }
 
     //! (OPTIONAL) Get additional evaluation sites neighbor list-like accessor
-    decltype(_additional_evaluation_indices)* getAdditionalEvaluationIndices() { return &_additional_evaluation_indices; }
+    decltype(_additional_evaluation_indices)* getAdditionalEvaluationIndices() { 
+        return &_additional_pc._nla;
+    }
 
     //! (OPTIONAL) Get a view (device) of all additional evaluation point connection info
     decltype(_additional_pc)* getAdditionalPointConnections() { return &_additional_pc; }
@@ -732,10 +741,10 @@ public:
     decltype(_epsilons)* getWindowSizes() { return &_epsilons; }
 
     //! Get a view (device) of all tangent direction bundles.
-    decltype(_T) getTangentDirections() const { return _T; }
+    decltype(_T)* getTangentDirections() { return &_T; }
 
     //! Get a view (device) of all reference outward normal directions.
-    decltype(_ref_N) getReferenceNormalDirections() const { return _ref_N; }
+    decltype(_ref_N)* getReferenceNormalDirections() { return &_ref_N; }
 
     //! Get component of tangent or normal directions for manifold problems
     double getTangentBundle(const int target_index, const int direction, const int component) const {
@@ -887,7 +896,6 @@ public:
             view_type_2 additional_evaluation_coordinates) {
         this->setAuxiliaryEvaluationIndicesLists<view_type_1>(additional_evaluation_indices);
         this->setAuxiliaryEvaluationCoordinates<view_type_2>(additional_evaluation_coordinates);
-        _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
     }
 
     //! (OPTIONAL) Sets additional evaluation sites for each target site
@@ -899,7 +907,6 @@ public:
         this->setAuxiliaryEvaluationIndicesLists<view_type_1>(cr_additional_evaluation_indices, 
                 number_of_additional_evaluation_indices);
         this->setAuxiliaryEvaluationCoordinates<view_type_2>(additional_evaluation_coordinates);
-        _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
     }
 
     //! Sets neighbor list information from compressed row neighborhood lists data (if same view_type).
@@ -915,12 +922,8 @@ public:
         });
         Kokkos::fence();
         this->resetCoefficientData();
-
-        if (_source_coordinates.extent(0)>0 && _target_coordinates.extent(0)>0) {
-            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
-            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
-            _h_ss._neighbor_lists = _neighbor_lists;
-        }
+        _pc.setNeighborLists(_neighbor_lists);
+        _h_ss._neighbor_lists = _neighbor_lists;
     }
 
     //! Sets neighbor list information from compressed row neighborhood lists data (if different view_type).
@@ -942,12 +945,8 @@ public:
         });
         Kokkos::fence();
         this->resetCoefficientData();
-            
-        if (_source_coordinates.extent(0)>0 && _target_coordinates.extent(0)>0) {
-            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
-            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
-            _h_ss._neighbor_lists = _neighbor_lists;
-        }
+        _pc.setNeighborLists(_neighbor_lists);
+        _h_ss._neighbor_lists = _neighbor_lists;
     }
 
     //! Sets neighbor list information. Should be # targets x maximum number of neighbors for any target + 1.
@@ -963,12 +962,8 @@ public:
         });
         Kokkos::fence();
         this->resetCoefficientData();
-
-        if (_source_coordinates.extent(0)>0 && _target_coordinates.extent(0)>0) {
-            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
-            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
-            _h_ss._neighbor_lists = _neighbor_lists;
-        }
+        _pc.setNeighborLists(_neighbor_lists);
+        _h_ss._neighbor_lists = _neighbor_lists;
     }
 
     //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries
@@ -997,12 +992,7 @@ public:
             Kokkos::deep_copy(_source_coordinates, host_source_coordinates);
         }
         this->resetCoefficientData();
-
-        if (_target_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
-            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
-            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
-            _h_ss._neighbor_lists = _neighbor_lists;
-        }
+        _pc.setSourceCoordinates(_source_coordinates);
     }
 
     //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries
@@ -1012,12 +1002,7 @@ public:
         // allocate memory on device
         _source_coordinates = source_coordinates;
         this->resetCoefficientData();
-
-        if (_target_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
-            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
-            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
-            _h_ss._neighbor_lists = _neighbor_lists;
-        }
+        _pc.setSourceCoordinates(_source_coordinates);
     }
 
     //! Sets target coordinate information. Rows of this 2D-array should correspond to rows of the neighbor lists.
@@ -1051,11 +1036,9 @@ public:
                     _host_number_of_additional_evaluation_indices);
         }
         this->resetCoefficientData();
-
-        if (_source_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
-            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
-            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
-            _h_ss._neighbor_lists = _neighbor_lists;
+        _pc.setTargetCoordinates(_target_coordinates);
+        if (_additional_pc._target_coordinates.extent(0) != _pc._target_coordinates.extent(0)) {
+            _additional_pc.setTargetCoordinates(_target_coordinates);
         }
     }
 
@@ -1072,11 +1055,9 @@ public:
                     _host_number_of_additional_evaluation_indices);
         }
         this->resetCoefficientData();
-
-        if (_source_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
-            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
-            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
-            _h_ss._neighbor_lists = _neighbor_lists;
+        _pc.setTargetCoordinates(_target_coordinates);
+        if (_additional_pc._target_coordinates.extent(0) != _pc._target_coordinates.extent(0)) {
+            _additional_pc.setTargetCoordinates(_target_coordinates);
         }
     }
 
@@ -1352,6 +1333,23 @@ public:
     void clearTargets() {
         _h_ss.clearTargets();
         this->resetCoefficientData();
+    }
+
+    //! Verify whether _pc is valid
+    bool verifyPointConnections() {
+        return ((_pc._target_coordinates.extent(0)==_pc._nla.getNumberOfTargets()) && 
+                (_pc._source_coordinates.extent(1)==_pc._target_coordinates.extent(1)));
+    }
+
+    //! Verify whether _additional_pc is valid
+    bool verifyAdditionalPointConnections() {
+        bool result = (_additional_pc._target_coordinates.extent(0)==_additional_pc._nla.getNumberOfTargets()) &&
+                      (_pc._target_coordinates.extent(0)==_additional_pc._target_coordinates.extent(0));
+        printf("%lu vs %d\n", _additional_pc._target_coordinates.extent(0), _additional_pc._nla.getNumberOfTargets());
+        if (_additional_pc._source_coordinates.extent(0)>0) {
+            return result && (_additional_pc._target_coordinates.extent(1)==_additional_pc._source_coordinates.extent(1));
+        }
+        return result;
     }
 
     /*! \brief Generates polynomial coefficients by setting up and solving least squares problems

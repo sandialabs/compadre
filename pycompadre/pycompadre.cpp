@@ -225,33 +225,12 @@ private:
 
     std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> > point_cloud_search;
 
-    double_2d_view_type _source_coords;
-    double_2d_view_type _target_coords;
-    double_1d_view_type _epsilon;
-
-    // optional
-    double_3d_view_type _tangent_bundle;
-    double_2d_view_type _reference_normal_directions;
-    double_2d_view_type _additional_evaluation_coords;
-    Compadre::NeighborLists<int_1d_view_type_in_gmls>* a_nl;
-
     // set the neighbors, source sites, and window sizes from GMLS
     // then set up the kdtree
     void setInternalsFromGMLS() {
 
         // get neighbors from object
         nl = gmls_object->getNeighborLists();
-        a_nl = gmls_object->getAdditionalEvaluationIndices();
-
-        // get source sites from object
-        auto t_ss = gmls_object->getPointConnections()->_source_coordinates;
-        Kokkos::resize(_source_coords, t_ss.extent(0), t_ss.extent(1));
-        Kokkos::deep_copy(_source_coords, t_ss);
-
-        // get epsilon values from object
-        auto t_eps = gmls_object->getWindowSizes();
-        Kokkos::resize(_epsilon, t_eps->extent(0));
-        Kokkos::deep_copy(_epsilon, *t_eps);
 
         // set up kdtree based on source sites
         this->generateKDTree();
@@ -300,32 +279,16 @@ public:
         return gmls_object->getNeighborLists();
     }
 
-    decltype(a_nl) getAdditionalEvaluationIndices() {
-        compadre_assert_release((a_nl->getNumberOfTargets()>0) && "getAdditionalEvaluationIndices() called, but additional evaluation indices were never set.");
-        return gmls_object->getAdditionalEvaluationIndices();
-    }
-
-    void setSourceSites(py::array_t<double> input) {
-        py::buffer_info buf = input.request();
-
-        if (buf.ndim != 2) {
-            throw std::runtime_error("Number of dimensions must be two");
-        }
-
-        if (gmls_object->getGlobalDimensions()!=input.shape(1)) {
-            throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
-        }
-
-        auto source_coords = convert_np_to_kokkos_2d(input);
-        
-        // set values from Kokkos View
-        gmls_object->setSourceSites(source_coords);
-        _source_coords = source_coords;
+    GMLS::neighbor_lists_type getAdditionalEvaluationIndices() {
+        compadre_assert_release((gmls_object->getAdditionalEvaluationIndices()->getNumberOfTargets()>0) && 
+                "getAdditionalEvaluationIndices() called, but additional evaluation indices were never set.");
+        return *(gmls_object->getAdditionalEvaluationIndices());
     }
 
     py::array_t<double> getSourceSites() {
-        compadre_assert_release((_source_coords.extent(0)>0) && "getSourceSites() called, but source sites were never set.");
-        return convert_kokkos_to_np(_source_coords);
+        compadre_assert_release((gmls_object->getPointConnections()->_source_coordinates.extent(0)>0) && 
+                "getSourceSites() called, but source sites were never set.");
+        return convert_kokkos_to_np(gmls_object->getPointConnections()->_source_coordinates);
     }
 
     void setTargetSites(py::array_t<double> input) {
@@ -339,16 +302,16 @@ public:
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
 
-        auto target_coords = convert_np_to_kokkos_2d(input);
+        auto target_coords = convert_np_to_kokkos_2d<device_memory_space>(input);
         
         // set values from Kokkos View
         gmls_object->setTargetSites(target_coords);
-        _target_coords = target_coords;
     }
 
     py::array_t<double> getTargetSites() {
-        compadre_assert_release((_target_coords.extent(0)>0) && "getTargetSites() called, but target sites were never set.");
-        return convert_kokkos_to_np(_target_coords);
+        compadre_assert_release((gmls_object->getPointConnections()->_target_coordinates.extent(0)>0) && 
+                "getTargetSites() called, but target sites were never set.");
+        return convert_kokkos_to_np(gmls_object->getPointConnections()->_target_coordinates);
     }
 
     void setWindowSizes(py::array_t<double> input) {
@@ -358,18 +321,17 @@ public:
             throw std::runtime_error("Number of dimensions must be one");
         }
         
-        auto epsilon = convert_np_to_kokkos_1d(input);
+        auto epsilon = convert_np_to_kokkos_1d<device_memory_space>(input);
         
         // set values from Kokkos View
         gmls_object->setWindowSizes(epsilon);
-        _epsilon = epsilon;
     }
  
     py::array_t<double> getWindowSizes() {
-        if (_epsilon.extent(0)<=0) {
+        if (gmls_object->getWindowSizes()->extent(0)<=0) {
             throw std::runtime_error("getWindowSizes() called, but window sizes were never set.");
         }
-        return convert_kokkos_to_np(_epsilon);
+        return convert_kokkos_to_np(*gmls_object->getWindowSizes());
     }
 
     void setTangentBundle(py::array_t<double> input) {
@@ -388,16 +350,15 @@ public:
         }
         
         auto device_tangent_bundle = convert_np_to_kokkos_3d<device_memory_space>(input);
-        auto host_tangent_bundle = convert_np_to_kokkos_3d<host_memory_space>(input);
         
         // set values from Kokkos View
         gmls_object->setTangentBundle(device_tangent_bundle);
-        _tangent_bundle = host_tangent_bundle;
     }
 
     py::array_t<double> getTangentBundle() {
-        compadre_assert_release((_tangent_bundle.extent(0)>0) && "getTangentBundle() called, but tangent bundle was never set.");
-        return convert_kokkos_to_np(_tangent_bundle);
+        compadre_assert_release((gmls_object->getTangentDirections()->extent(0)>0) && 
+                "getTangentBundle() called, but tangent bundle was never set.");
+        return convert_kokkos_to_np(*gmls_object->getTangentDirections());
     }
 
     void setReferenceOutwardNormalDirection(py::array_t<double> input, bool use_to_orient_surface = true) {
@@ -411,24 +372,37 @@ public:
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
         
-        auto reference_normal_directions = convert_np_to_kokkos_2d(input);
+        auto device_reference_normal_directions = convert_np_to_kokkos_2d<device_memory_space>(input);
         
         // set values from Kokkos View
-        gmls_object->setReferenceOutwardNormalDirection(reference_normal_directions, true /* use to orient surface*/);
-        _reference_normal_directions = reference_normal_directions;
+        gmls_object->setReferenceOutwardNormalDirection(device_reference_normal_directions, true /* use to orient surface*/);
     }
 
     py::array_t<double> getReferenceOutwardNormalDirection() {
-        compadre_assert_release((_reference_normal_directions.extent(0)>0) && "getReferenceNormalDirections() called, but normal directions were never set.");
-        return convert_kokkos_to_np(_reference_normal_directions);
+        compadre_assert_release((gmls_object->getReferenceNormalDirections()->extent(0)>0) && 
+                "getReferenceNormalDirections() called, but normal directions were never set.");
+        return convert_kokkos_to_np(*gmls_object->getReferenceNormalDirections());
     }
 
     void generateKDTree() {
-        point_cloud_search = std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> >(new Compadre::PointCloudSearch<double_2d_view_type>(_source_coords, gmls_object->getGlobalDimensions()));
+        point_cloud_search = std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> >(new Compadre::PointCloudSearch<double_2d_view_type>(gmls_object->getPointConnections()->_source_coordinates, gmls_object->getGlobalDimensions()));
     }
 
     void generateKDTree(py::array_t<double> input) {
-        this->setSourceSites(input);
+        py::buffer_info buf = input.request();
+
+        if (buf.ndim != 2) {
+            throw std::runtime_error("Number of dimensions must be two");
+        }
+
+        if (gmls_object->getGlobalDimensions()!=input.shape(1)) {
+            throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
+        }
+
+        auto source_coords = convert_np_to_kokkos_2d<device_memory_space>(input);
+        
+        // set values from Kokkos View
+        gmls_object->setSourceSites(source_coords);
         this->generateKDTree();
     }
 
@@ -446,7 +420,9 @@ public:
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
         
-        auto target_coords = convert_np_to_kokkos_2d(input);
+        auto target_coords = convert_np_to_kokkos_2d<host_memory_space>(input);
+        gmls_object->setTargetSites(target_coords);
+        printf("target_coords: %lu\n", target_coords.extent(0));
 
         // how many target sites
         int number_target_coords = target_coords.extent(0);
@@ -459,10 +435,9 @@ public:
         
         // make epsilons kokkos view
         double_1d_view_type epsilon("h supports", number_target_coords);
-        
+
         // call point_cloud_search using targets
         // use these neighbor lists and epsilons to set the gmls object
-        
         compadre_assert_release(((int)scale_k_neighbor_radius + (int)scale_num_neighbors==1) && "One and only of scale kth neighbor's radius (scale_k_neighbor_radius) or scale number of neighbors (scale_num_neighbors) can be set true.");
         if (scale_num_neighbors) { 
             neighbors_needed = std::ceil(neighbors_needed*epsilon_multiplier);
@@ -480,13 +455,9 @@ public:
         Kokkos::fence();
 
         // set these views in the GMLS object
-        gmls_object->setTargetSites(target_coords);
         gmls_object->setNeighborLists(neighbor_lists, number_of_neighbors_list);
         gmls_object->setWindowSizes(epsilon);
         nl = gmls_object->getNeighborLists();
-
-        _target_coords = target_coords;
-        _epsilon = epsilon;
 
     }
     
@@ -511,9 +482,6 @@ public:
     
         // set values from Kokkos View
         gmls_object->setAdditionalEvaluationSitesData(neighbor_lists, extra_coords);
-        // store in ParticleHelper
-        _additional_evaluation_coords  = extra_coords;
-        a_nl = gmls_object->getAdditionalEvaluationIndices();
     }
 
     py::array_t<double> getPolynomialCoefficients(py::array_t<double> input) {
@@ -620,12 +588,13 @@ public:
             (source_data, lro, sro, true /*scalar_as_vector_if_needed*/, 0);
 
         // get maximum number of additional sites plus target site (+1) per target site
-        int max_additional_sites = a_nl->getMaxNumNeighbors() + 1;
-        a_nl->computeMinNumNeighbors();
-        int min_additional_sites = a_nl->getMinNumNeighbors();
+        int max_additional_sites = gmls_object->getAdditionalEvaluationIndices()->getMaxNumNeighbors() + 1;
+        gmls_object->getAdditionalEvaluationIndices()->computeMinNumNeighbors();
+        int min_additional_sites = gmls_object->getAdditionalEvaluationIndices()->getMinNumNeighbors();
 
         // set dim_out_0 to 1 if setAdditionalEvaluationSitesData never called
-        size_t dim_out_0 = (_additional_evaluation_coords.size()==0) ? 1 : max_additional_sites;
+        auto additional_evaluation_coords_size = gmls_object->getAdditionalPointConnections()->_source_coordinates.size();
+        size_t dim_out_0 = (additional_evaluation_coords_size==0) ? 1 : max_additional_sites;
         auto dim_out_1 = output_values.extent(0);
         auto dim_out_2 = output_values.extent(1);
 
@@ -820,7 +789,6 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .def("getNeighborLists", &ParticleHelper::getNeighborLists, py::return_value_policy::reference_internal)
     .def("setWindowSizes", &ParticleHelper::setWindowSizes, py::arg("window_sizes"))
     .def("getWindowSizes", &ParticleHelper::getWindowSizes, py::return_value_policy::take_ownership)
-    .def("setSourceSites", &ParticleHelper::setSourceSites, py::arg("source_coordinates"))
     .def("getSourceSites", &ParticleHelper::getSourceSites, py::return_value_policy::take_ownership)
     .def("setTargetSites", &ParticleHelper::setTargetSites, py::arg("target_coordinates"))
     .def("getTargetSites", &ParticleHelper::getTargetSites, py::return_value_policy::take_ownership)

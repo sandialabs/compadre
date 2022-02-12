@@ -123,9 +123,6 @@ def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5,reco
     gmls_helper.generateKDTree(source_sites)
     gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_sites, polyOrder, dimensions, epsilon_multiplier)
 
-    # set data in gmls object
-    gmls_helper.setSourceSites(source_sites)
-
     # used in combination with polynomial coefficients
     epsilons = gmls_helper.getWindowSizes()
 
