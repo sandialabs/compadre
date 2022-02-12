@@ -385,7 +385,13 @@ public:
     }
 
     void generateKDTree() {
-        point_cloud_search = std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> >(new Compadre::PointCloudSearch<double_2d_view_type>(gmls_object->getPointConnections()->_source_coordinates, gmls_object->getGlobalDimensions()));
+        point_cloud_search = std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> >(
+                new Compadre::PointCloudSearch<double_2d_view_type>(
+                    convert_np_to_kokkos_2d<host_memory_space>(
+                        convert_kokkos_to_np(gmls_object->getPointConnections()->_source_coordinates)), 
+                    gmls_object->getGlobalDimensions()
+                )
+        );
     }
 
     void generateKDTree(py::array_t<double> input) {
@@ -422,7 +428,6 @@ public:
         
         auto target_coords = convert_np_to_kokkos_2d<host_memory_space>(input);
         gmls_object->setTargetSites(target_coords);
-        printf("target_coords: %lu\n", target_coords.extent(0));
 
         // how many target sites
         int number_target_coords = target_coords.extent(0);

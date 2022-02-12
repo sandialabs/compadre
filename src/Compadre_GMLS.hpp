@@ -1345,7 +1345,6 @@ public:
     bool verifyAdditionalPointConnections() {
         bool result = (_additional_pc._target_coordinates.extent(0)==_additional_pc._nla.getNumberOfTargets()) &&
                       (_pc._target_coordinates.extent(0)==_additional_pc._target_coordinates.extent(0));
-        printf("%lu vs %d\n", _additional_pc._target_coordinates.extent(0), _additional_pc._nla.getNumberOfTargets());
         if (_additional_pc._source_coordinates.extent(0)>0) {
             return result && (_additional_pc._target_coordinates.extent(1)==_additional_pc._source_coordinates.extent(1));
         }
