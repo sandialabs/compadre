@@ -211,6 +211,8 @@ public:
         // gather needed information for evaluation
         auto nla = *(_gmls->getNeighborLists());
         auto solution_set = *(_gmls->getSolutionSetDevice());
+        compadre_assert_release(solution_set._contains_valid_alphas && 
+                "application of alphas called before generateAlphas() was called.");
         auto prestencil_weights = _gmls->getPrestencilWeights();
 
         const int num_targets = nla.getNumberOfTargets();

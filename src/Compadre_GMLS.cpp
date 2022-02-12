@@ -449,6 +449,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
      *    Device to Host Copy Of Solution
      */
     // copy computed alphas back to the host
+    this->_d_ss._contains_valid_alphas = true;
     this->_h_ss = SolutionSet<host_memory_space>(_d_ss);
     if (_data_sampling_functional != PointSample) {
         _host_prestencil_weights = Kokkos::create_mirror_view(_prestencil_weights);

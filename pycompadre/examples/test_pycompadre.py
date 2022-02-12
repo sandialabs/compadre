@@ -3,6 +3,7 @@ import numpy as np
 import math
 import random
 import pycompadre
+import pickle
 
 try:
     import sys
@@ -255,6 +256,208 @@ class TestPyCOMPADRE(KokkosTestCase):
 
         self.assertAlmostEqual(output, 1.0, places=15)
 
+    def test_pickle_sampling_functional(self):
+        # test pickling of SamplingFunctional
+        sf = pycompadre.SamplingFunctionals["VectorPointSample"]
+        state = sf.__getstate__()
+        import pickle
+        byte_sf = pickle.dumps(sf)
+        new_sf = pickle.loads(byte_sf)
+        new_state = new_sf.__getstate__()
+        self.assertEqual(len(state), len(new_state))
+        for i in range(len(state)):
+            self.assertEqual(state[i], new_state[i])
+
+    def test_pickle_gmls(self):
+
+        source_sites = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
+        source_sites = np.reshape(source_sites, newshape=(source_sites.size,1))
+        data = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
+
+        polynomial_order = 1
+        dim = 1
+
+        point = np.array([4.0], dtype='f8')
+        target_site = np.reshape(point, newshape=(1,dim))
+    
+        # rvalue or std::unique_ptr passed to ParticleHelper (not obvious lifecycle of GMLS object)
+        # in Clang, rvalue type argument works because it keeps track of which was created first
+        #           and python keeps track of rvalue like object
+        # in GCC,   rvalue type arguments do not work and cause increment/decrement issues
+        # -----v NOT ok in GCC
+        #gmls_helper = pycompadre.ParticleHelper(pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD"))
+        gmls_obj = pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD")
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        gmls_helper.generateKDTree(source_sites)
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+        # print("1",gmls_helper.getGMLSObject().__getstate__())
+        gmls_helper.getGMLSObject().__getstate__()
+
+        # gets GMLS object from gmls_helper (python knows C++ owns it, but C++ treats it as
+        # a python owned object at construction) so lifecycle of GMLS object is not tied to
+        # the lifecycle of the GMLS helper
+        gmls_obj = gmls_helper.getGMLSObject()
+        # destroy helper 
+        del gmls_helper
+        # python kept a reference count on the argument to GMLS helper
+        # which isn't obvious, but there is no move constructor for GMLS helper class
+        # so the following is not destroyed, yet
+        # print("2",gmls_obj.__getstate__())
+        gmls_obj.__getstate__()
+
+        # python knows that original GMLS object was tied to GMLS helper
+        # so replacing the helper tells python the GMLS object is no longer needed
+        gmls_obj2 = pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD")
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj2)
+        # but python keeps this handle internally and now points at new rvalue like object
+        # so the following still works
+        # print("3",gmls_obj.__getstate__())
+        gmls_obj2.__getstate__()
+
+        # # In Clang, this will confuse python because it thinks the rvalue like GMLS object is
+        # # no longer needed, so it will throw it away
+        # gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        # # so the gmls_obj actual gets destroyed in the previous call
+        # gmls_obj = gmls_helper.getGMLSObject()
+        # # see what happens to internal GMLS object
+        # # object is destroyed and this segfaults
+        # # we don't call v--- because it will segfault and unittest can't catch that
+        # # print("4",gmls_obj.__getstate__())
+        # gmls_obj.__getstate__()
+        # # resetting GMLS helper after this block of code will cause deallocation 
+        # ^--- This wouldn't be tested in GCC because we don't pass rvalue type
+        #      arguments to constructors
+
+        # GMLS object destroyed and then relied upon in gmls_helper
+        gmls_obj=pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD")
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        gmls_helper.generateKDTree(source_sites)
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+        # the following v---- will segfault because gmls_obj is deleted
+        # del gmls_obj
+        # print(gmls_helper.getNeighborLists())
+        # print(gmls_helper.getGMLSObject().__getstate__())
+        gmls_obj2=gmls_helper.getGMLSObject()
+
+        # delete python owned gmls_obj, non-owning gmls_obj2 (which points at owned gmls_obj)
+        del gmls_obj, gmls_obj2, gmls_helper
+
+        gmls_obj=pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD")
+        gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
+        gmls_obj.addTargets(pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        gmls_helper.generateKDTree(source_sites)
+
+        point = np.array([4.0], dtype='f8')
+        target_site = np.reshape(point, newshape=(1,dim))
+
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+        gmls_obj.generateAlphas(1, True)
+
+        # test pickling the gmls_obj but not gmls_helper
+        byte_gmls = pickle.dumps(gmls_obj)
+        new_gmls_obj = pickle.loads(byte_gmls)
+
+        with open('test.p', 'wb') as fn:
+            pickle.dump(gmls_obj, fn)
+        with open('test.p', 'rb') as fn:
+            new_gmls_obj = pickle.load(fn)
+
+        del gmls_obj
+
+        gmls_helper = pycompadre.ParticleHelper(new_gmls_obj)
+
+        # explicitly we do not call generateKDTree (it must come from the older gmls_object)
+        # gmls_helper.generateKDTree(source_sites)
+
+        # explicitly we do not call generateNeighborL... so that target info must come from older gmls_object
+        # gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+
+        new_gmls_obj.generateAlphas(1, True)
+
+        output = gmls_helper.applyStencilSingleTarget(data, pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+
+        byte_gmls_helper = pickle.dumps(gmls_helper)
+        new_gmls_helper = pickle.loads(byte_gmls_helper)
+
+        with open('test.p', 'wb') as fn:
+            pickle.dump(gmls_helper, fn)
+        del gmls_helper
+        del new_gmls_obj
+
+        self.assertAlmostEqual(output, 1.0, places=15)
+        
+        # test pickling of gmls_helper
+        with open('test.p', 'rb') as fn:
+            new_gmls_helper = pickle.load(fn)
+        gmls_obj = new_gmls_helper.getGMLSObject()
+        gmls_obj.generateAlphas(1, True)
+
+        output = new_gmls_helper.applyStencilSingleTarget(data, pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+        self.assertAlmostEqual(output, 1.0, places=15)
+
+    def test_pickling_additional_evaluation_sites(self):
+
+        source_sites = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
+        source_sites = np.reshape(source_sites, newshape=(source_sites.size,1))
+        data = np.array([4.0,9.0,25.0,36.0,49.0], dtype='f8')
+
+        polynomial_order = 2
+        dim = 1
+
+        point = np.array([4.0, 3.0], dtype='f8')
+        target_site = np.reshape(point, newshape=(2,dim))
+
+        extra_sites_coords = np.atleast_2d(np.linspace(0,4,5)).T
+        extra_sites_idx    = np.zeros(shape=(len(point),len(extra_sites_coords)+1), dtype='i4')
+        extra_sites_idx[0,0] = 0
+        extra_sites_idx[0,1:] = np.arange(len(extra_sites_coords))
+        extra_sites_idx[1,0] = len(extra_sites_coords)
+        extra_sites_idx[1,1:] = np.arange(len(extra_sites_coords))
+
+        gmls_obj = pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD")
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        gmls_helper.generateKDTree(source_sites)
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+        gmls_helper.setAdditionalEvaluationSitesData(extra_sites_idx, extra_sites_coords)
+
+        gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
+
+        sol1 = [16.0, 0.0, 0.0, 0.0]
+        sol2 = [ 9.0, 0.0, 1.0, 4.0]
+        def check_answer(helper, i):
+            output = helper.applyStencil(data, 
+                                              pycompadre.TargetOperation.ScalarPointEvaluation,
+                                              pycompadre.SamplingFunctionals['PointSample'],
+                                              i)
+            self.assertAlmostEqual(output[0], sol1[i], places=13)
+            self.assertAlmostEqual(output[1], sol2[i], places=13)
+
+        # throws error because alphas are not generated
+        with self.assertRaises(RuntimeError):
+            [check_answer(gmls_helper, i) for i in range(4)]
+
+        # generate alphas and run again
+        gmls_obj.generateAlphas(1, True)
+
+        # now it works
+        [check_answer(gmls_helper, i) for i in range(4)]
+
+        # now pickle to a file
+        with open('test.p', 'wb') as fn:
+            pickle.dump(gmls_helper, fn)
+        del gmls_obj
+        del gmls_helper
+
+        with open('test.p', 'rb') as fn:
+            new_gmls_helper = pickle.load(fn)
+        new_gmls_obj = new_gmls_helper.getGMLSObject()
+        new_gmls_obj.generateAlphas(1, True)
+        [check_answer(new_gmls_helper, i) for i in range(4)]
+
+    # end of inline tests
+
 # space / sampling combinations
 space_sample_combos = {
         "stp_ps":(pycompadre.ReconstructionSpace.ScalarTaylorPolynomial, pycompadre.SamplingFunctionals["PointSample"]), 
@@ -262,6 +465,7 @@ space_sample_combos = {
         #"brnst_vps":(pycompadre.ReconstructionSpace.BernsteinPolynomial, pycompadre.SamplingFunctionals["VectorPointSample"])
         "brnst_vps":(pycompadre.ReconstructionSpace.BernsteinPolynomial, pycompadre.SamplingFunctionals["PointSample"])
         }
+
 
 #############################
 

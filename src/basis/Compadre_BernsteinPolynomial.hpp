@@ -290,7 +290,6 @@ namespace BernsteinPolynomialBasis {
     KOKKOS_INLINE_FUNCTION
     void evaluateSecondPartialDerivative(const member_type& teamMember, double* delta, double* workspace, const int dimension, const int max_degree, const int component, const int partial_direction_1, const int partial_direction_2, const double h, const double x, const double y, const double z, const int starting_order = 0, const double weight_of_original_value = 0.0, const double weight_of_new_value = 1.0) {
         Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-            const double factorial[] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
             compadre_kernel_assert_release((false) && "Second partial derivatives not available for Bernstein basis.");
         });
     }
