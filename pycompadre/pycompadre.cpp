@@ -208,9 +208,7 @@ py::array_t<typename T::value_type> convert_kokkos_to_np(T kokkos_array_device) 
 class ParticleHelper {
 public:
 
-    typedef Kokkos::View<double***, Kokkos::HostSpace> double_3d_view_type;
     typedef Kokkos::View<double**, Kokkos::HostSpace> double_2d_view_type;
-    typedef Kokkos::View<int**, Kokkos::HostSpace> int_2d_view_type;
     typedef Kokkos::View<double*, Kokkos::HostSpace> double_1d_view_type;
     typedef Kokkos::View<int*, Kokkos::HostSpace> int_1d_view_type;
     typedef Kokkos::View<int*> int_1d_view_type_in_gmls;
@@ -221,16 +219,12 @@ private:
     Compadre::GMLS* gmls_object;
     // owning gmls_object for when we must manage the lifetime of the GMLS object
     std::unique_ptr<Compadre::GMLS> owning_gmls_object;
-    Compadre::NeighborLists<int_1d_view_type_in_gmls>* nl;
 
     std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> > point_cloud_search;
 
     // set the neighbors, source sites, and window sizes from GMLS
     // then set up the kdtree
     void setInternalsFromGMLS() {
-
-        // get neighbors from object
-        nl = gmls_object->getNeighborLists();
 
         // set up kdtree based on source sites
         this->generateKDTree();
@@ -271,12 +265,12 @@ public:
         
         // set values from Kokkos View
         gmls_object->setNeighborLists(neighbor_lists);
-        nl = gmls_object->getNeighborLists();
     }
 
-    decltype(nl) getNeighborLists() {
-        compadre_assert_release((nl->getNumberOfTargets()>0) && "getNeighborLists() called, but neighbor lists were never set.");
-        return gmls_object->getNeighborLists();
+    GMLS::neighbor_lists_type getNeighborLists() {
+        compadre_assert_release((gmls_object->getNeighborLists()->getNumberOfTargets()>0) && 
+                "getNeighborLists() called, but neighbor lists were never set.");
+        return *(gmls_object->getNeighborLists());
     }
 
     GMLS::neighbor_lists_type getAdditionalEvaluationIndices() {
@@ -462,7 +456,6 @@ public:
         // set these views in the GMLS object
         gmls_object->setNeighborLists(neighbor_lists, number_of_neighbors_list);
         gmls_object->setWindowSizes(epsilon);
-        nl = gmls_object->getNeighborLists();
 
     }
     
