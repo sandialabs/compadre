@@ -107,9 +107,6 @@ private:
     //! functional form (host)
     Kokkos::View<const double*****, layout_right>::HostMirror _host_prestencil_weights;
 
-    //! (OPTIONAL) user provided additional coordinates for target operation evaluation (device)
-    coordinates_type _additional_evaluation_coordinates; 
-
     //! (OPTIONAL) Accessor to get additional evaluation list data, offset data, and number of sites
     neighbor_lists_type _additional_evaluation_indices; 
 
@@ -259,7 +256,7 @@ private:
     template <typename view_type>
     void setAuxiliaryEvaluationCoordinates(view_type evaluation_coordinates) {
         // allocate memory on device
-        _additional_evaluation_coordinates = decltype(_additional_evaluation_coordinates)("device additional evaluation coordinates",
+        auto additional_evaluation_coordinates = coordinates_type("device additional evaluation coordinates",
             evaluation_coordinates.extent(0), evaluation_coordinates.extent(1));
 
         typedef typename view_type::memory_space input_array_memory_space;
@@ -268,18 +265,18 @@ private:
             // if it is, then it doesn't match the internal layout we use
             // then copy to the host mirror
             // switches potential layout mismatches
-            Kokkos::deep_copy(_additional_evaluation_coordinates, evaluation_coordinates);
+            Kokkos::deep_copy(additional_evaluation_coordinates, evaluation_coordinates);
         } else {
             // if is on the host, copy to the host mirror
             // then copy to the device
             // switches potential layout mismatches
-            auto host_additional_evaluation_coordinates = Kokkos::create_mirror_view(_additional_evaluation_coordinates);
+            auto host_additional_evaluation_coordinates = Kokkos::create_mirror_view(additional_evaluation_coordinates);
             Kokkos::deep_copy(host_additional_evaluation_coordinates, evaluation_coordinates);
             // switches memory spaces
-            Kokkos::deep_copy(_additional_evaluation_coordinates, host_additional_evaluation_coordinates);
+            Kokkos::deep_copy(additional_evaluation_coordinates, host_additional_evaluation_coordinates);
         }
         this->resetCoefficientData();
-        _additional_pc.setSourceCoordinates(_additional_evaluation_coordinates);
+        _additional_pc.setSourceCoordinates(additional_evaluation_coordinates);
     }
 
     //! (OPTIONAL)
@@ -287,10 +284,9 @@ private:
     //! If this is never called, then the target sites are the only locations where the target
     //! operations will be evaluated and applied to polynomial reconstructions. (device)
     template <typename view_type>
-    void setAuxiliaryEvaluationCoordinates(decltype(_additional_evaluation_coordinates) evaluation_coordinates) {
-        _additional_evaluation_coordinates = evaluation_coordinates;
+    void setAuxiliaryEvaluationCoordinates(coordinates_type evaluation_coordinates) {
         this->resetCoefficientData();
-        _additional_pc.setSourceCoordinates(_additional_evaluation_coordinates);
+        _additional_pc.setSourceCoordinates(evaluation_coordinates);
     }
 
     //! (OPTIONAL)
