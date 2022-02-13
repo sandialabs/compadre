@@ -44,6 +44,8 @@ public:
 
     typedef NeighborLists<Kokkos::View<int*> > neighbor_lists_type;
 
+    typedef Kokkos::View<double**, layout_right> coordinates_type; 
+
 private:
 
     // matrices that may be needed for matrix factorization on the device
@@ -91,12 +93,6 @@ private:
     //! Extra data available to target operations (optional)
     Kokkos::View<double**, layout_right> _target_extra_data;
 
-    //! all coordinates for the source for which _neighbor_lists refers (device)
-    Kokkos::View<double**, layout_right> _source_coordinates; 
-
-    //! coordinates for target sites for reconstruction (device)
-    Kokkos::View<double**, layout_right> _target_coordinates; 
-
     //! connections between points and neighbors
     point_connections_type _pc;
 
@@ -112,7 +108,7 @@ private:
     Kokkos::View<const double*****, layout_right>::HostMirror _host_prestencil_weights;
 
     //! (OPTIONAL) user provided additional coordinates for target operation evaluation (device)
-    Kokkos::View<double**, layout_right> _additional_evaluation_coordinates; 
+    coordinates_type _additional_evaluation_coordinates; 
 
     //! (OPTIONAL) Accessor to get additional evaluation list data, offset data, and number of sites
     neighbor_lists_type _additional_evaluation_indices; 
@@ -940,7 +936,7 @@ public:
     void setSourceSites(view_type source_coordinates) {
 
         // allocate memory on device
-        _source_coordinates = decltype(_source_coordinates)("device neighbor coordinates",
+        auto sc = coordinates_type("device neighbor coordinates",
                 source_coordinates.extent(0), source_coordinates.extent(1));
 
         typedef typename view_type::memory_space input_array_memory_space;
@@ -949,35 +945,34 @@ public:
             // if it is, then it doesn't match the internal layout we use
             // then copy to the host mirror
             // switches potential layout mismatches
-            Kokkos::deep_copy(_source_coordinates, source_coordinates);
+            Kokkos::deep_copy(sc, source_coordinates);
         } else {
             // if is on the host, copy to the host mirror
             // then copy to the device
             // switches potential layout mismatches
-            auto host_source_coordinates = Kokkos::create_mirror_view(_source_coordinates);
+            auto host_source_coordinates = Kokkos::create_mirror_view(sc);
             Kokkos::deep_copy(host_source_coordinates, source_coordinates);
             // switches memory spaces
-            Kokkos::deep_copy(_source_coordinates, host_source_coordinates);
+            Kokkos::deep_copy(sc, host_source_coordinates);
         }
         this->resetCoefficientData();
-        _pc.setSourceCoordinates(_source_coordinates);
+        _pc.setSourceCoordinates(sc);
     }
 
     //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries
     //! of the neighbor lists 2D array.
     template<typename view_type>
-    void setSourceSites(decltype(_source_coordinates) source_coordinates) {
+    void setSourceSites(coordinates_type source_coordinates) {
         // allocate memory on device
-        _source_coordinates = source_coordinates;
         this->resetCoefficientData();
-        _pc.setSourceCoordinates(_source_coordinates);
+        _pc.setSourceCoordinates(source_coordinates);
     }
 
     //! Sets target coordinate information. Rows of this 2D-array should correspond to rows of the neighbor lists.
     template<typename view_type>
     void setTargetSites(view_type target_coordinates) {
         // allocate memory on device
-        _target_coordinates = decltype(_target_coordinates)("device target coordinates",
+        auto tc = coordinates_type("device target coordinates",
                 target_coordinates.extent(0), target_coordinates.extent(1));
 
         typedef typename view_type::memory_space input_array_memory_space;
@@ -986,46 +981,44 @@ public:
             // if it is, then it doesn't match the internal layout we use
             // then copy to the host mirror
             // switches potential layout mismatches
-            Kokkos::deep_copy(_target_coordinates, target_coordinates);
+            Kokkos::deep_copy(tc, target_coordinates);
         } else {
             // if is on the host, copy to the host mirror
             // then copy to the device
             // switches potential layout mismatches
-            auto host_target_coordinates = Kokkos::create_mirror_view(_target_coordinates);
+            auto host_target_coordinates = Kokkos::create_mirror_view(tc);
             Kokkos::deep_copy(host_target_coordinates, target_coordinates);
             // switches memory spaces
-            Kokkos::deep_copy(_target_coordinates, host_target_coordinates);
+            Kokkos::deep_copy(tc, host_target_coordinates);
         }
         _host_number_of_additional_evaluation_indices 
             = decltype(_host_number_of_additional_evaluation_indices)("number of additional evaluation indices", target_coordinates.extent(0));
-        if (_additional_evaluation_indices.getNumberOfTargets() != _target_coordinates.extent(0)) {
+        if (_additional_evaluation_indices.getNumberOfTargets() != target_coordinates.extent(0)) {
             this->setAuxiliaryEvaluationIndicesLists(
                     decltype(_host_number_of_additional_evaluation_indices)(), 
                     _host_number_of_additional_evaluation_indices);
         }
         this->resetCoefficientData();
-        _pc.setTargetCoordinates(_target_coordinates);
+        _pc.setTargetCoordinates(tc);
         if (_additional_pc._target_coordinates.extent(0) != _pc._target_coordinates.extent(0)) {
-            _additional_pc.setTargetCoordinates(_target_coordinates);
+            _additional_pc.setTargetCoordinates(tc);
         }
     }
 
     //! Sets target coordinate information. Rows of this 2D-array should correspond to rows of the neighbor lists.
     template<typename view_type>
-    void setTargetSites(decltype(_target_coordinates) target_coordinates) {
-        // allocate memory on device
-        _target_coordinates = target_coordinates;
+    void setTargetSites(coordinates_type target_coordinates) {
         _host_number_of_additional_evaluation_indices 
             = decltype(_host_number_of_additional_evaluation_indices)("number of additional evaluation indices", target_coordinates.extent(0));
-        if (_additional_evaluation_indices.getNumberOfTargets() != _target_coordinates.extent(0)) {
+        if (_additional_evaluation_indices.getNumberOfTargets() != target_coordinates.extent(0)) {
             this->setAuxiliaryEvaluationIndicesLists(
                     decltype(_host_number_of_additional_evaluation_indices)(), 
                     _host_number_of_additional_evaluation_indices);
         }
         this->resetCoefficientData();
-        _pc.setTargetCoordinates(_target_coordinates);
+        _pc.setTargetCoordinates(target_coordinates);
         if (_additional_pc._target_coordinates.extent(0) != _pc._target_coordinates.extent(0)) {
-            _additional_pc.setTargetCoordinates(_target_coordinates);
+            _additional_pc.setTargetCoordinates(target_coordinates);
         }
     }
 
@@ -1061,7 +1054,7 @@ public:
         // this allows for nonstrided views on the device later
 
         // allocate memory on device
-        _T = decltype(_T)("device tangent directions", _target_coordinates.extent(0)*_dimensions*_dimensions);
+        _T = decltype(_T)("device tangent directions", _pc._target_coordinates.extent(0)*_dimensions*_dimensions);
 
         compadre_assert_release( (std::is_same<decltype(_T)::memory_space, typename view_type::memory_space>::value) &&
                 "Memory space does not match between _T and tangent_directions");
@@ -1069,7 +1062,7 @@ public:
         auto this_dimensions = _dimensions;
         auto this_T = _T;
         // rearrange data on device from data given on host
-        Kokkos::parallel_for("copy tangent vectors", Kokkos::RangePolicy<device_execution_space>(0, _target_coordinates.extent(0)), KOKKOS_LAMBDA(const int i) {
+        Kokkos::parallel_for("copy tangent vectors", Kokkos::RangePolicy<device_execution_space>(0, _pc._target_coordinates.extent(0)), KOKKOS_LAMBDA(const int i) {
             scratch_matrix_right_type T(this_T.data() + i*this_dimensions*this_dimensions, this_dimensions, this_dimensions);
             for (int j=0; j<this_dimensions; ++j) {
                 for (int k=0; k<this_dimensions; ++k) {
@@ -1093,13 +1086,13 @@ public:
         // accept input from user as a rank 2 tensor
         
         // allocate memory on device
-        _ref_N = decltype(_ref_N)("device normal directions", _target_coordinates.extent(0)*_dimensions);
+        _ref_N = decltype(_ref_N)("device normal directions", _pc._target_coordinates.extent(0)*_dimensions);
         // to assist LAMBDA capture
         auto this_ref_N = this->_ref_N;
         auto this_dimensions = this->_dimensions;
 
         // rearrange data on device from data given on host
-        Kokkos::parallel_for("copy normal vectors", Kokkos::RangePolicy<device_execution_space>(0, _target_coordinates.extent(0)), KOKKOS_LAMBDA(const int i) {
+        Kokkos::parallel_for("copy normal vectors", Kokkos::RangePolicy<device_execution_space>(0, _pc._target_coordinates.extent(0)), KOKKOS_LAMBDA(const int i) {
             for (int j=0; j<this_dimensions; ++j) {
                 this_ref_N(i*this_dimensions + j) = outward_normal_directions(i, j);
             }

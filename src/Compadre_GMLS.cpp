@@ -63,7 +63,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     // initialize all alpha values to be used for taking the dot product with data to get a reconstruction 
     try {
         global_index_type total_neighbors = this->getNeighborLists()->getTotalNeighborsOverAllListsHost();
-        int total_added_alphas = _target_coordinates.extent(0)*_d_ss._added_alpha_size;
+        int total_added_alphas = _pc._target_coordinates.extent(0)*_d_ss._added_alpha_size;
         _d_ss._alphas = 
             decltype(_d_ss._alphas)("alphas", (total_neighbors + TO_GLOBAL(total_added_alphas))
                     *TO_GLOBAL(_d_ss._total_alpha_values)*TO_GLOBAL(_d_ss._max_evaluation_sites_per_target));
@@ -168,11 +168,11 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
 
         // allocate data on the device (initialized to zero)
         if (!_orthonormal_tangent_space_provided) {
-            _T = Kokkos::View<double*>("tangent approximation",_target_coordinates.extent(0)*_dimensions*_dimensions);
+            _T = Kokkos::View<double*>("tangent approximation",_pc._target_coordinates.extent(0)*_dimensions*_dimensions);
             Kokkos::deep_copy(_T, 0.0);
         }
         _manifold_curvature_coefficients = Kokkos::View<double*>("manifold curvature coefficients",
-                _target_coordinates.extent(0)*manifold_NP);
+                _pc._target_coordinates.extent(0)*manifold_NP);
         Kokkos::deep_copy(_manifold_curvature_coefficients, 0.0);
 
     } else  { // Standard GMLS
@@ -205,7 +205,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
      *    Allocate Global Device Storage of Data Needed Over Multiple Calls
      */
 
-    global_index_type max_batch_size = (_target_coordinates.extent(0) + TO_GLOBAL(number_of_batches) - 1) / TO_GLOBAL(number_of_batches);
+    global_index_type max_batch_size = (_pc._target_coordinates.extent(0) + TO_GLOBAL(number_of_batches) - 1) / TO_GLOBAL(number_of_batches);
     try {
         _RHS = Kokkos::View<double*>("RHS", max_batch_size*TO_GLOBAL(RHS_dim_0)*TO_GLOBAL(RHS_dim_1));
         _P = Kokkos::View<double*>("P", max_batch_size*TO_GLOBAL(P_dim_0)*TO_GLOBAL(P_dim_1));
@@ -230,7 +230,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     _initial_index_for_batch = 0;
     for (int batch_num=0; batch_num<number_of_batches; ++batch_num) {
 
-        auto this_batch_size = std::min(_target_coordinates.extent(0)-_initial_index_for_batch, max_batch_size);
+        auto this_batch_size = std::min(_pc._target_coordinates.extent(0)-_initial_index_for_batch, max_batch_size);
         Kokkos::deep_copy(_RHS, 0.0);
         Kokkos::deep_copy(_P, 0.0);
         Kokkos::deep_copy(_w, 0.0);
@@ -419,7 +419,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
 
 
         _initial_index_for_batch += this_batch_size;
-        if ((size_t)_initial_index_for_batch == _target_coordinates.extent(0)) break;
+        if ((size_t)_initial_index_for_batch == _pc._target_coordinates.extent(0)) break;
     } // end of batch loops
 
     if (clear_cache) {
