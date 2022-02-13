@@ -90,9 +90,6 @@ private:
 
     //! Extra data available to target operations (optional)
     Kokkos::View<double**, layout_right> _target_extra_data;
-
-    //! Accessor to get neighbor list data, offset data, and number of neighbors per target
-    neighbor_lists_type _neighbor_lists; 
     
     //! convenient copy on host of number of neighbors
     Kokkos::View<int*, host_memory_space> _host_number_of_neighbors_list; 
@@ -637,7 +634,7 @@ public:
     host_managed_local_index_type getPolynomialCoefficientsDomainRangeSize() const { 
         host_managed_local_index_type sizes("sizes", 2);
         sizes(0) = _basis_multiplier*_NP;
-        sizes(1) = _sampling_multiplier*_neighbor_lists.getMaxNumNeighbors();
+        sizes(1) = _sampling_multiplier*this->getNeighborLists()->getMaxNumNeighbors();
         return sizes;
     }
 
@@ -724,7 +721,7 @@ public:
     std::string getQuadratureType() const { return _quadrature_type; }
 
     //! Get neighbor list accessor
-    decltype(_neighbor_lists)* getNeighborLists() { return &_pc._nla; }
+    neighbor_lists_type* getNeighborLists() const { return const_cast<neighbor_lists_type*>(&_pc._nla); }
 
     //! Get a view (device) of all point connection info
     decltype(_pc)* getPointConnections() { return &_pc; }
@@ -911,42 +908,42 @@ public:
 
     //! Sets neighbor list information from compressed row neighborhood lists data (if same view_type).
     template <typename view_type>
-    typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_neighbor_lists)::internal_view_type,view_type>::value==1, void>::type 
+    typename std::enable_if<view_type::rank==1&&std::is_same<neighbor_lists_type::internal_view_type,view_type>::value==1, void>::type 
             setNeighborLists(view_type neighbor_lists, view_type number_of_neighbors_list) {
 
-        _neighbor_lists = NeighborLists<view_type>(neighbor_lists, number_of_neighbors_list);
-        _max_num_neighbors = _neighbor_lists.getMaxNumNeighbors();
-        _host_number_of_neighbors_list = decltype(_host_number_of_neighbors_list)("host number of neighbors list", _neighbor_lists.getNumberOfTargets());
+        auto nla = NeighborLists<view_type>(neighbor_lists, number_of_neighbors_list);
+        _max_num_neighbors = nla.getMaxNumNeighbors();
+        _host_number_of_neighbors_list = decltype(_host_number_of_neighbors_list)("host number of neighbors list", nla.getNumberOfTargets());
         Kokkos::parallel_for("copy neighbor list sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_neighbors_list.extent(0)), KOKKOS_LAMBDA(const int i) {
-            _host_number_of_neighbors_list(i) = _neighbor_lists.getNumberOfNeighborsHost(i);
+            _host_number_of_neighbors_list(i) = nla.getNumberOfNeighborsHost(i);
         });
         Kokkos::fence();
         this->resetCoefficientData();
-        _pc.setNeighborLists(_neighbor_lists);
-        _h_ss._neighbor_lists = _neighbor_lists;
+        _pc.setNeighborLists(nla);
+        _h_ss._neighbor_lists = _pc._nla;
     }
 
     //! Sets neighbor list information from compressed row neighborhood lists data (if different view_type).
     template <typename view_type>
-    typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_neighbor_lists)::internal_view_type,view_type>::value==0, void>::type 
+    typename std::enable_if<view_type::rank==1&&std::is_same<neighbor_lists_type::internal_view_type,view_type>::value==0, void>::type 
             setNeighborLists(view_type neighbor_lists, view_type number_of_neighbors_list) {
 
-        typedef decltype(_neighbor_lists)::internal_view_type gmls_view_type;
+        typedef neighbor_lists_type::internal_view_type gmls_view_type;
         gmls_view_type d_neighbor_lists("compressed row neighbor lists data", neighbor_lists.extent(0));
         gmls_view_type d_number_of_neighbors_list("number of neighbors list", number_of_neighbors_list.extent(0));
         Kokkos::deep_copy(d_neighbor_lists, neighbor_lists);
         Kokkos::deep_copy(d_number_of_neighbors_list, number_of_neighbors_list);
         Kokkos::fence();
-        _neighbor_lists = NeighborLists<gmls_view_type>(d_neighbor_lists, d_number_of_neighbors_list);
-        _max_num_neighbors = _neighbor_lists.getMaxNumNeighbors();
-        _host_number_of_neighbors_list = decltype(_host_number_of_neighbors_list)("host number of neighbors list", _neighbor_lists.getNumberOfTargets());
+        auto nla = NeighborLists<gmls_view_type>(d_neighbor_lists, d_number_of_neighbors_list);
+        _max_num_neighbors = nla.getMaxNumNeighbors();
+        _host_number_of_neighbors_list = decltype(_host_number_of_neighbors_list)("host number of neighbors list", nla.getNumberOfTargets());
         Kokkos::parallel_for("copy neighbor list sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_neighbors_list.extent(0)), KOKKOS_LAMBDA(const int i) {
-            _host_number_of_neighbors_list(i) = _neighbor_lists.getNumberOfNeighborsHost(i);
+            _host_number_of_neighbors_list(i) = nla.getNumberOfNeighborsHost(i);
         });
         Kokkos::fence();
         this->resetCoefficientData();
-        _pc.setNeighborLists(_neighbor_lists);
-        _h_ss._neighbor_lists = _neighbor_lists;
+        _pc.setNeighborLists(nla);
+        _h_ss._neighbor_lists = _pc._nla;
     }
 
     //! Sets neighbor list information. Should be # targets x maximum number of neighbors for any target + 1.
@@ -954,16 +951,16 @@ public:
     template <typename view_type>
     typename std::enable_if<view_type::rank==2, void>::type setNeighborLists(view_type neighbor_lists) {
     
-        _neighbor_lists = Convert2DToCompressedRowNeighborLists<decltype(neighbor_lists), Kokkos::View<int*> >(neighbor_lists);
-        _max_num_neighbors = _neighbor_lists.getMaxNumNeighbors();
-        _host_number_of_neighbors_list = decltype(_host_number_of_neighbors_list)("host number of neighbors list", _neighbor_lists.getNumberOfTargets());
+        auto nla = Convert2DToCompressedRowNeighborLists<decltype(neighbor_lists), Kokkos::View<int*> >(neighbor_lists);
+        _max_num_neighbors = nla.getMaxNumNeighbors();
+        _host_number_of_neighbors_list = decltype(_host_number_of_neighbors_list)("host number of neighbors list", nla.getNumberOfTargets());
         Kokkos::parallel_for("copy neighbor list sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_neighbors_list.extent(0)), KOKKOS_LAMBDA(const int i) {
-            _host_number_of_neighbors_list(i) = _neighbor_lists.getNumberOfNeighborsHost(i);
+            _host_number_of_neighbors_list(i) = nla.getNumberOfNeighborsHost(i);
         });
         Kokkos::fence();
         this->resetCoefficientData();
-        _pc.setNeighborLists(_neighbor_lists);
-        _h_ss._neighbor_lists = _neighbor_lists;
+        _pc.setNeighborLists(nla);
+        _h_ss._neighbor_lists = _pc._nla;
     }
 
     //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries
@@ -1336,17 +1333,35 @@ public:
     }
 
     //! Verify whether _pc is valid
-    bool verifyPointConnections() {
-        return ((_pc._target_coordinates.extent(0)==_pc._nla.getNumberOfTargets()) && 
-                (_pc._source_coordinates.extent(1)==_pc._target_coordinates.extent(1)));
+    bool verifyPointConnections(bool assert_valid = false) {
+        bool result = (_pc._target_coordinates.extent(0)==_pc._nla.getNumberOfTargets());
+        compadre_assert_release((!assert_valid || result) &&
+                "Target coordinates and neighbor lists have different size.");
+        
+        result &= (_pc._source_coordinates.extent(1)==_pc._target_coordinates.extent(1));
+        compadre_assert_release((!assert_valid || result) &&
+                "Source coordinates and target coordinates have different dimensions.");
+
+        result &= (_pc._source_coordinates.extent(0)>0||_pc._target_coordinates.extent(0)==0);
+        compadre_assert_release((!assert_valid || result) &&
+                "Source coordinates not set in GMLS class before calling generatePolynomialCoefficients.");
+        return result;
     }
 
     //! Verify whether _additional_pc is valid
-    bool verifyAdditionalPointConnections() {
-        bool result = (_additional_pc._target_coordinates.extent(0)==_additional_pc._nla.getNumberOfTargets()) &&
-                      (_pc._target_coordinates.extent(0)==_additional_pc._target_coordinates.extent(0));
+    bool verifyAdditionalPointConnections(bool assert_valid = false) {
+        bool result = (_additional_pc._target_coordinates.extent(0)==_additional_pc._nla.getNumberOfTargets());
+        compadre_assert_release((!assert_valid || result) &&
+                "Target coordinates and additional evaluation indices have different size.");
+       
+        result &= (_pc._target_coordinates.extent(0)==_additional_pc._target_coordinates.extent(0));
+        compadre_assert_release((!assert_valid || result) &&
+                "Target coordinates and additional evaluation indices have different size.");
+
         if (_additional_pc._source_coordinates.extent(0)>0) {
-            return result && (_additional_pc._target_coordinates.extent(1)==_additional_pc._source_coordinates.extent(1));
+            result &= (_additional_pc._target_coordinates.extent(1)==_additional_pc._source_coordinates.extent(1));
+            compadre_assert_release((!assert_valid || result) &&
+                    "Target coordinates and additional evaluation coordinates have different dimensions.");
         }
         return result;
     }
