@@ -90,9 +90,6 @@ private:
 
     //! Extra data available to target operations (optional)
     Kokkos::View<double**, layout_right> _target_extra_data;
-    
-    //! convenient copy on host of number of neighbors
-    Kokkos::View<int*, host_memory_space> _host_number_of_neighbors_list; 
 
     //! all coordinates for the source for which _neighbor_lists refers (device)
     Kokkos::View<double**, layout_right> _source_coordinates; 
@@ -236,9 +233,6 @@ private:
 
     //! initial index for current batch
     int _initial_index_for_batch;
-
-    //! maximum number of neighbors over all target sites
-    int _max_num_neighbors;
 
     //! determines scratch level spaces and is used to call kernels
     ParallelManager _pm;
@@ -477,8 +471,6 @@ public:
         _store_PTWP_inv_PTW = false;
 
         _initial_index_for_batch = 0;
-
-        _max_num_neighbors = 0;
 
         _global_dimensions = dimensions;
         if (_problem_type == ProblemType::MANIFOLD) {
@@ -912,15 +904,8 @@ public:
             setNeighborLists(view_type neighbor_lists, view_type number_of_neighbors_list) {
 
         auto nla = NeighborLists<view_type>(neighbor_lists, number_of_neighbors_list);
-        _max_num_neighbors = nla.getMaxNumNeighbors();
-        _host_number_of_neighbors_list = decltype(_host_number_of_neighbors_list)("host number of neighbors list", nla.getNumberOfTargets());
-        Kokkos::parallel_for("copy neighbor list sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_neighbors_list.extent(0)), KOKKOS_LAMBDA(const int i) {
-            _host_number_of_neighbors_list(i) = nla.getNumberOfNeighborsHost(i);
-        });
-        Kokkos::fence();
         this->resetCoefficientData();
         _pc.setNeighborLists(nla);
-        _h_ss._neighbor_lists = _pc._nla;
     }
 
     //! Sets neighbor list information from compressed row neighborhood lists data (if different view_type).
@@ -935,15 +920,8 @@ public:
         Kokkos::deep_copy(d_number_of_neighbors_list, number_of_neighbors_list);
         Kokkos::fence();
         auto nla = NeighborLists<gmls_view_type>(d_neighbor_lists, d_number_of_neighbors_list);
-        _max_num_neighbors = nla.getMaxNumNeighbors();
-        _host_number_of_neighbors_list = decltype(_host_number_of_neighbors_list)("host number of neighbors list", nla.getNumberOfTargets());
-        Kokkos::parallel_for("copy neighbor list sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_neighbors_list.extent(0)), KOKKOS_LAMBDA(const int i) {
-            _host_number_of_neighbors_list(i) = nla.getNumberOfNeighborsHost(i);
-        });
-        Kokkos::fence();
         this->resetCoefficientData();
         _pc.setNeighborLists(nla);
-        _h_ss._neighbor_lists = _pc._nla;
     }
 
     //! Sets neighbor list information. Should be # targets x maximum number of neighbors for any target + 1.
@@ -952,15 +930,8 @@ public:
     typename std::enable_if<view_type::rank==2, void>::type setNeighborLists(view_type neighbor_lists) {
     
         auto nla = Convert2DToCompressedRowNeighborLists<decltype(neighbor_lists), Kokkos::View<int*> >(neighbor_lists);
-        _max_num_neighbors = nla.getMaxNumNeighbors();
-        _host_number_of_neighbors_list = decltype(_host_number_of_neighbors_list)("host number of neighbors list", nla.getNumberOfTargets());
-        Kokkos::parallel_for("copy neighbor list sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_neighbors_list.extent(0)), KOKKOS_LAMBDA(const int i) {
-            _host_number_of_neighbors_list(i) = nla.getNumberOfNeighborsHost(i);
-        });
-        Kokkos::fence();
         this->resetCoefficientData();
         _pc.setNeighborLists(nla);
-        _h_ss._neighbor_lists = _pc._nla;
     }
 
     //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries

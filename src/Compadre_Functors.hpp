@@ -38,7 +38,6 @@ struct GMLSBasisData {
     int _sampling_multiplier;
     int _data_sampling_multiplier;
     int _initial_index_for_batch;
-    int _max_num_neighbors;
     int _order_of_quadrature_points;
     int _dimension_of_quadrature_points;
 
@@ -66,6 +65,7 @@ struct GMLSBasisData {
     int Coeffs_dim_0, Coeffs_dim_1;
     double * Coeffs_data;
     double * w_data;
+    int max_num_neighbors;
     int max_num_rows;
     int manifold_NP;
     int max_manifold_NP;
@@ -107,7 +107,8 @@ const GMLSSolutionData createGMLSSolutionData(const GMLS& gmls) {
     data._d_ss = gmls._d_ss;
 
     // store results of calculation in struct
-    const int max_num_rows = gmls._sampling_multiplier*gmls._max_num_neighbors;
+    const int max_num_neighbors = gmls._pc._nla.getMaxNumNeighbors();
+    const int max_num_rows = gmls._sampling_multiplier*max_num_neighbors;
     data.this_num_cols = gmls._basis_multiplier*gmls._NP;
     int RHS_dim_0, RHS_dim_1;
     getRHSDims(gmls._dense_solver_type, gmls._constraint_type, gmls._reconstruction_space, 
@@ -172,14 +173,14 @@ const GMLSBasisData createGMLSBasisData(const GMLS& gmls) {
     data._sampling_multiplier = gmls._sampling_multiplier;
     data._data_sampling_multiplier = gmls._data_sampling_multiplier;
     data._initial_index_for_batch = gmls._initial_index_for_batch;
-    data._max_num_neighbors = gmls._max_num_neighbors;
     data._pm = gmls._pm;
     data._order_of_quadrature_points = gmls._order_of_quadrature_points;
     data._dimension_of_quadrature_points = gmls._dimension_of_quadrature_points;
     data._qm = gmls._qm;
     data._d_ss = gmls._d_ss;
 
-    data.max_num_rows = gmls._sampling_multiplier*gmls._max_num_neighbors;
+    data.max_num_neighbors = gmls._pc._nla.getMaxNumNeighbors();
+    data.max_num_rows = gmls._sampling_multiplier*data.max_num_neighbors;
     int basis_powers_space_multiplier = (gmls._reconstruction_space == BernsteinPolynomial) ? 2 : 1;
     if (gmls._problem_type == ProblemType::MANIFOLD) {
         data.manifold_NP = GMLS::getNP(gmls._curvature_poly_order, gmls._dimensions-1, 
@@ -193,7 +194,7 @@ const GMLSBasisData createGMLSBasisData(const GMLS& gmls) {
         data.ref_N_dim = gmls._dimensions;
 
         data.thread_workspace_dim = (data.max_poly_order+1)*gmls._global_dimensions*basis_powers_space_multiplier;
-        data.manifold_gradient_dim = (gmls._dimensions-1)*gmls._max_num_neighbors;
+        data.manifold_gradient_dim = (gmls._dimensions-1)*data.max_num_neighbors;
 
         data.manifold_curvature_coefficients_data = gmls._manifold_curvature_coefficients.data();
 
@@ -337,9 +338,9 @@ struct ComputePrestencilWeights {
             tangent = scratch_matrix_right_type(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(1)), 
                     dimensions-1, dimensions);
             t1 = scratch_vector_type(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), 
-                    _data._max_num_neighbors);
+                    _data.max_num_neighbors);
             t2 = scratch_vector_type(teamMember.team_scratch(_data._pm.getTeamScratchLevel(1)), 
-                    _data._max_num_neighbors);
+                    _data.max_num_neighbors);
             for (int j = 0; j < delta.extent(0); ++j) {
                 delta(j) = 0;
             }
