@@ -113,9 +113,6 @@ private:
     //! (OPTIONAL) connections between additional points and neighbors
     point_connections_type _additional_pc;
 
-    //! (OPTIONAL) contains the # of additional evaluation sites per target site
-    Kokkos::View<int*, host_memory_space> _host_number_of_additional_evaluation_indices; 
-
     //! Solution Set (contains all alpha values from solution and alpha layout methods)
     // _h_ss is private so that getSolutionSetHost() must be called
     // which ensures that the copy of the solution to device is necessary
@@ -297,11 +294,6 @@ private:
 
         _additional_evaluation_indices = NeighborLists<view_type>(additional_evaluation_indices, number_of_neighbors_list);
         _h_ss._max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
-        _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
-        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), [&](const int i) {
-            _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
-        });
-        Kokkos::fence();
         this->resetCoefficientData();
         _additional_pc.setNeighborLists(_additional_evaluation_indices);
 
@@ -321,11 +313,6 @@ private:
         Kokkos::fence();
         _additional_evaluation_indices = NeighborLists<gmls_view_type>(d_additional_evaluation_indices, d_number_of_neighbors_list);
         _h_ss._max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
-        _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
-        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), [&](const int i) {
-            _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
-        });
-        Kokkos::fence();
         this->resetCoefficientData();
         _additional_pc.setNeighborLists(_additional_evaluation_indices);
 
@@ -339,11 +326,6 @@ private:
     
         _additional_evaluation_indices = Convert2DToCompressedRowNeighborLists<decltype(additional_evaluation_indices), Kokkos::View<int*> >(additional_evaluation_indices);
         _h_ss._max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
-        _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
-        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), [&](const int i) {
-            _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
-        });
-        Kokkos::fence();
         this->resetCoefficientData();
         _additional_pc.setNeighborLists(_additional_evaluation_indices);
 
@@ -987,12 +969,12 @@ public:
             // switches memory spaces
             Kokkos::deep_copy(tc, host_target_coordinates);
         }
-        _host_number_of_additional_evaluation_indices 
-            = decltype(_host_number_of_additional_evaluation_indices)("number of additional evaluation indices", target_coordinates.extent(0));
         if (_additional_evaluation_indices.getNumberOfTargets() != target_coordinates.extent(0)) {
             this->setAuxiliaryEvaluationIndicesLists(
-                    decltype(_host_number_of_additional_evaluation_indices)(), 
-                    _host_number_of_additional_evaluation_indices);
+                    Kokkos::View<int*>(),
+                    Kokkos::View<int*>("number of additional evaluation indices", 
+                                       target_coordinates.extent(0))
+            );
         }
         this->resetCoefficientData();
         _pc.setTargetCoordinates(tc);
@@ -1004,12 +986,12 @@ public:
     //! Sets target coordinate information. Rows of this 2D-array should correspond to rows of the neighbor lists.
     template<typename view_type>
     void setTargetSites(coordinates_type target_coordinates) {
-        _host_number_of_additional_evaluation_indices 
-            = decltype(_host_number_of_additional_evaluation_indices)("number of additional evaluation indices", target_coordinates.extent(0));
         if (_additional_evaluation_indices.getNumberOfTargets() != target_coordinates.extent(0)) {
             this->setAuxiliaryEvaluationIndicesLists(
-                    decltype(_host_number_of_additional_evaluation_indices)(), 
-                    _host_number_of_additional_evaluation_indices);
+                    Kokkos::View<int*>(),
+                    Kokkos::View<int*>("number of additional evaluation indices", 
+                                       target_coordinates.extent(0))
+            );
         }
         this->resetCoefficientData();
         _pc.setTargetCoordinates(target_coordinates);
