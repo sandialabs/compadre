@@ -104,6 +104,33 @@ struct PointConnections {
 
 ///@}
 
+/** @name Public Modifiers
+ *  Private function because information lives on the device
+ */
+///@{
+
+    //! Update only target coordinates
+    void setTargetCoordinates(view_type_1 target_coordinates) {
+        _target_coordinates = Kokkos::create_mirror_view<memory_space>(
+                memory_space(), target_coordinates);
+        Kokkos::deep_copy(_target_coordinates, target_coordinates);
+    }
+
+    //! Update only source coordinates
+    void setSourceCoordinates(view_type_2 source_coordinates) {
+        _source_coordinates = Kokkos::create_mirror_view<memory_space>(
+                memory_space(), source_coordinates);
+        Kokkos::deep_copy(_source_coordinates, source_coordinates);
+    }
+
+    //! Update only target coordinates
+    void setNeighborLists(nla_type nla) {
+        _nla = nla;
+    }
+
+
+///@}
+
 /** @name Public Accessors
  */
 ///@{

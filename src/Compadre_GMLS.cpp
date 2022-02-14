@@ -9,6 +9,16 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
                 && "keep_coefficients is set to true, but number of batches exceeds 1.");
 
     /*
+     *    Verify PointConnections are valid
+     */
+    this->verifyPointConnections(true);
+    this->verifyAdditionalPointConnections(true);
+
+    // ensure that solution set has neighbor list consistent with point connections
+    _h_ss._neighbor_lists = _pc._nla;
+    _h_ss._max_evaluation_sites_per_target = _additional_pc._nla.getMaxNumNeighbors() + 1;
+
+    /*
      *    Generate Quadrature
      */
     this->_qm = Quadrature(_order_of_quadrature_points, _dimension_of_quadrature_points, _quadrature_type);
@@ -36,14 +46,6 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     // get copy of operations on the device
     Kokkos::deep_copy(_operations, _host_operations);
 
-    // check that if any target sites added, that neighbors_lists has equal rows
-    compadre_assert_release(((size_t)_neighbor_lists.getNumberOfTargets()==_target_coordinates.extent(0)) 
-            && "Neighbor lists not set in GMLS class before calling generatePolynomialCoefficients.");
-
-    // check that if any target sites are greater than zero (could be zero), then there are more than zero source sites
-    compadre_assert_release((_source_coordinates.extent(0)>0 || _target_coordinates.extent(0)==0) 
-            && "Source coordinates not set in GMLS class before calling generatePolynomialCoefficients.");
-
     /*
      *    Initialize Alphas and Prestencil Weights
      */
@@ -61,8 +63,8 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
 
     // initialize all alpha values to be used for taking the dot product with data to get a reconstruction 
     try {
-        global_index_type total_neighbors = _neighbor_lists.getTotalNeighborsOverAllListsHost();
-        int total_added_alphas = _target_coordinates.extent(0)*_d_ss._added_alpha_size;
+        global_index_type total_neighbors = this->getNeighborLists()->getTotalNeighborsOverAllListsHost();
+        int total_added_alphas = _pc._target_coordinates.extent(0)*_d_ss._added_alpha_size;
         _d_ss._alphas = 
             decltype(_d_ss._alphas)("alphas", (total_neighbors + TO_GLOBAL(total_added_alphas))
                     *TO_GLOBAL(_d_ss._total_alpha_values)*TO_GLOBAL(_d_ss._max_evaluation_sites_per_target));
@@ -77,14 +79,15 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     // initialize the prestencil weights that are applied to sampling data to put it into a form 
     // that the GMLS operator will be able to operate on
     auto sro = _data_sampling_functional;
+    int max_num_neighbors = _pc._nla.getMaxNumNeighbors();
     try {
         _prestencil_weights = decltype(_prestencil_weights)("Prestencil weights",
                 std::pow(2,sro.use_target_site_weights), 
                 (sro.transform_type==DifferentEachTarget 
                         || sro.transform_type==DifferentEachNeighbor) ?
-                    _neighbor_lists.getNumberOfTargets() : 1,
+                    this->getNeighborLists()->getNumberOfTargets() : 1,
                 (sro.transform_type==DifferentEachNeighbor) ?
-                    _max_num_neighbors : 1,
+                    max_num_neighbors : 1,
                 (sro.output_rank>0) ?
                     _local_dimensions : 1,
                 (sro.input_rank>0) ?
@@ -129,7 +132,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     int thread_scratch_size_b = 0;
 
     // dimensions that are relevant for each subproblem
-    int max_num_rows = _sampling_multiplier*_max_num_neighbors;
+    int max_num_rows = _sampling_multiplier*max_num_neighbors;
     int this_num_cols = _basis_multiplier*_NP;
     int manifold_NP = 0;
 
@@ -153,24 +156,24 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
          */
 
         team_scratch_size_b += scratch_matrix_right_type::shmem_size(_dimensions, _dimensions); // PTP matrix
-        team_scratch_size_b += scratch_vector_type::shmem_size( (_dimensions-1)*_max_num_neighbors ); // manifold_gradient
+        team_scratch_size_b += scratch_vector_type::shmem_size( (_dimensions-1)*max_num_neighbors ); // manifold_gradient
 
         thread_scratch_size_a += scratch_vector_type::shmem_size(this_num_cols); // delta, used for each thread
         thread_scratch_size_a += scratch_vector_type::shmem_size(
                 (max_poly_order+1)*_global_dimensions*basis_powers_space_multiplier); // temporary space for powers in basis
         if (_data_sampling_functional == VaryingManifoldVectorPointSample) {
-            team_scratch_size_b += scratch_vector_type::shmem_size(_max_num_neighbors); // t1 work vector for prestencils
-            team_scratch_size_b += scratch_vector_type::shmem_size(_max_num_neighbors); // t2 work vector for prestencils
+            team_scratch_size_b += scratch_vector_type::shmem_size(max_num_neighbors); // t1 work vector for prestencils
+            team_scratch_size_b += scratch_vector_type::shmem_size(max_num_neighbors); // t2 work vector for prestencils
             thread_scratch_size_b += scratch_vector_type::shmem_size(_dimensions*_dimensions); // temporary tangent calculations, used for each thread
         }
 
         // allocate data on the device (initialized to zero)
         if (!_orthonormal_tangent_space_provided) {
-            _T = Kokkos::View<double*>("tangent approximation",_target_coordinates.extent(0)*_dimensions*_dimensions);
+            _T = Kokkos::View<double*>("tangent approximation",_pc._target_coordinates.extent(0)*_dimensions*_dimensions);
             Kokkos::deep_copy(_T, 0.0);
         }
         _manifold_curvature_coefficients = Kokkos::View<double*>("manifold curvature coefficients",
-                _target_coordinates.extent(0)*manifold_NP);
+                _pc._target_coordinates.extent(0)*manifold_NP);
         Kokkos::deep_copy(_manifold_curvature_coefficients, 0.0);
 
     } else  { // Standard GMLS
@@ -203,7 +206,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
      *    Allocate Global Device Storage of Data Needed Over Multiple Calls
      */
 
-    global_index_type max_batch_size = (_target_coordinates.extent(0) + TO_GLOBAL(number_of_batches) - 1) / TO_GLOBAL(number_of_batches);
+    global_index_type max_batch_size = (_pc._target_coordinates.extent(0) + TO_GLOBAL(number_of_batches) - 1) / TO_GLOBAL(number_of_batches);
     try {
         _RHS = Kokkos::View<double*>("RHS", max_batch_size*TO_GLOBAL(RHS_dim_0)*TO_GLOBAL(RHS_dim_1));
         _P = Kokkos::View<double*>("P", max_batch_size*TO_GLOBAL(P_dim_0)*TO_GLOBAL(P_dim_1));
@@ -228,7 +231,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     _initial_index_for_batch = 0;
     for (int batch_num=0; batch_num<number_of_batches; ++batch_num) {
 
-        auto this_batch_size = std::min(_target_coordinates.extent(0)-_initial_index_for_batch, max_batch_size);
+        auto this_batch_size = std::min(_pc._target_coordinates.extent(0)-_initial_index_for_batch, max_batch_size);
         Kokkos::deep_copy(_RHS, 0.0);
         Kokkos::deep_copy(_P, 0.0);
         Kokkos::deep_copy(_w, 0.0);
@@ -276,12 +279,12 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
                     // batchLU expects layout_left matrix tiles for B
                     // by giving it layout_right matrix tiles with reverse ordered ldb and ndb
                     // it effects a transpose of _P in layout_left
-                    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, manifold_NP, manifold_NP, _max_num_neighbors, this_batch_size, implicit_RHS);
+                    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, manifold_NP, manifold_NP, max_num_neighbors, this_batch_size, implicit_RHS);
                     Kokkos::Profiling::popRegion();
                 } else {
                     // solves P*sqrt(weights) against sqrt(weights)*Identity with QR, stored in RHS
                     Kokkos::Profiling::pushRegion("Curvature QR+Pivoting Factorization");
-                    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, _max_num_neighbors, manifold_NP, _max_num_neighbors, this_batch_size, implicit_RHS);
+                    GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, max_num_neighbors, manifold_NP, max_num_neighbors, this_batch_size, implicit_RHS);
                     Kokkos::Profiling::popRegion();
                 }
 
@@ -307,12 +310,12 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
             if (_dense_solver_type == DenseSolverType::LU) {
                 // solves P^T*P against P^T*W with LU, stored in P
                 Kokkos::Profiling::pushRegion("Curvature LU Factorization");
-                GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, manifold_NP, manifold_NP, _max_num_neighbors, this_batch_size, implicit_RHS);
+                GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_left,layout_right>(_pm, _RHS.data(), RHS_dim_0, RHS_dim_1, _P.data(), P_dim_1, P_dim_0, manifold_NP, manifold_NP, max_num_neighbors, this_batch_size, implicit_RHS);
                 Kokkos::Profiling::popRegion();
             } else {
                  // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
                 Kokkos::Profiling::pushRegion("Curvature QR+Pivoting Factorization");
-                GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, _max_num_neighbors, manifold_NP, _max_num_neighbors, this_batch_size, implicit_RHS);
+                GMLS_LinearAlgebra::batchQRPivotingSolve<layout_right,layout_right,layout_right>(_pm, _P.data(), P_dim_0, P_dim_1, _RHS.data(), RHS_dim_0, RHS_dim_1, max_num_neighbors, manifold_NP, max_num_neighbors, this_batch_size, implicit_RHS);
                 Kokkos::Profiling::popRegion();
             }
 
@@ -417,7 +420,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
 
 
         _initial_index_for_batch += this_batch_size;
-        if ((size_t)_initial_index_for_batch == _target_coordinates.extent(0)) break;
+        if ((size_t)_initial_index_for_batch == _pc._target_coordinates.extent(0)) break;
     } // end of batch loops
 
     if (clear_cache) {
