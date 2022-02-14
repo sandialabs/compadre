@@ -107,9 +107,6 @@ private:
     //! functional form (host)
     Kokkos::View<const double*****, layout_right>::HostMirror _host_prestencil_weights;
 
-    //! (OPTIONAL) Accessor to get additional evaluation list data, offset data, and number of sites
-    neighbor_lists_type _additional_evaluation_indices; 
-
     //! (OPTIONAL) connections between additional points and neighbors
     point_connections_type _additional_pc;
 
@@ -289,32 +286,30 @@ private:
     //! (OPTIONAL)
     //! Sets the additional target evaluation indices list information from compressed row format (if same view_type)
     template <typename view_type>
-    typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_additional_evaluation_indices)::internal_view_type,view_type>::value==1, void>::type 
+    typename std::enable_if<view_type::rank==1&&std::is_same<neighbor_lists_type::internal_view_type,view_type>::value==1, void>::type 
             setAuxiliaryEvaluationIndicesLists(view_type additional_evaluation_indices, view_type number_of_neighbors_list) {
 
-        _additional_evaluation_indices = NeighborLists<view_type>(additional_evaluation_indices, number_of_neighbors_list);
-        _h_ss._max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
+        auto additional_nla = NeighborLists<view_type>(additional_evaluation_indices, number_of_neighbors_list);
         this->resetCoefficientData();
-        _additional_pc.setNeighborLists(_additional_evaluation_indices);
+        _additional_pc.setNeighborLists(additional_nla);
 
     }
 
     //! (OPTIONAL)
     //! Sets the additional target evaluation indices list information from compressed row format (if different view_type)
     template <typename view_type>
-    typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_additional_evaluation_indices)::internal_view_type,view_type>::value==0, void>::type 
+    typename std::enable_if<view_type::rank==1&&std::is_same<neighbor_lists_type::internal_view_type,view_type>::value==0, void>::type 
             setAuxiliaryEvaluationIndicesLists(view_type additional_evaluation_indices, view_type number_of_neighbors_list) {
 
-        typedef decltype(_additional_evaluation_indices)::internal_view_type gmls_view_type;
+        typedef neighbor_lists_type::internal_view_type gmls_view_type;
         gmls_view_type d_additional_evaluation_indices("compressed row additional evaluation indices lists data", additional_evaluation_indices.extent(0));
         gmls_view_type d_number_of_neighbors_list("number of additional evaluation indices", number_of_neighbors_list.extent(0));
         Kokkos::deep_copy(d_additional_evaluation_indices, additional_evaluation_indices);
         Kokkos::deep_copy(d_number_of_neighbors_list, number_of_neighbors_list);
         Kokkos::fence();
-        _additional_evaluation_indices = NeighborLists<gmls_view_type>(d_additional_evaluation_indices, d_number_of_neighbors_list);
-        _h_ss._max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
+        auto additional_nla = NeighborLists<gmls_view_type>(d_additional_evaluation_indices, d_number_of_neighbors_list);
         this->resetCoefficientData();
-        _additional_pc.setNeighborLists(_additional_evaluation_indices);
+        _additional_pc.setNeighborLists(additional_nla);
 
     }
 
@@ -324,10 +319,9 @@ private:
     template <typename view_type>
     typename std::enable_if<view_type::rank==2, void>::type setAuxiliaryEvaluationIndicesLists(view_type additional_evaluation_indices) {
     
-        _additional_evaluation_indices = Convert2DToCompressedRowNeighborLists<decltype(additional_evaluation_indices), Kokkos::View<int*> >(additional_evaluation_indices);
-        _h_ss._max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
+        auto additional_nla = Convert2DToCompressedRowNeighborLists<decltype(additional_evaluation_indices), Kokkos::View<int*> >(additional_evaluation_indices);
         this->resetCoefficientData();
-        _additional_pc.setNeighborLists(_additional_evaluation_indices);
+        _additional_pc.setNeighborLists(additional_nla);
 
     }
 
@@ -687,14 +681,16 @@ public:
     std::string getQuadratureType() const { return _quadrature_type; }
 
     //! Get neighbor list accessor
-    neighbor_lists_type* getNeighborLists() const { return const_cast<neighbor_lists_type*>(&_pc._nla); }
+    neighbor_lists_type* getNeighborLists() const { 
+        return const_cast<neighbor_lists_type*>(&_pc._nla); 
+    }
 
     //! Get a view (device) of all point connection info
     decltype(_pc)* getPointConnections() { return &_pc; }
 
     //! (OPTIONAL) Get additional evaluation sites neighbor list-like accessor
-    decltype(_additional_evaluation_indices)* getAdditionalEvaluationIndices() { 
-        return &_additional_pc._nla;
+    neighbor_lists_type* getAdditionalEvaluationIndices() const { 
+        return const_cast<neighbor_lists_type*>(&_additional_pc._nla);
     }
 
     //! (OPTIONAL) Get a view (device) of all additional evaluation point connection info
@@ -969,7 +965,7 @@ public:
             // switches memory spaces
             Kokkos::deep_copy(tc, host_target_coordinates);
         }
-        if (_additional_evaluation_indices.getNumberOfTargets() != target_coordinates.extent(0)) {
+        if (this->getAdditionalEvaluationIndices()->getNumberOfTargets() != target_coordinates.extent(0)) {
             this->setAuxiliaryEvaluationIndicesLists(
                     Kokkos::View<int*>(),
                     Kokkos::View<int*>("number of additional evaluation indices", 
@@ -986,7 +982,7 @@ public:
     //! Sets target coordinate information. Rows of this 2D-array should correspond to rows of the neighbor lists.
     template<typename view_type>
     void setTargetSites(coordinates_type target_coordinates) {
-        if (_additional_evaluation_indices.getNumberOfTargets() != target_coordinates.extent(0)) {
+        if (this->getAdditionalEvaluationIndices()->getNumberOfTargets() != target_coordinates.extent(0)) {
             this->setAuxiliaryEvaluationIndicesLists(
                     Kokkos::View<int*>(),
                     Kokkos::View<int*>("number of additional evaluation indices", 

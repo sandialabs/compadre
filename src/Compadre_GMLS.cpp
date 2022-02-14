@@ -16,6 +16,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
 
     // ensure that solution set has neighbor list consistent with point connections
     _h_ss._neighbor_lists = _pc._nla;
+    _h_ss._max_evaluation_sites_per_target = _additional_pc._nla.getMaxNumNeighbors() + 1;
 
     /*
      *    Generate Quadrature
