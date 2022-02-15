@@ -388,11 +388,10 @@ class TestPyCOMPADRE(KokkosTestCase):
         # test pickling of gmls_helper
         with open('test.p', 'rb') as fn:
             new_gmls_helper = pickle.load(fn)
-        gmls_obj = new_gmls_helper.getGMLSObject()
-        gmls_obj.generateAlphas(1, True)
 
-        output = new_gmls_helper.applyStencilSingleTarget(data, pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
-        self.assertAlmostEqual(output, 1.0, places=15)
+        # should not contain a GMLS instance
+        with self.assertRaises(RuntimeError):
+            gmls_obj = new_gmls_helper.getGMLSObject()
 
     def test_pickling_additional_evaluation_sites(self):
 
@@ -435,8 +434,10 @@ class TestPyCOMPADRE(KokkosTestCase):
         with self.assertRaises(RuntimeError):
             [check_answer(gmls_helper, i) for i in range(4)]
 
+        self.assertEqual(gmls_obj.containsValidAlphas(), False)
         # generate alphas and run again
         gmls_obj.generateAlphas(1, True)
+        self.assertEqual(gmls_obj.containsValidAlphas(), True)
 
         # now it works
         [check_answer(gmls_helper, i) for i in range(4)]
@@ -444,13 +445,18 @@ class TestPyCOMPADRE(KokkosTestCase):
         # now pickle to a file
         with open('test.p', 'wb') as fn:
             pickle.dump(gmls_helper, fn)
-        del gmls_obj
         del gmls_helper
 
         with open('test.p', 'rb') as fn:
             new_gmls_helper = pickle.load(fn)
-        new_gmls_obj = new_gmls_helper.getGMLSObject()
-        new_gmls_obj.generateAlphas(1, True)
+        # should throw an error because GMLS object is not set
+        with self.assertRaises(RuntimeError):
+            new_gmls_helper.getGMLSObject()
+
+        # reuse solution computed from gmls_obj with gmls_helper 
+        # loaded from pickle
+        new_gmls_helper.setGMLSObject(gmls_obj)
+        self.assertEqual(gmls_obj.containsValidAlphas(), True)
         [check_answer(new_gmls_helper, i) for i in range(4)]
 
     # end of inline tests

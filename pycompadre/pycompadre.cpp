@@ -215,42 +215,36 @@ public:
 
 private:
 
-    // gmls_object passed at instantiation (possibly owned by this class, but not likely)
+    // gmls_object passed at instantiation 
+    // or set after instantiation
     Compadre::GMLS* gmls_object;
-    // owning gmls_object for when we must manage the lifetime of the GMLS object
-    std::unique_ptr<Compadre::GMLS> owning_gmls_object;
 
     std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> > point_cloud_search;
 
-    // set the neighbors, source sites, and window sizes from GMLS
-    // then set up the kdtree
-    void setInternalsFromGMLS() {
-
-        // set up kdtree based on source sites
-        this->generateKDTree();
-
-    }
-
 public:
 
-    // handles an lvalued argument (scope of GMLS is bound externally)
-    ParticleHelper(GMLS& gmls_instance) {
+    ParticleHelper() {
 
-        gmls_object = &gmls_instance;
-        setInternalsFromGMLS();
+        gmls_object = nullptr;
 
     }
 
-    // handles an rvalued argument (must take ownership of GMLS)
-    ParticleHelper(GMLS&& gmls_instance) {
+    // handles an lvalued argument (scope of GMLS is bound externally)
+    ParticleHelper(GMLS* gmls_instance) : gmls_object(nullptr) {
+        setGMLSObject(gmls_instance);
+    }
 
-        owning_gmls_object = std::unique_ptr<GMLS>(new GMLS(std::move(gmls_instance)));
-        gmls_object = owning_gmls_object.get();
-        setInternalsFromGMLS();
-
+    void setGMLSObject(GMLS* gmls_instance) {
+        if (gmls_instance != gmls_object) {
+            gmls_object = gmls_instance;
+            // generateKDTree only called if new GMLS object provided
+            this->generateKDTree();
+        }
     }
 
     decltype(gmls_object) getGMLSObject() const {
+        compadre_assert_release(gmls_object!=nullptr &&
+                "getGMLSObject() called before setting the GMLS object");
         return gmls_object;
     }
 
@@ -264,22 +258,30 @@ public:
         auto neighbor_lists = convert_np_to_kokkos_2d(input);
         
         // set values from Kokkos View
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         gmls_object->setNeighborLists(neighbor_lists);
     }
 
     GMLS::neighbor_lists_type getNeighborLists() {
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         compadre_assert_release((gmls_object->getNeighborLists()->getNumberOfTargets()>0) && 
                 "getNeighborLists() called, but neighbor lists were never set.");
         return *(gmls_object->getNeighborLists());
     }
 
     GMLS::neighbor_lists_type getAdditionalEvaluationIndices() {
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         compadre_assert_release((gmls_object->getAdditionalEvaluationIndices()->getNumberOfTargets()>0) && 
                 "getAdditionalEvaluationIndices() called, but additional evaluation indices were never set.");
         return *(gmls_object->getAdditionalEvaluationIndices());
     }
 
     py::array_t<double> getSourceSites() {
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         compadre_assert_release((gmls_object->getPointConnections()->_source_coordinates.extent(0)>0) && 
                 "getSourceSites() called, but source sites were never set.");
         return convert_kokkos_to_np(gmls_object->getPointConnections()->_source_coordinates);
@@ -292,6 +294,8 @@ public:
             throw std::runtime_error("Number of dimensions must be two");
         }
 
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         if (gmls_object->getGlobalDimensions()!=input.shape(1)) {
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
@@ -303,6 +307,8 @@ public:
     }
 
     py::array_t<double> getTargetSites() {
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         compadre_assert_release((gmls_object->getPointConnections()->_target_coordinates.extent(0)>0) && 
                 "getTargetSites() called, but target sites were never set.");
         return convert_kokkos_to_np(gmls_object->getPointConnections()->_target_coordinates);
@@ -317,11 +323,15 @@ public:
         
         auto epsilon = convert_np_to_kokkos_1d<device_memory_space>(input);
         
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         // set values from Kokkos View
         gmls_object->setWindowSizes(epsilon);
     }
  
     py::array_t<double> getWindowSizes() {
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         if (gmls_object->getWindowSizes()->extent(0)<=0) {
             throw std::runtime_error("getWindowSizes() called, but window sizes were never set.");
         }
@@ -335,6 +345,8 @@ public:
             throw std::runtime_error("Number of dimensions must be three");
         }
 
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         if (gmls_object->getGlobalDimensions()!=input.shape(1)) {
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
@@ -350,6 +362,8 @@ public:
     }
 
     py::array_t<double> getTangentBundle() {
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         compadre_assert_release((gmls_object->getTangentDirections()->extent(0)>0) && 
                 "getTangentBundle() called, but tangent bundle was never set.");
         return convert_kokkos_to_np(*gmls_object->getTangentDirections());
@@ -362,6 +376,8 @@ public:
             throw std::runtime_error("Number of dimensions must be two");
         }
 
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         if (gmls_object->getGlobalDimensions()!=input.shape(1)) {
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
@@ -373,12 +389,16 @@ public:
     }
 
     py::array_t<double> getReferenceOutwardNormalDirection() {
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         compadre_assert_release((gmls_object->getReferenceNormalDirections()->extent(0)>0) && 
                 "getReferenceNormalDirections() called, but normal directions were never set.");
         return convert_kokkos_to_np(*gmls_object->getReferenceNormalDirections());
     }
 
     void generateKDTree() {
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         point_cloud_search = std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> >(
                 new Compadre::PointCloudSearch<double_2d_view_type>(
                     convert_np_to_kokkos_2d<host_memory_space>(
@@ -395,6 +415,8 @@ public:
             throw std::runtime_error("Number of dimensions must be two");
         }
 
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         if (gmls_object->getGlobalDimensions()!=input.shape(1)) {
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
@@ -408,6 +430,8 @@ public:
 
     void generateNeighborListsFromKNNSearchAndSet(py::array_t<double> input, int poly_order, int dimension = 3, double epsilon_multiplier = 1.6, double max_search_radius = 0.0, bool scale_k_neighbor_radius = true, bool scale_num_neighbors = false) {
 
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         int neighbors_needed = Compadre::GMLS::getNP(poly_order, dimension, gmls_object->getReconstructionSpace());
 
         py::buffer_info buf = input.request();
@@ -469,6 +493,8 @@ public:
         if (buf_coordinates.ndim != 2) {
             throw std::runtime_error("Number of dimensions of input coordinates must be two");
         }
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         if (gmls_object->getGlobalDimensions()!=input_coordinates.shape(1)) {
             throw std::runtime_error("Second dimension of input coordinates must be the same as GMLS spatial dimension");
         }
@@ -506,6 +532,8 @@ public:
         }
         Kokkos::fence();
 
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         Compadre::Evaluator gmls_evaluator(gmls_object);
         auto polynomial_coefficients = gmls_evaluator.applyFullPolynomialCoefficientsBasisToDataAllComponents<double**, Kokkos::HostSpace>
             (source_data);
@@ -534,6 +562,8 @@ public:
         // cast numpy data as Kokkos View
         host_scratch_matrix_left_type source_data((double *) buf.ptr, input.shape(0), (buf.ndim>1) ? input.shape(1) : 1);
 
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         Compadre::Evaluator gmls_evaluator(gmls_object);
         if (lro==Compadre::TargetOperation::PartialYOfScalarPointEvaluation) {
             compadre_assert_release((gmls_object->getGlobalDimensions() > 1) && "Partial derivative w.r.t. y requested, but less than 2D problem.");
@@ -575,6 +605,8 @@ public:
         // cast numpy data as Kokkos View
         host_scratch_matrix_left_type source_data((double *) buf.ptr, input.shape(0), (buf.ndim>1) ? input.shape(1) : 1);
 
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         Compadre::Evaluator gmls_evaluator(gmls_object);
         if (lro==Compadre::TargetOperation::PartialYOfScalarPointEvaluation) {
             compadre_assert_release((gmls_object->getGlobalDimensions() > 1) && "Partial derivative w.r.t. y requested, but less than 2D problem.");
@@ -640,6 +672,8 @@ public:
 
         compadre_assert_release(buf.ndim==1 && "Input given with dimensions > 1");
 
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
         Compadre::Evaluator gmls_evaluator(gmls_object);
 
         return gmls_evaluator.applyAlphasToDataSingleComponentSingleTargetSite(source_data, 0, lro, 0, evaluation_site_local_index, 0, 0, 0, 0, false);
@@ -774,7 +808,8 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
         Class to manage calling PointCloudSearch, moving data to/from Numpy arrays in Kokkos::Views,
         and applying GMLS solutions to multidimensional data arrays
     )pbdoc")
-    .def(py::init<GMLS&>(),py::arg("gmls_instance"))
+    .def(py::init<>())
+    .def(py::init<GMLS*>(),py::arg("gmls_instance"))
     .def("generateKDTree", overload_cast_<py::array_t<double> >()(&ParticleHelper::generateKDTree))
     .def("generateNeighborListsFromKNNSearchAndSet", &ParticleHelper::generateNeighborListsFromKNNSearchAndSet, 
             py::arg("target_sites"), py::arg("poly_order"), py::arg("dimension") = 3, py::arg("epsilon_multiplier") = 1.6, 
@@ -782,6 +817,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             py::arg("scale_num_neighbors") = false)
     .def("setNeighbors", &ParticleHelper::setNeighbors, py::arg("neighbor_lists"), 
             "Sets neighbor lists from 2D array where first column is number of neighbors for corresponding row's target site.")
+    .def("setGMLSObject", &ParticleHelper::setGMLSObject, py::arg("gmls_object"))
     .def("getGMLSObject", &ParticleHelper::getGMLSObject, py::return_value_policy::reference_internal)
     .def("getAdditionalEvaluationIndices", &ParticleHelper::getAdditionalEvaluationIndices, py::return_value_policy::reference_internal)
     .def("getNeighborLists", &ParticleHelper::getNeighborLists, py::return_value_policy::reference_internal)
@@ -801,13 +837,12 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .def("applyStencil", &ParticleHelper::applyStencil, py::arg("input_data"), py::arg("target_operation")=TargetOperation::ScalarPointEvaluation, py::arg("sampling_functional")=PointSample, py::arg("evaluation_site_local_index")=0, py::return_value_policy::take_ownership)
     .def(py::pickle(
         [](const ParticleHelper &helper) { // __getstate__
-            auto gmls = helper.getGMLSObject();
-            return py::make_tuple(*gmls);
+            return py::make_tuple();
         },
         [](py::tuple t) { // __setstate__
-            if (t.size() != 1)
+            if (t.size() != 0)
                 throw std::runtime_error("Invalid state!");
-            ParticleHelper helper(t[0].cast<GMLS>());
+            ParticleHelper helper;
             return helper;
         }
     ));
@@ -831,6 +866,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .def("addTargets", overload_cast_<TargetOperation>()(&GMLS::addTargets), "Add a target operation.")
     .def("addTargets", overload_cast_<std::vector<TargetOperation> >()(&GMLS::addTargets), "Add a list of target operations.")
     .def("generateAlphas", &GMLS::generateAlphas, py::arg("number_of_batches")=1, py::arg("keep_coefficients")=false, py::arg("clear_cache")=true)
+    .def("containsValidAlphas", &GMLS::containsValidAlphas)
     .def("getSolutionSet", &GMLS::getSolutionSetHost, py::arg("validity_check")=true, py::return_value_policy::reference_internal)
     .def("getNP", &GMLS::getNP, "Get size of basis.")
     .def("getNN", &GMLS::getNN, "Heuristic number of neighbors.")
