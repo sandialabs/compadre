@@ -806,6 +806,9 @@ public:
         return &_d_ss; 
     }
 
+    //! Check if GMLS solution set contains valid alpha values (has generateAlphas been called)
+    bool containsValidAlphas() const { return this->_d_ss._contains_valid_alphas; }
+
 ///@}
 
 
