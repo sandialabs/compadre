@@ -394,8 +394,8 @@ int main (int argc, char* args[]) {
         //            for (LO qn = 0; qn < quadrature_weights.extent(1); qn++) {
         //                // loop over particles neighbor to the cell
         //                for (LO l = 0; l < num_neighbors; l++) {
-        //                    auto grad_v_k = _vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, j_comp_out, k, l, j_comp_in, qn+1);
-        //                    auto old_grad_v_k = _vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l, qn+1);
+        //                    auto grad_v_k = _vel_gmls->getSolutionSetHost()->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, i, j_comp_out, k, l, j_comp_in, qn+1);
+        //                    auto old_grad_v_k = _vel_gmls->getSolutionSetHost()->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, i, k, l, qn+1);
         //                    auto grad_diff = abs(grad_v_k - old_grad_v_k);
         //                    if (grad_diff>1e-14) printf("%d, Different %.16f vs. %.16f\n", j_comp_out, grad_v_k, old_grad_v_k);
         //                    //if (grad_diff<1e-14 && abs(grad_v_k)>0) printf("%d, %d, %d, Different %.16f vs. %.16f\n", j_comp_out, k, l, grad_v_k, old_grad_v_k);
@@ -460,8 +460,8 @@ int main (int argc, char* args[]) {
                         if (k_out!=k_in && !velocity_basis_type_vector) continue;
                         auto particle_l = neighborhood->getNeighbor(j,l);
                         double v;
-                        if (use_vector_gmls) v = vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, j, k_out, l, k_in, 0);
-                        else v = vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, 0);
+                        if (use_vector_gmls) v = vel_gmls->getSolutionSetHost()->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, j, k_out, l, k_in, 0);
+                        else v = vel_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, 0);
                         auto dof_val = (particle_l<nlocal_particles) ? velocity_dof_view(particle_l,k_in) : velocity_halo_dof_view(particle_l-nlocal_particles,k_in);
                         velocity_processed_view(j,k_out) += dof_val * v;
                     }
@@ -469,7 +469,7 @@ int main (int argc, char* args[]) {
                     if (st_op || mix_le_op) {
                         for (LO k = 0; k < pressure_processed_view.extent(1); ++k) {
                             auto particle_l = neighborhood->getNeighbor(j,l);
-                            auto v = pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, 0);
+                            auto v = pressure_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, 0);
                             auto dof_val = (particle_l<nlocal_particles) ? pressure_dof_view(particle_l,k) : pressure_halo_dof_view(particle_l-nlocal_particles,k);
                             // assumes pressure has same basis as velocity
                             pressure_processed_view(j,k) += dof_val * v;
@@ -900,15 +900,15 @@ int main (int argc, char* args[]) {
                                         auto dof_val = (particle_l<nlocal_particles) ? velocity_dof_view(particle_l,m_in) : velocity_halo_dof_view(particle_l-nlocal_particles,m_in);
                                         double v, v_x, v_y;
                                         XYZ v_grad;
-                                        if (use_vector_gmls) v = vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, j, m_out, l, m_in, i+1);
-                                        else v = vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
+                                        if (use_vector_gmls) v = vel_gmls->getSolutionSetHost()->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, j, m_out, l, m_in, i+1);
+                                        else v = vel_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
                                         if (use_vector_grad_gmls) {
                                             for (int d=0; d<input_dim; ++d) {
-                                                v_grad[d] = vel_gmls->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, j, m_out, d, l, m_in, i+1);
+                                                v_grad[d] = vel_gmls->getSolutionSetHost()->getAlpha1TensorTo2Tensor(TargetOperation::GradientOfVectorPointEvaluation, j, m_out, d, l, m_in, i+1);
                                             }
                                         } else {
                                             for (int d=0; d<input_dim; ++d) {
-                                                v_grad[d] = vel_gmls->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, j, d, l, i+1);
+                                                v_grad[d] = vel_gmls->getSolutionSetHost()->getAlpha0TensorTo1Tensor(TargetOperation::GradientOfScalarPointEvaluation, j, d, l, i+1);
                                             }
                                         }
                                         l2_val += dof_val * v;
@@ -963,8 +963,8 @@ int main (int argc, char* args[]) {
                                         auto particle_l = neighborhood->getNeighbor(j,l);
                                         auto dof_val = (particle_l<nlocal_particles) ? velocity_dof_view(particle_l,m_in) : velocity_halo_dof_view(particle_l-nlocal_particles,m_in);
                                         double v;
-                                        if (use_vector_gmls) v = vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, j, m_out, l, m_in, i+1);
-                                        else v = vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
+                                        if (use_vector_gmls) v = vel_gmls->getSolutionSetHost()->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, j, m_out, l, m_in, i+1);
+                                        else v = vel_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
                                         u_val += dof_val * v;
                                     }
                                 }
@@ -1008,8 +1008,8 @@ int main (int argc, char* args[]) {
                                                 auto particle_l = neighborhood->getNeighbor(j,l);
                                                 auto dof_val = (particle_l<nlocal_particles) ? velocity_dof_view(particle_l,m_in) : velocity_halo_dof_view(particle_l-nlocal_particles,m_in);
                                                 double v;
-                                                if (use_vector_gmls) v = vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, j, m_temp, l, m_in, i+1);
-                                                else v = vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
+                                                if (use_vector_gmls) v = vel_gmls->getSolutionSetHost()->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, j, m_temp, l, m_in, i+1);
+                                                else v = vel_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
                                                 temp_u_val += dof_val * v;
                                             }
 				        }
@@ -1039,8 +1039,8 @@ int main (int argc, char* args[]) {
                                         auto particle_l = neighborhood->getNeighbor(j,l);
                                         auto dof_val = (particle_l<nlocal_particles) ? velocity_dof_view(particle_l,m_in) : velocity_halo_dof_view(particle_l-nlocal_particles,m_in);
                                         double v;
-                                        if (use_vector_gmls) v = vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, j, m_out, l, m_in, i+1);
-                                        else v = vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
+                                        if (use_vector_gmls) v = vel_gmls->getSolutionSetHost()->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, j, m_out, l, m_in, i+1);
+                                        else v = vel_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
                                         u_val += dof_val * v;
                                     }
                                 }
@@ -1085,8 +1085,8 @@ int main (int argc, char* args[]) {
                                         auto particle_l = neighborhood->getNeighbor(adj_j,l);
                                         auto dof_val = (particle_l<nlocal_particles) ? velocity_dof_view(particle_l,m_in) : velocity_halo_dof_view(particle_l-nlocal_particles,m_in);
                                         double v;
-                                        if (use_vector_gmls) v = vel_gmls->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, adj_j, m_out, l, m_in, adj_i+1);
-                                        else v = vel_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adj_j, l, adj_i+1);
+                                        if (use_vector_gmls) v = vel_gmls->getSolutionSetHost()->getAlpha1TensorTo1Tensor(TargetOperation::VectorPointEvaluation, adj_j, m_out, l, m_in, adj_i+1);
+                                        else v = vel_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, adj_j, l, adj_i+1);
                                         other_u_val += dof_val * v;
                                     }
                                 }
@@ -1115,7 +1115,7 @@ int main (int argc, char* args[]) {
                                     for (LO l = 0; l < num_neighbors; l++) {
                                         auto particle_l = neighborhood->getNeighbor(j,l);
                                         auto dof_val = (particle_l<nlocal_particles) ? pressure_dof_view(particle_l,m) : pressure_halo_dof_view(particle_l-nlocal_particles,m);
-                                        auto v = pressure_gmls->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
+                                        auto v = pressure_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
                                         l2_val += dof_val * v;
                                     }
                                     auto xyz = Compadre::XyzVector(quadrature_points(j,input_dim*i+0), quadrature_points(j,input_dim*i+1), (input_dim==3) ? quadrature_points(j,input_dim*i+2): 0);
