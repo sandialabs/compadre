@@ -205,8 +205,13 @@ struct NeighborLists {
     }
 
     //! Device view into neighbor lists data (use with caution)
-    view_type getNeighborLists() {
+    view_type getNeighborLists() const {
         return _cr_neighbor_lists;
+    }
+
+    //! Device view into number of neighbors list (use with caution)
+    view_type getNumberOfNeighborsList() const {
+        return _number_of_neighbors_list;
     }
 
 ///@}

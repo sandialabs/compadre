@@ -677,7 +677,7 @@ void ReactionDiffusionPhysics::initialize() {
     Kokkos::fence();
     _cells->getFieldManager()->updateFieldsHaloData();
 
-    Kokkos::View<double**> kokkos_quadrature_coordinates("all quadrature coordinates", _cells->getCoordsConst()->nLocal()*_weights_ndim, 3);
+    Kokkos::View<double**> kokkos_quadrature_coordinates("all quadrature coordinates", _cells->getCoordsConst()->nLocal()*_weights_ndim, _ndim_requested);
     _kokkos_quadrature_coordinates_host = Kokkos::create_mirror_view(kokkos_quadrature_coordinates);
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_cells_local), KOKKOS_LAMBDA(const int i) {
         for (int j=0; j<_weights_ndim; ++j) {

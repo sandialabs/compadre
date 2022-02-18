@@ -211,6 +211,8 @@ public:
         // gather needed information for evaluation
         auto nla = *(_gmls->getNeighborLists());
         auto solution_set = *(_gmls->getSolutionSetDevice());
+        compadre_assert_release(solution_set._contains_valid_alphas && 
+                "application of alphas called before generateAlphas() was called.");
         auto prestencil_weights = _gmls->getPrestencilWeights();
 
         const int num_targets = nla.getNumberOfTargets();
@@ -313,7 +315,7 @@ public:
         auto nla = *(_gmls->getNeighborLists());
         const int num_targets = nla.getNumberOfTargets();
 
-        auto tangent_directions = _gmls->getTangentDirections();
+        auto tangent_directions = *(_gmls->getTangentDirections());
 
         // make sure input and output views have same memory space
         compadre_assert_debug((std::is_same<typename view_type_data_out::memory_space, typename view_type_data_in::memory_space>::value) && 
@@ -565,7 +567,7 @@ public:
 
         // gather needed information for evaluation
         auto coeffs         = _gmls->getFullPolynomialCoefficientsBasis();
-        auto tangent_directions = _gmls->getTangentDirections();
+        auto tangent_directions = *(_gmls->getTangentDirections());
         auto prestencil_weights = _gmls->getPrestencilWeights();
 
         const int num_targets = nla.getNumberOfTargets();

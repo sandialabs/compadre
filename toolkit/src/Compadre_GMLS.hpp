@@ -12,6 +12,7 @@
 #include "Compadre_SolutionSet.hpp"
 #include "Compadre_ScalarTaylorPolynomial.hpp"
 #include "Compadre_DivergenceFreePolynomial.hpp"
+#include "Compadre_BernsteinPolynomial.hpp"
 #include "Compadre_NeighborLists.hpp"
 #include "Compadre_PointConnections.hpp"
 
@@ -40,6 +41,10 @@ public:
             Kokkos::View<double**, layout_right>, 
             NeighborLists<Kokkos::View<int*> > > 
                 point_connections_type;
+
+    typedef NeighborLists<Kokkos::View<int*> > neighbor_lists_type;
+
+    typedef Kokkos::View<double**, layout_right> coordinates_type; 
 
 private:
 
@@ -88,26 +93,11 @@ private:
     //! Extra data available to target operations (optional)
     Kokkos::View<double**, layout_right> _target_extra_data;
 
-    //! Accessor to get neighbor list data, offset data, and number of neighbors per target
-    NeighborLists<Kokkos::View<int*> > _neighbor_lists; 
-    
-    //! convenient copy on host of number of neighbors
-    Kokkos::View<int*, host_memory_space> _host_number_of_neighbors_list; 
-
-    //! all coordinates for the source for which _neighbor_lists refers (device)
-    Kokkos::View<double**, layout_right> _source_coordinates; 
-
-    //! coordinates for target sites for reconstruction (device)
-    Kokkos::View<double**, layout_right> _target_coordinates; 
-
     //! connections between points and neighbors
     point_connections_type _pc;
 
     //! h supports determined through neighbor search (device)
     Kokkos::View<double*> _epsilons; 
-
-    //! h supports determined through neighbor search (host)
-    Kokkos::View<double*>::HostMirror _host_epsilons; 
     
     //! generated weights for nontraditional samples required to transform data into expected sampling 
     //! functional form (device). 
@@ -117,17 +107,8 @@ private:
     //! functional form (host)
     Kokkos::View<const double*****, layout_right>::HostMirror _host_prestencil_weights;
 
-    //! (OPTIONAL) user provided additional coordinates for target operation evaluation (device)
-    Kokkos::View<double**, layout_right> _additional_evaluation_coordinates; 
-
-    //! (OPTIONAL) Accessor to get additional evaluation list data, offset data, and number of sites
-    NeighborLists<Kokkos::View<int*> > _additional_evaluation_indices; 
-
     //! (OPTIONAL) connections between additional points and neighbors
     point_connections_type _additional_pc;
-
-    //! (OPTIONAL) contains the # of additional evaluation sites per target site
-    Kokkos::View<int*, host_memory_space> _host_number_of_additional_evaluation_indices; 
 
     //! Solution Set (contains all alpha values from solution and alpha layout methods)
     // _h_ss is private so that getSolutionSetHost() must be called
@@ -162,18 +143,21 @@ private:
     //! solver type for GMLS problem - can be QR, SVD or LU
     DenseSolverType _dense_solver_type;
 
-    //! problem type for GMLS problem, can also be set to STANDARD for normal or MANIFOLD for manifold problems
+    //! problem type for GMLS problem, can also be set to STANDARD for normal or MANIFOLD for manifold problems <br>
+    //! <b>NOTE: can only be set at object instantiation</b>
     ProblemType _problem_type;
 
     //! constraint type for GMLS problem
     ConstraintType _constraint_type;
 
-    //! polynomial sampling functional used to construct P matrix, set at GMLS class instantiation
-    const SamplingFunctional _polynomial_sampling_functional;
+    //! polynomial sampling functional used to construct P matrix, set at GMLS class instantiation <br>
+    //! <b>NOTE: can only be set at object instantiation</b>
+    SamplingFunctional _polynomial_sampling_functional;
 
     //! generally the same as _polynomial_sampling_functional, but can differ if specified at 
+    //  can only be set at object instantiation
     //! GMLS class instantiation
-    const SamplingFunctional _data_sampling_functional;
+    SamplingFunctional _data_sampling_functional;
 
     //! vector containing target functionals to be applied for curvature
     Kokkos::View<TargetOperation*> _curvature_support_operations;
@@ -237,9 +221,6 @@ private:
     //! initial index for current batch
     int _initial_index_for_batch;
 
-    //! maximum number of neighbors over all target sites
-    int _max_num_neighbors;
-
     //! determines scratch level spaces and is used to call kernels
     ParallelManager _pm;
 
@@ -269,7 +250,7 @@ private:
     template <typename view_type>
     void setAuxiliaryEvaluationCoordinates(view_type evaluation_coordinates) {
         // allocate memory on device
-        _additional_evaluation_coordinates = decltype(_additional_evaluation_coordinates)("device additional evaluation coordinates",
+        auto additional_evaluation_coordinates = coordinates_type("device additional evaluation coordinates",
             evaluation_coordinates.extent(0), evaluation_coordinates.extent(1));
 
         typedef typename view_type::memory_space input_array_memory_space;
@@ -278,17 +259,18 @@ private:
             // if it is, then it doesn't match the internal layout we use
             // then copy to the host mirror
             // switches potential layout mismatches
-            Kokkos::deep_copy(_additional_evaluation_coordinates, evaluation_coordinates);
+            Kokkos::deep_copy(additional_evaluation_coordinates, evaluation_coordinates);
         } else {
             // if is on the host, copy to the host mirror
             // then copy to the device
             // switches potential layout mismatches
-            auto host_additional_evaluation_coordinates = Kokkos::create_mirror_view(_additional_evaluation_coordinates);
+            auto host_additional_evaluation_coordinates = Kokkos::create_mirror_view(additional_evaluation_coordinates);
             Kokkos::deep_copy(host_additional_evaluation_coordinates, evaluation_coordinates);
             // switches memory spaces
-            Kokkos::deep_copy(_additional_evaluation_coordinates, host_additional_evaluation_coordinates);
+            Kokkos::deep_copy(additional_evaluation_coordinates, host_additional_evaluation_coordinates);
         }
         this->resetCoefficientData();
+        _additional_pc.setSourceCoordinates(additional_evaluation_coordinates);
     }
 
     //! (OPTIONAL)
@@ -296,49 +278,39 @@ private:
     //! If this is never called, then the target sites are the only locations where the target
     //! operations will be evaluated and applied to polynomial reconstructions. (device)
     template <typename view_type>
-    void setAuxiliaryEvaluationCoordinates(decltype(_additional_evaluation_coordinates) evaluation_coordinates) {
-        _additional_evaluation_coordinates = evaluation_coordinates;
+    void setAuxiliaryEvaluationCoordinates(coordinates_type evaluation_coordinates) {
         this->resetCoefficientData();
+        _additional_pc.setSourceCoordinates(evaluation_coordinates);
     }
 
     //! (OPTIONAL)
     //! Sets the additional target evaluation indices list information from compressed row format (if same view_type)
     template <typename view_type>
-    typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_additional_evaluation_indices)::internal_view_type,view_type>::value==1, void>::type 
+    typename std::enable_if<view_type::rank==1&&std::is_same<neighbor_lists_type::internal_view_type,view_type>::value==1, void>::type 
             setAuxiliaryEvaluationIndicesLists(view_type additional_evaluation_indices, view_type number_of_neighbors_list) {
 
-        _additional_evaluation_indices = NeighborLists<view_type>(additional_evaluation_indices, number_of_neighbors_list);
-        _h_ss._max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
-        _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
-        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), [&](const int i) {
-            _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
-        });
-        Kokkos::fence();
+        auto additional_nla = NeighborLists<view_type>(additional_evaluation_indices, number_of_neighbors_list);
         this->resetCoefficientData();
+        _additional_pc.setNeighborLists(additional_nla);
 
     }
 
     //! (OPTIONAL)
     //! Sets the additional target evaluation indices list information from compressed row format (if different view_type)
     template <typename view_type>
-    typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_additional_evaluation_indices)::internal_view_type,view_type>::value==0, void>::type 
+    typename std::enable_if<view_type::rank==1&&std::is_same<neighbor_lists_type::internal_view_type,view_type>::value==0, void>::type 
             setAuxiliaryEvaluationIndicesLists(view_type additional_evaluation_indices, view_type number_of_neighbors_list) {
 
-        typedef decltype(_additional_evaluation_indices)::internal_view_type gmls_view_type;
+        typedef neighbor_lists_type::internal_view_type gmls_view_type;
         gmls_view_type d_additional_evaluation_indices("compressed row additional evaluation indices lists data", additional_evaluation_indices.extent(0));
         gmls_view_type d_number_of_neighbors_list("number of additional evaluation indices", number_of_neighbors_list.extent(0));
         Kokkos::deep_copy(d_additional_evaluation_indices, additional_evaluation_indices);
         Kokkos::deep_copy(d_number_of_neighbors_list, number_of_neighbors_list);
         Kokkos::fence();
-        _additional_evaluation_indices = NeighborLists<gmls_view_type>(d_additional_evaluation_indices, d_number_of_neighbors_list);
-        _h_ss._max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
-        _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
-        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), [&](const int i) {
-            _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
-        });
-        Kokkos::fence();
+        auto additional_nla = NeighborLists<gmls_view_type>(d_additional_evaluation_indices, d_number_of_neighbors_list);
         this->resetCoefficientData();
-            
+        _additional_pc.setNeighborLists(additional_nla);
+
     }
 
     //! (OPTIONAL)
@@ -347,14 +319,9 @@ private:
     template <typename view_type>
     typename std::enable_if<view_type::rank==2, void>::type setAuxiliaryEvaluationIndicesLists(view_type additional_evaluation_indices) {
     
-        _additional_evaluation_indices = Convert2DToCompressedRowNeighborLists<decltype(additional_evaluation_indices), Kokkos::View<int*> >(additional_evaluation_indices);
-        _h_ss._max_evaluation_sites_per_target = _additional_evaluation_indices.getMaxNumNeighbors()+1;
-        _host_number_of_additional_evaluation_indices = decltype(_host_number_of_additional_evaluation_indices)("host number of additional evaluation indices", _additional_evaluation_indices.getNumberOfTargets());
-        Kokkos::parallel_for("copy additional evaluation indices sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_additional_evaluation_indices.extent(0)), [&](const int i) {
-            _host_number_of_additional_evaluation_indices(i) = _additional_evaluation_indices.getNumberOfNeighborsHost(i);
-        });
-        Kokkos::fence();
+        auto additional_nla = Convert2DToCompressedRowNeighborLists<decltype(additional_evaluation_indices), Kokkos::View<int*> >(additional_evaluation_indices);
         this->resetCoefficientData();
+        _additional_pc.setNeighborLists(additional_nla);
 
     }
 
@@ -412,23 +379,23 @@ public:
  */
 ///@{
 
-    //! Minimal constructor providing no data (neighbor lists, source sites, target sites) 
+    //! Maximal constructor, not intended for users
     GMLS(ReconstructionSpace reconstruction_space,
         const SamplingFunctional polynomial_sampling_strategy,
         const SamplingFunctional data_sampling_strategy,
         const int poly_order,
-        const int dimensions = 3,
-        const std::string dense_solver_type = std::string("QR"),
-        const std::string problem_type = std::string("STANDARD"),
-        const std::string constraint_type = std::string("NO_CONSTRAINT"),
-        const int manifold_curvature_poly_order = 2) : 
+        const int dimensions,
+        const DenseSolverType dense_solver_type,
+        const ProblemType problem_type,
+        const ConstraintType constraint_type,
+        const int manifold_curvature_poly_order) : 
             _poly_order(poly_order),
             _curvature_poly_order(manifold_curvature_poly_order),
             _dimensions(dimensions),
             _reconstruction_space(reconstruction_space),
-            _dense_solver_type(parseSolverType(dense_solver_type)),
-            _problem_type(parseProblemType(problem_type)),
-            _constraint_type(parseConstraintType(constraint_type)),
+            _dense_solver_type(dense_solver_type),
+            _problem_type(problem_type),
+            _constraint_type(constraint_type),
             _polynomial_sampling_functional(((_problem_type == ProblemType::MANIFOLD) 
                         && (polynomial_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : polynomial_sampling_strategy),
             _data_sampling_functional(((_problem_type == ProblemType::MANIFOLD) 
@@ -473,8 +440,6 @@ public:
 
         _initial_index_for_batch = 0;
 
-        _max_num_neighbors = 0;
-
         _global_dimensions = dimensions;
         if (_problem_type == ProblemType::MANIFOLD) {
             _local_dimensions = dimensions-1;
@@ -492,6 +457,18 @@ public:
                 _problem_type);
         _h_ss._max_evaluation_sites_per_target = 1;
     }
+
+    //! Maximal constructor, but with string arguments
+    GMLS(ReconstructionSpace reconstruction_space,
+        const SamplingFunctional polynomial_sampling_strategy,
+        const SamplingFunctional data_sampling_strategy,
+        const int poly_order,
+        const int dimensions = 3,
+        const std::string dense_solver_type = std::string("QR"),
+        const std::string problem_type = std::string("STANDARD"),
+        const std::string constraint_type = std::string("NO_CONSTRAINT"),
+        const int manifold_curvature_poly_order = 2)
+      : GMLS(reconstruction_space, polynomial_sampling_strategy, data_sampling_strategy, poly_order, dimensions, parseSolverType(dense_solver_type), parseProblemType(problem_type), parseConstraintType(constraint_type), manifold_curvature_poly_order) {}
 
     //! Constructor for the case when the data sampling functional does not match the polynomial
     //! sampling functional. Only case anticipated is staggered Laplacian.
@@ -527,10 +504,12 @@ public:
     //! The divfree options will return the divergence-free basis if true
     KOKKOS_INLINE_FUNCTION
     static int getNP(const int m, const int dimension = 3, const ReconstructionSpace r_space = ReconstructionSpace::ScalarTaylorPolynomial) {
-        if (r_space != ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial) {
-            return ScalarTaylorPolynomialBasis::getSize(m, dimension);
-        } else {
+        if (r_space == ReconstructionSpace::DivergenceFreeVectorTaylorPolynomial) {
             return DivergenceFreePolynomialBasis::getSize(m, dimension);
+        } else if (r_space == ReconstructionSpace::BernsteinPolynomial) {
+            return BernsteinPolynomialBasis::getSize(m, dimension);
+        } else {
+            return ScalarTaylorPolynomialBasis::getSize(m, dimension);
         }
     }
 
@@ -615,7 +594,7 @@ public:
     host_managed_local_index_type getPolynomialCoefficientsDomainRangeSize() const { 
         host_managed_local_index_type sizes("sizes", 2);
         sizes(0) = _basis_multiplier*_NP;
-        sizes(1) = _sampling_multiplier*_neighbor_lists.getMaxNumNeighbors();
+        sizes(1) = _sampling_multiplier*this->getNeighborLists()->getMaxNumNeighbors();
         return sizes;
     }
 
@@ -651,13 +630,19 @@ public:
     int getLocalDimensions() const { return _local_dimensions; }
 
     //! Get dense solver type
-    DenseSolverType getDenseSolverType() { return _dense_solver_type; }
+    DenseSolverType getDenseSolverType() const { return _dense_solver_type; }
 
     //! Get problem type
-    ProblemType getProblemType() { return _problem_type; }
+    ProblemType getProblemType() const { return _problem_type; }
 
     //! Get constraint type
-    ConstraintType getConstraintType() { return _constraint_type; }
+    ConstraintType getConstraintType() const { return _constraint_type; }
+
+    //! Get basis order used for reconstruction
+    int getPolynomialOrder() const { return _poly_order; }
+
+    //! Get basis order used for curvature reconstruction
+    int getCurvaturePolynomialOrder() const { return _curvature_poly_order; }
 
     //! Type for weighting kernel for GMLS problem
     WeightingFunctionType getWeightingType() const { return _weighting_type; }
@@ -696,16 +681,29 @@ public:
     std::string getQuadratureType() const { return _quadrature_type; }
 
     //! Get neighbor list accessor
-    decltype(_neighbor_lists)* getNeighborLists() { return &_pc._nla; }
+    neighbor_lists_type* getNeighborLists() const { 
+        return const_cast<neighbor_lists_type*>(&_pc._nla); 
+    }
 
-    //! Get additional evaluation sites neighbor list-like accessor
-    decltype(_additional_evaluation_indices)* getAdditionalEvaluationIndices() { return &_additional_evaluation_indices; }
+    //! Get a view (device) of all point connection info
+    decltype(_pc)* getPointConnections() { return &_pc; }
+
+    //! (OPTIONAL) Get additional evaluation sites neighbor list-like accessor
+    neighbor_lists_type* getAdditionalEvaluationIndices() const { 
+        return const_cast<neighbor_lists_type*>(&_additional_pc._nla);
+    }
+
+    //! (OPTIONAL) Get a view (device) of all additional evaluation point connection info
+    decltype(_additional_pc)* getAdditionalPointConnections() { return &_additional_pc; }
+
+    //! Get a view (device) of all window sizes
+    decltype(_epsilons)* getWindowSizes() { return &_epsilons; }
 
     //! Get a view (device) of all tangent direction bundles.
-    decltype(_T) getTangentDirections() const { return _T; }
+    decltype(_T)* getTangentDirections() { return &_T; }
 
     //! Get a view (device) of all reference outward normal directions.
-    decltype(_ref_N) getReferenceNormalDirections() const { return _ref_N; }
+    decltype(_ref_N)* getReferenceNormalDirections() { return &_ref_N; }
 
     //! Get component of tangent or normal directions for manifold problems
     double getTangentBundle(const int target_index, const int direction, const int component) const {
@@ -789,16 +787,27 @@ public:
                     output_component, input_component);
     }
 
-    //! Get solution set
-    decltype(_h_ss)* getSolutionSetHost() { 
-        if (_h_ss._alphas.extent(0)==0 && _d_ss._alphas.extent(0)!=0) {
+    //! Get solution set on host
+    decltype(_h_ss)* getSolutionSetHost(bool alpha_validity_check=true) { 
+        if (!_h_ss._contains_valid_alphas && _d_ss._contains_valid_alphas) {
             // solution solved for on device, but now solution
             // requested on the host
             _h_ss.copyAlphas(_d_ss);
         }
+        compadre_assert_release((!alpha_validity_check || _h_ss._contains_valid_alphas) &&
+                "getSolutionSetHost() called with invalid alpha values.");
         return &_h_ss; 
     }
-    decltype(_d_ss)* getSolutionSetDevice() { return &_d_ss; }
+
+    //! Get solution set on device
+    decltype(_d_ss)* getSolutionSetDevice(bool alpha_validity_check=true) { 
+        compadre_assert_release((!alpha_validity_check || _d_ss._contains_valid_alphas) &&
+                "getSolutionSetDevice() called with invalid alpha values.");
+        return &_d_ss; 
+    }
+
+    //! Check if GMLS solution set contains valid alpha values (has generateAlphas been called)
+    bool containsValidAlphas() const { return this->_d_ss._contains_valid_alphas; }
 
 ///@}
 
@@ -811,6 +820,8 @@ public:
     void resetCoefficientData() {
         if (_RHS.extent(0) > 0)
             _RHS = Kokkos::View<double*>("RHS",0);
+        _h_ss._contains_valid_alphas = false;
+        _d_ss._contains_valid_alphas = false;
     }
 
     //! Sets basic problem data (neighbor lists, source coordinates, and target coordinates)
@@ -847,7 +858,6 @@ public:
             view_type_2 additional_evaluation_coordinates) {
         this->setAuxiliaryEvaluationIndicesLists<view_type_1>(additional_evaluation_indices);
         this->setAuxiliaryEvaluationCoordinates<view_type_2>(additional_evaluation_coordinates);
-        _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
     }
 
     //! (OPTIONAL) Sets additional evaluation sites for each target site
@@ -859,55 +869,32 @@ public:
         this->setAuxiliaryEvaluationIndicesLists<view_type_1>(cr_additional_evaluation_indices, 
                 number_of_additional_evaluation_indices);
         this->setAuxiliaryEvaluationCoordinates<view_type_2>(additional_evaluation_coordinates);
-        _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
     }
 
     //! Sets neighbor list information from compressed row neighborhood lists data (if same view_type).
     template <typename view_type>
-    typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_neighbor_lists)::internal_view_type,view_type>::value==1, void>::type 
+    typename std::enable_if<view_type::rank==1&&std::is_same<neighbor_lists_type::internal_view_type,view_type>::value==1, void>::type 
             setNeighborLists(view_type neighbor_lists, view_type number_of_neighbors_list) {
 
-        _neighbor_lists = NeighborLists<view_type>(neighbor_lists, number_of_neighbors_list);
-        _max_num_neighbors = _neighbor_lists.getMaxNumNeighbors();
-        _host_number_of_neighbors_list = decltype(_host_number_of_neighbors_list)("host number of neighbors list", _neighbor_lists.getNumberOfTargets());
-        Kokkos::parallel_for("copy neighbor list sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_neighbors_list.extent(0)), KOKKOS_LAMBDA(const int i) {
-            _host_number_of_neighbors_list(i) = _neighbor_lists.getNumberOfNeighborsHost(i);
-        });
-        Kokkos::fence();
+        auto nla = NeighborLists<view_type>(neighbor_lists, number_of_neighbors_list);
         this->resetCoefficientData();
-
-        if (_source_coordinates.extent(0)>0 && _target_coordinates.extent(0)>0) {
-            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
-            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
-            _h_ss._neighbor_lists = _neighbor_lists;
-        }
+        _pc.setNeighborLists(nla);
     }
 
     //! Sets neighbor list information from compressed row neighborhood lists data (if different view_type).
     template <typename view_type>
-    typename std::enable_if<view_type::rank==1&&std::is_same<decltype(_neighbor_lists)::internal_view_type,view_type>::value==0, void>::type 
+    typename std::enable_if<view_type::rank==1&&std::is_same<neighbor_lists_type::internal_view_type,view_type>::value==0, void>::type 
             setNeighborLists(view_type neighbor_lists, view_type number_of_neighbors_list) {
 
-        typedef decltype(_neighbor_lists)::internal_view_type gmls_view_type;
+        typedef neighbor_lists_type::internal_view_type gmls_view_type;
         gmls_view_type d_neighbor_lists("compressed row neighbor lists data", neighbor_lists.extent(0));
         gmls_view_type d_number_of_neighbors_list("number of neighbors list", number_of_neighbors_list.extent(0));
         Kokkos::deep_copy(d_neighbor_lists, neighbor_lists);
         Kokkos::deep_copy(d_number_of_neighbors_list, number_of_neighbors_list);
         Kokkos::fence();
-        _neighbor_lists = NeighborLists<gmls_view_type>(d_neighbor_lists, d_number_of_neighbors_list);
-        _max_num_neighbors = _neighbor_lists.getMaxNumNeighbors();
-        _host_number_of_neighbors_list = decltype(_host_number_of_neighbors_list)("host number of neighbors list", _neighbor_lists.getNumberOfTargets());
-        Kokkos::parallel_for("copy neighbor list sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_neighbors_list.extent(0)), KOKKOS_LAMBDA(const int i) {
-            _host_number_of_neighbors_list(i) = _neighbor_lists.getNumberOfNeighborsHost(i);
-        });
-        Kokkos::fence();
+        auto nla = NeighborLists<gmls_view_type>(d_neighbor_lists, d_number_of_neighbors_list);
         this->resetCoefficientData();
-            
-        if (_source_coordinates.extent(0)>0 && _target_coordinates.extent(0)>0) {
-            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
-            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
-            _h_ss._neighbor_lists = _neighbor_lists;
-        }
+        _pc.setNeighborLists(nla);
     }
 
     //! Sets neighbor list information. Should be # targets x maximum number of neighbors for any target + 1.
@@ -915,20 +902,9 @@ public:
     template <typename view_type>
     typename std::enable_if<view_type::rank==2, void>::type setNeighborLists(view_type neighbor_lists) {
     
-        _neighbor_lists = Convert2DToCompressedRowNeighborLists<decltype(neighbor_lists), Kokkos::View<int*> >(neighbor_lists);
-        _max_num_neighbors = _neighbor_lists.getMaxNumNeighbors();
-        _host_number_of_neighbors_list = decltype(_host_number_of_neighbors_list)("host number of neighbors list", _neighbor_lists.getNumberOfTargets());
-        Kokkos::parallel_for("copy neighbor list sizes", Kokkos::RangePolicy<host_execution_space>(0, _host_number_of_neighbors_list.extent(0)), KOKKOS_LAMBDA(const int i) {
-            _host_number_of_neighbors_list(i) = _neighbor_lists.getNumberOfNeighborsHost(i);
-        });
-        Kokkos::fence();
+        auto nla = Convert2DToCompressedRowNeighborLists<decltype(neighbor_lists), Kokkos::View<int*> >(neighbor_lists);
         this->resetCoefficientData();
-
-        if (_source_coordinates.extent(0)>0 && _target_coordinates.extent(0)>0) {
-            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
-            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
-            _h_ss._neighbor_lists = _neighbor_lists;
-        }
+        _pc.setNeighborLists(nla);
     }
 
     //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries
@@ -937,7 +913,7 @@ public:
     void setSourceSites(view_type source_coordinates) {
 
         // allocate memory on device
-        _source_coordinates = decltype(_source_coordinates)("device neighbor coordinates",
+        auto sc = coordinates_type("device neighbor coordinates",
                 source_coordinates.extent(0), source_coordinates.extent(1));
 
         typedef typename view_type::memory_space input_array_memory_space;
@@ -946,45 +922,34 @@ public:
             // if it is, then it doesn't match the internal layout we use
             // then copy to the host mirror
             // switches potential layout mismatches
-            Kokkos::deep_copy(_source_coordinates, source_coordinates);
+            Kokkos::deep_copy(sc, source_coordinates);
         } else {
             // if is on the host, copy to the host mirror
             // then copy to the device
             // switches potential layout mismatches
-            auto host_source_coordinates = Kokkos::create_mirror_view(_source_coordinates);
+            auto host_source_coordinates = Kokkos::create_mirror_view(sc);
             Kokkos::deep_copy(host_source_coordinates, source_coordinates);
             // switches memory spaces
-            Kokkos::deep_copy(_source_coordinates, host_source_coordinates);
+            Kokkos::deep_copy(sc, host_source_coordinates);
         }
         this->resetCoefficientData();
-
-        if (_target_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
-            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
-            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
-            _h_ss._neighbor_lists = _neighbor_lists;
-        }
+        _pc.setSourceCoordinates(sc);
     }
 
     //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries
     //! of the neighbor lists 2D array.
     template<typename view_type>
-    void setSourceSites(decltype(_source_coordinates) source_coordinates) {
+    void setSourceSites(coordinates_type source_coordinates) {
         // allocate memory on device
-        _source_coordinates = source_coordinates;
         this->resetCoefficientData();
-
-        if (_target_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
-            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
-            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
-            _h_ss._neighbor_lists = _neighbor_lists;
-        }
+        _pc.setSourceCoordinates(source_coordinates);
     }
 
     //! Sets target coordinate information. Rows of this 2D-array should correspond to rows of the neighbor lists.
     template<typename view_type>
     void setTargetSites(view_type target_coordinates) {
         // allocate memory on device
-        _target_coordinates = decltype(_target_coordinates)("device target coordinates",
+        auto tc = coordinates_type("device target coordinates",
                 target_coordinates.extent(0), target_coordinates.extent(1));
 
         typedef typename view_type::memory_space input_array_memory_space;
@@ -993,50 +958,44 @@ public:
             // if it is, then it doesn't match the internal layout we use
             // then copy to the host mirror
             // switches potential layout mismatches
-            Kokkos::deep_copy(_target_coordinates, target_coordinates);
+            Kokkos::deep_copy(tc, target_coordinates);
         } else {
             // if is on the host, copy to the host mirror
             // then copy to the device
             // switches potential layout mismatches
-            auto host_target_coordinates = Kokkos::create_mirror_view(_target_coordinates);
+            auto host_target_coordinates = Kokkos::create_mirror_view(tc);
             Kokkos::deep_copy(host_target_coordinates, target_coordinates);
             // switches memory spaces
-            Kokkos::deep_copy(_target_coordinates, host_target_coordinates);
+            Kokkos::deep_copy(tc, host_target_coordinates);
         }
-        _host_number_of_additional_evaluation_indices 
-            = decltype(_host_number_of_additional_evaluation_indices)("number of additional evaluation indices", target_coordinates.extent(0));
-        if (_additional_evaluation_indices.getNumberOfTargets() != _target_coordinates.extent(0)) {
+        if (this->getAdditionalEvaluationIndices()->getNumberOfTargets() != target_coordinates.extent(0)) {
             this->setAuxiliaryEvaluationIndicesLists(
-                    decltype(_host_number_of_additional_evaluation_indices)(), 
-                    _host_number_of_additional_evaluation_indices);
+                    Kokkos::View<int*>(),
+                    Kokkos::View<int*>("number of additional evaluation indices", 
+                                       target_coordinates.extent(0))
+            );
         }
         this->resetCoefficientData();
-
-        if (_source_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
-            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
-            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
-            _h_ss._neighbor_lists = _neighbor_lists;
+        _pc.setTargetCoordinates(tc);
+        if (_additional_pc._target_coordinates.extent(0) != _pc._target_coordinates.extent(0)) {
+            _additional_pc.setTargetCoordinates(tc);
         }
     }
 
     //! Sets target coordinate information. Rows of this 2D-array should correspond to rows of the neighbor lists.
     template<typename view_type>
-    void setTargetSites(decltype(_target_coordinates) target_coordinates) {
-        // allocate memory on device
-        _target_coordinates = target_coordinates;
-        _host_number_of_additional_evaluation_indices 
-            = decltype(_host_number_of_additional_evaluation_indices)("number of additional evaluation indices", target_coordinates.extent(0));
-        if (_additional_evaluation_indices.getNumberOfTargets() != _target_coordinates.extent(0)) {
+    void setTargetSites(coordinates_type target_coordinates) {
+        if (this->getAdditionalEvaluationIndices()->getNumberOfTargets() != target_coordinates.extent(0)) {
             this->setAuxiliaryEvaluationIndicesLists(
-                    decltype(_host_number_of_additional_evaluation_indices)(), 
-                    _host_number_of_additional_evaluation_indices);
+                    Kokkos::View<int*>(),
+                    Kokkos::View<int*>("number of additional evaluation indices", 
+                                       target_coordinates.extent(0))
+            );
         }
         this->resetCoefficientData();
-
-        if (_source_coordinates.extent(0)>0 && _neighbor_lists.getNumberOfTargets()) {
-            _pc = point_connections_type(_target_coordinates, _source_coordinates, _neighbor_lists);
-            _additional_pc = point_connections_type(_target_coordinates, _additional_evaluation_coordinates, _additional_evaluation_indices);
-            _h_ss._neighbor_lists = _neighbor_lists;
+        _pc.setTargetCoordinates(target_coordinates);
+        if (_additional_pc._target_coordinates.extent(0) != _pc._target_coordinates.extent(0)) {
+            _additional_pc.setTargetCoordinates(target_coordinates);
         }
     }
 
@@ -1047,10 +1006,8 @@ public:
         // allocate memory on device
         _epsilons = decltype(_epsilons)("device epsilons", epsilons.extent(0));
 
-        _host_epsilons = Kokkos::create_mirror_view(_epsilons);
-        Kokkos::deep_copy(_host_epsilons, epsilons);
         // copy data from host to device
-        Kokkos::deep_copy(_epsilons, _host_epsilons);
+        Kokkos::deep_copy(_epsilons, epsilons);
         this->resetCoefficientData();
     }
 
@@ -1074,7 +1031,7 @@ public:
         // this allows for nonstrided views on the device later
 
         // allocate memory on device
-        _T = decltype(_T)("device tangent directions", _target_coordinates.extent(0)*_dimensions*_dimensions);
+        _T = decltype(_T)("device tangent directions", _pc._target_coordinates.extent(0)*_dimensions*_dimensions);
 
         compadre_assert_release( (std::is_same<decltype(_T)::memory_space, typename view_type::memory_space>::value) &&
                 "Memory space does not match between _T and tangent_directions");
@@ -1082,7 +1039,7 @@ public:
         auto this_dimensions = _dimensions;
         auto this_T = _T;
         // rearrange data on device from data given on host
-        Kokkos::parallel_for("copy tangent vectors", Kokkos::RangePolicy<device_execution_space>(0, _target_coordinates.extent(0)), KOKKOS_LAMBDA(const int i) {
+        Kokkos::parallel_for("copy tangent vectors", Kokkos::RangePolicy<device_execution_space>(0, _pc._target_coordinates.extent(0)), KOKKOS_LAMBDA(const int i) {
             scratch_matrix_right_type T(this_T.data() + i*this_dimensions*this_dimensions, this_dimensions, this_dimensions);
             for (int j=0; j<this_dimensions; ++j) {
                 for (int k=0; k<this_dimensions; ++k) {
@@ -1106,13 +1063,13 @@ public:
         // accept input from user as a rank 2 tensor
         
         // allocate memory on device
-        _ref_N = decltype(_ref_N)("device normal directions", _target_coordinates.extent(0)*_dimensions);
+        _ref_N = decltype(_ref_N)("device normal directions", _pc._target_coordinates.extent(0)*_dimensions);
         // to assist LAMBDA capture
         auto this_ref_N = this->_ref_N;
         auto this_dimensions = this->_dimensions;
 
         // rearrange data on device from data given on host
-        Kokkos::parallel_for("copy normal vectors", Kokkos::RangePolicy<device_execution_space>(0, _target_coordinates.extent(0)), KOKKOS_LAMBDA(const int i) {
+        Kokkos::parallel_for("copy normal vectors", Kokkos::RangePolicy<device_execution_space>(0, _pc._target_coordinates.extent(0)), KOKKOS_LAMBDA(const int i) {
             for (int j=0; j<this_dimensions; ++j) {
                 this_ref_N(i*this_dimensions + j) = outward_normal_directions(i, j);
             }
@@ -1175,6 +1132,17 @@ public:
         this->resetCoefficientData();
     }
 
+    //! Set dense solver type type
+    void setDenseSolverType(const DenseSolverType dst) {
+        _dense_solver_type = dst;
+        this->resetCoefficientData();
+    }
+
+    //! Set constraint type
+    void setConstraintType(const ConstraintType ct) {
+        _constraint_type = ct;
+        this->resetCoefficientData();
+    }
 
     //! Type for weighting kernel for GMLS problem
     void setWeightingType( const std::string &wt) {
@@ -1230,7 +1198,7 @@ public:
         this->resetCoefficientData();
     }
 
-    //! Sets basis order to be used when reoncstructing any function
+    //! Sets basis order to be used when reconstructing any function
     void setPolynomialOrder(const int poly_order) {
         compadre_assert_release(poly_order<11 && "Unsupported polynomial order (>=11).");
         _poly_order = poly_order;
@@ -1238,7 +1206,7 @@ public:
         this->resetCoefficientData();
     }
 
-    //! Sets basis order to be used when reoncstructing curvature
+    //! Sets basis order to be used when reconstruction curvature
     void setCurvaturePolynomialOrder(const int curvature_poly_order) {
         compadre_assert_release(curvature_poly_order<11 && "Unsupported curvature polynomial order (>=11).");
         _curvature_poly_order = curvature_poly_order;
@@ -1305,22 +1273,72 @@ public:
         this->resetCoefficientData();
     }
 
+    //! Verify whether _pc is valid
+    bool verifyPointConnections(bool assert_valid = false) {
+        bool result = (_pc._target_coordinates.extent(0)==_pc._nla.getNumberOfTargets());
+        compadre_assert_release((!assert_valid || result) &&
+                "Target coordinates and neighbor lists have different size.");
+        
+        result &= (_pc._source_coordinates.extent(1)==_pc._target_coordinates.extent(1));
+        compadre_assert_release((!assert_valid || result) &&
+                "Source coordinates and target coordinates have different dimensions.");
+
+        result &= (_pc._source_coordinates.extent(0)>0||_pc._target_coordinates.extent(0)==0);
+        compadre_assert_release((!assert_valid || result) &&
+                "Source coordinates not set in GMLS class before calling generatePolynomialCoefficients.");
+        return result;
+    }
+
+    //! Verify whether _additional_pc is valid
+    bool verifyAdditionalPointConnections(bool assert_valid = false) {
+        bool result = (_additional_pc._target_coordinates.extent(0)==_additional_pc._nla.getNumberOfTargets());
+        compadre_assert_release((!assert_valid || result) &&
+                "Target coordinates and additional evaluation indices have different size.");
+       
+        result &= (_pc._target_coordinates.extent(0)==_additional_pc._target_coordinates.extent(0));
+        compadre_assert_release((!assert_valid || result) &&
+                "Target coordinates and additional evaluation indices have different size.");
+
+        if (_additional_pc._source_coordinates.extent(0)>0) {
+            result &= (_additional_pc._target_coordinates.extent(1)==_additional_pc._source_coordinates.extent(1));
+            compadre_assert_release((!assert_valid || result) &&
+                    "Target coordinates and additional evaluation coordinates have different dimensions.");
+        }
+        return result;
+    }
+
     /*! \brief Generates polynomial coefficients by setting up and solving least squares problems
-    //! Sets up the batch of GMLS problems to be solved for. Provides alpha values
-    //! that can later be contracted against data or degrees of freedom to form a
-    //! global linear system.
-    //! \param number_of_batches    [in] - how many batches to break up the total workload into (for storage)
-    //! \param keep_coefficients    [in] - whether to store (P^T W P)^-1 * P^T * W
+        Sets up the batch of GMLS problems to be solved for. Provides alpha values
+        that can later be contracted against data or degrees of freedom to form a
+        global linear system.
+
+        \param number_of_batches    [in] - how many batches to break up the total workload into (for storage)
+        \param keep_coefficients    [in] - whether to store (P^T W P)^-1 * P^T * W
+        \param clear_cache          [in] - clear whatever temporary memory was used for calculations that  
+                                           \a keep_coefficients hasn't indicated needs to be saved
+    
+        \a clear_cache should be \a false to be used for debugging as it will leave all data structures used to 
+        compute the solution intact. If \a clear_cache is set \a true and \a keep_coefficients is \a true, it will 
+        allow the polynomial coefficients to persist after calculation.
     */
-    void generatePolynomialCoefficients(const int number_of_batches = 1, const bool keep_coefficients = false);
+    void generatePolynomialCoefficients(const int number_of_batches = 1, const bool keep_coefficients = false, 
+            const bool clear_cache = true);
 
     /*! \brief Meant to calculate target operations and apply the evaluations to the previously 
-    //! constructed polynomial coefficients. But now that is inside of generatePolynomialCoefficients because
-    //! it must be to handle number_of_batches>1. Effectively, this just calls generatePolynomialCoefficients.
-    //! \param number_of_batches    [in] - how many batches to break up the total workload into (for storage)
-    //! \param keep_coefficients    [in] - whether to store (P^T W P)^-1 * P^T * W
+        constructed polynomial coefficients. But now that is inside of generatePolynomialCoefficients because
+        it must be to handle number_of_batches>1. Effectively, this just calls generatePolynomialCoefficients.
+
+        \param number_of_batches    [in] - how many batches to break up the total workload into (for storage)
+        \param keep_coefficients    [in] - whether to store (P^T W P)^-1 * P^T * W
+        \param clear_cache          [in] - clear whatever temporary memory was used for calculations that  
+                                           \a keep_coefficients hasn't indicated needs to be saved
+    
+        \a clear_cache should be \a false to be used for debugging as it will leave all data structures used to 
+        compute the solution intact. If \a clear_cache is set \a true and \a keep_coefficients is \a true, it will 
+        allow the polynomial coefficients to persist after calculation.
     */
-    void generateAlphas(const int number_of_batches = 1, const bool keep_coefficients = false);
+    void generateAlphas(const int number_of_batches = 1, const bool keep_coefficients = false, 
+            const bool clear_cache = true);
 
 ///@}
 

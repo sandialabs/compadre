@@ -118,6 +118,7 @@ class CMakeBuild(build_ext):
         cmake_version = parse_version(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
         if cmake_version < parse_version('3.10.0'):
             raise RuntimeError("CMake >= 3.10.0 is required")
+        assert sys.version_info >= (3,4), "\n\n\n\n\nPyCompadre requires Python version 3+\n\n\n\n\n"
 
         for ext in self.extensions:
             self.build_extension(ext)
@@ -265,6 +266,7 @@ setup(
         "Operating System :: Unix",
     ],
     install_requires=['numpy'],
+    python_requires='>=3.4.0',
     ext_modules=[CMakeExtension('_pycompadre'),],
     cmdclass={
         'build_ext': CMakeBuild,

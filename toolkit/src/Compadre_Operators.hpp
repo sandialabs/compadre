@@ -84,6 +84,8 @@ namespace Compadre {
         VectorOfScalarClonesTaylorPolynomial,
         //! Divergence-free vector polynomial basis
         DivergenceFreeVectorTaylorPolynomial,
+        //! Bernstein polynomial basis
+        BernsteinPolynomial,
     };
 
     //! Number of actual components in the ReconstructionSpace
@@ -94,6 +96,7 @@ namespace Compadre {
             1, ///< VectorTaylorPolynomial
             0, ///< VectorOfScalarClonesTaylorPolynomial
             0, ///< DivergenceFreeVectorTaylorPolynomial
+            0, ///< BernsteinPolynomial
         };
         return ActualReconstructionSpaceRank[index];
     }
