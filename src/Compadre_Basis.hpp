@@ -370,116 +370,158 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
             }
         }
     } else if (polynomial_sampling_functional == ScalarFaceAverageSample) {
+        compadre_kernel_assert_debug(data._local_dimensions==2 &&
+                "ScalarFaceAverageSample only supports 2d or 3d with 2d manifold");
         auto global_neighbor_index = data._pc.getNeighborIndex(target_index, neighbor_index);
         double cutoff_p = data._epsilons(target_index);
         int alphax, alphay, alphaz;
         double alphaf;
 
-        // global dimension cannot be determined in a constexpr way, so we use a largest case scenario
-        // of dimensions 3 for _global_dimension
-        double triangle_coords[3/*data._global_dimensions*/*3];
+        double G_data[data._global_dimensions*3];
+        double triangle_coords[data._global_dimensions*3];
+        for (int i=0; i<data._global_dimensions*3; ++i) G_data[i] = 0;
         for (int i=0; i<data._global_dimensions*3; ++i) triangle_coords[i] = 0;
         // 3 is for # vertices in sub-triangle
+        scratch_matrix_right_type G(G_data, data._global_dimensions, 3); 
         scratch_matrix_right_type triangle_coords_matrix(triangle_coords, data._global_dimensions, 3); 
 
-        scratch_vector_type midpoint(delta, data._global_dimensions);
-        getMidpointFromCellVertices(teamMember, midpoint, data._source_extra_data, global_neighbor_index, data._global_dimensions /*dim*/);
+        // neighbor coordinate is assumed to be midpoint
+        // could be calculated, but is correct for sphere
+        // and also for non-manifold problems
+        // uses given midpoint, rather than computing the midpoint from vertices
         for (int j=0; j<data._global_dimensions; ++j) {
-            triangle_coords_matrix(j, 0) = midpoint(j);
+            // midpoint
+            triangle_coords_matrix(j, 0) = data._pc.getNeighborCoordinate(target_index, neighbor_index, j);
         }
 
-        size_t num_vertices = data._source_extra_data.extent(1) / data._global_dimensions;
-        double reference_cell_area = 0.5;
-        double entire_cell_area = 0.0;
-        auto T=triangle_coords_matrix;
-
-        for (size_t v=0; v<num_vertices; ++v) {
-            int v1 = v;
-            int v2 = (v+1) % num_vertices;
-            for (int j=0; j<data._global_dimensions; ++j) {
-                triangle_coords_matrix(j,1) = data._source_extra_data(global_neighbor_index, v1*data._global_dimensions+j) - triangle_coords_matrix(j,0);
-                triangle_coords_matrix(j,2) = data._source_extra_data(global_neighbor_index, v2*data._global_dimensions+j) - triangle_coords_matrix(j,0);
-            }
-            entire_cell_area += 0.5 * getAreaFromVectors(teamMember, 
-                Kokkos::subview(T, Kokkos::ALL(), 1), Kokkos::subview(T, Kokkos::ALL(), 2));
-        }
+        // NaN in last entry (data._global_dimensions) is a convention for indicating fewer vertices 
+        // for this cell and NaN is checked by entry!=entry
+        size_t num_vertices = (data._source_extra_data(global_neighbor_index, data._source_extra_data.extent(1)-1)
+                != data._source_extra_data(global_neighbor_index, data._source_extra_data.extent(1)-1)) 
+                    ? (data._source_extra_data.extent(1) / data._global_dimensions) - 1 : 
+                      (data._source_extra_data.extent(1) / data._global_dimensions);
+        auto T = triangle_coords_matrix;
 
         // loop over each two vertices 
         // made for flat surfaces (either dim=2 or on a manifold)
+        double entire_cell_area = 0.0;
         for (size_t v=0; v<num_vertices; ++v) {
             int v1 = v;
             int v2 = (v+1) % num_vertices;
 
             for (int j=0; j<data._global_dimensions; ++j) {
-                triangle_coords_matrix(j,1) = data._source_extra_data(global_neighbor_index, v1*data._global_dimensions+j) - triangle_coords_matrix(j,0);
-                triangle_coords_matrix(j,2) = data._source_extra_data(global_neighbor_index, v2*data._global_dimensions+j) - triangle_coords_matrix(j,0);
+                triangle_coords_matrix(j,1) = data._source_extra_data(global_neighbor_index, 
+                                                                      v1*data._global_dimensions+j)
+                                              - triangle_coords_matrix(j,0);
+                triangle_coords_matrix(j,2) = data._source_extra_data(global_neighbor_index, 
+                                                                      v2*data._global_dimensions+j)
+                                              - triangle_coords_matrix(j,0);
             }
+
             // triangle_coords now has:
             // (midpoint_x, midpoint_y, midpoint_z, 
             //  v1_x-midpoint_x, v1_y-midpoint_y, v1_z-midpoint_z, 
             //  v2_x-midpoint_x, v2_y-midpoint_y, v2_z-midpoint_z);
             for (int quadrature = 0; quadrature<data._qm.getNumberOfQuadraturePoints(); ++quadrature) {
-                double transformed_qp[3] = {0,0,0};
+                double unscaled_transformed_qp[3] = {0,0,0};
+                double scaled_transformed_qp[3] = {0,0,0};
                 for (int j=0; j<data._global_dimensions; ++j) {
                     for (int k=1; k<3; ++k) { // 3 is for # vertices in subtriangle
-                        transformed_qp[j] += T(j,k)*data._qm.getSite(quadrature, k-1);
+                        // uses vertex-midpoint as one direction 
+                        // and other vertex-midpoint as other direction
+                        unscaled_transformed_qp[j] += T(j,k)*data._qm.getSite(quadrature, k-1);
                     }
-                    transformed_qp[j] += T(j,0);
+                    // adds back on shift by midpoint
+                    unscaled_transformed_qp[j] += T(j,0);
                 }
-                // half the norm of the cross-product is the area of the triangle
-                // so scaling is area / reference area (0.5) = the norm of the cross-product
-                double sub_cell_area = 0.5 * getAreaFromVectors(teamMember, 
-                        Kokkos::subview(T, Kokkos::ALL(), 1), Kokkos::subview(T, Kokkos::ALL(), 2));
-                double scaling_factor = sub_cell_area / reference_cell_area;
 
+                // project onto the sphere
+                double G_determinant = 1.0;
                 if (data._problem_type == ProblemType::MANIFOLD) {
-                    XYZ qp = XYZ(transformed_qp[0], transformed_qp[1], transformed_qp[2]);
-                    for (int j=0; j<2; ++j) {
-                        relative_coord[j] = data._pc.convertGlobalToLocalCoordinate(qp,j,*V) - data._pc.getTargetCoordinate(target_index,j,V); // shift quadrature point by target site
-                        relative_coord[2] = 0;
+                    // unscaled_transformed_qp now lives on cell, but if on manifold,
+                    // not directly on the sphere, just close by
+
+                    // normalize to project back onto sphere
+                    double transformed_qp_norm = 0;
+                    for (int j=0; j<data._global_dimensions; ++j) {
+                        transformed_qp_norm += unscaled_transformed_qp[j]*unscaled_transformed_qp[j];
                     }
+                    transformed_qp_norm = std::sqrt(transformed_qp_norm);
+                    // transformed_qp made unit length
+                    for (int j=0; j<data._global_dimensions; ++j) {
+                        scaled_transformed_qp[j] = unscaled_transformed_qp[j] / transformed_qp_norm;
+                    }
+
+
+                    // u_qp = midpoint + r_qp[1]*(v_1-midpoint) + r_qp[2]*(v_2-midpoint)
+                    // s_qp = u_qp / norm(u_qp)
+                    //
+                    // so G(:,i) is \partial{s_qp}/ \partial{r_qp[i]}
+                    // where r_qp is reference quadrature point (R^2 in 2D manifold in R^3)
+                    //
+                    // G(:,i) = \partial{u_qp}/\partial{r_qp[i]} * (\sum_m u_qp[k]^2)^{-1/2}
+                    //          + u_qp * \partial{(\sum_m u_qp[k]^2)^{-1/2}}/\partial{r_qp[i]}
+                    //
+                    //        = T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
+                    //                              *2*(\sum_k u_qp[k]*\partial{u_qp[k]}/\partial{r_qp[i]})
+                    //
+                    //        = T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
+                    //                              *2*(\sum_k u_qp[k]*T(k,i))
+                    //
+                    double qp_norm_sq = transformed_qp_norm*transformed_qp_norm;
+                    for (int j=0; j<data._global_dimensions; ++j) {
+                        G(j,1) = T(j,1)/transformed_qp_norm;
+                        G(j,2) = T(j,2)/transformed_qp_norm;
+                        for (int k=0; k<data._global_dimensions; ++k) {
+                            G(j,1) += unscaled_transformed_qp[j]*(-0.5)*std::pow(qp_norm_sq,-1.5)
+                                      *2*(unscaled_transformed_qp[k]*T(k,1));
+                            G(j,2) += unscaled_transformed_qp[j]*(-0.5)*std::pow(qp_norm_sq,-1.5)
+                                      *2*(unscaled_transformed_qp[k]*T(k,2));
+                        }
+                    }
+                    G_determinant = getAreaFromVectors(teamMember, 
+                            Kokkos::subview(G, Kokkos::ALL(), 1), Kokkos::subview(G, Kokkos::ALL(), 2));
+                    XYZ qp = XYZ(scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]);
+                    for (int j=0; j<data._local_dimensions; ++j) {
+                        relative_coord[j] = data._pc.convertGlobalToLocalCoordinate(qp,j,*V) 
+                                            - data._pc.getTargetCoordinate(target_index,j,V); 
+                        // shift quadrature point by target site
+                    }
+                    relative_coord[2] = 0;
                 } else {
-                    for (int j=0; j<dimension; ++j) {
-                        relative_coord[j] = transformed_qp[j] - data._pc.getTargetCoordinate(target_index,j,V); // shift quadrature point by target site
+                    G_determinant = getAreaFromVectors(teamMember,
+                            Kokkos::subview(T, Kokkos::ALL(), 1), Kokkos::subview(T, Kokkos::ALL(), 2));
+                    for (int j=0; j<data._local_dimensions; ++j) {
+                        relative_coord[j] = unscaled_transformed_qp[j] 
+                                            - data._pc.getTargetCoordinate(target_index,j,V); 
+                        // shift quadrature point by target site
                     }
-                    for (int j=dimension; j<3; ++j) {
-                        relative_coord[j] = 0.0;
-                    }
+                    relative_coord[2] = 0;
                 }
 
                 int k = 0;
-                const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
-                if (dimension == 3) {
-                    for (int n = start_index; n <= poly_order; n++){
-                        for (alphaz = 0; alphaz <= n; alphaz++){
-                            int s = n - alphaz;
-                            for (alphay = 0; alphay <= s; alphay++){
-                                alphax = s - alphay;
-                                alphaf = factorial[alphax]*factorial[alphay]*factorial[alphaz];
-                                double val_to_sum = (scaling_factor * data._qm.getWeight(quadrature) 
-                                        * std::pow(relative_coord.x/cutoff_p,alphax)
-                                        * std::pow(relative_coord.y/cutoff_p,alphay)
-                                        * std::pow(relative_coord.z/cutoff_p,alphaz)/alphaf) / entire_cell_area;
-                                if (quadrature==0 && v==0) *(delta+k) = val_to_sum;
-                                else *(delta+k) += val_to_sum;
-                                k++;
-                            }
-                        }
-                    }
-                } else if (dimension == 2) {
-                    for (int n = start_index; n <= poly_order; n++){
-                        for (alphay = 0; alphay <= n; alphay++){
-                            alphax = n - alphay;
-                            alphaf = factorial[alphax]*factorial[alphay];
-                            double val_to_sum = (scaling_factor * data._qm.getWeight(quadrature) 
-                                    * std::pow(relative_coord.x/cutoff_p,alphax)
-                                    * std::pow(relative_coord.y/cutoff_p,alphay)/alphaf) / entire_cell_area;
-                            if (quadrature==0 && v==0) *(delta+k) = val_to_sum;
-                            else *(delta+k) += val_to_sum;
-                            k++;
-                        }
+                compadre_kernel_assert_debug(!specific_order_only && 
+                        "ScalarFaceAverageSample does not support specific_order_only");
+                for (int n = 0; n <= poly_order; n++){
+                    for (alphay = 0; alphay <= n; alphay++){
+                        alphax = n - alphay;
+                        alphaf = factorial[alphax]*factorial[alphay];
+                        double val_to_sum = G_determinant * (data._qm.getWeight(quadrature) 
+                                * std::pow(relative_coord.x/cutoff_p,alphax)
+                                * std::pow(relative_coord.y/cutoff_p,alphay) / alphaf);
+                        if (quadrature==0 && v==0) *(delta+k) = val_to_sum;
+                        else *(delta+k) += val_to_sum;
+                        k++;
                     }
                 }
+                entire_cell_area += G_determinant * data._qm.getWeight(quadrature);
+            }
+        }
+        int k = 0;
+        for (int n = 0; n <= poly_order; n++){
+            for (alphay = 0; alphay <= n; alphay++){
+                *(delta+k) /= entire_cell_area;
+                k++;
             }
         }
     } else {
