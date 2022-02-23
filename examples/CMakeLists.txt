@@ -262,6 +262,18 @@ if (CompadreHarness_EXAMPLES)
     ADD_TEST(NAME ManifoldStaggeredLaplaceTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/manifold_operator_convergence.py" "4" "2" "10") # 4 polynomial order, 2 successive meshes, 10-staggered laplacian
     SET_TESTS_PROPERTIES(ManifoldStaggeredLaplaceTest PROPERTIES LABELS "manifold;interpolation;laplacian;staggered")
 
+    ## UNIT TESTS
+
+    ADD_TEST(NAME UnitTests COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${CMAKE_CURRENT_BINARY_DIR}/unitTests.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_rk_exact.xml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(UnitTests PROPERTIES LABELS "unit;")
+
+    ## RT0 REMAP TO VECTOR TEST
+    #ADD_TEST(NAME RT0Remap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/RT0Remap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_RT0.yml" "--kokkos-threads=2")
+    #SET_TESTS_PROPERTIES(RT0Remap PROPERTIES LABELS "rt0")
+
+    ADD_TEST(NAME FVRemap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/FVRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_FV.yml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(FVRemap PROPERTIES LABELS "fv")
+
     # ADVECTION DIFFUSION TESTS
     
     #ADD_TEST(NAME L2ProjectionTest COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/../test_data/utilities/advectiondiffusion_convergence.py" "2" "1" "1" "0") # 4 polynomial order, 2 successive meshes, 1 l2 projection only, 0 - polynomial solution
@@ -400,19 +412,6 @@ if (CompadreHarness_EXAMPLES)
     
     ADD_TEST(NAME ExplicitTimeDependentNewmarkAnalytical COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 3 ${CMAKE_CURRENT_BINARY_DIR}/explicitTimeDependent.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_newmark_nonpolynomial.xml" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(ExplicitTimeDependentNewmarkAnalytical PROPERTIES LABELS "explicit;analytical;newmark")
-
-    ## UNIT TESTS
-
-    ADD_TEST(NAME UnitTests COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${CMAKE_CURRENT_BINARY_DIR}/unitTests.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_rk_exact.xml" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(UnitTests PROPERTIES LABELS "unit;")
-
-
-    ## RT0 REMAP TO VECTOR TEST
-    #ADD_TEST(NAME RT0Remap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/RT0Remap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_RT0.yml" "--kokkos-threads=2")
-    #SET_TESTS_PROPERTIES(RT0Remap PROPERTIES LABELS "rt0")
-
-    #ADD_TEST(NAME FVRemap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/FVRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_FV.yml" "--kokkos-threads=2")
-    #SET_TESTS_PROPERTIES(FVRemap PROPERTIES LABELS "fv")
 
     # SET FLAGS FOR TESTS NOT RUN
     

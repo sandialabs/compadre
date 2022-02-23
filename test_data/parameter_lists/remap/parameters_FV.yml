@@ -2,6 +2,7 @@
 ---
 Compadre:
   'remap type': 'cell average'
+  'fail threshold': 1e-13
   'io':
     'input file prefix': '../test_data/grids/'
     # source sites

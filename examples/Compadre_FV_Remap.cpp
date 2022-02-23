@@ -63,7 +63,8 @@ int main (int argc, char* args[]) {
     Teuchos::RCP<Teuchos::Time> NormTime = Teuchos::TimeMonitor::getNewCounter ("Norm calculation");
 
             Teuchos::RCP<Compadre::AnalyticFunction> function;
-            function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2)));
+            //function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2)));
+            function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(2)));
 
 
     {
@@ -121,13 +122,16 @@ int main (int argc, char* args[]) {
 
             new_particles->getFieldManager()->createField(1, "pressure", "m/s");
             new_particles->getFieldManager()->createField(1, "exact_solution", "m/s");
+            new_particles->getFieldManager()->createField(1, "u_remap_cell_average", "m/s");
             particles->getFieldManager()->createField(1, "u_cell_average", "none"); 
+            particles->getFieldManager()->createField(1, "u_point_value", "none"); 
 
             auto quadrature_weights_view = particles->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
             auto quadrature_points_view = particles->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
             auto interior_view = particles->getFieldManager()->getFieldByName("interior")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
 
             auto u_cell_average_view = particles->getFieldManager()->getFieldByName("u_cell_average")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+            auto u_point_value_view = particles->getFieldManager()->getFieldByName("u_point_value")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
 
 
             for(int j=0; j<coords->nLocal(); j++){
@@ -142,6 +146,7 @@ int main (int argc, char* args[]) {
                 for(int k=0; k<interior_view.extent(1); k++){
                     if (interior_view(j,k)==1) {
 
+                        // evaluate at interior quadrature sites
                         auto x_val = quadrature_points_view(j,2*k+0);
                         auto y_val = quadrature_points_view(j,2*k+1);
 
@@ -153,6 +158,11 @@ int main (int argc, char* args[]) {
                     }
                 }
                 u_cell_average_view(j,0) /= area;
+                
+                // evaluate at target sites
+                xyz_type xyz = coords->getLocalCoords(j);
+                xyz_type scalar_exact = function->evalVector(xyz);
+                u_point_value_view(j,0) = scalar_exact.x;
             }
 
 
@@ -164,6 +174,10 @@ int main (int argc, char* args[]) {
             Compadre::RemapObject ro("u_cell_average", "pressure", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
             ro.setSourceExtraData("vertex_points");
             rm->add(ro);
+
+            Compadre::RemapObject ro2("u_point_value", "u_remap_cell_average", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, PointSample);
+            ro2.setTargetExtraData("vertex_points");
+            rm->add(ro2);
 
             rm->execute();
 
@@ -184,6 +198,11 @@ int main (int argc, char* args[]) {
             }
             Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
 
+            Compadre::host_view_type cell_average_solution_field;
+            if (remap_type == "cell average") {
+                cell_average_solution_field = new_particles->getFieldManager()->getFieldByName("u_remap_cell_average")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+            }
+
             for(int j=0; j<coords->nLocal(); j++){
                 xyz_type xyz = coords->getLocalCoords(j);
                 xyz_type vector_exact = function->evalVector(xyz);
@@ -195,22 +214,22 @@ int main (int argc, char* args[]) {
                 //exact_solution_field(j,2) = vector_exact.z;
             }
 
-            WriteTime->start();
-            {
-                std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
-                Compadre::FileManager fm;
-                fm.setWriter(output_filename, new_particles);
-                fm.write();
+            //WriteTime->start();
+            //{
+            //    std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file");
+            //    Compadre::FileManager fm;
+            //    fm.setWriter(output_filename, new_particles);
+            //    fm.write();
 
-            }
-            {
-                std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file2");
-                Compadre::FileManager fm;
-                fm.setWriter(output_filename, particles);
-                fm.write();
+            //}
+            //{
+            //    std::string output_filename = parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file prefix") + parameters->get<Teuchos::ParameterList>("io").get<std::string>("output file2");
+            //    Compadre::FileManager fm;
+            //    fm.setWriter(output_filename, particles);
+            //    fm.write();
 
-            }
-            WriteTime->stop();
+            //}
+            //WriteTime->stop();
 
 
             double exact = 0;
@@ -220,6 +239,7 @@ int main (int argc, char* args[]) {
                     xyz_type xyz = new_coords->getLocalCoords(j);
                     exact = function->evalVector(xyz).x;
                     physical_coordinate_weighted_l2_norm += (solution_field(j,0) - exact)*(solution_field(j,0) - exact);//*grid_area_field(j,0);
+                    physical_coordinate_weighted_l2_norm += (cell_average_solution_field(j,0) - u_cell_average_view(j,0))*(cell_average_solution_field(j,0) - u_cell_average_view(j,0));//*grid_area_field(j,0);
                     if (remap_type != "cell average") {
                         physical_coordinate_weighted_l2_norm += (solution_field(j,1) - function->evalVector(xyz).y)*(solution_field(j,1) - function->evalVector(xyz).y);
                     }
