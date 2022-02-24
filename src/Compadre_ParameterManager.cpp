@@ -120,7 +120,7 @@ void ParameterManager::setDefaultParameters() {
 
 	// Neighborhood Details
 	Teuchos::RCP<Teuchos::ParameterList> neighborList = Teuchos::rcp(new Teuchos::ParameterList("neighborhood"));
-	neighborList->set("method", "nanoflann"); // default neighbor search program is vtk
+	neighborList->set("method", "nanoflann"); // default neighbor search program is nanoflann
 	neighborList->set("max leaf", (int)10); // used by nanoflann for kdtree search
 
 	neighborList->set("search type", "knn"); // k-nearest neighbors (knn) or radius (radius) search
@@ -130,6 +130,22 @@ void ParameterManager::setDefaultParameters() {
 
 	neighborList->set("uniform radii", (bool)false); // enforce equal size neighbor search radii
 	neighborList->set("radii post search scaling", 1.0); // scaling of epsilon sizes after search is complete
+    // making < 1.0 allows a guarantee that neighborhood includes neighbors beyond the radii size
+
+	// Neighborhood search details for use in optimization routines with local bounds
+	Teuchos::RCP<Teuchos::ParameterList> localBoundsNeighborList = Teuchos::rcp(new Teuchos::ParameterList("local bounds neighborhood"));
+	localBoundsNeighborList->set("active", (bool)false); // whether to use different neighbor list for local bounds calculation
+	localBoundsNeighborList->set("method", "nanoflann"); // default neighbor search program is nanoflann
+	localBoundsNeighborList->set("porder", (int)-1); // if -1, will use porder from remap list
+	localBoundsNeighborList->set("max leaf", (int)10); // used by nanoflann for kdtree search
+
+	localBoundsNeighborList->set("search type", "knn"); // k-nearest neighbors (knn) or radius (radius) search
+	// multiplier timeshe quantitiy that is the distance from target, for the location that is the nth#required neighbor
+	localBoundsNeighborList->set("cutoff multiplier", 1.6); // radius enlargement after finding knn
+	localBoundsNeighborList->set("size", 0.2); // search radius to use for radius searches
+
+	localBoundsNeighborList->set("uniform radii", (bool)false); // enforce equal size neighbor search radii
+	localBoundsNeighborList->set("radii post search scaling", 1.0); // scaling of epsilon sizes after search is complete
     // making < 1.0 allows a guarantee that neighborhood includes neighbors beyond the radii size
 
 
@@ -206,6 +222,7 @@ void ParameterManager::setDefaultParameters() {
 	_parameter_list->set("coordinates", *coordinatesList);
 	_parameter_list->set("remap", *remapList);
 	_parameter_list->set("neighborhood", *neighborList);
+	_parameter_list->set("local bounds neighborhood", *localBoundsNeighborList);
 	_parameter_list->set("halo", *haloList);
 	_parameter_list->set("physics", *physicsList);
 	_parameter_list->set("rhs", *rhsList);

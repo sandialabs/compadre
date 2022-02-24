@@ -31,21 +31,23 @@
     <Parameter name="curvature weighting parameter 0" type="int" value="4"/>
     <Parameter name="quadrature points" type="int" value="3"/>
     <Parameter name="optimization algorithm" type="string" value="CAAS"/>
-    <Parameter name="preserve bounds" type="bool" value="false"/>
+    <Parameter name="preserve local bounds" type="bool" value="false"/>
     <Parameter name="source weighting field name" type="string" value="cell_area"/>
     <Parameter name="target weighting field name" type="string" value="cell_area"/>
-    <Parameter name="dense solver type" type="string" value="QR"/>
+    <Parameter name="dense solver type" type="string" value="LU"/>
     <Parameter name="problem type" type="string" value="MANIFOLD"/>
     <Parameter name="cell averaged" type="bool" value="true"/>
     <Parameter name="extra data field name" type="string" value="extra_data"/>
     <Parameter name="quadrature type" type="string" value="triangle"/>
     <Parameter name="quadrature order" type="int" value="4"/>
     <Parameter name="quadrature dimension" type="int" value="2"/>
+    <Parameter name="number of batches" type="int" value="1"/>
   </ParameterList>
   <ParameterList name="neighborhood">
-    <Parameter name="method" type="string" value="nanoflann"/>
-    <Parameter name="size" type="double" value="0.25"/>
+    <Parameter name="search type" type="string" value="knn"/>
+    <Parameter name="size" type="double" value="0.5"/>
     <Parameter name="cutoff multiplier" type="double" value="1.8"/>
+    <Parameter name="uniform radii" type="bool" value="true"/>
   </ParameterList>
   <ParameterList name="halo">
     <Parameter name="dynamic" type="bool" value="true"/>

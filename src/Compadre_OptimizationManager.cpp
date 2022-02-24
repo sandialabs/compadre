@@ -27,14 +27,14 @@ namespace Compadre {
 void OptimizationManager::solveAndUpdate() {
 if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE) {
 
-	OptimizationTime->start();
-
-    // current algorithms are written for a single linear bound and with bounds preservation
+    // all algorithms != NONE use single linear bound (conservation)
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_optimization_object._single_linear_bound_constraint==false, "Only algorithms with single linear bound constraint == true are supported.");
 
     // verify weighting field name specified
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_source_weighting_name.length()==0, "Source weighting field name not specified.");
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_target_weighting_name.length()==0, "Target weighting field name not specified.");
+
+	OptimizationTime->start();
 
     // weights
     Compadre::host_view_type source_grid_weighting_field = _source_particles->getFieldManagerConst()->getFieldByName(_source_weighting_name)->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();

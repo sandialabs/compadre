@@ -38,7 +38,8 @@ parser.add_argument('--output-folder-relative', dest='output_folder_relative', t
 parser.add_argument('--output-folder-absolute', dest='output_folder_absolute', type=str, nargs='?', default='', help='where to dump data files (relative to directory this script is called from')
 parser.add_argument('--canga-folder-relative', dest='canga_folder_relative', type=str, nargs='?', default="", help='where to get canga meshes')
 parser.add_argument('--canga-folder-absolute', dest='canga_folder_absolute', type=str, nargs='?', default="", help='where to get canga meshes')
-parser.add_argument('--preserve-bounds', dest='preserve_bounds', type=str, nargs='?', default='false', help='whether to preserve bounds in optimization')
+parser.add_argument('--preserve-local-bounds', dest='preserve_local_bounds', type=str, nargs='?', default='false', help='whether to preserve local bounds in optimization')
+parser.add_argument('--batches', dest='batches', type=int, default=1, nargs='?', help='number of batches to break target sites into')
 
 args = parser.parse_args()
 
@@ -76,12 +77,25 @@ porder = args.porder
 
 #NPTS1=[32,64,128,256]
 #NPTS2=[16,32,64,128]
-NPTS=[16,32,64,128,256]
+CS_CVT_NPTS=[16,32,64,128,256]
+RRM_CS_CVT_NPTS=[32,64,128]
+RLL_NPTS=['30-60','90-180','180-360','360-720','720-1440']
+
+CS_CVT_LVL=1
+RLL_LVL=1
+RRM_CS_LVL=1
+RRM_CVT_LVL=0
 
 pre_CS_name   = "CS_"
 post_CS_name  = ".g"
 pre_CVT_name  = "ICOD_"
 post_CVT_name = ".g"
+pre_RRM_CS_name   = "RRM_CS_"
+post_RRM_CS_name  = ".g"
+pre_RRM_CVT_name  = "RRM_ICOD_"
+post_RRM_CVT_name = ".g"
+pre_RLL_name  = "RLL_"
+post_RLL_name = ".g"
 #pre_CS_name   = "../../test_data/grids/canga/NM16/ICOD_"
 #post_CS_name  = ".g"
 #pre_CVT_name  = "../../test_data/grids/canga/NM16/ICOD_"
@@ -90,8 +104,11 @@ post_CVT_name = ".g"
 # initially set to these existing files
 #CS_names = [pre_CS_name+str(i)+post_CS_name for i in NPTS1]
 #CVT_names = [pre_CVT_name+str(i)+post_CVT_name for i in NPTS2]
-CS_names = [pre_CS_name+str(i)+post_CS_name for i in NPTS]
-CVT_names = [pre_CVT_name+str(i)+post_CVT_name for i in NPTS]
+CS_names = [pre_CS_name+str(i)+post_CS_name for i in CS_CVT_NPTS]
+CVT_names = [pre_CVT_name+str(i)+post_CVT_name for i in CS_CVT_NPTS]
+RLL_names = [pre_RLL_name+i+post_RLL_name for i in RLL_NPTS]
+RRM_CS_names = [pre_RRM_CS_name+str(i)+post_RRM_CS_name for i in RRM_CS_CVT_NPTS]
+RRM_CVT_names = [pre_RRM_CVT_name+str(i)+post_RRM_CVT_name for i in RRM_CS_CVT_NPTS]
 
 #print(CS_names)
 #print(CVT_names)
@@ -129,12 +146,14 @@ def create_XML(file1, file2, total_steps):
     for item in list(g):
         if (item.attrib['name']=="optimization algorithm"):
             item.attrib['value']=opt_name;
-        if (item.attrib['name']=="preserve bounds"):
-            item.attrib['value']=args.preserve_bounds.lower();
+        if (item.attrib['name']=="preserve local bounds"):
+            item.attrib['value']=args.preserve_local_bounds.lower();
         if (item.attrib['name']=="porder"):
             item.attrib['value']=str(porder);
         if (item.attrib['name']=="curvature porder"):
             item.attrib['value']=str(porder);
+        if (item.attrib['name']=="number of batches"):
+            item.attrib['value']=str(args.batches);
     tree.write(open(output_folder+'/parameters_comparison.xml', 'wb'))
 
 #def create_XML(file1, file2, total_steps):
@@ -225,7 +244,7 @@ def run_transfer(opt_name):
         else:
             my_env=dict(os.environ)
             #commands = ["mpirun", "--bind-to", "none", "-np", "1", exe_folder+"/cangaRemoteRemapMultiIter.exe","--i="+output_folder+"/parameters_comparison_25.xml","--kokkos-threads=7",":","-np", "1", exe_folder+"/cangaRemoteRemapMultiIter.exe","--i="+output_folder+"/parameters_comparison_33.xml","--kokkos-threads=7"]
-            commands = [exe_folder+"/cangaRemapMultiIter.exe","--i="+output_folder+"/parameters_comparison.xml","--kokkos-threads=8"]
+            commands = [exe_folder+"/cangaRemapMultiIter.exe","--i="+output_folder+"/parameters_comparison.xml","--kokkos-threads=32"]
             print(" ".join(commands))
             #my_env['OMP_PROC_BIND']='spread'
             #my_env['OMP_PLACES']='threads'
@@ -240,8 +259,39 @@ def run_transfer(opt_name):
             print(line)
         sys.exit(exc.returncode)
 
-f1 = CS_names[mesh_1] if args.mesh_1_type.lower()=="cs" else CVT_names[mesh_1]
-f2 = CS_names[mesh_2] if args.mesh_2_type.lower()=="cs" else CVT_names[mesh_2]
+blk_level1=1
+if (args.mesh_1_type.lower()=="cs"):
+    f1 = CS_names[mesh_1]
+    blk_level1=CS_CVT_LVL
+elif (args.mesh_1_type.lower()=="cvt"):
+    f1 = CVT_names[mesh_1]
+    blk_level1=CS_CVT_LVL
+elif (args.mesh_1_type.lower()=="rll"):
+    f1 = RLL_names[mesh_1]
+    blk_level1=RLL_LVL
+elif (args.mesh_1_type.lower()=="rrmcs"):
+    f1 = RRM_CS_names[mesh_1]
+    blk_level1=RRM_CS_LVL
+elif (args.mesh_1_type.lower()=="rrmcvt"):
+    f1 = RRM_CVT_names[mesh_1]
+    blk_level1=RRM_CVT_LVL
+
+blk_level2=1
+if (args.mesh_2_type.lower()=="cs"):
+    f2 = CS_names[mesh_2]
+    blk_level2=CS_CVT_LVL
+elif (args.mesh_2_type.lower()=="cvt"):
+    f2 = CVT_names[mesh_2]
+    blk_level2=CS_CVT_LVL
+elif (args.mesh_2_type.lower()=="rll"):
+    f2 = RLL_names[mesh_2]
+    blk_level2=RLL_LVL
+elif (args.mesh_2_type.lower()=="rrmcs"):
+    f2 = RRM_CS_names[mesh_2]
+    blk_level2=RRM_CS_LVL
+elif (args.mesh_2_type.lower()=="rrmcvt"):
+    f2 = RRM_CVT_names[mesh_2]
+    blk_level2=RRM_CVT_LVL
 
 print("files:",f1,f2)
 # get initial name from existing files
@@ -257,7 +307,7 @@ f1_head, f1_tail = os.path.splitext(f1)
 f2_head, f2_tail = os.path.splitext(f2)
 #print(f1_head,f2_head)
 time.sleep(1)
-newname=consolidate(total_iterations, args.save_every, canga_folder+"/"+f1_head+'.g', canga_folder+"/"+f2_head+'.g', output_folder)
+newname=consolidate(total_iterations, args.save_every, canga_folder+"/"+f1_head+'.g', canga_folder+"/"+f2_head+'.g', output_folder, blk_level1, blk_level2)
 #reorder_file_by_field(newname,'_remap_src')
 #reorder_file_by_field(newname,'_remap_tgt')
 

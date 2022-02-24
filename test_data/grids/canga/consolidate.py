@@ -7,7 +7,7 @@ from netCDF4 import Dataset
 # gets many instances of backward_i.g, forward_i.g, and concatenates
 # them into a combo file
 
-def copy_variables_from_source_except_data(filename_source, dataset, new_fields, suffix):
+def copy_variables_from_source_except_data(filename_source, dataset, new_fields, suffix, blk_level):
     f = Dataset(filename_source, "r", format="NETCDF4")
     dimensions = f.dimensions
     variables = f.variables
@@ -41,13 +41,13 @@ def copy_variables_from_source_except_data(filename_source, dataset, new_fields,
         else:
             # catches when field already exists, but we change dimension
             if (varname != "ID"):
-                dataset.createVariable(varname+suffix, datatype='f8', dimensions=('num_el_in_blk1'+suffix,'time_step',), zlib=False, complevel=4,\
+                dataset.createVariable(varname+suffix, datatype='f8', dimensions=('num_el_in_blk'+str(blk_level)+suffix,'time_step',), zlib=False, complevel=4,\
                                        shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                                        endian='native', least_significant_digit=None, fill_value=None)
                 #print(new_fields[varname].shape)
                 #print(dataset.variables[varname][:].shape)
             else:
-                dataset.createVariable(varname+suffix, datatype='i8', dimensions=('num_el_in_blk1'+suffix,), zlib=False, complevel=4,\
+                dataset.createVariable(varname+suffix, datatype='i8', dimensions=('num_el_in_blk'+str(blk_level)+suffix,), zlib=False, complevel=4,\
                                        shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                                        endian='native', least_significant_digit=None, fill_value=None)
             dataset.variables[varname+suffix][:]=new_fields[varname]
@@ -57,11 +57,11 @@ def copy_variables_from_source_except_data(filename_source, dataset, new_fields,
     for varname in list(new_fields.keys()):
         if varname not in new_fields_added:
             if (varname != "ID"):
-                dataset.createVariable(varname+suffix, datatype='f8', dimensions=('num_el_in_blk1'+suffix,'time_step',), zlib=False, complevel=4,\
+                dataset.createVariable(varname+suffix, datatype='f8', dimensions=('num_el_in_blk'+str(blk_level)+suffix,'time_step',), zlib=False, complevel=4,\
                                        shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                                        endian='native', least_significant_digit=None, fill_value=None)
             else:
-                dataset.createVariable(varname+suffix, datatype='i8', dimensions=('num_el_in_blk1'+suffix,), zlib=False, complevel=4,\
+                dataset.createVariable(varname+suffix, datatype='i8', dimensions=('num_el_in_blk'+str(blk_level)+suffix,), zlib=False, complevel=4,\
                                        shuffle=True, fletcher32=False, contiguous=False, chunksizes=None,\
                                        endian='native', least_significant_digit=None, fill_value=None)
             dataset.variables[varname+suffix][:]=new_fields[varname]
@@ -88,23 +88,42 @@ def get_data_from_file_sequence(iters, save_every, reference_file, file_prefix, 
         else:
             concatenated_data[field]=np.zeros(shape=(0,0),dtype='f8')
 
-    for i in range(iters):
-        if ((i+1)%save_every==0):
-            f = Dataset(file_prefix+str(i+1)+".g", "r", format="NETCDF4")
-            for varname,ncvar in f.variables.items():
-                if (varname in fields):
-                    if (varname != "ID"):
-                        #print("%s, %s time_step: %d"%(file_prefix, varname, i))
-                        if (concatenated_data[varname].shape[0]==0):
-                            concatenated_data[varname]=np.zeros(shape=(ncvar.shape[0],iters//save_every+1), dtype='f8')
-                            concatenated_data[varname][:,1]=ncvar[:].flatten()
-                        else:
-                            concatenated_data[varname][:,i//save_every+1] = ncvar[:].flatten()
-                    elif (varname=="ID" and i//save_every==1):
-                        # take care of ID here on first step
-                        concatenated_data[varname]=np.zeros(shape=(ncvar.shape[0],), dtype='i8')
-                        concatenated_data[varname][:]=ncvar[:].flatten()
-            f.close()
+    if (save_every!=1):
+        for i in range(iters):
+            if ((i+1)%save_every==0 or i==0):
+                f = Dataset(file_prefix+str(i+1)+".g", "r", format="NETCDF4")
+                for varname,ncvar in f.variables.items():
+                    if (varname in fields):
+                        if (varname != "ID"):
+                            #print("%s, %s time_step: %d"%(file_prefix, varname, i))
+                            if (concatenated_data[varname].shape[0]==0):
+                                concatenated_data[varname]=np.zeros(shape=(ncvar.shape[0],iters//save_every+2), dtype='f8')
+                                concatenated_data[varname][:,1]=ncvar[:].flatten()
+                            else:
+                                concatenated_data[varname][:,i//save_every+2] = ncvar[:].flatten()
+                        elif (varname=="ID" and i//save_every==1):
+                            # take care of ID here on first step
+                            concatenated_data[varname]=np.zeros(shape=(ncvar.shape[0],), dtype='i8')
+                            concatenated_data[varname][:]=ncvar[:].flatten()
+                f.close()
+    else:
+        for i in range(iters):
+            if ((i+1)%save_every==0):
+                f = Dataset(file_prefix+str(i+1)+".g", "r", format="NETCDF4")
+                for varname,ncvar in f.variables.items():
+                    if (varname in fields):
+                        if (varname != "ID"):
+                            #print("%s, %s time_step: %d"%(file_prefix, varname, i))
+                            if (concatenated_data[varname].shape[0]==0):
+                                concatenated_data[varname]=np.zeros(shape=(ncvar.shape[0],iters//save_every+1), dtype='f8')
+                                concatenated_data[varname][:,1]=ncvar[:].flatten()
+                            else:
+                                concatenated_data[varname][:,i//save_every+1] = ncvar[:].flatten()
+                        elif (varname=="ID" and i//save_every==1):
+                            # take care of ID here on first step
+                            concatenated_data[varname]=np.zeros(shape=(ncvar.shape[0],), dtype='i8')
+                            concatenated_data[varname][:]=ncvar[:].flatten()
+                f.close()
 
     # if reference_file didn't have this field, then it will have zeros for that time_step
     ref = Dataset(reference_file, "r", format="NETCDF4")
@@ -116,7 +135,7 @@ def get_data_from_file_sequence(iters, save_every, reference_file, file_prefix, 
 
     return concatenated_data
 
-def consolidate(iters, save_every, ref_file1, ref_file2, data_prefix):
+def consolidate(iters, save_every, ref_file1, ref_file2, data_prefix, blk_level1=1, blk_level2=1):
 
     original_field_names = ["ID","TotalPrecipWater","CloudFraction","Topography","Smooth","AnalyticalFun1","AnalyticalFun2"]
     field_names = filter_fields_in_file_sequence(data_prefix+"/forward_", original_field_names)
@@ -138,7 +157,7 @@ def consolidate(iters, save_every, ref_file1, ref_file2, data_prefix):
 
     # fill in dataset from source file
     # but not copying TotalPrecWater, etc....
-    copy_variables_from_source_except_data(ref_file1, dataset1, field_dictionary, "_remap_src")
+    copy_variables_from_source_except_data(ref_file1, dataset1, field_dictionary, "_remap_src", blk_level1)
 
     # all steps need duplicated, and called with "forward_" with ref_file1+2 reversed
     head, tail = os.path.split(ref_file1)
@@ -152,7 +171,7 @@ def consolidate(iters, save_every, ref_file1, ref_file2, data_prefix):
 
     # fill in dataset from source file
     # but not copying TotalPrecWater, etc....
-    copy_variables_from_source_except_data(ref_file2, dataset1, field_dictionary, "_remap_tgt")
+    copy_variables_from_source_except_data(ref_file2, dataset1, field_dictionary, "_remap_tgt", blk_level2)
 
     # close file we are writing to
     dataset1.close()
