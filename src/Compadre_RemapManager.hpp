@@ -131,6 +131,7 @@ class RemapManager {
 		const scalar_type _max_radius;
 
 		Teuchos::RCP<neighbors_type> _neighborhoodInfo;
+		Teuchos::RCP<neighbors_type> _localBoundsNeighborhoodInfo;
 		std::vector<local_index_type> _local_operations_num;
 		Teuchos::RCP<GMLS> _GMLS;
 

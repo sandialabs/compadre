@@ -81,6 +81,7 @@ if (CompadreHarness_EXAMPLES)
     # no tests
     add_exe_w_compadre(cangaRemoteRemapSingleIter.exe Canga_RemoteRemap_SingleIter.cpp)
     add_exe_w_compadre(cangaRemoteRemapMultiIter.exe Canga_RemoteRemap_MultiIter.cpp)
+    add_exe_w_compadre(cangaRemapMultiIter.exe Canga_Remap_MultiIter.cpp)
     add_exe_w_compadre(cangaFileConverter.exe Canga_FileConverter.cpp)
   ENDIF()
   add_exe_w_compadre(lagrangianShallowWater.exe Compadre_LagrangianShallowWater.cpp)
