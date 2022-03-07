@@ -374,11 +374,11 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                 "ScalarFaceAverageSample only supports 2d or 3d with 2d manifold");
         auto global_neighbor_index = data._pc.getNeighborIndex(target_index, neighbor_index);
         double cutoff_p = data._epsilons(target_index);
-        int alphax, alphay, alphaz;
+        int alphax, alphay;
         double alphaf;
 
-        double G_data[data._global_dimensions*3];
-        double triangle_coords[data._global_dimensions*3];
+        double G_data[3*3]; //data._global_dimensions*3
+        double triangle_coords[3*3]; //data._global_dimensions*3
         for (int i=0; i<data._global_dimensions*3; ++i) G_data[i] = 0;
         for (int i=0; i<data._global_dimensions*3; ++i) triangle_coords[i] = 0;
         // 3 is for # vertices in sub-triangle
