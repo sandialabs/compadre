@@ -157,10 +157,10 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
 
                 // Calculate basis matrix for NON MANIFOLD problems
                 double cutoff_p = data._epsilons(target_index);
-                int alphax, alphay, alphaz;
+                int alphax, alphay;
                 double alphaf;
 
-                double triangle_coords[data._global_dimensions*3];
+                double triangle_coords[3*3]; //data._global_dimensions*3
                 scratch_matrix_right_type triangle_coords_matrix(triangle_coords, data._global_dimensions, 3); 
 
                 for (int j=0; j<data._global_dimensions; ++j) {
@@ -1708,8 +1708,8 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
 
                 // global dimension cannot be determined in a constexpr way, so we use a largest case scenario
                 // of dimensions 3 for _global_dimension
-                double G_data[data._global_dimensions*3];
-                double triangle_coords[data._global_dimensions*3];
+                double G_data[3*3]; //data._global_dimensions*3
+                double triangle_coords[3*3]; //data._global_dimensions*3
                 for (int i=0; i<data._global_dimensions*3; ++i) G_data[i] = 0;
                 for (int i=0; i<data._global_dimensions*3; ++i) triangle_coords[i] = 0;
                 // 3 is for # vertices in sub-triangle

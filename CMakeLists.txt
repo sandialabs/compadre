@@ -70,8 +70,12 @@ else() # Raw CMake Project
   bob_begin_package()
 
   # Set to OFF for significantly faster performance and ON for error tracking
-  bob_option(Compadre_DEBUG "Run Compadre Toolkit in DEBUG mode" ON)
   bob_option(Compadre_EXTREME_DEBUG "Run Compadre Toolkit in EXTREME DEBUG mode" OFF)
+  bob_option(Compadre_DEBUG "Run Compadre Toolkit in DEBUG mode" ON)
+  if (Compadre_EXTREME_DEBUG)
+    set(Compadre_DEBUG ON)
+    message(STATUS "Compadre_DEBUG: ON (because Compadre_EXTREME_DEBUG is ON)")
+  endif()
 
   # RPATH related settings
   # https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/RPATH-handling
