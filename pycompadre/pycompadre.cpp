@@ -746,6 +746,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     sampling_functional["FaceTangentIntegralSample"] = FaceTangentIntegralSample;
     sampling_functional["FaceTangentPointSample"] = FaceTangentPointSample;
     sampling_functional["ScalarFaceAverageSample"] = ScalarFaceAverageSample;
+    sampling_functional["ScalarFaceIntegralSample"] = ScalarFaceIntegralSample;
     m.attr("SamplingFunctionals") = sampling_functional;
 
     py::enum_<TargetOperation>(m, "TargetOperation")
@@ -764,6 +765,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .value("ChainedStaggeredLaplacianOfScalarPointEvaluation", TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation)
     .value("GaussianCurvaturePointEvaluation", TargetOperation::GaussianCurvaturePointEvaluation)
     .value("ScalarFaceAverageEvaluation", TargetOperation::ScalarFaceAverageEvaluation)
+    .value("ScalarFaceIntegralEvaluation", TargetOperation::ScalarFaceIntegralEvaluation)
     .export_values();
 
 

@@ -369,7 +369,9 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                 }
             }
         }
-    } else if (polynomial_sampling_functional == ScalarFaceAverageSample) {
+    } else if (polynomial_sampling_functional == ScalarFaceAverageSample ||
+               polynomial_sampling_functional == ScalarFaceIntegralSample) {
+
         compadre_kernel_assert_debug(data._local_dimensions==2 &&
                 "ScalarFaceAverageSample only supports 2d or 3d with 2d manifold");
         auto global_neighbor_index = data._pc.getNeighborIndex(target_index, neighbor_index);
@@ -389,10 +391,14 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
         // could be calculated, but is correct for sphere
         // and also for non-manifold problems
         // uses given midpoint, rather than computing the midpoint from vertices
+        double radius = 0.0;
+        // this midpoint should lie on the sphere, or this will be the wrong radius
         for (int j=0; j<data._global_dimensions; ++j) {
             // midpoint
             triangle_coords_matrix(j, 0) = data._pc.getNeighborCoordinate(target_index, neighbor_index, j);
+            radius += triangle_coords_matrix(j, 0)*triangle_coords_matrix(j, 0);
         }
+        radius = std::sqrt(radius);
 
         // NaN in last entry (data._global_dimensions) is a convention for indicating fewer vertices 
         // for this cell and NaN is checked by entry!=entry
@@ -449,24 +455,24 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                     transformed_qp_norm = std::sqrt(transformed_qp_norm);
                     // transformed_qp made unit length
                     for (int j=0; j<data._global_dimensions; ++j) {
-                        scaled_transformed_qp[j] = unscaled_transformed_qp[j] / transformed_qp_norm;
+                        scaled_transformed_qp[j] = unscaled_transformed_qp[j] * radius / transformed_qp_norm;
                     }
 
 
                     // u_qp = midpoint + r_qp[1]*(v_1-midpoint) + r_qp[2]*(v_2-midpoint)
-                    // s_qp = u_qp / norm(u_qp)
+                    // s_qp = u_qp * radius / norm(u_qp) = radius * u_qp / norm(u_qp)
                     //
                     // so G(:,i) is \partial{s_qp}/ \partial{r_qp[i]}
                     // where r_qp is reference quadrature point (R^2 in 2D manifold in R^3)
                     //
-                    // G(:,i) = \partial{u_qp}/\partial{r_qp[i]} * (\sum_m u_qp[k]^2)^{-1/2}
-                    //          + u_qp * \partial{(\sum_m u_qp[k]^2)^{-1/2}}/\partial{r_qp[i]}
+                    // G(:,i) = radius * ( \partial{u_qp}/\partial{r_qp[i]} * (\sum_m u_qp[k]^2)^{-1/2}
+                    //          + u_qp * \partial{(\sum_m u_qp[k]^2)^{-1/2}}/\partial{r_qp[i]} )
                     //
-                    //        = T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
-                    //                              *2*(\sum_k u_qp[k]*\partial{u_qp[k]}/\partial{r_qp[i]})
+                    //        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
+                    //                              *2*(\sum_k u_qp[k]*\partial{u_qp[k]}/\partial{r_qp[i]}) )
                     //
-                    //        = T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
-                    //                              *2*(\sum_k u_qp[k]*T(k,i))
+                    //        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
+                    //                              *2*(\sum_k u_qp[k]*T(k,i)) )
                     //
                     double qp_norm_sq = transformed_qp_norm*transformed_qp_norm;
                     for (int j=0; j<data._global_dimensions; ++j) {
@@ -481,6 +487,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                     }
                     G_determinant = getAreaFromVectors(teamMember, 
                             Kokkos::subview(G, Kokkos::ALL(), 1), Kokkos::subview(G, Kokkos::ALL(), 2));
+                    G_determinant *= radius;
                     XYZ qp = XYZ(scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]);
                     for (int j=0; j<data._local_dimensions; ++j) {
                         relative_coord[j] = data._pc.convertGlobalToLocalCoordinate(qp,j,*V) 
@@ -517,11 +524,13 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                 entire_cell_area += G_determinant * data._qm.getWeight(quadrature);
             }
         }
-        int k = 0;
-        for (int n = 0; n <= poly_order; n++){
-            for (alphay = 0; alphay <= n; alphay++){
-                *(delta+k) /= entire_cell_area;
-                k++;
+        if (polynomial_sampling_functional == ScalarFaceAverageSample) {
+            int k = 0;
+            for (int n = 0; n <= poly_order; n++){
+                for (alphay = 0; alphay <= n; alphay++){
+                    *(delta+k) /= entire_cell_area;
+                    k++;
+                }
             }
         }
     } else {

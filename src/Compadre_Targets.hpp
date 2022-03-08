@@ -149,7 +149,8 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                       P_target_row(offset, 2) = std::pow(data._epsilons(target_index), -2);
                   }
               });
-            } else if (data._operations(i) == TargetOperation::ScalarFaceAverageEvaluation) {
+            } else if (data._operations(i) == TargetOperation::ScalarFaceAverageEvaluation ||
+                       data._operations(i) == TargetOperation::ScalarFaceIntegralEvaluation) {
                 compadre_kernel_assert_debug(data._local_dimensions==2 &&
                         "ScalarFaceAverageSample only supports 2d or 3d with 2d manifold");
                 const double factorial[15] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
@@ -226,13 +227,15 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                         entire_cell_area += G_determinant * data._qm.getWeight(quadrature);
                     }
                 }
-                int k = 0;
-                for (int n = 0; n <= data._poly_order; n++){
-                    for (alphay = 0; alphay <= n; alphay++){
-                        Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                            P_target_row(offset, k) /= entire_cell_area;
-                        });
-                        k++;
+                if (data._operations(i) == TargetOperation::ScalarFaceAverageEvaluation) {
+                    int k = 0;
+                    for (int n = 0; n <= data._poly_order; n++){
+                        for (alphay = 0; alphay <= n; alphay++){
+                            Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                                P_target_row(offset, k) /= entire_cell_area;
+                            });
+                            k++;
+                        }
                     }
                 }
             } else {
@@ -1695,7 +1698,8 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                     }
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
-            } else if (data._operations(i) == TargetOperation::ScalarFaceAverageEvaluation) {
+            } else if (data._operations(i) == TargetOperation::ScalarFaceAverageEvaluation ||
+                       data._operations(i) == TargetOperation::ScalarFaceIntegralEvaluation) {
                 compadre_kernel_assert_debug(data._local_dimensions==2 &&
                         "ScalarFaceAverageSample only supports 2d or 3d with 2d manifold");
                 const double factorial[15] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
@@ -1716,10 +1720,13 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                 scratch_matrix_right_type G(G_data, data._global_dimensions, 3); 
                 scratch_matrix_right_type triangle_coords_matrix(triangle_coords, data._global_dimensions, 3); 
 
+                double radius = 0.0;
                 for (int j=0; j<data._global_dimensions; ++j) {
                     // midpoint
                     triangle_coords_matrix(j, 0) = data._pc.getTargetCoordinate(target_index, j);
+                    radius += triangle_coords_matrix(j, 0)*triangle_coords_matrix(j, 0);
                 }
+                radius = std::sqrt(radius);
 
                 // NaN in last _global_dimensions indicates fewer vertices for this cell
                 size_t num_vertices = (data._target_extra_data(target_index, data._target_extra_data.extent(1)-1)
@@ -1774,19 +1781,19 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                         }
 
                         // u_qp = midpoint + r_qp[1]*(v_1-midpoint) + r_qp[2]*(v_2-midpoint)
-                        // s_qp = u_qp / norm(u_qp)
+                        // s_qp = u_qp * radius / norm(u_qp)
                         //
                         // so G(:,i) is \partial{s_qp}/ \partial{r_qp[i]}
                         // where r_qp is reference quadrature point (R^2 in 2D manifold in R^3)
                         //
-                        // G(:,i) = \partial{u_qp}/\partial{r_qp[i]} * (\sum_m u_qp[k]^2)^{-1/2}
-                        //          + u_qp * \partial{(\sum_m u_qp[k]^2)^{-1/2}}/\partial{r_qp[i]}
+                        // G(:,i) = radius * ( \partial{u_qp}/\partial{r_qp[i]} * (\sum_m u_qp[k]^2)^{-1/2}
+                        //          + u_qp * \partial{(\sum_m u_qp[k]^2)^{-1/2}}/\partial{r_qp[i]} )
                         //
-                        //        = T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
-                        //                              *2*(\sum_k u_qp[k]*\partial{u_qp[k]}/\partial{r_qp[i]})
+                        //        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
+                        //                              *2*(\sum_k u_qp[k]*\partial{u_qp[k]}/\partial{r_qp[i]}) )
                         //
-                        //        = T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
-                        //                              *2*(\sum_k u_qp[k]*T(k,i))
+                        //        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
+                        //                              *2*(\sum_k u_qp[k]*T(k,i)) )
                         //
                         double qp_norm_sq = transformed_qp_norm*transformed_qp_norm;
                         for (int j=0; j<data._global_dimensions; ++j) {
@@ -1801,6 +1808,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                         }
                         double G_determinant = getAreaFromVectors(teamMember, 
                                 Kokkos::subview(G, Kokkos::ALL(), 1), Kokkos::subview(G, Kokkos::ALL(), 2));
+                        G_determinant *= radius;
                         XYZ qp = XYZ(scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]);
                         for (int j=0; j<data._local_dimensions; ++j) {
                             relative_coord[j] = data._pc.convertGlobalToLocalCoordinate(qp,j,V) 
@@ -1826,13 +1834,15 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                         entire_cell_area += G_determinant * data._qm.getWeight(quadrature);
                     }
                 }
-                int k = 0;
-                for (int n = 0; n <= data._poly_order; n++){
-                    for (alphay = 0; alphay <= n; alphay++){
-                        Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
-                            P_target_row(offset, k) /= entire_cell_area;
-                        });
-                        k++;
+                if (data._operations(i) == TargetOperation::ScalarFaceAverageEvaluation) {
+                    int k = 0;
+                    for (int n = 0; n <= data._poly_order; n++){
+                        for (alphay = 0; alphay <= n; alphay++){
+                            Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                                P_target_row(offset, k) /= entire_cell_area;
+                            });
+                            k++;
+                        }
                     }
                 }
             } else {
