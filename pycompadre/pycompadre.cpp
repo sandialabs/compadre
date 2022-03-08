@@ -799,6 +799,15 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .value("NO_CONSTRAINT", ConstraintType::NO_CONSTRAINT)
     .value("NEUMANN_GRAD_SCALAR", ConstraintType::NEUMANN_GRAD_SCALAR)
     .export_values();
+
+    py::enum_<QuadratureType>(m, "QuadratureType")
+    .value("INVALID", QuadratureType::INVALID)
+    .value("LINE", QuadratureType::LINE)
+    .value("TRI", QuadratureType::TRI)
+    .value("QUAD", QuadratureType::QUAD)
+    .value("TET", QuadratureType::TET)
+    .value("HEX", QuadratureType::HEX)
+    .export_values();
     
     py::class_<SolutionSet<host_memory_space> >(m, "SolutionSet", R"pbdoc(
         Class containing solution data from GMLS problems
@@ -1007,6 +1016,21 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .def("getMinNumNeighbors", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getMinNumNeighbors, "Get minimum number of neighbors over all neighborhoods.")
     .def("getNeighbor", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getNeighborHost, py::arg("target index"), py::arg("local neighbor number"), "Get neighbor index from target index and local neighbor number.")
     .def("getTotalNeighborsOverAllLists", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getTotalNeighborsOverAllListsHost, "Get total storage size of all neighbor lists combined.");
+
+    py::class_<Quadrature>(m, "Quadrature")
+    .def(py::init<int, int, std::string>(), py::arg("order_of_quadrature_points"), py::arg("dimension_of_quadrature_points"), 
+         py::arg("quadrature_type") = "LINE")
+    .def("validQuadrature", &Quadrature::validQuadrature, "Has quadrature been generated.")
+    .def("getNumberOfQuadraturePoints", &Quadrature::getNumberOfQuadraturePoints)
+    .def("getOrderOfQuadraturePoints", &Quadrature::getOrderOfQuadraturePoints)
+    .def("getDimensionOfQuadraturePoints", &Quadrature::getDimensionOfQuadraturePoints)
+    .def("getQuadratureType", &Quadrature::getQuadratureType)
+    .def("getWeights", [] (const Quadrature &quadrature) {
+        return convert_kokkos_to_np(quadrature.getWeights());
+    })
+    .def("getSites", [] (const Quadrature &quadrature) {
+        return convert_kokkos_to_np(quadrature.getSites());
+    });
 
     py::class_<KokkosParser>(m, "KokkosParser")
     .def(py::init<std::vector<std::string>,bool>(), py::arg("args"), py::arg("print") = false)
