@@ -224,6 +224,69 @@ class TestPyCOMPADRE(KokkosTestCase):
 
     # most tests are added from a dictionary below 
 
+    def test_1d_line_quadrature(self):
+        # integrand
+        f = lambda x: -3 + x - x**2
+        # exact integral
+        solution = -175.0/6.0
+
+        q_order = 2
+        q_dim   = 1
+        qp = pycompadre.Quadrature(q_order, q_dim, "LINE")
+        self.assertTrue(qp.validQuadrature())
+
+        qpoints = qp.getSites()
+        qweights = qp.getWeights()
+
+        result = 0
+        # domain is [-1,4]
+        # scale from [0,1] to [-1,4]
+        scale = 5
+        shift = -1
+        for i in range(len(qpoints)):
+            result += f(scale*qpoints[i][0]+shift)*qweights[i]*scale
+
+        self.assertAlmostEqual(result, solution, places=13)
+
+    def test_2d_tri_quadrature(self):
+        # integrand
+        f = lambda x: -3 + x[1] + x[0] - x[0]**2 - x[1]**2 + 4*x[0]*x[1]
+        # exact
+        solution = -38 - 1.0/3
+
+        q_order = 2
+        q_dim   = 2
+        qp = pycompadre.Quadrature(q_order, q_dim, "TRI")
+        self.assertTrue(qp.validQuadrature())
+
+        # reference
+        qpoints = qp.getSites()
+        qweights = qp.getWeights()
+
+        # directions 
+        v = np.zeros(shape=(2,3), dtype='f8')
+        # domain is area covered by [-1,-1], [4,-1], [1,3]
+        v[:,0] = [-1,-1]
+        v[:,1] = [ 4,-1]
+        v[:,2] = [ 1, 3]
+
+        # physical pt from quadrature
+        result = 0.0
+        for i in range(len(qpoints)):
+            new_dir = []
+            new_dir.append(v[:,1]-v[:,0])
+            new_dir.append(v[:,2]-v[:,0])
+
+            new_q =  v[:,0].copy()
+            for j in range(2):
+                new_q += qpoints[i][j] * new_dir[j]
+
+            # cross product gives stretch factor
+            scaling = np.abs(np.cross(new_dir[0], new_dir[1]))
+            result += f(new_q)*qweights[i]*scaling
+
+        self.assertAlmostEqual(result, solution, places=13)
+
     def test_square_qr_bugfix(self):
 
         source_sites = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
