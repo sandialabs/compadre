@@ -874,6 +874,9 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .def("getWeightingType", &GMLS::getWeightingType, "Get the weighting type.")
     .def("setWeightingType", overload_cast_<const std::string&>()(&GMLS::setWeightingType), "Set the weighting type with a string.")
     .def("setWeightingType", overload_cast_<WeightingFunctionType>()(&GMLS::setWeightingType), "Set the weighting type with a WeightingFunctionType.")
+    .def("setOrderOfQuadraturePoints", &GMLS::setOrderOfQuadraturePoints, py::arg("order"))
+    .def("setDimensionOfQuadraturePoints", &GMLS::setDimensionOfQuadraturePoints, py::arg("dim"))
+    .def("setQuadratureType", &GMLS::setQuadratureType, py::arg("quadrature_type"))
     .def("addTargets", overload_cast_<TargetOperation>()(&GMLS::addTargets), "Add a target operation.")
     .def("addTargets", overload_cast_<std::vector<TargetOperation> >()(&GMLS::addTargets), "Add a list of target operations.")
     .def("generateAlphas", &GMLS::generateAlphas, py::arg("number_of_batches")=1, py::arg("keep_coefficients")=false, py::arg("clear_cache")=true)
@@ -881,6 +884,20 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .def("getSolutionSet", &GMLS::getSolutionSetHost, py::arg("validity_check")=true, py::return_value_policy::reference_internal)
     .def("getNP", &GMLS::getNP, "Get size of basis.")
     .def("getNN", &GMLS::getNN, "Heuristic number of neighbors.")
+    .def("setTargetExtraData", [] (GMLS* gmls, py::array_t<double> extra_data) {
+        py::buffer_info buf = extra_data.request();
+        if (buf.ndim != 2) {
+            throw std::runtime_error("Number of dimensions must be two");
+        }
+        gmls->setTargetExtraData(convert_np_to_kokkos_2d(extra_data));
+    })
+    .def("setSourceExtraData", [] (GMLS* gmls, py::array_t<double> extra_data) {
+        py::buffer_info buf = extra_data.request();
+        if (buf.ndim != 2) {
+            throw std::runtime_error("Number of dimensions must be two");
+        }
+        gmls->setSourceExtraData(convert_np_to_kokkos_2d(extra_data));
+    })
     .def(py::pickle(
         [](const GMLS &gmls) { // __getstate__
 
