@@ -1808,7 +1808,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                         }
                         double G_determinant = getAreaFromVectors(teamMember, 
                                 Kokkos::subview(G, Kokkos::ALL(), 1), Kokkos::subview(G, Kokkos::ALL(), 2));
-                        G_determinant *= radius;
+                        G_determinant *= radius*radius;
                         XYZ qp = XYZ(scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]);
                         for (int j=0; j<data._local_dimensions; ++j) {
                             relative_coord[j] = data._pc.convertGlobalToLocalCoordinate(qp,j,V) 
