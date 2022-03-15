@@ -1170,27 +1170,17 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, num_evaluation_sites), [&] (const int k) {
                         // output component 0
                         calcPij<TargetData>(data, teamMember, delta.data(), thread_workspace.data(), target_index, -1 /* target is neighbor */, 1 /*alpha*/, data._dimensions-1, data._poly_order, false /*bool on only specific order*/, &V, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, k);
-                        int offset = data._d_ss.getTargetOffsetIndex(i, 0, 0, k);
-                        for (int j=0; j<target_NP; ++j) {
-                            P_target_row(offset, j) = delta(j);
-                            P_target_row(offset, target_NP + j) = 0;
-                        }
-                        offset = data._d_ss.getTargetOffsetIndex(i, 1, 0, k);
-                        for (int j=0; j<target_NP; ++j) {
-                            P_target_row(offset, j) = 0;
-                            P_target_row(offset, target_NP + j) = 0;
-                        }
-
-                        // output component 1
-                        offset = data._d_ss.getTargetOffsetIndex(i, 0, 1, k);
-                        for (int j=0; j<target_NP; ++j) {
-                            P_target_row(offset, j) = 0;
-                            P_target_row(offset, target_NP + j) = 0;
-                        }
-                        offset = data._d_ss.getTargetOffsetIndex(i, 1, 1, k);
-                        for (int j=0; j<target_NP; ++j) {
-                            P_target_row(offset, j) = 0;
-                            P_target_row(offset, target_NP + j) = delta(j);
+                        for (int m=0; m<data._sampling_multiplier; ++m) {
+                            int output_components = data._basis_multiplier;
+                            for (int c=0; c<output_components; ++c) {
+                                int offset = data._d_ss.getTargetOffsetIndex(i, m /*in*/, c /*out*/, k/*additional*/);
+                                // for the case where data._sampling_multiplier is > 1,
+                                // this approach relies on c*target_NP being equivalent to P_target_row(offset, j) where offset is
+                                // data._d_ss.getTargetOffsetIndex(i, m /*in*/, c /*out*/, e/*additional*/)*data._basis_multiplier*target_NP;
+                                for (int j=0; j<target_NP; ++j) {
+                                    P_target_row(offset, c*target_NP + j) = delta(j);
+                                }
+                            }
                         }
                     });
                     additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
