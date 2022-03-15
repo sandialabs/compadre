@@ -578,7 +578,7 @@ public:
 
         auto result = py::array_t<double>(dim_out_0*dim_out_1);
 
-        if (dim_out_1==2) {
+        if (dim_out_1>=2) {
             result.resize({dim_out_0,dim_out_1});
             auto result_data = result.mutable_unchecked<2>();
             Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
@@ -630,7 +630,7 @@ public:
 
         auto result = py::array_t<double>(dim_out_0*dim_out_1*dim_out_2);
 
-        if (dim_out_2==2) {
+        if (dim_out_2>=2) {
             result.resize({dim_out_0,dim_out_1,dim_out_2});
             auto result_data = result.mutable_unchecked<3>();
             for (size_t k=0; k<max_additional_sites; ++k) {
@@ -865,6 +865,11 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             py::arg("curvature_poly_order")=2)
     .def(py::init<ReconstructionSpace,SamplingFunctional,int,int,std::string,std::string,std::string,int>(),
             py::arg("reconstruction_space"),py::arg("sampling_functional"),
+            py::arg("poly_order"),py::arg("dimension")=3,py::arg("dense_solver_type")="QR", 
+            py::arg("problem_type")="STANDARD", py::arg("constraint_type")="NO_CONSTRAINT", 
+            py::arg("curvature_poly_order")=2)
+    .def(py::init<ReconstructionSpace,SamplingFunctional,SamplingFunctional,int,int,std::string,std::string,std::string,int>(),
+            py::arg("reconstruction_space"),py::arg("polynomial_sampling_functional"),py::arg("data_sampling_functional"),
             py::arg("poly_order"),py::arg("dimension")=3,py::arg("dense_solver_type")="QR", 
             py::arg("problem_type")="STANDARD", py::arg("constraint_type")="NO_CONSTRAINT", 
             py::arg("curvature_poly_order")=2)
