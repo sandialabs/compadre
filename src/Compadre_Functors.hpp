@@ -109,7 +109,15 @@ const GMLSSolutionData createGMLSSolutionData(const GMLS& gmls) {
     // store results of calculation in struct
     const int max_num_neighbors = gmls._pc._nla.getMaxNumNeighbors();
     const int max_num_rows = gmls._sampling_multiplier*max_num_neighbors;
+
+    // applyTargetsToCoefficients currently uses data.this_num_cols for the
+    // dot product range. Even for manifold problems, it is still appropriate to
+    // use gmls._basis_multiplier*gmls._NP. If GMLSSolutionData was ever to be
+    // used for applying solution coefficients for the curvature reconstruction,
+    // the manifolf_NP would have to be used for that application (requiring an
+    // extra argument to applyTargetsToCoefficients)
     data.this_num_cols = gmls._basis_multiplier*gmls._NP;
+
     int RHS_dim_0, RHS_dim_1;
     getRHSDims(gmls._dense_solver_type, gmls._constraint_type, gmls._reconstruction_space, 
             gmls._dimensions, max_num_rows, data.this_num_cols, RHS_dim_0, RHS_dim_1);
