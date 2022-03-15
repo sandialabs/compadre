@@ -286,6 +286,14 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
         compadre_kernel_assert_debug(!specific_order_only && 
                 "Sampling functional does not support specific_order_only");
 
+        // On the sphere, edges lie on a great circle, which means the normal direction to the edge is 
+        // constant for all quadrature on the edge. this is not the case for tangent directions, which vary 
+        // by quadrature point. Data structures to support varying direction by quadrature point are not
+        // currently supported.
+        compadre_kernel_assert_debug((data._problem_type != ProblemType::MANIFOLD || 
+                                      polynomial_sampling_functional != FaceTangentIntegralSample) && 
+                "FaceTangentIntegralSamplg not supported on manifolds");
+
         double cutoff_p = data._epsilons(target_index);
         auto global_neighbor_index = data._pc.getNeighborIndex(target_index, neighbor_index);
 
@@ -319,7 +327,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
         for (int j=0; j<data._global_dimensions; ++j) {
             edge_coords_matrix(j, 0) = data._source_extra_data(global_neighbor_index, j);
             edge_coords_matrix(j, 1) = data._source_extra_data(global_neighbor_index, data._global_dimensions + j) - edge_coords_matrix(j, 0);
-            radius += edge_coords_matrix(j, 0);
+            radius += edge_coords_matrix(j, 0)*edge_coords_matrix(j, 0);
         }
         radius = std::sqrt(radius);
 
@@ -342,57 +350,52 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
 
                 // project onto the sphere
                 if (data._problem_type == ProblemType::MANIFOLD) {
-                    //// unscaled_transformed_qp now lives on cell, but if on manifold,
-                    //// not directly on the sphere, just close by
+                    // unscaled_transformed_qp now lives on cell edge, but if on manifold,
+                    // not directly on the sphere, just near by
 
-                    //// normalize to project back onto sphere
-                    //double transformed_qp_norm = 0;
-                    //for (int j=0; j<data._global_dimensions; ++j) {
-                    //    transformed_qp_norm += unscaled_transformed_qp[j]*unscaled_transformed_qp[j];
-                    //}
-                    //transformed_qp_norm = std::sqrt(transformed_qp_norm);
-                    //// transformed_qp made unit length
-                    //for (int j=0; j<data._global_dimensions; ++j) {
-                    //    scaled_transformed_qp[j] = unscaled_transformed_qp[j] * radius / transformed_qp_norm;
-                    //}
+                    // normalize to project back onto sphere
+                    double transformed_qp_norm = 0;
+                    for (int j=0; j<data._global_dimensions; ++j) {
+                        transformed_qp_norm += unscaled_transformed_qp[j]*unscaled_transformed_qp[j];
+                    }
+                    transformed_qp_norm = std::sqrt(transformed_qp_norm);
+                    // transformed_qp made unit length
+                    for (int j=0; j<data._global_dimensions; ++j) {
+                        scaled_transformed_qp[j] = unscaled_transformed_qp[j] * radius / transformed_qp_norm;
+                    }
 
-
-                    //// u_qp = midpoint + r_qp[1]*(v_1-midpoint) + r_qp[2]*(v_2-midpoint)
-                    //// s_qp = u_qp * radius / norm(u_qp) = radius * u_qp / norm(u_qp)
-                    ////
-                    //// so G(:,i) is \partial{s_qp}/ \partial{r_qp[i]}
-                    //// where r_qp is reference quadrature point (R^2 in 2D manifold in R^3)
-                    ////
-                    //// G(:,i) = radius * ( \partial{u_qp}/\partial{r_qp[i]} * (\sum_m u_qp[k]^2)^{-1/2}
-                    ////          + u_qp * \partial{(\sum_m u_qp[k]^2)^{-1/2}}/\partial{r_qp[i]} )
-                    ////
-                    ////        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
-                    ////                              *2*(\sum_k u_qp[k]*\partial{u_qp[k]}/\partial{r_qp[i]}) )
-                    ////
-                    ////        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
-                    ////                              *2*(\sum_k u_qp[k]*T(k,i)) )
-                    ////
-                    //double qp_norm_sq = transformed_qp_norm*transformed_qp_norm;
-                    //for (int j=0; j<data._global_dimensions; ++j) {
-                    //    G(j,1) = T(j,1)/transformed_qp_norm;
-                    //    G(j,2) = T(j,2)/transformed_qp_norm;
-                    //    for (int k=0; k<data._global_dimensions; ++k) {
-                    //        G(j,1) += unscaled_transformed_qp[j]*(-0.5)*std::pow(qp_norm_sq,-1.5)
-                    //                  *2*(unscaled_transformed_qp[k]*T(k,1));
-                    //        G(j,2) += unscaled_transformed_qp[j]*(-0.5)*std::pow(qp_norm_sq,-1.5)
-                    //                  *2*(unscaled_transformed_qp[k]*T(k,2));
-                    //    }
-                    //}
-                    //G_determinant = getAreaFromVectors(teamMember, 
-                    //        Kokkos::subview(G, Kokkos::ALL(), 1), Kokkos::subview(G, Kokkos::ALL(), 2));
-                    //G_determinant *= radius*radius;
-                    //XYZ qp = XYZ(scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]);
-                    //for (int j=0; j<data._local_dimensions; ++j) {
-                    //    relative_coord[j] = data._pc.convertGlobalToLocalCoordinate(qp,j,*V) 
-                    //                        - data._pc.getTargetCoordinate(target_index,j,V); 
-                    //    // shift quadrature point by target site
-                    //}
-                    //relative_coord[2] = 0;
+                    // u_qp = v_1 + r_qp[1]*(v_2 - v_1)
+                    // s_qp = u_qp * radius / norm(u_qp) = radius * u_qp / norm(u_qp)
+                    //
+                    // so G(:,1) is \partial{s_qp}/ \partial{r_qp[1]}
+                    // where r_qp is reference quadrature point (R^1 in 1D manifold in R^3)
+                    //
+                    // G(:,i) = radius * ( \partial{u_qp}/\partial{r_qp[i]} * (\sum_m u_qp[k]^2)^{-1/2}
+                    //          + u_qp * \partial{(\sum_m u_qp[k]^2)^{-1/2}}/\partial{r_qp[i]} )
+                    //
+                    //        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
+                    //                              *2*(\sum_k u_qp[k]*\partial{u_qp[k]}/\partial{r_qp[i]}) )
+                    //
+                    //        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
+                    //                              *2*(\sum_k u_qp[k]*T(k,i)) )
+                    double qp_norm_sq = transformed_qp_norm*transformed_qp_norm;
+                    for (int j=0; j<data._global_dimensions; ++j) {
+                        G(j,1) = E(j,1)/transformed_qp_norm;
+                        for (int k=0; k<data._global_dimensions; ++k) {
+                            G(j,1) += unscaled_transformed_qp[j]*(-0.5)*std::pow(qp_norm_sq,-1.5)
+                                      *2*(unscaled_transformed_qp[k]*E(k,1));
+                        }
+                    }
+                    XYZ g = {G(0,1), G(1,1), G(2,1)};
+                    G_determinant = data._pc.EuclideanVectorLength(g, 3);
+                    G_determinant *= radius;
+                    XYZ qp = XYZ(scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]);
+                    for (int j=0; j<data._local_dimensions; ++j) {
+                        relative_coord[j] = data._pc.convertGlobalToLocalCoordinate(qp,j,*V) 
+                                            - data._pc.getTargetCoordinate(target_index,j,V); 
+                        // shift quadrature point by target site
+                    }
+                    relative_coord[2] = 0;
                 } else { // not on a manifold, but still integrated
                     XYZ endpoints_difference = {E(0,1), E(1,1), 0};
                     G_determinant = data._pc.EuclideanVectorLength(endpoints_difference, 2);
@@ -405,9 +408,9 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                 }
             }
 
+            // get normal or tangent direction (ambient)
             XYZ direction;
             for (int j=0; j<data._global_dimensions; ++j) {
-                
                 // normal direction or tangent direction
                 if (polynomial_sampling_functional == FaceNormalIntegralSample 
                         || polynomial_sampling_functional == FaceNormalPointSample) {
@@ -420,6 +423,17 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
 
             }
 
+            // convert direction to local chart (for manifolds)
+            XYZ local_direction;
+            if (data._problem_type == ProblemType::MANIFOLD) {
+                for (int j=0; j<data._basis_multiplier; ++j) {
+                    // Project ambient normal direction onto local chart basis as a local direction.
+                    // Using V alone to provide vectors only gives tangent vectors at
+                    // the target site. This could result in accuracy < 3rd order.
+                    local_direction[j] = data._pc.convertGlobalToLocalCoordinate(direction,j,*V);
+                }
+            }
+
             int alphax, alphay;
             double alphaf;
             int i = 0;
@@ -430,20 +444,37 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                         alphaf = factorial[alphax]*factorial[alphay];
 
                         // local evaluation of vector [0,p] or [p,0]
-                        double v0, v1, v2;
+                        double v0, v1;
                         v0 = (j==0) ? std::pow(relative_coord.x/cutoff_p,alphax)
                             *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf : 0;
                         v1 = (j==1) ? std::pow(relative_coord.x/cutoff_p,alphax)
                             *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf : 0;
-                        if (data._global_dimensions==3) {
-                            v2 = (j==2) ? std::pow(relative_coord.x/cutoff_p,alphax)
-                                *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf : 0;
-                        }
+
+                        // Either the normal direction can be projected to the local chart or the
+                        // local chart basis can be projected to the ambient space. The following 
+                        // code block performs the latter.
+                        //
+                        // XYZ local_v;
+                        // XYZ ambient_v;
+                        // if (data._problem_type == ProblemType::MANIFOLD) {
+                        //     local_v[0] = v0;
+                        //     local_v[1] = v1;
+                        //     for (int j=0; j<data._global_dimensions; ++j) {
+                        //         // Project ambient direction onto local chart basis as a local direction.
+                        //         // Using V alone to provide vectors only gives tangent vectors at
+                        //         // the target site. This could result in accuracy < 3rd order.
+                        //         ambient_v[j] = data._pc.convertLocalToGlobalCoordinate(local_v,j,*V);
+                        //     }
+                        // }
 
                         // either n*v or t*v
-                        double dot_product = direction[0]*v0 + direction[1]*v1;
-                        if (data._global_dimensions==3) {
-                            dot_product += direction[2]*v2;
+                        double dot_product = 0.0;
+                        if (data._problem_type == ProblemType::MANIFOLD) {
+                            // alternate option for projection
+                            //dot_product = direction[0]*ambient_v[0] + direction[1]*ambient_v[1] + direction[2]*ambient_v[2];
+                            dot_product = local_direction[0]*v0 + local_direction[1]*v1;
+                        } else {
+                            dot_product = direction[0]*v0 + direction[1]*v1;
                         }
 
                         // multiply by quadrature weight
@@ -541,7 +572,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                 double G_determinant = 1.0;
                 if (data._problem_type == ProblemType::MANIFOLD) {
                     // unscaled_transformed_qp now lives on cell, but if on manifold,
-                    // not directly on the sphere, just close by
+                    // not directly on the sphere, just near by
 
                     // normalize to project back onto sphere
                     double transformed_qp_norm = 0;
