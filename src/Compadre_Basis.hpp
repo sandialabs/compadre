@@ -430,6 +430,13 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                     // Project ambient normal direction onto local chart basis as a local direction.
                     // Using V alone to provide vectors only gives tangent vectors at
                     // the target site. This could result in accuracy < 3rd order.
+
+
+                    // get tangent bundle and use for modifying normals
+                    // scratch_matrix_right_type T(data.T_data
+                    //         + TO_GLOBAL(global_neighbor_index)*TO_GLOBAL(data._global_dimensions*data._global_dimensions),
+                    //             data._global_dimensions, data._global_dimensions);
+                    // local_direction[j] = data._pc.convertGlobalToLocalCoordinate(direction,j,T);
                     local_direction[j] = data._pc.convertGlobalToLocalCoordinate(direction,j,*V);
                 }
             }
@@ -527,12 +534,18 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
         }
         radius = std::sqrt(radius);
 
-        // NaN in last entry (data._global_dimensions) is a convention for indicating fewer vertices 
+        // NaN in entry (data._global_dimensions) is a convention for indicating fewer vertices 
         // for this cell and NaN is checked by entry!=entry
-        size_t num_vertices = (data._source_extra_data(global_neighbor_index, data._source_extra_data.extent(1)-1)
-                != data._source_extra_data(global_neighbor_index, data._source_extra_data.extent(1)-1)) 
-                    ? (data._source_extra_data.extent(1) / data._global_dimensions) - 1 : 
-                      (data._source_extra_data.extent(1) / data._global_dimensions);
+        int num_vertices = 0;
+        for (int j=0; j<data._source_extra_data.extent_int(1); ++j) {
+            auto val = data._source_extra_data(global_neighbor_index, j);
+            if (val != val) {
+                break;
+            } else {
+                num_vertices++;
+            }
+        }
+        num_vertices = num_vertices / data._global_dimensions;
         auto T = triangle_coords_matrix;
 
         // loop over each two vertices 
