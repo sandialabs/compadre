@@ -210,6 +210,8 @@ def create_snapshot_dir_args(orig_dir, dest_dir, dry_run=False):
             "examples/Python_3D_Convergence.py.in "
             "examples/__init__.py "
             "examples/test_pycompadre.py "
+            ".github "
+            "cmake/CodeCoverage.cmake "
             "--clean-ignored-files-orig-dir")
     if dry_run:
         args += " --show-defaults"
