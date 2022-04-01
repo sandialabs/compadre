@@ -737,10 +737,10 @@ void createWeightsAndP(const BasisData& data, const member_type& teamMember, scr
     // storage_size needs to change based on the size of the basis
     int storage_size = GMLS::getNP(polynomial_order, dimension, reconstruction_space);
     storage_size *= data._basis_multiplier;
-    for (int j = 0; j < delta.extent(0); ++j) {
+    for (int j = 0; j < delta.extent_int(0); ++j) {
         delta(j) = 0;
     }
-    for (int j = 0; j < thread_workspace.extent(0); ++j) {
+    for (int j = 0; j < thread_workspace.extent_int(0); ++j) {
         thread_workspace(j) = 0;
     }
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,data._pc._nla.getNumberOfNeighborsDevice(target_index)),
@@ -825,10 +825,10 @@ void createWeightsAndPForCurvature(const BasisData& data, const member_type& tea
 
     const int target_index = data._initial_index_for_batch + teamMember.league_rank();
     int storage_size = only_specific_order ? GMLS::getNP(1, dimension)-GMLS::getNP(0, dimension) : GMLS::getNP(data._curvature_poly_order, dimension);
-    for (int j = 0; j < delta.extent(0); ++j) {
+    for (int j = 0; j < delta.extent_int(0); ++j) {
         delta(j) = 0;
     }
-    for (int j = 0; j < thread_workspace.extent(0); ++j) {
+    for (int j = 0; j < thread_workspace.extent_int(0); ++j) {
         thread_workspace(j) = 0;
     }
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,data._pc._nla.getNumberOfNeighborsDevice(target_index)),

@@ -968,7 +968,7 @@ public:
             // switches memory spaces
             Kokkos::deep_copy(tc, host_target_coordinates);
         }
-        if (this->getAdditionalEvaluationIndices()->getNumberOfTargets() != target_coordinates.extent(0)) {
+        if (this->getAdditionalEvaluationIndices()->getNumberOfTargets() != target_coordinates.extent_int(0)) {
             this->setAuxiliaryEvaluationIndicesLists(
                     Kokkos::View<int*>(),
                     Kokkos::View<int*>("number of additional evaluation indices", 
@@ -1275,7 +1275,7 @@ public:
 
     //! Verify whether _pc is valid
     bool verifyPointConnections(bool assert_valid = false) {
-        bool result = (_pc._target_coordinates.extent(0)==_pc._nla.getNumberOfTargets());
+        bool result = (_pc._target_coordinates.extent_int(0)==_pc._nla.getNumberOfTargets());
         compadre_assert_release((!assert_valid || result) &&
                 "Target coordinates and neighbor lists have different size.");
         
@@ -1291,7 +1291,7 @@ public:
 
     //! Verify whether _additional_pc is valid
     bool verifyAdditionalPointConnections(bool assert_valid = false) {
-        bool result = (_additional_pc._target_coordinates.extent(0)==_additional_pc._nla.getNumberOfTargets());
+        bool result = (_additional_pc._target_coordinates.extent_int(0)==_additional_pc._nla.getNumberOfTargets());
         compadre_assert_release((!assert_valid || result) &&
                 "Target coordinates and additional evaluation indices have different size.");
        

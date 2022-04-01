@@ -39,10 +39,10 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
             P_target_row(j,k) = 0;
         });
     });
-    for (int j = 0; j < delta.extent(0); ++j) {
+    for (int j = 0; j < delta.extent_int(0); ++j) {
         delta(j) = 0;
     }
-    for (int j = 0; j < thread_workspace.extent(0); ++j) {
+    for (int j = 0; j < thread_workspace.extent_int(0); ++j) {
         thread_workspace(j) = 0;
     }
     teamMember.team_barrier();
@@ -1043,7 +1043,7 @@ template <typename TargetData>
 KOKKOS_INLINE_FUNCTION
 void computeCurvatureFunctionals(const TargetData& data, const member_type& teamMember, scratch_vector_type delta, scratch_vector_type thread_workspace, scratch_matrix_right_type P_target_row, const scratch_matrix_right_type* V, const local_index_type local_neighbor_index = -1) {
 
-    compadre_kernel_assert_release(((int)thread_workspace.extent(0)>=(data._curvature_poly_order+1)*data._local_dimensions) && "Workspace thread_workspace not large enough.");
+    compadre_kernel_assert_release((thread_workspace.extent_int(0)>=(data._curvature_poly_order+1)*data._local_dimensions) && "Workspace thread_workspace not large enough.");
 
     const int target_index = data._initial_index_for_batch + teamMember.league_rank();
 
@@ -1053,10 +1053,10 @@ void computeCurvatureFunctionals(const TargetData& data, const member_type& team
             P_target_row(j,k) = 0;
         });
     });
-    for (int j = 0; j < delta.extent(0); ++j) {
+    for (int j = 0; j < delta.extent_int(0); ++j) {
         delta(j) = 0;
     }
-    for (int j = 0; j < thread_workspace.extent(0); ++j) {
+    for (int j = 0; j < thread_workspace.extent_int(0); ++j) {
         thread_workspace(j) = 0;
     }
     teamMember.team_barrier();
@@ -1112,7 +1112,7 @@ template <typename TargetData>
 KOKKOS_INLINE_FUNCTION
 void computeTargetFunctionalsOnManifold(const TargetData& data, const member_type& teamMember, scratch_vector_type delta, scratch_vector_type thread_workspace, scratch_matrix_right_type P_target_row, scratch_matrix_right_type V, scratch_vector_type curvature_coefficients) {
 
-    compadre_kernel_assert_release(((int)thread_workspace.extent(0)>=(data._poly_order+1)*data._local_dimensions) && "Workspace thread_workspace not large enough.");
+    compadre_kernel_assert_release((thread_workspace.extent_int(0)>=(data._poly_order+1)*data._local_dimensions) && "Workspace thread_workspace not large enough.");
 
     // only designed for 2D manifold embedded in 3D space
     const int target_index = data._initial_index_for_batch + teamMember.league_rank();
@@ -1125,10 +1125,10 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
             P_target_row(j,k) = 0;
         });
     });
-    for (int j = 0; j < delta.extent(0); ++j) {
+    for (int j = 0; j < delta.extent_int(0); ++j) {
         delta(j) = 0;
     }
-    for (int j = 0; j < thread_workspace.extent(0); ++j) {
+    for (int j = 0; j < thread_workspace.extent_int(0); ++j) {
         thread_workspace(j) = 0;
     }
     teamMember.team_barrier();
