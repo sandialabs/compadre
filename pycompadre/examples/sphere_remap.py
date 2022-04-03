@@ -191,7 +191,9 @@ class TestSphereRemap(KokkosTestCase):
             rel_l2_rates.append(np.log(rel_l2_errors[i]/rel_l2_errors[i-1])/np.log(0.5))
         print('cell integrals :: rel_l2_rates', rel_l2_rates)
 
-    def test_edge_integrated_remap(self):
+class TestSphereRemapEdgeIntegral(KokkosTestCase):
+
+    def test_edge_integrated_remap_2d_manifold(self):
 
         def run(level):
 
@@ -216,7 +218,7 @@ class TestSphereRemap(KokkosTestCase):
 
             DIM = 3
             assert DIM==3, "Only created for 3D problem with 2D manifolds (DIM==3)"
-            Q_DIM   = 1 # local manifold dimension
+            Q_DIM   = 1 # local manifold dimension for quadrature
 
             qp = pycompadre.Quadrature(q_order, Q_DIM, "LINE")
 
@@ -237,16 +239,24 @@ class TestSphereRemap(KokkosTestCase):
             lonE = dataset['lonEdge']
             nEdges = dataset.dimensions['nEdges'].size
 
+
+            #def check_var(var):
+            #    for edge in range(nEdges):
+            #        if (np.single(var[edge]) != np.double(var[edge])):
+            #            print(var[edge],np.single(var[edge])-np.double(var[edge]))
+            #check_var(lonE)
+
             # two vertex coordinates plus a normal vector and optional tangent vector (we don't use)
             extra_data = np.zeros(shape=(nEdges, DIM*TWO + 2*DIM), dtype='f8') 
 
             edge_points = np.zeros(shape=(nEdges, DIM), dtype='f8')
+            err = np.zeros(shape=(nEdges, DIM), dtype='f8')
 
             # need to produce data for the remap (get edge normal integrated data)
             # NOTE: This must be tangent to the sphere!!!
             # NOTE: lon from 0 to 2*pi can exist in a neighborhood, creating a discontinuity
             f_zonal = lambda lat, lon: np.cos(lat)
-            f_meridional = lambda lat, lon: lat**2-(np.pi/2.0)**2
+            f_meridional = lambda lat, lon: lat**4-(np.pi/2.0)**4
             f = lambda lat, lon, zonal, meridional: f_zonal(lat,lon)*zonal + f_meridional(lat,lon)*meridional
 
             # https://github.com/MPAS-Dev/MPAS-Model/blob/master/src/operators/mpas_vector_operations.F
@@ -317,6 +327,11 @@ class TestSphereRemap(KokkosTestCase):
             v = np.zeros(shape=(DIM,TWO), dtype='f8') # 2 is from vertices on edge
             in_field = np.zeros(shape=(nEdges), dtype='f8')
 
+            rot_rad = np.pi/2.0
+            cos_r = np.cos(rot_rad)
+            sin_r = np.sin(rot_rad)
+            R = np.array([[1, 0, 0], [0, cos_r, -sin_r], [0, sin_r, cos_r]], dtype='f8')
+
             computed_total_length = 0.0
             ref_total_length = 0.0
             # get edges and put integral quantities on them
@@ -328,16 +343,34 @@ class TestSphereRemap(KokkosTestCase):
                     vertex_num = vOnE[edge, local_vertex] - 1
                     extra_data[edge,local_vertex*DIM:(local_vertex+1)*DIM] = \
                         np.asarray([xV[vertex_num], yV[vertex_num], zV[vertex_num]], dtype='f8')
+                    extra_data[edge,local_vertex*DIM:(local_vertex+1)*DIM] = radius * extra_data[edge,local_vertex*DIM:(local_vertex+1)*DIM] / np.linalg.norm(extra_data[edge,local_vertex*DIM:(local_vertex+1)*DIM])
 
-                v[:,0] = extra_data[edge,0:DIM]
-                v[:,1] = extra_data[edge,DIM:2*DIM] - v[:,0]
+                v[:,0] = extra_data[edge,0:DIM].copy()
+                v[:,1] = extra_data[edge,DIM:2*DIM].copy() - v[:,0]
 
-                lat = dataset['latEdge'][edge]
-                lon = dataset['lonEdge'][edge]
+                a = extra_data[edge,0:DIM]
+                b = extra_data[edge,DIM:2*DIM]
+                theta = np.arccos(np.dot(a,b)/(np.linalg.norm(a)*np.linalg.norm(b)))
+                arclength = theta * radius
+
+                #lat = dataset['latEdge'][edge]
+                #lon = dataset['lonEdge'][edge]
+                lat, lon = get_lat_lon(edge_points[edge,:])
                 zonalUnitVector, meridionalUnitVector, verticalUnitVector = get_sphere_basis(lat, lon)
+                # can add assert that latEdge, lonEdge is same lat as calculated from midpoint
+                #print(lat, dataset['latEdge'][edge], (lat-dataset['latEdge'][edge]) / abs(dataset['latEdge'][edge]))
+                #print(lon, dataset['lonEdge'][edge], (lon-dataset['lonEdge'][edge]) / abs(dataset['lonEdge'][edge]))
+
+                # is verticalUnitVector close to xyz?
+                #print(radius*verticalUnitVector, edge_points[edge,:], np.linalg.norm(radius*verticalUnitVector-edge_points[edge,:])/radius)
+                #print(np.linalg.norm(radius*verticalUnitVector-edge_points[edge,:])/radius)
+
                 T[edge,0,:] = zonalUnitVector
                 T[edge,1,:] = meridionalUnitVector
                 T[edge,2,:] = verticalUnitVector
+
+                xyz = verticalUnitVector * radius
+                rot_xyz = np.matmul(R, xyz)
 
                 # not constant over all quadrature, just midpoint
                 angle = dataset['angleEdge'][edge] # angle at centroid eastwards
@@ -345,10 +378,14 @@ class TestSphereRemap(KokkosTestCase):
                 # normal at the midpoint of edge (use for orientation)
                 # but constant on a great circle so valid at all quadrature as well
                 norm_vec = np.cos(angle)*zonalUnitVector + np.sin(angle)*meridionalUnitVector
+
+                # replace with cross product of endpoint vertices
+                norm_vec = np.cross(a,b) / np.linalg.norm(np.cross(a,b))
                 extra_data[edge,TWO*DIM:(TWO+1)*DIM] = norm_vec
 
                 result = 0.0
                 for i in range(len(qpoints)):
+
                     unscaled_transformed_qp = v[:,0].copy()
                     unscaled_transformed_qp += qpoints[i][0] * v[:,1]
                     transformed_qp_norm = np.linalg.norm(unscaled_transformed_qp)
@@ -358,52 +395,40 @@ class TestSphereRemap(KokkosTestCase):
                         lat_qp, lon_qp = get_lat_lon(scaled_transformed_qp)
                         zonalUnitVector_qp, meridionalUnitVector_qp, verticalUnitVector_qp = get_sphere_basis(lat_qp, lon_qp)
 
-                    ## check whether get_lat_lon is working correctly
-                    ## testing that lat_qp is very close to lat
-                    #if (abs(lat)>1e-8):
-                    #    if (abs(lat_qp-lat)/abs(lat)>1e-2):
-                    #        print(lat_qp,"vs",lat)
-                    #else:
-                    #    print(lat_qp,"vs2.",lat)
-
-                    #if (abs(lon)>1e-8):
-                    #    if (abs(lon_qp-lon)/abs(lon)>1e-2):
-                    #        print(lon_qp,"vs",lon)
-                    #else:
-                    #    print(lon_qp,"vs2.",lon)
-
-                    # u_qp = v_1 + r_qp[1]*(v_2 - v_1)
-                    # s_qp = u_qp * radius / norm(u_qp) = radius * u_qp / norm(u_qp)
-                    #
-                    # so G(:,1) is \partial{s_qp}/ \partial{r_qp[1]}
-                    # where r_qp is reference quadrature point (R^1 in 1D manifold in R^3)
-                    #
-                    # G(:,i) = radius * ( \partial{u_qp}/\partial{r_qp[i]} * (\sum_m u_qp[k]^2)^{-1/2}
-                    #          + u_qp * \partial{(\sum_m u_qp[k]^2)^{-1/2}}/\partial{r_qp[i]} )
-                    #
-                    #        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
-                    #                              *2*(\sum_k u_qp[k]*\partial{u_qp[k]}/\partial{r_qp[i]}) )
-                    #
-                    #        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
-                    #                              *2*(\sum_k u_qp[k]*T(k,i)) )
-                    #
-                    qp_norm_sq = transformed_qp_norm**2
-                    G = v.copy() / transformed_qp_norm
-                    for k in range(DIM):
-                        G[:,1] += unscaled_transformed_qp*(-0.5)*pow(qp_norm_sq,-1.5) \
-                                  *2*(unscaled_transformed_qp[k]*v[k,1]);
-                    scaling = radius * np.linalg.norm(G[:,1])
+                    scaling = arclength
 
                     if remap_type==0:
-                        result += np.dot(f(lat, lon, zonalUnitVector, meridionalUnitVector), norm_vec)
+                        # good
+                        #result += np.dot(f(lat, lon, zonalUnitVector, meridionalUnitVector), norm_vec)
+
+                        # rotate the vector 90
+                        alt_lat, alt_lon = get_lat_lon(rot_xyz/np.linalg.norm(rot_xyz))
+                        alt_zonalUnitVector, alt_meridionalUnitVector, alt_verticalUnitVector = get_sphere_basis(alt_lat, alt_lon)
+                        ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
+                        alt_f = np.linalg.solve(R, ans_f)
+                        result += np.dot(alt_f, norm_vec)
                     else:
                         # norm_vec is constant for all qp on a great circle
-                        result += np.dot(f(lat_qp, lon_qp, zonalUnitVector_qp, meridionalUnitVector_qp), norm_vec)*qweights[i]*scaling
+                        #result += np.dot(f(lat_qp, lon_qp, zonalUnitVector_qp, meridionalUnitVector_qp), norm_vec)*qweights[i]*scaling
+
+                        # rotate the vector 90
+                        xyz_qp = verticalUnitVector_qp.copy() * radius
+                        rot_xyz_qp = np.matmul(R, xyz_qp)
+                        d_rot = np.linalg.norm(rot_xyz_qp-rot_xyz)
+                        assert d_rot < dataset['dcEdge'][edge], "Quadrature and midpoint too far apart"
+                        alt_lat, alt_lon = get_lat_lon(rot_xyz_qp/np.linalg.norm(rot_xyz_qp))
+                        alt_zonalUnitVector, alt_meridionalUnitVector, alt_verticalUnitVector = get_sphere_basis(alt_lat, alt_lon)
+                        ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
+                        alt_f = np.linalg.solve(R, ans_f)
+                        result += np.dot(alt_f, norm_vec)*qweights[i]*scaling
 
                     edge_length += qweights[i]*scaling
 
                 in_field[edge] += result
                 computed_total_length += edge_length
+                err[edge] = abs(edge_length-arclength)/abs(edge_length)
+
+            #print('arc norm:',np.linalg.norm(err))
 
             if remap_type!=0: # doesn't make sense to calculate arc length when not integrating
                 print("LENGTH", computed_total_length, " vs ", ref_total_length)
@@ -431,7 +456,7 @@ class TestSphereRemap(KokkosTestCase):
             gmls_obj.setTargetExtraData(extra_data)
             gmls_obj.setSourceExtraData(extra_data)
 
-            gmls_helper.generateNeighborListsFromKNNSearchAndSet(edge_points, max(p_order,c_order), DIM-1, 2.8)
+            gmls_helper.generateNeighborListsFromKNNSearchAndSet(edge_points, max(p_order,c_order), DIM-1, 3.8)
             gmls_helper.setTangentBundle(T)
             gmls_obj.generateAlphas(1, True)
 
@@ -441,12 +466,36 @@ class TestSphereRemap(KokkosTestCase):
                 lat = dataset['latEdge'][edge]
                 lon = dataset['lonEdge'][edge]
                 zonalUnitVector, meridionalUnitVector, verticalUnitVector = get_sphere_basis(lat, lon)
-                exact_out_field[edge,:] = f(lat, lon, zonalUnitVector, meridionalUnitVector)
+                #exact_out_field[edge,:] = f(lat, lon, zonalUnitVector, meridionalUnitVector)
+
+                # rotate the vector 90
+                xyz = verticalUnitVector * radius
+                rot_xyz = np.matmul(R, xyz)
+
+                alt_lat, alt_lon = get_lat_lon(rot_xyz/np.linalg.norm(rot_xyz))
+                alt_zonalUnitVector, alt_meridionalUnitVector, alt_verticalUnitVector = get_sphere_basis(alt_lat, alt_lon)
+                ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
+                alt_f = np.linalg.solve(R, ans_f)
+                exact_out_field[edge,:] = alt_f
 
             # get computed solution
             out_field = gmls_helper.applyStencil(in_field, 
                                                  pycompadre.TargetOperation.VectorPointEvaluation, 
                                                  sampling_functional)
+
+            ## remove extreme lats
+            #for edge in range(nEdges):
+            #    lat = dataset['latEdge'][edge]
+            #    if abs(lat)>np.pi/4:
+            #        out_field[edge,:] = 0.0
+            #        exact_out_field[edge,:] = 0.0
+
+            # remove equator
+            for edge in range(nEdges):
+                lat = dataset['latEdge'][edge]
+                if abs(lat)<np.pi/4:
+                    out_field[edge,:] = 0.0
+                    exact_out_field[edge,:] = 0.0
 
             print('computed out:',out_field)
             print('exact out:',exact_out_field)
@@ -457,11 +506,25 @@ class TestSphereRemap(KokkosTestCase):
 
             # calculate error norm (l2)
             rel_l2_error = np.linalg.norm(out_field-exact_out_field, axis=0)/np.sqrt(out_field.shape[0])
+
+            
+            #import matplotlib.pyplot as plt
+            #fig = plt.figure(figsize=(12, 12))
+            #ax = fig.add_subplot(projection='3d')
+            #err = np.linalg.norm(out_field-exact_out_field, axis=1)
+            ##ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=err)
+            #sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=exact_out_field[:,0]-out_field[:,0])
+            ##ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=in_field[:])
+            #plt.colorbar(sc)
+            #plt.show() 
+
+            #with np.printoptions(threshold=np.inf):
+            #    print(np.linalg.norm(out_field-exact_out_field, axis=1))
             print('Error norm:', rel_l2_error)
             return rel_l2_error
 
         rel_l2_errors = []
-        for i in range(3):
+        for i in range(0,3):
             rel_l2_errors.append(run(i))
         print('edge integrals :: rel_l2_errors', rel_l2_errors)
 

@@ -331,10 +331,21 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
         }
         radius = std::sqrt(radius);
 
-        auto E = edge_coords_matrix;
         // edge_coords now has:
         // (v0_x, v0_y, v1_x-v0_x, v1_y-v0_y)
-        double edge_length = 0.0;
+        auto E = edge_coords_matrix;
+
+        // get arc length of edge on manifold
+        double theta = 0.0;
+        if (data._problem_type == ProblemType::MANIFOLD) {
+            XYZ a = {E(0,0), E(1,0), E(2,0)};
+            XYZ b = {E(0,1)+E(0,0), E(1,1)+E(1,0), E(2,1)+E(2,0)};
+            double norm_a = std::sqrt(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
+            double norm_b = std::sqrt(b[0]*b[0] + b[1]*b[1] + b[2]*b[2]);
+            double a_dot_b = a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+            theta = std::acos(a_dot_b / (norm_a*norm_b));
+        }
+
         // loop 
         for (int quadrature = 0; quadrature<quadrature_point_loop; ++quadrature) {
             double G_determinant = 1.0;
@@ -364,31 +375,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                         scaled_transformed_qp[j] = unscaled_transformed_qp[j] * radius / transformed_qp_norm;
                     }
 
-                    // u_qp = v_1 + r_qp[1]*(v_2 - v_1)
-                    // s_qp = u_qp * radius / norm(u_qp) = radius * u_qp / norm(u_qp)
-                    //
-                    // so G(:,1) is \partial{s_qp}/ \partial{r_qp[1]}
-                    // where r_qp is reference quadrature point (R^1 in 1D manifold in R^3)
-                    //
-                    // G(:,i) = radius * ( \partial{u_qp}/\partial{r_qp[i]} * (\sum_m u_qp[k]^2)^{-1/2}
-                    //          + u_qp * \partial{(\sum_m u_qp[k]^2)^{-1/2}}/\partial{r_qp[i]} )
-                    //
-                    //        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
-                    //                              *2*(\sum_k u_qp[k]*\partial{u_qp[k]}/\partial{r_qp[i]}) )
-                    //
-                    //        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
-                    //                              *2*(\sum_k u_qp[k]*T(k,i)) )
-                    double qp_norm_sq = transformed_qp_norm*transformed_qp_norm;
-                    for (int j=0; j<data._global_dimensions; ++j) {
-                        G(j,1) = E(j,1)/transformed_qp_norm;
-                        for (int k=0; k<data._global_dimensions; ++k) {
-                            G(j,1) += unscaled_transformed_qp[j]*(-0.5)*std::pow(qp_norm_sq,-1.5)
-                                      *2*(unscaled_transformed_qp[k]*E(k,1));
-                        }
-                    }
-                    XYZ g = {G(0,1), G(1,1), G(2,1)};
-                    G_determinant = data._pc.EuclideanVectorLength(g, 3);
-                    G_determinant *= radius;
+                    G_determinant = radius * theta;
                     XYZ qp = XYZ(scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]);
                     for (int j=0; j<data._local_dimensions; ++j) {
                         relative_coord[j] = data._pc.convertGlobalToLocalCoordinate(qp,j,*V) 
