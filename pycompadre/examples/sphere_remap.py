@@ -182,7 +182,7 @@ class TestSphereRemap(KokkosTestCase):
             return rel_l2_error
 
         rel_l2_errors = []
-        for i in range(3):
+        for i in range(4):
             rel_l2_errors.append(run(i))
         print('cell integrals :: rel_l2_errors', rel_l2_errors)
 
@@ -330,7 +330,8 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             rot_rad = np.pi/2.0
             cos_r = np.cos(rot_rad)
             sin_r = np.sin(rot_rad)
-            R = np.array([[1, 0, 0], [0, cos_r, -sin_r], [0, sin_r, cos_r]], dtype='f8')
+            #R = np.array([[1, 0, 0], [0, cos_r, -sin_r], [0, sin_r, cos_r]], dtype='f8')
+            R = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype='f8')
 
             computed_total_length = 0.0
             ref_total_length = 0.0
@@ -350,7 +351,10 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
 
                 a = extra_data[edge,0:DIM]
                 b = extra_data[edge,DIM:2*DIM]
-                theta = np.arccos(np.dot(a,b)/(np.linalg.norm(a)*np.linalg.norm(b)))
+
+                #theta = np.arccos(np.dot(a,b)/(np.linalg.norm(a)*np.linalg.norm(b)))
+                # arctan less sensitive near the poles
+                theta = np.arctan(np.linalg.norm(np.cross(a,b)) / np.dot(a,b))
                 arclength = theta * radius
 
                 #lat = dataset['latEdge'][edge]
@@ -372,12 +376,13 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                 xyz = verticalUnitVector * radius
                 rot_xyz = np.matmul(R, xyz)
 
-                # not constant over all quadrature, just midpoint
-                angle = dataset['angleEdge'][edge] # angle at centroid eastwards
+                ## not constant over all quadrature, just midpoint
+                #angle = dataset['angleEdge'][edge] # angle at centroid eastwards
 
-                # normal at the midpoint of edge (use for orientation)
-                # but constant on a great circle so valid at all quadrature as well
-                norm_vec = np.cos(angle)*zonalUnitVector + np.sin(angle)*meridionalUnitVector
+                ## normal at the midpoint of edge (use for orientation)
+                ## but constant on a great circle so valid at all quadrature as well
+                ## not sufficiently accurate near poles
+                #norm_vec = np.cos(angle)*zonalUnitVector + np.sin(angle)*meridionalUnitVector
 
                 # replace with cross product of endpoint vertices
                 norm_vec = np.cross(a,b) / np.linalg.norm(np.cross(a,b))
@@ -396,6 +401,28 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                         zonalUnitVector_qp, meridionalUnitVector_qp, verticalUnitVector_qp = get_sphere_basis(lat_qp, lon_qp)
 
                     scaling = arclength
+
+                    ## u_qp = v_1 + r_qp[1]*(v_2 - v_1)
+                    ## s_qp = u_qp * radius / norm(u_qp) = radius * u_qp / norm(u_qp)
+                    ##
+                    ## so G(:,1) is \partial{s_qp}/ \partial{r_qp[1]}
+                    ## where r_qp is reference quadrature point (R^1 in 1D manifold in R^3)
+                    ##
+                    ## G(:,i) = radius * ( \partial{u_qp}/\partial{r_qp[i]} * (\sum_m u_qp[k]^2)^{-1/2}
+                    ##          + u_qp * \partial{(\sum_m u_qp[k]^2)^{-1/2}}/\partial{r_qp[i]} )
+                    ##
+                    ##        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
+                    ##                              *2*(\sum_k u_qp[k]*\partial{u_qp[k]}/\partial{r_qp[i]}) )
+                    ##
+                    ##        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
+                    ##                              *2*(\sum_k u_qp[k]*T(k,i)) )
+                    ##
+                    #qp_norm_sq = transformed_qp_norm**2
+                    #G = v.copy() / transformed_qp_norm
+                    #for k in range(DIM):
+                    #    G[:,1] += unscaled_transformed_qp*(-0.5)*pow(qp_norm_sq,-1.5) \
+                    #              *2*(unscaled_transformed_qp[k]*v[k,1]);
+                    #scaling = radius * np.linalg.norm(G[:,1])
 
                     if remap_type==0:
                         # good
@@ -483,19 +510,19 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                                                  pycompadre.TargetOperation.VectorPointEvaluation, 
                                                  sampling_functional)
 
-            ## remove extreme lats
-            #for edge in range(nEdges):
-            #    lat = dataset['latEdge'][edge]
-            #    if abs(lat)>np.pi/4:
-            #        out_field[edge,:] = 0.0
-            #        exact_out_field[edge,:] = 0.0
-
-            # remove equator
+            # remove extreme lats
             for edge in range(nEdges):
                 lat = dataset['latEdge'][edge]
-                if abs(lat)<np.pi/4:
+                if abs(lat)>np.pi/3.:
                     out_field[edge,:] = 0.0
                     exact_out_field[edge,:] = 0.0
+
+            ## remove equator
+            #for edge in range(nEdges):
+            #    lat = dataset['latEdge'][edge]
+            #    if abs(lat)<np.pi/6.:
+            #        out_field[edge,:] = 0.0
+            #        exact_out_field[edge,:] = 0.0
 
             print('computed out:',out_field)
             print('exact out:',exact_out_field)
@@ -521,10 +548,11 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             #with np.printoptions(threshold=np.inf):
             #    print(np.linalg.norm(out_field-exact_out_field, axis=1))
             print('Error norm:', rel_l2_error)
+            print('Error norm (all comps.):', np.linalg.norm(rel_l2_error))
             return rel_l2_error
 
         rel_l2_errors = []
-        for i in range(0,3):
+        for i in range(0,4):
             rel_l2_errors.append(run(i))
         print('edge integrals :: rel_l2_errors', rel_l2_errors)
 

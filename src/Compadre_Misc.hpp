@@ -79,6 +79,15 @@ struct XYZ {
         result.z = scalar*z;
         return result;
     }
+
+    size_t extent(int comp = 0) {
+        return 3;
+    }
+
+    int extent_int(int comp = 0) {
+        return 3;
+    }
+
 }; // XYZ
 
 

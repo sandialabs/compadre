@@ -340,10 +340,9 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
         if (data._problem_type == ProblemType::MANIFOLD) {
             XYZ a = {E(0,0), E(1,0), E(2,0)};
             XYZ b = {E(0,1)+E(0,0), E(1,1)+E(1,0), E(2,1)+E(2,0)};
-            double norm_a = std::sqrt(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
-            double norm_b = std::sqrt(b[0]*b[0] + b[1]*b[1] + b[2]*b[2]);
             double a_dot_b = a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
-            theta = std::acos(a_dot_b / (norm_a*norm_b));
+            double norm_a_cross_b = getAreaFromVectors(teamMember, a, b);
+            theta = std::atan(norm_a_cross_b / a_dot_b);
         }
 
         // loop 
