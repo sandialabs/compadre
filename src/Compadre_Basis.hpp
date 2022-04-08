@@ -309,7 +309,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                 || polynomial_sampling_functional == FaceTangentIntegralSample) ?
                                     data._qm.getNumberOfQuadraturePoints() : 1;
 
-        int TWO = 2; // used because of # of vertices on an edge
+        const int TWO = 2; // used because of # of vertices on an edge
         double G_data[3*TWO]; // max(2,3)*TWO
         double edge_coords[3*TWO];
         for (int i=0; i<data._global_dimensions*TWO; ++i) G_data[i] = 0;
