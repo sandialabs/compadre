@@ -417,12 +417,6 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                     // Using V alone to provide vectors only gives tangent vectors at
                     // the target site. This could result in accuracy < 3rd order.
 
-
-                    // get tangent bundle and use for modifying normals
-                    // scratch_matrix_right_type T(data.T_data
-                    //         + TO_GLOBAL(global_neighbor_index)*TO_GLOBAL(data._global_dimensions*data._global_dimensions),
-                    //             data._global_dimensions, data._global_dimensions);
-                    // local_direction[j] = data._pc.convertGlobalToLocalCoordinate(direction,j,T);
                     local_direction[j] = data._pc.convertGlobalToLocalCoordinate(direction,j,*V);
                 }
             }
@@ -443,28 +437,10 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                         v1 = (j==1) ? std::pow(relative_coord.x/cutoff_p,alphax)
                             *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf : 0;
 
-                        // Either the normal direction can be projected to the local chart or the
-                        // local chart basis can be projected to the ambient space. The following 
-                        // code block performs the latter.
-                        //
-                        // XYZ local_v;
-                        // XYZ ambient_v;
-                        // if (data._problem_type == ProblemType::MANIFOLD) {
-                        //     local_v[0] = v0;
-                        //     local_v[1] = v1;
-                        //     for (int j=0; j<data._global_dimensions; ++j) {
-                        //         // Project ambient direction onto local chart basis as a local direction.
-                        //         // Using V alone to provide vectors only gives tangent vectors at
-                        //         // the target site. This could result in accuracy < 3rd order.
-                        //         ambient_v[j] = data._pc.convertLocalToGlobalCoordinate(local_v,j,*V);
-                        //     }
-                        // }
-
                         // either n*v or t*v
                         double dot_product = 0.0;
                         if (data._problem_type == ProblemType::MANIFOLD) {
                             // alternate option for projection
-                            //dot_product = direction[0]*ambient_v[0] + direction[1]*ambient_v[1] + direction[2]*ambient_v[2];
                             dot_product = local_direction[0]*v0 + local_direction[1]*v1;
                         } else {
                             dot_product = direction[0]*v0 + direction[1]*v1;
@@ -600,6 +576,8 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                     //        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
                     //                              *2*(\sum_k u_qp[k]*T(k,i)) )
                     //
+                    // NOTE: we do not multiply G by radius before determining area from vectors,
+                    //       so we multiply by radius**2 after calculation
                     double qp_norm_sq = transformed_qp_norm*transformed_qp_norm;
                     for (int j=0; j<data._global_dimensions; ++j) {
                         G(j,1) = T(j,1)/transformed_qp_norm;

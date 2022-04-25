@@ -11,11 +11,11 @@ with radius != 1.0.
 Requires a .nc file that contains all of the fields referenced in this file.
 
 '''
-class TestSphereRemap(KokkosTestCase):
+class TestSphereRemapCellIntegral(KokkosTestCase):
 
     def test_cell_integrated_remap(self):
 
-        def run(level):
+        def run(level, direction=0):
 
             dataset = Dataset('../../../test_data/grids/sphere_{0}.nc'.format(str(level)), "r", format="NETCDF4")
 
@@ -24,7 +24,7 @@ class TestSphereRemap(KokkosTestCase):
             dimensions = dataset.dimensions
             variables = dataset.variables
 
-            p_order = 2
+            p_order = 4
             # get cells and put averaged quantities on them
             q_order = 5
 
@@ -65,11 +65,15 @@ class TestSphereRemap(KokkosTestCase):
 
             # directions 
             v = np.zeros(shape=(DIM,3), dtype='f8') # 3 is from triangle nodes
-            in_field = np.zeros(shape=(nCells), dtype='f8')
+            exact_in_field = np.zeros(shape=(nCells), dtype='f8')
             computed_total_area = 0.0
             ref_total_area = 0.0
             for cell in range(nCells):
                 cell_points[cell,:] = np.asarray([xC[cell], yC[cell], zC[cell]], dtype='f8')
+
+                # normalization to sphere
+                cell_points[cell,:] = cell_points[cell,:] * radius / np.linalg.norm(cell_points[cell,:])
+
                 cell_area = 0.0
                 facet_cell_area = 0.0
                 ref_total_area += dataset['areaCell'][cell]
@@ -93,6 +97,7 @@ class TestSphereRemap(KokkosTestCase):
                         # write first vertex on edge to extra_data
                         extra_data[cell,local_edge*DIM:(local_edge+1)*DIM] = \
                             np.asarray([xV[vertex_num], yV[vertex_num], zV[vertex_num]], dtype='f8')
+                        extra_data[cell,local_edge*DIM:(local_edge+1)*DIM] = extra_data[cell,local_edge*DIM:(local_edge+1)*DIM] * radius / np.linalg.norm(extra_data[cell,local_edge*DIM:(local_edge+1)*DIM])
                     else:
                         extra_data[cell,local_edge*DIM:(local_edge+1)*DIM] = \
                             np.asarray([np.NaN, np.NaN, np.NaN], dtype='f8')
@@ -142,47 +147,80 @@ class TestSphereRemap(KokkosTestCase):
                         result += f(scaled_transformed_qp)*qweights[i]*scaling
                         cell_area += qweights[i]*scaling
 
-                    in_field[cell] += result
+                    exact_in_field[cell] += result
                 computed_total_area += cell_area
 
             print("AREA", computed_total_area, " vs ", ref_total_area)
             print("SPHERE AREA:",str(4.0*3.141592653*(radius**2)))
-            gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.ScalarTaylorPolynomial, 
-                                     pycompadre.SamplingFunctionals['ScalarFaceIntegralSample'], 
-                                     p_order, 
-                                     DIM, 
-                                     "QR", 
-                                     "MANIFOLD",
-                                     "NO_CONSTRAINT",
-                                     p_order)
-
-            gmls_obj.setOrderOfQuadraturePoints(q_order)
-            gmls_obj.setDimensionOfQuadraturePoints(Q_DIM)
-            gmls_obj.setQuadratureType("TRI")
-            gmls_helper = pycompadre.ParticleHelper(gmls_obj)
-            gmls_helper.generateKDTree(cell_points)
-            gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
-            gmls_obj.setTargetExtraData(extra_data)
-            gmls_obj.setSourceExtraData(extra_data)
-
-            gmls_helper.generateNeighborListsFromKNNSearchAndSet(cell_points, p_order, DIM-1, 2.2)
-            gmls_obj.generateAlphas(1, False)
 
             exact_out_field = np.zeros(shape=(nCells), dtype='f8')
             for cell in range(nCells):
                 exact_out_field[cell] = f(cell_points[cell,:])
-            out_field = gmls_helper.applyStencil(in_field, pycompadre.TargetOperation.ScalarPointEvaluation)
+
+            if direction==0:
+                gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.ScalarTaylorPolynomial, 
+                                         pycompadre.SamplingFunctionals['ScalarFaceIntegralSample'], 
+                                         p_order, 
+                                         DIM, 
+                                         "QR", 
+                                         "MANIFOLD",
+                                         "NO_CONSTRAINT",
+                                         p_order)
+
+                gmls_obj.setOrderOfQuadraturePoints(q_order)
+                gmls_obj.setDimensionOfQuadraturePoints(Q_DIM)
+                gmls_obj.setQuadratureType("TRI")
+                gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+                gmls_helper.generateKDTree(cell_points)
+                gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
+                gmls_obj.setTargetExtraData(extra_data)
+                gmls_obj.setSourceExtraData(extra_data)
+
+                gmls_helper.generateNeighborListsFromKNNSearchAndSet(cell_points, p_order, DIM-1, 2.2)
+                gmls_obj.generateAlphas(1, False)
+                out_field = gmls_helper.applyStencil(exact_in_field, pycompadre.TargetOperation.ScalarPointEvaluation)
+            elif direction==1:
+                gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.ScalarTaylorPolynomial, 
+                                         pycompadre.SamplingFunctionals['PointSample'], 
+                                         p_order, 
+                                         DIM, 
+                                         "QR", 
+                                         "MANIFOLD",
+                                         "NO_CONSTRAINT",
+                                         p_order)
+
+                gmls_obj.setOrderOfQuadraturePoints(q_order)
+                gmls_obj.setDimensionOfQuadraturePoints(Q_DIM)
+                gmls_obj.setQuadratureType("TRI")
+                gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+                gmls_helper.generateKDTree(cell_points)
+                gmls_obj.addTargets(pycompadre.TargetOperation.ScalarFaceIntegralEvaluation)
+                gmls_obj.setTargetExtraData(extra_data)
+                gmls_obj.setSourceExtraData(extra_data)
+
+                gmls_helper.generateNeighborListsFromKNNSearchAndSet(cell_points, p_order, DIM-1, 2.2)
+                gmls_obj.generateAlphas(1, False)
+                # use exact_out_field instead of exact_in_field
+                out_field = gmls_helper.applyStencil(exact_out_field, pycompadre.TargetOperation.ScalarFaceIntegralEvaluation)
+
             print('exact out:',exact_out_field)
             print('computed out:',out_field)
             print('diff:',out_field - exact_out_field)
 
+            print('exact_out',exact_out_field, 'exact_in',exact_in_field, 'computed_out',out_field)
+            if direction==1:
+                # swap out field with in field
+                exact_out_field = exact_in_field
+            print('out_field-exact_out_field',out_field-exact_out_field)
+
             # calculate error norm (l2)
-            rel_l2_error = np.linalg.norm(out_field-exact_out_field, axis=0)/np.sqrt(out_field.shape[0])
+            #rel_l2_error = np.linalg.norm(out_field-exact_out_field, axis=0)/np.sqrt(out_field.shape[0])
+            rel_l2_error = np.linalg.norm(out_field-exact_out_field, axis=0)/np.linalg.norm(exact_out_field)
             print('Error norm:', rel_l2_error)
             return rel_l2_error
 
         rel_l2_errors = []
-        for i in range(4):
+        for i in range(args.grids):
             rel_l2_errors.append(run(i))
         print('cell integrals :: rel_l2_errors', rel_l2_errors)
 
@@ -325,7 +363,7 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             # directions 
             T = np.zeros(shape=(nEdges,DIM,DIM), dtype='f8')
             v = np.zeros(shape=(DIM,TWO), dtype='f8') # 2 is from vertices on edge
-            in_field = np.zeros(shape=(nEdges), dtype='f8')
+            exact_in_field = np.zeros(shape=(nEdges), dtype='f8')
 
             rot_rad = np.pi/2.0
             cos_r = np.cos(rot_rad)
@@ -451,7 +489,7 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
 
                     edge_length += qweights[i]*scaling
 
-                in_field[edge] += result
+                exact_in_field[edge] += result
                 computed_total_length += edge_length
                 err[edge] = abs(edge_length-arclength)/abs(edge_length)
 
@@ -506,7 +544,7 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                 exact_out_field[edge,:] = alt_f
 
             # get computed solution
-            out_field = gmls_helper.applyStencil(in_field, 
+            out_field = gmls_helper.applyStencil(exact_in_field, 
                                                  pycompadre.TargetOperation.VectorPointEvaluation, 
                                                  sampling_functional)
 
@@ -552,7 +590,7 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             return rel_l2_error
 
         rel_l2_errors = []
-        for i in range(0,4):
+        for i in range(0,args.grids):
             rel_l2_errors.append(run(i))
         print('edge integrals :: rel_l2_errors', rel_l2_errors)
 
@@ -562,5 +600,21 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
         print('edge integrals :: rel_l2_rates', rel_l2_rates)
 
 if __name__ == '__main__':
+
+    import argparse
+    parser = argparse.ArgumentParser(description='test remap on the sphere')
+    parser.add_argument('-g','--grids', dest='grids', type=int, default=2, help='number of grids for refinement sequence')
+    parser.add_argument('-l','--list', nargs='*', help='{0: cell-integrated, 1: edge-integrated}', default=['0','1'], required=False)
+    args = parser.parse_args()
+
+    # remove tests not requested
+    if '0' not in args.list:
+        TestSphereRemapCellIntegral = None
+    if '1' not in args.list:
+        TestSphereRemapEdgeIntegral = None
+
+    import sys
+    sys.argv = sys.argv[0:1]
+
     import unittest
     unittest.main()

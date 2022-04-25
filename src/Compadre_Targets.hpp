@@ -1718,12 +1718,19 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                 }
                 radius = std::sqrt(radius);
 
-                // NaN in last _global_dimensions indicates fewer vertices for this cell
-                size_t num_vertices = (data._target_extra_data(target_index, data._target_extra_data.extent(1)-1)
-                        !=data._target_extra_data(target_index, data._target_extra_data.extent(1)-1)) 
-                            ? (data._target_extra_data.extent(1) / data._global_dimensions) - 1 : 
-                              (data._target_extra_data.extent(1) / data._global_dimensions);
-                auto T=triangle_coords_matrix;
+                // NaN in entry (data._global_dimensions) is a convention for indicating fewer vertices 
+                // for this cell and NaN is checked by entry!=entry
+                int num_vertices = 0;
+                for (int j=0; j<data._target_extra_data.extent_int(1); ++j) {
+                    auto val = data._target_extra_data(target_index, j);
+                    if (val != val) {
+                        break;
+                    } else {
+                        num_vertices++;
+                    }
+                }
+                num_vertices = num_vertices / data._global_dimensions;
+                auto T = triangle_coords_matrix;
 
                 // loop over each two vertices 
                 XYZ relative_coord;
@@ -1767,7 +1774,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
 
                         // project back onto sphere
                         for (int j=0; j<data._global_dimensions; ++j) {
-                            scaled_transformed_qp[j] = unscaled_transformed_qp[j] / transformed_qp_norm;
+                            scaled_transformed_qp[j] = unscaled_transformed_qp[j] * radius / transformed_qp_norm;
                         }
 
                         // u_qp = midpoint + r_qp[1]*(v_1-midpoint) + r_qp[2]*(v_2-midpoint)
@@ -1785,6 +1792,8 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                         //        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
                         //                              *2*(\sum_k u_qp[k]*T(k,i)) )
                         //
+                        // NOTE: we do not multiply G by radius before determining area from vectors,
+                        //       so we multiply by radius**2 after calculation
                         double qp_norm_sq = transformed_qp_norm*transformed_qp_norm;
                         for (int j=0; j<data._global_dimensions; ++j) {
                             G(j,1) = T(j,1)/transformed_qp_norm;
