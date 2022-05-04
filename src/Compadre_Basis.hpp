@@ -272,12 +272,30 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                 polynomial_sampling_functional == FaceNormalPointSample ||
                 polynomial_sampling_functional == FaceTangentPointSample) {
 
-        double cutoff_p = data._epsilons(target_index);
+        compadre_kernel_assert_debug(data._local_dimensions==2 &&
+                "FaceNormalIntegralSample, FaceTangentIntegralSample, FaceNormalPointSample, \
+                    and FaceTangentPointSample only support 2d or 3d with 2d manifold");
 
-        compadre_kernel_assert_debug(data._dimensions==2 && "Only written for 2D");
+        if (polynomial_sampling_functional == FaceNormalIntegralSample ||
+                polynomial_sampling_functional == FaceTangentIntegralSample) {
+            compadre_kernel_assert_debug(data._qm.getDimensionOfQuadraturePoints()==1 \
+                    && "Only 1d quadrature may be specified for edge integrals");
+        }
         compadre_kernel_assert_debug(data._source_extra_data.extent(0)>0 && "Extra data used but not set.");
 
-        int neighbor_index_in_source = data._pc.getNeighborIndex(target_index, neighbor_index);
+        compadre_kernel_assert_debug(!specific_order_only && 
+                "Sampling functional does not support specific_order_only");
+
+        // On the sphere, edges lie on a great circle, which means the normal direction to the edge is 
+        // constant for all quadrature on the edge. this is not the case for tangent directions, which vary 
+        // by quadrature point. Data structures to support varying direction by quadrature point are not
+        // currently supported.
+        compadre_kernel_assert_debug((data._problem_type != ProblemType::MANIFOLD || 
+                                      polynomial_sampling_functional != FaceTangentIntegralSample) && 
+                "FaceTangentIntegralSamplg not supported on manifolds");
+
+        double cutoff_p = data._epsilons(target_index);
+        auto global_neighbor_index = data._pc.getNeighborIndex(target_index, neighbor_index);
 
         /*
          * requires quadrature points defined on an edge, not a target/source edge (spoke)
@@ -291,85 +309,165 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                 || polynomial_sampling_functional == FaceTangentIntegralSample) ?
                                     data._qm.getNumberOfQuadraturePoints() : 1;
 
-        // only used for integrated quantities
-        XYZ endpoints_difference;
-        for (int j=0; j<dimension; ++j) {
-            endpoints_difference[j] = data._source_extra_data(neighbor_index_in_source, j) - data._source_extra_data(neighbor_index_in_source, j+2);
+        const int TWO = 2; // used because of # of vertices on an edge
+        double G_data[3*TWO]; // max(2,3)*TWO
+        double edge_coords[3*TWO];
+        for (int i=0; i<data._global_dimensions*TWO; ++i) G_data[i] = 0;
+        for (int i=0; i<data._global_dimensions*TWO; ++i) edge_coords[i] = 0;
+        // 2 is for # vertices on an edge
+        scratch_matrix_right_type G(G_data, data._global_dimensions, TWO); 
+        scratch_matrix_right_type edge_coords_matrix(edge_coords, data._global_dimensions, TWO); 
+
+        // neighbor coordinate is assumed to be midpoint
+        // could be calculated, but is correct for sphere
+        // and also for non-manifold problems
+        // uses given midpoint, rather than computing the midpoint from vertices
+        double radius = 0.0;
+        // this midpoint should lie on the sphere, or this will be the wrong radius
+        for (int j=0; j<data._global_dimensions; ++j) {
+            edge_coords_matrix(j, 0) = data._source_extra_data(global_neighbor_index, j);
+            edge_coords_matrix(j, 1) = data._source_extra_data(global_neighbor_index, data._global_dimensions + j) - edge_coords_matrix(j, 0);
+            radius += edge_coords_matrix(j, 0)*edge_coords_matrix(j, 0);
         }
-        double magnitude = data._pc.EuclideanVectorLength(endpoints_difference, 2);
-        
-        int alphax, alphay;
-        double alphaf;
-        const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
+        radius = std::sqrt(radius);
+
+        // edge_coords now has:
+        // (v0_x, v0_y, v1_x-v0_x, v1_y-v0_y)
+        auto E = edge_coords_matrix;
+
+        // get arc length of edge on manifold
+        double theta = 0.0;
+        if (data._problem_type == ProblemType::MANIFOLD) {
+            XYZ a = {E(0,0), E(1,0), E(2,0)};
+            XYZ b = {E(0,1)+E(0,0), E(1,1)+E(1,0), E(2,1)+E(2,0)};
+            double a_dot_b = a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+            double norm_a_cross_b = getAreaFromVectors(teamMember, a, b);
+            theta = std::atan(norm_a_cross_b / a_dot_b);
+        }
 
         // loop 
         for (int quadrature = 0; quadrature<quadrature_point_loop; ++quadrature) {
-
-            int i = 0;
-
-            XYZ direction_2d;
-            XYZ quadrature_coord_2d;
-            for (int j=0; j<dimension; ++j) {
-                
-                if (polynomial_sampling_functional == FaceNormalIntegralSample 
-                        || polynomial_sampling_functional == FaceTangentIntegralSample) {
-                    // quadrature coord site
-                    quadrature_coord_2d[j]  = data._qm.getSite(quadrature,0)*data._source_extra_data(neighbor_index_in_source, j);
-                    quadrature_coord_2d[j] += (1-data._qm.getSite(quadrature,0))*data._source_extra_data(neighbor_index_in_source, j+2);
-                    quadrature_coord_2d[j] -= data._pc.getTargetCoordinate(target_index, j);
-                } else {
-                    // traditional coord
-                    quadrature_coord_2d[j] = relative_coord[j];
+            double G_determinant = 1.0;
+            if (polynomial_sampling_functional == FaceNormalIntegralSample 
+                    || polynomial_sampling_functional == FaceTangentIntegralSample) {
+                double unscaled_transformed_qp[3] = {0,0,0};
+                double scaled_transformed_qp[3] = {0,0,0};
+                for (int j=0; j<data._global_dimensions; ++j) {
+                    unscaled_transformed_qp[j] += E(j,1)*data._qm.getSite(quadrature, 0);
+                    // adds back on shift by endpoint
+                    unscaled_transformed_qp[j] += E(j,0);
                 }
 
+                // project onto the sphere
+                if (data._problem_type == ProblemType::MANIFOLD) {
+                    // unscaled_transformed_qp now lives on cell edge, but if on manifold,
+                    // not directly on the sphere, just near by
+
+                    // normalize to project back onto sphere
+                    double transformed_qp_norm = 0;
+                    for (int j=0; j<data._global_dimensions; ++j) {
+                        transformed_qp_norm += unscaled_transformed_qp[j]*unscaled_transformed_qp[j];
+                    }
+                    transformed_qp_norm = std::sqrt(transformed_qp_norm);
+                    // transformed_qp made unit length
+                    for (int j=0; j<data._global_dimensions; ++j) {
+                        scaled_transformed_qp[j] = unscaled_transformed_qp[j] * radius / transformed_qp_norm;
+                    }
+
+                    G_determinant = radius * theta;
+                    XYZ qp = XYZ(scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]);
+                    for (int j=0; j<data._local_dimensions; ++j) {
+                        relative_coord[j] = data._pc.convertGlobalToLocalCoordinate(qp,j,*V) 
+                                            - data._pc.getTargetCoordinate(target_index,j,V); 
+                        // shift quadrature point by target site
+                    }
+                    relative_coord[2] = 0;
+                } else { // not on a manifold, but still integrated
+                    XYZ endpoints_difference = {E(0,1), E(1,1), 0};
+                    G_determinant = data._pc.EuclideanVectorLength(endpoints_difference, 2);
+                    for (int j=0; j<data._local_dimensions; ++j) {
+                        relative_coord[j] = unscaled_transformed_qp[j] 
+                                            - data._pc.getTargetCoordinate(target_index,j,V); 
+                        // shift quadrature point by target site
+                    }
+                    relative_coord[2] = 0;
+                }
+            }
+
+            // get normal or tangent direction (ambient)
+            XYZ direction;
+            for (int j=0; j<data._global_dimensions; ++j) {
                 // normal direction or tangent direction
                 if (polynomial_sampling_functional == FaceNormalIntegralSample 
                         || polynomial_sampling_functional == FaceNormalPointSample) {
                     // normal direction
-                    direction_2d[j] = data._source_extra_data(neighbor_index_in_source, 4 + j);
+                    direction[j] = data._source_extra_data(global_neighbor_index, 2*data._global_dimensions + j);
                 } else {
                     // tangent direction
-                    direction_2d[j] = data._source_extra_data(neighbor_index_in_source, 6 + j);
+                    direction[j] = data._source_extra_data(global_neighbor_index, 3*data._global_dimensions + j);
                 }
 
             }
 
+            // convert direction to local chart (for manifolds)
+            XYZ local_direction;
+            if (data._problem_type == ProblemType::MANIFOLD) {
+                for (int j=0; j<data._basis_multiplier; ++j) {
+                    // Project ambient normal direction onto local chart basis as a local direction.
+                    // Using V alone to provide vectors only gives tangent vectors at
+                    // the target site. This could result in accuracy < 3rd order.
+
+                    local_direction[j] = data._pc.convertGlobalToLocalCoordinate(direction,j,*V);
+                }
+            }
+
+            int alphax, alphay;
+            double alphaf;
+            int i = 0;
             for (int j=0; j<data._basis_multiplier; ++j) {
-                for (int n = start_index; n <= poly_order; n++){
+                for (int n = 0; n <= poly_order; n++){
                     for (alphay = 0; alphay <= n; alphay++){
                         alphax = n - alphay;
                         alphaf = factorial[alphax]*factorial[alphay];
 
                         // local evaluation of vector [0,p] or [p,0]
                         double v0, v1;
-                        v0 = (j==0) ? std::pow(quadrature_coord_2d.x/cutoff_p,alphax)
-                            *std::pow(quadrature_coord_2d.y/cutoff_p,alphay)/alphaf : 0;
-                        v1 = (j==0) ? 0 : std::pow(quadrature_coord_2d.x/cutoff_p,alphax)
-                            *std::pow(quadrature_coord_2d.y/cutoff_p,alphay)/alphaf;
+                        v0 = (j==0) ? std::pow(relative_coord.x/cutoff_p,alphax)
+                            *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf : 0;
+                        v1 = (j==1) ? std::pow(relative_coord.x/cutoff_p,alphax)
+                            *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf : 0;
 
                         // either n*v or t*v
-                        double dot_product = direction_2d[0]*v0 + direction_2d[1]*v1;
+                        double dot_product = 0.0;
+                        if (data._problem_type == ProblemType::MANIFOLD) {
+                            // alternate option for projection
+                            dot_product = local_direction[0]*v0 + local_direction[1]*v1;
+                        } else {
+                            dot_product = direction[0]*v0 + direction[1]*v1;
+                        }
 
                         // multiply by quadrature weight
                         if (quadrature==0) {
                             if (polynomial_sampling_functional == FaceNormalIntegralSample 
                                     || polynomial_sampling_functional == FaceTangentIntegralSample) {
                                 // integral
-                                *(delta+i) = dot_product * data._qm.getWeight(quadrature) * magnitude;
+                                *(delta+i) = dot_product * data._qm.getWeight(quadrature) * G_determinant;
                             } else {
                                 // point
                                 *(delta+i) = dot_product;
                             }
                         } else {
                             // non-integrated quantities never satisfy this condition
-                            *(delta+i) += dot_product * data._qm.getWeight(quadrature) * magnitude;
+                            *(delta+i) += dot_product * data._qm.getWeight(quadrature) * G_determinant;
                         }
                         i++;
                     }
                 }
             }
         }
-    } else if (polynomial_sampling_functional == ScalarFaceAverageSample) {
+    } else if (polynomial_sampling_functional == ScalarFaceAverageSample ||
+               polynomial_sampling_functional == ScalarFaceIntegralSample) {
+
         compadre_kernel_assert_debug(data._local_dimensions==2 &&
                 "ScalarFaceAverageSample only supports 2d or 3d with 2d manifold");
         auto global_neighbor_index = data._pc.getNeighborIndex(target_index, neighbor_index);
@@ -389,17 +487,27 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
         // could be calculated, but is correct for sphere
         // and also for non-manifold problems
         // uses given midpoint, rather than computing the midpoint from vertices
+        double radius = 0.0;
+        // this midpoint should lie on the sphere, or this will be the wrong radius
         for (int j=0; j<data._global_dimensions; ++j) {
             // midpoint
             triangle_coords_matrix(j, 0) = data._pc.getNeighborCoordinate(target_index, neighbor_index, j);
+            radius += triangle_coords_matrix(j, 0)*triangle_coords_matrix(j, 0);
         }
+        radius = std::sqrt(radius);
 
-        // NaN in last entry (data._global_dimensions) is a convention for indicating fewer vertices 
+        // NaN in entry (data._global_dimensions) is a convention for indicating fewer vertices 
         // for this cell and NaN is checked by entry!=entry
-        size_t num_vertices = (data._source_extra_data(global_neighbor_index, data._source_extra_data.extent(1)-1)
-                != data._source_extra_data(global_neighbor_index, data._source_extra_data.extent(1)-1)) 
-                    ? (data._source_extra_data.extent(1) / data._global_dimensions) - 1 : 
-                      (data._source_extra_data.extent(1) / data._global_dimensions);
+        int num_vertices = 0;
+        for (int j=0; j<data._source_extra_data.extent_int(1); ++j) {
+            auto val = data._source_extra_data(global_neighbor_index, j);
+            if (val != val) {
+                break;
+            } else {
+                num_vertices++;
+            }
+        }
+        num_vertices = num_vertices / data._global_dimensions;
         auto T = triangle_coords_matrix;
 
         // loop over each two vertices 
@@ -439,7 +547,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                 double G_determinant = 1.0;
                 if (data._problem_type == ProblemType::MANIFOLD) {
                     // unscaled_transformed_qp now lives on cell, but if on manifold,
-                    // not directly on the sphere, just close by
+                    // not directly on the sphere, just near by
 
                     // normalize to project back onto sphere
                     double transformed_qp_norm = 0;
@@ -449,25 +557,27 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                     transformed_qp_norm = std::sqrt(transformed_qp_norm);
                     // transformed_qp made unit length
                     for (int j=0; j<data._global_dimensions; ++j) {
-                        scaled_transformed_qp[j] = unscaled_transformed_qp[j] / transformed_qp_norm;
+                        scaled_transformed_qp[j] = unscaled_transformed_qp[j] * radius / transformed_qp_norm;
                     }
 
 
                     // u_qp = midpoint + r_qp[1]*(v_1-midpoint) + r_qp[2]*(v_2-midpoint)
-                    // s_qp = u_qp / norm(u_qp)
+                    // s_qp = u_qp * radius / norm(u_qp) = radius * u_qp / norm(u_qp)
                     //
                     // so G(:,i) is \partial{s_qp}/ \partial{r_qp[i]}
                     // where r_qp is reference quadrature point (R^2 in 2D manifold in R^3)
                     //
-                    // G(:,i) = \partial{u_qp}/\partial{r_qp[i]} * (\sum_m u_qp[k]^2)^{-1/2}
-                    //          + u_qp * \partial{(\sum_m u_qp[k]^2)^{-1/2}}/\partial{r_qp[i]}
+                    // G(:,i) = radius * ( \partial{u_qp}/\partial{r_qp[i]} * (\sum_m u_qp[k]^2)^{-1/2}
+                    //          + u_qp * \partial{(\sum_m u_qp[k]^2)^{-1/2}}/\partial{r_qp[i]} )
                     //
-                    //        = T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
-                    //                              *2*(\sum_k u_qp[k]*\partial{u_qp[k]}/\partial{r_qp[i]})
+                    //        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
+                    //                              *2*(\sum_k u_qp[k]*\partial{u_qp[k]}/\partial{r_qp[i]}) )
                     //
-                    //        = T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
-                    //                              *2*(\sum_k u_qp[k]*T(k,i))
+                    //        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
+                    //                              *2*(\sum_k u_qp[k]*T(k,i)) )
                     //
+                    // NOTE: we do not multiply G by radius before determining area from vectors,
+                    //       so we multiply by radius**2 after calculation
                     double qp_norm_sq = transformed_qp_norm*transformed_qp_norm;
                     for (int j=0; j<data._global_dimensions; ++j) {
                         G(j,1) = T(j,1)/transformed_qp_norm;
@@ -481,6 +591,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                     }
                     G_determinant = getAreaFromVectors(teamMember, 
                             Kokkos::subview(G, Kokkos::ALL(), 1), Kokkos::subview(G, Kokkos::ALL(), 2));
+                    G_determinant *= radius*radius;
                     XYZ qp = XYZ(scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]);
                     for (int j=0; j<data._local_dimensions; ++j) {
                         relative_coord[j] = data._pc.convertGlobalToLocalCoordinate(qp,j,*V) 
@@ -517,11 +628,13 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                 entire_cell_area += G_determinant * data._qm.getWeight(quadrature);
             }
         }
-        int k = 0;
-        for (int n = 0; n <= poly_order; n++){
-            for (alphay = 0; alphay <= n; alphay++){
-                *(delta+k) /= entire_cell_area;
-                k++;
+        if (polynomial_sampling_functional == ScalarFaceAverageSample) {
+            int k = 0;
+            for (int n = 0; n <= poly_order; n++){
+                for (alphay = 0; alphay <= n; alphay++){
+                    *(delta+k) /= entire_cell_area;
+                    k++;
+                }
             }
         }
     } else {

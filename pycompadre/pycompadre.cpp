@@ -578,7 +578,7 @@ public:
 
         auto result = py::array_t<double>(dim_out_0*dim_out_1);
 
-        if (dim_out_1==2) {
+        if (dim_out_1>=2) {
             result.resize({dim_out_0,dim_out_1});
             auto result_data = result.mutable_unchecked<2>();
             Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
@@ -630,7 +630,7 @@ public:
 
         auto result = py::array_t<double>(dim_out_0*dim_out_1*dim_out_2);
 
-        if (dim_out_2==2) {
+        if (dim_out_2>=2) {
             result.resize({dim_out_0,dim_out_1,dim_out_2});
             auto result_data = result.mutable_unchecked<3>();
             for (size_t k=0; k<max_additional_sites; ++k) {
@@ -746,6 +746,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     sampling_functional["FaceTangentIntegralSample"] = FaceTangentIntegralSample;
     sampling_functional["FaceTangentPointSample"] = FaceTangentPointSample;
     sampling_functional["ScalarFaceAverageSample"] = ScalarFaceAverageSample;
+    sampling_functional["ScalarFaceIntegralSample"] = ScalarFaceIntegralSample;
     m.attr("SamplingFunctionals") = sampling_functional;
 
     py::enum_<TargetOperation>(m, "TargetOperation")
@@ -764,6 +765,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .value("ChainedStaggeredLaplacianOfScalarPointEvaluation", TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation)
     .value("GaussianCurvaturePointEvaluation", TargetOperation::GaussianCurvaturePointEvaluation)
     .value("ScalarFaceAverageEvaluation", TargetOperation::ScalarFaceAverageEvaluation)
+    .value("ScalarFaceIntegralEvaluation", TargetOperation::ScalarFaceIntegralEvaluation)
     .export_values();
 
 
@@ -796,6 +798,15 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     py::enum_<ConstraintType>(m, "ConstraintType")
     .value("NO_CONSTRAINT", ConstraintType::NO_CONSTRAINT)
     .value("NEUMANN_GRAD_SCALAR", ConstraintType::NEUMANN_GRAD_SCALAR)
+    .export_values();
+
+    py::enum_<QuadratureType>(m, "QuadratureType")
+    .value("INVALID", QuadratureType::INVALID)
+    .value("LINE", QuadratureType::LINE)
+    .value("TRI", QuadratureType::TRI)
+    .value("QUAD", QuadratureType::QUAD)
+    .value("TET", QuadratureType::TET)
+    .value("HEX", QuadratureType::HEX)
     .export_values();
     
     py::class_<SolutionSet<host_memory_space> >(m, "SolutionSet", R"pbdoc(
@@ -857,12 +868,20 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             py::arg("poly_order"),py::arg("dimension")=3,py::arg("dense_solver_type")="QR", 
             py::arg("problem_type")="STANDARD", py::arg("constraint_type")="NO_CONSTRAINT", 
             py::arg("curvature_poly_order")=2)
+    .def(py::init<ReconstructionSpace,SamplingFunctional,SamplingFunctional,int,int,std::string,std::string,std::string,int>(),
+            py::arg("reconstruction_space"),py::arg("polynomial_sampling_functional"),py::arg("data_sampling_functional"),
+            py::arg("poly_order"),py::arg("dimension")=3,py::arg("dense_solver_type")="QR", 
+            py::arg("problem_type")="STANDARD", py::arg("constraint_type")="NO_CONSTRAINT", 
+            py::arg("curvature_poly_order")=2)
     .def("getWeightingParameter", &GMLS::getWeightingParameter, py::arg("parameter index")=0, "Get weighting kernel parameter[index].")
     .def("setWeightingParameter", &GMLS::setWeightingParameter, py::arg("parameter value"), py::arg("parameter index")=0, "Set weighting kernel parameter[index] to parameter value.")
     .def("setWeightingPower", &GMLS::setWeightingParameter, py::arg("parameter value"), py::arg("parameter index")=0, "Set weighting kernel parameter[index] to parameter value. [DEPRECATED]")
     .def("getWeightingType", &GMLS::getWeightingType, "Get the weighting type.")
     .def("setWeightingType", overload_cast_<const std::string&>()(&GMLS::setWeightingType), "Set the weighting type with a string.")
     .def("setWeightingType", overload_cast_<WeightingFunctionType>()(&GMLS::setWeightingType), "Set the weighting type with a WeightingFunctionType.")
+    .def("setOrderOfQuadraturePoints", &GMLS::setOrderOfQuadraturePoints, py::arg("order"))
+    .def("setDimensionOfQuadraturePoints", &GMLS::setDimensionOfQuadraturePoints, py::arg("dim"))
+    .def("setQuadratureType", &GMLS::setQuadratureType, py::arg("quadrature_type"))
     .def("addTargets", overload_cast_<TargetOperation>()(&GMLS::addTargets), "Add a target operation.")
     .def("addTargets", overload_cast_<std::vector<TargetOperation> >()(&GMLS::addTargets), "Add a list of target operations.")
     .def("generateAlphas", &GMLS::generateAlphas, py::arg("number_of_batches")=1, py::arg("keep_coefficients")=false, py::arg("clear_cache")=true)
@@ -870,6 +889,20 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .def("getSolutionSet", &GMLS::getSolutionSetHost, py::arg("validity_check")=true, py::return_value_policy::reference_internal)
     .def("getNP", &GMLS::getNP, "Get size of basis.")
     .def("getNN", &GMLS::getNN, "Heuristic number of neighbors.")
+    .def("setTargetExtraData", [] (GMLS* gmls, py::array_t<double> extra_data) {
+        py::buffer_info buf = extra_data.request();
+        if (buf.ndim != 2) {
+            throw std::runtime_error("Number of dimensions must be two");
+        }
+        gmls->setTargetExtraData(convert_np_to_kokkos_2d(extra_data));
+    })
+    .def("setSourceExtraData", [] (GMLS* gmls, py::array_t<double> extra_data) {
+        py::buffer_info buf = extra_data.request();
+        if (buf.ndim != 2) {
+            throw std::runtime_error("Number of dimensions must be two");
+        }
+        gmls->setSourceExtraData(convert_np_to_kokkos_2d(extra_data));
+    })
     .def(py::pickle(
         [](const GMLS &gmls) { // __getstate__
 
@@ -1005,6 +1038,21 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .def("getMinNumNeighbors", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getMinNumNeighbors, "Get minimum number of neighbors over all neighborhoods.")
     .def("getNeighbor", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getNeighborHost, py::arg("target index"), py::arg("local neighbor number"), "Get neighbor index from target index and local neighbor number.")
     .def("getTotalNeighborsOverAllLists", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getTotalNeighborsOverAllListsHost, "Get total storage size of all neighbor lists combined.");
+
+    py::class_<Quadrature>(m, "Quadrature")
+    .def(py::init<int, int, std::string>(), py::arg("order_of_quadrature_points"), py::arg("dimension_of_quadrature_points"), 
+         py::arg("quadrature_type") = "LINE")
+    .def("validQuadrature", &Quadrature::validQuadrature, "Has quadrature been generated.")
+    .def("getNumberOfQuadraturePoints", &Quadrature::getNumberOfQuadraturePoints)
+    .def("getOrderOfQuadraturePoints", &Quadrature::getOrderOfQuadraturePoints)
+    .def("getDimensionOfQuadraturePoints", &Quadrature::getDimensionOfQuadraturePoints)
+    .def("getQuadratureType", &Quadrature::getQuadratureType)
+    .def("getWeights", [] (const Quadrature &quadrature) {
+        return convert_kokkos_to_np(quadrature.getWeights());
+    })
+    .def("getSites", [] (const Quadrature &quadrature) {
+        return convert_kokkos_to_np(quadrature.getSites());
+    });
 
     py::class_<KokkosParser>(m, "KokkosParser")
     .def(py::init<std::vector<std::string>,bool>(), py::arg("args"), py::arg("print") = false)

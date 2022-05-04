@@ -42,8 +42,11 @@ namespace Compadre {
         //! Average of values in a face of a cell using quadrature
         //! 2D in 3D problem, 1D in 2D problem
         ScalarFaceAverageEvaluation,
+        //! Integral values in a face of a cell using quadrature
+        //! 2D in 3D problem, 1D in 2D problem
+        ScalarFaceIntegralEvaluation,
         //! Should be the total count of all available target functionals
-        COUNT=15,
+        COUNT=16,
     };
 
     //! Rank of target functional output for each TargetOperation 
@@ -67,6 +70,7 @@ namespace Compadre {
             0, ///< ChainedStaggeredLaplacianOfScalarPointEvaluation
             0, ///< GaussianCurvaturePointEvaluation
             0, ///< ScalarFaceAverageEvaluation
+            0, ///< ScalarFaceIntegralEvaluation
         };
         return TargetOutputTensorRank[index];
     }
@@ -180,7 +184,10 @@ namespace Compadre {
         FaceTangentPointSample = make_sampling_functional(1,0,false,false,(int)Identity),
 
         //! For polynomial integrated on faces
-        ScalarFaceAverageSample = make_sampling_functional(0,0,false,false,(int)DifferentEachNeighbor);
+        ScalarFaceAverageSample = make_sampling_functional(0,0,false,false,(int)DifferentEachNeighbor),
+
+        //! For polynomial integrated on faces
+        ScalarFaceIntegralSample = make_sampling_functional(0,0,false,false,(int)DifferentEachNeighbor);
 
     //! Dense solver type
     enum DenseSolverType {
