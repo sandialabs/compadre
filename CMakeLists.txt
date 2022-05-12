@@ -236,16 +236,6 @@ else() # Raw CMake Project
       set(Compadre_USE_CUDA ON)
     endif()
 
-    if (KokkosCore_HAS_OPENMP)
-      message(STATUS "OPENMP enabled in KokkosCore in Trilinos, setting Compadre_USE_OPENMP to ON")
-      set(Compadre_USE_OPENMP ON)
-    endif()
-
-    if (KokkosCore_HAS_THREADS)
-      message(STATUS "THREADS enabled in KokkosCore in Trilinos, setting Compadre_USE_THREADS to ON")
-      set(Compadre_USE_THREADS ON)
-    endif()
-
     FIND_PACKAGE(Kokkos)
     if (Kokkos_VERSION VERSION_LESS "3.3")
         message(FATAL_ERROR "${Kokkos_VERSION}: Requires Trilinos with Kokkos version 3.3.01 or greater")
@@ -282,11 +272,9 @@ else() # Raw CMake Project
           MESSAGE(FATAL_ERROR "KokkosKernels_PREFIX specified but KokkosCore_PREFIX not specified. \
           Either provide KokkosCore_PREFIX as well, or remove KokkosKernels_PREFIX specification.")
       endif()
-      # set Compadre_USE_ to use whatever Kokkos_ENABLE_ specified, since user is building Kokkos
-      set(Compadre_USE_OPENMP ${Kokkos_ENABLE_OPENMP})
-      set(Compadre_USE_THREADS ${Kokkos_ENABLE_THREADS})
       # older version of Kokkos shipped with Compadre still uses PTHREAD naming
       set(Kokkos_ENABLE_PTHREAD ${Kokkos_ENABLE_THREADS}) 
+      # set Compadre_USE_ to use whatever Kokkos_ENABLE_ specified, since user is building Kokkos
       set(Compadre_USE_CUDA ${Kokkos_ENABLE_CUDA})
       set(Kokkos_PREFIX ${CMAKE_INSTALL_PREFIX})
     else()
@@ -298,11 +286,6 @@ else() # Raw CMake Project
       endif()
       set(KOKKOS_EXISTING_ELSEWHERE ON)
       # set Compadre_USE_ to whatever is enabled in Kokkos build
-      if (TARGET Kokkos::OPENMP)
-        set(Compadre_USE_OPENMP ON)
-      elseif(TARGET Kokkos::THREADS)
-        set(Compadre_USE_THREADS ON)
-      endif() 
       if (TARGET Kokkos::CUDA)
         set(Compadre_USE_CUDA ON)
       endif()
@@ -323,7 +306,7 @@ else() # Raw CMake Project
   endif()
 
   if (KOKKOSKERNELS_IN_TRILINOS)
-    if (Compadre_US_CUDA)
+    if (Compadre_USE_CUDA)
       list(FIND Trilinos_TPL_LIST "CUDA" CUDAID)
       if (NOT(CUDAID GREATER -1))
           MESSAGE(FATAL_ERROR "Compadre_USE_CUDA set to ON, but CUDA not defined in Trilinos")
