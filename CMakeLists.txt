@@ -224,6 +224,9 @@ else() # Raw CMake Project
     include(${CMAKE_CURRENT_LIST_DIR}/cmake/detect_trilinos_opts.cmake)
     detect_trilinos_opts()
 
+    # cmake/detect_trilinos_opts.cmake populates KokkosCore_HAS_* from a 
+    # backwards compatible set of Kokkos naming conventions
+
     # get kokkos settings, change our settings, error to user if we something they requested is not enabled
     if (KokkosCore_HAS_CUDA)
       if (NOT KokkosCore_HAS_CUDA_LAMBDA)
@@ -231,16 +234,6 @@ else() # Raw CMake Project
       endif()
       message(STATUS "CUDA enabled in KokkosCore in Trilinos, setting Compadre_USE_CUDA to ON")
       set(Compadre_USE_CUDA ON)
-    endif()
-
-    if (KokkosCore_HAS_OPENMP)
-      message(STATUS "OPENMP enabled in KokkosCore in Trilinos, setting Compadre_USE_OPENMP to ON")
-      set(Compadre_USE_OPENMP ON)
-    endif()
-
-    if (KokkosCore_HAS_PTHREAD)
-      message(STATUS "PTHREAD enabled in KokkosCore in Trilinos, setting Compadre_USE_PTHREAD to ON")
-      set(Compadre_USE_PTHREAD ON)
     endif()
 
     FIND_PACKAGE(Kokkos)
@@ -263,11 +256,11 @@ else() # Raw CMake Project
       if (APPLE)
         bob_option(Kokkos_ENABLE_CUDA "Whether to use CUDA" OFF)
         bob_option(Kokkos_ENABLE_OPENMP "Whether to use OPENMP" OFF)
-        bob_option(Kokkos_ENABLE_PTHREAD "Whether to use PTHREAD" ON)
+        bob_option(Kokkos_ENABLE_THREADS "Whether to use THREADS" ON)
       else()
         bob_option(Kokkos_ENABLE_CUDA "Whether to use CUDA" OFF)
         bob_option(Kokkos_ENABLE_OPENMP "Whether to use OPENMP" ON)
-        bob_option(Kokkos_ENABLE_PTHREAD "Whether to use PTHREAD" OFF)
+        bob_option(Kokkos_ENABLE_THREADS "Whether to use THREADS" OFF)
       endif()
       option(Kokkos_ENABLE_DEBUG "" "${Compadre_DEBUG}")
       option(Kokkos_ENABLE_CUDA_UVM "" OFF)
@@ -279,9 +272,9 @@ else() # Raw CMake Project
           MESSAGE(FATAL_ERROR "KokkosKernels_PREFIX specified but KokkosCore_PREFIX not specified. \
           Either provide KokkosCore_PREFIX as well, or remove KokkosKernels_PREFIX specification.")
       endif()
+      # older version of Kokkos shipped with Compadre still uses PTHREAD naming
+      set(Kokkos_ENABLE_PTHREAD ${Kokkos_ENABLE_THREADS}) 
       # set Compadre_USE_ to use whatever Kokkos_ENABLE_ specified, since user is building Kokkos
-      set(Compadre_USE_OPENMP ${Kokkos_ENABLE_OPENMP})
-      set(Compadre_USE_PTHREAD ${Kokkos_ENABLE_PTHREAD})
       set(Compadre_USE_CUDA ${Kokkos_ENABLE_CUDA})
       set(Kokkos_PREFIX ${CMAKE_INSTALL_PREFIX})
     else()
@@ -293,11 +286,6 @@ else() # Raw CMake Project
       endif()
       set(KOKKOS_EXISTING_ELSEWHERE ON)
       # set Compadre_USE_ to whatever is enabled in Kokkos build
-      if (TARGET Kokkos::OPENMP)
-        set(Compadre_USE_OPENMP ON)
-      elseif(TARGET Kokkos::PTHREAD)
-        set(Compadre_USE_PTHREAD ON)
-      endif() 
       if (TARGET Kokkos::CUDA)
         set(Compadre_USE_CUDA ON)
       endif()
@@ -318,7 +306,7 @@ else() # Raw CMake Project
   endif()
 
   if (KOKKOSKERNELS_IN_TRILINOS)
-    if (Compadre_US_CUDA)
+    if (Compadre_USE_CUDA)
       list(FIND Trilinos_TPL_LIST "CUDA" CUDAID)
       if (NOT(CUDAID GREATER -1))
           MESSAGE(FATAL_ERROR "Compadre_USE_CUDA set to ON, but CUDA not defined in Trilinos")
@@ -352,8 +340,8 @@ else() # Raw CMake Project
       SET(KokkosKernels_ENABLE_TPL_CUSPARSE OFF)
       OPTION(KokkosKernels_INST_MEMSPACE_CUDAUVMSPACE "" OFF)
       SET(KokkosKernels_INST_MEMSPACE_CUDAUVMSPACE OFF)
-      OPTION(KokkosKernels_INST_EXECSPACE_THREADS "" ${Kokkos_ENABLE_PTHREAD})
-      SET(KokkosKernels_INST_EXECSPACE_THREADS ${Kokkos_ENABLE_PTHREAD})
+      OPTION(KokkosKernels_INST_EXECSPACE_THREADS "" ${Kokkos_ENABLE_THREADS})
+      SET(KokkosKernels_INST_EXECSPACE_THREADS ${Kokkos_ENABLE_THREADS})
       OPTION(KokkosKernels_INST_EXECSPACE_OPENMP "" ${Kokkos_ENABLE_OPENMP})
       SET(KokkosKernels_INST_EXECSPACE_OPENMP ${Kokkos_ENABLE_OPENMP})
       add_subdirectory(kokkos-kernels)
