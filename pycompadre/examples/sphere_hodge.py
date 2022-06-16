@@ -27,9 +27,9 @@ class TestSphereRemapCellIntegral(KokkosTestCase):
             dimensions = dataset.dimensions
             variables = dataset.variables
 
-            p_order = 4
+            p_order = 1
             # get cells and put averaged quantities on them
-            q_order = 5
+            q_order = 2
 
             DIM = 3
             assert DIM==3, "Only created for 3D problem with 2D manifolds (DIM==3)"
@@ -61,6 +61,7 @@ class TestSphereRemapCellIntegral(KokkosTestCase):
             nCells = dataset.dimensions['nCells'].size
             extra_data = np.zeros(shape=(nCells, DIM*max_nEOnC), dtype='f8')
             cell_points = np.zeros(shape=(nCells, DIM), dtype='f8')
+            q_scaling = np.zeros(shape=(nCells, max_nEOnC, len(qpoints)), dtype='f8')
 
             # need to produce data for the remap (get cell integrated data)
             f = lambda x: (x[0]/radius)**2 - (x[1]/radius)**2 + (x[1]/radius)*(x[0]/radius) \
@@ -76,81 +77,82 @@ class TestSphereRemapCellIntegral(KokkosTestCase):
                 # normalization to sphere
                 cell_points[cell,:] = cell_points[cell,:] * radius / np.linalg.norm(cell_points[cell,:])
 
-            #    cell_area = 0.0
-            #    facet_cell_area = 0.0
-            #    ref_total_area += dataset['areaCell'][cell]
+                cell_area = 0.0
+                facet_cell_area = 0.0
+                ref_total_area += dataset['areaCell'][cell]
 
-            #    for local_edge in range(max_nEOnC):
-            #    #for local_edge in range(dataset['nEdgesOnCell'][cell]):
-            #        if local_edge < dataset['nEdgesOnCell'][cell]:
-            #            local_v1 = (local_edge - 1) % dataset['nEdgesOnCell'][cell]
-            #            local_v2 = local_edge
-            #            v1 = vOnC[cell, local_v1] - 1
-            #            v2 = vOnC[cell, local_v2] - 1
+                for local_edge in range(max_nEOnC):
+                #for local_edge in range(dataset['nEdgesOnCell'][cell]):
+                    if local_edge < dataset['nEdgesOnCell'][cell]:
+                        local_v1 = (local_edge - 1) % dataset['nEdgesOnCell'][cell]
+                        local_v2 = local_edge
+                        v1 = vOnC[cell, local_v1] - 1
+                        v2 = vOnC[cell, local_v2] - 1
 
-            #            # for debugging we can check that v1 or v2 are in the edge
-            #            e  = eOnC[cell, local_edge] - 1
-            #            e_v1 = vOnE[e, 0]-1
-            #            e_v2 = vOnE[e, 1]-1
-            #            assert (v1==e_v1 or v1==e_v2), "Cell %d, not found %d in [%d,%d]" % (cell, v1, e_v1, e_v2)
-            #            assert (v2==e_v1 or v2==e_v2), "Cell %d, not found %d in [%d,%d]" % (cell, v2, e_v1, e_v2)
+                        # for debugging we can check that v1 or v2 are in the edge
+                        e  = eOnC[cell, local_edge] - 1
+                        e_v1 = vOnE[e, 0]-1
+                        e_v2 = vOnE[e, 1]-1
+                        assert (v1==e_v1 or v1==e_v2), "Cell %d, not found %d in [%d,%d]" % (cell, v1, e_v1, e_v2)
+                        assert (v2==e_v1 or v2==e_v2), "Cell %d, not found %d in [%d,%d]" % (cell, v2, e_v1, e_v2)
 
-            #            vertex_num = v1
-            #            # write first vertex on edge to extra_data
-            #            extra_data[cell,local_edge*DIM:(local_edge+1)*DIM] = \
-            #                np.asarray([xV[vertex_num], yV[vertex_num], zV[vertex_num]], dtype='f8')
-            #            extra_data[cell,local_edge*DIM:(local_edge+1)*DIM] = extra_data[cell,local_edge*DIM:(local_edge+1)*DIM] * radius / np.linalg.norm(extra_data[cell,local_edge*DIM:(local_edge+1)*DIM])
-            #        else:
-            #            extra_data[cell,local_edge*DIM:(local_edge+1)*DIM] = \
-            #                np.asarray([np.NaN, np.NaN, np.NaN], dtype='f8')
+                        vertex_num = v1
+                        # write first vertex on edge to extra_data
+                        extra_data[cell,local_edge*DIM:(local_edge+1)*DIM] = \
+                            np.asarray([xV[vertex_num], yV[vertex_num], zV[vertex_num]], dtype='f8')
+                        extra_data[cell,local_edge*DIM:(local_edge+1)*DIM] = extra_data[cell,local_edge*DIM:(local_edge+1)*DIM] * radius / np.linalg.norm(extra_data[cell,local_edge*DIM:(local_edge+1)*DIM])
+                    else:
+                        extra_data[cell,local_edge*DIM:(local_edge+1)*DIM] = \
+                            np.asarray([np.NaN, np.NaN, np.NaN], dtype='f8')
 
-            #    #for local_vertex in range(max_nEOnC):
-            #    for local_vertex in range(dataset['nEdgesOnCell'][cell]):
-            #        v[:,0] = cell_points[cell,:].copy()
-            #        alt_local_vertex = (local_vertex-1) % dataset['nEdgesOnCell'][cell]
-            #        v[:,1] = extra_data[cell,alt_local_vertex*DIM:(alt_local_vertex+1)*DIM] - v[:,0]
-            #        v[:,2] = extra_data[cell,local_vertex*DIM:(local_vertex+1)*DIM] - v[:,0]
-            #        facet_cell_area += 0.5*np.linalg.norm(np.cross(v[:,1], v[:,2]))
+                #for local_vertex in range(max_nEOnC):
+                for local_vertex in range(dataset['nEdgesOnCell'][cell]):
+                    v[:,0] = cell_points[cell,:].copy()
+                    alt_local_vertex = (local_vertex-1) % dataset['nEdgesOnCell'][cell]
+                    v[:,1] = extra_data[cell,alt_local_vertex*DIM:(alt_local_vertex+1)*DIM] - v[:,0]
+                    v[:,2] = extra_data[cell,local_vertex*DIM:(local_vertex+1)*DIM] - v[:,0]
+                    facet_cell_area += 0.5*np.linalg.norm(np.cross(v[:,1], v[:,2]))
 
-            #        result = 0.0
-            #        for i in range(len(qpoints)):
+                    result = 0.0
+                    for i in range(len(qpoints)):
 
-            #            unscaled_transformed_qp = v[:,0].copy()
-            #            for j in range(DIM-1):
-            #                unscaled_transformed_qp += qpoints[i][j] * v[:,j+1]
-            #            transformed_qp_norm = np.linalg.norm(unscaled_transformed_qp)
-            #            scaled_transformed_qp = unscaled_transformed_qp.copy() * radius / transformed_qp_norm
+                        unscaled_transformed_qp = v[:,0].copy()
+                        for j in range(DIM-1):
+                            unscaled_transformed_qp += qpoints[i][j] * v[:,j+1]
+                        transformed_qp_norm = np.linalg.norm(unscaled_transformed_qp)
+                        scaled_transformed_qp = unscaled_transformed_qp.copy() * radius / transformed_qp_norm
 
-            #            # u_qp = midpoint + r_qp[1]*(v_1-midpoint) + r_qp[2]*(v_2-midpoint)
-            #            # s_qp = u_qp * radius / norm(u_qp) = radius * u_qp / norm(u_qp)
-            #            #
-            #            # so G(:,i) is \partial{s_qp}/ \partial{r_qp[i]}
-            #            # where r_qp is reference quadrature point (R^2 in 2D manifold in R^3)
-            #            #
-            #            # G(:,i) = radius * ( \partial{u_qp}/\partial{r_qp[i]} * (\sum_m u_qp[k]^2)^{-1/2}
-            #            #          + u_qp * \partial{(\sum_m u_qp[k]^2)^{-1/2}}/\partial{r_qp[i]} )
-            #            #
-            #            #        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
-            #            #                              *2*(\sum_k u_qp[k]*\partial{u_qp[k]}/\partial{r_qp[i]}) )
-            #            #
-            #            #        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
-            #            #                              *2*(\sum_k u_qp[k]*T(k,i)) )
-            #            #
-            #            qp_norm_sq = transformed_qp_norm**2
-            #            G = v.copy() / transformed_qp_norm
-            #            for k in range(DIM):
-            #                G[:,1] += unscaled_transformed_qp*(-0.5)*pow(qp_norm_sq,-1.5) \
-            #                          *2*(unscaled_transformed_qp[k]*v[k,1]);
-            #                G[:,2] += unscaled_transformed_qp*(-0.5)*pow(qp_norm_sq,-1.5) \
-            #                          *2*(unscaled_transformed_qp[k]*v[k,2]);
+                        # u_qp = midpoint + r_qp[1]*(v_1-midpoint) + r_qp[2]*(v_2-midpoint)
+                        # s_qp = u_qp * radius / norm(u_qp) = radius * u_qp / norm(u_qp)
+                        #
+                        # so G(:,i) is \partial{s_qp}/ \partial{r_qp[i]}
+                        # where r_qp is reference quadrature point (R^2 in 2D manifold in R^3)
+                        #
+                        # G(:,i) = radius * ( \partial{u_qp}/\partial{r_qp[i]} * (\sum_m u_qp[k]^2)^{-1/2}
+                        #          + u_qp * \partial{(\sum_m u_qp[k]^2)^{-1/2}}/\partial{r_qp[i]} )
+                        #
+                        #        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
+                        #                              *2*(\sum_k u_qp[k]*\partial{u_qp[k]}/\partial{r_qp[i]}) )
+                        #
+                        #        = radius * ( T(:,i)/norm(u_qp) + u_qp*(-1/2)*(\sum_m u_qp[k]^2)^{-3/2}
+                        #                              *2*(\sum_k u_qp[k]*T(k,i)) )
+                        #
+                        qp_norm_sq = transformed_qp_norm**2
+                        G = v.copy() / transformed_qp_norm
+                        for k in range(DIM):
+                            G[:,1] += unscaled_transformed_qp*(-0.5)*pow(qp_norm_sq,-1.5) \
+                                      *2*(unscaled_transformed_qp[k]*v[k,1]);
+                            G[:,2] += unscaled_transformed_qp*(-0.5)*pow(qp_norm_sq,-1.5) \
+                                      *2*(unscaled_transformed_qp[k]*v[k,2]);
 
-            #            # cross product gives stretch factor
-            #            scaling = radius**2 * np.linalg.norm(np.cross(G[:,1], G[:,2]))
-            #            result += f(scaled_transformed_qp)*qweights[i]*scaling
-            #            cell_area += qweights[i]*scaling
+                        # cross product gives stretch factor
+                        scaling = radius**2 * np.linalg.norm(np.cross(G[:,1], G[:,2]))
+                        result += f(scaled_transformed_qp)*qweights[i]*scaling
+                        q_scaling[cell, local_vertex, i] = qweights[i]*scaling
+                        cell_area += qweights[i]*scaling
 
-            #        exact_in_field[cell] += result
-            #    computed_total_area += cell_area
+                    exact_in_field[cell] += result
+                computed_total_area += cell_area
 
             #print("AREA", computed_total_area, " vs ", ref_total_area)
             #print("SPHERE AREA:",str(4.0*3.141592653*(radius**2)))
@@ -187,18 +189,17 @@ class TestSphereRemapCellIntegral(KokkosTestCase):
             dof_to_cell_nl = cell_to_dof_nl
 
             # loop 
-            mass_matrix  = scipy.sparse.coo_matrix((dof_to_cell_nl.getNumberOfTargets(), dof_to_cell_nl.getNumberOfTargets()), dtype=np.int32)#.toarray()
             dof_to_dof_nl  = list()
             for cell in range(nCells):
                 dof_to_dof_nl.append(set())
                 for j in range(dof_to_cell_nl.getNumberOfNeighbors(cell)):
                     for k in range(cell_to_dof_nl.getNumberOfNeighbors(dof_to_cell_nl.getNeighbor(cell, j))):
-                        dof_to_dof_nl[i].add(cell_to_dof_nl.getNeighbor(dof_to_cell_nl.getNeighbor(cell, j), k))
+                        dof_to_dof_nl[cell].add(cell_to_dof_nl.getNeighbor(dof_to_cell_nl.getNeighbor(cell, j), k))
 
             #print(dof_to_dof_nl)
 
             # create a map from (cell(int), edge(int), quadrature(int), exterior(bool)) -> extra site number (int)
-            extra_points_map = np.zeros(shape=(cell_to_dof_nl.getNumberOfTargets(), max_nEOnC, len(qpoints), 1), dtype=np.int32)
+            extra_points_cell_map = np.zeros(shape=(cell_to_dof_nl.getNumberOfTargets(), max_nEOnC, len(qpoints), 1), dtype=np.int32)
             extra_points_coordinates = np.zeros(shape=(cell_to_dof_nl.getNumberOfTargets()*max_nEOnC*len(qpoints), DIM), dtype=np.float64)
             extra_points_indices = np.zeros(shape=(cell_to_dof_nl.getNumberOfTargets(),max_nEOnC*len(qpoints)+1), dtype=np.int32)
             i = 0
@@ -210,7 +211,7 @@ class TestSphereRemapCellIntegral(KokkosTestCase):
                     v[:,1] = extra_data[cell,alt_local_vertex*DIM:(alt_local_vertex+1)*DIM] - v[:,0]
                     v[:,2] = extra_data[cell,local_vertex*DIM:(local_vertex+1)*DIM] - v[:,0]
                     for q in range(len(qpoints)):
-                        extra_points_map[cell, local_vertex, q, 0] = i
+                        extra_points_cell_map[cell, local_vertex, q, 0] = local_entries
                         unscaled_transformed_qp = v[:,0].copy()
                         for j in range(DIM-1):
                             unscaled_transformed_qp += qpoints[q][j] * v[:,j+1]
@@ -225,19 +226,38 @@ class TestSphereRemapCellIntegral(KokkosTestCase):
             # set up additional evaluation sites
             gmls_helper.setAdditionalEvaluationSitesData(extra_points_indices, extra_points_coordinates)
             gmls_obj.generateAlphas(1, False)
+            ss = gmls_obj.getSolutionSet()
+            print("getSS")
 
             # loop over cells
+            cell_max_neighbors = cell_to_dof_nl.getMaxNumNeighbors()
+            I = np.zeros(shape=(nCells, max_nEOnC, cell_max_neighbors, cell_max_neighbors), dtype=np.int32)
+            J = np.zeros(shape=(nCells, max_nEOnC, cell_max_neighbors, cell_max_neighbors), dtype=np.int32)
+            K = np.zeros(shape=(nCells, max_nEOnC, cell_max_neighbors, cell_max_neighbors), dtype=np.float64)
+            print("getIJK")
             for cell in range(nCells):
                 # loop over DOFs that are neighbors of the cell i
                 for local_vertex in range(dataset['nEdgesOnCell'][cell]):
                     for j in range(cell_to_dof_nl.getNumberOfNeighbors(cell)):
                         # loop over DOFs that are neighbors of the cell i
                         for k in range(cell_to_dof_nl.getNumberOfNeighbors(cell)):
+                            print("%d of %d\n"%(cell, nCells))
                             # loop over quadrature on cell
+                            contribution = 0
                             for q in range(len(qpoints)):
-                                pass
-
-
+                                u = ss.getAlpha(lro=pycompadre.TargetOperation.ScalarPointEvaluation, target_index=cell, output_component_axis_1=0, output_component_axis_2=0, neighbor_index=j, input_component_axis_1=0, input_component_axis_2=0, additional_evaluation_site=extra_points_cell_map[cell,local_vertex,q,0]+1)
+                                v = ss.getAlpha(lro=pycompadre.TargetOperation.ScalarPointEvaluation, target_index=cell, output_component_axis_1=0, output_component_axis_2=0, neighbor_index=k, input_component_axis_1=0, input_component_axis_2=0, additional_evaluation_site=extra_points_cell_map[cell,local_vertex,q,0]+1)
+                                contribution += q_scaling[cell, local_vertex, q] * u * v
+                            I[cell, local_vertex, j, k] = cell_to_dof_nl.getNeighbor(cell, j)
+                            J[cell, local_vertex, j, k] = cell_to_dof_nl.getNeighbor(cell, k)
+                            K[cell, local_vertex, j, k] = contribution
+            print("assembly done")
+            I = I.flatten()
+            J = J.flatten()
+            K = K.flatten()
+            #mass_matrix = scipy.sparse.coo_matrix(I,J,K)
+            mass_matrix = scipy.sparse.coo_matrix( (K, (I,J)), shape=(dof_to_cell_nl.getNumberOfTargets(), dof_to_cell_nl.getNumberOfTargets()), dtype=np.float64)#.toarray()
+            print(mass_matrix)
 
 
             # NOTE: From here on, handles whether solution is correct
