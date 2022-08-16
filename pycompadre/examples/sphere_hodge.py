@@ -2,7 +2,9 @@ from kokkos_test_case import KokkosTestCase
 import pycompadre
 from netCDF4 import Dataset
 import numpy as np
+import scipy.io
 import scipy.sparse
+import scipy.sparse.linalg
 
 '''
 
@@ -27,9 +29,9 @@ class TestSphereRemapCellIntegral(KokkosTestCase):
             dimensions = dataset.dimensions
             variables = dataset.variables
 
-            p_order = 1
+            p_order = 2
             # get cells and put averaged quantities on them
-            q_order = 2
+            q_order = 4
 
             DIM = 3
             assert DIM==3, "Only created for 3D problem with 2D manifolds (DIM==3)"
@@ -154,7 +156,7 @@ class TestSphereRemapCellIntegral(KokkosTestCase):
                     exact_in_field[cell] += result
                 computed_total_area += cell_area
 
-            #print("AREA", computed_total_area, " vs ", ref_total_area)
+            print("AREA", computed_total_area, " vs ", ref_total_area)
             #print("SPHERE AREA:",str(4.0*3.141592653*(radius**2)))
 
             exact_out_field = np.zeros(shape=(nCells), dtype='f8')
@@ -165,8 +167,11 @@ class TestSphereRemapCellIntegral(KokkosTestCase):
             # quadrature will be added as extra evaluation sites
             # related neighbor lists will also be cells that are neighbors of cells
 
-            gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.ScalarTaylorPolynomial, 
+            #gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.ScalarTaylorPolynomial, 
+            #gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.VectorTaylorPolynomial, 
+            gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.ScalarTaylorPolynomial,
                                      pycompadre.SamplingFunctionals['ScalarFaceIntegralSample'], 
+                                     pycompadre.SamplingFunctionals['PointSample'],
                                      p_order, 
                                      DIM, 
                                      "QR", 
@@ -185,43 +190,115 @@ class TestSphereRemapCellIntegral(KokkosTestCase):
 
             gmls_helper.generateNeighborListsFromKNNSearchAndSet(cell_points, p_order, DIM-1, 2.2)
 
+            # centroids are cell centroids
+            # for now, the DOFs also exist at cell centroids
             cell_to_dof_nl = gmls_helper.getNeighborLists()
             dof_to_cell_nl = cell_to_dof_nl
 
             # loop 
             dof_to_dof_nl  = list()
-            for cell in range(nCells):
+            nDOFs = nCells
+            for dof in range(nDOFs):
                 dof_to_dof_nl.append(set())
-                for j in range(dof_to_cell_nl.getNumberOfNeighbors(cell)):
-                    for k in range(cell_to_dof_nl.getNumberOfNeighbors(dof_to_cell_nl.getNeighbor(cell, j))):
-                        dof_to_dof_nl[cell].add(cell_to_dof_nl.getNeighbor(dof_to_cell_nl.getNeighbor(cell, j), k))
+                # loop cell neighbors of DOF
+                for j in range(dof_to_cell_nl.getNumberOfNeighbors(dof)):
+                    cell = dof_to_cell_nl.getNeighbor(dof, j)
+                    # loop DOF neighbors of cell
+                    for k in range(cell_to_dof_nl.getNumberOfNeighbors(cell)):
+                        dof_to_dof_nl[dof].add(cell_to_dof_nl.getNeighbor(cell, k))
 
             #print(dof_to_dof_nl)
 
             # create a map from (cell(int), edge(int), quadrature(int), exterior(bool)) -> extra site number (int)
             extra_points_cell_map = np.zeros(shape=(cell_to_dof_nl.getNumberOfTargets(), max_nEOnC, len(qpoints), 1), dtype=np.int32)
+            # create a tall skinny matrix of quadrature coordinates from which to select for extra_point_indices
             extra_points_coordinates = np.zeros(shape=(cell_to_dof_nl.getNumberOfTargets()*max_nEOnC*len(qpoints), DIM), dtype=np.float64)
+            # refer to indices of quadrature coordinates in extra_points_coordinates
+            # first column indicates # of extra evaluation sites for that cell
             extra_points_indices = np.zeros(shape=(cell_to_dof_nl.getNumberOfTargets(),max_nEOnC*len(qpoints)+1), dtype=np.int32)
             i = 0
+
+            # loops cells
             for cell in range(nCells):
+
+                # keep track of column for extra_points_indices
                 local_entries = 0
+
+                # loops edges
                 for local_vertex in range(dataset['nEdgesOnCell'][cell]):
+
+                    # needed for quadrature point transformation
                     v[:,0] = cell_points[cell,:].copy()
                     alt_local_vertex = (local_vertex-1) % dataset['nEdgesOnCell'][cell]
                     v[:,1] = extra_data[cell,alt_local_vertex*DIM:(alt_local_vertex+1)*DIM] - v[:,0]
                     v[:,2] = extra_data[cell,local_vertex*DIM:(local_vertex+1)*DIM] - v[:,0]
+
+                    # loops quadrature
                     for q in range(len(qpoints)):
+
                         extra_points_cell_map[cell, local_vertex, q, 0] = local_entries
+
                         unscaled_transformed_qp = v[:,0].copy()
                         for j in range(DIM-1):
                             unscaled_transformed_qp += qpoints[q][j] * v[:,j+1]
                         transformed_qp_norm = np.linalg.norm(unscaled_transformed_qp)
                         scaled_transformed_qp = unscaled_transformed_qp.copy() * radius / transformed_qp_norm
+
                         extra_points_coordinates[i, :] = scaled_transformed_qp[:]
                         extra_points_indices[cell, local_entries+1] = i
-                        i+=1
-                        local_entries+=1
+
+                        i+=1 # keeps increasing over cell loops
+                        local_entries+=1 # resets at cell loops
+
                 extra_points_indices[cell, 0] = local_entries
+
+            # TEST
+            # pick a cell, then print all quadrature for that cell, also do it by subcell (side)
+
+            cell = 5
+            edge = 2
+
+            cell_point = np.asarray([xC[cell], yC[cell], zC[cell]], dtype='f8')
+
+            import matplotlib.pyplot as plt
+            fig = plt.figure()
+            ax = fig.add_subplot(projection='3d')
+
+            # plot cell center
+            ax.scatter(cell_point[0], cell_point[1], cell_point[2],c='#000000')
+
+            # get edge vertices
+            for local_edge in range(dataset['nEdgesOnCell'][cell]):
+                #if local_edge==edge:
+                local_v1 = (local_edge - 1) % dataset['nEdgesOnCell'][cell]
+                local_v2 = local_edge
+                v1 = vOnC[cell, local_v1] - 1
+                v2 = vOnC[cell, local_v2] - 1
+
+                # for debugging we can check that v1 or v2 are in the edge
+                e  = eOnC[cell, local_edge] - 1
+                e_v1 = vOnE[e, 0]-1
+                e_v2 = vOnE[e, 1]-1
+                assert (v1==e_v1 or v1==e_v2), "Cell %d, not found %d in [%d,%d]" % (cell, v1, e_v1, e_v2)
+                assert (v2==e_v1 or v2==e_v2), "Cell %d, not found %d in [%d,%d]" % (cell, v2, e_v1, e_v2)
+                v1_coords = \
+                    np.asarray([xV[v1], yV[v1], zV[v1]], dtype='f8')
+                v2_coords = \
+                    np.asarray([xV[v2], yV[v2], zV[v2]], dtype='f8')
+                # plot edge vertices
+                #print(v1_coords, v2_coords)
+                ax.scatter(v1_coords[0], v1_coords[1], v1_coords[2],c='#ff0000')
+                ax.scatter(v2_coords[0], v2_coords[1], v2_coords[2],c='#ff0000')
+
+            # plot quadrature
+            for k in range(extra_points_indices[cell, 0]):
+                pt = extra_points_coordinates[extra_points_indices[cell, k+1],:]
+                ax.scatter(pt[0], pt[1], pt[2],c='#00ff00')
+                #print(extra_points_coordinates[extra_points_indices[cell, k+1],:])
+
+            #plt.show()
+            #exit()
+
 
             # set up additional evaluation sites
             gmls_helper.setAdditionalEvaluationSitesData(extra_points_indices, extra_points_coordinates)
@@ -247,6 +324,8 @@ class TestSphereRemapCellIntegral(KokkosTestCase):
                             for q in range(len(qpoints)):
                                 u = ss.getAlpha(lro=pycompadre.TargetOperation.ScalarPointEvaluation, target_index=cell, output_component_axis_1=0, output_component_axis_2=0, neighbor_index=j, input_component_axis_1=0, input_component_axis_2=0, additional_evaluation_site=extra_points_cell_map[cell,local_vertex,q,0]+1)
                                 v = ss.getAlpha(lro=pycompadre.TargetOperation.ScalarPointEvaluation, target_index=cell, output_component_axis_1=0, output_component_axis_2=0, neighbor_index=k, input_component_axis_1=0, input_component_axis_2=0, additional_evaluation_site=extra_points_cell_map[cell,local_vertex,q,0]+1)
+                                alt_u = ss.getAlpha(lro=pycompadre.TargetOperation.ScalarPointEvaluation, target_index=cell, output_component_axis_1=0, output_component_axis_2=0, neighbor_index=j, input_component_axis_1=0, input_component_axis_2=0, additional_evaluation_site=0)
+                                alt_v = ss.getAlpha(lro=pycompadre.TargetOperation.ScalarPointEvaluation, target_index=cell, output_component_axis_1=0, output_component_axis_2=0, neighbor_index=k, input_component_axis_1=0, input_component_axis_2=0, additional_evaluation_site=0)
                                 contribution += q_scaling[cell, local_vertex, q] * u * v
                             I[cell, local_vertex, j, k] = cell_to_dof_nl.getNeighbor(cell, j)
                             J[cell, local_vertex, j, k] = cell_to_dof_nl.getNeighbor(cell, k)
@@ -255,17 +334,24 @@ class TestSphereRemapCellIntegral(KokkosTestCase):
             I = I.flatten()
             J = J.flatten()
             K = K.flatten()
+
             #mass_matrix = scipy.sparse.coo_matrix(I,J,K)
             mass_matrix = scipy.sparse.coo_matrix( (K, (I,J)), shape=(dof_to_cell_nl.getNumberOfTargets(), dof_to_cell_nl.getNumberOfTargets()), dtype=np.float64)#.toarray()
+            mass_matrix.sum_duplicates()
+            print('condition of M:', scipy.sparse.linalg.norm(mass_matrix))
+
+
             print(mass_matrix)
+            scipy.io.mmwrite('matrix.mtx', mass_matrix)
+            print('norm:',str(scipy.sparse.linalg.norm(mass_matrix)))
 
 
-            # NOTE: From here on, handles whether solution is correct
-            #out_field = gmls_helper.applyStencil(exact_in_field, pycompadre.TargetOperation.ScalarPointEvaluation)
+            #!!## NOTE: From here on, handles whether solution is correct
+            #!!#out_field = gmls_helper.applyStencil(exact_in_field, pycompadre.TargetOperation.ScalarPointEvaluation, sampling_functional=pycompadre.SamplingFunctionals['ScalarFaceIntegralSample'], evaluation_site_local_index=0)
 
-            #print('exact out:',exact_out_field)
-            #print('computed out:',out_field)
-            #print('diff:',out_field - exact_out_field)
+            #!!#print('exact out:',exact_out_field)
+            #!!#print('computed out:',out_field)
+            #!!#print('diff:',out_field - exact_out_field)
 
             #print('exact_out',exact_out_field, 'exact_in',exact_in_field, 'computed_out',out_field)
             #if direction==1:
