@@ -286,14 +286,6 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
         compadre_kernel_assert_debug(!specific_order_only && 
                 "Sampling functional does not support specific_order_only");
 
-        // On the sphere, edges lie on a great circle, which means the normal direction to the edge is 
-        // constant for all quadrature on the edge. this is not the case for tangent directions, which vary 
-        // by quadrature point. Data structures to support varying direction by quadrature point are not
-        // currently supported.
-        compadre_kernel_assert_debug((data._problem_type != ProblemType::MANIFOLD || 
-                                      polynomial_sampling_functional != FaceTangentIntegralSample) && 
-                "FaceTangentIntegralSamplg not supported on manifolds");
-
         double cutoff_p = data._epsilons(target_index);
         auto global_neighbor_index = data._pc.getNeighborIndex(target_index, neighbor_index);
 
@@ -347,11 +339,12 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
 
         // loop 
         for (int quadrature = 0; quadrature<quadrature_point_loop; ++quadrature) {
+
             double G_determinant = 1.0;
+            double scaled_transformed_qp[3] = {0,0,0};
             if (polynomial_sampling_functional == FaceNormalIntegralSample 
                     || polynomial_sampling_functional == FaceTangentIntegralSample) {
                 double unscaled_transformed_qp[3] = {0,0,0};
-                double scaled_transformed_qp[3] = {0,0,0};
                 for (int j=0; j<data._global_dimensions; ++j) {
                     unscaled_transformed_qp[j] += E(j,1)*data._qm.getSite(quadrature, 0);
                     // adds back on shift by endpoint
@@ -396,17 +389,38 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
 
             // get normal or tangent direction (ambient)
             XYZ direction;
-            for (int j=0; j<data._global_dimensions; ++j) {
-                // normal direction or tangent direction
-                if (polynomial_sampling_functional == FaceNormalIntegralSample 
-                        || polynomial_sampling_functional == FaceNormalPointSample) {
+            if (polynomial_sampling_functional == FaceNormalIntegralSample 
+                    || polynomial_sampling_functional == FaceNormalPointSample) {
+                for (int j=0; j<data._global_dimensions; ++j) {
                     // normal direction
                     direction[j] = data._source_extra_data(global_neighbor_index, 2*data._global_dimensions + j);
-                } else {
-                    // tangent direction
-                    direction[j] = data._source_extra_data(global_neighbor_index, 3*data._global_dimensions + j);
                 }
+            } else {
+                if (data._problem_type == ProblemType::MANIFOLD) {
+                    if (polynomial_sampling_functional == FaceTangentIntegralSample) {
+                        // generate tangent from outward normal direction of the sphere and edge normal
+                        XYZ k = {scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]};
+                        XYZ n = {data._source_extra_data(global_neighbor_index, 2*data._global_dimensions + 0),
+                                 data._source_extra_data(global_neighbor_index, 2*data._global_dimensions + 1),
+                                 data._source_extra_data(global_neighbor_index, 2*data._global_dimensions + 2)};
 
+                        double norm_k_cross_n = getAreaFromVectors(teamMember, k, n);
+                        direction[0] = (k[1]*n[2] - k[2]*n[1]) / norm_k_cross_n;
+                        direction[1] = (k[2]*n[0] - k[0]*n[2]) / norm_k_cross_n;
+                        direction[2] = (k[0]*n[1] - k[1]*n[0]) / norm_k_cross_n;
+                    } else {
+                        // tangent direction
+                        for (int j=0; j<data._global_dimensions; ++j) {
+                            direction[j] = data._source_extra_data(global_neighbor_index, 3*data._global_dimensions + j);
+
+                        }
+                    }
+                } else {
+                    for (int j=0; j<data._global_dimensions; ++j) {
+                        // tangent direction
+                        direction[j] = data._source_extra_data(global_neighbor_index, 3*data._global_dimensions + j);
+                    }
+                }
             }
 
             // convert direction to local chart (for manifolds)
