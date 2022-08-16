@@ -231,7 +231,7 @@ class TestSphereRemapCellIntegral(KokkosTestCase):
 
 class TestSphereRemapEdgeIntegral(KokkosTestCase):
 
-    def test_edge_integrated_remap_2d_manifold(self):
+    def test_edge_normal_integrated_remap_2d_manifold(self):
 
         def run(level):
 
@@ -296,6 +296,8 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             f_zonal = lambda lat, lon: np.cos(lat)
             f_meridional = lambda lat, lon: lat**4-(np.pi/2.0)**4
             f = lambda lat, lon, zonal, meridional: f_zonal(lat,lon)*zonal + f_meridional(lat,lon)*meridional
+            u_xyz = lambda x: [np.sin(x[0]), np.sin(x[1]), np.sin(x[2])]
+            f_xyz = lambda x, zonal, meridional: (u_xyz(x)[0]*zonal[0]+u_xyz(x)[1]*zonal[1]+u_xyz(x)[2]*zonal[2])*zonal + (u_xyz(x)[0]*meridional[0]+u_xyz(x)[1]*meridional[1]+u_xyz(x)[2]*meridional[2])*meridional
 
             # https://github.com/MPAS-Dev/MPAS-Model/blob/master/src/operators/mpas_vector_operations.F
             # Copyright (c) 2013,  Los Alamos National Security, LLC (LANS)
@@ -469,7 +471,8 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                         # rotate the vector 90
                         alt_lat, alt_lon = get_lat_lon(rot_xyz/np.linalg.norm(rot_xyz))
                         alt_zonalUnitVector, alt_meridionalUnitVector, alt_verticalUnitVector = get_sphere_basis(alt_lat, alt_lon)
-                        ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
+                        #ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
+                        ans_f = f_xyz(rot_xyz/np.linalg.norm(rot_xyz), alt_zonalUnitVector, alt_meridionalUnitVector)
                         alt_f = np.linalg.solve(R, ans_f)
                         result += np.dot(alt_f, norm_vec)
                     else:
@@ -483,7 +486,8 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                         assert d_rot < dataset['dcEdge'][edge], "Quadrature and midpoint too far apart"
                         alt_lat, alt_lon = get_lat_lon(rot_xyz_qp/np.linalg.norm(rot_xyz_qp))
                         alt_zonalUnitVector, alt_meridionalUnitVector, alt_verticalUnitVector = get_sphere_basis(alt_lat, alt_lon)
-                        ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
+                        #ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
+                        ans_f = f_xyz(rot_xyz_qp/np.linalg.norm(rot_xyz_qp), alt_zonalUnitVector, alt_meridionalUnitVector)
                         alt_f = np.linalg.solve(R, ans_f)
                         result += np.dot(alt_f, norm_vec)*qweights[i]*scaling
 
@@ -539,7 +543,8 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
 
                 alt_lat, alt_lon = get_lat_lon(rot_xyz/np.linalg.norm(rot_xyz))
                 alt_zonalUnitVector, alt_meridionalUnitVector, alt_verticalUnitVector = get_sphere_basis(alt_lat, alt_lon)
-                ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
+                #ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
+                ans_f = f_xyz(rot_xyz/np.linalg.norm(rot_xyz), alt_zonalUnitVector, alt_meridionalUnitVector)
                 alt_f = np.linalg.solve(R, ans_f)
                 exact_out_field[edge,:] = alt_f
 
@@ -548,12 +553,12 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                                                  pycompadre.TargetOperation.VectorPointEvaluation, 
                                                  sampling_functional)
 
-            # remove extreme lats
-            for edge in range(nEdges):
-                lat = dataset['latEdge'][edge]
-                if abs(lat)>np.pi/3.:
-                    out_field[edge,:] = 0.0
-                    exact_out_field[edge,:] = 0.0
+            ## remove extreme lats
+            #for edge in range(nEdges):
+            #    lat = dataset['latEdge'][edge]
+            #    if abs(lat)>np.pi/3.:
+            #        out_field[edge,:] = 0.0
+            #        exact_out_field[edge,:] = 0.0
 
             ## remove equator
             #for edge in range(nEdges):
