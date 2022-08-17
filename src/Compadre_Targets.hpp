@@ -1209,6 +1209,8 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                         }
                     });
                     additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+                } else {
+                    compadre_kernel_assert_release((false) && "Functionality not yet available.");
                 }
 
             } else if (data._operations(i) == TargetOperation::LaplacianOfScalarPointEvaluation) {
@@ -1319,6 +1321,8 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                         }
 
                     });
+                } else {
+                    compadre_kernel_assert_release((false) && "Functionality not yet available.");
                 }
             } else if (data._operations(i) == TargetOperation::VectorLaplacianPointEvaluation) {
                 // vector basis
@@ -1430,6 +1434,8 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                             P_target_row(offset, j) = delta(j);
                         }
                     });
+                } else {
+                    compadre_kernel_assert_release((false) && "Functionality not yet available.");
                 }
             } else if (data._operations(i) == TargetOperation::GradientOfScalarPointEvaluation) {
                 if (data._reconstruction_space_rank == 0
@@ -1692,10 +1698,10 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                        data._operations(i) == TargetOperation::ScalarFaceIntegralEvaluation) {
                 compadre_kernel_assert_debug(data._local_dimensions==2 &&
                         "ScalarFaceAverageSample only supports 2d or 3d with 2d manifold");
+
                 const double factorial[15] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
                 int offset = data._d_ss.getTargetOffsetIndex(i, 0, 0, 0);
 
-                // Calculate basis matrix for NON MANIFOLD problems
                 double cutoff_p = data._epsilons(target_index);
                 int alphax, alphay;
                 double alphaf;
@@ -1860,6 +1866,8 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
             } else {
                 compadre_kernel_assert_release((false) && "Functionality not yet available.");
             }
+        } else {
+            compadre_kernel_assert_release((false) && "Functionality not yet available.");
         }
         compadre_kernel_assert_release(((additional_evaluation_sites_need_handled && additional_evaluation_sites_handled) || (!additional_evaluation_sites_need_handled)) && "Auxiliary evaluation coordinates are specified by user, but are calling a target operation that can not handle evaluating additional sites.");
         } // !operation_handled
