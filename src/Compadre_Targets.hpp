@@ -149,8 +149,8 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                       P_target_row(offset, 2) = std::pow(data._epsilons(target_index), -2);
                   }
               });
-            } else if (data._operations(i) == TargetOperation::ScalarFaceAverageEvaluation ||
-                       data._operations(i) == TargetOperation::ScalarFaceIntegralEvaluation) {
+            } else if (data._operations(i) == TargetOperation::CellAverageEvaluation ||
+                       data._operations(i) == TargetOperation::CellIntegralEvaluation) {
                 compadre_kernel_assert_debug(data._local_dimensions==2 &&
                         "ScalarFaceAverageSample only supports 2d or 3d with 2d manifold");
                 const double factorial[15] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
@@ -227,7 +227,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                         entire_cell_area += G_determinant * data._qm.getWeight(quadrature);
                     }
                 }
-                if (data._operations(i) == TargetOperation::ScalarFaceAverageEvaluation) {
+                if (data._operations(i) == TargetOperation::CellAverageEvaluation) {
                     int k = 0;
                     for (int n = 0; n <= data._poly_order; n++){
                         for (alphay = 0; alphay <= n; alphay++){
@@ -1694,8 +1694,8 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                     }
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
-            } else if (data._operations(i) == TargetOperation::ScalarFaceAverageEvaluation ||
-                       data._operations(i) == TargetOperation::ScalarFaceIntegralEvaluation) {
+            } else if (data._operations(i) == TargetOperation::CellAverageEvaluation ||
+                       data._operations(i) == TargetOperation::CellIntegralEvaluation) {
                 compadre_kernel_assert_debug(data._local_dimensions==2 &&
                         "ScalarFaceAverageSample only supports 2d or 3d with 2d manifold");
 
@@ -1839,7 +1839,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                         entire_cell_area += G_determinant * data._qm.getWeight(quadrature);
                     }
                 }
-                if (data._operations(i) == TargetOperation::ScalarFaceAverageEvaluation) {
+                if (data._operations(i) == TargetOperation::CellAverageEvaluation) {
                     int k = 0;
                     for (int n = 0; n <= data._poly_order; n++){
                         for (alphay = 0; alphay <= n; alphay++){

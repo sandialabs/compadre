@@ -268,19 +268,20 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
             } // NON MANIFOLD PROBLEMS
         });
     } else if (polynomial_sampling_functional == FaceNormalIntegralSample ||
-                polynomial_sampling_functional == FaceTangentIntegralSample ||
-                polynomial_sampling_functional == FaceNormalPointSample ||
-                polynomial_sampling_functional == FaceTangentPointSample) {
+                polynomial_sampling_functional == EdgeTangentIntegralSample ||
+                polynomial_sampling_functional == FaceNormalAverageSample ||
+                polynomial_sampling_functional == EdgeTangentAverageSample) {
 
         compadre_kernel_assert_debug(data._local_dimensions==2 &&
-                "FaceNormalIntegralSample, FaceTangentIntegralSample, FaceNormalPointSample, \
-                    and FaceTangentPointSample only support 2d or 3d with 2d manifold");
+                "FaceNormalIntegralSample, EdgeTangentIntegralSample, FaceNormalAverageSample, \
+                    and EdgeTangentAverageSample only support 2d or 3d with 2d manifold");
 
-        if (polynomial_sampling_functional == FaceNormalIntegralSample ||
-                polynomial_sampling_functional == FaceTangentIntegralSample) {
-            compadre_kernel_assert_debug(data._qm.getDimensionOfQuadraturePoints()==1 \
-                    && "Only 1d quadrature may be specified for edge integrals");
-        }
+        compadre_kernel_assert_debug(data._qm.getDimensionOfQuadraturePoints()==1 \
+                && "Only 1d quadrature may be specified for edge integrals");
+
+        compadre_kernel_assert_debug(data._qm.getNumberOfQuadraturePoints()>=1 \
+                && "Quadrature points not generated");
+
         compadre_kernel_assert_debug(data._source_extra_data.extent(0)>0 && "Extra data used but not set.");
 
         compadre_kernel_assert_debug(!specific_order_only && 
@@ -296,10 +297,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
          * (e0_x, e0_y, e1_x, e1_y, n_x, n_y, t_x, t_y)
          */
 
-        // if not integrating, set to 1
-        int quadrature_point_loop = (polynomial_sampling_functional == FaceNormalIntegralSample 
-                || polynomial_sampling_functional == FaceTangentIntegralSample) ?
-                                    data._qm.getNumberOfQuadraturePoints() : 1;
+        int quadrature_point_loop = data._qm.getNumberOfQuadraturePoints();
 
         const int TWO = 2; // used because of # of vertices on an edge
         double G_data[3*TWO]; // max(2,3)*TWO
@@ -343,7 +341,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
             double G_determinant = 1.0;
             double scaled_transformed_qp[3] = {0,0,0};
             if (polynomial_sampling_functional == FaceNormalIntegralSample 
-                    || polynomial_sampling_functional == FaceTangentIntegralSample) {
+                    || polynomial_sampling_functional == EdgeTangentIntegralSample) {
                 double unscaled_transformed_qp[3] = {0,0,0};
                 for (int j=0; j<data._global_dimensions; ++j) {
                     unscaled_transformed_qp[j] += E(j,1)*data._qm.getSite(quadrature, 0);
@@ -390,14 +388,14 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
             // get normal or tangent direction (ambient)
             XYZ direction;
             if (polynomial_sampling_functional == FaceNormalIntegralSample 
-                    || polynomial_sampling_functional == FaceNormalPointSample) {
+                    || polynomial_sampling_functional == FaceNormalAverageSample) {
                 for (int j=0; j<data._global_dimensions; ++j) {
                     // normal direction
                     direction[j] = data._source_extra_data(global_neighbor_index, 2*data._global_dimensions + j);
                 }
             } else {
                 if (data._problem_type == ProblemType::MANIFOLD) {
-                    if (polynomial_sampling_functional == FaceTangentIntegralSample) {
+                    if (polynomial_sampling_functional == EdgeTangentIntegralSample) {
                         // generate tangent from outward normal direction of the sphere and edge normal
                         XYZ k = {scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]};
                         XYZ n = {data._source_extra_data(global_neighbor_index, 2*data._global_dimensions + 0),
@@ -463,7 +461,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                         // multiply by quadrature weight
                         if (quadrature==0) {
                             if (polynomial_sampling_functional == FaceNormalIntegralSample 
-                                    || polynomial_sampling_functional == FaceTangentIntegralSample) {
+                                    || polynomial_sampling_functional == EdgeTangentIntegralSample) {
                                 // integral
                                 *(delta+i) = dot_product * data._qm.getWeight(quadrature) * G_determinant;
                             } else {
@@ -479,11 +477,11 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                 }
             }
         }
-    } else if (polynomial_sampling_functional == ScalarFaceAverageSample ||
-               polynomial_sampling_functional == ScalarFaceIntegralSample) {
+    } else if (polynomial_sampling_functional == CellAverageSample ||
+               polynomial_sampling_functional == CellIntegralSample) {
 
         compadre_kernel_assert_debug(data._local_dimensions==2 &&
-                "ScalarFaceAverageSample only supports 2d or 3d with 2d manifold");
+                "CellAverageSample only supports 2d or 3d with 2d manifold");
         auto global_neighbor_index = data._pc.getNeighborIndex(target_index, neighbor_index);
         double cutoff_p = data._epsilons(target_index);
         int alphax, alphay;
@@ -626,7 +624,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
 
                 int k = 0;
                 compadre_kernel_assert_debug(!specific_order_only && 
-                        "ScalarFaceAverageSample does not support specific_order_only");
+                        "CellAverageSample does not support specific_order_only");
                 for (int n = 0; n <= poly_order; n++){
                     for (alphay = 0; alphay <= n; alphay++){
                         alphax = n - alphay;
@@ -642,7 +640,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                 entire_cell_area += G_determinant * data._qm.getWeight(quadrature);
             }
         }
-        if (polynomial_sampling_functional == ScalarFaceAverageSample) {
+        if (polynomial_sampling_functional == CellAverageSample) {
             int k = 0;
             for (int n = 0; n <= poly_order; n++){
                 for (alphay = 0; alphay <= n; alphay++){
