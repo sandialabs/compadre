@@ -233,7 +233,7 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
 
     def test_edge_normal_integrated_remap_2d_manifold(self):
 
-        def run(level, direction=1):
+        def run(level, direction=0):
 
             dataset = Dataset('../../../test_data/grids/sphere_{0}.nc'.format(str(level)), "r", format="NETCDF4")
 
@@ -251,8 +251,6 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             p_order = 4
             c_order = 4
             q_order = 5
-            if remap_type==0:
-                q_order = 1 # point sample can be though of as 1 pt quadrature
 
             DIM = 3
             assert DIM==3, "Only created for 3D problem with 2D manifolds (DIM==3)"
@@ -436,9 +434,8 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                     transformed_qp_norm = np.linalg.norm(unscaled_transformed_qp)
                     scaled_transformed_qp = unscaled_transformed_qp.copy() * radius / transformed_qp_norm
 
-                    if remap_type!=0:
-                        lat_qp, lon_qp = get_lat_lon(scaled_transformed_qp)
-                        zonalUnitVector_qp, meridionalUnitVector_qp, verticalUnitVector_qp = get_sphere_basis(lat_qp, lon_qp)
+                    lat_qp, lon_qp = get_lat_lon(scaled_transformed_qp)
+                    zonalUnitVector_qp, meridionalUnitVector_qp, verticalUnitVector_qp = get_sphere_basis(lat_qp, lon_qp)
 
                     scaling = arclength
 
@@ -464,43 +461,32 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                     #              *2*(unscaled_transformed_qp[k]*v[k,1]);
                     #scaling = radius * np.linalg.norm(G[:,1])
 
-                    if remap_type==0:
-                        # good
-                        #result += np.dot(f(lat, lon, zonalUnitVector, meridionalUnitVector), norm_vec)
+                    # norm_vec is constant for all qp on a great circle
+                    #result += np.dot(f(lat_qp, lon_qp, zonalUnitVector_qp, meridionalUnitVector_qp), norm_vec)*qweights[i]*scaling
 
-                        # rotate the vector 90
-                        alt_lat, alt_lon = get_lat_lon(rot_xyz/np.linalg.norm(rot_xyz))
-                        alt_zonalUnitVector, alt_meridionalUnitVector, alt_verticalUnitVector = get_sphere_basis(alt_lat, alt_lon)
-                        #ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
-                        ans_f = f_xyz(rot_xyz/np.linalg.norm(rot_xyz), alt_zonalUnitVector, alt_meridionalUnitVector)
-                        alt_f = np.linalg.solve(R, ans_f)
-                        result += np.dot(alt_f, norm_vec)
-                    else:
-                        # norm_vec is constant for all qp on a great circle
-                        #result += np.dot(f(lat_qp, lon_qp, zonalUnitVector_qp, meridionalUnitVector_qp), norm_vec)*qweights[i]*scaling
-
-                        # rotate the vector 90
-                        xyz_qp = verticalUnitVector_qp.copy() * radius
-                        rot_xyz_qp = np.matmul(R, xyz_qp)
-                        d_rot = np.linalg.norm(rot_xyz_qp-rot_xyz)
-                        assert d_rot < dataset['dcEdge'][edge], "Quadrature and midpoint too far apart"
-                        alt_lat, alt_lon = get_lat_lon(rot_xyz_qp/np.linalg.norm(rot_xyz_qp))
-                        alt_zonalUnitVector, alt_meridionalUnitVector, alt_verticalUnitVector = get_sphere_basis(alt_lat, alt_lon)
-                        #ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
-                        ans_f = f_xyz(rot_xyz_qp/np.linalg.norm(rot_xyz_qp), alt_zonalUnitVector, alt_meridionalUnitVector)
-                        alt_f = np.linalg.solve(R, ans_f)
-                        result += np.dot(alt_f, norm_vec)*qweights[i]*scaling
+                    # rotate the vector 90
+                    xyz_qp = verticalUnitVector_qp.copy() * radius
+                    rot_xyz_qp = np.matmul(R, xyz_qp)
+                    d_rot = np.linalg.norm(rot_xyz_qp-rot_xyz)
+                    assert d_rot < dataset['dcEdge'][edge], "Quadrature and midpoint too far apart"
+                    alt_lat, alt_lon = get_lat_lon(rot_xyz_qp/np.linalg.norm(rot_xyz_qp))
+                    alt_zonalUnitVector, alt_meridionalUnitVector, alt_verticalUnitVector = get_sphere_basis(alt_lat, alt_lon)
+                    #ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
+                    ans_f = f_xyz(rot_xyz_qp/np.linalg.norm(rot_xyz_qp), alt_zonalUnitVector, alt_meridionalUnitVector)
+                    alt_f = np.linalg.solve(R, ans_f)
+                    result += np.dot(alt_f, norm_vec)*qweights[i]*scaling
 
                     edge_length += qweights[i]*scaling
 
-                exact_in_field[edge] += result
+                if remap_type==1: # edge integral
+                    exact_in_field[edge] += result
+                else: # edge average
+                    exact_in_field[edge] += result / edge_length
                 computed_total_length += edge_length
                 err[edge] = abs(edge_length-arclength)/abs(edge_length)
 
             #print('arc norm:',np.linalg.norm(err))
-
-            if remap_type!=0: # doesn't make sense to calculate arc length when not integrating
-                print("LENGTH", computed_total_length, " vs ", ref_total_length)
+            print("LENGTH", computed_total_length, " vs ", ref_total_length)
 
             # get exact solution
             exact_out_field = np.zeros(shape=(nEdges,3), dtype='f8')
