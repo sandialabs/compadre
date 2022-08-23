@@ -233,16 +233,34 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
 
     def test_edge_normal_integrated_remap_2d_manifold(self):
 
-        def run(level, direction=0):
+        def run(level, direction=1):
+
+            global input_operation, output_operation
 
             dataset = Dataset('../../../test_data/grids/sphere_{0}.nc'.format(str(level)), "r", format="NETCDF4")
 
             TWO = 2 # number of vertices on an edge
 
-            remap_type  = 1
-            remap_types = (pycompadre.SamplingFunctionals['FaceNormalAverageSample'], 
-                          pycompadre.SamplingFunctionals['FaceNormalIntegralSample'])
-            sampling_functional = remap_types[remap_type]
+            remap_input_type  = input_operation
+            remap_output_type = output_operation
+
+            remap_sampling_types = (pycompadre.SamplingFunctionals['FaceNormalAverageSample'], 
+                                    pycompadre.SamplingFunctionals['FaceNormalIntegralSample'],
+                                    pycompadre.SamplingFunctionals['ManifoldVectorPointSample'])
+            remap_target_types = (pycompadre.TargetOperation.FaceNormalAverageEvaluation,
+                                  pycompadre.TargetOperation.FaceNormalIntegralEvaluation,
+                                  pycompadre.TargetOperation.VectorPointEvaluation)
+
+            sampling_functional = remap_sampling_types[remap_input_type]
+            if remap_input_type==0 or remap_input_type==1:
+                data_sampling_functional = pycompadre.SamplingFunctionals['PointSample']
+            else:
+                data_sampling_functional = pycompadre.SamplingFunctionals['ManifoldVectorPointSample']
+
+            target_operator     = remap_target_types[remap_output_type]
+
+            print("Performing: input type %d to %s"%(remap_input_type, target_operator))
+
 
             radius = 6371220.00
             dimensions = dataset.dimensions
@@ -363,7 +381,8 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             # directions 
             T = np.zeros(shape=(nEdges,DIM,DIM), dtype='f8')
             v = np.zeros(shape=(DIM,TWO), dtype='f8') # 2 is from vertices on edge
-            exact_in_field = np.zeros(shape=(nEdges), dtype='f8')
+            exact_edge_average  = np.zeros(shape=(nEdges), dtype='f8')
+            exact_edge_integral = np.zeros(shape=(nEdges), dtype='f8')
 
             rot_rad = np.pi/2.0
             cos_r = np.cos(rot_rad)
@@ -478,10 +497,9 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
 
                     edge_length += qweights[i]*scaling
 
-                if remap_type==1: # edge integral
-                    exact_in_field[edge] += result
-                else: # edge average
-                    exact_in_field[edge] += result / edge_length
+                exact_edge_integral[edge] += result
+                exact_edge_average[edge] += result / edge_length
+
                 computed_total_length += edge_length
                 err[edge] = abs(edge_length-arclength)/abs(edge_length)
 
@@ -489,7 +507,7 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             print("LENGTH", computed_total_length, " vs ", ref_total_length)
 
             # get exact solution
-            exact_out_field = np.zeros(shape=(nEdges,3), dtype='f8')
+            exact_point = np.zeros(shape=(nEdges,3), dtype='f8')
             for edge in range(nEdges):
                 lat = dataset['latEdge'][edge]
                 lon = dataset['lonEdge'][edge]
@@ -505,72 +523,81 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                 #ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
                 ans_f = f_xyz(rot_xyz/np.linalg.norm(rot_xyz), alt_zonalUnitVector, alt_meridionalUnitVector)
                 alt_f = np.linalg.solve(R, ans_f)
-                exact_out_field[edge,:] = alt_f
+                exact_point[edge,:] = alt_f
 
-            if direction==0:
-                gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.VectorTaylorPolynomial, 
-                                         sampling_functional,
-                                         pycompadre.SamplingFunctionals['PointSample'],
-                                         p_order, 
-                                         DIM, 
-                                         "QR", 
-                                         "MANIFOLD",
-                                         "NO_CONSTRAINT",
-                                         c_order)
+            gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.VectorTaylorPolynomial, 
+            #gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.VectorOfScalarClonesTaylorPolynomial, 
+                                     sampling_functional,
+                                     data_sampling_functional,
+                                     p_order, 
+                                     DIM, 
+                                     "QR", 
+                                     "MANIFOLD",
+                                     "NO_CONSTRAINT",
+                                     c_order)
 
-                gmls_obj.setOrderOfQuadraturePoints(q_order)
-                gmls_obj.setDimensionOfQuadraturePoints(Q_DIM)
-                gmls_obj.setQuadratureType("LINE")
+            gmls_obj.setOrderOfQuadraturePoints(q_order)
+            gmls_obj.setDimensionOfQuadraturePoints(Q_DIM)
+            gmls_obj.setQuadratureType("LINE")
 
-                gmls_obj.setWeightingParameter(2)
-                gmls_obj.setWeightingType("power")
+            gmls_obj.setWeightingParameter(2)
+            gmls_obj.setWeightingType("power")
 
-                gmls_helper = pycompadre.ParticleHelper(gmls_obj)
-                gmls_helper.generateKDTree(edge_points)
-                gmls_obj.addTargets(pycompadre.TargetOperation.VectorPointEvaluation)
-                gmls_obj.setTargetExtraData(extra_data)
-                gmls_obj.setSourceExtraData(extra_data)
+            gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+            gmls_helper.generateKDTree(edge_points)
+            gmls_obj.addTargets(target_operator)
+            gmls_obj.setTargetExtraData(extra_data)
+            gmls_obj.setSourceExtraData(extra_data)
 
-                gmls_helper.generateNeighborListsFromKNNSearchAndSet(edge_points, max(p_order,c_order), DIM-1, 3.8)
-                gmls_helper.setTangentBundle(T)
-                gmls_obj.generateAlphas(1, True)
-                # get computed solution
-                out_field = gmls_helper.applyStencil(exact_in_field, 
-                                                     pycompadre.TargetOperation.VectorPointEvaluation, 
-                                                     sampling_functional)
+            gmls_helper.generateNeighborListsFromKNNSearchAndSet(edge_points, max(p_order,c_order), DIM-1, 3.8)
+            gmls_helper.setTangentBundle(T)
+            gmls_obj.generateAlphas(1, True)
 
-            elif direction==1:
-                gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.VectorTaylorPolynomial, 
-                                         pycompadre.SamplingFunctionals['ManifoldVectorPointSample'],
-                                         p_order, 
-                                         DIM, 
-                                         "QR", 
-                                         "MANIFOLD",
-                                         "NO_CONSTRAINT",
-                                         c_order)
+            if remap_input_type==0:
+                exact_in = exact_edge_average
+            elif remap_input_type==1:
+                exact_in = exact_edge_integral
+            elif remap_input_type==2:
+                exact_in = exact_point
 
-                gmls_obj.setOrderOfQuadraturePoints(q_order)
-                gmls_obj.setDimensionOfQuadraturePoints(Q_DIM)
-                gmls_obj.setQuadratureType("LINE")
+            # get computed solution
+            out_field = gmls_helper.applyStencil(exact_in, 
+                                                 target_operator,
+                                                 sampling_functional)
 
-                gmls_obj.setWeightingParameter(2)
-                gmls_obj.setWeightingType("power")
+            #elif direction==1:
+            #    #gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.VectorTaylorPolynomial, 
+            #    gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.VectorOfScalarClonesTaylorPolynomial,#VectorTaylorPolynomial, 
+            #                             pycompadre.SamplingFunctionals['ManifoldVectorPointSample'],
+            #                             p_order, 
+            #                             DIM, 
+            #                             "QR", 
+            #                             "MANIFOLD",
+            #                             "NO_CONSTRAINT",
+            #                             c_order)
 
-                gmls_helper = pycompadre.ParticleHelper(gmls_obj)
-                gmls_helper.generateKDTree(edge_points)
-                gmls_obj.addTargets(pycompadre.TargetOperation.FaceNormalIntegralEvaluation)
-                #gmls_obj.addTargets(pycompadre.TargetOperation.VectorPointEvaluation)
-                gmls_obj.setTargetExtraData(extra_data)
-                gmls_obj.setSourceExtraData(extra_data)
+            #    gmls_obj.setOrderOfQuadraturePoints(q_order)
+            #    gmls_obj.setDimensionOfQuadraturePoints(Q_DIM)
+            #    gmls_obj.setQuadratureType("LINE")
 
-                gmls_helper.generateNeighborListsFromKNNSearchAndSet(edge_points, max(p_order,c_order), DIM-1, 3.8)
-                gmls_helper.setTangentBundle(T)
-                gmls_obj.generateAlphas(1, True)
-                # get computed solution
-                out_field = gmls_helper.applyStencil(exact_out_field, 
-                                                     pycompadre.TargetOperation.FaceNormalIntegralEvaluation,
-                                                     #pycompadre.TargetOperation.VectorPointEvaluation,
-                                                     pycompadre.SamplingFunctionals['ManifoldVectorPointSample'])
+            #    gmls_obj.setWeightingParameter(2)
+            #    gmls_obj.setWeightingType("power")
+
+            #    gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+            #    gmls_helper.generateKDTree(edge_points)
+            #    gmls_obj.addTargets(pycompadre.TargetOperation.FaceNormalIntegralEvaluation)
+            #    #gmls_obj.addTargets(pycompadre.TargetOperation.VectorPointEvaluation)
+            #    gmls_obj.setTargetExtraData(extra_data)
+            #    gmls_obj.setSourceExtraData(extra_data)
+
+            #    gmls_helper.generateNeighborListsFromKNNSearchAndSet(edge_points, max(p_order,c_order), DIM-1, 3.8)
+            #    gmls_helper.setTangentBundle(T)
+            #    gmls_obj.generateAlphas(1, True)
+            #    # get computed solution
+            #    out_field = gmls_helper.applyStencil(exact_out_field, 
+            #                                         pycompadre.TargetOperation.FaceNormalIntegralEvaluation,
+            #                                         #pycompadre.TargetOperation.VectorPointEvaluation,
+            #                                         pycompadre.SamplingFunctionals['ManifoldVectorPointSample'])
 
 
             print("shape:",out_field.shape)
@@ -588,19 +615,25 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             #        out_field[edge,:] = 0.0
             #        exact_out_field[edge,:] = 0.0
 
-            if direction==1:
-                # swap out field with in field
-                exact_out_field = exact_in_field
+            #if direction==1:
+            #    # swap out field with in field
+            #    exact_out_field = exact_in_field
+            if remap_output_type==0:
+                exact_out = exact_edge_average
+            elif remap_output_type==1:
+                exact_out = exact_edge_integral
+            elif remap_output_type==2:
+                exact_out = exact_point
 
-            #print('computed out:',out_field)
-            #print('exact out:',exact_out_field)
-            #print('diff:',out_field - exact_out_field)
+            print('computed out:',out_field)
+            print('exact out:',exact_out)
+            print('diff:',out_field - exact_out)
             #with np.printoptions(threshold=np.inf):
             #    print('diff:',out_field - exact_out_field)
-            print(np.max(out_field-exact_out_field, axis=0))
+            print(np.max(out_field-exact_out, axis=0))
 
             # calculate error norm (l2)
-            rel_l2_error = np.linalg.norm(out_field-exact_out_field, axis=0)/np.sqrt(out_field.shape[0])
+            rel_l2_error = np.linalg.norm(out_field-exact_out, axis=0)/np.sqrt(out_field.shape[0])
 
             
             #import matplotlib.pyplot as plt
@@ -997,9 +1030,16 @@ if __name__ == '__main__':
 
     import argparse
     parser = argparse.ArgumentParser(description='test remap on the sphere')
+    parser.add_argument('-io','--input-operation', dest='input_operation', type=int, default=0, help='input operation type')
+    parser.add_argument('-oo','--output-operation', dest='output_operation', type=int, default=0, help='output operation type')
     parser.add_argument('-g','--grids', dest='grids', type=int, default=2, help='number of grids for refinement sequence')
     parser.add_argument('-l','--list', nargs='*', help='{0: cell-integrated, 1: edge-integrated}', default=['0','1'], required=False)
     args = parser.parse_args()
+
+    global input_operation
+    global output_operation
+    input_operation = args.input_operation
+    output_operation = args.output_operation
 
     # remove tests not requested
     if '0' not in args.list:

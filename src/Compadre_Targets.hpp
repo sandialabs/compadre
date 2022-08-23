@@ -1873,6 +1873,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                  * data._source_extra_data will contain the endpoints (2 for 2D, 3 for 3D) and then the unit normals
                  * (e0_x, e0_y, e1_x, e1_y, n_x, n_y, t_x, t_y)
                  */
+                printf("sm: %d bm: %d, rr: %d\n", data._sampling_multiplier, data._basis_multiplier, data._reconstruction_space_rank );
 
                 int quadrature_point_loop = data._qm.getNumberOfQuadraturePoints();
 
@@ -1912,11 +1913,13 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                     theta = std::atan(norm_a_cross_b / a_dot_b);
                 }
 
-                int input_components = data._sampling_multiplier;
-                for (int m=0; m<input_components; ++m) {
-                    int offset = data._d_ss.getTargetOffsetIndex(i, m /*in*/, 0 /*out*/, 0/*additional*/);
+                //int input_components = data._sampling_multiplier;
+                int input_components = data._local_dimensions;
+                for (int c=0; c<input_components; ++c) {
+                    int offset = data._d_ss.getTargetOffsetIndex(i, c /*in*/, 0 /*out*/, 0/*additional*/);
+                    int column_offset = (data._reconstruction_space_rank==1) ? c*target_NP : 0;
                     for (int j=0; j<target_NP; ++j) {
-                        P_target_row(offset, j) = 0;
+                        P_target_row(offset, column_offset + j) = 0;
                     }
                 }
 
@@ -2017,9 +2020,17 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                         }
                     }
 
+                    // if sampling multiplier is 1 && vector, then vector is [(u_x, u_y)]
+                    // if sampling multiplier is 2 && vector, then vector is [(u_x,   0), (0, u_y)]
+                    // if sampling multiplier is 1 && scalar, then vector is [u_x][u_y]
+                    // if sampling multiplier is 2 && scalar, then vector is [(u_x,   0), (0, u_y)]
+                    printf("sampling multiplier: %d\n", data._sampling_multiplier);
+                    printf("rsr: %d\n", data._reconstruction_space_rank);
                     for (int c=0; c<data._local_dimensions; ++c) {
-                        int offset = data._d_ss.getTargetOffsetIndex(i, c /*in*/, 0 /*out*/, 0/*additional*/);
-                        int column_offset = (data._reconstruction_space_rank == 1) ? c*target_NP : 0;
+                        int input_component = (data._sampling_multiplier==1) ? 0 : c;
+                        //int input_component = c;
+                        int offset = data._d_ss.getTargetOffsetIndex(i, input_component, 0 /*out*/, 0/*additional*/);
+                        int column_offset = (data._reconstruction_space_rank==1) ? c*target_NP : 0;
                         int k = 0;
                         for (int n = 0; n <= data._poly_order; n++){
                             for (alphay = 0; alphay <= n; alphay++){
@@ -2041,6 +2052,8 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                                 } else {
                                     dot_product = direction[0]*v0 + direction[1]*v1;
                                 }
+                                //printf("local direction: %g, %g\n", local_direction[0], local_direction[1]);
+                                //printf("col offsets: %d, dp: %g\n", column_offset, dot_product);
 
                                 // multiply by quadrature weight
                                 Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
@@ -2059,7 +2072,11 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                         || data._operations(i) == TargetOperation::EdgeTangentAverageEvaluation) {
                     for (int c=0; c<data._local_dimensions; ++c) {
                         int k = 0;
-                        int offset = data._d_ss.getTargetOffsetIndex(i, c, 0, 0);
+                        //int offset = data._d_ss.getTargetOffsetIndex(i, c, 0, 0);
+                        //int offset = data._d_ss.getTargetOffsetIndex(i, 0, 0, 0);
+                        int input_component = (data._sampling_multiplier==1) ? 0 : c;
+                        //int input_component = c;
+                        int offset = data._d_ss.getTargetOffsetIndex(i, input_component, 0 /*out*/, 0/*additional*/);
                         int column_offset = (data._reconstruction_space_rank == 1) ? c*target_NP : 0;
                         for (int n = 0; n <= data._poly_order; n++){
                             for (alphay = 0; alphay <= n; alphay++){
