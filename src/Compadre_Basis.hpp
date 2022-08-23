@@ -267,10 +267,11 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                 }
             } // NON MANIFOLD PROBLEMS
         });
-    } else if (polynomial_sampling_functional == FaceNormalIntegralSample ||
+    } else if ((polynomial_sampling_functional == FaceNormalIntegralSample ||
                 polynomial_sampling_functional == EdgeTangentIntegralSample ||
                 polynomial_sampling_functional == FaceNormalAverageSample ||
-                polynomial_sampling_functional == EdgeTangentAverageSample) {
+                polynomial_sampling_functional == EdgeTangentAverageSample) &&
+               reconstruction_space == VectorTaylorPolynomial) {
 
         compadre_kernel_assert_debug(data._local_dimensions==2 &&
                 "FaceNormalIntegralSample, EdgeTangentIntegralSample, FaceNormalAverageSample, \

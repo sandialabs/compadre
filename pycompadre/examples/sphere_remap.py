@@ -233,9 +233,9 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
 
     def test_edge_normal_integrated_remap_2d_manifold(self):
 
-        def run(level, direction=1):
+        def run(level):
 
-            global input_operation, output_operation
+            global input_operation, output_operation, basis_type
 
             dataset = Dataset('../../../test_data/grids/sphere_{0}.nc'.format(str(level)), "r", format="NETCDF4")
 
@@ -258,6 +258,11 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                 data_sampling_functional = pycompadre.SamplingFunctionals['ManifoldVectorPointSample']
 
             target_operator     = remap_target_types[remap_output_type]
+
+            if basis_type==0:
+                basis = pycompadre.ReconstructionSpace.VectorOfScalarClonesTaylorPolynomial
+            else:
+                basis = pycompadre.ReconstructionSpace.VectorTaylorPolynomial
 
             print("Performing: input type %d to %s"%(remap_input_type, target_operator))
 
@@ -525,8 +530,7 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                 alt_f = np.linalg.solve(R, ans_f)
                 exact_point[edge,:] = alt_f
 
-            gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.VectorTaylorPolynomial, 
-            #gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.VectorOfScalarClonesTaylorPolynomial, 
+            gmls_obj=pycompadre.GMLS(basis,
                                      sampling_functional,
                                      data_sampling_functional,
                                      p_order, 
@@ -1030,16 +1034,17 @@ if __name__ == '__main__':
 
     import argparse
     parser = argparse.ArgumentParser(description='test remap on the sphere')
-    parser.add_argument('-io','--input-operation', dest='input_operation', type=int, default=0, help='input operation type')
-    parser.add_argument('-oo','--output-operation', dest='output_operation', type=int, default=0, help='output operation type')
+    parser.add_argument('-b','--basis', dest='basis_type', type=int, default=1, help='basis type (0-VectorOfScalarClonesTaylorPolynomial 1-VectorTaylorPolynomial')
+    parser.add_argument('-io','--input-operation', dest='input_operation', type=int, default=1, help='input operation type (0-IntegralAverage 1-Integral 2-PointValues)')
+    parser.add_argument('-oo','--output-operation', dest='output_operation', type=int, default=1, help='output operation type (0-IntegralAverage 1-Integral 2-PointValues )')
     parser.add_argument('-g','--grids', dest='grids', type=int, default=2, help='number of grids for refinement sequence')
     parser.add_argument('-l','--list', nargs='*', help='{0: cell-integrated, 1: edge-integrated}', default=['0','1'], required=False)
     args = parser.parse_args()
 
-    global input_operation
-    global output_operation
+    global input_operation, output_operation, basis_type
     input_operation = args.input_operation
     output_operation = args.output_operation
+    basis_type = args.basis_type
 
     # remove tests not requested
     if '0' not in args.list:

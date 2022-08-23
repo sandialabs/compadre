@@ -2027,7 +2027,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                     printf("sampling multiplier: %d\n", data._sampling_multiplier);
                     printf("rsr: %d\n", data._reconstruction_space_rank);
                     for (int c=0; c<data._local_dimensions; ++c) {
-                        int input_component = (data._sampling_multiplier==1) ? 0 : c;
+                        int input_component = (data._sampling_multiplier==1 && data._reconstruction_space_rank==1) ? 0 : c;
                         //int input_component = c;
                         int offset = data._d_ss.getTargetOffsetIndex(i, input_component, 0 /*out*/, 0/*additional*/);
                         int column_offset = (data._reconstruction_space_rank==1) ? c*target_NP : 0;
@@ -2074,7 +2074,8 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                         int k = 0;
                         //int offset = data._d_ss.getTargetOffsetIndex(i, c, 0, 0);
                         //int offset = data._d_ss.getTargetOffsetIndex(i, 0, 0, 0);
-                        int input_component = (data._sampling_multiplier==1) ? 0 : c;
+                        //int input_component = (data._sampling_multiplier==1) ? 0 : c;
+                        int input_component = (data._sampling_multiplier==1 && data._reconstruction_space_rank==1) ? 0 : c;
                         //int input_component = c;
                         int offset = data._d_ss.getTargetOffsetIndex(i, input_component, 0 /*out*/, 0/*additional*/);
                         int column_offset = (data._reconstruction_space_rank == 1) ? c*target_NP : 0;
