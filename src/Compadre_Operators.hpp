@@ -81,12 +81,12 @@ namespace Compadre {
             0, ///< PartialZOfScalarPointEvaluation
             0, ///< ChainedStaggeredLaplacianOfScalarPointEvaluation
             0, ///< GaussianCurvaturePointEvaluation
-            0, ///< ScalarFaceAverageEvaluation
-            0, ///< ScalarFaceIntegralEvaluation
-            0, ///< ScalarEdgeNormalPointEvaluation
-            0, ///< ScalarEdgeNormalIntegralEvaluation
-            0, ///< ScalarEdgeTangentPointEvaluation
-            0, ///< ScalarEdgeTangentIntegralEvaluation
+            0, ///< CellAverageEvaluation
+            0, ///< CellIntegralEvaluation
+            0, ///< FaceNormalAverageEvaluation
+            0, ///< FaceNormalIntegralEvaluation
+            0, ///< EdgeTangentAverageEvaluation
+            0, ///< EdgeTangentIntegralEvaluation
         };
         return TargetOutputTensorRank[index];
     }
