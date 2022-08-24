@@ -396,7 +396,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                 }
             } else {
                 if (data._problem_type == ProblemType::MANIFOLD) {
-                    if (polynomial_sampling_functional == EdgeTangentIntegralSample) {
+                    //if (polynomial_sampling_functional == EdgeTangentIntegralSample) {
                         // generate tangent from outward normal direction of the sphere and edge normal
                         XYZ k = {scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]};
                         XYZ n = {data._source_extra_data(global_neighbor_index, 2*data._global_dimensions + 0),
@@ -407,13 +407,13 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                         direction[0] = (k[1]*n[2] - k[2]*n[1]) / norm_k_cross_n;
                         direction[1] = (k[2]*n[0] - k[0]*n[2]) / norm_k_cross_n;
                         direction[2] = (k[0]*n[1] - k[1]*n[0]) / norm_k_cross_n;
-                    } else {
-                        // tangent direction
-                        for (int j=0; j<data._global_dimensions; ++j) {
-                            direction[j] = data._source_extra_data(global_neighbor_index, 3*data._global_dimensions + j);
+                    //} else {
+                    //    // tangent direction
+                    //    for (int j=0; j<data._global_dimensions; ++j) {
+                    //        direction[j] = data._source_extra_data(global_neighbor_index, 3*data._global_dimensions + j);
 
-                        }
-                    }
+                    //    }
+                    //}
                 } else {
                     for (int j=0; j<data._global_dimensions; ++j) {
                         // tangent direction

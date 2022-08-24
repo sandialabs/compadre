@@ -244,20 +244,24 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             remap_input_type  = input_operation
             remap_output_type = output_operation
 
-            remap_sampling_types = (pycompadre.SamplingFunctionals['FaceNormalAverageSample'], 
+            remap_sampling_types = (pycompadre.SamplingFunctionals['ManifoldVectorPointSample'],
+                                    pycompadre.SamplingFunctionals['FaceNormalAverageSample'], 
                                     pycompadre.SamplingFunctionals['FaceNormalIntegralSample'],
-                                    pycompadre.SamplingFunctionals['ManifoldVectorPointSample'])
-            remap_target_types = (pycompadre.TargetOperation.FaceNormalAverageEvaluation,
+                                    pycompadre.SamplingFunctionals['EdgeTangentAverageSample'], 
+                                    pycompadre.SamplingFunctionals['EdgeTangentIntegralSample'])
+            remap_target_types = (pycompadre.TargetOperation.VectorPointEvaluation,
+                                  pycompadre.TargetOperation.FaceNormalAverageEvaluation,
                                   pycompadre.TargetOperation.FaceNormalIntegralEvaluation,
-                                  pycompadre.TargetOperation.VectorPointEvaluation)
+                                  pycompadre.TargetOperation.EdgeTangentAverageEvaluation,
+                                  pycompadre.TargetOperation.EdgeTangentIntegralEvaluation)
 
             sampling_functional = remap_sampling_types[remap_input_type]
-            if remap_input_type==0 or remap_input_type==1:
+            if remap_input_type > 0:
                 data_sampling_functional = pycompadre.SamplingFunctionals['PointSample']
             else:
                 data_sampling_functional = pycompadre.SamplingFunctionals['ManifoldVectorPointSample']
 
-            target_operator     = remap_target_types[remap_output_type]
+            target_operator = remap_target_types[remap_output_type]
 
             if basis_type==0:
                 basis = pycompadre.ReconstructionSpace.VectorOfScalarClonesTaylorPolynomial
@@ -386,8 +390,11 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             # directions 
             T = np.zeros(shape=(nEdges,DIM,DIM), dtype='f8')
             v = np.zeros(shape=(DIM,TWO), dtype='f8') # 2 is from vertices on edge
-            exact_edge_average  = np.zeros(shape=(nEdges), dtype='f8')
-            exact_edge_integral = np.zeros(shape=(nEdges), dtype='f8')
+
+            exact_edge_average_normal   = np.zeros(shape=(nEdges), dtype='f8')
+            exact_edge_integral_normal  = np.zeros(shape=(nEdges), dtype='f8')
+            exact_edge_average_tangent  = np.zeros(shape=(nEdges), dtype='f8')
+            exact_edge_integral_tangent = np.zeros(shape=(nEdges), dtype='f8')
 
             rot_rad = np.pi/2.0
             cos_r = np.cos(rot_rad)
@@ -450,7 +457,8 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                 norm_vec = np.cross(a,b) / np.linalg.norm(np.cross(a,b))
                 extra_data[edge,TWO*DIM:(TWO+1)*DIM] = norm_vec
 
-                result = 0.0
+                result_normal = 0.0
+                result_tangent = 0.0
                 for i in range(len(qpoints)):
 
                     unscaled_transformed_qp = v[:,0].copy()
@@ -498,12 +506,24 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                     #ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
                     ans_f = f_xyz(rot_xyz_qp/np.linalg.norm(rot_xyz_qp), alt_zonalUnitVector, alt_meridionalUnitVector)
                     alt_f = np.linalg.solve(R, ans_f)
-                    result += np.dot(alt_f, norm_vec)*qweights[i]*scaling
+                    result_normal += np.dot(alt_f, norm_vec)*qweights[i]*scaling
+
+                    cross_k_n_qp = np.cross(rot_xyz_qp/np.linalg.norm(rot_xyz_qp), norm_vec)
+                    tang_vec = cross_k_n_qp / np.linalg.norm(cross_k_n_qp)
+                    result_tangent += np.dot(alt_f, tang_vec)*qweights[i]*scaling
+
+                    # check if tangent vector is completely inside of zonal and meridional
+                    #print("dot",np.dot(alt_zonalUnitVector,tang_vec)+ np.dot(alt_meridionalUnitVector,tang_vec))
+                    ans=np.linalg.norm(np.dot(alt_zonalUnitVector,tang_vec)*alt_zonalUnitVector+ np.dot(alt_meridionalUnitVector,tang_vec)*alt_meridionalUnitVector-tang_vec)
+                    if abs(ans)>1e-14:
+                        print("norm:",ans)
 
                     edge_length += qweights[i]*scaling
 
-                exact_edge_integral[edge] += result
-                exact_edge_average[edge] += result / edge_length
+                exact_edge_integral_normal[edge] += result_normal
+                exact_edge_average_normal[edge] += result_normal / edge_length
+                exact_edge_integral_tangent[edge] += result_tangent
+                exact_edge_average_tangent[edge] += result_tangent / edge_length
 
                 computed_total_length += edge_length
                 err[edge] = abs(edge_length-arclength)/abs(edge_length)
@@ -558,53 +578,21 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             gmls_obj.generateAlphas(1, True)
 
             if remap_input_type==0:
-                exact_in = exact_edge_average
-            elif remap_input_type==1:
-                exact_in = exact_edge_integral
-            elif remap_input_type==2:
                 exact_in = exact_point
+            elif remap_input_type==1:
+                exact_in = exact_edge_average_normal
+            elif remap_input_type==2:
+                exact_in = exact_edge_integral_normal
+            elif remap_input_type==3:
+                exact_in = exact_edge_average_tangent
+            elif remap_input_type==4:
+                exact_in = exact_edge_integral_tangent
 
             # get computed solution
             out_field = gmls_helper.applyStencil(exact_in, 
                                                  target_operator,
                                                  sampling_functional)
 
-            #elif direction==1:
-            #    #gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.VectorTaylorPolynomial, 
-            #    gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.VectorOfScalarClonesTaylorPolynomial,#VectorTaylorPolynomial, 
-            #                             pycompadre.SamplingFunctionals['ManifoldVectorPointSample'],
-            #                             p_order, 
-            #                             DIM, 
-            #                             "QR", 
-            #                             "MANIFOLD",
-            #                             "NO_CONSTRAINT",
-            #                             c_order)
-
-            #    gmls_obj.setOrderOfQuadraturePoints(q_order)
-            #    gmls_obj.setDimensionOfQuadraturePoints(Q_DIM)
-            #    gmls_obj.setQuadratureType("LINE")
-
-            #    gmls_obj.setWeightingParameter(2)
-            #    gmls_obj.setWeightingType("power")
-
-            #    gmls_helper = pycompadre.ParticleHelper(gmls_obj)
-            #    gmls_helper.generateKDTree(edge_points)
-            #    gmls_obj.addTargets(pycompadre.TargetOperation.FaceNormalIntegralEvaluation)
-            #    #gmls_obj.addTargets(pycompadre.TargetOperation.VectorPointEvaluation)
-            #    gmls_obj.setTargetExtraData(extra_data)
-            #    gmls_obj.setSourceExtraData(extra_data)
-
-            #    gmls_helper.generateNeighborListsFromKNNSearchAndSet(edge_points, max(p_order,c_order), DIM-1, 3.8)
-            #    gmls_helper.setTangentBundle(T)
-            #    gmls_obj.generateAlphas(1, True)
-            #    # get computed solution
-            #    out_field = gmls_helper.applyStencil(exact_out_field, 
-            #                                         pycompadre.TargetOperation.FaceNormalIntegralEvaluation,
-            #                                         #pycompadre.TargetOperation.VectorPointEvaluation,
-            #                                         pycompadre.SamplingFunctionals['ManifoldVectorPointSample'])
-
-
-            print("shape:",out_field.shape)
             ## remove extreme lats
             #for edge in range(nEdges):
             #    lat = dataset['latEdge'][edge]
@@ -623,11 +611,15 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             #    # swap out field with in field
             #    exact_out_field = exact_in_field
             if remap_output_type==0:
-                exact_out = exact_edge_average
-            elif remap_output_type==1:
-                exact_out = exact_edge_integral
-            elif remap_output_type==2:
                 exact_out = exact_point
+            elif remap_output_type==1:
+                exact_out = exact_edge_average_normal
+            elif remap_output_type==2:
+                exact_out = exact_edge_integral_normal
+            elif remap_output_type==3:
+                exact_out = exact_edge_average_tangent
+            elif remap_output_type==4:
+                exact_out = exact_edge_integral_tangent
 
             print('computed out:',out_field)
             print('exact out:',exact_out)
@@ -643,10 +635,11 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             #import matplotlib.pyplot as plt
             #fig = plt.figure(figsize=(12, 12))
             #ax = fig.add_subplot(projection='3d')
-            #err = np.linalg.norm(out_field-exact_out_field, axis=1)
+            ##err = np.linalg.norm(out_field-exact_out, axis=1)
             ##ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=err)
-            ##sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=exact_out_field[:,0]-out_field[:,0])
-            #sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=exact_out_field[:,0])
+            ##sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=exact_out[:,0]-out_field[:,0])
+            #sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=exact_out-out_field)#[:,0])
+            ##sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=exact_out_field[:,0])
             ##sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=in_field[:])
             #plt.colorbar(sc)
             #plt.show() 

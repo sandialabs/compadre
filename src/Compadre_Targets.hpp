@@ -1873,7 +1873,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                  * data._source_extra_data will contain the endpoints (2 for 2D, 3 for 3D) and then the unit normals
                  * (e0_x, e0_y, e1_x, e1_y, n_x, n_y, t_x, t_y)
                  */
-                printf("sm: %d bm: %d, rr: %d\n", data._sampling_multiplier, data._basis_multiplier, data._reconstruction_space_rank );
+                //printf("sm: %d bm: %d, rr: %d\n", data._sampling_multiplier, data._basis_multiplier, data._reconstruction_space_rank );
 
                 int quadrature_point_loop = data._qm.getNumberOfQuadraturePoints();
 
@@ -1982,7 +1982,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                         }
                     } else {
                         if (data._problem_type == ProblemType::MANIFOLD) {
-                            if (data._operations(i) == TargetOperation::EdgeTangentIntegralEvaluation) {
+                            //if (data._operations(i) == TargetOperation::EdgeTangentIntegralEvaluation) {
                                 // generate tangent from outward normal direction of the sphere and edge normal
                                 XYZ k = {scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]};
                                 XYZ n = {data._target_extra_data(target_index, 2*data._global_dimensions + 0),
@@ -1993,13 +1993,13 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                                 direction[0] = (k[1]*n[2] - k[2]*n[1]) / norm_k_cross_n;
                                 direction[1] = (k[2]*n[0] - k[0]*n[2]) / norm_k_cross_n;
                                 direction[2] = (k[0]*n[1] - k[1]*n[0]) / norm_k_cross_n;
-                            } else {
-                                // tangent direction
-                                for (int j=0; j<data._global_dimensions; ++j) {
-                                    direction[j] = data._target_extra_data(target_index, 3*data._global_dimensions + j);
+                            //} else {
+                            //    // tangent direction
+                            //    for (int j=0; j<data._global_dimensions; ++j) {
+                            //        direction[j] = data._target_extra_data(target_index, 3*data._global_dimensions + j);
 
-                                }
-                            }
+                            //    }
+                            //}
                         } else {
                             for (int j=0; j<data._global_dimensions; ++j) {
                                 // tangent direction
@@ -2024,8 +2024,8 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                     // if sampling multiplier is 2 && vector, then vector is [(u_x,   0), (0, u_y)]
                     // if sampling multiplier is 1 && scalar, then vector is [u_x][u_y]
                     // if sampling multiplier is 2 && scalar, then vector is [(u_x,   0), (0, u_y)]
-                    printf("sampling multiplier: %d\n", data._sampling_multiplier);
-                    printf("rsr: %d\n", data._reconstruction_space_rank);
+                    //printf("sampling multiplier: %d\n", data._sampling_multiplier);
+                    //printf("rsr: %d\n", data._reconstruction_space_rank);
                     for (int c=0; c<data._local_dimensions; ++c) {
                         int input_component = (data._sampling_multiplier==1 && data._reconstruction_space_rank==1) ? 0 : c;
                         //int input_component = c;
