@@ -396,24 +396,18 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                 }
             } else {
                 if (data._problem_type == ProblemType::MANIFOLD) {
-                    //if (polynomial_sampling_functional == EdgeTangentIntegralSample) {
-                        // generate tangent from outward normal direction of the sphere and edge normal
-                        XYZ k = {scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]};
-                        XYZ n = {data._source_extra_data(global_neighbor_index, 2*data._global_dimensions + 0),
-                                 data._source_extra_data(global_neighbor_index, 2*data._global_dimensions + 1),
-                                 data._source_extra_data(global_neighbor_index, 2*data._global_dimensions + 2)};
+                    // generate tangent from outward normal direction of the sphere and edge normal
+                    XYZ k = {scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]};
+                    double k_norm = std::sqrt(k[0]*k[0]+k[1]*k[1]+k[2]*k[2]);
+                    k[0] = k[0]/k_norm; k[1] = k[1]/k_norm; k[2] = k[2]/k_norm;
+                    XYZ n = {data._source_extra_data(global_neighbor_index, 2*data._global_dimensions + 0),
+                             data._source_extra_data(global_neighbor_index, 2*data._global_dimensions + 1),
+                             data._source_extra_data(global_neighbor_index, 2*data._global_dimensions + 2)};
 
-                        double norm_k_cross_n = getAreaFromVectors(teamMember, k, n);
-                        direction[0] = (k[1]*n[2] - k[2]*n[1]) / norm_k_cross_n;
-                        direction[1] = (k[2]*n[0] - k[0]*n[2]) / norm_k_cross_n;
-                        direction[2] = (k[0]*n[1] - k[1]*n[0]) / norm_k_cross_n;
-                    //} else {
-                    //    // tangent direction
-                    //    for (int j=0; j<data._global_dimensions; ++j) {
-                    //        direction[j] = data._source_extra_data(global_neighbor_index, 3*data._global_dimensions + j);
-
-                    //    }
-                    //}
+                    double norm_k_cross_n = getAreaFromVectors(teamMember, k, n);
+                    direction[0] = (k[1]*n[2] - k[2]*n[1]) / norm_k_cross_n;
+                    direction[1] = (k[2]*n[0] - k[0]*n[2]) / norm_k_cross_n;
+                    direction[2] = (k[0]*n[1] - k[1]*n[0]) / norm_k_cross_n;
                 } else {
                     for (int j=0; j<data._global_dimensions; ++j) {
                         // tangent direction
@@ -429,7 +423,6 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                     // Project ambient normal direction onto local chart basis as a local direction.
                     // Using V alone to provide vectors only gives tangent vectors at
                     // the target site. This could result in accuracy < 3rd order.
-
                     local_direction[j] = data._pc.convertGlobalToLocalCoordinate(direction,j,*V);
                 }
             }
